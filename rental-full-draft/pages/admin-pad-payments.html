@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收付款管理</title>
+    <style id="theme-vars">
+/* =========================================================
+   房地产租赁管理后台 — 品牌设计令牌 (Modern Light)
+   单一靛蓝主色 · 冷调浅灰底 · 白色卡片 · 细边框 · 克制圆角
+   ========================================================= */
+
+:root {
+  /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
+  --rent-background: #f5f7fa;
+  --rent-foreground: #0f172a;
+  --rent-card: #ffffff;
+  --rent-card-foreground: #0f172a;
+  --rent-popover: #ffffff;
+  --rent-popover-foreground: #0f172a;
+  --rent-primary: #4263eb;
+  --rent-primary-foreground: #ffffff;
+  --rent-muted: #f1f5f9;
+  --rent-muted-foreground: #64748b;
+  --rent-border: #e6eaf0;
+  --rent-input: #e6eaf0;
+  --rent-ring: #4263eb;
+
+  /* ---- 中性阶梯（直接引用） ---- */
+  --rent-ink: #0f172a;
+  --rent-ink-2: #475569;
+  --rent-ink-3: #94a3b8;
+  --rent-line: #e6eaf0;
+  --rent-surface: #ffffff;
+  --rent-surface-2: #f1f5f9;
+  --rent-sidebar: #ffffff;
+  --rent-sidebar-active: #eef2ff;
+
+  /* ---- 状态色（仅语义状态） ---- */
+  --state-success: #16a34a;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #0ea5e9;
+
+  /* ---- 圆角（克制阶梯，上限 16px） ---- */
+  --rent-radius-sm: 4px;
+  --rent-radius-md: 8px;
+  --rent-radius-lg: 16px;
+  --rent-radius-full: 9999px;
+
+  /* ---- 阴影（静态面 alpha ≤ 0.05；深阴影仅浮层） ---- */
+  --rent-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
+  --rent-shadow-2: 0 8px 24px -8px rgba(15, 23, 42, 0.18);
+  --rent-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.30);
+
+  /* ---- 间距（8pt 网格） ---- */
+  --rent-s-1: 4px;
+  --rent-s-2: 8px;
+  --rent-s-3: 12px;
+  --rent-s-4: 16px;
+  --rent-s-5: 24px;
+  --rent-s-6: 32px;
+  --rent-s-7: 48px;
+  --rent-s-8: 80px;
+
+  /* ---- 字体系统 ---- */
+  --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  color-scheme: light;
+}
+
+/* ---- 暗色模式（双模变量，设计态默认 light） ---- */
+.dark {
+  --rent-background: #0b0f1a;
+  --rent-foreground: #e8edf5;
+  --rent-card: #141a26;
+  --rent-card-foreground: #e8edf5;
+  --rent-popover: #141a26;
+  --rent-popover-foreground: #e8edf5;
+  --rent-primary: #6b82f5;
+  --rent-primary-foreground: #0b0f1a;
+  --rent-muted: #1c2433;
+  --rent-muted-foreground: #94a3b8;
+  --rent-border: #243044;
+  --rent-input: #243044;
+  --rent-ring: #6b82f5;
+
+  --rent-ink: #e8edf5;
+  --rent-ink-2: #a3aec2;
+  --rent-ink-3: #64748b;
+  --rent-line: #243044;
+  --rent-surface: #141a26;
+  --rent-surface-2: #1c2433;
+  --rent-sidebar: #0f1521;
+  --rent-sidebar-active: #1e2a44;
+
+  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --rent-shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.50);
+  --rent-shadow-3: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+
+  color-scheme: dark;
+}
+
+/* ---- 排版类 ---- */
+.rent-h1 { font-family: var(--rent-font-sans); font-size: clamp(24px, 2.6vw, 32px); line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; color: var(--rent-ink); }
+.rent-h2 { font-family: var(--rent-font-sans); font-size: clamp(20px, 2vw, 24px); line-height: 1.25; font-weight: 600; letter-spacing: -0.015em; color: var(--rent-ink); }
+.rent-h3 { font-family: var(--rent-font-sans); font-size: 18px; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; color: var(--rent-ink); }
+.rent-body-lg { font-family: var(--rent-font-sans); font-size: 16px; line-height: 1.6; font-weight: 400; color: var(--rent-ink-2); }
+.rent-body { font-family: var(--rent-font-sans); font-size: 14px; line-height: 1.6; font-weight: 400; color: var(--rent-ink-2); }
+.rent-caption { font-family: var(--rent-font-sans); font-size: 12px; line-height: 1.5; font-weight: 400; letter-spacing: 0.005em; color: var(--rent-ink-3); }
+.rent-mono { font-family: var(--rent-font-mono); font-size: 13px; line-height: 1.5; font-weight: 500; font-variant-numeric: tabular-nums; }
+.rent-num { font-family: var(--rent-font-sans); font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: -0.02em; }
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--rent-background);
+    --color-foreground: var(--rent-foreground);
+    --color-card: var(--rent-card);
+    --color-card-foreground: var(--rent-card-foreground);
+    --color-popover: var(--rent-popover);
+    --color-popover-foreground: var(--rent-popover-foreground);
+    --color-primary: var(--rent-primary);
+    --color-primary-foreground: var(--rent-primary-foreground);
+    --color-muted: var(--rent-muted);
+    --color-muted-foreground: var(--rent-muted-foreground);
+    --color-border: var(--rent-border);
+    --color-input: var(--rent-input);
+    --color-ring: var(--rent-ring);
+    --color-sidebar: var(--rent-sidebar);
+    --radius-sm: var(--rent-radius-sm);
+    --radius-md: var(--rent-radius-md);
+    --radius-lg: var(--rent-radius-lg);
+  }
+  @layer base {
+    body { background: var(--rent-background); color: var(--rent-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--rent-background); }
+      .text-background { color: var(--rent-background); }
+      .border-background { border-color: var(--rent-background); }
+      .ring-background { --tw-ring-color: var(--rent-background); }
+      .bg-foreground { background-color: var(--rent-foreground); }
+      .text-foreground { color: var(--rent-foreground); }
+      .border-foreground { border-color: var(--rent-foreground); }
+      .ring-foreground { --tw-ring-color: var(--rent-foreground); }
+      .bg-card { background-color: var(--rent-card); }
+      .text-card { color: var(--rent-card); }
+      .border-card { border-color: var(--rent-card); }
+      .ring-card { --tw-ring-color: var(--rent-card); }
+      .bg-card-foreground { background-color: var(--rent-card-foreground); }
+      .text-card-foreground { color: var(--rent-card-foreground); }
+      .border-card-foreground { border-color: var(--rent-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--rent-card-foreground); }
+      .bg-popover { background-color: var(--rent-popover); }
+      .text-popover { color: var(--rent-popover); }
+      .border-popover { border-color: var(--rent-popover); }
+      .ring-popover { --tw-ring-color: var(--rent-popover); }
+      .bg-popover-foreground { background-color: var(--rent-popover-foreground); }
+      .text-popover-foreground { color: var(--rent-popover-foreground); }
+      .border-popover-foreground { border-color: var(--rent-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--rent-popover-foreground); }
+      .bg-primary { background-color: var(--rent-primary); }
+      .text-primary { color: var(--rent-primary); }
+      .border-primary { border-color: var(--rent-primary); }
+      .ring-primary { --tw-ring-color: var(--rent-primary); }
+      .bg-primary-foreground { background-color: var(--rent-primary-foreground); }
+      .text-primary-foreground { color: var(--rent-primary-foreground); }
+      .border-primary-foreground { border-color: var(--rent-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--rent-primary-foreground); }
+      .bg-muted { background-color: var(--rent-muted); }
+      .text-muted { color: var(--rent-muted); }
+      .border-muted { border-color: var(--rent-muted); }
+      .ring-muted { --tw-ring-color: var(--rent-muted); }
+      .bg-muted-foreground { background-color: var(--rent-muted-foreground); }
+      .text-muted-foreground { color: var(--rent-muted-foreground); }
+      .border-muted-foreground { border-color: var(--rent-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--rent-muted-foreground); }
+      .bg-border { background-color: var(--rent-border); }
+      .text-border { color: var(--rent-border); }
+      .border-border { border-color: var(--rent-border); }
+      .ring-border { --tw-ring-color: var(--rent-border); }
+      .bg-input { background-color: var(--rent-input); }
+      .text-input { color: var(--rent-input); }
+      .border-input { border-color: var(--rent-input); }
+      .ring-input { --tw-ring-color: var(--rent-input); }
+      .bg-ring { background-color: var(--rent-ring); }
+      .text-ring { color: var(--rent-ring); }
+      .border-ring { border-color: var(--rent-ring); }
+      .ring-ring { --tw-ring-color: var(--rent-ring); }
+      .bg-sidebar { background-color: var(--rent-sidebar); }
+      .text-sidebar { color: var(--rent-sidebar); }
+      .border-sidebar { border-color: var(--rent-sidebar); }
+      .ring-sidebar { --tw-ring-color: var(--rent-sidebar); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+    <style id="rent-components">
+/* ===== Pad Shell Layout ===== */
+.rent-pad {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas: "sidebar topbar" "sidebar main";
+  height: 100vh;
+  background: var(--rent-background);
+}
+.rent-pad__sidebar { grid-area: sidebar; background: var(--rent-sidebar); border-right: 1px solid var(--rent-border); display: flex; flex-direction: column; }
+.rent-pad__topbar { grid-area: topbar; background: var(--rent-surface); border-bottom: 1px solid var(--rent-border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+.rent-pad__main { grid-area: main; overflow-y: auto; padding: 20px; }
+
+/* ===== Pad Sidebar ===== */
+.rent-pad__brand { display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 56px; border-bottom: 1px solid var(--rent-border); flex-shrink: 0; }
+.rent-pad__logo { width: 28px; height: 28px; border-radius: var(--rent-radius-md); background: var(--rent-primary); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+.rent-pad__brand-name { font-family: var(--rent-font-sans); font-size: 13px; font-weight: 600; color: var(--rent-ink); letter-spacing: -0.01em; white-space: nowrap; }
+.rent-pad__nav { flex: 1; overflow-y: auto; padding: 8px; list-style: none; margin: 0; }
+.rent-pad__nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--rent-radius-md); font-size: 13px; font-weight: 500; color: var(--rent-ink-2); text-decoration: none; cursor: pointer; transition: background 0.15s, color 0.15s; margin-bottom: 2px; }
+.rent-pad__nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.rent-pad__nav-item[data-active="true"] { background: var(--rent-sidebar-active); color: var(--rent-primary); font-weight: 600; }
+.rent-pad__nav-icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.rent-pad__nav-footer { padding: 10px; border-top: 1px solid var(--rent-border); flex-shrink: 0; }
+.rent-pad__nav-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* ===== Topbar ===== */
+.rent-pad__topbar-title { font-size: 17px; font-weight: 600; color: var(--rent-ink); letter-spacing: -0.01em; }
+.rent-pad__topbar-right { display: flex; align-items: center; gap: 10px; }
+.rent-pad__icon-btn { width: 34px; height: 34px; border: 1px solid var(--rent-border); border-radius: var(--rent-radius-md); background: var(--rent-surface); display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; transition: background 0.15s; }
+.rent-pad__icon-btn:hover { background: var(--rent-surface-2); }
+.rent-pad__icon-btn__badge { position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; border-radius: var(--rent-radius-full); background: var(--state-error); color: #fff; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.rent-pad__avatar { width: 30px; height: 30px; border-radius: var(--rent-radius-full); background: var(--rent-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+.rent-pad__exit-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: var(--rent-radius-md); font-size: 13px; font-weight: 500; font-family: var(--rent-font-sans); background: transparent; border: 1px solid var(--rent-border); color: var(--rent-ink-2); cursor: pointer; text-decoration: none; transition: background 0.15s; }
+.rent-pad__exit-btn:hover { background: var(--rent-surface-2); }
+
+/* ===== Main Content ===== */
+.rent-pad__section-title { font-size: 18px; font-weight: 600; color: var(--rent-ink); letter-spacing: -0.01em; margin: 0 0 4px; }
+.rent-pad__section-sub { font-size: 13px; color: var(--rent-ink-3); margin: 0; }
+
+/* ===== Card ===== */
+.rent-card { background: var(--rent-card); border: 1px solid var(--rent-border); border-radius: var(--rent-radius-lg); overflow: hidden; }
+.rent-card__header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--rent-border); }
+.rent-card__title { font-size: 15px; font-weight: 600; color: var(--rent-ink); margin: 0; }
+.rent-card__body { padding: 16px; }
+.rent-card__footer { padding: 10px 16px; border-top: 1px solid var(--rent-border); background: var(--rent-surface-2); }
+
+/* ===== Button ===== */
+.rent-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: var(--rent-radius-md); font-size: 14px; font-weight: 500; font-family: var(--rent-font-sans); border: 1px solid transparent; cursor: pointer; transition: background 0.15s, border-color 0.15s, box-shadow 0.15s; text-decoration: none; white-space: nowrap; line-height: 1.4; }
+.rent-btn--primary { background: var(--rent-primary); color: var(--rent-primary-foreground); }
+.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--secondary { background: var(--rent-surface); border-color: var(--rent-border); color: var(--rent-ink); }
+.rent-btn--secondary:hover { background: var(--rent-surface-2); }
+.rent-btn--ghost { background: transparent; color: var(--rent-ink-2); }
+.rent-btn--ghost:hover { background: var(--rent-surface-2); }
+.rent-btn--danger { background: var(--state-error); color: #fff; }
+.rent-btn--danger:hover { background: #b91c1c; }
+.rent-btn--sm { padding: 5px 12px; font-size: 13px; }
+.rent-btn--block { width: 100%; }
+.rent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== Badge ===== */
+.rent-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--rent-radius-full); font-size: 12px; font-weight: 500; line-height: 1.4; }
+.rent-badge--success { background: rgba(22,163,74,0.1); color: var(--state-success); }
+.rent-badge--warning { background: rgba(217,119,6,0.1); color: var(--state-warning); }
+.rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
+.rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
+.rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
+.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+/* ===== Stat Card ===== */
+.rent-stat-card { background: var(--rent-card); border: 1px solid var(--rent-border); border-radius: var(--rent-radius-lg); padding: 16px; }
+.rent-stat-card__label { font-size: 12px; color: var(--rent-ink-3); margin-bottom: 6px; }
+.rent-stat-card__value { font-size: 24px; font-weight: 700; color: var(--rent-ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1; }
+.rent-stat-card__delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; margin-top: 6px; }
+.rent-stat-card__delta--up { color: var(--state-success); }
+.rent-stat-card__delta--down { color: var(--state-error); }
+
+/* ===== Grid ===== */
+.rent-grid { display: grid; gap: 16px; }
+.rent-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.rent-grid--4 { grid-template-columns: repeat(4, 1fr); }
+
+/* ===== Search ===== */
+.rent-search { display: flex; align-items: center; gap: 8px; background: var(--rent-surface-2); border: 1px solid var(--rent-border); border-radius: var(--rent-radius-md); padding: 7px 12px; flex: 1; }
+.rent-search input { border: none; background: none; outline: none; font-size: 13px; color: var(--rent-ink); flex: 1; font-family: var(--rent-font-sans); min-width: 0; }
+.rent-search input::placeholder { color: var(--rent-ink-3); }
+
+/* ===== Filter Chips ===== */
+.rent-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rent-chip { display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: var(--rent-radius-full); font-size: 13px; font-weight: 500; font-family: var(--rent-font-sans); color: var(--rent-ink-2); background: var(--rent-surface); border: 1px solid var(--rent-border); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.rent-chip:hover { background: var(--rent-surface-2); }
+.rent-chip[data-active="true"] { background: var(--rent-primary); color: var(--rent-primary-foreground); border-color: var(--rent-primary); }
+
+/* ===== Revenue Summary Card (gradient) ===== */
+.rent-revenue {
+  background: linear-gradient(135deg, var(--rent-primary) 0%, #3b51d4 100%);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.rent-revenue__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.rent-revenue__label { font-size: 13px; color: rgba(255,255,255,0.8); margin: 0 0 6px; }
+.rent-revenue__value { font-size: 30px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1; }
+.rent-revenue__delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.9); margin-top: 6px; }
+.rent-revenue__icon { width: 44px; height: 44px; border-radius: var(--rent-radius-md); background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rent-revenue__stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 16px; }
+.rent-revenue__stat-label { font-size: 11px; color: rgba(255,255,255,0.7); margin-bottom: 2px; }
+.rent-revenue__stat-value { font-size: 16px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+
+/* ===== Transaction List Card ===== */
+.rent-txn {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.rent-txn__icon {
+  width: 40px; height: 40px;
+  border-radius: var(--rent-radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.rent-txn__body { flex: 1; min-width: 0; }
+.rent-txn__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
+.rent-txn__person { font-size: 14px; font-weight: 600; color: var(--rent-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rent-txn__amount { font-size: 15px; font-weight: 700; color: var(--rent-ink); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; white-space: nowrap; }
+.rent-txn__amount--out { color: var(--state-error); }
+.rent-txn__meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--rent-ink-3); }
+.rent-txn__no { font-family: var(--rent-font-mono); }
+.rent-txn__sep { width: 3px; height: 3px; border-radius: 50%; background: var(--rent-ink-3); opacity: 0.5; }
+.rent-txn__actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+/* ===== Utility ===== */
+.rent-flex { display: flex; }
+.rent-flex--center { align-items: center; justify-content: center; }
+.rent-flex--between { align-items: center; justify-content: space-between; }
+.rent-flex--col { flex-direction: column; }
+.rent-flex--wrap { flex-wrap: wrap; }
+.rent-gap-2 { gap: 8px; }
+.rent-gap-3 { gap: 12px; }
+.rent-gap-4 { gap: 16px; }
+.rent-mt-2 { margin-top: 8px; }
+.rent-mt-3 { margin-top: 12px; }
+.rent-mt-4 { margin-top: 16px; }
+.rent-mb-2 { margin-bottom: 8px; }
+.rent-mb-3 { margin-bottom: 12px; }
+.rent-mb-4 { margin-bottom: 16px; }
+.rent-mb-5 { margin-bottom: 24px; }
+.rent-text-right { text-align: right; }
+.rent-text-center { text-align: center; }
+.rent-text-sm { font-size: 13px; }
+.rent-text-muted { color: var(--rent-ink-3); }
+.rent-text-bold { font-weight: 600; }
+.rent-w-full { width: 100%; }
+
+@media (max-width: 768px) {
+  .rent-grid--4 { grid-template-columns: repeat(2, 1fr); }
+}
+    </style>
+</head>
+<body class="font-sans antialiased">
+<div class="rent-pad" data-viewport-mode="pad-shell">
+  <!-- ===== Sidebar ===== -->
+  <aside class="rent-pad__sidebar">
+    <div class="rent-pad__brand">
+      <div class="rent-pad__logo">R</div>
+      <span class="rent-pad__brand-name">RentFlow</span>
+    </div>
+    <nav class="rent-pad__nav">
+      <a class="rent-pad__nav-item" href="admin-pad-dashboard.html" data-dom-id="nav-admin-pad-dashboard">
+        <svg class="rent-pad__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>数据总览</span>
+      </a>
+      <a class="rent-pad__nav-item" href="admin-pad-properties.html" data-dom-id="nav-admin-pad-properties">
+        <svg class="rent-pad__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>房源管理</span>
+      </a>
+      <a class="rent-pad__nav-item" href="admin-pad-crm.html" data-dom-id="nav-admin-pad-crm">
+        <svg class="rent-pad__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>客户管理</span>
+      </a>
+      <a class="rent-pad__nav-item" href="admin-pad-leases.html" data-dom-id="nav-admin-pad-leases">
+        <svg class="rent-pad__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>合同管理</span>
+      </a>
+      <a class="rent-pad__nav-item" href="admin-pad-payments.html" data-active="true" data-dom-id="nav-admin-pad-payments">
+        <svg class="rent-pad__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        <span>收付款</span>
+      </a>
+      <a class="rent-pad__nav-item" href="admin-pad-employees.html" data-dom-id="nav-admin-pad-employees">
+        <svg class="rent-pad__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>员工管理</span>
+      </a>
+      <a class="rent-pad__nav-item" href="admin-pad-settings.html" data-dom-id="nav-admin-pad-settings">
+        <svg class="rent-pad__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>系统设置</span>
+      </a>
+    </nav>
+    <div class="rent-pad__nav-footer">
+      <div class="rent-pad__nav-footer-row">
+        <div class="rent-pad__avatar">管</div>
+        <a href="#" class="rent-pad__exit-btn" data-dom-id="back-login">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          退出
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== Topbar ===== -->
+  <header class="rent-pad__topbar">
+    <h1 class="rent-pad__topbar-title">收付款管理</h1>
+    <div class="rent-pad__topbar-right">
+      <button class="rent-pad__icon-btn" aria-label="通知">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="rent-pad__icon-btn__badge">3</span>
+      </button>
+      <div class="rent-pad__avatar">管</div>
+    </div>
+  </header>
+
+  <!-- ===== Main Content ===== -->
+  <main class="rent-pad__main" data-scroll-region="primary">
+
+      <!-- Page Header -->
+      <div class="rent-flex rent-flex--between rent-gap-4 rent-mb-4">
+        <div>
+          <h2 class="rent-pad__section-title">收付款管理</h2>
+          <p class="rent-pad__section-sub">跟踪所有租金收付记录</p>
+        </div>
+        <div class="rent-flex rent-gap-2">
+          <button class="rent-btn rent-btn--secondary rent-btn--sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            导出
+          </button>
+          <button class="rent-btn rent-btn--primary rent-btn--sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            手动记账
+          </button>
+        </div>
+      </div>
+
+      <!-- Revenue Summary Card (gradient) -->
+      <div class="rent-revenue rent-mb-4">
+        <div class="rent-revenue__top">
+          <div>
+            <p class="rent-revenue__label">本月收入</p>
+            <div class="rent-revenue__value">RM 486,200</div>
+            <span class="rent-revenue__delta">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+              +15.2% 较上月
+            </span>
+          </div>
+          <div class="rent-revenue__icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+        </div>
+        <div class="rent-revenue__stats">
+          <div>
+            <div class="rent-revenue__stat-label">本月支出</div>
+            <div class="rent-revenue__stat-value">RM 48,620</div>
+          </div>
+          <div>
+            <div class="rent-revenue__stat-label">待收款</div>
+            <div class="rent-revenue__stat-value">RM 32,400</div>
+          </div>
+          <div>
+            <div class="rent-revenue__stat-label">逾期款项</div>
+            <div class="rent-revenue__stat-value">RM 8,200</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search + Filter Chips -->
+      <div class="rent-flex rent-flex--col rent-gap-3 rent-mb-4">
+        <div class="rent-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="搜索租客 / 合同号 / 流水号">
+        </div>
+        <div class="rent-chips">
+          <span class="rent-chip" data-active="true">全部</span>
+          <span class="rent-chip">收款</span>
+          <span class="rent-chip">付款</span>
+          <span class="rent-chip">退款</span>
+          <span class="rent-chip">已完成</span>
+          <span class="rent-chip">待确认</span>
+          <span class="rent-chip">逾期</span>
+        </div>
+      </div>
+
+      <!-- Transaction List Cards -->
+      <div class="rent-flex rent-flex--col rent-gap-3">
+
+        <!-- Txn 1 -->
+        <div class="rent-txn">
+          <div class="rent-txn__icon" style="background:rgba(66,99,235,0.1);color:var(--rent-primary);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div class="rent-txn__body">
+            <div class="rent-txn__top">
+              <span class="rent-txn__person">张伟明</span>
+              <span class="rent-txn__amount">+ RM 3,200.00</span>
+            </div>
+            <div class="rent-txn__meta">
+              <span class="rent-txn__no">PMT-2025-0001</span>
+              <span class="rent-txn__sep"></span>
+              <span>银行转账</span>
+              <span class="rent-txn__sep"></span>
+              <span>2025-08-01</span>
+            </div>
+          </div>
+          <div class="rent-txn__actions">
+            <span class="rent-badge rent-badge--primary">收款</span>
+            <span class="rent-badge rent-badge--success">已完成</span>
+            <button class="rent-btn rent-btn--ghost rent-btn--sm">查看</button>
+          </div>
+        </div>
+
+        <!-- Txn 2 -->
+        <div class="rent-txn">
+          <div class="rent-txn__icon" style="background:rgba(66,99,235,0.1);color:var(--rent-primary);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          </div>
+          <div class="rent-txn__body">
+            <div class="rent-txn__top">
+              <span class="rent-txn__person">李美玲</span>
+              <span class="rent-txn__amount">+ RM 4,500.00</span>
+            </div>
+            <div class="rent-txn__meta">
+              <span class="rent-txn__no">PMT-2025-0002</span>
+              <span class="rent-txn__sep"></span>
+              <span>信用卡</span>
+              <span class="rent-txn__sep"></span>
+              <span>2025-08-01</span>
+            </div>
+          </div>
+          <div class="rent-txn__actions">
+            <span class="rent-badge rent-badge--primary">收款</span>
+            <span class="rent-badge rent-badge--success">已完成</span>
+            <button class="rent-btn rent-btn--ghost rent-btn--sm">查看</button>
+          </div>
+        </div>
+
+        <!-- Txn 3 -->
+        <div class="rent-txn">
+          <div class="rent-txn__icon" style="background:rgba(14,165,233,0.1);color:var(--state-info);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="rent-txn__body">
+            <div class="rent-txn__top">
+              <span class="rent-txn__person">陈志强</span>
+              <span class="rent-txn__amount">+ RM 2,800.00</span>
+            </div>
+            <div class="rent-txn__meta">
+              <span class="rent-txn__no">PMT-2025-0003</span>
+              <span class="rent-txn__sep"></span>
+              <span>微信</span>
+              <span class="rent-txn__sep"></span>
+              <span>2025-07-31</span>
+            </div>
+          </div>
+          <div class="rent-txn__actions">
+            <span class="rent-badge rent-badge--primary">收款</span>
+            <span class="rent-badge rent-badge--info">待确认</span>
+            <button class="rent-btn rent-btn--primary rent-btn--sm">确认</button>
+          </div>
+        </div>
+
+        <!-- Txn 4 -->
+        <div class="rent-txn">
+          <div class="rent-txn__icon" style="background:var(--rent-surface-2);color:var(--rent-ink-2);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </div>
+          <div class="rent-txn__body">
+            <div class="rent-txn__top">
+              <span class="rent-txn__person">王凤娇</span>
+              <span class="rent-txn__amount rent-txn__amount--out">- RM 1,500.00</span>
+            </div>
+            <div class="rent-txn__meta">
+              <span class="rent-txn__no">PMT-2025-0004</span>
+              <span class="rent-txn__sep"></span>
+              <span>银行转账</span>
+              <span class="rent-txn__sep"></span>
+              <span>2025-07-30</span>
+            </div>
+          </div>
+          <div class="rent-txn__actions">
+            <span class="rent-badge rent-badge--neutral">付款</span>
+            <span class="rent-badge rent-badge--success">已完成</span>
+            <button class="rent-btn rent-btn--ghost rent-btn--sm">查看</button>
+          </div>
+        </div>
+
+        <!-- Txn 5 -->
+        <div class="rent-txn">
+          <div class="rent-txn__icon" style="background:rgba(220,38,38,0.1);color:var(--state-error);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="rent-txn__body">
+            <div class="rent-txn__top">
+              <span class="rent-txn__person">黄国华</span>
+              <span class="rent-txn__amount">+ RM 3,600.00</span>
+            </div>
+            <div class="rent-txn__meta">
+              <span class="rent-txn__no">PMT-2025-0006</span>
+              <span class="rent-txn__sep"></span>
+              <span>Wise</span>
+              <span class="rent-txn__sep"></span>
+              <span>2025-07-29</span>
+            </div>
+          </div>
+          <div class="rent-txn__actions">
+            <span class="rent-badge rent-badge--primary">收款</span>
+            <span class="rent-badge rent-badge--error">逾期</span>
+            <button class="rent-btn rent-btn--ghost rent-btn--sm" style="color:var(--state-error);">退款</button>
+          </div>
+        </div>
+
+        <!-- Txn 6 -->
+        <div class="rent-txn">
+          <div class="rent-txn__icon" style="background:rgba(217,119,6,0.1);color:var(--state-warning);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          </div>
+          <div class="rent-txn__body">
+            <div class="rent-txn__top">
+              <span class="rent-txn__person">赵雅琴</span>
+              <span class="rent-txn__amount rent-txn__amount--out">- RM 2,400.00</span>
+            </div>
+            <div class="rent-txn__meta">
+              <span class="rent-txn__no">PMT-2025-0007</span>
+              <span class="rent-txn__sep"></span>
+              <span>信用卡</span>
+              <span class="rent-txn__sep"></span>
+              <span>2025-07-28</span>
+            </div>
+          </div>
+          <div class="rent-txn__actions">
+            <span class="rent-badge rent-badge--warning">退款</span>
+            <span class="rent-badge rent-badge--neutral">已退款</span>
+            <button class="rent-btn rent-btn--ghost rent-btn--sm">查看</button>
+          </div>
+        </div>
+
+        <!-- Txn 7 -->
+        <div class="rent-txn">
+          <div class="rent-txn__icon" style="background:rgba(14,165,233,0.1);color:var(--state-info);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="rent-txn__body">
+            <div class="rent-txn__top">
+              <span class="rent-txn__person">周建宏</span>
+              <span class="rent-txn__amount">+ RM 4,800.00</span>
+            </div>
+            <div class="rent-txn__meta">
+              <span class="rent-txn__no">PMT-2025-0008</span>
+              <span class="rent-txn__sep"></span>
+              <span>银行转账</span>
+              <span class="rent-txn__sep"></span>
+              <span>2025-07-28</span>
+            </div>
+          </div>
+          <div class="rent-txn__actions">
+            <span class="rent-badge rent-badge--primary">收款</span>
+            <span class="rent-badge rent-badge--info">待确认</span>
+            <button class="rent-btn rent-btn--primary rent-btn--sm">确认</button>
+          </div>
+        </div>
+
+      </div>
+
+  </main>
+</div>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

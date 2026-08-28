@@ -1,0 +1,279 @@
+/* ===== Owner Documents 页面特有样式 ===== */
+
+/* 加载条 */
+.owner-loading-bar {
+  text-align: center;
+  padding: 10px;
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  font-size: 13px;
+  border-radius: var(--rent-radius-md);
+  margin-bottom: 16px;
+}
+
+/* 顶部 hero 行 */
+.rent-doc-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+.rent-doc-hero__text {
+  min-width: 0;
+  flex: 1;
+}
+.rent-doc-hero__title {
+  font-family: var(--rent-font-sans);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--rent-ink);
+  margin: 0 0 6px;
+  line-height: 1.2;
+}
+.rent-doc-hero__subtitle {
+  font-size: 15px;
+  color: var(--rent-ink-2);
+  margin: 0;
+}
+.rent-doc-hero__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--rent-font-sans);
+  border: none;
+  cursor: pointer;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.18s;
+  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.55);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.rent-doc-hero__action:hover {
+  background: #3b51d4;
+  transform: translateY(-1px);
+}
+
+/* 分段控件（胶囊组） */
+.rent-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--rent-surface-2);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-full);
+  padding: 4px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.rent-segment__item {
+  border: none;
+  background: transparent;
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  padding: 8px 18px;
+  border-radius: var(--rent-radius-full);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+  white-space: nowrap;
+}
+.rent-segment__item:hover {
+  color: var(--rent-ink);
+}
+.rent-segment__item[data-active='true'] {
+  background: var(--rent-primary);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px -2px rgba(66, 99, 235, 0.45);
+}
+
+/* 结果计数 */
+.rent-doc-count {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-bottom: 20px;
+}
+.rent-doc-count__num {
+  color: var(--rent-ink);
+  font-weight: 600;
+}
+
+/* 文档网格 */
+.rent-doc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+@media (max-width: 1024px) {
+  .rent-doc-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .rent-doc-grid {
+    grid-template-columns: 1fr;
+  }
+  .rent-doc-hero {
+    align-items: flex-start;
+  }
+}
+
+/* 文档卡片 */
+.rent-doc-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.rent-doc-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--rent-shadow-2);
+  border-color: rgba(66, 99, 235, 0.25);
+}
+.rent-doc-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.rent-doc-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--rent-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.rent-doc-card__icon--contract {
+  background: rgba(66, 99, 235, 0.1);
+  color: var(--rent-primary);
+}
+.rent-doc-card__icon--receipt {
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--state-info);
+}
+.rent-doc-card__icon--other {
+  background: var(--rent-surface-2);
+  color: var(--rent-ink-2);
+}
+.rent-doc-card__meta {
+  flex: 1;
+  min-width: 0;
+}
+.rent-doc-card__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  line-height: 1.4;
+  margin: 0 0 8px;
+  word-break: break-all;
+}
+.rent-doc-card__tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rent-doc-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--rent-radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.rent-doc-tag--contract {
+  background: rgba(66, 99, 235, 0.1);
+  color: var(--rent-primary);
+}
+.rent-doc-tag--receipt {
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--state-info);
+}
+.rent-doc-tag--other {
+  background: var(--rent-surface-2);
+  color: var(--rent-ink-2);
+}
+.rent-doc-card__size {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+}
+.rent-doc-card__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+}
+.rent-doc-card__meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rent-doc-card__date {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+}
+.rent-doc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.rent-doc-status__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.rent-doc-status--success {
+  color: var(--state-success);
+}
+.rent-doc-status--success .rent-doc-status__dot {
+  background: var(--state-success);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+.rent-doc-status--neutral {
+  color: var(--rent-ink-2);
+}
+.rent-doc-status--neutral .rent-doc-status__dot {
+  background: var(--rent-ink-3);
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
+}
+.rent-doc-status--warning {
+  color: var(--state-warning);
+}
+.rent-doc-status--warning .rent-doc-status__dot {
+  background: var(--state-warning);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+}
+.rent-doc-card__actions {
+  display: flex;
+  gap: 8px;
+}
+.rent-doc-card__actions .rent-btn {
+  flex: 1;
+}
+
+/* ===== 共享组件补齐（app.css 未包含） ===== */
+.rent-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--rent-ink-3);
+}

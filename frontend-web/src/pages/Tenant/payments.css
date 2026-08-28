@@ -1,0 +1,205 @@
+/* ===== 账单缴费 (Payments) 页面特有样式 ===== */
+
+/* ----- Summary gradient card ----- */
+.rent-pay-summary {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #4263eb 0%, #3b51d4 100%);
+  border: none;
+  color: #fff;
+  border-radius: var(--rent-radius-lg);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.rent-pay-summary__label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 4px;
+}
+.rent-pay-summary__total {
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.rent-pay-summary__divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 16px 0;
+}
+.rent-pay-summary__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rent-pay-summary__sub-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 2px;
+}
+.rent-pay-summary__sub-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----- Filter chips ----- */
+.rent-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+  padding-bottom: 4px;
+}
+.rent-chip {
+  padding: 7px 16px;
+  border-radius: var(--rent-radius-full);
+  border: 1px solid var(--rent-border);
+  background: var(--rent-surface);
+  color: var(--rent-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.rent-chip:hover { background: var(--rent-surface-2); }
+.rent-chip[data-active="true"] {
+  background: var(--rent-primary);
+  color: #fff;
+  border-color: var(--rent-primary);
+  font-weight: 600;
+}
+
+/* ----- Section title ----- */
+.rent-pay-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0 0 16px;
+  letter-spacing: -0.01em;
+}
+
+/* ----- Bill card ----- */
+.rent-bill-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 12px;
+}
+.rent-bill-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.rent-bill-card__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--rent-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.rent-bill-card__info { flex: 1; min-width: 0; }
+.rent-bill-card__name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.rent-bill-card__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+.rent-bill-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  flex-wrap: wrap;
+}
+.rent-bill-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rent-bill-card__amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ----- Upload form ----- */
+.rent-pay-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.rent-pay-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.rent-pay-form-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+}
+.rent-pay-form-input,
+.rent-pay-form-select {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface);
+  font-size: 14px;
+  color: var(--rent-ink);
+  font-family: var(--rent-font-sans);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.rent-pay-form-input:focus,
+.rent-pay-form-select:focus {
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.12);
+}
+.rent-pay-form-select { appearance: none; cursor: pointer; }
+.rent-pay-file-drop {
+  border: 2px dashed var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--rent-surface-2);
+}
+.rent-pay-file-drop:hover { border-color: var(--rent-primary); background: var(--rent-sidebar-active); }
+.rent-pay-file-drop__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  color: var(--rent-primary);
+}
+.rent-pay-file-drop__text { font-size: 14px; font-weight: 500; color: var(--rent-ink); margin-bottom: 4px; }
+.rent-pay-file-drop__hint { font-size: 12px; color: var(--rent-ink-3); }
+.rent-pay-file-name { font-size: 13px; color: var(--rent-ink-2); margin-top: 8px; }
+
+@media (max-width: 720px) {
+  .rent-pay-form-row { grid-template-columns: 1fr; }
+}

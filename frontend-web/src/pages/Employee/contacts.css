@@ -1,0 +1,105 @@
+/* ===== Contacts 页面专属样式 =====
+   共享基础类由全局 app.css 提供。
+   以下为 app.css 未覆盖、设计稿中出现的筛选表单 / 联系人卡片样式。 */
+
+/* ===== 筛选表单控件 ===== */
+.rent-form-group { display: flex; flex-direction: column; gap: 6px; }
+.rent-form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+.rent-form-input, .rent-form-select, .rent-form-textarea {
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  color: var(--rent-ink);
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.rent-form-textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
+.rent-form-input::placeholder, .rent-form-textarea::placeholder { color: var(--rent-ink-3); }
+.rent-form-input:focus, .rent-form-select:focus, .rent-form-textarea:focus {
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.12);
+}
+
+/* 部门下拉：去除原生外观并叠加自定义箭头 */
+.rent-form-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: var(--rent-surface-2);
+  padding-right: 36px;
+  cursor: pointer;
+  min-width: 150px;
+}
+.rent-select-wrap {
+  position: relative;
+  display: inline-block;
+}
+.rent-select-wrap__chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--rent-ink-3);
+}
+
+/* ===== 联系人卡片 ===== */
+.rent-contact-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  text-align: center;
+}
+.rent-contact-phone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-md);
+}
+.rent-contact-phone__num {
+  font-size: 13px;
+  font-family: var(--rent-font-mono);
+}
+.rent-contact-social {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+}
+.rent-contact-social__btn {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--rent-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.rent-contact-social__btn--wa { background: #25D366; }
+.rent-contact-social__btn--wc { background: #07C160; }
+.rent-contact-social__btn--line { background: #06C755; }
+
+/* ===== 紧急联系人卡 ===== */
+.rent-emergency-item {
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 16px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .rent-contact-phone__num { font-size: 12px; }
+}

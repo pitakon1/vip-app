@@ -1,0 +1,170 @@
+/* Employees 页面专属样式 */
+
+/* 统计卡片头部布局 */
+.rent-stat-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* 筛选下拉框（带自定义箭头） */
+.rent-filter-select {
+  width: auto;
+  min-width: 156px;
+  padding: 8px 32px 8px 12px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  font-size: 13px;
+  font-family: var(--rent-font-sans);
+  color: var(--rent-ink);
+  background: var(--rent-surface);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.rent-filter-select:hover { border-color: var(--rent-ink-3); }
+.rent-filter-select:focus {
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.1);
+}
+
+/* 员工单元格 */
+.rent-emp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rent-emp__name {
+  font-weight: 600;
+  color: var(--rent-ink);
+  font-size: 14px;
+  line-height: 1.3;
+}
+.rent-emp__sub {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+}
+
+/* 联系方式 */
+.rent-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rent-contact__phone {
+  font-family: var(--rent-font-mono);
+  font-size: 12px;
+  color: var(--rent-ink-2);
+  white-space: nowrap;
+}
+.rent-contact__email {
+  font-size: 11px;
+  color: var(--rent-ink-3);
+}
+
+/* 业绩进度 */
+.rent-perf {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 132px;
+}
+.rent-perf__value {
+  font-family: var(--rent-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+}
+.rent-perf__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--rent-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.rent-perf__pct { font-weight: 600; }
+.rent-perf__pct--up { color: var(--state-success); }
+.rent-perf__pct--warn { color: var(--state-warning); }
+.rent-progress__bar--success { background: var(--state-success); }
+.rent-progress__bar--warning { background: var(--state-warning); }
+
+/* 操作按钮组 */
+.rent-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.rent-btn--primary-ghost {
+  background: rgba(66, 99, 235, 0.08);
+  color: var(--rent-primary);
+}
+.rent-btn--primary-ghost:hover {
+  background: rgba(66, 99, 235, 0.14);
+}
+
+/* 头像变体 */
+.rent-avatar--info { background: var(--state-info); }
+.rent-avatar--success { background: var(--state-success); }
+.rent-avatar--warning { background: var(--state-warning); }
+.rent-avatar--neutral { background: var(--rent-ink-3); }
+
+/* 分页两端对齐 */
+.rent-pagination--split { justify-content: space-between; }
+
+/* 排行榜卡片（右侧侧栏） */
+.rent-rank-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--rent-radius-md);
+  border: 1px solid var(--rent-border);
+  background: var(--rent-surface);
+}
+.rent-rank-item--top1 {
+  background: rgba(217, 119, 6, 0.06);
+}
+.rent-rank-item--self {
+  background: var(--rent-sidebar-active);
+  border-color: var(--rent-primary);
+}
+.rent-rank-num {
+  font-size: 18px;
+  font-weight: 700;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.rent-rank-num--gold { color: var(--state-warning); }
+.rent-rank-num--silver { color: var(--rent-ink-3); }
+.rent-rank-num--self { color: var(--rent-primary); }
+.rent-rank-info { min-width: 0; }
+.rent-rank-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--rent-ink);
+}
+.rent-rank-name--self { color: var(--rent-primary); }
+.rent-rank-meta {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+}
+
+/* 加载占位 */
+.rent-loading-row {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--rent-ink-3);
+  font-size: 13px;
+}

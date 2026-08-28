@@ -1,0 +1,101 @@
+/* =========================================================
+   RentFlow 品牌设计令牌 (Modern Light)
+   单一靛蓝主色 · 冷调浅灰底 · 白色卡片 · 细边框 · 克制圆角
+   与设计稿保持一致的视觉系统
+   ========================================================= */
+
+:root {
+  /* ---- 语义色 ---- */
+  --rent-background: #f5f7fa;
+  --rent-foreground: #0f172a;
+  --rent-card: #ffffff;
+  --rent-card-foreground: #0f172a;
+  --rent-popover: #ffffff;
+  --rent-popover-foreground: #0f172a;
+  --rent-primary: #4263eb;
+  --rent-primary-foreground: #ffffff;
+  --rent-primary-hover: #3b51d4;
+  --rent-muted: #f1f5f9;
+  --rent-muted-foreground: #64748b;
+  --rent-border: #e6eaf0;
+  --rent-input: #e6eaf0;
+  --rent-ring: #4263eb;
+
+  /* ---- 中性阶梯 ---- */
+  --rent-ink: #0f172a;
+  --rent-ink-2: #475569;
+  --rent-ink-3: #94a3b8;
+  --rent-line: #e6eaf0;
+  --rent-surface: #ffffff;
+  --rent-surface-2: #f1f5f9;
+  --rent-sidebar: #ffffff;
+  --rent-sidebar-active: #eef2ff;
+
+  /* ---- 状态色 ---- */
+  --state-success: #16a34a;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #0ea5e9;
+
+  /* ---- 圆角 ---- */
+  --rent-radius-sm: 4px;
+  --rent-radius-md: 8px;
+  --rent-radius-lg: 16px;
+  --rent-radius-full: 9999px;
+
+  /* ---- 阴影 ---- */
+  --rent-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
+  --rent-shadow-2: 0 8px 24px -8px rgba(15, 23, 42, 0.18);
+  --rent-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.30);
+
+  /* ---- 间距 ---- */
+  --rent-s-1: 4px;
+  --rent-s-2: 8px;
+  --rent-s-3: 12px;
+  --rent-s-4: 16px;
+  --rent-s-5: 24px;
+  --rent-s-6: 32px;
+
+  /* ---- 字体 ---- */
+  --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* ---- 侧栏宽度 ---- */
+  --rent-sidebar-width: 240px;
+  --rent-topbar-height: 56px;
+
+  color-scheme: light;
+}
+
+/* ---- 暗色模式 ---- */
+.dark {
+  --rent-background: #0b0f1a;
+  --rent-foreground: #e8edf5;
+  --rent-card: #141a26;
+  --rent-card-foreground: #e8edf5;
+  --rent-popover: #141a26;
+  --rent-popover-foreground: #e8edf5;
+  --rent-primary: #6b82f5;
+  --rent-primary-foreground: #0b0f1a;
+  --rent-primary-hover: #7d92f7;
+  --rent-muted: #1c2433;
+  --rent-muted-foreground: #94a3b8;
+  --rent-border: #243044;
+  --rent-input: #243044;
+  --rent-ring: #6b82f5;
+
+  --rent-ink: #e8edf5;
+  --rent-ink-2: #a3aec2;
+  --rent-ink-3: #64748b;
+  --rent-line: #243044;
+  --rent-surface: #141a26;
+  --rent-surface-2: #1c2433;
+  --rent-sidebar: #0f1521;
+  --rent-sidebar-active: #1e2a44;
+
+  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --rent-shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.50);
+  --rent-shadow-3: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+
+  color-scheme: dark;
+}

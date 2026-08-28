@@ -1,0 +1,541 @@
+/* ===== 推荐服务 (Services) 页面特有样式 ===== */
+
+/* ----- Service Hero (gradient card, 40px padding, decor) ----- */
+.svc-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #4263eb 0%, #6d28d9 100%);
+  border-radius: 24px;
+  padding: 40px;
+  margin-bottom: 32px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.svc-hero__decor {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.svc-hero__decor--1 {
+  width: 300px; height: 300px;
+  background: rgba(255,255,255,0.07);
+  top: -110px; right: -70px;
+}
+.svc-hero__decor--2 {
+  width: 180px; height: 180px;
+  background: rgba(255,255,255,0.05);
+  bottom: -70px; right: 200px;
+}
+.svc-hero__decor--3 {
+  width: 90px; height: 90px;
+  background: rgba(255,255,255,0.06);
+  top: 30px; right: 320px;
+}
+.svc-hero__content {
+  position: relative;
+  z-index: 1;
+  max-width: 540px;
+}
+.svc-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.25);
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 18px;
+  letter-spacing: 0.03em;
+}
+.svc-hero__title {
+  font-size: 34px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: #fff;
+}
+.svc-hero__subtitle {
+  font-size: 16px;
+  color: rgba(255,255,255,0.85);
+  margin: 0 0 28px;
+  line-height: 1.55;
+}
+.svc-hero__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 30px;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--rent-primary);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 8px 24px -6px rgba(0,0,0,0.3);
+  cursor: pointer;
+  border: none;
+  font-family: var(--rent-font-sans);
+}
+.svc-hero__action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px -6px rgba(0,0,0,0.4);
+}
+.svc-hero__stats {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 36px;
+}
+.svc-hero__stat {
+  text-align: center;
+}
+.svc-hero__stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.svc-hero__stat-label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+  margin-top: 8px;
+}
+
+/* ----- Service Section ----- */
+.svc-section {
+  margin-bottom: 32px;
+}
+.svc-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+.svc-section__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.svc-section__hint {
+  font-size: 14px;
+  color: var(--rent-ink-3);
+}
+.svc-section__link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-primary);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.svc-section__link:hover { text-decoration: underline; }
+
+/* ----- Service Category Grid (2x2 large cards) ----- */
+.svc-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+.svc-category-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: 20px;
+  padding: 24px;
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+  display: flex;
+  flex-direction: column;
+}
+.svc-category-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--rent-shadow-2);
+  border-color: transparent;
+}
+.svc-category-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.svc-category-card__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.svc-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 13px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+.svc-pill-badge--primary { background: rgba(66,99,235,0.12); color: var(--rent-primary); }
+.svc-pill-badge--info    { background: rgba(14,165,233,0.12); color: var(--state-info); }
+.svc-pill-badge--success { background: rgba(22,163,74,0.12); color: var(--state-success); }
+.svc-pill-badge--warning { background: rgba(217,119,6,0.12); color: var(--state-warning); }
+.svc-category-card__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  margin: 0 0 8px;
+  letter-spacing: -0.015em;
+}
+.svc-category-card__desc {
+  font-size: 14px;
+  color: var(--rent-ink-2);
+  line-height: 1.6;
+  margin: 0 0 20px;
+  flex: 1;
+}
+.svc-category-card__footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.svc-category-card__price-label {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  display: block;
+  margin-bottom: 3px;
+}
+.svc-category-card__price {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.svc-category-card__price-unit {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--rent-ink-3);
+  margin-left: 3px;
+}
+.svc-category-card__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  border-radius: 9999px;
+  background: var(--rent-primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.15s;
+  white-space: nowrap;
+  cursor: pointer;
+  border: none;
+  font-family: var(--rent-font-sans);
+}
+.svc-category-card__btn:hover {
+  background: #3b51d4;
+  transform: scale(1.04);
+}
+
+/* ----- Order List (horizontal cards, 12px gap) ----- */
+.svc-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.svc-order-item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: 16px;
+  padding: 16px 22px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.svc-order-item:hover {
+  box-shadow: var(--rent-shadow-1);
+  border-color: var(--rent-ink-3);
+}
+.svc-order-item__left {
+  flex: 1;
+  min-width: 0;
+}
+.svc-order-item__no {
+  font-family: var(--rent-font-mono);
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  display: block;
+  margin-bottom: 4px;
+  letter-spacing: 0.01em;
+}
+.svc-order-item__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.svc-order-item__mid {
+  flex: 0 0 auto;
+  text-align: center;
+  min-width: 130px;
+}
+.svc-order-item__date {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  display: block;
+  margin-bottom: 4px;
+}
+.svc-order-item__amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.svc-order-item__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.svc-order-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.svc-order-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.svc-order-status--warning { color: var(--state-warning); }
+.svc-order-status--warning .svc-order-status__dot { background: var(--state-warning); }
+.svc-order-status--info    { color: var(--state-info); }
+.svc-order-status--info .svc-order-status__dot    { background: var(--state-info); }
+.svc-order-status--success { color: var(--state-success); }
+.svc-order-status--success .svc-order-status__dot { background: var(--state-success); }
+.svc-order-status--neutral { color: var(--rent-ink-3); }
+.svc-order-status--neutral .svc-order-status__dot { background: var(--rent-ink-3); }
+
+/* ----- Reviews ----- */
+.svc-reviews {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: 20px;
+  padding: 8px 28px;
+}
+.svc-review {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--rent-border);
+}
+.svc-review:last-child {
+  border-bottom: none;
+}
+.svc-review__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 16px;
+}
+.svc-review__user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.svc-review__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+.svc-review__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+.svc-review__meta {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-top: 3px;
+}
+.svc-review__rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.svc-review__stars {
+  display: flex;
+  gap: 2px;
+  color: #f59e0b;
+}
+.svc-review__score {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.svc-review__text {
+  font-size: 15px;
+  color: var(--rent-ink-2);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ----- Promo Banner ----- */
+.svc-promo {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #4263eb 0%, #7c3aed 100%);
+  border-radius: 24px;
+  padding: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.svc-promo__decor {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  top: -110px;
+  right: -50px;
+  pointer-events: none;
+}
+.svc-promo__decor--2 {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+  bottom: -60px;
+  right: 180px;
+  pointer-events: none;
+}
+.svc-promo__body {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  position: relative;
+  z-index: 1;
+}
+.svc-promo__icon {
+  width: 68px;
+  height: 68px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.svc-promo__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+.svc-promo__desc {
+  font-size: 15px;
+  color: rgba(255,255,255,0.88);
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+.svc-promo__price-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.svc-promo__price {
+  font-size: 32px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.svc-promo__price-old {
+  font-size: 16px;
+  color: rgba(255,255,255,0.6);
+  text-decoration: line-through;
+}
+.svc-promo__save {
+  display: inline-flex;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+.svc-promo__btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 34px;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--rent-primary);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 8px 24px -6px rgba(0,0,0,0.3);
+  white-space: nowrap;
+  cursor: pointer;
+  border: none;
+  font-family: var(--rent-font-sans);
+}
+.svc-promo__btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px -6px rgba(0,0,0,0.4);
+}
+
+/* ----- Responsive ----- */
+@media (max-width: 860px) {
+  .svc-hero { padding: 28px 24px; flex-direction: column; align-items: flex-start; }
+  .svc-hero__title { font-size: 26px; }
+  .svc-hero__stats { width: 100%; justify-content: space-between; gap: 16px; }
+  .svc-hero__stat-value { font-size: 26px; }
+  .svc-category-grid { grid-template-columns: 1fr; }
+  .svc-order-item { flex-wrap: wrap; gap: 12px; }
+  .svc-order-item__mid { min-width: 0; text-align: left; flex: 1; }
+  .svc-promo { padding: 28px; flex-direction: column; align-items: flex-start; }
+  .svc-promo__btn { width: 100%; justify-content: center; }
+  .svc-reviews { padding: 8px 20px; }
+}

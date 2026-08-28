@@ -1,0 +1,58 @@
+{
+  "name": "rental-mobile-app",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+
+    "prebuild": "expo prebuild",
+    "prebuild:android": "expo prebuild --platform android",
+    "prebuild:ios": "expo prebuild --platform ios",
+
+    "build:android:apk": "cd android && ./gradlew assembleRelease",
+    "build:android:aab": "cd android && ./gradlew bundleRelease",
+    "build:ios": "cd ios && pod install && xcodebuild -workspace VIPRental.xcworkspace -scheme VIPRental -configuration Release -archivePath build/VIPRental.xcarchive archive",
+
+    "eas:login": "eas login",
+    "eas:build:dev:android": "eas build --profile development --platform android",
+    "eas:build:dev:ios": "eas build --profile development --platform ios",
+    "eas:build:preview:android": "eas build --profile preview --platform android",
+    "eas:build:preview:ios": "eas build --profile preview --platform ios",
+    "eas:build:prod:android": "eas build --profile production --platform android",
+    "eas:build:prod:ios": "eas build --profile production --platform ios",
+    "eas:build:all": "eas build --profile production --platform all",
+    "eas:submit:android": "eas submit --platform android",
+    "eas:submit:ios": "eas submit --platform ios",
+    "eas:update": "eas update --auto"
+  },
+  "dependencies": {
+    "expo": "~52.0.0",
+    "expo-status-bar": "~2.0.0",
+    "expo-secure-store": "~14.0.0",
+    "expo-image-picker": "~16.0.0",
+    "expo-notifications": "~0.28.0",
+    "expo-location": "~17.0.0",
+    "expo-application": "~6.0.0",
+    "expo-device": "~7.0.0",
+    "expo-updates": "~0.27.0",
+    "expo-splash-screen": "~0.29.0",
+    "react": "18.3.1",
+    "react-native": "0.76.5",
+    "react-native-safe-area-context": "4.14.0",
+    "react-native-screens": "~4.4.0",
+    "@react-navigation/native": "^7.0.14",
+    "@react-navigation/native-stack": "^7.1.14",
+    "@react-navigation/bottom-tabs": "^7.1.4",
+    "axios": "^1.7.9",
+    "dayjs": "^1.11.13",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/react": "~18.3.12",
+    "typescript": "^5.7.2"
+  },
+  "private": true
+}

@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的文档</title>
+    <style id="theme-vars">
+/* =========================================================
+   房地产租赁管理后台 — 品牌设计令牌 (Modern Light)
+   单一靛蓝主色 · 冷调浅灰底 · 白色卡片 · 细边框 · 克制圆角
+   ========================================================= */
+
+:root {
+  /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
+  --rent-background: #f2f4f8;
+  --rent-foreground: #0f172a;
+  --rent-card: #ffffff;
+  --rent-card-foreground: #0f172a;
+  --rent-popover: #ffffff;
+  --rent-popover-foreground: #0f172a;
+  --rent-primary: #4263eb;
+  --rent-primary-foreground: #ffffff;
+  --rent-muted: #f1f5f9;
+  --rent-muted-foreground: #64748b;
+  --rent-border: #e6eaf0;
+  --rent-input: #e6eaf0;
+  --rent-ring: #4263eb;
+
+  /* ---- 中性阶梯（直接引用） ---- */
+  --rent-ink: #0f172a;
+  --rent-ink-2: #475569;
+  --rent-ink-3: #94a3b8;
+  --rent-line: #e6eaf0;
+  --rent-surface: #ffffff;
+  --rent-surface-2: #f1f5f9;
+  --rent-sidebar: #ffffff;
+  --rent-sidebar-active: #eef2ff;
+
+  /* ---- 状态色（仅语义状态） ---- */
+  --state-success: #16a34a;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #0ea5e9;
+
+  /* ---- 圆角（克制阶梯，上限 16px） ---- */
+  --rent-radius-sm: 6px;
+  --rent-radius-md: 12px;
+  --rent-radius-lg: 20px;
+  --rent-radius-full: 9999px;
+
+  /* ---- 阴影（静态面 alpha ≤ 0.05；深阴影仅浮层） ---- */
+  --rent-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --rent-shadow-2: 0 12px 32px -12px rgba(15, 23, 42, 0.16);
+  --rent-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.30);
+
+  /* ---- 间距（8pt 网格） ---- */
+  --rent-s-1: 4px;
+  --rent-s-2: 8px;
+  --rent-s-3: 12px;
+  --rent-s-4: 16px;
+  --rent-s-5: 24px;
+  --rent-s-6: 32px;
+  --rent-s-7: 48px;
+  --rent-s-8: 80px;
+
+  /* ---- 字体系统 ---- */
+  --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  color-scheme: light;
+}
+
+/* ---- 暗色模式（双模变量，设计态默认 light） ---- */
+.dark {
+  --rent-background: #0b0f1a;
+  --rent-foreground: #e8edf5;
+  --rent-card: #141a26;
+  --rent-card-foreground: #e8edf5;
+  --rent-popover: #141a26;
+  --rent-popover-foreground: #e8edf5;
+  --rent-primary: #6b82f5;
+  --rent-primary-foreground: #0b0f1a;
+  --rent-muted: #1c2433;
+  --rent-muted-foreground: #94a3b8;
+  --rent-border: #243044;
+  --rent-input: #243044;
+  --rent-ring: #6b82f5;
+
+  --rent-ink: #e8edf5;
+  --rent-ink-2: #a3aec2;
+  --rent-ink-3: #64748b;
+  --rent-line: #243044;
+  --rent-surface: #141a26;
+  --rent-surface-2: #1c2433;
+  --rent-sidebar: #0f1521;
+  --rent-sidebar-active: #1e2a44;
+
+  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --rent-shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.50);
+  --rent-shadow-3: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+
+  color-scheme: dark;
+}
+
+/* ---- 排版类 ---- */
+.rent-h1 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(24px, 2.6vw, 32px);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--rent-ink);
+}
+
+.rent-h2 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(20px, 2vw, 24px);
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--rent-ink);
+}
+
+.rent-h3 {
+  font-family: var(--rent-font-sans);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--rent-ink);
+}
+
+.rent-body-lg {
+  font-family: var(--rent-font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-body {
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-caption {
+  font-family: var(--rent-font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: var(--rent-ink-3);
+}
+
+.rent-mono {
+  font-family: var(--rent-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.rent-num {
+  font-family: var(--rent-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--rent-background);
+    --color-foreground: var(--rent-foreground);
+    --color-card: var(--rent-card);
+    --color-card-foreground: var(--rent-card-foreground);
+    --color-popover: var(--rent-popover);
+    --color-popover-foreground: var(--rent-popover-foreground);
+    --color-primary: var(--rent-primary);
+    --color-primary-foreground: var(--rent-primary-foreground);
+    --color-muted: var(--rent-muted);
+    --color-muted-foreground: var(--rent-muted-foreground);
+    --color-border: var(--rent-border);
+    --color-input: var(--rent-input);
+    --color-ring: var(--rent-ring);
+    --color-sidebar: var(--rent-sidebar);
+    --radius-sm: var(--rent-radius-sm);
+    --radius-md: var(--rent-radius-md);
+    --radius-lg: var(--rent-radius-lg);
+  }
+  @layer base {
+    body { background: var(--rent-background); color: var(--rent-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--rent-background); }
+      .text-background { color: var(--rent-background); }
+      .border-background { border-color: var(--rent-background); }
+      .ring-background { --tw-ring-color: var(--rent-background); }
+      .bg-foreground { background-color: var(--rent-foreground); }
+      .text-foreground { color: var(--rent-foreground); }
+      .border-foreground { border-color: var(--rent-foreground); }
+      .ring-foreground { --tw-ring-color: var(--rent-foreground); }
+      .bg-card { background-color: var(--rent-card); }
+      .text-card { color: var(--rent-card); }
+      .border-card { border-color: var(--rent-card); }
+      .ring-card { --tw-ring-color: var(--rent-card); }
+      .bg-card-foreground { background-color: var(--rent-card-foreground); }
+      .text-card-foreground { color: var(--rent-card-foreground); }
+      .border-card-foreground { border-color: var(--rent-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--rent-card-foreground); }
+      .bg-popover { background-color: var(--rent-popover); }
+      .text-popover { color: var(--rent-popover); }
+      .border-popover { border-color: var(--rent-popover); }
+      .ring-popover { --tw-ring-color: var(--rent-popover); }
+      .bg-popover-foreground { background-color: var(--rent-popover-foreground); }
+      .text-popover-foreground { color: var(--rent-popover-foreground); }
+      .border-popover-foreground { border-color: var(--rent-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--rent-popover-foreground); }
+      .bg-primary { background-color: var(--rent-primary); }
+      .text-primary { color: var(--rent-primary); }
+      .border-primary { border-color: var(--rent-primary); }
+      .ring-primary { --tw-ring-color: var(--rent-primary); }
+      .bg-primary-foreground { background-color: var(--rent-primary-foreground); }
+      .text-primary-foreground { color: var(--rent-primary-foreground); }
+      .border-primary-foreground { border-color: var(--rent-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--rent-primary-foreground); }
+      .bg-muted { background-color: var(--rent-muted); }
+      .text-muted { color: var(--rent-muted); }
+      .border-muted { border-color: var(--rent-muted); }
+      .ring-muted { --tw-ring-color: var(--rent-muted); }
+      .bg-muted-foreground { background-color: var(--rent-muted-foreground); }
+      .text-muted-foreground { color: var(--rent-muted-foreground); }
+      .border-muted-foreground { border-color: var(--rent-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--rent-muted-foreground); }
+      .bg-border { background-color: var(--rent-border); }
+      .text-border { color: var(--rent-border); }
+      .border-border { border-color: var(--rent-border); }
+      .ring-border { --tw-ring-color: var(--rent-border); }
+      .bg-input { background-color: var(--rent-input); }
+      .text-input { color: var(--rent-input); }
+      .border-input { border-color: var(--rent-input); }
+      .ring-input { --tw-ring-color: var(--rent-input); }
+      .bg-ring { background-color: var(--rent-ring); }
+      .text-ring { color: var(--rent-ring); }
+      .border-ring { border-color: var(--rent-ring); }
+      .ring-ring { --tw-ring-color: var(--rent-ring); }
+      .bg-sidebar { background-color: var(--rent-sidebar); }
+      .text-sidebar { color: var(--rent-sidebar); }
+      .border-sidebar { border-color: var(--rent-sidebar); }
+      .ring-sidebar { --tw-ring-color: var(--rent-sidebar); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+<!-- ============================================================
+     PROJECT SHELL — Shared CSS Component Library
+     房地产租赁管理系统 · 全角色共享组件样式
+     All leaf pages MUST include this <style> block in their HTML.
+     ============================================================ -->
+<style id="rent-components">
+/* ===== App Shell Layout ===== */
+.rent-app {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas: "sidebar topbar" "sidebar main";
+  height: 100vh;
+  background: var(--rent-background);
+}
+.rent-app__sidebar { grid-area: sidebar; }
+.rent-app__topbar { grid-area: topbar; }
+.rent-app__main { grid-area: main; overflow-y: auto; }
+
+/* ===== Sidebar ===== */
+.rent-sidebar {
+  background: var(--rent-sidebar);
+  border-right: 1px solid var(--rent-border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+.rent-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  height: 56px;
+  border-bottom: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+.rent-sidebar__logo {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-primary);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 16px;
+  flex-shrink: 0;
+}
+.rent-sidebar__name {
+  font-family: var(--rent-font-sans);
+  font-size: 15px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  list-style: none;
+  margin: 0;
+}
+.rent-sidebar__section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rent-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 16px 12px 6px;
+}
+.rent-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 2px;
+}
+.rent-nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.rent-nav-item[data-active="true"] {
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-nav-item__icon {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-sidebar__footer {
+  padding: 12px;
+  border-top: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+
+/* ===== Topbar ===== */
+.rent-topbar {
+  background: var(--rent-surface);
+  border-bottom: 1px solid var(--rent-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.rent-topbar__left { display: flex; align-items: center; gap: 16px; }
+.rent-topbar__title {
+  font-size: 18px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-topbar__right { display: flex; align-items: center; gap: 12px; }
+.rent-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--rent-surface-2);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 7px 12px;
+  width: 280px;
+}
+.rent-search input {
+  border: none; background: none; outline: none;
+  font-size: 13px; color: var(--rent-ink);
+  flex: 1;
+  font-family: var(--rent-font-sans);
+}
+.rent-search input::placeholder { color: var(--rent-ink-3); }
+.rent-icon-btn {
+  width: 36px; height: 36px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+}
+.rent-icon-btn:hover { background: var(--rent-surface-2); }
+.rent-icon-btn__badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 16px; height: 16px;
+  border-radius: var(--rent-radius-full);
+  background: var(--state-error);
+  color: #fff;
+  font-size: 10px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-avatar {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+  flex-shrink: 0;
+}
+.rent-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
+.rent-avatar--lg { width: 48px; height: 48px; font-size: 18px; }
+
+/* ===== Main Content ===== */
+.rent-main {
+  padding: 24px;
+  max-width: 100%;
+}
+.rent-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+.rent-page-header__title {
+  font-size: 24px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.rent-page-header__subtitle {
+  font-size: 14px;
+  color: var(--rent-ink-3);
+}
+.rent-page-header__actions {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===== Card ===== */
+.rent-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  overflow: hidden;
+}
+.rent-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-card__title {
+  font-size: 16px; font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0;
+}
+.rent-card__body { padding: 20px; }
+.rent-card__footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--rent-border);
+  background: var(--rent-surface-2);
+}
+
+/* ===== Button ===== */
+.rent-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--rent-font-sans);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.rent-btn--primary {
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
+}
+.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--secondary {
+  background: var(--rent-surface);
+  border-color: var(--rent-border);
+  color: var(--rent-ink);
+}
+.rent-btn--secondary:hover { background: var(--rent-surface-2); }
+.rent-btn--ghost {
+  background: transparent;
+  color: var(--rent-ink-2);
+}
+.rent-btn--ghost:hover { background: var(--rent-surface-2); }
+.rent-btn--danger {
+  background: var(--state-error);
+  color: #fff;
+}
+.rent-btn--danger:hover { background: #b91c1c; }
+.rent-btn--success {
+  background: var(--state-success);
+  color: #fff;
+}
+.rent-btn--sm { padding: 5px 12px; font-size: 13px; }
+.rent-btn--lg { padding: 12px 24px; font-size: 15px; }
+.rent-btn--block { width: 100%; }
+.rent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== Table ===== */
+.rent-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--rent-radius-lg);
+  border: 1px solid var(--rent-border);
+}
+.rent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.rent-table thead th {
+  background: var(--rent-surface-2);
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  border-bottom: 1px solid var(--rent-border);
+  white-space: nowrap;
+}
+.rent-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rent-border);
+  color: var(--rent-ink);
+  vertical-align: middle;
+}
+.rent-table tbody tr:last-child td { border-bottom: none; }
+.rent-table tbody tr:hover { background: var(--rent-surface-2); }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+
+/* ===== Badge ===== */
+.rent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--rent-radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.rent-badge--success { background: rgba(22,163,74,0.1); color: var(--state-success); }
+.rent-badge--warning { background: rgba(217,119,6,0.1); color: var(--state-warning); }
+.rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
+.rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
+.rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
+.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+/* ===== Form ===== */
+.rent-form-group { margin-bottom: 20px; }
+.rent-form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-ink);
+  margin-bottom: 6px;
+}
+.rent-form-input,
+.rent-form-select,
+.rent-form-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-family: var(--rent-font-sans);
+  color: var(--rent-ink);
+  background: var(--rent-surface);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.rent-form-input:focus,
+.rent-form-select:focus,
+.rent-form-textarea:focus {
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 3px rgba(66,99,235,0.1);
+}
+.rent-form-textarea { resize: vertical; min-height: 80px; }
+.rent-form-hint { font-size: 12px; color: var(--rent-ink-3); margin-top: 4px; }
+.rent-form-row { display: flex; gap: 16px; }
+.rent-form-row > * { flex: 1; }
+
+/* ===== KPI / Stat Card ===== */
+.rent-stat-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+}
+.rent-stat-card__label {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-bottom: 8px;
+}
+.rent-stat-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.rent-stat-card__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.rent-stat-card__delta--up { color: var(--state-success); }
+.rent-stat-card__delta--down { color: var(--state-error); }
+.rent-stat-card__icon {
+  width: 40px; height: 40px;
+  border-radius: var(--rent-radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===== Grid Utilities ===== */
+.rent-grid { display: grid; gap: 16px; }
+.rent-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.rent-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.rent-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.rent-grid--auto { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+
+/* ===== Filter Bar ===== */
+.rent-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.rent-filter-bar__search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+/* ===== Pagination ===== */
+.rent-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  padding: 16px 0;
+}
+.rent-pagination__btn {
+  min-width: 32px; height: 32px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-sm);
+  background: var(--rent-surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  cursor: pointer;
+  padding: 0 8px;
+}
+.rent-pagination__btn:hover { background: var(--rent-surface-2); }
+.rent-pagination__btn[data-active="true"] {
+  background: var(--rent-primary);
+  color: #fff;
+  border-color: var(--rent-primary);
+}
+.rent-pagination__info {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-right: 12px;
+}
+
+/* ===== Modal ===== */
+.rent-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.rent-modal {
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  box-shadow: var(--rent-shadow-3);
+  max-width: 560px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.rent-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-modal__body { padding: 20px; }
+.rent-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--rent-border);
+}
+
+/* ===== Misc ===== */
+.rent-divider { height: 1px; background: var(--rent-border); margin: 16px 0; border: none; }
+.rent-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--rent-ink-3);
+}
+.rent-empty__icon { margin-bottom: 12px; opacity: 0.4; }
+.rent-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--rent-border);
+  margin-bottom: 20px;
+}
+.rent-tab {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.rent-tab:hover { color: var(--rent-ink); }
+.rent-tab[data-active="true"] {
+  color: var(--rent-primary);
+  border-bottom-color: var(--rent-primary);
+}
+.rent-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-full);
+  overflow: hidden;
+}
+.rent-progress__bar {
+  height: 100%;
+  background: var(--rent-primary);
+  border-radius: var(--rent-radius-full);
+  transition: width 0.3s;
+}
+.rent-tooltip {
+  position: relative;
+}
+
+/* ===== Kanban column styles ===== */
+.rent-kanban {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.rent-kanban__column {
+  flex: 0 0 300px;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-lg);
+  padding: 12px;
+}
+.rent-kanban__column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+.rent-kanban__column-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+.rent-kanban__column-count {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  background: var(--rent-surface);
+  padding: 2px 8px;
+  border-radius: var(--rent-radius-full);
+}
+.rent-kanban__card {
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+.rent-kanban__card:hover { box-shadow: var(--rent-shadow-1); }
+
+/* ===== Calendar ===== */
+.rent-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  overflow: hidden;
+}
+.rent-calendar__day-header {
+  background: var(--rent-surface-2);
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rent-ink-2);
+}
+.rent-calendar__cell {
+  background: var(--rent-surface);
+  padding: 8px;
+  min-height: 72px;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+}
+.rent-calendar__cell--today {
+  background: var(--rent-sidebar-active);
+  font-weight: 600;
+  color: var(--rent-primary);
+}
+.rent-calendar__cell--other { opacity: 0.4; }
+.rent-calendar__event {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--rent-radius-sm);
+  margin-top: 2px;
+  background: rgba(66,99,235,0.1);
+  color: var(--rent-primary);
+}
+
+/* ===== Utility ===== */
+.rent-flex { display: flex; }
+.rent-flex--center { align-items: center; justify-content: center; }
+.rent-flex--between { align-items: center; justify-content: space-between; }
+.rent-flex--col { flex-direction: column; }
+.rent-gap-2 { gap: 8px; }
+.rent-gap-3 { gap: 12px; }
+.rent-gap-4 { gap: 16px; }
+.rent-mt-2 { margin-top: 8px; }
+.rent-mt-3 { margin-top: 12px; }
+.rent-mt-4 { margin-top: 16px; }
+.rent-mt-5 { margin-top: 24px; }
+.rent-mb-2 { margin-bottom: 8px; }
+.rent-mb-3 { margin-bottom: 12px; }
+.rent-mb-4 { margin-bottom: 16px; }
+.rent-mb-5 { margin-bottom: 24px; }
+.rent-text-right { text-align: right; }
+.rent-text-center { text-align: center; }
+.rent-text-sm { font-size: 13px; }
+.rent-text-muted { color: var(--rent-ink-3); }
+.rent-text-bold { font-weight: 600; }
+.rent-w-full { width: 100%; }
+</style>
+<style id="rent-page">
+/* ===== Page: 我的文档 — 页面级样式 ===== */
+.rent-doc-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rent-doc-name__text {
+  font-weight: 500;
+  color: var(--rent-ink);
+  word-break: break-word;
+}
+.rent-doc-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.rent-doc-icon--pdf { background: rgba(220,38,38,0.10); color: #dc2626; }
+.rent-doc-icon--img { background: rgba(14,165,233,0.10); color: #0ea5e9; }
+.rent-doc-icon--xls { background: rgba(22,163,74,0.10); color: #16a34a; }
+.rent-doc-icon--doc { background: rgba(66,99,235,0.10); color: #4263eb; }
+
+.rent-storage {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 14px 20px;
+  margin-bottom: 20px;
+}
+.rent-storage__icon {
+  width: 36px; height: 36px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.rent-storage__body { flex: 1; min-width: 0; }
+.rent-storage__text {
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rent-storage__text strong { color: var(--rent-ink); font-weight: 600; }
+.rent-storage__bar { max-width: 460px; }
+
+.rent-filter-bar .rent-form-select { width: auto; min-width: 150px; }
+
+.rent-btn--danger-ghost {
+  background: transparent;
+  color: var(--state-error);
+}
+.rent-btn--danger-ghost:hover { background: rgba(220,38,38,0.08); }
+
+.rent-act-group { display: inline-flex; gap: 4px; align-items: center; }
+.rent-table-wrap { background: var(--rent-card); }
+.rent-table thead th { white-space: nowrap; }
+.rent-table tbody td { white-space: nowrap; }
+.rent-table tbody td.rent-cell-name { white-space: normal; }
+</style>
+    <style id="rent-beike-overlay">
+/* =========================================================
+   RentFlow × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #4263eb · 消费级 App 形态 · 大圆角卡片流
+   仅注入用户端页面 (租客/业主/员工)，后台管理不注入
+   注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
+   ========================================================= */
+
+/* ---- 全局背景 ---- */
+body {
+  background: var(--rent-background);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== 顶部导航 / 头部：毛玻璃白底 ===== */
+.rent-portal__header,
+.rent-topbar,
+.rent-mobile__header,
+.rent-pad__topbar {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 10px 30px -18px rgba(15, 23, 42, 0.18);
+}
+.rent-portal__logo,
+.rent-sidebar__logo,
+.rent-mobile__logo,
+.rent-pad__logo {
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+}
+.rent-portal__nav-item,
+.rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
+
+/* ===== 搜索体验：胶囊搜索 ===== */
+.rent-search { border-radius: 999px; background: var(--rent-surface-2); }
+.rent-search input { background: transparent; }
+.rent-search-hero__bar {
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 10px 32px -10px rgba(66, 99, 235, 0.40);
+}
+.rent-search-hero__search-btn {
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4263eb, #6b82f5);
+  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.50);
+}
+.rent-search-hero__tag { border-radius: 999px; }
+
+/* ===== 筛选 chips：胶囊 ===== */
+.rent-filter-chip,
+.lj-filter-bar__chip,
+.rent-filter-chip[data-active="true"] { border-radius: 999px; }
+.rent-filter-bar {
+  border-radius: var(--rent-radius-lg);
+  background: var(--rent-card);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 卡片：大圆角 + 柔和浮起 ===== */
+.rent-card,
+.rent-stat-card,
+.rent-mobile__card,
+.rent-quick-action,
+.rent-prop-search-card,
+.rent-table-wrap {
+  border-radius: var(--rent-radius-lg);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 房源卡片：图片圆角 + 价格强调 ===== */
+.rent-prop-search-card { overflow: hidden; }
+.rent-prop-search-card__banner { border-radius: 0; }
+.rent-prop-search-card__price-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--rent-primary);
+  letter-spacing: -0.02em;
+}
+.rent-prop-search-card__price-unit { font-size: 12px; color: var(--rent-ink-3); }
+.rent-prop-search-card__tags .rent-badge,
+.rent-badge { border-radius: 999px; padding: 3px 10px; }
+.rent-prop-search-card__cta {
+  border-radius: 999px;
+  background: rgba(66, 99, 235, 0.08);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-prop-search-card__name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* ===== 金刚区 / 快捷入口：圆角宫格 ===== */
+.rent-quick-action,
+.rent-mobile__quick-action {
+  border-radius: 18px;
+  border: none;
+  box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.12);
+}
+.rent-quick-action__icon,
+.rent-mobile__quick-action-icon { border-radius: 16px; }
+
+/* ===== 按钮：渐变 + 柔和投影 ===== */
+.rent-btn { border-radius: 10px; }
+.rent-btn--primary {
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4263eb, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.45);
+}
+
+/* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
+.rent-mobile__tab { border-radius: 14px; }
+.rent-mobile__tab[data-active="true"] {
+  background: rgba(66, 99, 235, 0.08);
+  font-weight: 600;
+}
+
+/* ===== 侧边栏导航 (web/pad) ===== */
+.rent-nav-item,
+.rent-pad__nav-item { border-radius: 12px; }
+.rent-nav-item[data-active="true"],
+.rent-pad__nav-item[data-active="true"] {
+  background: linear-gradient(135deg, rgba(66, 99, 235, 0.10), rgba(107, 130, 245, 0.08));
+  font-weight: 600;
+}
+
+/* ===== Hero 渐变强化 ===== */
+.rent-hero,
+.rent-portal-hero,
+.rent-mobile__hero {
+  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+}
+
+/* ===== 头像 ===== */
+.rent-avatar { border-radius: 14px; }
+.rent-avatar--sm { border-radius: 10px; }
+
+    </style>
+  </head>
+<body class="font-sans antialiased">
+<div class="rent-app" data-viewport-mode="app-shell">
+  <!-- ===== Sidebar ===== -->
+  <aside class="rent-app__sidebar">
+    <div class="rent-sidebar">
+      <div class="rent-sidebar__brand">
+        <div class="rent-sidebar__logo">R</div>
+        <span class="rent-sidebar__name">RentFlow 业主端</span>
+      </div>
+      <nav class="rent-sidebar__nav">
+        <div class="rent-sidebar__section-label">我的房产</div>
+        <a class="rent-nav-item" data-nav-key="owner-dashboard" href="owner-dashboard.html" data-dom-id="nav-owner-dashboard">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>业主首页</span>
+        </a>
+        <a class="rent-nav-item" data-nav-key="owner-income" href="owner-income.html" data-dom-id="nav-owner-income">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <span>租金收入</span>
+        </a>
+        <a class="rent-nav-item" data-active="true" data-nav-key="owner-documents" href="owner-documents.html" data-dom-id="nav-owner-documents">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>我的文档</span>
+        </a>
+        <div class="rent-sidebar__section-label">增值服务</div>
+        <a class="rent-nav-item" data-nav-key="owner-services" href="owner-services.html" data-dom-id="nav-owner-services">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+          <span>推荐服务</span>
+        </a>
+        <a class="rent-nav-item" data-nav-key="owner-payments" href="owner-payments.html" data-dom-id="nav-owner-payments">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          <span>在线付款</span>
+        </a>
+      </nav>
+      <div class="rent-sidebar__footer">
+        <div class="rent-flex rent-flex--between rent-gap-3">
+          <div class="rent-flex rent-gap-2" style="align-items:center;">
+            <div class="rent-avatar rent-avatar--sm">业</div>
+            <div>
+              <div class="rent-text-sm rent-text-bold">陈业主</div>
+              <div class="rent-text-sm rent-text-muted">owner@rentflow.com</div>
+            </div>
+          </div>
+          <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login">退出</a>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== Topbar ===== -->
+  <header class="rent-app__topbar">
+    <div class="rent-topbar">
+      <div class="rent-topbar__left">
+        <h1 class="rent-topbar__title">我的文档</h1>
+      </div>
+      <div class="rent-topbar__right">
+        <div class="rent-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="搜索房产、收入记录...">
+        </div>
+        <button class="rent-icon-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="rent-icon-btn__badge">2</span>
+        </button>
+        <div class="rent-avatar">业</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Main Content ===== -->
+  <main class="rent-app__main overflow-y-auto" data-scroll-region="primary">
+    <div class="rent-main">
+
+      <!-- Page header -->
+      <div class="rent-page-header">
+        <div>
+          <h2 class="rent-page-header__title">我的文档</h2>
+          <p class="rent-page-header__subtitle">查看和管理您的房产相关文档</p>
+        </div>
+        <div class="rent-page-header__actions">
+          <button class="rent-btn rent-btn--primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            上传文档
+          </button>
+        </div>
+      </div>
+
+      <!-- Storage indicator -->
+      <div class="rent-storage">
+        <div class="rent-storage__icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+        </div>
+        <div class="rent-storage__body">
+          <div class="rent-storage__text">
+            <span>存储空间使用情况</span>
+            <span><strong>1.2 GB</strong> / 5 GB</span>
+          </div>
+          <div class="rent-progress rent-storage__bar">
+            <div class="rent-progress__bar" style="width:24%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="rent-filter-bar">
+        <div class="rent-search rent-filter-bar__search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="搜索文档名称...">
+        </div>
+        <select class="rent-form-select">
+          <option>全部类型</option>
+          <option>合同</option>
+          <option>收据</option>
+          <option>产权证明</option>
+          <option>税务</option>
+          <option>其他</option>
+        </select>
+        <select class="rent-form-select">
+          <option>全部时间</option>
+          <option>近3个月</option>
+          <option>近1年</option>
+          <option>自定义</option>
+        </select>
+      </div>
+
+      <!-- Documents table -->
+      <div class="rent-table-wrap">
+        <table class="rent-table">
+          <thead>
+            <tr>
+              <th>文档名称</th>
+              <th>类型</th>
+              <th>关联房产</th>
+              <th>上传日期</th>
+              <th>大小</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="rent-cell-name">
+                <div class="rent-doc-name">
+                  <span class="rent-doc-icon rent-doc-icon--pdf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+                  <span class="rent-doc-name__text">Sunway Mesmerrra 租赁合同.pdf</span>
+                </div>
+              </td>
+              <td><span class="rent-badge rent-badge--primary">合同</span></td>
+              <td>Sunway Mesmerrra</td>
+              <td class="rent-table__mono">2024-01-15</td>
+              <td class="rent-table__mono">2.4 MB</td>
+              <td><span class="rent-badge rent-badge--success">有效</span></td>
+              <td>
+                <div class="rent-act-group">
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">下载</button>
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">预览</button>
+                  <button class="rent-btn rent-btn--danger-ghost rent-btn--sm">删除</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="rent-cell-name">
+                <div class="rent-doc-name">
+                  <span class="rent-doc-icon rent-doc-icon--pdf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+                  <span class="rent-doc-name__text">2024年Q3租金收据.pdf</span>
+                </div>
+              </td>
+              <td><span class="rent-badge rent-badge--success">收据</span></td>
+              <td>Sunway Mesmerrra</td>
+              <td class="rent-table__mono">2024-10-05</td>
+              <td class="rent-table__mono">856 KB</td>
+              <td><span class="rent-badge rent-badge--neutral">已归档</span></td>
+              <td>
+                <div class="rent-act-group">
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">下载</button>
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">预览</button>
+                  <button class="rent-btn rent-btn--danger-ghost rent-btn--sm">删除</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="rent-cell-name">
+                <div class="rent-doc-name">
+                  <span class="rent-doc-icon rent-doc-icon--img"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span>
+                  <span class="rent-doc-name__text">房产产权证明.jpg</span>
+                </div>
+              </td>
+              <td><span class="rent-badge rent-badge--info">产权证明</span></td>
+              <td>双威金沙国际公寓</td>
+              <td class="rent-table__mono">2023-06-20</td>
+              <td class="rent-table__mono">3.1 MB</td>
+              <td><span class="rent-badge rent-badge--success">有效</span></td>
+              <td>
+                <div class="rent-act-group">
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">下载</button>
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">预览</button>
+                  <button class="rent-btn rent-btn--danger-ghost rent-btn--sm">删除</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="rent-cell-name">
+                <div class="rent-doc-name">
+                  <span class="rent-doc-icon rent-doc-icon--xls"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></span>
+                  <span class="rent-doc-name__text">2024年度房产税申报表.xlsx</span>
+                </div>
+              </td>
+              <td><span class="rent-badge rent-badge--warning">税务</span></td>
+              <td>多处房产</td>
+              <td class="rent-table__mono">2024-03-12</td>
+              <td class="rent-table__mono">1.2 MB</td>
+              <td><span class="rent-badge rent-badge--neutral">已归档</span></td>
+              <td>
+                <div class="rent-act-group">
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">下载</button>
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">预览</button>
+                  <button class="rent-btn rent-btn--danger-ghost rent-btn--sm">删除</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="rent-cell-name">
+                <div class="rent-doc-name">
+                  <span class="rent-doc-icon rent-doc-icon--pdf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+                  <span class="rent-doc-name__text">Sunway Rio Sintra 物业管理协议.pdf</span>
+                </div>
+              </td>
+              <td><span class="rent-badge rent-badge--primary">合同</span></td>
+              <td>Sunway Rio Sintra</td>
+              <td class="rent-table__mono">2024-02-08</td>
+              <td class="rent-table__mono">1.8 MB</td>
+              <td><span class="rent-badge rent-badge--success">有效</span></td>
+              <td>
+                <div class="rent-act-group">
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">下载</button>
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">预览</button>
+                  <button class="rent-btn rent-btn--danger-ghost rent-btn--sm">删除</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="rent-cell-name">
+                <div class="rent-doc-name">
+                  <span class="rent-doc-icon rent-doc-icon--pdf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+                  <span class="rent-doc-name__text">2024年Q1租金收据.pdf</span>
+                </div>
+              </td>
+              <td><span class="rent-badge rent-badge--success">收据</span></td>
+              <td>Sunway Rio Sintra</td>
+              <td class="rent-table__mono">2024-04-10</td>
+              <td class="rent-table__mono">780 KB</td>
+              <td><span class="rent-badge rent-badge--neutral">已归档</span></td>
+              <td>
+                <div class="rent-act-group">
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">下载</button>
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">预览</button>
+                  <button class="rent-btn rent-btn--danger-ghost rent-btn--sm">删除</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="rent-cell-name">
+                <div class="rent-doc-name">
+                  <span class="rent-doc-icon rent-doc-icon--pdf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+                  <span class="rent-doc-name__text">房屋租赁登记备案证明.pdf</span>
+                </div>
+              </td>
+              <td><span class="rent-badge rent-badge--info">产权证明</span></td>
+              <td>Sunway Mesmerrra</td>
+              <td class="rent-table__mono">2023-08-15</td>
+              <td class="rent-table__mono">640 KB</td>
+              <td><span class="rent-badge rent-badge--success">有效</span></td>
+              <td>
+                <div class="rent-act-group">
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">下载</button>
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">预览</button>
+                  <button class="rent-btn rent-btn--danger-ghost rent-btn--sm">删除</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="rent-cell-name">
+                <div class="rent-doc-name">
+                  <span class="rent-doc-icon rent-doc-icon--img"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span>
+                  <span class="rent-doc-name__text">2024年物业费缴费凭证.png</span>
+                </div>
+              </td>
+              <td><span class="rent-badge rent-badge--neutral">其他</span></td>
+              <td>Sunway Rio Sintra</td>
+              <td class="rent-table__mono">2024-05-22</td>
+              <td class="rent-table__mono">1.5 MB</td>
+              <td><span class="rent-badge rent-badge--warning">待审核</span></td>
+              <td>
+                <div class="rent-act-group">
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">下载</button>
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">预览</button>
+                  <button class="rent-btn rent-btn--danger-ghost rent-btn--sm">删除</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="rent-cell-name">
+                <div class="rent-doc-name">
+                  <span class="rent-doc-icon rent-doc-icon--pdf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+                  <span class="rent-doc-name__text">2024年度个人所得税清单.pdf</span>
+                </div>
+              </td>
+              <td><span class="rent-badge rent-badge--warning">税务</span></td>
+              <td>多处房产</td>
+              <td class="rent-table__mono">2024-06-30</td>
+              <td class="rent-table__mono">920 KB</td>
+              <td><span class="rent-badge rent-badge--neutral">已归档</span></td>
+              <td>
+                <div class="rent-act-group">
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">下载</button>
+                  <button class="rent-btn rent-btn--ghost rent-btn--sm">预览</button>
+                  <button class="rent-btn rent-btn--danger-ghost rent-btn--sm">删除</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="rent-pagination">
+        <span class="rent-pagination__info">共 48 条记录</span>
+        <button class="rent-pagination__btn" aria-label="上一页">&#8249;</button>
+        <button class="rent-pagination__btn" data-active="true">1</button>
+        <button class="rent-pagination__btn">2</button>
+        <button class="rent-pagination__btn">3</button>
+        <button class="rent-pagination__btn">4</button>
+        <button class="rent-pagination__btn">5</button>
+        <button class="rent-pagination__btn" aria-label="下一页">&#8250;</button>
+      </div>
+
+    </div>
+  </main>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

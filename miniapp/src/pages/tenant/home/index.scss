@@ -1,0 +1,125 @@
+.tenant-home-page {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+
+  .page-container {
+    padding: 24px;
+  }
+
+  .welcome-section {
+    padding: 32px 24px;
+    background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
+    border-radius: 16px;
+    margin-bottom: 24px;
+
+    .welcome-text {
+      display: block;
+      font-size: 36px;
+      color: #ffffff;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .welcome-sub {
+      display: block;
+      font-size: 26px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+  }
+
+  .action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+
+    .action-title {
+      font-size: 32px;
+      font-weight: 600;
+      color: #333333;
+    }
+
+    .action-link {
+      font-size: 26px;
+      color: #1677ff;
+    }
+  }
+
+  .empty-tip {
+    text-align: center;
+    padding: 80px 0;
+    color: #999999;
+    font-size: 28px;
+  }
+
+  .notice-list {
+    max-height: 1200px;
+  }
+
+  .notice-group {
+    margin-bottom: 24px;
+
+    .group-title {
+      display: block;
+      font-size: 28px;
+      font-weight: 600;
+      color: #666666;
+      margin-bottom: 12px;
+      padding-left: 8px;
+    }
+  }
+
+  .notice-card {
+    background-color: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+    border-left: 6px solid #1677ff;
+
+    &.is-read {
+      opacity: 0.7;
+      border-left-color: #cccccc;
+    }
+
+    .notice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+
+      .notice-tag {
+        font-size: 22px;
+        padding: 4px 12px;
+        border-radius: 4px;
+      }
+
+      .unread-dot {
+        font-size: 22px;
+        color: #ff4d4f;
+      }
+    }
+
+    .notice-title {
+      display: block;
+      font-size: 30px;
+      font-weight: 600;
+      color: #333333;
+      margin-bottom: 8px;
+    }
+
+    .notice-content {
+      display: block;
+      font-size: 28px;
+      color: #666666;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+
+    .notice-time {
+      display: block;
+      font-size: 24px;
+      color: #999999;
+      text-align: right;
+    }
+  }
+}

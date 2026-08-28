@@ -1,0 +1,114 @@
+.owner-income-page {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+
+  .page-container {
+    padding: 24px;
+  }
+
+  .summary-header {
+    background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
+    border-radius: 16px;
+    padding: 40px 24px;
+    margin-bottom: 24px;
+
+    .summary-label {
+      display: block;
+      font-size: 26px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 12px;
+    }
+
+    .summary-amount {
+      display: block;
+      font-size: 56px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+  }
+
+  .stats-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 24px;
+
+    .stat-item {
+      flex: 1;
+      background-color: #ffffff;
+      border-radius: 16px;
+      padding: 24px 12px;
+      margin: 0 6px;
+      text-align: center;
+
+      .stat-label {
+        display: block;
+        font-size: 24px;
+        color: #999999;
+        margin-bottom: 8px;
+      }
+
+      .stat-value {
+        display: block;
+        font-size: 28px;
+        font-weight: 600;
+        color: #333333;
+      }
+
+      .text-warning {
+        color: #faad14;
+      }
+
+      .text-danger {
+        color: #ff4d4f;
+      }
+    }
+  }
+
+  .section-title {
+    font-size: 32px;
+    font-weight: 600;
+    color: #333333;
+    margin-bottom: 16px;
+  }
+
+  .empty-tip {
+    text-align: center;
+    padding: 80px 0;
+    color: #999999;
+    font-size: 28px;
+  }
+
+  .income-list {
+    .income-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+
+      .income-month {
+        .month-text {
+          display: block;
+          font-size: 30px;
+          font-weight: 600;
+          color: #333333;
+          margin-bottom: 8px;
+        }
+
+        .property-count {
+          display: block;
+          font-size: 24px;
+          color: #999999;
+        }
+      }
+
+      .income-amount {
+        font-size: 34px;
+        font-weight: 700;
+        color: #52c41a;
+      }
+    }
+  }
+}

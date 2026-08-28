@@ -1,0 +1,6022 @@
+{
+  "data": [
+    {
+      "id": "page-login",
+      "title": "登录",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-ed6258c0",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/login.html",
+        "interactions": [
+          {
+            "domId": "cta-admin-login",
+            "targetPageId": "page-admin-dashboard"
+          },
+          {
+            "domId": "link-owner-portal",
+            "targetPageId": "page-owner-dashboard"
+          },
+          {
+            "domId": "link-tenant-portal",
+            "targetPageId": "page-tenant-dashboard",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-dashboard",
+      "title": "数据总览",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 100,
+        "group": 1,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-d145e022",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-properties",
+            "targetPageId": "page-admin-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-crm",
+            "targetPageId": "page-admin-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-leases",
+            "targetPageId": "page-admin-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-payments",
+            "targetPageId": "page-admin-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-employees",
+            "targetPageId": "page-admin-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-settings",
+            "targetPageId": "page-admin-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          },
+          {
+            "domId": "cta-admin-properties",
+            "targetPageId": "page-admin-properties"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-properties",
+      "title": "房源管理",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3000,
+        "y": 100,
+        "group": 1,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-388a896e",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-properties.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-dashboard",
+            "targetPageId": "page-admin-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-crm",
+            "targetPageId": "page-admin-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-leases",
+            "targetPageId": "page-admin-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-payments",
+            "targetPageId": "page-admin-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-employees",
+            "targetPageId": "page-admin-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-settings",
+            "targetPageId": "page-admin-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          },
+          {
+            "domId": "link-property-detail",
+            "targetPageId": "page-admin-property-detail"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-property-detail",
+      "title": "房源详情",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1500,
+        "y": 100,
+        "group": 1,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-ffa873b2",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-property-detail.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-dashboard",
+            "targetPageId": "page-admin-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-properties",
+            "targetPageId": "page-admin-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-crm",
+            "targetPageId": "page-admin-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-leases",
+            "targetPageId": "page-admin-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-payments",
+            "targetPageId": "page-admin-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-employees",
+            "targetPageId": "page-admin-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-settings",
+            "targetPageId": "page-admin-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-properties",
+            "targetPageId": "page-admin-properties"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-crm",
+      "title": "客户管理",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 4500,
+        "y": 100,
+        "group": 1,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-d4d0c4ea",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-crm.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-dashboard",
+            "targetPageId": "page-admin-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-properties",
+            "targetPageId": "page-admin-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-leases",
+            "targetPageId": "page-admin-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-payments",
+            "targetPageId": "page-admin-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-employees",
+            "targetPageId": "page-admin-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-settings",
+            "targetPageId": "page-admin-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-leases",
+      "title": "合同管理",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 6000,
+        "y": 100,
+        "group": 1,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-8967dd60",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-leases.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-dashboard",
+            "targetPageId": "page-admin-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-properties",
+            "targetPageId": "page-admin-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-crm",
+            "targetPageId": "page-admin-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-payments",
+            "targetPageId": "page-admin-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-employees",
+            "targetPageId": "page-admin-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-settings",
+            "targetPageId": "page-admin-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-payments",
+      "title": "收付款管理",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 7500,
+        "y": 100,
+        "group": 1,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-a0d0d24f",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-dashboard",
+            "targetPageId": "page-admin-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-properties",
+            "targetPageId": "page-admin-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-crm",
+            "targetPageId": "page-admin-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-leases",
+            "targetPageId": "page-admin-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-employees",
+            "targetPageId": "page-admin-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-settings",
+            "targetPageId": "page-admin-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-employees",
+      "title": "员工管理",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 9000,
+        "y": 100,
+        "group": 1,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-71d1026e",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-employees.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-dashboard",
+            "targetPageId": "page-admin-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-properties",
+            "targetPageId": "page-admin-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-crm",
+            "targetPageId": "page-admin-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-leases",
+            "targetPageId": "page-admin-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-payments",
+            "targetPageId": "page-admin-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-settings",
+            "targetPageId": "page-admin-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-settings",
+      "title": "系统设置",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 10500,
+        "y": 100,
+        "group": 1,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-32e24b87",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-settings.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-dashboard",
+            "targetPageId": "page-admin-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-properties",
+            "targetPageId": "page-admin-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-crm",
+            "targetPageId": "page-admin-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-leases",
+            "targetPageId": "page-admin-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-payments",
+            "targetPageId": "page-admin-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-employees",
+            "targetPageId": "page-admin-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-dashboard",
+      "title": "业主首页",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 3900,
+        "group": 5,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1405,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-2578d149",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-income",
+            "targetPageId": "page-owner-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-documents",
+            "targetPageId": "page-owner-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-services",
+            "targetPageId": "page-owner-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-payments",
+            "targetPageId": "page-owner-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-income",
+      "title": "租金收入",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 4500,
+        "y": 3900,
+        "group": 5,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1919,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-255cd9ce",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-income.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-dashboard",
+            "targetPageId": "page-owner-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-documents",
+            "targetPageId": "page-owner-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-services",
+            "targetPageId": "page-owner-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-payments",
+            "targetPageId": "page-owner-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-documents",
+      "title": "我的文档",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 6000,
+        "y": 3900,
+        "group": 5,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 954,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-b77c5a6b",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-documents.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-dashboard",
+            "targetPageId": "page-owner-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-income",
+            "targetPageId": "page-owner-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-services",
+            "targetPageId": "page-owner-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-payments",
+            "targetPageId": "page-owner-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-services",
+      "title": "推荐服务",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 7500,
+        "y": 3900,
+        "group": 5,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1279,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-5f9956d7",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-services.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-dashboard",
+            "targetPageId": "page-owner-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-income",
+            "targetPageId": "page-owner-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-documents",
+            "targetPageId": "page-owner-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-payments",
+            "targetPageId": "page-owner-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-payments",
+      "title": "在线付款",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3000,
+        "y": 3900,
+        "group": 5,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1658,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-491358db",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-dashboard",
+            "targetPageId": "page-owner-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-income",
+            "targetPageId": "page-owner-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-documents",
+            "targetPageId": "page-owner-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-services",
+            "targetPageId": "page-owner-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-dashboard",
+      "title": "租客首页",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 7700,
+        "group": 9,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1267,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-45d2a6b2",
+          "measuredAt": 1785809256815
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-property-browse",
+            "targetPageId": "page-tenant-property-browse",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-payments",
+            "targetPageId": "page-tenant-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-documents",
+            "targetPageId": "page-tenant-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-services",
+            "targetPageId": "page-tenant-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-maintenance",
+            "targetPageId": "page-tenant-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-payments",
+      "title": "付款凭证",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 4500,
+        "y": 7700,
+        "group": 9,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1620,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-b95b7fc7",
+          "measuredAt": 1785809256815
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-dashboard",
+            "targetPageId": "page-tenant-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-documents",
+            "targetPageId": "page-tenant-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-services",
+            "targetPageId": "page-tenant-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-maintenance",
+            "targetPageId": "page-tenant-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-documents",
+      "title": "我的文档",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 6000,
+        "y": 7700,
+        "group": 9,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-cad94142",
+          "measuredAt": 1785809256815
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-documents.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-dashboard",
+            "targetPageId": "page-tenant-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-payments",
+            "targetPageId": "page-tenant-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-services",
+            "targetPageId": "page-tenant-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-maintenance",
+            "targetPageId": "page-tenant-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-services",
+      "title": "推荐服务",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 7500,
+        "y": 7700,
+        "group": 9,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 2295,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-ed3e6593",
+          "measuredAt": 1785809256815
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-services.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-dashboard",
+            "targetPageId": "page-tenant-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-payments",
+            "targetPageId": "page-tenant-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-documents",
+            "targetPageId": "page-tenant-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-maintenance",
+            "targetPageId": "page-tenant-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-maintenance",
+      "title": "报修申请",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 9000,
+        "y": 7700,
+        "group": 9,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 2041,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-a484aad6",
+          "measuredAt": 1785809256815
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-maintenance.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-dashboard",
+            "targetPageId": "page-tenant-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-payments",
+            "targetPageId": "page-tenant-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-documents",
+            "targetPageId": "page-tenant-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-services",
+            "targetPageId": "page-tenant-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-dashboard",
+      "title": "销售台账",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 11500,
+        "group": 13,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1268,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-4d5f9840",
+          "measuredAt": 1785805647926
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-attendance",
+            "targetPageId": "page-employee-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-performance",
+            "targetPageId": "page-employee-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-contacts",
+            "targetPageId": "page-employee-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-properties",
+            "targetPageId": "page-employee-properties",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-attendance",
+      "title": "考勤打卡",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 4500,
+        "y": 11500,
+        "group": 13,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1448,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-5128d758",
+          "measuredAt": 1785805647926
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-attendance.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-dashboard",
+            "targetPageId": "page-employee-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-performance",
+            "targetPageId": "page-employee-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-contacts",
+            "targetPageId": "page-employee-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-properties",
+            "targetPageId": "page-employee-properties",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-performance",
+      "title": "业绩报表",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 6000,
+        "y": 11500,
+        "group": 13,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1814,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-a513e8c6",
+          "measuredAt": 1785805647926
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-performance.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-dashboard",
+            "targetPageId": "page-employee-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-attendance",
+            "targetPageId": "page-employee-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-contacts",
+            "targetPageId": "page-employee-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-properties",
+            "targetPageId": "page-employee-properties",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-contacts",
+      "title": "同事通讯录",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 7500,
+        "y": 11500,
+        "group": 13,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1734,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-a8d9b582",
+          "measuredAt": 1785805647926
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-contacts.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-dashboard",
+            "targetPageId": "page-employee-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-attendance",
+            "targetPageId": "page-employee-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-performance",
+            "targetPageId": "page-employee-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-properties",
+            "targetPageId": "page-employee-properties",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-properties",
+      "title": "房源浏览",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3000,
+        "y": 11500,
+        "group": 13,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1225,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-39b4ba2c",
+          "measuredAt": 1785805647926
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-properties.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-dashboard",
+            "targetPageId": "page-employee-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-attendance",
+            "targetPageId": "page-employee-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-performance",
+            "targetPageId": "page-employee-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-contacts",
+            "targetPageId": "page-employee-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mobile-dashboard",
+      "title": "租客首页(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 8550,
+        "group": 10,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mob01",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mobile-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mobile-property-browse",
+            "targetPageId": "page-tenant-mobile-property-browse",
+            "hideEdge": true
+          },
+          {
+            "domId": "quick-tenant-mobile-property-browse",
+            "targetPageId": "page-tenant-mobile-property-browse",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-payments",
+            "targetPageId": "page-tenant-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-documents",
+            "targetPageId": "page-tenant-mobile-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-services",
+            "targetPageId": "page-tenant-mobile-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-maintenance",
+            "targetPageId": "page-tenant-mobile-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mobile-payments",
+      "title": "付款凭证(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2000,
+        "y": 8550,
+        "group": 10,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mob02",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mobile-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mobile-dashboard",
+            "targetPageId": "page-tenant-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-documents",
+            "targetPageId": "page-tenant-mobile-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-services",
+            "targetPageId": "page-tenant-mobile-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-maintenance",
+            "targetPageId": "page-tenant-mobile-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mobile-documents",
+      "title": "我的文档(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 500,
+        "y": 8550,
+        "group": 10,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mob03",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mobile-documents.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mobile-dashboard",
+            "targetPageId": "page-tenant-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-payments",
+            "targetPageId": "page-tenant-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-services",
+            "targetPageId": "page-tenant-mobile-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-maintenance",
+            "targetPageId": "page-tenant-mobile-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mobile-services",
+      "title": "推荐服务(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 4000,
+        "y": 8550,
+        "group": 10,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mob04",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mobile-services.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mobile-dashboard",
+            "targetPageId": "page-tenant-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-payments",
+            "targetPageId": "page-tenant-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-documents",
+            "targetPageId": "page-tenant-mobile-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-maintenance",
+            "targetPageId": "page-tenant-mobile-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mobile-maintenance",
+      "title": "报修申请(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1000,
+        "y": 8550,
+        "group": 10,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mob05",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mobile-maintenance.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mobile-dashboard",
+            "targetPageId": "page-tenant-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-payments",
+            "targetPageId": "page-tenant-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-documents",
+            "targetPageId": "page-tenant-mobile-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-services",
+            "targetPageId": "page-tenant-mobile-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-property-browse",
+      "title": "找房源",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1500,
+        "y": 7700,
+        "group": 9,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1400,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-tpb01",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-property-browse.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-dashboard",
+            "targetPageId": "page-tenant-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-payments",
+            "targetPageId": "page-tenant-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-documents",
+            "targetPageId": "page-tenant-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-services",
+            "targetPageId": "page-tenant-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-maintenance",
+            "targetPageId": "page-tenant-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mobile-property-browse",
+      "title": "找房源(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3000,
+        "y": 8550,
+        "group": 10,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mob06",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mobile-property-browse.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mobile-dashboard",
+            "targetPageId": "page-tenant-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-payments",
+            "targetPageId": "page-tenant-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-documents",
+            "targetPageId": "page-tenant-mobile-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-services",
+            "targetPageId": "page-tenant-mobile-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mobile-maintenance",
+            "targetPageId": "page-tenant-mobile-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mobile-properties",
+      "title": "房源浏览(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2500,
+        "y": 12350,
+        "group": 14,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-emob01",
+          "measuredAt": 1785804998108
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mobile-properties.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mobile-dashboard",
+            "targetPageId": "page-employee-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-attendance",
+            "targetPageId": "page-employee-mobile-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-performance",
+            "targetPageId": "page-employee-mobile-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-contacts",
+            "targetPageId": "page-employee-mobile-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mobile-dashboard",
+      "title": "管理员首页(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 500,
+        "y": 950,
+        "group": 2,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1414,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-cda35e9e",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mobile-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mobile-properties",
+            "targetPageId": "page-admin-mobile-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-crm",
+            "targetPageId": "page-admin-mobile-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-payments",
+            "targetPageId": "page-admin-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-settings",
+            "targetPageId": "page-admin-mobile-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mobile-properties",
+      "title": "房源管理(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2500,
+        "y": 950,
+        "group": 2,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 2254,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-c7ed162e",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mobile-properties.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mobile-dashboard",
+            "targetPageId": "page-admin-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-crm",
+            "targetPageId": "page-admin-mobile-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-payments",
+            "targetPageId": "page-admin-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-settings",
+            "targetPageId": "page-admin-mobile-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "link-property-detail",
+            "targetPageId": "page-admin-mobile-property-detail"
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mobile-property-detail",
+      "title": "房源详情(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3000,
+        "y": 950,
+        "group": 2,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1673,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-f157841d",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mobile-property-detail.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mobile-dashboard",
+            "targetPageId": "page-admin-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-properties",
+            "targetPageId": "page-admin-mobile-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-crm",
+            "targetPageId": "page-admin-mobile-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-payments",
+            "targetPageId": "page-admin-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-settings",
+            "targetPageId": "page-admin-mobile-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-properties",
+            "targetPageId": "page-admin-mobile-properties"
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mobile-crm",
+      "title": "客户管理(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 950,
+        "group": 2,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1410,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-2316c074",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mobile-crm.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mobile-dashboard",
+            "targetPageId": "page-admin-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-properties",
+            "targetPageId": "page-admin-mobile-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-payments",
+            "targetPageId": "page-admin-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-settings",
+            "targetPageId": "page-admin-mobile-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mobile-leases",
+      "title": "合同管理(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1500,
+        "y": 950,
+        "group": 2,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1717,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-ecf0f8fe",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mobile-leases.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mobile-dashboard",
+            "targetPageId": "page-admin-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-properties",
+            "targetPageId": "page-admin-mobile-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-crm",
+            "targetPageId": "page-admin-mobile-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-payments",
+            "targetPageId": "page-admin-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-settings",
+            "targetPageId": "page-admin-mobile-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mobile-payments",
+      "title": "收付款管理(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2000,
+        "y": 950,
+        "group": 2,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1143,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-0bfa9c35",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mobile-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mobile-dashboard",
+            "targetPageId": "page-admin-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-properties",
+            "targetPageId": "page-admin-mobile-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-crm",
+            "targetPageId": "page-admin-mobile-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-settings",
+            "targetPageId": "page-admin-mobile-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mobile-employees",
+      "title": "员工管理(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1000,
+        "y": 950,
+        "group": 2,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1648,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-a6eaffa5",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mobile-employees.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mobile-dashboard",
+            "targetPageId": "page-admin-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-properties",
+            "targetPageId": "page-admin-mobile-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-crm",
+            "targetPageId": "page-admin-mobile-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-payments",
+            "targetPageId": "page-admin-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-settings",
+            "targetPageId": "page-admin-mobile-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mobile-settings",
+      "title": "系统设置(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3500,
+        "y": 950,
+        "group": 2,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1441,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-ae8ba668",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mobile-settings.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mobile-dashboard",
+            "targetPageId": "page-admin-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-properties",
+            "targetPageId": "page-admin-mobile-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-crm",
+            "targetPageId": "page-admin-mobile-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-payments",
+            "targetPageId": "page-admin-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mobile-employees",
+            "targetPageId": "page-admin-mobile-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mobile-dashboard",
+      "title": "业主首页(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 4750,
+        "group": 6,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-omob-dash",
+          "measuredAt": 1785810000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mobile-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mobile-income",
+            "targetPageId": "page-owner-mobile-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-documents",
+            "targetPageId": "page-owner-mobile-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-services",
+            "targetPageId": "page-owner-mobile-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-settings",
+            "targetPageId": "page-owner-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mobile-income",
+      "title": "收益报表(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1000,
+        "y": 4750,
+        "group": 6,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-omob-inc",
+          "measuredAt": 1785810000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mobile-income.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mobile-dashboard",
+            "targetPageId": "page-owner-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-documents",
+            "targetPageId": "page-owner-mobile-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-services",
+            "targetPageId": "page-owner-mobile-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-settings",
+            "targetPageId": "page-owner-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mobile-documents",
+      "title": "租房文档(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 500,
+        "y": 4750,
+        "group": 6,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-omob-doc",
+          "measuredAt": 1785810000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mobile-documents.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mobile-dashboard",
+            "targetPageId": "page-owner-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-income",
+            "targetPageId": "page-owner-mobile-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-services",
+            "targetPageId": "page-owner-mobile-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-settings",
+            "targetPageId": "page-owner-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mobile-services",
+      "title": "物业服务(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2500,
+        "y": 4750,
+        "group": 6,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-omob-svc",
+          "measuredAt": 1785810000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mobile-services.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mobile-dashboard",
+            "targetPageId": "page-owner-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-income",
+            "targetPageId": "page-owner-mobile-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-documents",
+            "targetPageId": "page-owner-mobile-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-settings",
+            "targetPageId": "page-owner-mobile-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mobile-payments",
+      "title": "账单缴费(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1500,
+        "y": 4750,
+        "group": 6,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-omob-pay",
+          "measuredAt": 1785810000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mobile-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mobile-dashboard",
+            "targetPageId": "page-owner-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-income",
+            "targetPageId": "page-owner-mobile-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-documents",
+            "targetPageId": "page-owner-mobile-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-services",
+            "targetPageId": "page-owner-mobile-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mobile-dashboard",
+      "title": "员工首页(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1500,
+        "y": 12350,
+        "group": 14,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-emob-dash",
+          "measuredAt": 1785810000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mobile-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mobile-properties",
+            "targetPageId": "page-employee-mobile-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-attendance",
+            "targetPageId": "page-employee-mobile-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-performance",
+            "targetPageId": "page-employee-mobile-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-contacts",
+            "targetPageId": "page-employee-mobile-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mobile-attendance",
+      "title": "考勤打卡(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 12350,
+        "group": 14,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-emob-att",
+          "measuredAt": 1785810000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mobile-attendance.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mobile-dashboard",
+            "targetPageId": "page-employee-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-properties",
+            "targetPageId": "page-employee-mobile-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-performance",
+            "targetPageId": "page-employee-mobile-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-contacts",
+            "targetPageId": "page-employee-mobile-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mobile-performance",
+      "title": "业绩查询(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2000,
+        "y": 12350,
+        "group": 14,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-emob-perf",
+          "measuredAt": 1785810000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mobile-performance.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mobile-dashboard",
+            "targetPageId": "page-employee-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-properties",
+            "targetPageId": "page-employee-mobile-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-attendance",
+            "targetPageId": "page-employee-mobile-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-contacts",
+            "targetPageId": "page-employee-mobile-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mobile-contacts",
+      "title": "通讯录(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1000,
+        "y": 12350,
+        "group": 14,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-emob-cont",
+          "measuredAt": 1785810000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mobile-contacts.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mobile-dashboard",
+            "targetPageId": "page-employee-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-properties",
+            "targetPageId": "page-employee-mobile-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-attendance",
+            "targetPageId": "page-employee-mobile-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-performance",
+            "targetPageId": "page-employee-mobile-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-pad-dashboard",
+      "title": "数据总览(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1150,
+        "y": 1800,
+        "group": 3,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-36a88401",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-pad-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-pad-properties",
+            "targetPageId": "page-admin-pad-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-crm",
+            "targetPageId": "page-admin-pad-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-leases",
+            "targetPageId": "page-admin-pad-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-payments",
+            "targetPageId": "page-admin-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-employees",
+            "targetPageId": "page-admin-pad-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-settings",
+            "targetPageId": "page-admin-pad-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-pad-properties",
+      "title": "房源管理(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 5750,
+        "y": 1800,
+        "group": 3,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-e48735a5",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-pad-properties.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-pad-dashboard",
+            "targetPageId": "page-admin-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-crm",
+            "targetPageId": "page-admin-pad-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-leases",
+            "targetPageId": "page-admin-pad-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-payments",
+            "targetPageId": "page-admin-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-employees",
+            "targetPageId": "page-admin-pad-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-settings",
+            "targetPageId": "page-admin-pad-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "link-property-detail",
+            "targetPageId": "page-admin-pad-property-detail"
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-pad-property-detail",
+      "title": "房源详情(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 6900,
+        "y": 1800,
+        "group": 3,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-fb6f369d",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-pad-property-detail.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-pad-dashboard",
+            "targetPageId": "page-admin-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-properties",
+            "targetPageId": "page-admin-pad-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-crm",
+            "targetPageId": "page-admin-pad-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-leases",
+            "targetPageId": "page-admin-pad-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-payments",
+            "targetPageId": "page-admin-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-employees",
+            "targetPageId": "page-admin-pad-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-settings",
+            "targetPageId": "page-admin-pad-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-properties",
+            "targetPageId": "page-admin-pad-properties"
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-pad-crm",
+      "title": "客户管理(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 1800,
+        "group": 3,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-99496e15",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-pad-crm.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-pad-dashboard",
+            "targetPageId": "page-admin-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-properties",
+            "targetPageId": "page-admin-pad-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-leases",
+            "targetPageId": "page-admin-pad-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-payments",
+            "targetPageId": "page-admin-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-employees",
+            "targetPageId": "page-admin-pad-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-settings",
+            "targetPageId": "page-admin-pad-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-pad-leases",
+      "title": "合同管理(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3450,
+        "y": 1800,
+        "group": 3,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-26740ba9",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-pad-leases.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-pad-dashboard",
+            "targetPageId": "page-admin-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-properties",
+            "targetPageId": "page-admin-pad-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-crm",
+            "targetPageId": "page-admin-pad-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-payments",
+            "targetPageId": "page-admin-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-employees",
+            "targetPageId": "page-admin-pad-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-settings",
+            "targetPageId": "page-admin-pad-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-pad-payments",
+      "title": "收付款管理(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 4600,
+        "y": 1800,
+        "group": 3,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-41e0c072",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-pad-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-pad-dashboard",
+            "targetPageId": "page-admin-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-properties",
+            "targetPageId": "page-admin-pad-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-crm",
+            "targetPageId": "page-admin-pad-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-leases",
+            "targetPageId": "page-admin-pad-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-employees",
+            "targetPageId": "page-admin-pad-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-settings",
+            "targetPageId": "page-admin-pad-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-pad-employees",
+      "title": "员工管理(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2300,
+        "y": 1800,
+        "group": 3,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-fd1251f2",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-pad-employees.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-pad-dashboard",
+            "targetPageId": "page-admin-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-properties",
+            "targetPageId": "page-admin-pad-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-crm",
+            "targetPageId": "page-admin-pad-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-leases",
+            "targetPageId": "page-admin-pad-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-payments",
+            "targetPageId": "page-admin-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-settings",
+            "targetPageId": "page-admin-pad-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-pad-settings",
+      "title": "系统设置(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 8050,
+        "y": 1800,
+        "group": 3,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-b7c8945d",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-pad-settings.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-pad-dashboard",
+            "targetPageId": "page-admin-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-properties",
+            "targetPageId": "page-admin-pad-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-crm",
+            "targetPageId": "page-admin-pad-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-leases",
+            "targetPageId": "page-admin-pad-leases",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-payments",
+            "targetPageId": "page-admin-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-pad-employees",
+            "targetPageId": "page-admin-pad-employees",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-pad-dashboard",
+      "title": "租客首页(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 9400,
+        "group": 11,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-oard",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-pad-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-pad-property-browse",
+            "targetPageId": "page-tenant-pad-property-browse",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-payments",
+            "targetPageId": "page-tenant-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-documents",
+            "targetPageId": "page-tenant-pad-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-services",
+            "targetPageId": "page-tenant-pad-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-maintenance",
+            "targetPageId": "page-tenant-pad-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-pad-property-browse",
+      "title": "找房源(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 6900,
+        "y": 9400,
+        "group": 11,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-owse",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-pad-property-browse.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-pad-dashboard",
+            "targetPageId": "page-tenant-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-payments",
+            "targetPageId": "page-tenant-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-documents",
+            "targetPageId": "page-tenant-pad-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-services",
+            "targetPageId": "page-tenant-pad-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-maintenance",
+            "targetPageId": "page-tenant-pad-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-pad-payments",
+      "title": "付款凭证(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 4600,
+        "y": 9400,
+        "group": 11,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-ents",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-pad-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-pad-dashboard",
+            "targetPageId": "page-tenant-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-property-browse",
+            "targetPageId": "page-tenant-pad-property-browse",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-documents",
+            "targetPageId": "page-tenant-pad-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-services",
+            "targetPageId": "page-tenant-pad-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-maintenance",
+            "targetPageId": "page-tenant-pad-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-pad-documents",
+      "title": "租房文档(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1150,
+        "y": 9400,
+        "group": 11,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-ents",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-pad-documents.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-pad-dashboard",
+            "targetPageId": "page-tenant-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-property-browse",
+            "targetPageId": "page-tenant-pad-property-browse",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-payments",
+            "targetPageId": "page-tenant-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-services",
+            "targetPageId": "page-tenant-pad-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-maintenance",
+            "targetPageId": "page-tenant-pad-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-pad-services",
+      "title": "服务申请(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 9200,
+        "y": 9400,
+        "group": 11,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-ices",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-pad-services.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-pad-dashboard",
+            "targetPageId": "page-tenant-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-property-browse",
+            "targetPageId": "page-tenant-pad-property-browse",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-payments",
+            "targetPageId": "page-tenant-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-documents",
+            "targetPageId": "page-tenant-pad-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-maintenance",
+            "targetPageId": "page-tenant-pad-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-pad-maintenance",
+      "title": "报修中心(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2300,
+        "y": 9400,
+        "group": 11,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-ance",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-pad-maintenance.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-pad-dashboard",
+            "targetPageId": "page-tenant-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-property-browse",
+            "targetPageId": "page-tenant-pad-property-browse",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-payments",
+            "targetPageId": "page-tenant-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-documents",
+            "targetPageId": "page-tenant-pad-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-pad-services",
+            "targetPageId": "page-tenant-pad-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-pad-dashboard",
+      "title": "业主首页(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 5600,
+        "group": 7,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-oard",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-pad-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-pad-income",
+            "targetPageId": "page-owner-pad-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-documents",
+            "targetPageId": "page-owner-pad-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-services",
+            "targetPageId": "page-owner-pad-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-payments",
+            "targetPageId": "page-owner-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-pad-income",
+      "title": "收益报表(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2300,
+        "y": 5600,
+        "group": 7,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-come",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-pad-income.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-pad-dashboard",
+            "targetPageId": "page-owner-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-documents",
+            "targetPageId": "page-owner-pad-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-services",
+            "targetPageId": "page-owner-pad-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-payments",
+            "targetPageId": "page-owner-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-pad-documents",
+      "title": "租房文档(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1150,
+        "y": 5600,
+        "group": 7,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-ents",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-pad-documents.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-pad-dashboard",
+            "targetPageId": "page-owner-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-income",
+            "targetPageId": "page-owner-pad-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-services",
+            "targetPageId": "page-owner-pad-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-payments",
+            "targetPageId": "page-owner-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-pad-services",
+      "title": "物业服务(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 5750,
+        "y": 5600,
+        "group": 7,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-ices",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-pad-services.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-pad-dashboard",
+            "targetPageId": "page-owner-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-income",
+            "targetPageId": "page-owner-pad-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-documents",
+            "targetPageId": "page-owner-pad-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-payments",
+            "targetPageId": "page-owner-pad-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-pad-payments",
+      "title": "账单缴费(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3450,
+        "y": 5600,
+        "group": 7,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-ents",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-pad-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-pad-dashboard",
+            "targetPageId": "page-owner-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-income",
+            "targetPageId": "page-owner-pad-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-documents",
+            "targetPageId": "page-owner-pad-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-pad-services",
+            "targetPageId": "page-owner-pad-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-pad-dashboard",
+      "title": "员工首页(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3450,
+        "y": 13200,
+        "group": 15,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-oard",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-pad-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-pad-properties",
+            "targetPageId": "page-employee-pad-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-attendance",
+            "targetPageId": "page-employee-pad-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-performance",
+            "targetPageId": "page-employee-pad-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-contacts",
+            "targetPageId": "page-employee-pad-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-pad-properties",
+      "title": "房源浏览(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 5750,
+        "y": 13200,
+        "group": 15,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-ties",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-pad-properties.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-pad-dashboard",
+            "targetPageId": "page-employee-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-attendance",
+            "targetPageId": "page-employee-pad-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-performance",
+            "targetPageId": "page-employee-pad-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-contacts",
+            "targetPageId": "page-employee-pad-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-pad-attendance",
+      "title": "考勤打卡(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 13200,
+        "group": 15,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-ance",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-pad-attendance.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-pad-dashboard",
+            "targetPageId": "page-employee-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-properties",
+            "targetPageId": "page-employee-pad-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-performance",
+            "targetPageId": "page-employee-pad-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-contacts",
+            "targetPageId": "page-employee-pad-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-pad-performance",
+      "title": "业绩查询(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 4600,
+        "y": 13200,
+        "group": 15,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-ance",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-pad-performance.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-pad-dashboard",
+            "targetPageId": "page-employee-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-properties",
+            "targetPageId": "page-employee-pad-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-attendance",
+            "targetPageId": "page-employee-pad-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-contacts",
+            "targetPageId": "page-employee-pad-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-pad-contacts",
+      "title": "通讯录(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2300,
+        "y": 13200,
+        "group": 15,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1024,
+          "viewportWidth": 768,
+          "sourceHash": "fnv1a-pad-acts",
+          "measuredAt": 1785820000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-pad-contacts.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-pad-dashboard",
+            "targetPageId": "page-employee-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-properties",
+            "targetPageId": "page-employee-pad-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-attendance",
+            "targetPageId": "page-employee-pad-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-performance",
+            "targetPageId": "page-employee-pad-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mini-dashboard",
+      "title": "管理员首页(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 500,
+        "y": 2650,
+        "group": 4,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1414,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-aef12f11",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mini-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mini-properties",
+            "targetPageId": "page-admin-mini-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-crm",
+            "targetPageId": "page-admin-mini-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-payments",
+            "targetPageId": "page-admin-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-settings",
+            "targetPageId": "page-admin-mini-settings",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mini-properties",
+      "title": "房源管理(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2500,
+        "y": 2650,
+        "group": 4,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 2254,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-9f9721da",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mini-properties.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mini-dashboard",
+            "targetPageId": "page-admin-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-crm",
+            "targetPageId": "page-admin-mini-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-payments",
+            "targetPageId": "page-admin-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-settings",
+            "targetPageId": "page-admin-mini-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "link-property-detail",
+            "targetPageId": "page-admin-mini-property-detail",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mini-property-detail",
+      "title": "房源详情(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3000,
+        "y": 2650,
+        "group": 4,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1673,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-5d17d87a",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mini-property-detail.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mini-dashboard",
+            "targetPageId": "page-admin-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-properties",
+            "targetPageId": "page-admin-mini-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-crm",
+            "targetPageId": "page-admin-mini-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-payments",
+            "targetPageId": "page-admin-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-settings",
+            "targetPageId": "page-admin-mini-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-properties",
+            "targetPageId": "page-admin-mini-properties",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mini-crm",
+      "title": "客户管理(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 2650,
+        "group": 4,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1410,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-88edd550",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mini-crm.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mini-dashboard",
+            "targetPageId": "page-admin-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-properties",
+            "targetPageId": "page-admin-mini-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-payments",
+            "targetPageId": "page-admin-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-settings",
+            "targetPageId": "page-admin-mini-settings",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mini-leases",
+      "title": "合同管理(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1500,
+        "y": 2650,
+        "group": 4,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1717,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-f74e99b6",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mini-leases.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mini-dashboard",
+            "targetPageId": "page-admin-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-properties",
+            "targetPageId": "page-admin-mini-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-crm",
+            "targetPageId": "page-admin-mini-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-payments",
+            "targetPageId": "page-admin-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-settings",
+            "targetPageId": "page-admin-mini-settings",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mini-payments",
+      "title": "收付款管理(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2000,
+        "y": 2650,
+        "group": 4,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1143,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-bf98ec91",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mini-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mini-dashboard",
+            "targetPageId": "page-admin-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-properties",
+            "targetPageId": "page-admin-mini-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-crm",
+            "targetPageId": "page-admin-mini-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-settings",
+            "targetPageId": "page-admin-mini-settings",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mini-employees",
+      "title": "员工管理(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1000,
+        "y": 2650,
+        "group": 4,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1648,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-b6a769d0",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mini-employees.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mini-dashboard",
+            "targetPageId": "page-admin-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-properties",
+            "targetPageId": "page-admin-mini-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-crm",
+            "targetPageId": "page-admin-mini-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-payments",
+            "targetPageId": "page-admin-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-settings",
+            "targetPageId": "page-admin-mini-settings",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-admin-mini-settings",
+      "title": "系统设置(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3500,
+        "y": 2650,
+        "group": 4,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1562,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-64c558f6",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/admin-mini-settings.html",
+        "interactions": [
+          {
+            "domId": "nav-admin-mini-dashboard",
+            "targetPageId": "page-admin-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-properties",
+            "targetPageId": "page-admin-mini-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-crm",
+            "targetPageId": "page-admin-mini-crm",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-payments",
+            "targetPageId": "page-admin-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-admin-mini-employees",
+            "targetPageId": "page-admin-mini-employees",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mini-dashboard",
+      "title": "租客首页(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 10250,
+        "group": 12,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-oard",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mini-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mini-payments",
+            "targetPageId": "page-tenant-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-documents",
+            "targetPageId": "page-tenant-mini-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-services",
+            "targetPageId": "page-tenant-mini-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-maintenance",
+            "targetPageId": "page-tenant-mini-maintenance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-property-browse",
+            "targetPageId": "page-tenant-mini-property-browse",
+            "hideEdge": true
+          },
+          {
+            "domId": "quick-tenant-mini-property-browse",
+            "targetPageId": "page-tenant-mini-property-browse",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mini-property-browse",
+      "title": "找房源(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 3000,
+        "y": 10250,
+        "group": 12,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-owse",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mini-property-browse.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mini-dashboard",
+            "targetPageId": "page-tenant-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-payments",
+            "targetPageId": "page-tenant-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-documents",
+            "targetPageId": "page-tenant-mini-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-services",
+            "targetPageId": "page-tenant-mini-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-maintenance",
+            "targetPageId": "page-tenant-mini-maintenance",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mini-payments",
+      "title": "付款凭证(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2000,
+        "y": 10250,
+        "group": 12,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-ents",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mini-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mini-dashboard",
+            "targetPageId": "page-tenant-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-documents",
+            "targetPageId": "page-tenant-mini-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-services",
+            "targetPageId": "page-tenant-mini-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-maintenance",
+            "targetPageId": "page-tenant-mini-maintenance",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mini-documents",
+      "title": "租房文档(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 500,
+        "y": 10250,
+        "group": 12,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-ents",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mini-documents.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mini-dashboard",
+            "targetPageId": "page-tenant-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-payments",
+            "targetPageId": "page-tenant-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-services",
+            "targetPageId": "page-tenant-mini-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-maintenance",
+            "targetPageId": "page-tenant-mini-maintenance",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mini-services",
+      "title": "服务申请(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 4000,
+        "y": 10250,
+        "group": 12,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-ices",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mini-services.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mini-dashboard",
+            "targetPageId": "page-tenant-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-payments",
+            "targetPageId": "page-tenant-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-documents",
+            "targetPageId": "page-tenant-mini-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-maintenance",
+            "targetPageId": "page-tenant-mini-maintenance",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-mini-maintenance",
+      "title": "报修中心(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1000,
+        "y": 10250,
+        "group": 12,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-ance",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mini-maintenance.html",
+        "interactions": [
+          {
+            "domId": "nav-tenant-mini-dashboard",
+            "targetPageId": "page-tenant-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-payments",
+            "targetPageId": "page-tenant-mini-payments",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-documents",
+            "targetPageId": "page-tenant-mini-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-tenant-mini-services",
+            "targetPageId": "page-tenant-mini-services",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mini-dashboard",
+      "title": "业主首页(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 6450,
+        "group": 8,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-oard",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mini-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mini-income",
+            "targetPageId": "page-owner-mini-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-documents",
+            "targetPageId": "page-owner-mini-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-services",
+            "targetPageId": "page-owner-mini-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-settings",
+            "targetPageId": "page-owner-mini-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-payments",
+            "targetPageId": "page-owner-mini-payments",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mini-income",
+      "title": "收益报表(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1000,
+        "y": 6450,
+        "group": 8,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-come",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mini-income.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mini-dashboard",
+            "targetPageId": "page-owner-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-documents",
+            "targetPageId": "page-owner-mini-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-services",
+            "targetPageId": "page-owner-mini-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-settings",
+            "targetPageId": "page-owner-mini-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-payments",
+            "targetPageId": "page-owner-mini-payments",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mini-documents",
+      "title": "租房文档(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 500,
+        "y": 6450,
+        "group": 8,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-ents",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mini-documents.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mini-dashboard",
+            "targetPageId": "page-owner-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-income",
+            "targetPageId": "page-owner-mini-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-services",
+            "targetPageId": "page-owner-mini-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-settings",
+            "targetPageId": "page-owner-mini-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-payments",
+            "targetPageId": "page-owner-mini-payments",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mini-services",
+      "title": "物业服务(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2500,
+        "y": 6450,
+        "group": 8,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-ices",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mini-services.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mini-dashboard",
+            "targetPageId": "page-owner-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-income",
+            "targetPageId": "page-owner-mini-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-documents",
+            "targetPageId": "page-owner-mini-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-settings",
+            "targetPageId": "page-owner-mini-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-payments",
+            "targetPageId": "page-owner-mini-payments",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mini-payments",
+      "title": "账单缴费(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1500,
+        "y": 6450,
+        "group": 8,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-ents",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mini-payments.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mini-dashboard",
+            "targetPageId": "page-owner-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-income",
+            "targetPageId": "page-owner-mini-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-documents",
+            "targetPageId": "page-owner-mini-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-services",
+            "targetPageId": "page-owner-mini-services",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mini-dashboard",
+      "title": "员工首页(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1500,
+        "y": 14050,
+        "group": 16,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-oard",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mini-dashboard.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mini-properties",
+            "targetPageId": "page-employee-mini-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-attendance",
+            "targetPageId": "page-employee-mini-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-performance",
+            "targetPageId": "page-employee-mini-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-contacts",
+            "targetPageId": "page-employee-mini-contacts",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mini-properties",
+      "title": "房源浏览(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2500,
+        "y": 14050,
+        "group": 16,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-ties",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mini-properties.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mini-dashboard",
+            "targetPageId": "page-employee-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-attendance",
+            "targetPageId": "page-employee-mini-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-performance",
+            "targetPageId": "page-employee-mini-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-contacts",
+            "targetPageId": "page-employee-mini-contacts",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mini-attendance",
+      "title": "考勤打卡(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 0,
+        "y": 14050,
+        "group": 16,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-ance",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mini-attendance.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mini-dashboard",
+            "targetPageId": "page-employee-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-properties",
+            "targetPageId": "page-employee-mini-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-performance",
+            "targetPageId": "page-employee-mini-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-contacts",
+            "targetPageId": "page-employee-mini-contacts",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mini-performance",
+      "title": "业绩查询(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 2000,
+        "y": 14050,
+        "group": 16,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-ance",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mini-performance.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mini-dashboard",
+            "targetPageId": "page-employee-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-properties",
+            "targetPageId": "page-employee-mini-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-attendance",
+            "targetPageId": "page-employee-mini-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-contacts",
+            "targetPageId": "page-employee-mini-contacts",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mini-contacts",
+      "title": "通讯录(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785745800000,
+      "canvasData": {
+        "x": 1000,
+        "y": 14050,
+        "group": 16,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-mini-acts",
+          "measuredAt": 1785825000000
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mini-contacts.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mini-dashboard",
+            "targetPageId": "page-employee-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-properties",
+            "targetPageId": "page-employee-mini-properties",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-attendance",
+            "targetPageId": "page-employee-mini-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-performance",
+            "targetPageId": "page-employee-mini-performance",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-property-browse",
+      "title": "房源浏览",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785820256221,
+      "canvasData": {
+        "x": 1500,
+        "y": 11500,
+        "group": 13,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1400,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-empbrws01",
+          "measuredAt": 1785820256221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-property-browse.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-dashboard",
+            "targetPageId": "page-employee-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-attendance",
+            "targetPageId": "page-employee-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-performance",
+            "targetPageId": "page-employee-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-contacts",
+            "targetPageId": "page-employee-contacts",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mobile-property-browse",
+      "title": "房源浏览(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785820256221,
+      "canvasData": {
+        "x": 3000,
+        "y": 12350,
+        "group": 14,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1200,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-empbrws02",
+          "measuredAt": 1785820256221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mobile-property-browse.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mobile-dashboard",
+            "targetPageId": "page-employee-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-attendance",
+            "targetPageId": "page-employee-mobile-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-performance",
+            "targetPageId": "page-employee-mobile-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mobile-contacts",
+            "targetPageId": "page-employee-mobile-contacts",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-pad-property-browse",
+      "title": "房源浏览(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785820256221,
+      "canvasData": {
+        "x": 6900,
+        "y": 13200,
+        "group": 15,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1300,
+          "viewportWidth": 1024,
+          "sourceHash": "fnv1a-empbrws03",
+          "measuredAt": 1785820256221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-pad-property-browse.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-pad-dashboard",
+            "targetPageId": "page-employee-pad-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-attendance",
+            "targetPageId": "page-employee-pad-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-performance",
+            "targetPageId": "page-employee-pad-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-pad-contacts",
+            "targetPageId": "page-employee-pad-contacts",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-employee-mini-property-browse",
+      "title": "房源浏览(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785820256221,
+      "canvasData": {
+        "x": 3000,
+        "y": 14050,
+        "group": 16,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1200,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-empbrws04",
+          "measuredAt": 1785820256221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mini-property-browse.html",
+        "interactions": [
+          {
+            "domId": "nav-employee-mini-dashboard",
+            "targetPageId": "page-employee-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-attendance",
+            "targetPageId": "page-employee-mini-attendance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-performance",
+            "targetPageId": "page-employee-mini-performance",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-employee-mini-contacts",
+            "targetPageId": "page-employee-mini-contacts",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mini-settings",
+      "title": "付款设置(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785821921828,
+      "canvasData": {
+        "x": 3000,
+        "y": 6450,
+        "group": 8,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 812,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-ownmini-set",
+          "measuredAt": 1785821921828
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mini-settings.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mini-dashboard",
+            "targetPageId": "page-owner-mini-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-income",
+            "targetPageId": "page-owner-mini-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-documents",
+            "targetPageId": "page-owner-mini-documents",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-services",
+            "targetPageId": "page-owner-mini-services",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-tenant-property-detail",
+      "title": "房源详情",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 3000,
+        "y": 7700,
+        "group": 9,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-tenant-propert",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-property-detail.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-mobile-property-detail",
+      "title": "房源详情(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 3500,
+        "y": 8550,
+        "group": 10,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-tenant-mobile-",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mobile-property-detail.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-pad-property-detail",
+      "title": "房源详情(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 8050,
+        "y": 9400,
+        "group": 11,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1024,
+          "sourceHash": "fnv1a-tenant-pad-pro",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-pad-property-detail.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-mini-property-detail",
+      "title": "房源详情(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 3500,
+        "y": 10250,
+        "group": 12,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-tenant-mini-pr",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mini-property-detail.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-profile",
+      "title": "我的",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 10500,
+        "y": 7700,
+        "group": 9,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-tenant-profile",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-profile.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-mobile-profile",
+      "title": "我的(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 2500,
+        "y": 8550,
+        "group": 10,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-tenant-mobile-",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mobile-profile.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-pad-profile",
+      "title": "我的(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 5750,
+        "y": 9400,
+        "group": 11,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1024,
+          "sourceHash": "fnv1a-tenant-pad-pro",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-pad-profile.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-mini-profile",
+      "title": "我的(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 2500,
+        "y": 10250,
+        "group": 12,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-tenant-mini-pr",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mini-profile.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-owner-property-detail",
+      "title": "房源详情",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 1500,
+        "y": 3900,
+        "group": 5,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-owner-property",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-property-detail.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-owner-mobile-property-detail",
+      "title": "房源详情(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 2000,
+        "y": 4750,
+        "group": 6,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-owner-mobile-p",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mobile-property-detail.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-owner-pad-property-detail",
+      "title": "房源详情(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 4600,
+        "y": 5600,
+        "group": 7,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1024,
+          "sourceHash": "fnv1a-owner-pad-prop",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-pad-property-detail.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-owner-mini-property-detail",
+      "title": "房源详情(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 2000,
+        "y": 6450,
+        "group": 8,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-owner-mini-pro",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mini-property-detail.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-employee-calendar",
+      "title": "日历提醒",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 9000,
+        "y": 11500,
+        "group": 13,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-employee-calen",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-calendar.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-employee-mobile-calendar",
+      "title": "日历提醒(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 500,
+        "y": 12350,
+        "group": 14,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-employee-mobil",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mobile-calendar.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-employee-pad-calendar",
+      "title": "日历提醒(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 1150,
+        "y": 13200,
+        "group": 15,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1024,
+          "sourceHash": "fnv1a-employee-pad-c",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-pad-calendar.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-employee-mini-calendar",
+      "title": "日历提醒(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 500,
+        "y": 14050,
+        "group": 16,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-employee-mini-",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mini-calendar.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-messages",
+      "title": "消息",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785909630221,
+      "canvasData": {
+        "x": 12000,
+        "y": 7700,
+        "group": 9,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-tenant-message",
+          "measuredAt": 1785909630221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-messages.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-mobile-messages",
+      "title": "消息(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785909630221,
+      "canvasData": {
+        "x": 1500,
+        "y": 8550,
+        "group": 10,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-tenant-mobile-",
+          "measuredAt": 1785909630221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mobile-messages.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-pad-messages",
+      "title": "消息(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785909630221,
+      "canvasData": {
+        "x": 3450,
+        "y": 9400,
+        "group": 11,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1024,
+          "sourceHash": "fnv1a-tenant-pad-mes",
+          "measuredAt": 1785909630221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-pad-messages.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-mini-messages",
+      "title": "消息(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785909630221,
+      "canvasData": {
+        "x": 1500,
+        "y": 10250,
+        "group": 12,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-tenant-mini-me",
+          "measuredAt": 1785909630221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mini-messages.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-employee-rewards",
+      "title": "促销奖励",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785909630221,
+      "canvasData": {
+        "x": 10500,
+        "y": 11500,
+        "group": 13,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-employee-rewar",
+          "measuredAt": 1785909630221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-rewards.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-employee-mobile-rewards",
+      "title": "促销奖励(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785909630221,
+      "canvasData": {
+        "x": 3500,
+        "y": 12350,
+        "group": 14,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-employee-mobil",
+          "measuredAt": 1785909630221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mobile-rewards.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-employee-pad-rewards",
+      "title": "促销奖励(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785909630221,
+      "canvasData": {
+        "x": 8050,
+        "y": 13200,
+        "group": 15,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1024,
+          "sourceHash": "fnv1a-employee-pad-r",
+          "measuredAt": 1785909630221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-pad-rewards.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-employee-mini-rewards",
+      "title": "促销奖励(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785909630221,
+      "canvasData": {
+        "x": 3500,
+        "y": 14050,
+        "group": 16,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-employee-mini-",
+          "measuredAt": 1785909630221
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/employee-mini-rewards.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-consign",
+      "title": "委托找房",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 11100,
+        "y": 8020,
+        "group": 9,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-tenant-consign",
+          "measuredAt": 1785915540191
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-consign.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-mobile-consign",
+      "title": "委托找房(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 3100,
+        "y": 8870,
+        "group": 10,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-tenant-mobile-",
+          "measuredAt": 1785915540191
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mobile-consign.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-pad-consign",
+      "title": "委托找房(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 6350,
+        "y": 9720,
+        "group": 11,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1024,
+          "sourceHash": "fnv1a-tenant-pad-con",
+          "measuredAt": 1785915540191
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-pad-consign.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-mini-consign",
+      "title": "委托找房(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 3100,
+        "y": 10570,
+        "group": 12,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-tenant-mini-co",
+          "measuredAt": 1785915540191
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mini-consign.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-purchase",
+      "title": "购房订单",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 11100,
+        "y": 8280,
+        "group": 9,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-tenant-purchas",
+          "measuredAt": 1785915540191
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-purchase.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-mobile-purchase",
+      "title": "购房订单(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 3100,
+        "y": 9130,
+        "group": 10,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-tenant-mobile-",
+          "measuredAt": 1785915540191
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mobile-purchase.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-pad-purchase",
+      "title": "购房订单(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 6350,
+        "y": 9980,
+        "group": 11,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 1024,
+          "sourceHash": "fnv1a-tenant-pad-pur",
+          "measuredAt": 1785915540191
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-pad-purchase.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-tenant-mini-purchase",
+      "title": "购房订单(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 3100,
+        "y": 10830,
+        "group": 12,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1100,
+          "viewportWidth": 390,
+          "sourceHash": "fnv1a-tenant-mini-pu",
+          "measuredAt": 1785915540191
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/tenant-mini-purchase.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-owner-consign",
+      "title": "委托中心",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 500,
+        "y": 5088,
+        "group": 5,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-cae1b3b1",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-consign.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-owner-mobile-consign",
+      "title": "委托中心(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 600,
+        "y": 5590,
+        "group": 6,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-30b36ed1",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mobile-consign.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-owner-pad-consign",
+      "title": "委托中心(Pad)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 600,
+        "y": 6440,
+        "group": 7,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-6ab412fe",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-pad-consign.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-owner-mini-consign",
+      "title": "委托中心(小程序)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785915540191,
+      "canvasData": {
+        "x": 600,
+        "y": 7290,
+        "group": 8,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-bc64478d",
+          "measuredAt": 1787669221437
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mini-consign.html",
+        "interactions": []
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": false,
+    "deviceType": "desktop",
+    "projectName": "房地产租赁管理系统 - 全角色UI",
+    "designLibrary": null
+  }
+}

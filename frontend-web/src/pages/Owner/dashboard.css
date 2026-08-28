@@ -1,0 +1,283 @@
+/* ===== Owner Dashboard 页面特有样式 ===== */
+
+/* 加载条 */
+.owner-loading-bar {
+  text-align: center;
+  padding: 10px;
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  font-size: 13px;
+  border-radius: var(--rent-radius-md);
+  margin-bottom: 16px;
+}
+
+/* 欢迎横幅 */
+.owner-welcome {
+  background: linear-gradient(135deg, var(--rent-primary) 0%, #3b51d4 100%);
+  border: none;
+}
+.owner-welcome__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 24px;
+}
+.owner-welcome__title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+}
+.owner-welcome__subtitle {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+}
+.owner-welcome__btn {
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.owner-welcome__btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* 即将到期合同卡片 */
+.owner-expiring-card {
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 16px;
+}
+
+/* ===== Timeline（共享组件，app.css 未包含，此处补齐） ===== */
+.rent-timeline {
+  position: relative;
+  padding-left: 24px;
+}
+.rent-timeline::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--rent-border);
+}
+.rent-timeline__item {
+  position: relative;
+  padding-bottom: 20px;
+}
+.rent-timeline__item:last-child {
+  padding-bottom: 0;
+}
+.rent-timeline__dot {
+  position: absolute;
+  left: -24px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid var(--rent-surface);
+  box-shadow: 0 0 0 2px var(--rent-border);
+  background: var(--rent-ink-3);
+}
+.rent-timeline__dot--success {
+  background: var(--state-success);
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2);
+}
+.rent-timeline__dot--info {
+  background: var(--state-info);
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+}
+.rent-timeline__dot--warning {
+  background: var(--state-warning);
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2);
+}
+.rent-timeline__dot--neutral {
+  background: var(--rent-ink-3);
+  box-shadow: 0 0 0 2px var(--rent-border);
+}
+
+/* ===== 表格包裹层（共享组件，app.css 未包含，此处补齐） ===== */
+.rent-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--rent-radius-lg);
+  border: 1px solid var(--rent-border);
+}
+
+/* =========================================================
+   贝壳式资产双业务首页 (ow17)
+   ========================================================= */
+.ow17-main { max-width: 1200px; margin: 0 auto; }
+
+/* 欢迎横幅 */
+.ow17-welcome {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #4263eb 0%, #3b51d4 55%, #5b3fd6 100%);
+  border-radius: 20px;
+  margin-bottom: 20px;
+  color: #fff;
+  box-shadow: 0 16px 40px -20px rgba(66, 99, 235, 0.6);
+}
+.ow17-welcome__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 28px 32px;
+}
+.ow17-welcome__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+.ow17-welcome__sub {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+}
+
+/* 双业务入口 */
+.ow17-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.ow17-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.18s;
+  min-width: 210px;
+  text-align: left;
+}
+.ow17-action:hover { background: rgba(255, 255, 255, 0.22); transform: translateY(-2px); }
+.ow17-action__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ow17-action--rent .ow17-action__icon { background: rgba(255, 255, 255, 0.2); }
+.ow17-action--sale .ow17-action__icon { background: rgba(255, 255, 255, 0.2); }
+.ow17-action__text { display: flex; flex-direction: column; gap: 3px; }
+.ow17-action__title { font-size: 16px; font-weight: 700; }
+.ow17-action__desc { font-size: 12px; color: rgba(255, 255, 255, 0.8); }
+
+/* KPI 行 */
+.ow17-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* 主栅格：房源流(左) + 右侧列 */
+.ow17-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.ow17-col { display: flex; flex-direction: column; gap: 16px; }
+
+/* 我的房源 卡片流 */
+.ow17-assets__body {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+.ow17-prop {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+}
+.ow17-prop:hover { transform: translateY(-3px); box-shadow: var(--rent-shadow-2); border-color: transparent; }
+.ow17-prop__img {
+  position: relative;
+  height: 130px;
+}
+.ow17-prop__badge { position: absolute; top: 10px; left: 10px; }
+.ow17-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--rent-radius-full);
+  backdrop-filter: blur(4px);
+}
+.ow17-badge--rent { background: rgba(22, 163, 74, 0.85); color: #fff; }
+.ow17-badge--sale { background: rgba(66, 99, 235, 0.85); color: #fff; }
+.ow17-badge--vacant { background: rgba(15, 23, 42, 0.55); color: #fff; }
+.ow17-prop__body { padding: 12px 14px 14px; }
+.ow17-prop__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ow17-prop__addr {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin: 0 0 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ow17-prop__bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ow17-prop__price {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--state-error);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.ow17-prop__unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  margin-left: 2px;
+}
+.ow17-prop__meta {
+  font-size: 11px;
+  color: var(--rent-ink-3);
+  white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+  .ow17-kpis { grid-template-columns: repeat(2, 1fr); }
+  .ow17-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .ow17-kpis { grid-template-columns: 1fr; }
+  .ow17-welcome__body { padding: 20px; }
+  .ow17-action { min-width: 100%; }
+}

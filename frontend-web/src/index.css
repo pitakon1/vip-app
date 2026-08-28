@@ -1,0 +1,42 @@
+@import './styles/tokens.css';
+@import './styles/app.css';
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--rent-font-sans);
+  background: var(--rent-background);
+  color: var(--rent-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 让 Ant Design 组件贴合 RentFlow 视觉：浅灰底 + 细边框卡片 */
+.ant-card {
+  border-radius: var(--rent-radius-lg) !important;
+  border-color: var(--rent-border) !important;
+}
+
+/* 表格行 hover 与设计稿一致 */
+.ant-table-wrapper .ant-table-tbody > tr:hover > td {
+  background: var(--rent-surface-2) !important;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--rent-border);
+  border-radius: var(--rent-radius-full);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--rent-ink-3); }

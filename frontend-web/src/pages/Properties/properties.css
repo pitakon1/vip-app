@@ -1,0 +1,376 @@
+/* =========================================================
+   房源列表页 —— 链家风格
+   垂直列表 · 左图右信息 · 管道符分隔 · 红色价格 · 标签 chips
+   ========================================================= */
+
+/* ===== 页面容器 ===== */
+.lj-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ===== 顶部工具栏 ===== */
+.lj-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.lj-toolbar__left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.lj-toolbar__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.lj-toolbar__sub {
+  font-size: 13px;
+  color: #999;
+}
+
+/* ===== 搜索 + 筛选 ===== */
+.lj-filter {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.lj-filter__search {
+  margin-bottom: 16px;
+  max-width: 520px;
+}
+.lj-filter__search .ant-input-affix-wrapper-lg {
+  border-radius: 6px;
+}
+.lj-filter__selects {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.lj-filter__select {
+  min-width: 140px;
+  flex: 1;
+  max-width: 220px;
+}
+.lj-filter__select .ant-select-selector {
+  border-radius: 6px;
+}
+
+/* ===== 排序栏 ===== */
+.lj-sortbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0 24px;
+  margin-bottom: 0;
+  border-bottom: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lj-sortbar__items {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.lj-sortbar__item {
+  position: relative;
+  padding: 14px 20px;
+  font-size: 14px;
+  color: #666;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.lj-sortbar__item:hover {
+  color: #3072f6;
+}
+.lj-sortbar__item[data-active='true'] {
+  color: #3072f6;
+  font-weight: 600;
+}
+.lj-sortbar__item[data-active='true']::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 3px;
+  border-radius: 2px;
+  background: #3072f6;
+}
+.lj-sortbar__count {
+  font-size: 13px;
+  color: #999;
+  white-space: nowrap;
+  padding: 14px 0;
+}
+.lj-sortbar__count-num {
+  color: #e4393c;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* ===== 列表容器 ===== */
+.lj-list {
+  background: #fff;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+}
+
+/* ===== 列表项 ===== */
+.lj-item {
+  display: flex;
+  gap: 20px;
+  padding: 24px;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.lj-item:last-child {
+  border-bottom: none;
+}
+.lj-item:hover {
+  background: #fafbfc;
+}
+
+/* 左侧图片占位 */
+.lj-item__img {
+  width: 232px;
+  height: 174px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.lj-item__img-text {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.lj-item__badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+.lj-item__badge--vacant {
+  background: rgba(22, 163, 74, 0.85);
+}
+.lj-item__badge--rented {
+  background: rgba(59, 130, 246, 0.85);
+}
+.lj-item__badge--reserved {
+  background: rgba(147, 51, 234, 0.85);
+}
+.lj-item__badge--maintenance {
+  background: rgba(217, 119, 6, 0.85);
+}
+
+/* 右侧内容 */
+.lj-item__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 标题 */
+.lj-item__title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.lj-item:hover .lj-item__title {
+  color: #3072f6;
+}
+
+/* 信息行（管道符分隔） */
+.lj-item__info {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+}
+.lj-item__info > span {
+  display: inline-flex;
+  align-items: center;
+}
+.lj-item__sep {
+  font-style: normal;
+  color: #ddd;
+  margin: 0 10px;
+  font-size: 12px;
+}
+
+/* 元信息行 */
+.lj-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #999;
+}
+.lj-item__meta-icon {
+  font-size: 13px;
+  color: #bbb;
+}
+
+/* 标签 */
+.lj-item__tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.lj-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.lj-chip--vacant {
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.08);
+}
+.lj-chip--rented {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.08);
+}
+.lj-chip--reserved {
+  color: #9333ea;
+  background: rgba(147, 51, 234, 0.08);
+}
+.lj-chip--maintenance {
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.08);
+}
+.lj-chip--feature {
+  color: #3072f6;
+  background: rgba(48, 114, 246, 0.06);
+}
+
+/* 底部：价格 + 操作 */
+.lj-item__bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 4px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.lj-item__price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.lj-item__price-num {
+  font-size: 26px;
+  font-weight: 700;
+  color: #e4393c;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.lj-item__price-unit {
+  font-size: 13px;
+  color: #e4393c;
+  margin-left: 2px;
+}
+.lj-item__price-per {
+  font-size: 12px;
+  color: #999;
+  margin-left: 12px;
+}
+.lj-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ===== 空状态 ===== */
+.lj-empty {
+  background: #fff;
+  border-radius: 0 0 8px 8px;
+  padding: 80px 24px;
+  text-align: center;
+}
+
+/* ===== 分页 ===== */
+.lj-pagination {
+  margin-top: 24px;
+  text-align: center;
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+}
+.lj-pagination .ant-pagination {
+  justify-content: center;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  .lj-item {
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px 16px;
+  }
+  .lj-item__img {
+    width: 100%;
+    height: 180px;
+  }
+  .lj-item__title {
+    font-size: 17px;
+    white-space: normal;
+  }
+  .lj-filter {
+    padding: 16px;
+  }
+  .lj-filter__selects {
+    flex-direction: column;
+  }
+  .lj-filter__select {
+    max-width: 100%;
+    width: 100%;
+  }
+  .lj-sortbar {
+    padding: 0 12px;
+  }
+  .lj-sortbar__item {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+  .lj-item__price-num {
+    font-size: 22px;
+  }
+}

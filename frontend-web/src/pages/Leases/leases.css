@@ -1,0 +1,17 @@
+/* ===== 合同管理页面特有样式 ===== */
+
+/* 合同表格嵌在 rent-card 内，内层 table-wrap 去掉重复边框/圆角 */
+.leases-table-wrap {
+  border: none;
+  border-radius: 0;
+}
+
+/* 表格内徽章不换行，对齐统一 */
+.leases-table-wrap .rent-badge {
+  white-space: nowrap;
+}
+
+/* 弹窗表单行间距微调 */
+.leases-modal .rent-form-group {
+  margin-bottom: 16px;
+}

@@ -1,0 +1,103 @@
+.owner-services-page {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+
+  .page-container {
+    padding: 24px;
+  }
+
+  .section-title {
+    font-size: 32px;
+    font-weight: 600;
+    color: #333333;
+    margin-bottom: 16px;
+  }
+
+  .pay-tip {
+    background-color: #fffbe6;
+    border-radius: 12px;
+    padding: 16px 24px;
+    margin-bottom: 24px;
+
+    .pay-tip-label {
+      font-size: 26px;
+      color: #faad14;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .pay-icons {
+      display: flex;
+      flex-wrap: wrap;
+
+      .pay-icon {
+        font-size: 24px;
+        color: #666666;
+        margin-right: 16px;
+        margin-bottom: 4px;
+      }
+    }
+  }
+
+  .service-list {
+    .service-card {
+      background-color: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+
+      .service-info {
+        margin-bottom: 16px;
+
+        .service-name {
+          display: block;
+          font-size: 32px;
+          font-weight: 600;
+          color: #333333;
+          margin-bottom: 8px;
+        }
+
+        .service-desc {
+          display: block;
+          font-size: 26px;
+          color: #999999;
+          margin-bottom: 12px;
+          line-height: 1.5;
+        }
+
+        .service-price {
+          display: block;
+          font-size: 36px;
+          font-weight: 700;
+          color: #ff4d4f;
+        }
+      }
+
+      .service-pay {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .pay-methods {
+          display: flex;
+
+          .pay-tag {
+            font-size: 32px;
+            margin-right: 12px;
+          }
+        }
+
+        .pay-btn {
+          width: 240px;
+          height: 72px;
+          line-height: 72px;
+          background-color: #1677ff;
+          color: #ffffff;
+          font-size: 28px;
+          border-radius: 8px;
+          padding: 0;
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,164 @@
+/* =========================================================
+   房地产租赁管理后台 — 品牌设计令牌 (Modern Light)
+   单一靛蓝主色 · 冷调浅灰底 · 白色卡片 · 细边框 · 克制圆角
+   ========================================================= */
+
+:root {
+  /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
+  --rent-background: #f2f4f8;
+  --rent-foreground: #0f172a;
+  --rent-card: #ffffff;
+  --rent-card-foreground: #0f172a;
+  --rent-popover: #ffffff;
+  --rent-popover-foreground: #0f172a;
+  --rent-primary: #4263eb;
+  --rent-primary-foreground: #ffffff;
+  --rent-muted: #f1f5f9;
+  --rent-muted-foreground: #64748b;
+  --rent-border: #e6eaf0;
+  --rent-input: #e6eaf0;
+  --rent-ring: #4263eb;
+
+  /* ---- 中性阶梯（直接引用） ---- */
+  --rent-ink: #0f172a;
+  --rent-ink-2: #475569;
+  --rent-ink-3: #94a3b8;
+  --rent-line: #e6eaf0;
+  --rent-surface: #ffffff;
+  --rent-surface-2: #f1f5f9;
+  --rent-sidebar: #ffffff;
+  --rent-sidebar-active: #eef2ff;
+
+  /* ---- 状态色（仅语义状态） ---- */
+  --state-success: #16a34a;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #0ea5e9;
+
+  /* ---- 圆角（贝壳化大圆角阶梯，上限 20px） ---- */
+  --rent-radius-sm: 6px;
+  --rent-radius-md: 12px;
+  --rent-radius-lg: 20px;
+  --rent-radius-full: 9999px;
+
+  /* ---- 阴影（静态面 alpha ≤ 0.06；深阴影仅浮层） ---- */
+  --rent-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --rent-shadow-2: 0 12px 32px -12px rgba(15, 23, 42, 0.16);
+  --rent-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.30);
+
+  /* ---- 间距（8pt 网格） ---- */
+  --rent-s-1: 4px;
+  --rent-s-2: 8px;
+  --rent-s-3: 12px;
+  --rent-s-4: 16px;
+  --rent-s-5: 24px;
+  --rent-s-6: 32px;
+  --rent-s-7: 48px;
+  --rent-s-8: 80px;
+
+  /* ---- 字体系统 ---- */
+  --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  color-scheme: light;
+}
+
+/* ---- 暗色模式（双模变量，设计态默认 light） ---- */
+.dark {
+  --rent-background: #0b0f1a;
+  --rent-foreground: #e8edf5;
+  --rent-card: #141a26;
+  --rent-card-foreground: #e8edf5;
+  --rent-popover: #141a26;
+  --rent-popover-foreground: #e8edf5;
+  --rent-primary: #6b82f5;
+  --rent-primary-foreground: #0b0f1a;
+  --rent-muted: #1c2433;
+  --rent-muted-foreground: #94a3b8;
+  --rent-border: #243044;
+  --rent-input: #243044;
+  --rent-ring: #6b82f5;
+
+  --rent-ink: #e8edf5;
+  --rent-ink-2: #a3aec2;
+  --rent-ink-3: #64748b;
+  --rent-line: #243044;
+  --rent-surface: #141a26;
+  --rent-surface-2: #1c2433;
+  --rent-sidebar: #0f1521;
+  --rent-sidebar-active: #1e2a44;
+
+  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --rent-shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.50);
+  --rent-shadow-3: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+
+  color-scheme: dark;
+}
+
+/* ---- 排版类 ---- */
+.rent-h1 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(24px, 2.6vw, 32px);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--rent-ink);
+}
+
+.rent-h2 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(20px, 2vw, 24px);
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--rent-ink);
+}
+
+.rent-h3 {
+  font-family: var(--rent-font-sans);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--rent-ink);
+}
+
+.rent-body-lg {
+  font-family: var(--rent-font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-body {
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-caption {
+  font-family: var(--rent-font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: var(--rent-ink-3);
+}
+
+.rent-mono {
+  font-family: var(--rent-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.rent-num {
+  font-family: var(--rent-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}

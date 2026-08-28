@@ -1,0 +1,2577 @@
+{
+  "success": true,
+  "outcome": "passed",
+  "repairable": true,
+  "terminalViolations": [],
+  "terminalBlockingSummary": null,
+  "skillProvenance": {
+    "name": "solo-design",
+    "version": "2026.07.22.00.00.00",
+    "version_source": "skill-release-manifest.json",
+    "runtime_skill_dir": "c:\\Users\\lvyij\\.trae-cn\\builtin\\design\\default\\skills\\solo-design",
+    "recorded_at": null,
+    "expected_version": "2026.07.22.00.00.00",
+    "status": "manifest_fallback",
+    "read_status": "ok",
+    "reason": "runtime-orchestration-summary.json missing skillProvenance; used skill-release-manifest.json"
+  },
+  "operatingMode": "free-explore",
+  "renderBlockingErrorCount": 0,
+  "softWarningCount": 276,
+  "renderBlockingErrors": [],
+  "errorSignatures": [],
+  "softWarnings": [
+    "[html-head-style] admin-crm.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-dashboard.html: found 3 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-employees.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-leases.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-crm.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-dashboard.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-employees.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-leases.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-settings.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-crm.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-dashboard.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-employees.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-leases.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-settings.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-crm.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-dashboard.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-employees.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-leases.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-settings.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-settings.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-attendance.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-calendar.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-contacts.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-attendance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-calendar.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-contacts.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-performance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-rewards.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-attendance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-calendar.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-contacts.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-performance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-rewards.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-attendance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-calendar.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-contacts.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-performance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-rewards.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-performance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-properties.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-property-browse.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-rewards.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] login.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-consign.html: found 3 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-documents.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-income.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-consign.html: found 3 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-income.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-settings.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-consign.html: found 3 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-income.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-consign.html: found 3 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-income.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-payments.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-consign.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-maintenance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-messages.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-consign.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-maintenance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-messages.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-profile.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-purchase.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-consign.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-maintenance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-messages.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-profile.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-purchase.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-consign.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-maintenance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-messages.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-profile.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-purchase.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-profile.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-purchase.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-quality] admin-crm.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-employees.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-leases.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-crm.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-employees.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-leases.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-crm.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-employees.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-leases.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-crm.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-employees.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-leases.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-attendance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-calendar.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-contacts.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-attendance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-calendar.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-contacts.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-performance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-rewards.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-attendance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-calendar.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-contacts.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-performance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-rewards.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-attendance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-calendar.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-contacts.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-performance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-rewards.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-performance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-rewards.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] login.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-income.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-income.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-income.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-income.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-maintenance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-messages.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-maintenance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-messages.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-profile.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-purchase.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-maintenance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-messages.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-profile.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-purchase.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-maintenance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-messages.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-profile.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-purchase.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-profile.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-purchase.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference."
+  ],
+  "repairPlanHints": [
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-crm.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-employees.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-leases.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mini-crm.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mini-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mini-employees.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mini-leases.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mini-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mini-properties.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mini-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mini-settings.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mobile-crm.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mobile-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mobile-employees.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mobile-leases.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mobile-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mobile-properties.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mobile-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-mobile-settings.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-pad-crm.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-pad-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-pad-employees.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-pad-leases.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-pad-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-pad-properties.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-pad-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-pad-settings.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-properties.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "admin-settings.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-attendance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-calendar.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-contacts.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mini-attendance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mini-calendar.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mini-contacts.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mini-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mini-performance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mini-properties.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mini-property-browse.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mini-rewards.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mobile-attendance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mobile-calendar.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mobile-contacts.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mobile-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mobile-performance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mobile-properties.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mobile-property-browse.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-mobile-rewards.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-pad-attendance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-pad-calendar.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-pad-contacts.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-pad-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-pad-performance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-pad-properties.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-pad-property-browse.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-pad-rewards.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-performance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-properties.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-property-browse.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "employee-rewards.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "login.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-consign.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-documents.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-income.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mini-consign.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mini-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mini-documents.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mini-income.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mini-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mini-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mini-services.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mini-settings.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mobile-consign.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mobile-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mobile-documents.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mobile-income.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mobile-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mobile-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-mobile-services.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-pad-consign.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-pad-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-pad-documents.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-pad-income.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-pad-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-pad-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-pad-services.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "owner-services.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-consign.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-documents.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-maintenance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-messages.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mini-consign.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mini-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mini-documents.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mini-maintenance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mini-messages.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mini-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mini-profile.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mini-property-browse.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mini-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mini-purchase.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mini-services.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mobile-consign.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mobile-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mobile-documents.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mobile-maintenance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mobile-messages.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mobile-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mobile-profile.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mobile-property-browse.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mobile-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mobile-purchase.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-mobile-services.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-pad-consign.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-pad-dashboard.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-pad-documents.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-pad-maintenance.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-pad-messages.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-pad-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-pad-profile.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-pad-property-browse.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-pad-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-pad-purchase.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-pad-services.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-payments.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-profile.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-property-browse.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-property-detail.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-purchase.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    },
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "tenant-services.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    }
+  ],
+  "repairActionTable": [],
+  "errorCount": 0,
+  "warningCount": 276,
+  "errors": [],
+  "warnings": [
+    "[html-head-style] admin-crm.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-dashboard.html: found 3 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-employees.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-leases.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-crm.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-dashboard.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-employees.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-leases.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mini-settings.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-crm.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-dashboard.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-employees.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-leases.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-mobile-settings.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-crm.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-dashboard.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-employees.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-leases.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-pad-settings.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] admin-settings.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-attendance.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-calendar.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-contacts.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-attendance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-calendar.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-contacts.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-performance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mini-rewards.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-attendance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-calendar.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-contacts.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-performance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-mobile-rewards.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-attendance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-calendar.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-contacts.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-performance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-properties.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-pad-rewards.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-performance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-properties.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-property-browse.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] employee-rewards.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] login.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-consign.html: found 3 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-documents.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-income.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-consign.html: found 3 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-income.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mini-settings.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-consign.html: found 3 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-income.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-mobile-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-consign.html: found 3 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-income.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-pad-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-payments.html: found 2 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] owner-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-consign.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-maintenance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-messages.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-consign.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-maintenance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-messages.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-profile.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-purchase.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mini-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-consign.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-maintenance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-messages.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-profile.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-purchase.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-mobile-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-consign.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-dashboard.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-documents.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-maintenance.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-messages.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-profile.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-purchase.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-pad-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-payments.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-profile.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-property-browse.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-property-detail.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-purchase.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] tenant-services.html: found 1 custom <style> block(s) in <head>. The <head> is owned by apply-html-head-contract.mjs; move custom styles before </body> or re-run apply-html-head-contract.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-quality] admin-crm.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-employees.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-leases.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-crm.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-employees.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-leases.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mini-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-crm.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-employees.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-leases.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-mobile-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-crm.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-employees.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-leases.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-pad-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] admin-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-attendance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-calendar.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-contacts.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-attendance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-calendar.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-contacts.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-performance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mini-rewards.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-attendance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-calendar.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-contacts.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-performance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-mobile-rewards.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-attendance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-calendar.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-contacts.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-performance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-pad-rewards.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-performance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-properties.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] employee-rewards.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] login.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-income.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-income.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mini-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-income.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-mobile-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-income.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-pad-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] owner-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-maintenance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-messages.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-maintenance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-messages.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-profile.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-purchase.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mini-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-maintenance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-messages.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-profile.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-purchase.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-mobile-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-consign.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-dashboard.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-documents.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-maintenance.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-messages.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-profile.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-purchase.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-pad-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-payments.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-profile.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-property-browse.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-property-detail.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-purchase.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference.",
+    "[html-quality] tenant-services.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference."
+  ],
+  "validationRunDisciplineStatus": {
+    "declared": false,
+    "restoreMode": false,
+    "maxFullValidationRuns": null,
+    "validationHistoryCount": 0,
+    "repairLedgerCount": 0,
+    "softWarningsTriggerRepair": null,
+    "terminalState": null,
+    "nextAction": null,
+    "violations": [],
+    "success": true
+  },
+  "terminalState": null,
+  "nextCheck": {
+    "type": "finish-readiness",
+    "command": "node \"c:\\Users\\lvyij\\.trae-cn\\builtin\\design\\default\\skills\\solo-design\\shared-runtime\\deterministic-tooling\\validate-finish-readiness.mjs\" \"e:\\work\\app\\vip app\\rental-full-draft\" --check=all",
+    "fullValidationAllowed": false,
+    "reason": "workspace validation passed; run complete finish readiness before final delivery"
+  },
+  "repairBatch": [],
+  "repairContextPacket": {
+    "schema_version": "1.0",
+    "purpose": "small-context repair packet; read this before full validation-report.json",
+    "success": true,
+    "terminalState": null,
+    "skillProvenance": {
+      "name": "solo-design",
+      "version": "2026.07.22.00.00.00",
+      "version_source": "skill-release-manifest.json",
+      "runtime_skill_dir": "c:\\Users\\lvyij\\.trae-cn\\builtin\\design\\default\\skills\\solo-design",
+      "recorded_at": null,
+      "expected_version": "2026.07.22.00.00.00",
+      "status": "manifest_fallback",
+      "read_status": "ok",
+      "reason": "runtime-orchestration-summary.json missing skillProvenance; used skill-release-manifest.json"
+    },
+    "renderBlockingErrorCount": 0,
+    "softWarningCount": 276,
+    "renderBlockingErrors": [],
+    "repairActionTable": [],
+    "nextCheck": {
+      "type": "finish-readiness",
+      "command": "node \"c:\\Users\\lvyij\\.trae-cn\\builtin\\design\\default\\skills\\solo-design\\shared-runtime\\deterministic-tooling\\validate-finish-readiness.mjs\" \"e:\\work\\app\\vip app\\rental-full-draft\" --check=all",
+      "fullValidationAllowed": false,
+      "reason": "workspace validation passed; run complete finish readiness before final delivery"
+    },
+    "forbidden": [
+      "do not read validator source",
+      "do not rerun full validation when nextCheck.fullValidationAllowed=false",
+      "do not start preview/browser unless user explicitly asks",
+      "do not hand-edit repair ledger fields"
+    ]
+  },
+  "projectFileHashes": {
+    "rental-full-draft.design": "1356fb63d3dd2c70cd098310f70d10f1fb4c270965c3b9f1361f9db7b9e380d3",
+    "pages/admin-crm.html": "85a877fc32d2a5414234bc61ddfff75dc2f72622b9ee5d271064eb829311bf77",
+    "pages/admin-dashboard.html": "10df16be75c32733264432a90e038fc149fbac171e2df25eccfe79b3c37c7bc4",
+    "pages/admin-employees.html": "258a8e6f5b6967c3b1c73abc7c128671d2f9a6d651f1c26f402700990c1a720c",
+    "pages/admin-leases.html": "9cd029aa1579859dde8057c4fcdd92bf20cd3d6e74d082e3cce2b7dd84d7c1b1",
+    "pages/admin-mini-crm.html": "8e088178d1928cdffaaf2df945a7871c65b22d3d9d90ff00437f772a351cacd8",
+    "pages/admin-mini-dashboard.html": "d313b44449bebacca272c647538b3033a5bed8b095c3e35f45857fee931b1530",
+    "pages/admin-mini-employees.html": "427add72bd1044c2e56403cf64840074ddc4f2a4b7e4146e7824d92ffc1ed0a1",
+    "pages/admin-mini-leases.html": "2169e117f4ad4e778aab96e3d13c107b1495025b37e0788fe304053db9de4b14",
+    "pages/admin-mini-payments.html": "a1e4aa22cae5853e440bc9afbc220b11fe496bd44eb55b7f93bced0fa330d7fb",
+    "pages/admin-mini-properties.html": "34e20cf1bcd76fee2e2347b2e5d5da9c1aa225522df8ae3deaeb4ef7a1ce841c",
+    "pages/admin-mini-property-detail.html": "720676a2d88b81ff0c061cd47a89864afaf4eefa1b2dcf9304f656c1ad8deb4c",
+    "pages/admin-mini-settings.html": "71588c45d6a68507b64174d4a0be6cfc5d804d43492e6fae05b5b7734905228e",
+    "pages/admin-mobile-crm.html": "c8e0b5db9425177631c26677a0d3d2a878e5876b596711dd93085e6e9f4f9dc0",
+    "pages/admin-mobile-dashboard.html": "b94bf09f8ee7654efb4c496794371627717f942424c48fa18faf2974b1248055",
+    "pages/admin-mobile-employees.html": "23f37be2439b109fecc5b3cb4514a4311ba6a7428e60cc624feeb7ca68615889",
+    "pages/admin-mobile-leases.html": "1463d9e5f605829c24f12c555ab3257b765c309043d7dff9b4eddc3a74f4e9a2",
+    "pages/admin-mobile-payments.html": "f107f59d9a8c1c27d71d9110abeefc7433776022186ac9b5d1ab8a278741d503",
+    "pages/admin-mobile-properties.html": "37c96b911b5d6d4272ff2a968aff38d2123c9ae2123ec0c37cde7953847698e0",
+    "pages/admin-mobile-property-detail.html": "5259c80fdc9e2a083ed43298c2813e986c09a22a0108c0dfca7ec00bd011bd32",
+    "pages/admin-mobile-settings.html": "16b25f2590b672623d9edc191c40267e48c5021eef6d11d18a02df3d8e35f063",
+    "pages/admin-pad-crm.html": "d0708d44a95ee5b98fb2b9f24d7a6243f90101c7aaada1b98bbcf9c5c6ace9d3",
+    "pages/admin-pad-dashboard.html": "31a101b1bbc68213a324cdd1a0460e60a29c2800b876b786079335e0432ffb0b",
+    "pages/admin-pad-employees.html": "598f5b888dc72cfe499d3c96abb8fae26bdc0368dc146591cba1746e80813e9c",
+    "pages/admin-pad-leases.html": "7616eef127cfb073c941ef9d80a709fe326ef847644603125a17226e0e9b4a3d",
+    "pages/admin-pad-payments.html": "a32b2f6318373485a0e8bf311031e4e1807f0561ffcee38f387a1b8d0b332251",
+    "pages/admin-pad-properties.html": "be1a53217da35c5c98147bb14ac9f43a23b4e379985c22851a24787b156040dd",
+    "pages/admin-pad-property-detail.html": "358674fe1846af82bac9ab77557df4b348e5ae2c61a42d701036d61f171ffa83",
+    "pages/admin-pad-settings.html": "596eb24605af5d949d62cf50bc7e09a879d07d32c13617f51d4cf2667af7b250",
+    "pages/admin-payments.html": "ab08983cef495402b87191509d1de5e8f37a842ba5d0ab7ee84ae39d66c55c68",
+    "pages/admin-properties.html": "29a3a77be8662ea76c7847477d2dacd4397b7e85ea6c78cd02f5cb60a4801581",
+    "pages/admin-property-detail.html": "042831c6e0a6a7a35353c7aafcb96aa8fc33d7d097e08f5035203e184a135be3",
+    "pages/admin-settings.html": "6a58087f329e0da19c5e013a78739ce96610363f0443f2c33d61ebf6add88ab1",
+    "pages/employee-attendance.html": "e6fa3298f7ae52b7cc38e470592fc13933f6ea57b9cbbeaf7c0647df6607f541",
+    "pages/employee-calendar.html": "7b9776d16d3a7b4c3bc92b326bb3e1ed0967150ee499af151829cf35062d3995",
+    "pages/employee-contacts.html": "9657a11b1552b9afe2e889e7c722cb41cf3eb567fe31cc8509b88fb2ddafa435",
+    "pages/employee-dashboard.html": "0ec5e0ddc7e8f05c50558c9de13194112ec1ccc5c744b419e60b2e7d75f05e85",
+    "pages/employee-mini-attendance.html": "d63887ccb3a5567395139fbc7f3a445392cef78edd7e46b634f81a55eca30961",
+    "pages/employee-mini-calendar.html": "f03a0c262c7aef3bd5a04934f18a17750d6c331dc3734d9a4cb88ed27cf9eeb1",
+    "pages/employee-mini-contacts.html": "c0a0da7bfd8eb0d7c258374a699515b645601085228910b5747ebb7bbbb85952",
+    "pages/employee-mini-dashboard.html": "3165588e2e934048bc1dfc1d4800703e8a52ea29d1ec01e236fc0088d6629a7b",
+    "pages/employee-mini-performance.html": "34bef7c8b1876ad6f960cae73ad3c523cd1f535e0b078b7ccb3f33de45c7168b",
+    "pages/employee-mini-properties.html": "609ffafd7d3758917711dcea6b8d1cd7d6a7ba5abd0d771aef2e9e56e313d80e",
+    "pages/employee-mini-property-browse.html": "4802e7aa0dcbd936d5f7dfd17bf471125a54c6b83b6d5ecfce7d24521a10e22c",
+    "pages/employee-mini-rewards.html": "5333f3d8344f42b223e3dc273736ae762ce9f0fdb5c6021a2b11cb553c04e6af",
+    "pages/employee-mobile-attendance.html": "c1b0d61507398b532bc71466258ccdb88fe4dfa64ff509106bed54d22e60f4f9",
+    "pages/employee-mobile-calendar.html": "1900172d0f99752f65368d1a6ea11536061a0a5124cc169f24cb33f9c82dab42",
+    "pages/employee-mobile-contacts.html": "fd1057533db64bfc3b7e00410b847b07118dba6ef4fb8240c23b5ccc97febfe0",
+    "pages/employee-mobile-dashboard.html": "7547f7a6becc8055401b6c51b5ea180cc84837e5261d347ddef34014e8224e87",
+    "pages/employee-mobile-performance.html": "cb4e5b71b13960260995299064d6667dd6efef36f3b6e99b6b953a026e5371f8",
+    "pages/employee-mobile-properties.html": "fa5eff10a0ee1c573d4232452de85073f1922f1728bbc2c6ec00d7971b62acf3",
+    "pages/employee-mobile-property-browse.html": "58fa882d160cac8a3d41f93cf53b3db84fd10f98c5692ca50af81d15cf36fb7e",
+    "pages/employee-mobile-rewards.html": "87bb08533e88a6e9e511e44720cc74ab565306aca5dacdfb97254016a345c257",
+    "pages/employee-pad-attendance.html": "b00835ebee1a06dd93077cb6d3ed1e12913ade294fd6a25df539a6fe36425dfc",
+    "pages/employee-pad-calendar.html": "f756c2096e4b8ed7dc4c88d1e8f06d66c71a8d330a4b5ecca52886d4e656cc60",
+    "pages/employee-pad-contacts.html": "f9a9f54bc4bc3e300fc9cfe60e1c7716ab6e6e52f6f73e95ab100527d897381a",
+    "pages/employee-pad-dashboard.html": "e4c7ab574192a5076c548a103109ea8bd7b37ea2ed2186a1c10068d0fc604b18",
+    "pages/employee-pad-performance.html": "070d81f2008f11528a843818d2ae24e230ce300d616304c884b5455a58c5ea07",
+    "pages/employee-pad-properties.html": "dba4a2ed80d2637e7858f0ed48d540ed32b5f57f5c814650105d52d9adb308fb",
+    "pages/employee-pad-property-browse.html": "9291612dfdabd228c24fd5310ec95c530d1d344fddb7fa18749dccadc0be55ef",
+    "pages/employee-pad-rewards.html": "f6747570651cfee395ceadc998bf762f7663a82d48fa2b1c7993365a5c896f8d",
+    "pages/employee-performance.html": "ec8e2076d1821fe821579953c84136f929e5bcdbc649ba62c44a2182d3f65ee4",
+    "pages/employee-properties.html": "c51428ae72337f7888f4843d4fe140d7557fb1ab5c13cfc2e9e2ad54ae9550c9",
+    "pages/employee-property-browse.html": "35bda5f0375a1f877b1247db8386ee7de50e523b8bc55b8494f3ab596961427f",
+    "pages/employee-rewards.html": "877c351667d508c74f4beeedb877ee43c99bf6c33445e22e41ae41e509c54d3e",
+    "pages/login.html": "ecae370139f4fd37651ad762cb25e9f6ce7357c5ce71ea2f2f82cbed4a462d08",
+    "pages/owner-consign.html": "c9ea99b6ab89d5b13c37ef1df9e2cc40c3beae5f2bc757b658bf65320262ff37",
+    "pages/owner-dashboard.html": "a8fae1628b430846388d8b99c5f0f6933324e8318fa99d42e6161ecf72ccb502",
+    "pages/owner-documents.html": "f5ea1c60c8a878d2214fa6dac91f186374a42aee7a0d964f3ae828d6106fad84",
+    "pages/owner-income.html": "f125e1ba8a10eaaa2d384c5b7871322edba53c87b4e46edbb4bdf7785c6a7115",
+    "pages/owner-mini-consign.html": "432a3249593c20b8ea04a93a726a609541db3fc8f40705d3ece0e015b768556d",
+    "pages/owner-mini-dashboard.html": "b1cb4feecc09b5159024e338ac6fd14f24c0aec0e2ba66eb8b54513aa2227a93",
+    "pages/owner-mini-documents.html": "8a76efe0816c1f61e8855243ad231b4701940532ed1e68061e6a1c0fec4cdd12",
+    "pages/owner-mini-income.html": "cb12306ad0e0e7051cfa4c7fbf3fd2eb23435a20c630166e61bd185c67ef9652",
+    "pages/owner-mini-payments.html": "10b9e800ff67c177159c4deb1cd56a30cec9af37cd230b82855695815b20b26f",
+    "pages/owner-mini-property-detail.html": "a4b9f27fa00567c18c52fd1ec16a0dd4092dc254ea3fd0fa8f1a7fb3bb4c3135",
+    "pages/owner-mini-services.html": "3cc9fee8ef937680c2c32c5309f85e1b656ea62d269a01181bdb316ff5820463",
+    "pages/owner-mini-settings.html": "10b9e800ff67c177159c4deb1cd56a30cec9af37cd230b82855695815b20b26f",
+    "pages/owner-mobile-consign.html": "7ca5924b2eb5dddda2f15ae6589966c3149c16f609150e0086ae4d719436e69f",
+    "pages/owner-mobile-dashboard.html": "6de9c9430ffd8d9758651c2ea702cda960d1c8eeb518397c25d466d2ca5aa0fe",
+    "pages/owner-mobile-documents.html": "126174482609ae5632bf91ef0ff2d4df9beeeb61a085d3d03faba8c8171451d4",
+    "pages/owner-mobile-income.html": "d2ed884e949a354a379614134db4ea2328749ad4db0fa1818a465fbd2348001e",
+    "pages/owner-mobile-payments.html": "8a323e83a9d005a54d859a6dff886c8789cb7e31e9e045968b163ebae3738d7d",
+    "pages/owner-mobile-property-detail.html": "9f52d03c2ead5fd12769bfc001353dbca333058a1626d3d9dfec8901e8470059",
+    "pages/owner-mobile-services.html": "b886814ee4cd4073bbe0cfabe66804caed819fa4337b53c0d9ca6a56a420b6c6",
+    "pages/owner-pad-consign.html": "858c21a97cd76c5aef54d16e97964a4fe91c438712d5ccd00f547352f2a6be3e",
+    "pages/owner-pad-dashboard.html": "819bd4175dc09de37792420c6b57a68b1c9020e0182a894c8142fabf714e7e30",
+    "pages/owner-pad-documents.html": "b141cdfa26351ffa0e974aeb9e83ea56b331c3dd701de530619d517da15f54e2",
+    "pages/owner-pad-income.html": "c2984ff9880270092f42cbb0162331d632c971376481625e8e4b14b2eeefca7d",
+    "pages/owner-pad-payments.html": "b78a063eefb9571a63de15979f20de7137bb960fa514bdb33d71da31e73cca12",
+    "pages/owner-pad-property-detail.html": "0b886cb3bbae21f93e3cc8bfeb48f1ff3cd7cf8546918804ea28b9bd740b7511",
+    "pages/owner-pad-services.html": "ea4e14135addb06c641c07f9c1282828f3031035149414838069723cb15f1e0b",
+    "pages/owner-payments.html": "ece55534d0f13ca079bed81c7b350935138fc8b40d1476f958d416b3019dabb1",
+    "pages/owner-property-detail.html": "f179f624d8625b8542bc717a39330be8af744e957812498a5b013b84cf4ef97b",
+    "pages/owner-services.html": "97c44e7af8dfb7cb4e8c08ab48a2b28a4d395bd4242efeadf585f2b50bc8a722",
+    "pages/tenant-consign.html": "3f24ea7cc475a8992ad0df62e806de8510580c62562e0e30610297e06e8ec018",
+    "pages/tenant-dashboard.html": "14c2070da54daf363d22ba25029c84c41267be0b65c1d9ed460230718a240f7a",
+    "pages/tenant-documents.html": "f72b963ece18f030c6ca3f63ebe6c8dce68676af24bfc8794b92302548880238",
+    "pages/tenant-maintenance.html": "a08d8da1eecd379d9949ff7a8d91185a7bb048cfa1381af9e77e0b06d2fb3ef5",
+    "pages/tenant-messages.html": "16bda259b40e5983e1b7577bc49e2cf1d397f16752a3b1ca3ae4c4780b387a82",
+    "pages/tenant-mini-consign.html": "64ee5a60944a6b2c6db31656e9fef4485f5393d189c77a3b6a8e4289013012ad",
+    "pages/tenant-mini-dashboard.html": "0c7ea582f47bd9a92e4fc7f2a6462afb074ede928f9bbf21cd84c314ffb401a3",
+    "pages/tenant-mini-documents.html": "9738beb1ca428d0acb65bf437545de02d15911eabc41a12024e77d4dba49979f",
+    "pages/tenant-mini-maintenance.html": "9c511e9c4ee6bba265caef736a884efd0a11de3c3e9a52f39805a27b9e76f3d1",
+    "pages/tenant-mini-messages.html": "875acf8bb3cf40f46b06598a6a0040580b20437d8e8e15cec002da2a46a94425",
+    "pages/tenant-mini-payments.html": "6ff236c2b41a6cecda92f151840c9984cba1475a392b9df7f0df1c01a34261d0",
+    "pages/tenant-mini-profile.html": "d7196910ffea21fbaeaa34f9d998f3dff163152f4a6056f303140e63666d3e77",
+    "pages/tenant-mini-property-browse.html": "17b0fe433e2f7d812d68121c299dfd5bbf3c4d057d0caf4d810d71ef984a5b90",
+    "pages/tenant-mini-property-detail.html": "18937ae1c6cb95ec376f49b1173d3f7d614a3e1c731e6f1ce47d9b65d000c581",
+    "pages/tenant-mini-purchase.html": "d0d76ab8848470570252c39d297c92b62bf8475d30dc173036df75389c61f4e8",
+    "pages/tenant-mini-services.html": "728b29da71c451bd4ea902e82dc8d6bbfab856962110b78f343e9a916459f23a",
+    "pages/tenant-mobile-consign.html": "b0612460ee7158a957d659dce83faede0bdc10f55e43e33da0d229063d9bd321",
+    "pages/tenant-mobile-dashboard.html": "8504439cd5fed6933ef35bf931d5d647329a8dc660f2d5dba643ad2e8d86e8ba",
+    "pages/tenant-mobile-documents.html": "533476edba834ca074c77f075080eac7b1166c13e97458171af94f75828cd035",
+    "pages/tenant-mobile-maintenance.html": "84291522f2384e9bcfe73396cdb14b52c0f5b85837589f39dd863dcda69c3f29",
+    "pages/tenant-mobile-messages.html": "64434b72b46e687f81e9082efc10b7cc5093e4e18cc52bf39ba9181bf90a89ca",
+    "pages/tenant-mobile-payments.html": "7dc33cfeb0c321b7c8cce1fe1d18854b052eca2c162ddb5c0cf43662eb1f668a",
+    "pages/tenant-mobile-profile.html": "a9291000fee5a9552989f182b34a35da9bbedff2047ad81466b8591df82d0074",
+    "pages/tenant-mobile-property-browse.html": "24a77b0cc3d8f12e49c55c6cf5f96975482c55d01f7e0b4ed12f6ca6e7208568",
+    "pages/tenant-mobile-property-detail.html": "b2324ccce5f6dce083bda261565e959d44d6d017bad98dfd8e7e5d5783354470",
+    "pages/tenant-mobile-purchase.html": "89f5998681bb92684ee7c08c74c02edfb3a4b28f889d813da836e30fe30baa3f",
+    "pages/tenant-mobile-services.html": "edbb179311047cd43abe97bd8f17114d40aeef75791274a1622033a3a42da004",
+    "pages/tenant-pad-consign.html": "cfe60dffb8104ad93e901284da7a2c15354bf8045a14a8feb6748e6c0b94e756",
+    "pages/tenant-pad-dashboard.html": "47f061e80a274407ce3683febb7f8240094a24d573b9292c6731053520a39d02",
+    "pages/tenant-pad-documents.html": "8f552df86eb7d22730e55310daafc81e38897ccd287e671e7c42b9409a0ab329",
+    "pages/tenant-pad-maintenance.html": "e555d9c055b012faead73ead2d63c4d7aa62f09b2cf301224887365ded4589ee",
+    "pages/tenant-pad-messages.html": "86021fc1bd1a723baacaf43c8839c1f3569f57af4632b46135fa294e10a4974c",
+    "pages/tenant-pad-payments.html": "9b915a9d6a43d4e06a28589649cfc0f274570e67feea7dd55b4591a7ef43288d",
+    "pages/tenant-pad-profile.html": "405007f13c79a3b23da85fcffaa60118a4900af8bfc0741a74de9ef14a6970fd",
+    "pages/tenant-pad-property-browse.html": "40f869d28cb4ad1633a8bb2154398b9be11390899c17134a7f4399d0caf9a7ed",
+    "pages/tenant-pad-property-detail.html": "d8c41af2551d59f16ce137ee6b34345d75d3ad01d4b201db7355e12fc4f287b7",
+    "pages/tenant-pad-purchase.html": "478074eb20731b5f0ef841b10ce957db512832333d2b1ee9c1a41ade1cbfdf21",
+    "pages/tenant-pad-services.html": "76749e2882d69a0d0f0372819badf7b72e1e147bce5247405d3e7367e1563af9",
+    "pages/tenant-payments.html": "3f456256cef19a8a4451b6a094a02443bb8dde1471611a7c04494b9091a498e5",
+    "pages/tenant-profile.html": "2c173a137fea38e6759909bb93e36c39843b49bfcffebfd90807249848bc389a",
+    "pages/tenant-property-browse.html": "3a2deb187bb9a9d4365ed0cfee61b90721e835e345b6c33640c53e3ef709f15a",
+    "pages/tenant-property-detail.html": "f181c902392cd08082949482bcbee956761e4212009a6e07ec1423c16884e567",
+    "pages/tenant-purchase.html": "eddacbf813efcdd23bac23a870de98c30d568557ba9fb68f9cf81aa5d54c1e23",
+    "pages/tenant-services.html": "1e86761a3587d191663cb884d39745e27df3016a42ea4b95cfd978c9d1845c6c"
+  },
+  "designDir": "e:\\work\\app\\vip app\\rental-full-draft",
+  "expectedPages": null,
+  "requireInteractions": null,
+  "checkedAt": "2026-08-05T07:39:11.778Z"
+}

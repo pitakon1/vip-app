@@ -1,0 +1,306 @@
+"""租约路由：签约、续约、退房及租约管理。"""
+import uuid
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import func
+from sqlmodel import Session, select
+
+from app.db import get_session
+from app.core.auth import get_current_user, require_agent
+from app.core.events import publish_event
+from app.core.pagination import PaginationParams, paginate
+from app.models import (
+    CommissionSettlement,
+    DealType,
+    Employee,
+    Lease,
+    LeaseStatus,
+    Property,
+    PropertyStatus,
+    SettlementStatus,
+    Tenant,
+    User,
+)
+
+router = APIRouter(prefix="/leases", tags=["leases"])
+
+
+def _resolve_agent(
+    session: Session, user: User, agent_id: Optional[uuid.UUID]
+) -> Optional[uuid.UUID]:
+    """确定成交归属员工：优先使用显式 agent_id，否则取当前登录用户的员工档案。"""
+    if agent_id:
+        return agent_id
+    employee = session.exec(
+        select(Employee).where(
+            Employee.user_id == user.id, Employee.deleted_at.is_(None)
+        )
+    ).first()
+    return employee.id if employee else None
+
+
+def _create_commission_settlement(
+    session: Session, lease: Lease, deal_type: DealType, agent_id: uuid.UUID
+) -> None:
+    """系统自动核算业绩：签约/续约后按默认佣金规则生成结算记录（佣金 = 1 个月租金）。"""
+    session.add(
+        CommissionSettlement(
+            employee_id=agent_id,
+            lease_id=lease.id,
+            deal_type=deal_type,
+            commission_base=lease.monthly_rent,
+            commission_rate=1.0,
+            commission_amount=lease.monthly_rent,
+            currency=lease.currency,
+            status=SettlementStatus.pending,
+        )
+    )
+
+
+class LeaseCreate(BaseModel):
+    property_id: uuid.UUID
+    tenant_id: uuid.UUID
+    owner_id: uuid.UUID
+    agent_id: Optional[uuid.UUID] = None
+    start_date: datetime
+    end_date: datetime
+    monthly_rent: float
+    currency: str = "THB"
+    deposit_amount: float
+    deposit_status: str = "held"
+    status: LeaseStatus = LeaseStatus.active
+    contract_url: Optional[str] = None
+    contract_hash: Optional[str] = None
+    special_terms: Optional[str] = None
+
+
+class LeaseUpdate(BaseModel):
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    monthly_rent: Optional[float] = None
+    currency: Optional[str] = None
+    deposit_amount: Optional[float] = None
+    deposit_status: Optional[str] = None
+    status: Optional[LeaseStatus] = None
+    contract_url: Optional[str] = None
+    contract_hash: Optional[str] = None
+    special_terms: Optional[str] = None
+
+
+class LeaseRenew(BaseModel):
+    start_date: datetime
+    end_date: datetime
+    monthly_rent: Optional[float] = None
+    special_terms: Optional[str] = None
+
+
+@router.get("")
+def list_leases(
+    pagination: PaginationParams = Depends(),
+    status: Optional[LeaseStatus] = None,
+    property_id: Optional[uuid.UUID] = None,
+    tenant_id: Optional[uuid.UUID] = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """租约列表（分页，可按 status/property_id/tenant_id 筛选）。"""
+    conditions = [Lease.deleted_at.is_(None)]
+    if status:
+        conditions.append(Lease.status == status)
+    if property_id:
+        conditions.append(Lease.property_id == property_id)
+    if tenant_id:
+        conditions.append(Lease.tenant_id == tenant_id)
+
+    stmt = select(Lease).where(*conditions).order_by(Lease.created_at.desc())
+    count_stmt = select(func.count(Lease.id)).where(*conditions)
+    total = session.exec(count_stmt).one()
+    items = session.exec(
+        stmt.offset(pagination.offset).limit(pagination.limit)
+    ).all()
+    return paginate(items, total, pagination)
+
+
+@router.post("")
+def create_lease(
+    req: LeaseCreate,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_agent),
+):
+    """创建租约（签约），发布 lease.signed 事件。"""
+    # 系统自动核算：确定成交归属员工并生成佣金结算
+    agent_id = _resolve_agent(session, user, req.agent_id)
+    data = req.model_dump()
+    data["agent_id"] = agent_id
+    lease = Lease(**data)
+    session.add(lease)
+
+    # 同步更新房源状态为已出租
+    prop = session.get(Property, req.property_id)
+    if prop and not prop.deleted_at:
+        prop.status = PropertyStatus.rented
+        session.add(prop)
+
+    if agent_id:
+        _create_commission_settlement(session, lease, DealType.new_rental, agent_id)
+
+    publish_event(
+        session,
+        "lease.signed",
+        "lease",
+        lease.id,
+        {
+            "property_id": str(lease.property_id),
+            "tenant_id": str(lease.tenant_id),
+            "owner_id": str(lease.owner_id),
+            "agent_id": str(agent_id) if agent_id else None,
+            "signed_by": str(user.id),
+        },
+    )
+    session.commit()
+    session.refresh(lease)
+    return lease
+
+
+@router.get("/me")
+def get_my_leases(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """当前租客的租约列表（通过 user_id 关联 tenant 记录）。"""
+    tenant = session.exec(
+        select(Tenant).where(Tenant.user_id == user.id, Tenant.deleted_at.is_(None))
+    ).first()
+    if not tenant:
+        return []
+    leases = session.exec(
+        select(Lease)
+        .where(Lease.tenant_id == tenant.id, Lease.deleted_at.is_(None))
+        .order_by(Lease.created_at.desc())
+    ).all()
+    return leases
+
+
+@router.get("/{lease_id}")
+def get_lease(
+    lease_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """获取租约详情。"""
+    lease = session.get(Lease, lease_id)
+    if not lease or lease.deleted_at:
+        raise HTTPException(status_code=404, detail="Lease not found")
+    return lease
+
+
+@router.patch("/{lease_id}")
+def update_lease(
+    lease_id: uuid.UUID,
+    req: LeaseUpdate,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_agent),
+):
+    """更新租约信息。"""
+    lease = session.get(Lease, lease_id)
+    if not lease or lease.deleted_at:
+        raise HTTPException(status_code=404, detail="Lease not found")
+    update_data = req.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(lease, key, value)
+    session.add(lease)
+    session.commit()
+    session.refresh(lease)
+    return lease
+
+
+@router.post("/{lease_id}/renew")
+def renew_lease(
+    lease_id: uuid.UUID,
+    req: LeaseRenew,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_agent),
+):
+    """续约，发布 lease.renewed 事件。"""
+    old_lease = session.get(Lease, lease_id)
+    if not old_lease or old_lease.deleted_at:
+        raise HTTPException(status_code=404, detail="Lease not found")
+
+    new_lease = Lease(
+        property_id=old_lease.property_id,
+        tenant_id=old_lease.tenant_id,
+        owner_id=old_lease.owner_id,
+        agent_id=old_lease.agent_id,
+        start_date=req.start_date,
+        end_date=req.end_date,
+        monthly_rent=req.monthly_rent if req.monthly_rent else old_lease.monthly_rent,
+        currency=old_lease.currency,
+        deposit_amount=old_lease.deposit_amount,
+        deposit_status=old_lease.deposit_status,
+        status=LeaseStatus.active,
+        special_terms=req.special_terms,
+        renewed_from_lease_id=old_lease.id,
+    )
+    old_lease.status = LeaseStatus.expired
+    session.add(new_lease)
+    session.add(old_lease)
+
+    # 系统自动核算：续约生成 renewal 佣金结算（归属沿用原租约员工）
+    if new_lease.agent_id:
+        _create_commission_settlement(
+            session, new_lease, DealType.renewal, new_lease.agent_id
+        )
+
+    publish_event(
+        session,
+        "lease.renewed",
+        "lease",
+        new_lease.id,
+        {
+            "old_lease_id": str(old_lease.id),
+            "new_lease_id": str(new_lease.id),
+            "property_id": str(new_lease.property_id),
+        },
+    )
+    session.commit()
+    session.refresh(new_lease)
+    return new_lease
+
+
+@router.post("/{lease_id}/terminate")
+def terminate_lease(
+    lease_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_agent),
+):
+    """退房，发布 lease.terminated 事件。"""
+    lease = session.get(Lease, lease_id)
+    if not lease or lease.deleted_at:
+        raise HTTPException(status_code=404, detail="Lease not found")
+
+    lease.status = LeaseStatus.terminated
+    session.add(lease)
+
+    # 同步更新房源状态为空置
+    prop = session.get(Property, lease.property_id)
+    if prop and not prop.deleted_at:
+        prop.status = PropertyStatus.vacant
+        session.add(prop)
+
+    publish_event(
+        session,
+        "lease.terminated",
+        "lease",
+        lease.id,
+        {
+            "property_id": str(lease.property_id),
+            "tenant_id": str(lease.tenant_id),
+            "terminated_by": str(user.id),
+        },
+    )
+    session.commit()
+    session.refresh(lease)
+    return lease

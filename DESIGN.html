@@ -1,0 +1,4363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>房地产租赁管理系统 · 设计文档 v1.4</title>
+    <style>
+@page {
+    size: A4;
+    margin: 2cm 1.5cm 2.2cm 1.5cm;
+}
+
+@page :first {
+    margin-top: 1cm;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: "Microsoft YaHei", "Noto Sans Thai", "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    color: #24292e;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+    font-size: 22pt;
+    font-weight: 600;
+    color: #24292e;
+    border-bottom: 2px solid #e1e4e8;
+    padding-bottom: 0.3em;
+    margin-top: 1.5em;
+    margin-bottom: 0.6em;
+    page-break-before: always;
+    page-break-after: avoid;
+}
+
+h1:first-of-type {
+    page-break-before: avoid;
+}
+
+h2 {
+    font-size: 17pt;
+    font-weight: 600;
+    color: #24292e;
+    border-bottom: 1px solid #e1e4e8;
+    padding-bottom: 0.3em;
+    margin-top: 1.3em;
+    margin-bottom: 0.5em;
+    page-break-after: avoid;
+}
+
+h3 {
+    font-size: 13.5pt;
+    font-weight: 600;
+    color: #24292e;
+    margin-top: 1.1em;
+    margin-bottom: 0.4em;
+    page-break-after: avoid;
+}
+
+h4 {
+    font-size: 11.5pt;
+    font-weight: 600;
+    color: #24292e;
+    margin-top: 0.9em;
+    margin-bottom: 0.3em;
+    page-break-after: avoid;
+}
+
+h5, h6 {
+    font-size: 10.5pt;
+    font-weight: 600;
+    color: #586069;
+    margin-top: 0.7em;
+    margin-bottom: 0.3em;
+    page-break-after: avoid;
+}
+
+p {
+    margin: 0.5em 0 0.8em 0;
+    text-align: justify;
+    orphans: 3;
+    widows: 3;
+}
+
+a {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+blockquote {
+    margin: 0.8em 0;
+    padding: 0.5em 1em;
+    color: #6a737d;
+    border-left: 4px solid #dfe2e5;
+    background: #f6f8fa;
+    border-radius: 3px;
+    page-break-inside: avoid;
+}
+
+blockquote > :first-child { margin-top: 0; }
+blockquote > :last-child { margin-bottom: 0; }
+
+ul, ol {
+    margin: 0.5em 0 0.8em 0;
+    padding-left: 1.8em;
+}
+
+li {
+    margin: 0.2em 0;
+}
+
+li > p { margin: 0.2em 0; }
+
+code {
+    font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+    font-size: 0.88em;
+    background: rgba(27, 31, 35, 0.08);
+    color: #24292e;
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+    word-wrap: break-word;
+}
+
+pre {
+    font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+    font-size: 9pt;
+    line-height: 1.5;
+    background: #f6f8fa;
+    color: #24292e;
+    padding: 12px 14px;
+    border-radius: 4px;
+    overflow: auto;
+    border: 1px solid #e1e4e8;
+    margin: 0.8em 0;
+    page-break-inside: avoid;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+pre code {
+    background: transparent;
+    padding: 0;
+    font-size: 100%;
+    white-space: pre-wrap;
+}
+
+table {
+    border-collapse: collapse;
+    margin: 0.8em 0;
+    width: 100%;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+}
+
+table thead { background: #f6f8fa; }
+
+table th, table td {
+    padding: 6px 10px;
+    border: 1px solid #dfe2e5;
+    text-align: left;
+    vertical-align: top;
+}
+
+table th {
+    font-weight: 600;
+    background: #f6f8fa;
+    color: #24292e;
+}
+
+table tr:nth-child(even) td { background: #f9fafb; }
+
+hr {
+    border: 0;
+    border-top: 1px solid #e1e4e8;
+    height: 0;
+    margin: 1.5em 0;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0.8em auto;
+    page-break-inside: avoid;
+}
+
+strong { color: #24292e; font-weight: 600; }
+
+/* 代码高亮（python-markdown codehilite） */
+.highlight { background: #f6f8fa; }
+.highlight .k { color: #d73a49; font-weight: 600; }  /* keyword */
+.highlight .kn { color: #d73a49; }                  /* keyword.namespace */
+.highlight .s { color: #032f62; }                   /* string */
+.highlight .s2 { color: #032f62; }                  /* string.double */
+.highlight .s1 { color: #032f62; }                  /* string.single */
+.highlight .c1 { color: #6a737d; font-style: italic; }  /* comment */
+.highlight .c { color: #6a737d; font-style: italic; }
+.highlight .n { color: #24292e; }                   /* name */
+.highlight .nb { color: #005cc5; }                  /* name.builtin */
+.highlight .nf { color: #6f42c1; }                  /* name.function */
+.highlight .nc { color: #6f42c1; font-weight: 600; }  /* name.class */
+.highlight .o { color: #d73a49; }                   /* operator */
+.highlight .mi { color: #005cc5; }                  /* number.integer */
+.highlight .mf { color: #005cc5; }                  /* number.float */
+.highlight .kc { color: #005cc5; }                  /* keyword.constant */
+</style>
+</head>
+<body>
+<h1>房地产租赁管理系统 - 设计文档</h1>
+<blockquote>
+<p>文档版本: v1.6<br />
+适用阶段: MVP（最小可用版）<br />
+服务区域: 东南亚多国（中 / 英 / 泰 三语）<br />
+交付形态: Web 管理端 + 移动 App（业主/租客）+ 微信小程序</p>
+</blockquote>
+<hr />
+<h2>1. 项目概述</h2>
+<h3>1.1 业务背景</h3>
+<p>公司主营东南亚房地产租赁经纪业务，涉及业主委托、租客招租、签约、租金代收代付、售后服务（清洁、维修、税费代缴等），以及内部销售团队管理。系统需要服务 <strong>5 类角色</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>入口形态</th>
+<th>核心诉求</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>经纪团队（管理员/Agent）</td>
+<td>Web 管理端</td>
+<td>房源/客户/合同/业绩全流程管理</td>
+</tr>
+<tr>
+<td>业主（房东）</td>
+<td>App / 小程序</td>
+<td>查看房屋状态、收租、查文档、托管服务</td>
+</tr>
+<tr>
+<td>租客</td>
+<td>App / 小程序</td>
+<td>交租、查合同、报修、续约</td>
+</tr>
+<tr>
+<td>公司员工（销售/运营）</td>
+<td>App / Web</td>
+<td>业绩台账、考勤、客户跟进</td>
+</tr>
+<tr>
+<td>公众</td>
+<td>Web 静态页</td>
+<td>公司信息、联系方式</td>
+</tr>
+</tbody>
+</table>
+<h3>1.2 设计目标</h3>
+<ol>
+<li><strong>统一后端，差异前端</strong>：5 个端共享同一套 REST API，通过 RBAC 控制可见数据</li>
+<li><strong>可扩展支付/通知</strong>：抽象适配器，未来增加新支付/通知渠道不改核心逻辑</li>
+<li><strong>可观测可运维</strong>：所有关键操作（收租、合同）留痕，方便对账与审计</li>
+<li><strong>多端代码复用</strong>：业务组件在 Web/App/小程序间最大程度复用</li>
+<li><strong>MVP 优先</strong>：先跑通业务闭环（房源→签约→收租→提醒），再迭代增值功能</li>
+</ol>
+<hr />
+<h2>2. 角色与功能模块</h2>
+<h3>2.1 经纪团队管理端（Web）</h3>
+<ul>
+<li><strong>数据总览（Dashboard）</strong>：房源总数、空置/已租、即将到期租金、即将到期合同</li>
+<li><strong>房源管理（Room Master）</strong>：项目/房号/业主/租金/押金/照片/状态</li>
+<li><strong>客户关系管理（CRM）</strong>：</li>
+<li>客户线索：姓名、国籍、Line/WeChat、预算、感兴趣项目</li>
+<li>跟进状态：咨询中 → 已预约看房 → 洽谈中 → 待签约 → 已成交</li>
+<li><strong>合同管理</strong>：合同上传/解析/到期预警</li>
+<li><strong>财务对账</strong>：收付款流水、佣金核算、托管费</li>
+</ul>
+<h3>2.2 业主端（App / 小程序）</h3>
+<ul>
+<li>我的房产列表（空置 / 已出租 / 续约中）</li>
+<li>文档中心（合同/收据/验房照片）</li>
+<li>租金收入汇总（按月/季度/年）</li>
+<li>推荐服务：清洁、空调清洗、税费/水电/保险代缴</li>
+<li>线上付款：QR Code、Visa、支付宝、微信、Wise Transfer</li>
+<li>年度托管套餐订阅（佣金 = 1 个月租金；托管费 = 半个月租金，仅在有租约时收取）</li>
+</ul>
+<h3>2.3 租客端（App / 小程序）</h3>
+<ul>
+<li>上传租金付款凭证</li>
+<li>上传/查看租赁合同</li>
+<li>推荐服务：清洁、空调清洗、待安装 WiFi、水电费代付</li>
+<li>线上付款（同上）</li>
+<li>租金/合同到期日历提醒</li>
+<li>通知推送：微信、Line、WhatsApp、Facebook（多渠道）</li>
+</ul>
+<h3>2.4 员工端（App / Web）</h3>
+<ul>
+<li>销售台账：出租房源、佣金、每月业绩、排行榜</li>
+<li>业绩月报：员工主动填写，自动汇总</li>
+<li>考勤：每日上下班打卡、外出登记、定位</li>
+<li>促销奖励公布</li>
+<li>联系方式：手机 + 社交媒体</li>
+<li>日历：租金催收提醒、合同到期提醒</li>
+</ul>
+<h3>2.5 公司信息端（Web 静态）</h3>
+<ul>
+<li>公司地址、地图嵌入</li>
+<li>联系电话、邮箱</li>
+<li>社交媒体公众号：Line、Facebook、Instagram、微信公众号</li>
+</ul>
+<hr />
+<h2>3. 系统架构</h2>
+<h3>3.1 总体架构图</h3>
+<div class="highlight"><pre><span></span><code>┌─────────────────────────────────────────────────────────────┐
+│                    客户端层 (Frontend)                        │
+│ ┌──────────────┐ ┌──────────────┐ ┌─────────────────────┐  │
+│ │  Web 管理端  │ │   RN App     │ │   微信小程序(Taro)  │  │
+│ │  React 18    │ │  React Native│ │   Taro 3            │  │
+│ └──────────────┘ └──────────────┘ └─────────────────────┘  │
+└────────────────────────┬────────────────────────────────────┘
+                         │ HTTPS / JSON
+┌────────────────────────▼────────────────────────────────────┐
+│                    API 网关 (Nginx / Kong)                    │
+│  - 路由  - 限流  - SSL 终止  - CORS  - 统一鉴权转发          │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────────┐
+│                  应用服务层 (Backend)                         │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐│
+│  │  FastAPI     │ │  Celery      │ │  FastAPI-Admin      ││
+│  │  REST API    │ │  Async Tasks │ │  (SQLModel, 运维用) ││
+│  └──────────────┘ └──────────────┘ └──────────────────────┘│
+└──────┬───────────────┬─────────────┬─────────────────────────┘
+       │               │             │
+┌──────▼─────┐  ┌──────▼─────┐  ┌────▼──────────┐
+│ PostgreSQL │  │   Redis    │  │   MinIO/S3    │
+│  主数据库  │  │ 缓存+队列  │  │  文件存储     │
+└────────────┘  └────────────┘  └───────────────┘
+
+       ┌─────────────────────────────┐
+       │      第三方服务 (Adapter)     │
+       │  Payment  |  Notification    │
+       │  SMS      |  Map/Translate   │
+       └─────────────────────────────┘
+</code></pre></div>
+
+<h3>3.2 部署拓扑</h3>
+<ul>
+<li><strong>应用服务器</strong>：2 核 4G 起，按需横向扩展</li>
+<li><strong>数据库</strong>：PostgreSQL 15 主从架构（一主一从起步）</li>
+<li><strong>缓存/队列</strong>：Redis 7 单实例 → Sentinel</li>
+<li><strong>文件存储</strong>：MinIO 自建（成本低）或 AWS S3（<strong>注意 S3 桶区域必须为 <code>ap-southeast-1</code> Bangkok</strong>）</li>
+<li><strong>节点位置</strong>：⚠️ <strong>AWS Bangkok 区域（ap-southeast-1）</strong>——PDPA §33 要求 PII 跨境传输需充分保护，<strong>首选泰国境内部署</strong>。如需 CDN 静态资源，CloudFront 边缘节点不在限制范围内</li>
+</ul>
+<hr />
+<h2>4. 技术选型</h2>
+<h3>4.1 后端</h3>
+<table>
+<thead>
+<tr>
+<th>技术</th>
+<th>选型</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>语言</td>
+<td><strong>Python 3.11+</strong></td>
+<td>团队小、SDK 丰富、AI 扩展好</td>
+</tr>
+<tr>
+<td>Web 框架</td>
+<td><strong>FastAPI</strong></td>
+<td>异步高性能、OpenAPI 文档自动生成、Pydantic 强类型</td>
+</tr>
+<tr>
+<td>ORM</td>
+<td><strong>SQLAlchemy 2.0</strong>（异步） + <strong>Alembic</strong>（迁移）</td>
+<td>成熟、类型提示完善、迁移工具链</td>
+</tr>
+<tr>
+<td>后台</td>
+<td><strong>FastAPI-Admin</strong>（SQLModel 实现，与 FastAPI 同生态）</td>
+<td>轻量、与 FastAPI 兼容；<strong>超级管理员用的内网工具，非用户端入口</strong></td>
+</tr>
+<tr>
+<td>异步任务</td>
+<td><strong>Celery + Redis</strong></td>
+<td>定时租金提醒、通知推送、邮件发送</td>
+</tr>
+<tr>
+<td>鉴权</td>
+<td><strong>JWT（access + refresh）+ OAuth2</strong></td>
+<td>多端适配，refresh token 滑动续期</td>
+</tr>
+<tr>
+<td>文档</td>
+<td><strong>OpenAPI 3.0</strong>（FastAPI 自动生成）</td>
+<td>前端可生成 client SDK</td>
+</tr>
+<tr>
+<td>验证</td>
+<td><strong>Pydantic v2</strong></td>
+<td>强类型、IDE 友好</td>
+</tr>
+<tr>
+<td>测试</td>
+<td><strong>pytest + pytest-asyncio + httpx</strong></td>
+<td>标准组合</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>说明：业务用户面向的管理后台是 <strong>React + Ant Design Pro</strong> 实现的 Web 管理端（见 4.2），FastAPI-Admin 仅作为运维/DBA 的底层数据维护工具。<strong>不要</strong>在 FastAPI 中强行嵌入 Django Admin，二者框架不通。</p>
+<p>备选：如团队 Java 背景强，可改为 <strong>Spring Boot 3 + JPA + Redis</strong>；如追求极致性能可改为 <strong>Go + Gin + GORM</strong>。</p>
+</blockquote>
+<h3>4.2 前端 Web（管理端）</h3>
+<table>
+<thead>
+<tr>
+<th>技术</th>
+<th>选型</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>框架</td>
+<td><strong>React 18 + TypeScript</strong></td>
+<td>生态最广，团队好招</td>
+</tr>
+<tr>
+<td>构建</td>
+<td><strong>Vite 5</strong></td>
+<td>启动快，HMR 流畅</td>
+</tr>
+<tr>
+<td>UI 库</td>
+<td><strong>Ant Design Pro</strong></td>
+<td>中后台开箱即用，含 Dashboard/表格/表单</td>
+</tr>
+<tr>
+<td>状态</td>
+<td><strong>Zustand</strong>（轻量）或 <strong>Redux Toolkit</strong></td>
+<td>复杂业务用 RTK</td>
+</tr>
+<tr>
+<td>路由</td>
+<td><strong>React Router v6</strong></td>
+<td>标配</td>
+</tr>
+<tr>
+<td>表格</td>
+<td><strong>Ant Design Table</strong> + <strong>ProTable</strong></td>
+<td>支持虚拟滚动、列设置</td>
+</tr>
+<tr>
+<td>图表</td>
+<td><strong>ECharts</strong></td>
+<td>Dashboard 图表需求</td>
+</tr>
+<tr>
+<td>请求</td>
+<td><strong>Axios + React Query（TanStack Query）</strong></td>
+<td>自动缓存、重试、状态管理</td>
+</tr>
+<tr>
+<td>i18n</td>
+<td><strong>react-i18next</strong></td>
+<td>中/英/泰</td>
+</tr>
+<tr>
+<td>表单</td>
+<td><strong>React Hook Form + Zod</strong></td>
+<td>性能好、类型安全</td>
+</tr>
+</tbody>
+</table>
+<h3>4.3 移动 App（业主/租客）</h3>
+<table>
+<thead>
+<tr>
+<th>技术</th>
+<th>选型</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>框架</td>
+<td><strong>React Native 0.74+</strong></td>
+<td>与 Web 共享 React/TS 经验</td>
+</tr>
+<tr>
+<td>状态</td>
+<td><strong>Zustand</strong></td>
+<td>与 Web 保持一致</td>
+</tr>
+<tr>
+<td>导航</td>
+<td><strong>React Navigation 6</strong></td>
+<td>标配</td>
+</tr>
+<tr>
+<td>UI</td>
+<td><strong>NativeBase</strong> 或 <strong>Tamagui</strong></td>
+<td>跨平台组件库</td>
+</tr>
+<tr>
+<td>国际化</td>
+<td><strong>i18next + react-native-localize</strong></td>
+<td>中/英/泰</td>
+</tr>
+<tr>
+<td>推送</td>
+<td><strong>Notifee + FCM（Android）+ APNs（iOS）</strong></td>
+<td>应用内推送</td>
+</tr>
+<tr>
+<td>扫码</td>
+<td><strong>react-native-vision-camera + vision-camera-code-scanner</strong></td>
+<td>QR Code 支付</td>
+</tr>
+<tr>
+<td>构建</td>
+<td><strong>EAS Build</strong>（Expo）或自建</td>
+<td>优先 Expo 简化发布</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>备选：<strong>Flutter</strong>（性能更好但语言 Dart 学习成本）。</p>
+</blockquote>
+<h3>4.4 微信小程序</h3>
+<table>
+<thead>
+<tr>
+<th>技术</th>
+<th>选型</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>框架</td>
+<td><strong>Taro 3</strong></td>
+<td>用 React 语法写多端，可与 App/Web 共用部分业务组件</td>
+</tr>
+<tr>
+<td>UI</td>
+<td><strong>Taro UI</strong> 或 <strong>NutUI</strong></td>
+<td>移动端优化</td>
+</tr>
+<tr>
+<td>状态</td>
+<td><strong>Zustand</strong></td>
+<td>保持一致</td>
+</tr>
+<tr>
+<td>编译目标</td>
+<td>微信 / 支付宝 / H5（未来）</td>
+<td>一次开发多端发布</td>
+</tr>
+</tbody>
+</table>
+<h3>4.5 数据库 / 中间件</h3>
+<table>
+<thead>
+<tr>
+<th>用途</th>
+<th>选型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主数据库</td>
+<td><strong>PostgreSQL 15</strong>（强类型、JSONB、地理信息）</td>
+</tr>
+<tr>
+<td>缓存</td>
+<td><strong>Redis 7</strong>（会话/限流/任务队列）</td>
+</tr>
+<tr>
+<td>对象存储</td>
+<td><strong>MinIO</strong>（自建）或 AWS S3（房源照片/合同 PDF）</td>
+</tr>
+<tr>
+<td>消息队列</td>
+<td><strong>Redis Streams</strong>（轻量）或 RabbitMQ（量大时升级）</td>
+</tr>
+<tr>
+<td>全文检索</td>
+<td>PostgreSQL <code>tsvector</code>（MVP 够用，后期可加 Elasticsearch）</td>
+</tr>
+</tbody>
+</table>
+<h3>4.6 第三方服务（Adapter 模式）</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>渠道</th>
+<th>详见</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>支付</td>
+<td>30+ 渠道（Stripe/PromptPay/微信/支付宝/Wise/PayPal/GrabPay 等）</td>
+<td>§7 支付系统设计</td>
+</tr>
+<tr>
+<td>通知</td>
+<td>WeChat Work Bot、Line Notify、WhatsApp Business API、Facebook Messenger</td>
+<td>§8 通知系统设计</td>
+</tr>
+<tr>
+<td>短信</td>
+<td>Twilio / 阿里云短信</td>
+<td>§8</td>
+</tr>
+<tr>
+<td>地图</td>
+<td>Google Maps / Mapbox</td>
+<td>公司信息端</td>
+</tr>
+<tr>
+<td>翻译</td>
+<td>Google Translate API / LLM（Phase 4b）</td>
+<td>§19.2</td>
+</tr>
+<tr>
+<td>邮件</td>
+<td>SendGrid / Mailgun</td>
+<td>§8</td>
+</tr>
+<tr>
+<td>税务</td>
+<td>泰国税务局 RD API</td>
+<td>§16 税务子系统</td>
+</tr>
+<tr>
+<td>LLM/AI</td>
+<td>OpenAI / Anthropic / Qwen / DeepSeek / 本地 Llama</td>
+<td>§19.2 LLM Gateway</td>
+</tr>
+<tr>
+<td>对象存储</td>
+<td>MinIO / AWS S3</td>
+<td>§3.2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>5. 数据模型（核心实体 ER）</h2>
+<div class="highlight"><pre><span></span><code>┌──────────┐ 1   N ┌──────────┐ 1   N ┌──────────┐
+│ Project  │───────│ Property │───────│  Lease   │
+│ 项目/楼盘│       │  房源    │       │  租约    │
+└──────────┘       └──────────┘       └────┬─────┘
+     │                  │ 1                 │ N
+     │                  │ N                 │
+     │                  ▼                   ▼ 1
+     │             ┌─────────┐         ┌─────────┐
+     │             │ Owner   │         │ Tenant  │
+     │             │ 业主    │         │ 租客    │
+     │             └────┬────┘         └────┬────┘
+     │                  │ 1                 │ 1
+     │                  │ N                 │ N
+     │             ┌────▼─────────────┐     │
+     │             │ ServiceOrder     │     │
+     │             │ 推荐服务订单     │     │
+     │             └──────────────────┘     │
+     │                                       │ N
+     │                                  ┌────▼──────────┐
+     │                                  │MaintenanceTicket│
+     │                                  │ 报修工单      │
+     │                                  └───────────────┘
+     │
+     │           ┌──────────┐        ┌───────────┐
+     │      N    │ Document │        │ Payment   │
+     └───────────│ 文档中心 │        │ 收付款    │
+                 └──────────┘        └─────┬─────┘
+                                          │ 1
+                                          │ N
+                 ┌──────────┐        ┌────▼──────────┐
+                 │Notification│       │CommissionSettle│
+                 │ 通知记录  │       │ 佣金结算      │
+                 └──────────┘        └───────────────┘
+
+┌──────────┐ N   1 ┌─────────┐ N   1 ┌──────────────┐
+│  Lead    │───────│  User   │───────│   Employee   │
+│ 线索客户 │       │ 统一账户│       │ 员工档案     │
+└──────────┘       └─────────┘       └──────────────┘
+                                            │ 1
+                                            │ N
+                                  ┌─────┬───┴───┬──────┐
+                                  ▼     ▼       ▼      ▼
+                            ┌──────┐┌──────┐┌──────┐┌─────────┐
+                            │Attend││Perf. ││Event ││AuditLog │
+                            │考勤  ││业绩  ││事件  ││审计日志 │
+                            └──────┘└──────┘└──────┘└─────────┘
+</code></pre></div>
+
+<h3>5.1 关键实体字段</h3>
+<blockquote>
+<p><strong>字段规范（v1.3 起统一执行）</strong>：所有核心业务表必须包含以下公共字段：
+- <code>id</code> UUID（主键）
+- <code>created_at</code>, <code>updated_at</code>（自动维护）
+- <code>deleted_at</code>（软删除，PDPA §26 数据保留策略）
+- <code>metadata JSONB DEFAULT '{}'</code>（业务扩展位，未来 AI 分析/自定义属性用）
+- <code>version int DEFAULT 1</code>（乐观锁，避免并发覆盖）</p>
+</blockquote>
+<h4><code>users</code>（统一账户）</h4>
+<ul>
+<li>公共字段 + <code>phone, email, password_hash, role, locale, line_id, wechat_id, whatsapp, last_login_at, status(active/suspended/deleted)</code></li>
+</ul>
+<h4><code>properties</code>（房源）</h4>
+<ul>
+<li>公共字段 + <code>project_id, room_no, owner_id, monthly_rent, deposit, currency, status(vacant/rented/renewing), photos[], attributes JSONB</code>（如楼层/朝向/家具清单）</li>
+</ul>
+<h4><code>leases</code>（租约）</h4>
+<ul>
+<li>公共字段 + <code>property_id, tenant_id, start_date, end_date, monthly_rent, deposit, contract_file_url, contract_hash, status(draft/active/expired/terminated), signed_at, terminated_reason</code></li>
+</ul>
+<h4><code>leads</code>（线索）</h4>
+<ul>
+<li>公共字段 + <code>name, nationality, phone, line_id, wechat_id, budget_min, budget_max, interested_projects[], stage(inquiry/visit/negotiating/pending/closed), assigned_agent_id, lead_score INT</code>（AI 评分位）</li>
+</ul>
+<h4><code>payments</code>（收付款）</h4>
+<ul>
+<li>公共字段 + <code>lease_id, type(rent/deposit/commission/service), amount, currency, channel, status(pending/success/failed/refunded), proof_url, paid_at, idempotency_key, channel_order_id</code></li>
+</ul>
+<h4><code>payment_reconciliations</code>（对账记录）</h4>
+<ul>
+<li>公共字段 + <code>payment_id, channel, channel_txn_id, local_amount, channel_amount, currency, diff_amount, status(matched/unmatched/disputed), reconciled_at, notes</code></li>
+</ul>
+<h4><code>service_packages</code>（年度托管套餐订阅）</h4>
+<ul>
+<li>公共字段 + <code>owner_id, property_id, type(annual_management/full_service), commission_rate, management_fee_rate, start_date, end_date, status</code></li>
+</ul>
+<h4><code>employees</code>（员工档案，1:1 users）</h4>
+<ul>
+<li>公共字段 + <code>user_id, department, position, base_salary, commission_rate, joined_at</code></li>
+</ul>
+<h4><code>attendance</code>（考勤）</h4>
+<ul>
+<li>公共字段 + <code>employee_id, date, clock_in, clock_out, location_lat, location_lng, type(office/field), device_info</code></li>
+</ul>
+<h4><code>performance</code>（业绩月报）</h4>
+<ul>
+<li>公共字段 + <code>employee_id, year, month, total_revenue, commission_earned, deals_closed[], submitted_at, approved_by</code></li>
+</ul>
+<h4><code>projects</code>（项目/楼盘）</h4>
+<ul>
+<li>公共字段 + <code>name, address, district, city, country, developer, property_management_company, lat, lng, total_units, completion_year, amenities[]</code>（如泳池/健身房/24h安保）</li>
+</ul>
+<h4><code>tenants</code>（租客档案，1:1 users）</h4>
+<ul>
+<li>公共字段 + <code>user_id, nationality, passport_no(enc), id_card_no(enc), emergency_contact(enc), employer_info JSONB, monthly_income, tenant_credit_score INT</code>（Phase 4b AI 评分位）</li>
+</ul>
+<h4><code>documents</code>（文档中心）</h4>
+<ul>
+<li>公共字段 + <code>owner_id, property_id, lease_id, type(contract/receipt/inspection_photo/tax_invoice/wht_certificate/other), title, file_url, file_size, mime_type, file_hash(SHA-256), version INT, uploaded_by, tags[]</code></li>
+<li><strong>用途</strong>：业主端文档中心、租客端合同查看、PDPA 数据导出</li>
+</ul>
+<h4><code>service_orders</code>（推荐服务订单）</h4>
+<ul>
+<li>公共字段 + <code>orderer_id, orderer_type(owner/tenant), property_id, service_type(cleaning/ac_cleaning/wifi_install/utility_payment/insurance/tax_payment), status(pending/assigned/in_progress/completed/cancelled), scheduled_at, completed_at, provider_id(外包商), amount, currency, payment_id, notes, rating INT</code></li>
+<li><strong>用途</strong>：清洁/空调清洗/WiFi/水电代付/税费代缴/保险等增值服务</li>
+</ul>
+<h4><code>maintenance_tickets</code>（报修工单）</h4>
+<ul>
+<li>公共字段 + <code>property_id, tenant_id, lease_id, title, description, photos[], priority(low/medium/high/urgent), status(open/assigned/in_progress/resolved/closed), assigned_to(员工/外包), resolved_at, resolution_notes, resolution_photos[], cost, payment_id</code></li>
+<li><strong>状态机</strong>：<code>open → assigned → in_progress → resolved → closed</code>（可回退到 <code>in_progress</code>）</li>
+</ul>
+<h4><code>notifications</code>（通知记录）</h4>
+<ul>
+<li>公共字段 + <code>user_id, channel(in_app/push/email/sms/wechat/line/whatsapp/facebook), template_key, recipient, subject, content, status(queued/sent/delivered/failed/read), sent_at, delivered_at, read_at, retry_count, error_message, related_entity_type, related_entity_id</code></li>
+<li><strong>用途</strong>：通知系统发送记录、重试追踪、已读状态</li>
+</ul>
+<h4><code>commission_settlements</code>（佣金结算）</h4>
+<ul>
+<li>公共字段 + <code>employee_id, lease_id, deal_type(new_rental/renewal/management), commission_base, commission_rate, commission_amount, currency, status(pending/approved/paid), settled_at, paid_at, performance_id</code></li>
+<li><strong>用途</strong>：员工佣金核算、月度结算、与业绩报表关联</li>
+</ul>
+<h4><code>events</code>（领域事件流，事件溯源 + 异步解耦）</h4>
+<ul>
+<li>公共字段 + <code>event_id UUID, event_type(lease_signed/payment_received/property_status_changed/...), aggregate_type, aggregate_id, payload JSONB, occurred_at, published_at, consumer_status</code></li>
+<li><strong>用途</strong>：核心业务操作发布事件，供未来 AI 模块、数据分析、通知模块订阅</li>
+<li><strong>存储</strong>：业务表写 PostgreSQL + 推送到 Redis Streams（双写）</li>
+<li><strong>消费者</strong>：Phase 1 仅通知模块订阅；Phase 4 扩展为 BI 管道、AI 推理、推荐系统</li>
+</ul>
+<h4><code>feature_flags</code>（功能开关）</h4>
+<ul>
+<li><code>key, value, enabled, rollout_percentage, target_users[], created_at, updated_at, expires_at</code></li>
+<li><strong>用途</strong>：灰度发布新功能（如某个 AI 模块仅给 10% 用户开放）</li>
+<li><strong>实现</strong>：本地 DB 即可，Phase 1 后期可升级到 Unleash / LaunchDarkly</li>
+</ul>
+<h4><code>audit_logs</code>（审计日志）</h4>
+<ul>
+<li>公共字段 + <code>actor_user_id, action(read/create/update/delete/export), resource_type, resource_id, pii_fields_accessed[], ip_address, user_agent, request_id, prev_value, new_value</code></li>
+<li><strong>PDPA §27 强制要求</strong></li>
+</ul>
+<h4><code>consents</code>（同意记录，PDPA §22）</h4>
+<ul>
+<li>公共字段 + <code>user_id, purpose, granted(bool), granted_at, revoked_at, ip_address, user_agent, policy_version</code></li>
+</ul>
+<h4><code>data_subject_requests</code>（数据主体请求，PDPA §30）</h4>
+<ul>
+<li>公共字段 + <code>user_id, request_type(access/rectification/erasure/portability/restriction), status, submitted_at, completed_at, response_data_url, notes</code></li>
+</ul>
+<h4><code>tax_records</code> / <code>tax_invoices</code> / <code>wht_certificates</code> / <code>company_tax_profile</code>（见 §16）</h4>
+<hr />
+<h2>5.2 REST API 端点表（核心）</h2>
+<blockquote>
+<p>前缀：<code>/api/v1</code>，鉴权：<code>Authorization: Bearer &lt;jwt&gt;</code>，RBAC 在中间件层校验</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>资源</th>
+<th>方法</th>
+<th>路径</th>
+<th>角色</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>鉴权</td>
+<td>POST</td>
+<td><code>/auth/login</code></td>
+<td>公开</td>
+<td>手机号+密码，返回 access/refresh</td>
+</tr>
+<tr>
+<td>鉴权</td>
+<td>POST</td>
+<td><code>/auth/refresh</code></td>
+<td>公开</td>
+<td>刷新 token</td>
+</tr>
+<tr>
+<td>鉴权</td>
+<td>GET</td>
+<td><code>/auth/me</code></td>
+<td>任意</td>
+<td>当前用户信息</td>
+</tr>
+<tr>
+<td>房源</td>
+<td>GET</td>
+<td><code>/properties</code></td>
+<td>Agent+</td>
+<td>支持分页、筛选（状态/项目/价格区间）</td>
+</tr>
+<tr>
+<td>房源</td>
+<td>POST</td>
+<td><code>/properties</code></td>
+<td>Agent+</td>
+<td>创建房源</td>
+</tr>
+<tr>
+<td>房源</td>
+<td>GET</td>
+<td><code>/properties/{id}</code></td>
+<td>Agent+/Owner(本人)</td>
+<td>详情含照片</td>
+</tr>
+<tr>
+<td>房源</td>
+<td>PATCH</td>
+<td><code>/properties/{id}</code></td>
+<td>Agent+</td>
+<td>更新</td>
+</tr>
+<tr>
+<td>房源</td>
+<td>POST</td>
+<td><code>/properties/{id}/photos</code></td>
+<td>Agent+</td>
+<td>上传照片（multipart）</td>
+</tr>
+<tr>
+<td>房源</td>
+<td>GET</td>
+<td><code>/properties/me</code></td>
+<td>Owner</td>
+<td>业主查看自己的房产列表</td>
+</tr>
+<tr>
+<td>租约</td>
+<td>GET</td>
+<td><code>/leases</code></td>
+<td>Agent+</td>
+<td>列表（按状态/到期日筛选）</td>
+</tr>
+<tr>
+<td>租约</td>
+<td>POST</td>
+<td><code>/leases</code></td>
+<td>Agent+</td>
+<td>创建租约</td>
+</tr>
+<tr>
+<td>租约</td>
+<td>GET</td>
+<td><code>/leases/{id}</code></td>
+<td>Agent+/Tenant(本人)</td>
+<td>详情</td>
+</tr>
+<tr>
+<td>租约</td>
+<td>GET</td>
+<td><code>/leases/expiring</code></td>
+<td>Agent+</td>
+<td>即将到期租约（D-30/D-7/D-1）</td>
+</tr>
+<tr>
+<td>租约</td>
+<td>GET</td>
+<td><code>/leases/me</code></td>
+<td>Tenant</td>
+<td>租客查看自己的租约</td>
+</tr>
+<tr>
+<td>线索</td>
+<td>GET</td>
+<td><code>/leads</code></td>
+<td>Agent+</td>
+<td>列表</td>
+</tr>
+<tr>
+<td>线索</td>
+<td>POST</td>
+<td><code>/leads</code></td>
+<td>Agent+</td>
+<td>新建线索</td>
+</tr>
+<tr>
+<td>线索</td>
+<td>PATCH</td>
+<td><code>/leads/{id}/stage</code></td>
+<td>Agent+</td>
+<td>推进跟进阶段</td>
+</tr>
+<tr>
+<td>收款</td>
+<td>GET</td>
+<td><code>/payments</code></td>
+<td>Agent+</td>
+<td>流水（支持按 channel/currency/status 筛选）</td>
+</tr>
+<tr>
+<td>收款</td>
+<td>POST</td>
+<td><code>/payments</code></td>
+<td>Tenant</td>
+<td>创建支付单（含幂等键）</td>
+</tr>
+<tr>
+<td>收款</td>
+<td>GET</td>
+<td><code>/payments/channels</code></td>
+<td>Tenant</td>
+<td>获取可用支付渠道列表（按地区/币种智能推荐）</td>
+</tr>
+<tr>
+<td>收款</td>
+<td>POST</td>
+<td><code>/payments/{id}/proof</code></td>
+<td>Tenant</td>
+<td>上传银行转账凭证（线下渠道）</td>
+</tr>
+<tr>
+<td>收款</td>
+<td>POST</td>
+<td><code>/payments/{id}/refund</code></td>
+<td>Agent+</td>
+<td>退款</td>
+</tr>
+<tr>
+<td>收款</td>
+<td>GET</td>
+<td><code>/payments/reconciliations</code></td>
+<td>Admin</td>
+<td>对账记录</td>
+</tr>
+<tr>
+<td>收款</td>
+<td>POST</td>
+<td><code>/payments/webhook/{channel}</code></td>
+<td>公开(三方回调)</td>
+<td>支付结果回调（统一入口）</td>
+</tr>
+<tr>
+<td>业主</td>
+<td>GET</td>
+<td><code>/owners/me/income</code></td>
+<td>Owner</td>
+<td>租金收入汇总</td>
+</tr>
+<tr>
+<td>业主</td>
+<td>GET</td>
+<td><code>/owners/me/documents</code></td>
+<td>Owner</td>
+<td>文档列表（合同/收据/验房照片）</td>
+</tr>
+<tr>
+<td>业主</td>
+<td>POST</td>
+<td><code>/service-packages</code></td>
+<td>Owner</td>
+<td>订阅年度托管套餐</td>
+</tr>
+<tr>
+<td>员工</td>
+<td>POST</td>
+<td><code>/attendance/clock-in</code></td>
+<td>Employee</td>
+<td>上班打卡（带 GPS）</td>
+</tr>
+<tr>
+<td>员工</td>
+<td>POST</td>
+<td><code>/attendance/clock-out</code></td>
+<td>Employee</td>
+<td>下班打卡</td>
+</tr>
+<tr>
+<td>员工</td>
+<td>GET</td>
+<td><code>/attendance/me</code></td>
+<td>Employee</td>
+<td>我的考勤</td>
+</tr>
+<tr>
+<td>业绩</td>
+<td>POST</td>
+<td><code>/performance/monthly</code></td>
+<td>Employee</td>
+<td>提交月度业绩</td>
+</tr>
+<tr>
+<td>业绩</td>
+<td>GET</td>
+<td><code>/performance/leaderboard</code></td>
+<td>任意已登录</td>
+<td>排行榜</td>
+</tr>
+<tr>
+<td>Dashboard</td>
+<td>GET</td>
+<td><code>/dashboard/summary</code></td>
+<td>Agent+</td>
+<td>房源/合同/到期统计</td>
+</tr>
+<tr>
+<td>项目</td>
+<td>GET / POST</td>
+<td><code>/projects</code></td>
+<td>Agent+</td>
+<td>项目/楼盘 CRUD</td>
+</tr>
+<tr>
+<td>租客</td>
+<td>GET / PATCH</td>
+<td><code>/tenants/me</code></td>
+<td>Tenant</td>
+<td>租客档案</td>
+</tr>
+<tr>
+<td>文档</td>
+<td>GET / POST</td>
+<td><code>/documents</code></td>
+<td>Agent+/Owner/Tenant</td>
+<td>文档中心（按 type 筛选）</td>
+</tr>
+<tr>
+<td>文档</td>
+<td>GET</td>
+<td><code>/documents/{id}/download</code></td>
+<td>有权限</td>
+<td>下载文件</td>
+</tr>
+<tr>
+<td>推荐服务</td>
+<td>GET / POST</td>
+<td><code>/service-orders</code></td>
+<td>Owner/Tenant</td>
+<td>推荐服务下单</td>
+</tr>
+<tr>
+<td>推荐服务</td>
+<td>PATCH</td>
+<td><code>/service-orders/{id}/status</code></td>
+<td>Agent+</td>
+<td>更新订单状态（派单/完成）</td>
+</tr>
+<tr>
+<td>报修</td>
+<td>GET / POST</td>
+<td><code>/maintenance-tickets</code></td>
+<td>Tenant/Agent+</td>
+<td>报修工单</td>
+</tr>
+<tr>
+<td>报修</td>
+<td>PATCH</td>
+<td><code>/maintenance-tickets/{id}</code></td>
+<td>Agent+</td>
+<td>更新工单状态</td>
+</tr>
+<tr>
+<td>通知</td>
+<td>GET</td>
+<td><code>/notifications/me</code></td>
+<td>任意已登录</td>
+<td>我的站内信</td>
+</tr>
+<tr>
+<td>通知</td>
+<td>PATCH</td>
+<td><code>/notifications/{id}/read</code></td>
+<td>任意已登录</td>
+<td>标记已读</td>
+</tr>
+<tr>
+<td>佣金</td>
+<td>GET</td>
+<td><code>/commissions/me</code></td>
+<td>Employee</td>
+<td>我的佣金结算</td>
+</tr>
+<tr>
+<td>佣金</td>
+<td>POST</td>
+<td><code>/commissions/{id}/approve</code></td>
+<td>Admin</td>
+<td>审核佣金</td>
+</tr>
+<tr>
+<td>通知</td>
+<td>POST</td>
+<td><code>/notifications/dispatch</code></td>
+<td>系统/Celery</td>
+<td>内部接口，发送通知</td>
+</tr>
+<tr>
+<td>公司</td>
+<td>GET</td>
+<td><code>/company/info</code></td>
+<td>公开</td>
+<td>公司信息（地址/电话/社交媒体）</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>完整 OpenAPI 文档由 FastAPI 自动生成，部署在 <code>/docs</code>（Swagger UI）和 <code>/redoc</code>。</p>
+</blockquote>
+<hr />
+<h2>5.3 领域事件规范</h2>
+<blockquote>
+<p>所有核心业务操作必须发布领域事件，作为未来 AI/BI/通知的可观测接入点。
+实现方式：业务事务提交 → 写 <code>events</code> 表（outbox 模式） → Celery worker 转发到 Redis Streams → 消费者订阅。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>事件类型</th>
+<th>触发时机</th>
+<th>Payload 示例</th>
+<th>消费者</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lease.signed</code></td>
+<td>租约创建/签约</td>
+<td><code>{lease_id, property_id, tenant_id, monthly_rent}</code></td>
+<td>通知、BI、推荐</td>
+</tr>
+<tr>
+<td><code>lease.expiring</code></td>
+<td>合同到期前 30/7/1 天</td>
+<td><code>{lease_id, days_remaining}</code></td>
+<td>通知、续约 AI</td>
+</tr>
+<tr>
+<td><code>lease.renewed</code></td>
+<td>租约续约成功</td>
+<td><code>{old_lease_id, new_lease_id, property_id}</code></td>
+<td>通知、BI</td>
+</tr>
+<tr>
+<td><code>lease.terminated</code></td>
+<td>租约终止/退房</td>
+<td><code>{lease_id, property_id, reason, deposit_refunded}</code></td>
+<td>通知、BI、财务</td>
+</tr>
+<tr>
+<td><code>payment.received</code></td>
+<td>收款成功</td>
+<td><code>{payment_id, amount, currency, channel}</code></td>
+<td>通知、BI、对账</td>
+</tr>
+<tr>
+<td><code>payment.failed</code></td>
+<td>收款失败</td>
+<td><code>{payment_id, reason}</code></td>
+<td>通知、重试</td>
+</tr>
+<tr>
+<td><code>property.status_changed</code></td>
+<td>房源状态变更</td>
+<td><code>{property_id, from, to}</code></td>
+<td>BI、推荐</td>
+</tr>
+<tr>
+<td><code>lead.created</code></td>
+<td>新线索</td>
+<td><code>{lead_id, source, budget}</code></td>
+<td>AI 评分、分配</td>
+</tr>
+<tr>
+<td><code>lead.stage_changed</code></td>
+<td>跟进阶段推进</td>
+<td><code>{lead_id, from_stage, to_stage}</code></td>
+<td>BI、转化率分析</td>
+</tr>
+<tr>
+<td><code>service_order.created</code></td>
+<td>推荐服务下单</td>
+<td><code>{order_id, service_type, property_id}</code></td>
+<td>派单、通知</td>
+</tr>
+<tr>
+<td><code>service_order.completed</code></td>
+<td>服务完成</td>
+<td><code>{order_id, rating, cost}</code></td>
+<td>BI、结算</td>
+</tr>
+<tr>
+<td><code>maintenance_ticket.created</code></td>
+<td>租客报修</td>
+<td><code>{ticket_id, property_id, priority}</code></td>
+<td>派单、通知</td>
+</tr>
+<tr>
+<td><code>maintenance_ticket.resolved</code></td>
+<td>报修解决</td>
+<td><code>{ticket_id, cost, resolution}</code></td>
+<td>通知、结算</td>
+</tr>
+<tr>
+<td><code>commission.settled</code></td>
+<td>佣金结算</td>
+<td><code>{settlement_id, employee_id, amount}</code></td>
+<td>通知、BI</td>
+</tr>
+<tr>
+<td><code>attendance.anomaly</code></td>
+<td>考勤异常</td>
+<td><code>{employee_id, type}</code></td>
+<td>通知</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>6. 核心业务流程</h2>
+<h3>6.1 房源 → 签约 → 收租 主流程</h3>
+<ol>
+<li><strong>录入房源</strong>（Web） → 状态 <code>vacant</code></li>
+<li><strong>创建线索</strong>（Web） → 跟进到 <code>closed</code></li>
+<li><strong>生成租约</strong>（Web） → 上传合同 PDF → 状态 <code>active</code></li>
+<li><strong>房源状态</strong> → <code>rented</code></li>
+<li><strong>Celery 定时任务</strong>：每月 1 日生成应收账单 → 通过 Line/WeChat/WhatsApp 推送给租客</li>
+<li><strong>租客支付</strong>（App） → 选择渠道 → 上传凭证 / 支付成功回调</li>
+<li><strong>Payment 状态</strong> → <code>success</code> → 通知业主 + 员工</li>
+<li><strong>Celery 提醒</strong>：合同到期前 30/7/1 天推送续约通知</li>
+</ol>
+<h3>6.2 年度托管套餐订阅</h3>
+<ol>
+<li>业主在 App 选择套餐</li>
+<li>生成 <code>service_package</code> 记录</li>
+<li>佣金（1 个月租金）一次性收取</li>
+<li>托管费（半个月租金）仅在有 <code>active</code> 租约的月份按比例收取</li>
+<li>每年自动续费提醒，提前 30 天通知业主</li>
+</ol>
+<h3>6.3 业绩月报与排行榜</h3>
+<ol>
+<li>员工每月 1-5 日填写上月业绩</li>
+<li>主管审核</li>
+<li>汇总到 Dashboard 排行榜</li>
+<li>业绩与佣金自动核算</li>
+</ol>
+<h3>6.4 推荐服务派单流程</h3>
+<ol>
+<li>业主/租客在 App 选择服务类型（清洁/空调清洗/WiFi/水电代付/保险/税费代缴）</li>
+<li>创建 <code>service_orders</code>（status=<code>pending</code>）→ 发布 <code>service_order.created</code> 事件</li>
+<li>系统自动匹配外包商（Phase 1 人工分配，Phase 4 AI 智能匹配）</li>
+<li>状态 <code>pending → assigned</code> → 通知外包商 + 下单人</li>
+<li>外包商上门服务 → 状态 <code>in_progress</code></li>
+<li>服务完成 → 状态 <code>completed</code> → 下单人验收 + 评分</li>
+<li>生成 <code>payment</code>（如有费用）→ 结算给外包商</li>
+<li>发布 <code>service_order.completed</code> 事件 → BI 分析</li>
+</ol>
+<h3>6.5 报修工单流程</h3>
+<ol>
+<li>租客在 App 提交报修（描述 + 照片 + 优先级）</li>
+<li>创建 <code>maintenance_tickets</code>（status=<code>open</code>）→ 发布 <code>maintenance_ticket.created</code> 事件</li>
+<li>系统派单（优先 <code>urgent</code> 自动通知值班员工）</li>
+<li>状态 <code>open → assigned → in_progress</code></li>
+<li>物业/外包处理 → 上传处理照片 → 状态 <code>resolved</code></li>
+<li>租客确认验收 → 状态 <code>closed</code></li>
+<li>如有费用 → 关联 <code>payment</code> → 发布 <code>maintenance_ticket.resolved</code> 事件</li>
+<li><strong>退回机制</strong>：租客不满意可从 <code>resolved</code> 退回 <code>in_progress</code></li>
+</ol>
+<h3>6.6 续约流程</h3>
+<ol>
+<li>合同到期前 30 天 Celery 任务触发 → 发布 <code>lease.expiring</code> 事件</li>
+<li>系统通过社交媒体 + 推送通知业主和租客</li>
+<li>租客在 App 确认续约意向 → 经纪跟进</li>
+<li>生成新租约（关联旧 <code>lease_id</code>）→ 上传新合同</li>
+<li>旧租约状态 <code>active → expired</code>，新租约 <code>active</code></li>
+<li>押金处理：原押金结转 / 补差 / 退还（按业务规则）</li>
+<li>发布 <code>lease.renewed</code> 事件 → BI 统计续约率</li>
+<li>房源状态保持 <code>rented</code></li>
+</ol>
+<h3>6.7 退房流程</h3>
+<ol>
+<li>租客发起退租通知（提前 30 天，或协商）</li>
+<li>经纪安排验房日期 → 生成 <code>documents</code>（验房照片）</li>
+<li>验房流程：
+   - 检查房屋损坏 → 拍照存证
+   - 如有损坏 → 从押金扣除（需业主确认）
+   - 生成验房报告 PDF</li>
+<li>水电清算：
+   - 读取最后水电读数
+   - 计算应付金额 → 关联 <code>service_orders</code>（utility_payment）</li>
+<li>押金结算：
+   - 押金 - 扣除 - 水电欠款 = 应退金额
+   - 生成退款 <code>payment</code>（原路退回 / 银行转账）</li>
+<li>租约状态 <code>active → terminated</code></li>
+<li>房源状态 <code>rented → vacant</code></li>
+<li>发布 <code>lease.terminated</code> 事件 → 通知业主 + BI</li>
+<li>文档归档：退房报告、验房照片、押金结算单存入 <code>documents</code></li>
+</ol>
+<h3>6.8 佣金结算流程</h3>
+<ol>
+<li>租约签约成功 → 自动生成 <code>commission_settlements</code>（status=<code>pending</code>）</li>
+<li>佣金类型：
+   - <code>new_rental</code>：新租约佣金 = 1 个月租金（向业主收）
+   - <code>renewal</code>：续约佣金 = 半个月租金（按合同约定）
+   - <code>management</code>：托管费 = 半个月租金/年（仅托管套餐）</li>
+<li>月度结算任务（每月 1 日）：
+   - 汇总当月所有 <code>pending</code> 佣金
+   - 关联员工 <code>performance</code> 月报
+   - 主管审核 → 状态 <code>pending → approved</code></li>
+<li>财务发放 → 状态 <code>approved → paid</code> → 发布 <code>commission.settled</code> 事件</li>
+<li>员工 App 收到通知 → 可查看佣金明细</li>
+<li>Dashboard 排行榜更新</li>
+</ol>
+<hr />
+<h2>7. 支付系统设计</h2>
+<blockquote>
+<p>系统需要覆盖<strong>国内外已知大部分支付通道</strong>。采用"<strong>统一适配层 + 分阶段接入</strong>"策略：先建好抽象，Phase 1 接 3-4 个核心渠道跑通流程，Phase 2/3 按业务量逐个扩展到 20+ 渠道。</p>
+</blockquote>
+<h3>7.1 支付渠道矩阵（类型 × 区域）</h3>
+<h4>7.1.1 中国大陆渠道</h4>
+<table>
+<thead>
+<tr>
+<th>渠道</th>
+<th>类型</th>
+<th>接入方式</th>
+<th>商户资质</th>
+<th>Phase</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>微信支付</td>
+<td>钱包/QR</td>
+<td>API 直连</td>
+<td>国内营业执照 + ICP</td>
+<td><strong>1</strong> 🟢</td>
+<td>境内版（CNY）</td>
+</tr>
+<tr>
+<td>支付宝</td>
+<td>钱包/QR</td>
+<td>API 直连</td>
+<td>国内营业执照 + ICP</td>
+<td><strong>1</strong> 🟢</td>
+<td>境内版（CNY）</td>
+</tr>
+<tr>
+<td>银联在线（UnionPay Online）</td>
+<td>银行卡</td>
+<td>API 直连</td>
+<td>国内营业执照</td>
+<td>2 🟡</td>
+<td>覆盖借记卡/信用卡</td>
+</tr>
+<tr>
+<td>京东支付</td>
+<td>钱包</td>
+<td>API 直连</td>
+<td>国内营业执照</td>
+<td>3 ⚪</td>
+<td>锦上添花</td>
+</tr>
+<tr>
+<td>百度钱包</td>
+<td>钱包</td>
+<td>API 直连</td>
+<td>国内营业执照</td>
+<td>3 ⚪</td>
+<td>用户量小</td>
+</tr>
+<tr>
+<td>云闪付</td>
+<td>钱包/QR</td>
+<td>API 直连</td>
+<td>银联认证</td>
+<td>2 🟡</td>
+<td>银联系，覆盖广</td>
+</tr>
+<tr>
+<td>Apple Pay（境内）</td>
+<td>钱包</td>
+<td>银联通道</td>
+<td>走银联即可</td>
+<td>2 🟡</td>
+<td>iOS 用户</td>
+</tr>
+<tr>
+<td>银行直连（B2B）</td>
+<td>转账</td>
+<td>各家银行 API</td>
+<td>公司银行账户</td>
+<td>2 🟡</td>
+<td>大额转账、对公</td>
+</tr>
+</tbody>
+</table>
+<h4>7.1.2 国际通用渠道</h4>
+<table>
+<thead>
+<tr>
+<th>渠道</th>
+<th>类型</th>
+<th>接入方式</th>
+<th>商户资质</th>
+<th>Phase</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Stripe</strong></td>
+<td>银行卡+钱包+BNPL</td>
+<td>API 直连</td>
+<td>海外公司主体（已有 ✅）</td>
+<td><strong>1</strong> 🟢</td>
+<td>Visa/MC/Amex/Apple Pay/Google Pay/Klarna 一站搞定</td>
+</tr>
+<tr>
+<td><strong>PayPal</strong></td>
+<td>钱包</td>
+<td>API 直连</td>
+<td>PayPal Business 账户</td>
+<td>2 🟡</td>
+<td>国际用户偏好</td>
+</tr>
+<tr>
+<td><strong>Apple Pay（国际）</strong></td>
+<td>钱包</td>
+<td>走 Stripe/Adyen</td>
+<td>同上</td>
+<td>2 🟡</td>
+<td>iOS 用户</td>
+</tr>
+<tr>
+<td><strong>Google Pay</strong></td>
+<td>钱包</td>
+<td>走 Stripe/Adyen</td>
+<td>同上</td>
+<td>2 🟡</td>
+<td>Android 用户</td>
+</tr>
+<tr>
+<td><strong>Visa / Mastercard 直连</strong></td>
+<td>银行卡</td>
+<td>收单行</td>
+<td>需 PCI-DSS 认证</td>
+<td>3 ⚪</td>
+<td>通常走 Stripe/Adyen 即可</td>
+</tr>
+<tr>
+<td><strong>Klarna / Afterpay</strong></td>
+<td>先买后付</td>
+<td>走 Stripe</td>
+<td>同上</td>
+<td>3 ⚪</td>
+<td>欧美用户偏好</td>
+</tr>
+</tbody>
+</table>
+<h4>7.1.3 东南亚本地渠道（重点）</h4>
+<table>
+<thead>
+<tr>
+<th>渠道</th>
+<th>适用国家</th>
+<th>类型</th>
+<th>接入方式</th>
+<th>Phase</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PromptPay QR</strong></td>
+<td>泰国</td>
+<td>QR/银行转账</td>
+<td>银行 API（SCB/KBank）</td>
+<td><strong>1</strong> 🟢</td>
+<td>泰国央行官方，最普及</td>
+</tr>
+<tr>
+<td>TrueMoney Wallet</td>
+<td>泰国</td>
+<td>钱包</td>
+<td>API 直连</td>
+<td>2 🟡</td>
+<td>泰国本地用户</td>
+</tr>
+<tr>
+<td>Rabbit LINE Pay</td>
+<td>泰国</td>
+<td>钱包</td>
+<td>LINE Pay API</td>
+<td>2 🟡</td>
+<td>LINE 生态用户</td>
+</tr>
+<tr>
+<td>7-Eleven Counter</td>
+<td>泰国</td>
+<td>线下柜台</td>
+<td>Counter Service API</td>
+<td>2 🟡</td>
+<td>不上网用户也能付</td>
+</tr>
+<tr>
+<td>PayNow</td>
+<td>新加坡</td>
+<td>QR/银行转账</td>
+<td>DBS/OCBC API</td>
+<td>2 🟡</td>
+<td>新加坡央行</td>
+</tr>
+<tr>
+<td>GrabPay</td>
+<td>东南亚</td>
+<td>钱包</td>
+<td>GrabPay API</td>
+<td>2 🟡</td>
+<td>6 国通用</td>
+</tr>
+<tr>
+<td>ShopeePay</td>
+<td>东南亚</td>
+<td>钱包</td>
+<td>Shopee Open API</td>
+<td>3 ⚪</td>
+<td>电商用户</td>
+</tr>
+<tr>
+<td>DuitNow</td>
+<td>马来西亚</td>
+<td>QR/银行转账</td>
+<td>银行 API</td>
+<td>3 ⚪</td>
+<td>马来央行</td>
+</tr>
+<tr>
+<td>GCash</td>
+<td>菲律宾</td>
+<td>钱包</td>
+<td>GCash API</td>
+<td>3 ⚪</td>
+<td>菲央行</td>
+</tr>
+<tr>
+<td>PayPay</td>
+<td>日本</td>
+<td>QR</td>
+<td>PayPay API</td>
+<td>3 ⚪</td>
+<td>日 QR 龙头</td>
+</tr>
+<tr>
+<td>KakaoPay</td>
+<td>韩国</td>
+<td>钱包</td>
+<td>Kakao API</td>
+<td>3 ⚪</td>
+<td>韩主流</td>
+</tr>
+<tr>
+<td>Toss</td>
+<td>韩国</td>
+<td>转账</td>
+<td>Toss API</td>
+<td>3 ⚪</td>
+<td>韩新兴</td>
+</tr>
+</tbody>
+</table>
+<h4>7.1.4 跨境转账 / 国际汇款</h4>
+<table>
+<thead>
+<tr>
+<th>渠道</th>
+<th>类型</th>
+<th>接入方式</th>
+<th>Phase</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Wise Transfer</strong></td>
+<td>跨境转账</td>
+<td>Wise API</td>
+<td><strong>1</strong> 🟢</td>
+<td>多币种手续费低</td>
+</tr>
+<tr>
+<td>SWIFT</td>
+<td>银行间</td>
+<td>收单行</td>
+<td>2 🟡</td>
+<td>大额 B2B</td>
+</tr>
+<tr>
+<td>SEPA</td>
+<td>欧元区</td>
+<td>银行 API</td>
+<td>2 🟡</td>
+<td>欧洲用户</td>
+</tr>
+<tr>
+<td>MoneyGram</td>
+<td>汇款</td>
+<td>API</td>
+<td>3 ⚪</td>
+<td>海外华人</td>
+</tr>
+<tr>
+<td>Western Union</td>
+<td>汇款</td>
+<td>API</td>
+<td>3 ⚪</td>
+<td>海外华人</td>
+</tr>
+<tr>
+<td>PingPong / Airwallex</td>
+<td>跨境收款</td>
+<td>API</td>
+<td>2 🟡</td>
+<td>国内出海商家收款</td>
+</tr>
+<tr>
+<td><strong>Alipay+</strong></td>
+<td>跨境钱包聚合</td>
+<td>Alipay+ API</td>
+<td>2 🟡</td>
+<td>一键接入 10+ 亚洲钱包</td>
+</tr>
+</tbody>
+</table>
+<h3>7.2 支付聚合器对比（推荐方案）</h3>
+<blockquote>
+<p>调研显示：自建对接 20+ 渠道需 3-4 人月，且每年需持续维护各渠道 API 变更。<strong>强烈建议优先评估支付聚合器</strong>。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>聚合器</th>
+<th>覆盖渠道</th>
+<th>费率</th>
+<th>入驻难度</th>
+<th>适合场景</th>
+<th>接入成本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Stripe</strong></td>
+<td>银行卡+Apple/Google Pay+KLARNA+部分本地钱包</td>
+<td>2.9% + $0.3</td>
+<td>简单（已有海外主体）</td>
+<td>国际化首选</td>
+<td>1-2 周</td>
+</tr>
+<tr>
+<td><strong>Adyen</strong></td>
+<td>银行卡 + 30+ 本地钱包（PromptPay/GrabPay/PayPay 等）</td>
+<td>协商（量大有优惠）</td>
+<td>中等</td>
+<td>东南亚深度本地化</td>
+<td>3-4 周</td>
+</tr>
+<tr>
+<td><strong>Checkout.com</strong></td>
+<td>类似 Adyen，覆盖广</td>
+<td>协商</td>
+<td>中等</td>
+<td>替代 Adyen</td>
+<td>3-4 周</td>
+</tr>
+<tr>
+<td><strong>Ping++</strong></td>
+<td>中国聚合（微信/支付宝/银联等）</td>
+<td>0.6%</td>
+<td>简单（需国内主体）</td>
+<td>国内收款</td>
+<td>1-2 周</td>
+</tr>
+<tr>
+<td><strong>Yaband Pay</strong></td>
+<td>东南亚聚合</td>
+<td>1-2%</td>
+<td>简单</td>
+<td>泰国本地收款</td>
+<td>1-2 周</td>
+</tr>
+</tbody>
+</table>
+<p><strong>推荐组合</strong>：
+- <strong>国际通用</strong> → Stripe（已覆盖银行卡 + Apple/Google Pay，可扩 PayPal/Klarna）
+- <strong>东南亚本地</strong> → Adyen（30+ 钱包和银行转账）或 Yaband Pay（轻量）
+- <strong>中国大陆</strong> → 微信/支付宝境内版直连（如有国内主体）或 Ping++ 聚合</p>
+<h3>7.3 统一支付接口（Adapter + Strategy 模式）</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PaymentChannel</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
+    <span class="c1"># 国际</span>
+    <span class="n">STRIPE</span> <span class="o">=</span> <span class="s2">&quot;stripe&quot;</span>
+    <span class="n">PAYPAL</span> <span class="o">=</span> <span class="s2">&quot;paypal&quot;</span>
+    <span class="n">WISE</span> <span class="o">=</span> <span class="s2">&quot;wise&quot;</span>
+    <span class="c1"># 东南亚</span>
+    <span class="n">PROMPTPAY</span> <span class="o">=</span> <span class="s2">&quot;promptpay&quot;</span>
+    <span class="n">TRUEMONEY</span> <span class="o">=</span> <span class="s2">&quot;truemoney&quot;</span>
+    <span class="n">GRABPAY</span> <span class="o">=</span> <span class="s2">&quot;grabpay&quot;</span>
+    <span class="c1"># 中国大陆</span>
+    <span class="n">WECHAT_CN</span> <span class="o">=</span> <span class="s2">&quot;wechat_cn&quot;</span>
+    <span class="n">ALIPAY_CN</span> <span class="o">=</span> <span class="s2">&quot;alipay_cn&quot;</span>
+    <span class="n">UNIONPAY</span> <span class="o">=</span> <span class="s2">&quot;unionpay&quot;</span>
+    <span class="c1"># ...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PaymentProvider</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;所有支付渠道必须实现的接口&quot;&quot;&quot;</span>
+    <span class="n">channel</span><span class="p">:</span> <span class="n">PaymentChannel</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">create_order</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">CreateOrderRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderInfo</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">query_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PaymentStatus</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cancel_order</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CancelResult</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">refund</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">RefundRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RefundResult</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_webhook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">headers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WebhookResult</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">verify_webhook_signature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">signature</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">CreateOrderRequest</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="n">idempotency_key</span><span class="p">:</span> <span class="nb">str</span>          <span class="c1"># 幂等键，防重复下单</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="n">Decimal</span>               <span class="c1"># 金额（最小单位：分）</span>
+    <span class="n">currency</span><span class="p">:</span> <span class="nb">str</span>                 <span class="c1"># ISO 4217</span>
+    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">customer</span><span class="p">:</span> <span class="n">CustomerInfo</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span>                <span class="c1"># 业务数据：lease_id, owner_id, etc.</span>
+    <span class="n">success_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">cancel_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">expires_at</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="kc">None</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">OrderInfo</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="n">order_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">channel</span><span class="p">:</span> <span class="n">PaymentChannel</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="n">Decimal</span>
+    <span class="n">currency</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">PaymentStatus</span>
+    <span class="n">payment_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>       <span class="c1"># 收银台 URL（网页跳转）</span>
+    <span class="n">qr_code</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>           <span class="c1"># QR 内容（钱包扫码）</span>
+    <span class="n">deep_link</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>         <span class="c1"># App 唤起链接</span>
+    <span class="n">expires_at</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="kc">None</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PaymentService</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_providers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">PaymentChannel</span><span class="p">,</span> <span class="n">PaymentProvider</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">PaymentChannel</span><span class="o">.</span><span class="n">STRIPE</span><span class="p">:</span> <span class="n">StripeProvider</span><span class="p">(),</span>
+            <span class="n">PaymentChannel</span><span class="o">.</span><span class="n">PROMPTPAY</span><span class="p">:</span> <span class="n">PromptPayProvider</span><span class="p">(),</span>
+            <span class="n">PaymentChannel</span><span class="o">.</span><span class="n">WECHAT_CN</span><span class="p">:</span> <span class="n">WechatCNProvider</span><span class="p">(),</span>
+            <span class="n">PaymentChannel</span><span class="o">.</span><span class="n">ALIPAY_CN</span><span class="p">:</span> <span class="n">AlipayCNProvider</span><span class="p">(),</span>
+            <span class="n">PaymentChannel</span><span class="o">.</span><span class="n">WISE</span><span class="p">:</span> <span class="n">WiseProvider</span><span class="p">(),</span>
+            <span class="c1"># 后续 Phase 2/3 注册更多</span>
+        <span class="p">}</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">pay</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">PaymentChannel</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">CreateOrderRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderInfo</span><span class="p">:</span>
+        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_providers</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">create_order</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_webhook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">PaymentChannel</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WebhookResult</span><span class="p">:</span>
+        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_providers</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">verify_webhook_signature</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;X-Signature&quot;</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="n">InvalidSignatureError</span><span class="p">()</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">handle_webhook</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
+</code></pre></div>
+
+<h3>7.4 支付状态机</h3>
+<div class="highlight"><pre><span></span><code>PENDING ──→ SUCCESS ──→ PARTIAL_REFUNDED ──→ REFUNDED
+    │           │
+    │           └──→ DISPUTED ──→ RESOLVED
+    ├──→ FAILED
+    ├──→ CANCELLED
+    └──→ EXPIRED
+</code></pre></div>
+
+<h3>7.5 关键子系统</h3>
+<h4>7.5.1 幂等键管理</h4>
+<ul>
+<li>客户端传 <code>Idempotency-Key</code> 头，UUID v4</li>
+<li>Redis 存 24h，重复键直接返回上次结果</li>
+<li>防止用户重复点击、网络重试导致双扣</li>
+</ul>
+<h4>7.5.2 统一 Webhook 路由</h4>
+<div class="highlight"><pre><span></span><code>POST /api/v1/payments/webhook/{channel}
+</code></pre></div>
+
+<ul>
+<li>单一入口，channel 决定路由到哪个 provider</li>
+<li>所有 webhook 必做：验签 → 幂等检查 → 解析 → 落库 → 触发业务事件</li>
+<li>失败重试（指数退避）+ 死信队列</li>
+</ul>
+<h4>7.5.3 对账任务（每日 03:00）</h4>
+<ul>
+<li>对比本地 <code>payments</code> 表 vs 各渠道后台账单</li>
+<li>差异记录到 <code>payment_reconciliations</code> 表</li>
+<li>差异 &gt; 0.01 THB 报警</li>
+<li>财务 Web 界面查看差异并手动处理</li>
+</ul>
+<h4>7.5.4 退款流程</h4>
+<ul>
+<li>全额 / 部分退款</li>
+<li>原路退回（Stripe/支付宝/微信都支持）</li>
+<li>跨渠道退款（极少情况）需财务确认</li>
+<li>退款同步生成反向 WHT 调整</li>
+</ul>
+<h4>7.5.5 结算与对公账户</h4>
+<ul>
+<li>收款 → 公司收款账户 → 按结算周期提现</li>
+<li>不同渠道结算周期：Stripe T+2，支付宝 T+1，微信 T+1，PromptPay T+1</li>
+<li>资金归集到公司主账户后再分配给业主</li>
+</ul>
+<h3>7.6 路由与渠道路由器</h3>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">PaymentRouter</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;根据用户地区/币种/金额智能推荐最优渠道&quot;&quot;&quot;</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">recommend</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">user</span><span class="p">:</span> <span class="n">User</span><span class="p">,</span> <span class="n">amount</span><span class="p">:</span> <span class="n">Decimal</span><span class="p">,</span> <span class="n">currency</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PaymentChannel</span><span class="p">]:</span>
+        <span class="n">recommendations</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># 规则示例</span>
+        <span class="k">if</span> <span class="n">user</span><span class="o">.</span><span class="n">country</span> <span class="o">==</span> <span class="s2">&quot;TH&quot;</span> <span class="ow">and</span> <span class="n">currency</span> <span class="o">==</span> <span class="s2">&quot;THB&quot;</span><span class="p">:</span>
+            <span class="n">recommendations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PaymentChannel</span><span class="o">.</span><span class="n">PROMPTPAY</span><span class="p">)</span>  <span class="c1"># 首选</span>
+        <span class="k">elif</span> <span class="n">user</span><span class="o">.</span><span class="n">country</span> <span class="o">==</span> <span class="s2">&quot;CN&quot;</span> <span class="ow">and</span> <span class="n">currency</span> <span class="o">==</span> <span class="s2">&quot;CNY&quot;</span><span class="p">:</span>
+            <span class="n">recommendations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PaymentChannel</span><span class="o">.</span><span class="n">WECHAT_CN</span><span class="p">)</span>
+            <span class="n">recommendations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PaymentChannel</span><span class="o">.</span><span class="n">ALIPAY_CN</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">recommendations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PaymentChannel</span><span class="o">.</span><span class="n">STRIPE</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">recommendations</span>
+</code></pre></div>
+
+<h3>7.7 安全与合规</h3>
+<ul>
+<li><strong>PCI-DSS 合规</strong>：首选方式是不接触卡号（Stripe Elements / Alipay SDK），避免自建卡号存储</li>
+<li><strong>Webhook 验签</strong>：所有渠道强制 HMAC-SHA256 验签</li>
+<li><strong>金额服务端校验</strong>：客户端不传最终金额</li>
+<li><strong>限流</strong>：每用户每分钟 5 笔支付，每 IP 每小时 30 笔</li>
+<li><strong>资金安全</strong>：对接渠道使用公司主体账户，开通双因子提现</li>
+<li><strong>反洗钱（AML）</strong>：单笔 &gt; 50,000 THB 触发人工审核</li>
+<li><strong>审计日志</strong>：所有支付操作写 <code>audit_logs</code>（PDPA §27）</li>
+</ul>
+<h3>7.8 Phase 接入计划</h3>
+<h4>Phase 1（必做 4 个）🟢</h4>
+<ol>
+<li><strong>Stripe</strong>（覆盖国际银行卡 + Apple/Google Pay）</li>
+<li><strong>PromptPay QR</strong>（泰国本地核心）</li>
+<li><strong>微信支付（境内版）</strong>（如已注册国内主体；否则用跨境版）</li>
+<li><strong>支付宝（境内版）</strong>（同上）
+- Phase 1 验收：能收至少 4 个渠道的款项，webhook 流程跑通，对账任务日跑无差异</li>
+</ol>
+<h4>Phase 2（按业务量扩展 6-8 个）🟡</h4>
+<ul>
+<li>PayPal、Wise、TrueMoney、LINE Pay、银联云闪付、Alipay+、GrabPay、PayNow</li>
+</ul>
+<h4>Phase 3（补全其他）⚪</h4>
+<ul>
+<li>PayPay、KakaoPay、Toss、GCash、DuitNow、7-Eleven Counter、MoneyGram、Western Union 等</li>
+</ul>
+<h4>新渠道接入成本</h4>
+<ul>
+<li><strong>走聚合器（推荐）</strong>：每个渠道 1-3 天，主要是配置和测试</li>
+<li><strong>直连</strong>：每个渠道 1-3 周（含资质申请、API 对接、webhook、对账、退款测试）</li>
+</ul>
+<h3>7.9 渠道适配器目录结构</h3>
+<div class="highlight"><pre><span></span><code>backend/app/providers/payment/
+├── __init__.py
+├── base.py                 # PaymentProvider Protocol
+├── service.py              # PaymentService 总控
+├── router.py               # PaymentRouter 智能推荐
+├── models.py               # CreateOrderRequest/OrderInfo 等
+├── exceptions.py
+├── channels/
+│   ├── stripe.py
+│   ├── promptpay.py
+│   ├── wechat_cn.py
+│   ├── alipay_cn.py
+│   ├── wise.py
+│   ├── paypal.py           # Phase 2
+│   ├── truemoney.py        # Phase 2
+│   └── ... (后续按需添加)
+├── webhook.py              # 统一 webhook 路由
+├── reconciliation.py       # 对账任务
+└── refunds.py              # 退款服务
+</code></pre></div>
+
+<hr />
+<h2>8. 通知系统设计</h2>
+<h3>8.1 通知渠道适配器</h3>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">NotificationChannel</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recipient</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">template</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="c1"># 实现</span>
+<span class="n">LineNotifyChannel</span><span class="p">()</span>
+<span class="n">WechatWorkBotChannel</span><span class="p">()</span>
+<span class="n">WhatsAppBusinessChannel</span><span class="p">()</span>
+<span class="n">FacebookMessengerChannel</span><span class="p">()</span>
+<span class="n">SmsChannel</span><span class="p">()</span>
+<span class="n">EmailChannel</span><span class="p">()</span>
+<span class="n">FCMPushChannel</span><span class="p">()</span>  <span class="c1"># App 推送</span>
+</code></pre></div>
+
+<h3>8.2 通知触发场景</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>渠道优先级</th>
+<th>模板</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>租金到期提醒（D-7/D-3/D-1）</td>
+<td>社交媒体 → 推送 → 短信</td>
+<td>"您 X 月房租 X 元将于 X 日到期..."</td>
+</tr>
+<tr>
+<td>合同到期提醒（D-30/D-7/D-1）</td>
+<td>社交媒体 → 推送</td>
+<td>"您的合同将于 X 日到期..."</td>
+</tr>
+<tr>
+<td>支付成功通知</td>
+<td>推送 + 社交媒体</td>
+<td>"已收到 X 月租金 X 元..."</td>
+</tr>
+<tr>
+<td>续约通知</td>
+<td>社交媒体 + 邮件</td>
+<td>"您的房源/租约可续约..."</td>
+</tr>
+<tr>
+<td>考勤异常</td>
+<td>推送</td>
+<td>"您今日未打卡..."</td>
+</tr>
+</tbody>
+</table>
+<h3>8.3 失败重试</h3>
+<ul>
+<li>Redis Stream 队列，失败入死信队列</li>
+<li>指数退避重试（1min → 5min → 30min → 2h）</li>
+<li>每日统计发送成功率到监控</li>
+</ul>
+<hr />
+<h2>9. 多语言与多端设计</h2>
+<h3>9.1 国际化</h3>
+<ul>
+<li><strong>前端</strong>：i18next，资源文件 <code>zh.json / en.json / th.json</code></li>
+<li><strong>后端</strong>：错误消息国际化（Accept-Language 头）</li>
+<li><strong>数据库</strong>：固定中文（如业主姓名）原文存，地址等可翻译字段存 <code>JSONB</code> 多语言副本</li>
+</ul>
+<h3>9.2 跨端代码复用策略</h3>
+<table>
+<thead>
+<tr>
+<th>层</th>
+<th>复用方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>后端 API</td>
+<td>100% 共享</td>
+</tr>
+<tr>
+<td>业务逻辑（TypeScript）</td>
+<td>抽离到 <code>packages/shared</code>（如日期、金额格式化、校验规则）</td>
+</tr>
+<tr>
+<td>UI 组件</td>
+<td>Web 用 AntD；App 用 NativeBase；小程序用 NutUI —— 视觉差异大，分开维护</td>
+</tr>
+<tr>
+<td>类型定义</td>
+<td>通过 OpenAPI 自动生成 TypeScript client，三端共用</td>
+</tr>
+</tbody>
+</table>
+<h3>9.3 货币与时区</h3>
+<ul>
+<li>数据库存 ISO 4217 货币代码（THB / USD / CNY）</li>
+<li>展示时按业主/租客所在国家格式化</li>
+<li>时区统一存 UTC，展示按 <code>Asia/Bangkok</code> 或 <code>Asia/Shanghai</code></li>
+</ul>
+<hr />
+<h2>10. 安全设计</h2>
+<h3>10.1 鉴权与授权</h3>
+<ul>
+<li>JWT access token（15 分钟）+ refresh token（7 天，HttpOnly cookie 或 SecureStorage）</li>
+<li>RBAC：Admin / Agent / Owner / Tenant / Employee 五种角色</li>
+<li>资源级权限（如租客只能看自己的租约）</li>
+</ul>
+<h3>10.2 数据安全</h3>
+<ul>
+<li>密码 bcrypt（cost=12）</li>
+<li>敏感字段（身份证、银行卡）AES-256 加密存储</li>
+<li>HTTPS 全站，HSTS</li>
+<li>数据库连接 SSL</li>
+<li>定期备份（WAL 归档 + 每日全量）</li>
+</ul>
+<h3>10.3 防护</h3>
+<ul>
+<li>接口限流（Redis 滑动窗口）：登录 5 次/分钟，每用户 1000 次/小时</li>
+<li>SQL 注入：ORM 参数化 + 输入校验</li>
+<li>XSS：前端不直接渲染 HTML，所有富文本走白名单</li>
+<li>CSRF：JWT 不依赖 cookie，免 CSRF；refresh token 走 SameSite=Strict</li>
+<li>文件上传：白名单 mime + 大小限制 + 病毒扫描（ClamAV）</li>
+</ul>
+<hr />
+<h2>11. 部署与运维（基础）</h2>
+<blockquote>
+<p>本章节描述 Phase 1 的基础运维。完整的可观测性演进规划见 <a href="#1934-可观测性opentelemetry">§19.3.4</a>。</p>
+</blockquote>
+<h3>11.1 CI/CD</h3>
+<ul>
+<li><strong>GitHub Actions / GitLab CI</strong></li>
+<li>PR 触发：lint + type check + pytest + 单元测试</li>
+<li>main 分支：构建 Docker 镜像 → 推送到 Registry → 部署到 staging</li>
+<li>手动审批 → 部署到 production</li>
+</ul>
+<h3>11.2 基础监控</h3>
+<ul>
+<li><strong>错误监控</strong>：Sentry（前端 + 后端）</li>
+<li><strong>指标</strong>：Prometheus + Grafana（API 延迟、错误率、Celery 队列长度）</li>
+<li><strong>日志</strong>：结构化 JSON → Phase 2 起接入 Loki/ELK 集中化</li>
+<li><strong>告警</strong>：API P99 &gt; 1s、错误率 &gt; 1%、支付失败率 &gt; 5%</li>
+<li>
+<blockquote>
+<p>演进路径见 <a href="#194-运维演进路径">§19.4 运维演进路径</a></p>
+</blockquote>
+</li>
+</ul>
+<h3>11.3 备份策略</h3>
+<ul>
+<li>数据库：每日全量 + 实时 WAL 归档，保留 30 天</li>
+<li>文件：MinIO 跨区复制</li>
+<li>灾备：每季度一次恢复演练</li>
+</ul>
+<hr />
+<h2>12. 阶段计划（Roadmap）</h2>
+<blockquote>
+<p><strong>重要约束</strong>：MVP 阶段目标 = <strong>业务跑通</strong> ≠ <strong>功能完整</strong>。下面对每个任务标注 <strong>🟢 必做</strong> / <strong>🟡 可延后</strong> / <strong>⚪ 占位/桩</strong>。</p>
+</blockquote>
+<h3>Phase 1 - MVP（建议 10-12 周）</h3>
+<p><strong>目标：5 个端的核心流程跑通，能真实录入一笔房源并完成签约 + 月度税务合规 + PDPA 合规 + 演进基础设施就绪</strong></p>
+<h4>后端基础（Week 1-3）</h4>
+<ul>
+<li>🟢 项目脚手架（FastAPI + Docker + CI）</li>
+<li>🟢 用户/角色/RBAC（5 种角色）</li>
+<li>🟢 PostgreSQL + Alembic 初始化（含 <strong>WAL 归档</strong>）</li>
+<li>🟢 文件上传（MinIO，本地 mock 即可）</li>
+<li>🟢 鉴权 API（login / refresh / me）</li>
+<li>🟢 <strong>PDPA 基础设施：consents / audit_logs / data_subject_requests 三表 + PII 加密层</strong></li>
+<li>🟢 <strong>隐私政策页面（zh/en/th）+ 注册流程同意勾选</strong></li>
+<li>🟢 <strong>统一公共字段</strong>：<code>created_at/updated_at/deleted_at/metadata JSONB/version</code> 自动混入基类</li>
+<li>🟢 <strong><code>events</code> 业务事件表 + Outbox 模式 + Redis Streams 转发</strong></li>
+<li>🟢 <strong><code>feature_flags</code> 表 + 中间件</strong>（灰度发布基础设施）</li>
+<li>🟢 <strong>结构化 JSON 日志 + request_id 中间件 + Prometheus <code>/metrics</code></strong></li>
+</ul>
+<h4>经纪团队端 - Web（Week 2-5）</h4>
+<ul>
+<li>🟢 房源 CRUD + 照片上传</li>
+<li>🟢 线索管理 + 跟进状态机</li>
+<li>🟢 租约管理 + 合同文件上传（含 SHA-256 哈希存证）</li>
+<li>🟢 Dashboard 4 个核心数字</li>
+<li>🟡 高级筛选/导出 Excel</li>
+<li>⚪ 智能推荐（Phase 4）</li>
+</ul>
+<h4>业主端 - App + 小程序（Week 3-6）</h4>
+<ul>
+<li>🟢 我的房产列表（只读）</li>
+<li>🟢 文档查看（PDF 在线预览）</li>
+<li>🟡 租金收入图表（接入 mock 数据）</li>
+<li>⚪ 线上支付（Phase 2 接入）</li>
+<li>⚪ 年度托管套餐订阅（Phase 3）</li>
+</ul>
+<h4>租客端 - App + 小程序（Week 3-6）</h4>
+<ul>
+<li>🟢 我的租约（只读）</li>
+<li>🟢 合同/收据查看</li>
+<li>🟡 租金到期日历</li>
+<li>⚪ 实际支付（Phase 2 接入）</li>
+<li>⚪ 报修工单（Phase 3）</li>
+</ul>
+<h4>员工端 - App + Web（Week 4-7）</h4>
+<ul>
+<li>🟢 上下班打卡（GPS）</li>
+<li>🟢 联系方式展示</li>
+<li>🟡 月度业绩表单 + 排行榜</li>
+<li>⚪ 外出登记</li>
+<li>⚪ 促销奖励公布</li>
+</ul>
+<h4>公司信息端 - Web 静态页（Week 1）</h4>
+<ul>
+<li>🟢 公司地址、地图、联系方式、社交媒体</li>
+</ul>
+<h4>泰国税务子系统（Week 5-9，并行）</h4>
+<ul>
+<li>🟢 <code>tax_records</code> / <code>tax_invoices</code> / <code>company_tax_profile</code> / <code>wht_certificates</code> 四张表</li>
+<li>🟢 WHT 计算引擎（个人 5% / 公司 3%）</li>
+<li>🟢 e-Tax Invoice XML 生成器（按 RD 规范）</li>
+<li>🟢 PKI 数字签名（PKCS#7）</li>
+<li>🟢 RD API 适配器（sandbox 环境）</li>
+<li>🟢 财务审核 Web 界面</li>
+<li>🟢 月度 WHT 汇总 Celery 任务</li>
+<li>🟢 每日 02:00 对账任务</li>
+<li>⚠️ <strong>RD 生产环境对接（需企业资质申请，Phase 1 末提交申请）</strong></li>
+</ul>
+<h4>PDPA 合规深化（Week 6-9）</h4>
+<ul>
+<li>🟢 4 个数据主体权利 API（export/rectify/delete/consents）</li>
+<li>🟢 数据访问中间件自动写 <code>audit_logs</code></li>
+<li>🟢 Celery 数据保留清理任务（按 §17.6 策略）</li>
+<li>🟢 DPO 联系方式展示</li>
+<li>🟡 数据泄露应急流程文档 + 演练</li>
+</ul>
+<h4>跨端共享（Week 8-10）</h4>
+<ul>
+<li>🟢 OpenAPI → TypeScript client 自动生成</li>
+<li>🟢 多语言基础设施（zh / en，th 留位 → Phase 3 完善）</li>
+<li>🟢 部署到 staging（<strong>服务器必须位于泰国境内，AWS Bangkok 区域</strong>）</li>
+</ul>
+<h4>Phase 1 验收标准</h4>
+<ul>
+<li>✅ 经纪能在 Web 录入 1 套房、跟进 1 条线索到签约</li>
+<li>✅ 业主能用 App 看到自己这套房</li>
+<li>✅ 租客能用 App 看到自己的租约</li>
+<li>✅ 员工能打卡、查看排行榜</li>
+<li>✅ 公开页能展示公司信息</li>
+<li>✅ <strong>能对一笔收款生成 e-Tax Invoice 草稿 + WHT 记录</strong></li>
+<li>✅ <strong>注册新用户必须勾选隐私政策，且所有同意行为留痕</strong></li>
+<li>✅ <strong>租客可一键导出自己的所有数据（PDPA §30）</strong></li>
+</ul>
+<h3>Phase 2 - 支付与门户（4-6 周）</h3>
+<ul>
+<li>[ ] 接入 Stripe + PromptPay QR</li>
+<li>[ ] 业主/租客真实账户与租金收付</li>
+<li>[ ] 收付款流水对账（Celery 日任务）</li>
+<li>[ ] 租金/合同到期定时提醒（Line + 邮件）</li>
+<li>[ ] 微信支付/支付宝（视业务量）</li>
+</ul>
+<h3>Phase 3 - 增值与运营（4-6 周）</h3>
+<ul>
+<li>[ ] 年度托管套餐订阅</li>
+<li>[ ] 推荐服务（清洁/维修）派单</li>
+<li>[ ] 完整泰语 i18n</li>
+<li>[ ] 业绩排行榜 + 奖励公示</li>
+<li>[ ] 通知适配器完善（WhatsApp / Facebook）</li>
+</ul>
+<h3>Phase 4a - 数据分析与 BI（4-6 周）</h3>
+<p><strong>目标：让管理层能从数据中看到业务真相</strong>
+- [ ] <strong>数据管道</strong>：Debezium CDC 监听 PostgreSQL → Kafka / Redis Streams
+- [ ] <strong>数据仓库</strong>：ClickHouse（自建）或 BigQuery（托管）
+- [ ] <strong>ETL/调度</strong>：Apache Airflow 或 Dagster
+- [ ] <strong>BI 工具</strong>：Metabase（开源）或 Superset
+- [ ] <strong>预置看板</strong>：
+  - 销售看板（线索转化率、漏斗、来源分析）
+  - 房源看板（出租率、空置天数、收益分析）
+  - 财务看板（应收/实收、佣金、WHT、渠道占比）
+  - 员工看板（业绩排名、考勤、佣金）
+- [ ] <strong>Ad-hoc 查询</strong>：业务人员自助 SQL
+- [ ] <strong>业务表补全</strong>：<code>properties.attributes JSONB</code> 收集楼层/朝向等结构化特征</p>
+<h3>Phase 4b - LLM 介入：OCR + 智能客服（4-6 周）</h3>
+<p><strong>目标：减少人工录入 + 提升业主/租客咨询响应速度</strong>
+- [ ] <strong>LLM Gateway</strong>（<code>ai_services</code> 适配层）上线，支持多模型
+- [ ] <strong>合同/收据 OCR</strong>：上传 PDF/图片 → 抽取结构化数据（金额、日期、双方信息）→ 自动填充 <code>leases</code> 表
+- [ ] <strong>RAG 智能客服</strong>：
+  - 向量库（Qdrant / Milvus / Weaviate）
+  - 索引范围：合同条款 FAQ / 公司服务说明 / 政策文档
+  - 多语言（中/英/泰）问答
+- [ ] <strong>线索 AI 评分</strong>：根据历史成交数据训练 lead_score 模型
+- [ ] <strong>自动翻译</strong>：房源描述、文档多语言互译（zh ↔ en ↔ th）
+- [ ] <strong>Token 成本监控</strong>：每日 / 每月用量 + 单次调用成本告警</p>
+<h3>Phase 4c - LLM 介入：推荐 + 高级分析（4-6 周）</h3>
+<p><strong>目标：提升匹配效率 + 经营决策辅助</strong>
+- [ ] <strong>房源-租客智能推荐</strong>：基于 embeddings 的相似度匹配
+- [ ] <strong>租金定价建议</strong>：ML 模型分析周边市场，给出合理价格区间
+- [ ] <strong>租约续约预测</strong>：识别高续约概率客户 vs 流失风险
+- [ ] <strong>AI 助手（Agent 框架）</strong>：经纪人用自然语言查询业务数据
+- [ ] <strong>异常检测</strong>：自动识别异常支付、异常考勤</p>
+<h3>Phase 5 - 架构演进（持续）</h3>
+<ul>
+<li>[ ] 微服务拆分（按需：用户/房源/支付/税务独立部署）</li>
+<li>[ ] 多区域部署（曼谷 + 新加坡主备）</li>
+<li>[ ] 灾备与多活</li>
+<li>[ ] SaaS 化（待定）</li>
+</ul>
+<hr />
+<h2>13. 项目目录结构</h2>
+<div class="highlight"><pre><span></span><code>vip-app/
+├── backend/                          # FastAPI 后端
+│   ├── app/
+│   │   ├── api/                      # 路由（/api/v1/）
+│   │   │   ├── v1/
+│   │   │   │   ├── auth.py
+│   │   │   │   ├── properties.py
+│   │   │   │   ├── leases.py
+│   │   │   │   ├── leads.py
+│   │   │   │   ├── payments.py
+│   │   │   │   ├── tax.py            # §16 税务子系统
+│   │   │   │   ├── ai.py             # §19.2 LLM Gateway
+│   │   │   │   ├── analytics.py      # §19.1 BI 端点
+│   │   │   │   └── ...
+│   │   ├── core/                     # 配置/安全/依赖
+│   │   │   ├── config.py
+│   │   │   ├── security.py
+│   │   │   ├── database.py
+│   │   │   ├── logging.py            # §19.3.4 JSON 日志
+│   │   │   ├── middleware.py         # request_id / metrics
+│   │   │   └── feature_flags.py      # §19.3.2
+│   │   ├── models/                   # SQLAlchemy 模型
+│   │   │   ├── base.py               # 公共字段基类（§5.1）
+│   │   │   ├── user.py
+│   │   │   ├── property.py
+│   │   │   ├── lease.py
+│   │   │   ├── event.py              # §5.3 领域事件
+│   │   │   ├── audit.py              # §17 PDPA 审计
+│   │   │   └── tax.py                # §16
+│   │   ├── schemas/                  # Pydantic schemas
+│   │   ├── services/                 # 业务逻辑层
+│   │   │   ├── payment_service.py
+│   │   │   ├── lease_service.py
+│   │   │   ├── event_dispatcher.py   # §5.3 Outbox
+│   │   │   └── ...
+│   │   ├── tasks/                    # Celery 任务
+│   │   │   ├── rent_reminder.py
+│   │   │   ├── reconciliation.py
+│   │   │   ├── wht_filing.py
+│   │   │   └── data_retention.py     # §17 PDPA 清理
+│   │   ├── providers/                # 外部服务适配器
+│   │   │   ├── payment/              # §7 支付（30+ 渠道）
+│   │   │   ├── notification/         # §8 通知
+│   │   │   ├── tax/                  # §16 RD 泰国税务局
+│   │   │   ├── ai/                   # §19.2 LLM Gateway
+│   │   │   │   ├── base.py           # LLMProvider Protocol
+│   │   │   │   ├── service.py        # AIService
+│   │   │   │   ├── openai.py
+│   │   │   │   ├── anthropic.py
+│   │   │   │   ├── qwen.py
+│   │   │   │   └── local_llm.py
+│   │   │   └── storage/              # MinIO/S3
+│   │   └── main.py
+│   ├── alembic/                      # 数据库迁移
+│   ├── tests/
+│   ├── pyproject.toml
+│   └── Dockerfile
+├── frontend-web/                      # React 管理端（经纪/员工）
+│   ├── src/
+│   │   ├── pages/
+│   │   ├── components/
+│   │   ├── api/                      # OpenAPI 自动生成 client
+│   │   └── i18n/                     # zh / en / th
+│   └── package.json
+├── mobile-app/                        # React Native（业主/租客）
+│   ├── src/
+│   │   ├── screens/
+│   │   ├── components/
+│   │   └── i18n/
+│   └── package.json
+├── mini-program/                      # Taro 3 微信小程序
+│   ├── src/
+│   └── package.json
+├── packages/
+│   └── shared-types/                 # 跨端共享 TypeScript 类型
+├── infra/                            # 运维与部署
+│   ├── docker-compose.yml            # 本地开发
+│   ├── docker-compose.prod.yml       # 生产（Phase 2+）
+│   ├── nginx/
+│   ├── prometheus/
+│   ├── grafana/
+│   ├── airflow/                      # Phase 4a ETL
+│   └── k8s/                          # Phase 2+ K8s 部署
+├── docs/
+│   ├── DESIGN.md                     # 本文档
+│   ├── API.md                        # 自动生成
+│   ├── DEPLOY.md
+│   ├── ADR/                          # §19.6 架构决策记录
+│   └── RUNBOOK.md                    # 运维手册
+└── README.md
+</code></pre></div>
+
+<hr />
+<h2>14. 风险与对策</h2>
+<table>
+<thead>
+<tr>
+<th>风险</th>
+<th>影响</th>
+<th>对策</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Line/WhatsApp/Facebook 官方 API 审核周期长</td>
+<td>通知功能延期</td>
+<td>优先用 Line Notify（最简单）+ 邮件兜底</td>
+</tr>
+<tr>
+<td>支付渠道各国合规要求不同</td>
+<td>接入延期</td>
+<td>优先上线 Stripe + PromptPay（泰国本地），其他渠道 Phase 2</td>
+</tr>
+<tr>
+<td>业主/租客对 App 下载意愿低</td>
+<td>用户增长慢</td>
+<td>小程序作为主入口，App 作为补充</td>
+</tr>
+<tr>
+<td>性能瓶颈（房源图片多）</td>
+<td>加载慢</td>
+<td>CDN + WebP 自动转换 + 懒加载</td>
+</tr>
+<tr>
+<td>多语言翻译质量</td>
+<td>用户体验</td>
+<td>先中文 + 英文（机器翻译兜底），泰语请母语者校对</td>
+</tr>
+<tr>
+<td>数据迁移（Excel 存量数据）</td>
+<td>上线延期</td>
+<td>写一次性 ETL 脚本，Phase 1 末完成</td>
+</tr>
+<tr>
+<td>🔴 <strong>泰国 RD 生产环境申请周期长</strong></td>
+<td>真实税务申报延期</td>
+<td>先用 sandbox 跑通，Phase 1 末提交企业资质</td>
+</tr>
+<tr>
+<td>🔴 <strong>PKI 数字证书管理</strong></td>
+<td>证书过期导致申报失败</td>
+<td>自动到期告警（提前 60 天）+ 多证书备份</td>
+</tr>
+<tr>
+<td>🔴 <strong>PDPA 合规审计未通过</strong></td>
+<td>罚款最高 500 万泰铢</td>
+<td>法务 + DPO 介入；Phase 1 必做项不可妥协</td>
+</tr>
+<tr>
+<td>🟡 <strong>PII 加密对性能影响</strong></td>
+<td>查询变慢</td>
+<td>AES-GCM 硬件加速；PII 字段加索引冗余明文 hash（只用于查找）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>15. 业务确认事项（已确认 v1.0）</h2>
+<blockquote>
+<p>业务方已确认 5 项关键决策（2026-07-28），架构与数据模型已按此调整。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>问题</th>
+<th>决定</th>
+<th>对架构的影响</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>多公司/多租户</td>
+<td><strong>单一公司使用</strong></td>
+<td>移除 <code>company_id</code> 多租户字段；user/role 模型简化</td>
+</tr>
+<tr>
+<td>2</td>
+<td>泰国税务局对接</td>
+<td><strong>需要</strong></td>
+<td>新增"税务子系统"章节（见 §16），涉及 WHT 计算与 e-Tax Invoice</td>
+</tr>
+<tr>
+<td>3</td>
+<td>电子合同</td>
+<td><strong>待确认</strong></td>
+<td>Phase 1 暂按"PDF 上传 + SHA-256 哈希存证"实现，留可替换的接口</td>
+</tr>
+<tr>
+<td>4</td>
+<td>PDPA 合规</td>
+<td><strong>需要</strong></td>
+<td>新增"PDPA 合规设计"章节（见 §17），含 consent/audit_log/PII 加密</td>
+</tr>
+<tr>
+<td>5</td>
+<td>离线工作</td>
+<td><strong>不需要</strong></td>
+<td>不开发离线缓存；员工端需要联网</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>16. 泰国税务子系统（Tax Subsystem）</h2>
+<blockquote>
+<p>公司作为中介代业主/租客处理税务申报，必须在 Phase 1 就纳入，不能延后。</p>
+</blockquote>
+<h3>16.1 涉及税种</h3>
+<table>
+<thead>
+<tr>
+<th>税种</th>
+<th>适用</th>
+<th>税率</th>
+<th>频率</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>WHT（预扣所得税）</strong></td>
+<td>业主收到租金时</td>
+<td>个人 5% / 公司 3%</td>
+<td>月度代扣，季度申报</td>
+<td>中介作为代扣义务人</td>
+</tr>
+<tr>
+<td><strong>e-Tax Invoice</strong></td>
+<td>每笔租金收款</td>
+<td>—</td>
+<td>每笔</td>
+<td>需 RD 数字证书签名</td>
+</tr>
+<tr>
+<td><strong>印花税</strong></td>
+<td>租赁合同</td>
+<td>0.1%（租金总额）</td>
+<td>签订时一次性</td>
+<td>合同签订后 15 日内缴纳</td>
+</tr>
+<tr>
+<td>VAT</td>
+<td>一般不适用</td>
+<td>7%</td>
+<td>—</td>
+<td>个人出租住宅通常不交；公司主体按情况</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>⚠️ 具体税种、税率、计算口径需由泰国本地会计师复核后落地。</p>
+</blockquote>
+<h3>16.2 数据模型新增</h3>
+<h4><code>tax_records</code>（税务记录）</h4>
+<ul>
+<li><code>id, lease_id, payment_id, tax_type(wht/stamp/vat), tax_base, tax_rate, tax_amount, status(pending/filed/paid), rd_document_id, filed_at, paid_at</code></li>
+</ul>
+<h4><code>tax_invoices</code>（电子发票）</h4>
+<ul>
+<li><code>id, payment_id, invoice_number, issue_date, seller_info, buyer_info, line_items[], subtotal, tax_amount, total, xml_payload, signature, rd_submission_id, status(draft/submitted/accepted/rejected)</code></li>
+</ul>
+<h4><code>company_tax_profile</code>（公司税务档案，单条）</h4>
+<ul>
+<li><code>id, company_name, tax_id, rd_certificate_serial, rd_certificate_pem, rd_api_key, rd_environment(sandbox/prod)</code></li>
+</ul>
+<h4><code>wht_certificates</code>（预扣税证明）</h4>
+<ul>
+<li><code>id, owner_id, tax_year, total_rent, total_wht, certificate_pdf_url, issued_at, submitted_to_rd_at</code></li>
+</ul>
+<h3>16.3 业务流程</h3>
+<h4>月度 WHT 代扣流程</h4>
+<ol>
+<li>月底 Celery 任务聚合当月所有 <code>payments</code> 记录</li>
+<li>按业主分组，计算 WHT（个人 5% / 公司 3%）</li>
+<li>生成 <code>tax_records</code>（status=pending）和 <code>wht_certificates</code> 草稿</li>
+<li>财务在 Web 后台审核 → 确认提交</li>
+<li>通过 RD API 提交（XML + 数字签名）</li>
+<li>状态同步：<code>pending → filed → paid</code></li>
+</ol>
+<h4>e-Tax Invoice 流程</h4>
+<ol>
+<li>租客每笔付款成功（webhook 回调）后</li>
+<li>自动生成 <code>tax_invoices</code>（草稿）</li>
+<li>调用 RD <code>IssueInvoice</code> API 提交（XML 格式 + PKI 签名）</li>
+<li>状态：<code>draft → submitted → accepted/rejected</code></li>
+<li><code>accepted</code> 后生成 PDF 给租客/业主下载</li>
+</ol>
+<h3>16.4 技术组件</h3>
+<div class="highlight"><pre><span></span><code>backend/app/providers/tax/
+├── rd_api.py              # RD 官方 API 客户端（HTTP + 签名）
+├── wht_calculator.py      # WHT 计算引擎
+├── invoice_builder.py     # e-Tax Invoice XML 生成器
+├── pdf_renderer.py        # PDF 渲染（WeasyPrint）
+├── certificate_manager.py # PKI 证书管理
+└── exceptions.py          # RD 错误码 → 业务异常映射
+</code></pre></div>
+
+<p><strong>关键依赖</strong>：
+- <code>cryptography</code>：PKCS#7 数字签名（RD 要求）
+- <code>lxml</code>：XML 生成
+- <code>WeasyPrint</code>：PDF 渲染
+- <code>httpx</code>：RD API 异步调用</p>
+<h3>16.5 RD API 适配器（Adapter 模式）</h3>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TaxAuthorityProvider</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">submit_wht</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">records</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">TaxRecord</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">SubmissionResult</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">issue_invoice</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">invoice</span><span class="p">:</span> <span class="n">TaxInvoice</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">InvoiceResult</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">query_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">submission_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatusResult</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">download_certificate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wht_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">RDThailandProvider</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;泰国税务局 RD API 实现&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cert</span><span class="p">:</span> <span class="n">RDCertificate</span><span class="p">):</span> <span class="o">...</span>
+    <span class="c1"># 实现 4 个方法，对接 RD Open API</span>
+</code></pre></div>
+
+<h3>16.6 失败与重试</h3>
+<ul>
+<li>RD API 限流（429）→ 指数退避（1/5/30 分钟）</li>
+<li>签名失败 / 证书过期 → 紧急告警 + 阻塞所有税务提交</li>
+<li>申报失败 → 死信队列 + 人工介入界面</li>
+<li>每日 02:00 对账任务：本地 <code>tax_records</code> vs RD 提交记录</li>
+</ul>
+<h3>16.7 Phase 1 必做项（不可延后）</h3>
+<ul>
+<li>[ ] WHT 计算引擎</li>
+<li>[ ] e-Tax Invoice XML 生成</li>
+<li>[ ] RD 沙箱环境对接（先 sandbox，prod 需 RD 审批）</li>
+<li>[ ] 财务审核界面</li>
+<li>[ ] 月度 Celery 任务</li>
+</ul>
+<hr />
+<h2>17. PDPA 合规设计（Thailand PDPA）</h2>
+<blockquote>
+<p>PDPA（Personal Data Protection Act, B.E. 2562）于 2022 年 6 月 1 日全面生效。违规最高罚款 500 万泰铢。<strong>必须从 Phase 1 就落地，不能后补。</strong></p>
+</blockquote>
+<h3>17.1 PDPA 核心要求映射</h3>
+<table>
+<thead>
+<tr>
+<th>PDPA 条款</th>
+<th>系统要求</th>
+<th>实现方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>§22 知情同意</td>
+<td>注册/收集时显式同意</td>
+<td><code>consents</code> 表 + 注册流程勾选</td>
+</tr>
+<tr>
+<td>§23 目的限定</td>
+<td>仅用于声明目的</td>
+<td>数据访问层校验 <code>purpose</code></td>
+</tr>
+<tr>
+<td>§24 数据最小化</td>
+<td>不收集无关字段</td>
+<td>表结构最小化 + 字段白名单</td>
+</tr>
+<tr>
+<td>§25 数据准确性</td>
+<td>可更新、可更正</td>
+<td>租客/业主可自助修改 PII</td>
+</tr>
+<tr>
+<td>§26 存储限制</td>
+<td>超期删除/匿名化</td>
+<td>Celery 定时清理任务</td>
+</tr>
+<tr>
+<td>§27 安全措施</td>
+<td>加密 + 访问控制</td>
+<td>PII 字段加密 + RBAC</td>
+</tr>
+<tr>
+<td>§30 数据主体权利</td>
+<td>查阅/更正/删除/可携带</td>
+<td>4 个 API 端点</td>
+</tr>
+<tr>
+<td>§33 跨境传输</td>
+<td>充分保护措施</td>
+<td>服务器位于泰国境内（AWS Bangkok）</td>
+</tr>
+<tr>
+<td>§37-41 数据泄露通知</td>
+<td>72 小时内通报</td>
+<td>Sentry 告警 + 应急流程</td>
+</tr>
+<tr>
+<td>§42-45 DPO</td>
+<td>任命数据保护官</td>
+<td>公司层面任命，系统中记录 DPO 联系方式</td>
+</tr>
+</tbody>
+</table>
+<h3>17.2 数据模型（PDPA 相关，定义见 §5.1）</h3>
+<blockquote>
+<p>以下表已在 §5.1 统一定义，此处仅说明 PDPA 合规要点。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>表名</th>
+<th>PDPA 条款</th>
+<th>合规要点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>consents</code></td>
+<td>§22 知情同意</td>
+<td>每次同意/撤回都必须记录 IP、User-Agent、政策版本</td>
+</tr>
+<tr>
+<td><code>audit_logs</code></td>
+<td>§27 安全措施</td>
+<td>每次访问 PII 字段必须记录 <code>pii_fields_accessed[]</code></td>
+</tr>
+<tr>
+<td><code>data_subject_requests</code></td>
+<td>§30 数据主体权利</td>
+<td>请求处理 SLA：30 天内响应</td>
+</tr>
+<tr>
+<td><code>privacy_policy_versions</code></td>
+<td>§22 知情同意</td>
+<td>政策变更时需重新获取用户同意</td>
+</tr>
+</tbody>
+</table>
+<h3>17.3 PII 加密策略</h3>
+<p><strong>PII 字段识别清单</strong>：
+- <code>users.id_card_no, passport_no, bank_account, tax_id</code>
+- <code>tenants.emergency_contact, employer_info</code>
+- <code>leads.phone, line_id, wechat_id, whatsapp</code>
+- <code>payments.bank_reference</code></p>
+<p><strong>加密方案</strong>：
+- 算法：AES-256-GCM
+- 密钥管理：AWS KMS / HashiCorp Vault
+- 每字段独立 IV，密文存数据库，明文需运行时解密
+- 密钥每 90 天轮换</p>
+<h3>17.4 数据主体权利 API</h3>
+<table>
+<thead>
+<tr>
+<th>端点</th>
+<th>方法</th>
+<th>说明</th>
+<th>实现时间</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/api/v1/users/me/data-export</code></td>
+<td>GET</td>
+<td>导出本人所有数据（JSON + PDF）</td>
+<td>Phase 1</td>
+</tr>
+<tr>
+<td><code>/api/v1/users/me/data-rectify</code></td>
+<td>POST</td>
+<td>更正本人 PII 字段</td>
+<td>Phase 1</td>
+</tr>
+<tr>
+<td><code>/api/v1/users/me/delete</code></td>
+<td>POST</td>
+<td>申请删除账户（软删除 + 30 天后悔期）</td>
+<td>Phase 1</td>
+</tr>
+<tr>
+<td><code>/api/v1/users/me/consents</code></td>
+<td>GET / PATCH</td>
+<td>查看与撤回同意</td>
+<td>Phase 1</td>
+</tr>
+</tbody>
+</table>
+<h3>17.5 注册流程改造</h3>
+<div class="highlight"><pre><span></span><code>[输入手机号] → [发送验证码] → [设置密码] → 
+[隐私政策勾选✅ + 明确同意项: 
+  □ 同意为租赁服务收集和使用数据（必选）
+  □ 同意接收租金/合同提醒（必选）
+  □ 同意接收营销信息（可选）
+] → [注册成功]
+</code></pre></div>
+
+<p>每一步记录到 <code>consents</code> 表，关联 <code>privacy_policy_versions</code>。</p>
+<h3>17.6 数据保留与删除策略</h3>
+<table>
+<thead>
+<tr>
+<th>数据类型</th>
+<th>保留期</th>
+<th>过期处理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>用户基本信息</td>
+<td>账户存续期间</td>
+<td>软删除 → 30 天后硬删除</td>
+</tr>
+<tr>
+<td>合同/收据</td>
+<td>合同结束后 10 年（泰国法律要求）</td>
+<td>匿名化 PII</td>
+</tr>
+<tr>
+<td>支付流水</td>
+<td>5 年</td>
+<td>匿名化 PII</td>
+</tr>
+<tr>
+<td>考勤记录</td>
+<td>3 年</td>
+<td>硬删除</td>
+</tr>
+<tr>
+<td>审计日志</td>
+<td>3 年</td>
+<td>压缩归档</td>
+</tr>
+<tr>
+<td>营销同意</td>
+<td>撤回后立即停止使用</td>
+<td>记录撤回时间</td>
+</tr>
+</tbody>
+</table>
+<h3>17.7 第三方数据共享清单（需用户单独同意）</h3>
+<ul>
+<li>支付渠道（Stripe/Alipay/Wise）→ 支付时单独同意</li>
+<li>Line/WeChat/WhatsApp → 通知时单独同意</li>
+<li>泰国税务局 RD → 税务申报（基于法律义务，可不取得同意但需告知）</li>
+<li>保险公司/外包维修 → 服务订单时单独同意</li>
+</ul>
+<h3>17.8 Phase 1 必做项（不可延后）</h3>
+<ul>
+<li>[ ] <code>consents</code> / <code>audit_logs</code> / <code>data_subject_requests</code> 三张表</li>
+<li>[ ] PII 字段加密（应用层透明加解密）</li>
+<li>[ ] 4 个数据主体权利 API</li>
+<li>[ ] 注册流程改造 + 隐私政策页面（中/英/泰）</li>
+<li>[ ] Celery 数据保留清理任务</li>
+<li>[ ] 公司层面任命 DPO 并在系统记录</li>
+</ul>
+<hr />
+<h2>18. 文档版本记录</h2>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>日期</th>
+<th>变更</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v1.0</td>
+<td>2026-07-28</td>
+<td>初版：5 端架构 + Python FastAPI 技术栈 + REST API 表 + 4 阶段路线图</td>
+</tr>
+<tr>
+<td>v1.1</td>
+<td>2026-07-28</td>
+<td>业务确认 5 项决策落地；新增 §16 泰国税务子系统（WHT/e-Tax Invoice）、§17 PDPA 合规设计；移除多租户字段；调整 Phase 1 必做项</td>
+</tr>
+<tr>
+<td>v1.2</td>
+<td>2026-07-28</td>
+<td>支付系统全面扩展：新增 §7 渠道矩阵（中国大陆/国际/东南亚/跨境 30+ 渠道）、聚合器对比（Stripe/Adyen/Ping++）、统一接口增强（幂等键、智能路由、状态机）；新增 <code>payment_reconciliations</code> 表</td>
+</tr>
+<tr>
+<td>v1.3</td>
+<td>2026-07-28</td>
+<td>新增 §19 系统演进规划（数据 BI、LLM/AI、架构柔性）；拆分 Phase 4 为 4a/4b/4c；新增 <code>events</code> / <code>feature_flags</code> / <code>audit_logs</code> / <code>consents</code> / <code>data_subject_requests</code> 表；统一所有业务表公共字段（created_at/updated_at/deleted_at/metadata/version）；新增 §5.3 领域事件规范</td>
+</tr>
+<tr>
+<td>v1.4</td>
+<td>2026-07-28</td>
+<td><strong>全面审查修复</strong>：修复 4 处内部矛盾（架构图 Django Admin→SQLModel、§4.6 支付表更新、§17.2 PDPA 表去重引用 §5.1、§11 简化交叉引用 §19）；新增 7 个缺失实体（projects/tenants/documents/service_orders/maintenance_tickets/notifications/commission_settlements）；新增 5 个业务流程（§6.4-6.8：推荐服务派单/报修工单/续约/退房/佣金结算）；新增 §20 后续可扩展模块（10 项：消息中心/文件版本/信用评估/爬虫/API 门户/审计界面/推送策略/自助验房/财务报表/SaaS 预留）；新增 §21 文档健康度检查清单；领域事件从 8 类扩展到 15 类；ER 图更新；API 端点表新增 12 个端点</td>
+</tr>
+<tr>
+<td>v1.5</td>
+<td>2026-07-28</td>
+<td><strong>新增 §22 容量规划与性能基线</strong>（用户量/并发量估算、各组件 QPS 上限、5 大瓶颈分析、3 个阶段部署规格与月费用、9 项 SLO 指标、5 个压测场景、横向扩展策略）；回答"本架构能扛多少并发"的明确数据：单实例 200-300 并发用户 / 80-150 QPS，理论上限 3,000-5,000 并发连接</td>
+</tr>
+<tr>
+<td>v1.6</td>
+<td>2026-07-28</td>
+<td><strong>新增 §22.10 高并发演进方案（10 万 DAU 场景）</strong>：核心结论（技术栈能支撑但需分布式升级）、10 万 DAU 容量重算（峰值 1-1.5 万并发/3,000-5,000 QPS）、各组件承载差距分析（8 组件）、目标架构图（K8s + PG 主从 + Redis Cluster + Kafka + S3/CDN + 多 AZ）、5 层瓶颈与升级方案对照、$4,700/月成本估算、5 个高 ROI 升级项、分 5 阶段迁移路径</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>19. 系统演进与未来扩展规划</h2>
+<blockquote>
+<p>本章节是<strong>为未来 2-3 年的运维与升级预留的设计钩子</strong>。所有"占位"在 Phase 1 就要落地基础设施和接口约定，具体功能按业务节奏在 Phase 4/5 启用。</p>
+</blockquote>
+<h3>19.1 数据分析与 BI 基础设施</h3>
+<h4>19.1.1 为什么需要单独设计</h4>
+<ul>
+<li>在线业务库（PostgreSQL）适合事务处理，<strong>不适合复杂分析查询</strong>（多表 JOIN、聚合、OLAP）</li>
+<li>直接在业务库跑 BI 查询会<strong>拖慢在线业务</strong></li>
+<li>解决方案：<strong>CDC 同步 + 数据仓库 + 独立 BI 层</strong></li>
+</ul>
+<h4>19.1.2 数据架构（推荐）</h4>
+<div class="highlight"><pre><span></span><code>┌──────────────────┐    CDC      ┌──────────────────┐
+│  PostgreSQL      │──────────▶ │  ClickHouse /    │
+│  (在线业务库)    │  Debezium  │  BigQuery        │
+│                  │            │  (数据仓库)      │
+└──────────────────┘            └─────────┬────────┘
+                                          │
+                                  ┌───────▼────────┐
+                                  │  Airflow /     │
+                                  │  Dagster       │
+                                  │  (ETL 调度)    │
+                                  └───────┬────────┘
+                                          │
+                              ┌───────────┼────────────┐
+                              ▼           ▼            ▼
+                          ┌────────┐ ┌────────┐ ┌─────────┐
+                          │Metabase│ │Superset│ │自定义报表│
+                          │ (BI)   │ │ (BI)   │ │         │
+                          └────────┘ └────────┘ └─────────┘
+</code></pre></div>
+
+<h4>19.1.3 技术选型对比</h4>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>选型</th>
+<th>理由</th>
+<th>Phase</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CDC</td>
+<td><strong>Debezium</strong></td>
+<td>主流开源 CDC，监听 PostgreSQL WAL</td>
+<td>4a</td>
+</tr>
+<tr>
+<td>消息总线</td>
+<td>Kafka / Redis Streams</td>
+<td>Phase 1 已有 Redis，Phase 4a 评估升级到 Kafka</td>
+<td>4a</td>
+</tr>
+<tr>
+<td>数据仓库</td>
+<td><strong>ClickHouse</strong>（自建） 或 <strong>BigQuery</strong>（托管）</td>
+<td>ClickHouse 性价比高、BigQuery 免运维</td>
+<td>4a</td>
+</tr>
+<tr>
+<td>ETL 调度</td>
+<td><strong>Airflow</strong>（主流）或 <strong>Dagster</strong>（现代）</td>
+<td>Airflow 生态成熟</td>
+<td>4a</td>
+</tr>
+<tr>
+<td>BI 工具</td>
+<td><strong>Metabase</strong>（开源）或 <strong>Superset</strong>（开源）</td>
+<td>免费、可嵌入、与 PG/CH 兼容</td>
+<td>4a</td>
+</tr>
+<tr>
+<td>实时分析</td>
+<td>Redis + 流处理</td>
+<td>简单实时需求</td>
+<td>4a</td>
+</tr>
+</tbody>
+</table>
+<h4>19.1.4 Phase 1 必做的预留</h4>
+<ul>
+<li>[x] 所有业务表加 <code>created_at, updated_at, deleted_at</code> 审计字段</li>
+<li>[x] 关键表加 <code>metadata JSONB</code> 扩展字段</li>
+<li>[x] 数据库启用 <strong>WAL 归档</strong>（Debezium 依赖）</li>
+<li>[x] <strong>业务事件表 <code>events</code></strong>（§5.3 已设计）</li>
+<li>[x] 所有写操作必须<strong>同时</strong>写 <code>events</code> 表</li>
+<li>[ ] <strong>不开通 CDC</strong>（Phase 4a 启用）</li>
+</ul>
+<h3>19.2 LLM / AI 介入规划</h3>
+<h4>19.2.1 高价值场景（按 ROI 排序）</h4>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>价值</th>
+<th>实现成本</th>
+<th>Phase</th>
+<th>数据依赖</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>合同/收据 OCR</strong></td>
+<td>节省 80% 录入时间</td>
+<td>中（LLM + Prompt）</td>
+<td>4b</td>
+<td>历史合同 PDF</td>
+</tr>
+<tr>
+<td><strong>RAG 智能客服</strong></td>
+<td>7x24 响应、减轻人工</td>
+<td>中（向量库 + LLM）</td>
+<td>4b</td>
+<td>政策文档 + FAQ</td>
+</tr>
+<tr>
+<td><strong>线索 AI 评分</strong></td>
+<td>提升转化率 10-20%</td>
+<td>高（需训练数据）</td>
+<td>4b</td>
+<td>历史成交数据</td>
+</tr>
+<tr>
+<td><strong>多语言自动翻译</strong></td>
+<td>解决泰语沟通障碍</td>
+<td>低（LLM 直出）</td>
+<td>4b</td>
+<td>无</td>
+</tr>
+<tr>
+<td><strong>房源-租客推荐</strong></td>
+<td>提升撮合效率</td>
+<td>高（推荐系统）</td>
+<td>4c</td>
+<td>历史成交 + 行为</td>
+</tr>
+<tr>
+<td><strong>租金定价建议</strong></td>
+<td>减少定价失误</td>
+<td>中（爬虫 + ML）</td>
+<td>4c</td>
+<td>市场数据</td>
+</tr>
+<tr>
+<td><strong>AI 数据助手</strong></td>
+<td>经纪人自助查询</td>
+<td>中（Text-to-SQL）</td>
+<td>4c</td>
+<td>数据仓库</td>
+</tr>
+<tr>
+<td><strong>异常检测</strong></td>
+<td>风控减损</td>
+<td>中（时序分析）</td>
+<td>4c</td>
+<td>业务事件流</td>
+</tr>
+</tbody>
+</table>
+<h4>19.2.2 LLM Gateway 适配层（<code>ai_services</code>）</h4>
+<blockquote>
+<p><strong>类比支付/通知的 Adapter 模式</strong>——所有 LLM 能力必须经过统一网关。</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code><span class="c1"># 后端 LLM 适配层设计</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">LLMProvider</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">chat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Message</span><span class="p">],</span> <span class="o">**</span><span class="n">opts</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LLMResponse</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">embed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">texts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span> <span class="o">...</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">extract_structured</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">schema</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">AIService</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;LLM 统一入口，支持多模型切换、A/B 测试、成本控制&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_providers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">LLMProvider</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;openai_gpt4o&quot;</span><span class="p">:</span> <span class="n">OpenAIGPT4oProvider</span><span class="p">(),</span>
+            <span class="s2">&quot;openai_gpt4o_mini&quot;</span><span class="p">:</span> <span class="n">OpenAIGPT4oMiniProvider</span><span class="p">(),</span>
+            <span class="s2">&quot;anthropic_claude&quot;</span><span class="p">:</span> <span class="n">AnthropicClaudeProvider</span><span class="p">(),</span>
+            <span class="s2">&quot;alibaba_qwen&quot;</span><span class="p">:</span> <span class="n">AlibabaQwenProvider</span><span class="p">(),</span>  <span class="c1"># 国内合规</span>
+            <span class="s2">&quot;deepseek&quot;</span><span class="p">:</span> <span class="n">DeepSeekProvider</span><span class="p">(),</span>  <span class="c1"># 性价比</span>
+            <span class="s2">&quot;local_llama&quot;</span><span class="p">:</span> <span class="n">LocalLlamaProvider</span><span class="p">(),</span>  <span class="c1"># 敏感数据</span>
+        <span class="p">}</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">chat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">messages</span><span class="p">,</span> <span class="o">**</span><span class="n">opts</span><span class="p">):</span>
+        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_providers</span><span class="p">[</span><span class="n">model</span><span class="p">]</span>
+        <span class="c1"># 自动记录 token 使用、成本、延迟</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="o">**</span><span class="n">opts</span><span class="p">)</span>
+</code></pre></div>
+
+<h4>19.2.3 多模型支持策略</h4>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>用途</th>
+<th>成本（参考）</th>
+<th>合规</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>OpenAI GPT-4o</strong></td>
+<td>复杂推理、智能客服主力</td>
+<td>$2.5/M tokens</td>
+<td>数据出境</td>
+</tr>
+<tr>
+<td><strong>OpenAI GPT-4o-mini</strong></td>
+<td>简单任务、翻译、分类</td>
+<td>$0.15/M tokens</td>
+<td>数据出境</td>
+</tr>
+<tr>
+<td><strong>Anthropic Claude 3.5</strong></td>
+<td>长文档、合同 OCR</td>
+<td>$3/M tokens</td>
+<td>数据出境</td>
+</tr>
+<tr>
+<td><strong>阿里 Qwen2.5</strong></td>
+<td>国内合规备选</td>
+<td>¥0.004/千 tokens</td>
+<td>国内</td>
+</tr>
+<tr>
+<td><strong>DeepSeek V3</strong></td>
+<td>性价比、中文场景</td>
+<td>¥1/M tokens</td>
+<td>国内</td>
+</tr>
+<tr>
+<td><strong>本地 Llama 3 / Qwen</strong></td>
+<td>敏感数据（PDPA）</td>
+<td>GPU 成本</td>
+<td>完全可控</td>
+</tr>
+</tbody>
+</table>
+<p><strong>路由策略</strong>：
+- 敏感数据（PII）→ 本地模型
+- 国内用户 → 国内模型（Qwen/DeepSeek）
+- 复杂任务 → GPT-4o/Claude
+- 简单任务 → GPT-4o-mini</p>
+<h4>19.2.4 RAG 架构（智能客服 + 文档问答）</h4>
+<div class="highlight"><pre><span></span><code>用户提问
+    ↓
+[意图识别] → 简单 → 直答
+    ↓ 复杂
+[Query 改写] → 优化检索关键词
+    ↓
+[向量检索] ← Qdrant / Milvus
+    ↓
+[上下文拼接] + Prompt
+    ↓
+[LLM 生成] → GPT-4o / Claude
+    ↓
+[后处理] → 引用来源、敏感词过滤
+    ↓
+回答 + 引用
+</code></pre></div>
+
+<p><strong>向量库选型</strong>：
+- <strong>Qdrant</strong>（推荐）：轻量、单机可跑、API 友好
+- <strong>Milvus</strong>：分布式、功能强
+- <strong>Weaviate</strong>：GraphQL 友好
+- <strong>pgvector</strong>（Phase 1 备选）：直接用 PG 扩展，零额外组件</p>
+<h4>19.2.5 Token 成本控制</h4>
+<ul>
+<li>每日 / 每月预算上限（按部门、按用户）</li>
+<li>单次调用成本 &gt; 阈值报警</li>
+<li>缓存常见问答（命中率 50%+ 可省 30% 成本）</li>
+<li>模型自动降级（预算不足时 mini 模型替代）</li>
+</ul>
+<h4>19.2.6 Phase 1 必做的预留</h4>
+<ul>
+<li>[x] 业务事件表（AI 模块订阅入口）</li>
+<li>[x] <code>properties.attributes JSONB</code>（结构化特征）</li>
+<li>[x] <code>leads.lead_score</code> 字段（AI 评分位）</li>
+<li>[x] 文档元数据（PDF/图片存 MinIO + 抽取文本待用）</li>
+<li>[ ] <strong>不部署 AI</strong>（Phase 4b 启用）</li>
+</ul>
+<h3>19.3 架构柔性设计</h3>
+<h4>19.3.1 领域事件驱动（已设计，见 §5.3）</h4>
+<p><strong>核心思想</strong>：业务操作不直接调用 AI/BI/通知，而是发布事件，由订阅者消费。
+- 解耦主流程
+- 异步、可重试
+- 新增 AI/BI 消费者<strong>无需修改主流程</strong></p>
+<h4>19.3.2 Feature Flag（功能开关）</h4>
+<ul>
+<li>新功能（特别是 AI）默认 <strong>OFF</strong>，按用户/比例灰度</li>
+<li>Phase 1 末实现 <code>feature_flags</code> 表 + 中间件</li>
+</ul>
+<h4>19.3.3 API 版本化</h4>
+<ul>
+<li>所有接口从 Phase 1 起强制 <code>/api/v1/</code></li>
+<li>v1 → v2 兼容期：双版本并存 → 流量切换 → 下线 v1</li>
+<li>OpenAPI Schema 自动发布到内部 SDK 仓库</li>
+</ul>
+<h4>19.3.4 可观测性（OpenTelemetry）</h4>
+<ul>
+<li><strong>指标</strong>：Prometheus 格式（FastAPI middleware 自动埋点）</li>
+<li>HTTP 延迟直方图（按 endpoint + status）</li>
+<li>Celery 任务时长（按 task name）</li>
+<li>DB 连接池使用率</li>
+<li>LLM 调用次数 / 成本</li>
+<li><strong>日志</strong>：结构化 JSON（方便 ELK/Loki 采集）</li>
+<li>request_id 全链路贯穿</li>
+<li>PII 字段脱敏（自动）</li>
+<li><strong>链路追踪</strong>：OpenTelemetry → Jaeger / Tempo</li>
+<li>跨服务追踪（FastAPI → Celery → 外部 API）</li>
+<li><strong>错误监控</strong>：Sentry（前端 + 后端）</li>
+<li>自动捕获未处理异常</li>
+<li>关联到 release/commit</li>
+</ul>
+<p><strong>Phase 1 必做</strong>：
+- [x] 结构化 JSON 日志
+- [x] request_id 中间件
+- [x] Prometheus <code>/metrics</code> 端点
+- [ ] Sentry 接入（可后补）
+- [ ] OpenTelemetry trace（可后补）</p>
+<h4>19.3.5 灰度发布 &amp; A/B 测试</h4>
+<ul>
+<li>Phase 1 末实现简单版本：Feature Flag + 比例</li>
+<li>Phase 4 升级到 <strong>Unleash</strong>（开源）或 <strong>LaunchDarkly</strong>（SaaS）</li>
+<li>关键场景：AI 客服 10% 用户先试 → 全量</li>
+</ul>
+<h3>19.4 运维演进路径</h3>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>Phase 1 起步</th>
+<th>Phase 2 增强</th>
+<th>Phase 4+ 完善</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>监控</td>
+<td>Prometheus + Grafana</td>
+<td>+ 告警规则</td>
+<td>+ SLO/SLI 体系</td>
+</tr>
+<tr>
+<td>日志</td>
+<td>JSON 文件</td>
+<td>Loki/ELK 集中化</td>
+<td>+ 业务大盘</td>
+</tr>
+<tr>
+<td>错误监控</td>
+<td>基础</td>
+<td>Sentry</td>
+<td>+ Release Health</td>
+</tr>
+<tr>
+<td>链路追踪</td>
+<td>request_id 关联</td>
+<td>OpenTelemetry</td>
+<td>分布式追踪</td>
+</tr>
+<tr>
+<td>备份</td>
+<td>DB 日备</td>
+<td>跨区复制</td>
+<td>PITR (Point-in-time Recovery)</td>
+</tr>
+<tr>
+<td>容灾</td>
+<td>单区</td>
+<td>同城双活</td>
+<td>异地多活</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>Docker Compose</td>
+<td>K8s (EKS)</td>
+<td>多集群</td>
+</tr>
+<tr>
+<td>CI/CD</td>
+<td>GitHub Actions 基础</td>
+<td>自动化测试 + 灰度</td>
+<td>蓝绿/金丝雀</td>
+</tr>
+<tr>
+<td>安全扫描</td>
+<td>依赖检查</td>
+<td>SAST + 容器扫描</td>
+<td>DAST + 渗透测试</td>
+</tr>
+<tr>
+<td>容量规划</td>
+<td>手动</td>
+<td>基础预测</td>
+<td>自动扩缩容</td>
+</tr>
+</tbody>
+</table>
+<h3>19.5 团队能力演进建议</h3>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>团队规模</th>
+<th>关键角色</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Phase 1-2</td>
+<td>1-3 人</td>
+<td>全栈为主</td>
+</tr>
+<tr>
+<td>Phase 3</td>
+<td>3-5 人</td>
+<td>+ 1 名运维/DevOps</td>
+</tr>
+<tr>
+<td>Phase 4</td>
+<td>5-8 人</td>
+<td>+ 1 名数据工程师、+ 1 名 AI 工程师</td>
+</tr>
+<tr>
+<td>Phase 5</td>
+<td>8-12 人</td>
+<td>+ 产品经理、+ UI/UX 设计师、+ 测试工程师</td>
+</tr>
+</tbody>
+</table>
+<h3>19.6 关键决策记录（ADR 格式）</h3>
+<blockquote>
+<p>重大架构决策建议维护一份 <strong>ADR（Architecture Decision Record）</strong>：
+- 决策背景
+- 备选方案
+- 最终选择
+- 后果（正面 / 负面）
+- 后续可逆性</p>
+</blockquote>
+<p>未来如需重新评估某决策（如换技术栈），有据可查。</p>
+<hr />
+<h2>20. 后续可扩展模块（锦上添花）</h2>
+<blockquote>
+<p>以下模块按业务节奏排期，Phase 1 不实现但架构已预留接入点。</p>
+</blockquote>
+<h3>20.1 消息中心（站内信）</h3>
+<ul>
+<li><strong>价值</strong>：统一消息收件箱，跨端同步已读状态，避免通知散落在各社交媒体</li>
+<li><strong>实现</strong>：基于 <code>notifications</code> 表（§5.1 已定义），新增 Web/App/小程序的消息列表页</li>
+<li><strong>Phase</strong>：2</li>
+<li><strong>接入点</strong>：<code>GET /notifications/me</code>、WebSocket 实时推送</li>
+</ul>
+<h3>20.2 文件版本管理</h3>
+<ul>
+<li><strong>价值</strong>：合同/文档多版本，支持回滚和对比，满足审计要求</li>
+<li><strong>实现</strong>：<code>documents</code> 表已有 <code>version</code> 字段；新增版本对比 API + Web 界面</li>
+<li><strong>Phase</strong>：2</li>
+<li><strong>接入点</strong>：<code>documents.version</code> + MinIO 对象版本管理</li>
+</ul>
+<h3>20.3 租客信用评估</h3>
+<ul>
+<li><strong>价值</strong>：基于历史支付行为评分，辅助业主决策是否接受租客</li>
+<li><strong>实现</strong>：<code>tenants.tenant_credit_score</code>（§5.1 已预留）；Phase 4b 用 ML 训练评分模型</li>
+<li><strong>Phase</strong>：4b</li>
+<li><strong>接入点</strong>：<code>tenants.tenant_credit_score</code> + 历史支付数据</li>
+</ul>
+<h3>20.4 市场数据爬虫</h3>
+<ul>
+<li><strong>价值</strong>：抓取周边租金均价，辅助定价建议</li>
+<li><strong>实现</strong>：Celery 定时爬虫 → 存入 <code>metadata</code> 或独立 <code>market_data</code> 表 → Phase 4c 租金定价模型</li>
+<li><strong>Phase</strong>：4c</li>
+<li><strong>接入点</strong>：领域事件 + BI 管道</li>
+</ul>
+<h3>20.5 API 文档门户</h3>
+<ul>
+<li><strong>价值</strong>：对外开放 API 文档（如未来做开放平台/合作伙伴接入）</li>
+<li><strong>实现</strong>：FastAPI 自动生成 OpenAPI → Redoc/Swagger UI 部署到公网 → 加 API Key 认证</li>
+<li><strong>Phase</strong>：3</li>
+<li><strong>接入点</strong>：<code>/docs</code> + <code>/redoc</code>（FastAPI 内置）</li>
+</ul>
+<h3>20.6 审计日志查询界面</h3>
+<ul>
+<li><strong>价值</strong>：管理员可视化查询 PDPA 审计日志，满足合规审计要求</li>
+<li><strong>实现</strong>：<code>audit_logs</code> 表（§5.1 已定义）+ Web 管理端查询界面（筛选：时间/操作者/资源类型/PII 字段）</li>
+<li><strong>Phase</strong>：2</li>
+<li><strong>接入点</strong>：<code>audit_logs</code> 表 + Admin RBAC</li>
+</ul>
+<h3>20.7 移动端推送策略细化</h3>
+<ul>
+<li><strong>价值</strong>：避免通知打扰，提升用户体验</li>
+<li><strong>实现</strong>：</li>
+<li>静默时段（22:00-08:00 非紧急通知暂缓）</li>
+<li>免打扰模式（用户可设置）</li>
+<li>优先级分级（urgent 立即推送 / normal 排队 / low 仅站内信）</li>
+<li>聚合通知（多条租金提醒合并为一条）</li>
+<li><strong>Phase</strong>：2</li>
+<li><strong>接入点</strong>：<code>notifications</code> 表 + 推送中间件</li>
+</ul>
+<h3>20.8 租客自助入住/退房</h3>
+<ul>
+<li><strong>价值</strong>：App 内引导式验房清单 + 拍照存证，减少人工成本</li>
+<li><strong>实现</strong>：</li>
+<li>入住：App 引导逐项检查（门锁/家电/墙面/卫生间）→ 拍照 → 生成入住报告</li>
+<li>退房：同上 → 对比入住报告 → 自动标记差异</li>
+<li>数据存入 <code>documents</code>（type=inspection_photo）</li>
+<li><strong>Phase</strong>：3</li>
+<li><strong>接入点</strong>：<code>documents</code> + 退房流程（§6.7）</li>
+</ul>
+<h3>20.9 业主财务报表导出</h3>
+<ul>
+<li><strong>价值</strong>：年度收入报表 PDF，业主可用于报税/贷款证明</li>
+<li><strong>实现</strong>：</li>
+<li>汇总业主年度租金收入、WHT、托管费、服务费</li>
+<li>生成 PDF（WeasyPrint，与税务子系统共用）</li>
+<li>关联 <code>tax_records</code> + <code>payments</code> + <code>wht_certificates</code></li>
+<li><strong>Phase</strong>：2</li>
+<li><strong>接入点</strong>：<code>GET /owners/me/income</code> + PDF 渲染</li>
+</ul>
+<h3>20.10 多公司 SaaS 预留</h3>
+<ul>
+<li><strong>价值</strong>：虽然 Phase 1 单一公司，但未来可能 SaaS 化服务多家中介</li>
+<li><strong>实现</strong>：</li>
+<li>Phase 1：所有表<strong>不加</strong> <code>company_id</code> 字段（YAGNI 原则）</li>
+<li>Phase 5 SaaS 化时：用 PostgreSQL Schema 隔离 + 共享应用层</li>
+<li>或加 <code>company_id</code> 字段 + 行级安全（RLS）</li>
+<li><strong>Phase</strong>：5（待定）</li>
+<li><strong>接入点</strong>：迁移脚本 + RBAC 扩展</li>
+</ul>
+<hr />
+<h2>21. 文档健康度检查清单</h2>
+<blockquote>
+<p>每次重大更新后应检查以下项目，确保文档质量。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>检查项</th>
+<th>状态</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>章节编号连续</td>
+<td>✅</td>
+<td>§1-§21</td>
+</tr>
+<tr>
+<td>架构图与技术选型一致</td>
+<td>✅</td>
+<td>v1.4 已修复 Django Admin 矛盾</td>
+</tr>
+<tr>
+<td>数据模型与 API 端点对应</td>
+<td>✅</td>
+<td>每个实体都有 CRUD 端点</td>
+</tr>
+<tr>
+<td>业务流程覆盖所有角色</td>
+<td>✅</td>
+<td>5 端 + 8 个业务流程</td>
+</tr>
+<tr>
+<td>领域事件覆盖所有流程</td>
+<td>✅</td>
+<td>15 类事件</td>
+</tr>
+<tr>
+<td>Phase 任务与章节对应</td>
+<td>✅</td>
+<td>每个 Phase 引用具体章节</td>
+</tr>
+<tr>
+<td>PDPA 合规落地</td>
+<td>✅</td>
+<td>§17 + §5.1 统一定义</td>
+</tr>
+<tr>
+<td>税务子系统完整</td>
+<td>✅</td>
+<td>§16 + 4 张表 + 流程</td>
+</tr>
+<tr>
+<td>支付渠道矩阵覆盖</td>
+<td>✅</td>
+<td>§7 30+ 渠道</td>
+</tr>
+<tr>
+<td>演进规划有接入点</td>
+<td>✅</td>
+<td>§19 + §20 每项都标注接入点</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><strong>文档结束。后续如有架构调整或新增模块，请在此文件追加版本记录。</strong></p>
+<hr />
+<h2>22. 容量规划与性能基线</h2>
+<blockquote>
+<p>回答"这套框架能扛多少并发"——基于本架构组件的容量估算、瓶颈分析、部署规格和扩展策略。</p>
+</blockquote>
+<h3>22.1 业务量预估（单一公司视角）</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>Phase 1 起步</th>
+<th>Phase 3 稳定期</th>
+<th>Phase 5 满载</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>注册用户总量</td>
+<td>500 - 2,000</td>
+<td>5,000 - 20,000</td>
+<td>50,000+</td>
+</tr>
+<tr>
+<td>日活用户（DAU）</td>
+<td>50 - 200</td>
+<td>500 - 2,000</td>
+<td>5,000+</td>
+</tr>
+<tr>
+<td>房源总量</td>
+<td>50 - 200</td>
+<td>500 - 2,000</td>
+<td>10,000+</td>
+</tr>
+<tr>
+<td>月签约量</td>
+<td>10 - 30</td>
+<td>100 - 300</td>
+<td>1,000+</td>
+</tr>
+<tr>
+<td>月支付笔数</td>
+<td>50 - 150</td>
+<td>500 - 1,500</td>
+<td>5,000+</td>
+</tr>
+<tr>
+<td>文档/图片总量</td>
+<td>1,000 - 5,000</td>
+<td>50,000 - 200,000</td>
+<td>1,000,000+</td>
+</tr>
+</tbody>
+</table>
+<h3>22.2 并发量估算</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>峰值并发用户</th>
+<th>峰值 QPS</th>
+<th>平均 QPS</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>普通浏览</strong>（房源/列表）</td>
+<td>200</td>
+<td>60</td>
+<td>10</td>
+<td>多数为读请求</td>
+</tr>
+<tr>
+<td><strong>登录/认证</strong></td>
+<td>50</td>
+<td>5</td>
+<td>1</td>
+<td>高频但短时</td>
+</tr>
+<tr>
+<td><strong>签约/支付</strong></td>
+<td>30</td>
+<td>3</td>
+<td>0.5</td>
+<td>关键路径，秒杀级</td>
+</tr>
+<tr>
+<td><strong>文件上传</strong>（合同/照片）</td>
+<td>20</td>
+<td>2</td>
+<td>0.2</td>
+<td>慢请求占用长连接</td>
+</tr>
+<tr>
+<td><strong>WebSocket/通知推送</strong></td>
+<td>100</td>
+<td>100</td>
+<td>30</td>
+<td>长连接，并发≠QPS</td>
+</tr>
+<tr>
+<td><strong>管理端 Dashboard 刷新</strong></td>
+<td>10</td>
+<td>1</td>
+<td>0.2</td>
+<td>重查询</td>
+</tr>
+</tbody>
+</table>
+<p><strong>峰值并发总量</strong>：约 <strong>200-300 用户 / 80-150 QPS / 100 WebSocket 连接</strong></p>
+<h3>22.3 各组件承载上限</h3>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>单实例上限</th>
+<th>瓶颈</th>
+<th>调优手段</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>FastAPI（uvicorn 4 worker）</strong></td>
+<td>3,000 - 5,000 并发连接</td>
+<td>CPU</td>
+<td>增加 worker 数 / 横向扩展实例</td>
+</tr>
+<tr>
+<td><strong>Nginx 反向代理</strong></td>
+<td>10,000+ 并发</td>
+<td>文件描述符</td>
+<td>worker_rlimit_nofile 65535</td>
+</tr>
+<tr>
+<td><strong>PostgreSQL 15</strong></td>
+<td>1,000 - 2,000 QPS（简单查询）</td>
+<td>连接数 / 磁盘 I/O</td>
+<td>连接池 + SSD + 索引优化</td>
+</tr>
+<tr>
+<td><strong>Redis</strong></td>
+<td>100,000+ QPS</td>
+<td>内存</td>
+<td>集群 / 持久化策略</td>
+</tr>
+<tr>
+<td><strong>Celery worker</strong></td>
+<td>1,000 task/s（CPU 任务）<br>100 task/s（IO 任务）</td>
+<td>任务执行时间</td>
+<td>增加 worker 并发数</td>
+</tr>
+<tr>
+<td><strong>MinIO / S3</strong></td>
+<td>5,000+ 上传/s</td>
+<td>带宽</td>
+<td>CDN 卸载 / 分片上传</td>
+</tr>
+<tr>
+<td><strong>WebSocket（FastAPI）</strong></td>
+<td>单实例 10,000 长连接</td>
+<td>文件描述符</td>
+<td>Redis Pub/Sub 跨实例广播</td>
+</tr>
+</tbody>
+</table>
+<h3>22.4 真实瓶颈分析</h3>
+<p>按业务路径预测的瓶颈点（<strong>从最可能成为瓶颈的排起</strong>）：</p>
+<h4>🔴 第一瓶颈：PostgreSQL 连接数</h4>
+<ul>
+<li>默认 max_connections = 100，<strong>3 个 FastAPI 实例 × 30 连接 = 90</strong>，耗尽</li>
+<li><strong>必须用 PgBouncer 池化</strong>：将 3000 应用连接池化为 100-200 真实 DB 连接</li>
+<li>预估性能损失 &lt; 5%，收益巨大</li>
+</ul>
+<h4>🟡 第二瓶颈：磁盘 I/O（图片/文件）</h4>
+<ul>
+<li>房源图片、合同 PDF 占用大</li>
+<li><strong>必须用对象存储（MinIO/S3）</strong>，应用层不直接存文件</li>
+<li><strong>静态资源用 CDN 卸载</strong>（CloudFront / Cloudflare）</li>
+</ul>
+<h4>🟡 第三瓶颈：复杂报表查询</h4>
+<ul>
+<li>Dashboard 跨多表聚合可能跑 5-30 秒</li>
+<li><strong>必须用预聚合表</strong>（如 <code>dashboard_property_stats</code> 每日定时刷）</li>
+<li>或 Phase 4a 引入 ClickHouse</li>
+</ul>
+<h4>🟢 第四瓶颈：WebSocket 长连接</h4>
+<ul>
+<li>业主/租客 App 保持推送连接</li>
+<li><strong>单实例 1 万连接够用</strong>，多实例用 Redis Pub/Sub 广播</li>
+</ul>
+<h4>🟢 第五瓶颈：支付回调并发</h4>
+<ul>
+<li>多个支付渠道同时回调，可能短时 100+ req/s</li>
+<li><strong>webhook 端点设计为无状态 + 立即 200 OK + 异步处理</strong></li>
+</ul>
+<h3>22.5 部署规格推荐</h3>
+<h4>Phase 1 起步（最低可用，1-2 年）</h4>
+<table>
+<thead>
+<tr>
+<th>服务</th>
+<th>规格</th>
+<th>月费用（AWS Bangkok）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>应用服务器 × 2</strong></td>
+<td>4 vCPU / 8 GB RAM</td>
+<td>$80 × 2 = $160</td>
+</tr>
+<tr>
+<td><strong>PostgreSQL RDS</strong></td>
+<td>db.t4g.medium（2 vCPU / 4 GB / 100 GB SSD）</td>
+<td>$80</td>
+</tr>
+<tr>
+<td><strong>Redis ElastiCache</strong></td>
+<td>cache.t4g.small（1 vCPU / 1.5 GB）</td>
+<td>$25</td>
+</tr>
+<tr>
+<td><strong>MinIO / S3</strong></td>
+<td>500 GB + 1 TB 流量</td>
+<td>$30</td>
+</tr>
+<tr>
+<td><strong>负载均衡 ALB</strong></td>
+<td>标准型</td>
+<td>$20</td>
+</tr>
+<tr>
+<td><strong>数据备份 + 监控</strong></td>
+<td>S3 Glacier + Grafana Cloud</td>
+<td>$20</td>
+</tr>
+<tr>
+<td><strong>CDN（CloudFront）</strong></td>
+<td>1 TB 流量</td>
+<td>$20</td>
+</tr>
+<tr>
+<td><strong>域名/SSL/杂项</strong></td>
+<td>-</td>
+<td>$15</td>
+</tr>
+<tr>
+<td><strong>小计</strong></td>
+<td></td>
+<td><strong>~$370 / 月</strong></td>
+</tr>
+</tbody>
+</table>
+<h4>Phase 3 稳定（中型公司，3-5 年）</h4>
+<table>
+<thead>
+<tr>
+<th>服务</th>
+<th>规格</th>
+<th>月费用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>应用服务器 × 4</td>
+<td>8 vCPU / 16 GB</td>
+<td>$640</td>
+</tr>
+<tr>
+<td>PostgreSQL RDS</td>
+<td>db.m6g.large（2 vCPU / 8 GB / 500 GB）</td>
+<td>$200</td>
+</tr>
+<tr>
+<td>Redis</td>
+<td>cache.m6g.large</td>
+<td>$100</td>
+</tr>
+<tr>
+<td>S3 + CloudFront</td>
+<td>5 TB</td>
+<td>$150</td>
+</tr>
+<tr>
+<td>ALB + WAF</td>
+<td>-</td>
+<td>$50</td>
+</tr>
+<tr>
+<td>其他</td>
+<td>-</td>
+<td>$60</td>
+</tr>
+<tr>
+<td><strong>小计</strong></td>
+<td></td>
+<td><strong>~$1,200 / 月</strong></td>
+</tr>
+</tbody>
+</table>
+<h4>Phase 5 满载（横向扩展，无上限）</h4>
+<ul>
+<li>应用层：K8s 集群（EKS），HPA 自动伸缩 3-20 实例</li>
+<li>数据库：主从 + 读写分离 + PgBouncer</li>
+<li>Redis：Cluster 模式（3 主 3 从）</li>
+<li>文件：S3 + CloudFront</li>
+<li>月费用 $3,000 - $5,000</li>
+</ul>
+<h3>22.6 性能基线指标（SLO）</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>目标</th>
+<th>测量方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>API P50 延迟</td>
+<td>&lt; 50 ms</td>
+<td>Prometheus histogram</td>
+</tr>
+<tr>
+<td>API P95 延迟</td>
+<td>&lt; 200 ms</td>
+<td>Prometheus histogram</td>
+</tr>
+<tr>
+<td>API P99 延迟</td>
+<td>&lt; 500 ms</td>
+<td>Prometheus histogram</td>
+</tr>
+<tr>
+<td>错误率（5xx）</td>
+<td>&lt; 0.1%</td>
+<td>Counter</td>
+</tr>
+<tr>
+<td>支付成功率</td>
+<td>&gt; 99%</td>
+<td>业务指标</td>
+</tr>
+<tr>
+<td>通知送达率</td>
+<td>&gt; 98%</td>
+<td>通知表统计</td>
+</tr>
+<tr>
+<td>数据库 QPS</td>
+<td>&lt; 1,000</td>
+<td>pg_stat_statements</td>
+</tr>
+<tr>
+<td>缓存命中率</td>
+<td>&gt; 85%</td>
+<td>Redis INFO</td>
+</tr>
+<tr>
+<td>慢查询（&gt;1s）</td>
+<td>&lt; 0.5%</td>
+<td>pg_stat_statements</td>
+</tr>
+<tr>
+<td>系统可用性</td>
+<td>&gt; 99.9%（年宕机 &lt; 8.76h）</td>
+<td>业务监控</td>
+</tr>
+</tbody>
+</table>
+<h3>22.7 压测方案</h3>
+<h4>工具选型</h4>
+<ul>
+<li><strong>Locust</strong>（推荐，Python 写脚本，与 FastAPI 生态一致）</li>
+<li><strong>k6</strong>（Go 写脚本，性能更好）</li>
+<li><strong>wrk</strong>（极简 HTTP 压测）</li>
+<li><strong>Artillery</strong>（YAML 配置）</li>
+</ul>
+<h4>Phase 1 必做压测场景</h4>
+<ol>
+<li><strong>登录风暴</strong>：100 用户同时登录，验证 token 发放和速率限制</li>
+<li><strong>房源列表查询</strong>：500 并发持续 5 分钟，验证缓存命中</li>
+<li><strong>支付回调</strong>：50 并发 webhook，验证幂等性和异步处理</li>
+<li><strong>大文件上传</strong>：20 用户同时上传 50 MB 文件</li>
+<li><strong>WebSocket 推送</strong>：1000 长连接持续推送通知</li>
+</ol>
+<h4>压测指标收集</h4>
+<ul>
+<li>响应时间分布（P50/P95/P99）</li>
+<li>错误率</li>
+<li>系统资源（CPU/内存/IO/网络）</li>
+<li>数据库慢查询</li>
+<li>缓存命中率</li>
+<li>队列积压情况</li>
+</ul>
+<h4>容量预警阈值</h4>
+<ul>
+<li>CPU &gt; 70% 持续 5 分钟 → 告警</li>
+<li>内存 &gt; 80% → 告警</li>
+<li>DB 连接数 &gt; 80% → 告警</li>
+<li>Redis 内存 &gt; 75% → 告警</li>
+<li>队列长度 &gt; 1000 → 告警</li>
+<li>API P99 &gt; 1s → 告警</li>
+</ul>
+<h3>22.8 横向扩展策略</h3>
+<div class="highlight"><pre><span></span><code>                  ┌─────────────────┐
+   ┌─→  ALB  ───→  FastAPI 实例 1  ├──┐
+   │              └─────────────────┘  │
+   │                                   │  → PgBouncer
+客户端 ──→ CloudFront → ALB ─┤         │  → Redis Cluster
+   │              ┌─────────────────┐  │
+   └─→  ALB  ───→  FastAPI 实例 2  ├──┘
+                  └─────────────────┘
+                         │
+                         ↓
+                  ┌─────────────────┐
+                  │ Celery Workers  │ → PostgreSQL 主从
+                  └─────────────────┘ → S3 + CloudFront
+</code></pre></div>
+
+<p><strong>扩展触发条件</strong>：
+- CPU 持续 &gt; 70% → 增加 FastAPI 实例
+- DB QPS &gt; 800 → 考虑读副本
+- Redis 内存 &gt; 75% → 升级实例或 Cluster
+- 队列积压 &gt; 1000 → 增加 Celery worker</p>
+<h3>22.9 一句话回答</h3>
+<blockquote>
+<p><strong>本架构单实例最低可承载 200-300 并发用户 / 80-150 QPS</strong>（Phase 1 业务量级），<strong>理论上限 3,000-5,000 并发连接</strong>（按 4 worker 配置）。</p>
+<p>对单一房产中介公司（DAU 500-2,000，签约 100-300/月）有 <strong>10-20 倍余量</strong>，完全够用 2-3 年。</p>
+<p>真正容易成为瓶颈的不是应用层，而是 <strong>PostgreSQL 连接数</strong>（必须配 PgBouncer）和 <strong>图片/文件存储</strong>（必须上 CDN）。</p>
+</blockquote>
+<hr />
+<h3>22.10 高并发演进方案（10 万 DAU 场景）</h3>
+<blockquote>
+<p>假设业务体量跳跃到 <strong>DAU 100,000</strong>（约为 Phase 1 的 500-2000 倍，Phase 5 满载的 20 倍），当前架构能否支撑？</p>
+</blockquote>
+<h4>22.10.1 核心结论</h4>
+<blockquote>
+<p>✅ <strong>技术栈（FastAPI + PostgreSQL + Redis）本身能支撑 10 万 DAU</strong></p>
+<p>❌ <strong>但部署形态必须从单体升级到分布式</strong>——单实例架构会立即崩溃</p>
+<p>💰 <strong>月成本从 $370 跳到 $3,000-5,000</strong>（约 10-13 倍）</p>
+</blockquote>
+<h4>22.10.2 10 万 DAU 容量重算</h4>
+<p><strong>业务参数</strong>：
+- 注册用户 100 万 - 500 万
+- 日活 100,000
+- 房源总量 50,000+
+- 月签约 5,000-10,000
+- 月支付 30,000-50,000
+- 文档/图片 1,000 万+</p>
+<p><strong>峰值估算</strong>（DAU 10 万，假设 20% 同时在线、5% 在做写操作）：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>峰值并发用户</th>
+<th>峰值 QPS</th>
+<th>平均 QPS</th>
+<th>倍数（vs Phase 1）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>普通浏览</strong>（房源/列表）</td>
+<td>20,000</td>
+<td>6,000</td>
+<td>1,000</td>
+<td>100x</td>
+</tr>
+<tr>
+<td><strong>登录/认证</strong></td>
+<td>5,000</td>
+<td>500</td>
+<td>100</td>
+<td>100x</td>
+</tr>
+<tr>
+<td><strong>签约/支付</strong></td>
+<td>3,000</td>
+<td>300</td>
+<td>50</td>
+<td>100x</td>
+</tr>
+<tr>
+<td><strong>文件上传</strong></td>
+<td>2,000</td>
+<td>200</td>
+<td>20</td>
+<td>100x</td>
+</tr>
+<tr>
+<td><strong>WebSocket/通知推送</strong></td>
+<td>10,000</td>
+<td>10,000</td>
+<td>3,000</td>
+<td>100x</td>
+</tr>
+<tr>
+<td><strong>管理端 Dashboard 刷新</strong></td>
+<td>500</td>
+<td>50</td>
+<td>10</td>
+<td>50x</td>
+</tr>
+</tbody>
+</table>
+<p><strong>峰值并发总量</strong>：约 <strong>1-1.5 万并发用户 / 3,000-5,000 QPS / 1 万 WebSocket 连接</strong></p>
+<h4>22.10.3 各组件承载差距分析</h4>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>当前单实例上限</th>
+<th>10 万 DAU 需求</th>
+<th>缺口</th>
+<th>解决方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>FastAPI 单实例</strong></td>
+<td>3,000-5,000 并发</td>
+<td>15,000+ 并发</td>
+<td>3-5x</td>
+<td><strong>横向扩展 5-10 个实例 + K8s HPA</strong></td>
+</tr>
+<tr>
+<td><strong>Nginx</strong></td>
+<td>10,000+ 并发</td>
+<td>15,000+</td>
+<td>1.5-2x</td>
+<td><strong>多 Nginx 实例 + ALB 负载均衡</strong></td>
+</tr>
+<tr>
+<td><strong>PostgreSQL 单实例</strong></td>
+<td>1,000-2,000 QPS</td>
+<td>3,000-5,000 QPS</td>
+<td>2-3x</td>
+<td><strong>主从读写分离 + PgBouncer + 必要时分库分表</strong></td>
+</tr>
+<tr>
+<td><strong>Redis 单实例</strong></td>
+<td>100,000 QPS</td>
+<td>200,000+ QPS</td>
+<td>2x</td>
+<td><strong>Redis Cluster（3 主 3 从）</strong></td>
+</tr>
+<tr>
+<td><strong>Celery 单机</strong></td>
+<td>1,000 task/s</td>
+<td>5,000+ task/s</td>
+<td>5x</td>
+<td><strong>多 worker 节点 + Flower 监控</strong></td>
+</tr>
+<tr>
+<td><strong>文件存储</strong></td>
+<td>5,000 上传/s</td>
+<td>10,000+ 上传/s</td>
+<td>2x</td>
+<td><strong>S3 + CloudFront CDN 卸载 + 分片上传</strong></td>
+</tr>
+<tr>
+<td><strong>WebSocket 单实例</strong></td>
+<td>10,000 长连接</td>
+<td>10,000+ 长连接</td>
+<td>临界</td>
+<td><strong>多实例 + Redis Pub/Sub 广播</strong></td>
+</tr>
+<tr>
+<td><strong>事件总线</strong></td>
+<td>Redis Streams 10K/s</td>
+<td>50K+ 事件/s</td>
+<td>5x</td>
+<td><strong>升级到 Apache Kafka</strong></td>
+</tr>
+</tbody>
+</table>
+<h4>22.10.4 目标架构（10 万 DAU）</h4>
+<div class="highlight"><pre><span></span><code>                                   ┌─────────────────┐
+                                   │   CloudFront    │
+                                   │   (CDN + 缓存)   │
+                                   └────────┬────────┘
+                                            │
+                          ┌─────────────────┼─────────────────┐
+                          ▼                 ▼                 ▼
+                    ┌──────────┐      ┌──────────┐      ┌──────────┐
+                    │ ALB 多AZ │      │ ALB 多AZ │      │ ALB 多AZ │
+                    │ (跨可用区) │      │          │      │          │
+                    └─────┬────┘      └─────┬────┘      └─────┬────┘
+                          │                 │                 │
+                  ┌───────┴───────┐         │                 │
+                  ▼               ▼         ▼                 ▼
+           ┌────────────┐  ┌────────────┐ ┌────────────┐ ┌────────────┐
+           │ FastAPI ×5 │  │ FastAPI ×5 │ │ FastAPI ×3 │ │ WebSocket  │
+           │ K8s Pod 1  │  │ K8s Pod 2  │ │ Celery     │ │ ×3 节点   │
+           └──────┬─────┘  └──────┬─────┘ └──────┬─────┘ └──────┬─────┘
+                  │               │               │               │
+                  └───────────────┴───────┬───────┴───────────────┘
+                                          │
+                          ┌───────────────┼───────────────┐
+                          ▼               ▼               ▼
+                   ┌───────────┐   ┌──────────┐    ┌──────────┐
+                   │ PgBouncer │   │  Redis   │    │  Kafka   │
+                   │ (连接池)  │   │ Cluster  │    │ 3 节点   │
+                   └─────┬─────┘   │ 3主3从   │    └────┬─────┘
+                         │         └────┬─────┘         │
+                         ▼              ▼               ▼
+                  ┌──────────────────────────┐    ┌──────────┐
+                  │ PostgreSQL 主从          │    │ ClickHou │
+                  │ 主 + 2 读副本            │    │ -se BI   │
+                  │ 必要时分库分表           │    │ (Phase4a)│
+                  └──────────────────────────┘    └──────────┘
+                         │
+                         ▼
+                  ┌──────────────┐
+                  │ S3 + 备份    │
+                  └──────────────┘
+</code></pre></div>
+
+<p><strong>关键演进点</strong>：
+- ✅ <strong>应用层</strong>：K8s 集群 + HPA（基于 CPU/内存/队列长度自动伸缩 3-20 Pod）
+- ✅ <strong>数据库</strong>：主从 + 读写分离 + PgBouncer 池化
+- ✅ <strong>缓存</strong>：Redis Cluster 模式
+- ✅ <strong>消息总线</strong>：从 Redis Streams 升级到 Kafka（高吞吐 + 持久化）
+- ✅ <strong>静态资源</strong>：CloudFront CDN（卸载 80% 流量）
+- ✅ <strong>多 AZ 部署</strong>：跨可用区容灾（AWS Bangkok 至少 2 AZ）</p>
+<h4>22.10.5 5 层瓶颈与升级方案对照</h4>
+<table>
+<thead>
+<tr>
+<th>瓶颈</th>
+<th>升级方案</th>
+<th>工作量</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🔴 <strong>PG 连接数</strong></td>
+<td>配 PgBouncer + 增加 max_connections</td>
+<td>1 天</td>
+<td>P0（必做）</td>
+</tr>
+<tr>
+<td>🔴 <strong>PG 写性能</strong></td>
+<td>读写分离（主写 + 2 读副本）</td>
+<td>3-5 天</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>🟡 <strong>PG 单表大</strong></td>
+<td>分库分表（按 <code>property_id</code> 哈希）或按时间分区</td>
+<td>1-2 周</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>🟡 <strong>Redis 单点</strong></td>
+<td>Redis Cluster（3 主 3 从）</td>
+<td>3-5 天</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>🟡 <strong>事件吞吐</strong></td>
+<td>Redis Streams → Kafka（10 倍吞吐）</td>
+<td>1 周</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>🟡 <strong>应用层扩展</strong></td>
+<td>Docker → K8s + HPA 自动伸缩</td>
+<td>2-3 周</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>🟢 <strong>WebSocket 扩展</strong></td>
+<td>多实例 + Redis Pub/Sub 广播</td>
+<td>1 周</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>🟢 <strong>CDN 卸载</strong></td>
+<td>静态资源全部走 CloudFront</td>
+<td>3 天</td>
+<td>P0（成本最低效果最大）</td>
+</tr>
+<tr>
+<td>🟢 <strong>BI 查询慢</strong></td>
+<td>引入 ClickHouse 数据仓库</td>
+<td>2-3 周（Phase 4a）</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>🟢 <strong>微服务化</strong></td>
+<td>拆分用户/房源/支付/税务独立部署</td>
+<td>1-2 月（Phase 5）</td>
+<td>P3</td>
+</tr>
+</tbody>
+</table>
+<h4>22.10.6 成本估算（10 万 DAU）</h4>
+<table>
+<thead>
+<tr>
+<th>服务</th>
+<th>规格</th>
+<th>月费用（USD）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>K8s 集群（EKS）</strong></td>
+<td>5-10 个应用 Pod + 3 Celery Pod</td>
+<td>$1,200</td>
+</tr>
+<tr>
+<td><strong>PostgreSQL 主 + 2 读副本</strong></td>
+<td>db.r6g.large × 3（8 vCPU / 32 GB）</td>
+<td>$900</td>
+</tr>
+<tr>
+<td><strong>PgBouncer 集群</strong></td>
+<td>2 实例 + 自动故障转移</td>
+<td>$100</td>
+</tr>
+<tr>
+<td><strong>Redis Cluster</strong></td>
+<td>cache.r6g.large × 6（3 主 3 从）</td>
+<td>$600</td>
+</tr>
+<tr>
+<td><strong>Kafka 集群（MSK）</strong></td>
+<td>3 节点 kafka.m5.large</td>
+<td>$500</td>
+</tr>
+<tr>
+<td><strong>S3 + CloudFront</strong></td>
+<td>10 TB 存储 + 50 TB 流量</td>
+<td>$800</td>
+</tr>
+<tr>
+<td><strong>ALB + WAF + Route 53</strong></td>
+<td>多 AZ</td>
+<td>$200</td>
+</tr>
+<tr>
+<td><strong>监控 / 日志 / 备份</strong></td>
+<td>Grafana Cloud + S3 Glacier</td>
+<td>$300</td>
+</tr>
+<tr>
+<td><strong>其他（域名/SSL/CDN 杂项）</strong></td>
+<td>-</td>
+<td>$100</td>
+</tr>
+<tr>
+<td><strong>小计</strong></td>
+<td></td>
+<td><strong>~$4,700 / 月</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>成本结构变化</strong>：
+- Phase 1：~$370/月
+- Phase 3：~$1,200/月
+- <strong>Phase 高并发（10 万 DAU）：~$4,700/月</strong>
+- 单 DAU 成本：$0.0037 → $0.012 → <strong>$0.047</strong>（10 万 DAU）</p>
+<h4>22.10.7 5 个必做的架构升级项（按 ROI 排序）</h4>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>升级项</th>
+<th>投入</th>
+<th>收益</th>
+<th>ROI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>CDN 卸载静态资源</strong></td>
+<td>3 天，$50/月</td>
+<td>减少 80% 应用层流量，P99 延迟降 50%</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>PgBouncer + 读写分离</strong></td>
+<td>1 周，$100/月</td>
+<td>连接数支持 10x 增长，应用层可横向扩展</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Redis Cluster</strong></td>
+<td>3 天，$300/月</td>
+<td>缓存容量和吞吐翻倍，消除单点故障</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>K8s + HPA</strong></td>
+<td>2-3 周，$500/月</td>
+<td>自动伸缩 3-20 Pod，零停机扩容</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>事件总线升级到 Kafka</strong></td>
+<td>1 周，$500/月</td>
+<td>事件吞吐 10x，支持事件溯源和重放</td>
+<td>⭐⭐⭐</td>
+</tr>
+</tbody>
+</table>
+<h4>22.10.8 性能与可靠性目标（10 万 DAU）</h4>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>目标</th>
+<th>测量方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>API P99 延迟</td>
+<td>&lt; 300 ms</td>
+<td>Prometheus</td>
+</tr>
+<tr>
+<td>错误率</td>
+<td>&lt; 0.05%</td>
+<td>Counter</td>
+</tr>
+<tr>
+<td>支付成功率</td>
+<td>&gt; 99.5%</td>
+<td>业务指标</td>
+</tr>
+<tr>
+<td>系统可用性</td>
+<td>&gt; 99.95%（年宕机 &lt; 4.38h）</td>
+<td>业务监控</td>
+</tr>
+<tr>
+<td>缓存命中率</td>
+<td>&gt; 90%</td>
+<td>Redis INFO</td>
+</tr>
+<tr>
+<td>数据库主从延迟</td>
+<td>&lt; 1s</td>
+<td>pg_stat_replication</td>
+</tr>
+<tr>
+<td>队列最大积压</td>
+<td>&lt; 5,000</td>
+<td>Celery Flower</td>
+</tr>
+<tr>
+<td>CDN 命中率</td>
+<td>&gt; 85%</td>
+<td>CloudFront 报表</td>
+</tr>
+</tbody>
+</table>
+<h4>22.10.9 分阶段迁移路径</h4>
+<p><strong>前置条件</strong>：先验证业务真达到 10 万 DAU，再启动以下升级（不要过早优化）：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>时间点</th>
+<th>触发条件</th>
+<th>升级内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>阶段 1</strong></td>
+<td>DAU &gt; 1,000</td>
+<td>监控告警</td>
+<td>配 PgBouncer + Redis 主从 + CDN</td>
+</tr>
+<tr>
+<td><strong>阶段 2</strong></td>
+<td>DAU &gt; 5,000</td>
+<td>DB CPU &gt; 70%</td>
+<td>PostgreSQL 读写分离 + Redis Cluster</td>
+</tr>
+<tr>
+<td><strong>阶段 3</strong></td>
+<td>DAU &gt; 20,000</td>
+<td>队列积压</td>
+<td>K8s 迁移 + HPA + 多 AZ</td>
+</tr>
+<tr>
+<td><strong>阶段 4</strong></td>
+<td>DAU &gt; 50,000</td>
+<td>事件延迟</td>
+<td>Redis Streams → Kafka</td>
+</tr>
+<tr>
+<td><strong>阶段 5</strong></td>
+<td>DAU &gt; 100,000</td>
+<td>单表 &gt; 5,000 万行</td>
+<td>分库分表 + 微服务化</td>
+</tr>
+</tbody>
+</table>
+<p><strong>每阶段投入产出比都验证后再进入下一阶段</strong>——避免过早优化。</p>
+<h4>22.10.10 一句话回答</h4>
+<blockquote>
+<p><strong>当前架构能支撑 10 万 DAU，但需要从单体升级到分布式</strong>（K8s + PG 主从 + Redis Cluster + Kafka + CDN）。</p>
+<p><strong>月成本 $3,000-5,000</strong>，单 DAU 成本约 $0.047。</p>
+<p><strong>建议分 5 阶段演进</strong>，每阶段基于真实业务量触发（不要过早优化）。</p>
+<p><strong>最大 ROI 升级</strong>：CDN（$50/月 → 减 80% 流量）+ PgBouncer（$100/月 → 支持 10x 连接）= 投入 &lt; $200/月，效果立竿见影。</p>
+</blockquote>
+</body>
+</html>

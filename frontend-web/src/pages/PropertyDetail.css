@@ -1,0 +1,238 @@
+/* =========================================================
+   房源详情页面专属样式
+   - 补充 app.css 未覆盖的共享组件类（table/form/divider 等）
+   - 详情页头部 / 规格 / 业主 / 收益分成 —— 与设计稿完全一致
+   ========================================================= */
+
+/* ===== Table（补充共享类） ===== */
+.rent-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--rent-radius-lg);
+  border: 1px solid var(--rent-border);
+}
+.rent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.rent-table thead th {
+  background: var(--rent-surface-2);
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  border-bottom: 1px solid var(--rent-border);
+  white-space: nowrap;
+}
+.rent-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rent-border);
+  color: var(--rent-ink);
+  vertical-align: middle;
+}
+.rent-table tbody tr:last-child td { border-bottom: none; }
+.rent-table tbody tr:hover { background: var(--rent-surface-2); }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+
+/* ===== Divider（补充共享类，app.css 已有但这里确保存在） ===== */
+.rent-divider {
+  height: 1px;
+  background: var(--rent-border);
+  margin: 16px 0;
+  border: none;
+}
+
+/* ===== 返回链接 ===== */
+.rent-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-decoration: none;
+  padding: 6px 0;
+  margin-bottom: 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: color 0.15s;
+}
+.rent-back-link:hover { color: var(--rent-primary); }
+
+/* ===== 房源头部 ===== */
+.rent-prop-header {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+.rent-prop-header__image {
+  width: 200px;
+  height: 200px;
+  border-radius: var(--rent-radius-lg);
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #4263eb 0%, #748ffc 50%, #a5b4fc 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.85);
+}
+.rent-prop-header__info { flex: 1; min-width: 0; }
+.rent-prop-header__name {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.015em;
+  margin: 0 0 6px;
+}
+.rent-prop-header__address {
+  font-size: 14px;
+  color: var(--rent-ink-3);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.rent-prop-header__badges {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+/* ===== 关键规格网格 ===== */
+.rent-spec-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.rent-spec-item {
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-md);
+  padding: 12px 14px;
+}
+.rent-spec-item__label {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin-bottom: 4px;
+}
+.rent-spec-item__value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== 月租金 ===== */
+.rent-prop-rent {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--rent-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.rent-prop-rent__period {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+}
+
+/* ===== 操作按钮区 ===== */
+.rent-prop-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+/* ===== 详情 dl 列表（标签-值） ===== */
+.rent-dl {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px 16px;
+  margin: 0;
+}
+.rent-dl__dt {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  font-weight: 500;
+}
+.rent-dl__dd {
+  font-size: 14px;
+  color: var(--rent-ink);
+  font-weight: 500;
+  margin: 0;
+}
+
+/* ===== 业主信息头 ===== */
+.rent-owner-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-owner-head__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+.rent-owner-head__sub {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+}
+
+/* ===== 联系方式行 ===== */
+.rent-contact-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--rent-ink-2);
+  margin-bottom: 10px;
+}
+.rent-contact-row svg {
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+}
+
+/* ===== 收益分成条 ===== */
+.rent-split-bar {
+  display: flex;
+  height: 8px;
+  border-radius: var(--rent-radius-full);
+  overflow: hidden;
+  margin-top: 8px;
+}
+.rent-split-bar__owner { background: var(--rent-primary); }
+.rent-split-bar__mgmt { background: var(--rent-ink-3); }
+.rent-split-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin-top: 6px;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  .rent-prop-header {
+    flex-direction: column;
+  }
+  .rent-prop-header__image {
+    width: 100%;
+    height: 160px;
+  }
+  .rent-spec-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .rent-dl {
+    grid-template-columns: 100px 1fr;
+  }
+}

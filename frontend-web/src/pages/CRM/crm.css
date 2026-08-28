@@ -1,0 +1,22 @@
+/* ===== 客户管理页面特有样式 ===== */
+
+/* 看板卡片可点击 */
+.crm-kanban .rent-kanban__card {
+  cursor: pointer;
+}
+
+/* 看板列最大高度并内部滚动，保证视口体验 */
+.crm-kanban .rent-kanban__column {
+  max-height: calc(100vh - 320px);
+  overflow-y: auto;
+}
+
+/* 弹窗表单行间距微调 */
+.crm-modal .rent-form-group {
+  margin-bottom: 16px;
+}
+
+/* 列表视图徽章统一对齐 */
+.rent-table .rent-badge {
+  white-space: nowrap;
+}

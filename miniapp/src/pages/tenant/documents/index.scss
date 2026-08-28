@@ -1,0 +1,107 @@
+.tenant-documents-page {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+
+  .page-container {
+    padding: 24px;
+  }
+
+  .upload-section {
+    margin-bottom: 24px;
+
+    .upload-btn {
+      width: 100%;
+      height: 88px;
+      line-height: 88px;
+      background-color: #ffffff;
+      color: #1677ff;
+      font-size: 30px;
+      border-radius: 12px;
+      border: 2px dashed #1677ff;
+    }
+  }
+
+  .section-title {
+    font-size: 32px;
+    font-weight: 600;
+    color: #333333;
+    margin-bottom: 16px;
+  }
+
+  .empty-tip {
+    text-align: center;
+    padding: 80px 0;
+    color: #999999;
+    font-size: 28px;
+  }
+
+  .document-list {
+    .document-card {
+      display: flex;
+      align-items: center;
+      background-color: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+
+      .doc-icon {
+        width: 80px;
+        height: 80px;
+        background-color: #f0f5ff;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 24px;
+        overflow: hidden;
+
+        .icon-text {
+          font-size: 40px;
+        }
+
+        .doc-image {
+          width: 100%;
+          height: 100%;
+        }
+      }
+
+      .doc-info {
+        flex: 1;
+
+        .doc-name {
+          display: block;
+          font-size: 30px;
+          color: #333333;
+          margin-bottom: 8px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .doc-meta {
+          display: flex;
+
+          .doc-type {
+            font-size: 24px;
+            color: #1677ff;
+            background-color: #f0f5ff;
+            padding: 4px 12px;
+            border-radius: 4px;
+            margin-right: 16px;
+          }
+
+          .doc-date {
+            font-size: 24px;
+            color: #999999;
+          }
+        }
+      }
+
+      .doc-arrow {
+        font-size: 36px;
+        color: #cccccc;
+        margin-left: 16px;
+      }
+    }
+  }
+}

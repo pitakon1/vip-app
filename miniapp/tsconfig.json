@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "jsx": "react-jsx",
+    "noImplicitAny": false,
+    "allowSyntheticDefaultImports": true,
+    "outDir": "lib",
+    "sourceMap": true,
+    "rootDir": ".",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["./src", "./types", "./config"],
+  "compileOnSave": false
+}

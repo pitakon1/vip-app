@@ -1,0 +1,72 @@
+/* MainLayout 专属样式：核心布局类已由全局 app.css 提供，
+   此文件用于补充 MainLayout 内部细节与移动端底部 Tab 栏。 */
+
+/* ===== 移动端底部 Tab 栏（对应 rental-full-draft mobile 形态）===== */
+.rent-mobile-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 60px;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--rent-surface);
+  border-top: 1px solid var(--rent-border);
+  box-shadow: var(--rent-shadow-2);
+  display: none;
+  align-items: stretch;
+  z-index: 60;
+}
+
+.rent-mobile-nav {
+  justify-content: space-around;
+}
+
+.rent-mobile-nav__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  color: var(--rent-ink-3);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.rent-mobile-nav__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.rent-mobile-nav__icon .rent-nav-item__icon {
+  width: 22px;
+  height: 22px;
+}
+
+.rent-mobile-nav__label {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rent-mobile-nav__item[data-active="true"] {
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+
+/* 仅移动端显示，并为内容区预留底部高度 */
+@media (max-width: 960px) {
+  .rent-mobile-tabbar {
+    display: flex;
+  }
+  .rent-app__main {
+    padding-bottom: 76px;
+  }
+}

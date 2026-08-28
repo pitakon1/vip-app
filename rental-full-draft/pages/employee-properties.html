@@ -1,0 +1,2260 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>房源浏览</title>
+    <style id="theme-vars">
+/* =========================================================
+   房地产租赁管理后台 — 品牌设计令牌 (Modern Light)
+   单一靛蓝主色 · 冷调浅灰底 · 白色卡片 · 细边框 · 克制圆角
+   ========================================================= */
+
+:root {
+  /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
+  --rent-background: #f2f4f8;
+  --rent-foreground: #0f172a;
+  --rent-card: #ffffff;
+  --rent-card-foreground: #0f172a;
+  --rent-popover: #ffffff;
+  --rent-popover-foreground: #0f172a;
+  --rent-primary: #4263eb;
+  --rent-primary-foreground: #ffffff;
+  --rent-muted: #f1f5f9;
+  --rent-muted-foreground: #64748b;
+  --rent-border: #e6eaf0;
+  --rent-input: #e6eaf0;
+  --rent-ring: #4263eb;
+
+  /* ---- 中性阶梯（直接引用） ---- */
+  --rent-ink: #0f172a;
+  --rent-ink-2: #475569;
+  --rent-ink-3: #94a3b8;
+  --rent-line: #e6eaf0;
+  --rent-surface: #ffffff;
+  --rent-surface-2: #f1f5f9;
+  --rent-sidebar: #ffffff;
+  --rent-sidebar-active: #eef2ff;
+
+  /* ---- 状态色（仅语义状态） ---- */
+  --state-success: #16a34a;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #0ea5e9;
+
+  /* ---- 圆角（克制阶梯，上限 16px） ---- */
+  --rent-radius-sm: 6px;
+  --rent-radius-md: 12px;
+  --rent-radius-lg: 20px;
+  --rent-radius-full: 9999px;
+
+  /* ---- 阴影（静态面 alpha ≤ 0.05；深阴影仅浮层） ---- */
+  --rent-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --rent-shadow-2: 0 12px 32px -12px rgba(15, 23, 42, 0.16);
+  --rent-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.30);
+
+  /* ---- 间距（8pt 网格） ---- */
+  --rent-s-1: 4px;
+  --rent-s-2: 8px;
+  --rent-s-3: 12px;
+  --rent-s-4: 16px;
+  --rent-s-5: 24px;
+  --rent-s-6: 32px;
+  --rent-s-7: 48px;
+  --rent-s-8: 80px;
+
+  /* ---- 字体系统 ---- */
+  --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  color-scheme: light;
+}
+
+/* ---- 暗色模式（双模变量，设计态默认 light） ---- */
+.dark {
+  --rent-background: #0b0f1a;
+  --rent-foreground: #e8edf5;
+  --rent-card: #141a26;
+  --rent-card-foreground: #e8edf5;
+  --rent-popover: #141a26;
+  --rent-popover-foreground: #e8edf5;
+  --rent-primary: #6b82f5;
+  --rent-primary-foreground: #0b0f1a;
+  --rent-muted: #1c2433;
+  --rent-muted-foreground: #94a3b8;
+  --rent-border: #243044;
+  --rent-input: #243044;
+  --rent-ring: #6b82f5;
+
+  --rent-ink: #e8edf5;
+  --rent-ink-2: #a3aec2;
+  --rent-ink-3: #64748b;
+  --rent-line: #243044;
+  --rent-surface: #141a26;
+  --rent-surface-2: #1c2433;
+  --rent-sidebar: #0f1521;
+  --rent-sidebar-active: #1e2a44;
+
+  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --rent-shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.50);
+  --rent-shadow-3: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+
+  color-scheme: dark;
+}
+
+/* ---- 排版类 ---- */
+.rent-h1 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(24px, 2.6vw, 32px);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--rent-ink);
+}
+
+.rent-h2 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(20px, 2vw, 24px);
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--rent-ink);
+}
+
+.rent-h3 {
+  font-family: var(--rent-font-sans);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--rent-ink);
+}
+
+.rent-body-lg {
+  font-family: var(--rent-font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-body {
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-caption {
+  font-family: var(--rent-font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: var(--rent-ink-3);
+}
+
+.rent-mono {
+  font-family: var(--rent-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.rent-num {
+  font-family: var(--rent-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--rent-background);
+    --color-foreground: var(--rent-foreground);
+    --color-card: var(--rent-card);
+    --color-card-foreground: var(--rent-card-foreground);
+    --color-popover: var(--rent-popover);
+    --color-popover-foreground: var(--rent-popover-foreground);
+    --color-primary: var(--rent-primary);
+    --color-primary-foreground: var(--rent-primary-foreground);
+    --color-muted: var(--rent-muted);
+    --color-muted-foreground: var(--rent-muted-foreground);
+    --color-border: var(--rent-border);
+    --color-input: var(--rent-input);
+    --color-ring: var(--rent-ring);
+    --color-sidebar: var(--rent-sidebar);
+    --radius-sm: var(--rent-radius-sm);
+    --radius-md: var(--rent-radius-md);
+    --radius-lg: var(--rent-radius-lg);
+  }
+  @layer base {
+    body { background: var(--rent-background); color: var(--rent-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--rent-background); }
+      .text-background { color: var(--rent-background); }
+      .border-background { border-color: var(--rent-background); }
+      .ring-background { --tw-ring-color: var(--rent-background); }
+      .bg-foreground { background-color: var(--rent-foreground); }
+      .text-foreground { color: var(--rent-foreground); }
+      .border-foreground { border-color: var(--rent-foreground); }
+      .ring-foreground { --tw-ring-color: var(--rent-foreground); }
+      .bg-card { background-color: var(--rent-card); }
+      .text-card { color: var(--rent-card); }
+      .border-card { border-color: var(--rent-card); }
+      .ring-card { --tw-ring-color: var(--rent-card); }
+      .bg-card-foreground { background-color: var(--rent-card-foreground); }
+      .text-card-foreground { color: var(--rent-card-foreground); }
+      .border-card-foreground { border-color: var(--rent-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--rent-card-foreground); }
+      .bg-popover { background-color: var(--rent-popover); }
+      .text-popover { color: var(--rent-popover); }
+      .border-popover { border-color: var(--rent-popover); }
+      .ring-popover { --tw-ring-color: var(--rent-popover); }
+      .bg-popover-foreground { background-color: var(--rent-popover-foreground); }
+      .text-popover-foreground { color: var(--rent-popover-foreground); }
+      .border-popover-foreground { border-color: var(--rent-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--rent-popover-foreground); }
+      .bg-primary { background-color: var(--rent-primary); }
+      .text-primary { color: var(--rent-primary); }
+      .border-primary { border-color: var(--rent-primary); }
+      .ring-primary { --tw-ring-color: var(--rent-primary); }
+      .bg-primary-foreground { background-color: var(--rent-primary-foreground); }
+      .text-primary-foreground { color: var(--rent-primary-foreground); }
+      .border-primary-foreground { border-color: var(--rent-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--rent-primary-foreground); }
+      .bg-muted { background-color: var(--rent-muted); }
+      .text-muted { color: var(--rent-muted); }
+      .border-muted { border-color: var(--rent-muted); }
+      .ring-muted { --tw-ring-color: var(--rent-muted); }
+      .bg-muted-foreground { background-color: var(--rent-muted-foreground); }
+      .text-muted-foreground { color: var(--rent-muted-foreground); }
+      .border-muted-foreground { border-color: var(--rent-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--rent-muted-foreground); }
+      .bg-border { background-color: var(--rent-border); }
+      .text-border { color: var(--rent-border); }
+      .border-border { border-color: var(--rent-border); }
+      .ring-border { --tw-ring-color: var(--rent-border); }
+      .bg-input { background-color: var(--rent-input); }
+      .text-input { color: var(--rent-input); }
+      .border-input { border-color: var(--rent-input); }
+      .ring-input { --tw-ring-color: var(--rent-input); }
+      .bg-ring { background-color: var(--rent-ring); }
+      .text-ring { color: var(--rent-ring); }
+      .border-ring { border-color: var(--rent-ring); }
+      .ring-ring { --tw-ring-color: var(--rent-ring); }
+      .bg-sidebar { background-color: var(--rent-sidebar); }
+      .text-sidebar { color: var(--rent-sidebar); }
+      .border-sidebar { border-color: var(--rent-sidebar); }
+      .ring-sidebar { --tw-ring-color: var(--rent-sidebar); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+    <style id="rent-components">
+/* ===== App Shell Layout ===== */
+.rent-app {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas: "sidebar topbar" "sidebar main";
+  height: 100vh;
+  background: var(--rent-background);
+}
+.rent-app__sidebar { grid-area: sidebar; }
+.rent-app__topbar { grid-area: topbar; }
+.rent-app__main { grid-area: main; overflow-y: auto; }
+
+/* ===== Sidebar ===== */
+.rent-sidebar {
+  background: var(--rent-sidebar);
+  border-right: 1px solid var(--rent-border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+.rent-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  height: 56px;
+  border-bottom: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+.rent-sidebar__logo {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-primary);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 16px;
+  flex-shrink: 0;
+}
+.rent-sidebar__name {
+  font-family: var(--rent-font-sans);
+  font-size: 15px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  list-style: none;
+  margin: 0;
+}
+.rent-sidebar__section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rent-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 16px 12px 6px;
+}
+.rent-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 2px;
+}
+.rent-nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.rent-nav-item[data-active="true"] {
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-nav-item__icon {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-sidebar__footer {
+  padding: 12px;
+  border-top: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+
+/* ===== Topbar ===== */
+.rent-topbar {
+  background: var(--rent-surface);
+  border-bottom: 1px solid var(--rent-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.rent-topbar__left { display: flex; align-items: center; gap: 16px; }
+.rent-topbar__title {
+  font-size: 18px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-topbar__right { display: flex; align-items: center; gap: 12px; }
+.rent-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--rent-surface-2);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 7px 12px;
+  width: 280px;
+}
+.rent-search input {
+  border: none; background: none; outline: none;
+  font-size: 13px; color: var(--rent-ink);
+  flex: 1;
+  font-family: var(--rent-font-sans);
+}
+.rent-search input::placeholder { color: var(--rent-ink-3); }
+.rent-icon-btn {
+  width: 36px; height: 36px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+}
+.rent-icon-btn:hover { background: var(--rent-surface-2); }
+.rent-icon-btn__badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 16px; height: 16px;
+  border-radius: var(--rent-radius-full);
+  background: var(--state-error);
+  color: #fff;
+  font-size: 10px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-avatar {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+  flex-shrink: 0;
+}
+.rent-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
+.rent-avatar--lg { width: 48px; height: 48px; font-size: 18px; }
+
+/* ===== Main Content ===== */
+.rent-main {
+  padding: 24px;
+  max-width: 100%;
+}
+.rent-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+.rent-page-header__title {
+  font-size: 24px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.rent-page-header__subtitle {
+  font-size: 14px;
+  color: var(--rent-ink-3);
+}
+.rent-page-header__actions {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===== Card ===== */
+.rent-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  overflow: hidden;
+}
+.rent-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-card__title {
+  font-size: 16px; font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0;
+}
+.rent-card__body { padding: 20px; }
+.rent-card__footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--rent-border);
+  background: var(--rent-surface-2);
+}
+
+/* ===== Button ===== */
+.rent-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--rent-font-sans);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.rent-btn--primary {
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
+}
+.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--secondary {
+  background: var(--rent-surface);
+  border-color: var(--rent-border);
+  color: var(--rent-ink);
+}
+.rent-btn--secondary:hover { background: var(--rent-surface-2); }
+.rent-btn--ghost {
+  background: transparent;
+  color: var(--rent-ink-2);
+}
+.rent-btn--ghost:hover { background: var(--rent-surface-2); }
+.rent-btn--danger {
+  background: var(--state-error);
+  color: #fff;
+}
+.rent-btn--danger:hover { background: #b91c1c; }
+.rent-btn--success {
+  background: var(--state-success);
+  color: #fff;
+}
+.rent-btn--sm { padding: 5px 12px; font-size: 13px; }
+.rent-btn--lg { padding: 12px 24px; font-size: 15px; }
+.rent-btn--block { width: 100%; }
+.rent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== Table ===== */
+.rent-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--rent-radius-lg);
+  border: 1px solid var(--rent-border);
+}
+.rent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.rent-table thead th {
+  background: var(--rent-surface-2);
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  border-bottom: 1px solid var(--rent-border);
+  white-space: nowrap;
+}
+.rent-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rent-border);
+  color: var(--rent-ink);
+  vertical-align: middle;
+}
+.rent-table tbody tr:last-child td { border-bottom: none; }
+.rent-table tbody tr:hover { background: var(--rent-surface-2); }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+
+/* ===== Badge ===== */
+.rent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--rent-radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.rent-badge--success { background: rgba(22,163,74,0.1); color: var(--state-success); }
+.rent-badge--warning { background: rgba(217,119,6,0.1); color: var(--state-warning); }
+.rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
+.rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
+.rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
+.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+/* ===== Form ===== */
+.rent-form-group { margin-bottom: 20px; }
+.rent-form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-ink);
+  margin-bottom: 6px;
+}
+.rent-form-input,
+.rent-form-select,
+.rent-form-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-family: var(--rent-font-sans);
+  color: var(--rent-ink);
+  background: var(--rent-surface);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.rent-form-input:focus,
+.rent-form-select:focus,
+.rent-form-textarea:focus {
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 3px rgba(66,99,235,0.1);
+}
+.rent-form-textarea { resize: vertical; min-height: 80px; }
+.rent-form-hint { font-size: 12px; color: var(--rent-ink-3); margin-top: 4px; }
+.rent-form-row { display: flex; gap: 16px; }
+.rent-form-row > * { flex: 1; }
+
+/* ===== KPI / Stat Card ===== */
+.rent-stat-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+}
+.rent-stat-card__label {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-bottom: 8px;
+}
+.rent-stat-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.rent-stat-card__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.rent-stat-card__delta--up { color: var(--state-success); }
+.rent-stat-card__delta--down { color: var(--state-error); }
+.rent-stat-card__icon {
+  width: 40px; height: 40px;
+  border-radius: var(--rent-radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===== Grid Utilities ===== */
+.rent-grid { display: grid; gap: 16px; }
+.rent-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.rent-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.rent-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.rent-grid--auto { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+
+/* ===== Filter Bar ===== */
+.rent-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.rent-filter-bar__search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+/* ===== Pagination ===== */
+.rent-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  padding: 16px 0;
+}
+.rent-pagination__btn {
+  min-width: 32px; height: 32px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-sm);
+  background: var(--rent-surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  cursor: pointer;
+  padding: 0 8px;
+}
+.rent-pagination__btn:hover { background: var(--rent-surface-2); }
+.rent-pagination__btn[data-active="true"] {
+  background: var(--rent-primary);
+  color: #fff;
+  border-color: var(--rent-primary);
+}
+.rent-pagination__info {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-right: 12px;
+}
+
+/* ===== Misc ===== */
+.rent-divider { height: 1px; background: var(--rent-border); margin: 16px 0; border: none; }
+.rent-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--rent-ink-3);
+}
+.rent-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--rent-border);
+  margin-bottom: 20px;
+}
+.rent-tab {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.rent-tab:hover { color: var(--rent-ink); }
+.rent-tab[data-active="true"] {
+  color: var(--rent-primary);
+  border-bottom-color: var(--rent-primary);
+}
+.rent-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-full);
+  overflow: hidden;
+}
+.rent-progress__bar {
+  height: 100%;
+  background: var(--rent-primary);
+  border-radius: var(--rent-radius-full);
+  transition: width 0.3s;
+}
+
+/* ===== Utility ===== */
+.rent-flex { display: flex; }
+.rent-flex--center { align-items: center; justify-content: center; }
+.rent-flex--between { align-items: center; justify-content: space-between; }
+.rent-flex--col { flex-direction: column; }
+.rent-gap-2 { gap: 8px; }
+.rent-gap-3 { gap: 12px; }
+.rent-gap-4 { gap: 16px; }
+.rent-mt-2 { margin-top: 8px; }
+.rent-mt-3 { margin-top: 12px; }
+.rent-mt-4 { margin-top: 16px; }
+.rent-mt-5 { margin-top: 24px; }
+.rent-mb-2 { margin-bottom: 8px; }
+.rent-mb-3 { margin-bottom: 12px; }
+.rent-mb-4 { margin-bottom: 16px; }
+.rent-mb-5 { margin-bottom: 24px; }
+.rent-text-right { text-align: right; }
+.rent-text-center { text-align: center; }
+.rent-text-sm { font-size: 13px; }
+.rent-text-muted { color: var(--rent-ink-3); }
+.rent-text-bold { font-weight: 600; }
+.rent-w-full { width: 100%; }
+
+/* ===== Timeline ===== */
+.rent-timeline { position: relative; padding-left: 24px; }
+.rent-timeline::before {
+  content: "";
+  position: absolute;
+  left: 7px; top: 4px; bottom: 4px;
+  width: 2px;
+  background: var(--rent-border);
+}
+.rent-timeline__item {
+  position: relative;
+  padding-bottom: 20px;
+}
+.rent-timeline__item:last-child { padding-bottom: 0; }
+.rent-timeline__dot {
+  position: absolute;
+  left: -24px; top: 4px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 3px solid var(--rent-surface);
+  box-shadow: 0 0 0 2px var(--rent-border);
+  background: var(--rent-ink-3);
+}
+.rent-timeline__dot--success { background: var(--state-success); box-shadow: 0 0 0 2px rgba(22,163,74,0.2); }
+.rent-timeline__dot--info { background: var(--state-info); box-shadow: 0 0 0 2px rgba(14,165,233,0.2); }
+.rent-timeline__dot--warning { background: var(--state-warning); box-shadow: 0 0 0 2px rgba(217,119,6,0.2); }
+.rent-timeline__dot--neutral { background: var(--rent-ink-3); box-shadow: 0 0 0 2px var(--rent-border); }
+
+/* ===== Property Card (page-specific) ===== */
+.rent-prop-card {
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.rent-prop-card:hover {
+  box-shadow: var(--rent-shadow-2);
+  transform: translateY(-2px);
+}
+.rent-prop-card__banner {
+  height: 72px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 12px 14px;
+}
+.rent-prop-card__type-badge {
+  background: rgba(255,255,255,0.92);
+  color: var(--rent-ink);
+  font-weight: 600;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: var(--rent-radius-full);
+  letter-spacing: 0.02em;
+}
+.rent-prop-card__body {
+  padding: 16px 20px 14px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.rent-prop-card__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+.rent-prop-card__address {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin: 0 0 14px;
+  line-height: 1.4;
+}
+.rent-prop-card__stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--rent-border);
+  border-bottom: 1px solid var(--rent-border);
+  margin-bottom: 14px;
+}
+.rent-prop-card__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.rent-prop-card__stat svg {
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+}
+.rent-prop-card__rent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+}
+.rent-prop-card__rent {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.rent-prop-card__rent-unit {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--rent-ink-3);
+  margin-left: 3px;
+}
+.rent-prop-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+.rent-filter-bar .rent-form-select {
+  width: auto;
+  min-width: 140px;
+}
+.rent-filter-bar .rent-search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 360px;
+}
+    </style>
+
+    <!-- ===== Lianjia-style Page Styles ===== -->
+    <style id="lj-page-styles">
+
+/* ===== Search Hero ===== */
+.lj-hero-wrap {
+  padding: 24px 24px 20px;
+}
+.lj-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #4263eb 0%, #5b3fd6 55%, #7c3aed 100%);
+  border-radius: 16px;
+  padding: 32px 36px 28px;
+  color: #fff;
+  box-shadow: 0 12px 36px -12px rgba(66, 99, 235, 0.45);
+}
+.lj-hero__decor {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.lj-hero__decor--1 {
+  width: 280px; height: 280px;
+  top: -100px; right: -60px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.lj-hero__decor--2 {
+  width: 160px; height: 160px;
+  bottom: -70px; right: 180px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.lj-hero__decor--3 {
+  width: 100px; height: 100px;
+  top: 20px; right: 260px;
+  border: 2px solid rgba(255, 255, 255, 0.10);
+  background: transparent;
+}
+.lj-hero__inner {
+  position: relative;
+  z-index: 1;
+}
+.lj-hero__title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 16px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #fff;
+}
+.lj-hero__search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border-radius: var(--rent-radius-full);
+  padding: 6px 6px 6px 20px;
+  max-width: 640px;
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.18);
+}
+.lj-hero__search svg {
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+}
+.lj-hero__search input {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--rent-ink);
+  font-family: var(--rent-font-sans);
+  padding: 8px 0;
+}
+.lj-hero__search input::placeholder {
+  color: var(--rent-ink-3);
+}
+.lj-hero__search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.lj-hero__search-btn:hover { background: #3b51d4; }
+.lj-hero__quick-tags {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+.lj-hero__quick-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 16px;
+  border-radius: var(--rent-radius-full);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.lj-hero__quick-tag:hover {
+  background: rgba(255, 255, 255, 0.20);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.lj-hero__quick-tag[data-active="true"] {
+  background: #fff;
+  color: var(--rent-primary);
+  border-color: #fff;
+  font-weight: 600;
+}
+.lj-hero__stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.lj-hero__stats strong {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.lj-hero__stats-sep {
+  color: rgba(255, 255, 255, 0.40);
+}
+
+/* ===== Sticky Filter Bar ===== */
+.lj-filter-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--rent-surface);
+  border-bottom: 1px solid var(--rent-border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 12px -4px rgba(15, 23, 42, 0.06);
+}
+.lj-filter-bar__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lj-filter-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.lj-filter-pill-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.lj-filter-pill {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-full);
+  padding: 7px 30px 7px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  outline: none;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.lj-filter-pill:hover {
+  border-color: var(--rent-primary);
+  color: var(--rent-primary);
+}
+.lj-filter-pill:focus {
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 3px rgba(66,99,235,0.10);
+}
+.lj-filter-pill__chevron {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  color: var(--rent-ink-3);
+  display: flex;
+  align-items: center;
+}
+.lj-sort {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: var(--rent-surface-2);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 7px 30px 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.lj-sort:hover { border-color: var(--rent-primary); }
+.lj-sort-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.lj-sort-wrap .lj-filter-pill__chevron { right: 8px; }
+
+.lj-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  overflow: hidden;
+  background: var(--rent-surface);
+}
+.lj-view-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: background 0.15s, color 0.15s;
+}
+.lj-view-toggle__btn:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.lj-view-toggle__btn[data-active="true"] {
+  background: var(--rent-primary);
+  color: #fff;
+}
+.lj-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface-2);
+  border: 1px solid var(--rent-border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.lj-export-btn:hover {
+  border-color: var(--rent-primary);
+  color: var(--rent-primary);
+  background: var(--rent-sidebar-active);
+}
+
+/* ===== Content Area ===== */
+.lj-content {
+  padding: 20px 24px 24px;
+}
+.lj-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+/* ===== Lianjia-style Property Card ===== */
+.lj-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+.lj-card:hover {
+  box-shadow: var(--rent-shadow-2);
+  transform: translateY(-3px);
+  border-color: transparent;
+}
+
+/* Banner (160px) */
+.lj-card__banner {
+  height: 160px;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px;
+  overflow: hidden;
+}
+.lj-card__banner-decor {
+  position: absolute;
+  bottom: -12px;
+  right: -8px;
+  opacity: 0.12;
+  pointer-events: none;
+}
+.lj-grad--apartment { background: linear-gradient(135deg, #4263eb 0%, #6366f1 100%); }
+.lj-grad--villa     { background: linear-gradient(135deg, #059669 0%, #10b981 100%); }
+.lj-grad--shop      { background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); }
+.lj-grad--office    { background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%); }
+
+.lj-card__type-badge {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--rent-ink);
+  font-weight: 600;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: var(--rent-radius-full);
+  letter-spacing: 0.01em;
+  backdrop-filter: blur(4px);
+  z-index: 1;
+}
+.lj-card__status-overlay {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: var(--rent-radius-full);
+  color: #fff;
+  z-index: 1;
+  backdrop-filter: blur(4px);
+}
+.lj-card__status-overlay .lj-status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  display: inline-block;
+}
+.lj-card__status--success { background: rgba(22, 163, 74, 0.88); }
+.lj-card__status--warning { background: rgba(217, 119, 6, 0.88); }
+.lj-card__status--info    { background: rgba(14, 165, 233, 0.88); }
+
+/* Card Body */
+.lj-card__body {
+  padding: 16px 18px 14px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.lj-card__name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+.lj-card__address {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+.lj-card__address svg {
+  flex-shrink: 0;
+  color: var(--rent-ink-3);
+}
+
+/* Feature Tags */
+.lj-card__tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.lj-card__tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.lj-card__tag--metro  { background: rgba(66, 99, 235, 0.08); color: var(--rent-primary); }
+.lj-card__tag--decor  { background: rgba(22, 163, 74, 0.08); color: var(--state-success); }
+.lj-card__tag--movein { background: rgba(14, 165, 233, 0.08); color: var(--state-info); }
+.lj-card__tag--urgent { background: rgba(220, 38, 38, 0.08); color: var(--state-error); }
+.lj-card__tag--vent   { background: rgba(124, 58, 237, 0.08); color: #7c3aed; }
+
+/* Stats Row */
+.lj-card__stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--rent-border);
+  border-bottom: 1px solid var(--rent-border);
+  margin-bottom: 14px;
+}
+.lj-card__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.lj-card__stat svg {
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+}
+
+/* Price Row */
+.lj-card__price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.lj-card__price {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--state-error);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.lj-card__price-unit {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--rent-ink-3);
+}
+
+/* Employee Info Row */
+.lj-card__emp-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.lj-card__emp-info-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--rent-ink-2);
+  line-height: 1.4;
+}
+.lj-card__emp-info-item svg {
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+}
+.lj-card__emp-info-item--muted {
+  color: var(--rent-ink-3);
+}
+.lj-card__emp-info-item--accent {
+  color: var(--rent-primary);
+}
+.lj-card__emp-info-item--accent svg {
+  color: var(--rent-primary);
+}
+
+/* Actions */
+.lj-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--rent-border);
+  background: var(--rent-surface-2);
+  margin-top: auto;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1200px) {
+  .lj-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .lj-grid { grid-template-columns: 1fr; }
+  .lj-hero { padding: 24px 20px; }
+  .lj-hero__title { font-size: 18px; }
+  .lj-filter-bar { padding: 10px 16px; }
+  .lj-content { padding: 16px 16px 20px; }
+  .lj-hero-wrap { padding: 16px 16px 12px; }
+}
+
+    </style>
+    <style id="rent-beike-overlay">
+/* =========================================================
+   RentFlow × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #4263eb · 消费级 App 形态 · 大圆角卡片流
+   仅注入用户端页面 (租客/业主/员工)，后台管理不注入
+   注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
+   ========================================================= */
+
+/* ---- 全局背景 ---- */
+body {
+  background: var(--rent-background);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== 顶部导航 / 头部：毛玻璃白底 ===== */
+.rent-portal__header,
+.rent-topbar,
+.rent-mobile__header,
+.rent-pad__topbar {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 10px 30px -18px rgba(15, 23, 42, 0.18);
+}
+.rent-portal__logo,
+.rent-sidebar__logo,
+.rent-mobile__logo,
+.rent-pad__logo {
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+}
+.rent-portal__nav-item,
+.rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
+
+/* ===== 搜索体验：胶囊搜索 ===== */
+.rent-search { border-radius: 999px; background: var(--rent-surface-2); }
+.rent-search input { background: transparent; }
+.rent-search-hero__bar {
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 10px 32px -10px rgba(66, 99, 235, 0.40);
+}
+.rent-search-hero__search-btn {
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4263eb, #6b82f5);
+  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.50);
+}
+.rent-search-hero__tag { border-radius: 999px; }
+
+/* ===== 筛选 chips：胶囊 ===== */
+.rent-filter-chip,
+.lj-filter-bar__chip,
+.rent-filter-chip[data-active="true"] { border-radius: 999px; }
+.rent-filter-bar {
+  border-radius: var(--rent-radius-lg);
+  background: var(--rent-card);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 卡片：大圆角 + 柔和浮起 ===== */
+.rent-card,
+.rent-stat-card,
+.rent-mobile__card,
+.rent-quick-action,
+.rent-prop-search-card,
+.rent-table-wrap {
+  border-radius: var(--rent-radius-lg);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 房源卡片：图片圆角 + 价格强调 ===== */
+.rent-prop-search-card { overflow: hidden; }
+.rent-prop-search-card__banner { border-radius: 0; }
+.rent-prop-search-card__price-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--rent-primary);
+  letter-spacing: -0.02em;
+}
+.rent-prop-search-card__price-unit { font-size: 12px; color: var(--rent-ink-3); }
+.rent-prop-search-card__tags .rent-badge,
+.rent-badge { border-radius: 999px; padding: 3px 10px; }
+.rent-prop-search-card__cta {
+  border-radius: 999px;
+  background: rgba(66, 99, 235, 0.08);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-prop-search-card__name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* ===== 金刚区 / 快捷入口：圆角宫格 ===== */
+.rent-quick-action,
+.rent-mobile__quick-action {
+  border-radius: 18px;
+  border: none;
+  box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.12);
+}
+.rent-quick-action__icon,
+.rent-mobile__quick-action-icon { border-radius: 16px; }
+
+/* ===== 按钮：渐变 + 柔和投影 ===== */
+.rent-btn { border-radius: 10px; }
+.rent-btn--primary {
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4263eb, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.45);
+}
+
+/* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
+.rent-mobile__tab { border-radius: 14px; }
+.rent-mobile__tab[data-active="true"] {
+  background: rgba(66, 99, 235, 0.08);
+  font-weight: 600;
+}
+
+/* ===== 侧边栏导航 (web/pad) ===== */
+.rent-nav-item,
+.rent-pad__nav-item { border-radius: 12px; }
+.rent-nav-item[data-active="true"],
+.rent-pad__nav-item[data-active="true"] {
+  background: linear-gradient(135deg, rgba(66, 99, 235, 0.10), rgba(107, 130, 245, 0.08));
+  font-weight: 600;
+}
+
+/* ===== Hero 渐变强化 ===== */
+.rent-hero,
+.rent-portal-hero,
+.rent-mobile__hero {
+  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+}
+
+/* ===== 头像 ===== */
+.rent-avatar { border-radius: 14px; }
+.rent-avatar--sm { border-radius: 10px; }
+
+    </style>
+  </head>
+<body class="font-sans antialiased">
+    <div class="rent-app" data-viewport-mode="app-shell">
+      <!-- ===== Sidebar ===== -->
+      <aside class="rent-app__sidebar">
+        <div class="rent-sidebar">
+          <div class="rent-sidebar__brand">
+            <div class="rent-sidebar__logo">R</div>
+            <span class="rent-sidebar__name">RentFlow 员工端</span>
+          </div>
+          <nav class="rent-sidebar__nav">
+            <div class="rent-sidebar__section-label">工作台</div>
+            <a class="rent-nav-item" data-nav-key="employee-dashboard" href="employee-dashboard.html" data-dom-id="nav-employee-dashboard">
+              <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              <span>销售台账</span>
+            </a>
+            <a class="rent-nav-item" data-nav-key="employee-attendance" href="employee-attendance.html" data-dom-id="nav-employee-attendance">
+              <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>考勤打卡</span>
+            </a>
+            <a class="rent-nav-item" data-nav-key="employee-properties" data-active="true" href="employee-properties.html" data-dom-id="nav-employee-properties">
+              <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <span>房源浏览</span>
+            </a>
+            <div class="rent-sidebar__section-label">绩效</div>
+            <a class="rent-nav-item" data-nav-key="employee-performance" href="employee-performance.html" data-dom-id="nav-employee-performance">
+              <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              <span>业绩报表</span>
+            </a>
+            <a class="rent-nav-item" data-nav-key="employee-contacts" href="employee-contacts.html" data-dom-id="nav-employee-contacts">
+              <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span>同事通讯录</span>
+            </a>
+          </nav>
+          <div class="rent-sidebar__footer">
+            <div class="rent-flex rent-flex--between rent-gap-3">
+              <div class="rent-flex rent-gap-2" style="align-items:center;">
+                <div class="rent-avatar rent-avatar--sm">员</div>
+                <div>
+                  <div class="rent-text-sm rent-text-bold">李员工</div>
+                  <div class="rent-text-sm rent-text-muted">employee@rentflow.com</div>
+                </div>
+              </div>
+              <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login">退出</a>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ===== Topbar ===== -->
+      <header class="rent-app__topbar">
+        <div class="rent-topbar">
+          <div class="rent-topbar__left">
+            <h1 class="rent-topbar__title">房源浏览</h1>
+          </div>
+          <div class="rent-topbar__right">
+            <div class="rent-search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" placeholder="搜索客户、合同、同事...">
+            </div>
+            <button class="rent-icon-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span class="rent-icon-btn__badge">5</span>
+            </button>
+            <div class="rent-avatar">员</div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ===== Main Content (Lianjia-style) ===== -->
+      <main class="rent-app__main overflow-y-auto" data-scroll-region="primary">
+
+        <!-- ===== Search Hero ===== -->
+        <div class="lj-hero-wrap">
+          <section class="lj-hero">
+            <span class="lj-hero__decor lj-hero__decor--1"></span>
+            <span class="lj-hero__decor lj-hero__decor--2"></span>
+            <span class="lj-hero__decor lj-hero__decor--3"></span>
+            <div class="lj-hero__inner">
+              <h2 class="lj-hero__title">房源浏览</h2>
+              <div class="lj-hero__search">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" placeholder="搜索房源名称、地址、小区...">
+                <button class="lj-hero__search-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  搜索
+                </button>
+              </div>
+              <div class="lj-hero__quick-tags">
+                <button class="lj-hero__quick-tag" data-active="true">空置房源</button>
+                <button class="lj-hero__quick-tag">在租房源</button>
+                <button class="lj-hero__quick-tag">近地铁</button>
+                <button class="lj-hero__quick-tag">精装修</button>
+              </div>
+              <div class="lj-hero__stats">
+                <span>共 <strong>248</strong> 套房源</span>
+                <span class="lj-hero__stats-sep">·</span>
+                <span>空置 <strong>32</strong> 套</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ===== Sticky Filter Bar ===== -->
+        <div class="lj-filter-bar">
+          <div class="lj-filter-bar__left">
+            <div class="lj-filter-pill-wrap">
+              <select class="lj-filter-pill">
+                <option value="">区域</option>
+                <option value="klcc">KLCC</option>
+                <option value="mont-kiara">Mont Kiara</option>
+                <option value="pj">Petaling Jaya</option>
+                <option value="bangsar">Bangsar</option>
+                <option value="subang">Subang</option>
+                <option value="bukit-bintang">Bukit Bintang</option>
+                <option value="mid-valley">Mid Valley</option>
+              </select>
+              <span class="lj-filter-pill__chevron">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </div>
+            <div class="lj-filter-pill-wrap">
+              <select class="lj-filter-pill">
+                <option value="">价格范围</option>
+                <option value="0-3000">RM 3,000 以下</option>
+                <option value="3000-5000">RM 3,000 - 5,000</option>
+                <option value="5000-10000">RM 5,000 - 10,000</option>
+                <option value="10000-20000">RM 10,000 - 20,000</option>
+                <option value="20000+">RM 20,000 以上</option>
+              </select>
+              <span class="lj-filter-pill__chevron">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </div>
+            <div class="lj-filter-pill-wrap">
+              <select class="lj-filter-pill">
+                <option value="">户型</option>
+                <option value="1br">1室</option>
+                <option value="2br">2室</option>
+                <option value="3br">3室</option>
+                <option value="4br+">4室及以上</option>
+              </select>
+              <span class="lj-filter-pill__chevron">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </div>
+            <div class="lj-filter-pill-wrap">
+              <select class="lj-filter-pill">
+                <option value="">状态</option>
+                <option value="all">全部</option>
+                <option value="rented">在租</option>
+                <option value="vacant">空置</option>
+                <option value="maintenance">维修中</option>
+              </select>
+              <span class="lj-filter-pill__chevron">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </div>
+            <div class="lj-filter-pill-wrap">
+              <select class="lj-filter-pill">
+                <option value="">类型</option>
+                <option value="apartment">公寓</option>
+                <option value="villa">别墅</option>
+                <option value="shop">商铺</option>
+                <option value="office">写字楼</option>
+              </select>
+              <span class="lj-filter-pill__chevron">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </div>
+            <div class="lj-sort-wrap">
+              <select class="lj-sort">
+                <option value="created">最近创建</option>
+                <option value="rent-asc">租金升序</option>
+                <option value="rent-desc">租金降序</option>
+                <option value="area-desc">面积降序</option>
+              </select>
+              <span class="lj-filter-pill__chevron">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </div>
+          </div>
+          <div class="lj-filter-bar__right">
+            <div class="lj-view-toggle">
+              <button class="lj-view-toggle__btn" data-active="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                网格
+              </button>
+              <button class="lj-view-toggle__btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                列表
+              </button>
+            </div>
+            <button class="lj-export-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              导出列表
+            </button>
+          </div>
+        </div>
+
+        <!-- ===== Property Cards Grid ===== -->
+        <div class="lj-content">
+          <div class="lj-grid">
+
+            <!-- Card 1: Sunway Mesmerrra Condo -->
+            <div class="lj-card">
+              <div class="lj-card__banner lj-grad--apartment">
+                <svg class="lj-card__banner-decor" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4M9 9v.01M9 12v.01M9 15v.01M9 18v.01"/></svg>
+                <span class="lj-card__type-badge">公寓</span>
+                <span class="lj-card__status-overlay lj-card__status--success"><span class="lj-status-dot"></span>在租</span>
+              </div>
+              <div class="lj-card__body">
+                <h3 class="lj-card__name">Sunway Mesmerrra Condo</h3>
+                <p class="lj-card__address">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Jalan PJU 7/3, Petaling Jaya
+                </p>
+                <div class="lj-card__tags">
+                  <span class="lj-card__tag lj-card__tag--metro">近地铁</span>
+                  <span class="lj-card__tag lj-card__tag--decor">精装修</span>
+                  <span class="lj-card__tag lj-card__tag--movein">拎包入住</span>
+                </div>
+                <div class="lj-card__stats">
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    1,200 sqft
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4"/></svg>
+                    3 卧
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
+                    2 浴
+                  </span>
+                </div>
+                <div class="lj-card__price-row">
+                  <span class="lj-card__price">RM 3,500</span>
+                  <span class="lj-card__price-unit">/月</span>
+                </div>
+                <div class="lj-card__emp-info">
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--accent">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    租客: 王租客
+                  </span>
+                  <span class="lj-card__emp-info-item">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    租约: 2025-09至2026-09
+                  </span>
+                </div>
+              </div>
+              <div class="lj-card__actions">
+                <a href="#" class="rent-btn rent-btn--secondary rent-btn--sm">查看详情</a>
+                <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  联系租客
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 2: Setia Eco Park Villa -->
+            <div class="lj-card">
+              <div class="lj-card__banner lj-grad--villa">
+                <svg class="lj-card__banner-decor" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/><line x1="3" y1="13" x2="3" y2="9"/></svg>
+                <span class="lj-card__type-badge">别墅</span>
+                <span class="lj-card__status-overlay lj-card__status--warning"><span class="lj-status-dot"></span>空置</span>
+              </div>
+              <div class="lj-card__body">
+                <h3 class="lj-card__name">Setia Eco Park Villa</h3>
+                <p class="lj-card__address">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Persiaran Setia Dagang, Setia Alam
+                </p>
+                <div class="lj-card__tags">
+                  <span class="lj-card__tag lj-card__tag--urgent">急租</span>
+                  <span class="lj-card__tag lj-card__tag--vent">南北通透</span>
+                  <span class="lj-card__tag lj-card__tag--decor">精装修</span>
+                </div>
+                <div class="lj-card__stats">
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    3,200 sqft
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4"/></svg>
+                    5 卧
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
+                    4 浴
+                  </span>
+                </div>
+                <div class="lj-card__price-row">
+                  <span class="lj-card__price">RM 6,800</span>
+                  <span class="lj-card__price-unit">/月</span>
+                </div>
+                <div class="lj-card__emp-info">
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--muted">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    空置中
+                  </span>
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--muted">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    无租约
+                  </span>
+                </div>
+              </div>
+              <div class="lj-card__actions">
+                <a href="#" class="rent-btn rent-btn--secondary rent-btn--sm">查看详情</a>
+                <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm">标记空置</a>
+              </div>
+            </div>
+
+            <!-- Card 3: Mont Kiara Sophia -->
+            <div class="lj-card">
+              <div class="lj-card__banner lj-grad--apartment">
+                <svg class="lj-card__banner-decor" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4M9 9v.01M9 12v.01M9 15v.01M9 18v.01"/></svg>
+                <span class="lj-card__type-badge">公寓</span>
+                <span class="lj-card__status-overlay lj-card__status--success"><span class="lj-status-dot"></span>在租</span>
+              </div>
+              <div class="lj-card__body">
+                <h3 class="lj-card__name">Mont Kiara Sophia</h3>
+                <p class="lj-card__address">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Jalan Dutamas Raya, Mont Kiara
+                </p>
+                <div class="lj-card__tags">
+                  <span class="lj-card__tag lj-card__tag--metro">近地铁</span>
+                  <span class="lj-card__tag lj-card__tag--decor">精装修</span>
+                  <span class="lj-card__tag lj-card__tag--movein">拎包入住</span>
+                </div>
+                <div class="lj-card__stats">
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    1,650 sqft
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4"/></svg>
+                    3 卧
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
+                    3 浴
+                  </span>
+                </div>
+                <div class="lj-card__price-row">
+                  <span class="lj-card__price">RM 4,800</span>
+                  <span class="lj-card__price-unit">/月</span>
+                </div>
+                <div class="lj-card__emp-info">
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--accent">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    租客: 张租客
+                  </span>
+                  <span class="lj-card__emp-info-item">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    租约: 2025-10至2026-10
+                  </span>
+                </div>
+              </div>
+              <div class="lj-card__actions">
+                <a href="#" class="rent-btn rent-btn--secondary rent-btn--sm">查看详情</a>
+                <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  联系租客
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 4: Damansara Perdana Studio -->
+            <div class="lj-card">
+              <div class="lj-card__banner lj-grad--apartment">
+                <svg class="lj-card__banner-decor" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4M9 9v.01M9 12v.01M9 15v.01M9 18v.01"/></svg>
+                <span class="lj-card__type-badge">公寓</span>
+                <span class="lj-card__status-overlay lj-card__status--warning"><span class="lj-status-dot"></span>空置</span>
+              </div>
+              <div class="lj-card__body">
+                <h3 class="lj-card__name">Damansara Perdana Studio</h3>
+                <p class="lj-card__address">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  PJU 8, Damansara Perdana
+                </p>
+                <div class="lj-card__tags">
+                  <span class="lj-card__tag lj-card__tag--urgent">急租</span>
+                  <span class="lj-card__tag lj-card__tag--metro">近地铁</span>
+                </div>
+                <div class="lj-card__stats">
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    650 sqft
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4"/></svg>
+                    1 卧
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
+                    1 浴
+                  </span>
+                </div>
+                <div class="lj-card__price-row">
+                  <span class="lj-card__price">RM 2,200</span>
+                  <span class="lj-card__price-unit">/月</span>
+                </div>
+                <div class="lj-card__emp-info">
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--muted">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    空置中
+                  </span>
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--muted">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    无租约
+                  </span>
+                </div>
+              </div>
+              <div class="lj-card__actions">
+                <a href="#" class="rent-btn rent-btn--secondary rent-btn--sm">查看详情</a>
+                <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm">标记空置</a>
+              </div>
+            </div>
+
+            <!-- Card 5: Pavilion Retail Lot -->
+            <div class="lj-card">
+              <div class="lj-card__banner lj-grad--shop">
+                <svg class="lj-card__banner-decor" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2"><path d="M3 9l2-5h14l2 5M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9h18M9 21v-6h6v6"/></svg>
+                <span class="lj-card__type-badge">商铺</span>
+                <span class="lj-card__status-overlay lj-card__status--success"><span class="lj-status-dot"></span>在租</span>
+              </div>
+              <div class="lj-card__body">
+                <h3 class="lj-card__name">Pavilion Retail Lot</h3>
+                <p class="lj-card__address">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Jalan Bukit Bintang, Bukit Bintang
+                </p>
+                <div class="lj-card__tags">
+                  <span class="lj-card__tag lj-card__tag--decor">精装修</span>
+                  <span class="lj-card__tag lj-card__tag--urgent">急租</span>
+                </div>
+                <div class="lj-card__stats">
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    2,500 sqft
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
+                    2 浴
+                  </span>
+                </div>
+                <div class="lj-card__price-row">
+                  <span class="lj-card__price">RM 12,000</span>
+                  <span class="lj-card__price-unit">/月</span>
+                </div>
+                <div class="lj-card__emp-info">
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--accent">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    租客: 李商家
+                  </span>
+                  <span class="lj-card__emp-info-item">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    租约: 2025-08至2026-08
+                  </span>
+                </div>
+              </div>
+              <div class="lj-card__actions">
+                <a href="#" class="rent-btn rent-btn--secondary rent-btn--sm">查看详情</a>
+                <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  联系租客
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 6: Menara Maxis Office -->
+            <div class="lj-card">
+              <div class="lj-card__banner lj-grad--office">
+                <svg class="lj-card__banner-decor" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2"><path d="M3 21h18M5 21V3h14v18M9 7h.01M9 11h.01M9 15h.01M13 7h.01M13 11h.01M13 15h.01"/></svg>
+                <span class="lj-card__type-badge">写字楼</span>
+                <span class="lj-card__status-overlay lj-card__status--success"><span class="lj-status-dot"></span>在租</span>
+              </div>
+              <div class="lj-card__body">
+                <h3 class="lj-card__name">Menara Maxis Office</h3>
+                <p class="lj-card__address">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  KLCC, Jalan Ampang, KL
+                </p>
+                <div class="lj-card__tags">
+                  <span class="lj-card__tag lj-card__tag--decor">精装修</span>
+                  <span class="lj-card__tag lj-card__tag--metro">近地铁</span>
+                </div>
+                <div class="lj-card__stats">
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    4,500 sqft
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
+                    4 浴
+                  </span>
+                </div>
+                <div class="lj-card__price-row">
+                  <span class="lj-card__price">RM 18,500</span>
+                  <span class="lj-card__price-unit">/月</span>
+                </div>
+                <div class="lj-card__emp-info">
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--accent">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    租客: X公司
+                  </span>
+                  <span class="lj-card__emp-info-item">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    租约: 2025-07至2027-07
+                  </span>
+                </div>
+              </div>
+              <div class="lj-card__actions">
+                <a href="#" class="rent-btn rent-btn--secondary rent-btn--sm">查看详情</a>
+                <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  联系租客
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 7: Subang Bestari Terrace -->
+            <div class="lj-card">
+              <div class="lj-card__banner lj-grad--villa">
+                <svg class="lj-card__banner-decor" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span class="lj-card__type-badge">别墅</span>
+                <span class="lj-card__status-overlay lj-card__status--info"><span class="lj-status-dot"></span>维修中</span>
+              </div>
+              <div class="lj-card__body">
+                <h3 class="lj-card__name">Subang Bestari Terrace</h3>
+                <p class="lj-card__address">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Jalan Subang Bestari, Subang
+                </p>
+                <div class="lj-card__tags">
+                  <span class="lj-card__tag lj-card__tag--vent">南北通透</span>
+                  <span class="lj-card__tag lj-card__tag--decor">精装修</span>
+                </div>
+                <div class="lj-card__stats">
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    2,200 sqft
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4"/></svg>
+                    4 卧
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
+                    3 浴
+                  </span>
+                </div>
+                <div class="lj-card__price-row">
+                  <span class="lj-card__price">RM 3,200</span>
+                  <span class="lj-card__price-unit">/月</span>
+                </div>
+                <div class="lj-card__emp-info">
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--muted">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    维修中
+                  </span>
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--muted">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    无租约
+                  </span>
+                </div>
+              </div>
+              <div class="lj-card__actions">
+                <a href="#" class="rent-btn rent-btn--secondary rent-btn--sm">查看详情</a>
+              </div>
+            </div>
+
+            <!-- Card 8: Bangsar Village Shop -->
+            <div class="lj-card">
+              <div class="lj-card__banner lj-grad--shop">
+                <svg class="lj-card__banner-decor" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2"><path d="M3 9l2-5h14l2 5M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9h18M9 21v-6h6v6"/></svg>
+                <span class="lj-card__type-badge">商铺</span>
+                <span class="lj-card__status-overlay lj-card__status--success"><span class="lj-status-dot"></span>在租</span>
+              </div>
+              <div class="lj-card__body">
+                <h3 class="lj-card__name">Bangsar Village Shop</h3>
+                <p class="lj-card__address">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Bangsar Village, Bangsar
+                </p>
+                <div class="lj-card__tags">
+                  <span class="lj-card__tag lj-card__tag--decor">精装修</span>
+                  <span class="lj-card__tag lj-card__tag--metro">近地铁</span>
+                </div>
+                <div class="lj-card__stats">
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    1,800 sqft
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
+                    2 浴
+                  </span>
+                </div>
+                <div class="lj-card__price-row">
+                  <span class="lj-card__price">RM 9,500</span>
+                  <span class="lj-card__price-unit">/月</span>
+                </div>
+                <div class="lj-card__emp-info">
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--accent">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    租客: Y餐厅
+                  </span>
+                  <span class="lj-card__emp-info-item">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    租约: 2025-06至2026-06
+                  </span>
+                </div>
+              </div>
+              <div class="lj-card__actions">
+                <a href="#" class="rent-btn rent-btn--secondary rent-btn--sm">查看详情</a>
+                <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  联系租客
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 9: Mid Valley Office Suite -->
+            <div class="lj-card">
+              <div class="lj-card__banner lj-grad--office">
+                <svg class="lj-card__banner-decor" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2"><path d="M3 21h18M5 21V3h14v18M9 7h.01M9 11h.01M9 15h.01M13 7h.01M13 11h.01M13 15h.01"/></svg>
+                <span class="lj-card__type-badge">写字楼</span>
+                <span class="lj-card__status-overlay lj-card__status--warning"><span class="lj-status-dot"></span>空置</span>
+              </div>
+              <div class="lj-card__body">
+                <h3 class="lj-card__name">Mid Valley Office Suite</h3>
+                <p class="lj-card__address">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Mid Valley City, KL
+                </p>
+                <div class="lj-card__tags">
+                  <span class="lj-card__tag lj-card__tag--decor">精装修</span>
+                  <span class="lj-card__tag lj-card__tag--urgent">急租</span>
+                </div>
+                <div class="lj-card__stats">
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    3,800 sqft
+                  </span>
+                  <span class="lj-card__stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
+                    3 浴
+                  </span>
+                </div>
+                <div class="lj-card__price-row">
+                  <span class="lj-card__price">RM 15,000</span>
+                  <span class="lj-card__price-unit">/月</span>
+                </div>
+                <div class="lj-card__emp-info">
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--muted">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    空置中
+                  </span>
+                  <span class="lj-card__emp-info-item lj-card__emp-info-item--muted">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    无租约
+                  </span>
+                </div>
+              </div>
+              <div class="lj-card__actions">
+                <a href="#" class="rent-btn rent-btn--secondary rent-btn--sm">查看详情</a>
+                <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm">标记空置</a>
+              </div>
+            </div>
+          </div>
+          <!-- ===== End Property Grid ===== -->
+
+          <!-- ===== Pagination ===== -->
+          <div class="rent-pagination">
+            <span class="rent-pagination__info">共 248 条记录</span>
+            <button class="rent-pagination__btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button class="rent-pagination__btn" data-active="true">1</button>
+            <button class="rent-pagination__btn">2</button>
+            <button class="rent-pagination__btn">3</button>
+            <button class="rent-pagination__btn">4</button>
+            <button class="rent-pagination__btn">5</button>
+            <span class="rent-pagination__info" style="margin: 0 4px;">...</span>
+            <button class="rent-pagination__btn">28</button>
+            <button class="rent-pagination__btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+        <!-- ===== End Content ===== -->
+
+      </main>
+    </div>
+    <!-- ===== End App Shell ===== -->
+
+    <script>
+      if (window.lucide) { lucide.createIcons(); }
+    </script>
+  </body>
+</html>

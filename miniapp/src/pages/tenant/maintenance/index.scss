@@ -1,0 +1,160 @@
+.tenant-maintenance-page {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+
+  .page-container {
+    padding: 24px;
+  }
+
+  .action-section {
+    margin-bottom: 24px;
+
+    .create-btn {
+      width: 100%;
+      height: 88px;
+      line-height: 88px;
+      background-color: #1677ff;
+      color: #ffffff;
+      font-size: 30px;
+      border-radius: 12px;
+    }
+  }
+
+  .form-card {
+    background-color: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+
+    .form-item {
+      margin-bottom: 24px;
+
+      .form-label {
+        display: block;
+        font-size: 28px;
+        color: #333333;
+        margin-bottom: 12px;
+      }
+
+      .form-input {
+        width: 100%;
+        height: 80px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 0 24px;
+        font-size: 28px;
+        box-sizing: border-box;
+      }
+
+      .form-textarea {
+        width: 100%;
+        height: 160px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 16px 24px;
+        font-size: 28px;
+        box-sizing: border-box;
+      }
+
+      .priority-picker {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        height: 80px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 0 24px;
+        font-size: 28px;
+        box-sizing: border-box;
+
+        .picker-text {
+          color: #333333;
+        }
+
+        .picker-arrow {
+          color: #cccccc;
+          font-size: 32px;
+        }
+      }
+    }
+
+    .submit-btn {
+      width: 100%;
+      height: 80px;
+      line-height: 80px;
+      background-color: #1677ff;
+      color: #ffffff;
+      font-size: 30px;
+      border-radius: 8px;
+    }
+  }
+
+  .section-title {
+    font-size: 32px;
+    font-weight: 600;
+    color: #333333;
+    margin-bottom: 16px;
+  }
+
+  .empty-tip {
+    text-align: center;
+    padding: 80px 0;
+    color: #999999;
+    font-size: 28px;
+  }
+
+  .ticket-list {
+    .ticket-card {
+      background-color: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+
+      .ticket-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+
+        .ticket-title {
+          font-size: 32px;
+          font-weight: 600;
+          color: #333333;
+        }
+
+        .ticket-status {
+          font-size: 26px;
+          font-weight: 500;
+        }
+      }
+
+      .ticket-desc {
+        display: block;
+        font-size: 28px;
+        color: #666666;
+        line-height: 1.5;
+        margin-bottom: 16px;
+      }
+
+      .ticket-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 16px;
+        border-top: 1px solid #f0f0f0;
+
+        .ticket-priority {
+          font-size: 24px;
+          font-weight: 500;
+          color: #666666;
+        }
+
+        .ticket-date {
+          font-size: 24px;
+          color: #999999;
+        }
+      }
+    }
+  }
+}

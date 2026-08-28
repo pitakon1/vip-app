@@ -1,0 +1,149 @@
+/* ===== Attendance 页面专属样式 =====
+   共享基础类（rent-card / rent-btn / rent-badge / rent-stat-card /
+   rent-grid / rent-tabs / rent-progress / rent-divider / rent-empty /
+   rent-flex / rent-mt-* / rent-mb-* 等）由全局 app.css 提供。
+   以下为 app.css 未覆盖、设计稿中出现的表格 / 表单 / 日历样式。 */
+
+/* ===== Table（贴合设计稿） ===== */
+.rent-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--rent-radius-lg);
+  border: 1px solid var(--rent-border);
+}
+.rent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.rent-table thead th {
+  background: var(--rent-surface-2);
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  border-bottom: 1px solid var(--rent-border);
+  white-space: nowrap;
+}
+.rent-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rent-border);
+  color: var(--rent-ink);
+  vertical-align: middle;
+}
+.rent-table tbody tr:last-child td { border-bottom: none; }
+.rent-table tbody tr:hover { background: var(--rent-surface-2); }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+
+/* ===== Form Controls（外出登记表单） ===== */
+.rent-field { display: flex; flex-direction: column; gap: 6px; }
+.rent-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+.rent-input, .rent-textarea, .rent-select {
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  color: var(--rent-ink);
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.rent-textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
+.rent-input::placeholder, .rent-textarea::placeholder { color: var(--rent-ink-3); }
+.rent-input:focus, .rent-textarea:focus, .rent-select:focus {
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.12);
+}
+
+/* ===== Attendance Calendar ===== */
+.rent-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.rent-calendar__header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rent-ink-3);
+  text-align: center;
+  padding: 6px 0;
+  letter-spacing: 0.04em;
+}
+.rent-calendar__cell {
+  position: relative;
+  min-height: 64px;
+  padding: 6px 8px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rent-calendar__date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+}
+.rent-calendar__cell--outside { background: var(--rent-surface-2); }
+.rent-calendar__cell--outside .rent-calendar__date { color: var(--rent-ink-3); font-weight: 500; }
+.rent-calendar__cell--today {
+  border-color: var(--rent-primary);
+  background: rgba(66, 99, 235, 0.06);
+  box-shadow: 0 0 0 1px var(--rent-primary) inset;
+}
+.rent-calendar__cell--today .rent-calendar__date { color: var(--rent-primary); }
+.rent-calendar__event {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: var(--rent-radius-sm);
+  line-height: 1.5;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  width: fit-content;
+}
+.rent-calendar__event--success { background: rgba(22, 163, 74, 0.12); color: var(--state-success); }
+.rent-calendar__event--warning { background: rgba(217, 119, 6, 0.12); color: var(--state-warning); }
+.rent-calendar__event--info { background: rgba(14, 165, 233, 0.12); color: var(--state-info); }
+.rent-calendar__event--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
+.rent-calendar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+.rent-calendar__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--rent-ink-2);
+}
+
+/* ===== 打卡渐变卡片 ===== */
+.rent-clock-card {
+  background: linear-gradient(135deg, var(--rent-primary) 0%, #3b51d4 100%);
+  border: none;
+}
+.rent-clock-card .rent-card__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .rent-clock-card .rent-card__body { flex-direction: column; align-items: stretch; }
+}

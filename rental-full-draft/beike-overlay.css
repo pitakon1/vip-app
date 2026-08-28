@@ -1,0 +1,133 @@
+/* =========================================================
+   RentFlow × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #4263eb · 消费级 App 形态 · 大圆角卡片流
+   仅注入用户端页面 (租客/业主/员工)，后台管理不注入
+   注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
+   ========================================================= */
+
+/* ---- 全局背景 ---- */
+body {
+  background: var(--rent-background);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== 顶部导航 / 头部：毛玻璃白底 ===== */
+.rent-portal__header,
+.rent-topbar,
+.rent-mobile__header,
+.rent-pad__topbar {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 10px 30px -18px rgba(15, 23, 42, 0.18);
+}
+.rent-portal__logo,
+.rent-sidebar__logo,
+.rent-mobile__logo,
+.rent-pad__logo {
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+}
+.rent-portal__nav-item,
+.rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
+
+/* ===== 搜索体验：胶囊搜索 ===== */
+.rent-search { border-radius: 999px; background: var(--rent-surface-2); }
+.rent-search input { background: transparent; }
+.rent-search-hero__bar {
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 10px 32px -10px rgba(66, 99, 235, 0.40);
+}
+.rent-search-hero__search-btn {
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4263eb, #6b82f5);
+  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.50);
+}
+.rent-search-hero__tag { border-radius: 999px; }
+
+/* ===== 筛选 chips：胶囊 ===== */
+.rent-filter-chip,
+.lj-filter-bar__chip,
+.rent-filter-chip[data-active="true"] { border-radius: 999px; }
+.rent-filter-bar {
+  border-radius: var(--rent-radius-lg);
+  background: var(--rent-card);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 卡片：大圆角 + 柔和浮起 ===== */
+.rent-card,
+.rent-stat-card,
+.rent-mobile__card,
+.rent-quick-action,
+.rent-prop-search-card,
+.rent-table-wrap {
+  border-radius: var(--rent-radius-lg);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 房源卡片：图片圆角 + 价格强调 ===== */
+.rent-prop-search-card { overflow: hidden; }
+.rent-prop-search-card__banner { border-radius: 0; }
+.rent-prop-search-card__price-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--rent-primary);
+  letter-spacing: -0.02em;
+}
+.rent-prop-search-card__price-unit { font-size: 12px; color: var(--rent-ink-3); }
+.rent-prop-search-card__tags .rent-badge,
+.rent-badge { border-radius: 999px; padding: 3px 10px; }
+.rent-prop-search-card__cta {
+  border-radius: 999px;
+  background: rgba(66, 99, 235, 0.08);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-prop-search-card__name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* ===== 金刚区 / 快捷入口：圆角宫格 ===== */
+.rent-quick-action,
+.rent-mobile__quick-action {
+  border-radius: 18px;
+  border: none;
+  box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.12);
+}
+.rent-quick-action__icon,
+.rent-mobile__quick-action-icon { border-radius: 16px; }
+
+/* ===== 按钮：渐变 + 柔和投影 ===== */
+.rent-btn { border-radius: 10px; }
+.rent-btn--primary {
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4263eb, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.45);
+}
+
+/* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
+.rent-mobile__tab { border-radius: 14px; }
+.rent-mobile__tab[data-active="true"] {
+  background: rgba(66, 99, 235, 0.08);
+  font-weight: 600;
+}
+
+/* ===== 侧边栏导航 (web/pad) ===== */
+.rent-nav-item,
+.rent-pad__nav-item { border-radius: 12px; }
+.rent-nav-item[data-active="true"],
+.rent-pad__nav-item[data-active="true"] {
+  background: linear-gradient(135deg, rgba(66, 99, 235, 0.10), rgba(107, 130, 245, 0.08));
+  font-weight: 600;
+}
+
+/* ===== Hero 渐变强化 ===== */
+.rent-hero,
+.rent-portal-hero,
+.rent-mobile__hero {
+  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+}
+
+/* ===== 头像 ===== */
+.rent-avatar { border-radius: 14px; }
+.rent-avatar--sm { border-radius: 10px; }

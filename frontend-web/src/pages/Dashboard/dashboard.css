@@ -1,0 +1,57 @@
+/* Dashboard 专属样式 */
+
+/* 图表容器固定高度，与设计稿一致 */
+.rent-chart-container {
+  position: relative;
+  height: 320px;
+}
+
+/* 原生 HTML 表格（贴合设计稿：浅灰表头 / 细边框 / hover 高亮） */
+.rent-table-wrap-plain {
+  overflow-x: auto;
+}
+
+.rent-html-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.rent-html-table thead th {
+  background: var(--rent-surface-2);
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  border-bottom: 1px solid var(--rent-border);
+  white-space: nowrap;
+}
+
+.rent-html-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rent-border);
+  color: var(--rent-ink);
+  vertical-align: middle;
+}
+
+.rent-html-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rent-html-table tbody tr:hover {
+  background: var(--rent-surface-2);
+}
+
+/* 响应式：小屏表格横向滚动即可，KPI 卡片在 app.css 中已处理为 2 列 / 1 列 */
+@media (max-width: 768px) {
+  .rent-chart-container {
+    height: 260px;
+  }
+}
+
+@media (max-width: 480px) {
+  .rent-chart-container {
+    height: 220px;
+  }
+}

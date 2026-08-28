@@ -1,0 +1,493 @@
+/* =========================================================
+   RentFlow 应用组件样式
+   与设计稿共享组件库一致：App Shell / Sidebar / Topbar /
+   Card / Button / Table / Badge / Form / Stat / Pagination 等
+   ========================================================= */
+
+/* ===== App Shell Layout ===== */
+.rent-app {
+  display: grid;
+  grid-template-columns: var(--rent-sidebar-width) 1fr;
+  grid-template-rows: var(--rent-topbar-height) 1fr;
+  grid-template-areas: "sidebar topbar" "sidebar main";
+  min-height: 100vh;
+  background: var(--rent-background);
+}
+.rent-app__sidebar { grid-area: sidebar; }
+.rent-app__topbar { grid-area: topbar; }
+.rent-app__main { grid-area: main; overflow-y: auto; }
+
+/* ===== Sidebar ===== */
+.rent-sidebar {
+  background: var(--rent-sidebar);
+  border-right: 1px solid var(--rent-border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+.rent-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  height: var(--rent-topbar-height);
+  border-bottom: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+.rent-sidebar__logo {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-primary);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 16px;
+  flex-shrink: 0;
+}
+.rent-sidebar__name {
+  font-family: var(--rent-font-sans);
+  font-size: 15px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rent-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  list-style: none;
+  margin: 0;
+}
+.rent-sidebar__section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rent-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 16px 12px 6px;
+}
+.rent-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 2px;
+}
+.rent-nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.rent-nav-item[data-active="true"] {
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-nav-item__icon {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-sidebar__footer {
+  padding: 12px;
+  border-top: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+
+/* ===== Topbar ===== */
+.rent-topbar {
+  background: var(--rent-surface);
+  border-bottom: 1px solid var(--rent-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: var(--rent-topbar-height);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: 12px;
+}
+.rent-topbar__left { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.rent-topbar__title {
+  font-size: 18px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rent-topbar__right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.rent-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--rent-surface-2);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 7px 12px;
+  width: 280px;
+}
+.rent-search input {
+  border: none; background: none; outline: none;
+  font-size: 13px; color: var(--rent-ink);
+  flex: 1;
+  font-family: var(--rent-font-sans);
+}
+.rent-search input::placeholder { color: var(--rent-ink-3); }
+.rent-icon-btn {
+  width: 36px; height: 36px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+}
+.rent-icon-btn:hover { background: var(--rent-surface-2); }
+.rent-icon-btn__badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 16px; height: 16px;
+  border-radius: var(--rent-radius-full);
+  background: var(--state-error);
+  color: #fff;
+  font-size: 10px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-avatar {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+  flex-shrink: 0;
+}
+.rent-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
+.rent-avatar--lg { width: 48px; height: 48px; font-size: 18px; }
+
+/* 移动端汉堡按钮 */
+.rent-menu-toggle {
+  display: none;
+  width: 36px; height: 36px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface);
+  align-items: center; justify-content: center;
+  cursor: pointer;
+}
+
+/* ===== Main Content ===== */
+.rent-main {
+  padding: 24px;
+  max-width: 100%;
+}
+.rent-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.rent-page-header__title {
+  font-size: 24px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.rent-page-header__subtitle {
+  font-size: 14px;
+  color: var(--rent-ink-3);
+}
+.rent-page-header__actions {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===== Card ===== */
+.rent-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  overflow: hidden;
+}
+.rent-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--rent-border);
+  gap: 12px;
+}
+.rent-card__title {
+  font-size: 16px; font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0;
+}
+.rent-card__body { padding: 20px; }
+.rent-card__footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--rent-border);
+  background: var(--rent-surface-2);
+}
+
+/* ===== Button ===== */
+.rent-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--rent-font-sans);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.rent-btn--primary { background: var(--rent-primary); color: var(--rent-primary-foreground); }
+.rent-btn--primary:hover { background: var(--rent-primary-hover); }
+.rent-btn--secondary { background: var(--rent-surface); border-color: var(--rent-border); color: var(--rent-ink); }
+.rent-btn--secondary:hover { background: var(--rent-surface-2); }
+.rent-btn--ghost { background: transparent; color: var(--rent-ink-2); }
+.rent-btn--ghost:hover { background: var(--rent-surface-2); }
+.rent-btn--danger { background: var(--state-error); color: #fff; }
+.rent-btn--danger:hover { background: #b91c1c; }
+.rent-btn--success { background: var(--state-success); color: #fff; }
+.rent-btn--sm { padding: 5px 12px; font-size: 13px; }
+.rent-btn--lg { padding: 12px 24px; font-size: 15px; }
+.rent-btn--block { width: 100%; }
+.rent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== Badge ===== */
+.rent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--rent-radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.rent-badge--success { background: rgba(22,163,74,0.1); color: var(--state-success); }
+.rent-badge--warning { background: rgba(217,119,6,0.1); color: var(--state-warning); }
+.rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
+.rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
+.rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
+.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+/* ===== KPI / Stat Card ===== */
+.rent-stat-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+}
+.rent-stat-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rent-stat-card__label {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-bottom: 8px;
+}
+.rent-stat-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.rent-stat-card__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.rent-stat-card__delta--up { color: var(--state-success); }
+.rent-stat-card__delta--down { color: var(--state-error); }
+.rent-stat-card__icon {
+  width: 40px; height: 40px;
+  border-radius: var(--rent-radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===== Grid Utilities ===== */
+.rent-grid { display: grid; gap: 16px; }
+.rent-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.rent-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.rent-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.rent-grid--auto { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+
+/* ===== Filter Bar ===== */
+.rent-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.rent-filter-bar__search { flex: 1; min-width: 200px; max-width: 320px; }
+
+/* ===== Tabs ===== */
+.rent-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--rent-border);
+  margin-bottom: 20px;
+}
+.rent-tab {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  background: none;
+}
+.rent-tab:hover { color: var(--rent-ink); }
+.rent-tab[data-active="true"] { color: var(--rent-primary); border-bottom-color: var(--rent-primary); }
+
+/* ===== Progress ===== */
+.rent-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-full);
+  overflow: hidden;
+}
+.rent-progress__bar {
+  height: 100%;
+  background: var(--rent-primary);
+  border-radius: var(--rent-radius-full);
+  transition: width 0.3s;
+}
+
+/* ===== Chart range group ===== */
+.rent-chart-range-group {
+  display: flex;
+  gap: 2px;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-md);
+  padding: 3px;
+}
+.rent-chart-range {
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  border: none;
+  background: transparent;
+  border-radius: var(--rent-radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--rent-font-sans);
+}
+.rent-chart-range:hover { color: var(--rent-ink); }
+.rent-chart-range--active {
+  background: var(--rent-surface);
+  color: var(--rent-primary);
+  box-shadow: var(--rent-shadow-1);
+}
+
+/* ===== Misc ===== */
+.rent-divider { height: 1px; background: var(--rent-border); margin: 16px 0; border: none; }
+.rent-empty { text-align: center; padding: 48px 20px; color: var(--rent-ink-3); }
+.rent-flex { display: flex; }
+.rent-flex--center { align-items: center; justify-content: center; }
+.rent-flex--between { align-items: center; justify-content: space-between; }
+.rent-flex--col { flex-direction: column; }
+.rent-gap-2 { gap: 8px; }
+.rent-gap-3 { gap: 12px; }
+.rent-gap-4 { gap: 16px; }
+.rent-mt-2 { margin-top: 8px; }
+.rent-mt-3 { margin-top: 12px; }
+.rent-mt-4 { margin-top: 16px; }
+.rent-mt-5 { margin-top: 24px; }
+.rent-mb-2 { margin-bottom: 8px; }
+.rent-mb-3 { margin-bottom: 12px; }
+.rent-mb-4 { margin-bottom: 16px; }
+.rent-mb-5 { margin-bottom: 24px; }
+.rent-text-right { text-align: right; }
+.rent-text-center { text-align: center; }
+.rent-text-sm { font-size: 13px; }
+.rent-text-muted { color: var(--rent-ink-3); }
+.rent-text-bold { font-weight: 600; }
+.rent-w-full { width: 100%; }
+.rent-num {
+  font-family: var(--rent-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.rent-mono { font-family: var(--rent-font-mono); font-size: 13px; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ===== 侧栏抽屉遮罩（移动端） ===== */
+.rent-sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 40;
+}
+.rent-sidebar-overlay[data-open="true"] { display: block; }
+
+/* ===== 响应式：多端适配 ===== */
+/* Pad 平板：侧栏变窄 */
+@media (max-width: 1024px) {
+  :root { --rent-sidebar-width: 220px; }
+  .rent-search { width: 200px; }
+}
+
+/* 移动端：侧栏改为抽屉 */
+@media (max-width: 768px) {
+  .rent-app {
+    grid-template-columns: 1fr;
+    grid-template-areas: "topbar" "main";
+  }
+  .rent-app__sidebar { display: none; }
+  .rent-app__sidebar[data-mobile-open="true"] {
+    display: block;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px;
+    z-index: 50;
+  }
+  .rent-menu-toggle { display: flex; }
+  .rent-search { display: none; }
+  .rent-main { padding: 16px; }
+  .rent-grid--4 { grid-template-columns: repeat(2, 1fr); }
+  .rent-grid--3 { grid-template-columns: 1fr; }
+  .rent-grid--2 { grid-template-columns: 1fr; }
+  .rent-page-header__title { font-size: 20px; }
+}
+
+@media (max-width: 480px) {
+  .rent-grid--4 { grid-template-columns: 1fr; }
+  .rent-topbar { padding: 0 16px; }
+  .rent-main { padding: 12px; }
+  .rent-stat-card__value { font-size: 24px; }
+}

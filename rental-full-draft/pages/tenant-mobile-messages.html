@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>消息</title>
+    <style id="theme-vars">
+/* =========================================================
+   房地产租赁管理后台 — 品牌设计令牌 (Modern Light)
+   单一靛蓝主色 · 冷调浅灰底 · 白色卡片 · 细边框 · 克制圆角
+   ========================================================= */
+
+:root {
+  /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
+  --rent-background: #f2f4f8;
+  --rent-foreground: #0f172a;
+  --rent-card: #ffffff;
+  --rent-card-foreground: #0f172a;
+  --rent-popover: #ffffff;
+  --rent-popover-foreground: #0f172a;
+  --rent-primary: #4263eb;
+  --rent-primary-foreground: #ffffff;
+  --rent-muted: #f1f5f9;
+  --rent-muted-foreground: #64748b;
+  --rent-border: #e6eaf0;
+  --rent-input: #e6eaf0;
+  --rent-ring: #4263eb;
+
+  /* ---- 中性阶梯（直接引用） ---- */
+  --rent-ink: #0f172a;
+  --rent-ink-2: #475569;
+  --rent-ink-3: #94a3b8;
+  --rent-line: #e6eaf0;
+  --rent-surface: #ffffff;
+  --rent-surface-2: #f1f5f9;
+  --rent-sidebar: #ffffff;
+  --rent-sidebar-active: #eef2ff;
+
+  /* ---- 状态色（仅语义状态） ---- */
+  --state-success: #16a34a;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #0ea5e9;
+
+  /* ---- 圆角（克制阶梯，上限 16px） ---- */
+  --rent-radius-sm: 6px;
+  --rent-radius-md: 12px;
+  --rent-radius-lg: 20px;
+  --rent-radius-full: 9999px;
+
+  /* ---- 阴影（静态面 alpha ≤ 0.05；深阴影仅浮层） ---- */
+  --rent-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --rent-shadow-2: 0 12px 32px -12px rgba(15, 23, 42, 0.16);
+  --rent-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.30);
+
+  /* ---- 间距（8pt 网格） ---- */
+  --rent-s-1: 4px;
+  --rent-s-2: 8px;
+  --rent-s-3: 12px;
+  --rent-s-4: 16px;
+  --rent-s-5: 24px;
+  --rent-s-6: 32px;
+  --rent-s-7: 48px;
+  --rent-s-8: 80px;
+
+  /* ---- 字体系统 ---- */
+  --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  color-scheme: light;
+}
+
+/* ---- 暗色模式（双模变量，设计态默认 light） ---- */
+.dark {
+  --rent-background: #0b0f1a;
+  --rent-foreground: #e8edf5;
+  --rent-card: #141a26;
+  --rent-card-foreground: #e8edf5;
+  --rent-popover: #141a26;
+  --rent-popover-foreground: #e8edf5;
+  --rent-primary: #6b82f5;
+  --rent-primary-foreground: #0b0f1a;
+  --rent-muted: #1c2433;
+  --rent-muted-foreground: #94a3b8;
+  --rent-border: #243044;
+  --rent-input: #243044;
+  --rent-ring: #6b82f5;
+
+  --rent-ink: #e8edf5;
+  --rent-ink-2: #a3aec2;
+  --rent-ink-3: #64748b;
+  --rent-line: #243044;
+  --rent-surface: #141a26;
+  --rent-surface-2: #1c2433;
+  --rent-sidebar: #0f1521;
+  --rent-sidebar-active: #1e2a44;
+
+  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --rent-shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.50);
+  --rent-shadow-3: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+
+  color-scheme: dark;
+}
+
+/* ---- 排版类 ---- */
+.rent-h1 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(24px, 2.6vw, 32px);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--rent-ink);
+}
+
+.rent-h2 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(20px, 2vw, 24px);
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--rent-ink);
+}
+
+.rent-h3 {
+  font-family: var(--rent-font-sans);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--rent-ink);
+}
+
+.rent-body-lg {
+  font-family: var(--rent-font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-body {
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-caption {
+  font-family: var(--rent-font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: var(--rent-ink-3);
+}
+
+.rent-mono {
+  font-family: var(--rent-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.rent-num {
+  font-family: var(--rent-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--rent-background);
+    --color-foreground: var(--rent-foreground);
+    --color-card: var(--rent-card);
+    --color-card-foreground: var(--rent-card-foreground);
+    --color-popover: var(--rent-popover);
+    --color-popover-foreground: var(--rent-popover-foreground);
+    --color-primary: var(--rent-primary);
+    --color-primary-foreground: var(--rent-primary-foreground);
+    --color-muted: var(--rent-muted);
+    --color-muted-foreground: var(--rent-muted-foreground);
+    --color-border: var(--rent-border);
+    --color-input: var(--rent-input);
+    --color-ring: var(--rent-ring);
+    --color-sidebar: var(--rent-sidebar);
+    --radius-sm: var(--rent-radius-sm);
+    --radius-md: var(--rent-radius-md);
+    --radius-lg: var(--rent-radius-lg);
+  }
+  @layer base {
+    body { background: var(--rent-background); color: var(--rent-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--rent-background); }
+      .text-background { color: var(--rent-background); }
+      .border-background { border-color: var(--rent-background); }
+      .ring-background { --tw-ring-color: var(--rent-background); }
+      .bg-foreground { background-color: var(--rent-foreground); }
+      .text-foreground { color: var(--rent-foreground); }
+      .border-foreground { border-color: var(--rent-foreground); }
+      .ring-foreground { --tw-ring-color: var(--rent-foreground); }
+      .bg-card { background-color: var(--rent-card); }
+      .text-card { color: var(--rent-card); }
+      .border-card { border-color: var(--rent-card); }
+      .ring-card { --tw-ring-color: var(--rent-card); }
+      .bg-card-foreground { background-color: var(--rent-card-foreground); }
+      .text-card-foreground { color: var(--rent-card-foreground); }
+      .border-card-foreground { border-color: var(--rent-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--rent-card-foreground); }
+      .bg-popover { background-color: var(--rent-popover); }
+      .text-popover { color: var(--rent-popover); }
+      .border-popover { border-color: var(--rent-popover); }
+      .ring-popover { --tw-ring-color: var(--rent-popover); }
+      .bg-popover-foreground { background-color: var(--rent-popover-foreground); }
+      .text-popover-foreground { color: var(--rent-popover-foreground); }
+      .border-popover-foreground { border-color: var(--rent-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--rent-popover-foreground); }
+      .bg-primary { background-color: var(--rent-primary); }
+      .text-primary { color: var(--rent-primary); }
+      .border-primary { border-color: var(--rent-primary); }
+      .ring-primary { --tw-ring-color: var(--rent-primary); }
+      .bg-primary-foreground { background-color: var(--rent-primary-foreground); }
+      .text-primary-foreground { color: var(--rent-primary-foreground); }
+      .border-primary-foreground { border-color: var(--rent-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--rent-primary-foreground); }
+      .bg-muted { background-color: var(--rent-muted); }
+      .text-muted { color: var(--rent-muted); }
+      .border-muted { border-color: var(--rent-muted); }
+      .ring-muted { --tw-ring-color: var(--rent-muted); }
+      .bg-muted-foreground { background-color: var(--rent-muted-foreground); }
+      .text-muted-foreground { color: var(--rent-muted-foreground); }
+      .border-muted-foreground { border-color: var(--rent-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--rent-muted-foreground); }
+      .bg-border { background-color: var(--rent-border); }
+      .text-border { color: var(--rent-border); }
+      .border-border { border-color: var(--rent-border); }
+      .ring-border { --tw-ring-color: var(--rent-border); }
+      .bg-input { background-color: var(--rent-input); }
+      .text-input { color: var(--rent-input); }
+      .border-input { border-color: var(--rent-input); }
+      .ring-input { --tw-ring-color: var(--rent-input); }
+      .bg-ring { background-color: var(--rent-ring); }
+      .text-ring { color: var(--rent-ring); }
+      .border-ring { border-color: var(--rent-ring); }
+      .ring-ring { --tw-ring-color: var(--rent-ring); }
+      .bg-sidebar { background-color: var(--rent-sidebar); }
+      .text-sidebar { color: var(--rent-sidebar); }
+      .border-sidebar { border-color: var(--rent-sidebar); }
+      .ring-sidebar { --tw-ring-color: var(--rent-sidebar); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+    <style id="rent-components">
+/* ===== App Shell Layout ===== */
+.rent-app {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas: "sidebar topbar" "sidebar main";
+  height: 100vh;
+  background: var(--rent-background);
+}
+.rent-app__sidebar { grid-area: sidebar; }
+.rent-app__topbar { grid-area: topbar; }
+.rent-app__main { grid-area: main; overflow-y: auto; }
+
+/* ===== Sidebar ===== */
+.rent-sidebar {
+  background: var(--rent-sidebar);
+  border-right: 1px solid var(--rent-border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+.rent-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  height: 56px;
+  border-bottom: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+.rent-sidebar__logo {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-primary);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 16px;
+  flex-shrink: 0;
+}
+.rent-sidebar__name {
+  font-family: var(--rent-font-sans);
+  font-size: 15px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  list-style: none;
+  margin: 0;
+}
+.rent-sidebar__section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rent-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 16px 12px 6px;
+}
+.rent-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 2px;
+}
+.rent-nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.rent-nav-item[data-active="true"] {
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-nav-item__icon {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-sidebar__footer {
+  padding: 12px;
+  border-top: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+
+/* ===== Topbar ===== */
+.rent-topbar {
+  background: var(--rent-surface);
+  border-bottom: 1px solid var(--rent-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.rent-topbar__left { display: flex; align-items: center; gap: 16px; }
+.rent-topbar__title {
+  font-size: 18px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-topbar__right { display: flex; align-items: center; gap: 12px; }
+.rent-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--rent-surface-2);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 7px 12px;
+  width: 280px;
+}
+.rent-search input {
+  border: none; background: none; outline: none;
+  font-size: 13px; color: var(--rent-ink);
+  flex: 1;
+  font-family: var(--rent-font-sans);
+}
+.rent-search input::placeholder { color: var(--rent-ink-3); }
+.rent-icon-btn {
+  width: 36px; height: 36px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+}
+.rent-icon-btn:hover { background: var(--rent-surface-2); }
+.rent-icon-btn__badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 16px; height: 16px;
+  border-radius: var(--rent-radius-full);
+  background: var(--state-error);
+  color: #fff;
+  font-size: 10px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-avatar {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+  flex-shrink: 0;
+}
+.rent-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
+.rent-avatar--lg { width: 48px; height: 48px; font-size: 18px; }
+
+/* ===== Main Content ===== */
+.rent-main {
+  padding: 24px;
+  max-width: 100%;
+}
+.rent-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+.rent-page-header__title {
+  font-size: 24px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.rent-page-header__subtitle {
+  font-size: 14px;
+  color: var(--rent-ink-3);
+}
+.rent-page-header__actions {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===== Card ===== */
+.rent-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  overflow: hidden;
+}
+.rent-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-card__title {
+  font-size: 16px; font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0;
+}
+.rent-card__body { padding: 20px; }
+.rent-card__footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--rent-border);
+  background: var(--rent-surface-2);
+}
+
+/* ===== Button ===== */
+.rent-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--rent-font-sans);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.rent-btn--primary {
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
+}
+.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--secondary {
+  background: var(--rent-surface);
+  border-color: var(--rent-border);
+  color: var(--rent-ink);
+}
+.rent-btn--secondary:hover { background: var(--rent-surface-2); }
+.rent-btn--ghost {
+  background: transparent;
+  color: var(--rent-ink-2);
+}
+.rent-btn--ghost:hover { background: var(--rent-surface-2); }
+.rent-btn--danger {
+  background: var(--state-error);
+  color: #fff;
+}
+.rent-btn--danger:hover { background: #b91c1c; }
+.rent-btn--success {
+  background: var(--state-success);
+  color: #fff;
+}
+.rent-btn--sm { padding: 5px 12px; font-size: 13px; }
+.rent-btn--lg { padding: 12px 24px; font-size: 15px; }
+.rent-btn--block { width: 100%; }
+.rent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== Table ===== */
+.rent-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--rent-radius-lg);
+  border: 1px solid var(--rent-border);
+}
+.rent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.rent-table thead th {
+  background: var(--rent-surface-2);
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  border-bottom: 1px solid var(--rent-border);
+  white-space: nowrap;
+}
+.rent-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rent-border);
+  color: var(--rent-ink);
+  vertical-align: middle;
+}
+.rent-table tbody tr:last-child td { border-bottom: none; }
+.rent-table tbody tr:hover { background: var(--rent-surface-2); }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+
+/* ===== Badge ===== */
+.rent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--rent-radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.rent-badge--success { background: rgba(22,163,74,0.1); color: var(--state-success); }
+.rent-badge--warning { background: rgba(217,119,6,0.1); color: var(--state-warning); }
+.rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
+.rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
+.rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
+.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+/* ===== KPI / Stat Card ===== */
+.rent-stat-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+}
+.rent-stat-card__label {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-bottom: 8px;
+}
+.rent-stat-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.rent-stat-card__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.rent-stat-card__delta--up { color: var(--state-success); }
+.rent-stat-card__delta--down { color: var(--state-error); }
+.rent-stat-card__icon {
+  width: 40px; height: 40px;
+  border-radius: var(--rent-radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===== Grid Utilities ===== */
+.rent-grid { display: grid; gap: 16px; }
+.rent-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.rent-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.rent-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.rent-grid--auto { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+
+/* ===== Misc ===== */
+.rent-divider { height: 1px; background: var(--rent-border); margin: 16px 0; border: none; }
+.rent-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--rent-ink-3);
+}
+.rent-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--rent-border);
+  margin-bottom: 20px;
+}
+.rent-tab {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.rent-tab:hover { color: var(--rent-ink); }
+.rent-tab[data-active="true"] {
+  color: var(--rent-primary);
+  border-bottom-color: var(--rent-primary);
+}
+.rent-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-full);
+  overflow: hidden;
+}
+.rent-progress__bar {
+  height: 100%;
+  background: var(--rent-primary);
+  border-radius: var(--rent-radius-full);
+  transition: width 0.3s;
+}
+
+/* ===== Utility ===== */
+.rent-flex { display: flex; }
+.rent-flex--center { align-items: center; justify-content: center; }
+.rent-flex--between { align-items: center; justify-content: space-between; }
+.rent-flex--col { flex-direction: column; }
+.rent-gap-2 { gap: 8px; }
+.rent-gap-3 { gap: 12px; }
+.rent-gap-4 { gap: 16px; }
+.rent-mt-2 { margin-top: 8px; }
+.rent-mt-3 { margin-top: 12px; }
+.rent-mt-4 { margin-top: 16px; }
+.rent-mt-5 { margin-top: 24px; }
+.rent-mb-2 { margin-bottom: 8px; }
+.rent-mb-3 { margin-bottom: 12px; }
+.rent-mb-4 { margin-bottom: 16px; }
+.rent-mb-5 { margin-bottom: 24px; }
+.rent-text-right { text-align: right; }
+.rent-text-center { text-align: center; }
+.rent-text-sm { font-size: 13px; }
+.rent-text-muted { color: var(--rent-ink-3); }
+.rent-text-bold { font-weight: 600; }
+.rent-w-full { width: 100%; }
+
+/* ===== Timeline ===== */
+.rent-timeline { position: relative; padding-left: 24px; }
+.rent-timeline::before {
+  content: "";
+  position: absolute;
+  left: 7px; top: 4px; bottom: 4px;
+  width: 2px;
+  background: var(--rent-border);
+}
+.rent-timeline__item {
+  position: relative;
+  padding-bottom: 20px;
+}
+.rent-timeline__item:last-child { padding-bottom: 0; }
+.rent-timeline__dot {
+  position: absolute;
+  left: -24px; top: 4px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 3px solid var(--rent-surface);
+  box-shadow: 0 0 0 2px var(--rent-border);
+  background: var(--rent-ink-3);
+}
+.rent-timeline__dot--success { background: var(--state-success); box-shadow: 0 0 0 2px rgba(22,163,74,0.2); }
+.rent-timeline__dot--info { background: var(--state-info); box-shadow: 0 0 0 2px rgba(14,165,233,0.2); }
+.rent-timeline__dot--warning { background: var(--state-warning); box-shadow: 0 0 0 2px rgba(217,119,6,0.2); }
+.rent-timeline__dot--neutral { background: var(--rent-ink-3); box-shadow: 0 0 0 2px var(--rent-border); }
+.rent-mobile {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--rent-background);
+  position: relative;
+  padding-bottom: 72px;
+  box-shadow: 0 0 40px rgba(15, 23, 42, 0.08);
+}
+.rent-mobile__header {
+  background: var(--rent-surface);
+  border-bottom: 1px solid var(--rent-border);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.rent-mobile__header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rent-mobile__logo {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.rent-mobile__title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-mobile__header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rent-mobile__main {
+  padding: 16px;
+}
+.rent-mobile__bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  background: var(--rent-surface);
+  border-top: 1px solid var(--rent-border);
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0 12px;
+  z-index: 50;
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.06);
+}
+.rent-mobile__tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s;
+  flex: 1;
+}
+.rent-mobile__tab:hover { color: var(--rent-ink-2); }
+.rent-mobile__tab[data-active="true"] { color: var(--rent-primary); }
+.rent-mobile__tab-icon { width: 22px; height: 22px; flex-shrink: 0; }
+
+/* Mobile card */
+.rent-mobile__card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.rent-mobile__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.rent-mobile__card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0;
+}
+.rent-mobile__section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 20px 0 12px;
+  letter-spacing: -0.01em;
+}
+.rent-mobile__section-title:first-child { margin-top: 0; }
+
+/* Mobile list item */
+.rent-mobile__list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-mobile__list-item:last-child { border-bottom: none; }
+
+/* Mobile quick action grid */
+.rent-mobile__quick-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.rent-mobile__quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 4px;
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.rent-mobile__quick-action:hover { background: var(--rent-surface-2); }
+.rent-mobile__quick-action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--rent-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.rent-mobile__quick-action-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* Mobile hero banner */
+.rent-mobile__hero {
+  background: linear-gradient(135deg, var(--rent-primary) 0%, #3b51d4 100%);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+  color: #fff;
+}
+.rent-mobile__hero-greeting {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+.rent-mobile__hero-sub {
+  font-size: 13px;
+  color: rgba(255,255,255,0.85);
+  margin: 0 0 16px;
+}
+.rent-mobile__hero-stats {
+  display: flex;
+  gap: 16px;
+}
+.rent-mobile__hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rent-mobile__hero-stat-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+}
+.rent-mobile__hero-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mobile stat row */
+.rent-mobile__stat-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.rent-mobile__stat {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 14px;
+}
+.rent-mobile__stat-label {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin-bottom: 4px;
+}
+.rent-mobile__stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.rent-mobile__stat-badge {
+  display: inline-block;
+  margin-top: 4px;
+}
+
+/* Mobile FAB */
+.rent-mobile__fab {
+  position: fixed;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(calc(215px - 28px));
+  width: 48px;
+  height: 48px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--rent-shadow-2);
+  z-index: 40;
+  transition: background 0.15s;
+}
+.rent-mobile__fab:hover { background: #3b51d4; }
+    </style>
+    <style id="rent-beike-overlay">
+/* =========================================================
+   RentFlow × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #4263eb · 消费级 App 形态 · 大圆角卡片流
+   仅注入用户端页面 (租客/业主/员工)，后台管理不注入
+      注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
+   ========================================================= */
+
+/* ---- 全局背景 ---- */
+body {
+  background: var(--rent-background);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== 顶部导航 / 头部：毛玻璃白底 ===== */
+.rent-portal__header,
+.rent-topbar,
+.rent-mobile__header,
+.rent-pad__topbar {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 10px 30px -18px rgba(15, 23, 42, 0.18);
+}
+.rent-portal__logo,
+.rent-sidebar__logo,
+.rent-mobile__logo,
+.rent-pad__logo {
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+}
+.rent-portal__nav-item,
+.rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
+
+/* ===== 搜索体验：胶囊搜索 ===== */
+.rent-search { border-radius: 999px; background: var(--rent-surface-2); }
+.rent-search input { background: transparent; }
+.rent-search-hero__bar {
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 10px 32px -10px rgba(66, 99, 235, 0.40);
+}
+.rent-search-hero__search-btn {
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4263eb, #6b82f5);
+  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.50);
+}
+.rent-search-hero__tag { border-radius: 999px; }
+
+/* ===== 筛选 chips：胶囊 ===== */
+.rent-filter-chip,
+.lj-filter-bar__chip,
+.rent-filter-chip[data-active="true"] { border-radius: 999px; }
+.rent-filter-bar {
+  border-radius: var(--rent-radius-lg);
+  background: var(--rent-card);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 卡片：大圆角 + 柔和浮起 ===== */
+.rent-card,
+.rent-stat-card,
+.rent-mobile__card,
+.rent-quick-action,
+.rent-prop-search-card,
+.rent-table-wrap {
+  border-radius: var(--rent-radius-lg);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 房源卡片：图片圆角 + 价格强调 ===== */
+.rent-prop-search-card { overflow: hidden; }
+.rent-prop-search-card__banner { border-radius: 0; }
+.rent-prop-search-card__price-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--rent-primary);
+  letter-spacing: -0.02em;
+}
+.rent-prop-search-card__price-unit { font-size: 12px; color: var(--rent-ink-3); }
+.rent-prop-search-card__tags .rent-badge,
+.rent-badge { border-radius: 999px; padding: 3px 10px; }
+.rent-prop-search-card__cta {
+  border-radius: 999px;
+  background: rgba(66, 99, 235, 0.08);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-prop-search-card__name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* ===== 金刚区 / 快捷入口：圆角宫格 ===== */
+.rent-quick-action,
+.rent-mobile__quick-action {
+  border-radius: 18px;
+  border: none;
+  box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.12);
+}
+.rent-quick-action__icon,
+.rent-mobile__quick-action-icon { border-radius: 16px; }
+
+/* ===== 按钮：渐变 + 柔和投影 ===== */
+.rent-btn { border-radius: 10px; }
+.rent-btn--primary {
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4263eb, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.45);
+}
+
+/* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
+.rent-mobile__tab { border-radius: 14px; }
+.rent-mobile__tab[data-active="true"] {
+  background: rgba(66, 99, 235, 0.08);
+  font-weight: 600;
+}
+
+/* ===== 侧边栏导航 (web/pad) ===== */
+.rent-nav-item,
+.rent-pad__nav-item { border-radius: 12px; }
+.rent-nav-item[data-active="true"],
+.rent-pad__nav-item[data-active="true"] {
+  background: linear-gradient(135deg, rgba(66, 99, 235, 0.10), rgba(107, 130, 245, 0.08));
+  font-weight: 600;
+}
+
+/* ===== Hero 渐变强化 ===== */
+.rent-hero,
+.rent-portal-hero,
+.rent-mobile__hero {
+  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+}
+
+/* ===== 头像 ===== */
+.rent-avatar { border-radius: 14px; }
+.rent-avatar--sm { border-radius: 10px; }
+
+    </style>
+  
+    <style id="rent-todo-styles">
+      /* ===== 任务驱动首页扩展（租客待办区） ===== */
+      .rent-todo-pay { position: relative; overflow: hidden; border: 1px solid rgba(66,99,235,0.28); background: linear-gradient(135deg, #f3f6ff 0%, #e9efff 100%); }
+      .rent-todo-pay::after { content: ""; position: absolute; right: -46px; top: -46px; width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle, rgba(66,99,235,0.14), transparent 70%); pointer-events: none; }
+      .rent-todo-pay__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; position: relative; z-index: 1; }
+      .rent-todo-pay__due { font-size: 13px; font-weight: 600; color: var(--state-warning); }
+      .rent-todo-pay__label { font-size: 14px; color: var(--rent-ink-3); margin-bottom: 2px; position: relative; z-index: 1; }
+      .rent-todo-pay__amount { font-size: 40px; font-weight: 800; color: var(--rent-ink); letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 6px; font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
+      .rent-todo-pay__sub { font-size: 13px; color: var(--rent-ink-3); margin: 0 0 16px; position: relative; z-index: 1; }
+      .rent-todo-pay__cta { font-size: 16px; height: 48px; border-radius: 14px; position: relative; z-index: 1; box-shadow: 0 8px 20px -8px rgba(66,99,235,0.55); }
+      .rent-todo-maint__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+      .rent-todo-maint__id { font-family: var(--rent-font-mono); font-size: 12px; color: var(--rent-ink-3); }
+      .rent-todo-maint__title { font-size: 17px; font-weight: 700; color: var(--rent-ink); margin-bottom: 4px; }
+      .rent-todo-maint__desc { font-size: 13px; color: var(--rent-ink-3); margin-bottom: 14px; }
+      .rent-todo-maint__bar { margin-bottom: 12px; }
+      .rent-todo-maint__foot { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--rent-ink-3); }
+      .rent-todo-lease__name { font-size: 17px; font-weight: 700; color: var(--rent-ink); }
+      .rent-todo-lease__meta { font-size: 13px; color: var(--rent-ink-3); margin: 4px 0 14px; }
+      .rent-todo-lease__bar { margin-bottom: 10px; }
+      .rent-todo-lease__foot { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--rent-ink-3); }
+      .rent-todo-strip { display: grid; grid-template-columns: 1.25fr 1fr; gap: 16px; }
+      .rent-todo-main-grid { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap: 16px; align-items: start; }
+      .rent-todo-left { display: flex; flex-direction: column; gap: 16px; }
+      .rent-todo-feed__title { font-size: 14px; font-weight: 600; color: var(--rent-ink); }
+      .rent-todo-feed__sub { font-size: 13px; color: var(--rent-ink-3); margin-top: 2px; }
+      .rent-todo-feed__date { font-size: 12px; color: var(--rent-ink-3); margin-top: 2px; }
+      .rent-todo-quick-4 { grid-template-columns: repeat(4, 1fr); }
+      .rent-pad__main .rent-quick-action { text-decoration: none; color: var(--rent-ink); }
+      @media (max-width: 980px) { .rent-todo-strip, .rent-todo-main-grid { grid-template-columns: 1fr; } }
+    </style>
+    <style id="rent-messages-styles">
+      /* ===== 消息中心扩展样式（App / 小程序） ===== */
+      .rent-mobile__main { padding-bottom: 88px; }
+      .rent-msg-sub { margin: 4px 0 14px; }
+      .rent-msg-tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+      .rent-msg-tabs::-webkit-scrollbar { display: none; }
+      .rent-msg-tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; background: var(--rent-surface); border: 1px solid var(--rent-border); font-size: 13px; font-weight: 500; color: var(--rent-ink-2); cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; font-family: var(--rent-font-sans); white-space: nowrap; }
+      .rent-msg-tab[data-active="true"] { background: linear-gradient(135deg, #4263eb, #5b7cfa); border-color: transparent; color: #fff; box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.5); }
+      .rent-msg-tab__count { min-width: 16px; padding: 0 5px; border-radius: 999px; background: rgba(148, 163, 184, 0.18); color: var(--rent-ink-3); font-size: 11px; line-height: 16px; text-align: center; }
+      .rent-msg-tab[data-active="true"] .rent-msg-tab__count { background: rgba(255, 255, 255, 0.26); color: #fff; }
+      .rent-msg-card { padding: 4px 16px; }
+      .rent-msg-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 0; cursor: pointer; }
+      .rent-msg-item + .rent-msg-item { border-top: 1px solid var(--rent-border); }
+      .rent-msg-icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .rent-msg-icon--system { background: rgba(66, 99, 235, 0.12); color: var(--rent-primary); }
+      .rent-msg-icon--rent { background: rgba(217, 119, 6, 0.12); color: var(--state-warning); }
+      .rent-msg-icon--maint { background: rgba(124, 58, 237, 0.12); color: #7c3aed; }
+      .rent-msg-icon--service { background: rgba(22, 163, 74, 0.12); color: var(--state-success); }
+      .rent-msg-body { flex: 1; min-width: 0; }
+      .rent-msg-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .rent-msg-title { font-size: 14px; font-weight: 500; color: var(--rent-ink-2); }
+      .rent-msg-item[data-unread="true"] .rent-msg-title { font-weight: 700; color: var(--rent-ink); }
+      .rent-msg-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rent-primary); flex-shrink: 0; box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.16); }
+      .rent-msg-summary { font-size: 12px; color: var(--rent-ink-3); margin-top: 4px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      .rent-msg-time { font-size: 11px; color: var(--rent-ink-3); white-space: nowrap; flex-shrink: 0; margin-left: 8px; padding-top: 2px; }
+    </style>
+  </head>
+<body class="font-sans antialiased">
+    <div class="rent-mobile" data-viewport-mode="document-scroll">
+  <header class="rent-mobile__header">
+    <div class="rent-mobile__header-left">
+      <div class="rent-mobile__logo">R</div>
+      <h1 class="rent-mobile__title">消息</h1>
+    </div>
+    <div class="rent-mobile__header-right">
+      <button class="rent-icon-btn" style="width:32px;height:32px;border:none;background:transparent;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="rent-icon-btn__badge">1</span>
+      </button>
+      <button class="rent-icon-btn" style="width:32px;height:32px;border:none;background:transparent;" data-dom-id="back-login" aria-label="退出登录">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+      <div class="rent-avatar rent-avatar--sm">租</div>
+    </div>
+  </header>
+
+  <main class="rent-mobile__main" data-scroll-region="primary">
+
+<!-- 消息页头 -->
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
+  <div>
+    <div style="font-size:20px;font-weight:700;color:var(--rent-ink);letter-spacing:-0.02em;">消息中心</div>
+    <div class="rent-msg-sub" style="font-size:12px;color:var(--rent-ink-3);margin:4px 0 0;">共 8 条消息 · 4 条未读</div>
+  </div>
+  <button type="button" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="mark-all-read" style="border:1px solid var(--rent-border);background:var(--rent-surface);border-radius:999px;font-size:12px;padding:7px 13px;color:var(--rent-ink-2);flex-shrink:0;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L7 17l-5-5"/><path d="M22 10l-7.5 7.5L13 16"/></svg>
+    全部已读
+  </button>
+</div>
+
+<!-- 分类 Tab -->
+<div class="rent-msg-tabs">
+  <button type="button" class="rent-msg-tab" data-cat="all" data-active="true">全部<span class="rent-msg-tab__count">8</span></button>
+  <button type="button" class="rent-msg-tab" data-cat="system">系统通知<span class="rent-msg-tab__count">2</span></button>
+  <button type="button" class="rent-msg-tab" data-cat="rent">租务提醒<span class="rent-msg-tab__count">3</span></button>
+  <button type="button" class="rent-msg-tab" data-cat="service">服务消息<span class="rent-msg-tab__count">3</span></button>
+</div>
+
+<!-- 消息列表 -->
+<div class="rent-mobile__card rent-msg-card">
+
+  <!-- 系统：欢迎使用 RentFlow（已读） -->
+  <div class="rent-msg-item" data-cat="system">
+    <div class="rent-msg-icon rent-msg-icon--system">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    </div>
+    <div class="rent-msg-body">
+      <div class="rent-msg-head">
+        <span class="rent-msg-title">欢迎使用 RentFlow</span>
+      </div>
+      <div class="rent-msg-summary">你好，王租客！欢迎加入 RentFlow 数字化租住平台，祝你生活愉快。</div>
+    </div>
+    <div class="rent-msg-time">8月3日</div>
+  </div>
+
+  <!-- 租务：本月租金到期（未读 · 重点） -->
+  <div class="rent-msg-item" data-cat="rent" data-unread="true">
+    <div class="rent-msg-icon rent-msg-icon--rent">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </div>
+    <div class="rent-msg-body">
+      <div class="rent-msg-head">
+        <span class="rent-msg-title">本月租金缴纳提醒</span>
+        <span class="rent-msg-dot"></span>
+        <span class="rent-badge rent-badge--warning" style="font-size:10px;padding:2px 8px;">即将到期</span>
+      </div>
+      <div class="rent-msg-summary">本月租金 RM 3,800 将于 8月15日到期，请及时缴纳，避免产生滞纳金。</div>
+    </div>
+    <div class="rent-msg-time">今天 09:20</div>
+  </div>
+
+  <!-- 租务：租约即将到期（未读） -->
+  <div class="rent-msg-item" data-cat="rent" data-unread="true">
+    <div class="rent-msg-icon rent-msg-icon--rent">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </div>
+    <div class="rent-msg-body">
+      <div class="rent-msg-head">
+        <span class="rent-msg-title">租约即将到期</span>
+        <span class="rent-msg-dot"></span>
+      </div>
+      <div class="rent-msg-summary">您的租约将于 2026-09-15 到期，可提前联系房东续约或办理退租。</div>
+    </div>
+    <div class="rent-msg-time">今天 08:45</div>
+  </div>
+
+  <!-- 报修：报修单已受理（未读） -->
+  <div class="rent-msg-item" data-cat="service" data-unread="true">
+    <div class="rent-msg-icon rent-msg-icon--maint">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+    </div>
+    <div class="rent-msg-body">
+      <div class="rent-msg-head">
+        <span class="rent-msg-title">报修单已受理</span>
+        <span class="rent-msg-dot"></span>
+      </div>
+      <div class="rent-msg-summary">报修单 #MT-002 空调不制冷 已受理，预计 8月7日完成维修。</div>
+    </div>
+    <div class="rent-msg-time">昨天 17:30</div>
+  </div>
+
+  <!-- 服务：清洁服务已完成（已读） -->
+  <div class="rent-msg-item" data-cat="service">
+    <div class="rent-msg-icon rent-msg-icon--service">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/></svg>
+    </div>
+    <div class="rent-msg-body">
+      <div class="rent-msg-head">
+        <span class="rent-msg-title">清洁服务已完成</span>
+      </div>
+      <div class="rent-msg-summary">您预约的清洁服务已完成，感谢使用，欢迎再次预约。</div>
+    </div>
+    <div class="rent-msg-time">昨天 15:10</div>
+  </div>
+
+  <!-- 系统：支付凭证已确认（已读） -->
+  <div class="rent-msg-item" data-cat="system">
+    <div class="rent-msg-icon rent-msg-icon--system">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    </div>
+    <div class="rent-msg-body">
+      <div class="rent-msg-head">
+        <span class="rent-msg-title">支付凭证已确认</span>
+      </div>
+      <div class="rent-msg-summary">您于 7月28日提交的租金支付凭证已审核确认，可在文档中心查看。</div>
+    </div>
+    <div class="rent-msg-time">7月29日</div>
+  </div>
+
+  <!-- 服务：新增搬家服务（未读） -->
+  <div class="rent-msg-item" data-cat="service" data-unread="true">
+    <div class="rent-msg-icon rent-msg-icon--service">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/></svg>
+    </div>
+    <div class="rent-msg-body">
+      <div class="rent-msg-head">
+        <span class="rent-msg-title">新增搬家服务</span>
+        <span class="rent-msg-dot"></span>
+      </div>
+      <div class="rent-msg-summary">新增搬家服务，点击查看详情并预约上门。</div>
+    </div>
+    <div class="rent-msg-time">7月28日</div>
+  </div>
+
+  <!-- 租务：押金退款流程说明（已读） -->
+  <div class="rent-msg-item" data-cat="rent">
+    <div class="rent-msg-icon rent-msg-icon--rent">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </div>
+    <div class="rent-msg-body">
+      <div class="rent-msg-head">
+        <span class="rent-msg-title">押金退款流程说明</span>
+      </div>
+      <div class="rent-msg-summary">退租后押金将按合同约定流程原路退还，详情见文档中心「退租指南」。</div>
+    </div>
+    <div class="rent-msg-time">7月25日</div>
+  </div>
+
+</div>
+  </main>
+
+    <nav class="rent-mobile__bottom-nav">
+    <a class="rent-mobile__tab" data-nav-key="tenant-mobile-dashboard" href="tenant-mobile-dashboard.html" data-dom-id="nav-tenant-mobile-dashboard">
+      <svg class="rent-mobile__tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>首页</span>
+    </a>
+    <a class="rent-mobile__tab" data-nav-key="tenant-mobile-property-browse" href="tenant-mobile-property-browse.html" data-dom-id="nav-tenant-mobile-property-browse">
+      <svg class="rent-mobile__tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="11" cy="13" r="3"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>找房</span>
+    </a>
+    <a class="rent-mobile__tab" data-nav-key="tenant-mobile-messages" href="tenant-mobile-messages.html" data-dom-id="nav-tenant-mobile-messages" data-active="true">
+      <svg class="rent-mobile__tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span>消息</span>
+    </a>
+    <a class="rent-mobile__tab" data-nav-key="tenant-mobile-profile" href="tenant-mobile-profile.html" data-dom-id="nav-tenant-mobile-profile">
+      <svg class="rent-mobile__tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>我的</span>
+    </a>
+  </nav>
+    <a data-dom-id="nav-tenant-mobile-payments" href="tenant-mobile-payments.html" style="display:none"></a>
+    <a data-dom-id="nav-tenant-mobile-documents" href="tenant-mobile-documents.html" style="display:none"></a>
+    <a data-dom-id="nav-tenant-mobile-services" href="tenant-mobile-services.html" style="display:none"></a>
+    <a data-dom-id="nav-tenant-mobile-maintenance" href="tenant-mobile-maintenance.html" style="display:none"></a>
+</div>
+    <script>
+      (function () {
+        var tabs = document.querySelectorAll('.rent-msg-tab');
+        tabs.forEach(function (tab) {
+          tab.addEventListener('click', function () {
+            tabs.forEach(function (t) { t.removeAttribute('data-active'); });
+            tab.setAttribute('data-active', 'true');
+            var cat = tab.getAttribute('data-cat') || 'all';
+            document.querySelectorAll('.rent-msg-item').forEach(function (item) {
+              item.style.display = (cat === 'all' || item.getAttribute('data-cat') === cat) ? '' : 'none';
+            });
+          });
+        });
+        var btn = document.querySelector('[data-dom-id="mark-all-read"]');
+        if (btn) {
+          btn.addEventListener('click', function () {
+            document.querySelectorAll('.rent-msg-item[data-unread="true"]').forEach(function (item) {
+              item.setAttribute('data-unread', 'false');
+            });
+            document.querySelectorAll('.rent-msg-dot').forEach(function (dot) { dot.style.display = 'none'; });
+            var sub = document.querySelector('.rent-msg-sub');
+            if (sub) sub.textContent = '共 8 条消息 · 全部已读';
+          });
+        }
+      })();
+    </script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

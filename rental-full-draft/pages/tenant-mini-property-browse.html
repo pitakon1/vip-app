@@ -1,0 +1,1833 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>找房源</title>
+    <style id="theme-vars">
+/* =========================================================
+   房地产租赁管理后台 — 品牌设计令牌 (Modern Light)
+   单一靛蓝主色 · 冷调浅灰底 · 白色卡片 · 细边框 · 克制圆角
+   ========================================================= */
+
+:root {
+  /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
+  --rent-background: #f2f4f8;
+  --rent-foreground: #0f172a;
+  --rent-card: #ffffff;
+  --rent-card-foreground: #0f172a;
+  --rent-popover: #ffffff;
+  --rent-popover-foreground: #0f172a;
+  --rent-primary: #4263eb;
+  --rent-primary-foreground: #ffffff;
+  --rent-muted: #f1f5f9;
+  --rent-muted-foreground: #64748b;
+  --rent-border: #e6eaf0;
+  --rent-input: #e6eaf0;
+  --rent-ring: #4263eb;
+
+  /* ---- 中性阶梯（直接引用） ---- */
+  --rent-ink: #0f172a;
+  --rent-ink-2: #475569;
+  --rent-ink-3: #94a3b8;
+  --rent-line: #e6eaf0;
+  --rent-surface: #ffffff;
+  --rent-surface-2: #f1f5f9;
+  --rent-sidebar: #ffffff;
+  --rent-sidebar-active: #eef2ff;
+
+  /* ---- 状态色（仅语义状态） ---- */
+  --state-success: #16a34a;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #0ea5e9;
+
+  /* ---- 圆角（克制阶梯，上限 16px） ---- */
+  --rent-radius-sm: 6px;
+  --rent-radius-md: 12px;
+  --rent-radius-lg: 20px;
+  --rent-radius-full: 9999px;
+
+  /* ---- 阴影（静态面 alpha ≤ 0.05；深阴影仅浮层） ---- */
+  --rent-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --rent-shadow-2: 0 12px 32px -12px rgba(15, 23, 42, 0.16);
+  --rent-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.30);
+
+  /* ---- 间距（8pt 网格） ---- */
+  --rent-s-1: 4px;
+  --rent-s-2: 8px;
+  --rent-s-3: 12px;
+  --rent-s-4: 16px;
+  --rent-s-5: 24px;
+  --rent-s-6: 32px;
+  --rent-s-7: 48px;
+  --rent-s-8: 80px;
+
+  /* ---- 字体系统 ---- */
+  --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  color-scheme: light;
+}
+
+/* ---- 暗色模式（双模变量，设计态默认 light） ---- */
+.dark {
+  --rent-background: #0b0f1a;
+  --rent-foreground: #e8edf5;
+  --rent-card: #141a26;
+  --rent-card-foreground: #e8edf5;
+  --rent-popover: #141a26;
+  --rent-popover-foreground: #e8edf5;
+  --rent-primary: #6b82f5;
+  --rent-primary-foreground: #0b0f1a;
+  --rent-muted: #1c2433;
+  --rent-muted-foreground: #94a3b8;
+  --rent-border: #243044;
+  --rent-input: #243044;
+  --rent-ring: #6b82f5;
+
+  --rent-ink: #e8edf5;
+  --rent-ink-2: #a3aec2;
+  --rent-ink-3: #64748b;
+  --rent-line: #243044;
+  --rent-surface: #141a26;
+  --rent-surface-2: #1c2433;
+  --rent-sidebar: #0f1521;
+  --rent-sidebar-active: #1e2a44;
+
+  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --rent-shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.50);
+  --rent-shadow-3: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+
+  color-scheme: dark;
+}
+
+/* ---- 排版类 ---- */
+.rent-h1 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(24px, 2.6vw, 32px);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--rent-ink);
+}
+
+.rent-h2 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(20px, 2vw, 24px);
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--rent-ink);
+}
+
+.rent-h3 {
+  font-family: var(--rent-font-sans);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--rent-ink);
+}
+
+.rent-body-lg {
+  font-family: var(--rent-font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-body {
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-caption {
+  font-family: var(--rent-font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: var(--rent-ink-3);
+}
+
+.rent-mono {
+  font-family: var(--rent-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.rent-num {
+  font-family: var(--rent-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--rent-background);
+    --color-foreground: var(--rent-foreground);
+    --color-card: var(--rent-card);
+    --color-card-foreground: var(--rent-card-foreground);
+    --color-popover: var(--rent-popover);
+    --color-popover-foreground: var(--rent-popover-foreground);
+    --color-primary: var(--rent-primary);
+    --color-primary-foreground: var(--rent-primary-foreground);
+    --color-muted: var(--rent-muted);
+    --color-muted-foreground: var(--rent-muted-foreground);
+    --color-border: var(--rent-border);
+    --color-input: var(--rent-input);
+    --color-ring: var(--rent-ring);
+    --color-sidebar: var(--rent-sidebar);
+    --radius-sm: var(--rent-radius-sm);
+    --radius-md: var(--rent-radius-md);
+    --radius-lg: var(--rent-radius-lg);
+  }
+  @layer base {
+    body { background: var(--rent-background); color: var(--rent-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--rent-background); }
+      .text-background { color: var(--rent-background); }
+      .border-background { border-color: var(--rent-background); }
+      .ring-background { --tw-ring-color: var(--rent-background); }
+      .bg-foreground { background-color: var(--rent-foreground); }
+      .text-foreground { color: var(--rent-foreground); }
+      .border-foreground { border-color: var(--rent-foreground); }
+      .ring-foreground { --tw-ring-color: var(--rent-foreground); }
+      .bg-card { background-color: var(--rent-card); }
+      .text-card { color: var(--rent-card); }
+      .border-card { border-color: var(--rent-card); }
+      .ring-card { --tw-ring-color: var(--rent-card); }
+      .bg-card-foreground { background-color: var(--rent-card-foreground); }
+      .text-card-foreground { color: var(--rent-card-foreground); }
+      .border-card-foreground { border-color: var(--rent-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--rent-card-foreground); }
+      .bg-popover { background-color: var(--rent-popover); }
+      .text-popover { color: var(--rent-popover); }
+      .border-popover { border-color: var(--rent-popover); }
+      .ring-popover { --tw-ring-color: var(--rent-popover); }
+      .bg-popover-foreground { background-color: var(--rent-popover-foreground); }
+      .text-popover-foreground { color: var(--rent-popover-foreground); }
+      .border-popover-foreground { border-color: var(--rent-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--rent-popover-foreground); }
+      .bg-primary { background-color: var(--rent-primary); }
+      .text-primary { color: var(--rent-primary); }
+      .border-primary { border-color: var(--rent-primary); }
+      .ring-primary { --tw-ring-color: var(--rent-primary); }
+      .bg-primary-foreground { background-color: var(--rent-primary-foreground); }
+      .text-primary-foreground { color: var(--rent-primary-foreground); }
+      .border-primary-foreground { border-color: var(--rent-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--rent-primary-foreground); }
+      .bg-muted { background-color: var(--rent-muted); }
+      .text-muted { color: var(--rent-muted); }
+      .border-muted { border-color: var(--rent-muted); }
+      .ring-muted { --tw-ring-color: var(--rent-muted); }
+      .bg-muted-foreground { background-color: var(--rent-muted-foreground); }
+      .text-muted-foreground { color: var(--rent-muted-foreground); }
+      .border-muted-foreground { border-color: var(--rent-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--rent-muted-foreground); }
+      .bg-border { background-color: var(--rent-border); }
+      .text-border { color: var(--rent-border); }
+      .border-border { border-color: var(--rent-border); }
+      .ring-border { --tw-ring-color: var(--rent-border); }
+      .bg-input { background-color: var(--rent-input); }
+      .text-input { color: var(--rent-input); }
+      .border-input { border-color: var(--rent-input); }
+      .ring-input { --tw-ring-color: var(--rent-input); }
+      .bg-ring { background-color: var(--rent-ring); }
+      .text-ring { color: var(--rent-ring); }
+      .border-ring { border-color: var(--rent-ring); }
+      .ring-ring { --tw-ring-color: var(--rent-ring); }
+      .bg-sidebar { background-color: var(--rent-sidebar); }
+      .text-sidebar { color: var(--rent-sidebar); }
+      .border-sidebar { border-color: var(--rent-sidebar); }
+      .ring-sidebar { --tw-ring-color: var(--rent-sidebar); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+    <style id="rent-components">
+/* ===== App Shell Layout ===== */
+.rent-app {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas: "sidebar topbar" "sidebar main";
+  height: 100vh;
+  background: var(--rent-background);
+}
+.rent-app__sidebar { grid-area: sidebar; }
+.rent-app__topbar { grid-area: topbar; }
+.rent-app__main { grid-area: main; overflow-y: auto; }
+
+/* ===== Sidebar ===== */
+.rent-sidebar {
+  background: var(--rent-sidebar);
+  border-right: 1px solid var(--rent-border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+.rent-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  height: 56px;
+  border-bottom: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+.rent-sidebar__logo {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-primary);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 16px;
+  flex-shrink: 0;
+}
+.rent-sidebar__name {
+  font-family: var(--rent-font-sans);
+  font-size: 15px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  list-style: none;
+  margin: 0;
+}
+.rent-sidebar__section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rent-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 16px 12px 6px;
+}
+.rent-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 2px;
+}
+.rent-nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.rent-nav-item[data-active="true"] {
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-nav-item__icon {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-sidebar__footer {
+  padding: 12px;
+  border-top: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+
+/* ===== Topbar ===== */
+.rent-topbar {
+  background: var(--rent-surface);
+  border-bottom: 1px solid var(--rent-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.rent-topbar__left { display: flex; align-items: center; gap: 16px; }
+.rent-topbar__title {
+  font-size: 18px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-topbar__right { display: flex; align-items: center; gap: 12px; }
+.rent-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--rent-surface-2);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 7px 12px;
+  width: 280px;
+}
+.rent-search input {
+  border: none; background: none; outline: none;
+  font-size: 13px; color: var(--rent-ink);
+  flex: 1;
+  font-family: var(--rent-font-sans);
+}
+.rent-search input::placeholder { color: var(--rent-ink-3); }
+.rent-icon-btn {
+  width: 36px; height: 36px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+}
+.rent-icon-btn:hover { background: var(--rent-surface-2); }
+.rent-icon-btn__badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 16px; height: 16px;
+  border-radius: var(--rent-radius-full);
+  background: var(--state-error);
+  color: #fff;
+  font-size: 10px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-avatar {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+  flex-shrink: 0;
+}
+.rent-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
+.rent-avatar--lg { width: 48px; height: 48px; font-size: 18px; }
+
+/* ===== Main Content ===== */
+.rent-main {
+  padding: 24px;
+  max-width: 100%;
+}
+.rent-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+.rent-page-header__title {
+  font-size: 24px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.rent-page-header__subtitle {
+  font-size: 14px;
+  color: var(--rent-ink-3);
+}
+.rent-page-header__actions {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===== Card ===== */
+.rent-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  overflow: hidden;
+}
+.rent-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-card__title {
+  font-size: 16px; font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0;
+}
+.rent-card__body { padding: 20px; }
+.rent-card__footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--rent-border);
+  background: var(--rent-surface-2);
+}
+
+/* ===== Button ===== */
+.rent-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--rent-font-sans);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.rent-btn--primary {
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
+}
+.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--secondary {
+  background: var(--rent-surface);
+  border-color: var(--rent-border);
+  color: var(--rent-ink);
+}
+.rent-btn--secondary:hover { background: var(--rent-surface-2); }
+.rent-btn--ghost {
+  background: transparent;
+  color: var(--rent-ink-2);
+}
+.rent-btn--ghost:hover { background: var(--rent-surface-2); }
+.rent-btn--danger {
+  background: var(--state-error);
+  color: #fff;
+}
+.rent-btn--danger:hover { background: #b91c1c; }
+.rent-btn--success {
+  background: var(--state-success);
+  color: #fff;
+}
+.rent-btn--sm { padding: 5px 12px; font-size: 13px; }
+.rent-btn--lg { padding: 12px 24px; font-size: 15px; }
+.rent-btn--block { width: 100%; }
+.rent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== Table ===== */
+.rent-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--rent-radius-lg);
+  border: 1px solid var(--rent-border);
+}
+.rent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.rent-table thead th {
+  background: var(--rent-surface-2);
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  border-bottom: 1px solid var(--rent-border);
+  white-space: nowrap;
+}
+.rent-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rent-border);
+  color: var(--rent-ink);
+  vertical-align: middle;
+}
+.rent-table tbody tr:last-child td { border-bottom: none; }
+.rent-table tbody tr:hover { background: var(--rent-surface-2); }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+
+/* ===== Badge ===== */
+.rent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--rent-radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.rent-badge--success { background: rgba(22,163,74,0.1); color: var(--state-success); }
+.rent-badge--warning { background: rgba(217,119,6,0.1); color: var(--state-warning); }
+.rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
+.rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
+.rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
+.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+/* ===== KPI / Stat Card ===== */
+.rent-stat-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+}
+.rent-stat-card__label {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-bottom: 8px;
+}
+.rent-stat-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.rent-stat-card__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.rent-stat-card__delta--up { color: var(--state-success); }
+.rent-stat-card__delta--down { color: var(--state-error); }
+.rent-stat-card__icon {
+  width: 40px; height: 40px;
+  border-radius: var(--rent-radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===== Grid Utilities ===== */
+.rent-grid { display: grid; gap: 16px; }
+.rent-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.rent-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.rent-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.rent-grid--auto { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+
+/* ===== Misc ===== */
+.rent-divider { height: 1px; background: var(--rent-border); margin: 16px 0; border: none; }
+.rent-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--rent-ink-3);
+}
+.rent-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--rent-border);
+  margin-bottom: 20px;
+}
+.rent-tab {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.rent-tab:hover { color: var(--rent-ink); }
+.rent-tab[data-active="true"] {
+  color: var(--rent-primary);
+  border-bottom-color: var(--rent-primary);
+}
+.rent-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-full);
+  overflow: hidden;
+}
+.rent-progress__bar {
+  height: 100%;
+  background: var(--rent-primary);
+  border-radius: var(--rent-radius-full);
+  transition: width 0.3s;
+}
+
+/* ===== Utility ===== */
+.rent-flex { display: flex; }
+.rent-flex--center { align-items: center; justify-content: center; }
+.rent-flex--between { align-items: center; justify-content: space-between; }
+.rent-flex--col { flex-direction: column; }
+.rent-gap-2 { gap: 8px; }
+.rent-gap-3 { gap: 12px; }
+.rent-gap-4 { gap: 16px; }
+.rent-mt-2 { margin-top: 8px; }
+.rent-mt-3 { margin-top: 12px; }
+.rent-mt-4 { margin-top: 16px; }
+.rent-mt-5 { margin-top: 24px; }
+.rent-mb-2 { margin-bottom: 8px; }
+.rent-mb-3 { margin-bottom: 12px; }
+.rent-mb-4 { margin-bottom: 16px; }
+.rent-mb-5 { margin-bottom: 24px; }
+.rent-text-right { text-align: right; }
+.rent-text-center { text-align: center; }
+.rent-text-sm { font-size: 13px; }
+.rent-text-muted { color: var(--rent-ink-3); }
+.rent-text-bold { font-weight: 600; }
+.rent-w-full { width: 100%; }
+
+/* ===== Timeline ===== */
+.rent-timeline { position: relative; padding-left: 24px; }
+.rent-timeline::before {
+  content: "";
+  position: absolute;
+  left: 7px; top: 4px; bottom: 4px;
+  width: 2px;
+  background: var(--rent-border);
+}
+.rent-timeline__item {
+  position: relative;
+  padding-bottom: 20px;
+}
+.rent-timeline__item:last-child { padding-bottom: 0; }
+.rent-timeline__dot {
+  position: absolute;
+  left: -24px; top: 4px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 3px solid var(--rent-surface);
+  box-shadow: 0 0 0 2px var(--rent-border);
+  background: var(--rent-ink-3);
+}
+.rent-timeline__dot--success { background: var(--state-success); box-shadow: 0 0 0 2px rgba(22,163,74,0.2); }
+.rent-timeline__dot--info { background: var(--state-info); box-shadow: 0 0 0 2px rgba(14,165,233,0.2); }
+.rent-timeline__dot--warning { background: var(--state-warning); box-shadow: 0 0 0 2px rgba(217,119,6,0.2); }
+.rent-timeline__dot--neutral { background: var(--rent-ink-3); box-shadow: 0 0 0 2px var(--rent-border); }
+.rent-mobile {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--rent-background);
+  position: relative;
+  padding-bottom: 72px;
+  box-shadow: 0 0 40px rgba(15, 23, 42, 0.08);
+}
+.rent-mobile__header {
+  background: var(--rent-surface);
+  border-bottom: 1px solid var(--rent-border);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.rent-mobile__header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rent-mobile__logo {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.rent-mobile__title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-mobile__header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rent-mobile__main {
+  padding: 16px;
+}
+.rent-mobile__bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  background: var(--rent-surface);
+  border-top: 1px solid var(--rent-border);
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0 12px;
+  z-index: 50;
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.06);
+}
+.rent-mobile__tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s;
+  flex: 1;
+}
+.rent-mobile__tab:hover { color: var(--rent-ink-2); }
+.rent-mobile__tab[data-active="true"] { color: var(--rent-primary); }
+.rent-mobile__tab-icon { width: 22px; height: 22px; flex-shrink: 0; }
+
+/* Mobile card */
+.rent-mobile__card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.rent-mobile__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.rent-mobile__card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0;
+}
+.rent-mobile__section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 20px 0 12px;
+  letter-spacing: -0.01em;
+}
+.rent-mobile__section-title:first-child { margin-top: 0; }
+
+/* Mobile list item */
+.rent-mobile__list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-mobile__list-item:last-child { border-bottom: none; }
+
+/* Mobile quick action grid */
+.rent-mobile__quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.rent-mobile__quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 4px;
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.rent-mobile__quick-action:hover { background: var(--rent-surface-2); }
+.rent-mobile__quick-action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--rent-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.rent-mobile__quick-action-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* Mobile hero banner */
+.rent-mobile__hero {
+  background: linear-gradient(135deg, var(--rent-primary) 0%, #3b51d4 100%);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+  color: #fff;
+}
+.rent-mobile__hero-greeting {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+.rent-mobile__hero-sub {
+  font-size: 13px;
+  color: rgba(255,255,255,0.85);
+  margin: 0 0 16px;
+}
+.rent-mobile__hero-stats {
+  display: flex;
+  gap: 16px;
+}
+.rent-mobile__hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rent-mobile__hero-stat-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+}
+.rent-mobile__hero-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mobile stat row */
+.rent-mobile__stat-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.rent-mobile__stat {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 14px;
+}
+.rent-mobile__stat-label {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin-bottom: 4px;
+}
+.rent-mobile__stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.rent-mobile__stat-badge {
+  display: inline-block;
+  margin-top: 4px;
+}
+
+/* Mobile FAB */
+.rent-mobile__fab {
+  position: fixed;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(calc(215px - 28px));
+  width: 48px;
+  height: 48px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--rent-shadow-2);
+  z-index: 40;
+  transition: background 0.15s;
+}
+.rent-mobile__fab:hover { background: #3b51d4; }
+
+/* ===== Property Browse — Search Section ===== */
+.rent-prop-search-wrap {
+  position: sticky;
+  top: 56px;
+  z-index: 40;
+  background: var(--rent-background);
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-prop-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-full);
+  padding: 9px 14px;
+}
+.rent-prop-searchbar input {
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--rent-ink);
+  flex: 1;
+  font-family: var(--rent-font-sans);
+  min-width: 0;
+}
+.rent-prop-searchbar input::placeholder { color: var(--rent-ink-3); }
+
+.rent-prop-filter-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-top: 10px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.rent-prop-filter-row::-webkit-scrollbar { display: none; }
+.rent-prop-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 12px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.rent-prop-chip:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.rent-prop-chip[data-active="true"] {
+  background: rgba(66,99,235,0.1);
+  border-color: rgba(66,99,235,0.3);
+  color: var(--rent-primary);
+}
+.rent-prop-chip svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+.rent-prop-result-count {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  padding: 10px 16px 4px;
+}
+.rent-prop-result-count strong {
+  color: var(--rent-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Property Browse — Card ===== */
+.rent-prop-mobile-card {
+  display: flex;
+  gap: 12px;
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: var(--rent-shadow-1);
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+}
+.rent-prop-mobile-card:hover {
+  box-shadow: var(--rent-shadow-2);
+  border-color: rgba(66,99,235,0.25);
+}
+.rent-prop-mobile-card:active { transform: scale(0.99); }
+.rent-prop-mobile-card__thumb {
+  position: relative;
+  width: 120px;
+  height: 100px;
+  border-radius: var(--rent-radius-md);
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rent-prop-mobile-card__thumb-icon {
+  width: 34px;
+  height: 34px;
+  color: rgba(255,255,255,0.92);
+}
+.rent-prop-mobile-card__type-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--rent-radius-sm);
+  backdrop-filter: blur(4px);
+}
+.rent-prop-mobile-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+.rent-prop-mobile-card__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+.rent-prop-mobile-card__addr {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin: 0 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rent-prop-mobile-card__tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.rent-prop-mobile-card__tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: var(--rent-radius-sm);
+  background: var(--rent-surface-2);
+  color: var(--rent-ink-2);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.rent-prop-mobile-card__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+}
+.rent-prop-mobile-card__price {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--rent-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.rent-prop-mobile-card__price-unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  margin-left: 1px;
+}
+
+/* Load more */
+.rent-prop-load-more {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 12px;
+  margin: 4px 0 16px;
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.rent-prop-load-more:hover {
+  background: var(--rent-surface-2);
+  color: var(--rent-primary);
+}
+
+/* 6-tab tight layout override */
+.rent-mobile__bottom-nav--six .rent-mobile__tab {
+  padding: 4px 4px;
+  font-size: 10px;
+  gap: 2px;
+}
+.rent-mobile__bottom-nav--six .rent-mobile__tab-icon {
+  width: 20px;
+  height: 20px;
+}
+    </style>
+    <style id="rent-beike-overlay">
+/* =========================================================
+   RentFlow × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #4263eb · 消费级 App 形态 · 大圆角卡片流
+   仅注入用户端页面 (租客/业主/员工)，后台管理不注入
+   注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
+   ========================================================= */
+
+/* ---- 全局背景 ---- */
+body {
+  background: var(--rent-background);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== 顶部导航 / 头部：毛玻璃白底 ===== */
+.rent-portal__header,
+.rent-topbar,
+.rent-mobile__header,
+.rent-pad__topbar {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 10px 30px -18px rgba(15, 23, 42, 0.18);
+}
+.rent-portal__logo,
+.rent-sidebar__logo,
+.rent-mobile__logo,
+.rent-pad__logo {
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+}
+.rent-portal__nav-item,
+.rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
+
+/* ===== 搜索体验：胶囊搜索 ===== */
+.rent-search { border-radius: 999px; background: var(--rent-surface-2); }
+.rent-search input { background: transparent; }
+.rent-search-hero__bar {
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 10px 32px -10px rgba(66, 99, 235, 0.40);
+}
+.rent-search-hero__search-btn {
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4263eb, #6b82f5);
+  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.50);
+}
+.rent-search-hero__tag { border-radius: 999px; }
+
+/* ===== 筛选 chips：胶囊 ===== */
+.rent-filter-chip,
+.lj-filter-bar__chip,
+.rent-filter-chip[data-active="true"] { border-radius: 999px; }
+.rent-filter-bar {
+  border-radius: var(--rent-radius-lg);
+  background: var(--rent-card);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 卡片：大圆角 + 柔和浮起 ===== */
+.rent-card,
+.rent-stat-card,
+.rent-mobile__card,
+.rent-quick-action,
+.rent-prop-search-card,
+.rent-table-wrap {
+  border-radius: var(--rent-radius-lg);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 房源卡片：图片圆角 + 价格强调 ===== */
+.rent-prop-search-card { overflow: hidden; }
+.rent-prop-search-card__banner { border-radius: 0; }
+.rent-prop-search-card__price-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--rent-primary);
+  letter-spacing: -0.02em;
+}
+.rent-prop-search-card__price-unit { font-size: 12px; color: var(--rent-ink-3); }
+.rent-prop-search-card__tags .rent-badge,
+.rent-badge { border-radius: 999px; padding: 3px 10px; }
+.rent-prop-search-card__cta {
+  border-radius: 999px;
+  background: rgba(66, 99, 235, 0.08);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-prop-search-card__name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* ===== 金刚区 / 快捷入口：圆角宫格 ===== */
+.rent-quick-action,
+.rent-mobile__quick-action {
+  border-radius: 18px;
+  border: none;
+  box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.12);
+}
+.rent-quick-action__icon,
+.rent-mobile__quick-action-icon { border-radius: 16px; }
+
+/* ===== 按钮：渐变 + 柔和投影 ===== */
+.rent-btn { border-radius: 10px; }
+.rent-btn--primary {
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4263eb, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.45);
+}
+
+/* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
+.rent-mobile__tab { border-radius: 14px; }
+.rent-mobile__tab[data-active="true"] {
+  background: rgba(66, 99, 235, 0.08);
+  font-weight: 600;
+}
+
+/* ===== 侧边栏导航 (web/pad) ===== */
+.rent-nav-item,
+.rent-pad__nav-item { border-radius: 12px; }
+.rent-nav-item[data-active="true"],
+.rent-pad__nav-item[data-active="true"] {
+  background: linear-gradient(135deg, rgba(66, 99, 235, 0.10), rgba(107, 130, 245, 0.08));
+  font-weight: 600;
+}
+
+/* ===== Hero 渐变强化 ===== */
+.rent-hero,
+.rent-portal-hero,
+.rent-mobile__hero {
+  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+}
+
+/* ===== 头像 ===== */
+.rent-avatar { border-radius: 14px; }
+.rent-avatar--sm { border-radius: 10px; }
+
+    </style>
+    <style id="rent-v17-styles">
+/* =========================================================
+   v1.7 双业务模式（整租 / 合租 / 买房）· 对标贝壳 C 端找房
+   仅新增 rv17-* 类，不覆盖既有类
+   ========================================================= */
+
+/* ---- 顶部业务 Tab：主色下划线高亮当前 ---- */
+.rv17-bizbar { display: flex; align-items: center; gap: 2px; }
+.rv17-bizbar__item {
+  position: relative;
+  padding: 10px 16px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--rent-ink-3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: color .15s;
+  white-space: nowrap;
+}
+.rv17-bizbar__item:hover { color: var(--rent-ink); }
+.rv17-bizbar__item[data-active="true"] { color: var(--rent-primary); font-weight: 700; }
+.rv17-bizbar__item[data-active="true"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 4px;
+  width: 22px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--rent-primary);
+}
+
+/* ---- 地图模式按钮（icon + 文字） ---- */
+.rv17-map-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--rent-border);
+  background: var(--rent-card);
+  color: var(--rent-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: all .15s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.rv17-map-btn:hover { border-color: var(--rent-primary); color: var(--rent-primary); }
+.rv17-map-btn[data-active="true"] {
+  background: rgba(66,99,235,0.08);
+  border-color: var(--rent-primary);
+  color: var(--rent-primary);
+}
+.rv17-filter-map { margin-left: auto; }
+.rv17-pad-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+
+/* ---- 地图视图（模拟）：渐变底 + 白色道路 + 点位 + 底部卡片条 ---- */
+.rv17-map {
+  display: none;
+  position: relative;
+  height: 460px;
+  margin-bottom: 16px;
+  border-radius: var(--rent-radius-lg);
+  overflow: hidden;
+  background: linear-gradient(160deg, #e6f2e8 0%, #d5e8f5 40%, #eef3df 70%, #e9f0e6 100%);
+  box-shadow: var(--rent-shadow-1);
+}
+.rv17-map[data-active="true"] { display: block; }
+.rv17-map__legend {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 3;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.92);
+  font-size: 11px;
+  color: var(--rent-ink-2);
+  box-shadow: var(--rent-shadow-1);
+}
+.rv17-map__water {
+  position: absolute;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(125,183,247,0.55), rgba(96,165,250,0.42));
+}
+.rv17-map__park {
+  position: absolute;
+  border-radius: 22px;
+  background: rgba(133,209,143,0.30);
+  border: 2px dashed rgba(122,196,139,0.55);
+}
+.rv17-map__road {
+  position: absolute;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 0 0 1px rgba(226,232,240,0.9);
+  z-index: 1;
+}
+.rv17-map__road--h { height: 14px; left: -6%; right: -6%; }
+.rv17-map__road--v { width: 14px; top: -6%; bottom: -6%; }
+.rv17-map__road--diag { height: 10px; }
+.rv17-map__marker {
+  position: absolute;
+  z-index: 2;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--rent-primary);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(66,99,235,0.55);
+  cursor: pointer;
+}
+.rv17-map__marker::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: rgba(66,99,235,0.25);
+  animation: rv17-pulse 1.8s ease-out infinite;
+}
+.rv17-map__marker--sale { background: #f59e0b; box-shadow: 0 2px 8px rgba(245,158,11,0.55); }
+.rv17-map__marker--sale::after { background: rgba(245,158,11,0.28); }
+@keyframes rv17-pulse {
+  0% { transform: scale(0.55); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+.rv17-map__strip {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 4;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.rv17-map__mini {
+  flex: 0 0 160px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 26px -10px rgba(15,23,42,0.30);
+  cursor: pointer;
+}
+.rv17-map__mini-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rv17-map__mini-price {
+  margin-top: 3px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--rent-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.rv17-map__mini-tag {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(66,99,235,0.08);
+  color: var(--rent-primary);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ---- 移动端微调 ---- */
+@media (max-width: 640px) {
+  .rv17-map { height: 420px; }
+  .rv17-map__mini { flex: 0 0 132px; }
+  .rv17-bizbar__item { padding: 10px 12px; font-size: 14px; }
+}
+    </style>
+  </head>
+<body class="font-sans antialiased">
+    <div class="rent-mobile" data-viewport-mode="document-scroll">
+  <header class="rent-mobile__header" style="height:56px;">
+    <div class="rent-mobile__header-left">
+      <h1 class="rent-mobile__title">找房源</h1>
+    </div>
+    <div class="rent-mobile__header-right">
+      <button class="rent-icon-btn" style="width:32px;height:32px;border:none;background:transparent;" aria-label="消息通知">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="rent-icon-btn__badge">1</span>
+      </button>
+      <div class="rent-wx-capsule" style="display:flex;align-items:center;height:32px;border:1px solid var(--rent-border);border-radius:16px;padding:0 8px;gap:8px;background:rgba(255,255,255,0.6);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--rent-ink-2)"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+        <div style="width:1px;height:14px;background:var(--rent-border);"></div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <main class="rent-mobile__main" data-scroll-region="primary" style="padding:0;">
+
+    <!-- Sticky Search Section -->
+    <div class="rent-prop-search-wrap">
+      <div class="rent-prop-searchbar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="输入区域、小区名..." aria-label="搜索房源" />
+      </div>
+      <div class="rv17-bizbar">
+        <button class="rv17-bizbar__item" type="button" data-biz="rent" data-active="true">整租</button>
+        <button class="rv17-bizbar__item" type="button" data-biz="share">合租</button>
+        <button class="rv17-bizbar__item" type="button" data-biz="sale">买房</button>
+      </div>
+      <div class="rent-prop-filter-row">
+        <span class="rent-prop-chip" data-active="true">区域
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+        <span class="rent-prop-chip">价格
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+        <span class="rent-prop-chip">户型
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+        <span class="rent-prop-chip">面积
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+        <span class="rent-prop-chip">排序
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+        <button class="rv17-map-btn rv17-filter-map" id="rv17-map-btn" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          地图
+        </button>
+      </div>
+    </div>
+
+    <!-- Result count -->
+    <div class="rent-prop-result-count">共 <strong id="rv17-count">248</strong> 套房源</div>
+
+    <!-- Property card list -->
+    <div style="padding:0 16px;">
+
+      <!-- v1.7 整租①：阳光花园 A座12-3 · RM 3,800/月 -->
+      <div class="rent-prop-mobile-card" data-biz="rent">
+        <div class="rent-prop-mobile-card__thumb" style="position:relative;background: linear-gradient(135deg, #4263eb 0%, #3b51d4 100%);">
+<button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+          <svg class="rent-prop-mobile-card__thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+          <span class="rent-prop-mobile-card__type-badge">公寓</span>
+        </div>
+        <div class="rent-prop-mobile-card__body">
+          <h3 class="rent-prop-mobile-card__name">阳光花园 A座12-3</h3>
+          <p class="rent-prop-mobile-card__addr">吉隆坡 · 2室1卫</p>
+          <div class="rent-prop-mobile-card__tags">
+            <span class="rent-prop-mobile-card__tag">近地铁</span>
+            <span class="rent-prop-mobile-card__tag">精装</span>
+            <span class="rent-prop-mobile-card__tag">视频看房</span>
+          </div>
+          <div class="rent-prop-mobile-card__bottom">
+            <span class="rent-prop-mobile-card__price">RM 3,800<span class="rent-prop-mobile-card__price-unit">/月</span></span>
+            <span class="rent-badge rent-badge--success">在租</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- v1.7 整租②：海景公寓 05-08 · RM 4,500/月 -->
+      <div class="rent-prop-mobile-card" data-biz="rent">
+        <div class="rent-prop-mobile-card__thumb" style="position:relative;background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);">
+<button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+          <svg class="rent-prop-mobile-card__thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+          <span class="rent-prop-mobile-card__type-badge">公寓</span>
+        </div>
+        <div class="rent-prop-mobile-card__body">
+          <h3 class="rent-prop-mobile-card__name">海景公寓 05-08</h3>
+          <p class="rent-prop-mobile-card__addr">槟城海景路 · 1室1卫</p>
+          <div class="rent-prop-mobile-card__tags">
+            <span class="rent-prop-mobile-card__tag">海景</span>
+            <span class="rent-prop-mobile-card__tag">视频看房</span>
+            <span class="rent-prop-mobile-card__tag">拎包入住</span>
+          </div>
+          <div class="rent-prop-mobile-card__bottom">
+            <span class="rent-prop-mobile-card__price">RM 4,500<span class="rent-prop-mobile-card__price-unit">/月</span></span>
+            <span class="rent-badge rent-badge--success">在租</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- v1.7 整租③：城中别墅 21号 · RM 12,000/月 -->
+      <div class="rent-prop-mobile-card" data-biz="rent">
+        <div class="rent-prop-mobile-card__thumb" style="position:relative;background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);">
+<button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+          <svg class="rent-prop-mobile-card__thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/><path d="M19 10v12"/><path d="M22 14h-6"/></svg>
+          <span class="rent-prop-mobile-card__type-badge">别墅</span>
+        </div>
+        <div class="rent-prop-mobile-card__body">
+          <h3 class="rent-prop-mobile-card__name">城中别墅 21号</h3>
+          <p class="rent-prop-mobile-card__addr">吉隆坡城中花园 · 4室3卫</p>
+          <div class="rent-prop-mobile-card__tags">
+            <span class="rent-prop-mobile-card__tag">独栋</span>
+            <span class="rent-prop-mobile-card__tag">花园</span>
+            <span class="rent-prop-mobile-card__tag">视频看房</span>
+          </div>
+          <div class="rent-prop-mobile-card__bottom">
+            <span class="rent-prop-mobile-card__price">RM 12,000<span class="rent-prop-mobile-card__price-unit">/月</span></span>
+            <span class="rent-badge rent-badge--success">在租</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- v1.7 整租④：翡翠湖景 2室1厅 · RM 2,600/月 -->
+      <div class="rent-prop-mobile-card" data-biz="rent">
+        <div class="rent-prop-mobile-card__thumb" style="position:relative;background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);">
+<button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+          <svg class="rent-prop-mobile-card__thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+          <span class="rent-prop-mobile-card__type-badge">公寓</span>
+        </div>
+        <div class="rent-prop-mobile-card__body">
+          <h3 class="rent-prop-mobile-card__name">翡翠湖景 2室1厅</h3>
+          <p class="rent-prop-mobile-card__addr">梳邦翡翠湖 · 2室1卫</p>
+          <div class="rent-prop-mobile-card__tags">
+            <span class="rent-prop-mobile-card__tag">近地铁</span>
+            <span class="rent-prop-mobile-card__tag">精装</span>
+          </div>
+          <div class="rent-prop-mobile-card__bottom">
+            <span class="rent-prop-mobile-card__price">RM 2,600<span class="rent-prop-mobile-card__price-unit">/月</span></span>
+            <span class="rent-badge rent-badge--info">空置</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- v1.7 合租：阳光花园 B座单间 · RM 1,400/月 -->
+      <div class="rent-prop-mobile-card" data-biz="share">
+        <div class="rent-prop-mobile-card__thumb" style="position:relative;background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+<button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+          <svg class="rent-prop-mobile-card__thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7l1-4h18l1 4"/><path d="M5 7v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7"/><path d="M2 7h20"/><path d="M9 21v-6h6v6"/></svg>
+          <span class="rent-prop-mobile-card__type-badge">合租</span>
+        </div>
+        <div class="rent-prop-mobile-card__body">
+          <h3 class="rent-prop-mobile-card__name">阳光花园 B座单间</h3>
+          <p class="rent-prop-mobile-card__addr">吉隆坡阳光花园 · 单间</p>
+          <div class="rent-prop-mobile-card__tags">
+            <span class="rent-prop-mobile-card__tag">合租</span>
+            <span class="rent-prop-mobile-card__tag">近地铁</span>
+            <span class="rent-prop-mobile-card__tag">押一付一</span>
+          </div>
+          <div class="rent-prop-mobile-card__bottom">
+            <span class="rent-prop-mobile-card__price">RM 1,400<span class="rent-prop-mobile-card__price-unit">/月</span></span>
+            <span class="rent-badge rent-badge--success">在租</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- v1.7 买房①：海景华庭 · ฿ 2,800,000 -->
+      <div class="rent-prop-mobile-card" data-biz="sale">
+        <div class="rent-prop-mobile-card__thumb" style="position:relative;background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);">
+<button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+          <svg class="rent-prop-mobile-card__thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M2 13h20"/></svg>
+          <span class="rent-prop-mobile-card__type-badge">在售</span>
+        </div>
+        <div class="rent-prop-mobile-card__body">
+          <h3 class="rent-prop-mobile-card__name">海景华庭</h3>
+          <p class="rent-prop-mobile-card__addr">曼谷湄南河畔 · 2室1厅 85㎡</p>
+          <div class="rent-prop-mobile-card__tags">
+            <span class="rent-prop-mobile-card__tag">可售</span>
+            <span class="rent-prop-mobile-card__tag">近地铁</span>
+          </div>
+          <div class="rent-prop-mobile-card__bottom">
+            <span class="rent-prop-mobile-card__price">฿ 2,800,000<span class="rent-prop-mobile-card__price-unit"> 总价</span></span>
+            <span class="rent-badge rent-badge--warning">在售</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- v1.7 买房②：阳光花园二期 · ฿ 3,500,000 -->
+      <div class="rent-prop-mobile-card" data-biz="sale">
+        <div class="rent-prop-mobile-card__thumb" style="position:relative;background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+<button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+          <svg class="rent-prop-mobile-card__thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M2 13h20"/></svg>
+          <span class="rent-prop-mobile-card__type-badge">在售</span>
+        </div>
+        <div class="rent-prop-mobile-card__body">
+          <h3 class="rent-prop-mobile-card__name">阳光花园二期</h3>
+          <p class="rent-prop-mobile-card__addr">吉隆坡阳光花园 · 3室2厅 120㎡</p>
+          <div class="rent-prop-mobile-card__tags">
+            <span class="rent-prop-mobile-card__tag">可售</span>
+            <span class="rent-prop-mobile-card__tag">学区</span>
+            <span class="rent-prop-mobile-card__tag">近地铁</span>
+          </div>
+          <div class="rent-prop-mobile-card__bottom">
+            <span class="rent-prop-mobile-card__price">฿ 3,500,000<span class="rent-prop-mobile-card__price-unit"> 总价</span></span>
+            <span class="rent-badge rent-badge--warning">在售</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- v1.7 买房③：Central Park 名邸 · ฿ 5,200,000 -->
+      <div class="rent-prop-mobile-card" data-biz="sale">
+        <div class="rent-prop-mobile-card__thumb" style="position:relative;background: linear-gradient(135deg, #0f172a 0%, #4263eb 90%);">
+<button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+          <svg class="rent-prop-mobile-card__thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M2 13h20"/></svg>
+          <span class="rent-prop-mobile-card__type-badge">在售</span>
+        </div>
+        <div class="rent-prop-mobile-card__body">
+          <h3 class="rent-prop-mobile-card__name">Central Park 名邸</h3>
+          <p class="rent-prop-mobile-card__addr">曼谷 Central Park · 4室2厅 180㎡</p>
+          <div class="rent-prop-mobile-card__tags">
+            <span class="rent-prop-mobile-card__tag">可售</span>
+            <span class="rent-prop-mobile-card__tag">学区</span>
+            <span class="rent-prop-mobile-card__tag">豪华精装</span>
+          </div>
+          <div class="rent-prop-mobile-card__bottom">
+            <span class="rent-prop-mobile-card__price">฿ 5,200,000<span class="rent-prop-mobile-card__price-unit"> 总价</span></span>
+            <span class="rent-badge rent-badge--warning">在售</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Load more -->
+      <button class="rent-prop-load-more" type="button">加载更多房源</button>
+
+    </div>
+
+    <!-- v1.7 地图模式（模拟） -->
+    <section class="rv17-map" id="rv17-map-view" data-active="false">
+      <span class="rv17-map__legend">地图模式 · 曼谷 / 吉隆坡 · 点击点位查看房源</span>
+      <div class="rv17-map__water" style="right:6%;top:8%;width:130px;height:86px;"></div>
+      <div class="rv17-map__park" style="left:8%;bottom:22%;width:150px;height:96px;"></div>
+      <div class="rv17-map__park" style="right:20%;top:34%;width:104px;height:72px;"></div>
+      <div class="rv17-map__road rv17-map__road--h" style="top:26%;"></div>
+      <div class="rv17-map__road rv17-map__road--h" style="top:60%;"></div>
+      <div class="rv17-map__road rv17-map__road--v" style="left:30%;"></div>
+      <div class="rv17-map__road rv17-map__road--v" style="left:66%;"></div>
+      <div class="rv17-map__road rv17-map__road--diag" style="top:44%;left:-10%;width:130%;transform:rotate(24deg);"></div>
+      <div class="rv17-map__marker" style="left:16%;top:24%;" title="阳光花园 A座12-3"></div>
+      <div class="rv17-map__marker" style="left:40%;top:46%;" title="海景公寓 05-08"></div>
+      <div class="rv17-map__marker" style="left:60%;top:20%;" title="城中别墅 21号"></div>
+      <div class="rv17-map__marker rv17-map__marker--sale" style="left:46%;top:68%;" title="阳光花园二期 ฿3.5M"></div>
+      <div class="rv17-map__marker rv17-map__marker--sale" style="left:73%;top:48%;" title="海景华庭 ฿2.8M"></div>
+      <div class="rv17-map__marker rv17-map__marker--sale" style="left:27%;top:70%;" title="Central Park 名邸 ฿5.2M"></div>
+      <div class="rv17-map__strip">
+        <div class="rv17-map__mini"><div class="rv17-map__mini-name">阳光花园二期 · 3室2厅</div><div class="rv17-map__mini-price">฿ 3,500,000</div><span class="rv17-map__mini-tag">可售</span></div>
+        <div class="rv17-map__mini"><div class="rv17-map__mini-name">海景华庭 · 2室1厅</div><div class="rv17-map__mini-price">฿ 2,800,000</div><span class="rv17-map__mini-tag">可售</span></div>
+        <div class="rv17-map__mini"><div class="rv17-map__mini-name">Central Park 名邸 · 4室2厅</div><div class="rv17-map__mini-price">฿ 5,200,000</div><span class="rv17-map__mini-tag">可售</span></div>
+        <div class="rv17-map__mini"><div class="rv17-map__mini-name">阳光花园 B座单间</div><div class="rv17-map__mini-price">RM 1,400/月</div><span class="rv17-map__mini-tag">合租</span></div>
+      </div>
+    </section>
+
+    <script>
+    (function(){
+      var tabs = document.querySelectorAll('.rv17-bizbar__item');
+      var mapBtn = document.getElementById('rv17-map-btn');
+      var mapView = document.getElementById('rv17-map-view');
+      var countEl = document.getElementById('rv17-count');
+      function applyBiz(b){
+        tabs.forEach(function(t){ t.dataset.active = (t.dataset.biz === b) ? 'true' : 'false'; });
+        document.querySelectorAll('.rent-prop-mobile-card').forEach(function(c){
+          c.style.display = (c.dataset.biz === b) ? '' : 'none';
+        });
+        if(countEl){
+          countEl.textContent = document.querySelectorAll('[data-biz="'+b+'"]').length;
+        }
+      }
+      tabs.forEach(function(t){
+        t.addEventListener('click', function(){ applyBiz(t.dataset.biz); });
+      });
+      if(mapBtn && mapView){
+        mapBtn.addEventListener('click', function(){
+          var on = mapView.getAttribute('data-active') === 'true';
+          mapView.setAttribute('data-active', on ? 'false' : 'true');
+          mapBtn.setAttribute('data-active', on ? 'false' : 'true');
+        });
+      }
+      applyBiz('rent');
+    })();
+    </script>
+  </main>
+
+    <nav class="rent-mobile__bottom-nav">
+    <a class="rent-mobile__tab" data-nav-key="tenant-mini-dashboard" href="tenant-mini-dashboard.html" data-dom-id="nav-tenant-mini-dashboard">
+      <svg class="rent-mobile__tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>首页</span>
+    </a>
+    <a class="rent-mobile__tab" data-nav-key="tenant-mini-property-browse" href="tenant-mini-property-browse.html" data-dom-id="nav-tenant-mini-property-browse" data-active="true">
+      <svg class="rent-mobile__tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="11" cy="13" r="3"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>找房</span>
+    </a>
+    <a class="rent-mobile__tab" data-nav-key="tenant-mini-messages" href="tenant-mini-messages.html" data-dom-id="nav-tenant-mini-messages">
+      <svg class="rent-mobile__tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span>消息</span>
+    </a>
+    <a class="rent-mobile__tab" data-nav-key="tenant-mini-profile" href="tenant-mini-profile.html" data-dom-id="nav-tenant-mini-profile">
+      <svg class="rent-mobile__tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>我的</span>
+    </a>
+  </nav>
+    <a data-dom-id="nav-tenant-mini-payments" href="tenant-mini-payments.html" style="display:none"></a>
+    <a data-dom-id="nav-tenant-mini-documents" href="tenant-mini-documents.html" style="display:none"></a>
+    <a data-dom-id="nav-tenant-mini-services" href="tenant-mini-services.html" style="display:none"></a>
+    <a data-dom-id="nav-tenant-mini-maintenance" href="tenant-mini-maintenance.html" style="display:none"></a>
+</div>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

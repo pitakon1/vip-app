@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客户管理</title>
+    <style id="theme-vars">
+:root {
+  --rent-background: #f5f7fa; --rent-foreground: #0f172a;
+  --rent-card: #ffffff; --rent-card-foreground: #0f172a;
+  --rent-popover: #ffffff; --rent-popover-foreground: #0f172a;
+  --rent-primary: #4263eb; --rent-primary-foreground: #ffffff;
+  --rent-muted: #f1f5f9; --rent-muted-foreground: #64748b;
+  --rent-border: #e6eaf0; --rent-input: #e6eaf0; --rent-ring: #4263eb;
+  --rent-ink: #0f172a; --rent-ink-2: #475569; --rent-ink-3: #94a3b8;
+  --rent-line: #e6eaf0; --rent-surface: #ffffff; --rent-surface-2: #f1f5f9;
+  --rent-sidebar: #ffffff; --rent-sidebar-active: #eef2ff;
+  --state-success: #16a34a; --state-warning: #d97706; --state-error: #dc2626; --state-info: #0ea5e9;
+  --rent-radius-sm: 4px; --rent-radius-md: 8px; --rent-radius-lg: 16px; --rent-radius-full: 9999px;
+  --rent-shadow-1: 0 1px 2px rgba(15,23,42,.04), 0 1px 1px rgba(15,23,42,.03);
+  --rent-shadow-2: 0 8px 24px -8px rgba(15,23,42,.18);
+  --rent-shadow-3: 0 24px 60px -20px rgba(15,23,42,.30);
+  --rent-s-1: 4px; --rent-s-2: 8px; --rent-s-3: 12px; --rent-s-4: 16px; --rent-s-5: 24px;
+  --rent-s-6: 32px; --rent-s-7: 48px; --rent-s-8: 80px;
+  --rent-font-sans: "Inter","Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --rent-font-mono: "JetBrains Mono",ui-monospace,"SFMono-Regular",monospace;
+  color-scheme: light;
+}
+.dark {
+  --rent-background: #0b0f1a; --rent-foreground: #e8edf5;
+  --rent-card: #141a26; --rent-card-foreground: #e8edf5;
+  --rent-popover: #141a26; --rent-popover-foreground: #e8edf5;
+  --rent-primary: #6b82f5; --rent-primary-foreground: #0b0f1a;
+  --rent-muted: #1c2433; --rent-muted-foreground: #94a3b8;
+  --rent-border: #243044; --rent-input: #243044; --rent-ring: #6b82f5;
+  --rent-ink: #e8edf5; --rent-ink-2: #a3aec2; --rent-ink-3: #64748b;
+  --rent-line: #243044; --rent-surface: #141a26; --rent-surface-2: #1c2433;
+  --rent-sidebar: #0f1521; --rent-sidebar-active: #1e2a44;
+  --rent-shadow-1: 0 1px 2px rgba(0,0,0,.30);
+  --rent-shadow-2: 0 8px 24px -8px rgba(0,0,0,.50);
+  --rent-shadow-3: 0 24px 60px -20px rgba(0,0,0,.65);
+  color-scheme: dark;
+}
+.rent-h1 { font-family: var(--rent-font-sans); font-size: clamp(24px,2.6vw,32px); line-height: 1.2; font-weight: 600; letter-spacing: -.02em; color: var(--rent-ink); }
+.rent-h2 { font-family: var(--rent-font-sans); font-size: clamp(20px,2vw,24px); line-height: 1.25; font-weight: 600; letter-spacing: -.015em; color: var(--rent-ink); }
+.rent-h3 { font-family: var(--rent-font-sans); font-size: 18px; line-height: 1.3; font-weight: 600; letter-spacing: -.01em; color: var(--rent-ink); }
+.rent-body-lg { font-family: var(--rent-font-sans); font-size: 16px; line-height: 1.6; font-weight: 400; color: var(--rent-ink-2); }
+.rent-body { font-family: var(--rent-font-sans); font-size: 14px; line-height: 1.6; font-weight: 400; color: var(--rent-ink-2); }
+.rent-caption { font-family: var(--rent-font-sans); font-size: 12px; line-height: 1.5; font-weight: 400; letter-spacing: .005em; color: var(--rent-ink-3); }
+.rent-mono { font-family: var(--rent-font-mono); font-size: 13px; line-height: 1.5; font-weight: 500; font-variant-numeric: tabular-nums; }
+.rent-num { font-family: var(--rent-font-sans); font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: -.02em; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--rent-background); --color-foreground: var(--rent-foreground);
+    --color-card: var(--rent-card); --color-card-foreground: var(--rent-card-foreground);
+    --color-popover: var(--rent-popover); --color-popover-foreground: var(--rent-popover-foreground);
+    --color-primary: var(--rent-primary); --color-primary-foreground: var(--rent-primary-foreground);
+    --color-muted: var(--rent-muted); --color-muted-foreground: var(--rent-muted-foreground);
+    --color-border: var(--rent-border); --color-input: var(--rent-input);
+    --color-ring: var(--rent-ring); --color-sidebar: var(--rent-sidebar);
+    --radius-sm: var(--rent-radius-sm); --radius-md: var(--rent-radius-md); --radius-lg: var(--rent-radius-lg);
+  }
+  @layer base {
+    body { background: var(--rent-background); color: var(--rent-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--rent-background); } .text-background { color: var(--rent-background); } .border-background { border-color: var(--rent-background); }
+      .bg-foreground { background-color: var(--rent-foreground); } .text-foreground { color: var(--rent-foreground); } .border-foreground { border-color: var(--rent-foreground); }
+      .bg-card { background-color: var(--rent-card); } .text-card { color: var(--rent-card); } .border-card { border-color: var(--rent-card); }
+      .bg-card-foreground { background-color: var(--rent-card-foreground); } .text-card-foreground { color: var(--rent-card-foreground); }
+      .bg-popover { background-color: var(--rent-popover); } .text-popover { color: var(--rent-popover); } .border-popover { border-color: var(--rent-popover); }
+      .bg-primary { background-color: var(--rent-primary); } .text-primary { color: var(--rent-primary); } .border-primary { border-color: var(--rent-primary); }
+      .bg-primary-foreground { background-color: var(--rent-primary-foreground); } .text-primary-foreground { color: var(--rent-primary-foreground); }
+      .bg-muted { background-color: var(--rent-muted); } .text-muted { color: var(--rent-muted); } .border-muted { border-color: var(--rent-muted); }
+      .bg-muted-foreground { background-color: var(--rent-muted-foreground); } .text-muted-foreground { color: var(--rent-muted-foreground); }
+      .bg-border { background-color: var(--rent-border); } .text-border { color: var(--rent-border); }
+      .bg-input { background-color: var(--rent-input); } .text-input { color: var(--rent-input); }
+      .bg-ring { background-color: var(--rent-ring); } .text-ring { color: var(--rent-ring); }
+      .bg-sidebar { background-color: var(--rent-sidebar); } .text-sidebar { color: var(--rent-sidebar); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style id="rent-components">
+.rent-app { display: grid; grid-template-columns: 240px 1fr; grid-template-rows: 56px 1fr; grid-template-areas: "sidebar topbar" "sidebar main"; height: 100vh; background: var(--rent-background); }
+.rent-app__sidebar { grid-area: sidebar; } .rent-app__topbar { grid-area: topbar; } .rent-app__main { grid-area: main; overflow-y: auto; }
+.rent-sidebar { background: var(--rent-sidebar); border-right: 1px solid var(--rent-border); display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; }
+.rent-sidebar__brand { display: flex; align-items: center; gap: 10px; padding: 0 20px; height: 56px; border-bottom: 1px solid var(--rent-border); flex-shrink: 0; }
+.rent-sidebar__logo { width: 32px; height: 32px; border-radius: var(--rent-radius-md); background: var(--rent-primary); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 16px; flex-shrink: 0; }
+.rent-sidebar__name { font-family: var(--rent-font-sans); font-size: 15px; font-weight: 600; color: var(--rent-ink); letter-spacing: -.01em; }
+.rent-sidebar__nav { flex: 1; overflow-y: auto; padding: 8px; list-style: none; margin: 0; }
+.rent-sidebar__section-label { font-size: 11px; font-weight: 600; color: var(--rent-ink-3); text-transform: uppercase; letter-spacing: .06em; padding: 16px 12px 6px; }
+.rent-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--rent-radius-md); font-size: 14px; font-weight: 500; color: var(--rent-ink-2); text-decoration: none; cursor: pointer; transition: background .15s, color .15s; margin-bottom: 2px; }
+.rent-nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.rent-nav-item[data-active="true"] { background: var(--rent-sidebar-active); color: var(--rent-primary); font-weight: 600; }
+.rent-nav-item__icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.rent-sidebar__footer { padding: 12px; border-top: 1px solid var(--rent-border); flex-shrink: 0; }
+.rent-topbar { background: var(--rent-surface); border-bottom: 1px solid var(--rent-border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 56px; position: sticky; top: 0; z-index: 10; }
+.rent-topbar__left { display: flex; align-items: center; gap: 16px; }
+.rent-topbar__title { font-size: 18px; font-weight: 600; color: var(--rent-ink); letter-spacing: -.01em; }
+.rent-topbar__right { display: flex; align-items: center; gap: 12px; }
+.rent-search { display: flex; align-items: center; gap: 8px; background: var(--rent-surface-2); border: 1px solid var(--rent-border); border-radius: var(--rent-radius-md); padding: 7px 12px; width: 280px; }
+.rent-search input { border: none; background: none; outline: none; font-size: 13px; color: var(--rent-ink); flex: 1; font-family: var(--rent-font-sans); }
+.rent-search input::placeholder { color: var(--rent-ink-3); }
+.rent-icon-btn { width: 36px; height: 36px; border: 1px solid var(--rent-border); border-radius: var(--rent-radius-md); background: var(--rent-surface); display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; transition: background .15s; }
+.rent-icon-btn:hover { background: var(--rent-surface-2); }
+.rent-icon-btn__badge { position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; border-radius: var(--rent-radius-full); background: var(--state-error); color: #fff; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.rent-avatar { width: 32px; height: 32px; border-radius: var(--rent-radius-full); background: var(--rent-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+.rent-avatar--sm { width: 28px; height: 28px; font-size: 12px; } .rent-avatar--lg { width: 48px; height: 48px; font-size: 18px; }
+.rent-main { padding: 24px; max-width: 100%; }
+.rent-page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; gap: 16px; }
+.rent-page-header__title { font-size: 24px; font-weight: 600; color: var(--rent-ink); letter-spacing: -.02em; margin: 0 0 4px; }
+.rent-page-header__subtitle { font-size: 14px; color: var(--rent-ink-3); }
+.rent-page-header__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.rent-card { background: var(--rent-card); border: 1px solid var(--rent-border); border-radius: var(--rent-radius-lg); overflow: hidden; }
+.rent-card__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--rent-border); }
+.rent-card__title { font-size: 16px; font-weight: 600; color: var(--rent-ink); margin: 0; }
+.rent-card__body { padding: 20px; }
+.rent-card__footer { padding: 12px 20px; border-top: 1px solid var(--rent-border); background: var(--rent-surface-2); }
+.rent-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: var(--rent-radius-md); font-size: 14px; font-weight: 500; font-family: var(--rent-font-sans); border: 1px solid transparent; cursor: pointer; transition: background .15s, border-color .15s, box-shadow .15s; text-decoration: none; white-space: nowrap; line-height: 1.4; }
+.rent-btn--primary { background: var(--rent-primary); color: var(--rent-primary-foreground); } .rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--secondary { background: var(--rent-surface); border-color: var(--rent-border); color: var(--rent-ink); } .rent-btn--secondary:hover { background: var(--rent-surface-2); }
+.rent-btn--ghost { background: transparent; color: var(--rent-ink-2); } .rent-btn--ghost:hover { background: var(--rent-surface-2); }
+.rent-btn--danger { background: var(--state-error); color: #fff; } .rent-btn--danger:hover { background: #b91c1c; }
+.rent-btn--success { background: var(--state-success); color: #fff; }
+.rent-btn--sm { padding: 5px 12px; font-size: 13px; } .rent-btn--lg { padding: 12px 24px; font-size: 15px; }
+.rent-btn--block { width: 100%; } .rent-btn:disabled { opacity: .5; cursor: not-allowed; }
+.rent-table-wrap { overflow-x: auto; border-radius: var(--rent-radius-lg); border: 1px solid var(--rent-border); }
+.rent-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.rent-table thead th { background: var(--rent-surface-2); padding: 12px 16px; text-align: left; font-weight: 600; font-size: 13px; color: var(--rent-ink-2); border-bottom: 1px solid var(--rent-border); white-space: nowrap; }
+.rent-table tbody td { padding: 12px 16px; border-bottom: 1px solid var(--rent-border); color: var(--rent-ink); vertical-align: middle; }
+.rent-table tbody tr:last-child td { border-bottom: none; } .rent-table tbody tr:hover { background: var(--rent-surface-2); }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+.rent-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--rent-radius-full); font-size: 12px; font-weight: 500; line-height: 1.4; }
+.rent-badge--success { background: rgba(22,163,74,.1); color: var(--state-success); }
+.rent-badge--warning { background: rgba(217,119,6,.1); color: var(--state-warning); }
+.rent-badge--error { background: rgba(220,38,38,.1); color: var(--state-error); }
+.rent-badge--info { background: rgba(14,165,233,.1); color: var(--state-info); }
+.rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
+.rent-badge--primary { background: rgba(66,99,235,.1); color: var(--rent-primary); }
+.rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.rent-form-group { margin-bottom: 20px; }
+.rent-form-label { display: block; font-size: 13px; font-weight: 500; color: var(--rent-ink); margin-bottom: 6px; }
+.rent-form-input, .rent-form-select, .rent-form-textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--rent-border); border-radius: var(--rent-radius-md); font-size: 14px; font-family: var(--rent-font-sans); color: var(--rent-ink); background: var(--rent-surface); outline: none; transition: border-color .15s, box-shadow .15s; }
+.rent-form-input:focus, .rent-form-select:focus, .rent-form-textarea:focus { border-color: var(--rent-primary); box-shadow: 0 0 0 3px rgba(66,99,235,.1); }
+.rent-form-textarea { resize: vertical; min-height: 80px; }
+.rent-form-hint { font-size: 12px; color: var(--rent-ink-3); margin-top: 4px; }
+.rent-form-row { display: flex; gap: 16px; } .rent-form-row > * { flex: 1; }
+.rent-stat-card { background: var(--rent-card); border: 1px solid var(--rent-border); border-radius: var(--rent-radius-lg); padding: 20px; }
+.rent-stat-card__label { font-size: 13px; color: var(--rent-ink-3); margin-bottom: 8px; }
+.rent-stat-card__value { font-size: 28px; font-weight: 700; color: var(--rent-ink); font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1.1; }
+.rent-stat-card__delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; margin-top: 8px; }
+.rent-stat-card__delta--up { color: var(--state-success); } .rent-stat-card__delta--down { color: var(--state-error); }
+.rent-stat-card__icon { width: 40px; height: 40px; border-radius: var(--rent-radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rent-grid { display: grid; gap: 16px; }
+.rent-grid--2 { grid-template-columns: repeat(2,1fr); } .rent-grid--3 { grid-template-columns: repeat(3,1fr); } .rent-grid--4 { grid-template-columns: repeat(4,1fr); }
+.rent-grid--auto { grid-template-columns: repeat(auto-fill,minmax(280px,1fr)); }
+.rent-filter-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.rent-filter-bar__search { flex: 1; min-width: 200px; max-width: 320px; }
+.rent-pagination { display: flex; align-items: center; gap: 4px; justify-content: flex-end; padding: 16px 0; }
+.rent-pagination__btn { min-width: 32px; height: 32px; border: 1px solid var(--rent-border); border-radius: var(--rent-radius-sm); background: var(--rent-surface); display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--rent-ink-2); cursor: pointer; padding: 0 8px; }
+.rent-pagination__btn:hover { background: var(--rent-surface-2); }
+.rent-pagination__btn[data-active="true"] { background: var(--rent-primary); color: #fff; border-color: var(--rent-primary); }
+.rent-pagination__info { font-size: 13px; color: var(--rent-ink-3); margin-right: 12px; }
+.rent-modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.rent-modal { background: var(--rent-surface); border: 1px solid var(--rent-border); border-radius: var(--rent-radius-lg); box-shadow: var(--rent-shadow-3); max-width: 560px; width: 90%; max-height: 85vh; overflow-y: auto; }
+.rent-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--rent-border); }
+.rent-modal__body { padding: 20px; }
+.rent-modal__footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--rent-border); }
+.rent-divider { height: 1px; background: var(--rent-border); margin: 16px 0; border: none; }
+.rent-empty { text-align: center; padding: 48px 20px; color: var(--rent-ink-3); }
+.rent-empty__icon { margin-bottom: 12px; opacity: .4; }
+.rent-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--rent-border); margin-bottom: 20px; }
+.rent-tab { padding: 10px 16px; font-size: 14px; font-weight: 500; color: var(--rent-ink-3); border-bottom: 2px solid transparent; cursor: pointer; transition: color .15s, border-color .15s; }
+.rent-tab:hover { color: var(--rent-ink); }
+.rent-tab[data-active="true"] { color: var(--rent-primary); border-bottom-color: var(--rent-primary); }
+.rent-progress { width: 100%; height: 6px; background: var(--rent-surface-2); border-radius: var(--rent-radius-full); overflow: hidden; }
+.rent-progress__bar { height: 100%; background: var(--rent-primary); border-radius: var(--rent-radius-full); transition: width .3s; }
+.rent-kanban { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
+.rent-kanban__column { flex: 0 0 300px; background: var(--rent-surface-2); border-radius: var(--rent-radius-lg); padding: 12px; }
+.rent-kanban__column-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding: 0 4px; }
+.rent-kanban__column-title { font-size: 13px; font-weight: 600; color: var(--rent-ink); }
+.rent-kanban__column-count { font-size: 12px; color: var(--rent-ink-3); background: var(--rent-surface); padding: 2px 8px; border-radius: var(--rent-radius-full); }
+.rent-kanban__card { background: var(--rent-surface); border: 1px solid var(--rent-border); border-radius: var(--rent-radius-md); padding: 12px; margin-bottom: 8px; cursor: pointer; transition: box-shadow .15s; }
+.rent-kanban__card:hover { box-shadow: var(--rent-shadow-1); }
+.rent-calendar { display: grid; grid-template-columns: repeat(7,1fr); gap: 1px; background: var(--rent-border); border-radius: var(--rent-radius-md); overflow: hidden; }
+.rent-calendar__day-header { background: var(--rent-surface-2); padding: 8px; text-align: center; font-size: 12px; font-weight: 600; color: var(--rent-ink-2); }
+.rent-calendar__cell { background: var(--rent-surface); padding: 8px; min-height: 72px; font-size: 13px; color: var(--rent-ink-2); }
+.rent-calendar__cell--today { background: var(--rent-sidebar-active); font-weight: 600; color: var(--rent-primary); }
+.rent-calendar__cell--other { opacity: .4; }
+.rent-calendar__event { font-size: 11px; padding: 2px 6px; border-radius: var(--rent-radius-sm); margin-top: 2px; background: rgba(66,99,235,.1); color: var(--rent-primary); }
+.rent-flex { display: flex; }
+.rent-flex--center { align-items: center; justify-content: center; }
+.rent-flex--between { align-items: center; justify-content: space-between; }
+.rent-flex--col { flex-direction: column; }
+.rent-gap-2 { gap: 8px; } .rent-gap-3 { gap: 12px; } .rent-gap-4 { gap: 16px; }
+.rent-mt-2 { margin-top: 8px; } .rent-mt-3 { margin-top: 12px; } .rent-mt-4 { margin-top: 16px; } .rent-mt-5 { margin-top: 24px; }
+.rent-mb-2 { margin-bottom: 8px; } .rent-mb-3 { margin-bottom: 12px; } .rent-mb-4 { margin-bottom: 16px; } .rent-mb-5 { margin-bottom: 24px; }
+.rent-text-right { text-align: right; } .rent-text-center { text-align: center; }
+.rent-text-sm { font-size: 13px; } .rent-text-muted { color: var(--rent-ink-3); } .rent-text-bold { font-weight: 600; }
+.rent-w-full { width: 100%; }
+</style>
+</head>
+<body class="font-sans antialiased">
+<svg style="display:none">
+<symbol id="ic-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+<symbol id="ic-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+<symbol id="ic-trend-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></symbol>
+</svg>
+<div class="rent-app" data-viewport-mode="app-shell">
+  <aside class="rent-app__sidebar">
+    <div class="rent-sidebar">
+      <div class="rent-sidebar__brand">
+        <div class="rent-sidebar__logo">R</div>
+        <span class="rent-sidebar__name">RentFlow 管理后台</span>
+      </div>
+      <nav class="rent-sidebar__nav">
+        <div class="rent-sidebar__section-label">概览</div>
+        <a class="rent-nav-item" data-nav-key="admin-dashboard" href="admin-dashboard.html" data-dom-id="nav-admin-dashboard">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>数据总览</span>
+        </a>
+        <div class="rent-sidebar__section-label">业务管理</div>
+        <a class="rent-nav-item" data-nav-key="admin-properties" href="admin-properties.html" data-dom-id="nav-admin-properties">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span>房源管理</span>
+        </a>
+        <a class="rent-nav-item" data-nav-key="admin-crm" href="admin-crm.html" data-active="true" data-dom-id="nav-admin-crm">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>客户管理</span>
+        </a>
+        <a class="rent-nav-item" data-nav-key="admin-leases" href="admin-leases.html" data-dom-id="nav-admin-leases">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span>合同管理</span>
+        </a>
+        <a class="rent-nav-item" data-nav-key="admin-payments" href="admin-payments.html" data-dom-id="nav-admin-payments">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          <span>收付款管理</span>
+        </a>
+        <div class="rent-sidebar__section-label">系统</div>
+        <a class="rent-nav-item" data-nav-key="admin-employees" href="admin-employees.html" data-dom-id="nav-admin-employees">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>员工管理</span>
+        </a>
+        <a class="rent-nav-item" data-nav-key="admin-settings" href="admin-settings.html" data-dom-id="nav-admin-settings">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>系统设置</span>
+        </a>
+      </nav>
+      <div class="rent-sidebar__footer">
+        <div class="rent-flex rent-flex--between rent-gap-3">
+          <div class="rent-flex rent-gap-2" style="align-items:center;">
+            <div class="rent-avatar rent-avatar--sm">管</div>
+            <div>
+              <div class="rent-text-sm rent-text-bold">管理员</div>
+              <div class="rent-text-sm rent-text-muted">admin@rentflow.com</div>
+            </div>
+          </div>
+          <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login">退出</a>
+        </div>
+      </div>
+    </div>
+  </aside>
+  <header class="rent-app__topbar">
+    <div class="rent-topbar">
+      <div class="rent-topbar__left">
+        <h1 class="rent-topbar__title">客户管理</h1>
+      </div>
+      <div class="rent-topbar__right">
+        <div class="rent-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="搜索房源、客户、合同...">
+        </div>
+        <button class="rent-icon-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="rent-icon-btn__badge">3</span>
+        </button>
+        <div class="rent-avatar">管</div>
+      </div>
+    </div>
+  </header>
+  <main class="rent-app__main overflow-y-auto" data-scroll-region="primary">
+    <div class="rent-main">
+      <div class="rent-page-header">
+        <div>
+          <h2 class="rent-page-header__title">客户管理</h2>
+          <p class="rent-page-header__subtitle">管理客户线索与跟进状态</p>
+        </div>
+        <div class="rent-page-header__actions">
+          <button class="rent-btn rent-btn--secondary"><svg width="16" height="16"><use href="#ic-upload"/></svg>导入</button>
+          <button class="rent-btn rent-btn--primary"><svg width="16" height="16"><use href="#ic-plus"/></svg>新增客户</button>
+        </div>
+      </div>
+      <div class="rent-tabs">
+        <div class="rent-tab" data-active="true"><span class="rent-flex rent-gap-2" style="align-items:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/><rect x="14" y="18" width="7" height="3" rx="1"/></svg>看板视图</span></div>
+        <div class="rent-tab"><span class="rent-flex rent-gap-2" style="align-items:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>列表视图</span></div>
+      </div>
+      <div class="rent-kanban">
+        <!-- 新线索 (8) -->
+        <div class="rent-kanban__column">
+          <div class="rent-kanban__column-header"><span class="rent-kanban__column-title rent-flex rent-gap-2" style="align-items:center;"><span class="rent-badge--dot" style="background:#4263eb;"></span>新线索</span><span class="rent-kanban__column-count">8</span></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">张伟</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 12-345 6789</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 2,000-3,500</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 08-01</span><div class="rent-avatar rent-avatar--sm" style="background:#4263eb;">李</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Siti Nurhaliza</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 13-222 8845</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 1,500-2,500</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 08-02</span><div class="rent-avatar rent-avatar--sm" style="background:#16a34a;">王</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Arjun Kumar</span><span class="rent-badge rent-badge--primary">别墅</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 16-778 1203</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 5,000-8,000</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-30</span><div class="rent-avatar rent-avatar--sm" style="background:#d97706;">陈</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">李娜</span><span class="rent-badge rent-badge--warning">商铺</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 12-908 4561</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 3,000-5,000</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 08-01</span><div class="rent-avatar rent-avatar--sm" style="background:#4263eb;">李</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Tan Mei Ling</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 11-567 3392</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 2,500-3,500</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 08-02</span><div class="rent-avatar rent-avatar--sm" style="background:#7c3aed;">林</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Rajesh Patel</span><span class="rent-badge rent-badge--primary">别墅</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 18-334 9087</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 6,000-9,000</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-29</span><div class="rent-avatar rent-avatar--sm" style="background:#16a34a;">王</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">陈强</span><span class="rent-badge rent-badge--warning">商铺</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 12-661 7734</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 4,000-6,000</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 08-01</span><div class="rent-avatar rent-avatar--sm" style="background:#d97706;">陈</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Nurul Aisyah</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 13-445 9921</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 1,800-2,800</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 08-02</span><div class="rent-avatar rent-avatar--sm" style="background:#0ea5e9;">黄</div></div></div>
+        </div>
+        <!-- 已联系 (5) -->
+        <div class="rent-kanban__column">
+          <div class="rent-kanban__column-header"><span class="rent-kanban__column-title rent-flex rent-gap-2" style="align-items:center;"><span class="rent-badge--dot" style="background:#eab308;"></span>已联系</span><span class="rent-kanban__column-count">5</span></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Lim Wei Ming</span><span class="rent-badge rent-badge--primary">别墅</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 12-889 1023</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 4,500-6,500</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-28</span><div class="rent-avatar rent-avatar--sm" style="background:#4263eb;">李</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">王芳</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 11-234 5678</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 2,200-3,000</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-30</span><div class="rent-avatar rent-avatar--sm" style="background:#16a34a;">王</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Faizal Ibrahim</span><span class="rent-badge rent-badge--warning">商铺</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 19-776 3341</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 5,000-7,000</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-29</span><div class="rent-avatar rent-avatar--sm" style="background:#d97706;">陈</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Wong Kah Lok</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 16-112 5567</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 1,600-2,400</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-31</span><div class="rent-avatar rent-avatar--sm" style="background:#7c3aed;">林</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Priya Sharma</span><span class="rent-badge rent-badge--primary">别墅</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 17-998 2231</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 7,000-10,000</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-28</span><div class="rent-avatar rent-avatar--sm" style="background:#0ea5e9;">黄</div></div></div>
+        </div>
+        <!-- 已看房 (4) -->
+        <div class="rent-kanban__column">
+          <div class="rent-kanban__column-header"><span class="rent-kanban__column-title rent-flex rent-gap-2" style="align-items:center;"><span class="rent-badge--dot" style="background:#f97316;"></span>已看房</span><span class="rent-kanban__column-count">4</span></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">刘洋</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 12-445 6678</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 2,000-3,000</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-26</span><div class="rent-avatar rent-avatar--sm" style="background:#4263eb;">李</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Ahmad bin Rahman</span><span class="rent-badge rent-badge--warning">商铺</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 13-889 4456</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 6,000-8,500</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-27</span><div class="rent-avatar rent-avatar--sm" style="background:#d97706;">陈</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Ng Hui Fern</span><span class="rent-badge rent-badge--primary">别墅</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 11-667 2234</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 5,500-7,500</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-25</span><div class="rent-avatar rent-avatar--sm" style="background:#7c3aed;">林</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">赵敏</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 18-334 8890</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 3,000-4,200</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-24</span><div class="rent-avatar rent-avatar--sm" style="background:#16a34a;">王</div></div></div>
+        </div>
+        <!-- 谈判中 (3) -->
+        <div class="rent-kanban__column">
+          <div class="rent-kanban__column-header"><span class="rent-kanban__column-title rent-flex rent-gap-2" style="align-items:center;"><span class="rent-badge--dot" style="background:#7c3aed;"></span>谈判中</span><span class="rent-kanban__column-count">3</span></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Chong Wei Jie</span><span class="rent-badge rent-badge--warning">商铺</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 12-778 1124</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 8,000-12,000</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-23</span><div class="rent-avatar rent-avatar--sm" style="background:#4263eb;">李</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">李志明</span><span class="rent-badge rent-badge--primary">别墅</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 16-223 9981</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 6,500-9,000</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-22</span><div class="rent-avatar rent-avatar--sm" style="background:#d97706;">陈</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Devi Krishnan</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 11-889 4467</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">预算</span><span class="rent-mono rent-text-bold">RM 2,800-3,800</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-21</span><div class="rent-avatar rent-avatar--sm" style="background:#7c3aed;">林</div></div></div>
+        </div>
+        <!-- 已成交 (12) -->
+        <div class="rent-kanban__column">
+          <div class="rent-kanban__column-header"><span class="rent-kanban__column-title rent-flex rent-gap-2" style="align-items:center;"><span class="rent-badge--dot" style="background:#16a34a;"></span>已成交</span><span class="rent-kanban__column-count">12</span></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">陈丽华</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 12-556 1198</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 2,500</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-18</span><div class="rent-avatar rent-avatar--sm" style="background:#4263eb;">李</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Mohd Faizal</span><span class="rent-badge rent-badge--primary">别墅</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 13-445 7782</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 6,800</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-16</span><div class="rent-avatar rent-avatar--sm" style="background:#16a34a;">王</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Goh Chee Keong</span><span class="rent-badge rent-badge--warning">商铺</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 16-223 9910</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 7,200</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-15</span><div class="rent-avatar rent-avatar--sm" style="background:#d97706;">陈</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">孙丽</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 12-889 3345</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 2,200</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-14</span><div class="rent-avatar rent-avatar--sm" style="background:#7c3aed;">林</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Kavitha Rajan</span><span class="rent-badge rent-badge--primary">别墅</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 17-667 2289</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 8,500</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-12</span><div class="rent-avatar rent-avatar--sm" style="background:#0ea5e9;">黄</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">周建华</span><span class="rent-badge rent-badge--warning">商铺</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 18-334 5567</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 9,000</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-10</span><div class="rent-avatar rent-avatar--sm" style="background:#4263eb;">李</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Lee Hui Min</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 11-889 1023</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 3,100</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-09</span><div class="rent-avatar rent-avatar--sm" style="background:#16a34a;">王</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Azmi Hassan</span><span class="rent-badge rent-badge--primary">别墅</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 13-223 7789</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 5,900</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-08</span><div class="rent-avatar rent-avatar--sm" style="background:#d97706;">陈</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">吴小燕</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 12-445 8890</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 1,900</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-06</span><div class="rent-avatar rent-avatar--sm" style="background:#7c3aed;">林</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Prakash Nair</span><span class="rent-badge rent-badge--warning">商铺</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 17-889 3345</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 6,500</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-05</span><div class="rent-avatar rent-avatar--sm" style="background:#0ea5e9;">黄</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">林美玲</span><span class="rent-badge rent-badge--primary">别墅</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 12-667 2234</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 7,800</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-03</span><div class="rent-avatar rent-avatar--sm" style="background:#4263eb;">李</div></div></div>
+          <div class="rent-kanban__card"><div class="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style="align-items:center;"><span class="rent-text-bold rent-text-sm">Hafizah Yusof</span><span class="rent-badge rent-badge--info">公寓</span></div><div class="rent-flex rent-gap-2 rent-mb-3" style="align-items:center;"><svg width="13" height="13"><use href="#ic-phone"/></svg><span class="rent-caption rent-text-muted">+60 13-223 6678</span></div><div class="rent-flex rent-flex--between rent-mt-2"><span class="rent-caption rent-text-muted">成交价</span><span class="rent-mono rent-text-bold" style="color:var(--state-success);">RM 2,400</span></div><hr class="rent-divider" style="margin:10px 0;"><div class="rent-flex rent-flex--between" style="align-items:center;"><span class="rent-caption rent-text-muted">跟进: 07-02</span><div class="rent-avatar rent-avatar--sm" style="background:#4263eb;">李</div></div></div>
+        </div>
+      </div>
+      <!-- Pipeline Summary Stats -->
+      <div class="rent-grid rent-grid--3 rent-mt-5">
+        <div class="rent-stat-card">
+          <div class="rent-flex rent-flex--between" style="align-items:flex-start;">
+            <div>
+              <div class="rent-stat-card__label">转化率</div>
+              <div class="rent-stat-card__value">39.5%</div>
+              <div class="rent-stat-card__delta rent-stat-card__delta--up"><svg width="12" height="12"><use href="#ic-trend-up"/></svg>较上月 +4.2%</div>
+            </div>
+            <div class="rent-stat-card__icon" style="background:rgba(66,99,235,.1);color:var(--rent-primary);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+          </div>
+        </div>
+        <div class="rent-stat-card">
+          <div class="rent-flex rent-flex--between" style="align-items:flex-start;">
+            <div>
+              <div class="rent-stat-card__label">平均成交周期</div>
+              <div class="rent-stat-card__value">18 <span style="font-size:16px;font-weight:500;color:var(--rent-ink-3);">天</span></div>
+              <div class="rent-stat-card__delta rent-stat-card__delta--up"><svg width="12" height="12"><use href="#ic-trend-up"/></svg>缩短 2 天</div>
+            </div>
+            <div class="rent-stat-card__icon" style="background:rgba(14,165,233,.1);color:var(--state-info);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          </div>
+        </div>
+        <div class="rent-stat-card">
+          <div class="rent-flex rent-flex--between" style="align-items:flex-start;">
+            <div>
+              <div class="rent-stat-card__label">本月新增线索</div>
+              <div class="rent-stat-card__value">42</div>
+              <div class="rent-stat-card__delta rent-stat-card__delta--up"><svg width="12" height="12"><use href="#ic-trend-up"/></svg>较上月 +12 条</div>
+            </div>
+            <div class="rent-stat-card__icon" style="background:rgba(22,163,74,.1);color:var(--state-success);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

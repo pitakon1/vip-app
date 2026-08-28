@@ -1,0 +1,16 @@
+/* ===== 收付款管理页面特有样式 ===== */
+
+/* 表格内徽章不换行，对齐统一 */
+.payments-table-wrap .rent-badge {
+  white-space: nowrap;
+}
+
+/* 分页与表格之间留出间距 */
+.payments-table-wrap + .rent-pagination {
+  padding-top: 16px;
+}
+
+/* 弹窗表单行间距微调 */
+.payments-modal .rent-form-group {
+  margin-bottom: 16px;
+}
