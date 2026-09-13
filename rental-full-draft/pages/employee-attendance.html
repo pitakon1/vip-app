@@ -18,13 +18,13 @@
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
   --rent-ink: #0f172a;
@@ -34,7 +34,7 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
 
   /* ---- 状态色（仅语义状态） ---- */
   --state-success: #16a34a;
@@ -78,13 +78,13 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
   --rent-primary-foreground: #0b0f1a;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;
@@ -509,7 +509,7 @@
   background: var(--rent-primary);
   color: var(--rent-primary-foreground);
 }
-.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--primary:hover { background: #0d9488; }
 .rent-btn--secondary {
   background: var(--rent-surface);
   border-color: var(--rent-border);
@@ -582,7 +582,7 @@
 .rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
 .rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
 .rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
-.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--primary { background: rgba(20,184,166,0.1); color: var(--rent-primary); }
 .rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
 
 /* ===== KPI / Stat Card ===== */
@@ -757,7 +757,7 @@
 .rent-calendar__cell--outside .rent-calendar__date { color: var(--rent-ink-3); font-weight: 500; }
 .rent-calendar__cell--today {
   border-color: var(--rent-primary);
-  background: rgba(66,99,235,0.06);
+  background: rgba(20,184,166,0.06);
   box-shadow: 0 0 0 1px var(--rent-primary) inset;
 }
 .rent-calendar__cell--today .rent-calendar__date { color: var(--rent-primary); }
@@ -814,13 +814,13 @@
 .rent-input::placeholder, .rent-textarea::placeholder { color: var(--rent-ink-3); }
 .rent-input:focus, .rent-textarea:focus, .rent-select:focus {
   border-color: var(--rent-primary);
-  box-shadow: 0 0 0 3px rgba(66,99,235,0.12);
+  box-shadow: 0 0 0 3px rgba(20,184,166,0.12);
 }
     </style>
     <style id="rent-beike-overlay">
 /* =========================================================
-   RentFlow × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
-   保留靛蓝主色 #4263eb · 消费级 App 形态 · 大圆角卡片流
+   HaoFang.World × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #14b8a6 · 消费级 App 形态 · 大圆角卡片流
    仅注入用户端页面 (租客/业主/员工)，后台管理不注入
    注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
    ========================================================= */
@@ -846,7 +846,7 @@ body {
 .rent-mobile__logo,
 .rent-pad__logo {
   border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+  box-shadow: 0 4px 14px rgba(20,184,166, 0.35);
 }
 .rent-portal__nav-item,
 .rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
@@ -857,12 +857,12 @@ body {
 .rent-search-hero__bar {
   border-radius: 999px;
   background: #ffffff;
-  box-shadow: 0 10px 32px -10px rgba(66, 99, 235, 0.40);
+  box-shadow: 0 10px 32px -10px rgba(20,184,166, 0.40);
 }
 .rent-search-hero__search-btn {
   border-radius: 999px;
-  background: linear-gradient(135deg, #4263eb, #6b82f5);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.50);
+  background: linear-gradient(135deg, #14b8a6, #2dd4bf);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.50);
 }
 .rent-search-hero__tag { border-radius: 999px; }
 
@@ -901,7 +901,7 @@ body {
 .rent-badge { border-radius: 999px; padding: 3px 10px; }
 .rent-prop-search-card__cta {
   border-radius: 999px;
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   color: var(--rent-primary);
   font-weight: 600;
 }
@@ -921,14 +921,14 @@ body {
 .rent-btn { border-radius: 10px; }
 .rent-btn--primary {
   border-radius: 12px;
-  background: linear-gradient(135deg, #4263eb, #5b7cfa);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.45);
+  background: linear-gradient(135deg, #14b8a6, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.45);
 }
 
 /* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
 .rent-mobile__tab { border-radius: 14px; }
 .rent-mobile__tab[data-active="true"] {
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   font-weight: 600;
 }
 
@@ -937,7 +937,7 @@ body {
 .rent-pad__nav-item { border-radius: 12px; }
 .rent-nav-item[data-active="true"],
 .rent-pad__nav-item[data-active="true"] {
-  background: linear-gradient(135deg, rgba(66, 99, 235, 0.10), rgba(107, 130, 245, 0.08));
+  background: linear-gradient(135deg, rgba(20,184,166, 0.10), rgba(107, 130, 245, 0.08));
   font-weight: 600;
 }
 
@@ -945,7 +945,7 @@ body {
 .rent-hero,
 .rent-portal-hero,
 .rent-mobile__hero {
-  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+  background: linear-gradient(135deg, #14b8a6 0%, #5b7cfa 55%, #2dd4bf 100%);
 }
 
 /* ===== 头像 ===== */
@@ -960,8 +960,8 @@ body {
       <aside class="rent-app__sidebar">
         <div class="rent-sidebar">
           <div class="rent-sidebar__brand">
-            <div class="rent-sidebar__logo">R</div>
-            <span class="rent-sidebar__name">RentFlow 员工端</span>
+            <img class="rent-sidebar__logo" src="../assets/haofang-logo.jpg" alt="HaoFang.World" style="width:auto;max-height:34px;object-fit:contain;border-radius:6px;background:#fff;padding:3px;flex-shrink:0;display:inline-block;">
+            <span class="rent-sidebar__name">员工端</span>
           </div>
           <nav class="rent-sidebar__nav">
             <div class="rent-sidebar__section-label">工作台</div>
@@ -996,7 +996,7 @@ body {
                   <div class="rent-text-sm rent-text-muted">employee@rentflow.com</div>
                 </div>
               </div>
-              <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login">退出</a>
+              <a href="login.html" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login">退出</a>
             </div>
           </div>
         </div>
@@ -1035,7 +1035,7 @@ body {
           </div>
 
           <!-- Clock-in Card -->
-          <div class="rent-card rent-mb-5" style="background: linear-gradient(135deg, var(--rent-primary) 0%, #3b51d4 100%); border: none;">
+          <div class="rent-card rent-mb-5" style="background: linear-gradient(135deg, var(--rent-primary) 0%, #0d9488 100%); border: none;">
             <div class="rent-card__body" style="display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;">
               <div>
                 <div style="font-size: 14px; color: rgba(255,255,255,0.85); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
@@ -1070,7 +1070,7 @@ body {
             <div class="rent-stat-card">
               <div class="rent-flex rent-flex--between rent-mb-2">
                 <div class="rent-stat-card__label">本月出勤</div>
-                <div class="rent-stat-card__icon" style="background: rgba(66,99,235,0.1); color: var(--rent-primary);">
+                <div class="rent-stat-card__icon" style="background: rgba(20,184,166,0.1); color: var(--rent-primary);">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>
                 </div>
               </div>

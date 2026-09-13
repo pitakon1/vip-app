@@ -61,3 +61,7 @@ class MaintenanceTicket(TimestampMixin, table=True):
     payment_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="payments.id"
     )
+    # 租客服务评价（闭环）
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
+    feedback: Optional[str] = None
+    rated_at: Optional[datetime] = None

@@ -26,7 +26,7 @@
 .rent-form-input::placeholder, .rent-form-textarea::placeholder { color: var(--rent-ink-3); }
 .rent-form-input:focus, .rent-form-select:focus, .rent-form-textarea:focus {
   border-color: var(--rent-primary);
-  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.12);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
 }
 
 /* 部门下拉：去除原生外观并叠加自定义箭头 */

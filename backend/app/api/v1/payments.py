@@ -26,8 +26,13 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.auth import get_current_user, require_agent, require_admin
 from app.core.pagination import PaginationParams, paginate
-from app.models import Payment, PaymentType, PaymentStatus, User, UserRole
-from app.providers.payment.base import PaymentChannel
+from app.models import (
+    Payment,
+    PaymentType,
+    PaymentStatus,
+    User,
+    UserRole,
+)
 from app.providers.payment.service import payment_service
 
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -288,6 +293,90 @@ def get_payment(
     if not _can_manage(user, payment):
         raise HTTPException(status_code=403, detail="Access denied")
     return payment
+
+
+@router.get("/{payment_id}/receipt")
+def get_payment_receipt(
+    payment_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """缴费凭证（收款收据）。返回结构化凭证数据，供租客查看/打印/下载。"""
+    payment = _get_payment_or_404(payment_id, session)
+    if not _can_manage(user, payment):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    payer = session.get(User, payment.payer_id)
+    payer_name = payer.full_name if payer else None
+    payer_email = payer.email if payer else None
+
+    return {
+        "payment_id": str(payment.id),
+        "reference_no": payment.idempotency_key,
+        "amount": payment.amount,
+        "currency": payment.currency,
+        "payment_type": payment.payment_type.value if payment.payment_type else None,
+        "status": payment.status.value if payment.status else None,
+        "channel": payment.channel,
+        "channel_transaction_id": payment.channel_transaction_id,
+        "due_date": payment.due_date.isoformat() if payment.due_date else None,
+        "paid_at": payment.paid_at.isoformat() if payment.paid_at else None,
+        "created_at": payment.created_at.isoformat() if payment.created_at else None,
+        "description": payment.description,
+        "recipient": {"name": payer_name, "email": payer_email},
+        "property_id": str(payment.property_id) if payment.property_id else None,
+        "lease_id": str(payment.lease_id) if payment.lease_id else None,
+    }
+
+
+@router.get("/{payment_id}/invoice")
+def get_payment_invoice(
+    payment_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """税务发票导出数据（Invoice/Tax Invoice）。返回含税费拆分的结构化发票，
+    供打印或下载（前端渲染为 PDF/图片）。"""
+    payment = _get_payment_or_404(payment_id, session)
+    if not _can_manage(user, payment):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    payer = session.get(User, payment.payer_id)
+    # 泰国增值税 7%（THB 默认；不含税或零税率场景按税额 0）
+    vat_rate = 0.07
+    if payment.currency.upper() == "THB" and payment.payment_type in (
+        PaymentType.rent,
+        PaymentType.deposit,
+        PaymentType.utility,
+    ):
+        tax = round(payment.amount * vat_rate / (1 + vat_rate), 2)
+        net = round(payment.amount - tax, 2)
+    else:
+        tax = 0.0
+        net = payment.amount
+
+    return {
+        "invoice_no": payment.idempotency_key,
+        "invoice_type": "tax_invoice",
+        "payment_id": str(payment.id),
+        "issue_date": datetime.utcnow().isoformat(),
+        "paid_at": payment.paid_at.isoformat() if payment.paid_at else None,
+        "bill_to": {
+            "name": payer.full_name if payer else None,
+            "email": payer.email if payer else None,
+        },
+        "currency": payment.currency,
+        "net_amount": net,
+        "tax_amount": tax,
+        "vat_rate": vat_rate if tax else 0,
+        "total_amount": payment.amount,
+        "payment_type": payment.payment_type.value if payment.payment_type else None,
+        "description": payment.description or f"Payment {payment.idempotency_key}",
+        "channel": payment.channel,
+        "channel_transaction_id": payment.channel_transaction_id,
+        "property_id": str(payment.property_id) if payment.property_id else None,
+        "lease_id": str(payment.lease_id) if payment.lease_id else None,
+    }
 
 
 @router.get("/{payment_id}/status")

@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '聊天会话' }

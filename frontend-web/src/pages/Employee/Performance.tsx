@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message } from 'antd'
+import { message, Spin, Empty } from 'antd'
 import dayjs, { Dayjs } from 'dayjs'
 import api from '@/lib/api'
 import './performance.css'
@@ -47,7 +47,13 @@ interface MonthPerf {
   deals: number
 }
 
-const fmtBaht = (v: number) => `฿${Number(v || 0).toLocaleString()}`
+const fmtMoney = (v: number) => `RM ${Number(v || 0).toLocaleString()}`
+
+// 柱图值紧凑展示：28400 -> 28.4k
+const fmtCompact = (v: number) => {
+  const n = Number(v || 0)
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
+}
 
 // 业绩类型文案与佣金构成配色
 const DEAL_LABELS: Record<string, string> = {
@@ -114,7 +120,7 @@ const Performance = () => {
     const max = Math.max(1, ...six.map((m) => m.revenue))
     return six.map((m) => ({
       label: `${m.month}月`,
-      value: fmtBaht(m.revenue),
+      value: fmtCompact(m.revenue),
       height: `${Math.max(4, Math.round((m.revenue / max) * 100))}%`,
       active: m.year === (s?.year ?? dayjs().year()) && m.month === (s?.month ?? dayjs().month() + 1),
     }))
@@ -146,7 +152,7 @@ const Performance = () => {
         .map((m) => ({
           month: `${m.month}月业绩`,
           date: `${m.year}-${String(m.month).padStart(2, '0')}`,
-          desc: `系统自动核算 · 业绩 ${fmtBaht(m.revenue)} · 佣金 ${fmtBaht(m.commission)} · 成交 ${m.deals} 单`,
+          desc: `系统自动核算 · 业绩 ${fmtMoney(m.revenue)} · 佣金 ${fmtMoney(m.commission)} · 成交 ${m.deals} 单`,
         })),
     [monthly],
   )
@@ -155,13 +161,17 @@ const Performance = () => {
     message.success('报表导出已开始，请稍候')
   }
 
+  const handleSubmitReport = () => {
+    message.success('月度报告已提交')
+  }
+
   return (
     <div className="rent-main">
       {/* Page Header */}
       <div className="rent-page-header">
         <div>
           <h2 className="rent-page-header__title">业绩报表</h2>
-          <p className="rent-page-header__subtitle">系统按签约/续约自动核算的业绩，无需手动填报</p>
+          <p className="rent-page-header__subtitle">查看个人业绩明细，提交月度报告</p>
         </div>
         <div className="rent-page-header__actions">
           <button className="rent-btn rent-btn--secondary" onClick={handleExport}>
@@ -172,6 +182,13 @@ const Performance = () => {
             </svg>
             导出报表
           </button>
+          <button className="rent-btn rent-btn--primary" onClick={handleSubmitReport}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+            提交月报
+          </button>
         </div>
       </div>
 
@@ -180,14 +197,14 @@ const Performance = () => {
         <div className="rent-stat-card">
           <div className="rent-flex rent-flex--between rent-mb-2">
             <div className="rent-stat-card__label">年度总业绩</div>
-            <div className="rent-stat-card__icon" style={{ background: 'rgba(66,99,235,0.1)', color: 'var(--rent-primary)' }}>
+            <div className="rent-stat-card__icon" style={{ background: 'rgba(20, 184, 166, 0.1)', color: 'var(--rent-primary)' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="1" x2="12" y2="23" />
                 <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
               </svg>
             </div>
           </div>
-          <div className="rent-stat-card__value">{fmtBaht(s?.year_total ?? 0)}</div>
+          <div className="rent-stat-card__value">{fmtMoney(s?.year_total ?? 0)}</div>
           <div className="rent-stat-card__delta rent-stat-card__delta--up">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 15 12 9 18 15" />
@@ -208,7 +225,7 @@ const Performance = () => {
               </svg>
             </div>
           </div>
-          <div className="rent-stat-card__value">{fmtBaht(s?.month_total ?? 0)}</div>
+          <div className="rent-stat-card__value">{fmtMoney(s?.month_total ?? 0)}</div>
           <div className="rent-stat-card__delta rent-stat-card__delta--up">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 15 12 9 18 15" />
@@ -250,12 +267,12 @@ const Performance = () => {
               </svg>
             </div>
           </div>
-          <div className="rent-stat-card__value">{fmtBaht(s?.commission_total ?? 0)}</div>
+          <div className="rent-stat-card__value">{fmtMoney(s?.commission_total ?? 0)}</div>
           <div className="rent-stat-card__delta rent-stat-card__delta--up">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 15 12 9 18 15" />
             </svg>
-            本月 +{fmtBaht(s?.month_commission ?? 0)}
+            本月 +{fmtMoney(s?.month_commission ?? 0)}
           </div>
         </div>
       </div>
@@ -264,7 +281,7 @@ const Performance = () => {
       <div className="rent-card rent-mb-5">
         <div className="rent-card__header">
           <h3 className="rent-card__title">月度业绩概览</h3>
-          <span className="rent-text-sm rent-text-muted">单位：฿</span>
+          <span className="rent-text-sm rent-text-muted">单位：RM</span>
         </div>
         <div className="rent-card__body">
           {/* Month Tabs */}
@@ -312,18 +329,18 @@ const Performance = () => {
           {/* Monthly Breakdown */}
           <div className="rent-grid rent-grid--4">
             <div className="rent-mini-stat">
-              <div className="rent-text-sm rent-text-muted rent-mb-2">本月成交单数</div>
+              <div className="rent-text-sm rent-text-muted rent-mb-2">成交单数</div>
               <div className="rent-mini-stat__value">
                 {s?.month_deals ?? 0} <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--rent-ink-3)' }}>单</span>
               </div>
             </div>
             <div className="rent-mini-stat">
-              <div className="rent-text-sm rent-text-muted rent-mb-2">本月业绩收入</div>
-              <div className="rent-mini-stat__value">{fmtBaht(s?.month_total ?? 0)}</div>
+              <div className="rent-text-sm rent-text-muted rent-mb-2">总租金收入</div>
+              <div className="rent-mini-stat__value">{fmtMoney(s?.month_total ?? 0)}</div>
             </div>
             <div className="rent-mini-stat">
-              <div className="rent-text-sm rent-text-muted rent-mb-2">本月佣金收入</div>
-              <div className="rent-mini-stat__value">{fmtBaht(s?.month_commission ?? 0)}</div>
+              <div className="rent-text-sm rent-text-muted rent-mb-2">佣金收入</div>
+              <div className="rent-mini-stat__value">{fmtMoney(s?.month_commission ?? 0)}</div>
             </div>
             <div className="rent-mini-stat">
               <div className="rent-text-sm rent-text-muted rent-mb-2">新租 / 续约</div>
@@ -341,7 +358,7 @@ const Performance = () => {
         <div className="rent-card">
           <div className="rent-card__header">
             <h3 className="rent-card__title">成交明细</h3>
-            <span className="rent-badge rent-badge--primary">共 {rows.length} 笔</span>
+            <span className="rent-badge rent-badge--primary">本月 {rows.length} 单</span>
           </div>
           <div className="rent-card__body" style={{ padding: 0 }}>
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
@@ -360,13 +377,18 @@ const Performance = () => {
                   {loading ? (
                     <tr>
                       <td colSpan={6}>
-                        <div className="rent-empty">加载中...</div>
+                        <div className="rent-empty">
+                          <Spin size="small" style={{ marginRight: 8 }} />
+                          加载中...
+                        </div>
                       </td>
                     </tr>
                   ) : rows.length === 0 ? (
                     <tr>
                       <td colSpan={6}>
-                        <div className="rent-empty">暂无成交业绩，签约/续约后由系统自动核算</div>
+                        <div className="rent-empty">
+                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无成交业绩，签约/续约后由系统自动核算" />
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -377,10 +399,10 @@ const Performance = () => {
                           <div className="rent-text-bold">{r.type}</div>
                         </td>
                         <td className="rent-table__mono">
-                          {r.base != null ? fmtBaht(Number(r.base)) : '-'}
+                          {r.base != null ? fmtMoney(Number(r.base)) : '-'}
                         </td>
                         <td className="rent-table__mono rent-text-bold" style={{ color: 'var(--state-success)' }}>
-                          {r.amount != null ? fmtBaht(Number(r.amount)) : '-'}
+                          {r.amount != null ? fmtMoney(Number(r.amount)) : '-'}
                         </td>
                         <td>
                           <span className={`rent-badge rent-badge--${r.status.tone}`}>{r.status.text}</span>
@@ -404,7 +426,7 @@ const Performance = () => {
           <div className="rent-card__body rent-flex rent-flex--col rent-gap-4">
             {(s?.breakdown ?? []).length === 0 ? (
               <div className="rent-empty" style={{ padding: '32px 0' }}>
-                本月暂无佣金构成
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="本月暂无佣金构成" />
               </div>
             ) : (
               (s?.breakdown ?? []).map((c, i) => (
@@ -415,7 +437,7 @@ const Performance = () => {
                       <span className="rent-text-bold">{c.label}</span>
                       <span className="rent-text-sm rent-text-muted">{c.count} 单</span>
                     </div>
-                    <span className="rent-table__mono rent-text-bold">{fmtBaht(c.amount)}</span>
+                    <span className="rent-table__mono rent-text-bold">{fmtMoney(c.amount)}</span>
                   </div>
                   <div className="rent-progress">
                     <div
@@ -436,7 +458,7 @@ const Performance = () => {
             >
               <span className="rent-text-bold">本月佣金合计</span>
               <span className="rent-stat-card__value" style={{ fontSize: 20, color: 'var(--rent-primary)' }}>
-                {fmtBaht(s?.month_commission ?? 0)}
+                {fmtMoney(s?.month_commission ?? 0)}
               </span>
             </div>
           </div>
@@ -447,12 +469,12 @@ const Performance = () => {
       <div className="rent-card">
         <div className="rent-card__header">
           <h3 className="rent-card__title">月度业绩记录</h3>
-          <span className="rent-text-sm rent-text-muted">系统自动核算</span>
+          <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">查看全部</a>
         </div>
         <div className="rent-card__body">
           {monthlyRecords.length === 0 ? (
             <div className="rent-empty" style={{ padding: '32px 0' }}>
-              暂无业绩记录，签约/续约后由系统自动生成
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无业绩记录，签约/续约后由系统自动生成" />
             </div>
           ) : (
             <div className="rent-timeline">

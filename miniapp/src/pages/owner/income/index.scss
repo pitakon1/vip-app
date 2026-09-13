@@ -1,13 +1,13 @@
 .owner-income-page {
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background-color: var(--bg);
 
   .page-container {
     padding: 24px;
   }
 
   .summary-header {
-    background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
+    background: var(--primary);
     border-radius: 16px;
     padding: 40px 24px;
     margin-bottom: 24px;
@@ -23,7 +23,7 @@
       display: block;
       font-size: 56px;
       font-weight: 700;
-      color: #ffffff;
+      color: var(--primary-foreground);
     }
   }
 
@@ -34,7 +34,7 @@
 
     .stat-item {
       flex: 1;
-      background-color: #ffffff;
+      background-color: var(--card);
       border-radius: 16px;
       padding: 24px 12px;
       margin: 0 6px;
@@ -43,7 +43,7 @@
       .stat-label {
         display: block;
         font-size: 24px;
-        color: #999999;
+        color: var(--ink-3);
         margin-bottom: 8px;
       }
 
@@ -51,15 +51,15 @@
         display: block;
         font-size: 28px;
         font-weight: 600;
-        color: #333333;
+        color: var(--ink);
       }
 
       .text-warning {
-        color: #faad14;
+        color: var(--warning);
       }
 
       .text-danger {
-        color: #ff4d4f;
+        color: var(--error);
       }
     }
   }
@@ -67,14 +67,14 @@
   .section-title {
     font-size: 32px;
     font-weight: 600;
-    color: #333333;
+    color: var(--ink);
     margin-bottom: 16px;
   }
 
   .empty-tip {
     text-align: center;
     padding: 80px 0;
-    color: #999999;
+    color: var(--ink-3);
     font-size: 28px;
   }
 
@@ -83,7 +83,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background-color: #ffffff;
+      background-color: var(--card);
       border-radius: 16px;
       padding: 24px;
       margin-bottom: 16px;
@@ -93,21 +93,21 @@
           display: block;
           font-size: 30px;
           font-weight: 600;
-          color: #333333;
+          color: var(--ink);
           margin-bottom: 8px;
         }
 
         .property-count {
           display: block;
           font-size: 24px;
-          color: #999999;
+          color: var(--ink-3);
         }
       }
 
       .income-amount {
         font-size: 34px;
         font-weight: 700;
-        color: #52c41a;
+        color: var(--success);
       }
     }
   }

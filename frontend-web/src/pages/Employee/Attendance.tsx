@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { message } from 'antd'
+import { message, Spin, Empty } from 'antd'
 import dayjs from 'dayjs'
+import { attendanceApi, geoApi } from '@/services/api'
 import './attendance.css'
 
 type AttendanceStatus = 'normal' | 'late' | 'early' | 'absent' | 'leave'
@@ -138,31 +139,89 @@ const Attendance = () => {
   const [outingReturn, setOutingReturn] = useState('')
   const [outingReason, setOutingReason] = useState('')
   const outingFormRef = useRef<HTMLDivElement>(null)
+  // v1.8 GPS 考勤
+  const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'denied'>('idle')
+  const [geoInfo, setGeoInfo] = useState<{ distance_km?: number; within_radius?: boolean; address?: string } | null>(null)
+  const [serverCheckedIn, setServerCheckedIn] = useState(false)
+  const [serverCheckedOut, setServerCheckedOut] = useState(false)
 
   const today = dayjs().format('YYYY-MM-DD')
+
+  // 加载今日考勤状态（含定位半径信息）
+  useEffect(() => {
+    attendanceApi
+      .today()
+      .then((res) => {
+        const d = res.data
+        setServerCheckedIn(!!d.checked_in)
+        setServerCheckedOut(!!d.checked_out)
+        if (d.check_in_time) setCheckInTime(dayjs(d.check_in_time).format('HH:mm:ss'))
+        if (d.check_out_time) setCheckOutTime(dayjs(d.check_out_time).format('HH:mm:ss'))
+        if (d.check_in_location?.address) setGeoInfo(d.check_in_location)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const timer = setInterval(() => setNow(dayjs()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  const handleCheckIn = () => {
+  const getPosition = (): Promise<{ lat: number; lng: number }> =>
+    new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        setGpsStatus('denied')
+        reject(new Error('unsupported'))
+        return
+      }
+      setGpsStatus('locating')
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGpsStatus('idle')
+          resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        },
+        () => {
+          setGpsStatus('denied')
+          reject(new Error('denied'))
+        },
+        { enableHighAccuracy: true, timeout: 10000 },
+      )
+    })
+
+  const clockNow = (endpoint: 'check-in' | 'check-out') => async () => {
     setSubmitting(true)
-    setTimeout(() => {
-      setCheckInTime(dayjs().format('HH:mm:ss'))
+    try {
+      const { lat, lng } = await getPosition()
+      // 500KM 半径校验
+      const geo = await geoApi.attendance(lat, lng)
+      setGeoInfo(geo.data)
+      if (geo.data.within_radius === false) {
+        message.warning(`当前不在打卡半径内（约 ${geo.data.distance_km}km）。请先在下方填写外勤申请。`)
+        outingFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        setSubmitting(false)
+        return
+      }
+      if (endpoint === 'check-in') {
+        await attendanceApi.checkIn({ lat, lng })
+        setCheckInTime(dayjs().format('HH:mm:ss'))
+        setServerCheckedIn(true)
+        message.success('定位打卡成功（上班）')
+      } else {
+        await attendanceApi.checkOut({ lat, lng })
+        setCheckOutTime(dayjs().format('HH:mm:ss'))
+        setServerCheckedOut(true)
+        message.success('定位打卡成功（下班）')
+      }
+    } catch {
+      message.error('定位失败或未授权，无法完成打卡')
+      setGpsStatus('denied')
+    } finally {
       setSubmitting(false)
-      message.success('打卡成功')
-    }, 300)
+    }
   }
 
-  const handleCheckOut = () => {
-    setSubmitting(true)
-    setTimeout(() => {
-      setCheckOutTime(dayjs().format('HH:mm:ss'))
-      setSubmitting(false)
-      message.success('打卡成功')
-    }, 300)
-  }
+  const handleCheckIn = clockNow('check-in')
+  const handleCheckOut = clockNow('check-out')
 
   const handleOutingSubmit = () => {
     if (!outingLocation.trim()) {
@@ -177,18 +236,20 @@ const Attendance = () => {
       message.error('请填写外出事由')
       return
     }
-    const outingTime = dayjs().format('YYYY-MM-DD HH:mm')
-    const expectedReturn = dayjs(outingReturn).format('YYYY-MM-DD HH:mm')
-    console.log('外出登记', {
-      outing_time: outingTime,
-      expected_return: expectedReturn,
-      reason: outingReason,
-      location: outingLocation,
-    })
-    message.success('外出登记已提交')
-    setOutingLocation('')
-    setOutingReturn('')
-    setOutingReason('')
+    attendanceApi
+      .createExternalTrip({
+        trip_date: dayjs().format('YYYY-MM-DD'),
+        from_location: '公司',
+        to_location: outingLocation,
+        reason: outingReason,
+      })
+      .then(() => {
+        message.success('外勤申请已提交，待审批通过后可在定位半径外打卡')
+        setOutingLocation('')
+        setOutingReturn('')
+        setOutingReason('')
+      })
+      .catch(() => message.error('外勤申请提交失败'))
   }
 
   const handleScrollToOuting = () => {
@@ -354,6 +415,13 @@ const Attendance = () => {
               </svg>
               外出登记
             </button>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: 1.5 }}>
+              {gpsStatus === 'denied'
+                ? '⚠ 定位未授权，需允许定位才能打卡'
+                : geoInfo
+                  ? `定位距离办公点 ${geoInfo.distance_km}km${geoInfo.address ? ` · ${geoInfo.address}` : ''}`
+                  : '打卡将校验 500KM 半径定位，超出需先提交外勤申请'}
+            </div>
           </div>
         </div>
       </div>
@@ -365,7 +433,7 @@ const Attendance = () => {
             <div className="rent-stat-card__label">本月出勤</div>
             <div
               className="rent-stat-card__icon"
-              style={{ background: 'rgba(66,99,235,0.1)', color: 'var(--rent-primary)' }}
+              style={{ background: 'rgba(20, 184, 166, 0.1)', color: 'var(--rent-primary)' }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="4" width="18" height="18" rx="2" />
@@ -530,7 +598,7 @@ const Attendance = () => {
         <div className="rent-card">
           <div className="rent-card__header">
             <h3 className="rent-card__title">考勤记录</h3>
-            <span className="rent-text-sm rent-text-muted">今日 {today}</span>
+            <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">查看全部</a>
           </div>
           <div className="rent-card__body" style={{ padding: 0 }}>
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
@@ -548,13 +616,18 @@ const Attendance = () => {
                   {loading ? (
                     <tr>
                       <td colSpan={5}>
-                        <div className="rent-empty">加载中...</div>
+                        <div className="rent-empty">
+                          <Spin size="small" style={{ marginRight: 8 }} />
+                          加载中...
+                        </div>
                       </td>
                     </tr>
                   ) : recentRecords.length === 0 ? (
                     <tr>
                       <td colSpan={5}>
-                        <div className="rent-empty">暂无考勤记录</div>
+                        <div className="rent-empty">
+                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无考勤记录" />
+                        </div>
                       </td>
                     </tr>
                   ) : (

@@ -5,12 +5,13 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   Alert,
 } from 'react-native';
 import Card from '@/components/Card';
 import colors from '@/theme/colors';
+import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
 import { documentsApi } from '@/services/api';
 import type { Document } from '@/types';
 
@@ -82,7 +83,7 @@ export default function DocumentsScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingState label="正在加载文档…" />
       </View>
     );
   }
@@ -95,6 +96,7 @@ export default function DocumentsScreen() {
             key={f.value}
             style={[styles.filterBtn, filter === f.value && styles.filterBtnActive]}
             onPress={() => setFilter(f.value)}
+            activeOpacity={0.7}
           >
             <Text
               style={[styles.filterText, filter === f.value && styles.filterTextActive]}
@@ -112,7 +114,7 @@ export default function DocumentsScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        ListEmptyComponent={<Text style={styles.empty}>暂无文档</Text>}
+        ListEmptyComponent={<EmptyState icon="folder-open-outline" title="暂无文档" sub="合同、收据、验房与产权文件都会归档在这里" />}
       />
     </View>
   );
@@ -126,18 +128,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.border,
   },
   filterBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  filterText: { fontSize: 13, color: '#666' },
-  filterTextActive: { color: '#fff' },
+  filterText: { fontSize: 13, color: colors.ink2 },
+  filterTextActive: { color: colors.primaryForeground },
   list: { paddingVertical: 8 },
   itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   info: { flex: 1 },
   title: { fontSize: 15, color: colors.text, fontWeight: '500' },
-  subtitle: { fontSize: 12, color: '#999', marginTop: 4 },
-  arrow: { fontSize: 22, color: '#ccc' },
-  empty: { textAlign: 'center', color: '#999', marginTop: 32 },
+  subtitle: { fontSize: 12, color: colors.ink3, marginTop: 4 },
+  arrow: { fontSize: 22, color: colors.ink3 },
+  empty: { textAlign: 'center', color: colors.ink3, marginTop: 32 },
 });

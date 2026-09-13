@@ -12,19 +12,19 @@
 
 :root {
   /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
-  --rent-background: #f5f7fa;
+  --rent-background: #f2faf8;
   --rent-foreground: #0f172a;
   --rent-card: #ffffff;
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
   --rent-ink: #0f172a;
@@ -34,7 +34,7 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
 
   /* ---- 状态色（仅语义状态） ---- */
   --state-success: #16a34a;
@@ -78,13 +78,13 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
   --rent-primary-foreground: #0b0f1a;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;
@@ -509,7 +509,7 @@
   background: var(--rent-primary);
   color: var(--rent-primary-foreground);
 }
-.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--primary:hover { background: #0d9488; }
 .rent-btn--secondary {
   background: var(--rent-surface);
   border-color: var(--rent-border);
@@ -582,7 +582,7 @@
 .rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
 .rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
 .rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
-.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--primary { background: rgba(20,184,166,0.1); color: var(--rent-primary); }
 .rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
 
 /* ===== KPI / Stat Card ===== */
@@ -884,7 +884,7 @@
 
 /* Mobile hero banner */
 .rent-mobile__hero {
-  background: linear-gradient(135deg, var(--rent-primary) 0%, #3b51d4 100%);
+  background: linear-gradient(135deg, var(--rent-primary) 0%, #0d9488 100%);
   border-radius: var(--rent-radius-lg);
   padding: 20px;
   margin-bottom: 16px;
@@ -972,14 +972,14 @@
   z-index: 40;
   transition: background 0.15s;
 }
-.rent-mobile__fab:hover { background: #3b51d4; }
+.rent-mobile__fab:hover { background: #0d9488; }
     </style>
 </head>
 <body class="font-sans antialiased">
     <div class="rent-mobile" data-viewport-mode="document-scroll">
   <header class="rent-mobile__header">
     <div class="rent-mobile__header-left">
-      <div class="rent-mobile__logo">R</div>
+      <img class="rent-mobile__logo" src="../assets/haofang-logo.jpg" alt="HaoFang.World" style="width:auto;max-height:34px;object-fit:contain;border-radius:6px;background:#fff;padding:3px;flex-shrink:0;display:inline-block;">
       <h1 class="rent-mobile__title">收付款管理</h1>
     </div>
     <div class="rent-mobile__header-right">
@@ -996,7 +996,7 @@
   <main class="rent-mobile__main" data-scroll-region="primary">
 
 <!-- Revenue Summary Card (gradient) -->
-<div style="background:linear-gradient(135deg,var(--rent-primary) 0%,#3b51d4 100%);border-radius:var(--rent-radius-lg);padding:20px;margin-bottom:16px;color:#fff;">
+<div style="background:linear-gradient(135deg,var(--rent-primary) 0%,#0d9488 100%);border-radius:var(--rent-radius-lg);padding:20px;margin-bottom:16px;color:#fff;">
   <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
     <div>
       <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-bottom:4px;">本月总收入</div>
@@ -1042,7 +1042,7 @@
 
 <!-- Transaction 1: 张伟明 - 已收 - 银行转账 -->
 <div class="rent-mobile__card" style="display:flex;align-items:center;gap:12px;">
-  <div style="width:40px;height:40px;border-radius:var(--rent-radius-md);background:rgba(66,99,235,0.1);color:var(--rent-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+  <div style="width:40px;height:40px;border-radius:var(--rent-radius-md);background:rgba(20,184,166,0.1);color:var(--rent-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v3"/><path d="M12 14v3"/><path d="M16 14v3"/></svg>
   </div>
   <div style="flex:1;min-width:0;">
@@ -1102,7 +1102,7 @@
 
 <!-- Transaction 5: 黄国华 - 逾期 - Wise -->
 <div class="rent-mobile__card" style="display:flex;align-items:center;gap:12px;">
-  <div style="width:40px;height:40px;border-radius:var(--rent-radius-md);background:rgba(66,99,235,0.1);color:var(--rent-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+  <div style="width:40px;height:40px;border-radius:var(--rent-radius-md);background:rgba(20,184,166,0.1);color:var(--rent-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
   </div>
   <div style="flex:1;min-width:0;">
@@ -1132,7 +1132,7 @@
 
 <!-- Transaction 7: 周建宏 - 待收 - 银行转账 -->
 <div class="rent-mobile__card" style="display:flex;align-items:center;gap:12px;">
-  <div style="width:40px;height:40px;border-radius:var(--rent-radius-md);background:rgba(66,99,235,0.1);color:var(--rent-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+  <div style="width:40px;height:40px;border-radius:var(--rent-radius-md);background:rgba(20,184,166,0.1);color:var(--rent-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v3"/><path d="M12 14v3"/><path d="M16 14v3"/></svg>
   </div>
   <div style="flex:1;min-width:0;">

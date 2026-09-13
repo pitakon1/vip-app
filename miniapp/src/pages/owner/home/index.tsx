@@ -8,8 +8,8 @@ import './index.scss'
 
 const STATUS_MAP: Record<PropertyStatus, { text: string; color: string; bg: string }> = {
   vacant: { text: '空置', color: '#999999', bg: '#f5f5f5' },
-  rented: { text: '已出租', color: '#52c41a', bg: '#f6ffed' },
-  reserved: { text: '已预订', color: '#faad14', bg: '#fffbe6' }
+  rented: { text: '已出租', color: '#16a34a', bg: '#f6ffed' },
+  reserved: { text: '已预订', color: '#d97706', bg: '#fffbe6' }
 }
 
 // 从接口返回中提取房源列表，兼容多种结构
@@ -82,18 +82,33 @@ export default function OwnerHomePage() {
         </View>
 
         <View className='stats-grid'>
-          <View className='stat-card'>
+          <View className='stat-card stat-card--success'>
+            <View className='stat-dot' />
             <Text className='stat-num'>{stats.rented}</Text>
             <Text className='stat-label'>已出租</Text>
           </View>
-          <View className='stat-card'>
+          <View className='stat-card stat-card--warning'>
+            <View className='stat-dot' />
             <Text className='stat-num'>{stats.vacant}</Text>
             <Text className='stat-label'>空置中</Text>
           </View>
-          <View className='stat-card'>
+          <View className='stat-card stat-card--neutral'>
+            <View className='stat-dot' />
             <Text className='stat-num'>{stats.reserved}</Text>
             <Text className='stat-label'>已预订</Text>
           </View>
+        </View>
+
+        <View
+          className='marketing-entry'
+          hoverClass='marketing-entry--hover'
+          onClick={() => Taro.navigateTo({ url: '/pages/owner/marketing/index' })}
+        >
+          <View className='marketing-entry__body'>
+            <Text className='marketing-entry__title'>房源营销</Text>
+            <Text className='marketing-entry__sub'>空置推广 · 定价建议 · 年度财务导出</Text>
+          </View>
+          <Text className='marketing-entry__arrow'>›</Text>
         </View>
 
         <View className='section-title'>
@@ -109,13 +124,18 @@ export default function OwnerHomePage() {
           onRefresherRefresh={onRefresh}
         >
           {loading && properties.length === 0 && (
-            <View className='empty-tip'>
-              <Text>加载中...</Text>
+            <View className='state state--loading'>
+              <View className='state__spinner' />
+              <Text className='state__title'>正在加载</Text>
             </View>
           )}
           {!loading && properties.length === 0 && (
-            <View className='empty-tip'>
-              <Text>暂无房源数据</Text>
+            <View className='state'>
+              <View className='state__icon'>
+                <Text className='state__glyph'>房</Text>
+              </View>
+              <Text className='state__title'>暂无房源数据</Text>
+              <Text className='state__desc'>下拉页面即可刷新</Text>
             </View>
           )}
           {properties.map((item) => {

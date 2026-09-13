@@ -7,7 +7,11 @@
     "dev:weapp": "taro build --type weapp --watch",
     "build:weapp": "taro build --type weapp"
   },
-  "browserslist": ["last 3 versions", "Android >= 4.1", "iOS >= 8"],
+  "browserslist": [
+    "last 3 versions",
+    "Android >= 4.1",
+    "iOS >= 8"
+  ],
   "dependencies": {
     "@babel/runtime": "^7.26.0",
     "@tarojs/components": "3.6.35",
@@ -29,6 +33,6 @@
     "@types/react": "^18.3.18",
     "babel-preset-taro": "3.6.35",
     "typescript": "^5.7.2",
-    "webpack": "^5.97.1"
+    "webpack": "^5.84.1"
   }
 }

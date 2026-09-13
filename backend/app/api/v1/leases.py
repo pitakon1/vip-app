@@ -1,4 +1,5 @@
 """租约路由：签约、续约、退房及租约管理。"""
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -18,12 +19,18 @@ from app.models import (
     Employee,
     Lease,
     LeaseStatus,
+    Owner,
+    Payment,
+    PaymentStatus,
+    PaymentType,
     Property,
     PropertyStatus,
     SettlementStatus,
     Tenant,
     User,
+    UserRole,
 )
+from app.services.pricing import compute_deposit_amount
 
 router = APIRouter(prefix="/leases", tags=["leases"])
 
@@ -69,7 +76,9 @@ class LeaseCreate(BaseModel):
     end_date: datetime
     monthly_rent: float
     currency: str = "THB"
-    deposit_amount: float
+    deposit_amount: Optional[float] = (
+        None  # 缺省时按押金规则自动核算（对私押2付1/对公押3付1）
+    )
     deposit_status: str = "held"
     status: LeaseStatus = LeaseStatus.active
     contract_url: Optional[str] = None
@@ -97,6 +106,15 @@ class LeaseRenew(BaseModel):
     special_terms: Optional[str] = None
 
 
+class DepositSettlement(BaseModel):
+    """退租押金结算请求：退房日期 + 损耗/其他扣款明细。"""
+
+    termination_date: datetime
+    damage_charges: float = 0.0  # 物业损耗扣款
+    other_deductions: list = []  # 其他扣款（[{label, amount}]）
+    notes: Optional[str] = None
+
+
 @router.get("")
 def list_leases(
     pagination: PaginationParams = Depends(),
@@ -118,9 +136,7 @@ def list_leases(
     stmt = select(Lease).where(*conditions).order_by(Lease.created_at.desc())
     count_stmt = select(func.count(Lease.id)).where(*conditions)
     total = session.exec(count_stmt).one()
-    items = session.exec(
-        stmt.offset(pagination.offset).limit(pagination.limit)
-    ).all()
+    items = session.exec(stmt.offset(pagination.offset).limit(pagination.limit)).all()
     return paginate(items, total, pagination)
 
 
@@ -135,6 +151,14 @@ def create_lease(
     agent_id = _resolve_agent(session, user, req.agent_id)
     data = req.model_dump()
     data["agent_id"] = agent_id
+
+    # 押金规则（E6/E7）：未显式给定时按业主类型自动核算并默认归业主持有
+    owner = session.get(Owner, req.owner_id)
+    owner_type = owner.owner_type.value if owner else "individual"
+    if data.get("deposit_amount") is None:
+        data["deposit_amount"] = compute_deposit_amount(req.monthly_rent, owner_type)
+    data["deposit_status"] = data.get("deposit_status") or "held"
+
     lease = Lease(**data)
     session.add(lease)
 
@@ -217,18 +241,37 @@ def update_lease(
     return lease
 
 
+def _can_renew(session: Session, user: User, lease: Lease) -> bool:
+    """续约权限：admin / agent 可直接续约；owner 物主与租约本人（租客）也可续约。"""
+    if user.role in (UserRole.admin, UserRole.agent):
+        return True
+    if user.role == UserRole.owner:
+        owner = session.exec(select(Owner).where(Owner.user_id == user.id)).first()
+        return bool(owner and owner.id == lease.owner_id)
+    # tenant / employee：仅租约本人可续约
+    tenant = session.exec(select(Tenant).where(Tenant.user_id == user.id)).first()
+    return bool(tenant and tenant.id == lease.tenant_id)
+
+
 @router.post("/{lease_id}/renew")
 def renew_lease(
     lease_id: uuid.UUID,
     req: LeaseRenew,
     session: Session = Depends(get_session),
-    user: User = Depends(require_agent),
+    user: User = Depends(get_current_user),
 ):
-    """续约，发布 lease.renewed 事件。"""
+    """续约，发布 lease.renewed 事件。
+
+    管理员/中介可自定义续约租金并指定条款；租约本人（租客）可在权利范围内续约，
+    但沿用原租金（不允许自定月租）。
+    """
     old_lease = session.get(Lease, lease_id)
     if not old_lease or old_lease.deleted_at:
         raise HTTPException(status_code=404, detail="Lease not found")
+    if not _can_renew(session, user, old_lease):
+        raise HTTPException(status_code=403, detail="No permission to renew this lease")
 
+    can_override_rent = user.role in (UserRole.admin, UserRole.agent)
     new_lease = Lease(
         property_id=old_lease.property_id,
         tenant_id=old_lease.tenant_id,
@@ -236,7 +279,9 @@ def renew_lease(
         agent_id=old_lease.agent_id,
         start_date=req.start_date,
         end_date=req.end_date,
-        monthly_rent=req.monthly_rent if req.monthly_rent else old_lease.monthly_rent,
+        monthly_rent=(req.monthly_rent if req.monthly_rent else old_lease.monthly_rent)
+        if can_override_rent
+        else old_lease.monthly_rent,
         currency=old_lease.currency,
         deposit_amount=old_lease.deposit_amount,
         deposit_status=old_lease.deposit_status,
@@ -304,3 +349,93 @@ def terminate_lease(
     session.commit()
     session.refresh(lease)
     return lease
+
+
+@router.post("/{lease_id}/deposit-settlement")
+def deposit_settlement(
+    lease_id: uuid.UUID,
+    req: DepositSettlement,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_agent),
+):
+    """退租押金结算（专职流程）：核算应退押金 / 应补差额，并落库。
+
+    公式：net = 押金 - 到期未付租金 - 损耗扣款 - 其他扣款
+    若 net >= 0 为应退给租客的金额；net < 0 表示租客还需补缴。
+    """
+    lease = session.get(Lease, lease_id)
+    if not lease or lease.deleted_at:
+        raise HTTPException(status_code=404, detail="Lease not found")
+
+    deposit_held = lease.deposit_amount or 0
+
+    # 到期前应缴而未缴的租金
+    outstanding_rent = 0.0
+    unpaid_payments = session.exec(
+        select(Payment).where(
+            Payment.lease_id == lease.id,
+            Payment.deleted_at.is_(None),
+            Payment.status != PaymentStatus.succeeded,
+            Payment.due_date.is_not(None),
+            Payment.due_date <= req.termination_date,
+        )
+    ).all()
+    for p in unpaid_payments:
+        outstanding_rent += p.amount or 0
+
+    other_total = sum(float(d.get("amount", 0)) for d in req.other_deductions)
+    deductions = round(req.damage_charges + other_total, 2)
+    net = round(deposit_held + 0 - outstanding_rent - deductions, 2)
+
+    settlement = {
+        "lease_id": str(lease.id),
+        "property_id": str(lease.property_id),
+        "termination_date": req.termination_date.isoformat(),
+        "deposit_held": deposit_held,
+        "outstanding_rent": round(outstanding_rent, 2),
+        "damage_charges": round(req.damage_charges, 2),
+        "other_deductions": req.other_deductions,
+        "total_deductions": deductions,
+        "net_refund": max(net, 0),
+        "net_owed_by_tenant": max(-net, 0),
+        "disposition": "refund" if net >= 0 else "pay",
+        "currency": lease.currency,
+        "notes": req.notes,
+        "settled_at": datetime.utcnow().isoformat(),
+        "settled_by": str(user.id),
+    }
+
+    # 落库：押金支出纪录（Refund 属性），并更新租约为已终止、房源空置
+    lease.deposit_status = "returned" if net >= 0 else "forfeited"
+    lease.status = LeaseStatus.terminated
+    session.add(lease)
+    if net > 0:
+        session.add(
+            Payment(
+                lease_id=lease.id,
+                property_id=lease.property_id,
+                payer_id=lease.owner_id,
+                amount=net,
+                currency=lease.currency,
+                payment_type=PaymentType.refund,
+                status=PaymentStatus.succeeded,
+                channel="bank_transfer",
+                idempotency_key=f"deposit-return-{lease.id}",
+                description=f"退租押金退还 {lease.property_id}",
+                paid_at=datetime.utcnow(),
+            )
+        )
+    prop = session.get(Property, lease.property_id)
+    if prop and not prop.deleted_at:
+        prop.status = PropertyStatus.vacant
+        session.add(prop)
+
+    publish_event(
+        session,
+        "lease.deposit.settled",
+        "lease",
+        lease.id,
+        {"net": net, "settled_by": str(user.id)},
+    )
+    session.commit()
+    return settlement

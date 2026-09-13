@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { message } from 'antd'
-import { companyApi } from '@/services/api'
+import { companyApi, backupApi } from '@/services/api'
 import type { CompanyInfo } from '@/types'
+import brandLogo from '@/assets/haofang-logo.jpg'
 import './settings.css'
 
 interface CompanyFormState {
@@ -76,7 +77,7 @@ const PAYMENT_CHANNELS: PaymentChannel[] = [
       { label: 'Bangkok Bank 账号', value: '012-345-6789', mono: true },
       { label: 'Kasikorn 账号', value: '123-4-56789-0', mono: true },
       { label: 'PromptPay 账号', value: '0123456789012', mono: true },
-      { label: '账户持有人姓名', value: 'RentFlow Property Management (Thailand) Co., Ltd.', mono: false },
+      { label: '账户持有人姓名', value: 'HaoFang Property Management (Thailand) Co., Ltd.', mono: false },
     ],
   },
   {
@@ -135,7 +136,7 @@ const Settings = () => {
 
   // 公司信息表单 state（原生 input）
   const [companyForm, setCompanyForm] = useState<CompanyFormState>({
-    name: 'RentFlow Property Management (Thailand) Co., Ltd.',
+    name: 'HaoFang Property Management (Thailand) Co., Ltd.',
     regNo: '0105566012345',
     address: '12th Fl., Park Venture, Sukhumvit 55, Bangkok 10110',
     phone: '+66 2-123 4567',
@@ -164,6 +165,45 @@ const Settings = () => {
 
   // 支付渠道状态
   const [channels, setChannels] = useState(PAYMENT_CHANNELS)
+
+  // v1.8 数据备份状态
+  const [backupJobs, setBackupJobs] = useState<any[]>([])
+  const [backupLoading, setBackupLoading] = useState(false)
+  const [backupRunning, setBackupRunning] = useState(false)
+
+  const fetchBackupJobs = async () => {
+    try {
+      const res = await backupApi.jobs()
+      setBackupJobs(res.data || [])
+    } catch {
+      // 静默处理，地址未配置时保持空列表
+    }
+  }
+
+  useEffect(() => {
+    fetchBackupJobs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleBackupRun = async () => {
+    setBackupRunning(true)
+    try {
+      const res = await backupApi.run()
+      const job = res.data
+      message.success(
+        job && job.status === 'success'
+          ? '备份完成'
+          : job && job.status === 'running'
+            ? '备份任务已启动'
+            : '备份执行完成（请查看记录）',
+      )
+      fetchBackupJobs()
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || '备份失败')
+    } finally {
+      setBackupRunning(false)
+    }
+  }
 
   const fetchCompanyInfo = async () => {
     setLoading(true)
@@ -275,6 +315,7 @@ const Settings = () => {
     { key: 'payment', label: '支付渠道' },
     { key: 'notification', label: '通知设置' },
     { key: 'permission', label: '权限管理' },
+    { key: 'backup', label: '数据备份' },
   ]
 
   return (
@@ -367,65 +408,6 @@ const Settings = () => {
             </div>
             <div className="rent-form-row">
               <div className="rent-form-group">
-                <label className="rent-form-label">网站</label>
-                <input
-                  className="rent-form-input"
-                  type="text"
-                  placeholder="请输入网站"
-                  value={companyForm.website}
-                  disabled={loading}
-                  onChange={(e) => setCompanyForm((p) => ({ ...p, website: e.target.value }))}
-                />
-              </div>
-              <div className="rent-form-group">
-                <label className="rent-form-label">微信</label>
-                <input
-                  className="rent-form-input"
-                  type="text"
-                  placeholder="微信号"
-                  value={companyForm.wechat}
-                  disabled={loading}
-                  onChange={(e) => setCompanyForm((p) => ({ ...p, wechat: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="rent-form-row">
-              <div className="rent-form-group">
-                <label className="rent-form-label">WhatsApp</label>
-                <input
-                  className="rent-form-input"
-                  type="text"
-                  placeholder="WhatsApp 号"
-                  value={companyForm.whatsapp}
-                  disabled={loading}
-                  onChange={(e) => setCompanyForm((p) => ({ ...p, whatsapp: e.target.value }))}
-                />
-              </div>
-              <div className="rent-form-group">
-                <label className="rent-form-label">Facebook</label>
-                <input
-                  className="rent-form-input"
-                  type="text"
-                  placeholder="Facebook 链接"
-                  value={companyForm.facebook}
-                  disabled={loading}
-                  onChange={(e) => setCompanyForm((p) => ({ ...p, facebook: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="rent-form-group">
-              <label className="rent-form-label">Instagram</label>
-              <input
-                className="rent-form-input"
-                type="text"
-                placeholder="Instagram 链接"
-                value={companyForm.instagram}
-                disabled={loading}
-                onChange={(e) => setCompanyForm((p) => ({ ...p, instagram: e.target.value }))}
-              />
-            </div>
-            <div className="rent-form-row">
-              <div className="rent-form-group">
                 <label className="rent-form-label">结算货币</label>
                 <select
                   className="rent-form-select"
@@ -455,7 +437,7 @@ const Settings = () => {
             <div className="rent-form-group" style={{ marginBottom: 0 }}>
               <label className="rent-form-label">公司 Logo</label>
               <div className="rent-logo-preview">
-                <div className="rent-logo-preview__box">R</div>
+                <img className="rent-logo-preview__box" src={brandLogo} alt="logo" />
                 <div>
                   <div className="rent-text-sm rent-text-bold">rentflow-logo.png</div>
                   <div className="rent-caption">256 × 256px · 18.4 KB</div>
@@ -681,6 +663,65 @@ const Settings = () => {
             </div>
           </div>
         </>
+      )}
+
+      {/* ===== Tab 5: 数据备份 ===== */}
+      {activeTab === 'backup' && (
+        <div className="rent-card">
+          <div className="rent-card__header">
+            <h3 className="rent-card__title">数据备份与每日同步</h3>
+            <span className="rent-badge rent-badge--primary">v1.8</span>
+          </div>
+          <div className="rent-card__body">
+            <p className="rent-body rent-mb-4">
+              系统每日凌晨（02:00）自动执行全库备份，您也可以手动触发一次备份。备份以
+              <span className="rent-table__mono"> .json.gz </span>
+              格式保存到服务器备份目录，并记录每次任务的状态与结果。
+            </p>
+            <div className="rent-flex rent-gap-4" style={{ alignItems: 'center', flexWrap: 'wrap', marginBottom: 24 }}>
+              <button className="rent-btn rent-btn--primary" type="button" onClick={handleBackupRun} disabled={backupRunning}>
+                {backupRunning ? '备份中...' : '立即执行备份'}
+              </button>
+              <span className="rent-text-sm rent-text-muted">自动备份策略：每日 02:00 · 全表快照 · 保留最近记录</span>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button" onClick={fetchBackupJobs} disabled={backupLoading} style={{ marginLeft: 'auto' }}>刷新</button>
+            </div>
+            <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="rent-table">
+                <thead>
+                  <tr>
+                    <th>时间</th>
+                    <th>类型</th>
+                    <th>状态</th>
+                    <th>文件</th>
+                    <th>大小</th>
+                    <th>备注</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {backupJobs.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="rent-text-muted">暂无备份记录</td>
+                    </tr>
+                  )}
+                  {backupJobs.map((job) => (
+                    <tr key={job.id}>
+                      <td className="rent-table__mono">{job.created_at ? new Date(job.created_at).toLocaleString() : '-'}</td>
+                      <td>{job.type === 'daily' ? '每日同步' : job.type === 'manual' ? '手动' : job.type}</td>
+                      <td>
+                        <span className="rent-badge" data-success={job.status === 'success' ? 'true' : undefined} data-danger={job.status === 'failed' ? 'true' : undefined}>
+                          {job.status === 'success' ? '成功' : job.status === 'failed' ? '失败' : job.status}
+                        </span>
+                      </td>
+                      <td className="rent-table__mono" style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.file_path || '-'}</td>
+                      <td className="rent-table__mono">{job.size_bytes ? `${(job.size_bytes / 1024 / 1024).toFixed(2)} MB` : '-'}</td>
+                      <td className="rent-text-muted">{job.error || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

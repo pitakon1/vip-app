@@ -1,6 +1,7 @@
 /* =========================================================
-   RentFlow 公共主页 — 贝壳找房风格
-   白底毛玻璃顶栏 · 渐变 Hero · 胶囊搜索 · 大圆角卡片流
+   RentFlow 公共主页 — 对齐品牌设计令牌
+   白底毛玻璃顶栏 · 纯色 Hero · 胶囊搜索 · 大圆角卡片流
+   主色: var(--rent-primary) = #14b8a6 (teal)
    ========================================================= */
 
 /* ===== 顶部导航 ===== */
@@ -11,7 +12,7 @@
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.05), 0 8px 24px -16px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--rent-shadow-1);
 }
 .bk-header__inner {
   max-width: 1200px;
@@ -33,15 +34,15 @@
 .bk-header__logo {
   width: 38px;
   height: 38px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #4263eb, #5b7cfa);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--rent-primary-foreground);
   font-weight: 800;
   font-size: 18px;
-  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.35);
 }
 .bk-header__name {
   font-size: 20px;
@@ -64,7 +65,7 @@
   border: none;
   background: none;
   cursor: pointer;
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   transition: background 0.15s, color 0.15s;
   font-family: var(--rent-font-sans);
 }
@@ -85,7 +86,7 @@
 
 /* ===== Hero ===== */
 .bk-hero {
-  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+  background: var(--rent-primary);
   padding: 64px 24px 72px;
   position: relative;
   overflow: hidden;
@@ -138,9 +139,9 @@
   align-items: center;
   gap: 0;
   background: #fff;
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   padding: 6px 6px 6px 24px;
-  box-shadow: 0 12px 36px -12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--rent-shadow-3);
   max-width: 640px;
   margin: 0 auto;
 }
@@ -162,17 +163,17 @@
   gap: 6px;
   padding: 11px 28px;
   border: none;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #4263eb, #5b7cfa);
-  color: #fff;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   font-family: var(--rent-font-sans);
-  transition: opacity 0.15s, transform 0.1s;
+  transition: background 0.15s, transform 0.1s;
   white-space: nowrap;
 }
-.bk-search-bar__btn:hover { opacity: 0.92; }
+.bk-search-bar__btn:hover { background: var(--rent-primary-hover); }
 .bk-search-bar__btn:active { transform: scale(0.97); }
 
 /* ===== 搜索标签 ===== */
@@ -185,7 +186,7 @@
 }
 .bk-search-tag {
   padding: 5px 14px;
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
@@ -227,20 +228,20 @@
   padding: 24px 12px;
   border: none;
   background: var(--rent-card);
-  border-radius: 18px;
-  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.1);
+  border-radius: var(--rent-radius-lg);
+  box-shadow: var(--rent-shadow-1);
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
   font-family: var(--rent-font-sans);
 }
 .bk-quick-item:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 32px -12px rgba(66, 99, 235, 0.25);
+  box-shadow: var(--rent-shadow-2);
 }
 .bk-quick-item__icon {
   width: 52px;
   height: 52px;
-  border-radius: 16px;
+  border-radius: var(--rent-radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -297,17 +298,16 @@
   gap: 20px;
 }
 .bk-prop-card {
-  border: none;
+  border: 1px solid var(--rent-border);
   background: var(--rent-card);
   border-radius: var(--rent-radius-lg);
   overflow: hidden;
-  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.1);
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
 }
 .bk-prop-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.2);
+  box-shadow: var(--rent-shadow-2);
 }
 .bk-prop-card__banner {
   width: 100%;
@@ -322,7 +322,7 @@
   top: 12px;
   left: 12px;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(4px);
   font-size: 12px;
@@ -361,10 +361,10 @@
 }
 .bk-prop-card__tag {
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   font-size: 11px;
   font-weight: 500;
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20, 184, 166, 0.08);
   color: var(--rent-primary);
 }
 .bk-prop-card__price {
@@ -398,12 +398,12 @@
   transition: box-shadow 0.15s;
 }
 .bk-feature-card:hover {
-  box-shadow: 0 8px 28px -12px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--rent-shadow-2);
 }
 .bk-feature-card__icon {
   width: 56px;
   height: 56px;
-  border-radius: 16px;
+  border-radius: var(--rent-radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -431,8 +431,8 @@
   max-width: 1152px;
   margin-left: auto;
   margin-right: auto;
-  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 100%);
-  border-radius: 24px;
+  background: var(--rent-primary);
+  border-radius: var(--rent-radius-lg);
   padding: 48px 40px;
   display: flex;
   align-items: center;
@@ -470,7 +470,7 @@
   z-index: 1;
   padding: 14px 36px;
   border: 2px solid rgba(255, 255, 255, 0.4);
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
   font-size: 16px;

@@ -1,6 +1,6 @@
 .owner-services-page {
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background-color: var(--bg);
 
   .page-container {
     padding: 24px;
@@ -9,19 +9,19 @@
   .section-title {
     font-size: 32px;
     font-weight: 600;
-    color: #333333;
+    color: var(--ink);
     margin-bottom: 16px;
   }
 
   .pay-tip {
-    background-color: #fffbe6;
+    background-color: rgba(217, 119, 6, 0.1);
     border-radius: 12px;
     padding: 16px 24px;
     margin-bottom: 24px;
 
     .pay-tip-label {
       font-size: 26px;
-      color: #faad14;
+      color: var(--warning);
       display: block;
       margin-bottom: 8px;
     }
@@ -32,7 +32,7 @@
 
       .pay-icon {
         font-size: 24px;
-        color: #666666;
+        color: var(--ink-2);
         margin-right: 16px;
         margin-bottom: 4px;
       }
@@ -41,7 +41,7 @@
 
   .service-list {
     .service-card {
-      background-color: #ffffff;
+      background-color: var(--card);
       border-radius: 16px;
       padding: 24px;
       margin-bottom: 16px;
@@ -53,14 +53,14 @@
           display: block;
           font-size: 32px;
           font-weight: 600;
-          color: #333333;
+          color: var(--ink);
           margin-bottom: 8px;
         }
 
         .service-desc {
           display: block;
           font-size: 26px;
-          color: #999999;
+          color: var(--ink-3);
           margin-bottom: 12px;
           line-height: 1.5;
         }
@@ -69,7 +69,7 @@
           display: block;
           font-size: 36px;
           font-weight: 700;
-          color: #ff4d4f;
+          color: var(--error);
         }
       }
 
@@ -91,8 +91,8 @@
           width: 240px;
           height: 72px;
           line-height: 72px;
-          background-color: #1677ff;
-          color: #ffffff;
+          background-color: var(--primary);
+          color: var(--primary-foreground);
           font-size: 28px;
           border-radius: 8px;
           padding: 0;

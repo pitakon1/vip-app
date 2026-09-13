@@ -26,10 +26,49 @@ UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
+_DEFAULT_SECRET = "super-secret-key-change-in-production"
+
+# 第三方能力 -> (配置字段, 缺省时是否走 mock 降级)
+_INTEGRATION_PROBES = [
+    ("AI 对话", "OPENAI_API_KEY", True),
+    ("地图/考勤定位", "GOOGLE_MAPS_API_KEY", True),
+    ("翻译", "GOOGLE_TRANSLATE_API_KEY", True),
+    ("电子签", "CONTRACT_SIGNING_SECRET", False),
+]
+_FALLBACK_SECRETS = (_DEFAULT_SECRET, "change-me-signing-secret")
+
+
+def _run_startup_selfcheck() -> None:
+    """启动自检：核对密钥强度与第三方集成是否处于 mock/降级模式。"""
+    # 1) 密钥强度：非 DEBUG 下仍用默认/示例签名密钥属高危
+    if not settings.DEBUG and settings.SECRET_KEY in _FALLBACK_SECRETS:
+        logger.error(
+            "startup.selfcheck.insecure_secret_key",
+            hint="生产环境必须设置强随机 SECRET_KEY，避免可预测签名导致会话伪造。",
+        )
+    elif settings.DEBUG:
+        logger.info("startup.selfcheck.debug_mode", secret_key_ok=True)
+
+    # 2) 第三方集成模式审计：缺失 Key 的能力走 mock/站内降级
+    mock_enabled = []
+    for name, field, has_mock_fallback in _INTEGRATION_PROBES:
+        if not getattr(settings, field, ""):
+            mock_enabled.append(name if has_mock_fallback else f"{name}(需配置)")
+    if mock_enabled:
+        logger.warning(
+            "startup.selfcheck.integrations_mock",
+            integrations=mock_enabled,
+            note="以下能力未配置第三方凭证，将返回 mock/占位响应；上线前请核对。",
+        )
+    else:
+        logger.info("startup.selfcheck.integrations", mode="all configured")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理。"""
     logger.info("application.starting", app=settings.APP_NAME, version=settings.APP_VERSION)
+    _run_startup_selfcheck()
     yield
     logger.info("application.stopped", app=settings.APP_NAME)
 

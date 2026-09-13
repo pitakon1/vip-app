@@ -1,7 +1,7 @@
 """认证路由：登录、注册、刷新令牌、获取当前用户信息。"""
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 from pydantic import BaseModel
@@ -16,8 +16,14 @@ from app.core.security import (
 )
 from app.core.auth import get_current_user
 from app.models.user import User, UserRole
+from app.models.owner import Owner
+from app.models.tenant import Tenant
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+# 自助注册仅开放业主/租客；员工/经纪/管理员须由后台开通
+SELF_SIGNUP_ROLES = {UserRole.owner, UserRole.tenant}
 
 
 class TokenResponse(BaseModel):
@@ -67,6 +73,11 @@ def login(form: OAuth2PasswordRequestForm = Depends(), session: Session = Depend
 
 @router.post("/register", response_model=TokenResponse)
 def register(req: RegisterRequest, session: Session = Depends(get_session)):
+    if req.role not in SELF_SIGNUP_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail="Self-registration only supports owner/tenant. Staff roles require admin onboarding.",
+        )
     existing = session.exec(select(User).where(User.email == req.email)).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -80,6 +91,12 @@ def register(req: RegisterRequest, session: Session = Depends(get_session)):
     session.add(user)
     session.commit()
     session.refresh(user)
+    # 同步建立业主/租客档案，保证登录后各端页面可正常拉取数据
+    if req.role == UserRole.owner:
+        session.add(Owner(user_id=user.id, owner_type="individual"))
+    elif req.role == UserRole.tenant:
+        session.add(Tenant(user_id=user.id))
+    session.commit()
     return _build_token_response(user)
 
 
@@ -109,4 +126,24 @@ def get_me(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
         "full_name": current_user.full_name,
         "role": current_user.role.value,
+    }
+
+
+@router.delete("/me")
+def delete_me(session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+    """账号注销（G2）：软删除并匿名化 PII。
+
+    说明：合同/财务记录按法定留存期保留（不可删，G1），仅移除可识别个人信息的字段，
+    并将账号置为停用。data 如需彻底物理删除，另行走保留期到期清理任务。
+    """
+    user.is_active = False
+    user.email = f"deleted-{uuid.uuid4().hex[:12]}@deleted.local"  # 匿名化邮箱（保持唯一）
+    user.phone = None
+    user.full_name = "已注销用户"
+    user.avatar_url = None
+    session.add(user)
+    session.commit()
+    return {
+        "ok": True,
+        "message": "Account deactivated and personal data anonymized. Financial/contract records retained per legal retention.",
     }

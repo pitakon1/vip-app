@@ -23,7 +23,8 @@ export default function LoginPage() {
 
     try {
       const res = (await authApi.login(email, password)) as any
-      const token = res?.token || res?.data?.token
+      // 后端返回 { access_token, refresh_token, token_type, user } 扁平结构
+      const token = res?.access_token || res?.token || res?.data?.access_token || res?.data?.token
       const user = (res?.user || res?.data?.user) as User | undefined
 
       if (!token || !user) {
@@ -41,14 +42,13 @@ export default function LoginPage() {
       Taro.showToast({ title: '登录成功', icon: 'success' })
 
       const role: UserRole = user.role
+      const homePath = {
+        owner: '/pages/owner/home/index',
+        tenant: '/pages/tenant/home/index',
+        admin: '/pages/admin/home/index',
+      }[role] || '/pages/employee/home/index' // agent/employee 进入经纪/员工工作台
       setTimeout(() => {
-        if (role === 'owner') {
-          Taro.redirectTo({ url: '/pages/owner/home/index' })
-        } else if (role === 'tenant') {
-          Taro.redirectTo({ url: '/pages/tenant/home/index' })
-        } else {
-          Taro.redirectTo({ url: '/pages/profile/index' })
-        }
+        Taro.redirectTo({ url: homePath })
       }, 500)
     } catch (error) {
       console.error('[Login] 登录失败', error)
@@ -101,7 +101,7 @@ export default function LoginPage() {
         </Button>
 
         <View className='login-tip'>
-          <Text className='tip-text'>提示：业主账号登录进入业主端，租客账号登录进入租客端</Text>
+          <Text className='tip-text'>提示：业主/租客/管理员/经纪/员工账号登录后将进入各自对应的工作台</Text>
         </View>
       </View>
     </View>

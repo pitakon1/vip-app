@@ -23,7 +23,7 @@ export default function ProfilePage() {
   const refreshUser = async () => {
     try {
       const res = await authApi.me()
-      const latest = (res?.data ?? res) as User | undefined
+      const latest = ((res as any)?.data ?? res) as User | undefined
       const currentToken = useAuthStore.getState().token
       if (latest && currentToken) {
         login(currentToken, latest)
@@ -58,7 +58,17 @@ export default function ProfilePage() {
   }
 
   const roleText =
-    user?.role === 'owner' ? '业主' : user?.role === 'tenant' ? '租客' : '未知'
+    user?.role === 'owner'
+      ? '业主'
+      : user?.role === 'tenant'
+        ? '租客'
+        : user?.role === 'agent'
+          ? '经纪人'
+          : user?.role === 'employee'
+            ? '员工'
+            : user?.role === 'admin'
+              ? '管理员'
+              : '未知'
 
   return (
     <View className='profile-page'>
@@ -116,6 +126,63 @@ export default function ProfilePage() {
             </View>
           </>
         )}
+
+        {(user?.role === 'agent' || user?.role === 'employee') && (
+          <>
+            <View className='menu-item' onClick={() => handleNavigate('/pages/employee/home/index')}>
+              <Text className='menu-text'>销售工作台</Text>
+              <Text className='menu-arrow'>›</Text>
+            </View>
+            <View className='menu-item' onClick={() => handleNavigate('/pages/tenant/listings/index')}>
+              <Text className='menu-text'>房源搜索</Text>
+              <Text className='menu-arrow'>›</Text>
+            </View>
+            <View className='menu-item' onClick={() => handleNavigate('/pages/employee/performance/index')}>
+              <Text className='menu-text'>我的业绩</Text>
+              <Text className='menu-arrow'>›</Text>
+            </View>
+            <View className='menu-item' onClick={() => handleNavigate('/pages/attendance/index')}>
+              <Text className='menu-text'>考勤打卡</Text>
+              <Text className='menu-arrow'>›</Text>
+            </View>
+          </>
+        )}
+
+        {user?.role === 'admin' && (
+          <>
+            <View className='menu-item' onClick={() => handleNavigate('/pages/admin/home/index')}>
+              <Text className='menu-text'>管理员工作台</Text>
+              <Text className='menu-arrow'>›</Text>
+            </View>
+            <View className='menu-item' onClick={() => handleNavigate('/pages/attendance/index')}>
+              <Text className='menu-text'>考勤打卡</Text>
+              <Text className='menu-arrow'>›</Text>
+            </View>
+          </>
+        )}
+      </View>
+
+      <View className='menu-list'>
+        <View className='menu-item' onClick={() => handleNavigate('/pages/chat/list/index')}>
+          <Text className='menu-text'>即时聊天</Text>
+          <Text className='menu-arrow'>›</Text>
+        </View>
+        <View className='menu-item' onClick={() => handleNavigate('/pages/contracts/index')}>
+          <Text className='menu-text'>电子签合同</Text>
+          <Text className='menu-arrow'>›</Text>
+        </View>
+        <View className='menu-item' onClick={() => handleNavigate('/pages/backup/index')}>
+          <Text className='menu-text'>数据备份</Text>
+          <Text className='menu-arrow'>›</Text>
+        </View>
+        <View className='menu-item' onClick={() => handleNavigate('/pages/map/search/index')}>
+          <Text className='menu-text'>地图找房</Text>
+          <Text className='menu-arrow'>›</Text>
+        </View>
+        <View className='menu-item' onClick={() => handleNavigate('/pages/attendance/index')}>
+          <Text className='menu-text'>考勤打卡</Text>
+          <Text className='menu-arrow'>›</Text>
+        </View>
       </View>
 
       <View className='logout-wrapper'>

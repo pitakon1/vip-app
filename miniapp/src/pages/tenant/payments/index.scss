@@ -1,0 +1,158 @@
+.tenant-payments-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+
+  .page-container {
+    padding: 24px 24px 40px;
+  }
+
+  .pay-banner {
+    background-color: var(--primary);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 32px;
+
+    .pay-banner-label {
+      display: block;
+      font-size: 26px;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .pay-banner-amount {
+      display: block;
+      font-size: 56px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-top: 8px;
+    }
+
+    .pay-banner-sub {
+      display: block;
+      font-size: 24px;
+      color: rgba(255, 255, 255, 0.85);
+      margin-top: 8px;
+    }
+
+    .pay-banner-btn {
+      margin-top: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #ffffff;
+      border-radius: 999px;
+      height: 72px;
+      padding: 0 48px;
+
+      .pay-banner-btn-text {
+        font-size: 30px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+    }
+  }
+
+  .section-title {
+    font-size: 30px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 20px;
+  }
+
+  .pay-list {
+    height: auto;
+
+    .empty-tip {
+      text-align: center;
+      color: var(--ink-3);
+      font-size: 26px;
+      padding: 80px 0;
+    }
+
+    .pay-card {
+      background-color: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+      border-top: 6px solid var(--primary);
+
+      .pay-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .pay-card-type {
+          font-size: 30px;
+          font-weight: 600;
+          color: var(--ink);
+        }
+
+        .pay-card-status {
+          font-size: 24px;
+          font-weight: 600;
+        }
+      }
+
+      .pay-card-desc {
+        display: block;
+        margin-top: 12px;
+        font-size: 24px;
+        color: var(--ink-2);
+      }
+
+      .pay-card-amount {
+        display: block;
+        margin-top: 20px;
+        font-size: 40px;
+        font-weight: 700;
+      }
+
+      .pay-card-time {
+        display: block;
+        margin-top: 16px;
+        font-size: 22px;
+        color: var(--ink-3);
+      }
+
+      .pay-card-actions {
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
+
+        .pay-card-btn {
+          display: flex;
+          justify-content: flex-end;
+          margin-top: 0;
+
+          & + .pay-card-btn {
+            margin-left: 16px;
+          }
+
+          &--primary .pay-card-btn-text {
+            border-color: var(--primary);
+            background-color: var(--primary);
+            color: #ffffff;
+          }
+        }
+      }
+
+      .pay-card-btn {
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
+
+        .pay-card-btn-text {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          height: 64px;
+          padding: 0 40px;
+          border-radius: 999px;
+          border: 2px solid var(--primary);
+          font-size: 26px;
+          font-weight: 600;
+          color: var(--primary);
+        }
+      }
+    }
+  }
+}

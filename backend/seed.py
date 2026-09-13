@@ -303,5 +303,95 @@ def seed_all():
         print("   Employee: employee@viprental.com / emp123")
 
 
+def seed_strategy():
+    """播种东南亚市场/本地支付渠道 + 外部渠道商，支撑四大战略维度演示。
+    用法: python -m seed seed_strategy
+    """
+    init_db()
+    from sqlmodel import select
+    from app.models.market import (
+        MarketConfig,
+        MarketStatus,
+        LocalPaymentChannel,
+        PaymentChannelStatus,
+    )
+    from app.models.broker import (
+        BrokerPartner,
+        BrokerType,
+        BrokerLevel,
+        BrokerStatus,
+    )
+
+    with Session(engine) as session:
+        markets = [
+            ("TH", "Thailand", "THB", "th", "Asia/Bangkok", True),
+            ("VN", "Vietnam", "VND", "vi", "Asia/Ho_Chi_Minh", False),
+            ("ID", "Indonesia", "IDR", "id", "Asia/Jakarta", False),
+            ("MY", "Malaysia", "MYR", "ms", "Asia/Kuala_Lumpur", False),
+            ("SG", "Singapore", "SGD", "en", "Asia/Singapore", False),
+            ("PH", "Philippines", "PHP", "tl", "Asia/Manila", False),
+        ]
+        for code, name, cur, lang, tz, published in markets:
+            if not session.exec(
+                select(MarketConfig).where(MarketConfig.market_code == code)
+            ).first():
+                session.add(
+                    MarketConfig(
+                        market_code=code,
+                        country_name=name,
+                        currency=cur,
+                        default_language=lang,
+                        timezone=tz,
+                        status=MarketStatus.active if published else MarketStatus.launching,
+                        published=published,
+                        sort_order=0 if code == "TH" else 100,
+                    )
+                )
+
+        channels = [
+            ("TH", "promptpay", "PromptPay", "bank_transfer"),
+            ("TH", "truewallet", "TrueMoney Wallet", "wallet"),
+            ("TH", "grabpay", "GrabPay", "wallet"),
+            ("TH", "shopeepay", "ShopeePay", "wallet"),
+            ("TH", "kbank_installment", "KBank Installment", "installment"),
+        ]
+        for code, channel_code, name, ctype in channels:
+            if not session.exec(
+                select(LocalPaymentChannel).where(
+                    LocalPaymentChannel.market_code == code,
+                    LocalPaymentChannel.channel_code == channel_code,
+                )
+            ).first():
+                session.add(
+                    LocalPaymentChannel(
+                        market_code=code,
+                        channel_code=channel_code,
+                        channel_name=name,
+                        channel_type=ctype,
+                        status=PaymentChannelStatus.active,
+                    )
+                )
+
+        if not session.exec(
+            select(BrokerPartner).where(BrokerPartner.invite_code == "SEA111AAA")
+        ).first():
+            session.add(
+                BrokerPartner(
+                    partner_name="曼谷聚合分销中心",
+                    broker_type=BrokerType.agency,
+                    level=BrokerLevel.gold,
+                    status=BrokerStatus.active,
+                    invite_code="SEA111AAA",
+                    contact_name="Khun Anan",
+                    contact_phone="+66-800-000-000",
+                    country="TH",
+                    base_rate=5.0,
+                )
+            )
+
+        session.commit()
+        print("✅ 战略播种完成：6 市场 + 5 本地支付渠道 + 1 外部渠道商")
+
+
 if __name__ == "__main__":
     seed_all()

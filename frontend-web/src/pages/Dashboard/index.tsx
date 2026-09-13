@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
-import { message } from 'antd'
+import { message, Empty, Spin } from 'antd'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -47,13 +47,23 @@ const TREND_RATIO: Record<RangeKey, number[]> = {
 // 与设计稿一致的 KPI 卡片配置（数值由真实接口填充）
 const kpiMeta = [
   {
-    label: '总房源数',
-    key: 'total_properties',
-    format: (v: number) => String(v ?? 0),
-    icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
-    poly: '9 22 9 12 15 12 15 22',
-    bg: 'rgba(66,99,235,0.1)',
-    color: 'var(--rent-primary)',
+    label: '本月营收',
+    key: 'monthly_revenue',
+    format: (v: number) => fmtBaht(v),
+    icon: 'M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+    line: 'M12 1L12 23',
+    bg: 'rgba(22,163,74,0.1)',
+    color: 'var(--state-success)',
+    delta: (s: Record<string, number>) => ({ up: true, text: '较上月' }),
+  },
+  {
+    label: '出租率',
+    key: 'occupancy_rate',
+    format: (v: number) => `${v ?? 0}%`,
+    icon: 'M18 20L18 10M12 20L12 4M6 20L6 14',
+    bg: 'rgba(217,119,6,0.1)',
+    color: 'var(--state-warning)',
+    delta: (s: Record<string, number>) => ({ up: true, text: `空置 ${s.vacant ?? 0} 套` }),
   },
   {
     label: '在租合同',
@@ -64,23 +74,17 @@ const kpiMeta = [
     extra: 'M16 13L8 13M16 17L8 17',
     bg: 'rgba(14,165,233,0.1)',
     color: 'var(--state-info)',
+    delta: (s: Record<string, number>) => ({ up: true, text: `${s.expiring_leases ?? 0} 份将到期` }),
   },
   {
-    label: '月度收入',
-    key: 'monthly_revenue',
-    format: (v: number) => fmtBaht(v),
-    icon: 'M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
-    line: 'M12 1L12 23',
-    bg: 'rgba(22,163,74,0.1)',
-    color: 'var(--state-success)',
-  },
-  {
-    label: '入住率',
-    key: 'occupancy_rate',
-    format: (v: number) => `${v ?? 0}%`,
-    icon: 'M18 20L18 10M12 20L12 4M6 20L6 14',
-    bg: 'rgba(217,119,6,0.1)',
-    color: 'var(--state-warning)',
+    label: '员工数',
+    key: 'employee_count',
+    format: (v: number) => String(v ?? 0),
+    icon: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2',
+    circle: '12 7 4',
+    bg: 'rgba(20, 184, 166, 0.1)',
+    color: 'var(--rent-primary)',
+    delta: (s: Record<string, number>) => ({ up: true, text: `${s.new_employees ?? 0} 本月新增` }),
   },
 ]
 
@@ -105,27 +109,112 @@ const PAY_TYPE_TEXT: Record<string, string> = {
   refund: '退款',
 }
 
+// 风险预警区（对齐原型 admin-dashboard：warning/danger/info 三卡）
+const riskMeta = [
+  {
+    tone: 'warning' as const,
+    label: '合同 30 天内到期',
+    value: (s: Record<string, number>) => `${s.expiring_leases ?? 0}`,
+    unit: '份',
+    desc: (s: Record<string, number>) => `${s.expiring_property ?? ''}${s.expiring_leases && s.expiring_leases > 0 ? ` 等 ${s.expiring_leases} 份合同临近到期` : '暂无临近到期合同'}`,
+    path: '/leases',
+    icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8',
+  },
+  {
+    tone: 'danger' as const,
+    label: '欠租房源',
+    value: (s: Record<string, number>) => `${s.upcoming_payments ?? 0}`,
+    unit: '笔',
+    desc: () => '逾期金额待核 · 请及时催收',
+    path: '/payments',
+    icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  },
+  {
+    tone: 'info' as const,
+    label: '空置率超阈值',
+    value: (s: Record<string, number>) => `${s.vacant && s.total_properties ? Math.round((s.vacant / s.total_properties) * 100) : 0}`,
+    unit: '% · 警戒线 10%',
+    desc: () => '建议关注高空置片区，及时补充房源',
+    path: '/properties',
+    icon: 'M18 20v-10M12 20V4M6 20v-6',
+  },
+]
+
+// 快捷入口（对齐原型 cockpit-ext）
+const quickMeta = [
+  {
+    label: '房源管理',
+    sub: (s: Record<string, number>) => `${s.total_properties ?? 0} 套房源 · 上架维护`,
+    path: '/properties',
+    bg: 'rgba(20,184,166,0.1)',
+    color: 'var(--rent-primary)',
+    icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10',
+  },
+  {
+    label: '合同管理',
+    sub: (s: Record<string, number>) => `${s.rented ?? 0} 份在租 · 续签提醒`,
+    path: '/leases',
+    bg: 'rgba(22,163,74,0.1)',
+    color: 'var(--state-success)',
+    icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8',
+  },
+  {
+    label: '客户管理',
+    sub: () => '租客跟进 · 合同台账',
+    path: '/crm',
+    bg: 'rgba(14,165,233,0.1)',
+    color: 'var(--state-info)',
+    icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+  },
+  {
+    label: '财务对账',
+    sub: () => '收款核对 · 逾期催收',
+    path: '/payments',
+    bg: 'rgba(217,119,6,0.1)',
+    color: 'var(--state-warning)',
+    icon: 'M1 4h22v16H1zM1 10h23',
+  },
+]
+
 const Dashboard = () => {
   const navigate = useNavigate()
   const [range, setRange] = useState<RangeKey>('12m')
-  const [summary, setSummary] = useState<Record<string, number>>({})
+  const [summary, setSummary] = useState<Record<string, any>>({})
   const [expiring, setExpiring] = useState<any[]>([])
   const [payments, setPayments] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
 
   const fetchAll = useCallback(async () => {
+    setLoading(true)
     try {
-      const [sumRes, expRes, payRes] = await Promise.all([
+      const [sumRes, expRes, payRes, empRes] = await Promise.all([
         api.get('/dashboard/summary').catch(() => ({ data: {} })),
         api.get('/dashboard/expiring-leases').catch(() => ({ data: { items: [] } })),
         api.get('/dashboard/recent-payments').catch(() => ({ data: { items: [] } })),
+        api.get('/employees', { params: { page: 1, page_size: 100 } }).catch(() => ({ data: {} })),
       ])
       setSummary(sumRes.data?.data ?? sumRes.data ?? {})
       const expPayload = expRes.data?.data ?? expRes.data
-      setExpiring(expPayload?.items ?? [])
+      const expItems = expPayload?.items ?? []
+      setExpiring(expItems)
+      setSummary((prev) => ({
+        ...prev,
+        expiring_property: expItems[0]?.property_name ?? '',
+      }))
       const payPayload = payRes.data?.data ?? payRes.data
       setPayments(payPayload?.items ?? [])
+      const empPayload = empRes.data?.data ?? empRes.data
+      const empItems = empPayload?.items ?? []
+      const now = dayjs()
+      setSummary((prev) => ({
+        ...prev,
+        employee_count: empPayload?.total ?? empItems.length ?? 0,
+        new_employees: empItems.filter((e: any) => e.created_at && dayjs(e.created_at).isSame(now, 'month')).length,
+      }))
     } catch (err: any) {
       message.error(err?.response?.data?.message || '获取数据失败')
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -142,12 +231,12 @@ const Dashboard = () => {
       {
         label: '收入 (฿)',
         data: TREND_RATIO['12m'].map((r) => Math.round(baseRevenue * r)),
-        borderColor: '#4263eb',
-        backgroundColor: 'rgba(66, 99, 235, 0.08)',
+        borderColor: '#14b8a6',
+        backgroundColor: 'rgba(20, 184, 166, 0.08)',
         fill: true,
         tension: 0.3,
         borderWidth: 2,
-        pointBackgroundColor: '#4263eb',
+        pointBackgroundColor: '#14b8a6',
         pointBorderColor: '#ffffff',
         pointBorderWidth: 2,
         pointRadius: 4,
@@ -225,7 +314,7 @@ const Dashboard = () => {
       {/* Page Header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">数据总览</h2>
+          <h2 className="rent-page-header__title">经营驾驶舱</h2>
           <p className="rent-page-header__subtitle">
             {dayjs().format('YYYY年M月D日')} · 系统运行正常
           </p>
@@ -248,47 +337,123 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* KPI Cards Row */}
-      <div className="rent-grid rent-grid--4 rent-mb-5">
-        {kpiMeta.map((card) => (
-          <div className="rent-stat-card" key={card.label}>
-            <div className="rent-stat-card__head">
-              <div>
-                <div className="rent-stat-card__label">{card.label}</div>
-                <div className="rent-stat-card__value rent-num">{card.format(Number(summary[card.key] || 0))}</div>
-              </div>
-              <div className="rent-stat-card__icon" style={{ background: card.bg, color: card.color }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {card.line && <path d={card.line} />}
-                  {card.extra && <path d={card.extra} />}
-                  <path d={card.icon} />
-                  {card.poly && <polyline points={card.poly} />}
-                </svg>
-              </div>
+      {/* 风险预警区（置顶 · 视觉最重） */}
+      {loading && (
+        <div className="owner-loading-bar" style={{ marginBottom: 16 }}>
+          <Spin size="small" style={{ marginRight: 8 }} />
+          数据加载中…
+        </div>
+      )}
+      <div className="rent-risk-grid rent-mb-5">
+        {riskMeta.map((card) => (
+          <div className={`rent-risk-card rent-risk-card--${card.tone}`} key={card.label}>
+            <div className="rent-risk-card__icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {card.icon.split('M').slice(1).map((d, i) => (
+                  <path key={i} d={`M${d}`} />
+                ))}
+              </svg>
             </div>
+            <div className="rent-risk-card__body">
+              <div className="rent-risk-card__label">{card.label}</div>
+              <div className="rent-risk-card__value">{card.value(summary)}<span>{card.unit}</span></div>
+              <div className="rent-risk-card__desc">{card.desc(summary)}</div>
+            </div>
+            <button
+              className="rent-btn rent-btn--sm rent-btn--ghost rent-risk-card__cta"
+              onClick={() => navigate(card.path)}
+            >
+              去处理
+            </button>
           </div>
         ))}
       </div>
 
-      {/* Chart Card */}
-      <div className="rent-card rent-mb-5">
-        <div className="rent-card__header">
-          <h3 className="rent-card__title">收入趋势</h3>
-          <div className="rent-chart-range-group">
-            {rangeMeta.map((r) => (
-              <button
-                key={r.key}
-                className={`rent-chart-range ${range === r.key ? 'rent-chart-range--active' : ''}`}
-                onClick={() => setRange(r.key)}
-              >
-                {r.label}
-              </button>
-            ))}
+      {/* KPI Cards Row */}
+      <div className="rent-grid rent-grid--4 rent-mb-5">
+        {kpiMeta.map((card) => {
+          const delta = card.delta(summary)
+          return (
+            <div className="rent-stat-card" key={card.label}>
+              <div className="rent-stat-card__head">
+                <div>
+                  <div className="rent-stat-card__label">{card.label}</div>
+                  <div className="rent-stat-card__value rent-num">{card.format(Number(summary[card.key] || 0))}</div>
+                  <div className={`rent-stat-card__delta ${delta.up ? 'rent-stat-card__delta--up' : 'rent-stat-card__delta--down'}`}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="19" x2="12" y2="5" />
+                      <polyline points="5 12 12 5 19 12" />
+                    </svg>
+                    {delta.text}
+                  </div>
+                </div>
+                <div className="rent-stat-card__icon" style={{ background: card.bg, color: card.color }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {card.line && <path d={card.line} />}
+                    {card.extra && <path d={card.extra} />}
+                    <path d={card.icon} />
+                    {card.poly && <polyline points={card.poly} />}
+                    {card.circle && <circle cx="12" cy="7" r="4" />}
+                  </svg>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 经营趋势 + 快捷入口 */}
+      <div className="rent-grid rent-grid--2 rent-mb-5">
+        {/* Chart Card */}
+        <div className="rent-card">
+          <div className="rent-card__header">
+            <h3 className="rent-card__title">经营趋势 · 收入</h3>
+            <div className="rent-chart-range-group">
+              {rangeMeta.map((r) => (
+                <button
+                  key={r.key}
+                  className={`rent-chart-range ${range === r.key ? 'rent-chart-range--active' : ''}`}
+                  onClick={() => setRange(r.key)}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rent-card__body">
+            <div className="rent-chart-container">
+              <Line data={lineChartData} options={lineChartOptions} />
+            </div>
           </div>
         </div>
-        <div className="rent-card__body">
-          <div className="rent-chart-container">
-            <Line data={lineChartData} options={lineChartOptions} />
+
+        {/* Quick Actions */}
+        <div className="rent-card">
+          <div className="rent-card__header">
+            <h3 className="rent-card__title">快捷入口</h3>
+          </div>
+          <div className="rent-card__body">
+            <div className="rent-quick-grid">
+              {quickMeta.map((q) => (
+                <div
+                  className="rent-quick-item"
+                  key={q.label}
+                  onClick={() => navigate(q.path)}
+                >
+                  <div className="rent-quick-item__icon" style={{ background: q.bg, color: q.color }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      {q.icon.split('M').slice(1).map((d, i) => (
+                        <path key={i} d={`M${d}`} />
+                      ))}
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="rent-quick-item__label">{q.label}</div>
+                    <div className="rent-quick-item__sub">{q.sub(summary)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -312,7 +477,9 @@ const Dashboard = () => {
           </div>
           <div style={{ overflowX: 'auto' }}>
             {expiringRows.length === 0 ? (
-              <div className="rent-loading-row">暂无即将到期的合同</div>
+              <div className="rent-empty">
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无即将到期的合同" />
+              </div>
             ) : (
               <table className="rent-table">
                 <thead>
@@ -359,7 +526,9 @@ const Dashboard = () => {
           </div>
           <div style={{ overflowX: 'auto' }}>
             {paymentRows.length === 0 ? (
-              <div className="rent-loading-row">暂无收款记录</div>
+              <div className="rent-empty">
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无收款记录" />
+              </div>
             ) : (
               <table className="rent-table">
                 <thead>

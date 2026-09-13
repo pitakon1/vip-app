@@ -73,7 +73,7 @@
   height: 200px;
   border-radius: var(--rent-radius-lg);
   flex-shrink: 0;
-  background: linear-gradient(135deg, #4263eb 0%, #748ffc 50%, #a5b4fc 100%);
+  background: #14b8a6;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -134,6 +134,25 @@ const Payments = () => {
   const statOverdue = summary.overdueAmount
   const statTotal = total
 
+  // 分页页码（对齐原型 rent-pagination 结构）
+  const totalPages = Math.max(1, Math.ceil(total / queryParams.pageSize))
+  const pageNumbers: (number | string)[] = useMemo(() => {
+    const nums: (number | string)[] = []
+    const page = queryParams.page
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) nums.push(i)
+    } else {
+      nums.push(1)
+      if (page > 4) nums.push('prev-ellipsis')
+      const start = Math.max(2, page - 1)
+      const end = Math.min(totalPages - 1, page + 1)
+      for (let i = start; i <= end; i++) nums.push(i)
+      if (page < totalPages - 3) nums.push('next-ellipsis')
+      nums.push(totalPages)
+    }
+    return nums
+  }, [queryParams.page, totalPages])
+
   const handleSearch = (value: string) => {
     setQueryParams((p) => ({ ...p, keyword: value || undefined, page: 1 }))
   }
@@ -169,7 +188,8 @@ const Payments = () => {
 
   const formatAmount = (p: Payment) => {
     const amt = Number(p.amount || 0)
-    return `฿${amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    // 与设计稿一致：单元格只展示金额，币种由表头“金额 (฿)”体现
+    return amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
 
   return (
@@ -415,12 +435,25 @@ const Payments = () => {
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-            <button className="rent-pagination__btn" data-active={true}>{queryParams.page}</button>
+            {pageNumbers.map((n, idx) =>
+              n === 'prev-ellipsis' || n === 'next-ellipsis' ? (
+                <span className="rent-pagination__info" key={idx} style={{ margin: '0 4px' }}>...</span>
+              ) : (
+                <button
+                  key={idx}
+                  className="rent-pagination__btn"
+                  data-active={queryParams.page === n}
+                  onClick={() => setQueryParams((p) => ({ ...p, page: Number(n) }))}
+                >
+                  {n}
+                </button>
+              )
+            )}
             <button
               className="rent-pagination__btn"
               aria-label="下一页"
-              onClick={() => setQueryParams((p) => ({ ...p, page: p.page + 1 }))}
-              disabled={displayData.length < queryParams.pageSize}
+              onClick={() => setQueryParams((p) => ({ ...p, page: Math.min(totalPages, p.page + 1) }))}
+              disabled={queryParams.page >= totalPages}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="9 18 15 12 9 6" />

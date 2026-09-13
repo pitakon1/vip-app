@@ -1,10 +1,12 @@
 import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
-import apiClient, { TOKEN_STORAGE_KEY } from '../lib/api';
+import apiClient from '../lib/api';
+import { tokenStorage } from '../lib/storage';
 import type { User } from '../types';
 
 interface LoginResponse {
-  token: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
   user: User;
 }
 
@@ -28,14 +30,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (username, password) => {
     set({ isLoading: true, error: null });
     try {
-      const { data } = await apiClient.post<LoginResponse>('/auth/login', {
-        username,
-        password,
-      });
-      await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, data.token);
+      // 后端 login 使用 OAuth2PasswordRequestForm（表单格式）
+      const { data } = await apiClient.post<LoginResponse>(
+        '/auth/login',
+        `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+      );
+      await tokenStorage.set(data.access_token);
       set({
         user: data.user,
-        token: data.token,
+        token: data.access_token,
         isAuthenticated: true,
         isLoading: false,
       });
@@ -47,7 +51,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    void SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
+    void tokenStorage.remove();
     set({ user: null, token: null, isAuthenticated: false });
   },
 }));

@@ -12,19 +12,19 @@
 
 :root {
   /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
-  --rent-background: #f5f7fa;
+  --rent-background: #f2faf8;
   --rent-foreground: #0f172a;
   --rent-card: #ffffff;
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
   --rent-ink: #0f172a;
@@ -34,7 +34,7 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
 
   /* ---- 状态色（仅语义状态） ---- */
   --state-success: #16a34a;
@@ -78,13 +78,13 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
   --rent-primary-foreground: #0b0f1a;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;
@@ -243,7 +243,7 @@
 /* ===== Button ===== */
 .rent-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: var(--rent-radius-md); font-size: 13px; font-weight: 500; font-family: var(--rent-font-sans); border: 1px solid transparent; cursor: pointer; transition: background 0.15s, border-color 0.15s, box-shadow 0.15s; text-decoration: none; white-space: nowrap; line-height: 1.4; }
 .rent-btn--primary { background: var(--rent-primary); color: var(--rent-primary-foreground); }
-.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--primary:hover { background: #0d9488; }
 .rent-btn--secondary { background: var(--rent-surface); border-color: var(--rent-border); color: var(--rent-ink); }
 .rent-btn--secondary:hover { background: var(--rent-surface-2); }
 .rent-btn--ghost { background: transparent; color: var(--rent-ink-2); }
@@ -261,7 +261,7 @@
 .rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
 .rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
 .rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
-.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--primary { background: rgba(20,184,166,0.1); color: var(--rent-primary); }
 .rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
 
 /* ===== Grid ===== */
@@ -273,7 +273,7 @@
 .rent-back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--rent-ink-2); text-decoration: none; padding: 4px 0; margin-bottom: 12px; transition: color 0.15s; }
 .rent-back-link:hover { color: var(--rent-primary); }
 .rent-prop-header { display: flex; gap: 16px; align-items: flex-start; }
-.rent-prop-header__image { width: 100px; height: 100px; border-radius: var(--rent-radius-md); flex-shrink: 0; background: linear-gradient(135deg, #4263eb 0%, #748ffc 50%, #a5b4fc 100%); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.85); }
+.rent-prop-header__image { width: 100px; height: 100px; border-radius: var(--rent-radius-md); flex-shrink: 0; background: linear-gradient(135deg, #14b8a6 0%, #748ffc 50%, #a5b4fc 100%); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.85); }
 .rent-prop-header__info { flex: 1; min-width: 0; }
 .rent-prop-header__name { font-size: 18px; font-weight: 600; color: var(--rent-ink); letter-spacing: -0.015em; margin: 0 0 4px; }
 .rent-prop-header__address { font-size: 12px; color: var(--rent-ink-3); margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
@@ -335,8 +335,8 @@
   <!-- ===== Sidebar ===== -->
   <aside class="rent-pad__sidebar">
     <div class="rent-sidebar__brand">
-      <div class="rent-sidebar__logo">R</div>
-      <span class="rent-sidebar__name">RentFlow<br>管理后台</span>
+      <img class="rent-sidebar__logo" src="../assets/haofang-logo.jpg" alt="HaoFang.World" style="width:auto;max-height:34px;object-fit:contain;border-radius:6px;background:#fff;padding:3px;flex-shrink:0;display:inline-block;">
+      <span class="rent-sidebar__name">管理后台</span>
     </div>
     <nav class="rent-sidebar__nav">
       <div class="rent-sidebar__section-label">概览</div>
@@ -391,7 +391,7 @@
         <span class="rent-icon-btn__badge">3</span>
       </button>
       <div class="rent-avatar">管</div>
-      <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login" aria-label="退出登录">
+      <a href="login.html" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login" aria-label="退出登录">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         退出
       </a>
@@ -462,7 +462,7 @@
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   编辑
                 </a>
-                <a href="#" class="rent-btn rent-btn--primary rent-btn--sm">
+                <a href="admin-pad-leases.html" class="rent-btn rent-btn--primary rent-btn--sm">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
                   新建合同
                 </a>

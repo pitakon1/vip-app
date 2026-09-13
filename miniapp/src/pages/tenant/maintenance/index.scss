@@ -1,6 +1,6 @@
 .tenant-maintenance-page {
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background-color: var(--bg);
 
   .page-container {
     padding: 24px;
@@ -13,15 +13,15 @@
       width: 100%;
       height: 88px;
       line-height: 88px;
-      background-color: #1677ff;
-      color: #ffffff;
+      background-color: var(--primary);
+      color: var(--primary-foreground);
       font-size: 30px;
       border-radius: 12px;
     }
   }
 
   .form-card {
-    background-color: #ffffff;
+    background-color: var(--card);
     border-radius: 16px;
     padding: 24px;
     margin-bottom: 24px;
@@ -32,14 +32,14 @@
       .form-label {
         display: block;
         font-size: 28px;
-        color: #333333;
+        color: var(--ink);
         margin-bottom: 12px;
       }
 
       .form-input {
         width: 100%;
         height: 80px;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--line);
         border-radius: 8px;
         padding: 0 24px;
         font-size: 28px;
@@ -49,7 +49,7 @@
       .form-textarea {
         width: 100%;
         height: 160px;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--line);
         border-radius: 8px;
         padding: 16px 24px;
         font-size: 28px;
@@ -62,18 +62,18 @@
         align-items: center;
         width: 100%;
         height: 80px;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--line);
         border-radius: 8px;
         padding: 0 24px;
         font-size: 28px;
         box-sizing: border-box;
 
         .picker-text {
-          color: #333333;
+          color: var(--ink);
         }
 
         .picker-arrow {
-          color: #cccccc;
+          color: var(--ink-3);
           font-size: 32px;
         }
       }
@@ -83,8 +83,8 @@
       width: 100%;
       height: 80px;
       line-height: 80px;
-      background-color: #1677ff;
-      color: #ffffff;
+      background-color: var(--primary);
+      color: var(--primary-foreground);
       font-size: 30px;
       border-radius: 8px;
     }
@@ -93,20 +93,20 @@
   .section-title {
     font-size: 32px;
     font-weight: 600;
-    color: #333333;
+    color: var(--ink);
     margin-bottom: 16px;
   }
 
   .empty-tip {
     text-align: center;
     padding: 80px 0;
-    color: #999999;
+    color: var(--ink-3);
     font-size: 28px;
   }
 
   .ticket-list {
     .ticket-card {
-      background-color: #ffffff;
+      background-color: var(--card);
       border-radius: 16px;
       padding: 24px;
       margin-bottom: 16px;
@@ -120,7 +120,7 @@
         .ticket-title {
           font-size: 32px;
           font-weight: 600;
-          color: #333333;
+          color: var(--ink);
         }
 
         .ticket-status {
@@ -132,7 +132,7 @@
       .ticket-desc {
         display: block;
         font-size: 28px;
-        color: #666666;
+        color: var(--ink-2);
         line-height: 1.5;
         margin-bottom: 16px;
       }
@@ -142,18 +142,138 @@
         justify-content: space-between;
         align-items: center;
         padding-top: 16px;
-        border-top: 1px solid #f0f0f0;
+        border-top: 1px solid var(--line);
 
         .ticket-priority {
           font-size: 24px;
           font-weight: 500;
-          color: #666666;
+          color: var(--ink-2);
         }
 
         .ticket-date {
           font-size: 24px;
-          color: #999999;
+          color: var(--ink-3);
         }
+      }
+    }
+  }
+
+  .rate-mask {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.45);
+    z-index: 100;
+    display: flex;
+    align-items: flex-end;
+
+    .rate-panel {
+      width: 100%;
+      background-color: var(--card);
+      border-radius: 24px 24px 0 0;
+      padding: 32px 28px 40px;
+
+      .rate-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+
+        .rate-panel-title {
+          font-size: 32px;
+          font-weight: 600;
+          color: var(--ink);
+          flex: 1;
+          margin-right: 16px;
+        }
+
+        .rate-panel-close {
+          font-size: 32px;
+          color: var(--ink-3);
+          padding: 4px 8px;
+        }
+      }
+
+      .rate-panel-status {
+        font-size: 26px;
+        font-weight: 500;
+        color: var(--primary);
+      }
+
+      .rate-panel-desc {
+        display: block;
+        margin-top: 12px;
+        font-size: 28px;
+        color: var(--ink-2);
+        line-height: 1.5;
+      }
+
+      .rate-panel-meta {
+        display: block;
+        margin-top: 12px;
+        font-size: 22px;
+        color: var(--ink-3);
+      }
+
+      .rate-body {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid var(--line);
+
+        .rate-label {
+          display: block;
+          font-size: 26px;
+          font-weight: 600;
+          color: var(--ink);
+          margin-bottom: 12px;
+        }
+
+        .rate-stars {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 24px;
+
+          .rate-star {
+            font-size: 56px;
+            color: #e5e5e5;
+            padding: 0 12px;
+
+            &.is-on {
+              color: #f59e0b;
+            }
+          }
+        }
+
+        .rate-textarea {
+          width: 100%;
+          height: 160px;
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          padding: 16px 24px;
+          font-size: 26px;
+          box-sizing: border-box;
+          margin-bottom: 24px;
+        }
+
+        .rate-submit {
+          width: 100%;
+          height: 80px;
+          line-height: 80px;
+          background-color: var(--primary);
+          color: var(--primary-foreground);
+          font-size: 30px;
+          border-radius: 8px;
+        }
+      }
+
+      .rate-tip {
+        display: block;
+        margin-top: 24px;
+        text-align: center;
+        font-size: 26px;
+        color: var(--ink-3);
       }
     }
   }

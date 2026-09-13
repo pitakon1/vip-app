@@ -1,17 +1,32 @@
 import { useState } from 'react'
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
-import { notificationsApi } from '@/services/api'
+import { notificationsApi, translateApi, leasesApi } from '@/services/api'
 import type { Notification, NotificationType } from '@/types'
 import './index.scss'
 
 const TYPE_MAP: Record<NotificationType, { text: string; color: string; bg: string }> = {
-  payment: { text: '租金提醒', color: '#ff4d4f', bg: '#fff1f0' },
-  lease: { text: '合同到期', color: '#faad14', bg: '#fffbe6' },
-  maintenance: { text: '维修通知', color: '#1677ff', bg: '#f0f5ff' },
+  payment: { text: '租金提醒', color: '#dc2626', bg: '#fff1f0' },
+  lease: { text: '合同到期', color: '#d97706', bg: '#fffbe6' },
+  maintenance: { text: '维修通知', color: '#14b8a6', bg: '#f0f5ff' },
   system: { text: '系统通知', color: '#999999', bg: '#f5f5f5' }
 }
+
+// 金刚区：按「是否在租」分流。访客态仅保留找房入口；在租态展示履约服务。
+const VISITOR_GRID: Array<{ key: string; label: string; url: string }> = [
+  { key: 'listings', label: '精选房源', url: '/pages/tenant/listings/index' },
+  { key: 'favorites', label: '我的收藏', url: '/pages/tenant/favorites/index' },
+  { key: 'viewing', label: '预约看房', url: '/pages/tenant/viewings/index' },
+  { key: 'map', label: '地图找房', url: '/pages/map/search/index' }
+]
+
+const TENANT_GRID: Array<{ key: string; label: string; url: string }> = [
+  { key: 'maintenance', label: '维修', url: '/pages/tenant/maintenance/index' },
+  { key: 'payments', label: '缴费', url: '/pages/tenant/payments/index' },
+  { key: 'contracts', label: '我的合同', url: '/pages/contracts/index' },
+  { key: 'services', label: '增值服务', url: '/pages/tenant/services/index' }
+]
 
 function pickList(res: any): Notification[] {
   if (Array.isArray(res)) return res
@@ -28,6 +43,39 @@ export default function TenantHomePage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(false)
+  const [isRenting, setIsRenting] = useState(false)
+  const [translateText, setTranslateText] = useState('')
+  const [translated, setTranslated] = useState('')
+  const [translating, setTranslating] = useState(false)
+
+  const handleTranslate = async () => {
+    const text = translateText.trim()
+    if (!text || translating) return
+    setTranslating(true)
+    try {
+      const res: any = await translateApi.translate(text, 'en')
+      const out = res?.translated_text ?? res?.translation ?? res?.text ?? res?.data?.translated_text
+      setTranslated(String(out || res))
+    } catch (error) {
+      console.error('[TenantHome] 翻译失败', error)
+      setTranslated('翻译失败，请稍后重试')
+    } finally {
+      setTranslating(false)
+    }
+  }
+
+  // 判断是否在租：有「生效中」租约则展示租客服务金刚区，否则按访客找房态展示
+  const loadRentingState = async () => {
+    try {
+      const res: any = await leasesApi.mine()
+      const leases = pickList(res)
+      setIsRenting(Array.isArray(leases) && leases.some((l: any) => l?.status === 'active'))
+    } catch (error) {
+      // 接口不可用时保守按访客态展示，避免对非在租用户暴露租客专属入口
+      console.error('[TenantHome] 获取租约状态失败', error)
+      setIsRenting(false)
+    }
+  }
 
   const fetchNotifications = async () => {
     setLoading(true)
@@ -49,6 +97,7 @@ export default function TenantHomePage() {
       return
     }
     fetchNotifications()
+    loadRentingState()
   })
 
   const handleReadAll = async () => {
@@ -61,6 +110,12 @@ export default function TenantHomePage() {
       Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }
+
+  const goQuick = (url: string) => {
+    Taro.navigateTo({ url })
+  }
+
+  const activeGrid = isRenting ? TENANT_GRID : VISITOR_GRID
 
   // 租金提醒与合同到期通知单独聚合展示
   const rentReminders = notifications.filter((n) => n.type === 'payment')
@@ -92,6 +147,36 @@ export default function TenantHomePage() {
         <View className='welcome-section'>
           <Text className='welcome-text'>你好，{user?.name || '租客'}</Text>
           <Text className='welcome-sub'>祝您生活愉快</Text>
+        </View>
+
+        <View className='quick-nav'>
+          {activeGrid.map((entry) => (
+            <View
+              key={entry.key}
+              className={`quick-nav-item quick-nav-item--${entry.key}`}
+              onClick={() => goQuick(entry.url)}
+            >
+              <View className='quick-nav-icon' />
+              <Text className='quick-nav-label'>{entry.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View className='translate-section'>
+          <Text className='translate-title'>房源翻译</Text>
+          <Text className='translate-desc'>
+            示例房源描述：「三室一厅朝南，家电齐全，月租五千，近地铁站」
+          </Text>
+          <Input
+            className='translate-input'
+            value={translateText}
+            placeholder='输入要翻译的中文房源描述'
+            onInput={((e: any) => setTranslateText((e as any).detail.value)) as any}
+          />
+          <View className={`translate-btn ${translating ? 'disabled' : ''}`} onClick={handleTranslate}>
+            <Text className='translate-btn-text'>{translating ? '翻译中...' : 'Google 翻译'}</Text>
+          </View>
+          {translated && <Text className='translate-result'>{translated}</Text>}
         </View>
 
         <View className='action-bar'>

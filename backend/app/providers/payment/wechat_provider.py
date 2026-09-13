@@ -1,11 +1,9 @@
 """微信支付 V3 适配器（跨境/国际版 Native 支付，使用 httpx 调用）"""
 import base64
 import hashlib
-import hmac
 import json
 import os
 import time
-from typing import Optional
 
 import httpx
 

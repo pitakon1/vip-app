@@ -6,7 +6,6 @@ management_fee_rate, start_date, end_date, status。
 """
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 import uuid
 
 from sqlmodel import Field

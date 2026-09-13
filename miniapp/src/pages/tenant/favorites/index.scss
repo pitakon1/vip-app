@@ -1,0 +1,136 @@
+.tenant-favorites-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+
+  .page-container {
+    padding: 24px 24px 40px;
+  }
+
+  .list-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 24px;
+
+    .list-sub {
+      font-size: 24px;
+      font-weight: 400;
+      color: var(--ink-3);
+    }
+  }
+
+  .fav-list {
+    height: auto;
+
+    .empty-tip {
+      text-align: center;
+      color: var(--ink-3);
+      font-size: 26px;
+      padding: 80px 0;
+    }
+
+    .fav-card {
+      background-color: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+      border-top: 6px solid var(--primary);
+
+      .fav-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .fav-card-title {
+          font-size: 30px;
+          font-weight: 600;
+          color: var(--ink);
+          flex: 1;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+          margin-right: 16px;
+        }
+
+        .fav-card-rent {
+          font-size: 30px;
+          font-weight: 700;
+          color: var(--primary);
+        }
+      }
+
+      .fav-card-address {
+        display: block;
+        margin-top: 12px;
+        font-size: 24px;
+        color: var(--ink-2);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .fav-card-notes {
+        display: block;
+        margin-top: 12px;
+        font-size: 24px;
+        color: var(--ink-3);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .fav-card-footer {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .fav-card-date {
+          font-size: 22px;
+          color: var(--ink-3);
+        }
+
+        .fav-card-actions {
+          display: flex;
+
+          .fav-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 60px;
+            padding: 0 28px;
+            border-radius: 999px;
+            margin-left: 16px;
+
+            .fav-btn-text {
+              font-size: 24px;
+              font-weight: 600;
+            }
+
+            &--primary {
+              background-color: var(--primary);
+
+              .fav-btn-text {
+                color: #ffffff;
+              }
+            }
+
+            &--danger {
+              border: 2px solid var(--line);
+              background-color: #ffffff;
+
+              .fav-btn-text {
+                color: var(--ink-2);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

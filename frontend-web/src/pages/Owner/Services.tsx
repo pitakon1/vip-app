@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { message, Modal, Form, Select, DatePicker, InputNumber } from 'antd'
 import dayjs from 'dayjs'
 import type { ReactNode } from 'react'
@@ -9,13 +9,12 @@ interface ServiceItem {
   id: string
   name: string
   description: string
-  priceLabel: string
-  price: string
-  priceUnit?: string
-  priceColor?: string
-  badge: { variant: 'primary' | 'info' | 'success' | 'warning'; label: string }
   icon: ReactNode
-  iconStyle: { background: string; color: string }
+  iconBg: string
+  ratingFilled: number
+  ratingLabel: string
+  price: string
+  priceUnit: string
 }
 
 interface BookedService {
@@ -47,150 +46,174 @@ interface PropertyOption {
   currency: string
 }
 
-// 服务分类（设计稿静态数据）
+// 服务卡片数据（与原型 owner-services 一致）
 const services: ServiceItem[] = [
   {
     id: 'cleaning',
-    name: '家政清洁',
-    description: '专业保洁团队上门，全屋深度清洁，厨房卫浴专项处理。',
-    priceLabel: '起价',
-    price: '฿ 1,200',
-    priceUnit: '/次',
-    badge: { variant: 'primary', label: '热门' },
+    name: '深度清洁服务',
+    description: '专业团队全屋深度清洁，含厨卫消毒与玻璃保养',
     icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M3 21h18" />
-        <path d="M5 21V7l8-4v18" />
-        <path d="M19 21V11l-6-4" />
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
+        <path d="M19 14l.95 2.55L22.5 17.5l-2.55.95L19 21l-.95-2.55L15.5 17.5l2.55-.95L19 14z" />
       </svg>
     ),
-    iconStyle: { background: 'rgba(66,99,235,0.12)', color: 'var(--rent-primary)' },
+    iconBg: 'rgba(14,165,233,0.12)',
+    ratingFilled: 5,
+    ratingLabel: '4.9/5',
+    price: 'RM 150',
+    priceUnit: '/次',
   },
   {
     id: 'ac',
-    name: '空调清洗',
-    description: '拆机深度清洗，杀菌除味，延长空调使用寿命，改善制冷效果。',
-    priceLabel: '起价',
-    price: '฿ 800',
-    priceUnit: '/台',
-    badge: { variant: 'info', label: '推荐' },
+    name: '空调维保服务',
+    description: '空调滤网清洗、制冷检测与加氟，延长设备寿命',
     icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M12 2v20" />
-        <path d="M2 12h20" />
-        <path d="M4.93 4.93l14.14 14.14" />
-        <path d="M19.07 4.93L4.93 19.07" />
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9.59 4.59A2 2 0 1 1 11 8H2" />
+        <path d="M17.73 2.27A2.5 2.5 0 1 1 19.5 6.5H2" />
+        <path d="M9.59 19.41A2 2 0 1 0 11 16H2" />
       </svg>
     ),
-    iconStyle: { background: 'rgba(14,165,233,0.12)', color: 'var(--state-info)' },
-  },
-  {
-    id: 'wifi',
-    name: 'WiFi安装',
-    description: '专业网络工程师上门安装调试路由器，覆盖检测与信号优化。',
-    priceLabel: '起价',
-    price: '฿ 1,500',
+    iconBg: 'rgba(20,184,166,0.12)',
+    ratingFilled: 5,
+    ratingLabel: '4.8/5',
+    price: 'RM 180',
     priceUnit: '/次',
-    badge: { variant: 'success', label: '新上' },
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-        <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-        <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-        <line x1="12" y1="20" x2="12.01" y2="20" />
-      </svg>
-    ),
-    iconStyle: { background: 'rgba(22,163,74,0.12)', color: 'var(--state-success)' },
   },
   {
-    id: 'utility',
-    name: '水电费代付',
-    description: '平台代缴水电网费，账单自动同步，省心省力，无需排队。',
-    priceLabel: '服务费',
-    price: '免费服务',
-    priceColor: 'var(--state-success)',
-    badge: { variant: 'warning', label: '免费' },
+    id: 'tax',
+    name: '物业税费申报',
+    description: '代办物业税、印花税申报，确保合规无忧',
     icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="9" y1="13" x2="15" y2="13" />
+        <line x1="9" y1="17" x2="15" y2="17" />
+        <line x1="9" y1="9" x2="11" y2="9" />
       </svg>
     ),
-    iconStyle: { background: 'rgba(217,119,6,0.12)', color: 'var(--state-warning)' },
+    iconBg: 'rgba(22,163,74,0.12)',
+    ratingFilled: 4,
+    ratingLabel: '4.7/5',
+    price: 'RM 200',
+    priceUnit: '/次',
+  },
+  {
+    id: 'insurance',
+    name: '房屋保险方案',
+    description: '定制房屋财产保险，覆盖火灾、水损与租客责任',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <polyline points="9 12 11 14 15 10" />
+      </svg>
+    ),
+    iconBg: 'rgba(217,119,6,0.12)',
+    ratingFilled: 5,
+    ratingLabel: '4.8/5',
+    price: 'RM 800',
+    priceUnit: '/年',
+  },
+  {
+    id: 'plumbing',
+    name: '管道疏通服务',
+    description: '快速疏通下水管道，排查漏水隐患，24小时响应',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+      </svg>
+    ),
+    iconBg: 'rgba(14,165,233,0.12)',
+    ratingFilled: 4,
+    ratingLabel: '4.6/5',
+    price: 'RM 120',
+    priceUnit: '/次',
+  },
+  {
+    id: 'garden',
+    name: '园艺养护服务',
+    description: '庭院修剪、草坪养护与绿植定期护理',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96c1.4 3.3 1.4 6.3.7 9.2-1 4-4 6.5-9 7.84" />
+        <path d="M2 21c0-3 1.85-5.36 5.08-6" />
+      </svg>
+    ),
+    iconBg: 'rgba(22,163,74,0.12)',
+    ratingFilled: 5,
+    ratingLabel: '4.9/5',
+    price: 'RM 250',
+    priceUnit: '/月',
   },
 ]
 
-interface FallbackOrder {
-  no: string
+// 订阅套餐（与原型一致）
+interface PlanItem {
+  id: string
   name: string
-  date: string
-  amount: string
-  status: 'warning' | 'info' | 'success' | 'neutral'
-  statusLabel: string
-  action: { label: string; variant: 'primary' | 'secondary' }
+  price: string
+  unit: string
+  features: string[]
+  recommended: boolean
 }
 
-const FALLBACK_ORDERS: FallbackOrder[] = [
-  { no: 'SV2026080301', name: '家政清洁', date: '2026-08-05 10:00', amount: '฿ 1,200', status: 'warning', statusLabel: '待处理', action: { label: '详情', variant: 'secondary' } },
-  { no: 'SV2026080202', name: '空调清洗', date: '2026-08-04 14:00', amount: '฿ 1,600', status: 'info', statusLabel: '进行中', action: { label: '详情', variant: 'secondary' } },
-  { no: 'SV2026072803', name: 'WiFi安装', date: '2026-07-28 09:00', amount: '฿ 1,500', status: 'success', statusLabel: '已完成', action: { label: '评价', variant: 'primary' } },
-  { no: 'SV2026072504', name: '水电费代付', date: '2026-07-25 16:00', amount: '฿ 0', status: 'success', statusLabel: '已完成', action: { label: '评价', variant: 'primary' } },
-  { no: 'SV2026072005', name: '家政清洁', date: '2026-07-20 11:00', amount: '฿ 1,200', status: 'neutral', statusLabel: '已取消', action: { label: '详情', variant: 'secondary' } },
+const PLANS: PlanItem[] = [
+  {
+    id: 'basic',
+    name: '基础版',
+    price: 'RM 200',
+    unit: '/月',
+    features: ['清洁 1 次 / 月', '在线报修', '文档管理'],
+    recommended: false,
+  },
+  {
+    id: 'standard',
+    name: '标准版',
+    price: 'RM 450',
+    unit: '/月',
+    features: ['清洁 2 次 / 月', '空调保养', '优先报修', '税务咨询'],
+    recommended: true,
+  },
+  {
+    id: 'premium',
+    name: '旗舰版',
+    price: 'RM 800',
+    unit: '/月',
+    features: ['全部标准版服务', '深度清洁 4 次 / 月', '房屋保险', '专属管家'],
+    recommended: false,
+  },
 ]
 
-interface FallbackReview {
-  avatar: string
-  avatarBg: string
-  name: string
-  meta: string
-  score: string
-  filled: number
-  text: string
-}
+const Star = ({ filled }: { filled: boolean }) =>
+  filled ? (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  ) : (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  )
 
-const FALLBACK_REVIEWS: FallbackReview[] = [
-  { avatar: '王', avatarBg: 'var(--rent-primary)', name: '王租客', meta: '家政清洁 · 2026-07-18', score: '5.0', filled: 5, text: '保洁阿姨非常专业，全屋打扫得干干净净，厨房油污处理得很到位，预约流程也很顺畅，下次还会选择。' },
-  { avatar: '林', avatarBg: 'var(--state-info)', name: 'Lim Wei', meta: '空调清洗 · 2026-07-15', score: '4.0', filled: 4, text: '师傅上门准时，两台空调清洗后制冷明显改善。就是工作时长比预期多了一点，总体满意。' },
-  { avatar: '陈', avatarBg: 'var(--state-success)', name: 'Tan Mei', meta: 'WiFi安装 · 2026-07-10', score: '5.0', filled: 5, text: '网络工程师很专业，30分钟就完成安装调试，全屋信号覆盖无死角，体验非常棒，强烈推荐！' },
-]
-
-const starFilled = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-  </svg>
-)
-const starOutline = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+const checkIcon = (color: string) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12" />
   </svg>
 )
 
 const arrowIcon = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="5" y1="12" x2="19" y2="12" />
     <polyline points="12 5 19 12 12 19" />
   </svg>
 )
 
-const plusIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-    <line x1="12" y1="5" x2="12" y2="19" />
-    <line x1="5" y1="12" x2="19" y2="12" />
-  </svg>
-)
-
-const giftIcon = (
-  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
-    <path d="M20 12v9H4v-9" />
-    <rect x="2" y="7" width="20" height="5" rx="1" />
-    <line x1="12" y1="22" x2="12" y2="7" />
-    <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
-    <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
-  </svg>
-)
-
-const starEyebrow = (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 .587l3.668 7.431L24 9.75l-6 5.847 1.417 8.265L12 19.771l-7.417 4.091L6 15.597 0 9.75l8.332-1.732z" />
+const trashIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
   </svg>
 )
 
@@ -206,7 +229,7 @@ const packageStatusLabel = (s: string) => {
   return map[s] || { label: s, tone: 'neutral' as const }
 }
 const fmtMoney = (v: number, currency = 'THB') => {
-  const sym = currency === 'THB' ? '฿' : currency === 'MYR' ? 'RM' : currency
+  const sym = currency === 'THB' ? '฿' : currency === 'MYR' || currency === 'RM' ? 'RM' : currency
   return `${sym} ${Number(v || 0).toLocaleString()}`
 }
 
@@ -217,13 +240,14 @@ const Services = () => {
   const [modalOpen, setModalOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm()
+  const plansRef = useRef<HTMLDivElement>(null)
 
   const fetchPackages = useCallback(async () => {
     try {
       const res = await api.get('/service-packages/me')
       setPackages(Array.isArray(res.data) ? res.data : (res.data?.items ?? []))
     } catch {
-      // 接口不可用或未订阅时保持空列表，使用静态兜底
+      // 接口不可用或未订阅时保持空列表
     }
   }, [])
 
@@ -304,237 +328,256 @@ const Services = () => {
     }
   }
 
-  // 订单展示：有预约记录则映射，否则用兜底
-  const renderOrders = bookedServices.length
-    ? bookedServices.map((b) => ({
-        no: b.id,
-        name: b.service_name,
-        date: b.booked_at,
-        amount: b.price,
-        status: 'warning' as const,
-        statusLabel: '待处理',
-        action: { label: '详情', variant: 'secondary' as const },
-      }))
-    : FALLBACK_ORDERS
+  const scrollToPlans = () => {
+    plansRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <div className="rent-main">
-      {/* ===== Hero ===== */}
-      <section className="svc-hero">
-        <div className="svc-hero__decor svc-hero__decor--1" />
-        <div className="svc-hero__decor svc-hero__decor--2" />
-        <div className="svc-hero__decor svc-hero__decor--3" />
-        <div className="svc-hero__content">
-          <span className="svc-hero__eyebrow">
-            {starEyebrow}
-            业主专享
-          </span>
-          <h2 className="svc-hero__title">增值托管服务</h2>
-          <p className="svc-hero__subtitle">托管出租、代缴代付、维修清洁一站式省心服务</p>
-          <button type="button" className="svc-hero__action" onClick={() => handleBook(services[0])}>
-            {plusIcon}
-            发起预约
+      {/* Page Header */}
+      <div className="rent-page-header">
+        <div>
+          <h2 className="rent-page-header__title">推荐服务</h2>
+          <p className="rent-page-header__subtitle">为您的房产提供一站式增值服务</p>
+        </div>
+        <div className="rent-page-header__actions">
+          <button type="button" className="rent-btn rent-btn--secondary" onClick={scrollToPlans}>
+            {trashIcon}
+            我的订阅
           </button>
         </div>
-        <div className="svc-hero__stats">
-          <div className="svc-hero__stat">
-            <div className="svc-hero__stat-value">{packages.length}</div>
-            <div className="svc-hero__stat-label">托管套餐</div>
-          </div>
-          <div className="svc-hero__stat">
-            <div className="svc-hero__stat-value">2,800+</div>
-            <div className="svc-hero__stat-label">完成订单</div>
-          </div>
-          <div className="svc-hero__stat">
-            <div className="svc-hero__stat-value">4.8</div>
-            <div className="svc-hero__stat-label">平均评分</div>
-          </div>
-        </div>
-      </section>
+      </div>
 
-      {/* ===== Service Categories ===== */}
-      <section className="svc-section">
-        <div className="svc-section__head">
-          <h3 className="svc-section__title">服务分类</h3>
-          <span className="svc-section__hint">选择你需要的家居服务</span>
+      {/* Featured Banner */}
+      <div
+        className="rent-card rent-mb-5"
+        style={{ background: '#14b8a6', border: 'none' }}
+      >
+        <div
+          className="rent-card__body"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}
+        >
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span className="rent-badge" style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>限时优惠</span>
+              <span className="rent-badge" style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>8 折</span>
+            </div>
+            <h3 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 6px', color: '#fff', letterSpacing: '-0.01em' }}>
+              年度维护套餐 限时8折
+            </h3>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.88)', margin: 0 }}>
+              涵盖清洁、空调保养、管道检修，一站式守护您的房产价值
+            </p>
+          </div>
+          <button
+            type="button"
+            className="rent-btn"
+            style={{ background: '#fff', color: 'var(--rent-primary)', fontWeight: 600, boxShadow: 'var(--rent-shadow-2)', padding: '11px 22px' }}
+            onClick={openSubscribe}
+          >
+            立即订阅
+            {arrowIcon}
+          </button>
         </div>
-        <div className="svc-category-grid">
-          {services.map((s) => (
-            <div className="svc-category-card" key={s.id}>
-              <div className="svc-category-card__top">
-                <div className="svc-category-card__icon" style={s.iconStyle}>
+      </div>
+
+      {/* Service Cards Grid */}
+      <div className="rent-grid rent-grid--3 rent-mb-5">
+        {services.map((s) => (
+          <div className="rent-card" key={s.id}>
+            <div className="rent-card__body">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 'var(--rent-radius-md)',
+                    background: s.iconBg,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
                   {s.icon}
                 </div>
-                <span className={`svc-pill-badge svc-pill-badge--${s.badge.variant}`}>{s.badge.label}</span>
-              </div>
-              <h4 className="svc-category-card__title">{s.name}</h4>
-              <p className="svc-category-card__desc">{s.description}</p>
-              <div className="svc-category-card__footer">
-                <div>
-                  <span className="svc-category-card__price-label">{s.priceLabel}</span>
-                  <span
-                    className="svc-category-card__price"
-                    style={s.priceColor ? { color: s.priceColor } : undefined}
-                  >
-                    {s.price}
-                    {s.priceUnit && <span className="svc-category-card__price-unit">{s.priceUnit}</span>}
-                  </span>
+                <div style={{ flex: 1 }}>
+                  <h4 style={{ fontSize: 15, fontWeight: 600, color: 'var(--rent-ink)', margin: '0 0 4px' }}>{s.name}</h4>
+                  <p className="rent-text-sm rent-text-muted" style={{ margin: 0, lineHeight: 1.5 }}>{s.description}</p>
                 </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} filled={i < s.ratingFilled} />
+                ))}
+                <span className="rent-text-sm rent-text-muted">{s.ratingLabel}</span>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <span className="rent-text-sm rent-text-muted">起价</span>
+                <span className="rent-num" style={{ fontSize: 20, color: 'var(--rent-ink)', marginLeft: 4 }}>{s.price}</span>
+                <span className="rent-text-sm rent-text-muted">{s.priceUnit}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => handleBook(s)}>
+                  立即预约
+                </button>
                 <button
                   type="button"
-                  className="svc-category-card__btn"
-                  onClick={() => handleBook(s)}
+                  className="rent-btn rent-btn--ghost rent-btn--sm"
+                  onClick={() => message.info('服务详情即将上线')}
                 >
-                  预约服务
-                  {arrowIcon}
+                  了解更多
                 </button>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        ))}
+      </div>
 
-      {/* ===== Annual Service Package ===== */}
-      <section className="svc-section">
-        <div className="svc-section__head">
-          <h3 className="svc-section__title">我的托管套餐</h3>
-          <button type="button" className="svc-section__link" onClick={openSubscribe} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            {plusIcon}
-            订阅套餐
-          </button>
+      {/* Subscription Plans */}
+      <div className="rent-card" ref={plansRef}>
+        <div className="rent-card__header">
+          <h3 className="rent-card__title">订阅套餐</h3>
+          <span className="rent-text-sm rent-text-muted">选择适合您的服务方案，按月订阅随时取消</span>
         </div>
-
-        {packages.length ? (
-          <div className="svc-order-list">
-            {packages.map((pkg) => {
-              const st = packageStatusLabel(pkg.status)
+        <div className="rent-card__body">
+          <div className="rent-grid rent-grid--3">
+            {PLANS.map((plan) => {
+              const checkColor = plan.recommended ? 'var(--rent-primary)' : 'var(--state-success)'
               return (
-                <div className="svc-order-item" key={pkg.id}>
-                  <div className="svc-order-item__left">
-                    <span className="svc-order-item__no">{pkg.property_id}</span>
-                    <div className="svc-order-item__name">
-                      {packageTypeLabel(pkg.type)}
-                      <span className="rent-text-sm rent-text-muted" style={{ marginLeft: 10 }}>
-                        {dayjs(pkg.start_date).format('YYYY-MM-DD')} ~ {dayjs(pkg.end_date).format('YYYY-MM-DD')}
-                      </span>
+                <div
+                  className="rent-card"
+                  key={plan.id}
+                  style={
+                    plan.recommended
+                      ? { border: '2px solid var(--rent-primary)', position: 'relative', boxShadow: 'var(--rent-shadow-2)' }
+                      : { border: '1px solid var(--rent-border)' }
+                  }
+                >
+                  {plan.recommended && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: -1,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'var(--rent-primary)',
+                        color: '#fff',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: '3px 14px',
+                        borderRadius: '0 0 var(--rent-radius-md) var(--rent-radius-md)',
+                      }}
+                    >
+                      推荐
                     </div>
-                  </div>
-                  <div className="svc-order-item__mid">
-                    <span className="svc-order-item__date">
-                      佣金 {pkg.commission_rate} 个月 + 托管费 {pkg.management_fee_rate} 个月/年
-                    </span>
-                    <span className="svc-order-item__amount">{fmtMoney(pkg.amount, pkg.currency)}</span>
-                  </div>
-                  <div className="svc-order-item__right">
-                    <span className={`svc-order-status svc-order-status--${st.tone}`}>
-                      <span className="svc-order-status__dot" />
-                      {st.label}
-                    </span>
-                    {pkg.status === 'active' && (
-                      <button
-                        type="button"
-                        className="rent-btn rent-btn--secondary rent-btn--sm"
-                        onClick={() => handleCancelPackage(pkg)}
+                  )}
+                  <div className="rent-card__body" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                      <h4
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 600,
+                          color: plan.recommended ? 'var(--rent-primary)' : 'var(--rent-ink)',
+                          margin: '0 0 10px',
+                        }}
                       >
-                        取消订阅
-                      </button>
-                    )}
+                        {plan.name}
+                      </h4>
+                      <div>
+                        <span className="rent-num" style={{ fontSize: 30, color: 'var(--rent-ink)' }}>{plan.price}</span>
+                        <span className="rent-text-sm rent-text-muted">{plan.unit}</span>
+                      </div>
+                    </div>
+                    <hr className="rent-divider" />
+                    <ul
+                      style={{
+                        listStyle: 'none',
+                        padding: 0,
+                        margin: '0 0 20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                        flex: 1,
+                      }}
+                    >
+                      {plan.features.map((f) => (
+                        <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--rent-ink-2)' }}>
+                          {checkIcon(checkColor)}
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      className={`rent-btn rent-btn--${plan.recommended ? 'primary' : 'secondary'} rent-btn--block`}
+                      onClick={openSubscribe}
+                    >
+                      选择
+                    </button>
                   </div>
                 </div>
               )
             })}
           </div>
-        ) : (
-          <div className="svc-promo">
-            <div className="svc-promo__decor" />
-            <div className="svc-promo__decor svc-promo__decor--2" />
-            <div className="svc-promo__body">
-              <div className="svc-promo__icon">{giftIcon}</div>
-              <div>
-                <h3 className="svc-promo__title">年度托管套餐 · 省心更省心</h3>
-                <p className="svc-promo__desc">
-                  佣金（{properties[0]?.monthly_rent ? fmtMoney(properties[0].monthly_rent, properties[0].currency) : '1 个月租金'}）一次性收取
-                  + 托管费（半个月租金）按在租月份收取，全年无忧
-                </p>
-                <div className="svc-promo__price-row">
-                  <span className="svc-promo__price">一键订阅</span>
-                  <span className="svc-promo__save">自动续费提醒</span>
-                </div>
-              </div>
-            </div>
-            <button type="button" className="svc-promo__btn" onClick={openSubscribe}>
-              立即订阅套餐
-              {arrowIcon}
-            </button>
-          </div>
-        )}
-      </section>
 
-      {/* ===== My Service Orders ===== */}
-      <section className="svc-section">
-        <div className="svc-section__head">
-          <h3 className="svc-section__title">我的服务订单</h3>
-          <a href="#" className="svc-section__link">查看全部</a>
-        </div>
-        <div className="svc-order-list">
-          {renderOrders.map((o) => (
-            <div className="svc-order-item" key={o.no}>
-              <div className="svc-order-item__left">
-                <span className="svc-order-item__no">{o.no}</span>
-                <div className="svc-order-item__name">{o.name}</div>
-              </div>
-              <div className="svc-order-item__mid">
-                <span className="svc-order-item__date">{o.date}</span>
-                <span className="svc-order-item__amount">{o.amount}</span>
-              </div>
-              <div className="svc-order-item__right">
-                <span className={`svc-order-status svc-order-status--${o.status}`}>
-                  <span className="svc-order-status__dot" />
-                  {o.statusLabel}
-                </span>
-                <button
-                  type="button"
-                  className={`rent-btn rent-btn--${o.action.variant === 'primary' ? 'primary' : 'secondary'} rent-btn--sm`}
-                >
-                  {o.action.label}
-                </button>
+          {/* 我的订阅（API 数据） */}
+          {packages.length > 0 && (
+            <div className="rent-sub-section">
+              <h4 className="rent-sub-title">我的订阅</h4>
+              <div className="rent-sub-list">
+                {packages.map((pkg) => {
+                  const st = packageStatusLabel(pkg.status)
+                  return (
+                    <div className="rent-sub-item" key={pkg.id}>
+                      <div className="rent-sub-item__main">
+                        <div className="rent-sub-item__name">{packageTypeLabel(pkg.type)}</div>
+                        <div className="rent-sub-item__meta">
+                          房源 {pkg.property_id} · {dayjs(pkg.start_date).format('YYYY-MM-DD')} ~ {dayjs(pkg.end_date).format('YYYY-MM-DD')}
+                        </div>
+                      </div>
+                      <div className="rent-sub-item__right">
+                        <span className="rent-sub-item__amount">{fmtMoney(pkg.amount, pkg.currency)}</span>
+                        <span className={`rent-badge rent-badge--${st.tone === 'info' ? 'info' : st.tone}`}>{st.label}</span>
+                        {pkg.status === 'active' && (
+                          <button
+                            type="button"
+                            className="rent-btn rent-btn--secondary rent-btn--sm"
+                            onClick={() => handleCancelPackage(pkg)}
+                          >
+                            取消订阅
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
-          ))}
-        </div>
-      </section>
+          )}
 
-      {/* ===== Service Reviews ===== */}
-      <section className="svc-section">
-        <div className="svc-section__head">
-          <h3 className="svc-section__title">服务评价</h3>
-          <a href="#" className="svc-section__link">更多评价</a>
-        </div>
-        <div className="svc-reviews">
-          {FALLBACK_REVIEWS.map((r) => (
-            <div className="svc-review" key={r.name}>
-              <div className="svc-review__head">
-                <div className="svc-review__user">
-                  <div className="svc-review__avatar" style={{ background: r.avatarBg }}>{r.avatar}</div>
-                  <div>
-                    <div className="svc-review__name">{r.name}</div>
-                    <div className="svc-review__meta">{r.meta}</div>
+          {/* 最近预约（本地记录） */}
+          {bookedServices.length > 0 && (
+            <div className="rent-sub-section">
+              <h4 className="rent-sub-title">最近预约</h4>
+              <div className="rent-sub-list">
+                {bookedServices.map((b) => (
+                  <div className="rent-sub-item" key={b.id}>
+                    <div className="rent-sub-item__main">
+                      <div className="rent-sub-item__name">{b.service_name}</div>
+                      <div className="rent-sub-item__meta">{b.booked_at}</div>
+                    </div>
+                    <div className="rent-sub-item__right">
+                      <span className="rent-sub-item__amount">{b.price}</span>
+                      <span className="rent-badge rent-badge--warning">待处理</span>
+                    </div>
                   </div>
-                </div>
-                <div className="svc-review__rating">
-                  <div className="svc-review__stars">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <span key={i}>{i < r.filled ? starFilled : starOutline}</span>
-                    ))}
-                  </div>
-                  <span className="svc-review__score">{r.score}</span>
-                </div>
+                ))}
               </div>
-              <p className="svc-review__text">{r.text}</p>
             </div>
-          ))}
+          )}
         </div>
-      </section>
+      </div>
 
       {/* ===== Subscribe Modal ===== */}
       <Modal

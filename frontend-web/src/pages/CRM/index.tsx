@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message } from 'antd'
+import { message, Spin } from 'antd'
 import { leadsApi } from '@/services/api'
 import type { Lead, LeadStatus } from '@/types'
 import './crm.css'
@@ -8,7 +8,7 @@ import './crm.css'
 type KanbanColumnKey = 'new' | 'contacted' | 'viewed' | 'negotiating' | 'closed'
 
 const KANBAN_COLUMNS: { key: KanbanColumnKey; label: string; color: string }[] = [
-  { key: 'new', label: '新线索', color: '#4263eb' },
+  { key: 'new', label: '新线索', color: '#14b8a6' },
   { key: 'contacted', label: '已联系', color: '#eab308' },
   { key: 'viewed', label: '已看房', color: '#f97316' },
   { key: 'negotiating', label: '谈判中', color: '#7c3aed' },
@@ -39,7 +39,7 @@ const stageLabelMap: Record<LeadStatus, string> = {
   lost: '已流失',
 }
 
-const AGENT_COLORS = ['#4263eb', '#16a34a', '#d97706', '#7c3aed', '#0ea5e9']
+const AGENT_COLORS = ['#14b8a6', '#16a34a', '#d97706', '#14b8a6', '#0ea5e9']
 
 const getAgentColor = (name?: string) => {
   if (!name) return AGENT_COLORS[0]
@@ -326,14 +326,15 @@ const CRM = () => {
 
       {loading && (
         <div className="rent-empty">
-          <div className="rent-text-muted">加载中...</div>
+          <Spin size="small" style={{ marginRight: 8 }} />
+          <span className="rent-text-muted">加载中...</span>
         </div>
       )}
 
       {!loading && view === 'kanban' && (
         <>
           {/* Kanban Board */}
-          <div className="rent-kanban crm-kanban">
+          <div className="rent-kanban">
             {KANBAN_COLUMNS.map((col) => {
               const items = kanbanGroups[col.key]
               return (
@@ -366,7 +367,7 @@ const CRM = () => {
                     较上月 +4.2%
                   </div>
                 </div>
-                <div className="rent-stat-card__icon" style={{ background: 'rgba(66,99,235,0.1)', color: 'var(--rent-primary)' }}>
+                <div className="rent-stat-card__icon" style={{ background: 'rgba(20, 184, 166, 0.1)', color: 'var(--rent-primary)' }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
                   </svg>

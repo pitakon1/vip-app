@@ -6,6 +6,7 @@ export interface User {
   id: string;
   username: string;
   name: string;
+  full_name?: string;
   phone?: string;
   email?: string;
   avatar?: string;
@@ -15,10 +16,10 @@ export interface User {
 
 export interface Property {
   id: string;
-  title: string;
+  title?: string;
   address: string;
   city?: string;
-  rent: number;
+  rent?: number;
   status: PropertyStatus;
   ownerId?: string;
   tenantId?: string;
@@ -29,6 +30,12 @@ export interface Property {
   description?: string;
   createdAt?: string;
   updatedAt?: string;
+  // 后端返回的房源字段（与 API 对齐）
+  room_number?: string;
+  monthly_rent?: number;
+  size_sqm?: number;
+  currency?: string;
+  project_id?: string;
 }
 
 export interface Lease {

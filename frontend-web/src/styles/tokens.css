@@ -1,25 +1,25 @@
 /* =========================================================
-   RentFlow 品牌设计令牌 (Modern Light)
-   单一靛蓝主色 · 冷调浅灰底 · 白色卡片 · 细边框 · 克制圆角
-   与设计稿保持一致的视觉系统
+   HaoFang.World 品牌设计令牌 (Modern Light)
+   单一青绿主色 · 冷调浅青底 · 白色卡片 · 细边框 · 克制圆角
+   与产品原型图（rental-full-draft/pages）逐项对齐
    ========================================================= */
 
 :root {
   /* ---- 语义色 ---- */
-  --rent-background: #f5f7fa;
+  --rent-background: #f2faf8;
   --rent-foreground: #0f172a;
   --rent-card: #ffffff;
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
-  --rent-primary-hover: #3b51d4;
+  --rent-primary-hover: #0d9488;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯 ---- */
   --rent-ink: #0f172a;
@@ -29,35 +29,52 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
+
+  /* ---- 主色 RGB 通道（用于 rgba 透明度叠加）---- */
+  --rent-primary-rgb: 20, 184, 166;
+  --rent-primary-hover-rgb: 13, 148, 136;
 
   /* ---- 状态色 ---- */
   --state-success: #16a34a;
+  --state-success-rgb: 22, 163, 74;
   --state-warning: #d97706;
+  --state-warning-rgb: 217, 119, 6;
   --state-error: #dc2626;
+  --state-error-rgb: 220, 38, 38;
   --state-info: #0ea5e9;
+  --state-info-rgb: 14, 165, 233;
+  --state-purple: #7c3aed;
+  --state-purple-rgb: 124, 58, 237;
 
-  /* ---- 圆角 ---- */
+  /* ---- 品牌辅助色 ---- */
+  --rent-accent: #0d9488;
+  --rent-accent-soft: rgba(20, 184, 166, 0.08);
+  --rent-tint: linear-gradient(135deg, rgba(20,184,166,0.04) 0%, rgba(20,184,166,0.01) 100%);
+
+  /* ---- 圆角（克制阶梯，上限 16px） ---- */
   --rent-radius-sm: 4px;
   --rent-radius-md: 8px;
   --rent-radius-lg: 16px;
   --rent-radius-full: 9999px;
 
-  /* ---- 阴影 ---- */
+  /* ---- 阴影（静态面 alpha ≤ 0.05；深阴影仅浮层） ---- */
   --rent-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
   --rent-shadow-2: 0 8px 24px -8px rgba(15, 23, 42, 0.18);
   --rent-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.30);
 
-  /* ---- 间距 ---- */
+  /* ---- 间距（8pt 网格） ---- */
   --rent-s-1: 4px;
   --rent-s-2: 8px;
   --rent-s-3: 12px;
   --rent-s-4: 16px;
   --rent-s-5: 24px;
   --rent-s-6: 32px;
+  --rent-s-7: 48px;
+  --rent-s-8: 80px;
 
   /* ---- 字体 ---- */
-  --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
 
   /* ---- 侧栏宽度 ---- */
@@ -75,14 +92,16 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
+  --rent-primary-rgb: 45, 212, 191;
   --rent-primary-foreground: #0b0f1a;
-  --rent-primary-hover: #7d92f7;
+  --rent-primary-hover: #5eead4;
+  --rent-primary-hover-rgb: 94, 234, 212;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;

@@ -18,13 +18,13 @@
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
   --rent-ink: #0f172a;
@@ -34,7 +34,7 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
 
   /* ---- 状态色（仅语义状态） ---- */
   --state-success: #16a34a;
@@ -78,13 +78,13 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
   --rent-primary-foreground: #0b0f1a;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;
@@ -311,7 +311,7 @@
 .rent-stat-card__label{font-size:12px;color:var(--rent-ink-3);margin-bottom:4px}
 .rent-stat-card__value{font-size:22px;font-weight:700;color:var(--rent-ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .rent-stat-card__sub{font-size:11px;color:var(--rent-ink-3);margin-top:4px}
-.rent-hero{background:linear-gradient(135deg,#4263eb 0%,#6b82f5 100%);border-radius:var(--rent-radius-lg);padding:20px;color:#fff;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.rent-hero{background:linear-gradient(135deg,#14b8a6 0%,#2dd4bf 100%);border-radius:var(--rent-radius-lg);padding:20px;color:#fff;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .rent-hero__time{font-size:14px;opacity:.85;margin-bottom:4px}
 .rent-hero__name{font-size:20px;font-weight:700;margin-bottom:6px}
 .rent-hero__date{font-size:12px;opacity:.8}
@@ -352,7 +352,7 @@
 .rent-property-card__price-unit{font-size:11px;color:var(--rent-ink-3);font-weight:400}
 .rent-chart{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;height:140px;padding:8px 0}
 .rent-chart__col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
-.rent-chart__bar{width:100%;border-radius:var(--rent-radius-sm) var(--rent-radius-sm) 0 0;background:linear-gradient(180deg,#6b82f5 0%,#4263eb 100%);min-height:4px;transition:opacity .2s}
+.rent-chart__bar{width:100%;border-radius:var(--rent-radius-sm) var(--rent-radius-sm) 0 0;background:linear-gradient(180deg,#2dd4bf 0%,#14b8a6 100%);min-height:4px;transition:opacity .2s}
 .rent-chart__bar:hover{opacity:.85}
 .rent-chart__bar--current{background:linear-gradient(180deg,#f59e0b 0%,#d97706 100%)}
 .rent-chart__val{font-size:10px;color:var(--rent-ink-2);font-weight:600}
@@ -373,8 +373,8 @@
 </style>
     <style id="rent-beike-overlay">
 /* =========================================================
-   RentFlow × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
-   保留靛蓝主色 #4263eb · 消费级 App 形态 · 大圆角卡片流
+   HaoFang.World × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #14b8a6 · 消费级 App 形态 · 大圆角卡片流
    仅注入用户端页面 (租客/业主/员工)，后台管理不注入
    注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
    ========================================================= */
@@ -400,7 +400,7 @@ body {
 .rent-mobile__logo,
 .rent-pad__logo {
   border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+  box-shadow: 0 4px 14px rgba(20,184,166, 0.35);
 }
 .rent-portal__nav-item,
 .rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
@@ -411,12 +411,12 @@ body {
 .rent-search-hero__bar {
   border-radius: 999px;
   background: #ffffff;
-  box-shadow: 0 10px 32px -10px rgba(66, 99, 235, 0.40);
+  box-shadow: 0 10px 32px -10px rgba(20,184,166, 0.40);
 }
 .rent-search-hero__search-btn {
   border-radius: 999px;
-  background: linear-gradient(135deg, #4263eb, #6b82f5);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.50);
+  background: linear-gradient(135deg, #14b8a6, #2dd4bf);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.50);
 }
 .rent-search-hero__tag { border-radius: 999px; }
 
@@ -455,7 +455,7 @@ body {
 .rent-badge { border-radius: 999px; padding: 3px 10px; }
 .rent-prop-search-card__cta {
   border-radius: 999px;
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   color: var(--rent-primary);
   font-weight: 600;
 }
@@ -475,14 +475,14 @@ body {
 .rent-btn { border-radius: 10px; }
 .rent-btn--primary {
   border-radius: 12px;
-  background: linear-gradient(135deg, #4263eb, #5b7cfa);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.45);
+  background: linear-gradient(135deg, #14b8a6, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.45);
 }
 
 /* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
 .rent-mobile__tab { border-radius: 14px; }
 .rent-mobile__tab[data-active="true"] {
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   font-weight: 600;
 }
 
@@ -491,7 +491,7 @@ body {
 .rent-pad__nav-item { border-radius: 12px; }
 .rent-nav-item[data-active="true"],
 .rent-pad__nav-item[data-active="true"] {
-  background: linear-gradient(135deg, rgba(66, 99, 235, 0.10), rgba(107, 130, 245, 0.08));
+  background: linear-gradient(135deg, rgba(20,184,166, 0.10), rgba(107, 130, 245, 0.08));
   font-weight: 600;
 }
 
@@ -499,7 +499,7 @@ body {
 .rent-hero,
 .rent-portal-hero,
 .rent-mobile__hero {
-  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+  background: linear-gradient(135deg, #14b8a6 0%, #5b7cfa 55%, #2dd4bf 100%);
 }
 
 /* ===== 头像 ===== */
@@ -521,7 +521,7 @@ body {
 <main class="rent-pad__main">
 <div class="rent-chips"><button class="rent-chip" data-active=true>全部</button><button class="rent-chip">租赁合同</button><button class="rent-chip">收入证明</button><button class="rent-chip">税务凭证</button><button class="rent-chip">产权文件</button><button class="rent-chip">保险</button></div>
 <div class="rent-card"><div class="rent-card__header"><h3 class="rent-card__title">业主文档</h3><a href="#" class="rent-card__link">批量下载</a></div><div class="rent-list"><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">招商·雍华府 租赁合同</div><div class="rent-list-item__sub">张先生 · 2026.3-2027.3</div></div><div class="rent-list-item__right"><span class="rent-badge rent-badge--success">有效</span><div class="rent-list-item__date" style="margin-top:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">保利·茉莉公馆 租赁合同</div><div class="rent-list-item__sub">王女士 · 2025.12-2026.12</div></div><div class="rent-list-item__right"><span class="rent-badge rent-badge--success">有效</span><div class="rent-list-item__date" style="margin-top:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">万科·天空之城 租赁合同</div><div class="rent-list-item__sub">陈先生 · 2026.6-2027.6</div></div><div class="rent-list-item__right"><span class="rent-badge rent-badge--success">有效</span><div class="rent-list-item__date" style="margin-top:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">城家公寓 租赁合同</div><div class="rent-list-item__sub">刘女士 · 2025.10-2026.10</div></div><div class="rent-list-item__right"><span class="rent-badge rent-badge--warning">即将到期</span><div class="rent-list-item__date" style="margin-top:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">7月收入汇总表</div><div class="rent-list-item__sub">4套房产 · 总计¥18,000</div></div><div class="rent-list-item__right"><span class="rent-badge rent-badge--success">已归档</span><div class="rent-list-item__date" style="margin-top:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">Q2季度税务凭证</div><div class="rent-list-item__sub">2026年Q2 · 房产税申报</div></div><div class="rent-list-item__right"><span class="rent-badge rent-badge--success">已归档</span><div class="rent-list-item__date" style="margin-top:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 4v6c0 5-4 9-9 10-5-1-9-5-9-10V6z"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">房产保险凭证</div><div class="rent-list-item__sub">4套房产 · 有效期至2027年</div></div><div class="rent-list-item__right"><span class="rent-badge rent-badge--success">有效</span><div class="rent-list-item__date" style="margin-top:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">房屋产权证明</div><div class="rent-list-item__sub">4套房产 · 均已备案</div></div><div class="rent-list-item__right"><span class="rent-badge rent-badge--success">已备案</span><div class="rent-list-item__date" style="margin-top:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></div></div></div></div></div>
-<div class="rent-card" style="margin-top:12px"><div class="rent-card__header"><h3 class="rent-card__title">文档统计</h3></div><div class="rent-grid-3"><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#eef2ff;color:#4263eb"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></div><div class="rent-stat-card__label">合同文件</div><div class="rent-stat-card__value">4份</div><div class="rent-stat-card__sub">3有效1即将到期</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#ecfdf5;color:#16a34a"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></div><div class="rent-stat-card__label">财务凭证</div><div class="rent-stat-card__value">6份</div><div class="rent-stat-card__sub">已归档</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#fef3c7;color:#d97706"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 4v6c0 5-4 9-9 10-5-1-9-5-9-10V6z"/></svg></div><div class="rent-stat-card__label">权属文件</div><div class="rent-stat-card__value">5份</div><div class="rent-stat-card__sub">均有效</div></div></div></div>
+<div class="rent-card" style="margin-top:12px"><div class="rent-card__header"><h3 class="rent-card__title">文档统计</h3></div><div class="rent-grid-3"><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#d9f2ee;color:#14b8a6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></div><div class="rent-stat-card__label">合同文件</div><div class="rent-stat-card__value">4份</div><div class="rent-stat-card__sub">3有效1即将到期</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#ecfdf5;color:#16a34a"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></div><div class="rent-stat-card__label">财务凭证</div><div class="rent-stat-card__value">6份</div><div class="rent-stat-card__sub">已归档</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#fef3c7;color:#d97706"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 4v6c0 5-4 9-9 10-5-1-9-5-9-10V6z"/></svg></div><div class="rent-stat-card__label">权属文件</div><div class="rent-stat-card__value">5份</div><div class="rent-stat-card__sub">均有效</div></div></div></div>
 </main>
 </div>
 </body>

@@ -18,13 +18,13 @@
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
   --rent-ink: #0f172a;
@@ -34,7 +34,7 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
 
   /* ---- 状态色（仅语义状态） ---- */
   --state-success: #16a34a;
@@ -78,13 +78,13 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
   --rent-primary-foreground: #0b0f1a;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;
@@ -311,7 +311,7 @@
 .rent-stat-card__label{font-size:12px;color:var(--rent-ink-3);margin-bottom:4px}
 .rent-stat-card__value{font-size:22px;font-weight:700;color:var(--rent-ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .rent-stat-card__sub{font-size:11px;color:var(--rent-ink-3);margin-top:4px}
-.rent-hero{background:linear-gradient(135deg,#4263eb 0%,#6b82f5 100%);border-radius:var(--rent-radius-lg);padding:20px;color:#fff;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.rent-hero{background:linear-gradient(135deg,#14b8a6 0%,#2dd4bf 100%);border-radius:var(--rent-radius-lg);padding:20px;color:#fff;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .rent-hero__time{font-size:14px;opacity:.85;margin-bottom:4px}
 .rent-hero__name{font-size:20px;font-weight:700;margin-bottom:6px}
 .rent-hero__date{font-size:12px;opacity:.8}
@@ -352,7 +352,7 @@
 .rent-property-card__price-unit{font-size:11px;color:var(--rent-ink-3);font-weight:400}
 .rent-chart{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;height:140px;padding:8px 0}
 .rent-chart__col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
-.rent-chart__bar{width:100%;border-radius:var(--rent-radius-sm) var(--rent-radius-sm) 0 0;background:linear-gradient(180deg,#6b82f5 0%,#4263eb 100%);min-height:4px;transition:opacity .2s}
+.rent-chart__bar{width:100%;border-radius:var(--rent-radius-sm) var(--rent-radius-sm) 0 0;background:linear-gradient(180deg,#2dd4bf 0%,#14b8a6 100%);min-height:4px;transition:opacity .2s}
 .rent-chart__bar:hover{opacity:.85}
 .rent-chart__bar--current{background:linear-gradient(180deg,#f59e0b 0%,#d97706 100%)}
 .rent-chart__val{font-size:10px;color:var(--rent-ink-2);font-weight:600}
@@ -373,8 +373,8 @@
 </style>
     <style id="rent-beike-overlay">
 /* =========================================================
-   RentFlow × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
-   保留靛蓝主色 #4263eb · 消费级 App 形态 · 大圆角卡片流
+   HaoFang.World × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #14b8a6 · 消费级 App 形态 · 大圆角卡片流
    仅注入用户端页面 (租客/业主/员工)，后台管理不注入
    注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
    ========================================================= */
@@ -400,7 +400,7 @@ body {
 .rent-mobile__logo,
 .rent-pad__logo {
   border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+  box-shadow: 0 4px 14px rgba(20,184,166, 0.35);
 }
 .rent-portal__nav-item,
 .rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
@@ -411,12 +411,12 @@ body {
 .rent-search-hero__bar {
   border-radius: 999px;
   background: #ffffff;
-  box-shadow: 0 10px 32px -10px rgba(66, 99, 235, 0.40);
+  box-shadow: 0 10px 32px -10px rgba(20,184,166, 0.40);
 }
 .rent-search-hero__search-btn {
   border-radius: 999px;
-  background: linear-gradient(135deg, #4263eb, #6b82f5);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.50);
+  background: linear-gradient(135deg, #14b8a6, #2dd4bf);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.50);
 }
 .rent-search-hero__tag { border-radius: 999px; }
 
@@ -455,7 +455,7 @@ body {
 .rent-badge { border-radius: 999px; padding: 3px 10px; }
 .rent-prop-search-card__cta {
   border-radius: 999px;
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   color: var(--rent-primary);
   font-weight: 600;
 }
@@ -475,14 +475,14 @@ body {
 .rent-btn { border-radius: 10px; }
 .rent-btn--primary {
   border-radius: 12px;
-  background: linear-gradient(135deg, #4263eb, #5b7cfa);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.45);
+  background: linear-gradient(135deg, #14b8a6, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.45);
 }
 
 /* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
 .rent-mobile__tab { border-radius: 14px; }
 .rent-mobile__tab[data-active="true"] {
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   font-weight: 600;
 }
 
@@ -491,7 +491,7 @@ body {
 .rent-pad__nav-item { border-radius: 12px; }
 .rent-nav-item[data-active="true"],
 .rent-pad__nav-item[data-active="true"] {
-  background: linear-gradient(135deg, rgba(66, 99, 235, 0.10), rgba(107, 130, 245, 0.08));
+  background: linear-gradient(135deg, rgba(20,184,166, 0.10), rgba(107, 130, 245, 0.08));
   font-weight: 600;
 }
 
@@ -499,7 +499,7 @@ body {
 .rent-hero,
 .rent-portal-hero,
 .rent-mobile__hero {
-  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+  background: linear-gradient(135deg, #14b8a6 0%, #5b7cfa 55%, #2dd4bf 100%);
 }
 
 /* ===== 头像 ===== */
@@ -563,7 +563,7 @@ body {
 }
 .rv17-map-btn:hover { border-color: var(--rent-primary); color: var(--rent-primary); }
 .rv17-map-btn[data-active="true"] {
-  background: rgba(66,99,235,0.08);
+  background: rgba(20,184,166,0.08);
   border-color: var(--rent-primary);
   color: var(--rent-primary);
 }
@@ -622,7 +622,7 @@ body {
   border-radius: 50%;
   background: var(--rent-primary);
   border: 3px solid #fff;
-  box-shadow: 0 2px 8px rgba(66,99,235,0.55);
+  box-shadow: 0 2px 8px rgba(20,184,166,0.55);
   cursor: pointer;
 }
 .rv17-map__marker::after {
@@ -630,7 +630,7 @@ body {
   position: absolute;
   inset: -8px;
   border-radius: 50%;
-  background: rgba(66,99,235,0.25);
+  background: rgba(20,184,166,0.25);
   animation: rv17-pulse 1.8s ease-out infinite;
 }
 .rv17-map__marker--sale { background: #f59e0b; box-shadow: 0 2px 8px rgba(245,158,11,0.55); }
@@ -680,7 +680,7 @@ body {
   margin-top: 4px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: rgba(66,99,235,0.08);
+  background: rgba(20,184,166,0.08);
   color: var(--rent-primary);
   font-size: 10px;
   font-weight: 600;
@@ -709,8 +709,8 @@ body {
 <div class="rent-search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="搜索区域、小区、地铁线..."><button class="rent-btn rent-btn--primary" style="padding:6px 16px;font-size:12px">搜索</button></div>
 <div class="rv17-pad-bar"><div class="rv17-bizbar"><button class="rv17-bizbar__item" type="button" data-biz="rent" data-active="true">整租</button><button class="rv17-bizbar__item" type="button" data-biz="share">合租</button><button class="rv17-bizbar__item" type="button" data-biz="sale">买房</button></div><button class="rv17-map-btn" id="rv17-map-btn" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>地图</button></div>
 <div class="rent-chips"><button class="rent-chip" data-active=true>全部</button><button class="rent-chip">整租</button><button class="rent-chip">合租</button><button class="rent-chip">公寓</button><button class="rent-chip">近地铁</button><button class="rent-chip">精装修</button><button class="rent-chip">月付</button></div>
-<div class="rent-grid-3 rent-section"><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#eef2ff;color:#4263eb"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"/></svg></div><div class="rent-stat-card__label">在租房源</div><div class="rent-stat-card__value">128套</div><div class="rent-stat-card__sub">本周新增12套</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#ecfdf5;color:#16a34a"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/></svg></div><div class="rent-stat-card__label">平均租金</div><div class="rent-stat-card__value">¥4,350</div><div class="rent-stat-card__sub">环比下降2%</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#fef3c7;color:#d97706"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></div><div class="rent-stat-card__label">热门区域</div><div class="rent-stat-card__value">张江</div><div class="rent-stat-card__sub">搜索量最高</div></div></div>
-<div class="rent-grid-2"><div class="rent-property-card" data-biz="rent"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#4263eb 0%,#3b51d4 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">整租好房</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">阳光花园 A座12-3</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>吉隆坡 · 阳光花园</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>近地铁</span><span class=rent-property-card__tag>精装修</span><span class=rent-property-card__tag>视频看房</span></div><div><span class="rent-property-card__price">RM 3,800</span><span class="rent-property-card__price-unit"> /月</span></div></div></div><div class="rent-property-card" data-biz="rent"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#0ea5e9 0%,#0284c7 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">海景精装</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">海景公寓 05-08</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>槟城 · 海景路</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>海景</span><span class=rent-property-card__tag>视频看房</span><span class=rent-property-card__tag>拎包入住</span></div><div><span class="rent-property-card__price">RM 4,500</span><span class="rent-property-card__price-unit"> /月</span></div></div></div><div class="rent-property-card" data-biz="rent"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#16a34a 0%,#15803d 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">独栋别墅</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">城中别墅 21号</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>吉隆坡 · 城中花园</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>独栋</span><span class=rent-property-card__tag>花园</span><span class=rent-property-card__tag>视频看房</span></div><div><span class="rent-property-card__price">RM 12,000</span><span class="rent-property-card__price-unit"> /月</span></div></div></div><div class="rent-property-card" data-biz="rent"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">品质整租</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">翡翠湖景 2室1厅</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>梳邦 · 翡翠湖</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>近地铁</span><span class=rent-property-card__tag>精装修</span></div><div><span class="rent-property-card__price">RM 2,600</span><span class="rent-property-card__price-unit"> /月</span></div></div></div><div class="rent-property-card" data-biz="share"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">合租单间</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">阳光花园 B座单间</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>吉隆坡 · 阳光花园 B座</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>合租</span><span class=rent-property-card__tag>近地铁</span><span class=rent-property-card__tag>押一付一</span></div><div><span class="rent-property-card__price">RM 1,400</span><span class="rent-property-card__price-unit"> /月</span></div></div></div><div class="rent-property-card" data-biz="sale"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#e11d48 0%,#be123c 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">在售现房</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">海景华庭</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>曼谷 · 湄南河畔</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>可售</span><span class=rent-property-card__tag>近地铁</span></div><div><span class="rent-property-card__price">฿ 2,800,000</span><span class="rent-property-card__price-unit"> 总价</span></div></div></div><div class="rent-property-card" data-biz="sale"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">学区现房</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">阳光花园二期</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>吉隆坡 · 阳光花园</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>可售</span><span class=rent-property-card__tag>学区</span><span class=rent-property-card__tag>近地铁</span></div><div><span class="rent-property-card__price">฿ 3,500,000</span><span class="rent-property-card__price-unit"> 总价</span></div></div></div><div class="rent-property-card" data-biz="sale"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#0f172a 0%,#4263eb 90%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">品质名邸</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">Central Park 名邸</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>曼谷 · Central Park</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>可售</span><span class=rent-property-card__tag>学区</span><span class=rent-property-card__tag>豪华精装</span></div><div><span class="rent-property-card__price">฿ 5,200,000</span><span class="rent-property-card__price-unit"> 总价</span></div></div></div></div>
+<div class="rent-grid-3 rent-section"><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#d9f2ee;color:#14b8a6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"/></svg></div><div class="rent-stat-card__label">在租房源</div><div class="rent-stat-card__value">128套</div><div class="rent-stat-card__sub">本周新增12套</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#ecfdf5;color:#16a34a"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/></svg></div><div class="rent-stat-card__label">平均租金</div><div class="rent-stat-card__value">¥4,350</div><div class="rent-stat-card__sub">环比下降2%</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#fef3c7;color:#d97706"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></div><div class="rent-stat-card__label">热门区域</div><div class="rent-stat-card__value">张江</div><div class="rent-stat-card__sub">搜索量最高</div></div></div>
+<div class="rent-grid-2"><div class="rent-property-card" data-biz="rent"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#14b8a6 0%,#0d9488 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">整租好房</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">阳光花园 A座12-3</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>吉隆坡 · 阳光花园</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>近地铁</span><span class=rent-property-card__tag>精装修</span><span class=rent-property-card__tag>视频看房</span></div><div><span class="rent-property-card__price">RM 3,800</span><span class="rent-property-card__price-unit"> /月</span></div></div></div><div class="rent-property-card" data-biz="rent"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#0ea5e9 0%,#0284c7 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">海景精装</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">海景公寓 05-08</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>槟城 · 海景路</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>海景</span><span class=rent-property-card__tag>视频看房</span><span class=rent-property-card__tag>拎包入住</span></div><div><span class="rent-property-card__price">RM 4,500</span><span class="rent-property-card__price-unit"> /月</span></div></div></div><div class="rent-property-card" data-biz="rent"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#16a34a 0%,#15803d 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">独栋别墅</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">城中别墅 21号</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>吉隆坡 · 城中花园</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>独栋</span><span class=rent-property-card__tag>花园</span><span class=rent-property-card__tag>视频看房</span></div><div><span class="rent-property-card__price">RM 12,000</span><span class="rent-property-card__price-unit"> /月</span></div></div></div><div class="rent-property-card" data-biz="rent"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">品质整租</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">翡翠湖景 2室1厅</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>梳邦 · 翡翠湖</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>近地铁</span><span class=rent-property-card__tag>精装修</span></div><div><span class="rent-property-card__price">RM 2,600</span><span class="rent-property-card__price-unit"> /月</span></div></div></div><div class="rent-property-card" data-biz="share"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">合租单间</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">阳光花园 B座单间</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>吉隆坡 · 阳光花园 B座</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>合租</span><span class=rent-property-card__tag>近地铁</span><span class=rent-property-card__tag>押一付一</span></div><div><span class="rent-property-card__price">RM 1,400</span><span class="rent-property-card__price-unit"> /月</span></div></div></div><div class="rent-property-card" data-biz="sale"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#e11d48 0%,#be123c 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">在售现房</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">海景华庭</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>曼谷 · 湄南河畔</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>可售</span><span class=rent-property-card__tag>近地铁</span></div><div><span class="rent-property-card__price">฿ 2,800,000</span><span class="rent-property-card__price-unit"> 总价</span></div></div></div><div class="rent-property-card" data-biz="sale"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">学区现房</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">阳光花园二期</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>吉隆坡 · 阳光花园</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>可售</span><span class=rent-property-card__tag>学区</span><span class=rent-property-card__tag>近地铁</span></div><div><span class="rent-property-card__price">฿ 3,500,000</span><span class="rent-property-card__price-unit"> 总价</span></div></div></div><div class="rent-property-card" data-biz="sale"><div class="rent-property-card__image" style="background:linear-gradient(135deg,#0f172a 0%,#14b8a6 90%)"><button class="rent-fav-btn" aria-label="收藏" style="position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.92);border:none;display:flex;align-items:center;justify-content:center;color:var(--rent-primary);box-shadow:0 2px 10px rgba(15,23,42,0.15);cursor:pointer;z-index:5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><span class="rent-property-card__badge">品质名邸</span></div><div class="rent-property-card__body"><div class="rent-property-card__title">Central Park 名邸</div><div class="rent-property-card__location"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>曼谷 · Central Park</div><div class="rent-property-card__tags"><span class=rent-property-card__tag>可售</span><span class=rent-property-card__tag>学区</span><span class=rent-property-card__tag>豪华精装</span></div><div><span class="rent-property-card__price">฿ 5,200,000</span><span class="rent-property-card__price-unit"> 总价</span></div></div></div></div>
 <!-- v1.7 地图模式（模拟） -->
 <section class="rv17-map" id="rv17-map-view" data-active="false">
 <span class="rv17-map__legend">地图模式 · 曼谷 / 吉隆坡 · 点击点位查看房源</span>

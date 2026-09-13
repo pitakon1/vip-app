@@ -1,8 +1,6 @@
 import axios, { AxiosError } from 'axios';
-import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../stores/auth';
-
-const TOKEN_KEY = 'auth_token';
+import { tokenStorage } from './storage';
 
 // baseURL 从环境变量读取（默认 http://localhost:8000/api/v1）。
 // Expo 在构建时注入 EXPO_PUBLIC_* 变量，通过 globalThis 访问以兼容不同类型环境。
@@ -11,7 +9,7 @@ const API_BASE_URL: string =
     .process?.env?.EXPO_PUBLIC_API_BASE_URL as string | undefined) ||
   'http://localhost:8000/api/v1';
 
-export const TOKEN_STORAGE_KEY = TOKEN_KEY;
+export const TOKEN_STORAGE_KEY = 'auth_token';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -21,10 +19,10 @@ export const apiClient = axios.create({
   },
 });
 
-// 请求拦截器：从 expo-secure-store 读取 token 并添加到 Authorization header
+// 请求拦截器：读取 token 并添加到 Authorization header（Web 端走 localStorage）
 apiClient.interceptors.request.use(
   async (config) => {
-    const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    const token = await tokenStorage.get();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -38,7 +36,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
+      await tokenStorage.remove();
       // 通过 zustand store 重置认证状态，RootNavigator 会自动切换到登录页
       useAuthStore.getState().logout();
     }

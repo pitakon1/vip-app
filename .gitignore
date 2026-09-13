@@ -74,3 +74,11 @@ tmp/
 
 # ===== Trae / IDE 专属 =====
 .trae/
+
+# ===== 构建缓存 =====
+.swc/
+*.tsbuildinfo
+
+# ===== 外来技能库（不属于项目源码） =====
+anthropics-skills/
+ui-ux-pro-max-skill/

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { message } from 'antd'
+import { message, Spin, Empty } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import './dashboard.css'
@@ -36,10 +36,19 @@ interface SummaryData {
   [key: string]: any
 }
 
+interface FollowUpLease {
+  lease_id: string
+  property_title?: string
+  monthly_rent?: number
+  currency?: string
+  end_date?: string
+  days_to_expire?: number
+}
+
 // 线索阶段展示元数据（对应 /leads 接口的 stage 字段）
 const LEAD_STAGE_META: Record<string, { text: string; cls: string; color: string }> = {
   inquiring: { text: '咨询中', cls: 'rent-badge--info', color: 'var(--state-info)' },
-  viewing_scheduled: { text: '已约看', cls: 'rent-badge--info', color: 'var(--state-info)' },
+  viewing_scheduled: { text: '看房中', cls: 'rent-badge--info', color: 'var(--state-info)' },
   negotiating: { text: '谈判中', cls: 'rent-badge--warning', color: 'var(--state-warning)' },
   pending_contract: { text: '待签约', cls: 'rent-badge--primary', color: 'var(--rent-primary)' },
   closed: { text: '已成交', cls: 'rent-badge--success', color: 'var(--state-success)' },
@@ -65,16 +74,26 @@ const formatInterested = (value: any): string => {
   return String(value)
 }
 
-const getDealStatusBadge = (status?: string) => {
-  const s = (status || '').toLowerCase()
-  if (s === 'done' || s === 'active') return { cls: 'rent-badge--success', color: 'var(--state-success)', text: '已成交' }
-  if (s === 'pending') return { cls: 'rent-badge--info', color: 'var(--state-info)', text: '待签约' }
-  if (s === 'expired') return { cls: 'rent-badge--neutral', color: 'var(--rent-ink-3)', text: '已到期' }
-  if (s === 'terminated') return { cls: 'rent-badge--error', color: 'var(--state-error)', text: '已终止' }
-  return { cls: 'rent-badge--neutral', color: 'var(--rent-ink-3)', text: status || '-' }
-}
+const formatMoney = (v: number) => `RM ${Number(v || 0).toLocaleString()}`
 
-const formatMoney = (v: number) => `฿${Number(v || 0).toLocaleString()}`
+// 带看时间线插槽（对齐原型固定四场）
+const TIMELINE_SLOTS = [
+  { range: '09:00-10:00', status: '已过', badge: '已取消', badgeCls: 'rent-badge--neutral' },
+  { range: '10:00-11:00', status: '下一场', badge: '待开始', badgeCls: 'rent-badge--primary', next: true },
+  { range: '14:00-15:00', status: '', badge: '待开始', badgeCls: 'rent-badge--primary' },
+  { range: '16:00-17:00', status: '', badge: '已完成', badgeCls: 'rent-badge--success' },
+]
+
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+
+// 最近联系展示：今天 / 昨天 / MM-DD
+const formatRelativeTime = (iso?: string, today?: dayjs.Dayjs) => {
+  if (!iso) return '-'
+  const d = dayjs(iso)
+  if (today && d.isSame(today, 'day')) return `今天 ${d.format('HH:mm')}`
+  if (today && d.isSame(today.subtract(1, 'day'), 'day')) return `昨天 ${d.format('HH:mm')}`
+  return d.format('MM-DD')
+}
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(false)
@@ -82,11 +101,12 @@ const Dashboard = () => {
   const [summary, setSummary] = useState<SummaryData>({})
   const [leases, setLeases] = useState<LeaseRow[]>([])
   const [leads, setLeads] = useState<any[]>([])
+  const [followUpLeases, setFollowUpLeases] = useState<FollowUpLease[]>([])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [lbRes, sumRes, leaseRes, leadsRes] = await Promise.all([
+      const [lbRes, sumRes, leaseRes, leadsRes, wbRes] = await Promise.all([
         api.get('/employees/leaderboard').catch(() => ({ data: { items: [] } })),
         api.get('/dashboard/summary').catch(() => ({ data: {} })),
         api.get('/leases', { params: { pageSize: 100 } }).catch(() => ({
@@ -95,6 +115,7 @@ const Dashboard = () => {
         api.get('/leads', { params: { pageSize: 50 } }).catch(() => ({
           data: { items: [] },
         })),
+        api.get('/employees/workbench').catch(() => ({ data: {} })),
       ])
 
       const lbPayload = lbRes.data?.data ?? lbRes.data
@@ -108,6 +129,9 @@ const Dashboard = () => {
 
       const leadsPayload = leadsRes.data?.data ?? leadsRes.data
       setLeads(leadsPayload?.items ?? [])
+
+      const wbPayload = wbRes.data?.data ?? wbRes.data
+      setFollowUpLeases(wbPayload?.follow_up_leases ?? [])
     } catch (err: any) {
       message.error(err?.response?.data?.message || '获取数据失败')
     } finally {
@@ -151,11 +175,20 @@ const Dashboard = () => {
   const rank = Number(summary.rank ?? 0)
 
   // 全部来自真实接口数据，无演示兜底
-  const dealList = leases
   const leaderList = leaderboard
   const activeLeads = leads.filter(
     (l) => !['closed', 'converted', 'lost'].includes(l.stage),
   )
+
+  // 今日工作台时间线：取跟进中线索映射到原型固定插槽
+  const viewingLeads = activeLeads.slice(0, 4)
+  const timelineItems = viewingLeads.map((lead, idx) => ({
+    ...lead,
+    slot: TIMELINE_SLOTS[idx] || TIMELINE_SLOTS[TIMELINE_SLOTS.length - 1],
+  }))
+
+  // 高意向客户（谈判中 / 待签约）
+  const hotLeads = leads.filter((l) => ['negotiating', 'pending_contract'].includes(l.stage))
 
   // 保留原有 todoItems 逻辑（即便设计稿未直接展示日历，逻辑仍保留）
   const todoItems = [
@@ -171,256 +204,263 @@ const Dashboard = () => {
       }
     }),
   ]
-  // 保留 dueDates/rentDates 引用，避免未使用告警
+  // 保留 dueDates/rentDates/leaderList/todoItems/yearlyCommission 引用，避免未使用告警
   void dueDates
   void rentDates
+  void leaderList
   void todoItems
   void yearlyCommission
 
   return (
     <div className="rent-main">
-      {loading && <div className="rent-loading-row">加载中...</div>}
+      {loading && <div className="rent-loading-row"><Spin size="small" style={{ marginRight: 8 }} />加载中...</div>}
 
-      {/* Welcome Banner */}
-      <div className="rent-card rent-welcome rent-mb-5">
-        <div className="rent-welcome__body">
-          <div>
-            <h2 className="rent-welcome__title">你好，李员工</h2>
-            <p className="rent-welcome__subtitle">
-              本月已成交 {monthlyDeals || 5} 单 · 佣金收入 {formatMoney(monthlyCommission || 12800)}
-            </p>
-          </div>
-          <a href="#" className="rent-btn rent-btn--ghost rent-welcome__btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 6l-9.5 9.5-5-5L1 18" /><polyline points="17 6 23 6 23 12" /></svg>
-            查看业绩详情
+      {/* 问候行（压缩为一行） */}
+      <div className="rent-page-header">
+        <div>
+          <h2 className="rent-page-header__title" style={{ margin: '0 0 4px' }}>早上好，李员工</h2>
+          <p className="rent-page-header__subtitle" style={{ margin: 0 }}>
+            {today.format('M月D日')} 星期{WEEKDAYS[today.day()]} · 今日 {timelineItems.length} 场带看 · 本月成交 {monthlyDeals || 5} 单 · 佣金 {formatMoney(monthlyCommission || 12800)}
+          </p>
+        </div>
+        <div className="rent-page-header__actions">
+          <a href="#" className="rent-btn rent-btn--primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="12" y1="14" x2="12" y2="18" /><line x1="10" y1="16" x2="14" y2="16" /></svg>
+            新建带看
           </a>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="rent-grid rent-grid--4 rent-mb-5">
-        <div className="rent-stat-card">
-          <div className="rent-flex rent-flex--between rent-mb-2">
-            <div className="rent-stat-card__label">本月成交</div>
-            <div className="rent-stat-card__icon" style={{ background: 'rgba(66,99,235,0.1)', color: 'var(--rent-primary)' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" /></svg>
-            </div>
-          </div>
-          <div className="rent-stat-card__value">
-            {monthlyDeals || 5}<span className="rent-stat-card__unit">单</span>
-          </div>
-          <div className="rent-stat-card__delta rent-stat-card__delta--up">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 15 12 9 18 15" /></svg>
-            +2 较上月
-          </div>
-        </div>
+      {/* 两栏：左 = 今日工作台 + 待跟进客户；右 = 业绩摘要 + 快捷操作 */}
+      <div className="rent-grid" style={{ gridTemplateColumns: 'minmax(0, 1.55fr) minmax(0, 1fr)', alignItems: 'start' }}>
 
-        <div className="rent-stat-card">
-          <div className="rent-flex rent-flex--between rent-mb-2">
-            <div className="rent-stat-card__label">本月佣金</div>
-            <div className="rent-stat-card__icon" style={{ background: 'rgba(22,163,74,0.1)', color: 'var(--state-success)' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-            </div>
-          </div>
-          <div className="rent-stat-card__value">{formatMoney(monthlyCommission || 12800)}</div>
-          <div className="rent-stat-card__delta rent-stat-card__delta--up">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 15 12 9 18 15" /></svg>
-            +15.3%
-          </div>
-        </div>
+        {/* 左栏 */}
+        <div className="rent-flex rent-flex--col" style={{ gap: 16 }}>
 
-        <div className="rent-stat-card">
-          <div className="rent-flex rent-flex--between rent-mb-2">
-            <div className="rent-stat-card__label">跟进客户</div>
-            <div className="rent-stat-card__icon" style={{ background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+          {/* 今日工作台：带看时间线 */}
+          <div className="rent-card">
+            <div className="rent-card__header">
+              <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
+                <h3 className="rent-card__title">今日工作台</h3>
+                <span className="rent-badge rent-badge--primary">{timelineItems.length} 场带看</span>
+              </div>
+              <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">今日行程</a>
             </div>
-          </div>
-          <div className="rent-stat-card__value">
-            {leads.length}<span className="rent-stat-card__unit">位</span>
-          </div>
-          <div className="rent-stat-card__delta rent-stat-card__delta--up">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 15 12 9 18 15" /></svg>
-            {activeLeads.length} 位跟进中
-          </div>
-        </div>
-
-        <div className="rent-stat-card">
-          <div className="rent-flex rent-flex--between rent-mb-2">
-            <div className="rent-stat-card__label">团队排名</div>
-            <div className="rent-stat-card__icon" style={{ background: 'rgba(217,119,6,0.1)', color: 'var(--state-warning)' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.8 5.8 21 7 14 2 9.3 9 8.5 12 2" /></svg>
-            </div>
-          </div>
-          <div className="rent-stat-card__value">
-            第 {rank || 2} <span className="rent-stat-card__unit">名</span>
-          </div>
-          <div className="rent-stat-card__delta rent-stat-card__delta--up">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 15 12 9 18 15" /></svg>
-            ↑ 上升1位
-          </div>
-        </div>
-      </div>
-
-      {/* Two-column: 本月成交记录 + 销售排行榜 */}
-      <div className="rent-grid rent-grid--2 rent-mb-5">
-        {/* 本月成交记录 */}
-        <div className="rent-card">
-          <div className="rent-card__header">
-            <h3 className="rent-card__title">本月成交记录</h3>
-            <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">查看全部</a>
-          </div>
-          <div className="rent-card__body" style={{ padding: 0 }}>
-            <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
-              <table className="rent-table">
-                <thead>
-                  <tr>
-                    <th>房产</th>
-                    <th>租客</th>
-                    <th>月租金</th>
-                    <th>佣金</th>
-                    <th>成交日期</th>
-                    <th>状态</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dealList.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="rent-loading-row">暂无成交记录</td>
-                    </tr>
-                  ) : (
-                    dealList.slice(0, 5).map((lease) => {
-                      const status = getDealStatusBadge(lease.deal_status || lease.status)
-                      const propName = (lease as any).property_name || (lease.property_id ? lease.property_id.slice(0, 8) + '...' : '-')
-                      const propLoc = (lease as any).property_location || ''
-                      const tenantName = (lease as any).tenant_name || (lease.tenant_id ? lease.tenant_id.slice(0, 8) + '...' : '-')
-                      const commission = (lease as any).commission != null ? Number((lease as any).commission) : Math.round(Number(lease.monthly_rent || 0) * 0.3)
-                      const dealDate = (lease as any).deal_date || (lease.start_date ? dayjs(lease.start_date).format('YYYY-MM-DD') : '-')
-                      return (
-                        <tr key={lease.id}>
-                          <td>
-                            <div className="rent-text-bold">{propName}</div>
-                            {propLoc && <div className="rent-text-sm rent-text-muted">{propLoc}</div>}
-                          </td>
-                          <td>{tenantName}</td>
-                          <td className="rent-table__mono">{formatMoney(Number(lease.monthly_rent || 0))}</td>
-                          <td className="rent-table__mono">{formatMoney(commission)}</td>
-                          <td className="rent-text-sm rent-text-muted">{dealDate}</td>
-                          <td>
-                            <span className={`rent-badge ${status.cls}`}>
-                              <span className="rent-badge--dot" style={{ background: status.color }}></span>
-                              {status.text}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* 销售排行榜 */}
-        <div className="rent-card">
-          <div className="rent-card__header">
-            <h3 className="rent-card__title">销售排行榜</h3>
-            <span className="rent-badge rent-badge--primary">本月</span>
-          </div>
-          <div className="rent-card__body rent-flex rent-flex--col rent-gap-3">
-            {leaderList.length === 0 ? (
-              <div className="rent-loading-row">暂无排行数据</div>
-            ) : (
-              leaderList.slice(0, 5).map((item, idx) => {
-                const isTop1 = idx === 0
-                const isSelf = !!(item as any).is_self
-                const rankCls = isTop1 ? 'rent-rank-item--top1' : isSelf ? 'rent-rank-item--self' : ''
-                const numCls = isTop1 ? 'rent-rank-num--gold' : isSelf ? 'rent-rank-num--self' : 'rent-rank-num--silver'
-                const perf = Number(item.performance || 0)
-                const deals = Number(item.deals || 0)
-                return (
-                  <div key={item.id || item.full_name || idx} className={`rent-rank-item ${rankCls}`}>
-                    <div className="rent-flex rent-gap-3" style={{ alignItems: 'center' }}>
-                      <span className={`rent-rank-num ${numCls}`}>{idx + 1}</span>
-                      <div className={`rent-avatar rent-avatar--sm${isTop1 ? ' rent-avatar--warning' : isSelf ? '' : ''}`} style={isTop1 ? { background: 'var(--state-warning)' } : isSelf ? { background: 'var(--rent-primary)' } : { background: 'var(--rent-ink-2)' }}>
-                        {(item.full_name || '?').charAt(0).toUpperCase()}
+            <div className="rent-card__body">
+              {timelineItems.length === 0 ? (
+                <div className="rent-empty">
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="今日暂无带看安排" />
+                </div>
+              ) : (
+                timelineItems.map((item) => (
+                  <div key={item.id || item.name || item.slot.range} className="rent-wb-timeline-item">
+                    <div className="rent-wb-time">
+                      <div className="rent-wb-time__range" style={item.slot.next ? { color: 'var(--rent-primary)' } : undefined}>
+                        {item.slot.range}
                       </div>
-                      <div className="rent-rank-info">
-                        <div className={`rent-rank-name${isSelf ? ' rent-rank-name--self' : ''}`}>
-                          {item.full_name || '-'}{isSelf && <span className="rent-text-sm rent-text-muted" style={{ fontWeight: 400 }}> （我）</span>}
-                        </div>
-                        <div className="rent-rank-meta">
-                          {deals > 0 ? `${deals} 单 · ` : ''}佣金 {formatMoney(perf)}
-                        </div>
+                      <div className="rent-wb-time__status">{item.slot.status}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="rent-text-bold">{item.name || '-'}</div>
+                      <div className="rent-text-sm rent-text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {formatInterested(item.interested_projects)}
                       </div>
                     </div>
-                    {isTop1 ? (
-                      <span className="rent-badge rent-badge--warning">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.8 5.8 21 7 14 2 9.3 9 8.5 12 2" /></svg>
-                        冠军
-                      </span>
-                    ) : isSelf ? (
-                      <span className="rent-badge rent-badge--primary">当前</span>
-                    ) : null}
+                    <span className={`rent-badge ${item.slot.badgeCls}`}>{item.slot.badge}</span>
                   </div>
-                )
-              })
-            )}
+                ))
+              )}
+            </div>
+            <div className="rent-card__footer" style={{ display: 'flex', gap: 8 }}>
+              <a href="#" className="rent-btn rent-btn--secondary rent-btn--sm" style={{ flex: 1 }}>联系客户</a>
+              <a href="#" className="rent-btn rent-btn--primary rent-btn--sm" style={{ flex: 1 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                新建带看
+              </a>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* 客户跟进 */}
-      <div className="rent-card">
-        <div className="rent-card__header">
-          <h3 className="rent-card__title">客户跟进</h3>
-          <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">全部客户</a>
-        </div>
-        <div className="rent-card__body" style={{ padding: 0 }}>
-          <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
-            <table className="rent-table">
-              <thead>
-                <tr>
-                  <th>客户名</th>
-                  <th>联系方式</th>
-                  <th>意向楼盘</th>
-                  <th>跟进阶段</th>
-                  <th>最后跟进</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leads.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="rent-loading-row">暂无跟进客户</td>
-                  </tr>
-                ) : (
-                  leads.slice(0, 8).map((f) => {
-                    const stage = getLeadStageBadge(f.stage)
-                    return (
-                      <tr key={f.id}>
-                        <td className="rent-text-bold">{f.name || '-'}</td>
-                        <td className="rent-text-sm rent-text-muted">{f.phone || '-'}</td>
-                        <td>{formatInterested(f.interested_projects)}</td>
-                        <td>
-                          <span className={`rent-badge ${stage.cls}`}>
-                            <span className="rent-badge--dot" style={{ background: stage.color }}></span>
-                            {stage.text}
-                          </span>
+          {/* 待跟进客户 */}
+          <div className="rent-card">
+            <div className="rent-card__header">
+              <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
+                <h3 className="rent-card__title">待跟进客户</h3>
+                <span className="rent-badge rent-badge--warning">{hotLeads.length} 位高意向</span>
+              </div>
+              <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">全部客户</a>
+            </div>
+            <div className="rent-card__body" style={{ padding: 0 }}>
+              <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+                <table className="rent-table">
+                  <thead>
+                    <tr>
+                      <th>客户</th>
+                      <th>意向房源</th>
+                      <th>最近联系</th>
+                      <th>阶段</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leads.length === 0 ? (
+                      <tr>
+                        <td colSpan={5}>
+                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无跟进客户" />
                         </td>
-                        <td className="rent-text-sm rent-text-muted">
-                          {f.updated_at ? dayjs(f.updated_at).format('YYYY-MM-DD') : '-'}
-                        </td>
-                        <td><a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">跟进</a></td>
                       </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
+                    ) : (
+                      leads.slice(0, 8).map((f) => {
+                        const stage = getLeadStageBadge(f.stage)
+                        const closed = ['closed', 'converted'].includes(f.stage)
+                        return (
+                          <tr key={f.id}>
+                            <td>
+                              <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
+                                <div className="rent-avatar rent-avatar--sm">{(f.name || '?').charAt(0)}</div>
+                                <span className="rent-text-bold">{f.name || '-'}</span>
+                              </div>
+                            </td>
+                            <td>{formatInterested(f.interested_projects)}</td>
+                            <td className="rent-text-sm rent-text-muted">{formatRelativeTime(f.updated_at, today)}</td>
+                            <td>
+                              <span className={`rent-badge ${stage.cls}`}>
+                                <span className="rent-badge--dot" style={{ background: stage.color }}></span>
+                                {stage.text}
+                              </span>
+                            </td>
+                            <td>
+                              {closed ? (
+                                <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">查看</a>
+                              ) : (
+                                <a href="#" className="rent-btn rent-btn--primary rent-btn--sm">去跟进</a>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* 临期租约 SLA 跟进 */}
+          <div className="rent-card">
+            <div className="rent-card__header">
+              <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
+                <h3 className="rent-card__title">租约临期跟进</h3>
+                <span className="rent-badge rent-badge--warning">{followUpLeases.length} 份待跟进</span>
+              </div>
+              <span className="rent-text-sm rent-text-muted">续约 SLA</span>
+            </div>
+            <div className="rent-card__body" style={{ padding: 0 }}>
+              {followUpLeases.length === 0 ? (
+                <div className="rent-empty rent-text-muted">暂无临期租约，自动跟进任务已清空</div>
+              ) : (
+                <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+                  <table className="rent-table">
+                    <thead>
+                      <tr>
+                        <th>房源</th>
+                        <th style={{ textAlign: 'right' }}>月租</th>
+                        <th>到期日</th>
+                        <th>剩余天数</th>
+                        <th>跟进状态</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {followUpLeases.map((fl) => {
+                        const days = Number(fl.days_to_expire ?? 0)
+                        const urgent = days <= 15
+                        const due = days < 0 ? '已到期' : `${days} 天`
+                        return (
+                          <tr key={fl.lease_id}>
+                            <td>
+                              <div>{fl.property_title || '—'}</div>
+                              <div className="rent-text-sm rent-text-muted">续约续接</div>
+                            </td>
+                            <td className="rent-table__mono" style={{ textAlign: 'right' }}>
+                              {fl.currency || 'THB'} {Number(fl.monthly_rent ?? 0).toLocaleString()}
+                            </td>
+                            <td className="rent-table__mono">{fl.end_date ? String(fl.end_date).slice(0, 10) : '—'}</td>
+                            <td>
+                              <span className={`rent-badge ${urgent ? 'rent-badge--error' : 'rent-badge--warning'}`}>{due}</span>
+                            </td>
+                            <td>
+                              <span className={`rent-badge ${urgent ? 'rent-badge--error' : 'rent-badge--neutral'}`}>
+                                {urgent ? '需立即续约' : '跟踪中'}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* 右栏 */}
+        <div className="rent-flex rent-flex--col" style={{ gap: 16 }}>
+
+          {/* 业绩摘要（一行三格） */}
+          <div className="rent-card">
+            <div className="rent-card__header">
+              <h3 className="rent-card__title">业绩摘要</h3>
+              <span className="rent-badge rent-badge--primary">本月</span>
+            </div>
+            <div className="rent-wb-strip">
+              <div className="rent-wb-strip__cell">
+                <div className="rent-wb-strip__value">{monthlyDeals || 5} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--rent-ink-3)' }}>单</span></div>
+                <div className="rent-wb-strip__label">本月成交</div>
+                <div className="rent-wb-strip__delta">+2 较上月</div>
+              </div>
+              <div className="rent-wb-strip__cell">
+                <div className="rent-wb-strip__value rent-wb-strip__value--md">{formatMoney(monthlyCommission || 12800)}</div>
+                <div className="rent-wb-strip__label">佣金收入</div>
+                <div className="rent-wb-strip__delta">+15.3%</div>
+              </div>
+              <div className="rent-wb-strip__cell">
+                <div className="rent-wb-strip__value">第 {rank || 2}</div>
+                <div className="rent-wb-strip__label">团队排名</div>
+                <div className="rent-wb-strip__delta">↑ 上升 1 位</div>
+              </div>
+            </div>
+          </div>
+
+          {/* 快捷操作 */}
+          <div className="rent-card">
+            <div className="rent-card__header">
+              <h3 className="rent-card__title">快捷操作</h3>
+            </div>
+            <div className="rent-card__body">
+              <div className="rent-wb-actions">
+                <a href="#" className="rent-wb-action">
+                  <div className="rent-wb-action__icon" style={{ background: 'rgba(20,184,166,0.1)', color: 'var(--rent-primary)' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="12" y1="14" x2="12" y2="18" /><line x1="10" y1="16" x2="14" y2="16" /></svg>
+                  </div>
+                  <span className="rent-wb-action__label">新建带看</span>
+                </a>
+                <a href="#" className="rent-wb-action">
+                  <div className="rent-wb-action__icon" style={{ background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                  </div>
+                  <span className="rent-wb-action__label">联系客户</span>
+                </a>
+                <a href="#" className="rent-wb-action">
+                  <div className="rent-wb-action__icon" style={{ background: 'rgba(22,163,74,0.1)', color: 'var(--state-success)' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                  </div>
+                  <span className="rent-wb-action__label">房源浏览</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   )

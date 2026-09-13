@@ -64,6 +64,10 @@ celery_app.conf.beat_schedule = {
         'task': 'daily_payment_report',
         'schedule': crontab(hour=23, minute=0),
     },
+    'daily-backup-sync': {
+        'task': 'daily_backup_sync',
+        'schedule': crontab(hour=2, minute=0),  # 每天凌晨 2:00 数据备份/同步
+    },
 }
 
 # 自动发现任务模块

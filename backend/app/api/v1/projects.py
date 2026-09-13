@@ -20,7 +20,9 @@ class ProjectCreate(BaseModel):
     address: str
     district: Optional[str] = None
     city: Optional[str] = None
+    province: Optional[str] = None
     country: Optional[str] = None
+    nearest_subway: Optional[str] = None
     developer: Optional[str] = None
     property_management_company: Optional[str] = None
     lat: Optional[float] = None
@@ -35,7 +37,9 @@ class ProjectUpdate(BaseModel):
     address: Optional[str] = None
     district: Optional[str] = None
     city: Optional[str] = None
+    province: Optional[str] = None
     country: Optional[str] = None
+    nearest_subway: Optional[str] = None
     developer: Optional[str] = None
     property_management_company: Optional[str] = None
     lat: Optional[float] = None
@@ -50,15 +54,21 @@ def list_projects(
     pagination: PaginationParams = Depends(),
     district: Optional[str] = None,
     city: Optional[str] = None,
+    province: Optional[str] = None,
+    country: Optional[str] = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
     """项目列表（分页）。"""
     conditions = [Project.deleted_at.is_(None)]
-    if district:
-        conditions.append(Project.district == district)
+    if country:
+        conditions.append(Project.country == country)
+    if province:
+        conditions.append(Project.province == province)
     if city:
         conditions.append(Project.city == city)
+    if district:
+        conditions.append(Project.district == district)
 
     stmt = select(Project).where(*conditions).order_by(Project.created_at.desc())
     count_stmt = select(func.count(Project.id)).where(*conditions)

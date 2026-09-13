@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -14,12 +14,19 @@ from app.core.events import publish_event
 from app.core.pagination import PaginationParams, paginate
 from app.models import (
     MaintenanceTicket,
+    Tenant,
     TicketPriority,
     TicketStatus,
     User,
+    UserRole,
 )
 
 router = APIRouter(prefix="/maintenance-tickets", tags=["maintenance"])
+
+
+class MaintenanceTicketRate(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    feedback: Optional[str] = None
 
 
 class MaintenanceTicketCreate(BaseModel):
@@ -54,8 +61,18 @@ def list_maintenance_tickets(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """报修工单列表。"""
+    """报修工单列表。租客角色仅返回自己名下的工单。"""
     conditions = [MaintenanceTicket.deleted_at.is_(None)]
+    if user.role == UserRole.tenant:
+        tenant = session.exec(
+            select(Tenant).where(
+                Tenant.user_id == user.id,
+                Tenant.deleted_at.is_(None),
+            )
+        ).first()
+        if not tenant:
+            return paginate([], 0, pagination)
+        conditions.append(MaintenanceTicket.tenant_id == tenant.id)
     if status:
         conditions.append(MaintenanceTicket.status == status)
     if priority:
@@ -134,6 +151,33 @@ def update_maintenance_ticket(
 
     for key, value in update_data.items():
         setattr(ticket, key, value)
+    session.add(ticket)
+    session.commit()
+    session.refresh(ticket)
+    return ticket
+
+
+@router.post("/{ticket_id}/rate")
+def rate_maintenance_ticket(
+    ticket_id: uuid.UUID,
+    req: MaintenanceTicketRate,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """租客对已解决的工单评分（1-5）并留反馈，形成服务闭环。"""
+    ticket = session.get(MaintenanceTicket, ticket_id)
+    if not ticket or ticket.deleted_at:
+        raise HTTPException(status_code=404, detail="Maintenance ticket not found")
+    if ticket.status not in (TicketStatus.resolved, TicketStatus.closed):
+        raise HTTPException(
+            status_code=409, detail="Only resolved or closed tickets can be rated"
+        )
+    if ticket.rated_at:
+        raise HTTPException(status_code=409, detail="Ticket already rated")
+
+    ticket.rating = req.rating
+    ticket.feedback = req.feedback
+    ticket.rated_at = datetime.utcnow()
     session.add(ticket)
     session.commit()
     session.refresh(ticket)

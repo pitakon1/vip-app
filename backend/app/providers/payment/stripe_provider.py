@@ -2,7 +2,6 @@
 import hashlib
 import hmac
 import json
-from typing import Optional
 
 import httpx
 

@@ -1,6 +1,5 @@
 """支付宝适配器 - 国际版 API（扫码预下单/查询/退款，使用 httpx 调用）"""
 import base64
-import hashlib
 import json
 import os
 import time

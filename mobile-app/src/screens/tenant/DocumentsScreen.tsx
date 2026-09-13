@@ -105,7 +105,7 @@ export default function DocumentsScreen() {
           disabled={uploading}
         >
           {uploading ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={colors.primaryForeground} size="small" />
           ) : (
             <Text style={styles.actionText}>上传租金凭证</Text>
           )}
@@ -144,12 +144,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionBtnDisabled: { opacity: 0.6 },
-  actionText: { color: '#fff', fontSize: 14, fontWeight: '500' },
+  actionText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '500' },
   list: { paddingVertical: 8 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   info: { flex: 1 },
   title: { fontSize: 15, color: colors.text, fontWeight: '500' },
-  subtitle: { fontSize: 12, color: '#999', marginTop: 4 },
-  arrow: { fontSize: 22, color: '#ccc' },
-  empty: { textAlign: 'center', color: '#999', marginTop: 32 },
+  subtitle: { fontSize: 12, color: colors.ink3, marginTop: 4 },
+  arrow: { fontSize: 22, color: colors.ink3 },
+  empty: { textAlign: 'center', color: colors.ink3, marginTop: 32 },
 });

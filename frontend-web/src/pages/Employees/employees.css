@@ -32,7 +32,7 @@
 .rent-filter-select:hover { border-color: var(--rent-ink-3); }
 .rent-filter-select:focus {
   border-color: var(--rent-primary);
-  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
 }
 
 /* 员工单元格 */
@@ -105,11 +105,11 @@
   white-space: nowrap;
 }
 .rent-btn--primary-ghost {
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20, 184, 166, 0.08);
   color: var(--rent-primary);
 }
 .rent-btn--primary-ghost:hover {
-  background: rgba(66, 99, 235, 0.14);
+  background: rgba(20, 184, 166, 0.14);
 }
 
 /* 头像变体 */
@@ -120,46 +120,6 @@
 
 /* 分页两端对齐 */
 .rent-pagination--split { justify-content: space-between; }
-
-/* 排行榜卡片（右侧侧栏） */
-.rent-rank-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px;
-  border-radius: var(--rent-radius-md);
-  border: 1px solid var(--rent-border);
-  background: var(--rent-surface);
-}
-.rent-rank-item--top1 {
-  background: rgba(217, 119, 6, 0.06);
-}
-.rent-rank-item--self {
-  background: var(--rent-sidebar-active);
-  border-color: var(--rent-primary);
-}
-.rent-rank-num {
-  font-size: 18px;
-  font-weight: 700;
-  width: 24px;
-  text-align: center;
-  flex-shrink: 0;
-}
-.rent-rank-num--gold { color: var(--state-warning); }
-.rent-rank-num--silver { color: var(--rent-ink-3); }
-.rent-rank-num--self { color: var(--rent-primary); }
-.rent-rank-info { min-width: 0; }
-.rent-rank-name {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--rent-ink);
-}
-.rent-rank-name--self { color: var(--rent-primary); }
-.rent-rank-meta {
-  font-size: 12px;
-  color: var(--rent-ink-3);
-}
 
 /* 加载占位 */
 .rent-loading-row {

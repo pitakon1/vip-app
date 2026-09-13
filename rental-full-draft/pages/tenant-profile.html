@@ -18,13 +18,13 @@
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
   --rent-ink: #0f172a;
@@ -34,7 +34,7 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
 
   /* ---- 状态色（仅语义状态） ---- */
   --state-success: #16a34a;
@@ -78,13 +78,13 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
   --rent-primary-foreground: #0b0f1a;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;
@@ -509,7 +509,7 @@
   background: var(--rent-primary);
   color: var(--rent-primary-foreground);
 }
-.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--primary:hover { background: #0d9488; }
 .rent-btn--secondary {
   background: var(--rent-surface);
   border-color: var(--rent-border);
@@ -582,7 +582,7 @@
 .rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
 .rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
 .rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
-.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--primary { background: rgba(20,184,166,0.1); color: var(--rent-primary); }
 .rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
 
 /* ===== KPI / Stat Card ===== */
@@ -845,12 +845,12 @@
 .rent-hero {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #4263eb 0%, #5b3fd6 55%, #7c3aed 100%);
+  background: linear-gradient(135deg, #14b8a6 0%, #5b3fd6 55%, #7c3aed 100%);
   border-radius: 24px;
   padding: 40px;
   margin-bottom: 32px;
   color: #fff;
-  box-shadow: 0 20px 50px -20px rgba(66, 99, 235, 0.55);
+  box-shadow: 0 20px 50px -20px rgba(20,184,166, 0.55);
 }
 .rent-hero__decor {
   position: absolute;
@@ -1241,8 +1241,8 @@
 </style>
     <style id="rent-beike-overlay">
 /* =========================================================
-   RentFlow × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
-   保留靛蓝主色 #4263eb · 消费级 App 形态 · 大圆角卡片流
+   HaoFang.World × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #14b8a6 · 消费级 App 形态 · 大圆角卡片流
    仅注入用户端页面 (租客/业主/员工)，后台管理不注入
       注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
    ========================================================= */
@@ -1268,7 +1268,7 @@ body {
 .rent-mobile__logo,
 .rent-pad__logo {
   border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+  box-shadow: 0 4px 14px rgba(20,184,166, 0.35);
 }
 .rent-portal__nav-item,
 .rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
@@ -1279,12 +1279,12 @@ body {
 .rent-search-hero__bar {
   border-radius: 999px;
   background: #ffffff;
-  box-shadow: 0 10px 32px -10px rgba(66, 99, 235, 0.40);
+  box-shadow: 0 10px 32px -10px rgba(20,184,166, 0.40);
 }
 .rent-search-hero__search-btn {
   border-radius: 999px;
-  background: linear-gradient(135deg, #4263eb, #6b82f5);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.50);
+  background: linear-gradient(135deg, #14b8a6, #2dd4bf);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.50);
 }
 .rent-search-hero__tag { border-radius: 999px; }
 
@@ -1323,7 +1323,7 @@ body {
 .rent-badge { border-radius: 999px; padding: 3px 10px; }
 .rent-prop-search-card__cta {
   border-radius: 999px;
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   color: var(--rent-primary);
   font-weight: 600;
 }
@@ -1343,14 +1343,14 @@ body {
 .rent-btn { border-radius: 10px; }
 .rent-btn--primary {
   border-radius: 12px;
-  background: linear-gradient(135deg, #4263eb, #5b7cfa);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.45);
+  background: linear-gradient(135deg, #14b8a6, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.45);
 }
 
 /* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
 .rent-mobile__tab { border-radius: 14px; }
 .rent-mobile__tab[data-active="true"] {
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   font-weight: 600;
 }
 
@@ -1359,7 +1359,7 @@ body {
 .rent-pad__nav-item { border-radius: 12px; }
 .rent-nav-item[data-active="true"],
 .rent-pad__nav-item[data-active="true"] {
-  background: linear-gradient(135deg, rgba(66, 99, 235, 0.10), rgba(107, 130, 245, 0.08));
+  background: linear-gradient(135deg, rgba(20,184,166, 0.10), rgba(107, 130, 245, 0.08));
   font-weight: 600;
 }
 
@@ -1367,7 +1367,7 @@ body {
 .rent-hero,
 .rent-portal-hero,
 .rent-mobile__hero {
-  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+  background: linear-gradient(135deg, #14b8a6 0%, #5b7cfa 55%, #2dd4bf 100%);
 }
 
 /* ===== 头像 ===== */
@@ -1378,14 +1378,14 @@ body {
   
     <style id="rent-todo-styles">
       /* ===== 任务驱动首页扩展（租客待办区） ===== */
-      .rent-todo-pay { position: relative; overflow: hidden; border: 1px solid rgba(66,99,235,0.28); background: linear-gradient(135deg, #f3f6ff 0%, #e9efff 100%); }
-      .rent-todo-pay::after { content: ""; position: absolute; right: -46px; top: -46px; width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle, rgba(66,99,235,0.14), transparent 70%); pointer-events: none; }
+      .rent-todo-pay { position: relative; overflow: hidden; border: 1px solid rgba(20,184,166,0.28); background: linear-gradient(135deg, #f3f6ff 0%, #e9efff 100%); }
+      .rent-todo-pay::after { content: ""; position: absolute; right: -46px; top: -46px; width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle, rgba(20,184,166,0.14), transparent 70%); pointer-events: none; }
       .rent-todo-pay__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; position: relative; z-index: 1; }
       .rent-todo-pay__due { font-size: 13px; font-weight: 600; color: var(--state-warning); }
       .rent-todo-pay__label { font-size: 14px; color: var(--rent-ink-3); margin-bottom: 2px; position: relative; z-index: 1; }
       .rent-todo-pay__amount { font-size: 40px; font-weight: 800; color: var(--rent-ink); letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 6px; font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
       .rent-todo-pay__sub { font-size: 13px; color: var(--rent-ink-3); margin: 0 0 16px; position: relative; z-index: 1; }
-      .rent-todo-pay__cta { font-size: 16px; height: 48px; border-radius: 14px; position: relative; z-index: 1; box-shadow: 0 8px 20px -8px rgba(66,99,235,0.55); }
+      .rent-todo-pay__cta { font-size: 16px; height: 48px; border-radius: 14px; position: relative; z-index: 1; box-shadow: 0 8px 20px -8px rgba(20,184,166,0.55); }
       .rent-todo-maint__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
       .rent-todo-maint__id { font-family: var(--rent-font-mono); font-size: 12px; color: var(--rent-ink-3); }
       .rent-todo-maint__title { font-size: 17px; font-weight: 700; color: var(--rent-ink); margin-bottom: 4px; }
@@ -1409,9 +1409,9 @@ body {
     <style id="rent-profile-styles">
       /* ===== 我的（用户中心）扩展样式 ===== */
       .rent-profile-card { position: relative; overflow: hidden; }
-      .rent-profile-card::after { content: ""; position: absolute; right: -80px; top: -80px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(66,99,235,0.14), transparent 70%); pointer-events: none; }
+      .rent-profile-card::after { content: ""; position: absolute; right: -80px; top: -80px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(20,184,166,0.14), transparent 70%); pointer-events: none; }
       .rent-profile-card__inner { position: relative; z-index: 1; display: flex; align-items: center; gap: 20px; }
-      .rent-profile-avatar { width: 64px; height: 64px; font-size: 26px; border-radius: 20px; background: linear-gradient(135deg, #4263eb, #6b82f5); box-shadow: 0 8px 20px -8px rgba(66,99,235,0.5); }
+      .rent-profile-avatar { width: 64px; height: 64px; font-size: 26px; border-radius: 20px; background: linear-gradient(135deg, #14b8a6, #2dd4bf); box-shadow: 0 8px 20px -8px rgba(20,184,166,0.5); }
       .rent-profile-card__name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
       .rent-profile-card__name { font-size: 20px; font-weight: 700; color: var(--rent-ink); margin: 0; letter-spacing: -0.01em; }
       .rent-profile-card__email { font-size: 13px; color: var(--rent-ink-3); margin-top: 6px; }
@@ -1448,7 +1448,7 @@ body {
       .rent-purchase-row__arrow { color: var(--rent-ink-3); flex-shrink: 0; }
       .rent-purchase-entry { display: flex; align-items: center; gap: 14px; margin-top: 12px; padding: 13px 16px; border-radius: 16px; background: linear-gradient(135deg, #f5f3ff 0%, #eef4ff 100%); border: 1px solid rgba(124,58,237,0.16); text-decoration: none; color: var(--rent-ink); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
       .rent-purchase-entry:hover { transform: translateY(-1px); box-shadow: var(--rent-shadow-1); }
-      .rent-purchase-entry__icon { width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #7c3aed, #6b82f5); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 6px 16px -6px rgba(124,58,237,0.5); }
+      .rent-purchase-entry__icon { width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #7c3aed, #2dd4bf); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 6px 16px -6px rgba(124,58,237,0.5); }
       .rent-purchase-entry__body { flex: 1; min-width: 0; }
       .rent-purchase-entry__title { font-size: 14px; font-weight: 600; color: var(--rent-ink); }
       .rent-purchase-entry__desc { font-size: 12px; color: var(--rent-ink-3); margin-top: 2px; }
@@ -1463,8 +1463,8 @@ body {
 <div class="rent-portal" data-viewport-mode="document-scroll">
   <header class="rent-portal__header">
     <div class="rent-portal__brand">
-      <div class="rent-portal__logo">R</div>
-      <span class="rent-portal__name">RentFlow 租客中心</span>
+      <img class="rent-portal__logo" src="../assets/haofang-logo.jpg" alt="HaoFang.World" style="width:auto;max-height:34px;object-fit:contain;border-radius:6px;background:#fff;padding:3px;flex-shrink:0;display:inline-block;">
+      <span class="rent-portal__name">租客中心</span>
     </div>
     <nav class="rent-portal__nav">
       <a class="rent-portal__nav-item" data-nav-key="tenant-dashboard" href="tenant-dashboard.html" data-active="true" data-dom-id="nav-tenant-dashboard">
@@ -1504,7 +1504,7 @@ body {
           <div class="rent-text-sm rent-text-muted">tenant@rentflow.com</div>
         </div>
       </div>
-      <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login">退出</a>
+      <a href="login.html" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login">退出</a>
     </div>
   </header>
 
@@ -1569,7 +1569,7 @@ body {
         <span class="rent-badge rent-badge--purple">2 笔进行中</span>
       </div>
       <div class="rent-card rent-purchase">
-        <a href="#" class="rent-purchase-row">
+        <a href="tenant-purchase.html" class="rent-purchase-row">
           <div class="rent-purchase-row__icon" style="background:rgba(124,58,237,0.12);color:#7c3aed;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           </div>
@@ -1581,7 +1581,7 @@ body {
           <span class="rent-badge rent-badge--purple">看房约谈中</span>
           <svg class="rent-purchase-row__arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
         </a>
-        <a href="#" class="rent-purchase-row">
+        <a href="tenant-purchase.html" class="rent-purchase-row">
           <div class="rent-purchase-row__icon" style="background:rgba(14,165,233,0.12);color:var(--state-info);">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
           </div>
@@ -1604,19 +1604,19 @@ body {
       <div class="rent-card">
         <div class="rent-card__body">
           <div class="rent-profile-grid">
-            <a href="#" class="rent-profile-grid__item">
-              <div class="rent-profile-grid__icon" style="background:rgba(66,99,235,0.12);color:var(--rent-primary);">
+            <a href="tenant-profile.html" class="rent-profile-grid__item">
+              <div class="rent-profile-grid__icon" style="background:rgba(20,184,166,0.12);color:var(--rent-primary);">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
               </div>
               <span class="rent-profile-grid__label">我的收藏</span>
             </a>
-            <a href="#" class="rent-profile-grid__item">
+            <a href="tenant-profile.html" class="rent-profile-grid__item">
               <div class="rent-profile-grid__icon" style="background:rgba(14,165,233,0.12);color:var(--state-info);">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </div>
               <span class="rent-profile-grid__label">浏览足迹</span>
             </a>
-            <a href="#" class="rent-profile-grid__item">
+            <a href="tenant-services.html" class="rent-profile-grid__item">
               <div class="rent-profile-grid__icon" style="background:rgba(217,119,6,0.12);color:var(--state-warning);">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
               </div>
@@ -1634,14 +1634,14 @@ body {
               </div>
               <span class="rent-profile-grid__label">报修</span>
             </a>
-            <a href="#" class="rent-profile-grid__item">
+            <a href="tenant-services.html" class="rent-profile-grid__item">
               <div class="rent-profile-grid__icon" style="background:rgba(14,165,233,0.12);color:var(--state-info);">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/><path d="M21 11h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-5z"/><path d="M3 11v-1a9 9 0 0 1 18 0v1"/></svg>
               </div>
               <span class="rent-profile-grid__label">联系客服</span>
             </a>
           </div>
-          <a href="#" class="rent-purchase-entry">
+          <a href="tenant-purchase.html" class="rent-purchase-entry">
             <div class="rent-purchase-entry__icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </div>
@@ -1673,7 +1673,7 @@ body {
           <svg class="rent-profile-list__arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
         </a>
         <a href="tenant-documents.html" class="rent-profile-list__item" data-dom-id="link-tenant-documents">
-          <div class="rent-profile-list__icon" style="background:rgba(66,99,235,0.12);color:var(--rent-primary);">
+          <div class="rent-profile-list__icon" style="background:rgba(20,184,166,0.12);color:var(--rent-primary);">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           </div>
           <div style="flex:1;min-width:0;">
@@ -1692,7 +1692,7 @@ body {
           </div>
           <svg class="rent-profile-list__arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
         </a>
-        <a href="#" class="rent-profile-list__item">
+        <a href="tenant-consign.html" class="rent-profile-list__item">
           <div class="rent-profile-list__icon" style="background:rgba(124,58,237,0.12);color:#7c3aed;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="10" y1="11" x2="14" y2="11"/><line x1="10" y1="15" x2="14" y2="15"/></svg>
           </div>
@@ -1707,7 +1707,7 @@ body {
 
     <!-- 退出登录 -->
     <section class="rent-section">
-      <a href="#" class="rent-btn rent-btn--danger rent-btn--lg rent-btn--block rent-profile-logout" data-dom-id="back-login">
+      <a href="login.html" class="rent-btn rent-btn--danger rent-btn--lg rent-btn--block rent-profile-logout" data-dom-id="back-login">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         退出登录
       </a>

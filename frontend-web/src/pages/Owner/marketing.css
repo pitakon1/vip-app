@@ -1,0 +1,9 @@
+/* 房东端「房源营销」页：复用 rent-* 全局样式，此处仅补充轻量调整 */
+
+.rent-stat-card__delta--up {
+  color: var(--state-success);
+}
+
+.rent-text-bold {
+  font-weight: 600;
+}

@@ -1,6 +1,7 @@
 import { defineConfig } from '@tarojs/cli'
 import devConfig from './dev'
 import prodConfig from './prod'
+import path from 'path'
 
 export default defineConfig(async (merge) => {
   const baseConfig = {
@@ -15,6 +16,9 @@ export default defineConfig(async (merge) => {
     copy: { patterns: [], options: {} },
     framework: 'react',
     compiler: 'webpack5',
+    alias: {
+      '@': path.resolve(__dirname, '..', 'src'),
+    },
     mini: {
       postcss: {
         pxtransform: { enable: true, config: {} },

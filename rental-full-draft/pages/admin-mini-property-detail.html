@@ -12,19 +12,19 @@
 
 :root {
   /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
-  --rent-background: #f5f7fa;
+  --rent-background: #f2faf8;
   --rent-foreground: #0f172a;
   --rent-card: #ffffff;
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
   --rent-ink: #0f172a;
@@ -34,7 +34,7 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
 
   /* ---- 状态色（仅语义状态） ---- */
   --state-success: #16a34a;
@@ -78,13 +78,13 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
   --rent-primary-foreground: #0b0f1a;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;
@@ -509,7 +509,7 @@
   background: var(--rent-primary);
   color: var(--rent-primary-foreground);
 }
-.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--primary:hover { background: #0d9488; }
 .rent-btn--secondary {
   background: var(--rent-surface);
   border-color: var(--rent-border);
@@ -582,7 +582,7 @@
 .rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
 .rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
 .rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
-.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--primary { background: rgba(20,184,166,0.1); color: var(--rent-primary); }
 .rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
 
 /* ===== KPI / Stat Card ===== */
@@ -884,7 +884,7 @@
 
 /* Mobile hero banner */
 .rent-mobile__hero {
-  background: linear-gradient(135deg, var(--rent-primary) 0%, #3b51d4 100%);
+  background: linear-gradient(135deg, var(--rent-primary) 0%, #0d9488 100%);
   border-radius: var(--rent-radius-lg);
   padding: 20px;
   margin-bottom: 16px;
@@ -972,7 +972,7 @@
   z-index: 40;
   transition: background 0.15s;
 }
-.rent-mobile__fab:hover { background: #3b51d4; }
+.rent-mobile__fab:hover { background: #0d9488; }
 
 /* ===== Mobile back button ===== */
 .rent-mobile__back-btn {
@@ -996,7 +996,7 @@
   width: 100%;
   height: 180px;
   border-radius: var(--rent-radius-lg);
-  background: linear-gradient(135deg, #4263eb 0%, #748ffc 50%, #a5b4fc 100%);
+  background: linear-gradient(135deg, #14b8a6 0%, #748ffc 50%, #a5b4fc 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1273,13 +1273,13 @@
 
 <!-- Action buttons row -->
 <div class="rent-mobile__action-row">
-  <a href="#" class="rent-mobile__action-btn">
-    <div class="rent-mobile__action-btn-icon" style="background: rgba(66,99,235,0.1); color: var(--rent-primary);">
+  <a href="admin-mini-property-detail.html" class="rent-mobile__action-btn">
+    <div class="rent-mobile__action-btn-icon" style="background: rgba(20,184,166,0.1); color: var(--rent-primary);">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
     </div>
     <span class="rent-mobile__action-btn-label">编辑房源</span>
   </a>
-  <a href="#" class="rent-mobile__action-btn">
+  <a href="admin-mini-leases.html" class="rent-mobile__action-btn">
     <div class="rent-mobile__action-btn-icon" style="background: rgba(14,165,233,0.1); color: var(--state-info);">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
     </div>
@@ -1297,7 +1297,7 @@
 <h3 class="rent-mobile__section-title">当前租客</h3>
 <div class="rent-mobile__card">
   <div class="rent-mobile__tenant-head">
-    <div class="rent-avatar rent-avatar--lg" style="background: linear-gradient(135deg, #4263eb 0%, #748ffc 100%);">王</div>
+    <div class="rent-avatar rent-avatar--lg" style="background: linear-gradient(135deg, #14b8a6 0%, #748ffc 100%);">王</div>
     <div style="flex:1;min-width:0;">
       <h4 class="rent-mobile__tenant-name">王租客</h4>
       <p class="rent-mobile__tenant-sub">租客 · TENANT-0089</p>

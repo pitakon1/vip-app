@@ -127,15 +127,15 @@ export default function ServicesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   list: { paddingVertical: 8 },
-  description: { fontSize: 13, color: '#666' },
+  description: { fontSize: 13, color: colors.ink2 },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
   price: { fontSize: 18, color: colors.error, fontWeight: '600' },
   button: { backgroundColor: colors.primary, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 6 },
-  buttonText: { color: '#fff', fontSize: 14, fontWeight: '500' },
+  buttonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '500' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20 },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20 },
   sheetTitle: { fontSize: 18, fontWeight: '600', color: colors.text, textAlign: 'center' },
-  sheetSub: { fontSize: 14, color: '#666', textAlign: 'center', marginTop: 6 },
+  sheetSub: { fontSize: 14, color: colors.ink2, textAlign: 'center', marginTop: 6 },
   methodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 20, justifyContent: 'center' },
   methodBtn: {
     paddingHorizontal: 16,
@@ -148,5 +148,5 @@ const styles = StyleSheet.create({
   methodText: { color: colors.primary, fontSize: 14, fontWeight: '500' },
   loading: { marginTop: 16 },
   cancelBtn: { marginTop: 20, paddingVertical: 12, alignItems: 'center' },
-  cancelText: { color: '#999', fontSize: 15 },
+  cancelText: { color: colors.ink3, fontSize: 15 },
 });

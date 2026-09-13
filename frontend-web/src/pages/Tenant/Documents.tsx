@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
-import './documents.css'
 
 type DocType = 'lease_contract' | 'receipt' | 'certificate' | 'report' | 'other'
+type SegmentKey = 'all' | 'lease_contract' | 'receipt' | 'other'
 
 interface DocItem {
   id: string
@@ -20,41 +20,49 @@ interface DocItem {
 
 const typeLabelMap: Record<DocType, string> = {
   lease_contract: '合同',
-  receipt: '发票',
-  certificate: '证件',
-  report: '报表',
+  receipt: '收据',
+  certificate: '其他',
+  report: '其他',
   other: '其他',
 }
 
-const typeBadgeMap: Record<DocType, string> = {
-  lease_contract: 'rent-badge--primary',
-  receipt: 'rent-badge--warning',
-  certificate: 'rent-badge--info',
-  report: 'rent-badge--success',
-  other: 'rent-badge--neutral',
+const cardIconMap: Record<DocType, string> = {
+  lease_contract: 'rent-doc-card__icon--contract',
+  receipt: 'rent-doc-card__icon--receipt',
+  certificate: 'rent-doc-card__icon--other',
+  report: 'rent-doc-card__icon--other',
+  other: 'rent-doc-card__icon--other',
 }
 
-const typeIconStyleMap: Record<DocType, { bg: string; color: string }> = {
-  lease_contract: { bg: 'rgba(220,38,38,0.10)', color: '#dc2626' },
-  receipt: { bg: 'rgba(220,38,38,0.10)', color: '#dc2626' },
-  certificate: { bg: 'rgba(14,165,233,0.10)', color: '#0ea5e9' },
-  report: { bg: 'rgba(22,163,74,0.10)', color: '#16a34a' },
-  other: { bg: 'rgba(100,116,139,0.10)', color: '#64748b' },
+const cardTagMap: Record<DocType, string> = {
+  lease_contract: 'rent-doc-tag--contract',
+  receipt: 'rent-doc-tag--receipt',
+  certificate: 'rent-doc-tag--other',
+  report: 'rent-doc-tag--other',
+  other: 'rent-doc-tag--other',
+}
+
+const cardStatusMap: Record<DocType, { label: string; cls: string }> = {
+  lease_contract: { label: '已签署', cls: 'rent-doc-status--success' },
+  receipt: { label: '已归档', cls: 'rent-doc-status--neutral' },
+  certificate: { label: '已归档', cls: 'rent-doc-status--neutral' },
+  report: { label: '已归档', cls: 'rent-doc-status--neutral' },
+  other: { label: '待审核', cls: 'rent-doc-status--warning' },
 }
 
 const DocIcon = ({ type }: { type: DocType }) => {
   if (type === 'certificate') {
     return (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
     )
   }
   if (type === 'report') {
     return (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
     )
   }
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
   )
 }
 
@@ -131,7 +139,8 @@ const TenantDocuments = () => {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<DocItem[]>([])
   const [file, setFile] = useState<File | null>(null)
-  const [activeTab, setActiveTab] = useState<DocType | 'all'>('all')
+  const [activeTab, setActiveTab] = useState<SegmentKey>('all')
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -152,20 +161,15 @@ const TenantDocuments = () => {
   }, [fetchData])
 
   const filteredData = useMemo(() => {
-    return activeTab === 'all' ? data : data.filter((d) => d.type === activeTab)
+    if (activeTab === 'all') return data
+    if (activeTab === 'lease_contract') return data.filter((d) => d.type === 'lease_contract')
+    if (activeTab === 'receipt') return data.filter((d) => d.type === 'receipt')
+    return data.filter((d) => ['certificate', 'report', 'other'].includes(d.type))
   }, [data, activeTab])
 
-  const totalSize = useMemo(() => {
-    return data.reduce((sum, d) => sum + (d.size || 0), 0)
-  }, [data])
-
-  const handleUpload = async () => {
-    if (!file) {
-      message.warning('请先选择要上传的文件')
-      return
-    }
+  const doUpload = async (f: File) => {
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('file', f)
     formData.append('type', 'lease_contract')
 
     try {
@@ -179,12 +183,12 @@ const TenantDocuments = () => {
       message.success('合同上传成功')
       const newItem: DocItem = {
         id: `local-${Date.now()}`,
-        name: file.name,
+        name: f.name,
         type: 'lease_contract',
         url: '#',
         uploadDate: dayjs().format('YYYY-MM-DD'),
         created_at: dayjs().format('YYYY-MM-DD'),
-        size: Math.round(file.size / 1024),
+        size: Math.round(f.size / 1024),
         source: '本地文件',
       }
       setData((prev) => [newItem, ...prev])
@@ -194,9 +198,21 @@ const TenantDocuments = () => {
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async () => {
+    if (!file) {
+      message.warning('请先选择要上传的文件')
+      return
+    }
+    await doUpload(file)
+  }
+
+  const handleHeroSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
-    if (f) setFile(f)
+    if (f) {
+      setFile(f)
+      doUpload(f)
+    }
+    e.target.value = ''
   }
 
   const handlePreview = (r: DocItem) => {
@@ -207,143 +223,108 @@ const TenantDocuments = () => {
     if (r.url && r.url !== '#') window.open(r.url, '_blank')
   }
 
-  const filterChips: { key: DocType | 'all'; label: string }[] = [
-    { key: 'all', label: '全部' },
-    { key: 'lease_contract', label: '合同' },
-    { key: 'certificate', label: '证件' },
-    { key: 'report', label: '报表' },
-    { key: 'receipt', label: '发票' },
+  const segments: { key: SegmentKey; label: string }[] = [
+    { key: 'all', label: '全部文档' },
+    { key: 'lease_contract', label: '租赁合同' },
+    { key: 'receipt', label: '付款收据' },
+    { key: 'other', label: '其他文件' },
   ]
 
-  const usedGB = (totalSize / (1024 * 1024)).toFixed(1)
-  const usedPercent = Math.min((totalSize / (5 * 1024 * 1024)) * 100, 100)
-
   return (
-    <div className="rent-main">
+    <>
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
           <span className="rent-text-muted">加载中…</span>
         </div>
       )}
 
-      {/* Summary stat row */}
-      <div className="rent-doc-stats">
-        <div className="rent-doc-stat">
-          <div className="rent-doc-stat__label">文档总数</div>
-          <div className="rent-doc-stat__value">{data.length}</div>
-          <span className="rent-doc-stat__badge rent-badge rent-badge--primary">{data.length} 份本月新增</span>
+      {/* Clean hero row */}
+      <div className="rent-doc-hero">
+        <div className="rent-doc-hero__text">
+          <h1 className="rent-doc-hero__title">我的文档</h1>
+          <p className="rent-doc-hero__subtitle">查看和管理您的租赁文件</p>
         </div>
-        <div className="rent-doc-stat">
-          <div className="rent-doc-stat__label">存储已用</div>
-          <div className="rent-doc-stat__value">{usedGB} GB</div>
-          <span className="rent-doc-stat__badge rent-badge rent-badge--neutral">/ 5 GB</span>
-        </div>
+        <button className="rent-doc-hero__action" onClick={() => inputRef.current?.click()}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          上传文档
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+          style={{ display: 'none' }}
+          onChange={handleHeroSelect}
+        />
       </div>
 
-      {/* Storage progress */}
-      <div className="rent-doc-storage">
-        <div className="rent-doc-storage__head">
-          <span className="rent-doc-storage__label">存储空间使用情况</span>
-          <span className="rent-doc-storage__value">{usedGB} GB / 5 GB</span>
-        </div>
-        <div className="rent-progress">
-          <div className="rent-progress__bar" style={{ width: `${usedPercent}%` }}></div>
-        </div>
-      </div>
-
-      {/* Upload zone */}
-      <div className="rent-doc-upload">
-        <h3 className="rent-doc-upload__title">上传租赁合同</h3>
-        <label className="rent-doc-upload__zone">
-          <div className="rent-doc-upload__icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          </div>
-          <span className="rent-doc-upload__text">上传租赁合同（点击或拖拽）</span>
-          <span className="rent-doc-upload__hint">支持 PDF、图片等格式</span>
-          <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style={{ display: 'none' }} onChange={handleFileChange} />
-        </label>
-        {file && (
-          <div className="rent-doc-upload__file">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-primary)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <span>{file.name}</span>
-            <span className="rent-text-muted">· {formatSize(Math.round(file.size / 1024))}</span>
-          </div>
-        )}
-        <div className="rent-doc-upload__actions">
-          <button className="rent-btn rent-btn--primary" onClick={handleUpload}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            上传合同
-          </button>
-        </div>
-      </div>
-
-      {/* Filter chips */}
-      <div className="rent-doc-chips">
-        {filterChips.map((c) => (
+      {/* Segment control */}
+      <div className="rent-segment">
+        {segments.map((s) => (
           <button
-            key={c.key}
-            className="rent-doc-chip"
-            data-active={activeTab === c.key}
-            onClick={() => setActiveTab(c.key)}
+            key={s.key}
+            className="rent-segment__item"
+            data-active={activeTab === s.key}
+            onClick={() => setActiveTab(s.key)}
           >
-            {c.label}
+            {s.label}
           </button>
         ))}
       </div>
 
-      <h3 className="rent-doc-section-title">全部文档</h3>
+      {/* Result count */}
+      <div className="rent-doc-count">共 <span className="rent-doc-count__num">{filteredData.length}</span> 份文档</div>
 
-      {/* Document list */}
-      <div className="rent-doc-list">
-        {filteredData.length ? (
-          filteredData.map((r) => {
-            const d = r.uploadDate || r.created_at
-            const dateStr = d ? dayjs(d).format('YYYY-MM-DD') : '-'
-            const sizeStr = formatSize(r.size)
-            const iconStyle = typeIconStyleMap[r.type] || typeIconStyleMap.other
-            return (
-              <div key={r.id} className="rent-doc-item">
-                <div className="rent-doc-item__icon" style={{ background: iconStyle.bg, color: iconStyle.color }}>
-                  <DocIcon type={r.type} />
-                </div>
-                <div className="rent-doc-item__body">
-                  <div className="rent-doc-item__name">{r.name || '-'}</div>
-                  <div className="rent-doc-item__meta">
-                    <span className={`rent-badge ${typeBadgeMap[r.type] || 'rent-badge--neutral'}`} style={{ padding: '2px 8px' }}>
-                      {typeLabelMap[r.type] || r.type || '其他'}
+      {/* Document grid */}
+      <div>
+        <div className="rent-doc-grid">
+          {filteredData.length ? (
+            filteredData.map((r) => {
+              const dateStr = r.uploadDate || r.created_at || ''
+              const sizeStr = formatSize(r.size)
+              const tagCls = cardTagMap[r.type] || cardTagMap.other
+              const tagLabel = typeLabelMap[r.type] || '其他'
+              const iconCls = cardIconMap[r.type] || cardIconMap.other
+              const st = cardStatusMap[r.type] || cardStatusMap.other
+              const canOpen = !!r.url && r.url !== '#'
+              return (
+                <div key={r.id} className="rent-doc-card">
+                  <div className="rent-doc-card__head">
+                    <span className={`rent-doc-card__icon ${iconCls}`}>
+                      <DocIcon type={r.type} />
                     </span>
-                    {r.source && <span className="rent-doc-item__source">{r.source}</span>}
+                    <div className="rent-doc-card__meta">
+                      <div className="rent-doc-card__name">{r.name || '-'}</div>
+                      <div className="rent-doc-card__tags">
+                        <span className={`rent-doc-tag ${tagCls}`}>{tagLabel}</span>
+                        {sizeStr && <span className="rent-doc-card__size">{sizeStr}</span>}
+                      </div>
+                    </div>
                   </div>
-                  <div className="rent-doc-item__sub">{dateStr}{sizeStr ? ` · ${sizeStr}` : ''}</div>
+                  <div className="rent-doc-card__foot">
+                    <div className="rent-doc-card__meta-row">
+                      {dateStr && <span className="rent-doc-card__date">上传于 {dayjs(dateStr).format('YYYY-MM-DD')}</span>}
+                      <span className={`rent-doc-status ${st.cls}`}><span className="rent-doc-status__dot"></span>{st.label}</span>
+                    </div>
+                    <div className="rent-doc-card__actions">
+                      <button className="rent-btn rent-btn--secondary rent-btn--sm" disabled={!canOpen} onClick={() => handleDownload(r)}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        下载
+                      </button>
+                      <button className="rent-btn rent-btn--ghost rent-btn--sm" disabled={!canOpen} onClick={() => handlePreview(r)}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        预览
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="rent-doc-item__actions">
-                  <button
-                    className="rent-icon-btn"
-                    style={{ width: 32, height: 32, border: '1px solid var(--rent-border)', background: 'var(--rent-surface)' }}
-                    aria-label="预览"
-                    disabled={!r.url || r.url === '#'}
-                    onClick={() => handlePreview(r)}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  </button>
-                  <button
-                    className="rent-icon-btn"
-                    style={{ width: 32, height: 32, border: '1px solid var(--rent-border)', background: 'var(--rent-surface)' }}
-                    aria-label="下载"
-                    disabled={!r.url || r.url === '#'}
-                    onClick={() => handleDownload(r)}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  </button>
-                </div>
-              </div>
-            )
-          })
-        ) : (
-          <div className="rent-empty">暂无文档</div>
-        )}
+              )
+            })
+          ) : (
+            <div className="rent-empty">暂无文档</div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

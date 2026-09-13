@@ -18,13 +18,13 @@
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
   --rent-ink: #0f172a;
@@ -34,7 +34,7 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
 
   /* ---- 状态色（仅语义状态） ---- */
   --state-success: #16a34a;
@@ -78,13 +78,13 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
   --rent-primary-foreground: #0b0f1a;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;
@@ -511,7 +511,7 @@
   background: var(--rent-primary);
   color: var(--rent-primary-foreground);
 }
-.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--primary:hover { background: #0d9488; }
 .rent-btn--secondary {
   background: var(--rent-surface);
   border-color: var(--rent-border);
@@ -584,7 +584,7 @@
 .rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
 .rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
 .rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
-.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--primary { background: rgba(20,184,166,0.1); color: var(--rent-primary); }
 .rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
 
 /* ===== KPI / Stat Card ===== */
@@ -823,8 +823,8 @@
     </style>
     <style id="rent-beike-overlay">
 /* =========================================================
-   RentFlow × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
-   保留靛蓝主色 #4263eb · 消费级 App 形态 · 大圆角卡片流
+   HaoFang.World × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #14b8a6 · 消费级 App 形态 · 大圆角卡片流
    仅注入用户端页面 (租客/业主/员工)，后台管理不注入
    注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
    ========================================================= */
@@ -850,7 +850,7 @@ body {
 .rent-mobile__logo,
 .rent-pad__logo {
   border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+  box-shadow: 0 4px 14px rgba(20,184,166, 0.35);
 }
 .rent-portal__nav-item,
 .rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
@@ -861,12 +861,12 @@ body {
 .rent-search-hero__bar {
   border-radius: 999px;
   background: #ffffff;
-  box-shadow: 0 10px 32px -10px rgba(66, 99, 235, 0.40);
+  box-shadow: 0 10px 32px -10px rgba(20,184,166, 0.40);
 }
 .rent-search-hero__search-btn {
   border-radius: 999px;
-  background: linear-gradient(135deg, #4263eb, #6b82f5);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.50);
+  background: linear-gradient(135deg, #14b8a6, #2dd4bf);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.50);
 }
 .rent-search-hero__tag { border-radius: 999px; }
 
@@ -905,7 +905,7 @@ body {
 .rent-badge { border-radius: 999px; padding: 3px 10px; }
 .rent-prop-search-card__cta {
   border-radius: 999px;
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   color: var(--rent-primary);
   font-weight: 600;
 }
@@ -925,14 +925,14 @@ body {
 .rent-btn { border-radius: 10px; }
 .rent-btn--primary {
   border-radius: 12px;
-  background: linear-gradient(135deg, #4263eb, #5b7cfa);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.45);
+  background: linear-gradient(135deg, #14b8a6, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.45);
 }
 
 /* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
 .rent-mobile__tab { border-radius: 14px; }
 .rent-mobile__tab[data-active="true"] {
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   font-weight: 600;
 }
 
@@ -941,7 +941,7 @@ body {
 .rent-pad__nav-item { border-radius: 12px; }
 .rent-nav-item[data-active="true"],
 .rent-pad__nav-item[data-active="true"] {
-  background: linear-gradient(135deg, rgba(66, 99, 235, 0.10), rgba(107, 130, 245, 0.08));
+  background: linear-gradient(135deg, rgba(20,184,166, 0.10), rgba(107, 130, 245, 0.08));
   font-weight: 600;
 }
 
@@ -949,7 +949,7 @@ body {
 .rent-hero,
 .rent-portal-hero,
 .rent-mobile__hero {
-  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+  background: linear-gradient(135deg, #14b8a6 0%, #5b7cfa 55%, #2dd4bf 100%);
 }
 
 /* ===== 头像 ===== */
@@ -987,22 +987,22 @@ body {
 /* =========================================================
    员工端 · 日历提醒 扩展样式
    仅追加新类 rent-cal-*，不覆盖既有 rent-* 组件类
-   大圆角 · 柔和阴影 · 靛蓝 #4263eb
+   大圆角 · 柔和阴影 · 靛蓝 #14b8a6
    ========================================================= */
 .rent-cal-tabs { display: inline-flex; gap: 4px; padding: 3px; background: var(--rent-surface-2); border-radius: 999px; }
 .rent-cal-tabs__btn { border: none; background: transparent; padding: 6px 14px; font-size: 13px; font-weight: 500; color: var(--rent-ink-2); border-radius: 999px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
 .rent-cal-tabs__btn[data-active="true"] { background: #ffffff; color: var(--rent-primary); font-weight: 600; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08); }
 .rent-cal-nav { display: inline-flex; align-items: center; gap: 8px; }
 .rent-cal-nav__btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid var(--rent-border); background: var(--rent-surface); color: var(--rent-ink-2); cursor: pointer; font-size: 15px; line-height: 1; }
-.rent-cal-nav__btn:hover { border-color: rgba(66, 99, 235, 0.4); color: var(--rent-primary); }
+.rent-cal-nav__btn:hover { border-color: rgba(20,184,166, 0.4); color: var(--rent-primary); }
 .rent-cal-nav__title { font-size: 15px; font-weight: 700; color: var(--rent-ink); min-width: 92px; text-align: center; letter-spacing: -0.01em; }
 /* ---- 日历网格 ---- */
 .rent-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .rent-cal-weekday { text-align: center; font-size: 12px; font-weight: 600; color: var(--rent-ink-3); padding: 4px 0 8px; }
 .rent-cal-cell { min-height: 84px; border: 1px solid var(--rent-border); border-radius: 12px; padding: 6px; background: var(--rent-surface); display: flex; flex-direction: column; gap: 4px; transition: border-color 0.15s, box-shadow 0.15s; }
-.rent-cal-cell:hover { border-color: rgba(66, 99, 235, 0.4); box-shadow: 0 4px 12px -6px rgba(66, 99, 235, 0.25); }
+.rent-cal-cell:hover { border-color: rgba(20,184,166, 0.4); box-shadow: 0 4px 12px -6px rgba(20,184,166, 0.25); }
 .rent-cal-cell--muted { opacity: 0.45; background: transparent; }
-.rent-cal-cell--today { border-color: var(--rent-primary); box-shadow: 0 0 0 1px var(--rent-primary); background: rgba(66, 99, 235, 0.05); }
+.rent-cal-cell--today { border-color: var(--rent-primary); box-shadow: 0 0 0 1px var(--rent-primary); background: rgba(20,184,166, 0.05); }
 .rent-cal-cell__num { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 13px; font-weight: 600; color: var(--rent-ink); line-height: 1; }
 .rent-cal-cell--today .rent-cal-cell__num { background: var(--rent-primary); color: #ffffff; font-weight: 700; }
 .rent-cal-cell__chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; }
@@ -1043,8 +1043,8 @@ body {
 
     <style id="rent-rewards-styles">
 /* =========================================================
-   RentFlow 员工端 — 促销奖励中心 专属样式 (Rewards)
-   贝壳化：大圆角 / 柔和阴影 / 靛蓝 #4263eb
+   HaoFang.World 员工端 — 促销奖励中心 专属样式 (Rewards)
+   贝壳化：大圆角 / 柔和阴影 / 靛蓝 #14b8a6
    ========================================================= */
 
 /* ---- 进度条（宿主未定义时兜底） ---- */
@@ -1058,7 +1058,7 @@ body {
 .rent-progress__bar {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #4263eb, #6b82f5);
+  background: linear-gradient(90deg, #14b8a6, #2dd4bf);
   transition: width 0.4s ease;
 }
 .rent-progress__bar--success { background: linear-gradient(90deg, #16a34a, #22c55e); }
@@ -1081,8 +1081,8 @@ body {
   position: relative;
   overflow: hidden;
   border-radius: 20px;
-  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #7b96ff 100%);
-  box-shadow: 0 16px 40px -16px rgba(66, 99, 235, 0.55);
+  background: linear-gradient(135deg, #14b8a6 0%, #5b7cfa 55%, #7b96ff 100%);
+  box-shadow: 0 16px 40px -16px rgba(20,184,166, 0.55);
   color: #fff;
   padding: 24px;
 }
@@ -1212,8 +1212,8 @@ body {
   margin-top: 12px;
   padding: 12px 16px;
   border-radius: 14px;
-  border: 1px dashed rgba(66, 99, 235, 0.35);
-  background: rgba(66, 99, 235, 0.06);
+  border: 1px dashed rgba(20,184,166, 0.35);
+  background: rgba(20,184,166, 0.06);
   font-size: 13px;
   color: var(--rent-ink-2);
 }
@@ -1236,7 +1236,7 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: rgba(66, 99, 235, 0.10);
+  background: rgba(20,184,166, 0.10);
   color: var(--rent-primary);
 }
 .rew-log-item__body { flex: 1; min-width: 0; }
@@ -1269,8 +1269,8 @@ body {
 <div class="rent-pad">
   <aside class="rent-pad__sidebar">
     <div class="rent-pad__brand">
-      <div class="rent-pad__logo">R</div>
-      <span class="rent-pad__name">RentFlow</span>
+      <img class="rent-pad__logo" src="../assets/haofang-logo.jpg" alt="HaoFang.World" style="width:auto;max-height:34px;object-fit:contain;border-radius:6px;background:#fff;padding:3px;flex-shrink:0;display:inline-block;">
+      <span class="rent-pad__name">&nbsp;</span>
     </div>
     <ul class="rent-pad__nav">
       <li><a class="rent-nav-item" href="employee-pad-dashboard.html" data-dom-id="nav-employee-pad-dashboard"><span class="rent-nav-item__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span><span>首页</span></a></li>
@@ -1282,7 +1282,7 @@ body {
     <div class="rent-pad__footer">
       <div class="rent-flex rent-flex--center rent-gap-2">
         <div class="rent-avatar rent-avatar--sm">员</div>
-        <span class="rent-caption rent-text-muted">RentFlow 员工</span>
+        <span class="rent-caption rent-text-muted">员工</span>
       </div>
     </div>
   </aside>
@@ -1291,7 +1291,7 @@ body {
     <div class="rent-pad__right">
       <button class="rent-icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="rent-icon-btn__badge">1</span></button>
       <div class="rent-avatar rent-avatar--sm">员</div>
-      <a href="#" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>退出</a>
+      <a href="login.html" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>退出</a>
     </div>
   </header>
   <main class="rent-pad__main" data-scroll-region="primary">
@@ -1343,7 +1343,7 @@ body {
               <h3 class="rew-section-title">奖励规则 <span class="rent-badge rent-badge--neutral">4 项</span></h3>
 
               <div class="rent-card rew-rule">
-                <div class="rew-rule__icon" style="background: rgba(66,99,235,0.10); color: var(--rent-primary);">
+                <div class="rew-rule__icon" style="background: rgba(20,184,166,0.10); color: var(--rent-primary);">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 </div>
                 <div class="rew-rule__body">

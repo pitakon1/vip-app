@@ -37,6 +37,50 @@ from .pdpa import (
     PrivacyPolicyVersion,
 )
 from .feature_flag import FeatureFlag
+from .chat import Conversation, Message, MessageType
+from .contract import (
+    Contract,
+    ContractStatus,
+    ContractParty,
+    SignerRole,
+    SignatureRecord,
+)
+from .backup import BackupJob, BackupStatus, BackupType
+from .external_trip import ExternalTripApplication, TripStatus
+from .viewing_appointment import ViewingAppointment, ViewingStatus
+from .commission_rule import CommissionRule, CommissionRuleScope
+from .favorite import Favorite
+from .sale_listing import SaleListing, SaleType, ListingStatus, Valuation, AVMMethod
+from .property_deal import (
+    PropertyDeal,
+    PropertyDealStatus,
+    Escrow,
+    EscrowStatus,
+    MortgageApplication,
+    MortgageType,
+    MortgageStatus,
+)
+from .broker import (
+    BrokerPartner,
+    BrokerLevel,
+    BrokerStatus,
+    BrokerType,
+    Referral,
+    SplitDeal,
+)
+from .market import (
+    MarketConfig,
+    MarketStatus,
+    LocalPaymentChannel,
+    PaymentChannelStatus,
+    ComplianceDoc,
+)
+from .market_data import (
+    MarketIndex,
+    MarketReport,
+    PropertyMatch,
+    ChurnSignal,
+)
 
 __all__ = [
     "TimestampMixin",
@@ -83,4 +127,49 @@ __all__ = [
     "DataSubjectRequestStatus",
     "PrivacyPolicyVersion",
     "FeatureFlag",
+    "Conversation",
+    "Message",
+    "MessageType",
+    "Contract",
+    "ContractStatus",
+    "ContractParty",
+    "SignerRole",
+    "SignatureRecord",
+    "BackupJob",
+    "BackupStatus",
+    "BackupType",
+    "ExternalTripApplication",
+    "TripStatus",
+    "ViewingAppointment",
+    "ViewingStatus",
+    "CommissionRule",
+    "CommissionRuleScope",
+    "Favorite",
+    "SaleListing",
+    "SaleType",
+    "ListingStatus",
+    "Valuation",
+    "AVMMethod",
+    "PropertyDeal",
+    "PropertyDealStatus",
+    "Escrow",
+    "EscrowStatus",
+    "MortgageApplication",
+    "MortgageType",
+    "MortgageStatus",
+    "BrokerPartner",
+    "BrokerLevel",
+    "BrokerStatus",
+    "BrokerType",
+    "Referral",
+    "SplitDeal",
+    "MarketConfig",
+    "MarketStatus",
+    "LocalPaymentChannel",
+    "PaymentChannelStatus",
+    "ComplianceDoc",
+    "MarketIndex",
+    "MarketReport",
+    "PropertyMatch",
+    "ChurnSignal",
 ]

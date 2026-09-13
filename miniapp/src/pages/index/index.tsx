@@ -25,6 +25,10 @@ export default function IndexPage() {
       Taro.redirectTo({ url: '/pages/owner/home/index' })
     } else if (currentUser?.role === 'tenant') {
       Taro.redirectTo({ url: '/pages/tenant/home/index' })
+    } else if (currentUser?.role === 'admin') {
+      Taro.redirectTo({ url: '/pages/admin/home/index' })
+    } else if (currentUser?.role === 'employee' || currentUser?.role === 'agent') {
+      Taro.redirectTo({ url: '/pages/employee/home/index' })
     } else {
       // 有 token 但角色未知，跳转到我的页面
       Taro.redirectTo({ url: '/pages/profile/index' })

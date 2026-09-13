@@ -1,5 +1,5 @@
 // ============ 用户相关 ============
-export type UserRole = 'owner' | 'tenant' | 'admin'
+export type UserRole = 'owner' | 'tenant' | 'admin' | 'agent' | 'employee'
 
 export interface User {
   id: number

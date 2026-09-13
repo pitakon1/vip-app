@@ -16,6 +16,9 @@ from sqlmodel import Session, select
 from .base import PaymentChannel, PaymentRequest, RefundRequest
 from .router import payment_router
 from ...models.payment import Payment, PaymentStatus
+from ...models.lease import Lease
+from ...models.employee import Employee
+from ...models.notification import Notification, NotificationChannel, NotificationStatus
 from ...core.events import publish_event
 
 logger = structlog.get_logger()
@@ -128,6 +131,71 @@ class PaymentService:
             "expires_at": None,
         }
 
+    def _notify_succeeded(
+        self, session: Session, payment: Payment, amount: float, currency: str, channel: str
+    ) -> None:
+        """支付成功：通知租客缴费已到账，并通知负责员工核销确认。"""
+        amount_text = f"{amount} {currency or 'THB'}"
+        # 租客：缴费成功确认
+        self._notify_once(
+            session,
+            payment.payer_id,
+            "payment_received",
+            "缴费成功",
+            f"您的缴费 {amount_text} 已到账，感谢您的及时缴纳。",
+            payment,
+        )
+        # 员工：核销确认（租约 agent → Employee.user_id）
+        agent_user_id = self._resolve_employee_user_id(session, payment)
+        if agent_user_id:
+            self._notify_once(
+                session,
+                agent_user_id,
+                "payment_received_admin",
+                "收款核销确认",
+                f"租户 {payment.payer_id} 的缴费 {amount_text}（{channel}）已到账，请核销。",
+                payment,
+            )
+
+    def _resolve_employee_user_id(self, session: Session, payment: Payment):
+        """通过支付单关联的租约找到负责员工(agent)的 user_id；租约 agent 指向 employees.id。"""
+        if not payment.lease_id:
+            return None
+        lease = session.get(Lease, payment.lease_id)
+        if not lease or not lease.agent_id:
+            return None
+        employee = session.get(Employee, lease.agent_id)
+        return employee.user_id if employee else None
+
+    def _notify_once(
+        self, session: Session, user_id, template_key: str, subject: str, content: str, payment
+    ) -> None:
+        """创建站内通知并幂等去重：同一支付单的同一模板只推送一次。"""
+        if not user_id:
+            return
+        exists = session.exec(
+            select(Notification).where(
+                Notification.template_key == template_key,
+                Notification.related_entity_id == payment.id,
+            )
+        ).first()
+        if exists:
+            return
+        session.add(
+            Notification(
+                id=uuid.uuid4(),
+                user_id=user_id,
+                channel=NotificationChannel.in_app,
+                template_key=template_key,
+                recipient=str(user_id),
+                subject=subject,
+                content=content,
+                status=NotificationStatus.queued,
+                related_entity_type="payment",
+                related_entity_id=payment.id,
+            )
+        )
+
     def query_status(self, session: Session, payment: Payment) -> dict:
         """主动查询渠道支付状态并同步到本地支付单。
 
@@ -170,6 +238,9 @@ class PaymentService:
             if local_status == PaymentStatus.succeeded.value:
                 payment.status = PaymentStatus.succeeded
                 payment.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                self._notify_succeeded(
+                    session, payment, payment.amount, payment.currency, payment.channel or ""
+                )
                 publish_event(
                     session,
                     "payment.received",
@@ -300,6 +371,13 @@ class PaymentService:
             payment.status = PaymentStatus.succeeded
             payment.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
             changed = True
+            self._notify_succeeded(
+                session,
+                payment,
+                float(parsed.get("amount") or payment.amount),
+                parsed.get("currency") or payment.currency,
+                payment.channel or channel,
+            )
             publish_event(
                 session,
                 "payment.received",

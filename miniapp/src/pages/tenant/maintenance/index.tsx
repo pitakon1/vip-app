@@ -7,9 +7,9 @@ import type { MaintenanceTicket, MaintenanceStatus, MaintenancePriority } from '
 import './index.scss'
 
 const STATUS_MAP: Record<MaintenanceStatus, { text: string; color: string }> = {
-  pending: { text: '待处理', color: '#faad14' },
-  processing: { text: '处理中', color: '#1677ff' },
-  completed: { text: '已完成', color: '#52c41a' },
+  pending: { text: '待处理', color: '#d97706' },
+  processing: { text: '处理中', color: '#14b8a6' },
+  completed: { text: '已完成', color: '#16a34a' },
   cancelled: { text: '已取消', color: '#999999' }
 }
 
@@ -35,6 +35,50 @@ export default function TenantMaintenancePage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<MaintenancePriority>('medium')
+
+  // 工单详情弹层 + 评价
+  const [activeTicket, setActiveTicket] = useState<MaintenanceTicket | null>(null)
+  const [rating, setRating] = useState(0)
+  const [feedback, setFeedback] = useState('')
+  const [ratingSubmitting, setRatingSubmitting] = useState(false)
+
+  const openDetail = (ticket: MaintenanceTicket) => {
+    setActiveTicket(ticket)
+    setRating(0)
+    setFeedback('')
+  }
+
+  const closeDetail = () => {
+    if (ratingSubmitting) return
+    setActiveTicket(null)
+  }
+
+  const pickRating = (n: number) => setRating(n)
+
+  const submitRating = async () => {
+    if (!activeTicket) return
+    if (rating < 1) {
+      Taro.showToast({ title: '请选择评分', icon: 'none' })
+      return
+    }
+    setRatingSubmitting(true)
+    Taro.showLoading({ title: '提交中...', mask: true })
+    try {
+      await maintenanceApi.rate(String(activeTicket.id), {
+        rating,
+        feedback: feedback.trim() || undefined
+      })
+      Taro.hideLoading()
+      Taro.showToast({ title: '评价已提交', icon: 'success' })
+      setActiveTicket(null)
+    } catch (error) {
+      console.error('[Maintenance] 提交评价失败', error)
+      Taro.hideLoading()
+      Taro.showToast({ title: '提交失败，请重试', icon: 'none' })
+    } finally {
+      setRatingSubmitting(false)
+    }
+  }
 
   const fetchTickets = async () => {
     setLoading(true)
@@ -190,7 +234,7 @@ export default function TenantMaintenancePage() {
             const priorityLabel =
               PRIORITY_LABELS[PRIORITY_OPTIONS.indexOf(ticket.priority)] ?? '中'
             return (
-              <View key={ticket.id} className='ticket-card'>
+              <View key={ticket.id} className='ticket-card' onClick={() => openDetail(ticket)}>
                 <View className='ticket-header'>
                   <Text className='ticket-title'>{ticket.title}</Text>
                   <Text className='ticket-status' style={{ color: statusInfo.color }}>
@@ -208,6 +252,63 @@ export default function TenantMaintenancePage() {
             )
           })}
         </ScrollView>
+
+        {activeTicket && (
+          <View className='rate-mask' onClick={closeDetail}>
+            <View className='rate-panel' onClick={(e) => e.stopPropagation()}>
+              <View className='rate-panel-header'>
+                <Text className='rate-panel-title'>{activeTicket.title}</Text>
+                <Text className='rate-panel-close' onClick={closeDetail}>
+                  ✕
+                </Text>
+              </View>
+              <Text className='rate-panel-status'>
+                状态：{(STATUS_MAP[activeTicket.status] || STATUS_MAP.pending).text}
+              </Text>
+              <Text className='rate-panel-desc'>{activeTicket.description}</Text>
+              <Text className='rate-panel-meta'>
+                优先级：
+                {PRIORITY_LABELS[PRIORITY_OPTIONS.indexOf(activeTicket.priority)] ?? '中'} · 提交于{' '}
+                {activeTicket.createdAt}
+              </Text>
+
+              {activeTicket.status === 'completed' ? (
+                <View className='rate-body'>
+                  <Text className='rate-label'>服务评价</Text>
+                  <View className='rate-stars'>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Text
+                        key={n}
+                        className={`rate-star ${n <= rating ? 'is-on' : ''}`}
+                        onClick={() => pickRating(n)}
+                      >
+                        ★
+                      </Text>
+                    ))}
+                  </View>
+                  <Text className='rate-label'>反馈意见（可选）</Text>
+                  <Textarea
+                    className='rate-textarea'
+                    placeholder='请输入您的评价或建议'
+                    value={feedback}
+                    onInput={(e) => setFeedback(e.detail.value)}
+                  />
+                  <Button
+                    className='rate-submit'
+                    type='primary'
+                    disabled={ratingSubmitting}
+                    loading={ratingSubmitting}
+                    onClick={submitRating}
+                  >
+                    提交评价
+                  </Button>
+                </View>
+              ) : (
+                <Text className='rate-tip'>工单处理完成后可进行服务评价</Text>
+              )}
+            </View>
+          </View>
+        )}
       </View>
     </View>
   )

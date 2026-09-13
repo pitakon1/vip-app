@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Modal } from 'antd'
+import { message, Modal, Spin } from 'antd'
 import dayjs from 'dayjs'
 import { leasesApi, propertiesApi } from '@/services/api'
 import type { Lease, LeaseStatus, Property } from '@/types'
@@ -129,7 +129,11 @@ const Leases = () => {
     fetchData()
   }, [fetchData])
 
-  const displayData = data
+  // 显示数据：即将到期为客户端派生状态，其余走服务端筛选
+  const displayData = useMemo(() => {
+    if (filterStatus !== 'expiring') return data
+    return data.filter((l) => getDisplayStatus(l) === 'expiring')
+  }, [data, filterStatus])
 
   // 计算状态计数（用于顶部统计卡片）
   const statusCounts = useMemo(() => {
@@ -150,12 +154,36 @@ const Leases = () => {
   const statExpiring = data.length > 0 ? statusCounts.expiring : 18
   const statTerminated = data.length > 0 ? statusCounts.terminated : 16
 
+  // 分页页码（对齐原型 rent-pagination 结构）
+  const totalPages = Math.max(1, Math.ceil(total / queryParams.pageSize))
+  const pageNumbers: (number | string)[] = useMemo(() => {
+    const nums: (number | string)[] = []
+    const page = queryParams.page
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) nums.push(i)
+    } else {
+      nums.push(1)
+      if (page > 4) nums.push('prev-ellipsis')
+      const start = Math.max(2, page - 1)
+      const end = Math.min(totalPages - 1, page + 1)
+      for (let i = start; i <= end; i++) nums.push(i)
+      if (page < totalPages - 3) nums.push('next-ellipsis')
+      nums.push(totalPages)
+    }
+    return nums
+  }, [queryParams.page, totalPages])
+
   const handleSearch = (value: string) => {
     setQueryParams((p) => ({ ...p, keyword: value || undefined, page: 1 }))
   }
 
-  const handleStatusChange = (value: LeaseStatus | undefined) => {
-    setQueryParams((p) => ({ ...p, status: value, page: 1 }))
+  const handleStatusChange = (value: string | undefined) => {
+    if (value === 'expiring') {
+      // 即将到期是客户端派生状态，不传给服务端
+      setQueryParams((p) => ({ ...p, status: undefined, page: 1 }))
+      return
+    }
+    setQueryParams((p) => ({ ...p, status: (value || undefined) as LeaseStatus | undefined, page: 1 }))
   }
 
   const openCreate = () => {
@@ -300,7 +328,7 @@ const Leases = () => {
       <div className="rent-grid rent-grid--4 rent-mb-5">
         <div className="rent-stat-card">
           <div className="rent-flex rent-gap-4" style={{ alignItems: 'center' }}>
-            <div className="rent-stat-card__icon" style={{ background: 'rgba(66,99,235,0.1)', color: 'var(--rent-primary)' }}>
+            <div className="rent-stat-card__icon" style={{ background: 'rgba(20, 184, 166, 0.1)', color: 'var(--rent-primary)' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
@@ -383,11 +411,12 @@ const Leases = () => {
           value={filterStatus}
           onChange={(e) => {
             setFilterStatus(e.target.value)
-            handleStatusChange((e.target.value || undefined) as LeaseStatus | undefined)
+            handleStatusChange(e.target.value || undefined)
           }}
         >
           <option value="">全部状态</option>
           <option value="active">生效中</option>
+          <option value="expiring">即将到期</option>
           <option value="expired">已到期</option>
           <option value="terminated">已终止</option>
         </select>
@@ -447,7 +476,8 @@ const Leases = () => {
       <div className="rent-card">
         {loading ? (
           <div className="rent-empty">
-            <div className="rent-text-muted">加载中...</div>
+            <Spin size="small" style={{ marginRight: 8 }} />
+            <span className="rent-text-muted">加载中...</span>
           </div>
         ) : (
           <>
@@ -472,7 +502,6 @@ const Leases = () => {
                     const code = (lease as any).code || `LC-${lease.id}`
                     const propName = (lease as any).property_name || lease.property_id || '-'
                     const tenantName = (lease as any).tenant_name || lease.tenant_id || '-'
-                    const isActive = lease.status === 'active'
                     return (
                       <tr key={lease.id}>
                         <td><span className="rent-mono">{code}</span></td>
@@ -493,14 +522,13 @@ const Leases = () => {
                             <button
                               className="rent-btn rent-btn--ghost rent-btn--sm"
                               onClick={() => openRenew(lease)}
-                              disabled={!isActive}
                             >
                               编辑
                             </button>
                             <button
                               className="rent-btn rent-btn--ghost rent-btn--sm"
                               style={{ color: 'var(--state-error)' }}
-                              disabled={!isActive}
+                              disabled={lease.status === 'terminated'}
                               onClick={() => handleTerminate(lease)}
                             >
                               终止
@@ -527,12 +555,25 @@ const Leases = () => {
                     <polyline points="15 18 9 12 15 6" />
                   </svg>
                 </button>
-                <button className="rent-pagination__btn" data-active={true}>{queryParams.page}</button>
+                {pageNumbers.map((n, idx) =>
+                  n === 'prev-ellipsis' || n === 'next-ellipsis' ? (
+                    <span className="rent-pagination__info" key={idx} style={{ margin: '0 4px' }}>...</span>
+                  ) : (
+                    <button
+                      key={idx}
+                      className="rent-pagination__btn"
+                      data-active={queryParams.page === n}
+                      onClick={() => setQueryParams((p) => ({ ...p, page: Number(n) }))}
+                    >
+                      {n}
+                    </button>
+                  )
+                )}
                 <button
                   className="rent-pagination__btn"
                   aria-label="下一页"
-                  onClick={() => setQueryParams((p) => ({ ...p, page: p.page + 1 }))}
-                  disabled={displayData.length < queryParams.pageSize}
+                  onClick={() => setQueryParams((p) => ({ ...p, page: Math.min(totalPages, p.page + 1) }))}
+                  disabled={queryParams.page >= totalPages}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="9 18 15 12 9 6" />

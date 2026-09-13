@@ -1,168 +1,186 @@
 /* =========================================================
-   登录页 — 统一登录窗口（贝壳找房风格）
-   居中卡片 · 渐变背景 · 简洁表单 · 无分栏
+   登录页 — 对齐产品原型 login.html
+   分屏布局：左 40% 品牌渐变栏 + 右 60% 登录表单
    ========================================================= */
 
-.bk-login-page {
-  min-height: 100vh;
+/* ---- Split-screen layout ---- */
+.rent-login-page {
   display: flex;
-  align-items: center;
+  min-height: 100vh;
+  background: var(--rent-surface);
+}
+
+/* 语言切换悬浮右上角 */
+.rent-login-lang {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 50;
+}
+
+/* ---- Left panel (40%) ---- */
+.rent-login-left {
+  flex: 0 0 40%;
+  background: var(--rent-primary);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
   justify-content: center;
-  background: linear-gradient(135deg, #eef2ff 0%, #f0f5ff 40%, #f5f7fa 100%);
+  padding: 56px;
   position: relative;
   overflow: hidden;
 }
-.bk-login-page::before {
+
+.rent-login-left::before {
   content: '';
   position: absolute;
-  top: -200px;
-  right: -100px;
-  width: 500px;
-  height: 500px;
+  top: -120px;
+  right: -120px;
+  width: 360px;
+  height: 360px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(66, 99, 235, 0.08), transparent 70%);
+  background: rgba(255, 255, 255, 0.06);
 }
-.bk-login-page::after {
+
+.rent-login-left::after {
   content: '';
   position: absolute;
-  bottom: -150px;
-  left: -100px;
-  width: 400px;
-  height: 400px;
+  bottom: -80px;
+  left: -80px;
+  width: 240px;
+  height: 240px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(91, 124, 250, 0.06), transparent 70%);
+  background: rgba(255, 255, 255, 0.04);
 }
 
-/* 顶部栏：语言切换 + 返回首页 */
-.bk-login-topbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  z-index: 100;
-}
-.bk-login-topbar__home {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--rent-ink-2);
-  cursor: pointer;
-  text-decoration: none;
-  transition: color 0.15s;
-  font-family: var(--rent-font-sans);
-  background: none;
-  border: none;
-}
-.bk-login-topbar__home:hover { color: var(--rent-primary); }
-.bk-login-topbar__home svg { width: 16px; height: 16px; }
-
-/* 登录卡片 */
-.bk-login-card {
-  width: 100%;
-  max-width: 420px;
-  padding: 44px 40px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 24px;
-  box-shadow: 0 24px 64px -20px rgba(15, 23, 42, 0.2), 0 2px 8px rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+.rent-login-left__content {
   position: relative;
   z-index: 1;
 }
 
-/* 品牌区 */
-.bk-login-brand {
+.rent-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 48px;
+}
+
+.rent-login-brand__img {
+  width: 200px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+}
+
+.rent-login-tagline {
+  font-family: var(--rent-font-sans);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #ffffff;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.rent-login-subtagline {
+  font-family: var(--rent-font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 40px;
+}
+
+.rent-login-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 32px;
+  gap: 18px;
 }
-.bk-login-brand__logo {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #4263eb, #5b7cfa);
+
+.rent-login-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.rent-login-feature__check {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--rent-radius-full);
+  background: rgba(255, 255, 255, 0.18);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-weight: 800;
-  font-size: 26px;
-  box-shadow: 0 8px 20px -6px rgba(66, 99, 235, 0.45);
+  flex-shrink: 0;
+  margin-top: 1px;
 }
-.bk-login-brand__name {
-  font-size: 22px;
+
+.rent-login-feature__text {
+  font-family: var(--rent-font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 500;
+}
+
+.rent-login-feature__text small {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 2px;
+}
+
+/* ---- Right panel (60%) ---- */
+.rent-login-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  background: var(--rent-surface);
+}
+
+/* ---- Login form card ---- */
+.rent-login-card {
+  width: 100%;
+  max-width: 440px;
+}
+
+.rent-login-card__header {
+  margin-bottom: 32px;
+}
+
+.rent-login-card__title {
+  font-family: var(--rent-font-sans);
+  font-size: 28px;
   font-weight: 700;
   color: var(--rent-ink);
   letter-spacing: -0.02em;
-}
-.bk-login-brand__welcome {
-  font-size: 14px;
-  color: var(--rent-ink-3);
+  margin: 0 0 8px;
+  line-height: 1.2;
 }
 
-/* 表单 */
-.bk-login-form-group {
-  margin-bottom: 20px;
-}
-.bk-login-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--rent-ink-2);
-  margin-bottom: 8px;
+.rent-login-card__subtitle {
   font-family: var(--rent-font-sans);
-}
-.bk-login-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.bk-login-input-wrap__icon {
-  position: absolute;
-  left: 14px;
-  width: 18px;
-  height: 18px;
-  color: var(--rent-ink-3);
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-}
-.bk-login-input {
-  width: 100%;
-  padding: 12px 16px 12px 44px;
-  border: 1.5px solid var(--rent-border);
-  border-radius: 12px;
   font-size: 15px;
-  color: var(--rent-ink);
-  font-family: var(--rent-font-sans);
-  background: var(--rent-surface);
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.bk-login-input::placeholder { color: var(--rent-ink-3); }
-.bk-login-input:focus {
-  border-color: var(--rent-primary);
-  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.12);
+  color: var(--rent-ink-3);
+  line-height: 1.5;
 }
 
-/* 记住我 + 忘记密码 */
-.bk-login-row {
+/* ---- Remember + forgot row ---- */
+.rent-login-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
-.bk-login-checkbox {
+
+.rent-checkbox {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -171,81 +189,86 @@
   color: var(--rent-ink-2);
   font-family: var(--rent-font-sans);
 }
-.bk-login-checkbox input {
+
+.rent-checkbox input[type="checkbox"] {
   width: 16px;
   height: 16px;
   accent-color: var(--rent-primary);
   cursor: pointer;
 }
-.bk-login-link {
+
+.rent-login-link {
+  font-family: var(--rent-font-sans);
   font-size: 14px;
   color: var(--rent-primary);
   text-decoration: none;
   font-weight: 500;
-  cursor: pointer;
-  font-family: var(--rent-font-sans);
   transition: opacity 0.15s;
-  background: none;
-  border: none;
 }
-.bk-login-link:hover { opacity: 0.8; }
 
-/* 登录按钮 */
-.bk-login-btn {
-  width: 100%;
-  padding: 13px;
-  border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #4263eb, #5b7cfa);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: var(--rent-font-sans);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 8px 20px -6px rgba(66, 99, 235, 0.45);
-  transition: opacity 0.15s, transform 0.1s;
+.rent-login-link:hover {
+  opacity: 0.8;
 }
-.bk-login-btn:hover { opacity: 0.92; }
-.bk-login-btn:active { transform: scale(0.98); }
-.bk-login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.bk-login-btn svg { width: 18px; height: 18px; }
 
-/* 底部文字 */
-.bk-login-footer {
-  margin-top: 28px;
+/* ---- Footer text ---- */
+.rent-login-footer {
+  margin-top: 32px;
   text-align: center;
+  font-family: var(--rent-font-sans);
   font-size: 13px;
   color: var(--rent-ink-3);
-  font-family: var(--rent-font-sans);
-  line-height: 1.6;
 }
-.bk-login-footer a {
+
+.rent-login-footer a {
   color: var(--rent-primary);
   text-decoration: none;
   font-weight: 500;
-  cursor: pointer;
-}
-.bk-login-hint {
-  margin-top: 16px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: rgba(66, 99, 235, 0.06);
-  font-size: 12px;
-  color: var(--rent-ink-3);
-  text-align: center;
-  line-height: 1.5;
 }
 
-/* 响应式 */
-@media (max-width: 480px) {
-  .bk-login-card {
-    max-width: 100%;
-    margin: 16px;
-    padding: 36px 28px;
+/* ---- Responsive（对齐原型） ---- */
+@media (max-width: 960px) {
+  .rent-login-page {
+    flex-direction: column;
   }
-  .bk-login-brand__name { font-size: 20px; }
+
+  .rent-login-left {
+    flex: 0 0 auto;
+    padding: 40px 32px;
+    text-align: center;
+  }
+
+  .rent-login-brand {
+    justify-content: center;
+  }
+
+  .rent-login-features {
+    display: none;
+  }
+
+  .rent-login-tagline {
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+
+  .rent-login-subtagline {
+    margin-bottom: 0;
+  }
+
+  .rent-login-right {
+    padding: 40px 24px;
+  }
+}
+
+@media (max-width: 520px) {
+  .rent-login-left {
+    padding: 32px 24px;
+  }
+
+  .rent-login-tagline {
+    font-size: 18px;
+  }
+
+  .rent-login-card__title {
+    font-size: 24px;
+  }
 }

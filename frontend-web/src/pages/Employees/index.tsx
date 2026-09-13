@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message } from 'antd'
+import { message, Spin, Empty } from 'antd'
 import { employeesApi } from '@/services/api'
 import type { Employee, EmployeeStatus } from '@/types'
 import './employees.css'
@@ -18,7 +18,8 @@ interface DemoEmployee extends Employee {
   hire_date?: string
 }
 
-const AVATAR_COLORS = ['', 'rent-avatar--info', 'rent-avatar--success', 'rent-avatar--warning', 'rent-avatar--neutral']
+// 与设计稿一致：6 色循环（默认主色 → info → success → warning → 默认 → neutral）
+const AVATAR_COLORS = ['', 'rent-avatar--info', 'rent-avatar--success', 'rent-avatar--warning', '', 'rent-avatar--neutral']
 
 // 将 API 状态映射到设计稿显示状态
 const getStatusBadge = (status: string): { cls: string; text: string } => {
@@ -186,15 +187,25 @@ const Employees = () => {
     }
   }, [listData, totalDisplay])
 
-  // 排行榜前 5（系统自动核算）
-  const topFive = useMemo(() => {
-    const lbSource = leaderboard || []
-    return [...lbSource]
-      .sort((a, b) => Number(b.performance || 0) - Number(a.performance || 0))
-      .slice(0, 5)
-  }, [leaderboard])
-
   const totalPages = Math.max(1, Math.ceil(totalDisplay / queryParams.pageSize))
+
+  // 分页页码（对齐原型 rent-pagination 结构，窗口式页码）
+  const pageNumbers: (number | string)[] = useMemo(() => {
+    const nums: (number | string)[] = []
+    const page = queryParams.page
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) nums.push(i)
+    } else {
+      nums.push(1)
+      if (page > 4) nums.push('prev-ellipsis')
+      const start = Math.max(2, page - 1)
+      const end = Math.min(totalPages - 1, page + 1)
+      for (let i = start; i <= end; i++) nums.push(i)
+      if (page < totalPages - 3) nums.push('next-ellipsis')
+      nums.push(totalPages)
+    }
+    return nums
+  }, [queryParams.page, totalPages])
 
   const today = new Date()
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -231,7 +242,7 @@ const Employees = () => {
                 +2 本月
               </div>
             </div>
-            <div className="rent-stat-card__icon" style={{ background: 'rgba(66,99,235,0.1)', color: 'var(--rent-primary)' }}>
+            <div className="rent-stat-card__icon" style={{ background: 'rgba(20, 184, 166, 0.1)', color: 'var(--rent-primary)' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
             </div>
           </div>
@@ -357,11 +368,13 @@ const Employees = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="rent-loading-row">加载中...</td>
+                  <td colSpan={9} className="rent-loading-row"><Spin size="small" style={{ marginRight: 8 }} />加载中...</td>
                 </tr>
               ) : listData.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="rent-loading-row">暂无员工数据</td>
+                  <td colSpan={9}>
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无员工数据" />
+                  </td>
                 </tr>
               ) : (
                 listData.map((emp, idx) => {
@@ -426,20 +439,21 @@ const Employees = () => {
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
               </button>
-              {Array.from({ length: totalPages }).slice(0, 5).map((_, i) => {
-                const page = i + 1
-                return (
+              {pageNumbers.map((n, idx) =>
+                n === 'prev-ellipsis' || n === 'next-ellipsis' ? (
+                  <span className="rent-pagination__info" key={idx} style={{ margin: '0 4px' }}>...</span>
+                ) : (
                   <button
-                    key={page}
+                    key={idx}
                     className="rent-pagination__btn"
-                    data-active={queryParams.page === page ? 'true' : 'false'}
+                    data-active={queryParams.page === n ? 'true' : 'false'}
                     type="button"
-                    onClick={() => setQueryParams((p) => ({ ...p, page }))}
+                    onClick={() => setQueryParams((p) => ({ ...p, page: Number(n) }))}
                   >
-                    {page}
+                    {n}
                   </button>
                 )
-              })}
+              )}
               <button
                 className="rent-pagination__btn"
                 type="button"
@@ -451,55 +465,6 @@ const Employees = () => {
               </button>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* 排行榜（保留原有 API 的 leaderboard 数据展示） */}
-      <div className="rent-card rent-mt-5">
-        <div className="rent-card__header">
-          <h3 className="rent-card__title">业绩排行榜</h3>
-          <span className="rent-badge rent-badge--primary">本月</span>
-        </div>
-        <div className="rent-card__body rent-flex rent-flex--col rent-gap-3">
-          {leaderLoading ? (
-            <div className="rent-loading-row">加载中...</div>
-          ) : topFive.length === 0 ? (
-            <div className="rent-loading-row">暂无排行数据</div>
-          ) : (
-            topFive.map((item, idx) => {
-              const isTop1 = idx === 0
-              const rankCls = isTop1 ? 'rent-rank-item--top1' : ''
-              const numCls = isTop1 ? 'rent-rank-num--gold' : idx === 1 ? 'rent-rank-num--silver' : 'rent-rank-num--silver'
-              const perf = Number((item as DemoEmployee).performance || 0)
-              const deals = Number((item as DemoEmployee).deals || 0)
-              return (
-                <div key={(item as any).id || item.full_name || idx} className={`rent-rank-item ${rankCls}`}>
-                  <div className="rent-flex rent-gap-3" style={{ alignItems: 'center' }}>
-                    <span className={`rent-rank-num ${numCls}`}>{idx + 1}</span>
-                    <div className={`rent-avatar rent-avatar--sm${isTop1 ? ' rent-avatar--warning' : ''}`}>
-                      {(item.full_name || '?').charAt(0).toUpperCase()}
-                    </div>
-                    <div className="rent-rank-info">
-                      <div className="rent-rank-name">{item.full_name || '-'}</div>
-                      <div className="rent-rank-meta">
-                        {deals > 0 ? `${deals} 单 · ` : ''}{item.department || item.position || ''}
-                      </div>
-                    </div>
-                  </div>
-                  <span className={`rent-badge ${isTop1 ? 'rent-badge--warning' : 'rent-badge--neutral'}`}>
-                    {isTop1 ? (
-                      <>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.8 5.8 21 7 14 2 9.3 9 8.5 12 2" /></svg>
-                        冠军
-                      </>
-                    ) : (
-                      formatMoney(perf)
-                    )}
-                  </span>
-                </div>
-              )
-            })
-          )}
         </div>
       </div>
     </div>

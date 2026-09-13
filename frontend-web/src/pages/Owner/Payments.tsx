@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { message } from 'antd'
+import { message, Spin, Empty } from 'antd'
 import dayjs from 'dayjs'
 import type { ReactNode } from 'react'
 import api from '@/lib/api'
@@ -29,9 +29,9 @@ interface PaymentRecord {
 
 const paymentMethods: PaymentMethod[] = [
   {
-    id: 'promptpay',
-    name: 'PromptPay',
-    desc: '泰国扫码 / 手机号转账',
+    id: 'qr',
+    name: '扫码支付',
+    desc: '微信 / 支付宝',
     icon: (
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -43,36 +43,63 @@ const paymentMethods: PaymentMethod[] = [
         <path d="M20 20v1" />
       </svg>
     ),
-    color: '#4263eb',
-    bg: 'rgba(66,99,235,0.10)',
-  },
-  {
-    id: 'bank',
-    name: '银行转账',
-    desc: 'Bangkok Bank / Kasikorn / SCB',
-    icon: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="2" y="5" width="20" height="14" rx="2" />
-        <line x1="2" y1="10" x2="22" y2="10" />
-      </svg>
-    ),
-    color: '#4263eb',
-    bg: 'rgba(66,99,235,0.10)',
+    color: '#14b8a6',
+    bg: 'rgba(20, 184, 166, 0.10)',
   },
   {
     id: 'card',
-    name: '信用卡',
-    desc: 'Visa / Mastercard',
+    name: 'Visa / Mastercard',
+    desc: '信用卡 / 借记卡',
     icon: (
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="2" y="5" width="20" height="14" rx="2" />
         <line x1="2" y1="10" x2="22" y2="10" />
-        <path d="M6 15h4" />
-        <path d="M14 15h4" />
       </svg>
     ),
-    color: '#4263eb',
-    bg: 'rgba(66,99,235,0.10)',
+    color: '#14b8a6',
+    bg: 'rgba(20, 184, 166, 0.10)',
+  },
+  {
+    id: 'alipay',
+    name: '支付宝',
+    desc: 'Alipay 国际',
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M8 12h8" />
+        <path d="M12 8v8" />
+      </svg>
+    ),
+    color: '#14b8a6',
+    bg: 'rgba(20, 184, 166, 0.10)',
+  },
+  {
+    id: 'wechat',
+    name: '微信支付',
+    desc: 'WeChat Pay',
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+      </svg>
+    ),
+    color: '#14b8a6',
+    bg: 'rgba(20, 184, 166, 0.10)',
+  },
+  {
+    id: 'wise',
+    name: 'Wise 转账',
+    desc: '跨境转账',
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="3 7 9 7 7 9" />
+        <polyline points="3 17 9 17 7 15" />
+        <line x1="12" y1="7" x2="21" y2="7" />
+        <line x1="12" y1="17" x2="21" y2="17" />
+        <line x1="3" y1="12" x2="21" y2="12" />
+      </svg>
+    ),
+    color: '#14b8a6',
+    bg: 'rgba(20, 184, 166, 0.10)',
   },
 ]
 
@@ -99,7 +126,14 @@ const typeLabelMap: Record<string, string> = {
   service: '服务费',
 }
 
-const fmtMoney = (v: number) => `฿${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const fmtMoney = (v: number) => `RM ${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+// 关联房产兜底选项（原型 owner-payments 一致）
+const FALLBACK_PROPERTIES = [
+  { id: 'sunway-mesmerrra', label: 'Sunway Mesmerrra Condo · 单元 12-03A' },
+  { id: 'mont-kiara-bayu', label: 'Mont Kiara Bayu · 单元 08-15B' },
+  { id: 'bangsar-south', label: 'Bangsar South Tower 2 · 单元 21-07C' },
+]
 
 const statusBadgeCls: Record<string, string> = {
   paid: 'rent-badge--success',
@@ -112,10 +146,11 @@ const statusBadgeCls: Record<string, string> = {
 const Payments = () => {
   const [loading, setLoading] = useState(false)
   const [records, setRecords] = useState<PaymentRecord[]>([])
-  const [modalOpen, setModalOpen] = useState(false)
   const [currentMethod, setCurrentMethod] = useState<PaymentMethod | null>(null)
-  const [amount, setAmount] = useState<number>(0)
+  const [amount, setAmount] = useState<number>(2840)
   const [submitting, setSubmitting] = useState(false)
+  const [properties, setProperties] = useState<{ id: string; label: string }[]>(FALLBACK_PROPERTIES)
+  const [selectedProperty, setSelectedProperty] = useState<string>(FALLBACK_PROPERTIES[0].id)
 
   const fetchRecords = useCallback(async () => {
     setLoading(true)
@@ -131,14 +166,30 @@ const Payments = () => {
     }
   }, [])
 
+  const fetchProperties = useCallback(async () => {
+    try {
+      const res = await api.get('/owners/me/properties')
+      const items = Array.isArray(res.data) ? res.data : (res.data?.items ?? [])
+      if (items.length) {
+        const mapped = items.map((p: any) => ({
+          id: p.id,
+          label: `${p.address || p.property_name || '房产'} · ${p.room_number || ''}`.replace(' · ', ' · '),
+        }))
+        setProperties(mapped)
+        setSelectedProperty(mapped[0].id)
+      }
+    } catch {
+      // 接口不可用时保留原型兜底房产
+    }
+  }, [])
+
   useEffect(() => {
     fetchRecords()
-  }, [fetchRecords])
+    fetchProperties()
+  }, [fetchRecords, fetchProperties])
 
-  const openPaymentModal = (method: PaymentMethod) => {
+  const selectMethod = (method: PaymentMethod) => {
     setCurrentMethod(method)
-    setAmount(0)
-    setModalOpen(true)
   }
 
   const user = useAuthStore((s) => s.user)
@@ -157,18 +208,17 @@ const Payments = () => {
       const res = await api.post('/payments', {
         payer_id: user.id,
         amount,
-        currency: 'THB',
+        currency: 'RM',
         payment_type: 'service',
-        channel: currentMethod?.id || 'promptpay',
+        channel: currentMethod?.id || 'qr',
         idempotency_key: `owner-pay-${user.id}-${Date.now()}`,
         description: '业主在线缴费',
       })
       const payment = res.data?.data ?? res.data
-      setModalOpen(false)
       message.success('支付单已创建，请按所选方式完成支付')
       await fetchRecords()
       setCurrentMethod(null)
-      setAmount(0)
+      setAmount(2840)
     } catch (err: any) {
       message.error(err?.response?.data?.message || '创建支付单失败')
     } finally {
@@ -192,13 +242,18 @@ const Payments = () => {
 
   return (
     <div className="rent-main">
-      {loading && <div className="owner-loading-bar">数据加载中…</div>}
+      {loading && (
+        <div className="owner-loading-bar">
+          <Spin size="small" style={{ marginRight: 8 }} />
+          数据加载中…
+        </div>
+      )}
 
       {/* Page header */}
       <div className="rent-page-header">
         <div>
           <h2 className="rent-page-header__title">在线付款</h2>
-          <p className="rent-page-header__subtitle">安全便捷的在线缴费，支持 PromptPay 扫码、银行转账及信用卡</p>
+          <p className="rent-page-header__subtitle">安全便捷的在线缴费，支持扫码、银行卡、支付宝、微信及跨境转账</p>
         </div>
         <div className="rent-page-header__actions">
           <button type="button" className="rent-btn rent-btn--secondary">
@@ -239,8 +294,14 @@ const Payments = () => {
             {/* Property */}
             <div className="rent-form-group">
               <label className="rent-form-label">关联房产</label>
-              <select className="rent-form-select">
-                <option>已认证房源 · 点击选择</option>
+              <select
+                className="rent-form-select"
+                value={selectedProperty}
+                onChange={(e) => setSelectedProperty(e.target.value)}
+              >
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
               </select>
             </div>
 
@@ -248,7 +309,7 @@ const Payments = () => {
             <div className="rent-form-group">
               <label className="rent-form-label">缴费金额</label>
               <div className="pay-amount-wrap">
-                <span className="pay-amount-prefix">฿</span>
+                <span className="pay-amount-prefix">RM</span>
                 <input
                   type="text"
                   className="pay-amount-input"
@@ -260,7 +321,7 @@ const Payments = () => {
                   }}
                 />
               </div>
-              <div className="rent-form-hint">按房产月度账单金额填写</div>
+              <div className="rent-form-hint">本期应缴金额 {fmtMoney(displayAmount)}，含 8% 服务税</div>
             </div>
 
             {/* Payment method */}
@@ -274,7 +335,7 @@ const Payments = () => {
                       key={m.id}
                       className="pay-method-card"
                       data-selected={isSelected}
-                      onClick={() => openPaymentModal(m)}
+                      onClick={() => selectMethod(m)}
                     >
                       <span className="pay-method-card__check">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -324,9 +385,9 @@ const Payments = () => {
                     <rect x="7" y="14" width="3" height="3" />
                     <rect x="14" y="14" width="3" height="3" />
                   </svg>
-                  <span className="rent-text-sm rent-text-muted">PromptPay 扫码</span>
+                  <span className="rent-text-sm rent-text-muted">扫码支付</span>
                 </div>
-                <p className="pay-panel-tip">使用支持 PromptPay 的银行 App（如 K PLUS / SCB Easy / Bualuang mBanking）扫码支付</p>
+                <p className="pay-panel-tip">使用微信/支付宝扫描上方二维码完成支付</p>
               </div>
             </div>
 
@@ -359,16 +420,18 @@ const Payments = () => {
         <div className="rent-card">
           <div className="rent-card__header">
             <h3 className="rent-card__title">订单详情</h3>
-            <span className="rent-caption">订单号 {`PAY${dayjs().format('YYYYMMDDHHmmss')}`}</span>
+            <span className="rent-caption">订单号 #{`PAY${dayjs().format('YYYYMMDDHHmmss')}`}</span>
           </div>
           <div className="rent-card__body">
             <div className="pay-summary-row">
               <span className="pay-summary-row__label">缴费项目</span>
-              <span className="pay-summary-row__value">本期管理费</span>
+              <span className="pay-summary-row__value">{dayjs().format('YYYY年M月')}管理费</span>
             </div>
             <div className="pay-summary-row">
               <span className="pay-summary-row__label">关联房产</span>
-              <span className="pay-summary-row__value">已认证房源</span>
+              <span className="pay-summary-row__value">
+                {properties.find((p) => p.id === selectedProperty)?.label.split(' · ')[0] || '房产'}
+              </span>
             </div>
             <div className="pay-summary-row">
               <span className="pay-summary-row__label">应缴金额</span>
@@ -377,7 +440,7 @@ const Payments = () => {
             <div className="pay-summary-row">
               <span className="pay-summary-row__label">优惠折扣</span>
               <span className="pay-summary-row__value rent-mono" style={{ color: 'var(--state-success)' }}>
-                -฿0.00
+                -RM 0.00
               </span>
             </div>
             <hr className="rent-divider" />
@@ -440,7 +503,9 @@ const Payments = () => {
             <tbody>
               {renderRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="rent-loading-row">暂无缴费记录</td>
+                  <td colSpan={5}>
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无缴费记录" />
+                  </td>
                 </tr>
               ) : (
                 renderRecords.map((r: any) => {

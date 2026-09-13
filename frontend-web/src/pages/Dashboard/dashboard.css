@@ -1,5 +1,16 @@
 /* Dashboard 专属样式 */
 
+/* 数据加载条（与业主端 owner-loading-bar 保持一致观感） */
+.owner-loading-bar {
+  text-align: center;
+  padding: 10px;
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  font-size: 13px;
+  border-radius: var(--rent-radius-md);
+  margin-bottom: 16px;
+}
+
 /* 图表容器固定高度，与设计稿一致 */
 .rent-chart-container {
   position: relative;

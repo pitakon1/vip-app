@@ -1,0 +1,9 @@
+.rent-contract-party {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--rent-line, #eef2f5);
+  border-radius: 10px;
+  background: #fbfcfd;
+}

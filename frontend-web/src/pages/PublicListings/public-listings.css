@@ -1,17 +1,18 @@
 /* =========================================================
    公共房源列表页 — 承接主页 bk-header/footer 风格
    紧凑搜索区 + 链家式垂直列表
+   主色: var(--rent-primary) = #14b8a6 (teal)
    ========================================================= */
 
 /* ===== 页面容器 ===== */
 .pl-page {
   min-height: 100vh;
-  background: #f5f6fa;
+  background: var(--rent-background);
 }
 
 /* ===== 紧凑搜索区（与主页 hero 同色系，高度减半）===== */
 .pl-hero {
-  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+  background: var(--rent-primary);
   padding: 36px 24px 44px;
   position: relative;
   overflow: hidden;
@@ -54,9 +55,9 @@
   align-items: center;
   gap: 0;
   background: #fff;
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   padding: 5px 5px 5px 24px;
-  box-shadow: 0 12px 36px -12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--rent-shadow-3);
   max-width: 640px;
   margin: 0 auto;
 }
@@ -65,12 +66,12 @@
   border: none;
   outline: none;
   font-size: 15px;
-  color: var(--rent-ink, #1a1a1a);
-  font-family: var(--rent-font-sans, inherit);
+  color: var(--rent-ink);
+  font-family: var(--rent-font-sans);
   background: transparent;
 }
 .pl-search-bar__input::placeholder {
-  color: var(--rent-ink-3, #999);
+  color: var(--rent-ink-3);
 }
 .pl-search-bar__btn {
   display: flex;
@@ -78,17 +79,17 @@
   gap: 6px;
   padding: 10px 26px;
   border: none;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #4263eb, #5b7cfa);
-  color: #fff;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  font-family: var(--rent-font-sans, inherit);
-  transition: opacity 0.15s, transform 0.1s;
+  font-family: var(--rent-font-sans);
+  transition: background 0.15s, transform 0.1s;
   white-space: nowrap;
 }
-.pl-search-bar__btn:hover { opacity: 0.92; }
+.pl-search-bar__btn:hover { background: var(--rent-primary-hover); }
 .pl-search-bar__btn:active { transform: scale(0.97); }
 
 /* ===== 搜索标签 ===== */
@@ -101,7 +102,7 @@
 }
 .pl-search-tag {
   padding: 4px 14px;
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
@@ -109,7 +110,7 @@
   cursor: pointer;
   border: 1px solid rgba(255, 255, 255, 0.2);
   transition: background 0.15s;
-  font-family: var(--rent-font-sans, inherit);
+  font-family: var(--rent-font-sans);
 }
 .pl-search-tag:hover {
   background: rgba(255, 255, 255, 0.25);
@@ -124,13 +125,13 @@
 
 /* ===== 筛选栏 ===== */
 .pl-filter {
-  background: #fff;
-  border-radius: 12px 12px 0 0;
+  background: var(--rent-card);
+  border-radius: var(--rent-radius-lg) var(--rent-radius-lg) 0 0;
   padding: 20px 24px;
   margin-top: -20px;
   position: relative;
   z-index: 2;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--rent-shadow-1);
 }
 .pl-filter__selects {
   display: flex;
@@ -143,7 +144,7 @@
   max-width: 220px;
 }
 .pl-filter__select .ant-select-selector {
-  border-radius: 8px;
+  border-radius: var(--rent-radius-md);
 }
 
 /* ===== 排序栏 ===== */
@@ -151,9 +152,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
+  background: var(--rent-card);
   padding: 0 24px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--rent-border);
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -166,19 +167,19 @@
   position: relative;
   padding: 14px 20px;
   font-size: 14px;
-  color: #666;
+  color: var(--rent-ink-2);
   background: none;
   border: none;
   cursor: pointer;
   transition: color 0.15s;
-  font-family: inherit;
+  font-family: var(--rent-font-sans);
   white-space: nowrap;
 }
 .pl-sortbar__item:hover {
-  color: #4263eb;
+  color: var(--rent-primary);
 }
 .pl-sortbar__item[data-active='true'] {
-  color: #4263eb;
+  color: var(--rent-primary);
   font-weight: 600;
 }
 .pl-sortbar__item[data-active='true']::after {
@@ -190,26 +191,26 @@
   width: 24px;
   height: 3px;
   border-radius: 2px;
-  background: #4263eb;
+  background: var(--rent-primary);
 }
 .pl-sortbar__count {
   font-size: 13px;
-  color: #999;
+  color: var(--rent-ink-3);
   white-space: nowrap;
   padding: 14px 0;
 }
 .pl-sortbar__count-num {
-  color: #e4393c;
+  color: var(--state-error);
   font-weight: 700;
   font-size: 15px;
 }
 
 /* ===== 列表容器 ===== */
 .pl-list {
-  background: #fff;
-  border-radius: 0 0 12px 12px;
+  background: var(--rent-card);
+  border-radius: 0 0 var(--rent-radius-lg) var(--rent-radius-lg);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--rent-shadow-1);
 }
 
 /* ===== 列表项（链家式横向卡片）===== */
@@ -217,7 +218,7 @@
   display: flex;
   gap: 20px;
   padding: 24px;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid var(--rent-border);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -225,7 +226,7 @@
   border-bottom: none;
 }
 .pl-item:hover {
-  background: #fafbfc;
+  background: var(--rent-surface-2);
 }
 
 /* 左侧图片占位 */
@@ -233,7 +234,7 @@
   width: 232px;
   height: 174px;
   flex-shrink: 0;
-  border-radius: 10px;
+  border-radius: var(--rent-radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -251,7 +252,7 @@
   top: 10px;
   left: 10px;
   padding: 3px 10px;
-  border-radius: 6px;
+  border-radius: var(--rent-radius-sm);
   font-size: 12px;
   font-weight: 600;
   color: #fff;
@@ -275,7 +276,7 @@
 .pl-item__title {
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--rent-ink);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -283,7 +284,7 @@
   transition: color 0.15s;
 }
 .pl-item:hover .pl-item__title {
-  color: #4263eb;
+  color: var(--rent-primary);
 }
 
 /* 地址行 */
@@ -292,13 +293,13 @@
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: #999;
+  color: var(--rent-ink-3);
 }
 
 /* 信息行（管道符分隔） */
 .pl-item__info {
   font-size: 14px;
-  color: #666;
+  color: var(--rent-ink-2);
   line-height: 1.6;
   display: flex;
   align-items: center;
@@ -310,7 +311,7 @@
 }
 .pl-item__sep {
   font-style: normal;
-  color: #ddd;
+  color: var(--rent-border);
   margin: 0 10px;
   font-size: 12px;
 }
@@ -321,11 +322,11 @@
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #999;
+  color: var(--rent-ink-3);
 }
 .pl-item__meta-icon {
   font-size: 13px;
-  color: #bbb;
+  color: var(--rent-ink-3);
 }
 
 /* 标签 */
@@ -338,16 +339,16 @@
 .pl-chip {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--rent-radius-sm);
   font-size: 12px;
   line-height: 1.6;
   white-space: nowrap;
 }
-.pl-chip--vacant { color: #16a34a; background: rgba(22, 163, 74, 0.08); }
-.pl-chip--rented { color: #3b82f6; background: rgba(59, 130, 246, 0.08); }
+.pl-chip--vacant { color: var(--state-success); background: rgba(22, 163, 74, 0.08); }
+.pl-chip--rented { color: var(--state-info); background: rgba(14, 165, 233, 0.08); }
 .pl-chip--reserved { color: #9333ea; background: rgba(147, 51, 234, 0.08); }
-.pl-chip--maintenance { color: #d97706; background: rgba(217, 119, 6, 0.08); }
-.pl-chip--feature { color: #4263eb; background: rgba(66, 99, 235, 0.06); }
+.pl-chip--maintenance { color: var(--state-warning); background: rgba(217, 119, 6, 0.08); }
+.pl-chip--feature { color: var(--rent-primary); background: rgba(20, 184, 166, 0.06); }
 
 /* 底部价格 */
 .pl-item__bottom {
@@ -366,25 +367,25 @@
 .pl-item__price-num {
   font-size: 26px;
   font-weight: 700;
-  color: #e4393c;
+  color: var(--state-error);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 .pl-item__price-unit {
   font-size: 13px;
-  color: #e4393c;
+  color: var(--state-error);
   margin-left: 2px;
 }
 .pl-item__price-per {
   font-size: 12px;
-  color: #999;
+  color: var(--rent-ink-3);
   margin-left: 12px;
 }
 
 /* ===== 空状态 ===== */
 .pl-empty {
-  background: #fff;
-  border-radius: 0 0 12px 12px;
+  background: var(--rent-card);
+  border-radius: 0 0 var(--rent-radius-lg) var(--rent-radius-lg);
   padding: 80px 24px;
   text-align: center;
 }
@@ -393,10 +394,10 @@
 .pl-pagination {
   margin-top: 24px;
   text-align: center;
-  background: #fff;
+  background: var(--rent-card);
   padding: 16px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-radius: var(--rent-radius-lg);
+  box-shadow: var(--rent-shadow-1);
 }
 .pl-pagination .ant-pagination {
   justify-content: center;

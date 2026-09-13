@@ -1,0 +1,301 @@
+/* =========================================================
+   注册页 — 与登录页一致的分屏布局（对齐原型 login.html）
+   左 40% 品牌渐变栏 + 右 60% 注册表单
+   ========================================================= */
+
+/* ---- Split-screen layout ---- */
+.rent-login-page {
+  display: flex;
+  min-height: 100vh;
+  background: var(--rent-surface);
+}
+
+/* 语言切换悬浮右上角 */
+.rent-login-lang {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 50;
+}
+
+/* ---- Left panel (40%) ---- */
+.rent-login-left {
+  flex: 0 0 40%;
+  background: var(--rent-primary);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 56px;
+  position: relative;
+  overflow: hidden;
+}
+
+.rent-login-left::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  right: -120px;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rent-login-left::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  left: -80px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.rent-login-left__content {
+  position: relative;
+  z-index: 1;
+}
+
+.rent-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 48px;
+}
+
+.rent-login-brand__img {
+  width: 200px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+}
+
+.rent-login-tagline {
+  font-family: var(--rent-font-sans);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #ffffff;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.rent-login-subtagline {
+  font-family: var(--rent-font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 40px;
+}
+
+.rent-login-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.rent-login-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.rent-login-feature__check {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--rent-radius-full);
+  background: rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rent-login-feature__text {
+  font-family: var(--rent-font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 500;
+}
+
+.rent-login-feature__text small {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 2px;
+}
+
+/* ---- Right panel (60%) ---- */
+.rent-login-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  background: var(--rent-surface);
+}
+
+/* ---- Register form card ---- */
+.rent-login-card {
+  width: 100%;
+  max-width: 440px;
+}
+
+.rent-login-card__header {
+  margin-bottom: 32px;
+}
+
+.rent-login-card__title {
+  font-family: var(--rent-font-sans);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+
+.rent-login-card__subtitle {
+  font-family: var(--rent-font-sans);
+  font-size: 15px;
+  color: var(--rent-ink-3);
+  line-height: 1.5;
+}
+
+/* ---- Footer text ---- */
+.rent-login-footer {
+  margin-top: 32px;
+  text-align: center;
+  font-family: var(--rent-font-sans);
+  font-size: 13px;
+  color: var(--rent-ink-3);
+}
+
+.rent-login-footer a {
+  color: var(--rent-primary);
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* ---- 角色选择 ---- */
+.rent-register-role-group {
+  margin-bottom: 24px;
+}
+
+.rent-register-role-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.rent-register-role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px;
+  border: 1.5px solid var(--rent-border);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+  color: var(--rent-ink-2);
+  font-family: var(--rent-font-sans);
+}
+
+.rent-register-role-card__icon {
+  display: flex;
+  color: var(--rent-ink-3);
+}
+
+.rent-register-role-card__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+
+.rent-register-role-card__desc {
+  font-size: 11px;
+  color: var(--rent-ink-3);
+  line-height: 1.3;
+}
+
+.rent-register-role-card:hover {
+  border-color: var(--rent-primary);
+}
+
+.rent-register-role-card.is-active {
+  border-color: var(--rent-primary);
+  background: rgba(20, 184, 166, 0.06);
+  box-shadow: 0 0 0 1px var(--rent-primary);
+}
+
+.rent-register-role-card.is-active .rent-register-role-card__icon,
+.rent-register-role-card.is-active .rent-register-role-card__name {
+  color: var(--rent-primary);
+}
+
+/* ---- Responsive（对齐原型 login.html） ---- */
+@media (max-width: 960px) {
+  .rent-login-page {
+    flex-direction: column;
+  }
+
+  .rent-login-left {
+    flex: 0 0 auto;
+    padding: 40px 32px;
+    text-align: center;
+  }
+
+  .rent-login-brand {
+    justify-content: center;
+  }
+
+  .rent-login-features {
+    display: none;
+  }
+
+  .rent-login-tagline {
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+
+  .rent-login-subtagline {
+    margin-bottom: 0;
+  }
+
+  .rent-login-right {
+    padding: 40px 24px;
+  }
+}
+
+@media (max-width: 520px) {
+  .rent-login-left {
+    padding: 32px 24px;
+  }
+
+  .rent-login-tagline {
+    font-size: 18px;
+  }
+
+  .rent-login-card__title {
+    font-size: 24px;
+  }
+
+  .rent-register-role-grid {
+    grid-template-columns: 1fr;
+  }
+}

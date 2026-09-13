@@ -20,9 +20,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // 公共页面（首页、登录页）不因 401 重定向，让组件自行降级处理
+      // 公共页面（首页、房源浏览、登录、注册）不因 401 重定向，让组件自行降级处理
       const pathname = window.location.pathname
-      const isPublicRoute = pathname === '/' || pathname === '/login'
+      const isPublicRoute =
+        pathname === '/' ||
+        pathname === '/login' ||
+        pathname === '/register' ||
+        pathname === '/listings' ||
+        pathname.startsWith('/properties/detail')
       if (!isPublicRoute) {
         localStorage.removeItem('token')
         localStorage.removeItem('user')

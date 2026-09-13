@@ -2,8 +2,6 @@
 
 用于 React Native App 推送，recipient 为 Expo push token。
 """
-import os
-from typing import Optional
 
 import httpx
 

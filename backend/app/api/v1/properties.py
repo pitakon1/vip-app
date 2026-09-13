@@ -85,13 +85,19 @@ def list_properties(
     status: Optional[PropertyStatus] = None,
     project_id: Optional[uuid.UUID] = None,
     owner_id: Optional[uuid.UUID] = None,
+    country: Optional[str] = None,
+    province: Optional[str] = None,
+    city: Optional[str] = None,
+    district: Optional[str] = None,
+    subway: Optional[str] = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """房源列表（分页，可按 status/project_id/owner_id 筛选）。"""
+    """房源列表（分页，可按 status/project_id/owner_id 及项目地区筛选）。"""
     cache_key = (
         f"cache:properties:list:{pagination.page}:{pagination.page_size}:"
-        f"{status.value if status else ''}:{project_id or ''}:{owner_id or ''}"
+        f"{status.value if status else ''}:{project_id or ''}:{owner_id or ''}:"
+        f"{country or ''}:{province or ''}:{city or ''}:{district or ''}:{subway or ''}"
     )
     cached = get_cache(cache_key)
     if cached is not None:
@@ -105,8 +111,29 @@ def list_properties(
     if owner_id:
         conditions.append(Property.owner_id == owner_id)
 
-    stmt = select(Property).where(*conditions).order_by(Property.created_at.desc())
-    count_stmt = select(func.count(Property.id)).where(*conditions)
+    # 项目地区筛选：仅在有地区条件时 LEFT JOIN projects
+    geo_join = None
+    if country or province or city or district or subway:
+        geo_join = Property.project_id == Project.id
+        if country:
+            conditions.append(Project.country == country)
+        if province:
+            conditions.append(Project.province == province)
+        if city:
+            conditions.append(Project.city == city)
+        if district:
+            conditions.append(Project.district == district)
+        if subway:
+            conditions.append(Project.nearest_subway == subway)
+
+    stmt = select(Property)
+    if geo_join is not None:
+        stmt = stmt.join(Project, geo_join)
+    stmt = stmt.where(*conditions).order_by(Property.created_at.desc())
+    count_stmt = select(func.count(Property.id))
+    if geo_join is not None:
+        count_stmt = count_stmt.join(Project, geo_join)
+    count_stmt = count_stmt.where(*conditions)
     total = session.exec(count_stmt).one()
     items = session.exec(
         stmt.offset(pagination.offset).limit(pagination.limit)
@@ -214,19 +241,19 @@ def list_property_leases(
     return {
         "items": [
             {
-                "id": str(l.id),
-                "status": l.status.value if l.status else None,
-                "start_date": l.start_date.isoformat() if l.start_date else None,
-                "end_date": l.end_date.isoformat() if l.end_date else None,
-                "monthly_rent": l.monthly_rent,
-                "currency": l.currency,
-                "tenant_id": str(l.tenant_id),
-                "tenant_name": users.get(tenants[l.tenant_id].user_id).full_name
-                if tenants.get(l.tenant_id)
-                and users.get(tenants[l.tenant_id].user_id)
+                "id": str(lease.id),
+                "status": lease.status.value if lease.status else None,
+                "start_date": lease.start_date.isoformat() if lease.start_date else None,
+                "end_date": lease.end_date.isoformat() if lease.end_date else None,
+                "monthly_rent": lease.monthly_rent,
+                "currency": lease.currency,
+                "tenant_id": str(lease.tenant_id),
+                "tenant_name": users.get(tenants[lease.tenant_id].user_id).full_name
+                if tenants.get(lease.tenant_id)
+                and users.get(tenants[lease.tenant_id].user_id)
                 else None,
             }
-            for l in leases
+            for lease in leases
         ]
     }
 

@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '考勤打卡' }

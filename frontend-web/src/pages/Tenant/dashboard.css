@@ -34,12 +34,12 @@
 .rent-hero {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #4263eb 0%, #5b3fd6 55%, #7c3aed 100%);
+  background: #14b8a6;
   border-radius: 24px;
   padding: 40px;
   margin-bottom: 32px;
   color: #fff;
-  box-shadow: 0 20px 50px -20px rgba(66, 99, 235, 0.55);
+  box-shadow: 0 20px 50px -20px rgba(20, 184, 166, 0.55);
 }
 .rent-hero__decor {
   position: absolute;
@@ -145,7 +145,7 @@
 }
 .rent-hero__lease-fill {
   height: 100%;
-  background: linear-gradient(90deg, #ffffff, #c7d2fe);
+  background: #ffffff;
   border-radius: var(--rent-radius-full);
 }
 .rent-hero__cta {
@@ -287,7 +287,7 @@
 }
 .rent-lease__progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--rent-primary), #7c3aed);
+  background: var(--rent-primary);
   border-radius: var(--rent-radius-full);
 }
 .rent-lease__progress-foot {
@@ -438,12 +438,12 @@
 .rv17-hero {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #4263eb 0%, #3b51d4 55%, #5b3fd6 100%);
+  background: #14b8a6;
   border-radius: 20px;
   padding: 22px 24px;
   margin-bottom: 20px;
   color: #fff;
-  box-shadow: 0 16px 40px -20px rgba(66, 99, 235, 0.6);
+  box-shadow: 0 16px 40px -20px rgba(20, 184, 166, 0.6);
   display: flex;
   align-items: center;
   gap: 16px;
@@ -526,7 +526,7 @@
 .rv17-tab.is-active {
   background: var(--rent-primary);
   color: #fff;
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.6);
+  box-shadow: 0 6px 16px -6px rgba(20, 184, 166, 0.6);
 }
 
 /* ----- 功能宫格 ----- */

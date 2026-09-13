@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1677ff"
+      "backgroundColor": "#14b8a6"
     },
     "ios": {
       "supportsTablet": true,
@@ -22,7 +22,9 @@
         "NSPhotoLibraryUsageDescription": "需要相册权限用于上传合同和照片",
         "NSLocationWhenInUseUsageDescription": "需要位置权限用于考勤打卡定位"
       },
-      "associatedDomains": ["applinks:viprental.com"],
+      "associatedDomains": [
+        "applinks:viprental.com"
+      ],
       "usesAppleSignIn": true
     },
     "android": {
@@ -39,7 +41,7 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1677ff"
+        "backgroundColor": "#14b8a6"
       },
       "googleServicesFile": "./google-services.json"
     },
@@ -52,7 +54,7 @@
       [
         "expo-notifications",
         {
-          "color": "#1677ff",
+          "color": "#14b8a6",
           "defaultChannel": "default"
         }
       ],
@@ -61,7 +63,9 @@
         {
           "locationAlwaysAndWhenInUsePermission": "允许此应用使用您的位置用于考勤打卡。"
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-font"
     ],
     "extra": {
       "eas": {

@@ -18,13 +18,13 @@
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
   --rent-ink: #0f172a;
@@ -34,7 +34,7 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
 
   /* ---- 状态色（仅语义状态） ---- */
   --state-success: #16a34a;
@@ -78,13 +78,13 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
   --rent-primary-foreground: #0b0f1a;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;
@@ -311,7 +311,7 @@
 .rent-stat-card__label{font-size:12px;color:var(--rent-ink-3);margin-bottom:4px}
 .rent-stat-card__value{font-size:22px;font-weight:700;color:var(--rent-ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .rent-stat-card__sub{font-size:11px;color:var(--rent-ink-3);margin-top:4px}
-.rent-hero{background:linear-gradient(135deg,#4263eb 0%,#6b82f5 100%);border-radius:var(--rent-radius-lg);padding:20px;color:#fff;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.rent-hero{background:linear-gradient(135deg,#14b8a6 0%,#2dd4bf 100%);border-radius:var(--rent-radius-lg);padding:20px;color:#fff;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .rent-hero__time{font-size:14px;opacity:.85;margin-bottom:4px}
 .rent-hero__name{font-size:20px;font-weight:700;margin-bottom:6px}
 .rent-hero__date{font-size:12px;opacity:.8}
@@ -352,7 +352,7 @@
 .rent-property-card__price-unit{font-size:11px;color:var(--rent-ink-3);font-weight:400}
 .rent-chart{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;height:140px;padding:8px 0}
 .rent-chart__col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
-.rent-chart__bar{width:100%;border-radius:var(--rent-radius-sm) var(--rent-radius-sm) 0 0;background:linear-gradient(180deg,#6b82f5 0%,#4263eb 100%);min-height:4px;transition:opacity .2s}
+.rent-chart__bar{width:100%;border-radius:var(--rent-radius-sm) var(--rent-radius-sm) 0 0;background:linear-gradient(180deg,#2dd4bf 0%,#14b8a6 100%);min-height:4px;transition:opacity .2s}
 .rent-chart__bar:hover{opacity:.85}
 .rent-chart__bar--current{background:linear-gradient(180deg,#f59e0b 0%,#d97706 100%)}
 .rent-chart__val{font-size:10px;color:var(--rent-ink-2);font-weight:600}
@@ -373,8 +373,8 @@
 </style>
     <style id="rent-beike-overlay">
 /* =========================================================
-   RentFlow × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
-   保留靛蓝主色 #4263eb · 消费级 App 形态 · 大圆角卡片流
+   HaoFang.World × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #14b8a6 · 消费级 App 形态 · 大圆角卡片流
    仅注入用户端页面 (租客/业主/员工)，后台管理不注入
    注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
    ========================================================= */
@@ -400,7 +400,7 @@ body {
 .rent-mobile__logo,
 .rent-pad__logo {
   border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(66, 99, 235, 0.35);
+  box-shadow: 0 4px 14px rgba(20,184,166, 0.35);
 }
 .rent-portal__nav-item,
 .rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
@@ -411,12 +411,12 @@ body {
 .rent-search-hero__bar {
   border-radius: 999px;
   background: #ffffff;
-  box-shadow: 0 10px 32px -10px rgba(66, 99, 235, 0.40);
+  box-shadow: 0 10px 32px -10px rgba(20,184,166, 0.40);
 }
 .rent-search-hero__search-btn {
   border-radius: 999px;
-  background: linear-gradient(135deg, #4263eb, #6b82f5);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.50);
+  background: linear-gradient(135deg, #14b8a6, #2dd4bf);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.50);
 }
 .rent-search-hero__tag { border-radius: 999px; }
 
@@ -455,7 +455,7 @@ body {
 .rent-badge { border-radius: 999px; padding: 3px 10px; }
 .rent-prop-search-card__cta {
   border-radius: 999px;
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   color: var(--rent-primary);
   font-weight: 600;
 }
@@ -475,14 +475,14 @@ body {
 .rent-btn { border-radius: 10px; }
 .rent-btn--primary {
   border-radius: 12px;
-  background: linear-gradient(135deg, #4263eb, #5b7cfa);
-  box-shadow: 0 6px 16px -6px rgba(66, 99, 235, 0.45);
+  background: linear-gradient(135deg, #14b8a6, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.45);
 }
 
 /* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
 .rent-mobile__tab { border-radius: 14px; }
 .rent-mobile__tab[data-active="true"] {
-  background: rgba(66, 99, 235, 0.08);
+  background: rgba(20,184,166, 0.08);
   font-weight: 600;
 }
 
@@ -491,7 +491,7 @@ body {
 .rent-pad__nav-item { border-radius: 12px; }
 .rent-nav-item[data-active="true"],
 .rent-pad__nav-item[data-active="true"] {
-  background: linear-gradient(135deg, rgba(66, 99, 235, 0.10), rgba(107, 130, 245, 0.08));
+  background: linear-gradient(135deg, rgba(20,184,166, 0.10), rgba(107, 130, 245, 0.08));
   font-weight: 600;
 }
 
@@ -499,7 +499,7 @@ body {
 .rent-hero,
 .rent-portal-hero,
 .rent-mobile__hero {
-  background: linear-gradient(135deg, #4263eb 0%, #5b7cfa 55%, #6b82f5 100%);
+  background: linear-gradient(135deg, #14b8a6 0%, #5b7cfa 55%, #2dd4bf 100%);
 }
 
 /* ===== 头像 ===== */
@@ -519,7 +519,7 @@ body {
 </nav><div class="rent-pad__sidebar-footer"><div class="rent-pad__user-mini"><div class="rent-pad__user-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div><div class="rent-pad__user-info"><div class="rent-pad__user-name">李女士</div><div class="rent-pad__user-role">业主</div></div></div></div></aside>
 <header class="rent-pad__topbar"><div class="rent-pad__topbar-title">收益</div><div class="rent-pad__topbar-right"><button class="rent-pad__icon-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="rent-pad__badge-dot"></span></button><div class="rent-pad__avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div><button class="rent-pad__exit" data-dom-id="back-login"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg><span>退出</span></button></div></header>
 <main class="rent-pad__main">
-<div class="rent-grid-3 rent-section"><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#eef2ff;color:#4263eb"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div><div class="rent-stat-card__label">本月收入</div><div class="rent-stat-card__value">¥18,000</div><div class="rent-stat-card__sub">已到账¥12,000</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#ecfdf5;color:#16a34a"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></div><div class="rent-stat-card__label">同比增长</div><div class="rent-stat-card__value">+12%</div><div class="rent-stat-card__sub">较去年同期</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#fef3c7;color:#d97706"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="8"/><rect x="13" y="6" width="3" height="12"/></svg></div><div class="rent-stat-card__label">累计收入</div><div class="rent-stat-card__value">¥216k</div><div class="rent-stat-card__sub">2026年度</div></div></div>
+<div class="rent-grid-3 rent-section"><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#d9f2ee;color:#14b8a6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div><div class="rent-stat-card__label">本月收入</div><div class="rent-stat-card__value">¥18,000</div><div class="rent-stat-card__sub">已到账¥12,000</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#ecfdf5;color:#16a34a"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></div><div class="rent-stat-card__label">同比增长</div><div class="rent-stat-card__value">+12%</div><div class="rent-stat-card__sub">较去年同期</div></div><div class="rent-stat-card"><div class="rent-stat-card__icon" style="background:#fef3c7;color:#d97706"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="8"/><rect x="13" y="6" width="3" height="12"/></svg></div><div class="rent-stat-card__label">累计收入</div><div class="rent-stat-card__value">¥216k</div><div class="rent-stat-card__sub">2026年度</div></div></div>
 <div class="rent-card rent-section"><div class="rent-card__header"><h3 class="rent-card__title">月度收入趋势</h3><a href="#" class="rent-card__link">导出报表</a></div><div class="rent-chart"><div class="rent-chart__col"><div class="rent-chart__val">¥16.2k</div><div class="rent-chart__bar" style="height:60%"></div><div class="rent-chart__label">3月</div></div><div class="rent-chart__col"><div class="rent-chart__val">¥18.0k</div><div class="rent-chart__bar" style="height:75%"></div><div class="rent-chart__label">4月</div></div><div class="rent-chart__col"><div class="rent-chart__val">¥17.5k</div><div class="rent-chart__bar" style="height:70%"></div><div class="rent-chart__label">5月</div></div><div class="rent-chart__col"><div class="rent-chart__val">¥18.0k</div><div class="rent-chart__bar" style="height:80%"></div><div class="rent-chart__label">6月</div></div><div class="rent-chart__col"><div class="rent-chart__val">¥18.0k</div><div class="rent-chart__bar--current" style="height:95%"></div><div class="rent-chart__label">7月</div></div><div class="rent-chart__col"><div class="rent-chart__val">¥12.0k</div><div class="rent-chart__bar" style="height:55%"></div><div class="rent-chart__label">8月</div></div></div><div class="rent-divider"></div><div class="rent-grid-3"><div><div style="font-size:12px;color:var(--rent-ink-3);margin-bottom:4px">最高月收入</div><div style="font-size:16px;font-weight:700;color:var(--rent-ink)">¥18,000</div></div><div><div style="font-size:12px;color:var(--rent-ink-3);margin-bottom:4px">月均收入</div><div style="font-size:16px;font-weight:700;color:var(--rent-ink)">¥16,617</div></div><div><div style="font-size:12px;color:var(--rent-ink-3);margin-bottom:4px">空置损失</div><div style="font-size:16px;font-weight:700;color:var(--state-error)">¥0</div></div></div></div>
 <div class="rent-card"><div class="rent-card__header"><h3 class="rent-card__title">收入明细</h3><a href="#" class="rent-card__link">筛选</a></div><div class="rent-list"><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">7月租金 · 张先生</div><div class="rent-list-item__sub">招商·雍华府 1栋2单元</div></div><div class="rent-list-item__right"><div class="rent-list-item__amount" style="color:var(--state-success)">+¥4,500</div><span class="rent-badge rent-badge--success">已到账</span><div class="rent-list-item__date">07-15</div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">7月租金 · 王女士</div><div class="rent-list-item__sub">保利·茉莉公馆 5栋3单元</div></div><div class="rent-list-item__right"><div class="rent-list-item__amount" style="color:var(--state-success)">+¥5,500</div><span class="rent-badge rent-badge--success">已到账</span><div class="rent-list-item__date">07-12</div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">7月租金 · 陈先生</div><div class="rent-list-item__sub">万科·天空之城 8栋1单元</div></div><div class="rent-list-item__right"><div class="rent-list-item__amount" style="color:var(--state-success)">+¥4,800</div><span class="rent-badge rent-badge--success">已到账</span><div class="rent-list-item__date">07-10</div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">7月租金 · 刘女士</div><div class="rent-list-item__sub">城家公寓 1203室</div></div><div class="rent-list-item__right"><div class="rent-list-item__amount" style="color:var(--state-success)">+¥3,200</div><span class="rent-badge rent-badge--success">已到账</span><div class="rent-list-item__date">07-08</div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">8月租金 · 张先生</div><div class="rent-list-item__sub">招商·雍华府 1栋2单元</div></div><div class="rent-list-item__right"><div class="rent-list-item__amount" style="color:var(--state-warning)">¥4,500</div><span class="rent-badge rent-badge--warning">待收取</span><div class="rent-list-item__date">8月15日</div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">8月租金 · 陈先生</div><div class="rent-list-item__sub">万科·天空之城 8栋1单元</div></div><div class="rent-list-item__right"><div class="rent-list-item__amount" style="color:var(--state-warning)">¥4,800</div><span class="rent-badge rent-badge--warning">待收取</span><div class="rent-list-item__date">8月10日</div></div></div><div class="rent-list-item"><div class="rent-list-item__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></div><div class="rent-list-item__content"><div class="rent-list-item__title">物业费收入 · 城家公寓</div><div class="rent-list-item__sub">代收物业费 7月</div></div><div class="rent-list-item__right"><div class="rent-list-item__amount" style="color:var(--state-success)">+¥320</div><span class="rent-badge rent-badge--success">已到账</span><div class="rent-list-item__date">07-05</div></div></div></div></div>
 </main>

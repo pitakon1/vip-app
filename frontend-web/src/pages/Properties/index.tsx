@@ -2,13 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  Button,
-  Empty,
   Form,
   Input,
   InputNumber,
   Modal,
-  Pagination,
   Row,
   Col,
   Select,
@@ -16,12 +13,7 @@ import {
   message,
 } from 'antd'
 import {
-  PlusOutlined,
-  SearchOutlined,
-  EditOutlined,
-  DeleteOutlined,
   ExclamationCircleOutlined,
-  EyeOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { propertiesApi, projectsApi } from '@/services/api'
@@ -31,40 +23,22 @@ import './properties.css'
 
 // ==================== 常量 ====================
 
-const GRADIENTS = [
-  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-  'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-  'linear-gradient(135deg, #5ee7df 0%, #b490ca 100%)',
-  'linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)',
+// 房源卡片 banner 主题色（使用设计令牌 CSS 变量，teal 色系层次）
+const BANNER_COLORS = [
+  'var(--rent-primary)',
+  'var(--rent-accent)',
+  'var(--state-success)',
 ]
 
-const gradientFor = (seed: string) => {
+const bannerColorFor = (seed: string) => {
   let h = 0
   for (let i = 0; i < (seed || 'x').length; i++) {
     h = (h * 31 + (seed || 'x').charCodeAt(i)) >>> 0
   }
-  return GRADIENTS[h % GRADIENTS.length]
+  return BANNER_COLORS[h % BANNER_COLORS.length]
 }
 
 const formatRent = (v: any) => Number(v || 0).toLocaleString()
-const formatPerSqm = (rent: number, sqm: number) => {
-  const s = Number(sqm || 0)
-  if (!s) return '0'
-  return Math.round(Number(rent || 0) / s).toLocaleString()
-}
-
-// 确定性伪随机关注度
-const attentionCount = (id: string) => {
-  let h = 0
-  for (let i = 0; i < (id || 'x').length; i++) {
-    h = (h * 31 + (id || 'x').charCodeAt(i)) >>> 0
-  }
-  return h % 280
-}
 
 const PAGE_SIZE = 10
 
@@ -98,11 +72,9 @@ const Properties = () => {
 
   // 筛选参数
   const [keyword, setKeyword] = useState('')
-  const [region, setRegion] = useState('')
-  const [roomType, setRoomType] = useState('')
-  const [priceRange, setPriceRange] = useState('')
-  const [areaRange, setAreaRange] = useState('')
-  const [sort, setSort] = useState('default')
+  const [status, setStatus] = useState('')
+  const [propertyType, setPropertyType] = useState('')
+  const [sort, setSort] = useState('created')
   const [page, setPage] = useState(1)
 
   // 弹窗
@@ -128,48 +100,6 @@ const Properties = () => {
     commercial: t('propertyType.commercial'),
     office: t('propertyType.office'),
   }), [t])
-
-  const regionOptions = useMemo(() => [
-    { value: '', label: t('property.allRegions') },
-    { value: '曼谷', label: t('region.bangkok') },
-    { value: '普吉', label: t('region.phuket') },
-    { value: '清迈', label: t('region.chiangMai') },
-    { value: '芭提雅', label: t('region.pattaya') },
-    { value: '华欣', label: t('region.huaHin') },
-  ], [t])
-
-  const roomTypeOptions = useMemo(() => [
-    { value: '', label: t('property.allRoomTypes') },
-    { value: '1', label: t('roomType.r1') },
-    { value: '2', label: t('roomType.r2') },
-    { value: '3', label: t('roomType.r3') },
-    { value: '4', label: t('roomType.r4') },
-  ], [t])
-
-  const priceOptions = useMemo(() => [
-    { value: '', label: t('property.allPrices') },
-    { value: '0-5000', label: t('priceRange.below5k') },
-    { value: '5000-10000', label: t('priceRange.r5k10k') },
-    { value: '10000-20000', label: t('priceRange.r10k20k') },
-    { value: '20000-50000', label: t('priceRange.r20k50k') },
-    { value: '50000-99999999', label: t('priceRange.above50k') },
-  ], [t])
-
-  const areaOptions = useMemo(() => [
-    { value: '', label: t('property.allAreas') },
-    { value: '0-50', label: t('areaRange.below50') },
-    { value: '50-100', label: t('areaRange.r50to100') },
-    { value: '100-200', label: t('areaRange.r100to200') },
-    { value: '200-999999', label: t('areaRange.above200') },
-  ], [t])
-
-  const sortItems = useMemo(() => [
-    { value: 'default', label: t('property.defaultSort') },
-    { value: 'latest', label: t('property.latest') },
-    { value: 'price_asc', label: t('property.priceAsc') },
-    { value: 'price_desc', label: t('property.priceDesc') },
-    { value: 'area_desc', label: t('property.areaDesc') },
-  ], [t])
 
   // 数据获取
   const fetchProjects = useCallback(async () => {
@@ -208,39 +138,48 @@ const Properties = () => {
           .some((v) => String(v).toLowerCase().includes(kw))
       )
     }
-    if (region) {
-      list = list.filter((it: any) =>
-        [it.city, it.address, it.project_id].filter(Boolean).some((v) => String(v).includes(region))
-      )
+    if (status) {
+      list = list.filter((it: any) => (it.status || 'vacant').toLowerCase() === status)
     }
-    if (roomType) {
-      const n = Number(roomType)
-      list = list.filter((it: any) => n >= 4 ? Number(it.bedrooms) >= 4 : Number(it.bedrooms) === n)
-    }
-    if (priceRange) {
-      const [min, max] = priceRange.split('-').map(Number)
-      list = list.filter((it: any) => { const r = Number(it.monthly_rent); return r >= min && r <= max })
-    }
-    if (areaRange) {
-      const [min, max] = areaRange.split('-').map(Number)
-      list = list.filter((it: any) => { const s = Number(it.size_sqm); return s >= min && s <= max })
+    if (propertyType) {
+      list = list.filter((it: any) => (it.property_type || '').toLowerCase() === propertyType)
     }
     switch (sort) {
-      case 'price_asc': list.sort((a: any, b: any) => a.monthly_rent - b.monthly_rent); break
-      case 'price_desc': list.sort((a: any, b: any) => b.monthly_rent - a.monthly_rent); break
-      case 'area_desc': list.sort((a: any, b: any) => b.size_sqm - a.size_sqm); break
-      case 'latest': list.sort((a: any, b: any) => dayjs(b.created_at || 0).valueOf() - dayjs(a.created_at || 0).valueOf()); break
+      case 'rent-asc': list.sort((a: any, b: any) => a.monthly_rent - b.monthly_rent); break
+      case 'rent-desc': list.sort((a: any, b: any) => b.monthly_rent - a.monthly_rent); break
+      case 'created':
+      default:
+        list.sort((a: any, b: any) => dayjs(b.created_at || 0).valueOf() - dayjs(a.created_at || 0).valueOf())
+        break
     }
     return list
-  }, [allItems, keyword, region, roomType, priceRange, areaRange, sort])
+  }, [allItems, keyword, status, propertyType, sort])
 
-  useEffect(() => { setPage(1) }, [keyword, region, roomType, priceRange, areaRange, sort])
+  useEffect(() => { setPage(1) }, [keyword, status, propertyType, sort])
 
   const total = filteredItems.length
   const pagedItems = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
     return filteredItems.slice(start, start + PAGE_SIZE)
   }, [filteredItems, page])
+
+  // 分页页码（对齐原型 admin-properties 的 rent-pagination 结构）
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const pageNumbers: (number | string)[] = useMemo(() => {
+    const nums: (number | string)[] = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) nums.push(i)
+    } else {
+      nums.push(1)
+      if (page > 4) nums.push('prev-ellipsis')
+      const start = Math.max(2, page - 1)
+      const end = Math.min(totalPages - 1, page + 1)
+      for (let i = start; i <= end; i++) nums.push(i)
+      if (page < totalPages - 3) nums.push('next-ellipsis')
+      nums.push(totalPages)
+    }
+    return nums
+  }, [page, totalPages])
 
   // ==================== CRUD ====================
 
@@ -291,22 +230,6 @@ const Properties = () => {
     } finally { setSubmitting(false) }
   }
 
-  // ==================== 辅助函数 ====================
-
-  const relativeTime = (dateStr?: string) => {
-    if (!dateStr) return t('property.justNow')
-    const d = dayjs(dateStr)
-    if (!d.isValid()) return t('property.justNow')
-    const now = dayjs()
-    const diffDays = now.diff(d, 'day')
-    const diffMonths = now.diff(d, 'month')
-    const diffYears = now.diff(d, 'year')
-    if (diffDays < 1) return t('property.justNow')
-    if (diffDays < 30) return `${diffDays} ${t('property.daysAgo')}`
-    if (diffMonths < 12) return `${diffMonths} ${t('property.monthsAgo')}`
-    return `${diffYears} ${t('property.yearsAgo')}`
-  }
-
   // ==================== 列表项渲染 ====================
 
   const renderListItem = (item: any) => {
@@ -317,82 +240,79 @@ const Properties = () => {
     const beds = Number(item.bedrooms || 0)
     const baths = Number(item.bathrooms || 0)
     const size = Number(item.size_sqm || 0)
-    const floor = item.floor || '—'
     const rent = Number(item.monthly_rent || 0)
-    const followers = attentionCount(String(item.id || item.room_number || ''))
     const seed = String(item.id || item.room_number || '')
 
-    // 信息行：户型 | 面积 | 装修 | 楼层 | 类型
-    const infoParts = [
-      `${beds}室${baths}卫`,
-      `${size}㎡`,
-      item.furnished ? t('browse.furnished') : t('property.unfurnished'),
-      `${t('property.floor')} ${floor}`,
-      ptype,
-    ]
-
-    // 标签
-    const tags: { label: string; type: string }[] = []
-    tags.push({ label: statusLabelMap[statusKey] || item.status || '', type: statusKey })
-    if (item.furnished) tags.push({ label: t('browse.furnished'), type: 'feature' })
-    tags.push({ label: t('browse.moveIn'), type: 'feature' })
+    const statusTone =
+      statusKey === 'rented' ? 'success'
+      : statusKey === 'vacant' ? 'warning'
+      : statusKey === 'maintenance' ? 'info'
+      : statusKey === 'reserved' ? 'warning'
+      : 'neutral'
 
     return (
       <div
-        className="lj-item"
+        className="rent-card rent-prop-card"
         key={item.id}
         onClick={() => navigate(`/properties/detail/${item.id}`)}
       >
-        {/* 左侧图片占位 */}
-        <div className="lj-item__img" style={{ background: gradientFor(seed) }}>
-          <span className="lj-item__img-text">{item.room_number || '—'}</span>
-          <span className={`lj-item__badge lj-item__badge--${statusKey}`}>
-            {statusLabelMap[statusKey] || item.status}
-          </span>
+        {/* 头部渐变 + 类型角标 */}
+        <div className="rent-prop-card__banner" style={{ background: bannerColorFor(seed) }}>
+          <span className="rent-prop-card__type-badge">{ptype}</span>
         </div>
 
-        {/* 右侧内容 */}
-        <div className="lj-item__body">
-          <div className="lj-item__title">{title}</div>
-          <div className="lj-item__info">
-            {infoParts.map((p, i) => (
-              <span key={i}>
-                {i > 0 && <em className="lj-item__sep">|</em>}
-                {p}
-              </span>
-            ))}
+        {/* 主体 */}
+        <div className="rent-prop-card__body">
+          <h3 className="rent-prop-card__name">{title}</h3>
+          <p className="rent-prop-card__address">{item.address || '—'}</p>
+          <div className="rent-prop-card__stats">
+            <span className="rent-prop-card__stat">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+              {size}㎡
+            </span>
+            <span className="rent-prop-card__stat">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4"/></svg>
+              {beds} 卧
+            </span>
+            <span className="rent-prop-card__stat">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
+              {baths} 浴
+            </span>
           </div>
-          <div className="lj-item__meta">
-            <EyeOutlined className="lj-item__meta-icon" />
-            <span>{followers} {t('property.attention')}</span>
-            <em className="lj-item__sep">/</em>
-            <span>{relativeTime(item.created_at)}</span>
+          <div className="rent-prop-card__rent-row">
+            <span className="rent-prop-card__rent">฿{formatRent(rent)}<span className="rent-prop-card__rent-unit">/月</span></span>
+            <span className={`rent-badge rent-badge--${statusTone}`}>
+              {statusLabelMap[statusKey] || item.status}
+            </span>
           </div>
-          <div className="lj-item__tags">
-            {tags.map((tag, i) => (
-              <span key={i} className={`lj-chip lj-chip--${tag.type}`}>{tag.label}</span>
-            ))}
-          </div>
-          <div className="lj-item__bottom">
-            <div className="lj-item__price">
-              <span className="lj-item__price-num">฿{formatRent(rent)}</span>
-              <span className="lj-item__price-unit">{t('property.perMonth')}</span>
-              <span className="lj-item__price-per">฿{formatPerSqm(rent, size)}{t('property.perSqm')}</span>
-            </div>
-            <div className="lj-item__actions" onClick={(e) => e.stopPropagation()}>
-              {isManageMode ? (
-                <>
-                  <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(item)}>{t('common.edit')}</Button>
-                  <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(item.id)}>{t('common.delete')}</Button>
-                </>
-              ) : (
-                <>
-                  <Button size="small" type="text">{t('property.followProperty')}</Button>
-                  <Button size="small" type="text">{t('property.compare')}</Button>
-                </>
-              )}
-            </div>
-          </div>
+        </div>
+
+        {/* 卡片底部操作 */}
+        <div className="rent-card__footer rent-prop-card__footer">
+          <a
+            className="rent-btn rent-btn--ghost rent-btn--sm"
+            onClick={(e) => { e.stopPropagation(); navigate(`/properties/detail/${item.id}`) }}
+          >
+            {t('property.viewDetail')}
+          </a>
+          {isManageMode && (
+            <>
+              <button
+                className="rent-btn rent-btn--secondary rent-btn--sm"
+                onClick={(e) => { e.stopPropagation(); openEdit(item) }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+                {t('common.edit')}
+              </button>
+              <button
+                className="rent-btn rent-btn--danger rent-btn--sm"
+                onClick={(e) => { e.stopPropagation(); handleDelete(item.id) }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                {t('common.delete')}
+              </button>
+            </>
+          )}
         </div>
       </div>
     )
@@ -401,78 +321,105 @@ const Properties = () => {
   // ==================== 渲染 ====================
 
   return (
-    <div className="lj-page">
-      {/* 顶部工具栏 */}
-      <div className="lj-toolbar">
-        <div className="lj-toolbar__left">
-          <span className="lj-toolbar__title">{t('property.title')}</span>
-          <span className="lj-toolbar__sub">{t('property.subtitle')}</span>
-        </div>
-        {isManageMode && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t('property.addNew')}</Button>
-        )}
-      </div>
+    <div className="rent-main">
 
-      {/* 搜索 + 筛选 */}
-      <div className="lj-filter">
-        <Input
-          allowClear
-          size="large"
-          prefix={<SearchOutlined style={{ color: '#bbb' }} />}
-          placeholder={t('property.searchPlaceholder')}
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          className="lj-filter__search"
-        />
-        <div className="lj-filter__selects">
-          <Select value={region} onChange={setRegion} options={regionOptions} className="lj-filter__select" />
-          <Select value={roomType} onChange={setRoomType} options={roomTypeOptions} className="lj-filter__select" />
-          <Select value={priceRange} onChange={setPriceRange} options={priceOptions} className="lj-filter__select" />
-          <Select value={areaRange} onChange={setAreaRange} options={areaOptions} className="lj-filter__select" />
+      {/* Page Header（对齐原型 admin-properties） */}
+      <div className="rent-page-header">
+        <div>
+          <h2 className="rent-page-header__title">{t('property.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('property.subtitle')}</p>
+        </div>
+        <div className="rent-page-header__actions">
+          <button className="rent-btn rent-btn--secondary" onClick={() => message.info('导出功能开发中')}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            导出
+          </button>
+          <button className="rent-btn rent-btn--primary" onClick={openCreate}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            {t('property.addNew')}
+          </button>
         </div>
       </div>
 
-      {/* 排序栏 */}
-      <div className="lj-sortbar">
-        <div className="lj-sortbar__items">
-          {sortItems.map((s) => (
-            <button
-              key={s.value}
-              className="lj-sortbar__item"
-              data-active={sort === s.value}
-              onClick={() => setSort(s.value)}
-            >
-              {s.label}
-            </button>
-          ))}
+      {/* Filter Bar（对齐原型：搜索 + 状态 + 类型 + 排序） */}
+      <div className="rent-filter-bar">
+        <div className="rent-search rent-filter-bar__search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            type="text"
+            placeholder={t('property.searchPlaceholder')}
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
         </div>
-        <div className="lj-sortbar__count">
-          {t('property.found')} <span className="lj-sortbar__count-num">{total}</span> {t('property.units')}
-        </div>
+        <select className="rent-form-select rent-filter-bar__select" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">全部状态</option>
+          <option value="rented">{statusLabelMap.rented}</option>
+          <option value="vacant">{statusLabelMap.vacant}</option>
+          <option value="maintenance">{statusLabelMap.maintenance}</option>
+        </select>
+        <select className="rent-form-select rent-filter-bar__select" value={propertyType} onChange={(e) => setPropertyType(e.target.value)}>
+          <option value="">全部类型</option>
+          <option value="apartment">{propertyTypeMap.apartment}</option>
+          <option value="villa">{propertyTypeMap.villa}</option>
+          <option value="shop">{propertyTypeMap.shop}</option>
+          <option value="office">{propertyTypeMap.office}</option>
+        </select>
+        <select className="rent-form-select rent-filter-bar__select" value={sort} onChange={(e) => setSort(e.target.value)}>
+          <option value="created">最近创建</option>
+          <option value="rent-asc">租金升序</option>
+          <option value="rent-desc">租金降序</option>
+        </select>
       </div>
 
-      {/* 房源列表 */}
+      {/* Property Card Grid（对齐原型 rent-grid--auto） */}
       <Spin spinning={loading} tip={t('common.loading')}>
         {pagedItems.length === 0 && !loading ? (
-          <div className="lj-empty"><Empty description={t('common.noData')} /></div>
+          <div className="rent-empty">
+            <div className="rent-empty__icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
+            <div>{t('common.noData')}</div>
+          </div>
         ) : (
-          <div className="lj-list">
+          <div className="rent-grid rent-grid--auto">
             {pagedItems.map((item: any) => renderListItem(item))}
           </div>
         )}
       </Spin>
 
-      {/* 分页 */}
+      {/* Pagination（对齐原型 rent-pagination） */}
       {total > 0 && (
-        <div className="lj-pagination">
-          <Pagination
-            current={page}
-            pageSize={PAGE_SIZE}
-            total={total}
-            showTotal={(tt) => `${t('common.total')} ${tt} ${t('common.items')}`}
-            showSizeChanger={false}
-            onChange={(p) => setPage(p)}
-          />
+        <div className="rent-pagination">
+          <span className="rent-pagination__info">共 {total} 条记录</span>
+          <button
+            className="rent-pagination__btn"
+            disabled={page <= 1}
+            onClick={() => setPage(Math.max(1, page - 1))}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          {pageNumbers.map((n, idx) =>
+            n === 'prev-ellipsis' || n === 'next-ellipsis' ? (
+              <span className="rent-pagination__info" key={idx} style={{ margin: '0 4px' }}>...</span>
+            ) : (
+              <button
+                key={idx}
+                className="rent-pagination__btn"
+                data-active={page === n}
+                onClick={() => setPage(Number(n))}
+              >
+                {n}
+              </button>
+            )
+          )}
+          <button
+            className="rent-pagination__btn"
+            disabled={page >= totalPages}
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       )}
 

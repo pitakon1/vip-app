@@ -1,9 +1,7 @@
 """领域事件 Outbox 模式：写入 events 表，由 Celery 任务异步发布到 Redis Streams"""
-from typing import Optional
 from sqlmodel import Session
 import structlog
 import uuid
-import json
 
 logger = structlog.get_logger()
 

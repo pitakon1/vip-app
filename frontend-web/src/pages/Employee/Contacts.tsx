@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message } from 'antd'
+import { message, Spin, Empty } from 'antd'
 import api from '@/lib/api'
 import './contacts.css'
 
@@ -250,7 +250,7 @@ const Contacts = () => {
           <div className="rent-stat-card" key={d.name}>
             <div className="rent-flex rent-flex--between rent-mb-2">
               <div className="rent-stat-card__label">{d.name}</div>
-              <div className="rent-stat-card__icon" style={{ background: `rgba(${d.tone === 'primary' ? '66,99,235' : d.tone === 'success' ? '22,163,74' : d.tone === 'info' ? '14,165,233' : '217,119,6'},0.1)`, color: DEPT_COLOR[d.tone] }}>
+              <div className="rent-stat-card__icon" style={{ background: `rgba(${d.tone === 'primary' ? '20,184,166' : d.tone === 'success' ? '22,163,74' : d.tone === 'info' ? '14,165,233' : '217,119,6'},0.1)`, color: DEPT_COLOR[d.tone] }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   {d.tone === 'primary' && (
                     <>
@@ -298,9 +298,9 @@ const Contacts = () => {
 
       {/* Contact Cards */}
       {loading ? (
-        <div className="rent-empty rent-mb-5">加载中...</div>
+        <div className="rent-empty rent-mb-5"><Spin size="small" /> 加载中...</div>
       ) : visible.length === 0 ? (
-        <div className="rent-empty rent-mb-5">暂无员工联系方式</div>
+        <div className="rent-empty rent-mb-5"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无员工联系方式" /></div>
       ) : (
         <div className="rent-grid rent-grid--auto rent-mb-5">
           {visible.map((e) => {

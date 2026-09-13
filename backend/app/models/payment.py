@@ -47,7 +47,7 @@ class Payment(TimestampMixin, table=True):
     property_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="properties.id"
     )
-    payer_id: uuid.UUID = Field(foreign_key="users.id")
+    payer_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     payee_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     amount: float = Field(gt=0)
     currency: str = Field(default="THB", max_length=3)
@@ -56,7 +56,7 @@ class Payment(TimestampMixin, table=True):
     channel: Optional[str] = None  # stripe/promptpay/wechat/alipay/wise 等
     channel_transaction_id: Optional[str] = None
     idempotency_key: str = Field(unique=True, index=True)
-    due_date: Optional[datetime] = None
+    due_date: Optional[datetime] = Field(default=None, index=True)
     paid_at: Optional[datetime] = None
     failure_reason: Optional[str] = None
     receipt_url: Optional[str] = None

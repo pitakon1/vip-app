@@ -1,0 +1,432 @@
+.tenant-listings-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+
+  .page-container {
+    padding: 24px 24px 40px;
+  }
+
+  .list-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 24px;
+
+    .list-sub {
+      font-size: 24px;
+      font-weight: 400;
+      color: var(--ink-3);
+    }
+  }
+
+  /* ===== 贝壳式 Tab 筛选栏（点击后从顶部下拉面板）===== */
+  .filter-zone {
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .filter-bar {
+    display: flex;
+    background-color: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+
+    .filter-tab {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 22px 0 20px;
+      position: relative;
+      border: none;
+      outline: none;
+      background: transparent;
+      min-width: 0;
+
+      .filter-tab__label {
+        font-size: 28px;
+        color: var(--ink-2);
+        font-weight: 500;
+        max-width: 104px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .filter-tab__badge {
+        min-width: 30px;
+        height: 30px;
+        padding: 0 6px;
+        border-radius: 999px;
+        background-color: #dc2626;
+        color: #fff;
+        font-size: 20px;
+        line-height: 30px;
+        text-align: center;
+        margin-left: 2px;
+      }
+
+      .filter-tab__arrow {
+        font-size: 20px;
+        color: var(--ink-3);
+      }
+
+      &--active {
+        .filter-tab__label {
+          color: var(--primary);
+          font-weight: 600;
+        }
+        .filter-tab__arrow {
+          color: var(--primary);
+        }
+        &::after {
+          content: '';
+          position: absolute;
+          left: 20px;
+          right: 20px;
+          bottom: 0;
+          height: 6px;
+          border-radius: 6px 6px 0 0;
+          background-color: var(--primary);
+        }
+      }
+    }
+  }
+
+  /* ===== 下拉面板（贝壳式：快捷 chips + 自定义输入 + 重置/确定）===== */
+  .filter-drop {
+    background-color: var(--card);
+    border-radius: 0 0 16px 16px;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+    padding: 8px 24px 18px;
+
+    .filter-drop__tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+
+      .filter-subtab {
+        padding: 10px 26px;
+        border-radius: 999px;
+        background-color: var(--surface-2);
+        color: var(--ink-2);
+        font-size: 26px;
+        font-weight: 500;
+
+        &--active {
+          background-color: color-mix(in srgb, var(--primary) 12%, #fff);
+          color: var(--primary);
+          font-weight: 600;
+        }
+      }
+    }
+
+    .filter-group__title {
+      font-size: 26px;
+      font-weight: 600;
+      color: var(--ink-2);
+      margin: 6px 0 12px;
+    }
+
+    .filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+
+      .filter-chip {
+        padding: 10px 22px;
+        border-radius: 999px;
+        background-color: var(--surface-2);
+        color: var(--ink);
+        font-size: 24px;
+        max-width: 100%;
+
+        &--active {
+          background-color: var(--primary);
+          color: var(--primary-foreground, #fff);
+          font-weight: 600;
+        }
+      }
+    }
+
+    .filter-drop__body {
+      max-height: 42vh;
+    }
+
+    .filter-region-scroll {
+      max-height: 42vh;
+      padding: 4px 4px 4px 0;
+    }
+
+    .filter-metro {
+      display: flex;
+      flex-direction: column;
+      max-height: 46vh;
+
+      .filter-metro__lines {
+        white-space: nowrap;
+        width: 100%;
+        margin-bottom: 14px;
+
+        .loc-line {
+          display: inline-block;
+          padding: 10px 20px;
+          border-radius: 999px;
+          background-color: var(--surface-2);
+          color: var(--ink-2);
+          font-size: 24px;
+          margin-right: 12px;
+
+          &--active {
+            background-color: var(--primary);
+            color: var(--primary-foreground, #fff);
+            font-weight: 600;
+          }
+        }
+      }
+
+      .filter-metro__stations {
+        max-height: 32vh;
+      }
+    }
+
+    .price-custom {
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+      margin-top: 4px;
+
+      .price-input {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        border-bottom: 2px solid var(--border, #e5e7eb);
+        padding-bottom: 8px;
+
+        .price-input__cur {
+          font-size: 28px;
+          color: var(--ink-2);
+          margin-right: 8px;
+        }
+
+        .price-input__field {
+          flex: 1;
+          font-size: 30px;
+          color: var(--ink);
+          height: 48px;
+        }
+
+        .price-input__unit {
+          font-size: 22px;
+          color: var(--ink-3);
+          margin-left: 8px;
+          white-space: nowrap;
+        }
+      }
+
+      .price-custom__divider {
+        font-size: 26px;
+        color: var(--ink-3);
+        padding-bottom: 12px;
+      }
+    }
+
+    .price-custom__hint {
+      font-size: 22px;
+      color: var(--ink-3);
+      margin-top: 12px;
+    }
+
+    .filter-drop__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-top: 18px;
+
+      .loc-btn {
+        flex: 1;
+        text-align: center;
+        padding: 18px 0;
+        border-radius: 999px;
+        font-size: 30px;
+        font-weight: 600;
+
+        &--ghost {
+          background-color: var(--surface-2);
+          color: var(--ink-2);
+        }
+
+        &--primary {
+          background-color: var(--primary);
+          color: var(--primary-foreground, #fff);
+        }
+      }
+    }
+
+    /* 排序面板：整行列表 */
+    .filter-sort {
+      padding: 6px 0;
+
+      .filter-sort__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 22px 8px;
+        font-size: 28px;
+        color: var(--ink);
+        border-bottom: 2px solid var(--surface-2);
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        &--active {
+          color: var(--primary);
+          font-weight: 600;
+        }
+
+        .filter-sort__check {
+          color: var(--primary);
+          font-size: 28px;
+        }
+      }
+    }
+  }
+
+  .loc-group {
+    margin-bottom: 16px;
+
+    .loc-group__title {
+      font-size: 26px;
+      font-weight: 600;
+      color: var(--ink-2);
+      margin-bottom: 12px;
+    }
+  }
+
+  .list-scroll {
+    height: auto;
+
+    .empty-tip {
+      text-align: center;
+      color: var(--ink-3);
+      font-size: 26px;
+      padding: 80px 0;
+    }
+
+    .house-card {
+      display: flex;
+      background-color: var(--card);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-top: 6px solid var(--primary);
+      position: relative;
+
+      .house-fav {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        z-index: 2;
+        width: 56px;
+        height: 56px;
+        background-color: rgba(255, 255, 255, 0.9);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .house-fav-icon {
+          font-size: 36px;
+          line-height: 1;
+          color: #c4c4c4;
+
+          &.is-faved {
+            color: #dc2626;
+          }
+        }
+      }
+
+      .house-thumb {
+        width: 200px;
+        height: 200px;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-right: 20px;
+
+        .house-img {
+          width: 200px;
+          height: 200px;
+        }
+
+        .house-thumb-ph {
+          width: 200px;
+          height: 200px;
+          background-color: var(--surface-2);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--ink-3);
+          font-size: 26px;
+        }
+      }
+
+      .house-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+
+        .house-title {
+          font-size: 30px;
+          font-weight: 600;
+          color: var(--ink);
+        }
+
+        .house-addr {
+          margin-top: 8px;
+          font-size: 24px;
+          color: var(--ink-2);
+        }
+
+        .house-tags {
+          display: flex;
+          align-items: center;
+          margin-top: 12px;
+
+          .house-tag {
+            font-size: 22px;
+            color: var(--ink-2);
+            background-color: var(--surface-2);
+            padding: 4px 12px;
+            border-radius: 8px;
+            margin-right: 12px;
+          }
+
+          .house-status {
+            font-size: 22px;
+            font-weight: 600;
+          }
+        }
+
+        .house-rent {
+          margin-top: auto;
+          padding-top: 12px;
+          font-size: 36px;
+          font-weight: 700;
+          color: var(--primary);
+
+          .house-rent-unit {
+            font-size: 22px;
+            font-weight: 400;
+            color: var(--ink-2);
+          }
+        }
+      }
+    }
+  }
+}

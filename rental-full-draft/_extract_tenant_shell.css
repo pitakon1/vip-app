@@ -1,0 +1,1707 @@
+﻿
+/* =========================================================
+   房地产租赁管理后台 — 品牌设计令牌 (Modern Light)
+   单一靛蓝主色 · 冷调浅灰底 · 白色卡片 · 细边框 · 克制圆角
+   ========================================================= */
+
+:root {
+  /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
+  --rent-background: #f2f4f8;
+  --rent-foreground: #0f172a;
+  --rent-card: #ffffff;
+  --rent-card-foreground: #0f172a;
+  --rent-popover: #ffffff;
+  --rent-popover-foreground: #0f172a;
+  --rent-primary: #14b8a6;
+  --rent-primary-foreground: #ffffff;
+  --rent-muted: #f1f5f9;
+  --rent-muted-foreground: #64748b;
+  --rent-border: #e6eaf0;
+  --rent-input: #e6eaf0;
+  --rent-ring: #14b8a6;
+
+  /* ---- 中性阶梯（直接引用） ---- */
+  --rent-ink: #0f172a;
+  --rent-ink-2: #475569;
+  --rent-ink-3: #94a3b8;
+  --rent-line: #e6eaf0;
+  --rent-surface: #ffffff;
+  --rent-surface-2: #f1f5f9;
+  --rent-sidebar: #ffffff;
+  --rent-sidebar-active: #d9f2ee;
+
+  /* ---- 状态色（仅语义状态） ---- */
+  --state-success: #16a34a;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #0ea5e9;
+
+  /* ---- 圆角（克制阶梯，上限 16px） ---- */
+  --rent-radius-sm: 6px;
+  --rent-radius-md: 12px;
+  --rent-radius-lg: 20px;
+  --rent-radius-full: 9999px;
+
+  /* ---- 阴影（静态面 alpha ≤ 0.05；深阴影仅浮层） ---- */
+  --rent-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --rent-shadow-2: 0 12px 32px -12px rgba(15, 23, 42, 0.16);
+  --rent-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.30);
+
+  /* ---- 间距（8pt 网格） ---- */
+  --rent-s-1: 4px;
+  --rent-s-2: 8px;
+  --rent-s-3: 12px;
+  --rent-s-4: 16px;
+  --rent-s-5: 24px;
+  --rent-s-6: 32px;
+  --rent-s-7: 48px;
+  --rent-s-8: 80px;
+
+  /* ---- 字体系统 ---- */
+  --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  color-scheme: light;
+}
+
+/* ---- 暗色模式（双模变量，设计态默认 light） ---- */
+.dark {
+  --rent-background: #0b0f1a;
+  --rent-foreground: #e8edf5;
+  --rent-card: #141a26;
+  --rent-card-foreground: #e8edf5;
+  --rent-popover: #141a26;
+  --rent-popover-foreground: #e8edf5;
+  --rent-primary: #2dd4bf;
+  --rent-primary-foreground: #0b0f1a;
+  --rent-muted: #1c2433;
+  --rent-muted-foreground: #94a3b8;
+  --rent-border: #243044;
+  --rent-input: #243044;
+  --rent-ring: #2dd4bf;
+
+  --rent-ink: #e8edf5;
+  --rent-ink-2: #a3aec2;
+  --rent-ink-3: #64748b;
+  --rent-line: #243044;
+  --rent-surface: #141a26;
+  --rent-surface-2: #1c2433;
+  --rent-sidebar: #0f1521;
+  --rent-sidebar-active: #1e2a44;
+
+  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --rent-shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.50);
+  --rent-shadow-3: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+
+  color-scheme: dark;
+}
+
+/* ---- 排版类 ---- */
+.rent-h1 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(24px, 2.6vw, 32px);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--rent-ink);
+}
+
+.rent-h2 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(20px, 2vw, 24px);
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--rent-ink);
+}
+
+.rent-h3 {
+  font-family: var(--rent-font-sans);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--rent-ink);
+}
+
+.rent-body-lg {
+  font-family: var(--rent-font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-body {
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-caption {
+  font-family: var(--rent-font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: var(--rent-ink-3);
+}
+
+.rent-mono {
+  font-family: var(--rent-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.rent-num {
+  font-family: var(--rent-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+    
+
+  @theme inline {
+    --color-background: var(--rent-background);
+    --color-foreground: var(--rent-foreground);
+    --color-card: var(--rent-card);
+    --color-card-foreground: var(--rent-card-foreground);
+    --color-popover: var(--rent-popover);
+    --color-popover-foreground: var(--rent-popover-foreground);
+    --color-primary: var(--rent-primary);
+    --color-primary-foreground: var(--rent-primary-foreground);
+    --color-muted: var(--rent-muted);
+    --color-muted-foreground: var(--rent-muted-foreground);
+    --color-border: var(--rent-border);
+    --color-input: var(--rent-input);
+    --color-ring: var(--rent-ring);
+    --color-sidebar: var(--rent-sidebar);
+    --radius-sm: var(--rent-radius-sm);
+    --radius-md: var(--rent-radius-md);
+    --radius-lg: var(--rent-radius-lg);
+  }
+  @layer base {
+    body { background: var(--rent-background); color: var(--rent-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    
+
+      .bg-background { background-color: var(--rent-background); }
+      .text-background { color: var(--rent-background); }
+      .border-background { border-color: var(--rent-background); }
+      .ring-background { --tw-ring-color: var(--rent-background); }
+      .bg-foreground { background-color: var(--rent-foreground); }
+      .text-foreground { color: var(--rent-foreground); }
+      .border-foreground { border-color: var(--rent-foreground); }
+      .ring-foreground { --tw-ring-color: var(--rent-foreground); }
+      .bg-card { background-color: var(--rent-card); }
+      .text-card { color: var(--rent-card); }
+      .border-card { border-color: var(--rent-card); }
+      .ring-card { --tw-ring-color: var(--rent-card); }
+      .bg-card-foreground { background-color: var(--rent-card-foreground); }
+      .text-card-foreground { color: var(--rent-card-foreground); }
+      .border-card-foreground { border-color: var(--rent-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--rent-card-foreground); }
+      .bg-popover { background-color: var(--rent-popover); }
+      .text-popover { color: var(--rent-popover); }
+      .border-popover { border-color: var(--rent-popover); }
+      .ring-popover { --tw-ring-color: var(--rent-popover); }
+      .bg-popover-foreground { background-color: var(--rent-popover-foreground); }
+      .text-popover-foreground { color: var(--rent-popover-foreground); }
+      .border-popover-foreground { border-color: var(--rent-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--rent-popover-foreground); }
+      .bg-primary { background-color: var(--rent-primary); }
+      .text-primary { color: var(--rent-primary); }
+      .border-primary { border-color: var(--rent-primary); }
+      .ring-primary { --tw-ring-color: var(--rent-primary); }
+      .bg-primary-foreground { background-color: var(--rent-primary-foreground); }
+      .text-primary-foreground { color: var(--rent-primary-foreground); }
+      .border-primary-foreground { border-color: var(--rent-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--rent-primary-foreground); }
+      .bg-muted { background-color: var(--rent-muted); }
+      .text-muted { color: var(--rent-muted); }
+      .border-muted { border-color: var(--rent-muted); }
+      .ring-muted { --tw-ring-color: var(--rent-muted); }
+      .bg-muted-foreground { background-color: var(--rent-muted-foreground); }
+      .text-muted-foreground { color: var(--rent-muted-foreground); }
+      .border-muted-foreground { border-color: var(--rent-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--rent-muted-foreground); }
+      .bg-border { background-color: var(--rent-border); }
+      .text-border { color: var(--rent-border); }
+      .border-border { border-color: var(--rent-border); }
+      .ring-border { --tw-ring-color: var(--rent-border); }
+      .bg-input { background-color: var(--rent-input); }
+      .text-input { color: var(--rent-input); }
+      .border-input { border-color: var(--rent-input); }
+      .ring-input { --tw-ring-color: var(--rent-input); }
+      .bg-ring { background-color: var(--rent-ring); }
+      .text-ring { color: var(--rent-ring); }
+      .border-ring { border-color: var(--rent-ring); }
+      .ring-ring { --tw-ring-color: var(--rent-ring); }
+      .bg-sidebar { background-color: var(--rent-sidebar); }
+      .text-sidebar { color: var(--rent-sidebar); }
+      .border-sidebar { border-color: var(--rent-sidebar); }
+      .ring-sidebar { --tw-ring-color: var(--rent-sidebar); }
+    
+
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    
+
+/* ===== App Shell Layout ===== */
+.rent-app {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas: "sidebar topbar" "sidebar main";
+  height: 100vh;
+  background: var(--rent-background);
+}
+.rent-app__sidebar { grid-area: sidebar; }
+.rent-app__topbar { grid-area: topbar; }
+.rent-app__main { grid-area: main; overflow-y: auto; }
+
+/* ===== Sidebar ===== */
+.rent-sidebar {
+  background: var(--rent-sidebar);
+  border-right: 1px solid var(--rent-border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+.rent-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  height: 56px;
+  border-bottom: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+.rent-sidebar__logo {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-primary);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 16px;
+  flex-shrink: 0;
+}
+.rent-sidebar__name {
+  font-family: var(--rent-font-sans);
+  font-size: 15px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  list-style: none;
+  margin: 0;
+}
+.rent-sidebar__section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rent-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 16px 12px 6px;
+}
+.rent-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 2px;
+}
+.rent-nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.rent-nav-item[data-active="true"] {
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-nav-item__icon {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-sidebar__footer {
+  padding: 12px;
+  border-top: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+
+/* ===== Topbar ===== */
+.rent-topbar {
+  background: var(--rent-surface);
+  border-bottom: 1px solid var(--rent-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.rent-topbar__left { display: flex; align-items: center; gap: 16px; }
+.rent-topbar__title {
+  font-size: 18px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-topbar__right { display: flex; align-items: center; gap: 12px; }
+.rent-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--rent-surface-2);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 7px 12px;
+  width: 280px;
+}
+.rent-search input {
+  border: none; background: none; outline: none;
+  font-size: 13px; color: var(--rent-ink);
+  flex: 1;
+  font-family: var(--rent-font-sans);
+}
+.rent-search input::placeholder { color: var(--rent-ink-3); }
+.rent-icon-btn {
+  width: 36px; height: 36px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+}
+.rent-icon-btn:hover { background: var(--rent-surface-2); }
+.rent-icon-btn__badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 16px; height: 16px;
+  border-radius: var(--rent-radius-full);
+  background: var(--state-error);
+  color: #fff;
+  font-size: 10px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-avatar {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+  flex-shrink: 0;
+}
+.rent-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
+.rent-avatar--lg { width: 48px; height: 48px; font-size: 18px; }
+
+/* ===== Main Content ===== */
+.rent-main {
+  padding: 24px;
+  max-width: 100%;
+}
+.rent-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+.rent-page-header__title {
+  font-size: 24px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.rent-page-header__subtitle {
+  font-size: 14px;
+  color: var(--rent-ink-3);
+}
+.rent-page-header__actions {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===== Card ===== */
+.rent-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  overflow: hidden;
+}
+.rent-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-card__title {
+  font-size: 16px; font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0;
+}
+.rent-card__body { padding: 20px; }
+.rent-card__footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--rent-border);
+  background: var(--rent-surface-2);
+}
+
+/* ===== Button ===== */
+.rent-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--rent-font-sans);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.rent-btn--primary {
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
+}
+.rent-btn--primary:hover { background: #0d9488; }
+.rent-btn--secondary {
+  background: var(--rent-surface);
+  border-color: var(--rent-border);
+  color: var(--rent-ink);
+}
+.rent-btn--secondary:hover { background: var(--rent-surface-2); }
+.rent-btn--ghost {
+  background: transparent;
+  color: var(--rent-ink-2);
+}
+.rent-btn--ghost:hover { background: var(--rent-surface-2); }
+.rent-btn--danger {
+  background: var(--state-error);
+  color: #fff;
+}
+.rent-btn--danger:hover { background: #b91c1c; }
+.rent-btn--success {
+  background: var(--state-success);
+  color: #fff;
+}
+.rent-btn--sm { padding: 5px 12px; font-size: 13px; }
+.rent-btn--lg { padding: 12px 24px; font-size: 15px; }
+.rent-btn--block { width: 100%; }
+.rent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== Table ===== */
+.rent-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--rent-radius-lg);
+  border: 1px solid var(--rent-border);
+}
+.rent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.rent-table thead th {
+  background: var(--rent-surface-2);
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  border-bottom: 1px solid var(--rent-border);
+  white-space: nowrap;
+}
+.rent-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rent-border);
+  color: var(--rent-ink);
+  vertical-align: middle;
+}
+.rent-table tbody tr:last-child td { border-bottom: none; }
+.rent-table tbody tr:hover { background: var(--rent-surface-2); }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+
+/* ===== Badge ===== */
+.rent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--rent-radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.rent-badge--success { background: rgba(22,163,74,0.1); color: var(--state-success); }
+.rent-badge--warning { background: rgba(217,119,6,0.1); color: var(--state-warning); }
+.rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
+.rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
+.rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
+.rent-badge--primary { background: rgba(20,184,166,0.1); color: var(--rent-primary); }
+.rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+/* ===== KPI / Stat Card ===== */
+.rent-stat-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+}
+.rent-stat-card__label {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-bottom: 8px;
+}
+.rent-stat-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.rent-stat-card__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.rent-stat-card__delta--up { color: var(--state-success); }
+.rent-stat-card__delta--down { color: var(--state-error); }
+.rent-stat-card__icon {
+  width: 40px; height: 40px;
+  border-radius: var(--rent-radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===== Grid Utilities ===== */
+.rent-grid { display: grid; gap: 16px; }
+.rent-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.rent-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.rent-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.rent-grid--auto { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+
+/* ===== Misc ===== */
+.rent-divider { height: 1px; background: var(--rent-border); margin: 16px 0; border: none; }
+.rent-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--rent-ink-3);
+}
+.rent-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--rent-border);
+  margin-bottom: 20px;
+}
+.rent-tab {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.rent-tab:hover { color: var(--rent-ink); }
+.rent-tab[data-active="true"] {
+  color: var(--rent-primary);
+  border-bottom-color: var(--rent-primary);
+}
+.rent-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-full);
+  overflow: hidden;
+}
+.rent-progress__bar {
+  height: 100%;
+  background: var(--rent-primary);
+  border-radius: var(--rent-radius-full);
+  transition: width 0.3s;
+}
+
+/* ===== Utility ===== */
+.rent-flex { display: flex; }
+.rent-flex--center { align-items: center; justify-content: center; }
+.rent-flex--between { align-items: center; justify-content: space-between; }
+.rent-flex--col { flex-direction: column; }
+.rent-gap-2 { gap: 8px; }
+.rent-gap-3 { gap: 12px; }
+.rent-gap-4 { gap: 16px; }
+.rent-mt-2 { margin-top: 8px; }
+.rent-mt-3 { margin-top: 12px; }
+.rent-mt-4 { margin-top: 16px; }
+.rent-mt-5 { margin-top: 24px; }
+.rent-mb-2 { margin-bottom: 8px; }
+.rent-mb-3 { margin-bottom: 12px; }
+.rent-mb-4 { margin-bottom: 16px; }
+.rent-mb-5 { margin-bottom: 24px; }
+.rent-text-right { text-align: right; }
+.rent-text-center { text-align: center; }
+.rent-text-sm { font-size: 13px; }
+.rent-text-muted { color: var(--rent-ink-3); }
+.rent-text-bold { font-weight: 600; }
+.rent-w-full { width: 100%; }
+
+/* ===== Timeline ===== */
+.rent-timeline { position: relative; padding-left: 24px; }
+.rent-timeline::before {
+  content: "";
+  position: absolute;
+  left: 7px; top: 4px; bottom: 4px;
+  width: 2px;
+  background: var(--rent-border);
+}
+.rent-timeline__item {
+  position: relative;
+  padding-bottom: 20px;
+}
+.rent-timeline__item:last-child { padding-bottom: 0; }
+.rent-timeline__dot {
+  position: absolute;
+  left: -24px; top: 4px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 3px solid var(--rent-surface);
+  box-shadow: 0 0 0 2px var(--rent-border);
+  background: var(--rent-ink-3);
+}
+.rent-timeline__dot--success { background: var(--state-success); box-shadow: 0 0 0 2px rgba(22,163,74,0.2); }
+.rent-timeline__dot--info { background: var(--state-info); box-shadow: 0 0 0 2px rgba(14,165,233,0.2); }
+.rent-timeline__dot--warning { background: var(--state-warning); box-shadow: 0 0 0 2px rgba(217,119,6,0.2); }
+.rent-timeline__dot--neutral { background: var(--rent-ink-3); box-shadow: 0 0 0 2px var(--rent-border); }
+
+/* ===== Portal Shell ===== */
+.rent-portal {
+  min-height: 100vh;
+  background: var(--rent-background);
+}
+.rent-portal__header {
+  background: var(--rent-surface);
+  border-bottom: 1px solid var(--rent-border);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: var(--rent-shadow-1);
+}
+.rent-portal__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.rent-portal__logo {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.rent-portal__name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-portal__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.rent-portal__nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.rent-portal__nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.rent-portal__nav-item[data-active="true"] {
+  color: var(--rent-primary);
+  font-weight: 600;
+  background: var(--rent-sidebar-active);
+}
+.rent-portal__nav-icon { width: 18px; height: 18px; flex-shrink: 0; }
+.rent-portal__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.rent-portal__main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 40px;
+}
+.rent-portal__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+/* =========================================================
+   消费级门户组件 (Consumer-grade portal components)
+   ========================================================= */
+
+/* ----- Section frame ----- */
+.rent-section { margin-bottom: 32px; }
+.rent-section:last-child { margin-bottom: 0; }
+.rent-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+.rent-section__title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+.rent-section__link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-primary);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 0.15s;
+}
+.rent-section__link:hover { opacity: 0.75; }
+
+/* ----- Hero (大视觉渐变卡片) ----- */
+.rent-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #14b8a6 0%, #5b3fd6 55%, #7c3aed 100%);
+  border-radius: 24px;
+  padding: 40px;
+  margin-bottom: 32px;
+  color: #fff;
+  box-shadow: 0 20px 50px -20px rgba(20,184,166, 0.55);
+}
+.rent-hero__decor {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.rent-hero__decor--1 {
+  width: 340px; height: 340px;
+  top: -130px; right: -90px;
+  background: rgba(255, 255, 255, 0.10);
+}
+.rent-hero__decor--2 {
+  width: 220px; height: 220px;
+  bottom: -110px; right: 200px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.rent-hero__decor--3 {
+  width: 130px; height: 130px;
+  top: 30px; right: 320px;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+}
+.rent-hero__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.rent-hero__greeting { flex: 1; min-width: 240px; }
+.rent-hero__hi {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0 0 10px;
+  letter-spacing: 0.02em;
+}
+.rent-hero__title {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 16px;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: #fff;
+}
+.rent-hero__property {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--rent-radius-full);
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  margin: 0;
+}
+.rent-hero__panels {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.rent-hero__panel {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  padding: 18px 22px;
+  min-width: 190px;
+  backdrop-filter: blur(6px);
+}
+.rent-hero__panel-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+.rent-hero__panel-value {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.rent-hero__panel-value small {
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.rent-hero__panel-tag {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 6px;
+}
+.rent-hero__lease-bar {
+  height: 6px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: var(--rent-radius-full);
+  overflow: hidden;
+  margin-top: 10px;
+}
+.rent-hero__lease-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffffff, #c7d2fe);
+  border-radius: var(--rent-radius-full);
+}
+.rent-hero__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: var(--rent-radius-full);
+  background: #fff;
+  color: var(--rent-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.3);
+}
+.rent-hero__cta:hover { transform: translateY(-1px); }
+
+/* ----- Quick actions 2x2 ----- */
+.rent-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+.rent-quick-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.rent-quick-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--rent-shadow-2);
+  border-color: transparent;
+}
+.rent-quick-card__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.rent-quick-card__body { flex: 1; min-width: 0; }
+.rent-quick-card__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0 0 4px;
+}
+.rent-quick-card__desc {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+}
+.rent-quick-card__arrow {
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+  transition: transform 0.2s, color 0.2s;
+}
+.rent-quick-card:hover .rent-quick-card__arrow {
+  color: var(--rent-primary);
+  transform: translateX(3px);
+}
+
+/* ----- Lease visualized card ----- */
+.rent-lease { padding: 24px; }
+.rent-lease__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+.rent-lease__heading {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0;
+}
+.rent-lease__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+.rent-lease__stat-label {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+.rent-lease__stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-lease__stat-value--mono {
+  font-family: var(--rent-font-mono);
+  font-size: 17px;
+}
+.rent-lease__progress-wrap {
+  background: var(--rent-surface-2);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.rent-lease__progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.rent-lease__progress-label {
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  font-weight: 500;
+}
+.rent-lease__progress-days {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rent-primary);
+  white-space: nowrap;
+}
+.rent-lease__progress {
+  height: 8px;
+  background: var(--rent-border);
+  border-radius: var(--rent-radius-full);
+  overflow: hidden;
+}
+.rent-lease__progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--rent-primary), #7c3aed);
+  border-radius: var(--rent-radius-full);
+}
+.rent-lease__progress-foot {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin-top: 8px;
+}
+
+/* ----- Reminder cards ----- */
+.rent-reminders {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+}
+.rent-reminder {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px 14px 18px;
+  background: var(--rent-surface-2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.rent-reminder::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+}
+.rent-reminder--warning::before { background: var(--state-warning); }
+.rent-reminder--info::before { background: var(--state-info); }
+.rent-reminder--neutral::before { background: var(--rent-ink-3); }
+.rent-reminder__icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.rent-reminder--warning .rent-reminder__icon { background: rgba(217, 119, 6, 0.12); color: var(--state-warning); }
+.rent-reminder--info .rent-reminder__icon { background: rgba(14, 165, 233, 0.12); color: var(--state-info); }
+.rent-reminder--neutral .rent-reminder__icon { background: rgba(148, 163, 184, 0.15); color: var(--rent-ink-2); }
+.rent-reminder__body { flex: 1; min-width: 0; }
+.rent-reminder__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0 0 3px;
+}
+.rent-reminder__desc {
+  font-size: 13px;
+  color: var(--rent-ink-2);
+}
+.rent-reminder__date {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* ----- Maintenance cards (horizontal flow) ----- */
+.rent-maint-flow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+.rent-maint-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: 16px;
+  padding: 20px;
+  transition: box-shadow 0.2s, transform 0.2s;
+  cursor: pointer;
+}
+.rent-maint-card:hover {
+  box-shadow: var(--rent-shadow-2);
+  transform: translateY(-2px);
+}
+.rent-maint-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.rent-maint-card__id {
+  font-family: var(--rent-font-mono);
+  font-size: 13px;
+  color: var(--rent-ink-3);
+}
+.rent-maint-card__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.rent-status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.rent-maint-card__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0 0 16px;
+}
+.rent-maint-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid var(--rent-border);
+}
+.rent-maint-card__prio {
+  font-size: 13px;
+  font-weight: 500;
+}
+.rent-maint-card__date {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+}
+
+/* ----- Two-column row ----- */
+.rent-row-2 {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* ----- Responsive ----- */
+@media (max-width: 980px) {
+  .rent-row-2 { grid-template-columns: 1fr; }
+  .rent-quick-grid { grid-template-columns: 1fr; }
+  .rent-maint-flow { grid-template-columns: 1fr; }
+  .rent-hero { padding: 28px; }
+  .rent-hero__title { font-size: 26px; }
+  .rent-portal__main { padding: 24px; }
+}
+
+
+/* =========================================================
+   HaoFang.World × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
+   保留靛蓝主色 #14b8a6 · 消费级 App 形态 · 大圆角卡片流
+   仅注入用户端页面 (租客/业主/员工)，后台管理不注入
+      注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
+   ========================================================= */
+
+/* ---- 全局背景 ---- */
+body {
+  background: var(--rent-background);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== 顶部导航 / 头部：毛玻璃白底 ===== */
+.rent-portal__header,
+.rent-topbar,
+.rent-mobile__header,
+.rent-pad__topbar {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 10px 30px -18px rgba(15, 23, 42, 0.18);
+}
+.rent-portal__logo,
+.rent-sidebar__logo,
+.rent-mobile__logo,
+.rent-pad__logo {
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(20,184,166, 0.35);
+}
+.rent-portal__nav-item,
+.rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
+
+/* ===== 搜索体验：胶囊搜索 ===== */
+.rent-search { border-radius: 999px; background: var(--rent-surface-2); }
+.rent-search input { background: transparent; }
+.rent-search-hero__bar {
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 10px 32px -10px rgba(20,184,166, 0.40);
+}
+.rent-search-hero__search-btn {
+  border-radius: 999px;
+  background: linear-gradient(135deg, #14b8a6, #2dd4bf);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.50);
+}
+.rent-search-hero__tag { border-radius: 999px; }
+
+/* ===== 筛选 chips：胶囊 ===== */
+.rent-filter-chip,
+.lj-filter-bar__chip,
+.rent-filter-chip[data-active="true"] { border-radius: 999px; }
+.rent-filter-bar {
+  border-radius: var(--rent-radius-lg);
+  background: var(--rent-card);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 卡片：大圆角 + 柔和浮起 ===== */
+.rent-card,
+.rent-stat-card,
+.rent-mobile__card,
+.rent-quick-action,
+.rent-prop-search-card,
+.rent-table-wrap {
+  border-radius: var(--rent-radius-lg);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+
+/* ===== 房源卡片：图片圆角 + 价格强调 ===== */
+.rent-prop-search-card { overflow: hidden; }
+.rent-prop-search-card__banner { border-radius: 0; }
+.rent-prop-search-card__price-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--rent-primary);
+  letter-spacing: -0.02em;
+}
+.rent-prop-search-card__price-unit { font-size: 12px; color: var(--rent-ink-3); }
+.rent-prop-search-card__tags .rent-badge,
+.rent-badge { border-radius: 999px; padding: 3px 10px; }
+.rent-prop-search-card__cta {
+  border-radius: 999px;
+  background: rgba(20,184,166, 0.08);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-prop-search-card__name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* ===== 金刚区 / 快捷入口：圆角宫格 ===== */
+.rent-quick-action,
+.rent-mobile__quick-action {
+  border-radius: 18px;
+  border: none;
+  box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.12);
+}
+.rent-quick-action__icon,
+.rent-mobile__quick-action-icon { border-radius: 16px; }
+
+/* ===== 按钮：渐变 + 柔和投影 ===== */
+.rent-btn { border-radius: 10px; }
+.rent-btn--primary {
+  border-radius: 12px;
+  background: linear-gradient(135deg, #14b8a6, #5b7cfa);
+  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.45);
+}
+
+/* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
+.rent-mobile__tab { border-radius: 14px; }
+.rent-mobile__tab[data-active="true"] {
+  background: rgba(20,184,166, 0.08);
+  font-weight: 600;
+}
+
+/* ===== 侧边栏导航 (web/pad) ===== */
+.rent-nav-item,
+.rent-pad__nav-item { border-radius: 12px; }
+.rent-nav-item[data-active="true"],
+.rent-pad__nav-item[data-active="true"] {
+  background: linear-gradient(135deg, rgba(20,184,166, 0.10), rgba(107, 130, 245, 0.08));
+  font-weight: 600;
+}
+
+/* ===== Hero 渐变强化 ===== */
+.rent-hero,
+.rent-portal-hero,
+.rent-mobile__hero {
+  background: linear-gradient(135deg, #14b8a6 0%, #5b7cfa 55%, #2dd4bf 100%);
+}
+
+/* ===== 头像 ===== */
+.rent-avatar { border-radius: 14px; }
+.rent-avatar--sm { border-radius: 10px; }
+
+    
+
+      /* ===== 任务驱动首页扩展（租客待办区） ===== */
+      .rent-todo-pay { position: relative; overflow: hidden; border: 1px solid rgba(20,184,166,0.28); background: linear-gradient(135deg, #f3f6ff 0%, #e9efff 100%); }
+      .rent-todo-pay::after { content: ""; position: absolute; right: -46px; top: -46px; width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle, rgba(20,184,166,0.14), transparent 70%); pointer-events: none; }
+      .rent-todo-pay__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; position: relative; z-index: 1; }
+      .rent-todo-pay__due { font-size: 13px; font-weight: 600; color: var(--state-warning); }
+      .rent-todo-pay__label { font-size: 14px; color: var(--rent-ink-3); margin-bottom: 2px; position: relative; z-index: 1; }
+      .rent-todo-pay__amount { font-size: 40px; font-weight: 800; color: var(--rent-ink); letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 6px; font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
+      .rent-todo-pay__sub { font-size: 13px; color: var(--rent-ink-3); margin: 0 0 16px; position: relative; z-index: 1; }
+      .rent-todo-pay__cta { font-size: 16px; height: 48px; border-radius: 14px; position: relative; z-index: 1; box-shadow: 0 8px 20px -8px rgba(20,184,166,0.55); }
+      .rent-todo-maint__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+      .rent-todo-maint__id { font-family: var(--rent-font-mono); font-size: 12px; color: var(--rent-ink-3); }
+      .rent-todo-maint__title { font-size: 17px; font-weight: 700; color: var(--rent-ink); margin-bottom: 4px; }
+      .rent-todo-maint__desc { font-size: 13px; color: var(--rent-ink-3); margin-bottom: 14px; }
+      .rent-todo-maint__bar { margin-bottom: 12px; }
+      .rent-todo-maint__foot { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--rent-ink-3); }
+      .rent-todo-lease__name { font-size: 17px; font-weight: 700; color: var(--rent-ink); }
+      .rent-todo-lease__meta { font-size: 13px; color: var(--rent-ink-3); margin: 4px 0 14px; }
+      .rent-todo-lease__bar { margin-bottom: 10px; }
+      .rent-todo-lease__foot { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--rent-ink-3); }
+      .rent-todo-strip { display: grid; grid-template-columns: 1.25fr 1fr; gap: 16px; }
+      .rent-todo-main-grid { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap: 16px; align-items: start; }
+      .rent-todo-left { display: flex; flex-direction: column; gap: 16px; }
+      .rent-todo-feed__title { font-size: 14px; font-weight: 600; color: var(--rent-ink); }
+      .rent-todo-feed__sub { font-size: 13px; color: var(--rent-ink-3); margin-top: 2px; }
+      .rent-todo-feed__date { font-size: 12px; color: var(--rent-ink-3); margin-top: 2px; }
+      .rent-todo-quick-4 { grid-template-columns: repeat(4, 1fr); }
+      .rent-pad__main .rent-quick-action { text-decoration: none; color: var(--rent-ink); }
+      @media (max-width: 980px) { .rent-todo-strip, .rent-todo-main-grid { grid-template-columns: 1fr; } }
+    
+
+/* =========================================================
+   rent-v17 双业务门户（租房 × 买房）— 对标贝壳 C 端首页
+   依据 DESIGN.md §2.2 / §9A.2 / §9A.4
+   城市定位 + 搜索 + [租房/买房] Tab + 功能宫格 + 主题模块 + 大图房源流
+   全部类以 rv17- 前缀，不覆盖既有类
+   ========================================================= */
+.rv17-hero {
+  background: linear-gradient(135deg, #14b8a6 0%, #5b7cfa 55%, #2dd4bf 100%);
+  border-radius: 20px;
+  padding: 18px 20px;
+  color: #fff;
+  margin-bottom: 16px;
+  box-shadow: 0 16px 36px -18px rgba(20,184,166, 0.6);
+}
+.rv17-hero__loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 12px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: var(--rent-font-sans);
+  padding: 0;
+}
+.rv17-hero__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 8px 8px 16px;
+  box-shadow: 0 10px 28px -12px rgba(15, 23, 42, 0.4);
+}
+.rv17-hero__search-icon { color: var(--rent-ink-3); flex-shrink: 0; }
+.rv17-hero__search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font-size: 14px;
+  color: var(--rent-ink);
+  font-family: var(--rent-font-sans);
+  min-width: 0;
+}
+.rv17-hero__search input::placeholder { color: var(--rent-ink-3); }
+.rv17-hero__search-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #14b8a6, #5b7cfa);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 6px 14px -6px rgba(20,184,166, 0.6);
+}
+.rv17-tabs {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  border-bottom: 1px solid var(--rent-border);
+  margin-bottom: 14px;
+}
+.rv17-tab {
+  position: relative;
+  padding: 10px 2px 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink-2);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: color 0.15s;
+}
+.rv17-tab:hover { color: var(--rent-ink); }
+.rv17-tab[data-active="true"] { color: var(--rent-primary); }
+.rv17-tab[data-active="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--rent-primary);
+}
+.rv17-func-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 8px;
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 16px 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 6px 24px -14px rgba(15, 23, 42, 0.12);
+}
+.rv17-func-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border-radius: 14px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.rv17-func-item:hover { background: var(--rent-surface-2); }
+.rv17-func-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rv17-func-label { font-size: 12px; font-weight: 500; color: var(--rent-ink-2); }
+.rv17-sec { margin-bottom: 28px; }
+.rv17-sec:last-child { margin-bottom: 0; }
+.rv17-sec__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.rv17-sec__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.rv17-sec__more {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-primary);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.rv17-rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 2px 2px 10px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.rv17-rail::-webkit-scrollbar { display: none; }
+.rv17-rail { -ms-overflow-style: none; scrollbar-width: none; }
+.rv17-rail > * { scroll-snap-align: start; }
+.rv17-prop {
+  flex-shrink: 0;
+  width: 250px;
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: 16px;
+  overflow: hidden;
+  text-decoration: none;
+  box-shadow: 0 6px 20px -14px rgba(15, 23, 42, 0.14);
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+.rv17-prop:hover { transform: translateY(-3px); box-shadow: var(--rent-shadow-2); }
+.rv17-prop__img {
+  position: relative;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rv17-prop__img-icon { width: 46px; height: 46px; color: rgba(255, 255, 255, 0.92); }
+.rv17-prop__badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.rv17-prop__fav {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rent-ink-2);
+  cursor: pointer;
+  transition: color 0.15s, transform 0.15s;
+}
+.rv17-prop__fav:hover { color: var(--state-error); transform: scale(1.1); }
+.rv17-prop__body { padding: 12px 14px 14px; }
+.rv17-prop__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rv17-prop__addr {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin: 0 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rv17-prop__tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+.rv17-prop__tags .rent-badge { padding: 2px 8px; font-size: 11px; }
+.rv17-prop__bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.rv17-prop__price {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--rent-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.rv17-prop__price-unit { font-size: 11px; color: var(--rent-ink-3); font-weight: 500; margin-left: 2px; }
+.rv17-prop__meta { font-size: 11px; color: var(--rent-ink-3); }
+.rv17-comm {
+  flex-shrink: 0;
+  width: 240px;
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: 16px;
+  overflow: hidden;
+  text-decoration: none;
+  box-shadow: 0 6px 20px -14px rgba(15, 23, 42, 0.14);
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+.rv17-comm:hover { transform: translateY(-3px); box-shadow: var(--rent-shadow-2); }
+.rv17-comm__img {
+  position: relative;
+  height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rv17-comm__img-icon { width: 42px; height: 42px; color: rgba(255, 255, 255, 0.92); }
+.rv17-comm__badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(20,184,166, 0.92);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.rv17-comm__body { padding: 12px 14px 14px; }
+.rv17-comm__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rv17-comm__addr {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin: 0 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rv17-comm__price {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--rent-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.rv17-comm__price-unit { font-size: 11px; color: var(--rent-ink-3); font-weight: 500; margin-left: 2px; }
+.rv17-comm__sub { font-size: 11px; color: var(--rent-ink-3); margin-top: 4px; }
+@media (max-width: 560px) {
+  .rv17-prop { width: 205px; }
+  .rv17-prop__img { height: 122px; }
+  .rv17-comm { width: 195px; }
+  .rv17-comm__img { height: 106px; }
+}
+    

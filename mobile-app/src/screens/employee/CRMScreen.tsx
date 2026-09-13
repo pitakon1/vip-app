@@ -1,71 +1,115 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  RefreshControl,
+} from 'react-native';
 import Card from '../../components/Card';
 import colors from '../../theme/colors';
+import EmptyState from '../../components/EmptyState';
+import LoadingState from '../../components/LoadingState';
+import { employeesApi } from '../../services/api';
 
-interface Lead {
-  id: string;
-  name: string;
-  phone: string;
-  intention: 'high' | 'medium' | 'low';
-  status: 'new' | 'following' | 'deal' | 'lost';
-  note: string;
+interface FollowUpLease {
+  lease_id: string;
+  property_title?: string | null;
+  monthly_rent?: number;
+  currency?: string;
+  end_date?: string | null;
+  days_to_expire?: number | null;
 }
 
-const MOCK_LEADS: Lead[] = [
-  { id: '1', name: '张先生', phone: '138****1234', intention: 'high', status: 'following', note: '意向阳光花园 2 室' },
-  { id: '2', name: '李女士', phone: '139****5678', intention: 'medium', status: 'new', note: '预算 1 万以内' },
-  { id: '3', name: '王先生', phone: '137****9012', intention: 'high', status: 'deal', note: '已签约翠湖天地' },
-  { id: '4', name: '赵女士', phone: '135****3456', intention: 'low', status: 'lost', note: '价格不合适' },
-];
-
-const intentionMap: Record<Lead['intention'], { label: string; color: string }> = {
-  high: { label: '高意向', color: colors.error },
-  medium: { label: '中意向', color: colors.warning },
-  low: { label: '低意向', color: colors.success },
-};
-
-const statusMap: Record<Lead['status'], string> = {
-  new: '新线索',
-  following: '跟进中',
-  deal: '已成交',
-  lost: '已流失',
-};
+const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿');
 
 export default function CRMScreen() {
-  const [leads] = useState<Lead[]>(MOCK_LEADS);
+  const [leases, setLeases] = useState<FollowUpLease[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const renderItem = ({ item }: { item: Lead }) => {
-    const it = intentionMap[item.intention];
+  const load = useCallback(async () => {
+    try {
+      const res: any = await employeesApi.workbench();
+      const data = res?.data;
+      setLeases((data?.follow_up_leases ?? []) as FollowUpLease[]);
+    } catch {
+      /* 跟进租约加载失败不阻塞 */
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    load();
+  }, [load]);
+
+  const renderItem = ({ item }: { item: FollowUpLease }) => {
+    const d = item.days_to_expire;
+    const expireText =
+      d == null
+        ? '租期状态未知'
+        : d < 0
+        ? `已到期 ${-d} 天`
+        : d === 0
+        ? '今日到期'
+        : `距到期 ${d} 天`;
     return (
       <Card>
-        <View style={styles.row}>
-          <View style={styles.info}>
-            <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.phone}>{item.phone}</Text>
-          </View>
-          <View style={[styles.badge, { backgroundColor: it.color }]}>
-            <Text style={styles.badgeText}>{it.label}</Text>
+        <View style={styles.top}>
+          <Text style={styles.name} numberOfLines={1}>
+            {item.property_title || '房源'}
+          </Text>
+          <View
+            style={[
+              styles.expirePill,
+              d != null && d <= 7 ? styles.expirePillWarn : styles.expirePillOk,
+            ]}
+          >
+            <Text
+              style={[
+                styles.expire,
+                { color: d != null && d <= 7 ? colors.error : colors.ink3 },
+              ]}
+            >
+              {expireText}
+            </Text>
           </View>
         </View>
-        <Text style={styles.note}>{item.note}</Text>
-        <View style={styles.footer}>
-          <Text style={styles.status}>{statusMap[item.status]}</Text>
-          <TouchableOpacity style={styles.btn} activeOpacity={0.8}>
-            <Text style={styles.btnText}>跟进</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.rent}>
+          {cur(item.currency)}
+          {Number(item.monthly_rent || 0).toLocaleString()}/月
+        </Text>
       </Card>
     );
   };
 
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <LoadingState label="正在加载跟进租约…" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={leads}
-        keyExtractor={(item) => item.id}
+        data={leases}
+        keyExtractor={(item) => item.lease_id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListHeaderComponent={<Text style={styles.heading}>我的跟进租约</Text>}
+        ListEmptyComponent={<EmptyState icon="people-outline" title="暂无进行中的租约" sub="你跟进的客户租约到账后会展示在这里" />}
       />
     </View>
   );
@@ -73,16 +117,15 @@ export default function CRMScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  center: { flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
   list: { paddingVertical: 8 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  info: { flex: 1 },
-  name: { fontSize: 16, color: colors.text, fontWeight: '600' },
-  phone: { fontSize: 13, color: '#999', marginTop: 4 },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  badgeText: { color: '#fff', fontSize: 12 },
-  note: { fontSize: 13, color: '#666', marginTop: 10 },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
-  status: { fontSize: 13, color: colors.primary },
-  btn: { backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 6 },
-  btnText: { color: '#fff', fontSize: 13, fontWeight: '500' },
+  heading: { fontSize: 15, color: colors.text, fontWeight: '600', marginHorizontal: 12, marginBottom: 4 },
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  name: { flex: 1, fontSize: 16, color: colors.text, fontWeight: '600', marginRight: 8 },
+  expire: { fontSize: 12, fontWeight: '600' },
+  expirePill: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
+  expirePillWarn: { backgroundColor: '#fdeaea' },
+  expirePillOk: { backgroundColor: colors.surface2 },
+  rent: { color: colors.primary, fontSize: 15, fontWeight: '600', marginTop: 8 },
+  empty: { textAlign: 'center', color: colors.ink3, marginTop: 32 },
 });

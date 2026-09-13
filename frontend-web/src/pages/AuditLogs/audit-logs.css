@@ -1,0 +1,28 @@
+.audit-pii {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+}
+.audit-cell-link {
+  color: var(--rent-primary);
+  text-decoration: none;
+}
+.audit-cell-link:hover {
+  text-decoration: underline;
+}
+.audit-cell {
+  white-space: nowrap;
+}
+.db-amount {
+  font-variant-numeric: tabular-nums;
+}
+.db-bucket {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.db-bucket__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}

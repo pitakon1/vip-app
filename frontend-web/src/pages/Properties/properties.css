@@ -1,12 +1,130 @@
 /* =========================================================
-   房源列表页 —— 链家风格
-   垂直列表 · 左图右信息 · 管道符分隔 · 红色价格 · 标签 chips
+   房源管理列表页 — 链家风格 · 对齐品牌设计令牌
+   垂直列表 · 左图右信息 · 管道符分隔 · 状态色标签
    ========================================================= */
+
+/* ===== 管理后台房源卡片（rent-prop-card）===== */
+.rent-prop-card {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s;
+}
+.rent-prop-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 16px 32px -12px rgba(15, 23, 42, 0.15),
+    0 6px 12px -6px rgba(15, 23, 42, 0.08);
+}
+.rent-prop-card__banner {
+  position: relative;
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+  padding: 14px;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+.rent-prop-card:hover .rent-prop-card__banner {
+  transform: scale(1.02);
+}
+.rent-prop-card__banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.2) 100%);
+  pointer-events: none;
+}
+.rent-prop-card__type-badge {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: var(--rent-radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.rent-prop-card__body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+.rent-prop-card__name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  margin: 0;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  transition: color 0.15s;
+}
+.rent-prop-card:hover .rent-prop-card__name {
+  color: var(--rent-primary);
+}
+.rent-prop-card__address {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin: 0;
+}
+.rent-prop-card__stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--rent-border);
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-prop-card__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  font-weight: 500;
+}
+.rent-prop-card__stat svg { color: var(--rent-ink-3); flex-shrink: 0; }
+.rent-prop-card__rent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rent-prop-card__rent {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--rent-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.rent-prop-card__rent-unit {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  margin-left: 2px;
+}
+.rent-prop-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rent-border);
+  background: var(--rent-surface-2);
+}
 
 /* ===== 页面容器 ===== */
 .lj-page {
-  max-width: 1200px;
-  margin: 0 auto;
+  max-width: 100%;
 }
 
 /* ===== 顶部工具栏 ===== */
@@ -26,27 +144,28 @@
 .lj-toolbar__title {
   font-size: 20px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--rent-ink);
 }
 .lj-toolbar__sub {
   font-size: 13px;
-  color: #999;
+  color: var(--rent-ink-3);
 }
 
 /* ===== 搜索 + 筛选 ===== */
 .lj-filter {
-  background: #fff;
-  border-radius: 8px;
+  background: var(--rent-card);
+  border-radius: var(--rent-radius-lg) var(--rent-radius-lg) 0 0;
   padding: 20px 24px;
-  margin-bottom: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 0;
+  border: 1px solid var(--rent-border);
+  border-bottom: none;
 }
 .lj-filter__search {
   margin-bottom: 16px;
   max-width: 520px;
 }
 .lj-filter__search .ant-input-affix-wrapper-lg {
-  border-radius: 6px;
+  border-radius: var(--rent-radius-md);
 }
 .lj-filter__selects {
   display: flex;
@@ -59,7 +178,7 @@
   max-width: 220px;
 }
 .lj-filter__select .ant-select-selector {
-  border-radius: 6px;
+  border-radius: var(--rent-radius-md);
 }
 
 /* ===== 排序栏 ===== */
@@ -67,11 +186,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
-  border-radius: 8px;
+  background: var(--rent-card);
   padding: 0 24px;
-  margin-bottom: 0;
-  border-bottom: 1px solid #f0f0f0;
+  border: 1px solid var(--rent-border);
+  border-bottom: 1px solid var(--rent-border);
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -84,19 +202,19 @@
   position: relative;
   padding: 14px 20px;
   font-size: 14px;
-  color: #666;
+  color: var(--rent-ink-2);
   background: none;
   border: none;
   cursor: pointer;
   transition: color 0.15s;
-  font-family: inherit;
+  font-family: var(--rent-font-sans);
   white-space: nowrap;
 }
 .lj-sortbar__item:hover {
-  color: #3072f6;
+  color: var(--rent-primary);
 }
 .lj-sortbar__item[data-active='true'] {
-  color: #3072f6;
+  color: var(--rent-primary);
   font-weight: 600;
 }
 .lj-sortbar__item[data-active='true']::after {
@@ -108,24 +226,26 @@
   width: 24px;
   height: 3px;
   border-radius: 2px;
-  background: #3072f6;
+  background: var(--rent-primary);
 }
 .lj-sortbar__count {
   font-size: 13px;
-  color: #999;
+  color: var(--rent-ink-3);
   white-space: nowrap;
   padding: 14px 0;
 }
 .lj-sortbar__count-num {
-  color: #e4393c;
+  color: var(--state-error);
   font-weight: 700;
   font-size: 15px;
 }
 
 /* ===== 列表容器 ===== */
 .lj-list {
-  background: #fff;
-  border-radius: 0 0 8px 8px;
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-top: none;
+  border-radius: 0 0 var(--rent-radius-lg) var(--rent-radius-lg);
   overflow: hidden;
 }
 
@@ -134,7 +254,7 @@
   display: flex;
   gap: 20px;
   padding: 24px;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid var(--rent-border);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -142,7 +262,7 @@
   border-bottom: none;
 }
 .lj-item:hover {
-  background: #fafbfc;
+  background: var(--rent-surface-2);
 }
 
 /* 左侧图片占位 */
@@ -150,7 +270,7 @@
   width: 232px;
   height: 174px;
   flex-shrink: 0;
-  border-radius: 6px;
+  border-radius: var(--rent-radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -168,7 +288,7 @@
   top: 10px;
   left: 10px;
   padding: 3px 10px;
-  border-radius: 4px;
+  border-radius: var(--rent-radius-sm);
   font-size: 12px;
   font-weight: 600;
   color: #fff;
@@ -200,7 +320,7 @@
 .lj-item__title {
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--rent-ink);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -208,13 +328,13 @@
   transition: color 0.15s;
 }
 .lj-item:hover .lj-item__title {
-  color: #3072f6;
+  color: var(--rent-primary);
 }
 
 /* 信息行（管道符分隔） */
 .lj-item__info {
   font-size: 14px;
-  color: #666;
+  color: var(--rent-ink-2);
   line-height: 1.6;
   display: flex;
   align-items: center;
@@ -227,7 +347,7 @@
 }
 .lj-item__sep {
   font-style: normal;
-  color: #ddd;
+  color: var(--rent-border);
   margin: 0 10px;
   font-size: 12px;
 }
@@ -238,11 +358,11 @@
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #999;
+  color: var(--rent-ink-3);
 }
 .lj-item__meta-icon {
   font-size: 13px;
-  color: #bbb;
+  color: var(--rent-ink-3);
 }
 
 /* 标签 */
@@ -255,30 +375,30 @@
 .lj-chip {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: var(--rent-radius-sm);
   font-size: 12px;
   line-height: 1.6;
   white-space: nowrap;
 }
 .lj-chip--vacant {
-  color: #16a34a;
+  color: var(--state-success);
   background: rgba(22, 163, 74, 0.08);
 }
 .lj-chip--rented {
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.08);
+  color: var(--state-info);
+  background: rgba(14, 165, 233, 0.08);
 }
 .lj-chip--reserved {
   color: #9333ea;
   background: rgba(147, 51, 234, 0.08);
 }
 .lj-chip--maintenance {
-  color: #d97706;
+  color: var(--state-warning);
   background: rgba(217, 119, 6, 0.08);
 }
 .lj-chip--feature {
-  color: #3072f6;
-  background: rgba(48, 114, 246, 0.06);
+  color: var(--rent-primary);
+  background: rgba(20, 184, 166, 0.06);
 }
 
 /* 底部：价格 + 操作 */
@@ -298,18 +418,18 @@
 .lj-item__price-num {
   font-size: 26px;
   font-weight: 700;
-  color: #e4393c;
+  color: var(--state-error);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 .lj-item__price-unit {
   font-size: 13px;
-  color: #e4393c;
+  color: var(--state-error);
   margin-left: 2px;
 }
 .lj-item__price-per {
   font-size: 12px;
-  color: #999;
+  color: var(--rent-ink-3);
   margin-left: 12px;
 }
 .lj-item__actions {
@@ -320,8 +440,10 @@
 
 /* ===== 空状态 ===== */
 .lj-empty {
-  background: #fff;
-  border-radius: 0 0 8px 8px;
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-top: none;
+  border-radius: 0 0 var(--rent-radius-lg) var(--rent-radius-lg);
   padding: 80px 24px;
   text-align: center;
 }
@@ -330,9 +452,10 @@
 .lj-pagination {
   margin-top: 24px;
   text-align: center;
-  background: #fff;
+  background: var(--rent-card);
   padding: 16px;
-  border-radius: 8px;
+  border-radius: var(--rent-radius-lg);
+  border: 1px solid var(--rent-border);
 }
 .lj-pagination .ant-pagination {
   justify-content: center;

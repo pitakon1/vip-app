@@ -1,4 +1,5 @@
 """Dashboard 路由：运营数据概览。"""
+from collections import defaultdict
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
@@ -6,19 +7,21 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import require_agent
+from app.core.auth import require_agent, require_admin
 from app.core.cache import get_cache, set_cache
 from app.models import (
-    User,
-    Property,
-    PropertyStatus,
-    Lease,
-    LeaseStatus,
-    Payment,
-    PaymentStatus,
     Lead,
     LeadStage,
+    Lease,
+    LeaseStatus,
+    MaintenanceTicket,
+    Property,
+    PropertyStatus,
+    Payment,
+    PaymentStatus,
     Tenant,
+    User,
+    ViewingAppointment,
 )
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -199,22 +202,22 @@ def get_expiring_leases(
     return {
         "items": [
             {
-                "id": str(l.id),
-                "property_id": str(l.property_id),
-                "property_name": props.get(l.property_id).title
-                if props.get(l.property_id)
+                "id": str(lease.id),
+                "property_id": str(lease.property_id),
+                "property_name": props.get(lease.property_id).title
+                if props.get(lease.property_id)
                 else None,
-                "tenant_id": str(l.tenant_id),
-                "tenant_name": users.get(tenants.get(l.tenant_id).user_id).full_name
-                if tenants.get(l.tenant_id)
-                and users.get(tenants[l.tenant_id].user_id)
+                "tenant_id": str(lease.tenant_id),
+                "tenant_name": users.get(tenants.get(lease.tenant_id).user_id).full_name
+                if tenants.get(lease.tenant_id)
+                and users.get(tenants[lease.tenant_id].user_id)
                 else None,
-                "monthly_rent": l.monthly_rent,
-                "currency": l.currency,
-                "end_date": l.end_date.isoformat(),
-                "days_left": max(0, (l.end_date - now).days),
+                "monthly_rent": lease.monthly_rent,
+                "currency": lease.currency,
+                "end_date": lease.end_date.isoformat(),
+                "days_left": max(0, (lease.end_date - now).days),
             }
-            for l in leases
+            for lease in leases
         ]
     }
 
@@ -235,3 +238,145 @@ def get_property_status_distribution(
             {"status": str(s), "count": c} for s, c in statuses
         ]
     }
+
+
+@router.get("/financial-reconciliation")
+def financial_reconciliation(
+    session: Session = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    """财务对账明细（Admin）：按房源聚合已收/应收/逾期，并附逐笔记录。
+
+    供管理端「财务对账」页面渲染，形成管理端财权闭环。
+    """
+    payments = session.exec(
+        select(Payment).where(Payment.deleted_at.is_(None))
+    ).all()
+    props = {p.id: p for p in session.exec(select(Property)).all()}
+    now = datetime.utcnow()
+
+    by_property: dict[str, dict] = defaultdict(
+        lambda: {
+            "received": 0.0,
+            "receivable": 0.0,
+            "overdue": 0.0,
+            "count": 0,
+        }
+    )
+    records = []
+    for p in payments:
+        prop = props.get(p.property_id)
+        key = str(p.property_id) if p.property_id else "none"
+        amount = p.amount or 0
+        bucket = by_property[key]
+        bucket["count"] += 1
+        status = "received"
+        if p.status == PaymentStatus.succeeded:
+            bucket["received"] += amount
+        else:
+            is_overdue = bool(p.due_date and p.due_date < now)
+            if is_overdue:
+                bucket["overdue"] += amount
+                status = "overdue"
+            else:
+                bucket["receivable"] += amount
+                status = "pending"
+        records.append(
+            {
+                "id": str(p.id),
+                "property_id": str(p.property_id) if p.property_id else None,
+                "property": prop.title if prop else None,
+                "amount": amount,
+                "currency": p.currency,
+                "payment_type": p.payment_type.value if p.payment_type else None,
+                "status": p.status.value if p.status else None,
+                "bucket": status,
+                "channel": p.channel,
+                "due_date": p.due_date.isoformat() if p.due_date else None,
+                "paid_at": p.paid_at.isoformat() if p.paid_at else None,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+        )
+
+    props_by_str = {str(p.id): p for p in props.values()}
+    by_property_list = [
+        {
+            "property_id": key,
+            "property": props_by_str[key].title if key in props_by_str else None,
+            "received": round(v["received"], 2),
+            "receivable": round(v["receivable"], 2),
+            "overdue": round(v["overdue"], 2),
+            "count": v["count"],
+        }
+        for key, v in sorted(by_property.items())
+    ]
+
+    totals = {k: round(sum(v[k] for v in by_property.values()), 2) for k in ("received", "receivable", "overdue")}
+    totals["count"] = sum(v["count"] for v in by_property.values())
+    return {
+        "totals": totals,
+        "by_property": by_property_list,
+        "records": records,
+    }
+
+
+@router.get("/trend")
+def operational_trend(
+    months: int = 12,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    """运营趋势（Admin）：近 N 月新签租约、新线索、营收、新客照看房预约逐月走势。"""
+    years = months // 12
+    remaining = months % 12
+    start = datetime.utcnow()
+    start = start.replace(year=start.year - years, month=start.month - remaining, day=1)
+
+    monthly_revenue: dict[str, float] = defaultdict(float)
+    for p in session.exec(
+        select(Payment).where(
+            Payment.deleted_at.is_(None),
+            Payment.status == PaymentStatus.succeeded,
+            Payment.created_at >= start,
+        )
+    ).all():
+        key = (p.created_at or datetime.utcnow()).strftime("%Y-%m")
+        monthly_revenue[key] += p.amount or 0
+
+    def _counts(model, date_field, month_key):
+        counts: dict[str, int] = defaultdict(int)
+        for row in session.exec(
+            select(model).where(
+                model.deleted_at.is_(None),
+                date_field >= start,
+            )
+        ).all():
+            ts = getattr(row, month_key, None)
+            if ts:
+                counts[ts.strftime("%Y-%m")] += 1
+        return counts
+
+    lease_counts = _counts(Lease, Lease.created_at, "created_at")
+    lead_counts = _counts(Lead, Lead.created_at, "created_at")
+    viewing_counts = _counts(ViewingAppointment, ViewingAppointment.created_at, "created_at")
+    ticket_counts = _counts(MaintenanceTicket, MaintenanceTicket.created_at, "created_at")
+
+    # 生成完整的月份序列
+    keys = sorted(
+        set(monthly_revenue)
+        | set(lease_counts)
+        | set(lead_counts)
+        | set(viewing_counts)
+    )
+    series = [
+        {
+            "month": k,
+            "revenue": round(monthly_revenue.get(k, 0), 2),
+            "leases_new": lease_counts.get(k, 0),
+            "leads_new": lead_counts.get(k, 0),
+            "viewings_new": viewing_counts.get(k, 0),
+            "maintenance_new": ticket_counts.get(k, 0),
+        }
+        for k in keys
+    ]
+    return {"months": len(keys), "series": series}

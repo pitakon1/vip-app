@@ -12,19 +12,19 @@
 
 :root {
   /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
-  --rent-background: #f5f7fa;
+  --rent-background: #f2faf8;
   --rent-foreground: #0f172a;
   --rent-card: #ffffff;
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
   --rent-ink: #0f172a;
@@ -34,7 +34,7 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
 
   /* ---- 状态色（仅语义状态） ---- */
   --state-success: #16a34a;
@@ -78,13 +78,13 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
   --rent-primary-foreground: #0b0f1a;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;
@@ -265,7 +265,7 @@
 /* ===== Button ===== */
 .rent-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: var(--rent-radius-md); font-size: 14px; font-weight: 500; font-family: var(--rent-font-sans); border: 1px solid transparent; cursor: pointer; transition: background 0.15s, border-color 0.15s, box-shadow 0.15s; text-decoration: none; white-space: nowrap; line-height: 1.4; }
 .rent-btn--primary { background: var(--rent-primary); color: var(--rent-primary-foreground); }
-.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--primary:hover { background: #0d9488; }
 .rent-btn--secondary { background: var(--rent-surface); border-color: var(--rent-border); color: var(--rent-ink); }
 .rent-btn--secondary:hover { background: var(--rent-surface-2); }
 .rent-btn--ghost { background: transparent; color: var(--rent-ink-2); }
@@ -275,8 +275,8 @@
 .rent-btn--sm { padding: 5px 12px; font-size: 13px; }
 .rent-btn--block { width: 100%; }
 .rent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.rent-btn--primary-ghost { background: rgba(66,99,235,0.08); color: var(--rent-primary); }
-.rent-btn--primary-ghost:hover { background: rgba(66,99,235,0.14); }
+.rent-btn--primary-ghost { background: rgba(20,184,166,0.08); color: var(--rent-primary); }
+.rent-btn--primary-ghost:hover { background: rgba(20,184,166,0.14); }
 
 /* ===== Badge ===== */
 .rent-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--rent-radius-full); font-size: 12px; font-weight: 500; line-height: 1.4; }
@@ -285,7 +285,7 @@
 .rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
 .rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
 .rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
-.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--primary { background: rgba(20,184,166,0.1); color: var(--rent-primary); }
 .rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
 
 /* ===== Stat Card ===== */
@@ -447,8 +447,8 @@
   <!-- ===== Sidebar ===== -->
   <aside class="rent-pad__sidebar">
     <div class="rent-pad__brand">
-      <div class="rent-pad__logo">R</div>
-      <span class="rent-pad__brand-name">RentFlow</span>
+      <img class="rent-pad__logo" src="../assets/haofang-logo.jpg" alt="HaoFang.World" style="width:auto;max-height:34px;object-fit:contain;border-radius:6px;background:#fff;padding:3px;flex-shrink:0;display:inline-block;">
+      <span class="rent-pad__brand-name">HaoFang.World</span>
     </div>
     <nav class="rent-pad__nav">
       <a class="rent-pad__nav-item" href="admin-pad-dashboard.html" data-dom-id="nav-admin-pad-dashboard">
@@ -483,7 +483,7 @@
     <div class="rent-pad__nav-footer">
       <div class="rent-pad__nav-footer-row">
         <div class="rent-pad__avatar">管</div>
-        <a href="#" class="rent-pad__exit-btn" data-dom-id="back-login">
+        <a href="login.html" class="rent-pad__exit-btn" data-dom-id="back-login">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           退出
         </a>
@@ -536,7 +536,7 @@
                 +2 本月
               </div>
             </div>
-            <div class="rent-stat-card__icon" style="background:rgba(66,99,235,0.1);color:var(--rent-primary);">
+            <div class="rent-stat-card__icon" style="background:rgba(20,184,166,0.1);color:var(--rent-primary);">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
           </div>

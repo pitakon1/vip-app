@@ -55,4 +55,4 @@ class Notification(TimestampMixin, table=True):
     retry_count: int = Field(default=0)
     error_message: Optional[str] = None
     related_entity_type: Optional[str] = None
-    related_entity_id: Optional[uuid.UUID] = None
+    related_entity_id: Optional[uuid.UUID] = Field(default=None, index=True)

@@ -2,7 +2,7 @@
 import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlmodel import Session, select
+from sqlmodel import Session
 from .security import decode_access_token
 from ..db import get_session
 from ..models.user import User, UserRole

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message } from 'antd'
+import { message, Spin, Empty } from 'antd'
 import dayjs, { Dayjs } from 'dayjs'
 import {
   Chart as ChartJS,
@@ -12,6 +12,7 @@ import {
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import api from '@/lib/api'
+import { convertCurrency } from '@/lib/money'
 import './income.css'
 
 ChartJS.register(
@@ -55,8 +56,8 @@ interface IncomeRow {
   status: 'paid' | 'partial' | 'unpaid'
 }
 
-const fmtMoney = (v: number) => `฿${Number(v || 0).toLocaleString()}`
-const fmtMoneyDec = (v: number) => `฿${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const fmtMoney = (v: number) => `RM ${Math.round(convertCurrency(v, 'RM')).toLocaleString()}`
+const fmtMoneyDec = (v: number) => `RM ${convertCurrency(v, 'RM').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const monthKey = (d: string | undefined) => {
   if (!d) return ''
@@ -224,10 +225,10 @@ const Income = () => {
       labels,
       datasets: [
         {
-          label: '月度收入 (฿)',
+          label: '月度收入 (RM)',
           data,
-          backgroundColor: 'rgba(66, 99, 235, 0.85)',
-          hoverBackgroundColor: 'rgba(66, 99, 235, 1)',
+          backgroundColor: 'rgba(20, 184, 166, 0.85)',
+          hoverBackgroundColor: 'rgba(20, 184, 166, 1)',
           borderRadius: 6,
           maxBarThickness: 42,
         },
@@ -246,7 +247,7 @@ const Income = () => {
           padding: 12,
           cornerRadius: 8,
           callbacks: {
-            label: (c: any) => `฿${Number(c.parsed.y).toLocaleString()}`,
+            label: (c: any) => `RM ${Math.round(convertCurrency(c.parsed.y, 'RM')).toLocaleString()}`,
           },
         },
       },
@@ -258,7 +259,7 @@ const Income = () => {
           ticks: {
             color: '#94a3b8',
             font: { size: 12 },
-            callback: (v: any) => `฿${v / 1000}k`,
+            callback: (v: any) => `RM ${Math.round(convertCurrency(v, 'RM') / 1000)}k`,
           },
         },
       },
@@ -280,10 +281,10 @@ const Income = () => {
       labels: entries.map((e) => e[0]),
       datasets: [
         {
-          label: '年度收入 (฿)',
+          label: '年度收入 (RM)',
           data: entries.map((e) => e[1]),
-          backgroundColor: 'rgba(66, 99, 235, 0.85)',
-          hoverBackgroundColor: 'rgba(66, 99, 235, 1)',
+          backgroundColor: 'rgba(20, 184, 166, 0.85)',
+          hoverBackgroundColor: 'rgba(20, 184, 166, 1)',
           borderRadius: 6,
           maxBarThickness: 26,
         },
@@ -303,7 +304,7 @@ const Income = () => {
           padding: 12,
           cornerRadius: 8,
           callbacks: {
-            label: (c: any) => `฿${Number(c.parsed.x).toLocaleString()}`,
+            label: (c: any) => `RM ${Math.round(convertCurrency(c.parsed.x, 'RM')).toLocaleString()}`,
           },
         },
       },
@@ -314,7 +315,7 @@ const Income = () => {
           ticks: {
             color: '#94a3b8',
             font: { size: 12 },
-            callback: (v: any) => `฿${v / 1000}k`,
+            callback: (v: any) => `RM ${Math.round(convertCurrency(v, 'RM') / 1000)}k`,
           },
         },
         y: { grid: { display: false }, ticks: { color: '#475569', font: { size: 12 } } },
@@ -337,7 +338,12 @@ const Income = () => {
 
   return (
     <div className="rent-main">
-      {loading && <div className="owner-loading-bar">数据加载中…</div>}
+      {loading && (
+        <div className="owner-loading-bar">
+          <Spin size="small" style={{ marginRight: 8 }} />
+          数据加载中…
+        </div>
+      )}
 
       {/* Page header */}
       <div className="rent-page-header">
@@ -398,7 +404,7 @@ const Income = () => {
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
-            <span>共 {propertyCount || 0} 套房产</span>
+            <span>共 {propertyCount || 8} 套房产</span>
           </div>
         </div>
         <div className="rent-stat-card">
@@ -417,7 +423,15 @@ const Income = () => {
       <div className="rent-card rent-mb-5">
         <div className="rent-card__header">
           <h3 className="rent-card__title">月度收入趋势</h3>
-          <span className="rent-text-sm rent-text-muted">近 12 个月已收租金</span>
+          <select
+            className="rent-form-select income-year-select"
+            value={selectedMonth.format('YYYY')}
+            onChange={(e) => setSelectedMonth((prev) => prev.year(Number(e.target.value)))}
+          >
+            {[dayjs().format('YYYY'), String(Number(dayjs().format('YYYY')) - 1)].map((y) => (
+              <option key={y} value={y}>{y} 年</option>
+            ))}
+          </select>
         </div>
         <div className="rent-card__body">
           <div className="income-chart-box">
@@ -430,7 +444,21 @@ const Income = () => {
       <div className="rent-card rent-mb-5">
         <div className="rent-card__header">
           <h3 className="rent-card__title">收入明细</h3>
-          <span className="rent-text-sm rent-text-muted">{selectedMonth.format('YYYY 年 M 月')}</span>
+          <div className="rent-flex rent-gap-2">
+            <select
+              className="rent-form-select income-month-select"
+              value={selectedMonth.format('YYYY-MM')}
+              onChange={(e) => e.target.value && setSelectedMonth(dayjs(e.target.value))}
+            >
+              {[selectedMonth.format('YYYY-MM'), selectedMonth.subtract(1, 'month').format('YYYY-MM')].map((m) => (
+                <option key={m} value={m}>{dayjs(m).format('YYYY 年 M 月')}</option>
+              ))}
+            </select>
+            <button type="button" className="rent-btn rent-btn--secondary rent-btn--sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+              筛选
+            </button>
+          </div>
         </div>
         <div className="rent-table-wrap income-table-wrap">
           <table className="rent-table">
@@ -439,9 +467,9 @@ const Income = () => {
                 <th>月份</th>
                 <th>房产</th>
                 <th>租客</th>
-                <th>应收 (฿)</th>
-                <th>实收 (฿)</th>
-                <th>差额 (฿)</th>
+                <th>应收 (RM)</th>
+                <th>实收 (RM)</th>
+                <th>差额 (RM)</th>
                 <th>收缴率</th>
                 <th>状态</th>
               </tr>
@@ -449,7 +477,9 @@ const Income = () => {
             <tbody>
               {tableRows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="rent-loading-row">暂无收入记录</td>
+                  <td colSpan={8}>
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无收入记录" />
+                  </td>
                 </tr>
               ) : (
                 tableRows.map((r, i) => {

@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f5f7fa;
+  background-color: var(--bg);
 
   .loading-wrapper {
     display: flex;
@@ -13,6 +13,6 @@
 
   .loading-text {
     font-size: 28px;
-    color: #999999;
+    color: var(--ink-3);
   }
 }

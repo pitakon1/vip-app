@@ -19,7 +19,11 @@ class Project(TimestampMixin, table=True):
     address: str
     district: Optional[str] = Field(default=None, index=True)
     city: Optional[str] = Field(default=None, index=True)
+    province: Optional[str] = Field(default=None, index=True, description="省/府/州")
     country: Optional[str] = Field(default=None)
+    nearest_subway: Optional[str] = Field(
+        default=None, index=True, description="最近地铁站/轻轨站"
+    )
     developer: Optional[str] = None
     property_management_company: Optional[str] = None
     lat: Optional[float] = None

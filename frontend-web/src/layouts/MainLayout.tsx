@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { TFunction } from 'i18next'
 import useAuthStore from '@/stores/auth'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import brandLogo from '@/assets/haofang-logo.jpg'
 import './MainLayout.css'
 
 interface NavItem {
@@ -45,6 +46,7 @@ const buildSections = (role: string, t: TFunction): NavSection[] => {
             { key: '/owner/properties', label: t('menu.myProperties'), icon: icon('M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22') },
             { key: '/owner/income', label: t('menu.income'), icon: icon('M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6') },
             { key: '/owner/payments', label: t('menu.myPayments'), icon: icon('M1 4h22v16H1z M1 10h23') },
+            { key: '/owner/marketing', label: t('menu.marketing'), icon: icon('M3 21v-6M21 21v-6M7 21v-9M17 21v-9M3 17l3-2 4 1 4-3 3 2 4-4M5 7V3M19 10V3') },
             { key: '/owner/documents', label: t('menu.documents'), icon: icon('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6') },
             { key: '/owner/services', label: t('menu.services'), icon: icon('M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z') },
             { key: '/company', label: t('menu.company'), icon: infoIcon },
@@ -72,6 +74,7 @@ const buildSections = (role: string, t: TFunction): NavSection[] => {
         },
       ]
     case 'employee':
+    case 'agent': // 经纪与员工同属销售工作台
       return [
         {
           label: s('overview'),
@@ -83,8 +86,11 @@ const buildSections = (role: string, t: TFunction): NavSection[] => {
           label: s('businessManagement'),
           items: [
             { key: '/properties', label: t('menu.properties'), icon: icon('M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22') },
+            { key: '/listings', label: t('menu.propertySearch'), icon: icon('M21 21l-4.35-4.35M17 11a6 6 0 1 1-12 0 6 6 0 0 1 12 0z') },
             { key: '/crm', label: t('menu.leads'), icon: icon('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0') },
             { key: '/leases', label: t('menu.leases'), icon: icon('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6') },
+            { key: '/chat', label: t('menu.chat'), icon: icon('M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z') },
+            { key: '/contracts', label: t('menu.contracts'), icon: icon('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 13l2 2 4-4') },
           ],
         },
         {
@@ -97,7 +103,7 @@ const buildSections = (role: string, t: TFunction): NavSection[] => {
           ],
         },
       ]
-    default: // admin / agent
+    default: // admin —— 定位：系统管理、查看业绩、查看员工（不再展示宏观战略）
       return [
         {
           label: s('overview'),
@@ -112,12 +118,23 @@ const buildSections = (role: string, t: TFunction): NavSection[] => {
             { key: '/crm', label: t('menu.leads'), icon: icon('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0') },
             { key: '/leases', label: t('menu.leases'), icon: icon('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6') },
             { key: '/payments', label: t('menu.payments'), icon: icon('M1 4h22v16H1z M1 10h23') },
+            { key: '/contracts', label: t('menu.contracts'), icon: icon('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 13l2 2 4-4') },
+          ],
+        },
+        {
+          label: s('performance'),
+          items: [
+            { key: '/viewings', label: t('menu.viewings'), icon: icon('M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2') },
+            { key: '/reconciliation', label: t('menu.reconciliation'), icon: icon('M1 4h22v16H1z M1 10h23 M9 16l3 3 5-6') },
+            { key: '/trend', label: t('menu.trend'), icon: icon('M18 20V10M12 20V4M6 20v-6') },
+            { key: '/commission-rules', label: t('menu.commissionRules'), icon: icon('M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6') },
           ],
         },
         {
           label: s('system'),
           items: [
             { key: '/employees', label: t('menu.employees'), icon: icon('M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z') },
+            { key: '/audit-logs', label: t('menu.auditLogs'), icon: icon('M12 2a4 4 0 0 1 4 4v2M16 8a4 4 0 1 1 0 8M12 2a4 4 0 0 0-4 4v2M8 8a4 4 0 1 0 0 8M20 12a8 8 0 0 1-8 8M4 12a8 8 0 0 0 8 8') },
             { key: '/settings', label: t('menu.settings'), icon: icon('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z') },
             { key: '/company', label: t('menu.company'), icon: infoIcon },
           ],
@@ -128,7 +145,7 @@ const buildSections = (role: string, t: TFunction): NavSection[] => {
 
 const roleBrandKey: Record<string, string> = {
   admin: 'admin',
-  agent: 'admin',
+  agent: 'employee',
   owner: 'owner',
   tenant: 'tenant',
   employee: 'employee',
@@ -141,6 +158,7 @@ const buildMobileTabs = (role: string, t: TFunction): NavItem[] => {
       return [
         { key: '/owner/dashboard', label: t('portal.home'), icon: icon('M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z') },
         { key: '/owner/income', label: t('portal.income'), icon: icon('M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6') },
+        { key: '/owner/marketing', label: t('portal.marketing'), icon: icon('M3 21v-6M21 21v-6M7 21v-9M17 21v-9M3 17l3-2 4 1 4-3 3 2 4-4') },
         { key: '/owner/services', label: t('portal.services'), icon: icon('M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z') },
         { key: '/company', label: t('portal.profile'), icon: icon('M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z') },
       ]
@@ -153,14 +171,16 @@ const buildMobileTabs = (role: string, t: TFunction): NavItem[] => {
         { key: '/tenant/maintenance', label: t('portal.maintenance'), icon: icon('M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z') },
       ]
     case 'employee':
+    case 'agent': // 经纪与员工同属销售工作台
       return [
         { key: '/employee/dashboard', label: t('menu.dashboard'), icon: icon('M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z') },
         { key: '/properties', label: t('menu.properties'), icon: icon('M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22') },
+        { key: '/listings', label: t('menu.propertySearch'), icon: icon('M21 21l-4.35-4.35M17 11a6 6 0 1 1-12 0 6 6 0 0 1 12 0z') },
         { key: '/employee/attendance', label: t('menu.attendance'), icon: icon('M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2') },
         { key: '/employee/performance', label: t('menu.performance'), icon: icon('M12 15l3.5-3.5 M12 3v0 M2 12h2 M20 12h2 M12 22v0') },
         { key: '/employee/contacts', label: t('menu.contacts'), icon: icon('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0') },
       ]
-    default: // admin / agent
+    default: // admin
       return [
         { key: '/dashboard', label: t('menu.dashboard'), icon: icon('M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z') },
         { key: '/properties', label: t('menu.properties'), icon: icon('M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22') },
@@ -179,6 +199,7 @@ const MainLayout = () => {
   const { t } = useTranslation()
 
   const role = user?.role || 'admin'
+  const isConsumer = role !== 'admin' && role !== 'agent'
   const sections = useMemo(() => buildSections(role, t), [role, t])
   const mobileTabs = useMemo(() => buildMobileTabs(role, t), [role, t])
 
@@ -200,7 +221,7 @@ const MainLayout = () => {
       const found = s.items.find((i) => i.key === selectedKey)
       if (found) return found.label
     }
-    return 'RentFlow'
+    return 'HaoFang.World'
   }, [sections, selectedKey])
 
   const handleNav = (key: string) => {
@@ -210,7 +231,7 @@ const MainLayout = () => {
 
   const handleLogout = () => {
     logout()
-    navigate('/')
+    navigate('/login', { replace: true })
   }
 
   const handleGoHome = () => {
@@ -228,10 +249,11 @@ const MainLayout = () => {
   const displayName = user?.full_name || user?.name || t('welcome')
   const avatarChar = (displayName || 'U').charAt(0).toUpperCase()
   const brandKey = roleBrandKey[role] || 'admin'
-  const brandLabel = `${t('common.appName').split(' ')[0]} ${t(`role.${brandKey}`)}`
+  // 侧边栏品牌标签：对齐设计稿仅显示角色名（logo 图已含 HaoFang.World 字标）
+  const brandLabel = t(`role.${brandKey}`)
 
   return (
-    <div className="rent-app">
+    <div className="rent-app" data-ui={isConsumer ? 'consumer' : 'admin'}>
       {/* 移动端遮罩 */}
       <div
         className="rent-sidebar-overlay"
@@ -246,7 +268,7 @@ const MainLayout = () => {
       >
         <div className="rent-sidebar">
           <div className="rent-sidebar__brand" style={{ cursor: 'pointer' }} onClick={handleGoHome}>
-            <div className="rent-sidebar__logo">R</div>
+            <img className="rent-sidebar__logo" src={brandLogo} alt="HaoFang.World" />
             <span className="rent-sidebar__name">{brandLabel}</span>
           </div>
           <nav className="rent-sidebar__nav no-scrollbar">

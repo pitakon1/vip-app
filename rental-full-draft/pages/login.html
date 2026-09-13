@@ -12,19 +12,19 @@
 
 :root {
   /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
-  --rent-background: #f5f7fa;
+  --rent-background: #f2faf8;
   --rent-foreground: #0f172a;
   --rent-card: #ffffff;
   --rent-card-foreground: #0f172a;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #0f172a;
-  --rent-primary: #4263eb;
+  --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-muted: #f1f5f9;
   --rent-muted-foreground: #64748b;
   --rent-border: #e6eaf0;
   --rent-input: #e6eaf0;
-  --rent-ring: #4263eb;
+  --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
   --rent-ink: #0f172a;
@@ -34,7 +34,7 @@
   --rent-surface: #ffffff;
   --rent-surface-2: #f1f5f9;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #eef2ff;
+  --rent-sidebar-active: #d9f2ee;
 
   /* ---- 状态色（仅语义状态） ---- */
   --state-success: #16a34a;
@@ -78,13 +78,13 @@
   --rent-card-foreground: #e8edf5;
   --rent-popover: #141a26;
   --rent-popover-foreground: #e8edf5;
-  --rent-primary: #6b82f5;
+  --rent-primary: #2dd4bf;
   --rent-primary-foreground: #0b0f1a;
   --rent-muted: #1c2433;
   --rent-muted-foreground: #94a3b8;
   --rent-border: #243044;
   --rent-input: #243044;
-  --rent-ring: #6b82f5;
+  --rent-ring: #2dd4bf;
 
   --rent-ink: #e8edf5;
   --rent-ink-2: #a3aec2;
@@ -514,7 +514,7 @@
   background: var(--rent-primary);
   color: var(--rent-primary-foreground);
 }
-.rent-btn--primary:hover { background: #3b51d4; }
+.rent-btn--primary:hover { background: #0d9488; }
 .rent-btn--secondary {
   background: var(--rent-surface);
   border-color: var(--rent-border);
@@ -587,7 +587,7 @@
 .rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
 .rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
 .rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
-.rent-badge--primary { background: rgba(66,99,235,0.1); color: var(--rent-primary); }
+.rent-badge--primary { background: rgba(20,184,166,0.1); color: var(--rent-primary); }
 .rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
 
 /* ===== Form ===== */
@@ -617,7 +617,7 @@
 .rent-form-select:focus,
 .rent-form-textarea:focus {
   border-color: var(--rent-primary);
-  box-shadow: 0 0 0 3px rgba(66,99,235,0.1);
+  box-shadow: 0 0 0 3px rgba(20,184,166,0.1);
 }
 .rent-form-textarea { resize: vertical; min-height: 80px; }
 .rent-form-hint { font-size: 12px; color: var(--rent-ink-3); margin-top: 4px; }
@@ -872,7 +872,7 @@
   padding: 2px 6px;
   border-radius: var(--rent-radius-sm);
   margin-top: 2px;
-  background: rgba(66,99,235,0.1);
+  background: rgba(20,184,166,0.1);
   color: var(--rent-primary);
 }
 
@@ -911,7 +911,7 @@
   /* ---- Left panel (40%) ---- */
   .rent-login-left {
     flex: 0 0 40%;
-    background: linear-gradient(135deg, var(--rent-primary) 0%, #3b51d4 100%);
+    background: linear-gradient(135deg, var(--rent-primary) 0%, #0d9488 100%);
     color: #ffffff;
     display: flex;
     flex-direction: column;
@@ -1080,60 +1080,6 @@
     line-height: 1.5;
   }
 
-  /* ---- Role selector ---- */
-  .rent-role-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-  }
-
-  .rent-role-option {
-    position: relative;
-  }
-
-  .rent-role-option input[type="radio"] {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  .rent-role-option__label {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 12px 4px;
-    border: 1px solid var(--rent-border);
-    border-radius: var(--rent-radius-md);
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--rent-ink-2);
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s, color 0.15s;
-    text-align: center;
-    font-family: var(--rent-font-sans);
-    background: var(--rent-surface);
-  }
-
-  .rent-role-option__label:hover {
-    border-color: var(--rent-primary);
-    color: var(--rent-primary);
-  }
-
-  .rent-role-option input[type="radio"]:checked + .rent-role-option__label {
-    background: var(--rent-sidebar-active);
-    border-color: var(--rent-primary);
-    color: var(--rent-primary);
-    font-weight: 600;
-  }
-
-  .rent-role-option__icon {
-    width: 20px;
-    height: 20px;
-    color: currentColor;
-  }
-
   /* ---- Remember + forgot row ---- */
   .rent-login-row {
     display: flex;
@@ -1170,64 +1116,6 @@
 
   .rent-login-link:hover {
     opacity: 0.8;
-  }
-
-  /* ---- Divider with text ---- */
-  .rent-login-divider {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin: 28px 0 20px;
-  }
-
-  .rent-login-divider__line {
-    flex: 1;
-    height: 1px;
-    background: var(--rent-border);
-  }
-
-  .rent-login-divider__text {
-    font-family: var(--rent-font-sans);
-    font-size: 13px;
-    color: var(--rent-ink-3);
-    white-space: nowrap;
-  }
-
-  /* ---- Portal links ---- */
-  .rent-login-portals {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-  }
-
-  .rent-login-portal-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 14px 8px;
-    border: 1px solid var(--rent-border);
-    border-radius: var(--rent-radius-md);
-    background: var(--rent-surface);
-    color: var(--rent-ink-2);
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 500;
-    font-family: var(--rent-font-sans);
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s, color 0.15s;
-  }
-
-  .rent-login-portal-btn:hover {
-    border-color: var(--rent-primary);
-    background: var(--rent-sidebar-active);
-    color: var(--rent-primary);
-  }
-
-  .rent-login-portal-btn svg {
-    width: 22px;
-    height: 22px;
-    color: currentColor;
   }
 
   /* ---- Footer text ---- */
@@ -1292,14 +1180,6 @@
       font-size: 18px;
     }
 
-    .rent-role-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    .rent-login-portals {
-      grid-template-columns: 1fr;
-    }
-
     .rent-login-card__title {
       font-size: 24px;
     }
@@ -1312,13 +1192,8 @@
         <section class="rent-login-left">
             <div class="rent-login-left__content">
                 <div class="rent-login-brand">
-                    <div class="rent-login-brand__mark">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V9.5z"/>
-                        </svg>
-                    </div>
-                    <div class="rent-login-brand__name">RentFlow</div>
-                </div>
+        <img class="rent-login-brand__img" src="../assets/haofang-logo.jpg" alt="HaoFang.World" style="width:200px;height:auto;object-fit:contain;border-radius:12px;background:#fff;padding:10px;">
+    </div>
 
                 <h1 class="rent-login-tagline">东南亚房地产租赁管理平台</h1>
                 <p class="rent-login-subtagline">一站式管理您的房源、租约、租金与维修工单，让租赁运营更高效。</p>
@@ -1405,50 +1280,6 @@
                         >
                     </div>
 
-                    <!-- Role selector -->
-                    <div class="rent-form-group">
-                        <label class="rent-form-label">登录角色</label>
-                        <div class="rent-role-grid">
-                            <div class="rent-role-option">
-                                <input type="radio" id="role-admin" name="role" value="admin" checked>
-                                <label for="role-admin" class="rent-role-option__label">
-                                    <svg class="rent-role-option__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                                    </svg>
-                                    管理员
-                                </label>
-                            </div>
-                            <div class="rent-role-option">
-                                <input type="radio" id="role-owner" name="role" value="owner">
-                                <label for="role-owner" class="rent-role-option__label">
-                                    <svg class="rent-role-option__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V9.5z"/>
-                                    </svg>
-                                    业主
-                                </label>
-                            </div>
-                            <div class="rent-role-option">
-                                <input type="radio" id="role-tenant" name="role" value="tenant">
-                                <label for="role-tenant" class="rent-role-option__label">
-                                    <svg class="rent-role-option__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 11h.01M15 11h.01"/>
-                                    </svg>
-                                    租客
-                                </label>
-                            </div>
-                            <div class="rent-role-option">
-                                <input type="radio" id="role-staff" name="role" value="staff">
-                                <label for="role-staff" class="rent-role-option__label">
-                                    <svg class="rent-role-option__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="2" y="7" width="20" height="14" rx="2"/>
-                                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                                    </svg>
-                                    员工
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Remember + forgot -->
                     <div class="rent-login-row">
                         <label class="rent-checkbox">
@@ -1469,36 +1300,6 @@
                     </a>
                 </form>
 
-                <!-- Divider -->
-                <div class="rent-login-divider">
-                    <span class="rent-login-divider__line"></span>
-                    <span class="rent-login-divider__text">或选择角色快速登录</span>
-                    <span class="rent-login-divider__line"></span>
-                </div>
-
-                <!-- Portal links -->
-                <div class="rent-login-portals">
-                    <a href="#" class="rent-login-portal-btn" data-dom-id="link-owner-portal">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V9.5z"/>
-                        </svg>
-                        业主端
-                    </a>
-                    <a href="#" class="rent-login-portal-btn" data-dom-id="link-tenant-portal">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 11h.01M15 11h.01"/>
-                        </svg>
-                        租客端
-                    </a>
-                    <a href="#" class="rent-login-portal-btn" data-dom-id="link-employee-portal">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="2" y="7" width="20" height="14" rx="2"/>
-                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                        </svg>
-                        员工端
-                    </a>
-                </div>
-
                 <!-- Footer -->
                 <p class="rent-login-footer">
                     还没有账户？<a href="#">联系管理员开通</a>
@@ -1507,5 +1308,14 @@
         </section>
     </main>
     <script>lucide.createIcons();</script>
+<script>
+(function() {
+  var loginBtn = document.querySelector('[data-dom-id="cta-admin-login"]');
+  loginBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    window.location.href = 'admin-dashboard.html';
+  });
+})();
+</script>
 </body>
 </html>

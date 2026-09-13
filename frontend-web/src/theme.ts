@@ -1,20 +1,20 @@
 import type { ThemeConfig } from 'antd'
 
 /**
- * Ant Design 主题配置，与 RentFlow 设计稿令牌对齐。
- * 通过 ConfigProvider 全局应用，使 antd 组件自动贴合靛蓝主色 / 浅灰底 / 细边框视觉。
+ * Ant Design 主题配置，与 HaoFang.World 设计稿令牌对齐。
+ * 通过 ConfigProvider 全局应用，使 antd 组件自动贴合青绿主色 / 浅青底 / 细边框视觉。
  */
 export const rentTheme: ThemeConfig = {
   token: {
-    colorPrimary: '#4263eb',
-    colorInfo: '#4263eb',
+    colorPrimary: '#14b8a6',
+    colorInfo: '#14b8a6',
     colorSuccess: '#16a34a',
     colorWarning: '#d97706',
     colorError: '#dc2626',
-    colorLink: '#4263eb',
+    colorLink: '#14b8a6',
     colorBgBase: '#ffffff',
     colorTextBase: '#0f172a',
-    colorBgLayout: '#f5f7fa',
+    colorBgLayout: '#f2faf8',
     colorBgContainer: '#ffffff',
     colorBgElevated: '#ffffff',
     colorBgSpotlight: '#ffffff',
@@ -27,12 +27,12 @@ export const rentTheme: ThemeConfig = {
     colorFill: '#f1f5f9',
     colorFillSecondary: '#f1f5f9',
     colorFillTertiary: '#f1f5f9',
-    colorFillQuaternary: '#f5f7fa',
+    colorFillQuaternary: '#f2faf8',
     borderRadius: 8,
     borderRadiusLG: 16,
     borderRadiusSM: 4,
     fontFamily:
-      '"Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif',
+      '"Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
     fontSize: 14,
     controlHeight: 36,
     controlHeightLG: 44,
@@ -46,7 +46,7 @@ export const rentTheme: ThemeConfig = {
       headerBg: '#ffffff',
       headerHeight: 56,
       siderBg: '#ffffff',
-      bodyBg: '#f5f7fa',
+      bodyBg: '#f2faf8',
       headerPadding: '0 24px',
     },
     Menu: {
@@ -54,8 +54,8 @@ export const rentTheme: ThemeConfig = {
       itemColor: '#475569',
       itemHoverBg: '#f1f5f9',
       itemHoverColor: '#0f172a',
-      itemSelectedBg: '#eef2ff',
-      itemSelectedColor: '#4263eb',
+      itemSelectedBg: '#d9f2ee',
+      itemSelectedColor: '#14b8a6',
       itemHeight: 40,
       iconSize: 18,
       activeBarHeight: 0,
@@ -81,7 +81,7 @@ export const rentTheme: ThemeConfig = {
     Input: {
       borderRadius: 8,
       controlHeight: 36,
-      activeShadow: '0 0 0 3px rgba(66,99,235,0.1)',
+      activeShadow: '0 0 0 3px rgba(20, 184, 166, 0.1)',
     },
     Select: { borderRadius: 8, controlHeight: 36 },
     Badge: { borderRadiusSM: 4 },

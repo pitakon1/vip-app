@@ -1,5 +1,8 @@
 @import './styles/tokens.css';
 @import './styles/app.css';
+@import './styles/prototype-system.css';
+@import './styles/consumer-overlay.css';
+@import './styles/prototype-portal.css';
 
 * {
   margin: 0;
@@ -21,7 +24,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 让 Ant Design 组件贴合 RentFlow 视觉：浅灰底 + 细边框卡片 */
+/* 让 Ant Design 组件贴合 HaoFang.World 视觉：浅灰底 + 细边框卡片 */
 .ant-card {
   border-radius: var(--rent-radius-lg) !important;
   border-color: var(--rent-border) !important;

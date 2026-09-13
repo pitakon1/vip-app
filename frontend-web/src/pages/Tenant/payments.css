@@ -4,7 +4,7 @@
 .rent-pay-summary {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #4263eb 0%, #3b51d4 100%);
+  background: #14b8a6;
   border: none;
   color: #fff;
   border-radius: var(--rent-radius-lg);
@@ -176,7 +176,7 @@
 .rent-pay-form-input:focus,
 .rent-pay-form-select:focus {
   border-color: var(--rent-primary);
-  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.12);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
 }
 .rent-pay-form-select { appearance: none; cursor: pointer; }
 .rent-pay-file-drop {

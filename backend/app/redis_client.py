@@ -9,11 +9,13 @@ from redis import Redis as SyncRedis
 
 from app.config import settings
 
-# 创建 Redis 连接池
+# 创建 Redis 连接池（Redis 不可用时快速失败降级，不阻塞业务）
 redis_pool = redis.ConnectionPool.from_url(
     settings.REDIS_URL,
     max_connections=20,
     decode_responses=True,
+    socket_connect_timeout=1,
+    socket_timeout=1,
 )
 
 
@@ -42,10 +44,13 @@ _sync_redis: Optional[SyncRedis] = None
 
 
 def get_redis_sync() -> SyncRedis:
-    """获取同步 Redis 客户端单例（供 Celery 任务使用）。"""
+    """获取同步 Redis 客户端单例（供 Celery 任务使用）。Redis 不可用时快速失败降级。"""
     global _sync_redis
     if _sync_redis is None:
         _sync_redis = SyncRedis.from_url(
-            settings.REDIS_URL, decode_responses=True
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=1,
+            socket_timeout=1,
         )
     return _sync_redis

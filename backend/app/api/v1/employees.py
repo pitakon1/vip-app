@@ -4,15 +4,28 @@
 不再读取手动填报的 performances 表。
 """
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, require_admin, require_employee
+from app.core.auth import require_admin, require_employee
 from app.core.pagination import PaginationParams, paginate
-from app.models import CommissionSettlement, Employee, User
+from app.models import (
+    CommissionSettlement,
+    Employee,
+    Lease,
+    LeaseStatus,
+    MaintenanceTicket,
+    Payment,
+    PaymentStatus,
+    PaymentType,
+    Property,
+    TicketStatus,
+    User,
+)
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 
@@ -140,3 +153,118 @@ def get_employee_performance(
         }
         for r in rows
     ]
+
+
+@router.get("/workbench")
+def get_employee_workbench(
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """员工工作台聚合：负责租约、待收/逾期租金单，支撑待办与催收。
+
+    端点放在 /employees/workbench 之前，需先于 /{employee_id}/performance
+    这类带路径参数的路由注册，避免被误匹配为 employee_id。
+    """
+    employee = session.exec(
+        select(Employee).where(
+            Employee.user_id == user.id,
+            Employee.deleted_at.is_(None),
+        )
+    ).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
+
+    leases = session.exec(
+        select(Lease).where(
+            Lease.agent_id == employee.id,
+            Lease.status == LeaseStatus.active,
+            Lease.deleted_at.is_(None),
+        )
+    ).all()
+    lease_ids = [lease.id for lease in leases]
+
+    # 房源标题一次性取齐
+    prop_ids = {lease.property_id for lease in leases if lease.property_id}
+    properties = {
+        p.id: p for p in session.exec(select(Property).where(Property.id.in_(prop_ids))).all()
+    } if prop_ids else {}
+
+    now = datetime.utcnow()
+    follow_up_leases = [
+        {
+            "lease_id": str(lease.id),
+            "property_title": properties.get(lease.property_id).title
+            if properties.get(lease.property_id)
+            else None,
+            "monthly_rent": lease.monthly_rent,
+            "currency": lease.currency or "THB",
+            "end_date": lease.end_date.isoformat() if lease.end_date else None,
+            "days_to_expire": (lease.end_date.date() - now.date()).days
+            if lease.end_date
+            else None,
+        }
+        for lease in leases
+    ]
+
+    receivables = []
+    if lease_ids:
+        receivables = session.exec(
+            select(Payment).where(
+                Payment.lease_id.in_(lease_ids),
+                Payment.payment_type == PaymentType.rent,
+                Payment.status == PaymentStatus.pending,
+            )
+        ).all()
+
+    receivable_items = [
+        {
+            "payment_id": str(p.id),
+            "amount": p.amount,
+            "currency": p.currency or "THB",
+            "due_date": p.due_date.isoformat() if p.due_date else None,
+            "is_overdue": bool(p.due_date and p.due_date < now),
+            "status": p.status.value if p.status else None,
+        }
+        for p in receivables
+    ]
+
+    pending = [r for r in receivable_items if not r["is_overdue"]]
+    overdue = [r for r in receivable_items if r["is_overdue"]]
+
+    # 维修工单响应时效：本员工名下待办工单数与平均解决时长（小时）
+    assigned_tickets = []
+    total_resolve_seconds = 0
+    resolved_count = 0
+    if employee.id:
+        assigned_tickets = session.exec(
+            select(MaintenanceTicket).where(
+                MaintenanceTicket.assigned_to == employee.id,
+                MaintenanceTicket.deleted_at.is_(None),
+            )
+        ).all()
+    open_tickets = [
+        t for t in assigned_tickets if t.status not in (TicketStatus.resolved, TicketStatus.closed)
+    ]
+    for t in assigned_tickets:
+        if t.resolved_at and t.created_at:
+            elapsed = (t.resolved_at - t.created_at).total_seconds()
+            total_resolve_seconds += max(0, elapsed)
+            resolved_count += 1
+    avg_resolve_hours = (
+        round(total_resolve_seconds / 3600 / resolved_count, 1) if resolved_count else 0
+    )
+
+    return {
+        "summary": {
+            "lease_count": len(leases),
+            "pending_receivable": len(pending),
+            "overdue_receivable": len(overdue),
+            "open_maintenance": len(open_tickets),
+            "avg_resolve_hours": avg_resolve_hours,
+        },
+        "follow_up_leases": follow_up_leases,
+        "receivables": {
+            "pending": pending,
+            "overdue": overdue,
+        },
+    }

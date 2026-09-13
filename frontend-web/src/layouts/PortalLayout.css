@@ -1,0 +1,117 @@
+/* ===== PortalLayout（租客端顶栏门户）特有样式 =====
+   主体类（rent-portal__*）来自 styles/prototype-portal.css，
+   此处仅补充交互与响应式细节。 */
+
+/* --- 强化关键布局（覆写以免 prototype-portal 的规则被级联/合并覆盖）--- */
+.rent-portal {
+  width: 100%;
+  overflow-x: hidden; /* 防止子项把整页撑宽 */
+}
+.rent-portal__main {
+  /* 内容区钳制到 1200px，居中；否则内容会被拉满视口导致宫格/卡片溢出 */
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 40px;
+}
+.rent-portal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 64px;
+  padding: 0 40px;
+  overflow: hidden; /* 防止子项把 header 撑宽导致横向溢出 */
+  /* 对齐 tenant-consign.html 顶栏：毛玻璃白底 + 柔阴影 */
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(230, 234, 240, 0.6);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 10px 30px -18px rgba(15, 23, 42, 0.18);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.rent-portal__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+}
+.rent-portal__nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  /* 对齐 tenant-dashboard.html：无边框胶囊导航项（<button> 需重置默认边框/底色/字体） */
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  line-height: 1;
+  margin: 0;
+  /* 对齐 tenant-consign.html：胶囊导航项 */
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.rent-portal__nav-item:hover {
+  background: var(--rent-surface-2);
+  color: var(--rent-ink);
+}
+.rent-portal__nav-item[data-active="true"] {
+  color: var(--rent-primary);
+  font-weight: 600;
+  background: var(--rent-sidebar-active);
+}
+.rent-portal__nav-icon {
+  width: 18px !important;
+  height: 18px !important;
+  max-width: 18px !important;
+  max-height: 18px !important;
+  flex-shrink: 0 !important;
+}
+.rent-portal__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* 品牌名「租客中心」与 logo 对齐原型 */
+.rent-portal__brand .rent-portal__logo {
+  width: auto;
+  max-height: 34px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #fff;
+  padding: 3px;
+  flex-shrink: 0;
+  display: inline-block;
+  /* 对齐 tenant-consign.html：圆角 + 青绿投影 */
+  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.35);
+}
+
+/* ----- Responsive ----- */
+@media (max-width: 980px) {
+  .rent-portal__header {
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .rent-portal__user-meta { display: none; }
+  .rent-portal__actions { gap: 8px; }
+}
+
+@media (max-width: 640px) {
+  .rent-portal__name { display: none; }
+  .rent-portal__nav-item { padding: 8px 12px; }
+  .rent-portal__nav-item span { display: none; }
+  .rent-portal__nav-item .rent-portal__nav-icon { width: 20px; height: 20px; }
+}

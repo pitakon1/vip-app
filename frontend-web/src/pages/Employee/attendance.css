@@ -59,7 +59,7 @@
 .rent-input::placeholder, .rent-textarea::placeholder { color: var(--rent-ink-3); }
 .rent-input:focus, .rent-textarea:focus, .rent-select:focus {
   border-color: var(--rent-primary);
-  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.12);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
 }
 
 /* ===== Attendance Calendar ===== */
@@ -97,7 +97,7 @@
 .rent-calendar__cell--outside .rent-calendar__date { color: var(--rent-ink-3); font-weight: 500; }
 .rent-calendar__cell--today {
   border-color: var(--rent-primary);
-  background: rgba(66, 99, 235, 0.06);
+  background: rgba(20, 184, 166, 0.06);
   box-shadow: 0 0 0 1px var(--rent-primary) inset;
 }
 .rent-calendar__cell--today .rent-calendar__date { color: var(--rent-primary); }
@@ -132,7 +132,7 @@
 
 /* ===== 打卡渐变卡片 ===== */
 .rent-clock-card {
-  background: linear-gradient(135deg, var(--rent-primary) 0%, #3b51d4 100%);
+  background: var(--rent-primary);
   border: none;
 }
 .rent-clock-card .rent-card__body {

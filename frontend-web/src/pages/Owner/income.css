@@ -10,8 +10,8 @@
 }
 
 /* 年份/月份选择器（卡片头部内联） */
-.income-year-select,
-.income-month-select {
+.rent-form-select.income-year-select,
+.rent-form-select.income-month-select {
   width: auto;
   padding: 6px 12px;
   font-size: 13px;
@@ -59,7 +59,7 @@
 .rent-form-select:focus,
 .rent-form-textarea:focus {
   border-color: var(--rent-primary);
-  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
 }
 .rent-form-textarea {
   resize: vertical;

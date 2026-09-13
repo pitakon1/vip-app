@@ -4,6 +4,7 @@ import { message } from 'antd'
 import type { CarouselRef } from 'antd/es/carousel'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
+import { translateApi } from '@/services/api'
 import './PropertyDetail.css'
 
 interface PropertyDetail {
@@ -39,14 +40,14 @@ interface PropertyDetail {
 }
 
 const GRADIENTS = [
-  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-  'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-  'linear-gradient(135deg, #5ee7df 0%, #b490ca 100%)',
-  'linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)',
+  '#667eea',
+  '#f093fb',
+  '#4facfe',
+  '#43e97b',
+  '#fa709a',
+  '#30cfd0',
+  '#5ee7df',
+  '#ff9a9e',
 ]
 
 const gradientFor = (seed: string, idx = 0) => {
@@ -128,6 +129,33 @@ const PropertyDetail = () => {
   const [leases, setLeases] = useState<any[]>([])
   const [currentSlide, setCurrentSlide] = useState(0)
   const [favorited, setFavorited] = useState(false)
+  // v1.8 Google 翻译：房源描述可自行翻译
+  const [translatedDesc, setTranslatedDesc] = useState<string | null>(null)
+  const [translating, setTranslating] = useState(false)
+  const [transTarget, setTransTarget] = useState('zh')
+
+  const handleTranslate = async () => {
+    const source = detail?.description || detail?.address || detail?.project_name || ''
+    if (!source) {
+      message.warning('暂无可翻译的房源描述文本')
+      return
+    }
+    setTranslating(true)
+    try {
+      const res = await translateApi.translate(source, transTarget)
+      const data = res.data
+      if (data.ok !== false && data.translated_text) {
+        setTranslatedDesc(data.translated_text)
+        message.success('翻译完成')
+      } else {
+        setTranslatedDesc(data.translated_text || (data.message === '未配置密钥，返回原文本' ? source : '翻译服务未配置密钥，返回原文'))
+      }
+    } catch {
+      message.error('翻译失败')
+    } finally {
+      setTranslating(false)
+    }
+  }
 
   const fetchDetail = useCallback(async () => {
     if (!id) return
@@ -377,24 +405,24 @@ const PropertyDetail = () => {
                 <div className="rent-prop-actions">
                   <button
                     className="rent-btn rent-btn--secondary"
-                    onClick={handleFavorite}
+                    onClick={() => navigate('/properties')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                     编辑信息
                   </button>
                   <button
                     className="rent-btn rent-btn--primary"
-                    onClick={handleBook}
+                    onClick={() => navigate('/leases')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="11" x2="12" y2="17" /><line x1="9" y1="14" x2="15" y2="14" /></svg>
                     新建合同
                   </button>
                   <button
                     className="rent-btn rent-btn--ghost"
-                    onClick={() => navigate(`/properties`)}
+                    onClick={() => navigate('/leases')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
-                    返回列表
+                    查看文档
                   </button>
                 </div>
               </div>
@@ -489,6 +517,45 @@ const PropertyDetail = () => {
               <span>管理 {formatRent(detail.mgmt_amount ?? 0)}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* 房源描述 + Google 翻译按钮 */}
+      <div className="rent-card rent-mb-4">
+        <div className="rent-card__header">
+          <h3 className="rent-card__title">房源描述</h3>
+          <div className="rent-flex" style={{ gap: 8, alignItems: 'center' }}>
+            <select
+              className="rent-input"
+              style={{ width: 120, padding: '4px 8px' }}
+              value={transTarget}
+              onChange={(e) => setTransTarget(e.target.value)}
+            >
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+              <option value="th">ไทย</option>
+            </select>
+            <button
+              className="rent-btn rent-btn--ghost rent-btn--sm"
+              onClick={handleTranslate}
+              disabled={translating}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4, verticalAlign: -2 }}>
+                <path d="M23 5l-7 14M17 5l-7 14M8 9l-5 6M7 15H2M19 9h4" />
+              </svg>
+              {translating ? '翻译中...' : 'Google 翻译'}
+            </button>
+          </div>
+        </div>
+        <div className="rent-card__body">
+          <div className="rent-text-muted" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+            {translatedDesc || detail.description || (detail.address ? detail.address : '暂无描述，可点击右上角「Google 翻译」翻译地址或描述文本。')}
+          </div>
+          {translatedDesc && detail.description && (
+            <div className="rent-text-sm rent-text-muted rent-mt-2" style={{ borderTop: '1px solid var(--rent-line)', paddingTop: 8 }}>
+              原文：{detail.description}
+            </div>
+          )}
         </div>
       </div>
 

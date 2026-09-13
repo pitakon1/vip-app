@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
-import './maintenance.css'
 
 interface MaintenanceTicket {
   id: string
@@ -257,7 +256,7 @@ const TenantMaintenance = () => {
   ]
 
   return (
-    <div className="rent-main">
+    <>
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
           <span className="rent-text-muted">加载中…</span>
@@ -277,7 +276,7 @@ const TenantMaintenance = () => {
             if (el) el.scrollIntoView({ behavior: 'smooth' })
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           提交报修
         </button>
       </div>
@@ -343,11 +342,11 @@ const TenantMaintenance = () => {
                   <p className="mt-ticket__desc">{descLabel}</p>
                   <div className="mt-ticket__meta">
                     <span className="mt-ticket__meta-item">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                       {loc}
                     </span>
                     <span className="mt-ticket__meta-item">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
                       {category}
                     </span>
                   </div>
@@ -365,11 +364,11 @@ const TenantMaintenance = () => {
                   <div className="mt-ticket__footer">
                     <div className="mt-ticket__footer-info">
                       <span className="mt-ticket__meta-item">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                         提交于 {createdDate}
                       </span>
                       <span className="mt-ticket__meta-item">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                         {assignee}
                       </span>
                     </div>
@@ -400,7 +399,7 @@ const TenantMaintenance = () => {
         <div className="mt-form-card__header">
           <h3 className="mt-form-card__title">提交新报修</h3>
           <span className="rent-badge rent-badge--primary">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             新申请
           </span>
         </div>
@@ -462,7 +461,7 @@ const TenantMaintenance = () => {
               <label className="mt-form__label">上传照片</label>
               <label className="mt-form__upload">
                 <div className="mt-form__upload-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 </div>
                 <span className="mt-form__upload-text">点击上传或拖拽图片到此处</span>
                 <span className="mt-form__upload-hint">支持 JPG / PNG，单张不超过 5MB，最多 6 张</span>
@@ -479,13 +478,13 @@ const TenantMaintenance = () => {
 
             <div className="mt-form__footer">
               <span className="mt-form__footer-hint">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 提交后物业将在 4 小时内响应并分配维修师傅
               </span>
               <div className="mt-form__footer-actions">
                 <button type="button" className="rent-btn rent-btn--secondary" onClick={resetForm}>取消</button>
                 <button type="submit" className="mt-submit-btn" disabled={submitting}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
                   {submitting ? '提交中…' : '提交报修'}
                 </button>
               </div>
@@ -493,7 +492,7 @@ const TenantMaintenance = () => {
           </form>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

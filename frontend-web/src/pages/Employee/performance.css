@@ -85,7 +85,7 @@
 }
 .rent-bar-chart__bar {
   width: 70%;
-  background: rgba(66, 99, 235, 0.35);
+  background: rgba(20, 184, 166, 0.35);
   border-radius: 4px 4px 0 0;
 }
 .rent-bar-chart__bar--active {

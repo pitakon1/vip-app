@@ -23,6 +23,22 @@ from .commissions import router as commissions_router
 from .tenants import router as tenants_router
 from .owners import router as owners_router
 from .company import router as company_router
+from .billing import router as billing_router
+from .chat import router as chat_router
+from .contracts import router as contracts_router
+from .ai import router as ai_router
+from .backup import router as backup_router
+from .geo import router as geo_router
+from .translate import router as translate_router
+from .viewings import router as viewings_router
+from .audit import router as audit_router
+from .commission_rules import router as commission_rules_router
+from .favorites import router as favorites_router
+from .sale_listings import router as sale_listings_router
+from .property_deals import router as property_deals_router
+from .brokers import router as brokers_router
+from .markets import router as markets_router
+from .market_data import router as market_data_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -45,5 +61,21 @@ api_router.include_router(commissions_router)
 api_router.include_router(tenants_router)
 api_router.include_router(owners_router)
 api_router.include_router(company_router)
+api_router.include_router(billing_router)
+api_router.include_router(chat_router)
+api_router.include_router(contracts_router)
+api_router.include_router(ai_router)
+api_router.include_router(backup_router)
+api_router.include_router(geo_router)
+api_router.include_router(translate_router)
+api_router.include_router(viewings_router)
+api_router.include_router(audit_router)
+api_router.include_router(commission_rules_router)
+api_router.include_router(favorites_router)
+api_router.include_router(sale_listings_router)
+api_router.include_router(property_deals_router)
+api_router.include_router(brokers_router)
+api_router.include_router(markets_router)
+api_router.include_router(market_data_router)
 
 __all__ = ["api_router"]

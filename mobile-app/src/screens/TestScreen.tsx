@@ -15,8 +15,8 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as SecureStore from 'expo-secure-store';
 import colors from '@/theme/colors';
+import { tokenStorage } from '@/lib/storage';
 import { useAuthStore } from '@/stores/auth';
 import { authApi, propertiesApi, leasesApi, paymentsApi, notificationsApi, ownerApi, employeesApi, documentsApi, serviceOrdersApi, maintenanceApi } from '@/services/api';
 import apiClient from '@/lib/api';
@@ -68,7 +68,7 @@ export default function TestScreen() {
   const updateResult = useCallback((key: string, partial: Partial<TestResult>) => {
     setResults((prev) => ({
       ...prev,
-      [key]: { name: key, status: 'idle', ...prev[key], ...partial },
+      [key]: { ...prev[key], name: key, status: 'idle', ...partial },
     }));
   }, []);
 
@@ -109,7 +109,7 @@ export default function TestScreen() {
     updateResult('login', { status: 'loading' });
     try {
       await login(account.email, account.password);
-      const t = await SecureStore.getItemAsync('auth_token');
+      const t = await tokenStorage.get();
       setToken(t);
       updateResult('login', { status: 'success', data: { email: account.email, role: account.role, token: t?.slice(0, 20) + '...' } });
       Alert.alert('登录成功', `${account.label} (${account.email})`);
@@ -129,7 +129,7 @@ export default function TestScreen() {
 
   // 清除所有存储
   const clearStorage = useCallback(async () => {
-    await SecureStore.deleteItemAsync('auth_token');
+    await tokenStorage.remove();
     setToken(null);
     setResults({});
     setActiveResult(null);
@@ -138,7 +138,7 @@ export default function TestScreen() {
 
   // 读取当前 token
   const refreshToken = useCallback(async () => {
-    const t = await SecureStore.getItemAsync('auth_token');
+    const t = await tokenStorage.get();
     setToken(t);
   }, []);
 
@@ -154,10 +154,10 @@ export default function TestScreen() {
   // 渲染状态标签
   const renderStatusTag = (status: TestResult['status']) => {
     const config = {
-      idle: { bg: '#e8e8e8', text: '#999' },
-      loading: { bg: '#e6f4ff', text: '#1677ff' },
-      success: { bg: '#f6ffed', text: '#52c41a' },
-      error: { bg: '#fff2f0', text: '#ff4d4f' },
+      idle: { bg: colors.surface2, text: colors.ink3 },
+      loading: { bg: '#e6f4ff', text: colors.primary },
+      success: { bg: '#f6ffed', text: colors.success },
+      error: { bg: '#fff2f0', text: colors.error },
     };
     const c = config[status];
     const labels = { idle: '待测试', loading: '测试中', success: '成功', error: '失败' };
@@ -359,7 +359,7 @@ export default function TestScreen() {
             <Switch
               value={autoLogin}
               onValueChange={setAutoLogin}
-              trackColor={{ false: '#d9d9d9', true: colors.primary }}
+              trackColor={{ false: colors.border, true: colors.primary }}
             />
           </View>
         </View>
@@ -392,9 +392,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 18,
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   clearBtnText: {
-    color: '#fff',
+    color: colors.primaryForeground,
     fontSize: 12,
   },
   content: {
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   label: {
     width: 100,
     fontSize: 14,
-    color: '#666',
+    color: colors.ink2,
   },
   valueText: {
     flex: 1,
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#d9d9d9',
+    borderColor: colors.border,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   },
   accountBtnSub: {
     fontSize: 10,
-    color: '#999',
+    color: colors.ink3,
     marginTop: 2,
   },
   userInfoBox: {
@@ -503,12 +503,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoutBtnText: {
-    color: '#fff',
+    color: colors.primaryForeground,
     fontSize: 14,
   },
   tokenText: {
     fontSize: 11,
-    color: '#999',
+    color: colors.ink3,
     fontFamily: 'monospace',
     lineHeight: 16,
   },
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   runAllBtnText: {
-    color: '#fff',
+    color: colors.primaryForeground,
     fontSize: 13,
   },
   testItem: {
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: colors.border,
     borderRadius: 8,
     marginBottom: 6,
   },
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   },
   durationText: {
     fontSize: 11,
-    color: '#999',
+    color: colors.ink3,
   },
   linkBtn: {
     color: colors.primary,
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
   },
   subLabel: {
     fontSize: 13,
-    color: '#666',
+    color: colors.ink2,
     marginTop: 10,
     marginBottom: 6,
   },
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
   },
   colorName: {
     fontSize: 10,
-    color: '#999',
+    color: colors.ink3,
   },
   btnRow: {
     flexDirection: 'row',
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   previewBtnText: {
-    color: '#fff',
+    color: colors.primaryForeground,
     fontSize: 13,
   },
   switchRow: {
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
   },
   envText: {
     fontSize: 12,
-    color: '#666',
+    color: colors.ink2,
     lineHeight: 20,
     fontFamily: 'monospace',
   },

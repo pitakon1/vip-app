@@ -842,11 +842,17 @@ FCMPushChannel()  # App 推送
 ### 8.2 通知触发场景
 | 场景 | 渠道优先级 | 模板 |
 |---|---|---|
-| 租金到期提醒（D-7/D-3/D-1） | 社交媒体 → 推送 → 短信 | "您 X 月房租 X 元将于 X 日到期..." |
+| 租金缴费提醒·租客 ≤M-7 | 社交媒体 → 推送 → 短信 | "您 X 月房租 X 元将于 X 日到期，请及时缴纳..." |
+| 租金缴费提醒·租客 D-7/D-3/D-1 | 社交媒体 → 推送 → 短信 | "您 X 月房租 X 元将于 D 天后到期..." |
+| 租金缴费跟进·员工 D-7/D-3/D-1 | 推送 → 站内信 | "负责租户 X 的租金 D 天后到期，请跟进催缴..." |
+| 租金缴费·今日到期 D-0 | 推送 → 短信 | 租客"今日到期请缴费" / 员工"今日需跟进收款" |
+| 租金缴费·逾期 | 推送 → 短信 → 升级 | 租客"已逾期请尽快缴纳" / 员工"逾期需处理并升级" |
 | 合同到期提醒（D-30/D-7/D-1） | 社交媒体 → 推送 | "您的合同将于 X 日到期..." |
 | 支付成功通知 | 推送 + 社交媒体 | "已收到 X 月租金 X 元..." |
 | 续约通知 | 社交媒体 + 邮件 | "您的房源/租约可续约..." |
 | 考勤异常 | 推送 | "您今日未打卡..." |
+
+> 租金缴费通知策略：每日 09:00 Celery 执行 `check_upcoming_rent_payments`，对每个待缴租金单同时创建**租客 + 负责员工（agent）**两条站内通知，按阶段幂等去重（`template_key + related_entity_id`）避免重复推送。阶段模板键：租客 `rent_due_{7d/3d/1d/today}/rent_overdue`，员工对应 `_admin` 后缀。
 
 ### 8.3 失败重试
 - Redis Stream 队列，失败入死信队列
@@ -1375,6 +1381,28 @@ vip-app/
 | K6 | 源码归属 | 质保尾款结清后归甲方 | 是否认可？ |
 | K7 | 甲方配合项 | 域名/备案/开发者账号/支付商户号 Key 由甲方按时提供 | 是否认可？ |
 
+### 15A.12 新增增强需求（v1.8·7 项）核对清单（🟡）
+
+> 对应 §22「新增增强需求」，后端接口已预留，依赖以下第三方凭证与业务决策方可深度启用。
+
+| # | 功能 | 决策点 | 现状/假设 | 需确认 | 优先级 | 影响章节 |
+|---|---|---|---|---|---|---|
+| L1 | 即时聊天 | 会话挂载实体 | 支持房源/租约/订单挂载 + 自由会话 | 聊天入口放在哪些页面？是否需要客服工作台？ | 🟡 | §22.1 |
+| L2 | 即时聊天 | 附件/离线 | 文字+图片+文件，WebSocket 在线推送 | 附件大小上限？离线留言与推送渠道？消息存档时长？ | 🟡 | §22.1 |
+| L3 | 电子签 | 签名方案 | 站内数字签名（RSA/HMAC）+ SVG | 是否需对接第三方电子签（DocuSign 等）保证司法认可？ | 🔴 | §22.2 |
+| L4 | 电子签 | 合同模板 | counters 渲染 HTML 合同 | 合同条款/模板由谁提供？中/英/泰版本？ | 🔴 | §22.2 |
+| L5 | 电子签 | 效力属地 | 泰国电子交易法（ECT Act）效力 | 是否有本地律所出具电子签效力意见？ | 🟡 | §22.2 |
+| L6 | AI 接口 | 第三方 | OpenAI 兼容接口 | 是否有 `OPENAI_API_KEY` 及额度预算？ | 🟡 | §22.3 |
+| L7 | AI 接口 | 应用优先级 | 智能客服/合同生成/找房问答/自动回复/翻译 | 首期上线哪几个场景？PDPA 数据合规如何约束？ | 🟡 | §22.3 |
+| L8 | 备份 | 策略 | 每日 02:00 Celery 全库 .gz 备份 | 保留期/异地灾备目标（MinIO/S3）？是否需多级备份？ | 🟡 | §22.4 |
+| L9 | 地图找房 | 凭证 | Google Maps Geocoding | Google Maps API Key + 计费账本（合并 §15A.8 H4）？ | 🟡 | §22.5 |
+| L10 | 地图找房 | 点位存储 | properties 存 lat/lng | 房源如何批量打点？是否需要地图聚类/国际化标签？ | 🟡 | §22.5 |
+| L11 | 翻译 | 凭证 | Google Cloud Translation v2 | Google Translation API Key 及目标语言范围（zh/en/th/…）？ | 🟡 | §22.6 |
+| L12 | 翻译 | 缓存 | 未缓存 | 是否缓存翻译结果以减少 API 费用？ | 🟢 | §22.6 |
+| L13 | GPS 考勤 | 半径 | 默认 500KM、办公点曼谷 | 基准办公点经纬度？各分公司是否独立半径？ | 🔴 | §22.7 |
+| L14 | GPS 考勤 | 外勤审批 | ExternalTripApplication 前后台审批 | 外勤申请审批层级/时限？需对接 Google Maps 距离校验？ | 🟡 | §22.7 |
+| L15 | GPS 考勤 | 隐私授权 | 打卡上传 lat/lng | 是否需员工定位授权（PDPA 知情同意，复用 consents）？ | 🟡 | §22.7 |
+
 ---
 
 ## 16. 泰国税务子系统（Tax Subsystem）
@@ -1571,11 +1599,17 @@ class RDThailandProvider:
 | v1.2 | 2026-07-28 | 支付系统全面扩展：新增 §7 渠道矩阵（中国大陆/国际/东南亚/跨境 30+ 渠道）、聚合器对比（Stripe/Adyen/Ping++）、统一接口增强（幂等键、智能路由、状态机）；新增 `payment_reconciliations` 表 |
 | v1.3 | 2026-07-28 | 新增 §19 系统演进规划（数据 BI、LLM/AI、架构柔性）；拆分 Phase 4 为 4a/4b/4c；新增 `events` / `feature_flags` / `audit_logs` / `consents` / `data_subject_requests` 表；统一所有业务表公共字段（created_at/updated_at/deleted_at/metadata/version）；新增 §5.3 领域事件规范 |
 | v1.4 | 2026-07-28 | **全面审查修复**：修复 4 处内部矛盾（架构图 Django Admin→SQLModel、§4.6 支付表更新、§17.2 PDPA 表去重引用 §5.1、§11 简化交叉引用 §19）；新增 7 个缺失实体（projects/tenants/documents/service_orders/maintenance_tickets/notifications/commission_settlements）；新增 5 个业务流程（§6.4-6.8：推荐服务派单/报修工单/续约/退房/佣金结算）；新增 §20 后续可扩展模块（10 项：消息中心/文件版本/信用评估/爬虫/API 门户/审计界面/推送策略/自助验房/财务报表/SaaS 预留）；新增 §21 文档健康度检查清单；领域事件从 8 类扩展到 15 类；ER 图更新；API 端点表新增 12 个端点 |
-| v1.5 | 2026-07-28 | **新增 §22 容量规划与性能基线**（用户量/并发量估算、各组件 QPS 上限、5 大瓶颈分析、3 个阶段部署规格与月费用、9 项 SLO 指标、5 个压测场景、横向扩展策略）；回答"本架构能扛多少并发"的明确数据：单实例 200-300 并发用户 / 80-150 QPS，理论上限 3,000-5,000 并发连接 |
-| v1.6 | 2026-07-28 | **新增 §22.10 高并发演进方案（10 万 DAU 场景）**：核心结论（技术栈能支撑但需分布式升级）、10 万 DAU 容量重算（峰值 1-1.5 万并发/3,000-5,000 QPS）、各组件承载差距分析（8 组件）、目标架构图（K8s + PG 主从 + Redis Cluster + Kafka + S3/CDN + 多 AZ）、5 层瓶颈与升级方案对照、$4,700/月成本估算、5 个高 ROI 升级项、分 5 阶段迁移路径 |
+| v1.5 | 2026-07-28 | **新增 §24 容量规划与性能基线**（用户量/并发量估算、各组件 QPS 上限、5 大瓶颈分析、3 个阶段部署规格与月费用、9 项 SLO 指标、5 个压测场景、横向扩展策略）；回答"本架构能扛多少并发"的明确数据：单实例 200-300 并发用户 / 80-150 QPS，理论上限 3,000-5,000 并发连接 |
+| v1.6 | 2026-07-28 | **新增 §24.10 高并发演进方案（10 万 DAU 场景）**：核心结论（技术栈能支撑但需分布式升级）、10 万 DAU 容量重算（峰值 1-1.5 万并发/3,000-5,000 QPS）、各组件承载差距分析（8 组件）、目标架构图（K8s + PG 主从 + Redis Cluster + Kafka + S3/CDN + 多 AZ）、5 层瓶颈与升级方案对照、$4,700/月成本估算、5 个高 ROI 升级项、分 5 阶段迁移路径 |
 | v1.7 | 2026-08-05 | **产品定位重构为"房产中介平台 + 增值服务"（对标贝壳找房）**：更新 §1 项目概述（C 端找房平台体验 vs B 端管理后台）；重写 §2.2 租客端（找房旅程）、§2.3 业主端（收租托管轻量化）；新增 §9A 平台化界面设计规范（视觉基调/导航/交互模式/C 端页面清单/与 B 端关系） |
 | v1.8 | 2026-08-05 | **业务主线上线为"租赁 + 买卖"双业务（对标贝壳 C 端 App）**：重写 §2.2 租客端首页为双门户（`[租房] [买房]` 切换 + 功能宫格 + 主题模块）、房源详情区分租/售价、新增委托找房/购房订单；§2.3 业主端新增委托出租/出售、在线估价、收益涵盖售房款；§9A 全面升级为双业务设计规范（业务切换 Tab、地图找房、委托中心、页面清单补全） |
 | v1.9 | 2026-08-05 | **新增 §15A 待与业务核对事项清单**：集中收录 11 类共 60+ 项待业务方确认事项（商业模式/目标用户/业务边界/合规资质/财务资金流/组织运营/数据隐私/第三方凭证/部署运维/内容多语言/项目交付付款），按优先级 🔴🟡🟢 分级，标注影响章节，便于核对后回填决定 |
+| v1.10 | 2026-09-13 | **新增 7 项增强特性（v1.8）**：新增 §22 新增增强需求（即时聊天/电子签合同/AI 接口预留/每日数据备份/Google Map 找房/Google 翻译/500KM GPS 考勤）后端全量实现，附 §22.8 端接入清单；新增 §15A.12 待确认清单（15 项，含第三方凭证与业务决策）；原 §22 容量规划重编号为 §24 以消解章节冲突 |
+| v1.11 | 2026-09-13 | **新增 §23 全量优化闭环（v1.9）**：预约看房（访客转化）×4 端、缴费凭证 receipt、员工工作台工单响应时效、管理端审计日志 audit-logs；同步补 0003 迁移与验收项 |
+| v1.12 | 2026-09-13 | **新增 §25 管理员端全平台覆盖**：管理员工作台 5 大 Tab（运营概览/财务对账/运营趋势/审计/佣金）Web·App·小程序三端一致；员工性能排行榜三端接入（小程序新增页面）；预约
+看房管理双视角（员工/管理员可查看全部预约+状态流转）补齐 App 与小程序 |
+| v1.13 | 2026-09-13 | **新增 §26 战略扩张四大维度（买卖交易闭环 / 分销体系 / 多国市场 / 数据决策）**：按平台定位（东南亚最大房产中介平台）落地，全部 Web·App·小程序三端接入；后端新增 5 组路由与 7 张表
+（sale_listings/property_deals/broker_partners/referrals/split_deals/market_configs 等）；小程序补齐 saleListingApi/propertyDealApi/brokerApi/marketApi/marketDataApi 与 4 个管理页面 + 工作台宫格入口 |
 
 ---
 
@@ -1899,7 +1933,7 @@ class AIService:
 
 | 检查项 | 状态 | 说明 |
 |---|---|---|
-| 章节编号连续 | ✅ | §1-§21 |
+| 章节编号连续 | ✅ | §1-§21 + §22 新增增强 + §23 健康追加 + §24 容量 |
 | 架构图与技术选型一致 | ✅ | v1.4 已修复 Django Admin 矛盾 |
 | 数据模型与 API 端点对应 | ✅ | 每个实体都有 CRUD 端点 |
 | 业务流程覆盖所有角色 | ✅ | 5 端 + 8 个业务流程 |
@@ -1912,15 +1946,91 @@ class AIService:
 
 ---
 
+## 22. 新增增强需求（v1.8）
+
+> 立项于 2026-09-13：7 项增强特性，覆盖聊天、电子签、AI、备份、地图找房、多语言翻译、GPS 考勤。后端已全量实现并注册到 `/api/v1`（共 26 组路由），客户端（Web / App / 小程序 / Pad）按 §22.8 逐个接入。
+
+### 22.1 即时聊天（客户 ↔ 房东 ↔ 工作人员）
+- **目标**：客户/房东可直接在系统内咨询经纪/工作人员，无需跳转外部聊天。
+- **实现**：
+  - 会话 `Conversation`（chats 表）+ 消息 `Message`（chat_messages 表），参与者存用户 id 列表。
+  - REST：`GET/POST /chat/conversations`，`GET/POST /chat/conversations/{id}/messages`。
+  - 实时：WebSocket `/api/v1/chat/ws/chat/{conversation_id}?token=JWT`（站内广播，分布式可换 Redis pub/sub）。
+- **接入点**：各端「客服/联系工作人员」入口 + Agent 工作台「会话中心」。
+
+### 22.2 电子签合同（根据用户信息自动生成 + 签名）
+- **目标**：录入用户/租约信息后自动渲染合同，各方数字签名后生效。
+- **实现**：
+  - 合同 `Contract` + 签署方 `ContractParty` + 签名留痕 `SignatureRecord`。
+  - 自动生成：`POST /contracts/generate`（从 counters 渲染 HTML 合同，计算全文 SHA-256）。
+  - 签名：`POST /contracts/{id}/parties` 追加签署方；`POST /contracts/{id}/sign` 数字签名（优先 RSA-256，退回 HMAC-SHA256），生成签名 SVG 与哈希留痕；全部签署后状态置 `signed`。
+  - 落盘合同文件到 `CONTRACT_OUTPUT_DIR`。
+- **接入点**：签约流（看房→租约→生成合同→双方签名）。
+
+### 22.3 AI 应用接口预留
+- **目标**：为 AI 应用（智能客服、合同生成、找房问答、自动回复、翻译增强）预留统一接口。
+- **实现**：
+  - `providers/ai`（OpenAI 兼容 /chat/completions）；未配置 `OPENAI_API_KEY` 时返回保留提示。
+  - `GET /ai/health`（能力清单 + 配置状态）；`POST /ai/chat`（对话）。
+- **接入点**：各端「AI 助手」透出；配置密钥后即启用真实生成。
+
+### 22.4 数据备份 / 每日同步
+- **目标**：数据每天自动备份同步，防止丢失。
+- **实现**：
+  - `BackupJob`（backup_jobs 表）+ `services/backup_service.py`：全库表序列化 `.gz JSON`，SQLite 开发库额外复制 `.db`。
+  - 手动：`POST /backup/run`（admin）；记录：`GET /backup/jobs`。
+  - 定时：Celery Beat 每天 02:00 触发 `daily_backup_sync`，任务路由 `app/tasks/backup.*` → `default` 队列。
+- **接入点**：管理端「数据备份」页；生产可把 `BACKUP_DIR` 指向挂载盘/MinIO。
+
+### 22.5 地图找房（Google Map）
+- **目标**：用 Google Map 找房（地图点位 + 检索）。
+- **实现**：
+  - `providers/geo`（Google Geocoding + 站内 Mock 兜底）；`haversine` 距离计算。
+  - `POST /geo/geocode`、`POST /geo/reverse`、`POST /geo/distance`、`POST /geo/attendance`。
+  - 房源经纬度存于 `properties.metadata（或扩展 lat/lng）`，地图页批次点位渲染。
+- **接入点**：C 端房源列表「地图模式」（复用 PublicListings 地图布局）。
+
+### 22.6 多语言翻译（Google 翻译按钮）
+- **目标**：业务人员上传的房源信息可能是多国语言，用户可点「翻译」自选语言。
+- **实现**：
+  - `providers/translate`（Google Cloud Translation v2；未配置密钥走站内 mock）。
+  - `POST /translate`（单条）、`POST /translate/bulk`（批量 keyed_texts）。
+- **接入点**：房源详情/列表页「翻译」按钮（目标语言 zh/en/th 可选）。
+
+### 22.7 GPS 考勤（500KM 半径 + 外勤申请）
+- **目标**：打卡需在公司基准点半径（默认 500KM，可配）内；超出必须提前填写外勤/出差申请并获批。
+- **实现**：
+  - 考勤表已含 `check_in_location/check_out_location`（GPS）。`POST /attendance/check-in`、`/check-out` 接收 `{lat,lng}`。
+  - 半径校验 `POST /geo/attendance`（`ATTENDANCE_RADIUS_KM`，办公点 `ATTENDANCE_OFFICE_LAT/LNG`）。
+  - 外勤申请 `ExternalTripApplication`：`POST /attendance/external-trips`、`GET /attendance/external-trips`、`POST /attendance/external-trips/{id}/approve`（admin/agent）。
+- **接入点**：员工端考勤打卡页（定位 → 半径校验 → 申请外勤）。
+
+### 22.8 端接入清单（差异前端，同 API）
+| 端 | 聊天 | 电子签 | AI | 备份 | 地图找房 | 翻译 | GPS 考勤 |
+|---|---|---|---|---|---|---|---|
+| Web | 🔲 | 🔲 | 🔲 | 🔲 | 🔲 | 🔲 | 🔲 |
+| App(RN) | 🔲 | 🔲 | 🔲 | 🔲 | 🔲 | 🔲 | 🔲 |
+| 小程序(Taro) | 🔲 | 🔲 | 🔲 | 🔲 | 🔲 | 🔲 | 🔲 |
+
+---
+
+## 23. 文档健康度检查清单（追加）
+
+| 检查项 | 状态 | 说明 |
+|---|---|---|
+| 新增 §22 七项特性后端实现 | ✅ | 模型/Provider/路由/Celery 已完成 |
+| 后端启动自检 | ✅ | `/api/v1` 26 组路由，导入通过 |
+| 端接入进度 | 🔲 | 见 §22.8，逐端盖章 |
+
 **文档结束。后续如有架构调整或新增模块，请在此文件追加版本记录。**
 
 ---
 
-## 22. 容量规划与性能基线
+## 24. 容量规划与性能基线
 
 > 回答"这套框架能扛多少并发"——基于本架构组件的容量估算、瓶颈分析、部署规格和扩展策略。
 
-### 22.1 业务量预估（单一公司视角）
+### 24.1 业务量预估（单一公司视角）
 
 | 指标 | Phase 1 起步 | Phase 3 稳定期 | Phase 5 满载 |
 |---|---|---|---|
@@ -1931,7 +2041,7 @@ class AIService:
 | 月支付笔数 | 50 - 150 | 500 - 1,500 | 5,000+ |
 | 文档/图片总量 | 1,000 - 5,000 | 50,000 - 200,000 | 1,000,000+ |
 
-### 22.2 并发量估算
+### 24.2 并发量估算
 
 | 场景 | 峰值并发用户 | 峰值 QPS | 平均 QPS | 备注 |
 |---|---|---|---|---|
@@ -1944,7 +2054,7 @@ class AIService:
 
 **峰值并发总量**：约 **200-300 用户 / 80-150 QPS / 100 WebSocket 连接**
 
-### 22.3 各组件承载上限
+### 24.3 各组件承载上限
 
 | 组件 | 单实例上限 | 瓶颈 | 调优手段 |
 |---|---|---|---|
@@ -1956,7 +2066,7 @@ class AIService:
 | **MinIO / S3** | 5,000+ 上传/s | 带宽 | CDN 卸载 / 分片上传 |
 | **WebSocket（FastAPI）** | 单实例 10,000 长连接 | 文件描述符 | Redis Pub/Sub 跨实例广播 |
 
-### 22.4 真实瓶颈分析
+### 24.4 真实瓶颈分析
 
 按业务路径预测的瓶颈点（**从最可能成为瓶颈的排起**）：
 
@@ -1983,7 +2093,7 @@ class AIService:
 - 多个支付渠道同时回调，可能短时 100+ req/s
 - **webhook 端点设计为无状态 + 立即 200 OK + 异步处理**
 
-### 22.5 部署规格推荐
+### 24.5 部署规格推荐
 
 #### Phase 1 起步（最低可用，1-2 年）
 
@@ -2019,7 +2129,7 @@ class AIService:
 - 文件：S3 + CloudFront
 - 月费用 $3,000 - $5,000
 
-### 22.6 性能基线指标（SLO）
+### 24.6 性能基线指标（SLO）
 
 | 指标 | 目标 | 测量方式 |
 |---|---|---|
@@ -2034,7 +2144,7 @@ class AIService:
 | 慢查询（>1s） | < 0.5% | pg_stat_statements |
 | 系统可用性 | > 99.9%（年宕机 < 8.76h） | 业务监控 |
 
-### 22.7 压测方案
+### 24.7 压测方案
 
 #### 工具选型
 - **Locust**（推荐，Python 写脚本，与 FastAPI 生态一致）
@@ -2065,7 +2175,7 @@ class AIService:
 - 队列长度 > 1000 → 告警
 - API P99 > 1s → 告警
 
-### 22.8 横向扩展策略
+### 24.8 横向扩展策略
 
 ```
                   ┌─────────────────┐
@@ -2089,7 +2199,7 @@ class AIService:
 - Redis 内存 > 75% → 升级实例或 Cluster
 - 队列积压 > 1000 → 增加 Celery worker
 
-### 22.9 一句话回答
+### 24.9 一句话回答
 
 > **本架构单实例最低可承载 200-300 并发用户 / 80-150 QPS**（Phase 1 业务量级），**理论上限 3,000-5,000 并发连接**（按 4 worker 配置）。
 >
@@ -2099,11 +2209,11 @@ class AIService:
 
 ---
 
-### 22.10 高并发演进方案（10 万 DAU 场景）
+### 24.10 高并发演进方案（10 万 DAU 场景）
 
 > 假设业务体量跳跃到 **DAU 100,000**（约为 Phase 1 的 500-2000 倍，Phase 5 满载的 20 倍），当前架构能否支撑？
 
-#### 22.10.1 核心结论
+#### 24.10.1 核心结论
 
 > ✅ **技术栈（FastAPI + PostgreSQL + Redis）本身能支撑 10 万 DAU**
 >
@@ -2111,7 +2221,7 @@ class AIService:
 >
 > 💰 **月成本从 $370 跳到 $3,000-5,000**（约 10-13 倍）
 
-#### 22.10.2 10 万 DAU 容量重算
+#### 24.10.2 10 万 DAU 容量重算
 
 **业务参数**：
 - 注册用户 100 万 - 500 万
@@ -2134,7 +2244,7 @@ class AIService:
 
 **峰值并发总量**：约 **1-1.5 万并发用户 / 3,000-5,000 QPS / 1 万 WebSocket 连接**
 
-#### 22.10.3 各组件承载差距分析
+#### 24.10.3 各组件承载差距分析
 
 | 组件 | 当前单实例上限 | 10 万 DAU 需求 | 缺口 | 解决方式 |
 |---|---|---|---|---|
@@ -2147,7 +2257,7 @@ class AIService:
 | **WebSocket 单实例** | 10,000 长连接 | 10,000+ 长连接 | 临界 | **多实例 + Redis Pub/Sub 广播** |
 | **事件总线** | Redis Streams 10K/s | 50K+ 事件/s | 5x | **升级到 Apache Kafka** |
 
-#### 22.10.4 目标架构（10 万 DAU）
+#### 24.10.4 目标架构（10 万 DAU）
 
 ```
                                    ┌─────────────────┐
@@ -2199,7 +2309,7 @@ class AIService:
 - ✅ **静态资源**：CloudFront CDN（卸载 80% 流量）
 - ✅ **多 AZ 部署**：跨可用区容灾（AWS Bangkok 至少 2 AZ）
 
-#### 22.10.5 5 层瓶颈与升级方案对照
+#### 24.10.5 5 层瓶颈与升级方案对照
 
 | 瓶颈 | 升级方案 | 工作量 | 优先级 |
 |---|---|---|---|
@@ -2214,7 +2324,7 @@ class AIService:
 | 🟢 **BI 查询慢** | 引入 ClickHouse 数据仓库 | 2-3 周（Phase 4a） | P2 |
 | 🟢 **微服务化** | 拆分用户/房源/支付/税务独立部署 | 1-2 月（Phase 5） | P3 |
 
-#### 22.10.6 成本估算（10 万 DAU）
+#### 24.10.6 成本估算（10 万 DAU）
 
 | 服务 | 规格 | 月费用（USD） |
 |---|---|---|
@@ -2235,7 +2345,7 @@ class AIService:
 - **Phase 高并发（10 万 DAU）：~$4,700/月**
 - 单 DAU 成本：$0.0037 → $0.012 → **$0.047**（10 万 DAU）
 
-#### 22.10.7 5 个必做的架构升级项（按 ROI 排序）
+#### 24.10.7 5 个必做的架构升级项（按 ROI 排序）
 
 | # | 升级项 | 投入 | 收益 | ROI |
 |---|---|---|---|---|
@@ -2245,7 +2355,7 @@ class AIService:
 | 4 | **K8s + HPA** | 2-3 周，$500/月 | 自动伸缩 3-20 Pod，零停机扩容 | ⭐⭐⭐⭐ |
 | 5 | **事件总线升级到 Kafka** | 1 周，$500/月 | 事件吞吐 10x，支持事件溯源和重放 | ⭐⭐⭐ |
 
-#### 22.10.8 性能与可靠性目标（10 万 DAU）
+#### 24.10.8 性能与可靠性目标（10 万 DAU）
 
 | 指标 | 目标 | 测量方式 |
 |---|---|---|
@@ -2258,7 +2368,7 @@ class AIService:
 | 队列最大积压 | < 5,000 | Celery Flower |
 | CDN 命中率 | > 85% | CloudFront 报表 |
 
-#### 22.10.9 分阶段迁移路径
+#### 24.10.9 分阶段迁移路径
 
 **前置条件**：先验证业务真达到 10 万 DAU，再启动以下升级（不要过早优化）：
 
@@ -2272,7 +2382,7 @@ class AIService:
 
 **每阶段投入产出比都验证后再进入下一阶段**——避免过早优化。
 
-#### 22.10.10 一句话回答
+#### 24.10.10 一句话回答
 
 > **当前架构能支撑 10 万 DAU，但需要从单体升级到分布式**（K8s + PG 主从 + Redis Cluster + Kafka + CDN）。
 >
@@ -2281,3 +2391,144 @@ class AIService:
 > **建议分 5 阶段演进**，每阶段基于真实业务量触发（不要过早优化）。
 >
 > **最大 ROI 升级**：CDN（$50/月 → 减 80% 流量）+ PgBouncer（$100/月 → 支持 10x 连接）= 投入 < $200/月，效果立竿见影。
+
+---
+
+## 23. 全量优化闭环（v1.9）
+
+> 立项于 2026-09-13：按「分角色用户体验优化」框架补齐访客/租客/员工/管理端五类角色的关键缺口，优先落地转化与财权闭环。后端已实现并注册到 `/api/v1`，App / 小程序 / Web 按各小节接入。原 §23 规划按需保留，序号顺延以消解冲突（当前约 100 条路由）。
+
+### 23.1 预约看房（访客转化闭环）
+- **目标**：访客（潜在租客）对意向房源发起看房预约，员工确认后形成「找房 → 预约 → 看房 → 成交」漏斗，补全访客态吸附抓手。
+- **模型**：`ViewingAppointment`（`viewing_appointments` 表），支持未注册访客信息（`visitor_*`）与已登录用户关联（`requester_user_id`），关联线索 `lead_id` 便于 CRM 跟踪；状态 `pending → confirmed → completed / cancelled / no_show`。
+- **接口**：`POST /viewings`（提交预约）、`GET /viewings/mine`（我的预约）、`GET /viewings`（员工列表）、`PATCH /viewings/{id}`（员工确认/完成/取消/爽约，确认时自动绑定当前员工）。
+- **接入点**：App 与小程序的访客态金刚区新增「预约看房」入口 + 独立预约页（选房源/填时间/备注 + 我的预约列表）。
+- **迁移**：`0003_viewing_appointments`（复用 `create_all` 仅建缺失表，列类型与模型对齐）。
+
+### 23.2 缴费凭证（租客财权闭环）
+- **目标**：缴费成功后租客可查看/打印结构化收款收据，形成可留存凭证。
+- **实现**：`GET /payments/{id}/receipt` 返回结构化凭证数据（单号、金额、类型、渠道、交易号、支付时间、收款方、关联房源/租约），仅付款方/收款方/管理端可访问。
+- **接入点**：App 与小程序的缴费页对「已支付」账单显示「查看凭证」，弹窗展示凭证明细。
+
+### 23.3 员工工单响应时效（履约质量）
+- **目标**：员工工作台补充维修工单响应指标，量化服务时效。
+- **实现**：`GET /employees/workbench` 的 `summary` 新增 `open_maintenance`（名下待办工单数）与 `avg_resolve_hours`（平均解决时长，按 `resolved_at - created_at` 计算）。
+- **接入点**：员工端首页工作台概览卡片。
+
+### 23.4 管理端审计日志（合规留痕）
+- **目标**：管理端可审计「谁在何时对何资源做了何种操作」，满足权责追溯与符合性核查。
+- **实现**：
+  - `GET /audit-logs`（分页 + 按 action / resource_type / actor_user_id / 时间窗过滤，附操作人姓名邮箱）。
+  - `GET /audit-logs/summary`（按动作与资源类型聚合数量）。
+  - 复用既有 `AuditLog` 模型（`pdpa_audit_logs` 表）。
+
+### 23.5 后续待办（勿删）
+- 租客：续约一体化（到期提醒 → 一键续约）、退租/押金结算、发票（税务 Invoice/WHT）下载。
+- 房东：空置房源营销推广（外推访客流量）、按周边行情自动定价建议、年度财务汇总导出。
+- 员工：租约临期 SLA 跟进、佣金规则后台配置。
+- 管理端：Dashboard 既有 `/summary` 已覆盖房源/收入/线索，可补财务对账明细与运营趋势图。
+
+## 24. 全量优化落地（v1.10）
+
+> 立项 2026-09-13：把 §23 规划中「全部优化」剩余的缺口一次性落地，覆盖管理端、租客、房东、访客四类角色的后端能力与三端前端集成。后端接口已注册到 `/api/v1`，迁移 `0004_commission_rules_favorites`。
+
+### 24.1 佣金规则配置（员工/管理端）
+- **模型**：`CommissionRule`（`commission_rules` 表）——按成交类型（new_rental / renewal / management）配置佣金比例，支持全局/按部门/按员工三种适用范围，可设封顶与起算门槛、启用停用、生效区间。
+- **接口**：`GET/POST /commission-rules`、`GET/PATCH/DELETE /commission-rules/{id}`（admin 权限）。
+- **接入**：Web 管理端新增「佣金规则」页（列表 + 新增/编辑弹窗 + 启停 + 删除）。
+
+### 24.2 房源收藏（访客/租客意愿沉淀）
+- **模型**：`Favorite`（`favorites` 表，`user_id + property_id` 唯一约束）。
+- **接口**：`POST /favorites`（幂等收藏）、`DELETE /favorites/{property_id}`、`GET /favorites`（分页 + 房源信息）、`GET /favorites/status/{property_id}`。
+- **接入**：App 与小程序房源卡片右上角收藏切换（乐观更新 + 高亮），小程序首页访客态新增「我的收藏」入口与收藏列表页。
+
+### 24.3 房东三件套
+- `GET /owners/me/marketing`：空置房源一览 + 分享链接。
+- `GET /owners/me/pricing-suggestion`：按同户型在租房源均值给出升/降/持平定价建议。
+- `GET /owners/me/annual-financial-summary?year=`：按月度汇总已收/待收/逾期，形成房东年度对账导出数据。
+- **接入**：App 新增 `OwnerPortalScreen` 房东工作台（年度汇总卡片 + 营销空置房 + 定价建议 + 月度明细）。
+
+### 24.4 管理端财务对账与运营趋势
+- `GET /dashboard/financial-reconciliation`：按房源聚合已收/应收/逾期 + 逐笔明细（admin）。
+- `GET /dashboard/trend?months=`：近 N 月营收、新签租约、新线索、预约、维修工单逐月走势（admin）。
+- **接入**：Web 管理端新增「财务对账」「运营趋势」两页（对账卡片 + 房源聚合表 + 逐笔明细；趋势柱状图 + 月度表）。
+
+### 24.5 退租押金结算专职流程
+- `POST /leases/{id}/deposit-settlement`：核算 `押金 − 到期未付租金 − 损耗 − 其他扣款 = 应退/应补`，自动更新租约终止、房源空置，应退押金生成 `refund` 支付单（原路退回）。
+- **接入**：Web 租约/App 面向员工的退租交互。
+
+### 24.6 税务发票下载 + 维修评价
+- `GET /payments/{id}/invoice`：含净额/税额/VAT率/合计的税务发票导出数据（THB 租金/押金/水电按 7% 拆税）。
+- `POST /maintenance-tickets/{id}/rate`：租客对已解决工单 1-5 星评价 + 反馈（服务闭环）。
+- **接入**：App 与小程序缴费页「发票」按钮弹窗；维修列表点击工单弹详情 + 已解决单可评分。
+
+### 24.7 管理端审计日志 / 预约看房管理页
+- Web 管理端新增「审计日志」（复用 `GET /audit-logs` + 过滤 + 摘要）与「预约看房」（`GET /viewings` + `PATCH /viewings/{id}` 状态流转）。
+
+### 接线与验证
+- 路由：`app/api/v1/__init__.py` 新增 `commission_rules`、`favorites` 两个分组（累计 30 个路由分组）。
+- 迁移：`0004_commission_rules_favorites`（`create_all` 仅建缺失表）。
+- 验证：backend ruff 通过、pytest 6 项通过、前端 web tsc 通过、mobile/miniapp 三端 API 接线完成。
+
+## 25. 管理员端全平台覆盖（v1.11）
+
+> 目标：管理员/员工（admin/employee/agent）核心管理能力在 Web / App / 小程序三端一致。
+
+### 25.1 管理员工作台（5 大 Tab，三端一致）
+| 能力 | Web | App | 小程序 |
+|---|---|---|---|
+| 运营概览（房源/入住率/到期合同/空置/待收款 + 临期租约） | ✅ | ✅ | ✅ |
+| 财务对账（已收/应收/逾期 + 按房源） | ✅ | ✅ | ✅ |
+| 运营趋势（近 12 月营收/新签/新线索） | ✅ | ✅ | ✅ |
+| 审计日志 | ✅ | ✅ | ✅ |
+| 佣金规则后台配置（增/启停） | ✅ | ✅ | ✅ |
+
+- **App 补齐**：`admin/HomeScreen.tsx` 新增「运营概览」Tab 与 `dashboardApi.expiringLeases`，对齐小程序。
+- **小程序**：`admin/home` 五 Tab 齐备。
+
+### 25.2 员工性能排行榜（三端）
+- 后端 `GET /employees/leaderboard`（按佣金聚合）+ 个人 `GET /employees/me` 摘要。
+- **自定义**：Web `employee/performance`、App `employee/PerformanceScreen`、小程序新增 `employee/performance` 页面，员工工作台加入口。
+
+### 25.3 预约看房管理视角（员工/管理员 vs 访客双视角）
+- `GET /viewings`（全部，require_employee）、`PATCH /viewings/{id}`（状态流转：确认/完成/爽约/取消）。
+- **App / 小程序** 的 `ViewingsScreen` 按角色分流：员工/管理员加载全部预约并展示访客信息 + 状态流转按钮；普通用户保留「我的预约 + 提交表单」。三端 API 均新增 `list` / `updateStatus` 封装。
+
+### 25.4 验证
+- mobile tsc 通过、frontend-web tsc 通过、miniapp `taro build --type weapp` 通过。
+
+## 26. 战略扩张四大维度（v1.12）
+> 定位：做东南亚最大的房地产中介平台。用户可租/售/买增值服务/维修；员工可寻客户/带看/管房源/核业绩/管客户；企业除自营员工外，开放分销体系，统一管理员工/房源/渠道客户。
+> 围绕此定位落地四大战略维度，全部完成 Web / App / 小程序三端接入，与租赁主链路形成「租售双轮 + 分销裂变 + 多国扩张 + 数据壁垒」闭环。
+
+### 26.1 买卖交易闭环（租售双轮）
+- 模型：`sale_listings`（售/求挂牌）、`property_deals`（产权成交）、`PropertyDealEscrow`（定金托管）、`PropertyDealMortgage`（按揭）、`Valuation`（自动估价 AVM）。
+- 路由：`/api/v1/sale-listings`、`/api/v1/property-deals`。
+- 端口：Web `SaleDeals`、App `admin/SaleDealsScreen`、小程序 `admin/sale-deals`（挂牌上下架/标记成交 + 成交管理）。
+
+### 26.2 分销体系（开放给外部经纪人 / 渠道）
+- 模型：`broker_partners`（独立/中介/加盟/影响者）、`referrals`（转介绍裂变）、`split_deals`（联合单佣金分拆）。
+- 路由：`/api/v1/brokers`（含 `/invite/{code}` 邀请、`/referrals`、`/split-deals`）。
+- 端口：Web `Distribution`、App `admin/DistributionScreen`、小程序 `admin/distribution`（渠道商审批/停用 + 我的转介绍）。
+
+### 26.3 多国市场底座（东南亚扩张）
+- 模型：`market_configs`（分市场币种/语言/时区）、`local_payment_channels`（本地支付渠道聚合）、`market_compliance_docs`（分国合规/模板）。
+- 路由：`/api/v1/markets`（含 `/channels`、`/compliance`）。
+- 端口：Web `Markets`、App `admin/MarketsScreen`、小程序 `admin/markets`（国家市场/支付渠道/合规文档）。
+
+### 26.4 数据决策壁垒（指数 / 匹配 / 流失预警）
+- 模型：`market_indices`、`market_reports`、`property_lead_matches`（房源-线索智能匹配）、`tenant_churn_signals`（租客流失预警）。
+- 路由：`/api/v1/market-data`。
+- 端口：Web `MarketIntelligence`、App `admin/MarketIntelScreen`、小程序 `admin/market-intel`（指数/报告/流失预警处理）。
+
+### 26.5 三端接入清单
+| 模块 | Web | App | 小程序 |
+|---|---|---|---|
+| 买卖交易闭环 | `pages/SaleDeals` | `SaleDealsScreen` | `pages/admin/sale-deals` |
+| 分销体系 | `pages/Distribution` | `DistributionScreen` | `pages/admin/distribution` |
+| 多国市场 | `pages/Markets` | `MarketsScreen` | `pages/admin/markets` |
+| 数据决策 | `pages/MarketIntelligence` | `MarketIntelScreen` | `pages/admin/market-intel` |
+- **小程序**：`services/api.ts` 新增 `saleListingApi` / `propertyDealApi` / `brokerApi` / `marketApi` / `marketDataApi`（Query 参数接口以 `qs()` 拼接进 URL）；路由注册于 `app.config.ts`；管理员工作台新增「战略业务模块」宫格入口。
+
+### 26.6 验证
+- backend ruff 全绿、pytest 15 项通过；frontend-web tsc 通过、mobile-app tsc 通过、miniapp `taro build --type weapp` 通过。

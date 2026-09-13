@@ -1,5 +1,5 @@
 """分页工具类"""
-from typing import TypeVar, Generic, List, Optional
+from typing import TypeVar, Generic, List
 from pydantic import BaseModel
 
 T = TypeVar("T")

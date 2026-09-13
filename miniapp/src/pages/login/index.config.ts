@@ -1,5 +1,5 @@
 export default {
   navigationBarTitleText: '登录',
-  navigationBarBackgroundColor: '#1677ff',
+  navigationBarBackgroundColor: '#14b8a6',
   navigationBarTextStyle: 'white'
 }

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message } from 'antd'
+import { message, Spin } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
-import useAuthStore from '@/stores/auth'
+import { convertCurrency } from '@/lib/money'
 import './dashboard.css'
 
 interface OwnerProperty {
@@ -58,65 +58,51 @@ interface OwnerLease {
   [key: string]: any
 }
 
+interface RecentIncome {
+  name: string
+  date: string
+  tenant: string
+  amount: number
+}
+
 // ===== 设计稿静态演示数据（API 数据为空时兜底） =====
 const FALLBACK_PROPERTIES: OwnerProperty[] = [
-  { id: 'p1', name: '阳光花园 A座12-3', address: '曼谷 · 素坤逸', status: 'rented', monthly_rent: 38000, bedrooms: 2, bathrooms: 2, size_sqm: 56, tenant_name: '王租客' },
+  { id: 'p1', name: '阳光花园 A座12-3', address: '曼谷 · 素坤逸', status: 'rented', monthly_rent: 38000, bedrooms: 3, bathrooms: 2, size_sqm: 120, tenant_name: '王租客' },
   { id: 'p2', name: '海景公寓 05-08', address: '曼谷 · 湄南河畔', status: 'rented', monthly_rent: 45000, bedrooms: 2, bathrooms: 2, size_sqm: 64, tenant_name: 'Lim Wei' },
   { id: 'p3', name: '城中别墅 21号', address: '清迈 · 古城', status: 'rented', monthly_rent: 68000, bedrooms: 4, bathrooms: 3, size_sqm: 220, tenant_name: 'Tan Mei' },
   { id: 'p4', name: '绿洲苑 B座7-1', address: '曼谷 · 拉差达', status: 'rented', monthly_rent: 28000, bedrooms: 1, bathrooms: 1, size_sqm: 38, tenant_name: '陈小明' },
-  { id: 'p5', name: '中心广场 18-2', address: '芭提雅 · 海滨', status: 'for_sale', sale_price: 3500000, bedrooms: 2, bathrooms: 2, size_sqm: 60 },
+  { id: 'p5', name: '阳光花园二期', address: '曼谷 · 素坤逸', status: 'for_sale', sale_price: 3500000, bedrooms: 3, bathrooms: 2, size_sqm: 120 },
   { id: 'p6', name: '山景华庭 03-15', address: '普吉 · 卡伦', status: 'vacant', monthly_rent: 0, bedrooms: 2, bathrooms: 2, size_sqm: 52 },
   { id: 'p7', name: '金辉花园 09-6', address: '曼谷 · 辉煌', status: 'rented', monthly_rent: 31000, bedrooms: 2, bathrooms: 1, size_sqm: 46, tenant_name: 'Wong Kit' },
-  { id: 'p8', name: '滨海名邸 12-A', address: '芭提雅 · 中天', status: 'for_sale', sale_price: 4200000, bedrooms: 3, bathrooms: 2, size_sqm: 88 },
+  { id: 'p8', name: '滨海名邸 12-A', address: '芭提雅 · 中天', status: 'rented', monthly_rent: 42000, bedrooms: 3, bathrooms: 2, size_sqm: 88, tenant_name: 'Goh Swee' },
 ]
 
 const FALLBACK_EXPIRING: OwnerLease[] = [
   { id: 'l1', property_name: '阳光花园 A座12-3', tenant_name: '王租客', end_date: '2026-09-15', monthly_rent: 38000, status: 'active' },
   { id: 'l2', property_name: '海景公寓 05-08', tenant_name: 'Lim Wei', end_date: '2026-09-28', monthly_rent: 45000, status: 'active' },
-  { id: 'l3', property_name: '中心广场 18-2', tenant_name: 'Lee Chong', end_date: '2026-10-01', monthly_rent: 32000, status: 'active' },
+  { id: 'l3', property_name: '阳光花园二期', tenant_name: 'Lee Chong', end_date: '2026-10-01', monthly_rent: 32000, status: 'active' },
 ]
 
-interface ActivityItem {
-  type: 'success' | 'info' | 'warning' | 'neutral'
-  title: string
-  desc: string
-  date: string
-}
-
-const FALLBACK_ACTIVITIES: ActivityItem[] = [
-  { type: 'success', title: '收到租金 ฿ 38,000', desc: '王租客 · 阳光花园 A座12-3', date: '2026-08-03' },
-  { type: 'info', title: '新租客签约', desc: 'Lim Wei · 海景公寓 05-08（为期 12 个月）', date: '2026-08-01' },
-  { type: 'success', title: '维修申请已处理', desc: '绿洲苑 B座7-1 水管维修完成', date: '2026-07-28' },
-  { type: 'success', title: '收到租金 ฿ 42,000', desc: 'Goh Swee · 滨海名邸 12-A', date: '2026-07-25' },
-  { type: 'warning', title: '合同到期提醒', desc: '阳光花园 A座12-3 合同将于 9 月到期', date: '2026-07-22' },
-  { type: 'neutral', title: '房源挂牌出售', desc: '中心广场 18-2 已上架在售', date: '2026-07-18' },
+// 最近入账（设计稿静态演示数据）
+const FALLBACK_RECENT: RecentIncome[] = [
+  { name: '阳光花园 A座12-3', date: '2026-08-03', tenant: '王租客', amount: 38000 },
+  { name: '海景公寓 05-08', date: '2026-08-01', tenant: 'Lim Wei', amount: 45000 },
+  { name: '金辉花园 09-6', date: '2026-07-28', tenant: 'Wong Kit', amount: 31000 },
+  { name: '滨海名邸 12-A', date: '2026-07-25', tenant: 'Goh Swee', amount: 42000 },
 ]
 
-const GRADIENTS = [
-  'linear-gradient(135deg, #4263eb 0%, #3b51d4 100%)',
-  'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
-  'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
-  'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-  'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-  'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-  'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)',
-  'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+// 租客报修待审批（设计稿静态演示数据）
+const REPAIR_ITEMS = [
+  { id: 'r1', title: '阳光花园 A座12-3 · 热水器漏水', desc: '王租客 · 2026-08-04 提交' },
+  { id: 'r2', title: '金辉花园 09-6 · 门锁损坏', desc: 'Wong Kit · 2026-08-03 提交' },
 ]
 
-const gradientFor = (seed: string) => {
-  let h = 0
-  for (let i = 0; i < (seed || 'x').length; i++) {
-    h = (h * 31 + (seed || 'x').charCodeAt(i)) >>> 0
-  }
-  return GRADIENTS[h % GRADIENTS.length]
-}
-
-const fmtMoney = (v: number) => `฿ ${Number(v || 0).toLocaleString()}`
+const fmtRM = (v: number) => `RM ${Math.round(convertCurrency(v, 'RM')).toLocaleString()}`
+const fmtThb = (v: number) => `฿ ${Math.round(Number(v || 0)).toLocaleString()}`
 
 const Dashboard = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const user = useAuthStore((s) => s.user)
   const [loading, setLoading] = useState(false)
   const [properties, setProperties] = useState<OwnerProperty[]>([])
   const [income, setIncome] = useState<IncomeSummary>({
@@ -197,235 +183,352 @@ const Dashboard = () => {
       .sort((a, b) => dayjs(a.end_date).valueOf() - dayjs(b.end_date).valueOf())
   }, [leases])
 
+  // 待收租金（预警卡）
+  const pendingPayments = useMemo(
+    () => payments.filter((p) => ['pending', 'overdue'].includes(String(p.status || '').toLowerCase())),
+    [payments],
+  )
+
+  // 最近入账
+  const recentIncomes: RecentIncome[] = useMemo(() => {
+    if (payments.length) {
+      return payments.slice(0, 4).map((p) => ({
+        name: p.property_name || p.property_id || '—',
+        date: p.paid_at || p.due_date ? dayjs(p.paid_at || p.due_date).format('YYYY-MM-DD') : '-',
+        tenant: p.tenant_name || '-',
+        amount: Number(p.amount || 0),
+      }))
+    }
+    return FALLBACK_RECENT
+  }, [payments])
+
   // 渲染时使用的数据（空则用兜底）
   const displayProperties = properties.length ? properties : FALLBACK_PROPERTIES
   const displayExpiring = expiringLeases.length ? expiringLeases : FALLBACK_EXPIRING
   const totalProps = properties.length || FALLBACK_PROPERTIES.length
   const rentedCount = statusCount.rented || FALLBACK_PROPERTIES.filter((p) => p.status === 'rented').length
-  const saleCount = statusCount.for_sale || FALLBACK_PROPERTIES.filter((p) => String(p.status).includes('sale')).length
+  const vacantCount = statusCount.vacant || FALLBACK_PROPERTIES.filter((p) => p.status === 'vacant').length
+
+  // 收益总览：本月应收 / 已收 / 待收
   const monthlyIncome = income.monthly_income || 284000
-  const totalIncome = income.total_income || 3128000
-  const pendingAmount = income.pending_amount || 86000
+  const pendingAmount = income.pending_amount || 96000
+  const collectedIncome = Math.max(monthlyIncome - pendingAmount, 0)
+  const collectedRate = monthlyIncome > 0 ? Math.round((collectedIncome / monthlyIncome) * 100) : 0
 
-  const activityList: ActivityItem[] = payments.length
-    ? payments.slice(0, 6).map((p) => ({
-        type: p.status === 'paid' || p.status === 'succeeded' ? 'success' : 'warning',
-        title: `收到租金 ${fmtMoney(p.amount)}`,
-        desc: `${p.tenant_name || '-'} · ${p.property_name || '-'}`,
-        date: p.paid_at || p.due_date ? dayjs(p.paid_at || p.due_date).format('YYYY-MM-DD') : '-',
-      }))
-    : FALLBACK_ACTIVITIES
+  // 预警卡文案
+  const pendingCount = pendingPayments.length || 2
+  const pendingDetail = pendingPayments.length
+    ? `${pendingPayments
+        .map((p) => `${p.property_name || p.property_id || '—'} ${fmtRM(Number(p.amount || 0))}`)
+        .join(' · ')}，合计 ${fmtRM(pendingPayments.reduce((s, p) => s + Number(p.amount || 0), 0))}`
+    : '城中别墅 21号 RM 6,800 · 绿洲苑 B座7-1 RM 2,800，合计 RM 9,600'
 
-  const statusBadge = (p: OwnerProperty) => {
+  // 资产概览：在租 / 在售 房源卡
+  const rentedProp = displayProperties.find((p) => {
     const s = String(p.status || '').toLowerCase()
-    if (s === 'rented' || s === 'active') {
-      return <span className="ow17-badge ow17-badge--rent">{t('ownerHome.rentOut')}</span>
-    }
-    if (s === 'for_sale' || s === 'on_sale' || s === 'sale') {
-      return <span className="ow17-badge ow17-badge--sale">{t('ownerHome.forSale')}</span>
-    }
-    return <span className="ow17-badge ow17-badge--vacant">{t('ownerHome.vacant')}</span>
-  }
+    return s === 'rented' || s === 'active'
+  })
+  const saleProp = displayProperties.find((p) => {
+    const s = String(p.status || '').toLowerCase()
+    return s === 'for_sale' || s === 'on_sale' || s === 'sale'
+  })
 
   const propTitle = (p: OwnerProperty) =>
     p.name || (p.project_name ? `${p.project_name} · ${p.room_number}` : p.room_number || p.address || '—')
 
-  const propPrice = (p: OwnerProperty) => {
+  const propMeta = (p: OwnerProperty) => {
+    const dims = `${p.bedrooms ?? 0}室${p.bathrooms ?? 0}厅 ${p.size_sqm || 0}㎡`
     const s = String(p.status || '').toLowerCase()
-    if (s === 'for_sale' || s === 'on_sale' || s === 'sale') {
-      return <span className="ow17-prop__price">{fmtMoney(p.sale_price || 0)}</span>
-    }
-    return (
-      <span className="ow17-prop__price">
-        {fmtMoney(p.monthly_rent || 0)}<span className="ow17-prop__unit">{t('browse.rentUnit')}</span>
-      </span>
-    )
+    if (s === 'for_sale' || s === 'on_sale' || s === 'sale') return `${dims} · 满五唯一`
+    return `${dims} · ${p.tenant_name || '-'}`
   }
 
-  const userName = user?.full_name || t('ownerHome.welcomeBack')
+  // 待处理事项
+  const saleTodoDesc = saleProp
+    ? `${propTitle(saleProp)} 预估价 ${fmtThb(Number(saleProp.sale_price || 0) * 0.97)} - ${fmtThb(
+        Number(saleProp.sale_price || 0) * 1.03,
+      )} · ${dayjs().format('YYYY-MM-DD')} 提交`
+    : '阳光花园二期 预估价 ฿ 3,400,000 - 3,600,000 · 2026-08-04 提交'
+
+  const expiring = displayExpiring[0]
+  const expiringDays = expiring?.end_date ? Math.max(dayjs(expiring.end_date).diff(dayjs(), 'day'), 0) : 0
+  const expiringEnd = expiring?.end_date ? dayjs(expiring.end_date).format('YYYY-MM-DD') : '-'
+
+  const todoCount = (saleProp ? 1 : 0) + (displayExpiring.length ? 1 : 0) + 1
 
   return (
-    <div className="rent-main ow17-main">
-      {loading && <div className="owner-loading-bar">数据加载中…</div>}
+    <div className="rent-main">
+      {loading && (
+        <div className="owner-loading-bar">
+          <Spin size="small" style={{ marginRight: 8 }} />
+          数据加载中…
+        </div>
+      )}
 
-      {/* ===== 欢迎横幅 + 双业务入口 ===== */}
-      <div className="ow17-welcome">
-        <div className="ow17-welcome__body">
-          <div>
-            <h2 className="ow17-welcome__title">{t('ownerHome.welcomeBack')}，{userName}</h2>
-            <p className="ow17-welcome__sub">
-              {t('ownerHome.welcomeSub', { count: totalProps, rented: rentedCount, sale: saleCount })}
-            </p>
-          </div>
-          <div className="ow17-actions">
-            <button type="button" className="ow17-action ow17-action--rent" onClick={() => navigate('/owner/services')}>
-              <span className="ow17-action__icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22" />
-                </svg>
-              </span>
-              <span className="ow17-action__text">
-                <span className="ow17-action__title">{t('browse.entrustRent')}</span>
-                <span className="ow17-action__desc">{t('browse.entrustRentDesc')}</span>
-              </span>
-            </button>
-            <button type="button" className="ow17-action ow17-action--sale" onClick={() => navigate('/owner/services')}>
-              <span className="ow17-action__icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 6 13.5 15.5 8.5 10.5 1 18" />
-                  <path d="M17 6h6v6" />
-                </svg>
-              </span>
-              <span className="ow17-action__text">
-                <span className="ow17-action__title">{t('browse.entrustSale')}</span>
-                <span className="ow17-action__desc">{t('browse.entrustSaleDesc')}</span>
-              </span>
-            </button>
-          </div>
+      {/* ===== Page Header（对齐其他端：rent-page-header 页头） ===== */}
+      <div className="rent-page-header">
+        <div>
+          <h2 className="rent-page-header__title">业主工作台</h2>
+          <p className="rent-page-header__subtitle">
+            {dayjs().format('YYYY年M月D日')} · 轻松管理名下房源与租金收益
+          </p>
         </div>
       </div>
 
-      {/* ===== KPI：资产 / 在租 / 预估月收入 / 待收款 ===== */}
-      <div className="ow17-kpis">
-        <div className="rent-stat-card">
-          <div className="rent-flex rent-flex--between rent-mb-2">
-            <div className="rent-stat-card__label">{t('ownerHome.totalProps')}</div>
-            <div className="rent-stat-card__icon" style={{ background: 'rgba(66,99,235,0.1)', color: 'var(--rent-primary)' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
+      {/* ===== 双业务入口：委托出租 / 委托出售 ===== */}
+      <div className="rent-v17-dual rent-mb-5">
+        <button type="button" className="rent-v17-entry rent-v17-entry--rent" onClick={() => navigate('/owner/services')}>
+          <div className="rent-v17-entry__icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="rent-v17-entry__title">委托出租</div>
+            <div className="rent-v17-entry__sub">托管出租 · 省心收租</div>
+          </div>
+          <span className="rent-v17-entry__arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+          </span>
+        </button>
+        <button type="button" className="rent-v17-entry rent-v17-entry--sale" onClick={() => navigate('/owner/services')}>
+          <div className="rent-v17-entry__icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="1" x2="12" y2="23" />
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="rent-v17-entry__title">委托出售</div>
+            <div className="rent-v17-entry__sub">在线估价 · 挂牌成交</div>
+          </div>
+          <span className="rent-v17-entry__arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+          </span>
+        </button>
+      </div>
+
+      {/* ===== 预警卡：待收租金（置顶） ===== */}
+      <div className="rent-card rent-warn-banner rent-mb-5">
+        <div className="rent-card__body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div className="rent-warn-banner__icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.7 21a2 2 0 0 1-3.4 0" />
               </svg>
             </div>
-          </div>
-          <div className="rent-stat-card__value">{totalProps}<span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}> {t('ownerHome.unit')}</span></div>
-          <div className="rent-stat-card__delta rent-stat-card__delta--up">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 15 12 9 18 15" /></svg>
-            {saleCount} {t('ownerHome.forSale')}
-          </div>
-        </div>
-
-        <div className="rent-stat-card">
-          <div className="rent-flex rent-flex--between rent-mb-2">
-            <div className="rent-stat-card__label">{t('ownerHome.rentOut')}</div>
-            <div className="rent-stat-card__icon" style={{ background: 'rgba(22,163,74,0.1)', color: 'var(--state-success)' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+            <div>
+              <div className="rent-warn-banner__title">{pendingCount} 笔租金待确认</div>
+              <div className="rent-warn-banner__desc">{pendingDetail}</div>
             </div>
           </div>
-          <div className="rent-stat-card__value">{rentedCount}<span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}> {t('ownerHome.unit')}</span></div>
-          <div className="rent-stat-card__delta rent-stat-card__delta--up">{t('ownerHome.monthActual')} {fmtMoney(monthlyIncome)}</div>
-        </div>
-
-        <div className="rent-stat-card">
-          <div className="rent-flex rent-flex--between rent-mb-2">
-            <div className="rent-stat-card__label">{t('ownerHome.estIncome')}</div>
-            <div className="rent-stat-card__icon" style={{ background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-            </div>
-          </div>
-          <div className="rent-stat-card__value">{fmtMoney(totalIncome)}</div>
-          <div className="rent-stat-card__delta rent-stat-card__delta--up">{t('ownerHome.monthExpected')}</div>
-        </div>
-
-        <div className="rent-stat-card">
-          <div className="rent-flex rent-flex--between rent-mb-2">
-            <div className="rent-stat-card__label">{t('browse.pendingReceive')}</div>
-            <div className="rent-stat-card__icon" style={{ background: 'rgba(217,119,6,0.1)', color: 'var(--state-warning)' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-            </div>
-          </div>
-          <div className="rent-stat-card__value" style={{ color: 'var(--state-warning)' }}>{fmtMoney(pendingAmount)}</div>
-          <div className="rent-stat-card__delta rent-stat-card__delta--down" style={{ color: 'var(--state-warning)' }}>{t('ownerHome.withinDays')}</div>
+          <button type="button" className="rent-btn rent-btn--primary" onClick={() => navigate('/owner/income')}>
+            去确认
+          </button>
         </div>
       </div>
 
-      {/* ===== 我的房源 + 右侧（到期合同 / 到账动态） ===== */}
-      <div className="ow17-grid">
-        {/* 我的房源 卡片流 */}
-        <div className="rent-card ow17-assets">
+      {/* ===== 收益总览 + 待处理事项 ===== */}
+      <div className="rent-grid rent-grid--2 rent-mb-5">
+        {/* 收益总览 */}
+        <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">{t('ownerHome.myProperties')}</h3>
-            <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => navigate('/owner/properties')}>
-              {t('browse.viewAll')}
-            </button>
+            <h3 className="rent-card__title">收益总览</h3>
+            <span className="rent-badge rent-badge--success">本月</span>
           </div>
-          <div className="ow17-assets__body">
-            {displayProperties.slice(0, 6).map((p) => (
-              <div key={p.id} className="ow17-prop" onClick={() => navigate(`/properties/detail/${p.id}`)}>
-                <div className="ow17-prop__img" style={{ background: gradientFor(String(p.id || p.room_number || '')) }}>
-                  <span className="ow17-prop__badge">{statusBadge(p)}</span>
-                </div>
-                <div className="ow17-prop__body">
-                  <div className="ow17-prop__name">{propTitle(p)}</div>
-                  <div className="ow17-prop__addr">{p.address || p.city || '—'}</div>
-                  <div className="ow17-prop__bottom">
-                    {propPrice(p)}
-                    <span className="ow17-prop__meta">{p.bedrooms ?? 0}卧 {p.bathrooms ?? 0}浴 · {p.size_sqm || 0}㎡</span>
-                  </div>
+          <div className="rent-card__body">
+            <div className="rent-text-sm rent-text-muted rent-mb-4">本月合计（租金 + 售房款）</div>
+            <div className="rent-grid rent-grid--3" style={{ gap: 12 }}>
+              <div>
+                <div className="rent-text-sm rent-text-muted">本月应收</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--rent-ink)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                  {fmtRM(monthlyIncome)}
                 </div>
               </div>
-            ))}
+              <div>
+                <div className="rent-text-sm rent-text-muted">已收</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--state-success)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                  {fmtRM(collectedIncome)}
+                </div>
+              </div>
+              <div>
+                <div className="rent-text-sm rent-text-muted">待收</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--state-warning)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                  {fmtRM(pendingAmount)}
+                </div>
+              </div>
+            </div>
+            <div className="rent-progress rent-mt-4">
+              <div className="rent-progress__bar" style={{ width: `${collectedRate}%` }} />
+            </div>
+            <div className="rent-flex rent-flex--between rent-mt-2">
+              <span className="rent-text-sm rent-text-muted">本月收款进度</span>
+              <span className="rent-text-sm rent-text-bold" style={{ color: 'var(--rent-primary)' }}>已收 {collectedRate}%</span>
+            </div>
           </div>
         </div>
 
-        {/* 右侧列 */}
-        <div className="ow17-col">
-          {/* 即将到期合同 */}
-          <div className="rent-card">
-            <div className="rent-card__header">
-              <h3 className="rent-card__title">{t('ownerHome.expiringLeases')}</h3>
-              <span className="rent-badge rent-badge--warning">{t('ownerHome.withinDays')}</span>
-            </div>
-            <div className="rent-card__body rent-flex rent-flex--col rent-gap-4">
-              {displayExpiring.slice(0, 3).map((l) => {
-                const end = l.end_date ? dayjs(l.end_date) : null
-                const days = end ? end.diff(dayjs(), 'day') : 0
-                return (
-                  <div className="owner-expiring-card" key={l.id}>
-                    <div className="rent-flex rent-flex--between rent-mb-2">
-                      <span className="rent-text-bold">{l.property_name || l.property_id || '-'}</span>
-                      <span className="rent-badge rent-badge--warning">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <polyline points="12 6 12 12 16 14" />
-                        </svg>
-                        {days} {t('ownerHome.daysLeft')}
-                      </span>
-                    </div>
-                    <div className="rent-text-sm rent-text-muted rent-mb-2">租客：{l.tenant_name || l.tenant_id || '-'}</div>
-                    <div className="rent-flex rent-flex--between rent-text-sm">
-                      <span className="rent-text-muted">{end ? end.format('YYYY-MM-DD') : '-'}</span>
-                      <button type="button" className="rent-btn rent-btn--secondary rent-btn--sm">{t('ownerHome.renew')}</button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+        {/* 待处理事项 */}
+        <div className="rent-card">
+          <div className="rent-card__header">
+            <h3 className="rent-card__title">待处理事项</h3>
+            <span className="rent-badge rent-badge--warning">{todoCount} 项</span>
           </div>
-
-          {/* 到账动态 */}
-          <div className="rent-card">
-            <div className="rent-card__header">
-              <h3 className="rent-card__title">{t('ownerHome.recentActivity')}</h3>
-              <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => navigate('/owner/income')}>
-                {t('browse.viewAll')}
+          <div className="rent-card__body rent-flex rent-flex--col rent-gap-4">
+            {/* 卖房委托：估价待确认 */}
+            <div className="rent-v17-todo-sale">
+              <div className="rent-v17-todo-sale__icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="1" x2="12" y2="23" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="rent-text-bold">卖房委托 · 估价待确认</div>
+                <div className="rent-text-sm rent-text-muted">{saleTodoDesc}</div>
+              </div>
+              <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => navigate('/owner/services')}>
+                去确认
               </button>
             </div>
-            <div className="rent-card__body">
-              <div className="rent-timeline">
-                {activityList.map((a, i) => (
-                  <div className="rent-timeline__item" key={i}>
-                    <div className={`rent-timeline__dot rent-timeline__dot--${a.type}`} />
-                    <div className="rent-flex rent-flex--between">
-                      <div>
-                        <span className="rent-text-bold">{a.title}</span>
-                        <span className="rent-text-sm rent-text-muted"> — {a.desc}</span>
-                      </div>
-                      <span className="rent-text-sm rent-text-muted">{a.date}</span>
+
+            {/* 合同即将到期高亮提醒 */}
+            {displayExpiring.length > 0 && (
+              <div className="rent-todo-lease">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--state-warning)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="rent-text-bold">{expiring?.property_name || expiring?.property_id} 租约 {expiringDays} 天后到期</div>
+                  <div className="rent-text-sm rent-text-muted">租客：{expiring?.tenant_name || '-'} · 到期日期 {expiringEnd}</div>
+                </div>
+                <button type="button" className="rent-btn rent-btn--secondary rent-btn--sm">{t('ownerHome.renew')}</button>
+              </div>
+            )}
+
+            {/* 租客报修待审批 */}
+            <div>
+              <div className="rent-text-sm rent-text-muted rent-mb-2">租客报修待审批</div>
+              <div className="rent-flex rent-flex--col rent-gap-3">
+                {REPAIR_ITEMS.map((r) => (
+                  <div className="rent-todo-repair" key={r.id}>
+                    <div className="rent-todo-repair__icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14.7 6.3a4 4 0 0 0-5.6 5.6L3 18l3 3 6.1-6.1a4 4 0 0 0 5.6-5.6l-2.9 2.9-2-2z" />
+                      </svg>
                     </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="rent-text-bold">{r.title}</div>
+                      <div className="rent-text-sm rent-text-muted">{r.desc}</div>
+                    </div>
+                    <button type="button" className="rent-btn rent-btn--primary rent-btn--sm">审批</button>
                   </div>
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ===== 资产概览 + 最近入账 ===== */}
+      <div className="rent-grid rent-grid--2">
+        {/* 资产概览 */}
+        <div className="rent-card">
+          <div className="rent-card__header">
+            <h3 className="rent-card__title">资产概览</h3>
+            <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => navigate('/owner/properties')}>
+              查看全部
+            </button>
+          </div>
+          <div className="rent-card__body" style={{ padding: 12 }}>
+            <div className="rent-grid rent-grid--3" style={{ gap: 12 }}>
+              <div className="rent-stat-card">
+                <div className="rent-stat-card__label">名下房源</div>
+                <div className="rent-stat-card__value">
+                  {totalProps} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>套</span>
+                </div>
+                <div className="rent-stat-card__delta">较去年新增 2 套</div>
+              </div>
+              <div className="rent-stat-card">
+                <div className="rent-stat-card__label">在租房源</div>
+                <div className="rent-stat-card__value">
+                  {rentedCount} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>套</span>
+                </div>
+                <div className="rent-stat-card__delta rent-stat-card__delta--up">入住率 87.5%</div>
+              </div>
+              <div className="rent-stat-card">
+                <div className="rent-stat-card__label">空置房源</div>
+                <div className="rent-stat-card__value">
+                  {vacantCount} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>套</span>
+                </div>
+                <div className="rent-stat-card__delta">待挂牌出租</div>
+              </div>
+            </div>
+            <hr className="rent-divider" />
+            {/* 我的房源卡片：在租 / 在售 双状态 */}
+            <div className="rent-v17-dual" style={{ marginTop: 12 }}>
+              {rentedProp && (
+                <div className="rent-v17-prop rent-v17-prop--rent" style={{ cursor: 'pointer', textDecoration: 'none' }} onClick={() => navigate(`/properties/detail/${rentedProp.id}`)}>
+                  <div className="rent-v17-prop__thumb">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" /></svg>
+                  </div>
+                  <div className="rent-v17-prop__body">
+                    <div className="rent-flex rent-flex--between" style={{ gap: 8 }}>
+                      <div className="rent-v17-prop__name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{propTitle(rentedProp)}</div>
+                      <span className="rent-badge rent-badge--success" style={{ flexShrink: 0 }}>在租</span>
+                    </div>
+                    <div className="rent-v17-prop__meta">{propMeta(rentedProp)}</div>
+                    <div className="rent-v17-prop__price">
+                      {fmtRM(rentedProp.monthly_rent || 0)}
+                      <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--rent-ink-3)' }}>{t('browse.rentUnit')}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {saleProp && (
+                <div className="rent-v17-prop rent-v17-prop--sale" style={{ cursor: 'pointer', textDecoration: 'none' }} onClick={() => navigate('/owner/services')}>
+                  <div className="rent-v17-prop__thumb">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                  </div>
+                  <div className="rent-v17-prop__body">
+                    <div className="rent-flex rent-flex--between" style={{ gap: 8 }}>
+                      <div className="rent-v17-prop__name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{propTitle(saleProp)}</div>
+                      <span className="rent-badge rent-badge--warning" style={{ flexShrink: 0 }}>在售</span>
+                    </div>
+                    <div className="rent-v17-prop__meta">{propMeta(saleProp)}</div>
+                    <div className="rent-v17-prop__price">{fmtThb(saleProp.sale_price || 0)}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 最近入账 */}
+        <div className="rent-card">
+          <div className="rent-card__header">
+            <h3 className="rent-card__title">{t('browse.recentIncome')}</h3>
+            <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => navigate('/owner/income')}>
+              查看全部记录
+            </button>
+          </div>
+          <div className="rent-card__body" style={{ padding: '0 20px' }}>
+            {recentIncomes.map((r, i) => (
+              <div className="rent-income-row" key={`${r.name}-${i}`}>
+                <div>
+                  <div className="rent-text-bold">{r.name}</div>
+                  <div className="rent-text-sm rent-text-muted">{r.date} · {r.tenant}</div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div className="rent-text-bold" style={{ color: 'var(--state-success)', fontVariantNumeric: 'tabular-nums' }}>+{fmtRM(r.amount)}</div>
+                  <span className="rent-badge rent-badge--success" style={{ marginTop: 4 }}>已到账</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
