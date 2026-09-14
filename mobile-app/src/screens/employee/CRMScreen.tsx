@@ -75,7 +75,7 @@ export default function CRMScreen() {
             <Text
               style={[
                 styles.expire,
-                { color: d != null && d <= 7 ? colors.error : colors.ink3 },
+                { color: d != null && d <= 7 ? colors.error : colors.ink2 },
               ]}
             >
               {expireText}
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   name: { flex: 1, fontSize: 16, color: colors.text, fontWeight: '600', marginRight: 8 },
   expire: { fontSize: 12, fontWeight: '600' },
   expirePill: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
-  expirePillWarn: { backgroundColor: '#fdeaea' },
+  expirePillWarn: { backgroundColor: colors.errorLight },
   expirePillOk: { backgroundColor: colors.surface2 },
   rent: { color: colors.primary, fontSize: 15, fontWeight: '600', marginTop: 8 },
   empty: { textAlign: 'center', color: colors.ink3, marginTop: 32 },

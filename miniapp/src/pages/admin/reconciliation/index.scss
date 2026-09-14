@@ -1,0 +1,193 @@
+/* 财务对账 — 数据卡 + 按房源成组明细 */
+
+.admin-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+}
+
+.page-container {
+  padding: 24rpx;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.section-header__title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.section-header__hint {
+  font-size: 24rpx;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.recon-section-head {
+  margin-top: 28rpx;
+}
+
+/* ===== KPI 卡 ===== */
+.recon-kpis {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.recon-kpi {
+  flex: 1 1 calc(50% - 12rpx);
+  min-width: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  padding: 24rpx 20rpx;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+
+  &__num {
+    display: block;
+    font-size: 36rpx;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-bottom: 8rpx;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__label {
+    display: block;
+    font-size: 22rpx;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+
+  &--success .recon-kpi__num { color: var(--success); }
+  &--warning .recon-kpi__num { color: var(--warning); }
+  &--error .recon-kpi__num { color: var(--error); }
+  &--neutral .recon-kpi__num { color: var(--ink-2); }
+}
+
+/* ===== 明细表 ===== */
+.recon-table {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    padding: 18rpx 16rpx;
+    background: var(--surface-2);
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    padding: 18rpx 16rpx;
+    border-top: 1px solid var(--line);
+  }
+
+  &__cell {
+    font-size: 24rpx;
+    color: var(--ink-2);
+
+    &--name {
+      flex: 1.4;
+      min-width: 0;
+      text-align: left;
+      font-weight: 600;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &--amount {
+      flex: 1;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &--count {
+      flex: 0.6;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink-3);
+    }
+
+    &--success { color: var(--success); font-weight: 600; }
+    &--error { color: var(--error); font-weight: 600; }
+  }
+}
+
+/* ===== 状态 ===== */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+  background: var(--card);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-xl);
+
+  &__icon {
+    font-size: 64rpx;
+    margin-bottom: 20rpx;
+    color: var(--ink-3);
+  }
+
+  &__title {
+    font-size: 28rpx;
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  &__desc {
+    font-size: 24rpx;
+    color: var(--ink-3);
+    margin-top: 10rpx;
+  }
+
+  &__btn {
+    margin-top: 28rpx;
+    padding: 12rpx 40rpx;
+    background: var(--primary);
+    color: #fff;
+    font-size: 26rpx;
+    font-weight: 600;
+    border-radius: var(--radius-full);
+    transition: all 0.15s ease;
+
+    &--hover {
+      transform: scale(0.97);
+      background: var(--primary-hover);
+    }
+  }
+
+  &--loading {
+    .state__spinner {
+      width: 56rpx;
+      height: 56rpx;
+      border: 4rpx solid var(--surface-2);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: recon-spin 0.8s linear infinite;
+      margin-bottom: 24rpx;
+    }
+  }
+}
+
+@keyframes recon-spin {
+  to { transform: rotate(360deg); }
+}

@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   filterBtn: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: colors.radius.full,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,

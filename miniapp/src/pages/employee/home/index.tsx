@@ -70,6 +70,18 @@ const isToday = (iso?: string | null) => {
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 
+// 快捷工作台宫格
+const QUICK_ACTIONS = [
+  { label: '房源搜索', icon: '搜', url: '/pages/employee/search/index' },
+  { label: '房源管理', icon: '房', url: '/pages/employee/properties/index' },
+  { label: '客户跟进', icon: '客', url: '/pages/employee/leads/index' },
+  { label: '我的业绩', icon: '绩', url: '/pages/employee/performance/index' },
+  { label: '电子合同', icon: '签', url: '/pages/contracts/index' },
+  { label: '预约带看', icon: '看', url: '/pages/tenant/viewings/index' },
+  { label: '考勤打卡', icon: '卡', url: '/pages/attendance/index' },
+  { label: '通讯录', icon: '联', url: '/pages/employee/contacts/index' }
+]
+
 export default function EmployeeHomePage() {
   const user = useAuthStore((state) => state.user)
   const isAgent = user?.role === 'agent'
@@ -162,6 +174,23 @@ export default function EmployeeHomePage() {
             </Text>
             <Text className='emp-kpi__label'>即将到期</Text>
           </View>
+        </View>
+
+        {/* 快捷工作台宫格 */}
+        <View className='emp-quick'>
+          {QUICK_ACTIONS.map((a) => (
+            <View
+              key={a.label}
+              className='emp-quick__item'
+              hoverClass='emp-quick__item--hover'
+              onClick={() => Taro.navigateTo({ url: a.url })}
+            >
+              <View className='emp-quick__icon'>
+                <Text className='emp-quick__icon-text'>{a.icon}</Text>
+              </View>
+              <Text className='emp-quick__label'>{a.label}</Text>
+            </View>
+          ))}
         </View>
 
         {/* 今日日程：直接展示，不依赖快捷入口 */}

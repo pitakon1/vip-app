@@ -27,6 +27,13 @@ from app.models import (
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
+def _prop_name(p: Property | None) -> str | None:
+    """房源展示名：房号优先，其次地址。"""
+    if p is None:
+        return None
+    return p.room_number or p.address or None
+
+
 @router.get("/summary")
 def get_summary(
     session: Session = Depends(get_session),
@@ -204,9 +211,7 @@ def get_expiring_leases(
             {
                 "id": str(lease.id),
                 "property_id": str(lease.property_id),
-                "property_name": props.get(lease.property_id).title
-                if props.get(lease.property_id)
-                else None,
+                "property_name": _prop_name(props.get(lease.property_id)),
                 "tenant_id": str(lease.tenant_id),
                 "tenant_name": users.get(tenants.get(lease.tenant_id).user_id).full_name
                 if tenants.get(lease.tenant_id)
@@ -285,7 +290,7 @@ def financial_reconciliation(
             {
                 "id": str(p.id),
                 "property_id": str(p.property_id) if p.property_id else None,
-                "property": prop.title if prop else None,
+                "property": _prop_name(prop),
                 "amount": amount,
                 "currency": p.currency,
                 "payment_type": p.payment_type.value if p.payment_type else None,
@@ -302,7 +307,7 @@ def financial_reconciliation(
     by_property_list = [
         {
             "property_id": key,
-            "property": props_by_str[key].title if key in props_by_str else None,
+            "property": _prop_name(props_by_str[key]) if key in props_by_str else None,
             "received": round(v["received"], 2),
             "receivable": round(v["receivable"], 2),
             "overdue": round(v["overdue"], 2),

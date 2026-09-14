@@ -89,7 +89,7 @@ export default function PerformanceScreen() {
       { value: Math.round(base * 0.45), color: colors.primary, label: '租赁佣金', subLabel: '长租/短租成交' },
       { value: Math.round(base * 0.25), color: colors.warning, label: '销售提成', subLabel: '买卖成交' },
       { value: Math.round(base * 0.18), color: colors.success, label: '服务奖金', subLabel: '客户维护/续约' },
-      { value: Math.round(base * 0.12), color: '#8b5cf6', label: '其他', subLabel: '推荐/补贴' },
+      { value: Math.round(base * 0.12), color: colors.info, label: '其他', subLabel: '推荐/补贴' },
     ];
   }, [summary?.commission_total, summary?.month_commission]);
 
@@ -108,7 +108,7 @@ export default function PerformanceScreen() {
           </View>
           <View style={styles.rankInfo}>
             <Text style={[styles.rankName, item.is_self && styles.rankSelfName]}>
-              {item.full_name || '—'}
+              {item.full_name || '-'}
               {item.is_self ? '（我）' : ''}
             </Text>
             <Text style={styles.rankMeta}>
@@ -235,10 +235,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 12,
     padding: 20,
-    borderRadius: 20,
+    borderRadius: colors.radius.xxl,
     backgroundColor: colors.primary,
     position: 'relative',
     overflow: 'hidden',
+    ...colors.shadow.primary,
   },
   heroHeader: {
     flexDirection: 'row',
@@ -283,12 +284,10 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 12,
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
+    borderRadius: colors.radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
   },
   chartHeader: {
     flexDirection: 'row',
@@ -314,8 +313,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 16,
     padding: 12,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderRadius: 12,
+    backgroundColor: `rgba(${colors.warningRgb}, 0.1)`,
+    borderRadius: colors.radius.lg,
   },
   rankSummaryText: {
     marginLeft: 8,
@@ -326,23 +325,26 @@ const styles = StyleSheet.create({
   rankList: { paddingHorizontal: 12, gap: 8 },
   rankCard: {
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: colors.radius.lg,
     padding: 14,
     marginBottom: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
   },
   rankRow: { flexDirection: 'row', alignItems: 'center' },
   rankBadge: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: colors.radius.full,
     backgroundColor: colors.surface2,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  rank1: { backgroundColor: '#fbbf24' },
-  rank2: { backgroundColor: '#98a1ab' },
-  rank3: { backgroundColor: '#d97706' },
+  rank1: { backgroundColor: colors.warning },
+  rank2: { backgroundColor: colors.ink3 },
+  rank3: { backgroundColor: colors.info },
   rankText: { fontSize: 14, fontWeight: '700', color: colors.ink2 },
   rankTopText: { color: '#fff' },
   rankInfo: { flex: 1, marginRight: 12 },

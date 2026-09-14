@@ -41,7 +41,7 @@
     width: 88rpx;
     height: 88rpx;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary), #0d9488);
+    background: var(--primary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -103,6 +103,57 @@
     font-size: 22rpx;
     color: var(--ink-3);
     font-weight: 500;
+  }
+}
+
+/* ===== 快捷工作台宫格（4 列 2 行） ==== */
+.emp-quick {
+  display: flex;
+  flex-wrap: wrap;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx 16rpx;
+  margin-bottom: 32rpx;
+
+  &__item {
+    width: 25%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20rpx 0 12rpx;
+    border-radius: var(--radius-lg);
+
+    &--hover {
+      background: var(--surface-2);
+      transform: scale(0.98);
+    }
+  }
+
+  &__icon {
+    width: 88rpx;
+    height: 88rpx;
+    border-radius: var(--radius-lg);
+    background: rgba(var(--primary-rgb), 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16rpx;
+  }
+
+  &__icon-text {
+    font-size: 36rpx;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1;
+  }
+
+  &__label {
+    font-size: 24rpx;
+    color: var(--ink);
+    font-weight: 600;
+    letter-spacing: 0.01em;
   }
 }
 
@@ -308,7 +359,7 @@
 
   &--urgent {
     border-color: rgba(var(--error-rgb), 0.3);
-    background: linear-gradient(to right, rgba(var(--error-rgb), 0.03), var(--card) 40%);
+    background: var(--card);
   }
 
   &__top {

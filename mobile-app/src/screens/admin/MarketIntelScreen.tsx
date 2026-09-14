@@ -192,7 +192,7 @@ export default function MarketIntelScreen() {
                 <View style={styles.cardHead}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{idx.market_code} · {idx.index_type === 'sale' ? '售价指数' : '租金指数'}</Text>
                   <View style={[styles.pill, Number(idx.delta_pct) >= 0 ? styles.pillOk : styles.pillWarn]}>
-                    <Text style={styles.pillText}>{(idx.delta_pct ?? 0) >= 0 ? '+' : ''}{idx.delta_pct ?? 0}%</Text>
+                    <Text style={[styles.pillText, Number(idx.delta_pct) >= 0 ? styles.pillOkText : styles.pillWarnText]}>{(idx.delta_pct ?? 0) >= 0 ? '+' : ''}{idx.delta_pct ?? 0}%</Text>
                   </View>
                 </View>
                 <Text style={styles.bigNum}>{fmtMoney(idx.value, idx.currency)}</Text>
@@ -286,7 +286,7 @@ export default function MarketIntelScreen() {
                 <View style={styles.cardHead}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{SIGNAL_TYPE[s.signal_type] || s.signal_type}</Text>
                   <View style={[styles.pill, s.level === 'critical' ? styles.pillDanger : s.level === 'warning' ? styles.pillWarn : styles.pillOk]}>
-                    <Text style={styles.pillText}>{LEVEL[s.level] || s.level}</Text>
+                    <Text style={[styles.pillText, s.level === 'critical' ? styles.pillDangerText : s.level === 'warning' ? styles.pillWarnText : styles.pillOkText]}>{LEVEL[s.level] || s.level}</Text>
                   </View>
                 </View>
                 {s.detail ? <Text style={styles.summary} numberOfLines={2}>详情：{s.detail}</Text> : null}
@@ -314,24 +314,24 @@ export default function MarketIntelScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   tabRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 8, flexWrap: 'wrap' },
-  tabChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  tabChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   tabChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   tabText: { fontSize: 13, color: colors.ink3 },
   tabTextActive: { color: '#fff', fontWeight: '600' },
   body: { flex: 1, paddingHorizontal: 16 },
   loading: { paddingVertical: 32, alignItems: 'center' },
   toolbar: { flexDirection: 'row', justifyContent: 'flex-start', marginVertical: 8 },
-  addBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 16 },
+  addBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 8, paddingHorizontal: 16 },
   addBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   form: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16 },
   input: { height: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: colors.ink, marginBottom: 12 },
   multiline: { height: 72, textAlignVertical: 'top' },
   chipRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
-  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 12, color: colors.ink3 },
   chipTextActive: { color: '#fff' },
-  submitBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 12, alignItems: 'center' },
+  submitBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 12, alignItems: 'center' },
   submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   empty: { textAlign: 'center', color: colors.ink3, paddingVertical: 40 },
   card: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12 },
@@ -341,12 +341,15 @@ const styles = StyleSheet.create({
   bigNum: { fontSize: 20, fontWeight: '700', color: colors.primary, marginBottom: 4 },
   sub: { fontSize: 12, color: colors.ink2, marginTop: 2 },
   summary: { fontSize: 13, color: colors.ink2, marginTop: 4, lineHeight: 18 },
-  pill: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999 },
+  pill: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: colors.radius.full },
   pillOk: { backgroundColor: colors.successLight },
   pillWarn: { backgroundColor: colors.warningLight },
   pillDanger: { backgroundColor: colors.errorLight },
+  pillOkText: { color: colors.success },
+  pillWarnText: { color: colors.warning },
+  pillDangerText: { color: colors.error },
   pillText: { fontSize: 11 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  actBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 14 },
+  actBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 7, paddingHorizontal: 14 },
   actBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 });

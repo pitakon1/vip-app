@@ -275,7 +275,7 @@ view, text {
 /* 顶栏装饰背景 */
 .hero-bg {
   position: relative;
-  background: linear-gradient(135deg, #14b8a6, #2dd4bf);
+  background: var(--primary);
   overflow: hidden;
 }
 

@@ -56,8 +56,13 @@ export async function request<T = unknown>(options: RequestOptions<T>): Promise<
       return res.data as T
     }
 
-    console.error('[API] 请求失败', { url: fullUrl, statusCode: res.statusCode })
-    return Promise.reject(new Error(`请求失败，状态码：${res.statusCode}`))
+    // 尽量透出后端 detail（FastAPI 错误体），便于 toast 展示真实原因
+    const body = (res?.data as any)
+    const detail = body && typeof body === 'object' ? body.detail : undefined
+    console.error('[API] 请求失败', { url: fullUrl, statusCode: res.statusCode, detail })
+    return Promise.reject(
+      new Error(detail ? String(detail) : `请求失败，状态码：${res.statusCode}`)
+    )
   } catch (error) {
     console.error('[API] 网络异常', { url: fullUrl, error })
     return Promise.reject(error)

@@ -41,19 +41,18 @@ interface GridEntry {
 }
 
 // 金刚区：按「是否在租」分流。
-// 访客/未签约态 = 找房导向（看和选，含分类直达）；在租态 = 履约服务（报修/缴费/合同/增值服务）。
+// 访客/未签约态 = 找房导向（点击直达分类 + 看房/地图；总入口在顶部搜索栏与底部「房源」Tab，不重复展示）
 const VISITOR_GRID: GridEntry[] = [
-  { key: 'listings', labelKey: 'home.findRent', icon: 'search', route: 'TenantListings' },
   { key: 'apartment', labelKey: 'home.apartment', icon: 'key', route: 'TenantListings', params: { filter: 'apartment' } },
   { key: 'office', labelKey: 'home.office', icon: 'business', route: 'TenantListings', params: { filter: 'office' } },
   { key: 'viewing', labelKey: 'home.viewing', icon: 'calendar', route: 'Viewings' },
   { key: 'map', labelKey: 'home.mapFind', icon: 'map', route: 'Map' },
 ];
 
+// 在租态 = 履约服务（报修/缴费/增值服务；「我的租约」卡片已含合同入口，不重复展示）
 const TENANT_GRID: GridEntry[] = [
   { key: 'maintenance', labelKey: 'home.maintenance', icon: 'build', route: 'TenantMaintenance' },
   { key: 'payments', labelKey: 'home.pay', icon: 'card', route: 'Payments' },
-  { key: 'contracts', labelKey: 'home.contracts', icon: 'document-text', route: 'Contracts' },
   { key: 'services', labelKey: 'home.services', icon: 'people', route: 'TenantServices' },
 ];
 

@@ -123,8 +123,8 @@
     }
 
     &--warn {
-      background-color: #fff7e6;
-      color: #d46b08;
+      background-color: rgba(var(--warning-rgb), 0.1);
+      color: var(--warning);
     }
   }
 
@@ -137,13 +137,13 @@
     flex-shrink: 0;
 
     &--ok {
-      background-color: #f6ffed;
-      color: #16a34a;
+      background-color: rgba(var(--success-rgb), 0.1);
+      color: var(--success);
     }
 
     &--warn {
-      background-color: #fff7e6;
-      color: #d46b08;
+      background-color: rgba(var(--warning-rgb), 0.1);
+      color: var(--warning);
     }
   }
 

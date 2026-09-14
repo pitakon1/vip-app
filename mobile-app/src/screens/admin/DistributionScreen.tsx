@@ -188,7 +188,7 @@ export default function DistributionScreen() {
                 <View style={styles.cardHead}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{b.partner_name || '-'}</Text>
                   <View style={[styles.pill, b.status === 'suspended' ? styles.pillWarn : styles.pillOk]}>
-                    <Text style={styles.pillText}>{B_STATUS[b.status] || b.status}</Text>
+                    <Text style={[styles.pillText, b.status === 'suspended' ? styles.pillWarnText : styles.pillOkText]}>{B_STATUS[b.status] || b.status}</Text>
                   </View>
                 </View>
                 <Text style={styles.sub}>{B_TYPE[b.broker_type] || b.broker_type} · {B_LEVEL[b.level] || b.level}</Text>
@@ -256,7 +256,7 @@ export default function DistributionScreen() {
                 <View style={styles.cardHead}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{r.referred_name || '未署名'}</Text>
                   <View style={[styles.pill, styles.pillOk]}>
-                    <Text style={styles.pillText}>{R_STATUS[r.status] || r.status}</Text>
+                    <Text style={[styles.pillText, styles.pillOkText]}>{R_STATUS[r.status] || r.status}</Text>
                   </View>
                 </View>
                 <Text style={styles.sub}>邀请码：{r.invite_code || '-'}</Text>
@@ -324,24 +324,24 @@ export default function DistributionScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   tabRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 8, flexWrap: 'wrap' },
-  tabChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  tabChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   tabChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   tabText: { fontSize: 13, color: colors.ink3 },
   tabTextActive: { color: '#fff', fontWeight: '600' },
   body: { flex: 1, paddingHorizontal: 16 },
   loading: { paddingVertical: 32, alignItems: 'center' },
   toolbar: { flexDirection: 'row', justifyContent: 'flex-start', marginVertical: 8 },
-  addBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 16 },
+  addBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 8, paddingHorizontal: 16 },
   addBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   form: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16 },
   formLabel: { fontSize: 13, color: colors.ink2, marginBottom: 6 },
   input: { height: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: colors.ink, marginBottom: 12 },
   chipRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
-  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 12, color: colors.ink3 },
   chipTextActive: { color: '#fff' },
-  submitBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 12, alignItems: 'center' },
+  submitBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 12, alignItems: 'center' },
   submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   approveBox: { backgroundColor: colors.surface2, borderRadius: 10, padding: 12, marginTop: 10 },
   empty: { textAlign: 'center', color: colors.ink3, paddingVertical: 40 },
@@ -349,16 +349,18 @@ const styles = StyleSheet.create({
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.ink, marginRight: 8 },
   sub: { fontSize: 12, color: colors.ink2, marginTop: 2 },
-  pill: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999 },
+  pill: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: colors.radius.full },
   pillOk: { backgroundColor: colors.successLight },
   pillWarn: { backgroundColor: colors.warningLight },
+  pillOkText: { color: colors.success },
+  pillWarnText: { color: colors.warning },
   pillText: { fontSize: 11 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  actBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 14 },
+  actBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 7, paddingHorizontal: 14 },
   actBtnDanger: { backgroundColor: colors.error },
   actBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   partRow: { marginBottom: 12 },
-  smallChip: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  smallChip: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: colors.radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   smallChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   smallChipText: { fontSize: 12, color: colors.ink3 },
   smallChipTextActive: { color: '#fff' },

@@ -134,6 +134,7 @@ export const employeesApi = {
   mine: () => api.get('/employees/me'),
   leaderboard: () => api.get('/employees/leaderboard'),
   workbench: () => api.get('/employees/workbench'),
+  list: (params?: any) => api.get('/employees', { params }),
 };
 
 export const performanceApi = {

@@ -159,25 +159,20 @@ export default function IncomeScreen() {
             <Text style={styles.heroAmount}>{fmt(summary.total_income)}</Text>
           </View>
           <View style={styles.heroTrend}>
-            <Ionicons name="trending-up" size={14} color="#34d399" />
+            <Ionicons name="trending-up" size={14} color="#fff" />
             <Text style={styles.heroTrendText}>+8.3%</Text>
           </View>
         </View>
         <View style={styles.heroStats}>
           <View style={styles.heroStatItem}>
-            <Text style={[styles.heroStatVal, { color: colors.success }]}>
+            <Text style={styles.heroStatVal}>
               {fmt(summary.receivable_total)}
             </Text>
             <Text style={styles.heroStatLabel}>待收</Text>
           </View>
           <View style={styles.heroDivider} />
           <View style={styles.heroStatItem}>
-            <Text
-              style={[
-                styles.heroStatVal,
-                { color: (summary.overdue_total ?? 0) > 0 ? colors.error : colors.ink3 },
-              ]}
-            >
+            <Text style={styles.heroStatVal}>
               {fmt(summary.overdue_total)}
             </Text>
             <Text style={styles.heroStatLabel}>逾期</Text>
@@ -249,8 +244,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 12,
     padding: 20,
-    borderRadius: 20,
+    borderRadius: colors.radius.xl,
     backgroundColor: colors.primary,
+    ...colors.shadow.primary,
   },
   heroTop: {
     flexDirection: 'row',
@@ -264,16 +260,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 6,
     letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
   },
   heroTrend: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(52, 211, 153, 0.2)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: colors.radius.full,
   },
-  heroTrendText: { fontSize: 12, color: '#34d399', fontWeight: '600', marginLeft: 3 },
+  heroTrendText: { fontSize: 12, color: '#ffffff', fontWeight: '600', marginLeft: 3 },
   heroStats: {
     flexDirection: 'row',
     marginTop: 18,
@@ -282,7 +279,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.2)',
   },
   heroStatItem: { flex: 1, alignItems: 'center' },
-  heroStatVal: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  heroStatVal: { fontSize: 15, fontWeight: '700', color: '#fff', fontVariant: ['tabular-nums'] },
   heroStatLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 3 },
   heroDivider: { width: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.2)' },
 
@@ -293,12 +290,10 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 12,
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
+    borderRadius: colors.radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
   },
   chartHeader: {
     flexDirection: 'row',
@@ -324,16 +319,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: colors.radius.lg,
     padding: 14,
     marginBottom: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
   },
   recordLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   recordIcon: {
     width: 40,
     height: 40,
-    borderRadius: 10,
-    backgroundColor: 'rgba(20, 184, 166, 0.1)',
+    borderRadius: colors.radius.md,
+    backgroundColor: `rgba(${colors.primaryRgb}, 0.1)`,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -342,7 +340,7 @@ const styles = StyleSheet.create({
   property: { fontSize: 14, color: colors.text, fontWeight: '600' },
   month: { fontSize: 12, color: colors.ink3, marginTop: 3 },
   recordRight: { alignItems: 'flex-end' },
-  amount: { fontSize: 16, color: colors.text, fontWeight: '700' },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, marginTop: 5 },
+  amount: { fontSize: 16, color: colors.text, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: colors.radius.full, marginTop: 5 },
   badgeText: { fontSize: 11, fontWeight: '600' },
 });

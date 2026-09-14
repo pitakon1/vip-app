@@ -1,168 +1,174 @@
-.contracts-page {
+.ct-page {
   min-height: 100vh;
-  background-color: var(--bg);
+  background: var(--bg);
 
   .page-container {
-    padding: 24px;
+    padding: 24rpx;
   }
 
-  .lease-renew-card {
-    background-color: var(--card);
-    border-radius: 16px;
-    padding: 28px 24px;
-    margin-bottom: 24px;
-    border-top: 6px solid var(--primary);
+  .ct-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20rpx;
 
-    .lease-renew-head {
+    &__title {
+      font-size: 34rpx;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+
+    &__link {
+      font-size: 26rpx;
+      color: var(--primary);
+      font-weight: 600;
+      padding: 12rpx 24rpx;
+      background: rgba(var(--primary-rgb), 0.1);
+      border-radius: var(--radius-full);
+    }
+  }
+
+  .ct-list {
+    padding-bottom: 40rpx;
+  }
+
+  .ct-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    padding: 28rpx;
+    margin-bottom: 16rpx;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.15s ease;
+
+    &--hover {
+      transform: scale(0.98);
+      background: var(--surface-2);
+    }
+
+    &__head {
       display: flex;
       align-items: center;
-      margin-bottom: 12px;
+      justify-content: space-between;
+      margin-bottom: 12rpx;
     }
 
-    .lease-renew-title {
-      font-size: 32px;
-      font-weight: 600;
+    &__title {
+      flex: 1;
+      font-size: 30rpx;
+      font-weight: 700;
       color: var(--ink);
+      margin-right: 16rpx;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .lease-renew-badge {
-      display: inline-block;
-      margin-left: 12px;
-      padding: 2px 12px;
-      border-radius: 999px;
-      font-size: 22px;
-      color: var(--primary-foreground);
-      background-color: var(--primary);
-      vertical-align: middle;
-    }
-
-    .lease-renew-info {
+    &__no {
       display: block;
-      font-size: 26px;
+      font-size: 24rpx;
+      color: var(--ink-3);
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 20rpx;
+    }
+
+    &__foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 20rpx;
+      border-top: 1px solid var(--line);
+    }
+
+    &__lang {
+      font-size: 24rpx;
       color: var(--ink-2);
-      margin-bottom: 8px;
     }
 
-    .lease-renew-btn {
-      margin-top: 16px;
-      background-color: var(--primary);
-      border-radius: 999px;
-      padding: 18px 0;
-      text-align: center;
-
-      .lease-renew-btn-text {
-        font-size: 30px;
-        font-weight: 600;
-        color: var(--primary-foreground);
-      }
+    &__time {
+      font-size: 24rpx;
+      color: var(--ink-3);
     }
   }
 
-  .action-bar {
-    display: flex;
-    justify-content: space-between;
+  .ct-badge {
+    display: inline-flex;
     align-items: center;
-    margin-bottom: 16px;
+    padding: 6rpx 16rpx;
+    border-radius: var(--radius-full);
+    font-size: 22rpx;
+    font-weight: 600;
+    flex-shrink: 0;
 
-    .action-title {
-      font-size: 32px;
-      font-weight: 600;
-      color: var(--ink);
-    }
-
-    .action-link {
-      font-size: 26px;
-      color: var(--primary);
-    }
+    &--neutral { background: var(--surface-2); color: var(--ink-2); }
+    &--warning { background: rgba(var(--warning-rgb), 0.1); color: var(--warning); }
+    &--success { background: rgba(var(--success-rgb), 0.1); color: var(--success); }
+    &--error { background: rgba(var(--error-rgb), 0.1); color: var(--error); }
   }
 
-  .empty-tip {
-    text-align: center;
-    padding: 80px 0;
+  /* 空态 / 加载态 / 错误态 */
+  .ct-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 120rpx 0;
     color: var(--ink-3);
-    font-size: 28px;
-  }
 
-  .form-card {
-    background-color: var(--card);
-    border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 24px;
-
-    .form-input {
-      height: 80px;
-      background-color: var(--bg);
-      border-radius: 12px;
-      padding: 0 24px;
-      font-size: 28px;
-      margin-bottom: 16px;
-    }
-
-    .submit-btn {
-      height: 80px;
-      background-color: var(--primary);
-      border-radius: 12px;
+    &__icon {
+      width: 88rpx;
+      height: 88rpx;
+      border-radius: 50%;
+      background: var(--surface-2);
+      color: var(--ink-3);
+      font-size: 36rpx;
+      font-weight: 700;
       display: flex;
       align-items: center;
       justify-content: center;
-
-      .submit-text {
-        font-size: 30px;
-        color: var(--primary-foreground);
-        font-weight: 600;
-      }
-    }
-  }
-
-  .contract-list {
-    max-height: 1400px;
-  }
-
-  .contract-card {
-    background-color: var(--card);
-    border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 16px;
-
-    .contract-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-
-      .contract-title {
-        font-size: 30px;
-        font-weight: 600;
-        color: var(--ink);
-      }
-
-      .contract-status {
-        font-size: 24px;
-        color: var(--warning);
-      }
+      margin-bottom: 20rpx;
     }
 
-    .contract-date {
-      display: block;
-      font-size: 24px;
+    &__title {
+      font-size: 28rpx;
+      color: var(--ink-2);
+      font-weight: 600;
+    }
+
+    &__desc {
+      font-size: 24rpx;
       color: var(--ink-3);
-      margin-bottom: 16px;
+      margin-top: 10rpx;
     }
 
-    .contract-op {
-      .op-btn {
-        display: inline-block;
-        height: 64px;
-        line-height: 64px;
-        padding: 0 32px;
-        background-color: var(--primary);
-        border-radius: 32px;
-
-        .op-text {
-          font-size: 26px;
-          color: var(--primary-foreground);
-        }
+    &--loading {
+      .ct-state__spinner {
+        width: 52rpx;
+        height: 52rpx;
+        border: 4rpx solid var(--surface-2);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: ct-spin 0.8s linear infinite;
+        margin-bottom: 20rpx;
       }
     }
   }
+
+  .ct-retry {
+    margin-top: 24rpx;
+    padding: 14rpx 40rpx;
+    background: var(--primary);
+    border-radius: var(--radius-full);
+
+    &__text {
+      font-size: 26rpx;
+      font-weight: 600;
+      color: var(--primary-foreground);
+    }
+  }
+}
+
+@keyframes ct-spin {
+  to { transform: rotate(360deg); }
 }

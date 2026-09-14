@@ -208,7 +208,7 @@ export default function MarketsScreen() {
                 <View style={styles.cardHead}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{m.country_name || '-'} ({m.market_code})</Text>
                   <View style={[styles.pill, m.published ? styles.pillOk : styles.pillWarn]}>
-                    <Text style={styles.pillText}>{m.published ? '已发布' : '筹备中'}</Text>
+                    <Text style={[styles.pillText, m.published ? styles.pillOkText : styles.pillWarnText]}>{m.published ? '已发布' : '筹备中'}</Text>
                   </View>
                 </View>
                 <Text style={styles.sub}>状态：{MK_STATUS[m.status] || m.status}</Text>
@@ -256,7 +256,7 @@ export default function MarketsScreen() {
                 <View style={styles.cardHead}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{c.channel_name || c.channel_code}</Text>
                   <View style={[styles.pill, c.status === 'active' ? styles.pillOk : styles.pillWarn]}>
-                    <Text style={styles.pillText}>{c.status === 'active' ? '启用' : c.status}</Text>
+                    <Text style={[styles.pillText, c.status === 'active' ? styles.pillOkText : styles.pillWarnText]}>{c.status === 'active' ? '启用' : c.status}</Text>
                   </View>
                 </View>
                 <Text style={styles.sub}>代码：{c.channel_code} · 类型：{c.channel_type}</Text>
@@ -315,24 +315,24 @@ export default function MarketsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   tabRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 8, flexWrap: 'wrap' },
-  tabChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  tabChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   tabChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   tabText: { fontSize: 13, color: colors.ink3 },
   tabTextActive: { color: '#fff', fontWeight: '600' },
   body: { flex: 1, paddingHorizontal: 16 },
   loading: { paddingVertical: 32, alignItems: 'center' },
   toolbar: { flexDirection: 'row', justifyContent: 'flex-start', marginVertical: 8 },
-  addBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 16 },
+  addBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 8, paddingHorizontal: 16 },
   addBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   form: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16 },
   formLabel: { fontSize: 13, color: colors.ink2, marginBottom: 6 },
   input: { height: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: colors.ink, marginBottom: 12 },
   chipRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
-  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 12, color: colors.ink3 },
   chipTextActive: { color: '#fff' },
-  submitBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 12, alignItems: 'center' },
+  submitBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 12, alignItems: 'center' },
   submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   ghostBtn: { paddingVertical: 8, marginBottom: 12 },
   ghostBtnText: { fontSize: 13, color: colors.ink3 },
@@ -343,9 +343,11 @@ const styles = StyleSheet.create({
   cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.ink, marginRight: 8 },
   cardTag: { fontSize: 11, color: colors.ink3 },
   sub: { fontSize: 12, color: colors.ink2, marginTop: 2 },
-  pill: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999 },
+  pill: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: colors.radius.full },
   pillOk: { backgroundColor: colors.successLight },
   pillWarn: { backgroundColor: colors.warningLight },
+  pillOkText: { color: colors.success },
+  pillWarnText: { color: colors.warning },
   pillText: { fontSize: 11 },
   hint: { fontSize: 12, color: colors.ink3, paddingVertical: 6 },
 });

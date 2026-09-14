@@ -17,6 +17,12 @@ export const propertiesApi = {
   list: (params?: any) => request({ url: '/properties', method: 'GET', data: params })
 }
 
+// ============ 客户线索（CRM）============
+export const leadsApi = {
+  list: (params?: any) => request({ url: '/leads', method: 'GET', data: params }),
+  updateStatus: (id: string, data: any) => request({ url: `/leads/${id}`, method: 'PATCH', data })
+}
+
 export const leasesApi = {
   list: (params?: any) => request({ url: '/leases', method: 'GET', data: params }),
   mine: () => request({ url: '/leases/me', method: 'GET' }),
@@ -79,11 +85,12 @@ export const ownerApi = {
     request({ url: '/owners/me/annual-financial-summary', method: 'GET', data: { year } })
 }
 
-// 员工端：工作台（含租约临期 SLA 跟进）
+// 员工端：工作台（含租约临期 SLA 跟进）与同事通讯录
 export const employeesApi = {
   me: () => request({ url: '/employees/me', method: 'GET' }),
   leaderboard: () => request({ url: '/employees/leaderboard', method: 'GET' }),
-  workbench: () => request({ url: '/employees/workbench', method: 'GET' })
+  workbench: () => request({ url: '/employees/workbench', method: 'GET' }),
+  list: (params?: any) => request({ url: '/employees', method: 'GET', data: params })
 }
 
 // 管理端：运营概览 / 财务对账 / 运营趋势
@@ -235,6 +242,7 @@ export const marketDataApi = {
 export default {
   authApi,
   propertiesApi,
+  leadsApi,
   leasesApi,
   paymentsApi,
   documentsApi,

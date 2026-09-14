@@ -302,7 +302,7 @@ export default function SaleDealsScreen() {
                 <View style={styles.cardHead}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{l.title || '-'}</Text>
                   <View style={[styles.pill, l.sale_type === 'buy' ? styles.pillWarn : styles.pillOk]}>
-                    <Text style={styles.pillText}>{l.sale_type === 'buy' ? '求购' : '出售'}</Text>
+                    <Text style={[styles.pillText, l.sale_type === 'buy' ? styles.pillWarnText : styles.pillOkText]}>{l.sale_type === 'buy' ? '求购' : '出售'}</Text>
                   </View>
                 </View>
                 <Text style={styles.price}>{fmtMoney(l.asking_price, l.currency)}</Text>
@@ -358,7 +358,7 @@ export default function SaleDealsScreen() {
                 <View style={styles.cardHead}>
                   <Text style={styles.cardTitle} numberOfLines={1}>成交 #{(d.id || '').slice(0, 8)}</Text>
                   <View style={[styles.pill, styles.pillOk]}>
-                    <Text style={styles.pillText}>{D_STATUS[d.status] || d.status}</Text>
+                    <Text style={[styles.pillText, styles.pillOkText]}>{D_STATUS[d.status] || d.status}</Text>
                   </View>
                 </View>
                 <Text style={styles.price}>{fmtMoney(d.sale_price, d.currency)}</Text>
@@ -412,7 +412,7 @@ export default function SaleDealsScreen() {
                 <View style={styles.cardHead}>
                   <Text style={styles.cardTitle} numberOfLines={1}>托管 #{(e.id || '').slice(0, 8)}</Text>
                   <View style={[styles.pill, e.status === 'released_seller' || e.status === 'refunded_buyer' ? styles.pillWarn : styles.pillOk]}>
-                    <Text style={styles.pillText}>{E_STATUS[e.status] || e.status}</Text>
+                    <Text style={[styles.pillText, e.status === 'released_seller' || e.status === 'refunded_buyer' ? styles.pillWarnText : styles.pillOkText]}>{E_STATUS[e.status] || e.status}</Text>
                   </View>
                 </View>
                 <Text style={styles.price}>{fmtMoney(e.amount, e.currency)}</Text>
@@ -457,7 +457,7 @@ export default function SaleDealsScreen() {
                 <View style={styles.cardHead}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{m.bank || '-'}</Text>
                   <View style={[styles.pill, m.status === 'approved' ? styles.pillOk : m.status === 'rejected' ? styles.pillWarn : styles.pillDefault]}>
-                    <Text style={styles.pillText}>{M_STATUS[m.status] || m.status}</Text>
+                    <Text style={[styles.pillText, m.status === 'approved' ? styles.pillOkText : m.status === 'rejected' ? styles.pillWarnText : styles.pillDefaultText]}>{M_STATUS[m.status] || m.status}</Text>
                   </View>
                 </View>
                 <Text style={styles.price}>{fmtMoney(m.loan_amount, m.currency)}</Text>
@@ -480,17 +480,17 @@ export default function SaleDealsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   tabRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 8, flexWrap: 'wrap' },
-  tabChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  tabChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   tabChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   tabText: { fontSize: 13, color: colors.ink3 },
   tabTextActive: { color: '#fff', fontWeight: '600' },
   body: { flex: 1, paddingHorizontal: 16 },
   loading: { paddingVertical: 32, alignItems: 'center' },
   toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 8, gap: 8, flexWrap: 'wrap' },
-  addBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 16 },
+  addBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 8, paddingHorizontal: 16 },
   addBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   filterRow: { flexDirection: 'row', gap: 8 },
-  filterChip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  filterChip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   filterChipActive: { backgroundColor: colors.sidebarActive, borderColor: colors.primary },
   filterText: { fontSize: 12, color: colors.ink3 },
   filterTextActive: { color: colors.primary, fontWeight: '600' },
@@ -498,11 +498,11 @@ const styles = StyleSheet.create({
   formLabel: { fontSize: 13, color: colors.ink2, marginBottom: 6 },
   input: { height: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: colors.ink, marginBottom: 12 },
   chipRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 12, color: colors.ink3 },
   chipTextActive: { color: '#fff' },
-  submitBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 12, alignItems: 'center' },
+  submitBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 12, alignItems: 'center' },
   submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   dealChip: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, marginBottom: 8 },
   dealChipActive: { backgroundColor: colors.sidebarActive, borderColor: colors.primary },
@@ -516,13 +516,16 @@ const styles = StyleSheet.create({
   cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.ink, marginRight: 8 },
   price: { fontSize: 17, fontWeight: '700', color: colors.primary, marginBottom: 4 },
   sub: { fontSize: 12, color: colors.ink2, marginTop: 2 },
-  pill: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999 },
+  pill: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: colors.radius.full },
   pillOk: { backgroundColor: colors.successLight },
   pillWarn: { backgroundColor: colors.warningLight },
   pillDefault: { backgroundColor: colors.surface2 },
+  pillOkText: { color: colors.success },
+  pillWarnText: { color: colors.warning },
+  pillDefaultText: { color: colors.ink2 },
   pillText: { fontSize: 11 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
-  actBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 14 },
+  actBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 7, paddingHorizontal: 14 },
   actBtnGhost: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   actBtnDanger: { backgroundColor: colors.error },
   actBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },

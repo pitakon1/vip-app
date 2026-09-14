@@ -6,10 +6,16 @@ import { ownerApi } from '@/services/api'
 import type { Property, PropertyStatus } from '@/types'
 import './index.scss'
 
-const STATUS_MAP: Record<PropertyStatus, { text: string; color: string; bg: string }> = {
-  vacant: { text: '空置', color: '#999999', bg: '#f5f5f5' },
-  rented: { text: '已出租', color: '#16a34a', bg: '#f6ffed' },
-  reserved: { text: '已预订', color: '#d97706', bg: '#fffbe6' }
+const STATUS_CLASS: Record<PropertyStatus, string> = {
+  vacant: 'property-status--vacant',
+  rented: 'property-status--rented',
+  reserved: 'property-status--reserved'
+}
+
+const STATUS_TEXT: Record<PropertyStatus, string> = {
+  vacant: '空置',
+  rented: '已出租',
+  reserved: '已预订'
 }
 
 // 从接口返回中提取房源列表，兼容多种结构
@@ -23,12 +29,61 @@ function pickList(res: any): Property[] {
   return []
 }
 
+interface MonthlyRow {
+  month: string
+  received: number
+  pending?: number
+  overdue?: number
+  count?: number
+}
+
+interface IncomeData {
+  monthlyIncome: number
+  totalIncome: number
+  pendingIncome: number
+  overdueIncome: number
+}
+
+const pickIncome = (res: any): IncomeData => {
+  const d = res?.data ?? res ?? {}
+  return {
+    monthlyIncome: Number(d.monthlyIncome ?? 0),
+    totalIncome: Number(d.totalIncome ?? 0),
+    pendingIncome: Number(d.pendingIncome ?? 0),
+    overdueIncome: Number(d.overdueIncome ?? 0)
+  }
+}
+
+const pickMonthly = (res: any): MonthlyRow[] => {
+  const d = res?.data ?? res ?? {}
+  const arr = Array.isArray(d?.by_month) ? d.by_month : []
+  return arr
+}
+
+const fmtMoney = (v: number) =>
+  Number(v || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+// 快捷入口
+const QUICK_ENTRIES = [
+  { icon: '💳', label: '我的付款', desc: '账单到账', url: '/pages/owner/payments/index' },
+  { icon: '📊', label: '收益分析', desc: '收支汇总', url: '/pages/owner/income/index' },
+  { icon: '📋', label: '委托挂牌', desc: '发布房源', url: '/pages/owner/marketing/index' },
+  { icon: '📢', label: '房产营销', desc: '推广定价', url: '/pages/owner/marketing/index' }
+]
+
 export default function OwnerHomePage() {
   const user = useAuthStore((state) => state.user)
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [properties, setProperties] = useState<Property[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [income, setIncome] = useState<IncomeData>({
+    monthlyIncome: 0,
+    totalIncome: 0,
+    pendingIncome: 0,
+    overdueIncome: 0
+  })
+  const [monthly, setMonthly] = useState<MonthlyRow[]>([])
 
   const fetchProperties = async () => {
     setLoading(true)
@@ -43,6 +98,19 @@ export default function OwnerHomePage() {
     }
   }
 
+  const fetchFinance = async () => {
+    try {
+      const [incRes, annRes] = await Promise.all([
+        ownerApi.income(),
+        ownerApi.annualFinancialSummary()
+      ])
+      setIncome(pickIncome(incRes))
+      setMonthly(pickMonthly(annRes).slice(-6))
+    } catch (error) {
+      console.error('[OwnerHome] 获取财务概览失败', error)
+    }
+  }
+
   useDidShow(() => {
     loadFromStorage()
     if (!useAuthStore.getState().token) {
@@ -50,6 +118,7 @@ export default function OwnerHomePage() {
       return
     }
     fetchProperties()
+    fetchFinance()
   })
 
   const onRefresh = async () => {
@@ -73,6 +142,11 @@ export default function OwnerHomePage() {
     reserved: properties.filter((p) => p.status === 'reserved').length
   }
 
+  // 柱状图计算
+  const maxRevenue = Math.max(...monthly.map((m) => Number(m.received || 0)), 1)
+  const hasChart = monthly.some((m) => Number(m.received || 0) > 0)
+  const shortMonth = (m: string) => `${Number(String(m).split('-').pop() || 0)}月`
+
   return (
     <View className='owner-home-page'>
       <View className='page-container'>
@@ -81,6 +155,69 @@ export default function OwnerHomePage() {
           <Text className='welcome-sub'>您名下共有 {stats.total} 套房产</Text>
         </View>
 
+        {/* 快捷入口宫格 */}
+        <View className='quick-grid'>
+          {QUICK_ENTRIES.map((q) => (
+            <View
+              key={q.label}
+              className='quick-grid__cell'
+              hoverClass='quick-grid__cell--hover'
+              onClick={() => Taro.navigateTo({ url: q.url })}
+            >
+              <View className='quick-grid__badge'>
+                <Text className='quick-grid__icon'>{q.icon}</Text>
+              </View>
+              <Text className='quick-grid__title'>{q.label}</Text>
+              <Text className='quick-grid__desc'>{q.desc}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* 财务概览卡 */}
+        <View className='finance-card'>
+          <Text className='finance-card__label'>本月收入</Text>
+          <Text className='finance-card__amount'>¥{fmtMoney(income.monthlyIncome)}</Text>
+
+          <View className='finance-kpis'>
+            <View className='finance-kpi finance-kpi--success'>
+              <Text className='finance-kpi__num'>¥{fmtMoney(income.totalIncome)}</Text>
+              <Text className='finance-kpi__label'>总收入</Text>
+            </View>
+            <View className='finance-kpi finance-kpi--warning'>
+              <Text className='finance-kpi__num'>¥{fmtMoney(income.pendingIncome)}</Text>
+              <Text className='finance-kpi__label'>待收</Text>
+            </View>
+            <View className='finance-kpi finance-kpi--error'>
+              <Text className='finance-kpi__num'>¥{fmtMoney(income.overdueIncome)}</Text>
+              <Text className='finance-kpi__label'>逾期</Text>
+            </View>
+          </View>
+
+          <View className='finance-chart__head'>
+            <Text className='finance-chart__title'>近 6 个月收入</Text>
+          </View>
+          {hasChart ? (
+            <View className='finance-chart'>
+              {monthly.map((m, i) => {
+                const h = Math.max((Number(m.received || 0) / maxRevenue) * 100, 2)
+                const isCurrent = i === monthly.length - 1
+                return (
+                  <View key={m.month} className='finance-chart__col'>
+                    <View
+                      className={`finance-chart__bar ${isCurrent ? 'finance-chart__bar--current' : ''}`}
+                      style={{ height: `${h}%` }}
+                    />
+                    <Text className='finance-chart__label'>{shortMonth(m.month)}</Text>
+                  </View>
+                )
+              })}
+            </View>
+          ) : (
+            <View className='finance-chart__empty'>入账后将在此累计展示</View>
+          )}
+        </View>
+
+        {/* 房产状态 */}
         <View className='stats-grid'>
           <View className='stat-card stat-card--success'>
             <View className='stat-dot' />
@@ -97,18 +234,6 @@ export default function OwnerHomePage() {
             <Text className='stat-num'>{stats.reserved}</Text>
             <Text className='stat-label'>已预订</Text>
           </View>
-        </View>
-
-        <View
-          className='marketing-entry'
-          hoverClass='marketing-entry--hover'
-          onClick={() => Taro.navigateTo({ url: '/pages/owner/marketing/index' })}
-        >
-          <View className='marketing-entry__body'>
-            <Text className='marketing-entry__title'>房源营销</Text>
-            <Text className='marketing-entry__sub'>空置推广 · 定价建议 · 年度财务导出</Text>
-          </View>
-          <Text className='marketing-entry__arrow'>›</Text>
         </View>
 
         <View className='section-title'>
@@ -139,16 +264,15 @@ export default function OwnerHomePage() {
             </View>
           )}
           {properties.map((item) => {
-            const statusInfo = STATUS_MAP[item.status] || STATUS_MAP.vacant
+            const statusClass = STATUS_CLASS[item.status] || STATUS_CLASS.vacant
             return (
               <View key={item.id} className='property-card'>
                 <View className='property-header'>
                   <Text className='property-code'>{item.code}</Text>
                   <Text
-                    className='property-status'
-                    style={{ color: statusInfo.color, backgroundColor: statusInfo.bg }}
+                    className={`property-status ${statusClass}`}
                   >
-                    {statusInfo.text}
+                    {STATUS_TEXT[item.status] || '空置'}
                   </Text>
                 </View>
                 <View className='property-info'>

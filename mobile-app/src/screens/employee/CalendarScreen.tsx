@@ -25,7 +25,7 @@ interface CalendarItem {
 const typeConfig: Record<ItemType, { color: string; bg: string; label: string; icon: keyof typeof Ionicons.glyphMap }> = {
   viewing: { color: colors.primary, bg: 'rgba(20, 184, 166, 0.12)', label: '带看', icon: 'eye-outline' },
   todo: { color: colors.warning, bg: 'rgba(217, 119, 6, 0.12)', label: '待办', icon: 'checkbox-outline' },
-  contract: { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)', label: '合同', icon: 'document-text-outline' },
+  contract: { color: colors.info, bg: `rgba(${colors.infoRgb}, 0.12)`, label: '合同', icon: 'document-text-outline' },
   maintenance: { color: colors.error, bg: 'rgba(220, 38, 38, 0.12)', label: '维护', icon: 'construct-outline' },
 };
 
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   navBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: colors.radius.full,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.surface2,
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   todayBtn: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: colors.radius.full,
     backgroundColor: `rgba(${colors.primaryRgb}, 0.1)`,
   },
   todayBtnText: { fontSize: 12, fontWeight: '600', color: colors.primary },
@@ -370,13 +370,11 @@ const styles = StyleSheet.create({
   calendarCard: {
     marginHorizontal: 12,
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: colors.radius.xl,
     padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
   },
   weekHeader: {
     flexDirection: 'row',
@@ -400,7 +398,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: colors.radius.full,
   },
   dayCellSelected: {
     backgroundColor: colors.primary,
@@ -462,15 +460,13 @@ const styles = StyleSheet.create({
   scheduleCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: colors.radius.lg,
     padding: 12,
     marginLeft: 12,
     borderLeftWidth: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
   },
   scheduleCardTop: {
     flexDirection: 'row',

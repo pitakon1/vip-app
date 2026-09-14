@@ -12,12 +12,13 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import LineChart from '@/components/charts/LineChart';
+import BarChart from '@/components/charts/BarChart';
 import { dashboardApi, auditApi, commissionRulesApi } from '@/services/api';
 
 type Tab = 'overview' | 'recon' | 'trend' | 'audit' | 'commission';
@@ -79,7 +80,19 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] 
   { key: 'commission', label: '佣金规则', icon: 'settings-outline' },
 ];
 
+type IoniconName = keyof typeof Ionicons.glyphMap;
+
+// 快捷入口：展示页未覆盖的工作工具，置于 hero 之后、分区之上
+const QUICK_ACTIONS: { key: string; label: string; icon: IoniconName; route: string }[] = [
+  { key: 'props', label: '房源管理', icon: 'home-outline', route: 'EmployeeProperties' },
+  { key: 'sale', label: '买卖成交', icon: 'swap-horizontal-outline', route: 'SaleDeals' },
+  { key: 'dist', label: '分销体系', icon: 'git-network-outline', route: 'Distribution' },
+  { key: 'markets', label: '多国市场', icon: 'earth-outline', route: 'Markets' },
+  { key: 'intel', label: '数据决策', icon: 'analytics-outline', route: 'MarketIntel' },
+];
+
 export default function AdminHomeScreen() {
+  const navigation = useNavigation<any>();
   const [tab, setTab] = useState<Tab>('overview');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -100,12 +113,20 @@ export default function AdminHomeScreen() {
     setLoading(true);
     try {
       if (target === 'overview') {
-        const [sumRes, expRes]: any[] = await Promise.all([
+        const [sumRes, expRes, trendRes, reconRes]: any[] = await Promise.all([
           dashboardApi.summary().catch(() => ({ data: {} })),
           dashboardApi.expiringLeases().catch(() => ({ data: { items: [] } })),
+          dashboardApi.trend({ months: 12 }).catch(() => ({ data: { series: [] } })),
+          dashboardApi.financialReconciliation().catch(() => ({ data: { totals: {}, by_property: [] } })),
         ]);
         setSummary(sumRes?.data ?? {});
         setExpiring((expRes?.data ?? {}).items ?? []);
+        const trendD = trendRes?.data ?? {};
+        const trendRows = Array.isArray(trendD.series) ? trendD.series : [];
+        setTrend(trendRows);
+        const reconD = reconRes?.data ?? {};
+        setTotals((reconD.totals ?? {}) as { received?: number; receivable?: number; overdue?: number });
+        setByProperty(reconD.by_property ?? []);
       } else if (target === 'recon') {
         const res: any = await dashboardApi.financialReconciliation();
         const d = res?.data ?? {};
@@ -155,6 +176,12 @@ export default function AdminHomeScreen() {
     await loadTab(tab);
   };
 
+  // 近 6 个月营收（用于概览收入趋势图）
+  const revenueTrend = trend.slice(-6).map((t) => ({
+    label: `${Number(t.month?.slice(5))}月`,
+    value: t.revenue ?? 0,
+  }));
+
   const addRule = async () => {
     if (!name || !rate) return;
     const ruleName = name;
@@ -186,6 +213,23 @@ export default function AdminHomeScreen() {
           <Ionicons name="shield" size={14} color="#fff" />
           <Text style={styles.heroBadgeText}>ADMIN</Text>
         </View>
+      </View>
+
+      {/* 快捷入口：展示页未覆盖的工作工具，置顶导航 */}
+      <View style={styles.actionGrid}>
+        {QUICK_ACTIONS.map((item) => (
+          <TouchableOpacity
+            key={item.key}
+            style={styles.actionCell}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate(item.route)}
+          >
+            <View style={styles.actionCellIcon}>
+              <Ionicons name={item.icon} size={22} color={colors.primary} />
+            </View>
+            <Text style={styles.actionCellLabel}>{item.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* Tab 导航 */}
@@ -277,6 +321,53 @@ export default function AdminHomeScreen() {
               </View>
               <View style={styles.revenueIcon}>
                 <Ionicons name="cash-outline" size={40} color="rgba(255,255,255,0.9)" />
+              </View>
+            </View>
+
+            {/* 收入趋势图（近 6 个月营收） */}
+            {revenueTrend.length > 0 && (
+              <View style={styles.trendChartCard}>
+                <View style={styles.chartHeaderRow}>
+                  <View>
+                    <Text style={styles.chartCardTitle}>收入趋势</Text>
+                    <Text style={styles.chartCardSub}>近 6 个月营收</Text>
+                  </View>
+                  <View style={styles.chartLegend}>
+                    <View style={styles.legendDotLine} />
+                    <Text style={styles.legendText}>营收</Text>
+                  </View>
+                </View>
+                <BarChart
+                  data={revenueTrend}
+                  height={140}
+                  activeIndex={revenueTrend.length - 1}
+                />
+              </View>
+            )}
+
+            {/* 财务对账概要 */}
+            <View style={styles.reconCard}>
+              <View style={styles.reconHead}>
+                <Text style={styles.chartCardTitle}>财务对账概要</Text>
+                <TouchableOpacity activeOpacity={0.7} onPress={() => switchTab('recon')}>
+                  <Text style={styles.reconMore}>查看明细 ›</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.reconRow}>
+                <View style={styles.reconItem}>
+                  <Text style={[styles.reconNum, { color: colors.success }]}>{fmtMoney(totals.received)}</Text>
+                  <Text style={styles.reconLabel}>实收</Text>
+                </View>
+                <View style={styles.reconDivider} />
+                <View style={styles.reconItem}>
+                  <Text style={[styles.reconNum, { color: colors.warning }]}>{fmtMoney(totals.receivable)}</Text>
+                  <Text style={styles.reconLabel}>待收</Text>
+                </View>
+                <View style={styles.reconDivider} />
+                <View style={styles.reconItem}>
+                  <Text style={[styles.reconNum, { color: colors.error }]}>{fmtMoney(totals.overdue)}</Text>
+                  <Text style={styles.reconLabel}>逾期</Text>
+                </View>
               </View>
             </View>
 
@@ -615,6 +706,29 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
+  /* ===== 快捷入口宫格（无外壳） ===== */
+  actionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: 12,
+    marginBottom: 8,
+  },
+  actionCell: {
+    width: '20%',
+    alignItems: 'center',
+    paddingVertical: 10,
+    gap: 6,
+  },
+  actionCellIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: `rgba(${colors.primaryRgb}, 0.1)`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionCellLabel: { fontSize: 12, color: colors.ink2, fontWeight: '600' },
+
   /* ===== Tab 导航 ===== */
   tabScroll: {
     maxHeight: 72,
@@ -676,6 +790,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     letterSpacing: -0.2,
     marginBottom: 4,
+    fontVariant: ['tabular-nums'],
   },
   primaryLabel: { fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
 
@@ -695,7 +810,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...colors.shadow.sm,
   },
-  miniNum: { fontSize: 18, fontWeight: '800', marginBottom: 3 },
+  miniNum: { fontSize: 18, fontWeight: '800', marginBottom: 3, fontVariant: ['tabular-nums'] },
   miniLabel: { fontSize: 10, color: colors.ink3, fontWeight: '500' },
 
   /* ===== 营收大卡 ===== */
@@ -711,9 +826,45 @@ const styles = StyleSheet.create({
   },
   revenueLeft: { flex: 1 },
   revenueLabel: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 6, fontWeight: '500' },
-  revenueNum: { fontSize: 32, fontWeight: '800', color: '#fff', letterSpacing: -0.5, marginBottom: 4 },
+  revenueNum: { fontSize: 32, fontWeight: '800', color: '#fff', letterSpacing: -0.5, marginBottom: 4, fontVariant: ['tabular-nums'] },
   revenueSub: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   revenueIcon: { marginLeft: 12, opacity: 0.9 },
+
+  /* ===== 财务对账概要卡 ===== */
+  reconCard: {
+    marginTop: 12,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    ...colors.shadow.sm,
+  },
+  reconHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  reconMore: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
+  reconRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  reconItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  reconDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  reconNum: {
+    fontSize: 19,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    lineHeight: 24,
+    fontVariant: ['tabular-nums'],
+  },
+  reconLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
 
   /* ===== 区块标题 ===== */
   sectionHead: {
@@ -748,7 +899,7 @@ const styles = StyleSheet.create({
   tag: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: colors.radius.md,
+    borderRadius: colors.radius.full,
   },
   tagText: { fontSize: 11, fontWeight: '600' },
   tagError: { backgroundColor: `rgba(${colors.errorRgb}, 0.12)` },
@@ -863,7 +1014,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: colors.radius.full,
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
@@ -913,12 +1064,10 @@ const styles = StyleSheet.create({
     marginTop: 14,
     padding: 16,
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
+    borderRadius: colors.radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
   },
   chartHeaderRow: {
     flexDirection: 'row',
@@ -986,8 +1135,10 @@ const styles = StyleSheet.create({
   trendStatCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: colors.radius.lg,
     padding: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   trendStatLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
   trendStatVal: { fontSize: 15, fontWeight: '700', color: colors.text, marginTop: 4 },

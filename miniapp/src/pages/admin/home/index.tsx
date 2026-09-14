@@ -148,6 +148,8 @@ export default function AdminHomePage() {
   })
   // 运营趋势
   const [trend, setTrend] = useState<TrendRow[]>([])
+  // 首页收入趋势（近6月）
+  const [homeTrend, setHomeTrend] = useState<TrendRow[]>([])
   // 审计
   const [audits, setAudits] = useState<AuditRow[]>([])
   // 佣金规则
@@ -190,6 +192,22 @@ export default function AdminHomePage() {
       Taro.showToast({ title: '加载对账失败', icon: 'none' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 首页增强：收入趋势 + 财务对账概要
+  const fetchHomeCards = async () => {
+    try {
+      const [trendRes, reconRes] = await Promise.all([
+        dashboardApi.trend({ months: 6 }),
+        dashboardApi.financialReconciliation()
+      ])
+      const s = pick(trendRes, 'series')
+      setHomeTrend(Array.isArray(s) ? s.slice(-6) : [])
+      const totals = pick(reconRes, 'totals')
+      setRecon((r) => ({ ...r, totals: totals ?? {} }))
+    } catch (e) {
+      console.error('[AdminHome] 加载首页卡片失败', e)
     }
   }
 
@@ -246,7 +264,12 @@ export default function AdminHomePage() {
       return
     }
     fetchOverview()
+    fetchHomeCards()
   })
+
+  const homeMaxRevenue = Math.max(...homeTrend.map((r) => Number(r.revenue || 0)), 1)
+  const hasHomeChart = homeTrend.some((r) => Number(r.revenue || 0) > 0)
+  const shortHomeMonth = (m: string) => `${Number(String(m).split('-').pop() || 0)}月`
 
   const addRule = async () => {
     if (!ruleForm.name || !ruleForm.rate) {
@@ -293,6 +316,49 @@ export default function AdminHomePage() {
           </View>
         ))}
       </ScrollView>
+
+      {/* 运营专项入口 */}
+      <View className='adm-special'>
+        <View className='adm-special__head'>
+          <Text className='adm-special__title'>运营专项</Text>
+          <Text className='adm-special__hint'>深度工具</Text>
+        </View>
+        <ScrollView scrollX className='adm-special__capsules' showScrollbar={false}>
+          <View
+            className='adm-special__cap'
+            hoverClass='adm-special__cap--hover'
+            onClick={() => Taro.navigateTo({ url: '/pages/admin/reconciliation/index' })}
+          >
+            <Text className='adm-special__cap-icon'>💰</Text>
+            <View className='adm-special__cap-body'>
+              <Text className='adm-special__cap-title'>财务对账</Text>
+              <Text className='adm-special__cap-desc'>实收 逾期 分房源</Text>
+            </View>
+          </View>
+          <View
+            className='adm-special__cap'
+            hoverClass='adm-special__cap--hover'
+            onClick={() => Taro.navigateTo({ url: '/pages/admin/trend/index' })}
+          >
+            <Text className='adm-special__cap-icon'>📈</Text>
+            <View className='adm-special__cap-body'>
+              <Text className='adm-special__cap-title'>运营趋势</Text>
+              <Text className='adm-special__cap-desc'>12 个月走势</Text>
+            </View>
+          </View>
+          <View
+            className='adm-special__cap'
+            hoverClass='adm-special__cap--hover'
+            onClick={() => Taro.navigateTo({ url: '/pages/admin/audit/index' })}
+          >
+            <Text className='adm-special__cap-icon'>📝</Text>
+            <View className='adm-special__cap-body'>
+              <Text className='adm-special__cap-title'>审计日志</Text>
+              <Text className='adm-special__cap-desc'>操作留痕</Text>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
 
       <View className='adm-content'>
         {/* ===== 运营概览 ===== */}
@@ -395,6 +461,55 @@ export default function AdminHomePage() {
                   })}
                 </View>
               )}
+            </View>
+
+            {/* 收入趋势卡 */}
+            <View className='adm-home-trend'>
+              <View className='adm-section__head'>
+                <Text className='adm-section__title'>收入趋势</Text>
+                <Text className='adm-section__hint'>近 6 个月</Text>
+              </View>
+              {hasHomeChart ? (
+                <View className='adm-home-chart'>
+                  {homeTrend.map((r, i) => {
+                    const h = Math.max((Number(r.revenue || 0) / homeMaxRevenue) * 100, 2)
+                    const active = Number(r.revenue || 0) > 0
+                    return (
+                      <View key={r.month} className='adm-home-chart__col'>
+                        <View
+                          className={`adm-home-chart__bar ${active ? 'adm-home-chart__bar--active' : ''}`}
+                          style={{ height: `${h}%` }}
+                        />
+                        <Text className='adm-home-chart__label'>{shortHomeMonth(r.month)}</Text>
+                      </View>
+                    )
+                  })}
+                </View>
+              ) : (
+                <View className='adm-home-chart__empty'>运营数据将在积累后展示</View>
+              )}
+            </View>
+
+            {/* 财务对账概要卡 */}
+            <View className='adm-recon' onClick={() => Taro.navigateTo({ url: '/pages/admin/reconciliation/index' })}>
+              <View className='adm-section__head'>
+                <Text className='adm-section__title'>财务对账概览</Text>
+                <Text className='adm-section__hint'>查看明细 ›</Text>
+              </View>
+              <View className='adm-recon__row'>
+                <View className='adm-recon__cell adm-recon__cell--success'>
+                  <Text className='adm-recon__num'>{fmtMoney(recon.totals?.received)}</Text>
+                  <Text className='adm-recon__label'>实收</Text>
+                </View>
+                <View className='adm-recon__cell adm-recon__cell--warning'>
+                  <Text className='adm-recon__num'>{fmtMoney(recon.totals?.receivable)}</Text>
+                  <Text className='adm-recon__label'>待收</Text>
+                </View>
+                <View className='adm-recon__cell adm-recon__cell--error'>
+                  <Text className='adm-recon__num'>{fmtMoney(recon.totals?.overdue)}</Text>
+                  <Text className='adm-recon__label'>逾期</Text>
+                </View>
+              </View>
             </View>
           </View>
         )}
