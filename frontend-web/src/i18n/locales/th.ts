@@ -23,6 +23,12 @@ const th: import('./zh').Translation = {
     noData: 'ไม่มีข้อมูล',
     total: 'รวม',
     items: 'รายการ',
+    '404': {
+      title: 'ไม่พบหน้า',
+      desc: 'หน้าที่คุณเยี่ยมชมไม่มีอยู่หรือถูกลบออกแล้ว',
+      backHome: 'กลับหน้าหลัก',
+      back: 'ย้อนกลับ',
+    },
   },
   menu: {
     dashboard: 'แดชบอร์ด',
@@ -102,8 +108,10 @@ const th: import('./zh').Translation = {
     welcomeBack: 'ยินดีต้อนรับกลับ',
     rememberMe: 'จดจำฉัน',
     forgotPassword: 'ลืมรหัสผ่าน?',
+    forgotPasswordHint: 'กรุณาติดต่อผู้ดูแลระบบเพื่อรีเซ็ตรหัสผ่าน',
     noAccount: 'ยังไม่มีบัญชี?',
     contactAdmin: 'ติดต่อผู้ดูแลระบบ',
+    contactAdminHint: 'กรุณาติดต่อผู้ดูแลระบบเพื่อสร้างบัญชี',
     loginSuccess: 'เข้าสู่ระบบสำเร็จ',
     loginFailed: 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน',
     tokenMissing: 'การเข้าสู่ระบบไม่ได้รับ token',

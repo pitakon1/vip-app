@@ -42,7 +42,7 @@ export default {
     }
   },
   tabBar: {
-    color: '#999999',
+    color: '#8a919c',
     selectedColor: '#14b8a6',
     backgroundColor: '#ffffff',
     borderStyle: 'black',

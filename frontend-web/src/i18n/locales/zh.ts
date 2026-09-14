@@ -23,6 +23,12 @@ const zh = {
     noData: '暂无数据',
     total: '共',
     items: '条',
+    '404': {
+      title: '页面不存在',
+      desc: '您访问的页面不存在或已被移除',
+      backHome: '返回首页',
+      back: '返回上一页',
+    },
   },
   menu: {
     dashboard: '数据总览',
@@ -102,8 +108,10 @@ const zh = {
     welcomeBack: '欢迎回来',
     rememberMe: '记住我',
     forgotPassword: '忘记密码?',
+    forgotPasswordHint: '请联系管理员重置密码',
     noAccount: '还没有账户？',
     contactAdmin: '联系管理员开通',
+    contactAdminHint: '请联系管理员创建账号',
     loginSuccess: '登录成功',
     loginFailed: '登录失败，请检查邮箱和密码',
     tokenMissing: '登录返回数据异常，未获取到 token',

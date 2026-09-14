@@ -42,8 +42,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#14b8a6"
-      },
-      "googleServicesFile": "./google-services.json"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -67,13 +66,9 @@
       "expo-asset",
       "expo-font"
     ],
-    "extra": {
-      "eas": {
-        "projectId": "your-eas-project-id"
-      }
-    },
+    "extra": {},
     "updates": {
-      "url": "https://u.expo.dev/your-eas-project-id"
+      "enabled": false
     },
     "runtimeVersion": {
       "policy": "appVersion"

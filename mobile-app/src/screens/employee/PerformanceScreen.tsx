@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   rank1: { backgroundColor: '#fbbf24' },
-  rank2: { backgroundColor: '#94a3b8' },
+  rank2: { backgroundColor: '#98a1ab' },
   rank3: { backgroundColor: '#d97706' },
   rankText: { fontSize: 14, fontWeight: '700', color: colors.ink2 },
   rankTopText: { color: '#fff' },

@@ -1,33 +1,33 @@
 /* =========================================================
-   HaoFang.World 品牌设计令牌 (Modern Light)
-   单一青绿主色 · 冷调浅青底 · 白色卡片 · 细边框 · 克制圆角
-   与产品原型图（rental-full-draft/pages）逐项对齐
+   HaoFang.World 品牌设计令牌 (Refined Premium Light)
+   高端物业质感：温暖米白基底 · 柔和阴影 · 圆角层级 · 留白节奏
+   主色保持品牌青绿，通过底色温度与质感提升"高端"观感
    ========================================================= */
 
 :root {
-  /* ---- 语义色 ---- */
-  --rent-background: #f2faf8;
-  --rent-foreground: #0f172a;
+  /* ---- 语义色（底色降温提暖，更接近高端物业从容感）---- */
+  --rent-background: #fbf9f6;
+  --rent-foreground: #16202b;
   --rent-card: #ffffff;
-  --rent-card-foreground: #0f172a;
+  --rent-card-foreground: #16202b;
   --rent-popover: #ffffff;
-  --rent-popover-foreground: #0f172a;
+  --rent-popover-foreground: #16202b;
   --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
   --rent-primary-hover: #0d9488;
-  --rent-muted: #f1f5f9;
-  --rent-muted-foreground: #64748b;
-  --rent-border: #e6eaf0;
-  --rent-input: #e6eaf0;
+  --rent-muted: #f3f1ec;
+  --rent-muted-foreground: #6b7280;
+  --rent-border: #ece7df;
+  --rent-input: #ece7df;
   --rent-ring: #14b8a6;
 
-  /* ---- 中性阶梯 ---- */
-  --rent-ink: #0f172a;
-  --rent-ink-2: #475569;
-  --rent-ink-3: #94a3b8;
-  --rent-line: #e6eaf0;
+  /* ---- 中性阶梯（墨色带暖调）---- */
+  --rent-ink: #1c2733;
+  --rent-ink-2: #55606c;
+  --rent-ink-3: #98a1ab;
+  --rent-line: #ece7df;
   --rent-surface: #ffffff;
-  --rent-surface-2: #f1f5f9;
+  --rent-surface-2: #f4f1ec;
   --rent-sidebar: #ffffff;
   --rent-sidebar-active: #d9f2ee;
 
@@ -40,31 +40,31 @@
   --state-success-rgb: 22, 163, 74;
   --state-warning: #d97706;
   --state-warning-rgb: 217, 119, 6;
-  --state-warning-soft: #fff7ed;
-  --state-warning-light: #fed7aa;
+  --state-warning-soft: #fdf5e9;
+  --state-warning-light: #f4d9ad;
   --state-error: #dc2626;
   --state-error-rgb: 220, 38, 38;
   --state-error-hover: #b91c1c;
   --state-info: #0ea5e9;
   --state-info-rgb: 14, 165, 233;
-  --state-purple: #7c3aed;
-  --state-purple-rgb: 124, 58, 237;
+  --state-purple: #7a5cd6;
+  --state-purple-rgb: 122, 92, 214;
 
   /* ---- 品牌辅助色 ---- */
   --rent-accent: #0d9488;
-  --rent-accent-soft: rgba(20, 184, 166, 0.08);
-  --rent-tint: rgba(20, 184, 166, 0.04);
+  --rent-accent-soft: rgba(20, 184, 166, 0.09);
+  --rent-tint: rgba(20, 184, 166, 0.045);
 
-  /* ---- 圆角（克制阶梯，上限 16px） ---- */
-  --rent-radius-sm: 4px;
-  --rent-radius-md: 8px;
-  --rent-radius-lg: 16px;
+  /* ---- 圆角（高端质感：温和阶梯，上限 20px） ---- */
+  --rent-radius-sm: 6px;
+  --rent-radius-md: 10px;
+  --rent-radius-lg: 18px;
   --rent-radius-full: 9999px;
 
-  /* ---- 阴影（静态面 alpha ≤ 0.05；深阴影仅浮层） ---- */
-  --rent-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
-  --rent-shadow-2: 0 8px 24px -8px rgba(15, 23, 42, 0.18);
-  --rent-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.30);
+  /* ---- 阴影（更柔和、空气感；深阴影仅浮层） ---- */
+  --rent-shadow-1: 0 1px 2px rgba(28, 39, 51, 0.04), 0 1px 3px rgba(28, 39, 51, 0.03);
+  --rent-shadow-2: 0 10px 30px -10px rgba(28, 39, 51, 0.14);
+  --rent-shadow-3: 0 28px 70px -24px rgba(28, 39, 51, 0.26);
 
   /* ---- 间距（8pt 网格） ---- */
   --rent-s-1: 4px;
@@ -76,7 +76,7 @@
   --rent-s-7: 48px;
   --rent-s-8: 80px;
 
-  /* ---- 字体 ---- */
+  /* ---- 字体（正文用系统中文栈，标题/数字保持 tabular）---- */
   --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
 
@@ -91,7 +91,7 @@
   --rent-fs-4xl: 32px;
 
   /* ---- 金额/数字（对齐）---- */
-  --rent-price: #0f766e;
+  --rent-price: #0d9488;
 
   /* ---- 半透明浅色文字最低透明度 ---- */
   --rent-text-on-brand: 0.9;
@@ -103,40 +103,40 @@
   color-scheme: light;
 }
 
-/* ---- 暗色模式 ---- */
+/* ---- 暗色模式（带暖意的暗色，非纯反转）---- */
 .dark {
-  --rent-background: #0b0f1a;
-  --rent-foreground: #e8edf5;
-  --rent-card: #141a26;
-  --rent-card-foreground: #e8edf5;
-  --rent-popover: #141a26;
-  --rent-popover-foreground: #e8edf5;
-  --rent-primary: #2dd4bf;
-  --rent-primary-rgb: 45, 212, 191;
-  --rent-primary-foreground: #0b0f1a;
-  --rent-primary-hover: #5eead4;
-  --rent-primary-hover-rgb: 94, 234, 212;
-  --rent-muted: #1c2433;
-  --rent-muted-foreground: #94a3b8;
-  --rent-border: #243044;
-  --rent-input: #243044;
-  --rent-ring: #2dd4bf;
+  --rent-background: #12161d;
+  --rent-foreground: #e9eef4;
+  --rent-card: #1a2029;
+  --rent-card-foreground: #e9eef4;
+  --rent-popover: #1a2029;
+  --rent-popover-foreground: #e9eef4;
+  --rent-primary: #34c6b4;
+  --rent-primary-rgb: 52, 198, 180;
+  --rent-primary-foreground: #0d1418;
+  --rent-primary-hover: #5ad9c8;
+  --rent-primary-hover-rgb: 90, 217, 200;
+  --rent-muted: #232a35;
+  --rent-muted-foreground: #98a1ab;
+  --rent-border: #2a3240;
+  --rent-input: #2a3240;
+  --rent-ring: #34c6b4;
 
-  --rent-ink: #e8edf5;
-  --rent-ink-2: #a3aec2;
-  --rent-ink-3: #64748b;
-  --rent-line: #243044;
-  --rent-surface: #141a26;
-  --rent-surface-2: #1c2433;
-  --rent-sidebar: #0f1521;
-  --rent-sidebar-active: #1e2a44;
+  --rent-ink: #e9eef4;
+  --rent-ink-2: #a9b3c0;
+  --rent-ink-3: #6f7885;
+  --rent-line: #2a3240;
+  --rent-surface: #1a2029;
+  --rent-surface-2: #232a35;
+  --rent-sidebar: #151a22;
+  --rent-sidebar-active: #1e2c33;
 
   --state-warning-soft: #2a2216;
   --state-warning-light: #5c4a2a;
 
-  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
-  --rent-shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.50);
-  --rent-shadow-3: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --rent-shadow-2: 0 10px 30px -10px rgba(0, 0, 0, 0.52);
+  --rent-shadow-3: 0 28px 70px -24px rgba(0, 0, 0, 0.66);
 
   color-scheme: dark;
 }

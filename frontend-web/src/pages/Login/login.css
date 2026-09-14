@@ -21,7 +21,10 @@
 /* ---- Left panel (40%) ---- */
 .rent-login-left {
   flex: 0 0 40%;
-  background: var(--rent-primary);
+  background:
+    radial-gradient(120% 90% at 85% 10%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(100% 80% at 10% 100%, rgba(13, 148, 136, 0.35) 0%, rgba(13, 148, 136, 0) 55%),
+    linear-gradient(160deg, #14b8a6 0%, #2dd4bf 100%);
   color: #ffffff;
   display: flex;
   flex-direction: column;
@@ -170,6 +173,19 @@
   font-size: 15px;
   color: var(--rent-ink-3);
   line-height: 1.5;
+}
+
+/* ---- 测试账号提示 ---- */
+.rent-login-hint {
+  background: #f5f2ea;
+  border: 1px solid #e8e0cd;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: #6b5d3e;
+  word-break: break-all;
 }
 
 /* ---- Remember + forgot row ---- */

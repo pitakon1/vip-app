@@ -42,18 +42,6 @@ const formatRent = (v: any) => Number(v || 0).toLocaleString()
 
 const PAGE_SIZE = 10
 
-// mock 兜底数据（后端未启动时展示）
-const MOCK_PROPS: Property[] = [
-  { id: '1', room_number: 'A-1201', monthly_rent: 18000, currency: 'THB', size_sqm: 45, bedrooms: 1, bathrooms: 1, floor: 12, property_type: 'apartment', address: 'Sukhumvit 12, Bangkok', status: 'vacant', project_id: 'Noble Around', owner_id: '', deposit_amount: 36000, building: 'A', furnished: true },
-  { id: '2', room_number: 'B-0805', monthly_rent: 25000, currency: 'THB', size_sqm: 65, bedrooms: 2, bathrooms: 2, floor: 8, property_type: 'condo', address: 'Phrom Phong, Bangkok', status: 'vacant', project_id: 'The Emporio', owner_id: '', deposit_amount: 50000, building: 'B', furnished: true },
-  { id: '3', room_number: 'V-03', monthly_rent: 45000, currency: 'THB', size_sqm: 120, bedrooms: 3, bathrooms: 3, floor: 1, property_type: 'villa', address: 'Laguna, Phuket', status: 'rented', project_id: 'Laguna Village', owner_id: '', deposit_amount: 90000, building: '', furnished: true },
-  { id: '4', room_number: 'C-1503', monthly_rent: 15000, currency: 'THB', size_sqm: 38, bedrooms: 1, bathrooms: 1, floor: 15, property_type: 'apartment', address: 'Pattaya Central', status: 'vacant', project_id: 'Centara Sea', owner_id: '', deposit_amount: 30000, building: 'C', furnished: false },
-  { id: '5', room_number: 'D-2001', monthly_rent: 32000, currency: 'THB', size_sqm: 80, bedrooms: 2, bathrooms: 2, floor: 20, property_type: 'condo', address: 'Riverside, Chiang Mai', status: 'reserved', project_id: 'The River', owner_id: '', deposit_amount: 64000, building: 'D', furnished: true },
-  { id: '6', room_number: 'E-0602', monthly_rent: 12000, currency: 'THB', size_sqm: 30, bedrooms: 1, bathrooms: 1, floor: 6, property_type: 'apartment', address: 'Hua Hin Beach', status: 'vacant', project_id: 'Baan San Pluem', owner_id: '', deposit_amount: 24000, building: 'E', furnished: true },
-  { id: '7', room_number: 'F-1801', monthly_rent: 28000, currency: 'THB', size_sqm: 70, bedrooms: 2, bathrooms: 1, floor: 18, property_type: 'condo', address: 'Asoke, Bangkok', status: 'rented', project_id: 'Ashton Asoke', owner_id: '', deposit_amount: 56000, building: 'F', furnished: true },
-  { id: '8', room_number: 'G-0301', monthly_rent: 38000, currency: 'THB', size_sqm: 95, bedrooms: 3, bathrooms: 2, floor: 3, property_type: 'house', address: 'Rawai, Phuket', status: 'maintenance', project_id: 'Rawai VIP', owner_id: '', deposit_amount: 76000, building: '', furnished: false },
-]
-
 // ==================== 组件 ====================
 
 const Properties = () => {
@@ -116,9 +104,8 @@ const Properties = () => {
       const res = await propertiesApi.list({ page: 1, pageSize: 999 } as any)
       const payload = res.data?.data ?? res.data
       setAllItems(payload?.items ?? [])
-    } catch (err: any) {
-      // 后端未启动，使用 mock 数据展示
-      setAllItems(MOCK_PROPS)
+    } catch {
+      setAllItems([])
     } finally {
       setLoading(false)
     }

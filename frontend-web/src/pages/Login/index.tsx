@@ -128,6 +128,13 @@ const Login = () => {
             <p className="rent-login-card__subtitle">{t('login.subtitle')}</p>
           </div>
 
+          {/* 测试账号提示 */}
+          <div className="rent-login-hint">
+            测试账号：<span className="rent-mono">admin@viprental.com / admin123</span>（管理员）
+            · agent@viprental.com / agent123（经纪）· owner@viprental.com / owner123（业主）
+            · tenant@viprental.com / tenant123（租客）
+          </div>
+
           <form onSubmit={handleSubmit}>
             {/* 邮箱 */}
             <div className="rent-form-group">
@@ -163,7 +170,14 @@ const Login = () => {
                 <input type="checkbox" id="remember-me" />
                 <span>{t('login.rememberMe')}</span>
               </label>
-              <a href="#" className="rent-login-link" onClick={(e) => e.preventDefault()}>
+              <a
+                href="#"
+                className="rent-login-link"
+                onClick={(e) => {
+                  e.preventDefault()
+                  message.info(t('login.forgotPasswordHint'))
+                }}
+              >
                 {t('login.forgotPassword')}
               </a>
             </div>
@@ -193,7 +207,15 @@ const Login = () => {
           {/* 底部 */}
           <p className="rent-login-footer">
             {t('login.noAccount')}
-            <a href="#" onClick={(e) => e.preventDefault()}>{t('login.contactAdmin')}</a>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault()
+                message.info(t('login.contactAdminHint'))
+              }}
+            >
+              {t('login.contactAdmin')}
+            </a>
           </p>
         </div>
       </section>

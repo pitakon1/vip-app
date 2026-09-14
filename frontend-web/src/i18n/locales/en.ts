@@ -23,6 +23,12 @@ const en: import('./zh').Translation = {
     noData: 'No data',
     total: 'Total',
     items: 'items',
+    '404': {
+      title: 'Page not found',
+      desc: 'The page you visited does not exist or has been removed',
+      backHome: 'Back to Home',
+      back: 'Go Back',
+    },
   },
   menu: {
     dashboard: 'Dashboard',
@@ -102,8 +108,10 @@ const en: import('./zh').Translation = {
     welcomeBack: 'Welcome back',
     rememberMe: 'Remember me',
     forgotPassword: 'Forgot password?',
+    forgotPasswordHint: 'Please contact the administrator to reset the password',
     noAccount: "Don't have an account?",
     contactAdmin: 'Contact administrator',
+    contactAdminHint: 'Please contact the administrator to create an account',
     loginSuccess: 'Login successful',
     loginFailed: 'Login failed, please check your email and password',
     tokenMissing: 'Login response missing token',

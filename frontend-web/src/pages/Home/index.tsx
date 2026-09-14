@@ -49,36 +49,24 @@ const TYPE_ICON_PATH = (pt: string): string => {
 
 const fmtRent = (v: number) => `฿${Number(v || 0).toLocaleString()}`
 
-// mock 兜底数据（后端未启动时展示）
-const MOCK_PROPS: Property[] = [
-  { id: '1', room_number: 'A-1201', monthly_rent: 18000, currency: 'THB', size_sqm: 45, bedrooms: 1, bathrooms: 1, floor: 12, property_type: 'apartment', address: 'Sukhumvit 12, Bangkok', status: 'vacant', project_id: '', owner_id: '', deposit_amount: 36000, building: '', furnished: true },
-  { id: '2', room_number: 'B-0805', monthly_rent: 25000, currency: 'THB', size_sqm: 65, bedrooms: 2, bathrooms: 2, floor: 8, property_type: 'condo', address: 'Phrom Phong, Bangkok', status: 'vacant', project_id: '', owner_id: '', deposit_amount: 50000, building: '', furnished: true },
-  { id: '3', room_number: 'V-03', monthly_rent: 45000, currency: 'THB', size_sqm: 120, bedrooms: 3, bathrooms: 3, floor: 1, property_type: 'villa', address: 'Laguna, Phuket', status: 'vacant', project_id: '', owner_id: '', deposit_amount: 90000, building: '', furnished: true },
-  { id: '4', room_number: 'C-1503', monthly_rent: 15000, currency: 'THB', size_sqm: 38, bedrooms: 1, bathrooms: 1, floor: 15, property_type: 'apartment', address: 'Pattaya Central', status: 'vacant', project_id: '', owner_id: '', deposit_amount: 30000, building: '', furnished: false },
-  { id: '5', room_number: 'D-2001', monthly_rent: 32000, currency: 'THB', size_sqm: 80, bedrooms: 2, bathrooms: 2, floor: 20, property_type: 'condo', address: 'Riverside, Chiang Mai', status: 'vacant', project_id: '', owner_id: '', deposit_amount: 64000, building: '', furnished: true },
-  { id: '6', room_number: 'E-0602', monthly_rent: 12000, currency: 'THB', size_sqm: 30, bedrooms: 1, bathrooms: 1, floor: 6, property_type: 'apartment', address: 'Hua Hin Beach', status: 'vacant', project_id: '', owner_id: '', deposit_amount: 24000, building: '', furnished: true },
-  { id: '7', room_number: 'F-1801', monthly_rent: 28000, currency: 'THB', size_sqm: 70, bedrooms: 2, bathrooms: 1, floor: 18, property_type: 'condo', address: 'Asoke, Bangkok', status: 'vacant', project_id: '', owner_id: '', deposit_amount: 56000, building: '', furnished: true },
-  { id: '8', room_number: 'G-0301', monthly_rent: 38000, currency: 'THB', size_sqm: 95, bedrooms: 3, bathrooms: 2, floor: 3, property_type: 'house', address: 'Rawai, Phuket', status: 'vacant', project_id: '', owner_id: '', deposit_amount: 76000, building: '', furnished: false },
-]
-
 const Home = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { token, user } = useAuthStore()
-  const [props, setProps] = useState<Property[]>(MOCK_PROPS)
+  const [props, setProps] = useState<Property[]>([])
   const [searchVal, setSearchVal] = useState('')
 
-  // 尝试从接口获取房源
+  // 从接口获取房源（无数据则显示空态，不使用静态 mock）
   useEffect(() => {
     const fetchProps = async () => {
       try {
         const res = await api.get('/properties', { params: { page_size: 8 } })
         const items = res.data?.data?.items ?? res.data?.items ?? res.data?.data
-        if (Array.isArray(items) && items.length > 0) {
+        if (Array.isArray(items)) {
           setProps(items.slice(0, 8))
         }
       } catch {
-        // 后端未启动，使用 mock 数据
+        setProps([])
       }
     }
     fetchProps()
@@ -186,7 +174,12 @@ const Home = () => {
             </a>
           </div>
           <div className="rent-prop-grid">
-            {props.map((p) => {
+            {props.length === 0 ? (
+              <div className="rent-empty" style={{ gridColumn: '1 / -1' }}>
+                {t('common.noData')}
+              </div>
+            ) : (
+              props.map((p) => {
               const ptype = p.property_type || 'apartment'
               const statusKey = (p.status || 'vacant').toLowerCase()
               const beds = Number(p.bedrooms || 0)
@@ -273,7 +266,8 @@ const Home = () => {
                   </div>
                 </div>
               )
-            })}
+            })
+            )}
           </div>
         </section>
 

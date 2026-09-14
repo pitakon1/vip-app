@@ -9,7 +9,7 @@ import './index.scss'
 const TYPE_MAP: Record<NotificationType, { text: string; color: string; bg: string }> = {
   payment: { text: '租金提醒', color: '#dc2626', bg: '#fff1f0' },
   lease: { text: '合同到期', color: '#d97706', bg: '#fffbe6' },
-  maintenance: { text: '维修通知', color: '#14b8a6', bg: '#f0f5ff' },
+  maintenance: { text: '维修通知', color: '#14b8a6', bg: '#d9f2ee' },
   system: { text: '系统通知', color: '#999999', bg: '#f5f5f5' }
 }
 

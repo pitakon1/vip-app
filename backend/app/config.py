@@ -86,8 +86,8 @@ class Settings(BaseSettings):
     GOOGLE_TRANSLATE_API_KEY: str = ""
     GOOGLE_TRANSLATE_V3_PROJECT: str = ""
 
-    # 7) 考勤：GPS 半径打卡（km）。默认 500KM，超出需填外勤申请。
-    ATTENDANCE_RADIUS_KM: float = 500.0
+    # 7) 考勤：GPS 半径打卡（km）。默认 0.5km（500 米），超出需填外勤申请。
+    ATTENDANCE_RADIUS_KM: float = 0.5
     # 考勤基准地址（公司/办公点），由管理员在 /geo/geocode 定位后写入
     ATTENDANCE_OFFICE_LAT: float = 13.7563  # 曼谷默认
     ATTENDANCE_OFFICE_LNG: float = 100.5018

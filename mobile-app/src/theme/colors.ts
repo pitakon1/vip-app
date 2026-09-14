@@ -1,5 +1,6 @@
 /**
- * VIP Rental 统一设计令牌 — 与 rental-full-draft/pages/login.html 品牌令牌对齐。
+ * VIP Rental 统一设计令牌 — 高端版（Refined Premium）
+ * 温暖米白基底 · 品牌青绿 · 柔和阴影 · 圆角层级
  * 唯一配色来源：UI-设计原则.md。组件内禁止硬编码色值，一律引用本对象。
  */
 export const colors = {
@@ -9,31 +10,31 @@ export const colors = {
   primaryHover: '#0d9488',
   primaryForeground: '#ffffff',
   sidebarActive: '#d9f2ee',
-  accent: '#06b6d4',
+  accent: '#0d9488',
 
   // ---- 语义色 ----
-  background: '#f2faf8',
-  foreground: '#0f172a',
+  background: '#fbf9f6',
+  foreground: '#1c2733',
   card: '#ffffff',
-  cardForeground: '#0f172a',
+  cardForeground: '#1c2733',
   popover: '#ffffff',
-  popoverForeground: '#0f172a',
+  popoverForeground: '#1c2733',
   ring: '#14b8a6',
 
-  // ---- 中性阶梯 ----
-  ink: '#0f172a',
-  ink2: '#475569',
-  ink3: '#94a3b8',
-  line: '#e6eaf0',
+  // ---- 中性阶梯（暖调墨色）----
+  ink: '#1c2733',
+  ink2: '#55606c',
+  ink3: '#98a1ab',
+  line: '#ece7df',
   surface: '#ffffff',
-  surface2: '#f1f5f9',
-  muted: '#f1f5f9',
-  mutedForeground: '#64748b',
-  border: '#e6eaf0',
-  input: '#e6eaf0',
+  surface2: '#f4f1ec',
+  muted: '#f3f1ec',
+  mutedForeground: '#6b7280',
+  border: '#ece7df',
+  input: '#ece7df',
 
   // 兼容别名（历史组件使用 colors.text）
-  text: '#0f172a',
+  text: '#1c2733',
 
   // ---- 状态色 ----
   success: '#16a34a',
@@ -51,41 +52,41 @@ export const colors = {
   // ---- 透明度辅助 ----
   alpha: (rgb: string, a: number) => `rgba(${rgb}, ${a})`,
 
-  // ---- 阴影 ----
+  // ---- 阴影（更柔和、空气感）----
   shadow: {
     sm: {
-      shadowColor: '#000',
+      shadowColor: '#1c2733',
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.04,
       shadowRadius: 4,
       elevation: 1,
     },
     md: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
+      shadowColor: '#1c2733',
+      shadowOffset: { width: 0, height: 5 },
       shadowOpacity: 0.06,
-      shadowRadius: 12,
+      shadowRadius: 14,
       elevation: 3,
     },
     lg: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.08,
-      shadowRadius: 24,
+      shadowColor: '#1c2733',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.09,
+      shadowRadius: 28,
       elevation: 5,
     },
     primary: {
       shadowColor: '#14b8a6',
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.35,
-      shadowRadius: 12,
+      shadowRadius: 14,
       elevation: 4,
     },
     card: {
-      shadowColor: '#0f172a',
+      shadowColor: '#1c2733',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.06,
-      shadowRadius: 8,
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
       elevation: 2,
     },
   },

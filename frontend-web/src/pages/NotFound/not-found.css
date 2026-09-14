@@ -1,0 +1,41 @@
+.nf-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f6fa;
+  padding: 24px;
+}
+.nf-card {
+  text-align: center;
+  background: #fff;
+  border-radius: 16px;
+  padding: 48px 56px;
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.12);
+  max-width: 420px;
+}
+.nf-code {
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--rent-primary, #4263eb);
+  letter-spacing: -0.04em;
+  margin-bottom: 12px;
+}
+.nf-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--rent-ink, #1a1d24);
+  margin-bottom: 8px;
+}
+.nf-desc {
+  font-size: 14px;
+  color: var(--rent-ink-3, #8a8f99);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+.nf-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}

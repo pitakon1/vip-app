@@ -10,7 +10,7 @@ const STATUS_MAP: Record<MaintenanceStatus, { text: string; color: string }> = {
   pending: { text: '待处理', color: '#d97706' },
   processing: { text: '处理中', color: '#14b8a6' },
   completed: { text: '已完成', color: '#16a34a' },
-  cancelled: { text: '已取消', color: '#999999' }
+  cancelled: { text: '已取消', color: '#94a3b8' }
 }
 
 const PRIORITY_OPTIONS: MaintenancePriority[] = ['low', 'medium', 'high']

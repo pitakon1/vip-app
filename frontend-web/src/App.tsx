@@ -55,6 +55,7 @@ import useAuthStore from '@/stores/auth'
 // v1.8 增强页面
 import Chat from '@/pages/Chat'
 import Contracts from '@/pages/Contracts'
+import NotFound from '@/pages/NotFound'
 
 // 根据角色重定向到对应首页
 const RoleRedirect = () => {
@@ -145,6 +146,9 @@ const App = () => {
           <Route path="/tenant/services" element={<TenantServices />} />
           <Route path="/tenant/maintenance" element={<TenantMaintenance />} />
         </Route>
+
+        {/* ===== 404 兜底（未匹配路径）===== */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   )

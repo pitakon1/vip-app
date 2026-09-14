@@ -12,8 +12,8 @@ import Card from '@/components/Card';
 import colors from '@/theme/colors';
 import { geoApi, attendanceApi } from '@/services/api';
 
-// 500KM 打卡半径（与需求一致）
-const RADIUS_KM = 500;
+// 打卡半径（业务确认 C6：考勤地图定位；500 米）
+const RADIUS_KM = 0.5;
 
 export default function AttendanceScreen() {
   const [checking, setChecking] = useState(false);
@@ -52,7 +52,7 @@ export default function AttendanceScreen() {
   ) => {
     setChecking(true);
     try {
-      // 调 geoApi.attendance 做 500KM 半径校验
+      // 调 geoApi.attendance 做半径校验（默认 500 米）
       const gRes = await geoApi.attendance(coord.latitude, coord.longitude);
       const gd = gRes.data as any;
       const withinRadius = (gd as any)?.within_radius ?? gd?.distance_km <= RADIUS_KM;
@@ -72,7 +72,7 @@ export default function AttendanceScreen() {
         setLastRecord('不在打卡半径内，请填写外勤申请');
         Alert.alert(
           '不在打卡半径内',
-          '您距离打卡点超过 500KM，请填写外勤申请。',
+          `您距离打卡点超过 ${RADIUS_KM * 1000} 米，请填写外勤申请。`,
         );
         try {
           await attendanceApi.createExternalTrip({
@@ -96,7 +96,7 @@ export default function AttendanceScreen() {
     <View style={styles.container}>
       <Card>
         <Text style={styles.hint}>
-          本功能将通过 GPS 定位进行打卡校验，打卡半径 {RADIUS_KM}KM。
+          本功能将通过 GPS 定位进行打卡校验，打卡半径 {Math.round(RADIUS_KM * 1000)} 米。
         </Text>
         <Text style={styles.hint}>若不在打卡半径内，将自动引导填写外勤申请。</Text>
       </Card>

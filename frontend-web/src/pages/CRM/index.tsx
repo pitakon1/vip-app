@@ -162,6 +162,16 @@ const CRM = () => {
     return groups
   }, [displayData])
 
+  // 统计指标（基于真实数据计算，无数据时展示空态）
+  const pipelineStats = useMemo(() => {
+    const totalLeads = displayData.length
+    const closedCount = kanbanGroups.closed.length
+    const conversionRate = totalLeads > 0 ? Math.round((closedCount / totalLeads) * 1000) / 10 : 0
+    return { totalLeads, closedCount, conversionRate }
+  }, [displayData, kanbanGroups])
+
+  const hasLeads = displayData.length > 0
+
   const handleSearch = (value: string) => {
     setQueryParams((p) => ({ ...p, keyword: value || undefined, page: 1 }))
   }
@@ -333,6 +343,11 @@ const CRM = () => {
 
       {!loading && view === 'kanban' && (
         <>
+          {!hasLeads && (
+            <div className="rent-empty" style={{ marginBottom: 16 }}>
+              暂无客户线索，点击右上角「新增客户」添加
+            </div>
+          )}
           {/* Kanban Board */}
           <div className="rent-kanban">
             {KANBAN_COLUMNS.map((col) => {
@@ -352,19 +367,18 @@ const CRM = () => {
             })}
           </div>
 
-          {/* Pipeline Summary Stats */}
+          {/* Pipeline Summary Stats（数据驱动） */}
           <div className="rent-grid rent-grid--3 rent-mt-5">
             <div className="rent-stat-card">
               <div className="rent-flex rent-flex--between" style={{ alignItems: 'flex-start' }}>
                 <div>
-                  <div className="rent-stat-card__label">转化率</div>
-                  <div className="rent-stat-card__value">39.5%</div>
-                  <div className="rent-stat-card__delta rent-stat-card__delta--up">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                      <polyline points="17 6 23 6 23 12" />
+                  <div className="rent-stat-card__label">线索总数</div>
+                  <div className="rent-stat-card__value">{pipelineStats.totalLeads}</div>
+                  <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-3)' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    较上月 +4.2%
+                    已成交 {pipelineStats.closedCount} 条
                   </div>
                 </div>
                 <div className="rent-stat-card__icon" style={{ background: 'rgba(20, 184, 166, 0.1)', color: 'var(--rent-primary)' }}>
@@ -377,20 +391,20 @@ const CRM = () => {
             <div className="rent-stat-card">
               <div className="rent-flex rent-flex--between" style={{ alignItems: 'flex-start' }}>
                 <div>
-                  <div className="rent-stat-card__label">平均成交周期</div>
+                  <div className="rent-stat-card__label">转化率</div>
                   <div className="rent-stat-card__value">
-                    18 <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>天</span>
+                    {pipelineStats.conversionRate}
+                    <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>%</span>
                   </div>
-                  <div className="rent-stat-card__delta rent-stat-card__delta--up">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                      <polyline points="17 6 23 6 23 12" />
+                  <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-3)' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    缩短 2 天
+                    由真实线索数据计算
                   </div>
                 </div>
                 <div className="rent-stat-card__icon" style={{ background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10" />
                     <polyline points="12 6 12 12 16 14" />
                   </svg>
@@ -400,14 +414,15 @@ const CRM = () => {
             <div className="rent-stat-card">
               <div className="rent-flex rent-flex--between" style={{ alignItems: 'flex-start' }}>
                 <div>
-                  <div className="rent-stat-card__label">本月新增线索</div>
-                  <div className="rent-stat-card__value">42</div>
-                  <div className="rent-stat-card__delta rent-stat-card__delta--up">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                      <polyline points="17 6 23 6 23 12" />
+                  <div className="rent-stat-card__label">当前进行中</div>
+                  <div className="rent-stat-card__value">
+                    {Math.max(0, pipelineStats.totalLeads - pipelineStats.closedCount)}
+                  </div>
+                  <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-3)' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    较上月 +12 条
+                    含跟进与谈判中
                   </div>
                 </div>
                 <div className="rent-stat-card__icon" style={{ background: 'rgba(22,163,74,0.1)', color: 'var(--state-success)' }}>

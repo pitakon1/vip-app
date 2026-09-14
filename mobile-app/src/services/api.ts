@@ -124,7 +124,7 @@ export const attendanceApi = {
   checkIn: (data: any) => api.post('/attendance/check-in', data),
   checkOut: (data: any) => api.post('/attendance/check-out', data),
   today: () => api.get('/attendance/today'),
-  // v1.8：500KM 外需填外勤申请
+  // v1.8：超出打卡半径需填外勤申请
   externalTrips: (params?: any) => api.get('/attendance/external-trips', { params }),
   createExternalTrip: (data: any) => api.post('/attendance/external-trips', data),
   approveExternalTrip: (id: string) => api.post(`/attendance/external-trips/${id}/approve`),
