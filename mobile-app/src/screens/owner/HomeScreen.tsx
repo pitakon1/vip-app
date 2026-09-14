@@ -29,7 +29,7 @@ const statusLabels: Record<PropertyStatus, string> = {
 const statusColors: Record<PropertyStatus, string> = {
   vacant: colors.success,
   rented: colors.primary,
-  renewing: '#722ed1',
+  renewing: colors.accent,
   maintenance: colors.warning,
 };
 

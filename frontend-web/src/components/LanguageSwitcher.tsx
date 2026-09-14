@@ -18,7 +18,7 @@ const LanguageSwitcher = ({ compact = false }: { compact?: boolean }) => {
     label: (
       <Space>
         <span>{l.label}</span>
-        {current === l.value && <CheckOutlined style={{ color: '#1677ff' }} />}
+        {current === l.value && <CheckOutlined style={{ color: 'var(--rent-primary)' }} />}
       </Space>
     ),
   }))

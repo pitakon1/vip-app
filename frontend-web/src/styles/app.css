@@ -17,6 +17,12 @@
 .rent-app__topbar { grid-area: topbar; }
 .rent-app__main { grid-area: main; overflow-y: auto; }
 
+/* ===== 数字对齐与语义工具类 ===== */
+.rent-nums { font-variant-numeric: tabular-nums; }
+.rent-mono-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.rent-table-money,
+.rent-num-right { text-align: right; }
+
 /* ===== Sidebar ===== */
 .rent-sidebar {
   background: var(--rent-sidebar);
@@ -293,7 +299,7 @@
   box-shadow: 0 2px 8px -2px rgba(var(--state-error-rgb), 0.4);
 }
 .rent-btn--danger:hover {
-  background: #b91c1c;
+  background: var(--state-error-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px -2px rgba(var(--state-error-rgb), 0.5);
 }

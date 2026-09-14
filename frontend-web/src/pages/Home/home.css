@@ -119,7 +119,7 @@
   z-index: 1;
 }
 .bk-hero__title {
-  font-size: 36px;
+  font-size: var(--rent-fs-4xl);
   font-weight: 800;
   color: #fff;
   letter-spacing: -0.02em;
@@ -127,10 +127,10 @@
   margin-bottom: 12px;
 }
 .bk-hero__subtitle {
-  font-size: 16px;
+  font-size: var(--rent-fs-lg);
   color: rgba(255, 255, 255, 0.8);
   line-height: 1.6;
-  margin-bottom: 36px;
+  margin-bottom: var(--rent-s-6);
 }
 
 /* ===== 搜索栏 ===== */
@@ -161,7 +161,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 11px 28px;
+  padding: 12px var(--rent-s-5);
   border: none;
   border-radius: var(--rent-radius-full);
   background: var(--rent-primary);
@@ -295,7 +295,7 @@
 .bk-prop-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  gap: var(--rent-s-5);
 }
 .bk-prop-card {
   border: 1px solid var(--rent-border);
@@ -308,6 +308,11 @@
 .bk-prop-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--rent-shadow-2);
+}
+.bk-prop-card:focus-visible,
+.bk-quick-item:focus-visible {
+  outline: 2px solid var(--rent-primary);
+  outline-offset: 2px;
 }
 .bk-prop-card__banner {
   width: 100%;

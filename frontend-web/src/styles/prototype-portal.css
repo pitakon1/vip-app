@@ -15,7 +15,7 @@
   left: 0;
   right: 0;
   height: 400px;
-  background: linear-gradient(180deg, rgba(var(--rent-primary-rgb), 0.04) 0%, transparent 100%);
+  background: rgba(var(--rent-primary-rgb), 0.04);
   pointer-events: none;
   z-index: 0;
 }
@@ -155,7 +155,7 @@
   width: 4px;
   height: 22px;
   border-radius: 2px;
-  background: linear-gradient(to bottom, var(--rent-primary), var(--rent-accent));
+  background: var(--rent-primary);
 }
 .rent-section__link {
   font-size: 14px;
@@ -1213,9 +1213,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(ellipse at 20% 20%, rgba(255,255,255,0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(0,0,0,0.06) 0%, transparent 50%);
+  background: rgba(255, 255, 255, 0.08);
   pointer-events: none;
 }
 .rent-search-hero__decor {
@@ -1524,7 +1522,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.25) 100%);
+  background: rgba(0, 0, 0, 0.05);
   pointer-events: none;
 }
 .rent-prop-search-card__banner-icon {

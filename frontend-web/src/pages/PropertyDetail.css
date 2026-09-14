@@ -34,6 +34,13 @@
 .rent-table tbody tr:last-child td { border-bottom: none; }
 .rent-table tbody tr:hover { background: var(--rent-surface-2); }
 .rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+/* 金额/数值列：右对齐 + 等宽数字，便于纵向比对 */
+.rent-table thead th.rent-money,
+.rent-table tbody td.rent-money {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rent-table thead th.rent-money { white-space: nowrap; }
 
 /* ===== Divider（补充共享类，app.css 已有但这里确保存在） ===== */
 .rent-divider {

@@ -490,7 +490,7 @@ const Leases = () => {
                     <th>租客</th>
                     <th>起始日</th>
                     <th>到期日</th>
-                    <th>月租 (฿)</th>
+                    <th className="rent-money">月租 (฿)</th>
                     <th>状态</th>
                     <th>操作</th>
                   </tr>
@@ -509,7 +509,7 @@ const Leases = () => {
                         <td>{tenantName}</td>
                         <td className="rent-table__mono">{lease.start_date}</td>
                         <td className="rent-table__mono">{lease.end_date}</td>
-                        <td><span className="rent-num">{lease.currency || '฿'} {Number(lease.monthly_rent || 0).toLocaleString()}</span></td>
+                        <td className="rent-money"><span className="rent-num">{lease.currency || '฿'} {Number(lease.monthly_rent || 0).toLocaleString()}</span></td>
                         <td>
                           <span className={`rent-badge ${meta.badge}`}>
                             <span className="rent-badge--dot" style={{ background: meta.dot }} />

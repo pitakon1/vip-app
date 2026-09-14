@@ -40,8 +40,11 @@
   --state-success-rgb: 22, 163, 74;
   --state-warning: #d97706;
   --state-warning-rgb: 217, 119, 6;
+  --state-warning-soft: #fff7ed;
+  --state-warning-light: #fed7aa;
   --state-error: #dc2626;
   --state-error-rgb: 220, 38, 38;
+  --state-error-hover: #b91c1c;
   --state-info: #0ea5e9;
   --state-info-rgb: 14, 165, 233;
   --state-purple: #7c3aed;
@@ -50,7 +53,7 @@
   /* ---- 品牌辅助色 ---- */
   --rent-accent: #0d9488;
   --rent-accent-soft: rgba(20, 184, 166, 0.08);
-  --rent-tint: linear-gradient(135deg, rgba(20,184,166,0.04) 0%, rgba(20,184,166,0.01) 100%);
+  --rent-tint: rgba(20, 184, 166, 0.04);
 
   /* ---- 圆角（克制阶梯，上限 16px） ---- */
   --rent-radius-sm: 4px;
@@ -76,6 +79,22 @@
   /* ---- 字体 ---- */
   --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* ---- 字号阶梯（与 8pt 网格协调）---- */
+  --rent-fs-xs: 12px;
+  --rent-fs-sm: 13px;
+  --rent-fs-base: 14px;
+  --rent-fs-lg: 16px;
+  --rent-fs-xl: 20px;
+  --rent-fs-2xl: 24px;
+  --rent-fs-3xl: 28px;
+  --rent-fs-4xl: 32px;
+
+  /* ---- 金额/数字（对齐）---- */
+  --rent-price: #0f766e;
+
+  /* ---- 半透明浅色文字最低透明度 ---- */
+  --rent-text-on-brand: 0.9;
 
   /* ---- 侧栏宽度 ---- */
   --rent-sidebar-width: 240px;
@@ -111,6 +130,9 @@
   --rent-surface-2: #1c2433;
   --rent-sidebar: #0f1521;
   --rent-sidebar-active: #1e2a44;
+
+  --state-warning-soft: #2a2216;
+  --state-warning-light: #5c4a2a;
 
   --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
   --rent-shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.50);

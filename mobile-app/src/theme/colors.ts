@@ -38,10 +38,13 @@ export const colors = {
   // ---- 状态色 ----
   success: '#16a34a',
   successRgb: '22, 163, 74',
+  successLight: 'rgba(22,163,74,0.08)',
   warning: '#d97706',
   warningRgb: '217, 119, 6',
+  warningLight: 'rgba(217,119,6,0.08)',
   error: '#dc2626',
   errorRgb: '220, 38, 38',
+  errorLight: 'rgba(220,38,38,0.08)',
   info: '#0ea5e9',
   infoRgb: '14, 165, 233',
 

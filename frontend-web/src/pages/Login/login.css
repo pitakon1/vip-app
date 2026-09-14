@@ -26,7 +26,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 56px;
+  padding: 48px;
   position: relative;
   overflow: hidden;
 }
@@ -88,8 +88,8 @@
   font-family: var(--rent-font-sans);
   font-size: 15px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.75);
-  margin-bottom: 40px;
+  color: rgba(255, 255, 255, var(--rent-text-on-brand));
+  margin-bottom: var(--rent-s-6);
 }
 
 .rent-login-features {
@@ -131,7 +131,7 @@
   display: block;
   font-size: 13px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.8);
   margin-top: 2px;
 }
 

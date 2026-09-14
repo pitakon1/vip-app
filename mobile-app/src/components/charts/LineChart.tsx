@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, type DimensionValue } from 'react-native';
 import colors from '../../theme/colors';
 
 interface LineChartProps {
@@ -37,7 +37,7 @@ export default function LineChart({
 
   // 生成 SVG 风格的 path（用多个小矩形模拟折线）
   // 简化：用绝对定位的点 + 连线 View
-  const lineSegments: { left: string; top: number; width: string; angle: number }[] = [];
+  const lineSegments: { left: DimensionValue; top: number; width: DimensionValue; angle: number }[] = [];
   for (let i = 0; i < points.length - 1; i++) {
     const p1 = points[i];
     const p2 = points[i + 1];

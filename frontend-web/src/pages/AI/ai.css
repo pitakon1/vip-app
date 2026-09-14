@@ -1,5 +1,5 @@
 .rent-ai-desc {
-  background: #f7fafb;
+  background: var(--rent-muted);
   border: 1px solid var(--rent-line, #eef2f5);
   border-radius: 10px;
   padding: 12px 14px;
@@ -24,19 +24,19 @@
 .rent-ai-bubble {
   padding: 10px 14px;
   border-radius: 12px;
-  background: #f1f5f9;
-  color: #1f2937;
+  background: var(--rent-surface-2);
+  color: var(--rent-ink);
   font-size: 14px;
   line-height: 1.6;
   white-space: pre-wrap;
 }
 .rent-ai-msg.is-user .rent-ai-bubble {
   background: var(--rent-primary, #14b8a6);
-  color: #fff;
+  color: var(--rent-primary-foreground);
 }
 .rent-ai-note {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--rent-ink-3);
   margin-top: 4px;
 }
 .rent-ai-input {

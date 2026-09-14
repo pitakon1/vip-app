@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkIn: { backgroundColor: colors.primary },
-  checkOut: { backgroundColor: '#0e7490' },
+  checkOut: { backgroundColor: colors.accent },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: colors.primaryForeground, fontSize: 17, fontWeight: '600' },
   recordBox: {

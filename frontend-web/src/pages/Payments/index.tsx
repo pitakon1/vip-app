@@ -361,7 +361,7 @@ const Payments = () => {
                   <th>日期</th>
                   <th>租客/业主</th>
                   <th>类型</th>
-                  <th>金额 (฿)</th>
+                  <th className="rent-money">金额 (฿)</th>
                   <th>方式</th>
                   <th>合同编号</th>
                   <th>状态</th>
@@ -389,7 +389,7 @@ const Payments = () => {
                       <td>
                         <span className={`rent-badge ${tMeta.badge}`}>{tMeta.label}</span>
                       </td>
-                      <td className="rent-num">{formatAmount(p)}</td>
+                      <td className="rent-money rent-num">{formatAmount(p)}</td>
                       <td>{channel}</td>
                       <td><span className="rent-mono">{contractCode}</span></td>
                       <td>

@@ -31,20 +31,20 @@
   transition: background 0.15s;
 }
 .rent-chat__item:hover {
-  background: #f7fafb;
+  background: var(--rent-surface-2);
 }
 .rent-chat__item.is-active {
-  background: rgba(20, 184, 166, 0.08);
-  box-shadow: inset 3px 0 0 var(--rent-primary, #14b8a6);
+  background: var(--rent-accent-soft);
+  box-shadow: inset 3px 0 0 var(--rent-primary);
 }
 .rent-chat__item-title {
   font-size: 14px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--rent-ink);
 }
 .rent-chat__item-meta {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--rent-ink-3);
   margin-top: 4px;
 }
 .rent-chat__side-foot {
@@ -62,7 +62,7 @@
 }
 .rent-chat__placeholder {
   margin: auto;
-  color: #9ca3af;
+  color: var(--rent-ink-3);
 }
 .rent-chat__msgs {
   flex: 1;
@@ -79,15 +79,15 @@
 .rent-chat__bubble {
   max-width: 70%;
   padding: 10px 14px;
-  border-radius: 12px;
-  background: #f1f5f9;
-  color: #1f2937;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface-2);
+  color: var(--rent-ink);
   font-size: 14px;
   line-height: 1.5;
 }
 .rent-chat__msg.is-mine .rent-chat__bubble {
-  background: var(--rent-primary, #14b8a6);
-  color: #fff;
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
 }
 .rent-chat__input {
   display: flex;

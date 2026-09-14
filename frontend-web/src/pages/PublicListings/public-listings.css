@@ -35,7 +35,7 @@
   z-index: 1;
 }
 .pl-hero__title {
-  font-size: 26px;
+  font-size: var(--rent-fs-3xl);
   font-weight: 800;
   color: #fff;
   letter-spacing: -0.02em;
@@ -162,11 +162,10 @@
   display: flex;
   align-items: center;
   gap: 0;
-}
 .pl-sortbar__item {
   position: relative;
-  padding: 14px 20px;
-  font-size: 14px;
+  padding: var(--rent-s-4) var(--rent-s-5);
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink-2);
   background: none;
   border: none;
@@ -243,7 +242,7 @@
 }
 .pl-item__img-text {
   color: rgba(255, 255, 255, 0.85);
-  font-size: 28px;
+  font-size: var(--rent-fs-2xl);
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -274,7 +273,7 @@
 
 /* 标题 */
 .pl-item__title {
-  font-size: 20px;
+  font-size: var(--rent-fs-xl);
   font-weight: 600;
   color: var(--rent-ink);
   line-height: 1.4;
@@ -346,7 +345,7 @@
 }
 .pl-chip--vacant { color: var(--state-success); background: rgba(22, 163, 74, 0.08); }
 .pl-chip--rented { color: var(--state-info); background: rgba(14, 165, 233, 0.08); }
-.pl-chip--reserved { color: #9333ea; background: rgba(147, 51, 234, 0.08); }
+.pl-chip--reserved { color: var(--state-purple); background: rgba(var(--state-purple-rgb), 0.08); }
 .pl-chip--maintenance { color: var(--state-warning); background: rgba(217, 119, 6, 0.08); }
 .pl-chip--feature { color: var(--rent-primary); background: rgba(20, 184, 166, 0.06); }
 
@@ -418,7 +417,7 @@
     height: 180px;
   }
   .pl-item__title {
-    font-size: 17px;
+    font-size: var(--rent-fs-lg);
     white-space: normal;
   }
   .pl-container { padding: 0 16px 32px; }

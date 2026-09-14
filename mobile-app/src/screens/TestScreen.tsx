@@ -155,9 +155,9 @@ export default function TestScreen() {
   const renderStatusTag = (status: TestResult['status']) => {
     const config = {
       idle: { bg: colors.surface2, text: colors.ink3 },
-      loading: { bg: '#e6f4ff', text: colors.primary },
-      success: { bg: '#f6ffed', text: colors.success },
-      error: { bg: '#fff2f0', text: colors.error },
+      loading: { bg: colors.alpha(colors.primaryRgb, 0.08), text: colors.primary },
+      success: { bg: colors.successLight, text: colors.success },
+      error: { bg: colors.errorLight, text: colors.error },
     };
     const c = config[status];
     const labels = { idle: '待测试', loading: '测试中', success: '成功', error: '失败' };
@@ -332,12 +332,14 @@ export default function TestScreen() {
 
           <Text style={styles.subLabel}>颜色主题</Text>
           <View style={styles.colorRow}>
-            {Object.entries(colors).map(([name, color]) => (
-              <View key={name} style={styles.colorItem}>
-                <View style={[styles.colorSwatch, { backgroundColor: color }]} />
-                <Text style={styles.colorName}>{name}</Text>
-              </View>
-            ))}
+            {Object.entries(colors)
+              .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+              .map(([name, color]) => (
+                <View key={name} style={styles.colorItem}>
+                  <View style={[styles.colorSwatch, { backgroundColor: color }]} />
+                  <Text style={styles.colorName}>{name}</Text>
+                </View>
+              ))}
           </View>
 
           <Text style={styles.subLabel}>按钮样式</Text>
@@ -484,11 +486,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   userInfoBox: {
-    backgroundColor: '#f6ffed',
+    backgroundColor: colors.successLight,
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#b7eb8f',
+    borderColor: colors.alpha(colors.successRgb, 0.3),
   },
   userInfoText: {
     fontSize: 14,
@@ -571,7 +573,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   errorBox: {
-    backgroundColor: '#fff2f0',
+    backgroundColor: colors.errorLight,
     borderRadius: 6,
     padding: 8,
     marginBottom: 8,

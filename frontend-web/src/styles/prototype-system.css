@@ -339,7 +339,7 @@
   background: var(--rent-primary);
   color: var(--rent-primary-foreground);
 }
-.rent-btn--primary:hover { background: #0d9488; }
+.rent-btn--primary:hover { background: var(--rent-primary-hover); }
 .rent-btn--secondary {
   background: var(--rent-surface);
   border-color: var(--rent-border);
@@ -355,7 +355,7 @@
   background: var(--state-error);
   color: #fff;
 }
-.rent-btn--danger:hover { background: #b91c1c; }
+.rent-btn--danger:hover { background: var(--state-error-hover); }
 .rent-btn--success {
   background: var(--state-success);
   color: #fff;

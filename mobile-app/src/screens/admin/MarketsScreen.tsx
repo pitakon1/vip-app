@@ -344,8 +344,8 @@ const styles = StyleSheet.create({
   cardTag: { fontSize: 11, color: colors.ink3 },
   sub: { fontSize: 12, color: colors.ink2, marginTop: 2 },
   pill: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999 },
-  pillOk: { backgroundColor: '#f6ffed' },
-  pillWarn: { backgroundColor: '#fff7e6' },
+  pillOk: { backgroundColor: colors.successLight },
+  pillWarn: { backgroundColor: colors.warningLight },
   pillText: { fontSize: 11 },
   hint: { fontSize: 12, color: colors.ink3, paddingVertical: 6 },
 });

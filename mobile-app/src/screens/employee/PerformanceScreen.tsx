@@ -103,7 +103,7 @@ export default function PerformanceScreen() {
     return (
       <View style={styles.rankCard}>
         <View style={styles.rankRow}>
-          <View style={[styles.rankBadge, rank <= 3 && styles[`rank${rank}` as keyof typeof styles]]}>
+          <View style={[styles.rankBadge, rank <= 3 && styles[`rank${rank}` as 'rank1' | 'rank2' | 'rank3']]}>
             <Text style={[styles.rankText, rank <= 3 && styles.rankTopText]}>{rank}</Text>
           </View>
           <View style={styles.rankInfo}>

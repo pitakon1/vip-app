@@ -30,10 +30,10 @@
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.rent-doc-icon--pdf { background: rgba(220,38,38,0.10); color: #dc2626; }
-.rent-doc-icon--img { background: rgba(14,165,233,0.10); color: #0ea5e9; }
-.rent-doc-icon--xls { background: rgba(22,163,74,0.10); color: #16a34a; }
-.rent-doc-icon--doc { background: rgba(20,184,166,0.10); color: #14b8a6; }
+.rent-doc-icon--pdf { background: rgba(var(--state-error-rgb), 0.10); color: var(--state-error); }
+.rent-doc-icon--img { background: rgba(var(--state-info-rgb), 0.10); color: var(--state-info); }
+.rent-doc-icon--xls { background: rgba(var(--state-success-rgb), 0.10); color: var(--state-success); }
+.rent-doc-icon--doc { background: rgba(var(--rent-primary-rgb), 0.10); color: var(--rent-primary); }
 
 /* 存储空间指示条 */
 .rent-storage {

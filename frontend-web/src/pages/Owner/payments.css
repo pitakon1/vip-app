@@ -144,7 +144,7 @@
   justify-content: center;
   gap: 10px;
   color: var(--rent-ink-3);
-  background: #f8fafc;
+  background: var(--rent-muted);
 }
 
 /* 二维码下方提示 */
