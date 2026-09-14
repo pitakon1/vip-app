@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
-import { employeesApi, dashboardApi } from '@/services/api'
+import { employeesApi, dashboardApi, viewingsApi } from '@/services/api'
 import './index.scss'
 
 interface FollowUpLease {
@@ -15,13 +15,20 @@ interface FollowUpLease {
 }
 
 interface Summary {
-  total_properties?: number
-  vacant?: number
-  rented?: number
   expiring_leases?: number
   upcoming_payments?: number
   monthly_revenue?: number
   [key: string]: any
+}
+
+interface ViewingItem {
+  id: string
+  property_id?: string
+  property_title?: string | null
+  property_address?: string | null
+  scheduled_at?: string | null
+  visitor_name?: string | null
+  status?: string | null
 }
 
 const pick = (res: any, key?: string): any => {
@@ -35,14 +42,33 @@ const fmtMoney = (v: number | undefined, currency?: string) => {
   return `${sym[currency || 'THB'] || '¥'}${Number(v || 0).toLocaleString()}`
 }
 
-const QUICK_ACTIONS = [
-  { key: 'listings', icon: '🏠', title: '房源中心', sub: '在租 · 空置 · 带看', url: '/pages/tenant/listings/index' },
-  { key: 'performance', icon: '📈', title: '我的业绩', sub: '业绩排行 · 佣金统计', url: '/pages/employee/performance/index' },
-  { key: 'viewings', icon: '👁️', title: '预约带看', sub: '确认 · 到访 · 流转', url: '/pages/tenant/viewings/index' },
-  { key: 'contracts', icon: '📝', title: '电子合同', sub: '签约 · 归档 · 到期', url: '/pages/contracts/index' },
-  { key: 'chat', icon: '💬', title: '客户沟通', sub: '即时消息 · 跟进', url: '/pages/chat/list/index' },
-  { key: 'attendance', icon: '🕐', title: '考勤打卡', sub: '上下班 · 外出登记', url: '/pages/attendance/index' },
-]
+// 带看状态标签
+const V_STATUS: Record<string, { label: string; cls: string }> = {
+  pending: { label: '待确认', cls: 'emp-tag--info' },
+  confirmed: { label: '已确认', cls: 'emp-tag--success' },
+  completed: { label: '已完成', cls: 'emp-tag--success' },
+  cancelled: { label: '已取消', cls: 'emp-tag--muted' },
+  no_show: { label: '爽约', cls: 'emp-tag--error' },
+}
+
+const getVStatus = (status?: string | null) =>
+  V_STATUS[status ?? ''] ?? { label: status || '-', cls: 'emp-tag--muted' }
+
+const pad = (n: number) => String(n).padStart(2, '0')
+const toTime = (iso?: string | null) => {
+  if (!iso) return '--:--'
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '--:--' : `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+const isToday = (iso?: string | null) => {
+  if (!iso) return false
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  const now = new Date()
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+}
+
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 
 export default function EmployeeHomePage() {
   const user = useAuthStore((state) => state.user)
@@ -50,19 +76,25 @@ export default function EmployeeHomePage() {
   const pageTitle = isAgent ? '经纪工作台' : '员工工作台'
   const [followUp, setFollowUp] = useState<FollowUpLease[]>([])
   const [summary, setSummary] = useState<Summary>({})
+  const [viewings, setViewings] = useState<ViewingItem[]>([])
   const [loading, setLoading] = useState(false)
 
   const fetchAll = async () => {
     setLoading(true)
     try {
-      const [wb, sum] = await Promise.all([
+      const [wb, sum, vw] = await Promise.all([
         employeesApi.workbench().catch(() => ({ data: {} })),
-        dashboardApi.summary().catch(() => ({ data: {} }))
+        dashboardApi.summary().catch(() => ({ data: {} })),
+        viewingsApi.list({ pageSize: 50 }).catch(() => ({ data: { items: [] } }))
       ])
       const wbD = pick(wb, 'follow_up_leases')
       setFollowUp(Array.isArray(wbD) ? wbD : [])
       const sumD = pick(sum)
       setSummary(Object.keys(sumD).length ? sumD : {})
+      const vwRes: any = vw
+      const vwRaw = vwRes?.data ?? vwRes
+      const vwItems = Array.isArray(vwRaw) ? vwRaw : vwRaw?.items ?? vwRaw?.data ?? []
+      setViewings(Array.isArray(vwItems) ? vwItems : [])
     } catch (error) {
       console.error('[EmployeeHome] 加载失败', error)
     } finally {
@@ -82,16 +114,24 @@ export default function EmployeeHomePage() {
     Taro.showToast({ title: '请在 Web 管理后台处理', icon: 'none' })
   }
 
+  // 今日日程：当天带看按时间升序
+  const todayList = viewings
+    .filter((v) => isToday(v.scheduled_at))
+    .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
+
   const urgentCount = followUp.filter((f) => Number(f.days_to_expire ?? 0) <= 15).length
+
+  const now = new Date()
+  const todayLabel = `${now.getMonth() + 1}月${now.getDate()}日 星期${WEEKDAYS[now.getDay()]}`
 
   return (
     <View className='emp-home'>
       {/* 顶部欢迎区 */}
       <View className='emp-hero'>
         <View className='emp-hero__greeting'>
-          <Text className='emp-hero__hi'>你好，{user?.name || '同事'} 👋</Text>
-          <Text className='emp-hero__role'>
-            {isAgent ? '房产经纪人' : '员工'}
+          <Text className='emp-hero__hi'>你好，{user?.name || '同事'}</Text>
+          <Text className='emp-hero__meta'>
+            {pageTitle} · {todayLabel}
           </Text>
         </View>
         <View className='emp-hero__avatar'>
@@ -102,50 +142,100 @@ export default function EmployeeHomePage() {
       </View>
 
       <View className='emp-content'>
-        {/* 核心数据卡 */}
-        <View className='emp-stats-primary'>
-          <View className='emp-stat-big emp-stat-big--primary'>
-            <View className='emp-stat-big__icon'>🏠</View>
-            <View className='emp-stat-big__body'>
-              <Text className='emp-stat-big__num'>{summary.total_properties ?? '-'}</Text>
-              <Text className='emp-stat-big__label'>在管房源</Text>
-            </View>
+        {/* 关键指标条（单条，替代多层数据卡） */}
+        <View className='emp-kpi'>
+          <View className='emp-kpi__item'>
+            <Text className='emp-kpi__num emp-kpi__num--primary'>{todayList.length}</Text>
+            <Text className='emp-kpi__label'>今日带看</Text>
           </View>
-          <View className='emp-stat-big emp-stat-big--success'>
-            <View className='emp-stat-big__icon'>💰</View>
-            <View className='emp-stat-big__body'>
-              <Text className='emp-stat-big__num'>{fmtMoney(summary.monthly_revenue)}</Text>
-              <Text className='emp-stat-big__label'>本月已收租金</Text>
-            </View>
+          <View className='emp-kpi__divider' />
+          <View className='emp-kpi__item'>
+            <Text className='emp-kpi__num emp-kpi__num--warning'>
+              {summary.upcoming_payments ?? '-'}
+            </Text>
+            <Text className='emp-kpi__label'>待收款</Text>
+          </View>
+          <View className='emp-kpi__divider' />
+          <View className='emp-kpi__item'>
+            <Text className='emp-kpi__num emp-kpi__num--error'>
+              {summary.expiring_leases ?? '-'}
+            </Text>
+            <Text className='emp-kpi__label'>即将到期</Text>
           </View>
         </View>
 
-        {/* 次级数据 */}
-        <View className='emp-stats-row'>
-          <View className='emp-stat-mini'>
-            <Text className='emp-stat-mini__num emp-stat-mini__num--warning'>
-              {summary.expiring_leases ?? '-'}
+        {/* 今日日程：直接展示，不依赖快捷入口 */}
+        <View className='emp-section'>
+          <View className='emp-section__head'>
+            <View className='emp-section__title-row'>
+              <View className='emp-section__icon'>
+                <Text className='emp-section__icon-text'>📅</Text>
+              </View>
+              <Text className='emp-section__title'>今日日程</Text>
+              <View className='emp-badge emp-badge--info'>
+                <Text>{todayList.length} 场</Text>
+              </View>
+            </View>
+            <Text
+              className='emp-section__more'
+              onClick={() => Taro.navigateTo({ url: '/pages/tenant/viewings/index' })}
+            >
+              预约带看 ›
             </Text>
-            <Text className='emp-stat-mini__label'>即将到期</Text>
           </View>
-          <View className='emp-stat-mini'>
-            <Text className='emp-stat-mini__num emp-stat-mini__num--error'>
-              {summary.upcoming_payments ?? '-'}
-            </Text>
-            <Text className='emp-stat-mini__label'>待收款</Text>
-          </View>
-          <View className='emp-stat-mini'>
-            <Text className='emp-stat-mini__num emp-stat-mini__num--success'>
-              {summary.rented ?? '-'}
-            </Text>
-            <Text className='emp-stat-mini__label'>已出租</Text>
+
+          <View className='emp-schedule'>
+            {loading && todayList.length === 0 ? (
+              <View className='emp-state emp-state--loading'>
+                <View className='emp-state__spinner' />
+                <Text className='emp-state__title'>正在加载</Text>
+              </View>
+            ) : todayList.length === 0 ? (
+              <View className='emp-state'>
+                <Text className='emp-state__icon'>·</Text>
+                <Text className='emp-state__title'>今天暂无带看安排</Text>
+                <Text className='emp-state__desc'>新的预约将自动出现在这里</Text>
+              </View>
+            ) : (
+              <View className='emp-schedule__list'>
+                {todayList.map((item) => {
+                  const st = getVStatus(item.status)
+                  return (
+                    <View key={item.id} className='emp-schedule__item'>
+                      <View className='emp-schedule__time'>
+                        <Text className='emp-schedule__time-text'>{toTime(item.scheduled_at)}</Text>
+                        <View className='emp-schedule__line' />
+                      </View>
+                      <View className='emp-schedule__card'>
+                        <View className='emp-schedule__card-top'>
+                          <View className={`emp-tag ${st.cls}`}>
+                            <Text>{st.label}</Text>
+                          </View>
+                          <Text className='emp-schedule__visitor'>
+                            {item.visitor_name || '待定客户'}
+                          </Text>
+                        </View>
+                        <Text className='emp-schedule__prop'>
+                          {item.property_title || item.property_address || '房源'}
+                        </Text>
+                      </View>
+                    </View>
+                  )
+                })}
+              </View>
+            )}
           </View>
         </View>
 
         {/* 临期跟进 */}
         <View className='emp-section'>
           <View className='emp-section__head'>
-            <Text className='emp-section__title'>租约临期跟进</Text>
+            <View className='emp-section__title-row'>
+              <View className='emp-section__icon emp-section__icon--warn'>
+                <Text className='emp-section__icon-text'>!</Text>
+              </View>
+              <Text className='emp-section__title'>租约临期跟进</Text>
+            </View>
             <View className={`emp-badge ${urgentCount > 0 ? 'emp-badge--error' : 'emp-badge--ok'}`}>
               <Text>{followUp.length} 份 · 紧急 {urgentCount}</Text>
             </View>
@@ -158,7 +248,7 @@ export default function EmployeeHomePage() {
             </View>
           ) : followUp.length === 0 ? (
             <View className='emp-state'>
-              <View className='emp-state__icon'>📋</View>
+              <Text className='emp-state__icon'>✓</Text>
               <Text className='emp-state__title'>暂无临期租约</Text>
               <Text className='emp-state__desc'>近期到期的租约将在此展示</Text>
             </View>
@@ -210,27 +300,6 @@ export default function EmployeeHomePage() {
               })}
             </View>
           )}
-        </View>
-
-        {/* 快捷入口 */}
-        <View className='emp-section'>
-          <View className='emp-section__head'>
-            <Text className='emp-section__title'>快捷入口</Text>
-          </View>
-          <View className='emp-quick-grid'>
-            {QUICK_ACTIONS.map((item) => (
-              <View
-                key={item.key}
-                className='emp-quick-item'
-                hoverClass='emp-quick-item--hover'
-                onClick={() => Taro.navigateTo({ url: item.url })}
-              >
-                <View className='emp-quick-item__icon'>{item.icon}</View>
-                <Text className='emp-quick-item__title'>{item.title}</Text>
-                <Text className='emp-quick-item__sub'>{item.sub}</Text>
-              </View>
-            ))}
-          </View>
         </View>
       </View>
     </View>

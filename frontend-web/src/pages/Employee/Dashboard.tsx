@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { message, Spin, Empty } from 'antd'
+import { Link } from 'react-router-dom'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
+import useAuthStore from '@/stores/auth'
 import './dashboard.css'
 
 interface LeaderRow {
@@ -76,13 +78,23 @@ const formatInterested = (value: any): string => {
 
 const formatMoney = (v: number) => `RM ${Number(v || 0).toLocaleString()}`
 
-// 带看时间线插槽（对齐原型固定四场）
-const TIMELINE_SLOTS = [
-  { range: '09:00-10:00', status: '已过', badge: '已取消', badgeCls: 'rent-badge--neutral' },
-  { range: '10:00-11:00', status: '下一场', badge: '待开始', badgeCls: 'rent-badge--primary', next: true },
-  { range: '14:00-15:00', status: '', badge: '待开始', badgeCls: 'rent-badge--primary' },
-  { range: '16:00-17:00', status: '', badge: '已完成', badgeCls: 'rent-badge--success' },
-]
+// 带看状态标签
+const VIEWING_STATUS_META: Record<string, { text: string; badge: string }> = {
+  pending: { text: '待确认', badge: 'rent-badge--neutral' },
+  confirmed: { text: '已确认', badge: 'rent-badge--primary' },
+  completed: { text: '已完成', badge: 'rent-badge--success' },
+  cancelled: { text: '已取消', badge: 'rent-badge--neutral' },
+  no_show: { text: '爽约', badge: 'rent-badge--error' },
+}
+
+const getViewingStatus = (status?: string | null) =>
+  VIEWING_STATUS_META[status ?? ''] ?? { text: status || '待确认', badge: 'rent-badge--neutral' }
+
+const toHHmm = (iso?: string | null) => {
+  if (!iso) return '--:--'
+  const d = dayjs(iso)
+  return d.isValid() ? d.format('HH:mm') : '--:--'
+}
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 
@@ -96,17 +108,20 @@ const formatRelativeTime = (iso?: string, today?: dayjs.Dayjs) => {
 }
 
 const Dashboard = () => {
+  const user = useAuthStore((s) => s.user)
   const [loading, setLoading] = useState(false)
   const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([])
   const [summary, setSummary] = useState<SummaryData>({})
   const [leases, setLeases] = useState<LeaseRow[]>([])
   const [leads, setLeads] = useState<any[]>([])
   const [followUpLeases, setFollowUpLeases] = useState<FollowUpLease[]>([])
+  const [viewings, setViewings] = useState<any[]>([])
+  const [pendingReceivable, setPendingReceivable] = useState(0)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [lbRes, sumRes, leaseRes, leadsRes, wbRes] = await Promise.all([
+      const [lbRes, sumRes, leaseRes, leadsRes, wbRes, vwRes] = await Promise.all([
         api.get('/employees/leaderboard').catch(() => ({ data: { items: [] } })),
         api.get('/dashboard/summary').catch(() => ({ data: {} })),
         api.get('/leases', { params: { pageSize: 100 } }).catch(() => ({
@@ -116,6 +131,9 @@ const Dashboard = () => {
           data: { items: [] },
         })),
         api.get('/employees/workbench').catch(() => ({ data: {} })),
+        api.get('/viewings', { params: { pageSize: 100 } }).catch(() => ({
+          data: { items: [] },
+        })),
       ])
 
       const lbPayload = lbRes.data?.data ?? lbRes.data
@@ -132,6 +150,10 @@ const Dashboard = () => {
 
       const wbPayload = wbRes.data?.data ?? wbRes.data
       setFollowUpLeases(wbPayload?.follow_up_leases ?? [])
+      setPendingReceivable(Number(wbPayload?.summary?.pending_receivable ?? 0))
+
+      const vwPayload = vwRes.data?.data ?? vwRes.data
+      setViewings(vwPayload?.items ?? [])
     } catch (err: any) {
       message.error(err?.response?.data?.message || '获取数据失败')
     } finally {
@@ -143,7 +165,7 @@ const Dashboard = () => {
     fetchAll()
   }, [fetchAll])
 
-  // 今日待办：租金提醒 + 合约到期（保留原有逻辑）
+  // 今日待办：租金提醒 + 合约到期
   const today = dayjs()
   const rentReminders = leases.filter((l) => {
     if (!l.start_date) return false
@@ -157,126 +179,87 @@ const Dashboard = () => {
     return days >= 0 && days <= 30 && l.status === 'active'
   })
 
-  // 日历中需要标记的日期（合约到期日）— 保留原有逻辑
-  const dueDates = new Set(
-    leases
-      .filter((l) => l.end_date && l.status === 'active')
-      .map((l) => dayjs(l.end_date).format('YYYY-MM-DD')),
-  )
-  const rentDates = new Set(
-    leases
-      .filter((l) => l.start_date && l.status === 'active')
-      .map((l) => dayjs(l.start_date).format('YYYY-MM-DD')),
-  )
-
   const monthlyDeals = Number(summary.monthly_deals ?? 0)
   const monthlyCommission = Number(summary.monthly_commission ?? 0)
-  const yearlyCommission = Number(summary.yearly_commission ?? 0)
   const rank = Number(summary.rank ?? 0)
 
   // 全部来自真实接口数据，无演示兜底
-  const leaderList = leaderboard
-  const activeLeads = leads.filter(
-    (l) => !['closed', 'converted', 'lost'].includes(l.stage),
-  )
+  // 今日工作台时间线：当天真实带看，按时间升序
+  const todayViewings = viewings
+    .filter((v) => v.scheduled_at && dayjs(v.scheduled_at).isSame(today, 'day'))
+    .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
 
-  // 今日工作台时间线：取跟进中线索映射到原型固定插槽
-  const viewingLeads = activeLeads.slice(0, 4)
-  const timelineItems = viewingLeads.map((lead, idx) => ({
-    ...lead,
-    slot: TIMELINE_SLOTS[idx] || TIMELINE_SLOTS[TIMELINE_SLOTS.length - 1],
-  }))
-
-  // 高意向客户（谈判中 / 待签约）
   const hotLeads = leads.filter((l) => ['negotiating', 'pending_contract'].includes(l.stage))
-
-  // 保留原有 todoItems 逻辑（即便设计稿未直接展示日历，逻辑仍保留）
-  const todoItems = [
-    ...rentReminders.map((l) => ({
-      type: 'rent' as const,
-      text: `房源 ${l.property_id ? l.property_id.slice(0, 8) : '-'} 今日应收租金`,
-    })),
-    ...expiringLeases.map((l) => {
-      const days = dayjs(l.end_date).diff(today, 'day')
-      return {
-        type: 'expire' as const,
-        text: `房源 ${l.property_id ? l.property_id.slice(0, 8) : '-'} 合约 ${days === 0 ? '今日到期' : `${days}天后到期`}`,
-      }
-    }),
-  ]
-  // 保留 dueDates/rentDates/leaderList/todoItems/yearlyCommission 引用，避免未使用告警
-  void dueDates
-  void rentDates
-  void leaderList
-  void todoItems
-  void yearlyCommission
 
   return (
     <div className="rent-main">
       {loading && <div className="rent-loading-row"><Spin size="small" style={{ marginRight: 8 }} />加载中...</div>}
 
-      {/* 问候行（压缩为一行） */}
+      {/* 问候行 */} 
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title" style={{ margin: '0 0 4px' }}>早上好，李员工</h2>
+          <h2 className="rent-page-header__title" style={{ margin: '0 0 4px' }}>早上好，{user?.full_name || '同事'}</h2>
           <p className="rent-page-header__subtitle" style={{ margin: 0 }}>
-            {today.format('M月D日')} 星期{WEEKDAYS[today.day()]} · 今日 {timelineItems.length} 场带看 · 本月成交 {monthlyDeals || 5} 单 · 佣金 {formatMoney(monthlyCommission || 12800)}
+            {today.format('M月D日')} 星期{WEEKDAYS[today.day()]} · 今日 {todayViewings.length} 场带看 · 高意向客户 {hotLeads.length} 位 · 待收款 {pendingReceivable} 笔
           </p>
         </div>
         <div className="rent-page-header__actions">
-          <a href="#" className="rent-btn rent-btn--primary">
+          <Link to="/viewings" className="rent-btn rent-btn--primary">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="12" y1="14" x2="12" y2="18" /><line x1="10" y1="16" x2="14" y2="16" /></svg>
             新建带看
-          </a>
+          </Link>
         </div>
       </div>
 
-      {/* 两栏：左 = 今日工作台 + 待跟进客户；右 = 业绩摘要 + 快捷操作 */}
+      {/* 两栏：左 = 今日工作台 + 待跟进客户；右 = 租约临期 + 快捷操作 */}
       <div className="rent-grid" style={{ gridTemplateColumns: 'minmax(0, 1.55fr) minmax(0, 1fr)', alignItems: 'start' }}>
 
         {/* 左栏 */}
         <div className="rent-flex rent-flex--col" style={{ gap: 16 }}>
 
-          {/* 今日工作台：带看时间线 */}
+          {/* 今日工作台：真实带看时间线 */}
           <div className="rent-card">
             <div className="rent-card__header">
               <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
                 <h3 className="rent-card__title">今日工作台</h3>
-                <span className="rent-badge rent-badge--primary">{timelineItems.length} 场带看</span>
+                <span className="rent-badge rent-badge--primary">{todayViewings.length} 场带看</span>
               </div>
-              <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">今日行程</a>
+              <Link to="/viewings" className="rent-btn rent-btn--ghost rent-btn--sm">全部预约</Link>
             </div>
             <div className="rent-card__body">
-              {timelineItems.length === 0 ? (
+              {todayViewings.length === 0 ? (
                 <div className="rent-empty">
                   <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="今日暂无带看安排" />
                 </div>
               ) : (
-                timelineItems.map((item) => (
-                  <div key={item.id || item.name || item.slot.range} className="rent-wb-timeline-item">
-                    <div className="rent-wb-time">
-                      <div className="rent-wb-time__range" style={item.slot.next ? { color: 'var(--rent-primary)' } : undefined}>
-                        {item.slot.range}
+                todayViewings.map((item) => {
+                  const st = getViewingStatus(item.status)
+                  return (
+                    <div key={item.id} className="rent-wb-timeline-item">
+                      <div className="rent-wb-time">
+                        <div className="rent-wb-time__range" style={{ color: 'var(--rent-primary)' }}>
+                          {toHHmm(item.scheduled_at)}
+                        </div>
+                        <div className="rent-wb-time__status">{st.text}</div>
                       </div>
-                      <div className="rent-wb-time__status">{item.slot.status}</div>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="rent-text-bold">{item.name || '-'}</div>
-                      <div className="rent-text-sm rent-text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {formatInterested(item.interested_projects)}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="rent-text-bold">{item.property_title || '房源'}</div>
+                        <div className="rent-text-sm rent-text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.property_address || ''} {item.visitor_name ? `· ${item.visitor_name}` : ''}
+                        </div>
                       </div>
+                      <span className={`rent-badge ${st.badge}`}>{st.text}</span>
                     </div>
-                    <span className={`rent-badge ${item.slot.badgeCls}`}>{item.slot.badge}</span>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
             <div className="rent-card__footer" style={{ display: 'flex', gap: 8 }}>
-              <a href="#" className="rent-btn rent-btn--secondary rent-btn--sm" style={{ flex: 1 }}>联系客户</a>
-              <a href="#" className="rent-btn rent-btn--primary rent-btn--sm" style={{ flex: 1 }}>
+              <Link to="/crm" className="rent-btn rent-btn--secondary rent-btn--sm" style={{ flex: 1 }}>联系客户</Link>
+              <Link to="/viewings" className="rent-btn rent-btn--primary rent-btn--sm" style={{ flex: 1 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                 新建带看
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -287,7 +270,7 @@ const Dashboard = () => {
                 <h3 className="rent-card__title">待跟进客户</h3>
                 <span className="rent-badge rent-badge--warning">{hotLeads.length} 位高意向</span>
               </div>
-              <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">全部客户</a>
+              <Link to="/crm" className="rent-btn rent-btn--ghost rent-btn--sm">全部客户</Link>
             </div>
             <div className="rent-card__body" style={{ padding: 0 }}>
               <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
@@ -329,11 +312,9 @@ const Dashboard = () => {
                               </span>
                             </td>
                             <td>
-                              {closed ? (
-                                <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">查看</a>
-                              ) : (
-                                <a href="#" className="rent-btn rent-btn--primary rent-btn--sm">去跟进</a>
-                              )}
+                              <Link to="/crm" className={`rent-btn rent-btn--sm ${closed ? 'rent-btn--ghost' : 'rent-btn--primary'}`}>
+                                {closed ? '查看' : '去跟进'}
+                              </Link>
                             </td>
                           </tr>
                         )
@@ -406,7 +387,7 @@ const Dashboard = () => {
         {/* 右栏 */}
         <div className="rent-flex rent-flex--col" style={{ gap: 16 }}>
 
-          {/* 业绩摘要（一行三格） */}
+          {/* 业绩摘要（一行三格，真实数据无兜底） */}
           <div className="rent-card">
             <div className="rent-card__header">
               <h3 className="rent-card__title">业绩摘要</h3>
@@ -414,19 +395,16 @@ const Dashboard = () => {
             </div>
             <div className="rent-wb-strip">
               <div className="rent-wb-strip__cell">
-                <div className="rent-wb-strip__value">{monthlyDeals || 5} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--rent-ink-3)' }}>单</span></div>
+                <div className="rent-wb-strip__value">{summary.monthly_deals === undefined ? '-' : monthlyDeals} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--rent-ink-3)' }}>单</span></div>
                 <div className="rent-wb-strip__label">本月成交</div>
-                <div className="rent-wb-strip__delta">+2 较上月</div>
               </div>
               <div className="rent-wb-strip__cell">
-                <div className="rent-wb-strip__value rent-wb-strip__value--md">{formatMoney(monthlyCommission || 12800)}</div>
+                <div className="rent-wb-strip__value rent-wb-strip__value--md">{summary.monthly_commission === undefined ? '-' : formatMoney(monthlyCommission)}</div>
                 <div className="rent-wb-strip__label">佣金收入</div>
-                <div className="rent-wb-strip__delta">+15.3%</div>
               </div>
               <div className="rent-wb-strip__cell">
-                <div className="rent-wb-strip__value">第 {rank || 2}</div>
+                <div className="rent-wb-strip__value">{rank || '-'}</div>
                 <div className="rent-wb-strip__label">团队排名</div>
-                <div className="rent-wb-strip__delta">↑ 上升 1 位</div>
               </div>
             </div>
           </div>
@@ -438,24 +416,24 @@ const Dashboard = () => {
             </div>
             <div className="rent-card__body">
               <div className="rent-wb-actions">
-                <a href="#" className="rent-wb-action">
+                <Link to="/viewings" className="rent-wb-action">
                   <div className="rent-wb-action__icon" style={{ background: 'rgba(20,184,166,0.1)', color: 'var(--rent-primary)' }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="12" y1="14" x2="12" y2="18" /><line x1="10" y1="16" x2="14" y2="16" /></svg>
                   </div>
                   <span className="rent-wb-action__label">新建带看</span>
-                </a>
-                <a href="#" className="rent-wb-action">
+                </Link>
+                <Link to="/crm" className="rent-wb-action">
                   <div className="rent-wb-action__icon" style={{ background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                   </div>
                   <span className="rent-wb-action__label">联系客户</span>
-                </a>
-                <a href="#" className="rent-wb-action">
+                </Link>
+                <Link to="/properties" className="rent-wb-action">
                   <div className="rent-wb-action__icon" style={{ background: 'rgba(22,163,74,0.1)', color: 'var(--state-success)' }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                   </div>
-                  <span className="rent-wb-action__label">房源浏览</span>
-                </a>
+                  <span className="rent-wb-action__label">房源管理</span>
+                </Link>
               </div>
             </div>
           </div>

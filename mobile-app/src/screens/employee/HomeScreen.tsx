@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   RefreshControl,
   Alert,
@@ -11,7 +10,6 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
@@ -20,14 +18,29 @@ import type { Notification } from '@/types';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-const QUICK: { key: string; navigate: string; icon: IoniconName; label: string; sub: string }[] = [
-  { key: 'search', navigate: 'PropertySearch', icon: 'search', label: '房源搜索', sub: '快速查找' },
-  { key: 'properties', navigate: 'EmployeeProperties', icon: 'business', label: '房源管理', sub: '在租空置' },
-  { key: 'crm', navigate: 'CRM', icon: 'people', label: '客户跟进', sub: '线索管理' },
-  { key: 'performance', navigate: 'Performance', icon: 'stats-chart', label: '我的业绩', sub: '佣金统计' },
-  { key: 'contracts', navigate: 'Contracts', icon: 'document-text', label: '电子合同', sub: '签约归档' },
-  { key: 'viewings', navigate: 'Calendar', icon: 'calendar', label: '日程日历', sub: '预约待办' },
-];
+interface ViewingItem {
+  id: string;
+  property_id?: string;
+  property_title?: string | null;
+  property_address?: string | null;
+  scheduled_at?: string | null;
+  visitor_name?: string | null;
+  status?: string | null;
+}
+
+const VIEWING_STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
+  pending: { label: '待确认', bg: 'rgba(148, 163, 184, 0.12)', color: colors.ink3 },
+  confirmed: { label: '已确认', bg: `rgba(${colors.primaryRgb}, 0.12)`, color: colors.primary },
+  completed: { label: '已完成', bg: 'rgba(22, 163, 74, 0.12)', color: colors.success },
+  cancelled: { label: '已取消', bg: 'rgba(148, 163, 184, 0.12)', color: colors.ink3 },
+  no_show: { label: '爽约', bg: 'rgba(220, 38, 38, 0.12)', color: colors.error },
+};
+
+const getStatusMeta = (status?: string | null) =>
+  VIEWING_STATUS_META[status ?? ''] ?? { label: status || '-', bg: 'rgba(148, 163, 184, 0.12)', color: colors.ink3 };
+
+const toTime = (dt: Date | null) =>
+  dt ? `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}` : '--:--';
 
 interface WorkbenchSummary {
   lease_count?: number;
@@ -47,7 +60,7 @@ export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [workbench, setWorkbench] = useState<WorkbenchSummary>({});
-  const [viewingCount, setViewingCount] = useState(0);
+  const [viewings, setViewings] = useState<ViewingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -56,7 +69,7 @@ export default function HomeScreen() {
       const [ntfRes, wbRes, vwRes] = await Promise.allSettled([
         notificationsApi.mine(),
         employeesApi.workbench(),
-        viewingsApi.mine(),
+        viewingsApi.list({ pageSize: 100 }),
       ]);
       if (ntfRes.status === 'fulfilled') {
         const data = ntfRes.value.data;
@@ -72,7 +85,7 @@ export default function HomeScreen() {
       if (vwRes.status === 'fulfilled') {
         const data = vwRes.value.data;
         const items = Array.isArray(data) ? data : (data as any)?.items ?? (data as any)?.data ?? [];
-        setViewingCount((items as any[]).length);
+        setViewings(items as ViewingItem[]);
       }
     } catch (err: any) {
       Alert.alert('加载失败', err?.response?.data?.message || '无法获取提醒');
@@ -85,6 +98,22 @@ export default function HomeScreen() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // 日程（Hooks 必须在条件返回之前，统一在顶层计算）
+  const schedules = useMemo(() => {
+    const now = new Date();
+    return viewings
+      .map((v) => ({ ...v, dt: v.scheduled_at ? new Date(v.scheduled_at) : null }))
+      .filter((v) => v.dt && !Number.isNaN(v.dt!.getTime()))
+      .sort((a, b) => a.dt!.getTime() - b.dt!.getTime());
+  }, [viewings]);
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+  const today = new Date();
+  const todaySchedule = schedules.filter((v) => v.dt && isSameDay(v.dt, today));
+  const upcomingSchedule = schedules.filter((v) => v.dt && v.dt.getTime() > today.getTime()).slice(0, 3);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -147,7 +176,7 @@ export default function HomeScreen() {
       {/* 顶部欢迎区 */}
       <View style={styles.hero}>
         <View style={styles.heroLeft}>
-          <Text style={styles.heroHi}>你好，同事 👋</Text>
+          <Text style={styles.heroHi}>你好，同事</Text>
           <Text style={styles.heroRole}>经纪工作台</Text>
         </View>
         <View style={styles.heroAvatar}>
@@ -155,88 +184,108 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* 待办提示 */}
-      <View style={styles.pendingBar}>
-        <Ionicons name="notifications-outline" size={16} color={colors.primary} />
-        <Text style={styles.pendingText}>
-          你有 <Text style={styles.pendingNum}>{pendingCount}</Text> 条未读通知待处理
-        </Text>
-      </View>
-
-      {/* 核心数据 */}
-      <View style={styles.statsRow}>
-        <View style={[styles.statBig, styles.statPrimary]}>
-          <View style={styles.statBigIcon}>
-            <Ionicons name="eye-outline" size={22} color="#fff" />
-          </View>
-          <View style={styles.statBigBody}>
-            <Text style={styles.statBigNum}>{viewingCount}</Text>
-            <Text style={styles.statBigLabel}>今日带看</Text>
-          </View>
+      {/* 关键指标条（单行） */}
+      <View style={styles.kpiStrip}>
+        <View style={styles.kpiItem}>
+          <Text style={[styles.kpiNum, { color: colors.primary }]}>{todaySchedule.length}</Text>
+          <Text style={styles.kpiLabel}>今日带看</Text>
         </View>
-        <View style={[styles.statBig, styles.statSuccess]}>
-          <View style={styles.statBigIcon}>
-            <Ionicons name="document-text-outline" size={22} color="#fff" />
-          </View>
-          <View style={styles.statBigBody}>
-            <Text style={styles.statBigNum}>{workbench.lease_count ?? 0}</Text>
-            <Text style={styles.statBigLabel}>跟进租约</Text>
-          </View>
+        <View style={styles.kpiDivider} />
+        <View style={styles.kpiItem}>
+          <Text style={[styles.kpiNum, { color: colors.ink }]}>{workbench.lease_count ?? 0}</Text>
+          <Text style={styles.kpiLabel}>跟进租约</Text>
         </View>
-      </View>
-
-      {/* 次级数据 */}
-      <View style={styles.miniRow}>
-        <View style={styles.miniCard}>
-          <Text style={[styles.miniNum, { color: colors.warning }]}>
+        <View style={styles.kpiDivider} />
+        <View style={styles.kpiItem}>
+          <Text style={[styles.kpiNum, { color: colors.warning }]}>
             {workbench.pending_receivable ?? 0}
           </Text>
-          <Text style={styles.miniLabel}>待收款</Text>
+          <Text style={styles.kpiLabel}>待收款</Text>
         </View>
-        <View style={styles.miniCard}>
+        <View style={styles.kpiDivider} />
+        <View style={styles.kpiItem}>
           <Text
-            style={[
-              styles.miniNum,
-              { color: (workbench.overdue_receivable ?? 0) > 0 ? colors.error : colors.ink3 },
-            ]}
+            style={[styles.kpiNum, { color: (workbench.overdue_receivable ?? 0) > 0 ? colors.error : colors.success }]}
           >
             {workbench.overdue_receivable ?? 0}
           </Text>
-          <Text style={styles.miniLabel}>逾期</Text>
-        </View>
-        <View style={styles.miniCard}>
-          <Text style={[styles.miniNum, { color: colors.success }]}>
-            {notifications.length}
-          </Text>
-          <Text style={styles.miniLabel}>总通知</Text>
+          <Text style={styles.kpiLabel}>逾期</Text>
         </View>
       </View>
 
-      {/* 快捷入口 */}
-      <View style={styles.sectionHead}>
-        <Text style={styles.sectionTitle}>快捷入口</Text>
-      </View>
-      <View style={styles.quickGrid}>
-        {QUICK.map((q) => (
-          <TouchableOpacity
-            key={q.key}
-            style={styles.quickItem}
-            onPress={() => navigation.navigate(q.navigate)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.quickIcon}>
-              <Ionicons name={q.icon} size={22} color={colors.primary} />
+      {/* 日程日历：直接展示今日/近期安排 */}
+      <View style={styles.scheduleCard}>
+        <View style={styles.scheduleCardHead}>
+          <View style={styles.scheduleCardTitleRow}>
+            <View style={styles.scheduleCardIcon}>
+              <Ionicons name="calendar-outline" size={16} color={colors.primary} />
             </View>
-            <Text style={styles.quickLabel}>{q.label}</Text>
-            <Text style={styles.quickSub}>{q.sub}</Text>
+            <Text style={styles.scheduleCardTitle}>今日日程</Text>
+            <View style={styles.scheduleCountBadge}>
+              <Text style={styles.scheduleCountText}>{todaySchedule.length} 场</Text>
+            </View>
+          </View>
+          <TouchableOpacity style={styles.scheduleMore} onPress={() => navigation.navigate('Calendar')} activeOpacity={0.7}>
+            <Text style={styles.scheduleMoreText}>完整日历</Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.ink3} />
           </TouchableOpacity>
-        ))}
+        </View>
+
+        {todaySchedule.length === 0 && upcomingSchedule.length === 0 ? (
+          <View style={styles.scheduleEmpty}>
+            <Text style={styles.scheduleEmptyText}>今天暂无带看安排</Text>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('Calendar')}>
+              <Text style={styles.scheduleEmptyLink}>去日历页添加安排 ›</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.scheduleList}>
+            {todaySchedule.map((item) => {
+              const meta = getStatusMeta(item.status);
+              return (
+                <View key={item.id} style={styles.scheduleRow}>
+                  <View style={styles.scheduleTimeCol}>
+                    <Text style={styles.scheduleTime}>{toTime(item.dt)}</Text>
+                    <View style={[styles.scheduleLine, { backgroundColor: meta.color }]} />
+                  </View>
+                  <View style={[styles.scheduleBody, { borderLeftColor: meta.color }]}>
+                    <View style={styles.scheduleBodyTop}>
+                      <View style={[styles.scheduleTag, { backgroundColor: meta.bg }]}>
+                        <Text style={[styles.scheduleTagText, { color: meta.color }]}>{meta.label}</Text>
+                      </View>
+                      <Text style={styles.scheduleVisitor}>{item.visitor_name || '待定客户'}</Text>
+                    </View>
+                    <Text style={styles.scheduleProp} numberOfLines={1}>
+                      {item.property_title || item.property_address || '房源'}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+            {upcomingSchedule.length > 0 && (
+              <View style={styles.scheduleUpcoming}>
+                <Text style={styles.scheduleUpcomingLabel}>接下来</Text>
+                {upcomingSchedule.map((item) => (
+                  <View key={item.id} style={styles.scheduleUpcomingItem}>
+                    <Text style={styles.scheduleUpcomingTime}>{toTime(item.dt)}</Text>
+                    <Text style={styles.scheduleUpcomingProp} numberOfLines={1}>
+                      {item.property_title || item.property_address || '房源'}
+                    </Text>
+                    <Text style={styles.scheduleUpcomingVisitor} numberOfLines={1}>
+                      {item.visitor_name || ''}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
       </View>
 
       {/* 通知列表 */}
       <View style={styles.sectionHead}>
         <Text style={styles.sectionTitle}>最新通知</Text>
-        <Text style={styles.sectionHint}>共 {notifications.length} 条</Text>
+        <Text style={styles.sectionHint}>{pendingCount} 条未读</Text>
       </View>
 
       {notifications.length === 0 ? (
@@ -303,80 +352,36 @@ const styles = StyleSheet.create({
     color: colors.primaryForeground,
   },
 
-  /* ===== 待办提示条 ===== */
-  pendingBar: {
+  /* ===== 关键指标条（单行） ===== */
+  kpiStrip: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     marginHorizontal: 20,
-    marginBottom: 16,
-    backgroundColor: `rgba(${colors.primaryRgb}, 0.08)`,
-    borderRadius: colors.radius.lg,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  pendingText: { fontSize: 13, color: colors.ink2, flex: 1 },
-  pendingNum: { fontSize: 13, fontWeight: '800', color: colors.primary },
-
-  /* ===== 核心数据卡 ===== */
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  statBig: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: colors.radius.xl,
-    padding: 18,
-    gap: 12,
-    ...colors.shadow.card,
-  },
-  statPrimary: {
-    backgroundColor: colors.primary,
-  },
-  statSuccess: {
-    backgroundColor: colors.success,
-  },
-  statBigIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: colors.radius.lg,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statBigBody: { flex: 1 },
-  statBigNum: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -0.3,
-    marginBottom: 2,
-  },
-  statBigLabel: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
-
-  /* ===== 次级数据 ===== */
-  miniRow: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 20,
     marginBottom: 20,
-  },
-  miniCard: {
-    flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: colors.radius.lg,
-    paddingVertical: 16,
-    alignItems: 'center',
+    borderRadius: colors.radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
+    paddingVertical: 18,
     ...colors.shadow.sm,
   },
-  miniNum: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
-  miniLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
+  kpiItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  kpiDivider: {
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+  },
+  kpiNum: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    lineHeight: 26,
+  },
+  kpiLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
 
   /* ===== 区块标题 ===== */
   sectionHead: {
@@ -390,37 +395,92 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
   sectionHint: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
 
-  /* ===== 快捷入口 ===== */
-  quickGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    paddingHorizontal: 20,
-    marginBottom: 8,
-  },
-  quickItem: {
-    flexBasis: '30%',
-    flexGrow: 1,
+  /* ===== 日程日历卡片 ===== */
+  scheduleCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'hidden',
     ...colors.shadow.sm,
   },
-  quickIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: colors.radius.lg,
-    backgroundColor: `rgba(${colors.primaryRgb}, 0.1)`,
+  scheduleCardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  scheduleCardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  scheduleCardIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: `rgba(${colors.primaryRgb}, 0.12)`,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
-  quickLabel: { fontSize: 13, fontWeight: '700', color: colors.ink, marginBottom: 2 },
-  quickSub: { fontSize: 10, color: colors.ink3 },
+  scheduleCardTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  scheduleCountBadge: {
+    backgroundColor: `rgba(${colors.primaryRgb}, 0.1)`,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  scheduleCountText: { fontSize: 11, fontWeight: '600', color: colors.primary },
+  scheduleMore: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  scheduleMoreText: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
+
+  scheduleList: { paddingHorizontal: 16, paddingVertical: 6 },
+  scheduleRow: { flexDirection: 'row', alignItems: 'stretch' },
+  scheduleTimeCol: { width: 56, alignItems: 'center', paddingTop: 12 },
+  scheduleTime: { fontSize: 13, fontWeight: '700', color: colors.ink, marginBottom: 6 },
+  scheduleLine: { width: 2, flex: 1, minHeight: 36, opacity: 0.25 },
+  scheduleBody: {
+    flex: 1,
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.lg,
+    borderLeftWidth: 3,
+    marginLeft: 12,
+    marginVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  scheduleBodyTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  scheduleTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  scheduleTagText: { fontSize: 10, fontWeight: '600' },
+  scheduleVisitor: { fontSize: 12, color: colors.ink2, fontWeight: '600', flexShrink: 1, marginLeft: 8 },
+  scheduleProp: { fontSize: 13, color: colors.ink, fontWeight: '600' },
+
+  scheduleUpcoming: {
+    marginTop: 6,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  scheduleUpcomingLabel: { fontSize: 11, color: colors.ink3, fontWeight: '600', marginBottom: 8 },
+  scheduleUpcomingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 10,
+  },
+  scheduleUpcomingTime: { fontSize: 12, fontWeight: '700', color: colors.primary, width: 44 },
+  scheduleUpcomingProp: { flex: 1, fontSize: 13, color: colors.ink, fontWeight: '500' },
+  scheduleUpcomingVisitor: { fontSize: 12, color: colors.ink3, maxWidth: '40%' },
+
+  scheduleEmpty: { alignItems: 'center', paddingVertical: 28, gap: 6 },
+  scheduleEmptyText: { fontSize: 13, color: colors.ink3 },
+  scheduleEmptyLink: { fontSize: 13, fontWeight: '600', color: colors.primary },
 
   /* ===== 通知卡片 ===== */
   notifList: {
