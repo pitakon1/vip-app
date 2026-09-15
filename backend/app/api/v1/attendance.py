@@ -10,7 +10,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import require_employee, require_role
+from app.core.auth import require_admin, require_employee, require_role
 from app.models import (
     Attendance, AttendanceStatus, Employee, ExternalTripApplication, TripStatus, User,
     UserRole,
@@ -273,3 +273,83 @@ def approve_external_trip(
     session.commit()
     session.refresh(app)
     return {"id": str(app.id), "status": app.status.value}
+
+
+# ---------------------------------------------------------------------------
+# 管理员考勤核对：查看全部员工的考勤记录与汇总
+# ---------------------------------------------------------------------------
+@router.get("/admin/records")
+def admin_attendance_records(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    department: str | None = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    """考勤核对：按日期区间（默认最近 7 天）返回全员考勤明细与汇总。"""
+    today = date.today()
+    start = start_date or today
+    end = end_date or today
+    if start > end:
+        start, end = end, start
+    if (end - start).days > 92:
+        raise HTTPException(status_code=400, detail="Date range too large (max 92 days)")
+
+    emp_conditions = [Employee.deleted_at.is_(None), Employee.is_active.is_(True)]
+    if department:
+        emp_conditions.append(Employee.department == department)
+    employees = session.exec(
+        select(Employee).where(*emp_conditions).order_by(Employee.department, Employee.employee_code)
+    ).all()
+
+    att_conditions = [
+        Attendance.deleted_at.is_(None),
+        Attendance.date >= start,
+        Attendance.date <= end,
+    ]
+    atts = session.exec(select(Attendance).where(*att_conditions)).all()
+    users = {
+        u.id: u
+        for u in session.exec(select(User).where(User.id.in_([e.user_id for e in employees]) if employees else User.id.is_not(None))).all()
+    }
+
+    by_employee: dict[uuid.UUID, list] = {}
+    for a in atts:
+        by_employee.setdefault(a.employee_id, []).append(a)
+
+    status_totals: dict[str, int] = {s.value: 0 for s in AttendanceStatus}
+    records = []
+    for e in employees:
+        u = users.get(e.user_id)
+        rows = sorted(by_employee.get(e.id, []), key=lambda x: x.date)
+        record_days = []
+        for a in rows:
+            status_totals[a.status.value] = status_totals.get(a.status.value, 0) + 1
+            record_days.append(
+                {
+                    "date": a.date.isoformat(),
+                    "status": a.status.value,
+                    "check_in": a.check_in_time.isoformat() if a.check_in_time else None,
+                    "check_out": a.check_out_time.isoformat() if a.check_out_time else None,
+                    "notes": a.notes,
+                }
+            )
+        records.append(
+            {
+                "employee_id": str(e.id),
+                "name": u.full_name if u else None,
+                "email": u.email if u else None,
+                "department": e.department,
+                "employee_code": e.employee_code,
+                "days": record_days,
+            }
+        )
+
+    expected_days = (end - start).days + 1
+    return {
+        "range": {"start": start.isoformat(), "end": end.isoformat(), "days": expected_days},
+        "total_employees": len(records),
+        "summary": status_totals,
+        "department": department,
+        "records": records,
+    }

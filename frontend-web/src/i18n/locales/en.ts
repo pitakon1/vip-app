@@ -66,6 +66,7 @@ const en: import('./zh').Translation = {
     rolePermissions: 'Role Permissions',
     reviewCenter: 'Review Center',
     reconciliation: 'Reconciliation',
+    operationsBoard: 'Operations Board',
     trend: 'Operation Trends',
     commissionRules: 'Commission Rules',
     saleDeals: 'Sale Trade',

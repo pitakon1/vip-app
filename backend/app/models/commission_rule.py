@@ -18,6 +18,7 @@ class CommissionRuleScope(str, Enum):
     all_employees = "all_employees"
     by_department = "by_department"
     by_employee = "by_employee"
+    by_broker = "by_broker"  # 按分销商（渠道商）差异化定价
 
 
 class CommissionRule(TimestampMixin, table=True):
@@ -37,6 +38,9 @@ class CommissionRule(TimestampMixin, table=True):
     employee_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="employees.id"
     )  # scope=by_employee 时生效
+    broker_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="broker_partners.id", index=True
+    )  # scope=by_broker 时生效：该分销商专属佣金率
     cap_amount: Optional[float] = None  # 单笔封顶金额
     minimum_amount: Optional[float] = None  # 佣金起算门槛
     description: Optional[str] = None

@@ -52,15 +52,36 @@ def _resolve_agent(
 def _create_commission_settlement(
     session: Session, lease: Lease, deal_type: DealType, agent_id: uuid.UUID
 ) -> None:
-    """系统自动核算业绩：签约/续约后按默认佣金规则生成结算记录（佣金 = 1 个月租金）。"""
+    """系统自动核算业绩：按差异化佣金规则解析费率并生成结算记录。
+
+    优先级：员工专属 > 部门 > 分销商 > 全局 > 分销商基础分成 > 默认 1 个月租金。
+    """
+    from app.services.commission_rates import (
+        get_broker_base_rate,
+        resolve_commission_rate,
+    )
+
+    emp = session.get(Employee, agent_id)
+    broker_id = emp.broker_id if emp else None
+    broker_base = get_broker_base_rate(session, broker_id)
+    rate = resolve_commission_rate(
+        session,
+        deal_type=deal_type.value,
+        employee_id=agent_id,
+        department=emp.department if emp else None,
+        broker_id=broker_id,
+        broker_base_rate=broker_base,
+    )
+    # rate>1 视为百分比（如 5 = 5%），否则视为月租倍数（兼容旧默认 1.0）
+    factor = rate / 100 if rate > 1 else rate
     session.add(
         CommissionSettlement(
             employee_id=agent_id,
             lease_id=lease.id,
             deal_type=deal_type,
             commission_base=lease.monthly_rent,
-            commission_rate=1.0,
-            commission_amount=lease.monthly_rent,
+            commission_rate=rate,
+            commission_amount=round(lease.monthly_rent * factor, 2),
             currency=lease.currency,
             status=SettlementStatus.pending,
         )

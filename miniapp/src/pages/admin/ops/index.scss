@@ -1,0 +1,127 @@
+/* 运营数据看板 */
+.ops-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24rpx;
+  padding-bottom: 48rpx;
+
+  &-head { margin-bottom: 24rpx; }
+  &-title {
+    display: block;
+    font-size: 40rpx;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+  &-sub {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-3);
+    margin-top: 8rpx;
+  }
+}
+
+.ops-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
+}
+
+.ops-stat {
+  flex: 0 0 calc(50% - 8rpx);
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+
+  &__num {
+    display: block;
+    font-size: 36rpx;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: -0.02em;
+    margin-bottom: 6rpx;
+  }
+  &__label {
+    font-size: 22rpx;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+}
+
+.ops-section {
+  margin-bottom: 32rpx;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20rpx;
+  }
+  &__title { font-size: 32rpx; font-weight: 700; color: var(--ink); }
+  &__hint { font-size: 22rpx; color: var(--ink-3); }
+}
+
+.ops-card {
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  padding: 28rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.ops-empty {
+  font-size: 26rpx;
+  color: var(--ink-3);
+  text-align: center;
+  padding: 40rpx 0;
+}
+
+.ops-funnel {
+  &__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10rpx;
+  }
+  &__stage { font-size: 26rpx; font-weight: 600; color: var(--ink); }
+  &__val { font-size: 26rpx; font-weight: 700; color: var(--primary); }
+}
+
+.ops-bar {
+  height: 12rpx;
+  border-radius: 999rpx;
+  background: rgba(148, 163, 184, 0.15);
+  overflow: hidden;
+
+  &--auto { flex: 1; }
+
+  &__fill {
+    height: 100%;
+    border-radius: 999rpx;
+    background: var(--primary);
+
+    &--green { background: var(--success); }
+  }
+}
+
+.ops-country {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+
+  &__body { flex: 1; }
+  &__name {
+    display: block;
+    font-size: 28rpx;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 6rpx;
+  }
+  &__meta { font-size: 22rpx; color: var(--ink-3); }
+}

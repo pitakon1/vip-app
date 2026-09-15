@@ -3,3 +3,83 @@
   font-weight: 600;
   color: var(--rent-primary);
 }
+
+/* 可搜索下拉选择器（员工 / 分销商） */
+.rent-search-select {
+  position: relative;
+}
+
+.rent-search-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  background: var(--rent-bg, #fff);
+  border: 1px solid var(--rent-line, #e3e3e3);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--rent-ink, #1a1a1a);
+  cursor: pointer;
+  text-align: left;
+}
+
+.rent-search-select__arrow {
+  font-size: 12px;
+  color: var(--rent-ink-3, #999);
+}
+
+.rent-search-select__menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--rent-card, #fff);
+  border: 1px solid var(--rent-line, #e3e3e3);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+}
+
+.rent-search-select__search {
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-bottom: 1px solid var(--rent-line, #e3e3e3);
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.rent-search-select__empty {
+  padding: 12px;
+  font-size: 13px;
+  color: var(--rent-ink-3, #999);
+  text-align: center;
+}
+
+.rent-search-select__option {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--rent-ink-2, #555);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.rent-search-select__option:last-child {
+  border-bottom: none;
+}
+
+.rent-search-select__option:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.rent-search-select__option.is-active {
+  color: var(--rent-primary);
+  font-weight: 600;
+  background: rgba(var(--rent-primary-rgb, 24, 144, 255), 0.06);
+}

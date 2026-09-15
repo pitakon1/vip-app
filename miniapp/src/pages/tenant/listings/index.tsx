@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { View, Text, ScrollView, Image, Input } from '@tarojs/components'
+import { View, Text, ScrollView, Image, TextInput } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { propertiesApi, favoritesApi } from '@/services/api'
@@ -594,7 +594,7 @@ export default function TenantListingsPage() {
       <View className='price-custom'>
         <View className='price-input'>
           <Text className='price-input__cur'>฿</Text>
-          <Input
+          <TextInput
             className='price-input__field'
             type='number'
             value={priceDraftMin}
@@ -607,7 +607,7 @@ export default function TenantListingsPage() {
         <Text className='price-custom__divider'>至</Text>
         <View className='price-input'>
           <Text className='price-input__cur'>฿</Text>
-          <Input
+          <TextInput
             className='price-input__field'
             type='number'
             value={priceDraftMax}
@@ -675,7 +675,7 @@ export default function TenantListingsPage() {
       <Text className='filter-group__title'>自定义面积</Text>
       <View className='price-custom'>
         <View className='price-input'>
-          <Input
+          <TextInput
             className='price-input__field'
             type='number'
             value={areaDraftMin}
@@ -687,7 +687,7 @@ export default function TenantListingsPage() {
         </View>
         <Text className='price-custom__divider'>至</Text>
         <View className='price-input'>
-          <Input
+          <TextInput
             className='price-input__field'
             type='number'
             value={areaDraftMax}

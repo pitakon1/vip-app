@@ -54,6 +54,7 @@ import SystemUsers from '@/pages/System/Users'
 import SystemGroups from '@/pages/System/Groups'
 import SystemPermissions from '@/pages/System/Permissions'
 import SystemReview from '@/pages/System/ReviewCenter'
+import Operations from '@/pages/Operations'
 
 import Company from '@/pages/Company'
 import useAuthStore from '@/stores/auth'
@@ -141,6 +142,7 @@ const App = () => {
           <Route path="/system/groups" element={<SystemGroups />} />
           <Route path="/system/permissions" element={<SystemPermissions />} />
           <Route path="/system/review-center" element={<SystemReview />} />
+          <Route path="/operations" element={<Operations />} />
         </Route>
 
         {/* ===== 租客端（C端 · 顶栏门户 PortalLayout，无侧边栏）===== */}

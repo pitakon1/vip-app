@@ -12,6 +12,7 @@ import ContractDetailScreen from '../screens/contracts/ContractDetailScreen';
 import BackupScreen from '../screens/backup/BackupScreen';
 import MapScreen from '../screens/map/MapScreen';
 import AttendanceScreen from '../screens/attendance/AttendanceScreen';
+import AttendanceReviewScreen from '../screens/attendance/AttendanceReviewScreen';
 import PropertyDetailScreen from '../screens/tenant/PropertyDetailScreen';
 import TenantListingsScreen from '../screens/tenant/ListingsScreen';
 import DocumentsScreen from '../screens/tenant/DocumentsScreen';
@@ -30,6 +31,7 @@ import PropertiesScreen from '../screens/employee/PropertiesScreen';
 import CalendarScreen from '../screens/employee/CalendarScreen';
 import AdminReviewScreen from '../screens/admin/AdminReviewScreen';
 import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
+import AdminOpsScreen from '../screens/admin/AdminOpsScreen';
 import ContactScreen from '../screens/employee/ContactScreen';
 import OwnerPaymentsScreen from '../screens/owner/PaymentsScreen';
 import OwnerMarketingScreen from '../screens/owner/MarketingScreen';
@@ -66,6 +68,8 @@ export type RootStackParamList = {
   OwnerMarketing: undefined;
   AdminReview: undefined;
   AdminUsers: undefined;
+  AdminOps: undefined;
+  AttendanceReview: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -95,6 +99,7 @@ export function RootNavigator() {
           <Stack.Screen name="Backup" component={BackupScreen} options={{ headerShown: true, title: '数据备份' }} />
           <Stack.Screen name="Map" component={MapScreen} options={{ headerShown: true, title: '地图找房' }} />
           <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ headerShown: true, title: '考勤打卡' }} />
+          <Stack.Screen name="AttendanceReview" component={AttendanceReviewScreen} options={{ headerShown: true, title: '考勤核对' }} />
           <Stack.Screen name="PropertyDetail" component={PropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />
           <Stack.Screen name="PropertySearch" component={TenantListingsScreen} options={{ headerShown: true, title: '房源搜索' }} />
           <Stack.Screen name="Documents" component={DocumentsScreen} options={{ headerShown: true, title: '我的文档' }} />
@@ -113,6 +118,7 @@ export function RootNavigator() {
           <Stack.Screen name="Calendar" component={CalendarScreen} options={{ headerShown: false }} />
           <Stack.Screen name="AdminReview" component={AdminReviewScreen} options={{ headerShown: true, title: '工单审核' }} />
           <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ headerShown: true, title: '账号管理' }} />
+          <Stack.Screen name="AdminOps" component={AdminOpsScreen} options={{ headerShown: true, title: '运营数据看板' }} />
           <Stack.Screen name="Contacts" component={ContactScreen} options={{ headerShown: true, title: '同事通讯录' }} />
           <Stack.Screen name="OwnerPayments" component={OwnerPaymentsScreen} options={{ headerShown: true, title: '我的付款' }} />
           <Stack.Screen name="OwnerMarketing" component={OwnerMarketingScreen} options={{ headerShown: true, title: '委托挂牌与营销' }} />

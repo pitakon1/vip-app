@@ -23,6 +23,7 @@ import AttendanceScreen from '../screens/attendance/AttendanceScreen';
 
 // 管理端页面
 import AdminHomeScreen from '../screens/admin/HomeScreen';
+import AdminOpsScreen from '../screens/admin/AdminOpsScreen';
 
 // 公共：消息（聊天）
 import ChatListScreen from '../screens/chat/ChatListScreen';
@@ -102,7 +103,7 @@ function AdminTabs() {
   return (
     <Tab.Navigator screenOptions={screenOptions}>
       <Tab.Screen name="AdminHome" component={AdminHomeScreen} options={makeTabOptions('stats-chart', t('tab.home'))} />
-      <Tab.Screen name="AdminChat" component={ChatListScreen} options={makeTabOptions('chatbubbles', t('tab.messages'))} />
+      <Tab.Screen name="AdminOps" component={AdminOpsScreen} options={makeTabOptions('bar-chart', '运营看板')} />
       <Tab.Screen name="AdminProfile" component={ProfileScreen} options={makeTabOptions('person', t('tab.profile'))} />
     </Tab.Navigator>
   );

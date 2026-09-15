@@ -124,6 +124,7 @@ const buildSections = (role: string, t: TFunction): NavSection[] => {
         {
           label: s('performance'),
           items: [
+            { key: '/operations', label: t('menu.operationsBoard'), icon: icon('M3 3v18h18 M7 14l4-5 3 3 5-7') },
             { key: '/viewings', label: t('menu.viewings'), icon: icon('M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2') },
             { key: '/reconciliation', label: t('menu.reconciliation'), icon: icon('M1 4h22v16H1z M1 10h23 M9 16l3 3 5-6') },
             { key: '/trend', label: t('menu.trend'), icon: icon('M18 20V10M12 20V4M6 20v-6') },

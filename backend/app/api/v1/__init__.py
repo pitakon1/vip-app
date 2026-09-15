@@ -43,6 +43,7 @@ from .users_admin import router as users_admin_router
 from .user_groups import router as user_groups_router
 from .permissions_admin import router as permissions_admin_router
 from .review_center import router as review_center_router
+from .operations import router as operations_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -85,5 +86,6 @@ api_router.include_router(users_admin_router)
 api_router.include_router(user_groups_router)
 api_router.include_router(permissions_admin_router)
 api_router.include_router(review_center_router)
+api_router.include_router(operations_router)
 
 __all__ = ["api_router"]

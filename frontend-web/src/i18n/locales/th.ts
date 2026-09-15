@@ -66,6 +66,7 @@ const th: import('./zh').Translation = {
     rolePermissions: 'สิทธิ์บทบาท',
     reviewCenter: 'ศูนย์ตรวจสอบ',
     reconciliation: 'กระทบยอดการเงิน',
+    operationsBoard: 'แดชบอร์ดปฏิบัติการ',
     trend: 'แนวโน้มการดำเนินงาน',
     commissionRules: 'กฎค่าคอมมิชชัน',
     saleDeals: 'การซื้อขาย',

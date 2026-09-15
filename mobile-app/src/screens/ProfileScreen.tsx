@@ -61,10 +61,10 @@ const FUNC_BY_ROLE: Record<UserRole, FuncEntry[]> = {
     { key: 'performance', labelKey: 'profile.performance', icon: 'stats-chart', navigate: 'Performance' },
     { key: 'attendance', labelKey: 'profile.attendance', icon: 'location', navigate: 'Attendance' },
   ],
-  // 管理员：系统管理（员工/考勤/备份/地图；员工管理在管理员工作台内）
+  // 管理员：系统管理（员工/考勤核对/备份/地图；员工管理在管理员工作台内）
   admin: [
     { key: 'employees', labelKey: 'profile.employees', icon: 'people', navigate: 'Main' },
-    { key: 'attendance', labelKey: 'profile.attendance', icon: 'location', navigate: 'Attendance' },
+    { key: 'attendanceReview', labelKey: 'profile.attendanceReview', icon: 'clipboard', navigate: 'AttendanceReview' },
     { key: 'backup', labelKey: 'profile.backup', icon: 'cloud-upload', navigate: 'Backup' },
     { key: 'map', labelKey: 'profile.map', icon: 'map', navigate: 'Map' },
   ],

@@ -4,7 +4,9 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import {
   dashboardApi,
-  commissionRulesApi
+  commissionRulesApi,
+  brokerApi,
+  employeesApi
 } from '@/services/api'
 import './index.scss'
 
@@ -33,6 +35,9 @@ interface CommissionRule {
   rate: number
   scope?: string
   is_active?: boolean
+  broker_id?: string
+  employee_id?: string
+  department?: string
   cap_amount?: number
   minimum_amount?: number
   description?: string
@@ -83,14 +88,17 @@ const DEAL_TYPE: Record<string, string> = {
 }
 const SCOPE: Record<string, string> = {
   all_employees: '全体员工',
+  by_department: '部门',
   department: '部门',
-  individual: '个人'
+  by_employee: '个人',
+  individual: '个人',
+  by_broker: '按分销商'
 }
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'overview', label: '运营概览', icon: '📊' },
   { key: 'recon', label: '财务对账', icon: '💰' },
-  { key: 'commission', label: '佣金规则', icon: '⚙️' },
+  { key: 'commission', label: '佣金设置', icon: '⚙️' },
 ]
 
 function StateView({
@@ -121,8 +129,80 @@ function StateView({
   )
 }
 
+interface DropOption {
+  key: string
+  label: string
+}
+
+// 展开式搜索下拉（支持角色层级选择）
+function SearchDrop({
+  label,
+  value,
+  options,
+  open,
+  onToggle,
+  onSelect,
+  searchable,
+  hint
+}: {
+  label: string
+  value: string
+  options: DropOption[]
+  open: boolean
+  onToggle: () => void
+  onSelect: (key: string) => void
+  searchable?: boolean
+  hint?: string
+}) {
+  const [kw, setKw] = useState('')
+  const filtered = kw.trim()
+    ? options.filter((o) => o.label.toLowerCase().includes(kw.trim().toLowerCase()))
+    : options
+  const current = options.find((o) => o.key === value)
+  return (
+    <View className='adm-form-item'>
+      <Text className='adm-form-label'>{label}</Text>
+      <View className='adm-select-value' onClick={onToggle}>
+        <Text className={current ? 'adm-select-value__text' : 'adm-select-value__text adm-select-value__text--placeholder'}>
+          {current ? current.label : `请选择${label}`}
+        </Text>
+        <Text className='adm-select-value__arrow'>{open ? '▴' : '▾'}</Text>
+      </View>
+      {hint && <Text className='adm-form-hint'>{hint}</Text>}
+      {open && (
+        <View className='adm-drop-menu'>
+          {searchable && (
+            <Input
+              className='adm-drop-search'
+              placeholder='搜索...'
+              value={kw}
+              onInput={(e) => setKw(e.detail.value)}
+            />
+          )}
+          {filtered.length === 0 && <Text className='adm-drop-empty'>无匹配选项</Text>}
+          {filtered.map((o) => (
+            <View
+              key={o.key}
+              className={`adm-drop-option ${value === o.key ? 'adm-drop-option--active' : ''}`}
+              onClick={() => {
+                setKw('')
+                onSelect(o.key)
+                onToggle()
+              }}
+            >
+              <Text>{o.label}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  )
+}
+
 export default function AdminHomePage() {
   const user = useAuthStore((state) => state.user)
+  // 角色：管理员可选全部层级；分销商管理员仅本渠道 + 本渠道员工
+  const isAdmin = user?.role === 'admin'
   const [tab, setTab] = useState<Tab>('overview')
   const [loading, setLoading] = useState(false)
 
@@ -139,10 +219,19 @@ export default function AdminHomePage() {
   const [homeTrend, setHomeTrend] = useState<TrendRow[]>([])
   // 佣金规则
   const [rules, setRules] = useState<CommissionRule[]>([])
+  const [brokers, setBrokers] = useState<any[]>([])
+  const [employees, setEmployees] = useState<any[]>([])
+  const [openDrop, setOpenDrop] = useState('') // '' | 'scope' | 'broker' | 'employee'
+  const [dropKw, setDropKw] = useState('')
   const [ruleForm, setRuleForm] = useState({
     name: '',
     deal_type: 'new_rental',
-    rate: '5'
+    rate: '5',
+    scope: 'all_employees',
+    broker_id: '',
+    employee_id: '',
+    broker_employee_id: '',
+    department: ''
   })
 
   const fetchOverview = async () => {
@@ -202,8 +291,16 @@ export default function AdminHomePage() {
       const res: any = await commissionRulesApi.list({})
       const items = pick(res, 'items') ?? (Array.isArray(res?.data) ? res.data : [])
       setRules(items)
+      // 分销商/员工列表（按分销商/按员工差异化定价选项）
+      const [broRes, empRes]: any[] = await Promise.all([
+        brokerApi.list({ page_size: 100 }).catch(() => ({ data: { items: [] } })),
+        employeesApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: { items: [] } }))
+      ])
+      setBrokers((broRes?.data?.items ?? []) as any[])
+      const empD = empRes?.data ?? {}
+      setEmployees((empD.items ?? empD ?? []) as any[])
     } catch (e) {
-      Taro.showToast({ title: '加载佣金规则失败', icon: 'none' })
+      Taro.showToast({ title: '加载佣金设置失败', icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -234,14 +331,59 @@ export default function AdminHomePage() {
       Taro.showToast({ title: '请填写完整', icon: 'none' })
       return
     }
+    if (ruleForm.scope === 'by_broker' && isAdmin && !ruleForm.broker_id) {
+      Taro.showToast({ title: '请选择分销商', icon: 'none' })
+      return
+    }
+    if (ruleForm.scope === 'by_employee' && isAdmin && !ruleForm.employee_id) {
+      Taro.showToast({ title: '请选择员工', icon: 'none' })
+      return
+    }
+    if (ruleForm.scope === 'broker_employee') {
+      if (!ruleForm.broker_id) {
+        Taro.showToast({ title: '请先选择分销商', icon: 'none' })
+        return
+      }
+      if (!ruleForm.broker_employee_id) {
+        Taro.showToast({ title: '请选择该分销商的员工', icon: 'none' })
+        return
+      }
+    }
+    if (ruleForm.scope === 'by_department' && !ruleForm.department) {
+      Taro.showToast({ title: '请输入部门名称', icon: 'none' })
+      return
+    }
     try {
       await commissionRulesApi.create({
         name: ruleForm.name,
         deal_type: ruleForm.deal_type,
-        rate: Number(ruleForm.rate)
+        rate: Number(ruleForm.rate),
+        scope: ruleForm.scope === 'broker_employee' ? 'by_employee' : ruleForm.scope,
+        broker_id:
+          ruleForm.scope === 'broker_employee'
+            ? ruleForm.broker_id
+            : ruleForm.scope === 'by_broker' && isAdmin
+              ? ruleForm.broker_id
+              : undefined,
+        employee_id:
+          ruleForm.scope === 'broker_employee'
+            ? ruleForm.broker_employee_id
+            : ruleForm.scope === 'by_employee'
+              ? ruleForm.employee_id
+              : undefined,
+        department: ruleForm.scope === 'by_department' ? ruleForm.department : undefined
       })
       Taro.showToast({ title: '已创建', icon: 'success' })
-      setRuleForm({ name: '', deal_type: 'new_rental', rate: '5' })
+      setRuleForm({
+        name: '',
+        deal_type: 'new_rental',
+        rate: '5',
+        scope: isAdmin ? 'all_employees' : 'by_broker',
+        broker_id: '',
+        employee_id: '',
+        broker_employee_id: '',
+        department: ''
+      })
       fetchRules()
     } catch (e) {
       Taro.showToast({ title: '创建失败', icon: 'none' })
@@ -296,12 +438,12 @@ export default function AdminHomePage() {
           <View
             className='adm-special__cap'
             hoverClass='adm-special__cap--hover'
-            onClick={() => Taro.navigateTo({ url: '/pages/admin/trend/index' })}
+            onClick={() => Taro.navigateTo({ url: '/pages/admin/ops/index' })}
           >
-            <Text className='adm-special__cap-icon'>📈</Text>
+            <Text className='adm-special__cap-icon'>📊</Text>
             <View className='adm-special__cap-body'>
-              <Text className='adm-special__cap-title'>运营趋势</Text>
-              <Text className='adm-special__cap-desc'>12 个月走势</Text>
+              <Text className='adm-special__cap-title'>运营看板</Text>
+              <Text className='adm-special__cap-desc'>漏斗 · 活跃 · 分国数据</Text>
             </View>
           </View>
           <View
@@ -534,7 +676,7 @@ export default function AdminHomePage() {
           <View>
             <View className='adm-section'>
               <View className='adm-section__head'>
-                <Text className='adm-section__title'>新增规则</Text>
+                <Text className='adm-section__title'>新增设置</Text>
               </View>
               <View className='adm-form-card'>
                 <View className='adm-form-item'>
@@ -560,6 +702,101 @@ export default function AdminHomePage() {
                     ))}
                   </View>
                 </View>
+                {isAdmin ? (
+                    <SearchDrop
+                      label='适用对象'
+                      value={ruleForm.scope}
+                      options={[
+                        { key: 'all_employees', label: '全体员工' },
+                        { key: 'by_department', label: '部门' },
+                        { key: 'by_employee', label: '员工' },
+                        { key: 'by_broker', label: '分销商' },
+                        { key: 'broker_employee', label: '分销商员工' }
+                      ]}
+                      open={openDrop === 'scope'}
+                      onToggle={() => setOpenDrop(openDrop === 'scope' ? '' : 'scope')}
+                      onSelect={(k) => {
+                        setRuleForm({
+                          ...ruleForm,
+                          scope: k,
+                          broker_id: '',
+                          employee_id: '',
+                          broker_employee_id: '',
+                          department: ''
+                        })
+                      }}
+                    />
+                  ) : (
+                    <SearchDrop
+                      label='适用对象'
+                      value={ruleForm.scope}
+                      options={[
+                        { key: 'by_broker', label: '本渠道（差异化定价）' },
+                        { key: 'by_employee', label: '本渠道员工' }
+                      ]}
+                      open={openDrop === 'scope'}
+                      onToggle={() => setOpenDrop(openDrop === 'scope' ? '' : 'scope')}
+                      onSelect={(k) => {
+                        setRuleForm({ ...ruleForm, scope: k, broker_id: '', employee_id: '' })
+                      }}
+                      hint='分销商管理员仅可为本渠道及本渠道员工配置差异化费率'
+                    />
+                  )}
+                </View>
+                {(ruleForm.scope === 'by_broker' || ruleForm.scope === 'broker_employee') && isAdmin && brokers.length > 0 && (
+                  <SearchDrop
+                    label='选择分销商'
+                    value={ruleForm.broker_id}
+                    options={brokers.map((b) => ({ key: b.id, label: b.partner_name || b.name }))}
+                    open={openDrop === 'broker'}
+                    onToggle={() => setOpenDrop(openDrop === 'broker' ? '' : 'broker')}
+                    onSelect={(k) => {
+                      setRuleForm({ ...ruleForm, broker_id: k, broker_employee_id: '' })
+                    }}
+                    searchable
+                  />
+                )}
+                {(ruleForm.scope === 'by_employee' || ruleForm.scope === 'broker_employee') && employees.length > 0 && (
+                  <SearchDrop
+                    label={
+                      ruleForm.scope === 'broker_employee'
+                        ? isAdmin
+                          ? '该分销商员工'
+                          : '本渠道员工'
+                        : isAdmin
+                          ? '员工'
+                          : '本渠道员工'
+                    }
+                    value={
+                      ruleForm.scope === 'broker_employee' ? ruleForm.broker_employee_id : ruleForm.employee_id
+                    }
+                    options={(ruleForm.scope === 'broker_employee' && isAdmin && ruleForm.broker_id
+                      ? employees.filter((e) => e.broker_id === ruleForm.broker_id)
+                      : employees
+                    ).map((e) => ({ key: e.id, label: e.full_name || e.name }))}
+                    open={openDrop === 'employee'}
+                    onToggle={() => setOpenDrop(openDrop === 'employee' ? '' : 'employee')}
+                    onSelect={(k) => {
+                      if (ruleForm.scope === 'broker_employee') {
+                        setRuleForm({ ...ruleForm, broker_employee_id: k })
+                      } else {
+                        setRuleForm({ ...ruleForm, employee_id: k })
+                      }
+                    }}
+                    searchable
+                  />
+                )}
+                {ruleForm.scope === 'by_department' && isAdmin && (
+                  <View className='adm-form-item'>
+                    <Text className='adm-form-label'>部门名称</Text>
+                    <Input
+                      className='adm-form-input'
+                      placeholder='如：租赁部'
+                      value={ruleForm.department}
+                      onInput={(e) => setRuleForm({ ...ruleForm, department: e.detail.value })}
+                    />
+                  </View>
+                )}
                 <View className='adm-form-item'>
                   <Text className='adm-form-label'>佣金比例 %</Text>
                   <Input
@@ -571,18 +808,18 @@ export default function AdminHomePage() {
                   />
                 </View>
                 <View className='adm-submit-btn' onClick={addRule}>
-                  <Text className='adm-submit-btn__text'>新增规则</Text>
+                  <Text className='adm-submit-btn__text'>新增设置</Text>
                 </View>
               </View>
             </View>
 
             <View className='adm-section'>
               <View className='adm-section__head'>
-                <Text className='adm-section__title'>已有规则</Text>
+                <Text className='adm-section__title'>已有设置</Text>
                 <Text className='adm-section__hint'>共 {rules.length} 条</Text>
               </View>
               {rules.length === 0 ? (
-                <StateView loading={loading} icon='⚙️' title='暂无佣金规则' desc='新增一条规则即可生效' />
+                <StateView loading={loading} icon='⚙️' title='暂无佣金设置' desc='新增一条设置即可生效' />
               ) : (
                 <View className='adm-rule-list'>
                   {rules.map((r) => (
@@ -609,9 +846,17 @@ export default function AdminHomePage() {
                           </Text>
                         </View>
                         <View className='adm-rule-card__meta-item'>
-                          <Text className='adm-rule-card__meta-label'>范围</Text>
+                          <Text className='adm-rule-card__meta-label'>适用对象</Text>
                           <Text className='adm-rule-card__meta-value'>
-                            {SCOPE[r.scope || ''] || '全体员工'}
+                            {r.scope === 'by_broker'
+                              ? (brokers.find((b) => b.id === r.broker_id)?.partner_name ||
+                                brokers.find((b) => b.id === r.broker_id)?.name) || '按分销商'
+                              : r.scope === 'by_employee'
+                                ? (employees.find((e) => e.id === r.employee_id)?.full_name ||
+                                  employees.find((e) => e.id === r.employee_id)?.name) || '个人'
+                                : r.scope === 'by_department'
+                                  ? r.department || '部门'
+                                  : SCOPE[r.scope || ''] || '全体员工'}
                           </Text>
                         </View>
                       </View>

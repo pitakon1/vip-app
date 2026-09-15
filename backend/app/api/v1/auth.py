@@ -63,11 +63,17 @@ def _build_token_response(user: User) -> TokenResponse:
 
 @router.post("/login", response_model=TokenResponse)
 def login(form: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+    from datetime import datetime as _dt
+
     user = session.exec(select(User).where(User.email == form.username)).first()
     if not user or not verify_password(form.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
+    # 记录登录时间（运营看板 DAU/MAU 数据源）
+    user.last_login_at = _dt.utcnow()
+    session.add(user)
+    session.commit()
     return _build_token_response(user)
 
 

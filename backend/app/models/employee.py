@@ -28,3 +28,7 @@ class Employee(TimestampMixin, table=True):
     manager_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="employees.id", description="直属上级（自引用）"
     )
+    broker_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="broker_partners.id",
+        description="归属分销商（渠道商），用于差异化佣金定价",
+    )

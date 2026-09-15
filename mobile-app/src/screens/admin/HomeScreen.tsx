@@ -1,7 +1,7 @@
 /**
  * 管理员工作台：运营概览 / 财务对账 / 佣金规则
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,8 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import LineChart from '@/components/charts/LineChart';
 import BarChart from '@/components/charts/BarChart';
-import { dashboardApi, commissionRulesApi } from '@/services/api';
+import { dashboardApi, commissionRulesApi, brokerApi, employeesApi } from '@/services/api';
+import { useAuthStore } from '@/stores/auth';
 
 type Tab = 'overview' | 'recon' | 'commission';
 
@@ -60,32 +61,111 @@ const DEAL_TYPE: Record<string, string> = {
 };
 const SCOPE: Record<string, string> = {
   all_employees: '全体员工',
+  by_department: '部门',
   department: '部门',
+  by_employee: '个人',
   individual: '个人',
+  by_broker: '按分销商',
 };
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'overview', label: '运营概览', icon: 'grid-outline' },
   { key: 'recon', label: '财务对账', icon: 'wallet-outline' },
-  { key: 'commission', label: '佣金规则', icon: 'settings-outline' },
+  { key: 'commission', label: '佣金设置', icon: 'settings-outline' },
 ];
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-// 快捷入口：高频业务 + 管理体系直达（低频管理功能经 Web 侧边栏可达）
+// 表单下拉选择器（展开式，支持搜索）
+interface ScopeOption {
+  key: string;
+  label: string;
+}
+
+function SelectDropdown({
+  label,
+  value,
+  options,
+  open,
+  onToggle,
+  onSelect,
+  searchable = false,
+}: {
+  label: string;
+  value: string;
+  options: ScopeOption[];
+  open: boolean;
+  onToggle: () => void;
+  onSelect: (key: string) => void;
+  searchable?: boolean;
+}) {
+  const [kw, setKw] = useState('');
+  const filtered = kw.trim()
+    ? options.filter((o) => o.label.toLowerCase().includes(kw.trim().toLowerCase()))
+    : options;
+  const current = options.find((o) => o.key === value);
+  return (
+    <View style={styles.formGroup}>
+      <Text style={styles.formLabel}>{label}</Text>
+      <TouchableOpacity style={styles.selectBox} onPress={onToggle} activeOpacity={0.7}>
+        <Text style={[styles.selectText, !current && styles.selectPlaceholder]} numberOfLines={1}>
+          {current ? current.label : `请选择${label}`}
+        </Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={colors.ink3} />
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.selectMenu}>
+          {searchable && (
+            <TextInput
+              style={styles.selectSearch}
+              placeholder="搜索..."
+              placeholderTextColor={colors.ink3}
+              value={kw}
+              onChangeText={setKw}
+            />
+          )}
+          {filtered.length === 0 && (
+            <Text style={styles.selectEmpty}>无匹配选项</Text>
+          )}
+          {filtered.map((o) => (
+            <TouchableOpacity
+              key={o.key}
+              style={styles.selectOption}
+              onPress={() => {
+                setKw('');
+                onSelect(o.key);
+                onToggle();
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.selectOptionText, value === o.key && styles.selectOptionTextActive]}>{o.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// 快捷入口：仅保留高频必要功能（运营看板在底部 Tab，不再重复；低频管理功能经 Web 侧边栏可达）
 const QUICK_ACTIONS: { key: string; label: string; icon: IoniconName; route: string }[] = [
   { key: 'props', label: '房源管理', icon: 'home-outline', route: 'EmployeeProperties' },
   { key: 'sale', label: '买卖成交', icon: 'swap-horizontal-outline', route: 'SaleDeals' },
-  { key: 'markets', label: '多国市场', icon: 'earth-outline', route: 'Markets' },
   { key: 'review', label: '工单审核', icon: 'checkbox-outline', route: 'AdminReview' },
   { key: 'account', label: '账号管理', icon: 'people-outline', route: 'AdminUsers' },
 ];
 
 export default function AdminHomeScreen() {
   const navigation = useNavigation<any>();
+  const user = useAuthStore((s) => s.user);
+  // 角色：管理员可选全部层级；分销商管理员仅本渠道 + 本渠道员工
+  const isAdmin = user?.role === 'admin';
   const [tab, setTab] = useState<Tab>('overview');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [brokerOpen, setBrokerOpen] = useState(false);
+  const [employeeOpen, setEmployeeOpen] = useState(false);
 
   const [summary, setSummary] = useState<any>({});
   const [expiring, setExpiring] = useState<any[]>([]);
@@ -97,6 +177,20 @@ export default function AdminHomeScreen() {
   const [name, setName] = useState('');
   const [rate, setRate] = useState('');
   const [dealType, setDealType] = useState('new_rental');
+  const [scope, setScope] = useState('all_employees');
+  const [brokerId, setBrokerId] = useState('');
+  const [department, setDepartment] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [brokerEmployeeId, setBrokerEmployeeId] = useState('');
+  const [brokers, setBrokers] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+
+  // 分销商管理员无全局规则权限，默认回退到本渠道
+  useEffect(() => {
+    if (!isAdmin && (scope === 'all_employees' || scope === 'by_department')) {
+      setScope('by_broker');
+    }
+  }, [isAdmin]);
 
   const loadTab = useCallback(async (target: Tab) => {
     setLoading(true);
@@ -125,6 +219,15 @@ export default function AdminHomeScreen() {
         const res: any = await commissionRulesApi.list({});
         const d = res?.data ?? {};
         setRules((d.items ?? d ?? []) as CommissionRule[]);
+        // 分销商/员工列表（用于按分销商/按员工配置差异化费率）
+        const [, broRes, empRes]: any[] = await Promise.all([
+          Promise.resolve(),
+          brokerApi.list({ page_size: 100 }).catch(() => ({ data: { items: [] } })),
+          employeesApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: { items: [] } })),
+        ]);
+        setBrokers((broRes?.data?.items ?? []) as any[]);
+        const empD = empRes?.data ?? {};
+        setEmployees((empD.items ?? empD ?? []) as any[]);
       }
     } catch (e) {
       /* 加载失败不阻塞 */
@@ -163,19 +266,60 @@ export default function AdminHomeScreen() {
   }));
 
   const addRule = async () => {
-    if (!name || !rate) return;
+    if (!name || !rate) {
+      Alert.alert('提示', '请填写规则名称与佣金比例');
+      return;
+    }
+    if (scope === 'by_broker' && isAdmin && !brokerId) {
+      Alert.alert('提示', '请选择分销商');
+      return;
+    }
+    if (scope === 'by_employee' && isAdmin && !employeeId) {
+      Alert.alert('提示', '请选择员工');
+      return;
+    }
+    if (scope === 'broker_employee') {
+      if (!brokerId) {
+        Alert.alert('提示', '请先选择分销商');
+        return;
+      }
+      if (!brokerEmployeeId) {
+        Alert.alert('提示', '请选择该分销商的员工');
+        return;
+      }
+    }
+    if (scope === 'by_department' && !department) {
+      Alert.alert('提示', '请输入部门名称');
+      return;
+    }
     const ruleName = name;
     try {
-      await commissionRulesApi.create({
+      const payload: any = {
         name,
         rate: Number(rate),
         deal_type: dealType,
-      });
+        scope:
+          scope === 'broker_employee'
+            ? 'by_employee'
+            : scope,
+        ...(scope === 'by_employee' || scope === 'broker_employee'
+          ? { employee_id: scope === 'broker_employee' ? brokerEmployeeId : employeeId }
+          : {}),
+        ...(scope === 'broker_employee' ? { broker_id: brokerId } : {}),
+        ...(scope === 'by_broker' && isAdmin ? { broker_id: brokerId } : {}),
+        ...(scope === 'by_department' ? { department } : {}),
+      };
+      await commissionRulesApi.create(payload);
       setName('');
       setRate('');
       setDealType('new_rental');
+      setScope('all_employees');
+      setBrokerId('');
+      setDepartment('');
+      setEmployeeId('');
+      setBrokerEmployeeId('');
       await loadTab('commission');
-      Alert.alert('新增成功', `佣金规则「${ruleName}」已生效`);
+      Alert.alert('新增成功', `佣金设置「${ruleName}」已生效`);
     } catch (e: any) {
       Alert.alert('新增失败', e?.response?.data?.message || '请稍后重试');
     }
@@ -421,7 +565,7 @@ export default function AdminHomeScreen() {
         {tab === 'commission' && (
           <View>
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>新增规则</Text>
+              <Text style={styles.sectionTitle}>新增设置</Text>
             </View>
             <View style={styles.formCard}>
               <Text style={styles.formLabel}>规则名称</Text>
@@ -445,6 +589,100 @@ export default function AdminHomeScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+              {isAdmin ? (
+                <SelectDropdown
+                  label="适用对象"
+                  value={scope}
+                  options={[
+                    { key: 'all_employees', label: '全体员工' },
+                    { key: 'by_department', label: '部门' },
+                    { key: 'by_employee', label: '员工' },
+                    { key: 'by_broker', label: '分销商' },
+                    { key: 'broker_employee', label: '分销商员工' },
+                  ]}
+                  open={scopeOpen}
+                  onToggle={() => setScopeOpen(!scopeOpen)}
+                  onSelect={(k) => {
+                    setScope(k);
+                    setBrokerId('');
+                    setDepartment('');
+                    setEmployeeId('');
+                  }}
+                />
+              ) : (
+                <SelectDropdown
+                  label="适用对象"
+                  value={scope}
+                  options={[
+                    { key: 'by_broker', label: '本渠道（差异化定价）' },
+                    { key: 'by_employee', label: '本渠道员工' },
+                  ]}
+                  open={scopeOpen}
+                  onToggle={() => setScopeOpen(!scopeOpen)}
+                  onSelect={(k) => {
+                    setScope(k);
+                    setBrokerId('');
+                    setEmployeeId('');
+                  }}
+                />
+              )}
+              {!isAdmin && (
+                <Text style={styles.formHint}>分销商管理员仅可为本渠道及本渠道员工配置差异化费率</Text>
+              )}
+              {(scope === 'by_broker' || scope === 'broker_employee') && isAdmin && brokers.length > 0 && (
+                <SelectDropdown
+                  label="选择分销商"
+                  value={brokerId}
+                  options={brokers.map((b) => ({ key: b.id, label: b.partner_name || b.name }))}
+                  open={brokerOpen}
+                  onToggle={() => {
+                    setBrokerOpen(!brokerOpen);
+                    if (brokerOpen) setBrokerEmployeeId('');
+                  }}
+                  onSelect={(k) => {
+                    setBrokerId(k);
+                    if (scope === 'broker_employee') setBrokerEmployeeId('');
+                  }}
+                  searchable
+                />
+              )}
+              {(scope === 'by_employee' || scope === 'broker_employee') && employees.length > 0 && (
+                <SelectDropdown
+                  label={
+                    scope === 'broker_employee'
+                      ? isAdmin
+                        ? '该分销商员工'
+                        : '本渠道员工'
+                      : isAdmin
+                        ? '员工'
+                        : '本渠道员工'
+                  }
+                  value={scope === 'broker_employee' ? brokerEmployeeId : employeeId}
+                  options={(scope === 'broker_employee' && isAdmin && brokerId
+                    ? employees.filter((e) => e.broker_id === brokerId)
+                    : employees
+                  ).map((e) => ({ key: e.id, label: e.full_name || e.name }))}
+                  open={employeeOpen}
+                  onToggle={() => setEmployeeOpen(!employeeOpen)}
+                  onSelect={(k) => {
+                    if (scope === 'broker_employee') setBrokerEmployeeId(k);
+                    else setEmployeeId(k);
+                  }}
+                  searchable
+                />
+              )}
+              {scope === 'by_department' && isAdmin && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>部门名称</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="如：租赁部"
+                    placeholderTextColor={colors.ink3}
+                    value={department}
+                    onChangeText={setDepartment}
+                  />
+                </View>
+              )}
               <Text style={styles.formLabel}>佣金比例 %</Text>
               <TextInput
                 style={styles.formInput}
@@ -455,16 +693,16 @@ export default function AdminHomeScreen() {
                 onChangeText={setRate}
               />
               <TouchableOpacity style={styles.submitBtn} onPress={addRule} activeOpacity={0.7}>
-                <Text style={styles.submitBtnText}>新增规则</Text>
+                <Text style={styles.submitBtnText}>新增设置</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>已有规则</Text>
+              <Text style={styles.sectionTitle}>已有设置</Text>
               <Text style={styles.sectionHint}>共 {rules.length} 条</Text>
             </View>
             {rules.length === 0 && !loading && (
-              <EmptyState icon="settings-outline" title="暂无佣金规则" sub="新增一条规则即可生效" />
+              <EmptyState icon="settings-outline" title="暂无佣金设置" sub="新增一条设置即可生效" />
             )}
             {rules.map((r) => (
               <View key={r.id} style={styles.ruleCard}>
@@ -484,8 +722,18 @@ export default function AdminHomeScreen() {
                     <Text style={styles.ruleMetaPrimary}>{r.rate}%</Text>
                   </View>
                   <View style={styles.ruleMetaItem}>
-                    <Text style={styles.ruleMetaLabel}>范围</Text>
-                    <Text style={styles.ruleMetaValue}>{SCOPE[r.scope || ''] || '全体员工'}</Text>
+                    <Text style={styles.ruleMetaLabel}>适用对象</Text>
+                    <Text style={styles.ruleMetaValue} numberOfLines={1}>
+                      {r.scope === 'by_broker'
+                        ? (brokers.find((b) => b.id === r.broker_id)?.partner_name ||
+                          brokers.find((b) => b.id === r.broker_id)?.name) || r.broker_id || '按分销商'
+                        : r.scope === 'by_employee'
+                          ? (employees.find((e) => e.id === r.employee_id)?.full_name ||
+                            employees.find((e) => e.id === r.employee_id)?.name) || r.employee_id || '个人'
+                          : r.scope === 'by_department'
+                            ? r.department || '部门'
+                            : SCOPE[r.scope || ''] || '全体员工'}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -773,6 +1021,49 @@ const styles = StyleSheet.create({
     ...colors.shadow.sm,
   },
   formLabel: { fontSize: 13, fontWeight: '600', color: colors.ink, marginBottom: 8, marginTop: 4 },
+  formGroup: { marginBottom: 4 },
+  formHint: { fontSize: 11, color: colors.ink3, marginTop: 2, marginBottom: 4 },
+  selectBox: {
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: colors.radius.lg,
+    paddingHorizontal: 14,
+    marginBottom: 4,
+  },
+  selectText: { fontSize: 14, color: colors.ink },
+  selectPlaceholder: { color: colors.ink3 },
+  selectSearch: {
+    height: 40,
+    backgroundColor: colors.background,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    paddingHorizontal: 14,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  selectEmpty: { paddingVertical: 12, paddingHorizontal: 14, fontSize: 12, color: colors.ink3 },
+  selectMenu: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: colors.radius.lg,
+    overflow: 'hidden',
+    marginBottom: 8,
+    ...colors.shadow.sm,
+  },
+  selectOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  selectOptionText: { fontSize: 14, color: colors.ink2 },
+  selectOptionTextActive: { color: colors.primary, fontWeight: '700' },
   formInput: {
     height: 44,
     backgroundColor: colors.background,

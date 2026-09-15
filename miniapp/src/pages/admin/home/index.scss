@@ -618,6 +618,96 @@
   }
 }
 
+/* 下拉选择器（适用对象 / 分销商 / 员工） */
+.adm-select-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 84rpx;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 0 24rpx;
+  box-sizing: border-box;
+}
+
+.adm-select-value__text {
+  font-size: 28rpx;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-select-value__text--placeholder {
+  color: var(--ink-3);
+}
+
+.adm-select-value__arrow {
+  font-size: 24rpx;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+
+/* 展开式搜索下拉菜单 */
+.adm-drop-menu {
+  margin-top: 12rpx;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  max-height: 480rpx;
+  overflow-y: auto;
+}
+
+.adm-drop-search {
+  width: 100%;
+  height: 72rpx;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  color: var(--ink);
+  box-sizing: border-box;
+}
+
+.adm-drop-empty {
+  display: block;
+  padding: 24rpx;
+  font-size: 26rpx;
+  color: var(--ink-3);
+  text-align: center;
+}
+
+.adm-drop-option {
+  display: flex;
+  align-items: center;
+  padding: 22rpx 24rpx;
+  font-size: 27rpx;
+  color: var(--ink-2);
+  border-bottom: 1px solid rgba(var(--line-rgb, 0.06), 0.4);
+
+  &:last-of-type {
+    border-bottom: none;
+  }
+}
+
+.adm-drop-option--active {
+  color: var(--primary);
+  font-weight: 600;
+  background: rgba(var(--primary-rgb), 0.06);
+}
+
+.adm-form-hint {
+  display: block;
+  font-size: 22rpx;
+  color: var(--ink-3);
+  margin-top: 10rpx;
+  line-height: 1.5;
+}
+
 /* ===== Chip 选择器 ===== */
 .adm-chip-row {
   display: flex;
