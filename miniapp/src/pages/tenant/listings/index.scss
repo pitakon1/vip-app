@@ -62,7 +62,7 @@
         height: 30px;
         padding: 0 6px;
         border-radius: 999px;
-        background-color: #dc2626;
+        background-color: var(--error);
         color: #fff;
         font-size: 20px;
         line-height: 30px;
@@ -204,7 +204,7 @@
         flex: 1;
         display: flex;
         align-items: center;
-        border-bottom: 2px solid var(--border, #e5e7eb);
+        border-bottom: 2px solid var(--border, var(--line));
         padding-bottom: 8px;
 
         .price-input__cur {
@@ -344,10 +344,10 @@
         .house-fav-icon {
           font-size: 36px;
           line-height: 1;
-          color: #c4c4c4;
+          color: var(--ink-3);
 
           &.is-faved {
-            color: #dc2626;
+            color: var(--error);
           }
         }
       }

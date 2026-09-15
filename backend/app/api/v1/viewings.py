@@ -59,7 +59,7 @@ def _with_property(session: Session, v: ViewingAppointment) -> dict:
     return {
         "id": str(v.id),
         "property_id": str(v.property_id),
-        "property_title": prop.title if prop else None,
+        "property_title": prop.display_name if prop else None,
         "property_address": prop.address if prop else None,
         "scheduled_at": v.scheduled_at.isoformat() if v.scheduled_at else None,
         "notes": v.notes,

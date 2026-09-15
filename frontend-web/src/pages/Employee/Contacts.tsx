@@ -1,63 +1,48 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Spin, Empty } from 'antd'
-import api from '@/lib/api'
+import { employeesApi } from '@/services/api'
+import { downloadReport } from '@/lib/download'
 import './contacts.css'
 
 interface EmployeeContact {
   id: string
+  employee_no?: string
   full_name: string
-  position: string
+  position?: string
   department?: string
-  phone: string
-  email: string
+  phone?: string
+  email?: string
   wechat?: string
   line?: string
-  [key: string]: any
 }
 
-// 部门 → 徽章/头像色调
-const DEPT_TONE: Record<string, 'primary' | 'success' | 'info' | 'warning'> = {
-  销售部: 'primary',
-  运营部: 'success',
-  技术部: 'info',
-  财务部: 'warning',
+interface DeptStat {
+  name: string
+  count: number
+  delta: string
+  tone: Tone
 }
 
-const DEPT_COLOR: Record<string, string> = {
+type Tone = 'primary' | 'success' | 'info' | 'warning'
+
+// 部门清单来自接口，色调按部门次序循环取用（不再硬编码部门/人数）
+const TONES: Tone[] = ['primary', 'success', 'info', 'warning']
+
+const DEPT_COLOR: Record<Tone, string> = {
   primary: 'var(--rent-primary)',
   success: 'var(--state-success)',
   info: 'var(--state-info)',
   warning: 'var(--state-warning)',
 }
 
-const DEPARTMENTS = ['全部部门', '销售部', '运营部', '技术部', '财务部']
+const TONE_RGB: Record<Tone, string> = {
+  primary: '20,184,166',
+  success: '22,163,74',
+  info: '14,165,233',
+  warning: '217,119,6',
+}
 
-// 部门统计静态数据（与设计稿一致）
-const DEPT_STATS = [
-  { name: '销售部', count: 12, delta: '覆盖 5 大区域', tone: 'primary' as const },
-  { name: '运营部', count: 8, delta: '在岗率 100%', tone: 'success' as const },
-  { name: '技术部', count: 5, delta: '7×24 值班', tone: 'info' as const },
-  { name: '财务部', count: 3, delta: '月结准时', tone: 'warning' as const },
-]
-
-// 紧急联系人静态数据（与设计稿一致）
-const EMERGENCY_CONTACTS = [
-  { name: '赵国栋', position: '总经理', phone: '+60 12-999 0001', initial: '赵', tone: 'primary' as const },
-  { name: '孙慧敏', position: '人力资源主管', phone: '+60 12-999 0002', initial: '孙', tone: 'success' as const },
-  { name: '周凯文', position: 'IT 技术支持', phone: '+60 12-999 0003', initial: '周', tone: 'info' as const },
-]
-
-// 静态联系人数据（API 不可用时回退使用，与设计稿一致）
-const STATIC_CONTACTS: EmployeeContact[] = [
-  { id: 's1', full_name: '王明华', position: '销售经理', department: '销售部', phone: '+60 12-345 6789', email: '', _tone: 'primary' },
-  { id: 's2', full_name: '李婷婷', position: '销售代表', department: '销售部', phone: '+60 12-888 2233', email: '', _tone: 'success' },
-  { id: 's3', full_name: '张伟强', position: '运营主管', department: '运营部', phone: '+60 16-220 4455', email: '', _tone: 'info' },
-  { id: 's4', full_name: '陈晓琳', position: '运营专员', department: '运营部', phone: '+60 11-557 8899', email: '', _tone: 'warning' },
-  { id: 's5', full_name: '刘建国', position: '技术总监', department: '技术部', phone: '+60 18-332 1100', email: '', _tone: 'primary' },
-  { id: 's6', full_name: '黄思琪', position: '前端工程师', department: '技术部', phone: '+60 17-661 2456', email: '', _tone: 'success' },
-  { id: 's7', full_name: '周建华', position: '财务主管', department: '财务部', phone: '+60 15-778 9900', email: '', _tone: 'info' },
-  { id: 's8', full_name: '吴美玲', position: '会计', department: '财务部', phone: '+60 13-229 6677', email: '', _tone: 'warning' },
-]
+const ALL_DEPTS = '全部部门'
 
 // 内联 SVG 图标（照抄设计稿）
 const IconPhone = ({ size = 14 }: { size?: number }) => (
@@ -93,29 +78,23 @@ const IconLine = ({ size = 16 }: { size?: number }) => (
 const Contacts = () => {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<EmployeeContact[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
   const [keyword, setKeyword] = useState('')
-  const [department, setDepartment] = useState('全部部门')
+  const [department, setDepartment] = useState(ALL_DEPTS)
+  const [exporting, setExporting] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get('/employees', {
-        params: { pageSize: 500 },
-      })
-      const payload = res.data?.data ?? res.data
-      const items: EmployeeContact[] = payload?.items ?? []
-      if (items.length > 0) {
-        setData(items)
-      } else {
-        // API 返回空数据时使用静态数据展示
-        setData(STATIC_CONTACTS)
-      }
-    } catch (err: any) {
-      // 接口不可用时使用静态数据，避免影响页面查看
-      setData(STATIC_CONTACTS)
-      if (err?.response?.status !== 404) {
-        message.error(err?.response?.data?.message || '获取员工通讯录失败，已展示示例数据')
-      }
+      const res = await employeesApi.directory()
+      const payload = res.data ?? {}
+      setData(payload.items ?? [])
+      setDepartments(payload.departments ?? [])
+    } catch {
+      // 取不到真实通讯录时给出明确失败态，不用示例数据冒充
+      setData([])
+      setDepartments([])
+      message.error('获取员工通讯录失败，请稍后重试')
     } finally {
       setLoading(false)
     }
@@ -138,9 +117,27 @@ const Contacts = () => {
 
   // 在 filtered 基础上叠加部门筛选（保留 filtered useMemo 不变）
   const visible =
-    department === '全部部门'
+    department === ALL_DEPTS
       ? filtered
       : filtered.filter((e) => (e.department || '') === department)
+
+  // 部门统计由真实通讯录聚合，不再使用静态示例数字
+  const deptStats = useMemo<DeptStat[]>(() => {
+    const counts = new Map<string, number>()
+    data.forEach((e) => {
+      if (!e.department) return
+      counts.set(e.department, (counts.get(e.department) ?? 0) + 1)
+    })
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([name, count], i) => ({
+        name,
+        count,
+        tone: TONES[i % TONES.length],
+        delta: `占比 ${data.length ? Math.round((count / data.length) * 100) : 0}%`,
+      }))
+  }, [data])
 
   const handleCopy = async (text: string, label: string) => {
     if (!text) return
@@ -164,18 +161,31 @@ const Contacts = () => {
     }
   }
 
-  const handleExport = () => {
-    message.success('通讯录导出已开始，请稍候')
+  // 导出通讯录（后端 /exports/employees，部门筛选与页面保持一致）
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      await downloadReport(
+        '/exports/employees',
+        department === ALL_DEPTS ? {} : { department },
+        'employees.csv',
+      )
+      message.success('通讯录已导出')
+    } catch {
+      message.error('导出失败，请稍后重试')
+    } finally {
+      setExporting(false)
+    }
   }
 
   const handleAdd = () => {
     message.info('请联系 HR 添加新同事')
   }
 
-  const getTone = (e: EmployeeContact): 'primary' | 'success' | 'info' | 'warning' => {
-    if (e._tone) return e._tone as 'primary' | 'success' | 'info' | 'warning'
-    if (e.department && DEPT_TONE[e.department]) return DEPT_TONE[e.department]
-    return 'primary'
+  // 头像/徽章色调按部门在真实部门清单中的次序取用
+  const getTone = (e: EmployeeContact): Tone => {
+    const idx = e.department ? departments.indexOf(e.department) : -1
+    return TONES[idx < 0 ? 0 : idx % TONES.length]
   }
 
   return (
@@ -187,13 +197,13 @@ const Contacts = () => {
           <p className="rent-page-header__subtitle">查看同事联系方式，快速沟通协作</p>
         </div>
         <div className="rent-page-header__actions">
-          <button className="rent-btn rent-btn--secondary" onClick={handleExport}>
+          <button className="rent-btn rent-btn--secondary" onClick={handleExport} disabled={exporting}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            导出通讯录
+            {exporting ? '导出中...' : '导出通讯录'}
           </button>
           <button className="rent-btn rent-btn--primary" onClick={handleAdd}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -215,7 +225,10 @@ const Contacts = () => {
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
               >
-                {DEPARTMENTS.map((d) => (
+                <option key={ALL_DEPTS} value={ALL_DEPTS}>
+                  {ALL_DEPTS}
+                </option>
+                {departments.map((d) => (
                   <option key={d} value={d}>
                     {d}
                   </option>
@@ -244,57 +257,59 @@ const Contacts = () => {
         </div>
       </div>
 
-      {/* Department Stats */}
-      <div className="rent-grid rent-grid--4 rent-mb-5">
-        {DEPT_STATS.map((d) => (
-          <div className="rent-stat-card" key={d.name}>
-            <div className="rent-flex rent-flex--between rent-mb-2">
-              <div className="rent-stat-card__label">{d.name}</div>
-              <div className="rent-stat-card__icon" style={{ background: `rgba(${d.tone === 'primary' ? '20,184,166' : d.tone === 'success' ? '22,163,74' : d.tone === 'info' ? '14,165,233' : '217,119,6'},0.1)`, color: DEPT_COLOR[d.tone] }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {d.tone === 'primary' && (
-                    <>
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </>
-                  )}
-                  {d.tone === 'success' && (
-                    <>
-                      <path d="M3 3v18h18" />
-                      <path d="M18 17V9" />
-                      <path d="M13 17V5" />
-                      <path d="M8 17v-3" />
-                    </>
-                  )}
-                  {d.tone === 'info' && (
-                    <>
-                      <polyline points="16 18 22 12 16 6" />
-                      <polyline points="8 6 2 12 8 18" />
-                    </>
-                  )}
-                  {d.tone === 'warning' && (
-                    <>
-                      <line x1="12" y1="1" x2="12" y2="23" />
-                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                    </>
-                  )}
+      {/* Department Stats（按真实通讯录聚合） */}
+      {deptStats.length > 0 && (
+        <div className="rent-grid rent-grid--4 rent-mb-5">
+          {deptStats.map((d) => (
+            <div className="rent-stat-card" key={d.name}>
+              <div className="rent-flex rent-flex--between rent-mb-2">
+                <div className="rent-stat-card__label">{d.name}</div>
+                <div className="rent-stat-card__icon" style={{ background: `rgba(${TONE_RGB[d.tone]},0.1)`, color: DEPT_COLOR[d.tone] }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {d.tone === 'primary' && (
+                      <>
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </>
+                    )}
+                    {d.tone === 'success' && (
+                      <>
+                        <path d="M3 3v18h18" />
+                        <path d="M18 17V9" />
+                        <path d="M13 17V5" />
+                        <path d="M8 17v-3" />
+                      </>
+                    )}
+                    {d.tone === 'info' && (
+                      <>
+                        <polyline points="16 18 22 12 16 6" />
+                        <polyline points="8 6 2 12 8 18" />
+                      </>
+                    )}
+                    {d.tone === 'warning' && (
+                      <>
+                        <line x1="12" y1="1" x2="12" y2="23" />
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                      </>
+                    )}
+                  </svg>
+                </div>
+              </div>
+              <div className="rent-stat-card__value">
+                {d.count} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>人</span>
+              </div>
+              <div className="rent-stat-card__delta rent-stat-card__delta--up">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 15 12 9 18 15" />
                 </svg>
+                {d.delta}
               </div>
             </div>
-            <div className="rent-stat-card__value">
-              {d.count} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>人</span>
-            </div>
-            <div className="rent-stat-card__delta rent-stat-card__delta--up">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="6 15 12 9 18 15" />
-              </svg>
-              {d.delta}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Contact Cards */}
       {loading ? (
@@ -306,7 +321,6 @@ const Contacts = () => {
           {visible.map((e) => {
             const tone = getTone(e)
             const initial = (e.full_name || '?').charAt(0)
-            const deptTone = e.department && DEPT_TONE[e.department] ? DEPT_TONE[e.department] : 'primary'
             return (
               <div className="rent-card" key={e.id}>
                 <div className="rent-card__body rent-contact-card__body">
@@ -319,13 +333,13 @@ const Contacts = () => {
                     </div>
                     <div className="rent-text-sm rent-text-muted">{e.position || '-'}</div>
                   </div>
-                  <span className={`rent-badge rent-badge--${deptTone}`}>{e.department || '—'}</span>
+                  <span className={`rent-badge rent-badge--${tone}`}>{e.department || '—'}</span>
                   <div className="rent-contact-phone">
                     <span className="rent-contact-phone__num">{e.phone || '—'}</span>
                     <button
                       className="rent-icon-btn"
                       style={{ width: 30, height: 30, background: 'var(--rent-primary)', borderColor: 'var(--rent-primary)', color: '#fff' }}
-                      onClick={() => handleCopy(e.phone, '手机号')}
+                      onClick={() => handleCopy(e.phone || '', '手机号')}
                       title="复制手机号"
                     >
                       <IconPhone size={14} />
@@ -371,57 +385,6 @@ const Contacts = () => {
           })}
         </div>
       )}
-
-      {/* Emergency Contacts */}
-      <div className="rent-card">
-        <div className="rent-card__header">
-          <h3 className="rent-card__title">紧急联系人</h3>
-          <span className="rent-badge rent-badge--error">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-            7×24 应急
-          </span>
-        </div>
-        <div className="rent-card__body">
-          <div className="rent-grid rent-grid--3">
-            {EMERGENCY_CONTACTS.map((c) => (
-              <div className="rent-emergency-item" key={c.name}>
-                <div className="rent-flex rent-gap-3" style={{ alignItems: 'center' }}>
-                  <div className="rent-avatar rent-avatar--lg" style={{ background: DEPT_COLOR[c.tone] }}>
-                    {c.initial}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div className="rent-text-bold" style={{ fontSize: 15 }}>
-                      {c.name}
-                    </div>
-                    <div className="rent-text-sm rent-text-muted rent-mb-2">{c.position}</div>
-                    <div className="rent-text-sm rent-mono">{c.phone}</div>
-                  </div>
-                </div>
-                <div className="rent-flex rent-gap-2 rent-mt-3">
-                  <a
-                    href={`tel:${c.phone.replace(/\s/g, '')}`}
-                    className="rent-btn rent-btn--primary rent-btn--sm rent-btn--block"
-                  >
-                    <IconPhone size={14} /> 立即拨打
-                  </a>
-                  <a
-                    href="#"
-                    className="rent-btn rent-btn--secondary rent-btn--sm"
-                    title="发送消息"
-                    onClick={(ev) => ev.preventDefault()}
-                  >
-                    <IconMsg size={14} />
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

@@ -243,7 +243,7 @@ const Income = () => {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#0f172a',
+          backgroundColor: '#1c2733',
           padding: 12,
           cornerRadius: 8,
           callbacks: {
@@ -252,12 +252,12 @@ const Income = () => {
         },
       },
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 12 } } },
+        x: { grid: { display: false }, ticks: { color: '#98a1ab', font: { size: 12 } } },
         y: {
           beginAtZero: true,
-          grid: { color: '#e6eaf0' },
+          grid: { color: '#ece7df' },
           ticks: {
-            color: '#94a3b8',
+            color: '#98a1ab',
             font: { size: 12 },
             callback: (v: any) => `RM ${Math.round(convertCurrency(v, 'RM') / 1000)}k`,
           },
@@ -300,7 +300,7 @@ const Income = () => {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#0f172a',
+          backgroundColor: '#1c2733',
           padding: 12,
           cornerRadius: 8,
           callbacks: {
@@ -311,14 +311,14 @@ const Income = () => {
       scales: {
         x: {
           beginAtZero: true,
-          grid: { color: '#e6eaf0' },
+          grid: { color: '#ece7df' },
           ticks: {
-            color: '#94a3b8',
+            color: '#98a1ab',
             font: { size: 12 },
             callback: (v: any) => `RM ${Math.round(convertCurrency(v, 'RM') / 1000)}k`,
           },
         },
-        y: { grid: { display: false }, ticks: { color: '#475569', font: { size: 12 } } },
+        y: { grid: { display: false }, ticks: { color: '#55606c', font: { size: 12 } } },
       },
     }),
     [],

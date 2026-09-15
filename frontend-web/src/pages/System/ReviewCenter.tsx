@@ -69,7 +69,7 @@ const ReviewCenter = () => {
   // 报修工单受理 -> assigned；完结 -> resolved
   const handleTicket = async (id: string, status: string) => {
     try {
-      await api.patch(`/maintenance/${id}`, { status })
+      await api.patch(`/maintenance-tickets/${id}`, { status })
       message.success('工单状态已更新')
       fetchData()
     } catch (err: any) {
@@ -80,7 +80,7 @@ const ReviewCenter = () => {
   // 服务订单受理 -> assigned
   const handleOrder = async (id: string, status: string) => {
     try {
-      await api.patch(`/service-orders/${id}`, { status })
+      await api.patch(`/service-orders/${id}/status`, { status })
       message.success('订单状态已更新')
       fetchData()
     } catch (err: any) {

@@ -30,6 +30,12 @@ page {
   --info: #0ea5e9;
   --info-rgb: 14, 165, 233;
 
+  /* ---- 扩展语义色（对齐 Web tokens.css）---- */
+  --state-warning-soft: #fdf5e9;
+  --state-warning-light: #f4d9ad;
+  --state-error-hover: #b91c1c;
+  --state-purple: #7a5cd6;
+
   /* ---- 圆角 ---- */
   --radius-sm: 8rpx;
   --radius-md: 16rpx;
@@ -77,6 +83,20 @@ view, text {
 .text-white { color: #fff; }
 
 .font-600 { font-weight: 600; }
+
+/* 功能图标（data-URI SVG）—— 替代 emoji 图标，配合 src/utils/icons.ts
+   用法：<View className='icon-svg' style={{ backgroundImage: `url("${ICONS.card}")` }} /> */
+.icon-svg {
+  display: inline-block;
+  width: 40rpx;
+  height: 40rpx;
+  flex-shrink: 0;
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: contain;
+}
+.icon-svg--sm { width: 32rpx; height: 32rpx; }
+.icon-svg--lg { width: 56rpx; height: 56rpx; }
 .font-700 { font-weight: 700; }
 .font-800 { font-weight: 800; }
 

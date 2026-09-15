@@ -2,8 +2,9 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -71,11 +72,14 @@ def _serialize(listing: SaleListing) -> dict:
 def list_sale_listings(
     sale_type: Optional[SaleType] = None,
     status: Optional[ListingStatus] = None,
+    q: Optional[str] = Query(
+        None, max_length=100, description="关键词：挂牌标题 / 地址 / 描述"
+    ),
     pagination: PaginationParams = Depends(),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """分页查询挂牌（公开数据按需过滤）。"""
+    """分页查询挂牌（公开数据按需过滤，支持关键词搜索）。"""
     query = select(SaleListing).where(SaleListing.deleted_at.is_(None))
     if sale_type:
         query = query.where(SaleListing.sale_type == sale_type)
@@ -87,11 +91,25 @@ def list_sale_listings(
             query = query.where(SaleListing.status.in_(
                 [ListingStatus.active, ListingStatus.pending]
             ))
-    query = query.order_by(SaleListing.created_at.desc())
-    items = session.exec(query).all()
-    total = len(items)
-    offset, limit = pagination.offset, pagination.limit
-    return paginate([_serialize(i) for i in items][offset : offset + limit], total, pagination)
+    keyword = (q or "").strip()
+    if keyword:
+        pattern = f"%{keyword}%"
+        query = query.where(
+            or_(
+                SaleListing.title.ilike(pattern),
+                SaleListing.address.ilike(pattern),
+                SaleListing.description.ilike(pattern),
+            )
+        )
+    # 总数与分页都下推到 SQL，避免把整表拉进内存后再切片
+    count_query = select(func.count()).select_from(query.subquery())
+    total = session.exec(count_query).one()
+    items = session.exec(
+        query.order_by(SaleListing.created_at.desc())
+        .offset(pagination.offset)
+        .limit(pagination.limit)
+    ).all()
+    return paginate([_serialize(i) for i in items], total, pagination)
 
 
 @router.post("")

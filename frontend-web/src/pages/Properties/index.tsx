@@ -17,6 +17,7 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { propertiesApi, projectsApi } from '@/services/api'
+import { downloadReport } from '@/lib/download'
 import useAuthStore from '@/stores/auth'
 import type { Project, Property } from '@/types'
 import './properties.css'
@@ -71,6 +72,13 @@ const Properties = () => {
   const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm()
 
+  // 项目坐标弹窗：地图找房的点位取自项目经纬度，此处在 Web 端补齐录入入口
+  type CoordRow = { id: string; name: string; address: string; lat: number | null; lng: number | null }
+  const [coordOpen, setCoordOpen] = useState(false)
+  const [coordLoading, setCoordLoading] = useState(false)
+  const [coordRows, setCoordRows] = useState<CoordRow[]>([])
+  const [coordBusyId, setCoordBusyId] = useState<string | null>(null)
+
   // 选项
   const statusLabelMap = useMemo<Record<string, string>>(() => ({
     vacant: t('propertyStatus.vacant'),
@@ -88,6 +96,20 @@ const Properties = () => {
     commercial: t('propertyType.commercial'),
     office: t('propertyType.office'),
   }), [t])
+
+  // 导出当前筛选条件下的房源清单（后端生成 CSV，见 /api/v1/exports/properties）
+  const handleExport = async () => {
+    try {
+      await downloadReport(
+        '/exports/properties',
+        { status: status || undefined, property_type: propertyType || undefined, q: keyword.trim() || undefined },
+        'properties.csv',
+      )
+      message.success('房源清单已导出')
+    } catch {
+      message.error('导出失败，请稍后重试')
+    }
+  }
 
   // 数据获取
   const fetchProjects = useCallback(async () => {
@@ -113,6 +135,63 @@ const Properties = () => {
 
   useEffect(() => { fetchProjects() }, [fetchProjects])
   useEffect(() => { fetchData() }, [fetchData])
+
+  // ---------- 项目坐标（地图找房点位来源） ----------
+  const openCoordModal = useCallback(async () => {
+    setCoordOpen(true)
+    setCoordLoading(true)
+    try {
+      const res = await projectsApi.list({ page: 1, page_size: 100 })
+      const payload = res.data?.data ?? res.data
+      const items: any[] = payload?.items ?? []
+      setCoordRows(items.map((p) => ({
+        id: p.id,
+        name: p.name || '',
+        address: [p.address, p.district, p.city].filter(Boolean).join(' '),
+        lat: p.lat ?? null,
+        lng: p.lng ?? null,
+      })))
+    } catch {
+      setCoordRows([])
+      message.error(t('project.coordLoadFailed'))
+    } finally {
+      setCoordLoading(false)
+    }
+  }, [t])
+
+  const patchCoordRow = (id: string, patch: Partial<CoordRow>) =>
+    setCoordRows((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+
+  // 调后端地理编码（未配置地图服务时后端走内置 mock），回填后仍需点保存才落库
+  const handleGeocode = async (row: CoordRow) => {
+    setCoordBusyId(row.id)
+    try {
+      const res = await projectsApi.geocode(row.id)
+      const d = res.data?.data ?? res.data
+      patchCoordRow(row.id, { lat: d?.lat ?? null, lng: d?.lng ?? null })
+      message.success(t('project.geocodeDone'))
+    } catch {
+      message.error(t('project.geocodeFailed'))
+    } finally {
+      setCoordBusyId(null)
+    }
+  }
+
+  const handleSaveCoord = async (row: CoordRow) => {
+    if (row.lat === null || row.lng === null) {
+      message.warning(t('project.coordRequired'))
+      return
+    }
+    setCoordBusyId(row.id)
+    try {
+      await projectsApi.update(row.id, { lat: row.lat, lng: row.lng })
+      message.success(t('project.coordSaved'))
+    } catch {
+      message.error(t('project.coordSaveFailed'))
+    } finally {
+      setCoordBusyId(null)
+    }
+  }
 
   // 前端筛选 + 排序
   const filteredItems = useMemo(() => {
@@ -179,6 +258,7 @@ const Properties = () => {
       owner_id: record.owner_id, monthly_rent: record.monthly_rent,
       deposit_amount: record.deposit_amount, size_sqm: record.size_sqm,
       bedrooms: record.bedrooms, bathrooms: record.bathrooms, status: record.status,
+      video_url: record.video_url || undefined,
     })
     setModalOpen(true)
   }
@@ -317,10 +397,16 @@ const Properties = () => {
           <p className="rent-page-header__subtitle">{t('property.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
-          <button className="rent-btn rent-btn--secondary" onClick={() => message.info('导出功能开发中')}>
+          <button className="rent-btn rent-btn--secondary" onClick={handleExport}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             导出
           </button>
+          {isManageMode && (
+            <button className="rent-btn rent-btn--secondary" onClick={openCoordModal}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              {t('project.coordEntry')}
+            </button>
+          )}
           <button className="rent-btn rent-btn--primary" onClick={openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             {t('property.addNew')}
@@ -449,7 +535,65 @@ const Properties = () => {
             <Col span={8}><Form.Item label={t('property.bathrooms')} name="bathrooms"><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.bathrooms')} /></Form.Item></Col>
             <Col span={8}><Form.Item label={t('common.status')} name="status" rules={[{ required: true, message: t('property.statusPlaceholder') }]}><Select placeholder={t('property.statusPlaceholder')} options={Object.entries(statusLabelMap).map(([k, v]) => ({ value: k, label: v }))} /></Form.Item></Col>
           </Row>
+          <Form.Item label={t('property.videoUrl')} name="video_url">
+            <Input placeholder={t('property.videoUrlPlaceholder')} allowClear />
+          </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 项目坐标：地图找房的点位取自项目经纬度，无坐标的项目不会出现在地图上 */}
+      <Modal
+        title={t('project.coordTitle')}
+        open={coordOpen}
+        onCancel={() => setCoordOpen(false)}
+        footer={null}
+        width={760}
+      >
+        <p className="coord-modal__hint">{t('project.coordHint')}</p>
+        <Spin spinning={coordLoading}>
+          {coordRows.length === 0 && !coordLoading ? (
+            <div className="coord-modal__empty">{t('common.noData')}</div>
+          ) : (
+            <div className="coord-modal__list">
+              {coordRows.map((row) => (
+                <div key={row.id} className="coord-modal__row">
+                  <div className="coord-modal__name">
+                    <strong>{row.name}</strong>
+                    <span>{row.address}</span>
+                  </div>
+                  <InputNumber
+                    className="coord-modal__input"
+                    placeholder={t('project.lat')}
+                    value={row.lat}
+                    step={0.0001}
+                    onChange={(v) => patchCoordRow(row.id, { lat: v === null ? null : Number(v) })}
+                  />
+                  <InputNumber
+                    className="coord-modal__input"
+                    placeholder={t('project.lng')}
+                    value={row.lng}
+                    step={0.0001}
+                    onChange={(v) => patchCoordRow(row.id, { lng: v === null ? null : Number(v) })}
+                  />
+                  <button
+                    className="rent-btn rent-btn--secondary"
+                    disabled={coordBusyId === row.id}
+                    onClick={() => handleGeocode(row)}
+                  >
+                    {t('project.geocode')}
+                  </button>
+                  <button
+                    className="rent-btn rent-btn--primary"
+                    disabled={coordBusyId === row.id}
+                    onClick={() => handleSaveCoord(row)}
+                  >
+                    {t('common.save')}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Spin>
       </Modal>
     </div>
   )

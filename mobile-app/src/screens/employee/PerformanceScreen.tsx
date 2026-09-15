@@ -93,7 +93,7 @@ export default function PerformanceScreen() {
     ];
   }, [summary?.commission_total, summary?.month_commission]);
 
-  const fmt = (v: number) => `¥${Number(v || 0).toLocaleString()}`;
+  const fmt = (v: number) => `฿${Number(v || 0).toLocaleString()}`;
 
   const renderRankItem = ({ item, index }: { item: RankItem; index: number }) => {
     const rank = index + 1;

@@ -6,10 +6,10 @@ import { serviceOrdersApi } from '@/services/api'
 import type { ServiceItem } from '@/types'
 import './index.scss'
 
-const PAYMENT_METHODS: Array<{ key: string; label: string; icon: string }> = [
-  { key: 'wechat', label: '微信支付', icon: '💚' },
-  { key: 'alipay', label: '支付宝', icon: '💙' },
-  { key: 'bank', label: '银行卡', icon: '💳' }
+const PAYMENT_METHODS: Array<{ key: string; label: string }> = [
+  { key: 'wechat', label: '微信支付' },
+  { key: 'alipay', label: '支付宝' },
+  { key: 'bank', label: '银行卡' }
 ]
 
 const RECOMMEND_SERVICES: ServiceItem[] = [
@@ -59,7 +59,7 @@ export default function TenantServicesPage() {
       Taro.hideLoading()
       Taro.showModal({
         title: '下单成功',
-        content: `「${service.name}」下单成功，付款方式：${methodLabel}，金额 ¥${service.price}`,
+        content: `「${service.name}」下单成功，付款方式：${methodLabel}，金额 ฿${service.price}`,
         showCancel: false
       })
     } catch (error) {
@@ -95,7 +95,7 @@ export default function TenantServicesPage() {
               <View className='service-info'>
                 <Text className='service-name'>{service.name}</Text>
                 <Text className='service-desc'>{service.description}</Text>
-                <Text className='service-price'>¥{service.price}</Text>
+                <Text className='service-price'>฿{service.price}</Text>
               </View>
               <View className='service-pay'>
                 <View className='pay-methods'>

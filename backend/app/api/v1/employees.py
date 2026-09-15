@@ -62,6 +62,75 @@ def list_employees(
     return paginate(enriched, total, pagination)
 
 
+@router.get("/directory")
+def employee_directory(
+    keyword: str | None = None,
+    department: str | None = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """同事通讯录（全体员工可见）。
+
+    只返回协作所需的联系方式，不含佣金/薪资/上下级等敏感字段；
+    前端「同事通讯录」页据此渲染，无需再准备静态示例数据。
+    """
+    conditions = [Employee.deleted_at.is_(None), Employee.is_active.is_(True)]
+    if department:
+        conditions.append(Employee.department == department)
+
+    employees = session.exec(
+        select(Employee).where(*conditions).order_by(Employee.employee_code)
+    ).all()
+    users = (
+        {
+            u.id: u
+            for u in session.exec(
+                select(User).where(User.id.in_([e.user_id for e in employees]))
+            ).all()
+        }
+        if employees
+        else {}
+    )
+
+    items = []
+    for e in employees:
+        owner = users.get(e.user_id)
+        if not owner:
+            continue
+        items.append(
+            {
+                "id": str(e.id),
+                "employee_no": e.employee_code,
+                "full_name": owner.full_name,
+                "email": owner.email,
+                "position": e.position,
+                "department": e.department,
+                "phone": e.phone,
+                "wechat": e.wechat_id,
+                "line": e.line_id,
+            }
+        )
+
+    if keyword:
+        kw = keyword.strip().lower()
+        items = [
+            i
+            for i in items
+            if kw
+            in " ".join(
+                str(i.get(k) or "")
+                for k in ("full_name", "position", "department", "phone", "employee_no")
+            ).lower()
+        ]
+
+    return {
+        "items": items,
+        "total": len(items),
+        # 部门下拉直接用真实数据，避免前端硬编码部门清单
+        "departments": sorted({i["department"] for i in items if i["department"]}),
+    }
+
+
 @router.get("/me")
 def get_my_employee_info(
     session: Session = Depends(get_session),
@@ -193,7 +262,7 @@ def get_employee_workbench(
     follow_up_leases = [
         {
             "lease_id": str(lease.id),
-            "property_title": properties.get(lease.property_id).title
+            "property_title": properties.get(lease.property_id).display_name
             if properties.get(lease.property_id)
             else None,
             "monthly_rent": lease.monthly_rent,

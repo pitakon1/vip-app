@@ -45,7 +45,7 @@ const CUR_SYMBOL: Record<string, string> = {
 }
 
 const fmtMoney = (v: number | undefined, currency?: string) => {
-  const sym = CUR_SYMBOL[currency as string] || '¥'
+  const sym = CUR_SYMBOL[currency as string] || '฿'
   return `${sym}${Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 }
 

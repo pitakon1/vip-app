@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi } from '@/services/api'
+import { iconStyle, type IconKey } from '@/utils/icons'
 import type { Property, PropertyStatus } from '@/types'
 import './index.scss'
 
@@ -63,12 +64,12 @@ const pickMonthly = (res: any): MonthlyRow[] => {
 const fmtMoney = (v: number) =>
   Number(v || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-// 快捷入口
-const QUICK_ENTRIES = [
-  { icon: '💳', label: '我的付款', desc: '账单到账', url: '/pages/owner/payments/index' },
-  { icon: '📊', label: '收益分析', desc: '收支汇总', url: '/pages/owner/income/index' },
-  { icon: '📋', label: '委托挂牌', desc: '发布房源', url: '/pages/owner/marketing/index' },
-  { icon: '📢', label: '房产营销', desc: '推广定价', url: '/pages/owner/marketing/index' }
+// 快捷入口（icon 为 src/utils/icons.ts 的图标 key，禁止 emoji）
+const QUICK_ENTRIES: { icon: IconKey; label: string; desc: string; url: string }[] = [
+  { icon: 'card', label: '我的付款', desc: '账单到账', url: '/pages/owner/payments/index' },
+  { icon: 'chart', label: '收益分析', desc: '收支汇总', url: '/pages/owner/income/index' },
+  { icon: 'clipboard', label: '委托挂牌', desc: '发布房源', url: '/pages/owner/marketing/index' },
+  { icon: 'megaphone', label: '房产营销', desc: '推广定价', url: '/pages/owner/marketing/index' }
 ]
 
 export default function OwnerHomePage() {
@@ -165,7 +166,7 @@ export default function OwnerHomePage() {
               onClick={() => Taro.navigateTo({ url: q.url })}
             >
               <View className='quick-grid__badge'>
-                <Text className='quick-grid__icon'>{q.icon}</Text>
+                <View className='quick-grid__icon icon-svg' style={iconStyle(q.icon)} />
               </View>
               <Text className='quick-grid__title'>{q.label}</Text>
               <Text className='quick-grid__desc'>{q.desc}</Text>
@@ -176,19 +177,19 @@ export default function OwnerHomePage() {
         {/* 财务概览卡 */}
         <View className='finance-card'>
           <Text className='finance-card__label'>本月收入</Text>
-          <Text className='finance-card__amount'>¥{fmtMoney(income.monthlyIncome)}</Text>
+          <Text className='finance-card__amount'>฿{fmtMoney(income.monthlyIncome)}</Text>
 
           <View className='finance-kpis'>
             <View className='finance-kpi finance-kpi--success'>
-              <Text className='finance-kpi__num'>¥{fmtMoney(income.totalIncome)}</Text>
+              <Text className='finance-kpi__num'>฿{fmtMoney(income.totalIncome)}</Text>
               <Text className='finance-kpi__label'>总收入</Text>
             </View>
             <View className='finance-kpi finance-kpi--warning'>
-              <Text className='finance-kpi__num'>¥{fmtMoney(income.pendingIncome)}</Text>
+              <Text className='finance-kpi__num'>฿{fmtMoney(income.pendingIncome)}</Text>
               <Text className='finance-kpi__label'>待收</Text>
             </View>
             <View className='finance-kpi finance-kpi--error'>
-              <Text className='finance-kpi__num'>¥{fmtMoney(income.overdueIncome)}</Text>
+              <Text className='finance-kpi__num'>฿{fmtMoney(income.overdueIncome)}</Text>
               <Text className='finance-kpi__label'>逾期</Text>
             </View>
           </View>

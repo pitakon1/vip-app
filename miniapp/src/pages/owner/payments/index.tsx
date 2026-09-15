@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { paymentsApi } from '@/services/api'
 import './index.scss'
+import { iconStyle } from '@/utils/icons'
 
 interface Payment {
   id: string
@@ -121,7 +122,7 @@ export default function OwnerPaymentsPage() {
 
         {!loading && !error && payments.length === 0 && (
           <View className='state'>
-            <View className='state__icon'>💳</View>
+            <View className='state__icon icon-svg' style={iconStyle('card')} />
             <Text className='state__title'>暂无付款记录</Text>
             <Text className='state__desc'>收款到账后在此展示</Text>
           </View>

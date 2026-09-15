@@ -5,6 +5,7 @@ import useAuthStore from '@/stores/auth'
 import { documentsApi } from '@/services/api'
 import type { Document } from '@/types'
 import './index.scss'
+import { iconStyle } from '@/utils/icons'
 
 const TYPE_TABS: Array<{ key: string; label: string }> = [
   { key: 'all', label: '全部' },
@@ -109,7 +110,7 @@ export default function OwnerDocumentsPage() {
               onClick={() => handlePreview(doc)}
             >
               <View className='doc-icon'>
-                <Text className='icon-text'>📄</Text>
+                <Text className='icon-text icon-svg' style={iconStyle('doc')} />
               </View>
               <View className='doc-info'>
                 <Text className='doc-name'>{doc.name}</Text>

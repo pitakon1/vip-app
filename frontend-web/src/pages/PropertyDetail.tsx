@@ -36,6 +36,7 @@ interface PropertyDetail {
   published_at?: string
   images?: string[]
   amenities?: string[]
+  video_url?: string
   [key: string]: any
 }
 
@@ -350,10 +351,19 @@ const PropertyDetail = () => {
       <div className="rent-card rent-mb-4">
         <div className="rent-card__body">
           <div className="rent-prop-header">
-            {/* Property image placeholder (gradient) */}
-            <div className="rent-prop-header__image">
-              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-            </div>
+            {/* 有看房视频时直接播放，否则退回占位图 */}
+            {detail.video_url ? (
+              <video
+                className="rent-prop-header__image rent-prop-video"
+                src={detail.video_url}
+                controls
+                preload="metadata"
+              />
+            ) : (
+              <div className="rent-prop-header__image">
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+              </div>
+            )}
             {/* Property info */}
             <div className="rent-prop-header__info">
               <h2 className="rent-prop-header__name">{displayName}</h2>
@@ -370,6 +380,9 @@ const PropertyDetail = () => {
                   <span className="rent-badge--dot" style={{ background: 'currentColor' }} />
                   {statusLabel}
                 </span>
+                {detail.video_url && (
+                  <span className="rent-badge rent-badge--info">视频看房</span>
+                )}
                 <span className="rent-badge rent-badge--neutral">编号 {propNo}</span>
               </div>
 

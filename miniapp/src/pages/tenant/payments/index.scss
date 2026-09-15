@@ -22,7 +22,7 @@
       display: block;
       font-size: 56px;
       font-weight: 700;
-      color: #ffffff;
+      color: var(--card);
       margin-top: 8px;
     }
 
@@ -38,7 +38,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background-color: #ffffff;
+      background-color: var(--card);
       border-radius: 999px;
       height: 72px;
       padding: 0 48px;
@@ -130,7 +130,7 @@
           &--primary .pay-card-btn-text {
             border-color: var(--primary);
             background-color: var(--primary);
-            color: #ffffff;
+            color: var(--card);
           }
         }
       }

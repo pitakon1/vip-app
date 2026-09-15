@@ -50,3 +50,15 @@ class Property(TimestampMixin, table=True):
     )
     furnished: bool = Field(default=False)
     available_from: Optional[datetime] = None
+    video_url: Optional[str] = Field(
+        default=None, max_length=500, description="视频看房地址（可为站内 /uploads 或外部链接）"
+    )
+
+    @property
+    def display_name(self) -> str:
+        """房源展示名：房号优先，其次地址。
+
+        房源没有 `title` 列，历史代码里多处直接读 `property.title` 会抛
+        AttributeError（接口 500）。统一从这里取，避免各处自行拼装。
+        """
+        return self.room_number or self.address or ""

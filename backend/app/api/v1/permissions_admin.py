@@ -6,12 +6,16 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.rbac import (
     PERMISSION_DEFS,
-    seed_permissions,
+    invalidate_role_permissions,
     require_permission,
 )
 from app.models import Permission, RolePermission, User, UserRole
 
 router = APIRouter(prefix="/admin/permissions", tags=["admin-permissions"])
+
+# 权限点由应用启动时的 seed_permissions 幂等补种（见 app.main lifespan）。
+# 此前这三个只读端点也在请求内调用 seed_permissions：每次请求约 45 次 SELECT + COMMIT，
+# 且把写操作混进了 GET，因此改为依赖启动种子 + 权限变更后失效缓存。
 
 
 @router.get("")
@@ -20,7 +24,6 @@ def list_permissions(
     user: User = Depends(require_permission("role:manage")),
 ):
     """权限点分组列表 + 每个角色的当前分配。"""
-    seed_permissions(session)
     perms = session.exec(select(Permission).order_by(Permission.code)).all()
     grouped: dict[str, list[dict]] = {}
     for p in perms:
@@ -48,7 +51,6 @@ def get_role_permissions(
     user: User = Depends(require_permission("role:manage")),
 ):
     """获取指定角色当前权限点。"""
-    seed_permissions(session)
     rows = session.exec(
         select(RolePermission).where(RolePermission.role == role)
     ).all()
@@ -70,7 +72,6 @@ def set_role_permissions(
     user: User = Depends(require_permission("role:manage")),
 ):
     """覆盖设置角色权限点（先清后设）。"""
-    seed_permissions(session)
     valid = {
         p.code
         for p in session.exec(select(Permission)).all()
@@ -85,4 +86,6 @@ def set_role_permissions(
     for code in dict.fromkeys(req.codes):  # 去重保序
         session.add(RolePermission(role=role, permission_code=code))
     session.commit()
+    # 立即失效该角色的权限缓存，避免最长 30s 的旧权限继续放行
+    invalidate_role_permissions(role)
     return {"role": role.value, "permissions": sorted(set(req.codes))}

@@ -84,3 +84,20 @@
 .rent-table thead th { white-space: nowrap; }
 .rent-table tbody td { white-space: nowrap; }
 .rent-table tbody td.rent-cell-name { white-space: normal; }
+
+/* 上传确认弹窗 */
+.owner-upload-modal { display: flex; flex-direction: column; gap: 8px; }
+.owner-upload-modal__file {
+  font-size: 13px;
+  color: var(--rent-ink);
+  font-weight: 500;
+  word-break: break-all;
+  padding: 12px 16px;
+  background: var(--rent-sidebar-active);
+  border-radius: var(--rent-radius-md);
+}
+.owner-upload-modal__label {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+}

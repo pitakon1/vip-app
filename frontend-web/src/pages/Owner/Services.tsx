@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { message, Modal, Form, Select, DatePicker, InputNumber } from 'antd'
+import { message, Modal, Form, Select, DatePicker, InputNumber, Input, Rate } from 'antd'
 import dayjs from 'dayjs'
 import type { ReactNode } from 'react'
 import api from '@/lib/api'
+import useAuthStore from '@/stores/auth'
 import './services.css'
 
 interface ServiceItem {
@@ -17,12 +18,19 @@ interface ServiceItem {
   priceUnit: string
 }
 
-interface BookedService {
+interface ServiceOrderItem {
   id: string
-  service_name: string
-  price: string
-  booked_at: string
+  property_id?: string
+  service_type: string
   status: string
+  scheduled_at?: string
+  completed_at?: string
+  amount: number
+  currency: string
+  notes?: string
+  rating?: number | null
+  review_comment?: string | null
+  reviewed_at?: string | null
 }
 
 interface PackageItem {
@@ -149,6 +157,40 @@ const services: ServiceItem[] = [
   },
 ]
 
+// 服务卡片 → 后端 ServiceType 枚举。枚举取值固定（保洁/空调/网络/水电/保险/税费/年度托管），
+// 卡片中的「管道疏通」归入 utility_payment、「园艺养护」归入 annual_management（按月养护托管）。
+const SERVICE_TYPE_BY_CARD: Record<string, string> = {
+  cleaning: 'cleaning',
+  ac: 'ac_cleaning',
+  tax: 'tax_payment',
+  insurance: 'insurance',
+  plumbing: 'utility_payment',
+  garden: 'annual_management',
+}
+
+// 后端 ServiceType → 展示文案（订单列表按枚举反查）
+const SERVICE_TYPE_LABEL: Record<string, string> = {
+  cleaning: '日常保洁',
+  ac_cleaning: '空调清洗',
+  wifi_install: '网络安装',
+  utility_payment: '水电 / 管道服务',
+  insurance: '保险服务',
+  tax_payment: '税费代缴',
+  annual_management: '年度托管 / 养护',
+}
+
+// 服务订单状态 → 展示文案与徽章色调
+const ORDER_STATUS_META: Record<string, { label: string; tone: string }> = {
+  pending: { label: '待受理', tone: 'warning' },
+  assigned: { label: '已派单', tone: 'info' },
+  in_progress: { label: '服务中', tone: 'info' },
+  completed: { label: '已完成', tone: 'success' },
+  cancelled: { label: '已取消', tone: 'neutral' },
+}
+
+// 从卡片价格文案（如 "RM 150"）解析出金额数值
+const parseAmount = (price: string) => Number(String(price).replace(/[^\d.]/g, '')) || 0
+
 // 订阅套餐（与原型一致）
 interface PlanItem {
   id: string
@@ -234,13 +276,24 @@ const fmtMoney = (v: number, currency = 'THB') => {
 }
 
 const Services = () => {
-  const [bookedServices, setBookedServices] = useState<BookedService[]>([])
+  const { user } = useAuthStore()
+  const [orders, setOrders] = useState<ServiceOrderItem[]>([])
   const [packages, setPackages] = useState<PackageItem[]>([])
   const [properties, setProperties] = useState<PropertyOption[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm()
   const plansRef = useRef<HTMLDivElement>(null)
+  // 预约弹窗（提交到后端 service-orders，形成可评价的服务订单）
+  const [bookingService, setBookingService] = useState<ServiceItem | null>(null)
+  const [bookingSubmitting, setBookingSubmitting] = useState(false)
+  const [bookingForm] = Form.useForm()
+  // 服务详情弹窗
+  const [detailService, setDetailService] = useState<ServiceItem | null>(null)
+  // 评价弹窗
+  const [reviewOrder, setReviewOrder] = useState<ServiceOrderItem | null>(null)
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewForm] = Form.useForm()
 
   const fetchPackages = useCallback(async () => {
     try {
@@ -248,6 +301,15 @@ const Services = () => {
       setPackages(Array.isArray(res.data) ? res.data : (res.data?.items ?? []))
     } catch {
       // 接口不可用或未订阅时保持空列表
+    }
+  }, [])
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      const res = await api.get('/service-orders', { params: { page_size: 50 } })
+      setOrders(Array.isArray(res.data) ? res.data : (res.data?.items ?? []))
+    } catch {
+      setOrders([])
     }
   }, [])
 
@@ -263,21 +325,77 @@ const Services = () => {
 
   useEffect(() => {
     fetchPackages()
+    fetchOrders()
     fetchProperties()
-  }, [fetchPackages, fetchProperties])
+  }, [fetchPackages, fetchOrders, fetchProperties])
 
-  const handleBook = (service: ServiceItem) => {
-    setBookedServices((prev) => [
-      {
-        id: `${service.id}-${Date.now()}`,
-        service_name: service.name,
-        price: service.price,
-        booked_at: dayjs().format('YYYY-MM-DD HH:mm'),
-        status: 'pending',
-      },
-      ...prev,
-    ])
-    message.success('预约成功，工作人员将尽快联系您')
+  const openBooking = (service: ServiceItem) => {
+    if (!properties.length) {
+      message.warning('暂无可预约的房源，请先在「我的房源」中添加')
+      return
+    }
+    bookingForm.setFieldsValue({
+      property_id: properties[0]?.id,
+      scheduled_at: dayjs().add(1, 'day').hour(10).minute(0).second(0),
+      notes: '',
+    })
+    setBookingService(service)
+  }
+
+  const handleBookingSubmit = async () => {
+    if (!bookingService) return
+    try {
+      const values = await bookingForm.validateFields()
+      setBookingSubmitting(true)
+      await api.post('/service-orders', {
+        orderer_id: user?.id,
+        orderer_type: 'owner',
+        property_id: values.property_id,
+        service_type: SERVICE_TYPE_BY_CARD[bookingService.id] || 'cleaning',
+        scheduled_at: values.scheduled_at.format('YYYY-MM-DDTHH:mm:ss'),
+        amount: parseAmount(bookingService.price),
+        currency: 'MYR',
+        notes: values.notes || undefined,
+      })
+      message.success('预约成功，工作人员将尽快联系您')
+      setBookingService(null)
+      bookingForm.resetFields()
+      fetchOrders()
+    } catch (err: any) {
+      if (err?.response) {
+        message.error(err?.response?.data?.detail || '预约失败，请稍后重试')
+      }
+      // validateFields 失败时静默
+    } finally {
+      setBookingSubmitting(false)
+    }
+  }
+
+  const openReview = (order: ServiceOrderItem) => {
+    reviewForm.setFieldsValue({ rating: 5, comment: '' })
+    setReviewOrder(order)
+  }
+
+  const handleReviewSubmit = async () => {
+    if (!reviewOrder) return
+    try {
+      const values = await reviewForm.validateFields()
+      setReviewSubmitting(true)
+      await api.post(`/service-orders/${reviewOrder.id}/review`, {
+        rating: values.rating,
+        comment: values.comment || undefined,
+      })
+      message.success('感谢您的评价')
+      setReviewOrder(null)
+      reviewForm.resetFields()
+      fetchOrders()
+    } catch (err: any) {
+      if (err?.response) {
+        message.error(err?.response?.data?.detail || '评价失败，请稍后重试')
+      }
+    } finally {
+      setReviewSubmitting(false)
+    }
   }
 
   const openSubscribe = () => {
@@ -418,13 +536,13 @@ const Services = () => {
                 <span className="rent-text-sm rent-text-muted">{s.priceUnit}</span>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => handleBook(s)}>
+                <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => openBooking(s)}>
                   立即预约
                 </button>
                 <button
                   type="button"
                   className="rent-btn rent-btn--ghost rent-btn--sm"
-                  onClick={() => message.info('服务详情即将上线')}
+                  onClick={() => setDetailService(s)}
                 >
                   了解更多
                 </button>
@@ -556,23 +674,49 @@ const Services = () => {
             </div>
           )}
 
-          {/* 最近预约（本地记录） */}
-          {bookedServices.length > 0 && (
+          {/* 服务订单（来自 /service-orders，已完成且未评价的可直接评价） */}
+          {orders.length > 0 && (
             <div className="rent-sub-section">
-              <h4 className="rent-sub-title">最近预约</h4>
+              <h4 className="rent-sub-title">我的服务订单</h4>
               <div className="rent-sub-list">
-                {bookedServices.map((b) => (
-                  <div className="rent-sub-item" key={b.id}>
-                    <div className="rent-sub-item__main">
-                      <div className="rent-sub-item__name">{b.service_name}</div>
-                      <div className="rent-sub-item__meta">{b.booked_at}</div>
+                {orders.map((o) => {
+                  const st = ORDER_STATUS_META[o.status] || { label: o.status, tone: 'neutral' }
+                  const property = properties.find((p) => p.id === o.property_id)
+                  const canReview = o.status === 'completed' && !o.reviewed_at
+                  return (
+                    <div className="rent-sub-item" key={o.id}>
+                      <div className="rent-sub-item__main">
+                        <div className="rent-sub-item__name">
+                          {SERVICE_TYPE_LABEL[o.service_type] || o.service_type}
+                          {property ? ` · ${property.room_number}` : ''}
+                        </div>
+                        <div className="rent-sub-item__meta">
+                          {o.scheduled_at ? `预约时间 ${dayjs(o.scheduled_at).format('YYYY-MM-DD HH:mm')}` : '未指定时间'}
+                          {o.notes ? ` · ${o.notes}` : ''}
+                        </div>
+                        {o.reviewed_at && (
+                          <div className="rent-sub-item__meta" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Rate disabled value={Number(o.rating || 0)} style={{ fontSize: 12 }} />
+                            {o.review_comment ? <span>{o.review_comment}</span> : <span>已评价</span>}
+                          </div>
+                        )}
+                      </div>
+                      <div className="rent-sub-item__right">
+                        <span className="rent-sub-item__amount">{fmtMoney(o.amount, o.currency)}</span>
+                        <span className={`rent-badge rent-badge--${st.tone}`}>{st.label}</span>
+                        {canReview && (
+                          <button
+                            type="button"
+                            className="rent-btn rent-btn--secondary rent-btn--sm"
+                            onClick={() => openReview(o)}
+                          >
+                            评价
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="rent-sub-item__right">
-                      <span className="rent-sub-item__amount">{b.price}</span>
-                      <span className="rent-badge rent-badge--warning">待处理</span>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -618,6 +762,117 @@ const Services = () => {
               <InputNumber min={0} max={3} step={0.25} style={{ width: '100%' }} />
             </Form.Item>
           </div>
+        </Form>
+      </Modal>
+
+      {/* ===== 服务详情 Modal ===== */}
+      <Modal
+        title={detailService?.name}
+        open={!!detailService}
+        onCancel={() => setDetailService(null)}
+        footer={
+          <button
+            type="button"
+            className="rent-btn rent-btn--primary"
+            onClick={() => {
+              const s = detailService
+              setDetailService(null)
+              if (s) openBooking(s)
+            }}
+          >
+            立即预约
+          </button>
+        }
+      >
+        {detailService && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 'var(--rent-radius-md)',
+                  background: detailService.iconBg,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {detailService.icon}
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Rate disabled value={detailService.ratingFilled} style={{ fontSize: 12 }} />
+                  <span className="rent-text-sm rent-text-muted">{detailService.ratingLabel}</span>
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  <span className="rent-text-sm rent-text-muted">起价</span>
+                  <span className="rent-num" style={{ fontSize: 18, color: 'var(--rent-ink)', marginLeft: 4 }}>
+                    {detailService.price}
+                  </span>
+                  <span className="rent-text-sm rent-text-muted">{detailService.priceUnit}</span>
+                </div>
+              </div>
+            </div>
+            <p className="rent-text-sm rent-text-muted" style={{ margin: 0, lineHeight: 1.7 }}>
+              {detailService.description}
+            </p>
+            <ul className="rent-text-sm rent-text-muted" style={{ margin: '12px 0 0', paddingLeft: 18, lineHeight: 1.8 }}>
+              <li>专业团队上门服务，服务过程可追溯</li>
+              <li>服务完成后可在「我的服务订单」中评分与反馈</li>
+              <li>如对服务不满意，可联系客服申请返工</li>
+            </ul>
+          </div>
+        )}
+      </Modal>
+
+      {/* ===== 预约服务 Modal ===== */}
+      <Modal
+        title={bookingService ? `预约 · ${bookingService.name}` : '预约服务'}
+        open={!!bookingService}
+        onCancel={() => !bookingSubmitting && setBookingService(null)}
+        onOk={handleBookingSubmit}
+        confirmLoading={bookingSubmitting}
+        okText="确认预约"
+        cancelText="取消"
+      >
+        <Form form={bookingForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item name="property_id" label="服务房源" rules={[{ required: true, message: '请选择房源' }]}>
+            <Select
+              placeholder="请选择房源"
+              options={properties.map((p) => ({
+                value: p.id,
+                label: `${p.room_number} · ${p.address || ''}`,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item name="scheduled_at" label="期望上门时间" rules={[{ required: true, message: '请选择上门时间' }]}>
+            <DatePicker showTime style={{ width: '100%' }} format="YYYY-MM-DD HH:mm" />
+          </Form.Item>
+          <Form.Item name="notes" label="备注">
+            <Input.TextArea rows={3} maxLength={200} placeholder="如房号、门禁方式、特殊要求等" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ===== 服务评价 Modal ===== */}
+      <Modal
+        title="服务评价"
+        open={!!reviewOrder}
+        onCancel={() => !reviewSubmitting && setReviewOrder(null)}
+        onOk={handleReviewSubmit}
+        confirmLoading={reviewSubmitting}
+        okText="提交评价"
+        cancelText="取消"
+      >
+        <Form form={reviewForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item name="rating" label="服务评分" rules={[{ required: true, message: '请选择评分' }]}>
+            <Rate />
+          </Form.Item>
+          <Form.Item name="comment" label="服务反馈">
+            <Input.TextArea rows={3} maxLength={1000} placeholder="请描述本次服务的体验（选填）" />
+          </Form.Item>
         </Form>
       </Modal>
     </div>

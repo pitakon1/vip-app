@@ -1,0 +1,79 @@
+name: backend-ci
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-test.txt
+
+      - name: 安装依赖
+        run: pip install -r requirements-test.txt
+
+      - name: 静态检查（ruff）
+        run: ruff check app tests scripts
+
+      - name: 单元测试（内存 SQLite，不依赖外部服务）
+        # 覆盖率门槛防止「删测试/空断言」悄悄回归：当前约 58%，门槛设在 55%
+        run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=55
+
+  migration-check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rental_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/rental_ci
+      DEBUG: "false"
+      # 密钥仅用于 CI，避免启动自检报错
+      SECRET_KEY: ci-only-secret-key
+      PII_ENCRYPTION_KEY: ci-only-pii-key
+      REDIS_URL: redis://localhost:6379/0
+      RATE_LIMIT_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 迁移可在全新库上跑通
+        run: alembic upgrade head
+
+      - name: 模型与迁移是否一致（无漂移）
+        run: python scripts/check_schema_drift.py

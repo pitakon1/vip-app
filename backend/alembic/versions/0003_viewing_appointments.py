@@ -19,7 +19,7 @@ depends_on = None
 
 def upgrade():
     # 仅创建当前缺失的表（viewing_appointments），列类型与模型自动对齐
-    from app.models import *  # noqa: F401, F403
+    import app.models  # noqa: F401
     from sqlmodel import SQLModel
     SQLModel.metadata.create_all(op.get_bind())
 

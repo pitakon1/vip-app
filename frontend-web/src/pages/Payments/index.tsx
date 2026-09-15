@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
 import { paymentsApi } from '@/services/api'
+import { downloadReport } from '@/lib/download'
 import type { Payment, PaymentStatus } from '@/types'
 import './payments.css'
 
@@ -57,6 +58,11 @@ const Payments = () => {
   const [currentPayment, setCurrentPayment] = useState<Payment | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [refundReason, setRefundReason] = useState('')
+  // 逾期滞纳金减免
+  const [waiveOpen, setWaiveOpen] = useState(false)
+  const [waivePayment, setWaivePayment] = useState<Payment | null>(null)
+  const [waiveAmount, setWaiveAmount] = useState('')
+  const [waiveReason, setWaiveReason] = useState('')
   const [queryParams, setQueryParams] = useState<QueryParams>({
     page: 1,
     pageSize: 10,
@@ -84,6 +90,26 @@ const Payments = () => {
       setLoading(false)
     }
   }, [queryParams])
+
+  // 导出当前筛选条件下的收付款流水（后端生成 CSV，见 /api/v1/exports/payments）
+  const handleExport = async () => {
+    try {
+      await downloadReport(
+        '/exports/payments',
+        {
+          status: queryParams.status || undefined,
+          payment_type: filterType || undefined,
+          channel: filterMethod || undefined,
+          date_from: filterStart || undefined,
+          date_to: filterEnd || undefined,
+        },
+        'payments.csv',
+      )
+      message.success('收付款流水已导出')
+    } catch {
+      message.error('导出失败，请稍后重试')
+    }
+  }
 
   useEffect(() => {
     fetchData()
@@ -192,6 +218,41 @@ const Payments = () => {
     return amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
 
+  // 尚需缴纳的滞纳金（毛额扣除已减免）
+  const lateFeeDue = (p: Payment) =>
+    Math.max(Number(p.late_fee_accrued || 0) - Number(p.late_fee_waived || 0), 0)
+
+  const formatFee = (v: number) =>
+    v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  const openWaive = (record: Payment) => {
+    setWaivePayment(record)
+    setWaiveAmount('')
+    setWaiveReason('')
+    setWaiveOpen(true)
+  }
+
+  // 不填金额 = 全额减免剩余滞纳金（后端同样支持）
+  const handleWaive = async () => {
+    if (!waivePayment) return
+    const amount = waiveAmount.trim() ? Number(waiveAmount) : null
+    if (amount !== null && (!Number.isFinite(amount) || amount <= 0)) {
+      message.error('减免金额需大于 0')
+      return
+    }
+    try {
+      setSubmitting(true)
+      await paymentsApi.waiveLateFee(String(waivePayment.id), amount, waiveReason.trim())
+      message.success('滞纳金已减免')
+      setWaiveOpen(false)
+      fetchData()
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || '减免失败')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <div className="rent-main">
       {/* Page Header */}
@@ -201,7 +262,7 @@ const Payments = () => {
           <p className="rent-page-header__subtitle">跟踪所有租金收付记录</p>
         </div>
         <div className="rent-page-header__actions">
-          <button className="rent-btn rent-btn--secondary">
+          <button className="rent-btn rent-btn--secondary" onClick={handleExport}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
@@ -362,6 +423,7 @@ const Payments = () => {
                   <th>租客/业主</th>
                   <th>类型</th>
                   <th className="rent-money">金额 (฿)</th>
+                  <th className="rent-money">滞纳金 (฿)</th>
                   <th>方式</th>
                   <th>合同编号</th>
                   <th>状态</th>
@@ -381,6 +443,7 @@ const Payments = () => {
                   const channel = p.channel || '-'
                   const isRefundable = ds === 'overdue'
                   const isConfirmable = ds === 'pending'
+                  const feeDue = lateFeeDue(p)
                   return (
                     <tr key={p.id}>
                       <td><span className="rent-mono">{code}</span></td>
@@ -390,6 +453,20 @@ const Payments = () => {
                         <span className={`rent-badge ${tMeta.badge}`}>{tMeta.label}</span>
                       </td>
                       <td className="rent-money rent-num">{formatAmount(p)}</td>
+                      <td className="rent-money rent-num">
+                        {feeDue > 0 ? (
+                          <>
+                            <span style={{ color: 'var(--state-error)' }}>{formatFee(feeDue)}</span>
+                            {Number(p.late_fee_waived || 0) > 0 && (
+                              <span className="rent-text-muted rent-text-sm">
+                                {` （已减 ${formatFee(Number(p.late_fee_waived))}）`}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="rent-text-muted">-</span>
+                        )}
+                      </td>
                       <td>{channel}</td>
                       <td><span className="rent-mono">{contractCode}</span></td>
                       <td>
@@ -403,6 +480,14 @@ const Payments = () => {
                           <button className="rent-btn rent-btn--ghost rent-btn--sm">查看</button>
                           {isConfirmable && (
                             <button className="rent-btn rent-btn--primary rent-btn--sm">确认</button>
+                          )}
+                          {feeDue > 0 && (
+                            <button
+                              className="rent-btn rent-btn--ghost rent-btn--sm"
+                              onClick={() => openWaive(p)}
+                            >
+                              减免
+                            </button>
                           )}
                           {isRefundable && (
                             <button
@@ -492,6 +577,58 @@ const Payments = () => {
               <button className="rent-btn rent-btn--secondary" onClick={() => setRefundOpen(false)}>取消</button>
               <button className="rent-btn rent-btn--primary" onClick={handleRefund} disabled={submitting}>
                 {submitting ? '提交中...' : '确定'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Waive late fee modal */}
+      {waiveOpen && waivePayment && (
+        <div className="rent-modal-backdrop" onClick={() => setWaiveOpen(false)}>
+          <div className="rent-modal payments-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="rent-modal__header">
+              <h3 className="rent-card__title">减免逾期滞纳金</h3>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setWaiveOpen(false)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="rent-modal__body">
+              <p className="rent-text-muted rent-text-sm" style={{ marginTop: 0 }}>
+                {`当前应缴滞纳金 ${formatFee(lateFeeDue(waivePayment))} ฿（已减免 ${formatFee(
+                  Number(waivePayment.late_fee_waived || 0),
+                )} ฿）`}
+              </p>
+              <div className="rent-form-group">
+                <label className="rent-form-label">减免金额（留空表示全额减免）</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="rent-form-input"
+                  placeholder={formatFee(lateFeeDue(waivePayment))}
+                  value={waiveAmount}
+                  onChange={(e) => setWaiveAmount(e.target.value)}
+                />
+              </div>
+              <div className="rent-form-group" style={{ marginBottom: 0 }}>
+                <label className="rent-form-label">减免原因</label>
+                <textarea
+                  className="rent-form-textarea"
+                  rows={3}
+                  placeholder="例如：老客户首次逾期，经审批减免"
+                  value={waiveReason}
+                  onChange={(e) => setWaiveReason(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="rent-modal__footer">
+              <button className="rent-btn rent-btn--secondary" onClick={() => setWaiveOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--primary" onClick={handleWaive} disabled={submitting}>
+                {submitting ? '提交中...' : '确定减免'}
               </button>
             </div>
           </div>

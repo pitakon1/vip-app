@@ -53,6 +53,8 @@ class PropertyMatch(TimestampMixin, table=True):
     reason: Optional[str] = None
     seen: bool = Field(default=False)
     expired_at: Optional[datetime] = None
+    # 最近一次把该匹配推送给租客的时间（为空表示尚未推送）
+    notified_at: Optional[datetime] = None
 
 
 class ChurnSignal(TimestampMixin, table=True):
@@ -70,3 +72,6 @@ class ChurnSignal(TimestampMixin, table=True):
     is_resolved: bool = Field(default=False)
     resolved_at: Optional[datetime] = None
     suggested_action: Optional[str] = None   # 续约提醒/复购推送/经理跟进
+    # 派发跟进：指向 employees.id（负责跟进的员工），为空表示尚未派发
+    assigned_to: Optional[uuid.UUID] = Field(default=None, foreign_key="employees.id")
+    assigned_at: Optional[datetime] = None

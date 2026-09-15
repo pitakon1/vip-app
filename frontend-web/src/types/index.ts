@@ -85,6 +85,10 @@ export interface Payment {
   payment_type: string
   due_date: string
   paid_at: string
+  // 逾期滞纳金：应缴 = amount + (late_fee_accrued - late_fee_waived)
+  late_fee_accrued?: number
+  late_fee_waived?: number
+  late_fee_updated_at?: string
   [key: string]: any
 }
 

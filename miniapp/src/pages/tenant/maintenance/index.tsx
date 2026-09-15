@@ -3,14 +3,15 @@ import { View, Text, Input, Textarea, Button, ScrollView, Picker } from '@tarojs
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { maintenanceApi } from '@/services/api'
+import { iconStyle } from '@/utils/icons'
 import type { MaintenanceTicket, MaintenanceStatus, MaintenancePriority } from '@/types'
 import './index.scss'
 
 const STATUS_MAP: Record<MaintenanceStatus, { text: string; color: string }> = {
-  pending: { text: '待处理', color: '#d97706' },
-  processing: { text: '处理中', color: '#14b8a6' },
-  completed: { text: '已完成', color: '#16a34a' },
-  cancelled: { text: '已取消', color: '#94a3b8' }
+  pending: { text: '待处理', color: 'var(--warning)' },
+  processing: { text: '处理中', color: 'var(--primary)' },
+  completed: { text: '已完成', color: 'var(--success)' },
+  cancelled: { text: '已取消', color: 'var(--ink-3)' }
 }
 
 const PRIORITY_OPTIONS: MaintenancePriority[] = ['low', 'medium', 'high']
@@ -258,9 +259,11 @@ export default function TenantMaintenancePage() {
             <View className='rate-panel' onClick={(e) => e.stopPropagation()}>
               <View className='rate-panel-header'>
                 <Text className='rate-panel-title'>{activeTicket.title}</Text>
-                <Text className='rate-panel-close' onClick={closeDetail}>
-                  ✕
-                </Text>
+                <View
+                  className='rate-panel-close icon-svg'
+                  style={iconStyle('close', 36)}
+                  onClick={closeDetail}
+                />
               </View>
               <Text className='rate-panel-status'>
                 状态：{(STATUS_MAP[activeTicket.status] || STATUS_MAP.pending).text}
@@ -277,13 +280,12 @@ export default function TenantMaintenancePage() {
                   <Text className='rate-label'>服务评价</Text>
                   <View className='rate-stars'>
                     {[1, 2, 3, 4, 5].map((n) => (
-                      <Text
+                      <View
                         key={n}
-                        className={`rate-star ${n <= rating ? 'is-on' : ''}`}
+                        className='rate-star icon-svg'
+                        style={iconStyle(n <= rating ? 'starFill' : 'star', 40)}
                         onClick={() => pickRating(n)}
-                      >
-                        ★
-                      </Text>
+                      />
                     ))}
                   </View>
                   <Text className='rate-label'>反馈意见（可选）</Text>

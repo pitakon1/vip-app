@@ -12,20 +12,22 @@
 - POST   /payments/{id}/cancel   取消支付单
 - POST   /payments/{id}/proof    登记转账凭证
 - POST   /payments/{id}/refund   退款（原路退回 / 线下人工）
+- POST   /payments/{id}/late-fee/waive  减免逾期滞纳金（员工及以上）
 - GET    /payments/reconciliations  对账统计（Admin）
 """
 import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, require_agent, require_admin
-from app.core.pagination import PaginationParams, paginate
+from app.core.events import publish_event
+from app.core.pagination import Page, PaginationParams, paginate
 from app.models import (
     Payment,
     PaymentType,
@@ -81,6 +83,12 @@ class ProofRequest(BaseModel):
     channel: Optional[str] = None
 
 
+class LateFeeWaiveRequest(BaseModel):
+    # 不传表示把剩余滞纳金全额减免
+    amount: Optional[float] = Field(default=None, gt=0)
+    reason: str = ""
+
+
 def _can_manage(user: User, payment: Payment) -> bool:
     """当前用户是否为支付单的付款方 / 收款方 / 管理端。"""
     if user.id == payment.payer_id or user.id == payment.payee_id:
@@ -95,7 +103,7 @@ def _get_payment_or_404(payment_id: uuid.UUID, session: Session) -> Payment:
     return payment
 
 
-@router.get("")
+@router.get("", response_model=Page[Payment])
 def list_payments(
     pagination: PaginationParams = Depends(),
     status: Optional[PaymentStatus] = None,
@@ -186,19 +194,31 @@ def create_payment(
 
 @router.get("/me")
 def list_my_payments(
+    payment_type: Optional[PaymentType] = None,
+    limit: int = Query(500, ge=1, le=2000),
+    offset: int = Query(0, ge=0),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """当前用户相关的付款记录。"""
+    """当前用户相关的付款记录（可按 payment_type 过滤，分页返回）。
+
+    `total` 为真实总笔数（而非当前页条数），供前端展示完整的分页信息。
+    """
+    conditions = [
+        (Payment.payer_id == user.id) | (Payment.payee_id == user.id),
+        Payment.deleted_at.is_(None),
+    ]
+    if payment_type:
+        conditions.append(Payment.payment_type == payment_type)
+    total = session.exec(select(func.count(Payment.id)).where(*conditions)).one()
     payments = session.exec(
         select(Payment)
-        .where(
-            (Payment.payer_id == user.id) | (Payment.payee_id == user.id),
-            Payment.deleted_at.is_(None),
-        )
-        .order_by(Payment.created_at.desc())
+        .where(*conditions)
+        .order_by(Payment.created_at.desc(), Payment.id)
+        .offset(offset)
+        .limit(limit)
     ).all()
-    return {"items": payments, "total": len(payments)}
+    return {"items": payments, "total": total}
 
 
 @router.post("/upload")
@@ -479,3 +499,48 @@ def refund_payment(
     """退款：有渠道交易号原路退回，否则标记线下人工退款。"""
     payment = _get_payment_or_404(payment_id, session)
     return payment_service.refund(session, payment, amount=req.amount, reason=req.reason)
+
+
+@router.post("/{payment_id}/late-fee/waive")
+def waive_late_fee(
+    payment_id: uuid.UUID,
+    req: LateFeeWaiveRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_agent),
+):
+    """减免逾期滞纳金（员工及以上）。
+
+    滞纳金毛额由定时任务按「逾期天数 × 日费率」重算，减免额单独累计在
+    `late_fee_waived`，因此减免不会被下一次计提覆盖；不传 amount 表示全额减免。
+    """
+    payment = _get_payment_or_404(payment_id, session)
+    remaining = round(payment.late_fee_accrued - payment.late_fee_waived, 2)
+    if remaining <= 0:
+        raise HTTPException(
+            status_code=400, detail="No late fee to waive for this payment"
+        )
+    amount = round(req.amount if req.amount is not None else remaining, 2)
+    if amount > remaining:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Waive amount {amount} exceeds remaining late fee {remaining}",
+        )
+
+    payment.late_fee_waived = round(payment.late_fee_waived + amount, 2)
+    session.add(payment)
+    publish_event(
+        session,
+        "payment.late_fee_waived",
+        "payment",
+        payment.id,
+        {
+            "amount": amount,
+            "reason": req.reason,
+            "waived_by": str(user.id),
+            "late_fee_accrued": payment.late_fee_accrued,
+            "late_fee_waived": payment.late_fee_waived,
+        },
+    )
+    session.commit()
+    session.refresh(payment)
+    return payment

@@ -27,7 +27,7 @@
     .summary-label {
       display: block;
       text-align: center;
-      color: #d9faf5;
+      color: rgba(var(--primary-rgb), 0.16);
       font-size: 24px;
     }
 
@@ -86,7 +86,7 @@
       margin-right: 20px;
 
       &--top {
-        background-color: #fa8c16;
+        background-color: var(--warning);
       }
     }
 
@@ -116,7 +116,7 @@
 
     .rank-amount {
       font-size: 28px;
-      color: #dc2626;
+      color: var(--error);
       font-weight: 600;
 
       &--self {

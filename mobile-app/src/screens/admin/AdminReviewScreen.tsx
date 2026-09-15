@@ -21,7 +21,7 @@ const TYPE_META: Record<string, { label: string; icon: keyof typeof Ionicons.gly
   trip: { label: '外勤申请', icon: 'walk-outline', color: colors.warning },
   maintenance: { label: '报修工单', icon: 'construct-outline', color: colors.primary },
   service: { label: '服务订单', icon: 'sparkles-outline', color: colors.success },
-  contract: { label: '合同流转', icon: 'document-text-outline', color: '#8b5cf6' },
+  contract: { label: '合同流转', icon: 'document-text-outline', color: '#7a5cd6' },
 };
 const getType = (t: string) => TYPE_META[t] ?? { label: t, icon: 'ellipse-outline' as const, color: colors.ink3 };
 
@@ -65,7 +65,7 @@ export default function AdminReviewScreen() {
   // 报修受理 / 完结
   const handleTicket = async (id: string, status: string) => {
     try {
-      await api.patch(`/maintenance/${id}`, { status });
+      await api.patch(`/maintenance-tickets/${id}`, { status });
       Alert.alert('成功', '工单状态已更新');
       fetchData();
     } catch (e: any) {
@@ -76,7 +76,7 @@ export default function AdminReviewScreen() {
   // 服务订单受理
   const handleOrder = async (id: string, status: string) => {
     try {
-      await api.patch(`/service-orders/${id}`, { status });
+      await api.patch(`/service-orders/${id}/status`, { status });
       Alert.alert('成功', '订单状态已更新');
       fetchData();
     } catch (e: any) {

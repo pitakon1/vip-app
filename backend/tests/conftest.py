@@ -11,6 +11,10 @@ import pathlib
 # 必须早于任何 app.* 导入：把全局引擎指向 SQLite，避免依赖 psycopg2/生产库
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 os.environ.setdefault("DEBUG", "false")
+# 测试环境不依赖 Redis：限流计数器用进程内存，并把默认配额调大避免用例之间互相干扰
+os.environ.setdefault("RATE_LIMIT_STORAGE_URI", "memory://")
+os.environ.setdefault("RATE_LIMIT_DEFAULT", "10000/minute")
+os.environ.setdefault("RATE_LIMIT_AUTH", "10000/minute")
 
 # 确保 backend 目录在 sys.path，使 `from app...` 可导入
 BACKEND_DIR = pathlib.Path(__file__).resolve().parents[1]

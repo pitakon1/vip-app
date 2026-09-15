@@ -65,7 +65,7 @@ export default function ReviewPage() {
       title: action === 'approved' ? '通过申请' : '驳回申请',
       content: item.title,
       confirmText: action === 'approved' ? '通过' : '驳回',
-      confirmColor: action === 'approved' ? '#14b8a6' : '#dc2626',
+      confirmColor: action === 'approved' ? 'var(--primary)' : 'var(--error)',
       success: (r) => {
         if (r.confirm) {
           act('审批', `/attendance/external-trips/${item.id}/approve`, 'POST', {
@@ -138,13 +138,13 @@ export default function ReviewPage() {
                   <>
                     <View
                       className='rv-btn rv-btn--primary'
-                      onClick={() => act('受理', `/maintenance/${item.id}`, 'PATCH', { status: 'assigned' })}
+                      onClick={() => act('受理', `/maintenance-tickets/${item.id}`, 'PATCH', { status: 'assigned' })}
                     >
                       <Text className='rv-btn--primary__text'>受理</Text>
                     </View>
                     <View
                       className='rv-btn rv-btn--ghost'
-                      onClick={() => act('完结', `/maintenance/${item.id}`, 'PATCH', { status: 'resolved' })}
+                      onClick={() => act('完结', `/maintenance-tickets/${item.id}`, 'PATCH', { status: 'resolved' })}
                     >
                       <Text className='rv-btn--ghost__text'>完结</Text>
                     </View>
@@ -153,7 +153,7 @@ export default function ReviewPage() {
                 {item.type === 'service' && (
                   <View
                     className='rv-btn rv-btn--primary'
-                    onClick={() => act('受理', `/service-orders/${item.id}`, 'PATCH', { status: 'assigned' })}
+                    onClick={() => act('受理', `/service-orders/${item.id}/status`, 'PATCH', { status: 'assigned' })}
                   >
                     <Text className='rv-btn--primary__text'>受理</Text>
                   </View>

@@ -428,3 +428,20 @@
   .pl-sortbar__item { padding: 12px 14px; font-size: 13px; }
   .pl-item__price-num { font-size: 22px; }
 }
+
+/* 视频看房标记：仅当房源带 video_url 时出现在封面右下角 */
+.rent-prop-search-card__video-tag {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--rent-radius-full);
+  background: rgba(20, 184, 166, 0.9);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}

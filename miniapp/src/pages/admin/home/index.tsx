@@ -9,6 +9,7 @@ import {
   employeesApi
 } from '@/services/api'
 import './index.scss'
+import { iconStyle, type IconKey } from '@/utils/icons'
 
 type Tab = 'overview' | 'recon' | 'commission'
 
@@ -77,7 +78,7 @@ const pick = (res: any, key?: string): any => {
 
 const fmtMoney = (v: number | undefined, currency?: string) => {
   const sym: Record<string, string> = { CNY: '¥', THB: '฿', EUR: '€', USD: '$' }
-  return `${sym[currency || 'THB'] || '¥'}${Number(v || 0).toLocaleString()}`
+  return `${sym[currency || 'THB'] || '฿'}${Number(v || 0).toLocaleString()}`
 }
 
 const DEAL_TYPE: Record<string, string> = {
@@ -95,10 +96,10 @@ const SCOPE: Record<string, string> = {
   by_broker: '按分销商'
 }
 
-const TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: 'overview', label: '运营概览', icon: '📊' },
-  { key: 'recon', label: '财务对账', icon: '💰' },
-  { key: 'commission', label: '佣金设置', icon: '⚙️' },
+const TABS: { key: Tab; label: string; icon: IconKey }[] = [
+  { key: 'overview', label: '运营概览', icon: 'chart' },
+  { key: 'recon', label: '财务对账', icon: 'money' },
+  { key: 'commission', label: '佣金设置', icon: 'gear' },
 ]
 
 function StateView({
@@ -108,7 +109,7 @@ function StateView({
   desc
 }: {
   loading: boolean
-  icon: string
+  icon: IconKey
   title: string
   desc: string
 }) {
@@ -122,7 +123,7 @@ function StateView({
   }
   return (
     <View className='adm-state'>
-      <View className='adm-state__icon'>{icon}</View>
+      <View className='adm-state__icon icon-svg' style={iconStyle(icon)} />
       <Text className='adm-state__title'>{title}</Text>
       <Text className='adm-state__desc'>{desc}</Text>
     </View>
@@ -395,7 +396,7 @@ export default function AdminHomePage() {
       {/* 顶部欢迎区 */}
       <View className='adm-hero'>
         <View className='adm-hero__left'>
-          <Text className='adm-hero__hi'>管理员工作台 👋</Text>
+          <Text className='adm-hero__hi'>管理员工作台</Text>
           <Text className='adm-hero__sub'>你好，{user?.name || '管理员'} · 系统管理权限</Text>
         </View>
         <View className='adm-hero__badge'>
@@ -411,7 +412,7 @@ export default function AdminHomePage() {
             className={`adm-tab ${tab === t.key ? 'adm-tab--active' : ''}`}
             onClick={() => switchTab(t.key)}
           >
-            <Text className='adm-tab__icon'>{t.icon}</Text>
+            <View className='adm-tab__icon icon-svg' style={iconStyle(t.icon)} />
             <Text className='adm-tab__label'>{t.label}</Text>
           </View>
         ))}
@@ -429,7 +430,7 @@ export default function AdminHomePage() {
             hoverClass='adm-special__cap--hover'
             onClick={() => Taro.navigateTo({ url: '/pages/admin/reconciliation/index' })}
           >
-            <Text className='adm-special__cap-icon'>💰</Text>
+            <Text className='adm-special__cap-icon icon-svg' style={iconStyle('money')} />
             <View className='adm-special__cap-body'>
               <Text className='adm-special__cap-title'>财务对账</Text>
               <Text className='adm-special__cap-desc'>实收 逾期 分房源</Text>
@@ -440,7 +441,7 @@ export default function AdminHomePage() {
             hoverClass='adm-special__cap--hover'
             onClick={() => Taro.navigateTo({ url: '/pages/admin/ops/index' })}
           >
-            <Text className='adm-special__cap-icon'>📊</Text>
+            <Text className='adm-special__cap-icon icon-svg' style={iconStyle('chart')} />
             <View className='adm-special__cap-body'>
               <Text className='adm-special__cap-title'>运营看板</Text>
               <Text className='adm-special__cap-desc'>漏斗 · 活跃 · 分国数据</Text>
@@ -451,7 +452,7 @@ export default function AdminHomePage() {
             hoverClass='adm-special__cap--hover'
             onClick={() => Taro.navigateTo({ url: '/pages/admin/review/index' })}
           >
-            <Text className='adm-special__cap-icon'>✓</Text>
+            <Text className='adm-special__cap-icon icon-svg' style={iconStyle('check')} />
             <View className='adm-special__cap-body'>
               <Text className='adm-special__cap-title'>工单审核</Text>
               <Text className='adm-special__cap-desc'>外勤 · 报修 · 订单</Text>
@@ -462,7 +463,7 @@ export default function AdminHomePage() {
             hoverClass='adm-special__cap--hover'
             onClick={() => Taro.navigateTo({ url: '/pages/admin/accounts/index' })}
           >
-            <Text className='adm-special__cap-icon'>👤</Text>
+            <Text className='adm-special__cap-icon icon-svg' style={iconStyle('user')} />
             <View className='adm-special__cap-body'>
               <Text className='adm-special__cap-title'>账号管理</Text>
               <Text className='adm-special__cap-desc'>启停 · 重置密码</Text>
@@ -478,12 +479,12 @@ export default function AdminHomePage() {
             {/* 核心数据 */}
             <View className='adm-stats-primary'>
               <View className='adm-stat-card adm-stat-card--primary'>
-                <View className='adm-stat-card__icon'>🏠</View>
+                <View className='adm-stat-card__icon icon-svg' style={iconStyle('home')} />
                 <Text className='adm-stat-card__num'>{summary.total_properties ?? '-'}</Text>
                 <Text className='adm-stat-card__label'>房源总数</Text>
               </View>
               <View className='adm-stat-card adm-stat-card--success'>
-                <View className='adm-stat-card__icon'>📈</View>
+                <View className='adm-stat-card__icon icon-svg' style={iconStyle('trend')} />
                 <Text className='adm-stat-card__num'>{summary.occupancy_rate ?? 0}%</Text>
                 <Text className='adm-stat-card__label'>入住率</Text>
               </View>
@@ -531,7 +532,7 @@ export default function AdminHomePage() {
                   在租合同营收 {fmtMoney(summary.active_lease_revenue)}
                 </Text>
               </View>
-              <View className='adm-revenue-card__icon'>💰</View>
+              <View className='adm-revenue-card__icon icon-svg' style={iconStyle('money')} />
             </View>
 
             {/* 临期租约 */}
@@ -541,7 +542,7 @@ export default function AdminHomePage() {
                 <Text className='adm-section__hint'>30 天内到期</Text>
               </View>
               {expiring.length === 0 ? (
-                <StateView loading={loading} icon='📋' title='无临期租约' desc='近期到期的租约将在此展示' />
+                <StateView loading={loading} icon='clipboard' title='无临期租约' desc='近期到期的租约将在此展示' />
               ) : (
                 <View className='adm-expire-list'>
                   {expiring.map((e: any) => {
@@ -648,7 +649,7 @@ export default function AdminHomePage() {
                 <Text className='adm-section__title'>按房源对账</Text>
               </View>
               {recon.by_property.length === 0 ? (
-                <StateView loading={loading} icon='📊' title='暂无数据' desc='完成房源收款后在此对账' />
+                <StateView loading={loading} icon='chart' title='暂无数据' desc='完成房源收款后在此对账' />
               ) : (
                 <View className='adm-table'>
                   <View className='adm-table__row adm-table__row--head'>
@@ -742,7 +743,6 @@ export default function AdminHomePage() {
                       hint='分销商管理员仅可为本渠道及本渠道员工配置差异化费率'
                     />
                   )}
-                </View>
                 {(ruleForm.scope === 'by_broker' || ruleForm.scope === 'broker_employee') && isAdmin && brokers.length > 0 && (
                   <SearchDrop
                     label='选择分销商'
@@ -819,7 +819,7 @@ export default function AdminHomePage() {
                 <Text className='adm-section__hint'>共 {rules.length} 条</Text>
               </View>
               {rules.length === 0 ? (
-                <StateView loading={loading} icon='⚙️' title='暂无佣金设置' desc='新增一条设置即可生效' />
+                <StateView loading={loading} icon='gear' title='暂无佣金设置' desc='新增一条设置即可生效' />
               ) : (
                 <View className='adm-rule-list'>
                   {rules.map((r) => (

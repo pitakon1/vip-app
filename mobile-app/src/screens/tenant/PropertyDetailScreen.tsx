@@ -101,7 +101,7 @@ export default function PropertyDetailScreen() {
         <>
           <Text style={styles.title}>{property.title}</Text>
           {property.rent ? (
-            <Text style={styles.rent}>¥{property.rent.toLocaleString()}/月</Text>
+            <Text style={styles.rent}>฿{property.rent.toLocaleString()}/月</Text>
           ) : null}
           {property.address ? (
             <Text style={styles.address}>{property.address}</Text>

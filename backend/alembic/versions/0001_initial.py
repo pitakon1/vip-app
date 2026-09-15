@@ -15,11 +15,13 @@ depends_on = None
 
 def upgrade():
     # 使用 SQLModel 创建所有表
-    from app.models import *  # noqa: F401, F403
+    # 注意：函数内不能用 `from ... import *`（SyntaxError），用 `import app.models`
+    # 触发全部模型注册到 SQLModel.metadata
+    import app.models  # noqa: F401
     from sqlmodel import SQLModel
     SQLModel.metadata.create_all(op.get_bind())
 
 def downgrade():
-    from app.models import *  # noqa: F401, F403
+    import app.models  # noqa: F401
     from sqlmodel import SQLModel
     SQLModel.metadata.drop_all(op.get_bind())

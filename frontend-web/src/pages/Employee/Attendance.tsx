@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { message, Spin, Empty } from 'antd'
 import dayjs from 'dayjs'
 import { attendanceApi, geoApi } from '@/services/api'
+import { downloadReport } from '@/lib/download'
 import './attendance.css'
 
-type AttendanceStatus = 'normal' | 'late' | 'early' | 'absent' | 'leave'
+// 与后端 AttendanceStatus 枚举保持一致
+type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave' | 'field_work'
 
 interface AttendanceRecord {
   key: string
@@ -23,117 +25,76 @@ interface CalendarCell {
 }
 
 const statusLabelMap: Record<AttendanceStatus, string> = {
-  normal: '正常',
+  present: '正常',
   late: '迟到',
-  early: '早退',
   absent: '缺勤',
   leave: '请假',
+  field_work: '外勤',
 }
 
 const statusBadgeTone: Record<AttendanceStatus, 'success' | 'warning' | 'info' | 'neutral'> = {
-  normal: 'success',
+  present: 'success',
   late: 'warning',
-  early: 'warning',
+  field_work: 'info',
   absent: 'neutral',
   leave: 'neutral',
 }
 
-const STATUS_BY_DAY = ['normal', 'normal', 'normal', 'late', 'normal', 'early', 'normal']
-
 const WEEKDAYS_CN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
-const buildStaticRecords = (): AttendanceRecord[] => {
-  const records: AttendanceRecord[] = []
-  const today = dayjs()
-  for (let i = 0; i < 20; i++) {
-    const date = today.subtract(i, 'day')
-    // 周末跳过
-    const weekday = date.day()
-    if (weekday === 0 || weekday === 6) continue
+/** 把后端考勤记录转成表格/日历用的行数据。 */
+const toRecord = (raw: any): AttendanceRecord => ({
+  key: String(raw.date ?? raw.id),
+  date: String(raw.date ?? '').slice(0, 10),
+  check_in: raw.check_in_time ? dayjs(raw.check_in_time).format('HH:mm') : null,
+  check_out: raw.check_out_time ? dayjs(raw.check_out_time).format('HH:mm') : null,
+  status: (raw.status as AttendanceStatus) || 'present',
+  remark: raw.notes || '',
+})
 
-    const status = STATUS_BY_DAY[i % STATUS_BY_DAY.length] as AttendanceStatus
-    let checkIn: string | null = '09:00'
-    let checkOut: string | null = '18:00'
-    let remark = ''
-    switch (status) {
-      case 'late':
-        checkIn = '09:25'
-        remark = '交通拥堵'
-        break
-      case 'early':
-        checkOut = '17:20'
-        remark = '外出拜访客户'
-        break
-      case 'absent':
-        checkIn = null
-        checkOut = null
-        remark = '未打卡'
-        break
-      case 'leave':
-        checkIn = null
-        checkOut = null
-        remark = '事假'
-        break
-      default:
-        remark = '正常出勤'
-    }
-    records.push({
-      key: date.format('YYYY-MM-DD'),
-      date: date.format('YYYY-MM-DD'),
-      check_in: checkIn,
-      check_out: checkOut,
-      status,
-      remark,
+/** 按真实考勤记录生成本月日历（周一为一周起点）。 */
+const buildCalendar = (month: dayjs.Dayjs, records: AttendanceRecord[]): CalendarCell[] => {
+  const byDate = new Map(records.map((r) => [r.date, r]))
+  const today = dayjs().format('YYYY-MM-DD')
+  const cells: CalendarCell[] = []
+  const first = month.startOf('month')
+
+  // 月初前补上一月日期，保证与「一」列对齐
+  const lead = (first.day() + 6) % 7
+  for (let i = lead; i > 0; i--) {
+    cells.push({ day: first.subtract(i, 'day').date(), outside: true })
+  }
+
+  for (let d = 1; d <= month.daysInMonth(); d++) {
+    const date = month.date(d)
+    const key = date.format('YYYY-MM-DD')
+    const rec = byDate.get(key)
+    const weekend = date.day() === 0 || date.day() === 6
+    cells.push({
+      day: d,
+      today: key === today,
+      event: rec
+        ? { label: statusLabelMap[rec.status], tone: statusBadgeTone[rec.status] }
+        : weekend
+          ? { label: '休息', tone: 'neutral' }
+          : undefined,
     })
   }
-  return records
+
+  // 月末补下一月日期，凑满整周
+  const tail = cells.length % 7
+  for (let d = 1; d <= (tail ? 7 - tail : 0); d++) {
+    cells.push({ day: d, outside: true })
+  }
+  return cells
 }
 
-// 本月考勤日历静态展示数据（与设计稿一致）
-const CALENDAR_CELLS: CalendarCell[] = [
-  { day: 27, outside: true },
-  { day: 28, outside: true },
-  { day: 29, outside: true },
-  { day: 30, outside: true },
-  { day: 31, outside: true },
-  { day: 1, event: { label: '休息', tone: 'neutral' } },
-  { day: 2, event: { label: '休息', tone: 'neutral' } },
-  { day: 3, today: true, event: { label: '正常', tone: 'success' } },
-  { day: 4, event: { label: '正常', tone: 'success' } },
-  { day: 5, event: { label: '迟到', tone: 'warning' } },
-  { day: 6, event: { label: '外出', tone: 'info' } },
-  { day: 7, event: { label: '正常', tone: 'success' } },
-  { day: 8, event: { label: '休息', tone: 'neutral' } },
-  { day: 9, event: { label: '休息', tone: 'neutral' } },
-  { day: 10, event: { label: '正常', tone: 'success' } },
-  { day: 11, event: { label: '请假', tone: 'neutral' } },
-  { day: 12, event: { label: '正常', tone: 'success' } },
-  { day: 13, event: { label: '外出', tone: 'info' } },
-  { day: 14, event: { label: '正常', tone: 'success' } },
-  { day: 15, event: { label: '休息', tone: 'neutral' } },
-  { day: 16, event: { label: '休息', tone: 'neutral' } },
-  { day: 17, event: { label: '正常', tone: 'success' } },
-  { day: 18, event: { label: '正常', tone: 'success' } },
-  { day: 19, event: { label: '正常', tone: 'success' } },
-  { day: 20, event: { label: '外出', tone: 'info' } },
-  { day: 21, event: { label: '正常', tone: 'success' } },
-  { day: 22, event: { label: '休息', tone: 'neutral' } },
-  { day: 23, event: { label: '休息', tone: 'neutral' } },
-  { day: 24, event: { label: '正常', tone: 'success' } },
-  { day: 25, event: { label: '请假', tone: 'neutral' } },
-  { day: 26, event: { label: '正常', tone: 'success' } },
-  { day: 27, event: { label: '正常', tone: 'success' } },
-  { day: 28, event: { label: '正常', tone: 'success' } },
-  { day: 29, event: { label: '休息', tone: 'neutral' } },
-  { day: 30, event: { label: '休息', tone: 'neutral' } },
-]
-
 const Attendance = () => {
-  const [loading] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [checkInTime, setCheckInTime] = useState<string | null>(null)
   const [checkOutTime, setCheckOutTime] = useState<string | null>(null)
-  const [records] = useState<AttendanceRecord[]>(() => buildStaticRecords())
+  const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [now, setNow] = useState(() => dayjs())
   const [outingLocation, setOutingLocation] = useState('')
   const [outingReturn, setOutingReturn] = useState('')
@@ -146,6 +107,20 @@ const Attendance = () => {
   const [serverCheckedOut, setServerCheckedOut] = useState(false)
 
   const today = dayjs().format('YYYY-MM-DD')
+
+  // 加载我的考勤记录（真实数据，不做静态兜底）
+  const loadRecords = useCallback(() => {
+    setLoading(true)
+    attendanceApi
+      .me()
+      .then((res) => setRecords((res.data ?? []).map(toRecord)))
+      .catch(() => message.error('获取考勤记录失败，请稍后重试'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    loadRecords()
+  }, [loadRecords])
 
   // 加载今日考勤状态（含定位半径信息）
   useEffect(() => {
@@ -212,6 +187,8 @@ const Attendance = () => {
         setServerCheckedOut(true)
         message.success('定位打卡成功（下班）')
       }
+      // 打卡后刷新记录，日历与明细立即反映最新状态
+      loadRecords()
     } catch {
       message.error('定位失败或未授权，无法完成打卡')
       setGpsStatus('denied')
@@ -256,38 +233,53 @@ const Attendance = () => {
     outingFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  // 今日状态判定
+  // 今日状态判定（用于打卡卡片的文案判定）
   const todayStatus = useMemo<AttendanceStatus>(() => {
     if (!checkInTime) return 'absent'
-    const inHour = parseInt(checkInTime.split(':')[0], 10)
-    const inMin = parseInt(checkInTime.split(':')[1], 10)
-    const lateThreshold = inHour > 9 || (inHour === 9 && inMin > 0)
-    if (checkOutTime) {
-      const outHour = parseInt(checkOutTime.split(':')[0], 10)
-      const outMin = parseInt(checkOutTime.split(':')[1], 10)
-      const earlyLeave = outHour < 18 || (outHour === 18 && outMin < 0)
-      if (earlyLeave) return 'early'
-    }
-    return lateThreshold ? 'late' : 'normal'
-  }, [checkInTime, checkOutTime])
+    const [inHour, inMin] = checkInTime.split(':').map((v) => parseInt(v, 10))
+    return inHour > 9 || (inHour === 9 && inMin > 0) ? 'late' : 'present'
+  }, [checkInTime])
+  const todayLabelMap: Record<AttendanceStatus, string> = {
+    present: '已签到',
+    late: '已签到（迟到）',
+    absent: '未签到',
+    leave: '请假中',
+    field_work: '外勤中',
+  }
 
-  // 统计
+  // 本月考勤记录与统计（全部来自真实打卡数据）
+  const monthPrefix = dayjs().format('YYYY-MM')
+  const monthRecords = useMemo(
+    () => records.filter((r) => r.date.startsWith(monthPrefix)),
+    [records, monthPrefix],
+  )
+
   const stats = useMemo(() => {
     let attend = 0
     let late = 0
-    let early = 0
+    let field = 0
     let leave = 0
-    records.forEach((r) => {
-      if (r.status === 'normal') attend += 1
+    monthRecords.forEach((r) => {
+      if (r.status === 'present') attend += 1
       else if (r.status === 'late') late += 1
-      else if (r.status === 'early') early += 1
+      else if (r.status === 'field_work') field += 1
       else if (r.status === 'leave') leave += 1
     })
-    return { attend, late, early, leave }
-  }, [records])
+    return { attend, late, field, leave }
+  }, [monthRecords])
 
-  const dueDays = stats.attend + stats.late + stats.early
-  const attendanceRate = dueDays > 0 ? Math.round((stats.attend / dueDays) * 100) : 0
+  // 应出勤 = 本月已过去的工作日（周一至周五）；出勤率按「有打卡记录的工作日」计算
+  const dueDays = useMemo(() => {
+    const t = dayjs()
+    let days = 0
+    for (let d = 1; d <= t.date(); d++) {
+      const w = t.date(d).day()
+      if (w !== 0 && w !== 6) days += 1
+    }
+    return days
+  }, [])
+  const attendedDays = stats.attend + stats.late + stats.field
+  const attendanceRate = dueDays > 0 ? Math.min(100, Math.round((attendedDays / dueDays) * 100)) : 0
 
   const fmtHHmm = (t: string | null) => {
     if (!t) return '--:--'
@@ -296,6 +288,21 @@ const Attendance = () => {
   }
 
   const recentRecords = records.slice(0, 6)
+  const calendarCells = useMemo(() => buildCalendar(dayjs(), records), [records])
+
+  // 导出考勤明细（员工只能导出自己的，范围由后端按角色校验）
+  const handleExport = async () => {
+    try {
+      await downloadReport(
+        '/exports/attendance',
+        { start_date: dayjs().startOf('month').format('YYYY-MM-DD'), end_date: dayjs().format('YYYY-MM-DD') },
+        'attendance.csv',
+      )
+      message.success('考勤明细已导出')
+    } catch {
+      message.error('导出失败，请稍后重试')
+    }
+  }
 
   const clockBtnLabel = checkInTime ? '下班打卡' : '上班打卡'
   const clockBtnDisabled = submitting || (!!checkInTime && !!checkOutTime)
@@ -308,6 +315,11 @@ const Attendance = () => {
         <div>
           <h2 className="rent-page-header__title">考勤打卡</h2>
           <p className="rent-page-header__subtitle">每日上下班打卡、外出登记</p>
+        </div>
+        <div className="rent-page-header__actions">
+          <button className="rent-btn rent-btn--secondary" type="button" onClick={handleExport}>
+            导出
+          </button>
         </div>
       </div>
 
@@ -365,7 +377,7 @@ const Attendance = () => {
                   className="rent-badge--dot"
                   style={{ background: checkInTime ? '#ffffff' : 'rgba(255,255,255,0.6)' }}
                 />
-                {checkInTime ? '已签到' : '未签到'}
+                {todayLabelMap[todayStatus]}
               </span>
               <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }}>
                 今日打卡 · 上班{' '}
@@ -475,13 +487,13 @@ const Attendance = () => {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            较上月持平
+            本月记录 {monthRecords.length} 条
           </div>
         </div>
 
         <div className="rent-stat-card">
           <div className="rent-flex rent-flex--between rent-mb-2">
-            <div className="rent-stat-card__label">外出登记</div>
+            <div className="rent-stat-card__label">外勤打卡</div>
             <div
               className="rent-stat-card__icon"
               style={{ background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' }}
@@ -493,13 +505,13 @@ const Attendance = () => {
             </div>
           </div>
           <div className="rent-stat-card__value">
-            {stats.early} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>次</span>
+            {stats.field} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>次</span>
           </div>
           <div className="rent-stat-card__delta rent-stat-card__delta--up">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 15 12 9 18 15" />
             </svg>
-            客户拜访 {stats.early} 次
+            半径外打卡需先提交外勤申请
           </div>
         </div>
 
@@ -536,7 +548,7 @@ const Attendance = () => {
         <div className="rent-card">
           <div className="rent-card__header">
             <h3 className="rent-card__title">本月考勤日历</h3>
-            <span className="rent-text-sm rent-text-muted">2026年8月</span>
+            <span className="rent-text-sm rent-text-muted">{dayjs().format('YYYY年M月')}</span>
           </div>
           <div className="rent-card__body">
             <div className="rent-calendar">
@@ -548,7 +560,7 @@ const Attendance = () => {
               <div className="rent-calendar__header">六</div>
               <div className="rent-calendar__header">日</div>
 
-              {CALENDAR_CELLS.map((cell, idx) => {
+              {calendarCells.map((cell, idx) => {
                 const cls = [
                   'rent-calendar__cell',
                   cell.outside ? 'rent-calendar__cell--outside' : '',
@@ -633,13 +645,13 @@ const Attendance = () => {
                   ) : (
                     recentRecords.map((r) => {
                       const isLeave = r.status === 'leave' || r.status === 'absent'
-                      const isField = r.status === 'early'
+                      const isField = r.status === 'field_work'
                       const typeBadge = isLeave ? (
                         <span className="rent-badge rent-badge--neutral">—</span>
                       ) : isField ? (
                         <span className="rent-badge rent-badge--info">外勤</span>
                       ) : (
-                        <span className="rent-badge rent-badge--neutral">办公室</span>
+                        <span className="rent-badge rent-badge--neutral">打卡</span>
                       )
                       const tone = statusBadgeTone[r.status]
                       const dotColor =
@@ -647,7 +659,9 @@ const Attendance = () => {
                           ? 'var(--state-success)'
                           : tone === 'warning'
                             ? 'var(--state-warning)'
-                            : 'var(--rent-ink-3)'
+                            : tone === 'info'
+                              ? 'var(--state-info)'
+                              : 'var(--rent-ink-3)'
                       return (
                         <tr key={r.key}>
                           <td>

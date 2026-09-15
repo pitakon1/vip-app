@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { auditApi } from '@/services/api'
 import './index.scss'
+import { iconStyle } from '@/utils/icons'
 
 interface AuditRow {
   id: string
@@ -114,7 +115,7 @@ export default function AuditPage() {
 
         {!loading && !error && logs.length === 0 && (
           <View className='state'>
-            <View className='state__icon'>📝</View>
+            <View className='state__icon icon-svg' style={iconStyle('edit')} />
             <Text className='state__title'>暂无操作记录</Text>
             <Text className='state__desc'>系统操作记录将在此展示</Text>
           </View>

@@ -14,9 +14,10 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.rbac import require_permission, seed_permissions, get_user_permissions
-from app.core.pagination import PaginationParams, paginate
+from app.core.rbac import require_permission, get_user_permissions
+from app.core.pagination import Page, PaginationParams, paginate
 from app.core.security import get_password_hash
+from app.schemas.user import AccountMeOut, UserAdminOut
 from app.models import (
     Employee,
     User,
@@ -52,22 +53,38 @@ class ResetPassword(BaseModel):
     new_password: str
 
 
-def _serialize_user(session: Session, u: User) -> dict:
-    emp = session.exec(
+def _batch_extras(
+    session: Session, user_ids: list[uuid.UUID]
+) -> tuple[dict, dict]:
+    """批量取员工档案与分组名。
+
+    原实现对每个用户各查 2~3 次（列表 20 条即 40~60 次查询，N+1），
+    这里改为按 id 批量 `in_()` + join，固定 2 次查询。
+    """
+    if not user_ids:
+        return {}, {}
+
+    employees = session.exec(
         select(Employee).where(
-            Employee.user_id == u.id, Employee.deleted_at.is_(None)
+            Employee.user_id.in_(user_ids), Employee.deleted_at.is_(None)
         )
-    ).first()
-    memberships = session.exec(
-        select(UserGroupMember).where(UserGroupMember.user_id == u.id)
     ).all()
-    groups: list[str] = []
-    if memberships:
-        group_ids = [m.group_id for m in memberships]
-        rows = session.exec(
-            select(UserGroup.name).where(UserGroup.id.in_(group_ids))
-        ).all()
-        groups = list(rows)
+    emp_map = {e.user_id: e for e in employees}
+
+    rows = session.exec(
+        select(UserGroupMember.user_id, UserGroup.name)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(UserGroupMember.user_id.in_(user_ids))
+    ).all()
+    groups_map: dict[uuid.UUID, list[str]] = {}
+    for uid, name in rows:
+        groups_map.setdefault(uid, []).append(name)
+
+    return emp_map, groups_map
+
+
+def _serialize_user(u: User, emp_map: dict, groups_map: dict) -> dict:
+    emp = emp_map.get(u.id)
     return {
         "id": str(u.id),
         "email": u.email,
@@ -78,7 +95,7 @@ def _serialize_user(session: Session, u: User) -> dict:
         "is_verified": u.is_verified,
         "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
         "created_at": u.created_at.isoformat() if u.created_at else None,
-        "groups": groups,
+        "groups": groups_map.get(u.id, []),
         "employee": (
             {
                 "employee_code": emp.employee_code,
@@ -91,7 +108,13 @@ def _serialize_user(session: Session, u: User) -> dict:
     }
 
 
-@router.get("")
+def _serialize_one(session: Session, u: User) -> dict:
+    """单用户序列化（创建/编辑后返回）。"""
+    emp_map, groups_map = _batch_extras(session, [u.id])
+    return _serialize_user(u, emp_map, groups_map)
+
+
+@router.get("", response_model=Page[UserAdminOut])
 def list_users(
     pagination: PaginationParams = Depends(),
     role: Optional[UserRole] = None,
@@ -100,7 +123,6 @@ def list_users(
     user: User = Depends(require_permission("account:list")),
 ):
     """账号列表（分页/角色/关键词过滤）。"""
-    seed_permissions(session)
     conditions = [User.deleted_at.is_(None)]
     if role:
         conditions.append(User.role == role)
@@ -117,10 +139,13 @@ def list_users(
         .offset(pagination.offset)
         .limit(pagination.limit)
     ).all()
-    return paginate([_serialize_user(session, u) for u in items], total, pagination)
+    emp_map, groups_map = _batch_extras(session, [u.id for u in items])
+    return paginate(
+        [_serialize_user(u, emp_map, groups_map) for u in items], total, pagination
+    )
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, response_model=UserAdminOut)
 def create_user(
     req: UserCreate,
     session: Session = Depends(get_session),
@@ -156,7 +181,7 @@ def create_user(
         )
     session.commit()
     session.refresh(new_user)
-    return _serialize_user(session, new_user)
+    return _serialize_one(session, new_user)
 
 
 @router.patch("/{user_id}")
@@ -199,7 +224,7 @@ def update_user(
     session.add(u)
     session.commit()
     session.refresh(u)
-    return _serialize_user(session, u)
+    return _serialize_one(session, u)
 
 
 @router.post("/{user_id}/deactivate")
@@ -250,12 +275,14 @@ def reset_password(
     if not req.new_password or len(req.new_password) < 6:
         raise HTTPException(status_code=400, detail="Password too short (min 6)")
     u.hashed_password = get_password_hash(req.new_password)
+    # 改密后旧令牌立即失效：递增令牌版本号，使此前签发的 access/refresh 令牌被拒绝
+    u.token_version = int(u.token_version or 0) + 1
     session.add(u)
     session.commit()
     return {"id": str(u.id), "ok": True}
 
 
-@router.get("/me")
+@router.get("/me", response_model=AccountMeOut)
 def my_account(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),

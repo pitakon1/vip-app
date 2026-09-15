@@ -116,13 +116,13 @@
               background-color: var(--primary);
 
               .fav-btn-text {
-                color: #ffffff;
+                color: var(--card);
               }
             }
 
             &--danger {
               border: 2px solid var(--line);
-              background-color: #ffffff;
+              background-color: var(--card);
 
               .fav-btn-text {
                 color: var(--ink-2);

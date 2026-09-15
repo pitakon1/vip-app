@@ -255,7 +255,7 @@ const Dashboard = () => {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: '#0f172a',
+        backgroundColor: '#1c2733',
         titleColor: '#e8edf5',
         bodyColor: '#e8edf5',
         borderColor: '#243044',
@@ -271,13 +271,13 @@ const Dashboard = () => {
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: '#94a3b8', font: { size: 12 } },
+        ticks: { color: '#98a1ab', font: { size: 12 } },
         border: { display: false },
       },
       y: {
-        grid: { color: '#e6eaf0' },
+        grid: { color: '#ece7df' },
         ticks: {
-          color: '#94a3b8',
+          color: '#98a1ab',
           font: { size: 12 },
           callback: (v: any) => `${Number(v) / 1000}k`,
         },

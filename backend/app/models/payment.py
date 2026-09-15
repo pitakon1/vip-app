@@ -61,3 +61,24 @@ class Payment(TimestampMixin, table=True):
     failure_reason: Optional[str] = None
     receipt_url: Optional[str] = None
     description: Optional[str] = None
+
+    # 逾期滞纳金：accrued 为按逾期天数「重算」出来的毛额（非累加，任务可重复执行），
+    # waived 为人工减免额，实收 = amount + accrued - waived。
+    # server_default 必须与迁移 0013 一致，否则 schema 漂移检测会报 modify_default。
+    late_fee_accrued: float = Field(
+        default=0, ge=0, sa_column_kwargs={"server_default": "0"}
+    )
+    late_fee_waived: float = Field(
+        default=0, ge=0, sa_column_kwargs={"server_default": "0"}
+    )
+    late_fee_updated_at: Optional[datetime] = None
+
+    @property
+    def late_fee_due(self) -> float:
+        """尚需缴纳的滞纳金（毛额扣除已减免）。"""
+        return round(max(self.late_fee_accrued - self.late_fee_waived, 0.0), 2)
+
+    @property
+    def total_due(self) -> float:
+        """逾期单的实际应缴总额（本金 + 未减免滞纳金）。"""
+        return round(self.amount + self.late_fee_due, 2)

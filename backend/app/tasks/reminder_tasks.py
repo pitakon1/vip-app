@@ -195,3 +195,44 @@ def check_upcoming_rent_payments():
         session.commit()
 
     return {"checked": True}
+
+
+@celery_app.task(name="accrue_late_fees")
+def accrue_late_fees_task():
+    """每天 9:30 执行：对逾期未缴的租金单按日计提滞纳金。
+
+    计提额由「逾期天数 × 日费率」重算（宽限期内不计提、封顶为本金比例），
+    因此重复执行不会重复计费；仅在金额变大时通知租客与负责员工。
+    """
+    from app.services.late_fee import accrue_late_fees
+
+    with Session(engine) as session:
+        changed = accrue_late_fees(session)
+
+        for payment in changed:
+            amount = f"{payment.amount} {payment.currency or 'THB'}"
+            fee = f"{payment.late_fee_accrued} {payment.currency or 'THB'}"
+            _notify(
+                session,
+                payment.payer_id,
+                "rent_late_fee",
+                "逾期滞纳金提醒",
+                f"您的租金 {amount} 已逾期，当前累计滞纳金 {fee}，"
+                f"合计应缴 {payment.total_due}，请尽快缴纳。",
+                payment,
+            )
+            _notify(
+                session,
+                _resolve_employee_user_id(session, payment),
+                "rent_late_fee_admin",
+                "租金逾期·滞纳金计提",
+                f"租户 {payment.payer_id} 的租金 {amount} 已计提滞纳金 {fee}，"
+                f"合计应缴 {payment.total_due}，请跟进催缴或评估减免。",
+                payment,
+            )
+
+        session.commit()
+        return {
+            "changed": len(changed),
+            "accrued_total": round(sum(p.late_fee_accrued for p in changed), 2),
+        }

@@ -19,6 +19,7 @@ from app.models import (
     PaymentStatus,
     User,
 )
+from app.schemas.owners import AnnualFinancialSummaryOut, OwnerIncomeOut
 
 router = APIRouter(prefix="/owners", tags=["owners"])
 
@@ -110,7 +111,7 @@ def get_my_documents(
     return documents
 
 
-@router.get("/me/income")
+@router.get("/me/income", response_model=OwnerIncomeOut)
 def get_my_income(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),
@@ -163,7 +164,7 @@ def get_my_income(
 
     for p in payments:
         prop = property_by_id.get(p.property_id)
-        title = prop.title if prop else None
+        title = prop.display_name if prop else None
         month = (p.due_date or p.created_at or now).strftime("%Y-%m") \
             if (p.due_date or p.created_at) else ""
         amount = p.amount or 0
@@ -248,7 +249,7 @@ def get_marketing(
         "items": [
             {
                 "id": str(p.id),
-                "title": p.title,
+                "title": p.display_name,
                 "address": p.address,
                 "monthly_rent": p.monthly_rent,
                 "currency": p.currency,
@@ -311,7 +312,7 @@ def get_pricing_suggestion(
         items.append(
             {
                 "property_id": str(p.id),
-                "title": p.title,
+                "title": p.display_name,
                 "monthly_rent": current,
                 "currency": p.currency,
                 "property_type": p.property_type,
@@ -328,7 +329,7 @@ def get_pricing_suggestion(
     }
 
 
-@router.get("/me/annual-financial-summary")
+@router.get("/me/annual-financial-summary", response_model=AnnualFinancialSummaryOut)
 def get_annual_financial_summary(
     year: int | None = None,
     session: Session = Depends(get_session),
@@ -337,11 +338,16 @@ def get_annual_financial_summary(
     """年度财务汇总：按月份统计已收租金/其他收入/逾期，形成房东年度对账导出数据。"""
     owner = _get_owner(session, user)
     properties = _my_properties(session, owner)
-    if not properties:
-        return {"year": year, "by_month": [], "totals": {"received": 0, "overdue": 0}}
-
     if not year:
         year = datetime.utcnow().year
+    if not properties:
+        # 无房源时也要给出完整口径（此前缺 pending/count，前端会拿到 undefined）
+        return {
+            "year": year,
+            "by_month": [],
+            "totals": {"received": 0, "pending": 0, "overdue": 0, "count": 0},
+        }
+
     owned_ids = [p.id for p in properties]
     window_start = datetime(year, 1, 1)
     window_end = datetime(year + 1, 1, 1)

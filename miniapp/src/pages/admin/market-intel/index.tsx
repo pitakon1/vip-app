@@ -30,11 +30,20 @@ interface ReportItem {
 interface ChurnSignal {
   id: string
   tenant_id?: string
-  market_code?: string
-  risk_score?: number
-  reason?: string
+  signal_type?: string
+  level?: string
+  detail?: string
+  suggested_action?: string
   is_resolved?: boolean
-  created_at?: string
+  assigned_to?: string | null
+  assigned_to_name?: string | null
+  triggered_at?: string
+}
+
+const SIGNAL_LEVEL: Record<string, string> = {
+  info: '提示',
+  warning: '警告',
+  high: '高危'
 }
 
 const INDEX_TYPE: Record<string, string> = {
@@ -117,6 +126,17 @@ export default function MarketIntelPage() {
     }
   }
 
+  // 派发跟进：默认派发给该租约的负责员工，失败时提示后端原因
+  const assign = async (id: string) => {
+    try {
+      await marketDataApi.assignChurnSignal(id, {})
+      Taro.showToast({ title: '已派发跟进', icon: 'success' })
+      fetchChurn()
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || '派发失败', icon: 'none' })
+    }
+  }
+
   const TABS: { key: Tab; label: string }[] = [
     { key: 'index', label: '市场指数' },
     { key: 'report', label: '研究报告' },
@@ -189,13 +209,15 @@ export default function MarketIntelPage() {
                   <View className='card-item__head'>
                     <Text className='card-item__title'>租客 {s.tenant_id ? s.tenant_id.slice(0, 8) : '-'}</Text>
                     <View className={`badge ${s.is_resolved ? 'badge--ok' : 'badge--warn'}`}>
-                      <Text>{s.is_resolved ? '已处理' : `风险 ${s.risk_score ?? 0}`}</Text>
+                      <Text>{s.is_resolved ? '已处理' : (SIGNAL_LEVEL[s.level || 'info'] || '提示')}</Text>
                     </View>
                   </View>
-                  {s.reason ? <Text className='card-item__sub'>原因：{s.reason}</Text> : null}
-                  <Text className='card-item__sub'>{s.market_code || ''}</Text>
+                  {s.detail ? <Text className='card-item__sub'>原因：{s.detail}</Text> : null}
+                  {s.suggested_action ? <Text className='card-item__sub'>建议动作：{s.suggested_action}</Text> : null}
+                  <Text className='card-item__sub'>跟进人：{s.assigned_to_name || (s.assigned_to ? s.assigned_to.slice(0, 8) : '未派发')}</Text>
                   {!s.is_resolved && (
                     <View className='action-row'>
+                      <Text className='mini-btn' onClick={() => assign(s.id)}>派发跟进</Text>
                       <Text className='mini-btn mini-btn--primary' onClick={() => resolve(s.id)}>标记已处理</Text>
                     </View>
                   )}

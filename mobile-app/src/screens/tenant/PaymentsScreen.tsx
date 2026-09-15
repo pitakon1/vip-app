@@ -46,7 +46,7 @@ const statusMeta: Record<
   failed: { text: '支付失败', color: colors.error, bg: '#fdecec' },
   refunded: { text: '已退款', color: colors.info, bg: '#e6f4fd' },
   disputed: { text: '有争议', color: colors.error, bg: '#fdecec' },
-  expired: { text: '已过期', color: colors.ink3, bg: '#f2f3f5' },
+  expired: { text: '已过期', color: colors.ink3, bg: 'colors.surface2' },
 };
 
 const formatMoney = (v: any, currency?: string) => {
@@ -170,7 +170,7 @@ export default function PaymentsScreen() {
     const cur = iv.currency || invoiceItem?.currency;
     return (
       <>
-        <Text style={styles.invTitleIcon}>🗂️</Text>
+        <Ionicons name="document-text-outline" size={20} color={colors.primary} style={styles.invTitleIcon} />
         <Text style={styles.invNo}>发票号 {iv.invoice_no || '—'}</Text>
         <View style={styles.invRow}>
           <Text style={styles.invLabel}>净金额</Text>

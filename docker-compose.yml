@@ -1,5 +1,15 @@
 version: '3.8'
 
+# 后端服务共用的容器内环境变量。
+# 注意：`backend/.env` 是本地开发配置（sqlite + localhost 地址），容器里必须覆盖
+# 成 compose 服务名，否则容器内 localhost 指向容器自身，连不上 PG/Redis。
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-rental_db}
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+  # CORS_ORIGINS 不在此覆盖，沿用 backend/.env 中的显式配置（禁止使用 *）
+
 services:
   # ---------- PostgreSQL 15 ----------
   postgres:
@@ -7,15 +17,15 @@ services:
     container_name: rental_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-rental_db}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-rental_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -35,36 +45,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ---------- MinIO 对象存储 ----------
-  minio:
-    image: minio/minio
-    container_name: rental_minio
-    restart: unless-stopped
-    ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Web Console
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
-    volumes:
-      - minio_data:/data
-    entrypoint: /bin/sh
-    command: >
-      -c "
-      minio server /data --console-address ':9001' &
-      until mc alias set local http://localhost:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}; do
-        sleep 1;
-      done;
-      mc mb local/${MINIO_BUCKET} --ignore-existing;
-      mc anonymous set download local/${MINIO_BUCKET};
-      wait
-      "
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-
   # ---------- FastAPI 后端 ----------
   fastapi:
     build: ./backend
@@ -73,7 +53,8 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - ./backend/.env
+    environment: *backend-env
     volumes:
       - ./backend:/app
     depends_on:
@@ -81,22 +62,49 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # 就绪探针：真实探测 DB/Redis（容器 CMD 会在启动前执行 alembic upgrade head）
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health/ready')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   # ---------- Celery Worker ----------
   celery:
     build: ./backend
     container_name: rental_celery
     restart: unless-stopped
-    command: celery -A app.celery_app worker --loglevel=info
+    # 必须消费 beat 路由到的全部队列，否则任务会被投递到无人消费的队列
+    command: celery -A app.celery_app worker --loglevel=info -Q default,notification,maintenance
     env_file:
-      - .env
+      - ./backend/.env
+    environment: *backend-env
     volumes:
       - ./backend:/app
     depends_on:
       redis:
         condition: service_healthy
       fastapi:
-        condition: service_started
+        condition: service_healthy
+
+  # ---------- Celery Beat（定时调度；缺失则所有 beat_schedule 任务不会执行） ----------
+  celery-beat:
+    build: ./backend
+    container_name: rental_celery_beat
+    restart: unless-stopped
+    command: celery -A app.celery_app beat --loglevel=info -s /beat/celerybeat-schedule
+    env_file:
+      - ./backend/.env
+    environment: *backend-env
+    volumes:
+      - ./backend:/app
+      - celery_beat_data:/beat
+    depends_on:
+      redis:
+        condition: service_healthy
+      fastapi:
+        condition: service_healthy
 
   # ---------- 前端 Web（生产构建 + Nginx 托管） ----------
   frontend:
@@ -111,4 +119,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  minio_data:
+  celery_beat_data:

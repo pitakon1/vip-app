@@ -663,7 +663,7 @@ body {
   margin-bottom: 16px;
   border-radius: var(--rent-radius-lg);
   overflow: hidden;
-  background: #e6f2e8;
+  background: #eef2f5;
   box-shadow: var(--rent-shadow-1);
 }
 .rv17-map[data-active="true"] { display: block; }
@@ -679,50 +679,40 @@ body {
   color: var(--rent-ink-2);
   box-shadow: var(--rent-shadow-1);
 }
-.rv17-map__water {
+/* Leaflet 画布：铺满容器；z-index:0 形成独立层叠上下文，
+   避免 Leaflet 内部 pane（z-index 400+）盖住 legend / 底部卡片条 */
+.rv17-map__canvas {
   position: absolute;
-  border-radius: 50%;
-  background: rgba(125, 183, 247, 0.55);
+  inset: 0;
+  z-index: 0;
 }
-.rv17-map__park {
-  position: absolute;
-  border-radius: 22px;
-  background: rgba(133, 209, 143, 0.30);
-  border: 2px dashed rgba(122, 196, 139, 0.55);
+.rv17-map__canvas .leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #eef2f5;
+  font-family: var(--rent-font-sans);
 }
-.rv17-map__road {
+.rv17-map__empty {
   position: absolute;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 0 0 1px rgba(226, 232, 240, 0.9);
+  inset: 0;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 32px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  background: rgba(255, 255, 255, 0.72);
 }
-.rv17-map__road--h { height: 14px; left: -6%; right: -6%; }
-.rv17-map__road--v { width: 14px; top: -6%; bottom: -6%; }
-.rv17-map__road--diag { height: 10px; }
-.rv17-map__marker {
+.rv17-map__loading {
   position: absolute;
+  inset: 0;
   z-index: 2;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--rent-primary);
-  border: 3px solid #fff;
-  box-shadow: 0 2px 8px rgba(20, 184, 166, 0.55);
-  cursor: pointer;
-}
-.rv17-map__marker::after {
-  content: "";
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  background: rgba(20, 184, 166, 0.25);
-  animation: rv17-pulse 1.8s ease-out infinite;
-}
-.rv17-map__marker--sale { background: #f59e0b; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.55); }
-.rv17-map__marker--sale::after { background: rgba(245, 158, 11, 0.28); }
-@keyframes rv17-pulse {
-  0% { transform: scale(0.55); opacity: 1; }
-  100% { transform: scale(1.5); opacity: 0; }
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.55);
 }
 .rv17-map__strip {
   position: absolute;

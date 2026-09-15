@@ -35,6 +35,7 @@ interface ReconData {
   totals: Totals
   by_property: ByProperty[]
   records: RecordItem[]
+  records_total: number
 }
 
 const BUCKET_META: Record<RecordItem['bucket'], { label: string; badge: string; dot: string }> = {
@@ -60,7 +61,7 @@ const fmtMoney = (v: number, currency?: string) => {
 }
 
 const Reconciliation = () => {
-  const [data, setData] = useState<ReconData>({ totals: { received: 0, receivable: 0, overdue: 0, count: 0 }, by_property: [], records: [] })
+  const [data, setData] = useState<ReconData>({ totals: { received: 0, receivable: 0, overdue: 0, count: 0 }, by_property: [], records: [], records_total: 0 })
   const [loading, setLoading] = useState(false)
 
   const fetchData = useCallback(async () => {
@@ -68,10 +69,12 @@ const Reconciliation = () => {
     try {
       const res = await financialApi.reconciliation()
       const payload = res.data?.data ?? res.data
+      const records = payload?.records ?? []
       setData({
         totals: payload?.totals ?? { received: 0, receivable: 0, overdue: 0, count: 0 },
         by_property: payload?.by_property ?? [],
-        records: payload?.records ?? [],
+        records,
+        records_total: payload?.records_total ?? records.length,
       })
     } catch (err: any) {
       message.error(err?.response?.data?.message || '获取财务对账数据失败')
@@ -163,7 +166,10 @@ const Reconciliation = () => {
       <div className="rent-card">
         <div className="rent-card__header">
           <h3 className="rent-card__title">逐笔明细</h3>
-          <span className="rent-badge rent-badge--neutral">{data.records.length} 笔</span>
+          <span className="rent-badge rent-badge--neutral">
+            {data.records_total} 笔
+            {data.records.length < data.records_total ? `（显示最近 ${data.records.length} 笔）` : ''}
+          </span>
         </div>
         <div className="rent-card__body" style={{ padding: 0 }}>
           {data.records.length === 0 ? (

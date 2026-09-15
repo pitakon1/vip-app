@@ -22,7 +22,7 @@ interface SeriesPoint {
   viewings_new: number
 }
 
-const fmtMoney = (v: number) => `¥${Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+const fmtMoney = (v: number) => `฿${Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 const Trend = () => {
   const [series, setSeries] = useState<SeriesPoint[]>([])
@@ -106,7 +106,7 @@ const Trend = () => {
     plugins: {
       legend: { labels: { color: '#64748b', boxWidth: 10, boxHeight: 10 } },
       tooltip: {
-        backgroundColor: '#0f172a',
+        backgroundColor: '#1c2733',
         titleColor: '#e8edf5',
         bodyColor: '#e8edf5',
         borderColor: '#243044',
@@ -122,12 +122,12 @@ const Trend = () => {
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: '#94a3b8', font: { size: 11 } },
+        ticks: { color: '#98a1ab', font: { size: 11 } },
         border: { display: false },
       },
       y: {
-        grid: { color: '#e6eaf0' },
-        ticks: { color: '#94a3b8', font: { size: 11 } },
+        grid: { color: '#ece7df' },
+        ticks: { color: '#98a1ab', font: { size: 11 } },
         border: { display: false },
       },
     },

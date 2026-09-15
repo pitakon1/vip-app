@@ -11,8 +11,9 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, require_agent
+from app.core.concurrency import ensure_version
 from app.core.events import publish_event
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate
 from app.models import (
     CommissionSettlement,
     DealType,
@@ -118,6 +119,8 @@ class LeaseUpdate(BaseModel):
     contract_url: Optional[str] = None
     contract_hash: Optional[str] = None
     special_terms: Optional[str] = None
+    # 可选乐观锁：客户端传回读到的 version，服务端不一致则 409 拒绝覆盖
+    version: Optional[int] = None
 
 
 class LeaseRenew(BaseModel):
@@ -136,7 +139,7 @@ class DepositSettlement(BaseModel):
     notes: Optional[str] = None
 
 
-@router.get("")
+@router.get("", response_model=Page[Lease])
 def list_leases(
     pagination: PaginationParams = Depends(),
     status: Optional[LeaseStatus] = None,
@@ -254,6 +257,7 @@ def update_lease(
     if not lease or lease.deleted_at:
         raise HTTPException(status_code=404, detail="Lease not found")
     update_data = req.model_dump(exclude_unset=True)
+    ensure_version(lease, update_data.pop("version", None), "租约")
     for key, value in update_data.items():
         setattr(lease, key, value)
     session.add(lease)

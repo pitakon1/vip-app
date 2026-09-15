@@ -21,11 +21,11 @@ interface Property {
 }
 
 const STATUS_MAP: Record<string, { text: string; color: string }> = {
-  pending: { text: '待确认', color: '#d97706' },
-  confirmed: { text: '已确认', color: '#16a34a' },
-  completed: { text: '已完成', color: '#0ea5e9' },
-  cancelled: { text: '已取消', color: '#999999' },
-  no_show: { text: '爽约', color: '#dc2626' }
+  pending: { text: '待确认', color: 'var(--warning)' },
+  confirmed: { text: '已确认', color: 'var(--success)' },
+  completed: { text: '已完成', color: 'var(--info)' },
+  cancelled: { text: '已取消', color: 'var(--ink-3)' },
+  no_show: { text: '爽约', color: 'var(--error)' }
 }
 
 function pickList(res: any): any[] {

@@ -25,6 +25,7 @@ class TimestampMixin(SQLModel):
 
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
+        index=True,
         description="创建时间",
     )
 
@@ -34,8 +35,10 @@ class TimestampMixin(SQLModel):
         description="更新时间",
     )
 
+    # 软删除过滤（deleted_at IS NULL）几乎出现在每一条列表查询里，无索引会全表扫描
     deleted_at: Optional[datetime] = Field(
         default=None,
+        index=True,
         description="软删除时间，非空表示已删除",
     )
 

@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { dashboardApi } from '@/services/api'
 import './index.scss'
+import { iconStyle } from '@/utils/icons'
 
 interface TrendRow {
   month: string
@@ -110,7 +111,7 @@ export default function TrendPage() {
           )}
           {!loading && !error && !hasChart && (
             <View className='state'>
-              <View className='state__icon'>📈</View>
+              <View className='state__icon icon-svg' style={iconStyle('trend')} />
               <Text className='state__title'>暂无收入数据</Text>
               <Text className='state__desc'>入账后将在此累计展示</Text>
             </View>
@@ -140,7 +141,7 @@ export default function TrendPage() {
         </View>
         {!loading && series.length === 0 && !error && (
           <View className='state'>
-            <View className='state__icon'>📋</View>
+            <View className='state__icon icon-svg' style={iconStyle('clipboard')} />
             <Text className='state__title'>暂无明细</Text>
             <Text className='state__desc'>运营数据将在积累后展示</Text>
           </View>

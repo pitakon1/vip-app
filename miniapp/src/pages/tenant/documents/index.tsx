@@ -5,6 +5,7 @@ import useAuthStore from '@/stores/auth'
 import { documentsApi } from '@/services/api'
 import type { Document } from '@/types'
 import './index.scss'
+import { iconStyle } from '@/utils/icons'
 
 const TYPE_MAP: Record<string, string> = {
   lease: '租赁合同',
@@ -116,7 +117,7 @@ export default function TenantDocumentsPage() {
                   {isImage && doc.url ? (
                     <Image className='doc-image' src={doc.url} mode='aspectFill' />
                   ) : (
-                    <Text className='icon-text'>📄</Text>
+                    <Text className='icon-text icon-svg' style={iconStyle('doc')} />
                   )}
                 </View>
                 <View className='doc-info'>

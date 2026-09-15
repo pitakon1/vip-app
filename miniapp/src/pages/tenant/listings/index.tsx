@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { propertiesApi, favoritesApi } from '@/services/api'
 import './index.scss'
+import { iconStyle } from '@/utils/icons'
 
 interface Listing {
   id: string
@@ -32,10 +33,10 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 const STATUS_META: Record<string, { text: string; color: string }> = {
-  vacant: { text: '空置', color: '#16a34a' },
-  rented: { text: '已出租', color: '#14b8a6' },
-  reserved: { text: '已预订', color: '#14b8a6' },
-  maintenance: { text: '维护中', color: '#d97706' }
+  vacant: { text: '空置', color: 'var(--success)' },
+  rented: { text: '已出租', color: 'var(--primary)' },
+  reserved: { text: '已预订', color: 'var(--primary)' },
+  maintenance: { text: '维护中', color: 'var(--warning)' }
 }
 
 // ==================== 排序（贝壳式下拉 Tab） ====================
@@ -599,7 +600,7 @@ export default function TenantListingsPage() {
             type='number'
             value={priceDraftMin}
             placeholder='最低价'
-            placeholderStyle='color:#9ca3af'
+            placeholderStyle='color:var(--ink-3)'
             onInput={(e: any) => setPriceDraftMin(e.detail.value)}
           />
           <Text className='price-input__unit'>万/月</Text>
@@ -612,7 +613,7 @@ export default function TenantListingsPage() {
             type='number'
             value={priceDraftMax}
             placeholder='最高价'
-            placeholderStyle='color:#9ca3af'
+            placeholderStyle='color:var(--ink-3)'
             onInput={(e: any) => setPriceDraftMax(e.detail.value)}
           />
           <Text className='price-input__unit'>万/月</Text>
@@ -680,7 +681,7 @@ export default function TenantListingsPage() {
             type='number'
             value={areaDraftMin}
             placeholder='最低㎡'
-            placeholderStyle='color:#9ca3af'
+            placeholderStyle='color:var(--ink-3)'
             onInput={(e: any) => setAreaDraftMin(e.detail.value)}
           />
           <Text className='price-input__unit'>㎡</Text>
@@ -692,7 +693,7 @@ export default function TenantListingsPage() {
             type='number'
             value={areaDraftMax}
             placeholder='最高㎡'
-            placeholderStyle='color:#9ca3af'
+            placeholderStyle='color:var(--ink-3)'
             onInput={(e: any) => setAreaDraftMax(e.detail.value)}
           />
           <Text className='price-input__unit'>㎡</Text>
@@ -735,7 +736,7 @@ export default function TenantListingsPage() {
           }}
         >
           <Text>{s.label}</Text>
-          {sortKey === s.key && <Text className='filter-sort__check'>✓</Text>}
+          {sortKey === s.key && <Text className='filter-sort__check icon-svg' style={iconStyle('check')} />}
         </View>
       ))}
     </View>
@@ -793,9 +794,10 @@ export default function TenantListingsPage() {
             return (
               <View key={item.id} className='house-card' onClick={() => showDetail(item)}>
                 <View className='house-fav' onClick={(e) => toggleFavorite(e, item)}>
-                  <Text className={`house-fav-icon ${favSet.has(String(item.id)) ? 'is-faved' : ''}`}>
-                    {favSet.has(String(item.id)) ? '♥' : '♡'}
-                  </Text>
+                  <View
+                    className='house-fav-icon icon-svg'
+                    style={iconStyle(favSet.has(String(item.id)) ? 'heartFill' : 'heart', 36)}
+                  />
                 </View>
                 <View className='house-thumb'>
                   {photo ? (

@@ -6,33 +6,33 @@
     <title>员工管理(小程序)</title>
     <style id="theme-vars">
 /* =========================================================
-   房地产租赁管理后台 — 品牌设计令牌 (Modern Light)
-   单一靛蓝主色 · 冷调浅灰底 · 白色卡片 · 细边框 · 克制圆角
+   HaoFang.World — 品牌设计令牌 (Refined Premium)
+   品牌青绿 · 温暖米白底 · 白色卡片 · 暖描边 · 温和圆角
    ========================================================= */
 
 :root {
   /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
-  --rent-background: #f2faf8;
-  --rent-foreground: #0f172a;
+  --rent-background: #fbf9f6;
+  --rent-foreground: #1c2733;
   --rent-card: #ffffff;
-  --rent-card-foreground: #0f172a;
+  --rent-card-foreground: #1c2733;
   --rent-popover: #ffffff;
-  --rent-popover-foreground: #0f172a;
+  --rent-popover-foreground: #1c2733;
   --rent-primary: #14b8a6;
   --rent-primary-foreground: #ffffff;
-  --rent-muted: #f1f5f9;
-  --rent-muted-foreground: #64748b;
-  --rent-border: #e6eaf0;
-  --rent-input: #e6eaf0;
+  --rent-muted: #f3f1ec;
+  --rent-muted-foreground: #6b7280;
+  --rent-border: #ece7df;
+  --rent-input: #ece7df;
   --rent-ring: #14b8a6;
 
   /* ---- 中性阶梯（直接引用） ---- */
-  --rent-ink: #0f172a;
-  --rent-ink-2: #475569;
-  --rent-ink-3: #94a3b8;
-  --rent-line: #e6eaf0;
+  --rent-ink: #1c2733;
+  --rent-ink-2: #55606c;
+  --rent-ink-3: #98a1ab;
+  --rent-line: #ece7df;
   --rent-surface: #ffffff;
-  --rent-surface-2: #f1f5f9;
+  --rent-surface-2: #f4f1ec;
   --rent-sidebar: #ffffff;
   --rent-sidebar-active: #d9f2ee;
 
@@ -42,16 +42,16 @@
   --state-error: #dc2626;
   --state-info: #0ea5e9;
 
-  /* ---- 圆角（克制阶梯，上限 16px） ---- */
-  --rent-radius-sm: 4px;
-  --rent-radius-md: 8px;
-  --rent-radius-lg: 16px;
+  /* ---- 圆角（温和阶梯，上限 18px） ---- */
+  --rent-radius-sm: 6px;
+  --rent-radius-md: 10px;
+  --rent-radius-lg: 18px;
   --rent-radius-full: 9999px;
 
   /* ---- 阴影（静态面 alpha ≤ 0.05；深阴影仅浮层） ---- */
-  --rent-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
-  --rent-shadow-2: 0 8px 24px -8px rgba(15, 23, 42, 0.18);
-  --rent-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.30);
+  --rent-shadow-1: 0 1px 2px rgba(28, 39, 51, 0.04), 0 1px 3px rgba(28, 39, 51, 0.03);
+  --rent-shadow-2: 0 10px 30px -10px rgba(28, 39, 51, 0.14);
+  --rent-shadow-3: 0 28px 70px -24px rgba(28, 39, 51, 0.26);
 
   /* ---- 间距（8pt 网格） ---- */
   --rent-s-1: 4px;
@@ -66,38 +66,48 @@
   /* ---- 字体系统 ---- */
   --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  --rent-primary-hover: #0d9488;
+  --rent-primary-rgb: 20, 184, 166;
+  --state-warning-soft: #fdf5e9;
+  --state-warning-light: #f4d9ad;
+  --state-error-hover: #b91c1c;
+  --state-purple: #7a5cd6;
 
   color-scheme: light;
 }
 
 /* ---- 暗色模式（双模变量，设计态默认 light） ---- */
 .dark {
-  --rent-background: #0b0f1a;
-  --rent-foreground: #e8edf5;
-  --rent-card: #141a26;
-  --rent-card-foreground: #e8edf5;
-  --rent-popover: #141a26;
-  --rent-popover-foreground: #e8edf5;
-  --rent-primary: #2dd4bf;
-  --rent-primary-foreground: #0b0f1a;
-  --rent-muted: #1c2433;
-  --rent-muted-foreground: #94a3b8;
-  --rent-border: #243044;
-  --rent-input: #243044;
-  --rent-ring: #2dd4bf;
+  --rent-background: #12161d;
+  --rent-foreground: #e9eef4;
+  --rent-card: #1a2029;
+  --rent-card-foreground: #e9eef4;
+  --rent-popover: #1a2029;
+  --rent-popover-foreground: #e9eef4;
+  --rent-primary: #34c6b4;
+  --rent-primary-foreground: #0d1418;
+  --rent-muted: #232a35;
+  --rent-muted-foreground: #98a1ab;
+  --rent-border: #2a3240;
+  --rent-input: #2a3240;
+  --rent-ring: #34c6b4;
 
-  --rent-ink: #e8edf5;
-  --rent-ink-2: #a3aec2;
-  --rent-ink-3: #64748b;
-  --rent-line: #243044;
-  --rent-surface: #141a26;
-  --rent-surface-2: #1c2433;
-  --rent-sidebar: #0f1521;
-  --rent-sidebar-active: #1e2a44;
+  --rent-ink: #e9eef4;
+  --rent-ink-2: #a9b3c0;
+  --rent-ink-3: #6f7885;
+  --rent-line: #2a3240;
+  --rent-surface: #1a2029;
+  --rent-surface-2: #232a35;
+  --rent-sidebar: #151a22;
+  --rent-sidebar-active: #1e2c33;
 
-  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
-  --rent-shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.50);
-  --rent-shadow-3: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --rent-shadow-2: 0 10px 30px -10px rgba(0, 0, 0, 0.52);
+  --rent-shadow-3: 0 28px 70px -24px rgba(0, 0, 0, 0.66);
+  --rent-primary-hover: #5ad9c8;
+  --rent-primary-rgb: 52, 198, 180;
+  --state-warning-soft: #2a2216;
+  --state-warning-light: #5c4a2a;
 
   color-scheme: dark;
 }
@@ -123,7 +133,7 @@
 
 .rent-h3 {
   font-family: var(--rent-font-sans);
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1.3;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -132,7 +142,7 @@
 
 .rent-body-lg {
   font-family: var(--rent-font-sans);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.6;
   font-weight: 400;
   color: var(--rent-ink-2);
@@ -140,7 +150,7 @@
 
 .rent-body {
   font-family: var(--rent-font-sans);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.6;
   font-weight: 400;
   color: var(--rent-ink-2);
@@ -148,7 +158,7 @@
 
 .rent-caption {
   font-family: var(--rent-font-sans);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   font-weight: 400;
   letter-spacing: 0.005em;
@@ -311,7 +321,7 @@
   border-radius: var(--rent-radius-md);
   background: var(--rent-primary);
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-weight: 700; font-size: 16px;
+  color: #fff; font-weight: 700; font-size: 17px;
   flex-shrink: 0;
 }
 .rent-sidebar__name {
@@ -341,7 +351,7 @@
   gap: 10px;
   padding: 9px 12px;
   border-radius: var(--rent-radius-md);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--rent-ink-2);
   text-decoration: none;
@@ -381,7 +391,7 @@
 }
 .rent-topbar__left { display: flex; align-items: center; gap: 16px; }
 .rent-topbar__title {
-  font-size: 18px; font-weight: 600;
+  font-size: 20px; font-weight: 600;
   color: var(--rent-ink);
   letter-spacing: -0.01em;
 }
@@ -419,7 +429,7 @@
   border-radius: var(--rent-radius-full);
   background: var(--state-error);
   color: #fff;
-  font-size: 10px; font-weight: 600;
+  font-size: 11px; font-weight: 600;
   display: flex; align-items: center; justify-content: center;
 }
 .rent-avatar {
@@ -431,8 +441,8 @@
   font-size: 13px; font-weight: 600;
   flex-shrink: 0;
 }
-.rent-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
-.rent-avatar--lg { width: 48px; height: 48px; font-size: 18px; }
+.rent-avatar--sm { width: 28px; height: 28px; font-size: 13px; }
+.rent-avatar--lg { width: 48px; height: 48px; font-size: 20px; }
 
 /* ===== Main Content ===== */
 .rent-main {
@@ -453,7 +463,7 @@
   margin: 0 0 4px;
 }
 .rent-page-header__subtitle {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--rent-ink-3);
 }
 .rent-page-header__actions {
@@ -476,7 +486,7 @@
   border-bottom: 1px solid var(--rent-border);
 }
 .rent-card__title {
-  font-size: 16px; font-weight: 600;
+  font-size: 17px; font-weight: 600;
   color: var(--rent-ink);
   margin: 0;
 }
@@ -495,7 +505,7 @@
   gap: 6px;
   padding: 8px 16px;
   border-radius: var(--rent-radius-md);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   font-family: var(--rent-font-sans);
   border: 1px solid transparent;
@@ -544,7 +554,7 @@
 .rent-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 15px;
 }
 .rent-table thead th {
   background: var(--rent-surface-2);
@@ -573,7 +583,7 @@
   gap: 4px;
   padding: 3px 10px;
   border-radius: var(--rent-radius-full);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1.4;
 }
@@ -609,7 +619,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   margin-top: 8px;
 }
@@ -644,7 +654,7 @@
 }
 .rent-tab {
   padding: 10px 16px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--rent-ink-3);
   border-bottom: 2px solid transparent;
@@ -727,7 +737,7 @@
   background: var(--rent-background);
   position: relative;
   padding-bottom: 72px;
-  box-shadow: 0 0 40px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 0 40px rgba(28, 39, 51, 0.08);
 }
 .rent-mobile__header {
   background: var(--rent-surface);
@@ -755,7 +765,7 @@
   justify-content: center;
   color: #fff;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 17px;
   flex-shrink: 0;
 }
 .rent-mobile__title {
@@ -785,7 +795,7 @@
   justify-content: space-around;
   padding: 8px 0 12px;
   z-index: 50;
-  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 -4px 12px rgba(28, 39, 51, 0.06);
 }
 .rent-mobile__tab {
   display: flex;
@@ -793,7 +803,7 @@
   align-items: center;
   gap: 3px;
   padding: 4px 8px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--rent-ink-3);
   text-decoration: none;
@@ -826,7 +836,7 @@
   margin: 0;
 }
 .rent-mobile__section-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--rent-ink);
   margin: 20px 0 12px;
@@ -916,7 +926,7 @@
   color: rgba(255,255,255,0.7);
 }
 .rent-mobile__hero-stat-value {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: #fff;
   font-variant-numeric: tabular-nums;
@@ -936,7 +946,7 @@
   padding: 14px;
 }
 .rent-mobile__stat-label {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--rent-ink-3);
   margin-bottom: 4px;
 }
@@ -956,8 +966,7 @@
 .rent-mobile__fab {
   position: fixed;
   bottom: 84px;
-  left: 50%;
-  transform: translateX(calc(215px - 28px));
+  right: 20px;
   width: 48px;
   height: 48px;
   border-radius: var(--rent-radius-full);
@@ -973,13 +982,46 @@
   transition: background 0.15s;
 }
 .rent-mobile__fab:hover { background: #0d9488; }
-    </style>
+    
+    /* ---- UI Craft & A11y（WCAG 2.2 AA）---- */
+    :focus-visible {
+      outline: 2px solid var(--rent-primary);
+      outline-offset: 2px;
+      border-radius: 8px;
+    }
+    :focus:not(:focus-visible) { outline: none; }
+    ::selection { background: rgba(20, 184, 166, 0.22); }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+    }
+    img { max-width: 100%; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; }
+    /* 图标按钮触控热区：视觉不变，命中区外扩（Fitts's law） */
+    .rent-icon-btn { position: relative; }
+    .rent-icon-btn::after { content: ""; position: absolute; inset: -6px; }
+    /* 细滚动条（暖色系，随令牌） */
+    * { scrollbar-width: thin; scrollbar-color: rgba(85, 96, 108, 0.35) transparent; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(85, 96, 108, 0.28); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+    ::-webkit-scrollbar-thumb:hover { background-color: rgba(85, 96, 108, 0.45); }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
 </head>
 <body class="font-sans antialiased">
     <div class="rent-mobile" data-viewport-mode="document-scroll">
   <header class="rent-mobile__header">
     <div class="rent-mobile__header-left">
-      <img class="rent-mobile__logo" src="../assets/haofang-logo.jpg" alt="HaoFang.World" style="width:auto;max-height:34px;object-fit:contain;border-radius:6px;background:#fff;padding:3px;flex-shrink:0;display:inline-block;">
+      <img class="rent-mobile__logo" src="../assets/haofang-logo.jpg" alt="HaoFang.World" style="width:34px;height:34px;object-fit:contain;border-radius: 8px;background:#fff;padding:3px;flex-shrink:0;display:inline-block;">
       <h1 class="rent-mobile__title">员工管理</h1>
     </div>
     <div class="rent-mobile__header-right">
@@ -1028,7 +1070,7 @@
 <!-- Search Bar -->
 <div style="display:flex;align-items:center;gap:8px;background:var(--rent-surface);border:1px solid var(--rent-border);border-radius:var(--rent-radius-md);padding:10px 14px;margin-bottom:12px;">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-  <input type="text" placeholder="搜索员工姓名/工号" style="border:none;background:none;outline:none;font-size:14px;color:var(--rent-ink);flex:1;font-family:var(--rent-font-sans);"/>
+  <input type="text" placeholder="搜索员工姓名/工号" style="border:none;background:none;outline:none;font-size: 15px;color:var(--rent-ink);flex:1;font-family:var(--rent-font-sans);"/>
 </div>
 
 <!-- Filter Chips -->
@@ -1051,17 +1093,17 @@
         <span style="font-size:15px;font-weight:600;color:var(--rent-ink);">李明辉</span>
         <span style="font-family:var(--rent-font-mono);font-size:11px;color:var(--rent-ink-3);">EMP-1001</span>
       </div>
-      <div style="font-size:12px;color:var(--rent-ink-3);margin-top:2px;">物业经理 · 运营部</div>
+      <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">物业经理 · 运营部</div>
     </div>
     <span class="rent-badge rent-badge--success">在职</span>
   </div>
-  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--rent-ink-2);margin-bottom:12px;">
+  <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-2);margin-bottom:12px;">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
     <span style="font-family:var(--rent-font-mono);">+60 12-345 6789</span>
   </div>
   <div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <span style="font-size:12px;color:var(--rent-ink-3);">本月业绩</span>
+      <span style="font-size: 13px;color:var(--rent-ink-3);">本月业绩</span>
       <span style="font-family:var(--rent-font-mono);font-size:13px;font-weight:600;color:var(--rent-ink);">RM 128,500</span>
     </div>
     <div class="rent-progress"><div class="rent-progress__bar" style="width:100%;background:var(--state-success);"></div></div>
@@ -1081,17 +1123,17 @@
         <span style="font-size:15px;font-weight:600;color:var(--rent-ink);">Tan Wei Ming</span>
         <span style="font-family:var(--rent-font-mono);font-size:11px;color:var(--rent-ink-3);">EMP-1002</span>
       </div>
-      <div style="font-size:12px;color:var(--rent-ink-3);margin-top:2px;">销售顾问 · 销售部</div>
+      <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">销售顾问 · 销售部</div>
     </div>
     <span class="rent-badge rent-badge--success">在职</span>
   </div>
-  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--rent-ink-2);margin-bottom:12px;">
+  <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-2);margin-bottom:12px;">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
     <span style="font-family:var(--rent-font-mono);">+60 12-876 5432</span>
   </div>
   <div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <span style="font-size:12px;color:var(--rent-ink-3);">本月业绩</span>
+      <span style="font-size: 13px;color:var(--rent-ink-3);">本月业绩</span>
       <span style="font-family:var(--rent-font-mono);font-size:13px;font-weight:600;color:var(--rent-ink);">RM 96,300</span>
     </div>
     <div class="rent-progress"><div class="rent-progress__bar" style="width:96%;"></div></div>
@@ -1111,17 +1153,17 @@
         <span style="font-size:15px;font-weight:600;color:var(--rent-ink);">Nurul Aina</span>
         <span style="font-family:var(--rent-font-mono);font-size:11px;color:var(--rent-ink-3);">EMP-1003</span>
       </div>
-      <div style="font-size:12px;color:var(--rent-ink-3);margin-top:2px;">客服主管 · 客服部</div>
+      <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">客服主管 · 客服部</div>
     </div>
     <span class="rent-badge rent-badge--success">在职</span>
   </div>
-  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--rent-ink-2);margin-bottom:12px;">
+  <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-2);margin-bottom:12px;">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
     <span style="font-family:var(--rent-font-mono);">+60 11-234 5678</span>
   </div>
   <div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <span style="font-size:12px;color:var(--rent-ink-3);">本月业绩</span>
+      <span style="font-size: 13px;color:var(--rent-ink-3);">本月业绩</span>
       <span style="font-family:var(--rent-font-mono);font-size:13px;font-weight:600;color:var(--rent-ink);">RM 78,400</span>
     </div>
     <div class="rent-progress"><div class="rent-progress__bar" style="width:78%;"></div></div>
@@ -1141,17 +1183,17 @@
         <span style="font-size:15px;font-weight:600;color:var(--rent-ink);">Raj Kumar</span>
         <span style="font-family:var(--rent-font-mono);font-size:11px;color:var(--rent-ink-3);">EMP-1004</span>
       </div>
-      <div style="font-size:12px;color:var(--rent-ink-3);margin-top:2px;">维修技师 · 运营部</div>
+      <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">维修技师 · 运营部</div>
     </div>
     <span class="rent-badge rent-badge--warning">试用期</span>
   </div>
-  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--rent-ink-2);margin-bottom:12px;">
+  <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-2);margin-bottom:12px;">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
     <span style="font-family:var(--rent-font-mono);">+60 16-555 1234</span>
   </div>
   <div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <span style="font-size:12px;color:var(--rent-ink-3);">本月业绩</span>
+      <span style="font-size: 13px;color:var(--rent-ink-3);">本月业绩</span>
       <span style="font-family:var(--rent-font-mono);font-size:13px;font-weight:600;color:var(--rent-ink);">RM 65,800</span>
     </div>
     <div class="rent-progress"><div class="rent-progress__bar" style="width:66%;background:var(--state-warning);"></div></div>
@@ -1171,17 +1213,17 @@
         <span style="font-size:15px;font-weight:600;color:var(--rent-ink);">Lim Su Chen</span>
         <span style="font-family:var(--rent-font-mono);font-size:11px;color:var(--rent-ink-3);">EMP-1005</span>
       </div>
-      <div style="font-size:12px;color:var(--rent-ink-3);margin-top:2px;">会计 · 财务部</div>
+      <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">会计 · 财务部</div>
     </div>
     <span class="rent-badge rent-badge--success">在职</span>
   </div>
-  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--rent-ink-2);margin-bottom:12px;">
+  <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-2);margin-bottom:12px;">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
     <span style="font-family:var(--rent-font-mono);">+60 13-222 8899</span>
   </div>
   <div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <span style="font-size:12px;color:var(--rent-ink-3);">本月业绩</span>
+      <span style="font-size: 13px;color:var(--rent-ink-3);">本月业绩</span>
       <span style="font-family:var(--rent-font-mono);font-size:13px;font-weight:600;color:var(--rent-ink);">RM 72,000</span>
     </div>
     <div class="rent-progress"><div class="rent-progress__bar" style="width:72%;"></div></div>
@@ -1201,17 +1243,17 @@
         <span style="font-size:15px;font-weight:600;color:var(--rent-ink);">Wong Jian Hao</span>
         <span style="font-family:var(--rent-font-mono);font-size:11px;color:var(--rent-ink-3);">EMP-1006</span>
       </div>
-      <div style="font-size:12px;color:var(--rent-ink-3);margin-top:2px;">销售顾问 · 销售部</div>
+      <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">销售顾问 · 销售部</div>
     </div>
     <span class="rent-badge rent-badge--neutral">离职</span>
   </div>
-  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--rent-ink-2);margin-bottom:12px;">
+  <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-2);margin-bottom:12px;">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
     <span style="font-family:var(--rent-font-mono);">+60 18-999 3344</span>
   </div>
   <div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <span style="font-size:12px;color:var(--rent-ink-3);">本月业绩</span>
+      <span style="font-size: 13px;color:var(--rent-ink-3);">本月业绩</span>
       <span style="font-family:var(--rent-font-mono);font-size:13px;font-weight:600;color:var(--rent-ink);">RM 41,300</span>
     </div>
     <div class="rent-progress"><div class="rent-progress__bar" style="width:41%;background:var(--state-warning);"></div></div>

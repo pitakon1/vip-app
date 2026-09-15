@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>对账中心 · 管理后台 - HaoFang.World</title>
+    <style id="theme-vars">
+/* =========================================================
+   HaoFang.World — 品牌设计令牌 (Refined Premium)
+   品牌青绿 · 温暖米白底 · 白色卡片 · 暖描边 · 温和圆角
+   ========================================================= */
+
+:root {
+  /* ---- 语义色（apply-html-head-contract 必需别名） ---- */
+  --rent-background: #fbf9f6;
+  --rent-foreground: #1c2733;
+  --rent-card: #ffffff;
+  --rent-card-foreground: #1c2733;
+  --rent-popover: #ffffff;
+  --rent-popover-foreground: #1c2733;
+  --rent-primary: #14b8a6;
+  --rent-primary-foreground: #ffffff;
+  --rent-muted: #f3f1ec;
+  --rent-muted-foreground: #6b7280;
+  --rent-border: #ece7df;
+  --rent-input: #ece7df;
+  --rent-ring: #14b8a6;
+
+  /* ---- 中性阶梯（直接引用） ---- */
+  --rent-ink: #1c2733;
+  --rent-ink-2: #55606c;
+  --rent-ink-3: #98a1ab;
+  --rent-line: #ece7df;
+  --rent-surface: #ffffff;
+  --rent-surface-2: #f4f1ec;
+  --rent-sidebar: #ffffff;
+  --rent-sidebar-active: #d9f2ee;
+
+  /* ---- 状态色（仅语义状态） ---- */
+  --state-success: #16a34a;
+  --state-warning: #d97706;
+  --state-error: #dc2626;
+  --state-info: #0ea5e9;
+
+  /* ---- 圆角（温和阶梯，上限 18px） ---- */
+  --rent-radius-sm: 6px;
+  --rent-radius-md: 10px;
+  --rent-radius-lg: 18px;
+  --rent-radius-full: 9999px;
+
+  /* ---- 阴影（静态面 alpha ≤ 0.05；深阴影仅浮层） ---- */
+  --rent-shadow-1: 0 1px 2px rgba(28, 39, 51, 0.04), 0 1px 3px rgba(28, 39, 51, 0.03);
+  --rent-shadow-2: 0 10px 30px -10px rgba(28, 39, 51, 0.14);
+  --rent-shadow-3: 0 28px 70px -24px rgba(28, 39, 51, 0.26);
+
+  /* ---- 间距（8pt 网格） ---- */
+  --rent-s-1: 4px;
+  --rent-s-2: 8px;
+  --rent-s-3: 12px;
+  --rent-s-4: 16px;
+  --rent-s-5: 24px;
+  --rent-s-6: 32px;
+  --rent-s-7: 48px;
+  --rent-s-8: 80px;
+
+  /* ---- 字体系统 ---- */
+  --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  --rent-primary-hover: #0d9488;
+  --rent-primary-rgb: 20, 184, 166;
+  --state-warning-soft: #fdf5e9;
+  --state-warning-light: #f4d9ad;
+  --state-error-hover: #b91c1c;
+  --state-purple: #7a5cd6;
+
+  color-scheme: light;
+}
+
+/* ---- 暗色模式（双模变量，设计态默认 light） ---- */
+.dark {
+  --rent-background: #12161d;
+  --rent-foreground: #e9eef4;
+  --rent-card: #1a2029;
+  --rent-card-foreground: #e9eef4;
+  --rent-popover: #1a2029;
+  --rent-popover-foreground: #e9eef4;
+  --rent-primary: #34c6b4;
+  --rent-primary-foreground: #0d1418;
+  --rent-muted: #232a35;
+  --rent-muted-foreground: #98a1ab;
+  --rent-border: #2a3240;
+  --rent-input: #2a3240;
+  --rent-ring: #34c6b4;
+
+  --rent-ink: #e9eef4;
+  --rent-ink-2: #a9b3c0;
+  --rent-ink-3: #6f7885;
+  --rent-line: #2a3240;
+  --rent-surface: #1a2029;
+  --rent-surface-2: #232a35;
+  --rent-sidebar: #151a22;
+  --rent-sidebar-active: #1e2c33;
+
+  --rent-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --rent-shadow-2: 0 10px 30px -10px rgba(0, 0, 0, 0.52);
+  --rent-shadow-3: 0 28px 70px -24px rgba(0, 0, 0, 0.66);
+  --rent-primary-hover: #5ad9c8;
+  --rent-primary-rgb: 52, 198, 180;
+  --state-warning-soft: #2a2216;
+  --state-warning-light: #5c4a2a;
+
+  color-scheme: dark;
+}
+
+/* ---- 排版类 ---- */
+.rent-h1 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(24px, 2.6vw, 32px);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--rent-ink);
+}
+
+.rent-h2 {
+  font-family: var(--rent-font-sans);
+  font-size: clamp(20px, 2vw, 24px);
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--rent-ink);
+}
+
+.rent-h3 {
+  font-family: var(--rent-font-sans);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--rent-ink);
+}
+
+.rent-body-lg {
+  font-family: var(--rent-font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-body {
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--rent-ink-2);
+}
+
+.rent-caption {
+  font-family: var(--rent-font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: var(--rent-ink-3);
+}
+
+.rent-mono {
+  font-family: var(--rent-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.rent-num {
+  font-family: var(--rent-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--rent-background);
+    --color-foreground: var(--rent-foreground);
+    --color-card: var(--rent-card);
+    --color-card-foreground: var(--rent-card-foreground);
+    --color-popover: var(--rent-popover);
+    --color-popover-foreground: var(--rent-popover-foreground);
+    --color-primary: var(--rent-primary);
+    --color-primary-foreground: var(--rent-primary-foreground);
+    --color-muted: var(--rent-muted);
+    --color-muted-foreground: var(--rent-muted-foreground);
+    --color-border: var(--rent-border);
+    --color-input: var(--rent-input);
+    --color-ring: var(--rent-ring);
+    --color-sidebar: var(--rent-sidebar);
+    --radius-sm: var(--rent-radius-sm);
+    --radius-md: var(--rent-radius-md);
+    --radius-lg: var(--rent-radius-lg);
+  }
+  @layer base {
+    body { background: var(--rent-background); color: var(--rent-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--rent-background); }
+      .text-background { color: var(--rent-background); }
+      .border-background { border-color: var(--rent-background); }
+      .ring-background { --tw-ring-color: var(--rent-background); }
+      .bg-foreground { background-color: var(--rent-foreground); }
+      .text-foreground { color: var(--rent-foreground); }
+      .border-foreground { border-color: var(--rent-foreground); }
+      .ring-foreground { --tw-ring-color: var(--rent-foreground); }
+      .bg-card { background-color: var(--rent-card); }
+      .text-card { color: var(--rent-card); }
+      .border-card { border-color: var(--rent-card); }
+      .ring-card { --tw-ring-color: var(--rent-card); }
+      .bg-card-foreground { background-color: var(--rent-card-foreground); }
+      .text-card-foreground { color: var(--rent-card-foreground); }
+      .border-card-foreground { border-color: var(--rent-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--rent-card-foreground); }
+      .bg-popover { background-color: var(--rent-popover); }
+      .text-popover { color: var(--rent-popover); }
+      .border-popover { border-color: var(--rent-popover); }
+      .ring-popover { --tw-ring-color: var(--rent-popover); }
+      .bg-popover-foreground { background-color: var(--rent-popover-foreground); }
+      .text-popover-foreground { color: var(--rent-popover-foreground); }
+      .border-popover-foreground { border-color: var(--rent-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--rent-popover-foreground); }
+      .bg-primary { background-color: var(--rent-primary); }
+      .text-primary { color: var(--rent-primary); }
+      .border-primary { border-color: var(--rent-primary); }
+      .ring-primary { --tw-ring-color: var(--rent-primary); }
+      .bg-primary-foreground { background-color: var(--rent-primary-foreground); }
+      .text-primary-foreground { color: var(--rent-primary-foreground); }
+      .border-primary-foreground { border-color: var(--rent-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--rent-primary-foreground); }
+      .bg-muted { background-color: var(--rent-muted); }
+      .text-muted { color: var(--rent-muted); }
+      .border-muted { border-color: var(--rent-muted); }
+      .ring-muted { --tw-ring-color: var(--rent-muted); }
+      .bg-muted-foreground { background-color: var(--rent-muted-foreground); }
+      .text-muted-foreground { color: var(--rent-muted-foreground); }
+      .border-muted-foreground { border-color: var(--rent-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--rent-muted-foreground); }
+      .bg-border { background-color: var(--rent-border); }
+      .text-border { color: var(--rent-border); }
+      .border-border { border-color: var(--rent-border); }
+      .ring-border { --tw-ring-color: var(--rent-border); }
+      .bg-input { background-color: var(--rent-input); }
+      .text-input { color: var(--rent-input); }
+      .border-input { border-color: var(--rent-input); }
+      .ring-input { --tw-ring-color: var(--rent-input); }
+      .bg-ring { background-color: var(--rent-ring); }
+      .text-ring { color: var(--rent-ring); }
+      .border-ring { border-color: var(--rent-ring); }
+      .ring-ring { --tw-ring-color: var(--rent-ring); }
+      .bg-sidebar { background-color: var(--rent-sidebar); }
+      .text-sidebar { color: var(--rent-sidebar); }
+      .border-sidebar { border-color: var(--rent-sidebar); }
+      .ring-sidebar { --tw-ring-color: var(--rent-sidebar); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+    <style id="rent-components">
+/* ===== App Shell Layout ===== */
+.rent-app {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas: "sidebar topbar" "sidebar main";
+  height: 100vh;
+  background: var(--rent-background);
+}
+.rent-app__sidebar { grid-area: sidebar; }
+.rent-app__topbar { grid-area: topbar; }
+.rent-app__main { grid-area: main; overflow-y: auto; }
+
+/* ===== Sidebar ===== */
+.rent-sidebar {
+  background: var(--rent-sidebar);
+  border-right: 1px solid var(--rent-border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+.rent-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  height: 56px;
+  border-bottom: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+.rent-sidebar__logo {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-primary);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 16px;
+  flex-shrink: 0;
+}
+.rent-sidebar__name {
+  font-family: var(--rent-font-sans);
+  font-size: 15px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  list-style: none;
+  margin: 0;
+}
+.rent-sidebar__section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rent-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 16px 12px 6px;
+}
+.rent-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 2px;
+}
+.rent-nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
+.rent-nav-item[data-active="true"] {
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+.rent-nav-item__icon {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-sidebar__footer {
+  padding: 12px;
+  border-top: 1px solid var(--rent-border);
+  flex-shrink: 0;
+}
+
+/* ===== Topbar ===== */
+.rent-topbar {
+  background: var(--rent-surface);
+  border-bottom: 1px solid var(--rent-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.rent-topbar__left { display: flex; align-items: center; gap: 16px; }
+.rent-topbar__title {
+  font-size: 18px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.01em;
+}
+.rent-topbar__right { display: flex; align-items: center; gap: 12px; }
+.rent-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--rent-surface-2);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 7px 12px;
+  width: 280px;
+}
+.rent-search input {
+  border: none; background: none; outline: none;
+  font-size: 13px; color: var(--rent-ink);
+  flex: 1;
+  font-family: var(--rent-font-sans);
+}
+.rent-search input::placeholder { color: var(--rent-ink-3); }
+.rent-icon-btn {
+  width: 36px; height: 36px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+}
+.rent-icon-btn:hover { background: var(--rent-surface-2); }
+.rent-icon-btn__badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 16px; height: 16px;
+  border-radius: var(--rent-radius-full);
+  background: var(--state-error);
+  color: #fff;
+  font-size: 10px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.rent-avatar {
+  width: 32px; height: 32px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-primary);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+  flex-shrink: 0;
+}
+.rent-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
+.rent-avatar--lg { width: 48px; height: 48px; font-size: 18px; }
+
+/* ===== Main Content ===== */
+.rent-main {
+  padding: 24px;
+  max-width: 100%;
+}
+.rent-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+.rent-page-header__title {
+  font-size: 24px; font-weight: 600;
+  color: var(--rent-ink);
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.rent-page-header__subtitle {
+  font-size: 14px;
+  color: var(--rent-ink-3);
+}
+.rent-page-header__actions {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===== Card ===== */
+.rent-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  overflow: hidden;
+}
+.rent-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-card__title {
+  font-size: 16px; font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0;
+}
+.rent-card__body { padding: 20px; }
+.rent-card__footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--rent-border);
+  background: var(--rent-surface-2);
+}
+
+/* ===== Button ===== */
+.rent-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--rent-font-sans);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.rent-btn--primary {
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
+}
+.rent-btn--primary:hover { background: #0d9488; }
+.rent-btn--secondary {
+  background: var(--rent-surface);
+  border-color: var(--rent-border);
+  color: var(--rent-ink);
+}
+.rent-btn--secondary:hover { background: var(--rent-surface-2); }
+.rent-btn--ghost {
+  background: transparent;
+  color: var(--rent-ink-2);
+}
+.rent-btn--ghost:hover { background: var(--rent-surface-2); }
+.rent-btn--danger {
+  background: var(--state-error);
+  color: #fff;
+}
+.rent-btn--danger:hover { background: #b91c1c; }
+.rent-btn--success {
+  background: var(--state-success);
+  color: #fff;
+}
+.rent-btn--sm { padding: 5px 12px; font-size: 13px; }
+.rent-btn--lg { padding: 12px 24px; font-size: 15px; }
+.rent-btn--block { width: 100%; }
+.rent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== Table ===== */
+.rent-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--rent-radius-lg);
+  border: 1px solid var(--rent-border);
+}
+.rent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.rent-table thead th {
+  background: var(--rent-surface-2);
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  border-bottom: 1px solid var(--rent-border);
+  white-space: nowrap;
+}
+.rent-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rent-border);
+  color: var(--rent-ink);
+  vertical-align: middle;
+}
+.rent-table tbody tr:last-child td { border-bottom: none; }
+.rent-table tbody tr:hover { background: var(--rent-surface-2); }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+
+/* ===== Badge ===== */
+.rent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--rent-radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.rent-badge--success { background: rgba(22,163,74,0.1); color: var(--state-success); }
+.rent-badge--warning { background: rgba(217,119,6,0.1); color: var(--state-warning); }
+.rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
+.rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
+.rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
+.rent-badge--primary { background: rgba(20,184,166,0.1); color: var(--rent-primary); }
+.rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+/* ===== Form ===== */
+.rent-form-group { margin-bottom: 20px; }
+.rent-form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-ink);
+  margin-bottom: 6px;
+}
+.rent-form-input,
+.rent-form-select,
+.rent-form-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  font-size: 14px;
+  font-family: var(--rent-font-sans);
+  color: var(--rent-ink);
+  background: var(--rent-surface);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.rent-form-input:focus,
+.rent-form-select:focus,
+.rent-form-textarea:focus {
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 3px rgba(20,184,166,0.1);
+}
+.rent-form-textarea { resize: vertical; min-height: 80px; }
+.rent-form-hint { font-size: 12px; color: var(--rent-ink-3); margin-top: 4px; }
+.rent-form-row { display: flex; gap: 16px; }
+.rent-form-row > * { flex: 1; }
+
+/* ===== KPI / Stat Card ===== */
+.rent-stat-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+}
+.rent-stat-card__label {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-bottom: 8px;
+}
+.rent-stat-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--rent-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.rent-stat-card__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.rent-stat-card__delta--up { color: var(--state-success); }
+.rent-stat-card__delta--down { color: var(--state-error); }
+.rent-stat-card__icon {
+  width: 40px; height: 40px;
+  border-radius: var(--rent-radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===== Grid Utilities ===== */
+.rent-grid { display: grid; gap: 16px; }
+.rent-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.rent-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.rent-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.rent-grid--auto { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+
+/* ===== Filter Bar ===== */
+.rent-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.rent-filter-bar__search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+/* ===== Pagination ===== */
+.rent-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  padding: 16px 0;
+}
+.rent-pagination__btn {
+  min-width: 32px; height: 32px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-sm);
+  background: var(--rent-surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  cursor: pointer;
+  padding: 0 8px;
+}
+.rent-pagination__btn:hover { background: var(--rent-surface-2); }
+.rent-pagination__btn[data-active="true"] {
+  background: var(--rent-primary);
+  color: #fff;
+  border-color: var(--rent-primary);
+}
+.rent-pagination__info {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin-right: 12px;
+}
+
+/* ===== Modal ===== */
+.rent-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(28,39,51,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.rent-modal {
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  box-shadow: var(--rent-shadow-3);
+  max-width: 560px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.rent-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-modal__body { padding: 20px; }
+.rent-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--rent-border);
+}
+
+/* ===== Misc ===== */
+.rent-divider { height: 1px; background: var(--rent-border); margin: 16px 0; border: none; }
+.rent-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--rent-ink-3);
+}
+.rent-empty__icon { margin-bottom: 12px; opacity: 0.4; }
+.rent-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--rent-border);
+  margin-bottom: 20px;
+}
+.rent-tab {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-ink-3);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.rent-tab:hover { color: var(--rent-ink); }
+.rent-tab[data-active="true"] {
+  color: var(--rent-primary);
+  border-bottom-color: var(--rent-primary);
+}
+.rent-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-full);
+  overflow: hidden;
+}
+.rent-progress__bar {
+  height: 100%;
+  background: var(--rent-primary);
+  border-radius: var(--rent-radius-full);
+  transition: width 0.3s;
+}
+.rent-tooltip {
+  position: relative;
+}
+
+/* ===== Kanban column styles ===== */
+.rent-kanban {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.rent-kanban__column {
+  flex: 0 0 300px;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-lg);
+  padding: 12px;
+}
+.rent-kanban__column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+.rent-kanban__column-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+.rent-kanban__column-count {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  background: var(--rent-surface);
+  padding: 2px 8px;
+  border-radius: var(--rent-radius-full);
+}
+.rent-kanban__card {
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+.rent-kanban__card:hover { box-shadow: var(--rent-shadow-1); }
+
+/* ===== Calendar ===== */
+.rent-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  overflow: hidden;
+}
+.rent-calendar__day-header {
+  background: var(--rent-surface-2);
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rent-ink-2);
+}
+.rent-calendar__cell {
+  background: var(--rent-surface);
+  padding: 8px;
+  min-height: 72px;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+}
+.rent-calendar__cell--today {
+  background: var(--rent-sidebar-active);
+  font-weight: 600;
+  color: var(--rent-primary);
+}
+.rent-calendar__cell--other { opacity: 0.4; }
+.rent-calendar__event {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--rent-radius-sm);
+  margin-top: 2px;
+  background: rgba(20,184,166,0.1);
+  color: var(--rent-primary);
+}
+
+/* ===== Utility ===== */
+.rent-flex { display: flex; }
+.rent-flex--center { align-items: center; justify-content: center; }
+.rent-flex--between { align-items: center; justify-content: space-between; }
+.rent-flex--col { flex-direction: column; }
+.rent-gap-2 { gap: 8px; }
+.rent-gap-3 { gap: 12px; }
+.rent-gap-4 { gap: 16px; }
+.rent-mt-2 { margin-top: 8px; }
+.rent-mt-3 { margin-top: 12px; }
+.rent-mt-4 { margin-top: 16px; }
+.rent-mt-5 { margin-top: 24px; }
+.rent-mb-2 { margin-bottom: 8px; }
+.rent-mb-3 { margin-bottom: 12px; }
+.rent-mb-4 { margin-bottom: 16px; }
+.rent-mb-5 { margin-bottom: 24px; }
+.rent-text-right { text-align: right; }
+.rent-text-center { text-align: center; }
+.rent-text-sm { font-size: 13px; }
+.rent-text-muted { color: var(--rent-ink-3); }
+.rent-text-bold { font-weight: 600; }
+.rent-w-full { width: 100%; }
+</style>
+    <style id="page-specific">
+      .rent-stat-card__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .rent-chart-container {
+        position: relative;
+        height: 320px;
+      }
+      .rent-chart-range-group {
+        display: flex;
+        gap: 2px;
+        background: var(--rent-surface-2);
+        border-radius: var(--rent-radius-md);
+        padding: 3px;
+      }
+      .rent-chart-range {
+        padding: 5px 12px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--rent-ink-3);
+        border: none;
+        background: transparent;
+        border-radius: var(--rent-radius-sm);
+        cursor: pointer;
+        transition: all 0.15s;
+        font-family: var(--rent-font-sans);
+      }
+      .rent-chart-range:hover { color: var(--rent-ink); }
+      .rent-chart-range--active {
+        background: var(--rent-surface);
+        color: var(--rent-primary);
+        box-shadow: var(--rent-shadow-1);
+      }
+    </style>
+    <style id="cockpit-ext">
+      /* ===== 经营驾驶舱扩展样式（管理员端 · 标准企业后台风格） ===== */
+      .rent-risk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      .rent-risk-card {
+        display: flex; align-items: center; gap: 12px;
+        background: var(--rent-card); border: 1px solid var(--rent-border);
+        border-radius: var(--rent-radius-lg); padding: 16px;
+        box-shadow: var(--rent-shadow-1);
+      }
+      .rent-risk-card__icon {
+        width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .rent-risk-card__body { flex: 1; min-width: 0; }
+      .rent-risk-card__label { font-size: 13px; color: var(--rent-ink-2); }
+      .rent-risk-card__value {
+        font-size: 24px; font-weight: 600; letter-spacing: -0.02em;
+        color: var(--rent-ink); line-height: 1.25;
+      }
+      .rent-risk-card__value span { font-size: 13px; font-weight: 400; color: var(--rent-ink-3); margin-left: 2px; }
+      .rent-risk-card__desc { font-size: 12px; color: var(--rent-ink-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .rent-risk-card__cta { flex-shrink: 0; font-weight: 600; }
+      .rent-risk-card--warning .rent-risk-card__icon { background: rgba(217,119,6,0.12); color: var(--state-warning); }
+      .rent-risk-card--danger .rent-risk-card__icon { background: rgba(220,38,38,0.12); color: var(--state-error); }
+      .rent-risk-card--info .rent-risk-card__icon { background: rgba(14,165,233,0.12); color: var(--state-info); }
+      .rent-quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .rent-quick-item {
+        display: flex; align-items: center; gap: 12px; padding: 14px;
+        border: 1px solid var(--rent-border); border-radius: var(--rent-radius-md);
+        background: var(--rent-surface); text-decoration: none;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .rent-quick-item:hover { border-color: var(--rent-primary); background: var(--rent-sidebar-active); }
+      .rent-quick-item__icon { width: 38px; height: 38px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+      .rent-quick-item__label { font-size: 14px; font-weight: 600; color: var(--rent-ink); }
+      .rent-quick-item__sub { font-size: 12px; color: var(--rent-ink-3); margin-top: 1px; }
+      .rent-chart-container { height: 250px; }
+      @media (max-width: 1100px) {
+        .rent-risk-grid { grid-template-columns: 1fr; }
+      }
+    
+    /* ---- UI Craft & A11y（WCAG 2.2 AA）---- */
+    :focus-visible {
+      outline: 2px solid var(--rent-primary);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+    :focus:not(:focus-visible) { outline: none; }
+    ::selection { background: rgba(20, 184, 166, 0.22); }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+    }
+    img { max-width: 100%; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; }
+    /* 图标按钮触控热区：视觉不变，命中区外扩（Fitts's law） */
+    .rent-icon-btn { position: relative; }
+    .rent-icon-btn::after { content: ""; position: absolute; inset: -6px; }
+    /* 细滚动条（暖色系，随令牌） */
+    * { scrollbar-width: thin; scrollbar-color: rgba(85, 96, 108, 0.35) transparent; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(85, 96, 108, 0.28); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+    ::-webkit-scrollbar-thumb:hover { background-color: rgba(85, 96, 108, 0.45); }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body class="font-sans antialiased">
+<div class="rent-app" data-viewport-mode="app-shell">
+  <!-- ===== Sidebar ===== -->
+  <aside class="rent-app__sidebar">
+    <div class="rent-sidebar">
+      <div class="rent-sidebar__brand">
+        <img class="rent-sidebar__logo" src="../assets/haofang-logo.jpg" alt="HaoFang.World" style="width:34px;height:34px;object-fit:contain;border-radius:6px;background:#fff;padding:3px;flex-shrink:0;display:inline-block;">
+        <span class="rent-sidebar__name">管理后台</span>
+      </div>
+      <nav class="rent-sidebar__nav">
+        <div class="rent-sidebar__section-label">概览</div>
+        <a class="rent-nav-item" data-nav-key="admin-dashboard" href="admin-dashboard.html" data-dom-id="nav-admin-dashboard">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>数据总览</span>
+        </a>
+        <div class="rent-sidebar__section-label">业务管理</div>
+        <a class="rent-nav-item" data-nav-key="admin-properties" href="admin-properties.html" data-dom-id="nav-admin-properties">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span>房源管理</span>
+        </a>
+        <a class="rent-nav-item" data-nav-key="admin-crm" href="admin-crm.html" data-dom-id="nav-admin-crm">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>客户管理</span>
+        </a>
+        <a class="rent-nav-item" data-nav-key="admin-leases" href="admin-leases.html" data-dom-id="nav-admin-leases">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span>合同管理</span>
+        </a>
+        <a class="rent-nav-item" data-nav-key="admin-payments" href="admin-payments.html" data-dom-id="nav-admin-payments">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          <span>收付款管理</span>
+        </a>
+        <div class="rent-sidebar__section-label">系统</div>
+        <a class="rent-nav-item" data-nav-key="admin-employees" href="admin-employees.html" data-dom-id="nav-admin-employees">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>员工管理</span>
+        </a>
+        <a class="rent-nav-item" data-nav-key="admin-settings" href="admin-settings.html" data-dom-id="nav-admin-settings">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>系统设置</span>
+        </a>
+      
+        <div class="rent-sidebar__section-label">经营管理</div>
+<a class="rent-nav-item" data-nav-key="admin-sale-deals" href="admin-sale-deals.html" data-dom-id="nav-admin-sale-deals">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          <span>销售管理</span>
+        </a>
+<a class="rent-nav-item" data-nav-key="admin-trend" href="admin-trend.html" data-dom-id="nav-admin-trend">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          <span>趋势分析</span>
+        </a>
+<a class="rent-nav-item" data-nav-key="admin-reconciliation" href="admin-reconciliation.html" data-active="true" data-dom-id="nav-admin-reconciliation">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01M12 10h.01M8 10h.01M12 14h.01M8 14h.01M12 18h.01M8 18h.01"/></svg>
+          <span>对账中心</span>
+        </a>
+<a class="rent-nav-item" data-nav-key="admin-markets" href="admin-markets.html" data-dom-id="nav-admin-markets">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+          <span>市场行情</span>
+        </a>
+<a class="rent-nav-item" data-nav-key="admin-market-intelligence" href="admin-market-intelligence.html" data-dom-id="nav-admin-market-intelligence">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-7"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+          <span>市场情报</span>
+        </a>
+<a class="rent-nav-item" data-nav-key="admin-distribution" href="admin-distribution.html" data-dom-id="nav-admin-distribution">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <span>分销管理</span>
+        </a>
+<a class="rent-nav-item" data-nav-key="admin-operations" href="admin-operations.html" data-dom-id="nav-admin-operations">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>运营中心</span>
+        </a>
+
+        <div class="rent-sidebar__section-label">系统治理</div>
+<a class="rent-nav-item" data-nav-key="admin-review" href="admin-review.html" data-dom-id="nav-admin-review">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+          <span>审核中心</span>
+        </a>
+<a class="rent-nav-item" data-nav-key="admin-users" href="admin-users.html" data-dom-id="nav-admin-users">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>用户与权限</span>
+        </a>
+<a class="rent-nav-item" data-nav-key="admin-audit-logs" href="admin-audit-logs.html" data-dom-id="nav-admin-audit-logs">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></svg>
+          <span>审计日志</span>
+        </a>
+<a class="rent-nav-item" data-nav-key="admin-commission-rules" href="admin-commission-rules.html" data-dom-id="nav-admin-commission-rules">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+          <span>佣金规则</span>
+        </a>
+<a class="rent-nav-item" data-nav-key="admin-company" href="admin-company.html" data-dom-id="nav-admin-company">
+          <svg class="rent-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+          <span>公司信息</span>
+        </a>
+      </nav>
+      <div class="rent-sidebar__footer">
+        <div class="rent-flex rent-flex--between rent-gap-3">
+          <div class="rent-flex rent-gap-2" style="align-items:center;">
+            <div class="rent-avatar rent-avatar--sm">管</div>
+            <div>
+              <div class="rent-text-sm rent-text-bold">管理员</div>
+              <div class="rent-text-sm rent-text-muted">admin@rentflow.com</div>
+            </div>
+          </div>
+          <a href="login.html" class="rent-btn rent-btn--ghost rent-btn--sm" data-dom-id="back-login">退出</a>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== Topbar ===== -->
+  <header class="rent-app__topbar">
+    <div class="rent-topbar">
+      <div class="rent-topbar__left">
+        <h1 class="rent-topbar__title">对账中心</h1>
+      </div>
+      <div class="rent-topbar__right">
+        <div class="rent-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="搜索房源、客户、合同...">
+        </div>
+        <button class="rent-icon-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="rent-icon-btn__badge">3</span>
+        </button>
+        <div class="rent-avatar">管</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Main Content ===== -->
+  <main class="rent-app__main overflow-y-auto" data-scroll-region="primary">
+    <div class="rent-main">
+
+      <div class="rent-page-header">
+        <div>
+          <h2 class="rent-page-header__title">对账中心</h2>
+          <p class="rent-page-header__subtitle">应收实收差异与处理进度</p>
+        </div>
+        <div class="rent-page-header__actions"><button class="rent-btn rent-btn--secondary" type="button">导出对账单</button></div>
+      </div><div class="rent-grid rent-grid--4" style="margin-bottom:20px;"><div class="rent-stat-card">
+          <div class="rent-stat-card__head">
+            <div>
+              <div class="rent-stat-card__label">本月应结</div>
+              <div class="rent-stat-card__value rent-num">฿4,286,000</div>
+              
+            </div>
+            <div class="rent-stat-card__icon" style="background:rgba(20,184,166,0.1);color:var(--rent-primary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01M12 10h.01M8 10h.01M12 14h.01M8 14h.01M12 18h.01M8 18h.01"/></svg></div>
+          </div>
+        </div>
+<div class="rent-stat-card">
+          <div class="rent-stat-card__head">
+            <div>
+              <div class="rent-stat-card__label">已对平</div>
+              <div class="rent-stat-card__value rent-num">฿4,158,200</div>
+              
+            </div>
+            <div class="rent-stat-card__icon" style="background:rgba(20,184,166,0.1);color:var(--rent-primary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">undefined</svg></div>
+          </div>
+        </div>
+<div class="rent-stat-card">
+          <div class="rent-stat-card__head">
+            <div>
+              <div class="rent-stat-card__label">差异笔数</div>
+              <div class="rent-stat-card__value rent-num">7</div>
+              <div class="rent-stat-card__delta rent-stat-card__delta--up"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>-2 较上周</div>
+            </div>
+            <div class="rent-stat-card__icon" style="background:rgba(217,119,6,0.12);color:var(--rent-primary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></svg></div>
+          </div>
+        </div>
+<div class="rent-stat-card">
+          <div class="rent-stat-card__head">
+            <div>
+              <div class="rent-stat-card__label">差异金额</div>
+              <div class="rent-stat-card__value rent-num">฿127,800</div>
+              
+            </div>
+            <div class="rent-stat-card__icon" style="background:rgba(220,38,38,0.1);color:var(--rent-primary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
+          </div>
+        </div></div><div class="rent-tabs" style="margin-bottom:16px;"><button class="rent-tab rent-tab--active" type="button">差异明细</button><button class="rent-tab" type="button">已对平</button><button class="rent-tab" type="button">结算批次</button></div><div class="rent-filter-bar">
+        <div class="rent-filter-bar__search">
+          <div class="rent-search" style="width:100%;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="搜索单号 / 房源">
+          </div>
+        </div>
+        <select class="rent-filter-select" aria-label="类型">
+          <option value="">全部类型</option>
+          <option value="">租金</option>
+          <option value="">押金</option>
+          <option value="">服务费</option>
+        </select>
+        <select class="rent-filter-select" aria-label="原因">
+          <option value="">全部原因</option>
+          <option value="">汇率差</option>
+          <option value="">漏收</option>
+          <option value="">多收</option>
+          <option value="">冲销</option>
+        </select>
+      </div><div class="rent-card">
+          <div class="rent-card__header"><h3 class="rent-card__title">差异明细</h3></div>
+          <div class="rent-card__body"><div class="rent-table-wrap">
+            <table class="rent-table">
+              <thead><tr><th>单号</th><th>类型</th><th>应收</th><th>实收</th><th>差异</th><th>原因</th><th>状态</th></tr></thead>
+              <tbody>
+                <tr><td>PY-2026-0912</td><td>租金</td><td>฿34,000</td><td>฿33,850</td><td><span class="rent-badge rent-badge--error">-฿150</span></td><td>汇率差</td><td><span class="rent-badge rent-badge--error">待处理</span></td></tr>
+                <tr><td>PY-2026-0908</td><td>押金</td><td>฿68,000</td><td>฿0</td><td><span class="rent-badge rent-badge--error">-฿68,000</span></td><td>漏收</td><td><span class="rent-badge rent-badge--error">待处理</span></td></tr>
+                <tr><td>PY-2026-0901</td><td>服务费</td><td>฿12,800</td><td>฿12,900</td><td><span class="rent-badge rent-badge--error">+฿100</span></td><td>多收</td><td><span class="rent-badge rent-badge--warning">处理中</span></td></tr>
+                <tr><td>PY-2026-0895</td><td>租金</td><td>฿21,500</td><td>฿21,500</td><td><span class="rent-badge rent-badge--neutral">฿0</span></td><td>—</td><td><span class="rent-badge rent-badge--success">已对平</span></td></tr>
+                <tr><td>PY-2026-0884</td><td>服务费</td><td>฿9,600</td><td>฿9,600</td><td><span class="rent-badge rent-badge--neutral">฿0</span></td><td>—</td><td><span class="rent-badge rent-badge--success">已对平</span></td></tr>
+                <tr><td>PY-2026-0871</td><td>租金</td><td>฿28,000</td><td>฿0</td><td><span class="rent-badge rent-badge--error">+฿28,000</span></td><td>冲销</td><td><span class="rent-badge rent-badge--success">已处理</span></td></tr>
+              </tbody>
+            </table>
+          </div><div class="rent-pagination" style="margin-top:14px;"><span class="rent-pagination__info">共 7 笔差异 · 金额 ฿127,800</span></div></div>
+        </div>
+
+    </div>
+  </main>
+</div>
+
+
+
+<script>lucide.createIcons();</script>
+</body>
+</html>

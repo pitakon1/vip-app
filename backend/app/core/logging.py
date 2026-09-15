@@ -7,8 +7,15 @@ import sys
 
 import structlog
 
+from app.config import settings
+
 # 标记是否已配置
 _configured = False
+
+
+def _log_level() -> int:
+    """日志级别跟随 DEBUG 配置（此前硬编码 INFO，DEBUG 下看不到调试日志）。"""
+    return logging.DEBUG if settings.DEBUG else logging.INFO
 
 
 def configure_logging() -> None:
@@ -20,6 +27,7 @@ def configure_logging() -> None:
     if _configured:
         return
 
+    level = _log_level()
     timestamper = structlog.processors.TimeStamper(fmt="iso")
 
     shared_processors = [
@@ -34,7 +42,7 @@ def configure_logging() -> None:
             structlog.processors.format_exc_info,
             structlog.processors.JSONRenderer(),
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        wrapper_class=structlog.make_filtering_bound_logger(level),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
@@ -44,7 +52,7 @@ def configure_logging() -> None:
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
-        level=logging.INFO,
+        level=level,
     )
 
     # 设置 structlog 的标准库处理器，统一日志格式
@@ -59,7 +67,7 @@ def configure_logging() -> None:
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(level)
 
     _configured = True
 

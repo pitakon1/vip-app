@@ -64,21 +64,21 @@ export default function OwnerIncomePage() {
       <View className='page-container'>
         <View className='summary-header'>
           <Text className='summary-label'>本月收入</Text>
-          <Text className='summary-amount'>¥{formatMoney(income.monthlyIncome)}</Text>
+          <Text className='summary-amount'>฿{formatMoney(income.monthlyIncome)}</Text>
         </View>
 
         <View className='stats-row'>
           <View className='stat-item'>
             <Text className='stat-label'>总收入</Text>
-            <Text className='stat-value'>¥{formatMoney(income.totalIncome)}</Text>
+            <Text className='stat-value'>฿{formatMoney(income.totalIncome)}</Text>
           </View>
           <View className='stat-item'>
             <Text className='stat-label'>待收</Text>
-            <Text className='stat-value text-warning'>¥{formatMoney(income.pendingIncome)}</Text>
+            <Text className='stat-value text-warning'>฿{formatMoney(income.pendingIncome)}</Text>
           </View>
           <View className='stat-item'>
             <Text className='stat-label'>逾期</Text>
-            <Text className='stat-value text-danger'>¥{formatMoney(income.overdueIncome)}</Text>
+            <Text className='stat-value text-danger'>฿{formatMoney(income.overdueIncome)}</Text>
           </View>
         </View>
 
@@ -103,7 +103,7 @@ export default function OwnerIncomePage() {
                 <Text className='month-text'>{detail.month}</Text>
                 <Text className='property-count'>{detail.propertyCount}套房产</Text>
               </View>
-              <Text className='income-amount'>¥{formatMoney(detail.income)}</Text>
+              <Text className='income-amount'>฿{formatMoney(detail.income)}</Text>
             </View>
           ))}
         </ScrollView>

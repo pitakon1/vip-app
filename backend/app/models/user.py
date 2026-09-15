@@ -37,5 +37,16 @@ class User(TimestampMixin, table=True):
     is_active: bool = Field(default=True)
     is_verified: bool = Field(default=False)
     preferred_language: str = Field(default="zh", max_length=5)  # zh/en/th
-    last_login_at: Optional[datetime] = None
+    # 运营看板 DAU/WAU/MAU 与活跃趋势都按该字段做范围过滤与分组，需要索引
+    last_login_at: Optional[datetime] = Field(default=None, index=True)
     avatar_url: Optional[str] = None
+    # 令牌版本号：签发令牌时写入 tv 声明。登出 / 重置密码时 +1，
+    # 使该账号此前签发的所有 access/refresh 令牌立即失效。
+    token_version: int = Field(
+        default=0,
+        sa_column_kwargs={
+            "nullable": False,
+            "server_default": "0",
+            "comment": "令牌版本号，用于登出/改密后吊销旧令牌",
+        },
+    )

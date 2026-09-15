@@ -243,7 +243,21 @@ export const marketDataApi = {
   createIndex: (data: any) => api.post('/market-data/indices', data),
   reports: (params?: any) => api.get('/market-data/reports', { params }),
   createReport: (data: any) => api.post('/market-data/reports', data),
+  matches: (params?: any) => api.get('/market-data/matches', { params }),
+  // 为线索计算房源匹配（写入匹配记录后由 /matches 读取）
+  computeMatches: (data: any) => api.post('/market-data/matches/compute', data),
+  // 把匹配结果推送给租客（重复推送幂等）
+  notifyMatch: (id: string, data?: any) =>
+    api.post(`/market-data/matches/${id}/notify`, data ?? {}),
   churnSignals: (params?: any) => api.get('/market-data/churn-signals', { params }),
   createChurnSignal: (data: any) => api.post('/market-data/churn-signals', data),
+  // 把流失预警派发给员工跟进（assignee_id 缺省时取租约负责员工）
+  assignChurnSignal: (id: string, data?: any) =>
+    api.post(`/market-data/churn-signals/${id}/assign`, data ?? {}),
   resolveChurnSignal: (id: string) => api.post(`/market-data/churn-signals/${id}/resolve`),
+};
+
+// 客户线索（用于撮合与跟进）
+export const leadsApi = {
+  list: (params?: any) => api.get('/leads', { params }),
 };

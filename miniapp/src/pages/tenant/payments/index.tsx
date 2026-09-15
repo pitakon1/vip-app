@@ -27,13 +27,13 @@ const TYPE_MAP: Record<string, string> = {
 }
 
 const STATUS_MAP: Record<string, { text: string; color: string }> = {
-  pending: { text: '待支付', color: '#d97706' },
-  processing: { text: '处理中', color: '#14b8a6' },
-  succeeded: { text: '已支付', color: '#16a34a' },
-  failed: { text: '支付失败', color: '#dc2626' },
-  refunded: { text: '已退款', color: '#0ea5e9' },
-  disputed: { text: '有争议', color: '#dc2626' },
-  expired: { text: '已过期', color: '#999999' }
+  pending: { text: '待支付', color: 'var(--warning)' },
+  processing: { text: '处理中', color: 'var(--primary)' },
+  succeeded: { text: '已支付', color: 'var(--success)' },
+  failed: { text: '支付失败', color: 'var(--error)' },
+  refunded: { text: '已退款', color: 'var(--info)' },
+  disputed: { text: '有争议', color: 'var(--error)' },
+  expired: { text: '已过期', color: 'var(--ink-3)' }
 }
 
 function pickList(res: any): Payment[] {

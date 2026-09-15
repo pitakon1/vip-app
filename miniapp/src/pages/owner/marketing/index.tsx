@@ -42,13 +42,13 @@ const pick = (res: any, key: string, fallback: any[] = []) => {
 
 const fmtMoney = (v: number | undefined, currency?: string) => {
   const sym: Record<string, string> = { CNY: '¥', THB: '฿', EUR: '€', USD: '$' }
-  return `${sym[currency || 'THB'] || '¥'}${Number(v || 0).toLocaleString()}`
+  return `${sym[currency || 'THB'] || '฿'}${Number(v || 0).toLocaleString()}`
 }
 
 const DIR: Record<string, { label: string; color: string }> = {
-  raise: { label: '建议涨价', color: '#16a34a' },
-  lower: { label: '建议降价', color: '#dc2626' },
-  keep: { label: '维持现价', color: '#14b8a6' }
+  raise: { label: '建议涨价', color: 'var(--success)' },
+  lower: { label: '建议降价', color: 'var(--error)' },
+  keep: { label: '维持现价', color: 'var(--primary)' }
 }
 
 const propertyTypeText = (t?: string) =>

@@ -52,7 +52,7 @@ export default function ServicesScreen() {
         price: selected.price,
         paymentMethod: method,
       });
-      Alert.alert('下单成功', `已通过${method}支付 ¥${selected.price}，服务订单已创建`);
+      Alert.alert('下单成功', `已通过${method}支付 ฿${selected.price}，服务订单已创建`);
       setSelected(null);
     } catch (err: any) {
       Alert.alert('下单失败', err?.response?.data?.message || '请稍后重试');
@@ -65,7 +65,7 @@ export default function ServicesScreen() {
     <Card title={item.title}>
       <Text style={styles.description}>{item.description}</Text>
       <View style={styles.footer}>
-        <Text style={styles.price}>¥{item.price}</Text>
+        <Text style={styles.price}>฿{item.price}</Text>
         <TouchableOpacity
           style={styles.button}
           onPress={() => setSelected(item)}

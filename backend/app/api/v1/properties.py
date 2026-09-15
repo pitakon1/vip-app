@@ -7,15 +7,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import func
+from sqlalchemy import exists, func, or_
+from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, require_agent
 from app.core.cache import delete_cache_pattern, get_cache, set_cache
-from app.core.pagination import PaginationParams, paginate
+from app.core.concurrency import ensure_version
+from app.core.pagination import Page, PaginationParams, paginate
+from app.core.uploads import HEAD_BYTES, detect_image_mime
 from app.models import (
     Property,
     PropertyStatus,
@@ -55,6 +58,7 @@ class PropertyCreate(BaseModel):
     photos: Optional[List[str]] = None
     furnished: bool = False
     available_from: Optional[datetime] = None
+    video_url: Optional[str] = None
 
 
 class PropertyUpdate(BaseModel):
@@ -77,9 +81,45 @@ class PropertyUpdate(BaseModel):
     photos: Optional[List[str]] = None
     furnished: Optional[bool] = None
     available_from: Optional[datetime] = None
+    video_url: Optional[str] = None
+    # 可选乐观锁：客户端传回读到的 version，服务端不一致则 409 拒绝覆盖
+    version: Optional[int] = None
 
 
-@router.get("")
+def _keyword_conditions(terms: List[str]) -> list:
+    """关键词之间是「或」：任一关键词命中房源自身字段或所属项目任一字段即算命中。"""
+    project_search = aliased(Project)
+    conditions: list = []
+    for term in terms:
+        pattern = f"%{term}%"
+        # 项目（楼盘）的名称/地址/城市/城区也参与匹配，否则「苏坤逸」这类按区域搜会漏掉
+        # 只在 project 上命中、房源地址里没写区域的房源；用独立别名的 EXISTS，
+        # 与地区筛选的 JOIN 互不干扰，也不会造成行膨胀。
+        project_hit = exists(
+            select(project_search.id).where(
+                project_search.id == Property.project_id,
+                or_(
+                    project_search.name.ilike(pattern),
+                    project_search.address.ilike(pattern),
+                    project_search.city.ilike(pattern),
+                    project_search.district.ilike(pattern),
+                    project_search.nearest_subway.ilike(pattern),
+                ),
+            )
+        )
+        conditions.extend(
+            [
+                Property.room_number.ilike(pattern),
+                Property.address.ilike(pattern),
+                Property.building.ilike(pattern),
+                Property.description.ilike(pattern),
+                project_hit,
+            ]
+        )
+    return conditions
+
+
+@router.get("", response_model=Page[Property])
 def list_properties(
     pagination: PaginationParams = Depends(),
     status: Optional[PropertyStatus] = None,
@@ -90,26 +130,66 @@ def list_properties(
     city: Optional[str] = None,
     district: Optional[str] = None,
     subway: Optional[str] = None,
+    q: Optional[str] = Query(
+        None, max_length=100, description="关键词：房号 / 地址 / 楼栋 / 描述"
+    ),
+    keywords: Optional[List[str]] = Query(
+        None,
+        description="多关键词（任一命中即算，用于「区域 / 地铁」等一组同义词搜索），最多 20 个",
+    ),
+    price_min: Optional[float] = Query(None, ge=0),
+    price_max: Optional[float] = Query(None, ge=0),
+    area_min: Optional[float] = Query(None, ge=0),
+    area_max: Optional[float] = Query(None, ge=0),
+    bedrooms_min: Optional[int] = Query(None, ge=0, le=20),
+    bedrooms_max: Optional[int] = Query(None, ge=0, le=20),
+    has_video: Optional[bool] = Query(None, description="只看有视频看房的房源"),
+    sort: str = Query("latest", pattern="^(latest|price_asc|price_desc|area_desc)$"),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """房源列表（分页，可按 status/project_id/owner_id 及项目地区筛选）。"""
+    """房源列表（分页；支持关键词 / 区域同义词 / 价格区间 / 面积 / 房型 / 排序）。"""
+    keyword = (q or "").strip()
+    # 区域/地铁这类「一组同义词命中任一即可」的搜索走 keywords，并与 q 合并去重
+    terms = [keyword] if keyword else []
+    terms += [k.strip() for k in (keywords or []) if k and k.strip()]
+    terms = list(dict.fromkeys(terms))[:20]
     cache_key = (
         f"cache:properties:list:{pagination.page}:{pagination.page_size}:"
         f"{status.value if status else ''}:{project_id or ''}:{owner_id or ''}:"
-        f"{country or ''}:{province or ''}:{city or ''}:{district or ''}:{subway or ''}"
+        f"{country or ''}:{province or ''}:{city or ''}:{district or ''}:{subway or ''}:"
+        f"{'|'.join(terms)}:{price_min}:{price_max}:{area_min}:{area_max}:"
+        f"{bedrooms_min}:{bedrooms_max}:{has_video}:{sort}"
     )
     cached = get_cache(cache_key)
     if cached is not None:
         return cached
 
     conditions = [Property.deleted_at.is_(None)]
+    term_conditions = _keyword_conditions(terms)
+    if term_conditions:
+        conditions.append(or_(*term_conditions))
     if status:
         conditions.append(Property.status == status)
     if project_id:
         conditions.append(Property.project_id == project_id)
     if owner_id:
         conditions.append(Property.owner_id == owner_id)
+    if price_min is not None:
+        conditions.append(Property.monthly_rent >= price_min)
+    if price_max is not None:
+        conditions.append(Property.monthly_rent <= price_max)
+    if area_min is not None:
+        conditions.append(Property.size_sqm >= area_min)
+    if area_max is not None:
+        conditions.append(Property.size_sqm <= area_max)
+    if bedrooms_min is not None:
+        conditions.append(Property.bedrooms >= bedrooms_min)
+    if bedrooms_max is not None:
+        conditions.append(Property.bedrooms <= bedrooms_max)
+    if has_video:
+        conditions.append(Property.video_url.is_not(None))
+        conditions.append(Property.video_url != "")
 
     # 项目地区筛选：仅在有地区条件时 LEFT JOIN projects
     geo_join = None
@@ -126,10 +206,20 @@ def list_properties(
         if subway:
             conditions.append(Project.nearest_subway == subway)
 
+    # 排序：默认最新；价格/面积排序时把空值排到最后，避免 NULL 干扰浏览
+    if sort == "price_asc":
+        order_by = [Property.monthly_rent.asc()]
+    elif sort == "price_desc":
+        order_by = [Property.monthly_rent.desc()]
+    elif sort == "area_desc":
+        order_by = [Property.size_sqm.desc()]
+    else:
+        order_by = [Property.created_at.desc()]
+    order_by.append(Property.id)  # 兜底稳定排序，避免同值分页时记录漂移
     stmt = select(Property)
     if geo_join is not None:
         stmt = stmt.join(Project, geo_join)
-    stmt = stmt.where(*conditions).order_by(Property.created_at.desc())
+    stmt = stmt.where(*conditions).order_by(*order_by)
     count_stmt = select(func.count(Property.id))
     if geo_join is not None:
         count_stmt = count_stmt.join(Project, geo_join)
@@ -156,6 +246,94 @@ def create_property(
     session.refresh(prop)
     delete_cache_pattern("cache:properties:*")
     return prop
+
+
+class PropertyMapPoint(BaseModel):
+    """地图找房的房源点位（经纬度取自所属项目）。"""
+
+    id: uuid.UUID
+    room_number: str
+    address: Optional[str] = None
+    monthly_rent: float
+    currency: str
+    status: PropertyStatus
+    video_url: Optional[str] = None
+    project_id: Optional[uuid.UUID] = None
+    project_name: Optional[str] = None
+    lat: float
+    lng: float
+
+
+@router.get("/map-points", response_model=List[PropertyMapPoint])
+def list_property_map_points(
+    limit: int = Query(300, ge=1, le=1000),
+    status: Optional[PropertyStatus] = None,
+    city: Optional[str] = None,
+    district: Optional[str] = None,
+    q: Optional[str] = Query(None, max_length=100, description="关键词：房号 / 地址 / 项目"),
+    keywords: Optional[List[str]] = Query(None, description="多关键词（任一命中即算）"),
+    price_min: Optional[float] = Query(None, ge=0),
+    price_max: Optional[float] = Query(None, ge=0),
+    has_video: Optional[bool] = Query(None, description="只看有视频看房的房源"),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """地图找房：返回带经纬度的房源点位。
+
+    房源表本身没有坐标，坐标一律取所属项目（projects.lat/lng）；
+    项目未维护坐标的房源不会出现在地图上，前端据此提示「未定位房源数」。
+    """
+    keyword = (q or "").strip()
+    terms = [keyword] if keyword else []
+    terms += [k.strip() for k in (keywords or []) if k and k.strip()]
+    terms = list(dict.fromkeys(terms))[:20]
+
+    conditions = [
+        Property.deleted_at.is_(None),
+        Property.project_id.is_not(None),
+        Project.lat.is_not(None),
+        Project.lng.is_not(None),
+    ]
+    term_conditions = _keyword_conditions(terms)
+    if term_conditions:
+        conditions.append(or_(*term_conditions))
+    if status:
+        conditions.append(Property.status == status)
+    if city:
+        conditions.append(Project.city == city)
+    if district:
+        conditions.append(Project.district == district)
+    if price_min is not None:
+        conditions.append(Property.monthly_rent >= price_min)
+    if price_max is not None:
+        conditions.append(Property.monthly_rent <= price_max)
+    if has_video:
+        conditions.append(Property.video_url.is_not(None))
+        conditions.append(Property.video_url != "")
+
+    rows = session.exec(
+        select(Property, Project)
+        .join(Project, Property.project_id == Project.id)
+        .where(*conditions)
+        .order_by(Property.created_at.desc(), Property.id)
+        .limit(limit)
+    ).all()
+    return [
+        {
+            "id": prop.id,
+            "room_number": prop.room_number,
+            "address": prop.address,
+            "monthly_rent": prop.monthly_rent,
+            "currency": prop.currency,
+            "status": prop.status,
+            "video_url": prop.video_url,
+            "project_id": prop.project_id,
+            "project_name": project.name,
+            "lat": project.lat,
+            "lng": project.lng,
+        }
+        for prop, project in rows
+    ]
 
 
 @router.get("/{property_id}")
@@ -195,6 +373,7 @@ def update_property(
     if not prop or prop.deleted_at:
         raise HTTPException(status_code=404, detail="Property not found")
     update_data = req.model_dump(exclude_unset=True)
+    ensure_version(prop, update_data.pop("version", None), "房源")
     for key, value in update_data.items():
         setattr(prop, key, value)
     session.add(prop)
@@ -283,6 +462,17 @@ def upload_property_photos(
             raise HTTPException(
                 status_code=400,
                 detail=f"Unsupported image type: {ext or 'none'}",
+            )
+        # 扩展名可伪造，必须再按文件内容（魔数）确认它真的是图片
+        head = file.file.read(HEAD_BYTES)
+        file.file.seek(0)
+        if detect_image_mime(head) is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"File content is not a valid image: {original_name}"
+                    "（仅支持 JPG/PNG/GIF/BMP/WEBP，且内容需与扩展名一致）"
+                ),
             )
         filename = f"{property_id}_{secrets.token_hex(8)}{ext}"
         dest = UPLOAD_DIR / filename

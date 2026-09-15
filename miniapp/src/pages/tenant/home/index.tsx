@@ -7,10 +7,10 @@ import type { Notification, NotificationType } from '@/types'
 import './index.scss'
 
 const TYPE_MAP: Record<NotificationType, { text: string; color: string; bg: string }> = {
-  payment: { text: '租金提醒', color: '#dc2626', bg: '#fff1f0' },
-  lease: { text: '合同到期', color: '#d97706', bg: '#fffbe6' },
-  maintenance: { text: '维修通知', color: '#14b8a6', bg: '#d9f2ee' },
-  system: { text: '系统通知', color: '#999999', bg: '#f5f5f5' }
+  payment: { text: '租金提醒', color: 'var(--error)', bg: 'rgba(var(--error-rgb), 0.1)' },
+  lease: { text: '合同到期', color: 'var(--warning)', bg: 'rgba(var(--warning-rgb), 0.1)' },
+  maintenance: { text: '维修通知', color: 'var(--primary)', bg: 'var(--sidebar-active)' },
+  system: { text: '系统通知', color: 'var(--ink-3)', bg: 'var(--surface-2)' }
 }
 
 // 金刚区：按「是否在租」分流。访客态仅保留找房入口；在租态展示履约服务。

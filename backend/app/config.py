@@ -2,10 +2,10 @@
 
 使用 pydantic-settings 管理环境变量配置，支持 .env 文件覆盖。
 """
+import json
 from functools import lru_cache
 from typing import List
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,9 +22,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # 数据库配置
+    # 数据库配置。全项目使用同步 Session（SQLModel + psycopg2），
+    # 因此默认驱动为 psycopg2；若填 asyncpg 会被 db.py 自动改写为 psycopg2。
     DATABASE_URL: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/rental_db"
+        "postgresql+psycopg2://postgres:postgres@localhost:5432/rental_db"
     )
 
     # 数据库连接池配置（可环境变量覆盖，用于按 worker 数收敛连接，避免超 PG max_connections）
@@ -40,19 +41,25 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # MinIO 对象存储配置
-    MINIO_ENDPOINT: str = "localhost:9000"
-    MINIO_ACCESS_KEY: str = "minioadmin"
-    MINIO_SECRET_KEY: str = "minioadmin"
-    MINIO_BUCKET: str = "rental"
-    MINIO_SECURE: bool = False
+    # PII 字段加密密钥（护照号/证件号/银行账户等）。
+    # 支持 Fernet Key（44 位 urlsafe base64）或任意口令（内部 SHA-256 派生）。
+    # 非 DEBUG 环境必须显式配置；缺省时启动自检会报错，加解密会拒绝执行。
+    PII_ENCRYPTION_KEY: str = ""
 
     # Celery 配置
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
 
-    # CORS 配置
-    CORS_ORIGINS: List[str] = ["*"]
+    # CORS 配置。默认只放开本地开发端口，避免默认 `*` + 凭证导致任意站点可发起
+    # 带凭证的跨域请求；生产环境请在 .env 显式列出前端域名（逗号分隔）。
+    # 注意：这里必须是 str 而不是 List[str]。pydantic-settings 对 List 字段会在
+    # source 层就强制按 JSON 解析（早于 field_validator），`a,b` 这种写法会直接
+    # 抛 SettingsError。读取时请用下面的 cors_origins 属性。
+    CORS_ORIGINS: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:8081,http://127.0.0.1:8081,"
+        "http://localhost:19006,http://127.0.0.1:19006"
+    )
 
     # 应用配置
     APP_NAME: str = "房地产租赁管理系统 API"
@@ -60,6 +67,16 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     # Uvicorn worker 数量（生产环境可环境变量覆盖）
     WEB_CONCURRENCY: int = 4
+
+    # 速率限制（slowapi）
+    RATE_LIMIT_ENABLED: bool = True
+    # 全局默认限额（对所有路由生效）
+    RATE_LIMIT_DEFAULT: str = "300/minute"
+    # 登录/注册等凭证类接口的限额
+    RATE_LIMIT_AUTH: str = "10/minute"
+    # 限流计数器存储。留空时：DEBUG 用进程内存，非 DEBUG 用 REDIS_URL。
+    # 多 worker 生产环境必须用 Redis，否则每个 worker 各算一份配额。
+    RATE_LIMIT_STORAGE_URI: str = ""
 
     # ==================== 新增功能配置 ====================
     # 1) 即时聊天：无额外外部依赖（使用 WebSocket + 数据库/in-process 广播）。
@@ -74,8 +91,10 @@ class Settings(BaseSettings):
     OPENAI_API_BASE: str = "https://api.openai.com/v1"
     OPENAI_MODEL: str = "gpt-4o-mini"
 
-    # 4) 数据备份：每日同步。备份输出目录（生产可指向挂载盘/MinIO）。
+    # 4) 数据备份：每日同步。备份输出目录（生产可指向挂载盘/对象存储挂载点）。
     BACKUP_DIR: str = "./backups"
+    # 历史备份保留天数（超期文件在每次备份后清理）
+    BACKUP_RETENTION_DAYS: int = 14
 
     # 5) 地图找房 + 7) 考勤定位：Google Maps API
     #    未配置时使用站内 mock 地理位置（geocode 兜底），不影响流程。
@@ -92,13 +111,27 @@ class Settings(BaseSettings):
     ATTENDANCE_OFFICE_LAT: float = 13.7563  # 曼谷默认
     ATTENDANCE_OFFICE_LNG: float = 100.5018
 
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        """支持逗号分隔的字符串形式配置 CORS 源。"""
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
+    # 8) 逾期滞纳金：待缴租金单逾期后按日计提，宽限期内不计提，且有封顶。
+    LATE_FEE_ENABLED: bool = True
+    LATE_FEE_GRACE_DAYS: int = 3  # 宽限期（天）：到期后 N 天内不计提
+    LATE_FEE_DAILY_RATE: float = 0.0005  # 日费率 0.05%（每万元每日 5 元）
+    LATE_FEE_CAP_RATIO: float = 0.1  # 封顶：不超过本金 10%
+
+    @property
+    def cors_origins(self) -> List[str]:
+        """解析后的 CORS 源列表。
+
+        兼容两种写法：逗号分隔（`a,b`）与 JSON 数组（`["a","b"]`）。
+        """
+        raw = (self.CORS_ORIGINS or "").strip()
+        if raw.startswith("["):
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, list):
+                return [str(origin).strip() for origin in parsed if str(origin).strip()]
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
 @lru_cache

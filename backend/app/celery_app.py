@@ -29,11 +29,18 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     # 结果过期时间（秒）
     result_expires=86400,
-    # 任务路由（按模块路由到不同队列）
+    # 任务路由：按任务名路由到队列（原配置按 `app.tasks.payment.*` 等模块名匹配，
+    # 但实际任务名是自定义的、模块名也不存在，导致路由配置从未生效）。
+    # 与 docker-compose 中 worker 的 `-Q default,notification,maintenance` 保持一致。
     task_routes={
-        "app.tasks.payment.*": {"queue": "payment"},
-        "app.tasks.notification.*": {"queue": "notification"},
-        "app.tasks.ai.*": {"queue": "ai"},
+        "publish_pending_events": {"queue": "notification"},
+        "send_pending_notifications": {"queue": "notification"},
+        "check_expiring_leases": {"queue": "notification"},
+        "check_upcoming_rent_payments": {"queue": "notification"},
+        "accrue_late_fees": {"queue": "notification"},
+        "reconcile_payments": {"queue": "default"},
+        "daily_payment_report": {"queue": "default"},
+        "daily_backup_sync": {"queue": "maintenance"},
     },
     task_default_queue="default",
 )
@@ -55,6 +62,10 @@ celery_app.conf.beat_schedule = {
     'check-upcoming-rent-payments': {
         'task': 'check_upcoming_rent_payments',
         'schedule': crontab(hour=9, minute=0),
+    },
+    'accrue-late-fees': {
+        'task': 'accrue_late_fees',
+        'schedule': crontab(hour=9, minute=30),  # 每天 9:30，晚于催缴提醒
     },
     'reconcile-payments': {
         'task': 'reconcile_payments',

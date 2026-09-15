@@ -868,7 +868,7 @@ export default function ListingsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyIcon}>🏠</Text>
+            <Ionicons name="home-outline" size={44} color={colors.ink3} />
             <Text style={styles.empty}>没有找到合适的房源</Text>
             <Text style={styles.emptySub}>试试调整关键字或筛选条件</Text>
           </View>

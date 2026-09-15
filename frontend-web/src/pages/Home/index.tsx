@@ -76,6 +76,11 @@ const Home = () => {
     navigate('/listings')
   }, [navigate])
 
+  // 「视频看房」入口：列表页据 ?video=1 只筛有视频的房源
+  const goVideoTour = useCallback(() => {
+    navigate('/listings?video=1')
+  }, [navigate])
+
   const enterSystem = useCallback(() => {
     if (!token) {
       navigate('/login')
@@ -104,7 +109,7 @@ const Home = () => {
           <button className="rent-portal__nav-item" data-active="true" onClick={handleSearch}>{t('browse.rent')}</button>
           <button className="rent-portal__nav-item" onClick={handleSearch}>{t('browse.buy')}</button>
           <button className="rent-portal__nav-item" onClick={handleSearch}>{t('browse.mapFind')}</button>
-          <button className="rent-portal__nav-item" onClick={handleSearch}>{t('browse.video')}</button>
+          <button className="rent-portal__nav-item" onClick={goVideoTour}>{t('browse.video')}</button>
         </nav>
         <div className="rent-portal__actions">
           <LanguageSwitcher compact />
@@ -304,7 +309,7 @@ const Home = () => {
             <a onClick={handleSearch}>{t('browse.rent')}</a>
             <a onClick={handleSearch}>{t('browse.buy')}</a>
             <a onClick={handleSearch}>{t('browse.mapFind')}</a>
-            <a onClick={handleSearch}>{t('browse.video')}</a>
+            <a onClick={goVideoTour}>{t('browse.video')}</a>
           </div>
           <div className="rent-footer__col">
             <div className="rent-footer__col-title">{t('home.footerAbout')}</div>

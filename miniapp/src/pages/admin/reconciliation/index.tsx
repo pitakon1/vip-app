@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { dashboardApi } from '@/services/api'
 import './index.scss'
+import { iconStyle } from '@/utils/icons'
 
 interface ReconTotals {
   received?: number
@@ -35,7 +36,7 @@ const pick = (res: any): ReconData => {
 
 const fmtMoney = (v: number | undefined, currency?: string) => {
   const sym: Record<string, string> = { CNY: '¥', THB: '฿', EUR: '€', USD: '$' }
-  return `${sym[currency || 'THB'] || '¥'}${Number(v || 0).toLocaleString()}`
+  return `${sym[currency || 'THB'] || '฿'}${Number(v || 0).toLocaleString()}`
 }
 
 const fmtCount = (v: number | undefined) => `${Number(v || 0).toLocaleString()}`
@@ -124,7 +125,7 @@ export default function ReconcilPage() {
 
         {!loading && !error && by_property.length === 0 && (
           <View className='state'>
-            <View className='state__icon'>💰</View>
+            <View className='state__icon icon-svg' style={iconStyle('money')} />
             <Text className='state__title'>暂无对账数据</Text>
             <Text className='state__desc'>完成房源收款后在此对账</Text>
           </View>

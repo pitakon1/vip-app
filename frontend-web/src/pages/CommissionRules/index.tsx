@@ -371,7 +371,7 @@ const CommissionRules = () => {
                               : '全体'
                       const limits =
                         r.minimum_amount != null || r.cap_amount != null
-                          ? `¥${Number(r.minimum_amount ?? 0)} ~ ${r.cap_amount != null ? `¥${Number(r.cap_amount)}` : '无上限'}`
+                          ? `฿${Number(r.minimum_amount ?? 0)} ~ ${r.cap_amount != null ? `฿${Number(r.cap_amount)}` : '无上限'}`
                           : '无'
                       return (
                         <tr key={r.id}>

@@ -17,7 +17,7 @@ depends_on = None
 
 
 def upgrade():
-    from app.models import *  # noqa: F401, F403
+    import app.models  # noqa: F401
     from sqlmodel import SQLModel
     SQLModel.metadata.create_all(op.get_bind())
 

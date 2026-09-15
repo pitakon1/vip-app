@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column, JSON, UniqueConstraint
 from sqlmodel import Field
 
 from .base import TimestampMixin
@@ -53,3 +53,20 @@ class Message(TimestampMixin, table=True):
     recipients_read: Optional[List[Any]] = Field(
         default=None, sa_column=Column(JSON, nullable=True)
     )
+
+
+class ChatParticipant(TimestampMixin, table=True):
+    """会话参与者索引表。
+
+    `Conversation.participant_ids`（JSON 数组）仍是 API 对外契约字段，但 JSON 列
+    无法在 SQLite/PostgreSQL 上通用地做成员过滤与索引。本表作为可索引的成员索引，
+    由写入路径同步维护，用于"我的会话"列表查询与 WebSocket 成员鉴权。
+    """
+
+    __tablename__ = "chat_participants"
+    __table_args__ = (
+        UniqueConstraint("conversation_id", "user_id", name="uq_chat_participants"),
+    )
+
+    conversation_id: uuid.UUID = Field(foreign_key="chats.id", index=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)

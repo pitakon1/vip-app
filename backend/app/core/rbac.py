@@ -6,15 +6,22 @@
 - `require_permission(*codes)` 为"任一命中即放行"（OR 语义），
   适合管理端点按单权限点鉴权；如需 AND 语义可叠加多个依赖。
 """
-from typing import Iterable, Set
+from typing import Iterable, Optional, Set
 
 from fastapi import Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from .auth import get_current_user
+from .cache import delete_cache_pattern, get_cache, set_cache
 from ..db import get_session
 from ..models.rbac import Permission, RolePermission
 from ..models.user import User, UserRole
+
+# 角色权限集合的缓存 TTL（秒）。
+# 权限查询在每次受保护请求上都会执行（require_permission），而权限配置极少变动，
+# 因此按角色缓存；管理员改权限时立即失效（见 invalidate_role_permissions）。
+PERMISSION_CACHE_TTL = 30
+_PERMISSION_CACHE_PREFIX = "rbac:role_perms:"
 
 # ---------------------------------------------------------------------------
 # 权限点注册表（category -> list[(code, name, description)]）
@@ -110,11 +117,26 @@ def _category_of(code: str) -> str:
 
 
 def get_user_permissions(session: Session, user: User) -> Set[str]:
-    """查询用户当前角色拥有的全部权限点 code。"""
+    """查询用户当前角色拥有的全部权限点 code（按角色缓存，TTL 30s）。"""
+    key = f"{_PERMISSION_CACHE_PREFIX}{user.role.value}"
+    cached = get_cache(key)
+    if isinstance(cached, list):
+        return set(cached)
+
     rows = session.exec(
         select(RolePermission).where(RolePermission.role == user.role)
     ).all()
-    return {rp.permission_code for rp in rows}
+    permissions = {rp.permission_code for rp in rows}
+    set_cache(key, sorted(permissions), PERMISSION_CACHE_TTL)
+    return permissions
+
+
+def invalidate_role_permissions(role: Optional[UserRole] = None) -> None:
+    """角色权限变更后失效缓存（不传 role 则清空全部角色）。"""
+    if role is None:
+        delete_cache_pattern(f"{_PERMISSION_CACHE_PREFIX}*")
+    else:
+        delete_cache_pattern(f"{_PERMISSION_CACHE_PREFIX}{role.value}")
 
 
 def require_permission(*codes: str):

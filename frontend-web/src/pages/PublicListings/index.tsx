@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Dropdown,
@@ -7,6 +7,8 @@ import {
   Spin,
 } from 'antd'
 import dayjs from 'dayjs'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import api from '@/lib/api'
 import useAuthStore from '@/stores/auth'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
@@ -19,6 +21,10 @@ import './public-listings.css'
 // ==================== 常量（对齐原型 tenant-property-browse.html）====================
 
 const PAGE_SIZE = 10
+
+// 后端 PropertyStatus 枚举取值（不含前端展示用的 `reserved`）。
+// 直接下发非法枚举会让接口 422，整个列表变空，故先做白名单校验。
+const BACKEND_STATUS = new Set(['vacant', 'rented', 'renewing', 'maintenance'])
 
 // 卡片 banner 主题色（使用设计令牌 CSS 变量）
 const BANNER_COLORS = [
@@ -72,16 +78,6 @@ const bizOf = (it: any): string => {
   return 'sale'
 }
 
-// 地图点位（对齐原型 tenant-property-browse.html 中 rv17-map__marker 分布）
-const MARKER_POS = [
-  { x: 16, y: 24 },
-  { x: 40, y: 46 },
-  { x: 60, y: 20 },
-  { x: 46, y: 68 },
-  { x: 73, y: 48 },
-  { x: 27, y: 70 },
-]
-
 // 按区域 / 按地铁找房（对齐贝壳「区域 | 地铁」下拉面板）
 
 // 区域数据集中在 src/data/locationArea.ts（AREA_GROUPS），上方已 import
@@ -104,6 +100,16 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { token, user } = useAuthStore()
+
+  // 「视频看房」入口：首页/顶栏的导航项带 ?video=1 进来，只筛有视频的房源
+  const [searchParams, setSearchParams] = useSearchParams()
+  const videoOnly = searchParams.get('video') === '1'
+  const toggleVideoOnly = useCallback(() => {
+    const next = new URLSearchParams(searchParams)
+    if (next.get('video') === '1') next.delete('video')
+    else next.set('video', '1')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
 
   // 数据
   const [allItems, setAllItems] = useState<Property[]>([])
@@ -248,11 +254,57 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     { value: 'sale', label: t('browse.buy') },
   ], [t])
 
+  // 关键词输入防抖：避免每敲一个字就打一次后端
+  const [debouncedKw, setDebouncedKw] = useState('')
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedKw(keyword), 300)
+    return () => clearTimeout(timer)
+  }, [keyword])
+
+  // 服务端查询参数：关键词 / 区域同义词 / 价格 / 面积 / 户型 / 状态 / 排序都下推到后端，
+  // 不再靠「拉 999 条再前端过滤」的假搜索（数据量大时既慢又搜不全）。
+  const queryParams = useMemo(() => {
+    const params: Record<string, unknown> = { page_size: 999 }
+    const kw = debouncedKw.trim()
+    if (kw) params.q = kw
+    // 区域/地铁是多关键词同义词，命中任一即算
+    if (activeLocationKw.length) params.keywords = activeLocationKw
+    if (statusSel && BACKEND_STATUS.has(statusSel)) params.status = statusSel
+    if (sort !== 'default') params.sort = sort
+    // 视频看房入口：只返回有 video_url 的房源
+    if (videoOnly) params.has_video = true
+    // 价格：预设快捷区间优先，其次自定义最低/最高（上限取「无上限」哨兵值时不下发）
+    if (priceRange) {
+      const [mn, mx] = priceRange.split('-').map(Number)
+      if (!Number.isNaN(mn)) params.price_min = mn
+      if (!Number.isNaN(mx) && mx < 99999999) params.price_max = mx
+    } else {
+      if (customMin) params.price_min = Number(customMin)
+      if (customMax) params.price_max = Number(customMax)
+    }
+    // 面积
+    if (areaRange) {
+      const [mn, mx] = areaRange.split('-').map(Number)
+      if (!Number.isNaN(mn)) params.area_min = mn
+      if (!Number.isNaN(mx) && mx < 999999) params.area_max = mx
+    } else {
+      if (areaCustomMin) params.area_min = Number(areaCustomMin)
+      if (areaCustomMax) params.area_max = Number(areaCustomMax)
+    }
+    // 户型：4 表示「4 室及以上」
+    if (roomType) {
+      const n = Number(roomType)
+      params.bedrooms_min = n
+      if (n < 4) params.bedrooms_max = n
+    }
+    return params
+  }, [debouncedKw, activeLocationKw, statusSel, sort, videoOnly, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, roomType])
+
   // 数据获取（公开接口，不需要 auth）
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get('/properties', { params: { page_size: 999 } })
+      const res = await api.get('/properties', { params: queryParams })
       const payload = res.data?.data ?? res.data
       const items = payload?.items ?? []
       setAllItems(Array.isArray(items) ? items : [])
@@ -261,9 +313,62 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [queryParams])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // ---------- 地图找房（Leaflet + OpenStreetMap 瓦片） ----------
+  // 房源坐标来自所属项目（projects.lat/lng），项目未维护坐标的房源不在地图上出现。
+  const mapRef = useRef<HTMLDivElement | null>(null)
+  const leafletRef = useRef<any>(null)
+  const markerLayerRef = useRef<any>(null)
+  const [mapPoints, setMapPoints] = useState<any[]>([])
+  const [mapLoading, setMapLoading] = useState(false)
+
+  // 地图与列表共用同一套筛选（仅取地图接口支持的参数）
+  const mapParams = useMemo(() => {
+    const params: Record<string, unknown> = { limit: 300 }
+    ;(['q', 'keywords', 'status', 'price_min', 'price_max', 'has_video'] as const).forEach((k) => {
+      if (queryParams[k] !== undefined) params[k] = queryParams[k]
+    })
+    return params
+  }, [queryParams])
+
+  const fetchMapPoints = useCallback(async () => {
+    setMapLoading(true)
+    try {
+      const res = await api.get('/properties/map-points', { params: mapParams })
+      setMapPoints(Array.isArray(res.data) ? res.data : [])
+    } catch {
+      setMapPoints([])
+    } finally {
+      setMapLoading(false)
+    }
+  }, [mapParams])
+
+  useEffect(() => { if (mapOn) fetchMapPoints() }, [mapOn, fetchMapPoints])
+
+  // 首次展开时才创建地图实例：隐藏容器的尺寸为 0，提前初始化会导致瓦片错位
+  useEffect(() => {
+    if (!mapOn || !mapRef.current || leafletRef.current) return
+    const map = L.map(mapRef.current, {
+      center: [13.7563, 100.5018],  // 曼谷默认中心，有点位时会被 fitBounds 覆盖
+      zoom: 12,
+      scrollWheelZoom: true,
+    })
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map)
+    markerLayerRef.current = L.layerGroup().addTo(map)
+    leafletRef.current = map
+  }, [mapOn])
+
+  useEffect(() => () => {
+    leafletRef.current?.remove()
+    leafletRef.current = null
+    markerLayerRef.current = null
+  }, [])
 
   // 前端筛选 + 排序 + 业务 Tab
   const filteredItems = useMemo(() => {
@@ -343,20 +448,6 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     return Array.from(pages).sort((a, b) => a - b)
   }, [page, pageCount])
 
-  // 地图模式点位数据（当前筛选结果前 6 条）
-  const mapItems = useMemo(() => filteredItems.slice(0, 6), [filteredItems])
-
-  // 地图 mini 卡片标签：整租 / 合租 / 在售
-  const bizTag = (b: string): string => {
-    if (b === 'sale') return t('browse.sale')
-    return b === 'share' ? t('browse.bizShare') : t('browse.bizRent')
-  }
-
-  const mapItemName = (it: any): string => {
-    const projectName = it.project_id || it.building || ''
-    return projectName ? `${projectName} · ${it.room_number || ''}` : (it.address || it.room_number || '—')
-  }
-
   // 下拉 chips 转 antd menu items（key 用 'all' 表示清除）
   const toMenuItems = (options: { value: string; label: string }[]) =>
     options.map((o) => ({ key: o.value || 'all', label: o.label }))
@@ -368,6 +459,44 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
       navigate('/login')
     }
   }
+
+  // 地图点位名称（点位来自 /properties/map-points，带 project_name）
+  const mapPointName = (p: any): string =>
+    p.project_name ? `${p.project_name} · ${p.room_number || ''}` : (p.address || p.room_number || '—')
+
+  // 点位渲染：项目无坐标的房源不在地图上，故图例单独给出已定位数量
+  useEffect(() => {
+    const map = leafletRef.current
+    const layer = markerLayerRef.current
+    if (!map || !layer || !mapOn) return
+    layer.clearLayers()
+    const latlngs: [number, number][] = []
+    mapPoints.forEach((p) => {
+      const ll: [number, number] = [Number(p.lat), Number(p.lng)]
+      if (Number.isNaN(ll[0]) || Number.isNaN(ll[1])) return
+      latlngs.push(ll)
+      L.circleMarker(ll, {
+        radius: 8,
+        color: '#ffffff',
+        weight: 2,
+        // 有视频看房的点位用蓝色区分，其余用品牌青绿
+        fillColor: p.video_url ? '#0ea5e9' : '#14b8a6',
+        fillOpacity: 1,
+      })
+        .bindPopup(
+          `<div style="font-weight:600;color:#1c2733">${mapPointName(p)}</div>` +
+            `<div style="font-weight:600;color:#14b8a6">${formatRent(Number(p.monthly_rent || 0))}</div>` +
+            `<div style="font-size:12px;color:#64748b">${p.project_name || ''}</div>`
+        )
+        .on('click', () => handleCardClick(p))
+        .addTo(layer)
+    })
+    if (latlngs.length) {
+      map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: 15 })
+    }
+    // 容器从隐藏切到显示后需要重算尺寸
+    setTimeout(() => map.invalidateSize(), 0)
+  }, [mapPoints, mapOn])
 
   // 区域/地铁面板图标
   const LocIcon = ({ kind }: { kind: 'area' | 'metro' }) => (
@@ -733,6 +862,12 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
           <span className={`rent-prop-search-card__status-tag ${STATUS_CLASS[statusKey] || 'rent-status-tag--rented'}`}>
             {statusLabelMap[statusKey] || item.status}
           </span>
+          {item.video_url && (
+            <span className="rent-prop-search-card__video-tag">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="8 5 19 12 8 19" /></svg>
+              {t('browse.video')}
+            </span>
+          )}
           <span className="rent-prop-search-card__type-badge">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d={TYPE_ICON_PATH(ptypeKey)} />
@@ -805,7 +940,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
           <button className="rent-portal__nav-item" onClick={() => navigate('/')}>{t('browse.rent')}</button>
           <button className="rent-portal__nav-item" data-active="true" onClick={() => navigate('/listings')}>{t('browse.buy')}</button>
           <button className="rent-portal__nav-item" onClick={() => navigate('/listings')}>{t('browse.mapFind')}</button>
-          <button className="rent-portal__nav-item" onClick={() => navigate('/listings')}>{t('browse.video')}</button>
+          <button className="rent-portal__nav-item" onClick={() => navigate('/listings?video=1')}>{t('browse.video')}</button>
         </nav>
         <div className="rent-portal__actions">
           <LanguageSwitcher compact />
@@ -964,6 +1099,13 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
             </Dropdown>
           </div>
           <div className="rent-filter-bar__right">
+            <button className="rv17-map-btn" type="button" data-active={videoOnly} onClick={toggleVideoOnly}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="5" width="14" height="14" rx="2" />
+                <polygon points="22 7 16 11 16 13 22 17 22 7" />
+              </svg>
+              {t('browse.video')}
+            </button>
             <button className="rv17-map-btn" type="button" data-active={mapOn} onClick={() => setMapOn((v) => !v)}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
@@ -993,36 +1135,27 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
           </div>
         </div>
 
-        {/* ===== 地图模式（模拟，对齐原型 rv17-map） ===== */}
+        {/* ===== 地图模式（Leaflet 真实地图 + OpenStreetMap 瓦片） ===== */}
         <section className="rv17-map" data-active={mapOn}>
-          <span className="rv17-map__legend">{t('browse.mapLegend')}</span>
-          <div className="rv17-map__water" style={{ right: '6%', top: '8%', width: 130, height: 86 }} />
-          <div className="rv17-map__park" style={{ left: '8%', bottom: '22%', width: 150, height: 96 }} />
-          <div className="rv17-map__park" style={{ right: '20%', top: '34%', width: 104, height: 72 }} />
-          <div className="rv17-map__road rv17-map__road--h" style={{ top: '26%' }} />
-          <div className="rv17-map__road rv17-map__road--h" style={{ top: '60%' }} />
-          <div className="rv17-map__road rv17-map__road--v" style={{ left: '30%' }} />
-          <div className="rv17-map__road rv17-map__road--v" style={{ left: '66%' }} />
-          <div className="rv17-map__road rv17-map__road--diag" style={{ top: '44%', left: '-10%', width: '130%', transform: 'rotate(24deg)' }} />
-          {mapItems.map((item: any, i: number) => {
-            const pos = MARKER_POS[i % MARKER_POS.length]
-            const isSale = bizOf(item) === 'sale'
-            return (
-              <div
-                key={item.id}
-                className={`rv17-map__marker ${isSale ? 'rv17-map__marker--sale' : ''}`}
-                style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                title={mapItemName(item)}
-                onClick={() => handleCardClick(item)}
-              />
-            )
-          })}
+          <span className="rv17-map__legend">
+            {t('browse.mapLegend')}
+            {` · ${mapPoints.length} ${t('property.units')}`}
+          </span>
+          <div className="rv17-map__canvas" ref={mapRef} />
+          {mapLoading && (
+            <div className="rv17-map__loading">
+              <Spin />
+            </div>
+          )}
+          {!mapLoading && mapPoints.length === 0 && (
+            <div className="rv17-map__empty">{t('browse.mapNoCoord')}</div>
+          )}
           <div className="rv17-map__strip">
-            {mapItems.map((item: any) => (
-              <div key={item.id} className="rv17-map__mini" onClick={() => handleCardClick(item)}>
-                <div className="rv17-map__mini-name">{mapItemName(item)}</div>
-                <div className="rv17-map__mini-price">{formatRent(Number(item.monthly_rent || 0))}</div>
-                <span className="rv17-map__mini-tag">{bizTag(bizOf(item))}</span>
+            {mapPoints.slice(0, 6).map((p: any) => (
+              <div key={p.id} className="rv17-map__mini" onClick={() => handleCardClick(p)}>
+                <div className="rv17-map__mini-name">{mapPointName(p)}</div>
+                <div className="rv17-map__mini-price">{formatRent(Number(p.monthly_rent || 0))}</div>
+                <span className="rv17-map__mini-tag">{p.video_url ? t('browse.video') : (p.project_name || '')}</span>
               </div>
             ))}
           </div>
@@ -1101,7 +1234,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
             <a onClick={() => navigate('/listings')}>{t('browse.rent')}</a>
             <a onClick={() => navigate('/listings')}>{t('browse.buy')}</a>
             <a onClick={() => navigate('/listings')}>{t('browse.mapFind')}</a>
-            <a onClick={() => navigate('/listings')}>{t('browse.video')}</a>
+            <a onClick={() => navigate('/listings?video=1')}>{t('browse.video')}</a>
           </div>
           <div className="rent-footer__col">
             <div className="rent-footer__col-title">{t('home.footerAbout')}</div>

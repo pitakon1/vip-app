@@ -11,6 +11,7 @@ from app.db import get_session
 from app.core.auth import get_current_user, require_agent
 from app.core.pagination import PaginationParams, paginate
 from app.models import Project, User
+from app.providers.geo import geo_provider
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -124,3 +125,36 @@ def update_project(
     session.commit()
     session.refresh(project)
     return project
+
+
+@router.post("/{project_id}/geocode")
+def geocode_project(
+    project_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_agent),
+):
+    """按项目地址解析经纬度并落库，供地图找房使用。
+
+    地址由 name + address + district + city 拼接（东南亚地址里项目名往往比门牌更好定位）；
+    使用配置的 Google Geocoding，未配置 key 时走内置 mock，结果仅用于演示。
+    """
+    project = session.get(Project, project_id)
+    if not project or project.deleted_at:
+        raise HTTPException(status_code=404, detail="Project not found")
+    query = " ".join(
+        part for part in (project.name, project.address, project.district, project.city) if part
+    ).strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Project has no address to geocode")
+    result = geo_provider.geocode(query)
+    project.lat = result["lat"]
+    project.lng = result["lng"]
+    session.add(project)
+    session.commit()
+    session.refresh(project)
+    return {
+        "project_id": project.id,
+        "provider": result.get("provider"),
+        "lat": project.lat,
+        "lng": project.lng,
+    }

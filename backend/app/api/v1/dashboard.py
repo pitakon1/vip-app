@@ -1,14 +1,21 @@
 """Dashboard 路由：运营数据概览。"""
-from collections import defaultdict
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import case, func
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import require_agent, require_admin
 from app.core.cache import get_cache, set_cache
+from app.schemas.dashboard import (
+    DashboardSummaryOut,
+    ExpiringLeasesOut,
+    FinancialReconciliationOut,
+    OperationalTrendOut,
+    PropertyStatusDistributionOut,
+    RecentPaymentsOut,
+)
 from app.models import (
     Lead,
     LeadStage,
@@ -28,13 +35,47 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
 def _prop_name(p: Property | None) -> str | None:
-    """房源展示名：房号优先，其次地址。"""
-    if p is None:
-        return None
-    return p.room_number or p.address or None
+    """房源展示名：房号优先，其次地址（与 Property.display_name 同一口径）。"""
+    return p.display_name if p is not None else None
 
 
-@router.get("/summary")
+def _shift_month(back: int) -> tuple[int, int]:
+    """返回「当前月往前推 back 个月」的 (年, 月)。
+
+    用整数月序号做减法，避免 `datetime.replace(month=负数)` 抛
+    `ValueError: month must be in 1..12`（months 超过当前月份时会越界）。
+    """
+    now = datetime.utcnow()
+    total = now.year * 12 + (now.month - 1) - back
+    return total // 12, total % 12 + 1
+
+
+def _month_keys(months: int) -> list[str]:
+    """近 months 个月的月份标签（`YYYY-MM`），从最早到最新。"""
+    return [
+        f"{year:04d}-{month:02d}" for year, month in (
+            _shift_month(back) for back in range(months - 1, -1, -1)
+        )
+    ]
+
+
+def _monthly_counts(session: Session, model, date_field, start: datetime) -> dict[str, int]:
+    """按月统计行数，聚合下推到 SQL（GROUP BY 年月），避免把窗口内所有行拉进内存。"""
+    year_expr = func.extract("year", date_field)
+    month_expr = func.extract("month", date_field)
+    rows = session.exec(
+        select(year_expr, month_expr, func.count(model.id))
+        .where(model.deleted_at.is_(None), date_field >= start)
+        .group_by(year_expr, month_expr)
+    ).all()
+    return {
+        f"{int(year):04d}-{int(month):02d}": int(count or 0)
+        for year, month, count in rows
+        if year is not None and month is not None
+    }
+
+
+@router.get("/summary", response_model=DashboardSummaryOut)
 def get_summary(
     session: Session = Depends(get_session),
     user: User = Depends(require_agent),
@@ -144,7 +185,7 @@ def get_summary(
     return result
 
 
-@router.get("/recent-payments")
+@router.get("/recent-payments", response_model=RecentPaymentsOut)
 def get_recent_payments(
     session: Session = Depends(get_session),
     user: User = Depends(require_agent),
@@ -156,7 +197,12 @@ def get_recent_payments(
         .order_by(Payment.created_at.desc())
         .limit(10)
     ).all()
-    users = {u.id: u for u in session.exec(select(User)).all()}
+    payer_ids = {p.payer_id for p in payments if p.payer_id}
+    users = (
+        {u.id: u for u in session.exec(select(User).where(User.id.in_(payer_ids))).all()}
+        if payer_ids
+        else {}
+    )
     return {
         "items": [
             {
@@ -179,7 +225,7 @@ def get_recent_payments(
     }
 
 
-@router.get("/expiring-leases")
+@router.get("/expiring-leases", response_model=ExpiringLeasesOut)
 def get_expiring_leases(
     session: Session = Depends(get_session),
     user: User = Depends(require_agent),
@@ -197,15 +243,28 @@ def get_expiring_leases(
         )
         .order_by(Lease.end_date.asc())
     ).all()
-    props = {
-        p.id: p for p in session.exec(select(Property)).all()
-    }
-    tenants = {
-        t.id: t for t in session.exec(select(Tenant)).all()
-    }
-    users = {
-        u.id: u for u in session.exec(select(User)).all()
-    }
+    # 只加载被这批租约引用的房源 / 租客 / 用户，避免全表加载
+    prop_ids = {lease.property_id for lease in leases}
+    props = {}
+    if prop_ids:
+        props = {
+            p.id: p
+            for p in session.exec(select(Property).where(Property.id.in_(prop_ids))).all()
+        }
+    tenant_ids = {lease.tenant_id for lease in leases}
+    tenants = {}
+    if tenant_ids:
+        tenants = {
+            t.id: t
+            for t in session.exec(select(Tenant).where(Tenant.id.in_(tenant_ids))).all()
+        }
+    user_ids = {t.user_id for t in tenants.values() if t.user_id}
+    users = {}
+    if user_ids:
+        users = {
+            u.id: u
+            for u in session.exec(select(User).where(User.id.in_(user_ids))).all()
+        }
     return {
         "items": [
             {
@@ -227,7 +286,9 @@ def get_expiring_leases(
     }
 
 
-@router.get("/property-status-distribution")
+@router.get(
+    "/property-status-distribution", response_model=PropertyStatusDistributionOut
+)
 def get_property_status_distribution(
     session: Session = Depends(get_session),
     user: User = Depends(require_agent),
@@ -245,57 +306,102 @@ def get_property_status_distribution(
     }
 
 
-@router.get("/financial-reconciliation")
+@router.get("/financial-reconciliation", response_model=FinancialReconciliationOut)
 def financial_reconciliation(
+    limit: int = Query(200, ge=1, le=2000),
+    offset: int = Query(0, ge=0),
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ):
     """财务对账明细（Admin）：按房源聚合已收/应收/逾期，并附逐笔记录。
 
     供管理端「财务对账」页面渲染，形成管理端财权闭环。
-    """
-    payments = session.exec(
-        select(Payment).where(Payment.deleted_at.is_(None))
-    ).all()
-    props = {p.id: p for p in session.exec(select(Property)).all()}
-    now = datetime.utcnow()
 
-    by_property: dict[str, dict] = defaultdict(
-        lambda: {
-            "received": 0.0,
-            "receivable": 0.0,
-            "overdue": 0.0,
-            "count": 0,
-        }
+    - `totals` / `by_property` 由 SQL 条件聚合（CASE WHEN）得出，按房源分桶；
+    - `records` 为逐笔明细，按创建时间倒序分页（`limit`/`offset`，默认 200 条），
+      总笔数由 `records_total` 给出；
+    - 房源名只按被引用的 ID 加载，不做全表加载。
+    """
+    now = datetime.utcnow()
+    # 分桶口径：succeeded → 已收；否则到期日已过 → 逾期；未到期或无到期日 → 应收
+    is_received = Payment.status == PaymentStatus.succeeded
+    is_overdue = (
+        ~is_received & Payment.due_date.is_not(None) & (Payment.due_date < now)
     )
+    is_receivable = ~is_received & ~is_overdue
+
+    def _sum(condition):
+        return func.coalesce(func.sum(case((condition, Payment.amount), else_=0.0)), 0.0)
+
+    grouped = session.exec(
+        select(
+            Payment.property_id,
+            func.count(Payment.id),
+            _sum(is_received),
+            _sum(is_receivable),
+            _sum(is_overdue),
+        )
+        .where(Payment.deleted_at.is_(None))
+        .group_by(Payment.property_id)
+    ).all()
+
+    by_property = []
+    key_to_id = {}
+    for property_id, count, received, receivable, overdue in grouped:
+        key = str(property_id) if property_id else "none"
+        if property_id:
+            key_to_id[key] = property_id
+        by_property.append(
+            {
+                "property_id": key,
+                "property": None,  # 稍后按 ID 回填名称
+                "received": round(float(received or 0), 2),
+                "receivable": round(float(receivable or 0), 2),
+                "overdue": round(float(overdue or 0), 2),
+                "count": int(count or 0),
+            }
+        )
+    by_property.sort(key=lambda row: row["property_id"])
+
+    totals = {
+        "received": round(sum(row["received"] for row in by_property), 2),
+        "receivable": round(sum(row["receivable"] for row in by_property), 2),
+        "overdue": round(sum(row["overdue"] for row in by_property), 2),
+        "count": sum(row["count"] for row in by_property),
+    }
+
+    conditions = Payment.deleted_at.is_(None)
+    records_total = session.exec(
+        select(func.count(Payment.id)).where(conditions)
+    ).one()
+    payments = session.exec(
+        select(Payment)
+        .where(conditions)
+        .order_by(Payment.created_at.desc(), Payment.id)
+        .offset(offset)
+        .limit(limit)
+    ).all()
+
     records = []
     for p in payments:
-        prop = props.get(p.property_id)
-        key = str(p.property_id) if p.property_id else "none"
-        amount = p.amount or 0
-        bucket = by_property[key]
-        bucket["count"] += 1
-        status = "received"
         if p.status == PaymentStatus.succeeded:
-            bucket["received"] += amount
+            bucket = "received"
+        elif p.due_date and p.due_date < now:
+            bucket = "overdue"
         else:
-            is_overdue = bool(p.due_date and p.due_date < now)
-            if is_overdue:
-                bucket["overdue"] += amount
-                status = "overdue"
-            else:
-                bucket["receivable"] += amount
-                status = "pending"
+            bucket = "pending"
+        if p.property_id:
+            key_to_id.setdefault(str(p.property_id), p.property_id)
         records.append(
             {
                 "id": str(p.id),
                 "property_id": str(p.property_id) if p.property_id else None,
-                "property": _prop_name(prop),
-                "amount": amount,
+                "property": None,  # 稍后按 ID 回填名称
+                "amount": p.amount or 0,
                 "currency": p.currency,
                 "payment_type": p.payment_type.value if p.payment_type else None,
                 "status": p.status.value if p.status else None,
-                "bucket": status,
+                "bucket": bucket,
                 "channel": p.channel,
                 "due_date": p.due_date.isoformat() if p.due_date else None,
                 "paid_at": p.paid_at.isoformat() if p.paid_at else None,
@@ -303,76 +409,64 @@ def financial_reconciliation(
             }
         )
 
-    props_by_str = {str(p.id): p for p in props.values()}
-    by_property_list = [
-        {
-            "property_id": key,
-            "property": _prop_name(props_by_str[key]) if key in props_by_str else None,
-            "received": round(v["received"], 2),
-            "receivable": round(v["receivable"], 2),
-            "overdue": round(v["overdue"], 2),
-            "count": v["count"],
+    # 只加载对账用到的房源（含已软删除的，保证历史记录仍能显示名称）
+    props = {}
+    if key_to_id:
+        props = {
+            p.id: p
+            for p in session.exec(
+                select(Property).where(Property.id.in_(set(key_to_id.values())))
+            ).all()
         }
-        for key, v in sorted(by_property.items())
-    ]
 
-    totals = {k: round(sum(v[k] for v in by_property.values()), 2) for k in ("received", "receivable", "overdue")}
-    totals["count"] = sum(v["count"] for v in by_property.values())
+    for row in by_property:
+        row["property"] = _prop_name(props.get(key_to_id.get(row["property_id"])))
+    for record in records:
+        property_id = record["property_id"]
+        record["property"] = _prop_name(props.get(key_to_id.get(property_id)))
+
     return {
         "totals": totals,
-        "by_property": by_property_list,
+        "by_property": by_property,
         "records": records,
+        "records_total": records_total,
     }
 
 
-@router.get("/trend")
+@router.get("/trend", response_model=OperationalTrendOut)
 def operational_trend(
-    months: int = 12,
+    months: int = Query(12, ge=1, le=120),
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ):
-    """运营趋势（Admin）：近 N 月新签租约、新线索、营收、新客照看房预约逐月走势。"""
-    years = months // 12
-    remaining = months % 12
-    start = datetime.utcnow()
-    start = start.replace(year=start.year - years, month=start.month - remaining, day=1)
+    """运营趋势（Admin）：近 N 月新签租约、新线索、营收、新客看房预约逐月走势。"""
+    year, month = _shift_month(months - 1)
+    start = datetime(year, month, 1)
 
-    monthly_revenue: dict[str, float] = defaultdict(float)
-    for p in session.exec(
-        select(Payment).where(
+    revenue_year = func.extract("year", Payment.created_at)
+    revenue_month = func.extract("month", Payment.created_at)
+    revenue_rows = session.exec(
+        select(revenue_year, revenue_month, func.sum(Payment.amount))
+        .where(
             Payment.deleted_at.is_(None),
             Payment.status == PaymentStatus.succeeded,
             Payment.created_at >= start,
         )
-    ).all():
-        key = (p.created_at or datetime.utcnow()).strftime("%Y-%m")
-        monthly_revenue[key] += p.amount or 0
+        .group_by(revenue_year, revenue_month)
+    ).all()
+    monthly_revenue = {
+        f"{int(y):04d}-{int(m):02d}": float(total or 0)
+        for y, m, total in revenue_rows
+        if y is not None and m is not None
+    }
 
-    def _counts(model, date_field, month_key):
-        counts: dict[str, int] = defaultdict(int)
-        for row in session.exec(
-            select(model).where(
-                model.deleted_at.is_(None),
-                date_field >= start,
-            )
-        ).all():
-            ts = getattr(row, month_key, None)
-            if ts:
-                counts[ts.strftime("%Y-%m")] += 1
-        return counts
+    lease_counts = _monthly_counts(session, Lease, Lease.created_at, start)
+    lead_counts = _monthly_counts(session, Lead, Lead.created_at, start)
+    viewing_counts = _monthly_counts(session, ViewingAppointment, ViewingAppointment.created_at, start)
+    ticket_counts = _monthly_counts(session, MaintenanceTicket, MaintenanceTicket.created_at, start)
 
-    lease_counts = _counts(Lease, Lease.created_at, "created_at")
-    lead_counts = _counts(Lead, Lead.created_at, "created_at")
-    viewing_counts = _counts(ViewingAppointment, ViewingAppointment.created_at, "created_at")
-    ticket_counts = _counts(MaintenanceTicket, MaintenanceTicket.created_at, "created_at")
-
-    # 生成完整的月份序列
-    keys = sorted(
-        set(monthly_revenue)
-        | set(lease_counts)
-        | set(lead_counts)
-        | set(viewing_counts)
-    )
+    # 生成完整的月份序列（含无数据的月份，避免前端折线出现断点）
+    keys = _month_keys(months)
     series = [
         {
             "month": k,

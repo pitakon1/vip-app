@@ -83,7 +83,7 @@
   &--warn { background: rgba(var(--warning-rgb), 0.1); color: var(--warning); }
   &--info { background: rgba(var(--primary-rgb), 0.1); color: var(--primary); }
   &--ok { background: rgba(var(--success-rgb), 0.1); color: var(--success); }
-  &--violet { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
+  &--violet { background: rgba(139, 92, 246, 0.12); color: var(--state-purple); }
 }
 
 .rv-btn {

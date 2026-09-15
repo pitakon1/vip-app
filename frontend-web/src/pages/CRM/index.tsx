@@ -11,7 +11,7 @@ const KANBAN_COLUMNS: { key: KanbanColumnKey; label: string; color: string }[] =
   { key: 'new', label: '新线索', color: '#14b8a6' },
   { key: 'contacted', label: '已联系', color: '#eab308' },
   { key: 'viewed', label: '已看房', color: '#f97316' },
-  { key: 'negotiating', label: '谈判中', color: '#7c3aed' },
+  { key: 'negotiating', label: '谈判中', color: '#7a5cd6' },
   { key: 'closed', label: '已成交', color: '#16a34a' },
 ]
 

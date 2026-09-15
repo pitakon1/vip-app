@@ -2,6 +2,7 @@
 
 创建 FastAPI 应用，配置中间件、CORS、路由、静态文件服务和 Prometheus 指标端点。
 """
+import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -12,11 +13,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
+from app.core.error_handlers import rate_limited_response, register_exception_handlers
 from app.core.logging import configure_logging, get_logger
+from app.core.metrics import observe
+from app.core.rate_limit import apply_default_limit, limiter
 from app.core.rbac import seed_permissions
 from app.db import Session, engine
+from app.redis_client import get_redis_sync
 from app.api.v1 import api_router
 
 # 配置结构化日志
@@ -51,7 +59,18 @@ def _run_startup_selfcheck() -> None:
     elif settings.DEBUG:
         logger.info("startup.selfcheck.debug_mode", secret_key_ok=True)
 
-    # 2) 第三方集成模式审计：缺失 Key 的能力走 mock/站内降级
+    # 2) PII 加密密钥：非 DEBUG 缺省时加解密会直接报错（fail closed），必须提前暴露
+    if not settings.PII_ENCRYPTION_KEY:
+        log = logger.warning if settings.DEBUG else logger.error
+        log(
+            "startup.selfcheck.pii_key_missing",
+            hint=(
+                "未配置 PII_ENCRYPTION_KEY。护照号/证件号等敏感字段加解密将不可用；"
+                "DEBUG 下由 SECRET_KEY 派生临时密钥，生产环境必须显式配置。"
+            ),
+        )
+
+    # 3) 第三方集成模式审计：缺失 Key 的能力走 mock/站内降级
     mock_enabled = []
     for name, field, has_mock_fallback in _INTEGRATION_PROBES:
         if not getattr(settings, field, ""):
@@ -64,6 +83,16 @@ def _run_startup_selfcheck() -> None:
         )
     else:
         logger.info("startup.selfcheck.integrations", mode="all configured")
+
+    # 4) CORS：非 DEBUG 下放开 `*` 且允许携带凭证，等于对任意站点开放
+    if "*" in settings.cors_origins and not settings.DEBUG:
+        logger.error(
+            "startup.selfcheck.cors_wildcard",
+            hint=(
+                "CORS_ORIGINS 配置为 '*' 且 allow_credentials=True，任意站点均可发起"
+                "携带凭证的跨域请求。生产环境请显式列出前端域名。"
+            ),
+        )
 
 
 @asynccontextmanager
@@ -88,10 +117,70 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# 配置 CORS（开发模式允许所有源）
+# 统一错误响应（保留 detail 字段以兼容三端前端）
+register_exception_handlers(app)
+
+
+# ==================== 中间件 ====================
+# Starlette 中「后注册的更靠外层」，以下按 内 -> 外 顺序注册，
+# 最终执行顺序由外到内为：CORS -> request_id -> metrics -> rate_limit -> 路由。
+# 这样限流产生的 429 也会被计入指标并带上 CORS 头。
+
+
+async def rate_limit_middleware(request: Request, call_next):
+    """全局默认限流（超限返回 429）。
+
+    注意：这里不能设置 `request.state._rate_limiting_complete`，否则带
+    `@limiter.limit` 的接口会被装饰器判定为"已检查过"而跳过自身的更严限额。
+    """
+    if limiter.enabled:
+        try:
+            apply_default_limit(request)
+        except RateLimitExceeded:
+            logger.warning("http.rate_limited", path=request.url.path)
+            return rate_limited_response(request)
+    return await call_next(request)
+
+
+async def metrics_middleware(request: Request, call_next):
+    """采集 HTTP 请求数与耗时；/metrics 自身不计入。"""
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        # 异常响应由 ServerErrorMiddleware 生成（500），此处先记一笔再上抛
+        observe(request, 500, time.perf_counter() - start)
+        raise
+    observe(request, response.status_code, time.perf_counter() - start)
+    return response
+
+
+async def request_id_middleware(request: Request, call_next):
+    """请求 ID 追踪中间件，为每个请求生成唯一 request_id。"""
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(request_id=request_id)
+    request.state.request_id = request_id
+
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+# 1) 限流：全局默认限额（此前只定义了 limiter，从未启用）
+app.state.limiter = limiter
+app.add_middleware(BaseHTTPMiddleware, dispatch=rate_limit_middleware)
+
+# 2) Prometheus 指标
+app.add_middleware(BaseHTTPMiddleware, dispatch=metrics_middleware)
+
+# 3) 请求 ID 追踪
+app.add_middleware(BaseHTTPMiddleware, dispatch=request_id_middleware)
+
+# 4) CORS（最外层；源列表来自 CORS_ORIGINS 配置，默认仅本地开发端口）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -102,18 +191,6 @@ app.include_router(api_router)
 
 # 挂载上传文件静态服务（/uploads/... 直接可访问）
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-
-
-@app.middleware("http")
-async def request_id_middleware(request: Request, call_next):
-    """请求 ID 追踪中间件，为每个请求生成唯一 request_id。"""
-    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
-    structlog.contextvars.clear_contextvars()
-    structlog.contextvars.bind_contextvars(request_id=request_id)
-
-    response = await call_next(request)
-    response.headers["X-Request-ID"] = request_id
-    return response
 
 
 @app.get("/", tags=["root"])
@@ -129,8 +206,55 @@ async def root():
 
 @app.get("/health", tags=["health"])
 async def health_check():
-    """健康检查端点。"""
-    return {"status": "ok"}
+    """存活探针（liveness）：进程能响应即 200，不探测外部依赖。
+
+    依赖不可用时不应重启进程，故这里保持轻量；依赖连通性请用 `/health/ready`。
+    """
+    return {"status": "ok", "version": settings.APP_VERSION}
+
+
+def _check_database() -> dict:
+    """探测数据库连通性（`SELECT 1`）。"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"status": "ok"}
+    except Exception as exc:  # noqa: BLE001 - 探针需返回失败原因而非抛错
+        logger.warning("readiness.database_failed", error=str(exc))
+        return {"status": "error", "detail": str(exc)[:200]}
+
+
+def _check_redis() -> dict:
+    """探测 Redis 连通性（PING）。
+
+    Redis 是软依赖：缓存与限流在其不可用时会降级（见 core/cache.py），
+    因此该检查失败只标记 degraded，不让就绪探针整体失败。
+    """
+    try:
+        get_redis_sync().ping()
+        return {"status": "ok"}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("readiness.redis_unavailable", error=str(exc))
+        return {"status": "error", "detail": str(exc)[:200]}
+
+
+@app.get("/health/ready", tags=["health"])
+def readiness_check(response: Response):
+    """就绪探针（readiness）：真实探测数据库与 Redis。
+
+    - 数据库不可用 → 503（服务无法提供任何数据能力）；
+    - Redis 不可用 → 200 + `status=degraded`（缓存/限流降级，业务仍可用）。
+    """
+    database = _check_database()
+    redis = _check_redis()
+    if database["status"] != "ok":
+        status = "unavailable"
+        response.status_code = 503
+    elif redis["status"] != "ok":
+        status = "degraded"
+    else:
+        status = "ok"
+    return {"status": status, "checks": {"database": database, "redis": redis}}
 
 
 @app.get("/metrics", tags=["monitoring"], include_in_schema=False)

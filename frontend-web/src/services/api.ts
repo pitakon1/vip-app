@@ -51,6 +51,9 @@ export const paymentsApi = {
   get: (id: string) => api.get(`/payments/${id}`),
   refund: (id: string, reason: string) =>
     api.post(`/payments/${id}/refund`, { reason }),
+  // 减免逾期滞纳金；amount 不传表示全额减免剩余部分
+  waiveLateFee: (id: string, amount: number | null, reason: string) =>
+    api.post(`/payments/${id}/late-fee/waive`, { amount: amount ?? undefined, reason }),
 }
 
 // Projects
@@ -58,6 +61,9 @@ export const projectsApi = {
   list: (params?: any) => api.get('/projects', { params }),
   get: (id: string) => api.get(`/projects/${id}`),
   create: (data: any) => api.post('/projects', data),
+  update: (id: string, data: any) => api.patch(`/projects/${id}`, data),
+  // 用项目名称/地址调用后端地理编码，回填 lat/lng（用于地图找房）
+  geocode: (id: string) => api.post(`/projects/${id}/geocode`),
 }
 
 // Documents
@@ -85,6 +91,8 @@ export const maintenanceApi = {
 // Employees
 export const employeesApi = {
   list: (params?: any) => api.get('/employees', { params }),
+  // 同事通讯录（全体员工可见，仅协作联系方式）
+  directory: (params?: any) => api.get('/employees/directory', { params }),
   me: () => api.get('/employees/me'),
   leaderboard: () => api.get('/employees/leaderboard'),
   workbench: () => api.get('/employees/workbench'),
@@ -201,6 +209,8 @@ export const attendanceApi = {
   checkIn: (data: any) => api.post('/attendance/check-in', data),
   checkOut: (data: any) => api.post('/attendance/check-out', data),
   today: () => api.get('/attendance/today'),
+  // 我的考勤记录（倒序全量，前端按需截取/按月聚合）
+  me: () => api.get('/attendance/me'),
   externalTrips: (params?: any) => api.get('/attendance/external-trips', { params }),
   createExternalTrip: (data: any) => api.post('/attendance/external-trips', data),
   approveExternalTrip: (id: string) =>
@@ -285,10 +295,16 @@ export const marketDataApi = {
   computeMatches: (params: any) =>
     api.post('/market-data/matches/compute', null, { params }),
   listMatches: (params?: any) => api.get('/market-data/matches', { params }),
+  // 把匹配结果推送给租客（user_id 缺省时用匹配记录上的接收人，重复推送幂等）
+  notifyMatch: (id: string, data?: any) =>
+    api.post(`/market-data/matches/${id}/notify`, data ?? {}),
   churnSignals: (params?: any) =>
     api.get('/market-data/churn-signals', { params }),
   createChurnSignal: (params: any) =>
     api.post('/market-data/churn-signals', null, { params }),
+  // 把流失预警派发给员工跟进（assignee_id 缺省时取租约负责员工）
+  assignChurnSignal: (id: string, data?: any) =>
+    api.post(`/market-data/churn-signals/${id}/assign`, data ?? {}),
   resolveChurnSignal: (id: string) =>
     api.post(`/market-data/churn-signals/${id}/resolve`),
 }

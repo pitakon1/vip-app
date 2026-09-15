@@ -28,7 +28,7 @@ const statusMeta: Record<string, { text: string; color: string; bg: string }> = 
   accepted: { text: '已受理', color: colors.info, bg: '#e6f4fd' },
   in_progress: { text: '处理中', color: colors.primary, bg: colors.sidebarActive },
   resolved: { text: '已解决', color: colors.success, bg: '#e7f6ee' },
-  closed: { text: '已关闭', color: colors.ink3, bg: '#f2f3f5' },
+  closed: { text: '已关闭', color: colors.ink3, bg: 'colors.surface2' },
 };
 
 const formatDate = (x?: string) =>

@@ -10,11 +10,13 @@
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import case as sa_case
 from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import require_admin
+from app.core.cache import get_cache, set_cache
 from app.models import (
     Lead,
     Lease,
@@ -29,10 +31,47 @@ from app.models import (
 
 router = APIRouter(prefix="/operations", tags=["operations"])
 
+# 看板聚合较重（十余次查询），加短 TTL 缓存；管理员查看容忍分钟级延迟
+OVERVIEW_CACHE_KEY = "operations:overview"
+OVERVIEW_CACHE_TTL = 60
+
 
 def _day_start(offset_days: int = 0) -> datetime:
     day = (datetime.utcnow() + timedelta(days=offset_days)).date()
     return datetime(day.year, day.month, day.day)
+
+
+def _activity_counts(session: Session, today: datetime) -> tuple[int, int, int]:
+    """一次条件聚合同时算出 DAU/WAU/MAU（原实现为 3 次独立 count）。"""
+    wau_start = _day_start(-6)
+    mau_start = _day_start(-29)
+    row = session.exec(
+        select(
+            func.sum(sa_case((User.last_login_at >= today, 1), else_=0)),
+            func.sum(sa_case((User.last_login_at >= wau_start, 1), else_=0)),
+            func.sum(sa_case((User.last_login_at >= mau_start, 1), else_=0)),
+        ).where(User.last_login_at >= mau_start)
+    ).one()
+    dau, wau, mau = (int(v or 0) for v in row)
+    return dau, wau, mau
+
+
+def _daily_active(session: Session, days: int) -> dict[str, int]:
+    """近 N 日每日活跃用户数（缺失日期补 0）。
+
+    /overview、/activity（day）、/trend 三处原本各写了一遍同样的逻辑。
+    """
+    start = _day_start(-(days - 1))
+    out: dict[str, int] = {}
+    for i in range(days - 1, -1, -1):
+        out[_day_start(-i).date().isoformat()] = 0
+    for day, cnt in session.exec(
+        select(func.date(User.last_login_at), func.count(User.id))
+        .where(User.last_login_at >= start)
+        .group_by(func.date(User.last_login_at))
+    ).all():
+        out[str(day)] = int(cnt)
+    return out
 
 
 @router.get("/overview")
@@ -40,7 +79,11 @@ def operations_overview(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ):
-    """运营数据看板聚合。"""
+    """运营数据看板聚合（60s 缓存）。"""
+    cached = get_cache(OVERVIEW_CACHE_KEY)
+    if cached is not None:
+        return cached
+
     now = datetime.utcnow()
     today = _day_start(0)
     month_start = datetime(now.year, now.month, 1)
@@ -107,15 +150,7 @@ def operations_overview(
     leads_by_stage_out = {str(k): int(v) for k, v in leads_by_stage.items()}
 
     # ---- 活跃度：按 last_login_at ----
-    dau = session.exec(
-        select(func.count(User.id)).where(User.last_login_at >= today)
-    ).one()
-    wau = session.exec(
-        select(func.count(User.id)).where(User.last_login_at >= _day_start(-6))
-    ).one()
-    mau = session.exec(
-        select(func.count(User.id)).where(User.last_login_at >= _day_start(-29))
-    ).one()
+    dau, wau, mau = _activity_counts(session, today)
     active_by_role = {
         str(k): int(v)
         for k, v in session.exec(
@@ -126,23 +161,9 @@ def operations_overview(
     }
 
     # ---- 近 30 日每日活跃 ----
-    daily = {}
-    for i in range(29, -1, -1):
-        key = (_day_start(-i)).date().isoformat()
-        daily[key] = 0
-    for day, cnt in session.exec(
-        select(
-            func.date(User.last_login_at),
-            func.count(User.id),
-        )
-        .where(User.last_login_at >= _day_start(-29))
-        .group_by(func.date(User.last_login_at))
-    ).all():
-        daily[str(day)] = int(cnt)
+    daily = _daily_active(session, 30)
 
     # ---- 按国家（Project.country） ----
-    from sqlalchemy import case as sa_case
-
     rented_sum = func.sum(sa_case((Property.status == "rented", 1), else_=0))
     country_rows = session.exec(
         select(
@@ -179,7 +200,7 @@ def operations_overview(
     ).all()
     source_list = [{"source": str(s), "count": int(c)} for s, c in source_rows]
 
-    return {
+    payload = {
         "funnel": funnel,
         "leads_by_stage": leads_by_stage_out,
         "activity": {"dau": int(dau), "wau": int(wau), "mau": int(mau), "by_role": active_by_role, "daily": daily},
@@ -187,6 +208,8 @@ def operations_overview(
         "sources": source_list,
         "revenue": {"month_paid": float(month_paid), "currency": "THB"},
     }
+    set_cache(OVERVIEW_CACHE_KEY, payload, OVERVIEW_CACHE_TTL)
+    return payload
 
 
 @router.get("/activity")
@@ -211,12 +234,11 @@ def operations_activity(
     ).all()
 
     if granularity == "day":
-        out: dict[str, int] = {}
-        for i in range(days - 1, -1, -1):
-            out[_day_start(-i).date().isoformat()] = 0
-        for day, cnt in rows:
-            out[str(day)] = int(cnt)
-        return {"granularity": "day", "days": days, "series": out}
+        return {
+            "granularity": "day",
+            "days": days,
+            "series": _daily_active(session, days),
+        }
 
     if granularity == "week":
         buckets: dict[str, int] = {}
@@ -253,8 +275,6 @@ def operations_country_detail(
     user: User = Depends(require_admin),
 ):
     """国家下钻：按城市聚合房源 / 在租 / 出租率。"""
-    from sqlalchemy import case as sa_case
-
     rented_sum = func.sum(sa_case((Property.status == "rented", 1), else_=0))
     rows = session.exec(
         select(
@@ -295,17 +315,4 @@ def operations_activity_trend(
 ):
     """近 N 日活跃趋势（按日）。"""
     days = max(7, min(90, days))
-    daily = {}
-    start = _day_start(-(days - 1))
-    for i in range(days - 1, -1, -1):
-        daily[_day_start(-i).date().isoformat()] = 0
-    for day, cnt in session.exec(
-        select(
-            func.date(User.last_login_at),
-            func.count(User.id),
-        )
-        .where(User.last_login_at >= start)
-        .group_by(func.date(User.last_login_at))
-    ).all():
-        daily[str(day)] = int(cnt)
-    return {"days": days, "daily": daily}
+    return {"days": days, "daily": _daily_active(session, days)}

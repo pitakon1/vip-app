@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { employeesApi, dashboardApi, viewingsApi } from '@/services/api'
 import './index.scss'
+import { iconStyle } from '@/utils/icons'
 
 interface FollowUpLease {
   lease_id: string
@@ -39,7 +40,7 @@ const pick = (res: any, key?: string): any => {
 
 const fmtMoney = (v: number | undefined, currency?: string) => {
   const sym: Record<string, string> = { CNY: '¥', THB: '฿', EUR: '€', USD: '$' }
-  return `${sym[currency || 'THB'] || '¥'}${Number(v || 0).toLocaleString()}`
+  return `${sym[currency || 'THB'] || '฿'}${Number(v || 0).toLocaleString()}`
 }
 
 // 带看状态标签
@@ -198,7 +199,7 @@ export default function EmployeeHomePage() {
           <View className='emp-section__head'>
             <View className='emp-section__title-row'>
               <View className='emp-section__icon'>
-                <Text className='emp-section__icon-text'>📅</Text>
+                <Text className='emp-section__icon-text icon-svg' style={iconStyle('calendar')} />
               </View>
               <Text className='emp-section__title'>今日日程</Text>
               <View className='emp-badge emp-badge--info'>
@@ -277,7 +278,7 @@ export default function EmployeeHomePage() {
             </View>
           ) : followUp.length === 0 ? (
             <View className='emp-state'>
-              <Text className='emp-state__icon'>✓</Text>
+              <Text className='emp-state__icon icon-svg' style={iconStyle('check')} />
               <Text className='emp-state__title'>暂无临期租约</Text>
               <Text className='emp-state__desc'>近期到期的租约将在此展示</Text>
             </View>

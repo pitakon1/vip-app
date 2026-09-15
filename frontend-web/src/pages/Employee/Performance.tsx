@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Spin, Empty } from 'antd'
 import dayjs, { Dayjs } from 'dayjs'
 import api from '@/lib/api'
+import { downloadReport } from '@/lib/download'
 import './performance.css'
 
 // 成交明细（系统按佣金结算自动核算）
@@ -157,8 +158,14 @@ const Performance = () => {
     [monthly],
   )
 
-  const handleExport = () => {
-    message.success('报表导出已开始，请稍候')
+  const handleExport = async () => {
+    try {
+      // 导出后端佣金结算明细（员工只能导出自己的，范围由后端按角色校验）
+      await downloadReport('/exports/commissions', {}, 'commissions.csv')
+      message.success('业绩明细已导出')
+    } catch {
+      message.error('导出失败，请稍后重试')
+    }
   }
 
   const handleSubmitReport = () => {

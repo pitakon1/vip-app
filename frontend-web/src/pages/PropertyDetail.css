@@ -86,6 +86,12 @@
   justify-content: center;
   color: rgba(255, 255, 255, 0.85);
 }
+
+/* 看房视频：沿用占位图尺寸，等比裁切，黑底避免播放器留白突兀 */
+.rent-prop-video {
+  object-fit: cover;
+  background: #000;
+}
 .rent-prop-header__info { flex: 1; min-width: 0; }
 .rent-prop-header__name {
   font-size: 22px;

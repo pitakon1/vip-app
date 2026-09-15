@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import { geoApi, propertiesApi } from '@/services/api';
 
@@ -137,7 +138,10 @@ export default function MapScreen() {
         {loading ? (
           <ActivityIndicator color={colors.primaryForeground} size="small" />
         ) : (
-          <Text style={styles.locateText}>📡 获取当前位置</Text>
+          <View style={styles.actionRow}>
+            <Ionicons name="locate" size={16} color={colors.primaryForeground} />
+            <Text style={styles.locateText}> 获取当前位置</Text>
+          </View>
         )}
       </TouchableOpacity>
 
@@ -155,7 +159,10 @@ export default function MapScreen() {
       </View>
 
       <TouchableOpacity style={styles.distBtn} onPress={handleDistance} disabled={loading}>
-        <Text style={styles.distText}>🔍 检索附近房源距离</Text>
+        <View style={styles.actionRow}>
+          <Ionicons name="search" size={16} color={colors.primary} />
+          <Text style={styles.distText}> 检索附近房源距离</Text>
+        </View>
       </TouchableOpacity>
 
       {distance ? (
@@ -193,6 +200,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   locateText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '600' },
+  actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   geocodeBox: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   input: {
     flex: 1,

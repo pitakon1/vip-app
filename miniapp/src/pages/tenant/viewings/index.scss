@@ -35,7 +35,7 @@
       border: 2px solid var(--line);
       border-radius: 12px;
       padding: 0 24px;
-      background-color: #ffffff;
+      background-color: var(--card);
 
       .form-value-text {
         font-size: 28px;
@@ -59,7 +59,7 @@
       border-radius: 12px;
       padding: 0 24px;
       font-size: 28px;
-      background-color: #ffffff;
+      background-color: var(--card);
     }
 
     .form-btn {
@@ -78,7 +78,7 @@
       .form-btn-text {
         font-size: 30px;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--card);
       }
     }
   }
@@ -159,12 +159,12 @@
 
         &--primary {
           background-color: var(--primary);
-          .viewing-btn-text { color: #ffffff; }
+          .viewing-btn-text { color: var(--card); }
         }
 
         &--warn {
-          background-color: #fff1f0;
-          .viewing-btn-text { color: #cf1322; }
+          background-color: rgba(var(--error-rgb), 0.1);
+          .viewing-btn-text { color: var(--error); }
         }
 
         &--ghost {

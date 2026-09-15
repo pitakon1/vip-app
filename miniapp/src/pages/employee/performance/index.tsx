@@ -57,7 +57,7 @@ export default function EmployeePerformancePage() {
 
   const myIndex = leaderboard.findIndex((r) => r.is_self)
   const myRank = myIndex >= 0 ? myIndex + 1 : 0
-  const fmt = (v?: number) => `¥${Number(v || 0).toLocaleString()}`
+  const fmt = (v?: number) => `฿${Number(v || 0).toLocaleString()}`
 
   return (
     <View className='perf-page'>

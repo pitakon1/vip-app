@@ -56,3 +56,7 @@ class ServiceOrder(TimestampMixin, table=True):
     )
     notes: Optional[str] = None
     rating: Optional[int] = Field(default=None, ge=1, le=5)
+    # 服务评价：评分（rating）之外的文字反馈与评价时间，
+    # reviewed_at 非空即为「已评价」，用于禁止重复评价
+    review_comment: Optional[str] = None
+    reviewed_at: Optional[datetime] = None

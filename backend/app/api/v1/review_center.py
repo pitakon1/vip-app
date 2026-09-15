@@ -125,7 +125,7 @@ def review_todos(
             {
                 "type": "maintenance",
                 "id": str(tk.id),
-                "title": f"报修工单 · {prop.title if prop else '房源'}",
+                "title": f"报修工单 · {prop.display_name if prop else '房源'}",
                 "applicant": "租客",
                 "reason": tk.description or tk.title or "维修",
                 "status": tk.status.value,
@@ -140,7 +140,7 @@ def review_todos(
             {
                 "type": "service",
                 "id": str(o.id),
-                "title": f"服务订单 · {prop.title if prop else '物业'}",
+                "title": f"服务订单 · {prop.display_name if prop else '物业'}",
                 "applicant": orderer.full_name if orderer else o.orderer_type or "租客",
                 "reason": o.service_type.value if hasattr(o.service_type, "value") else str(o.service_type),
                 "status": o.status.value,
@@ -174,8 +174,8 @@ def review_todos(
         "items": items,
         "review_endpoints": {
             "trip": "POST /api/v1/attendance/external-trips/{id}/approve",
-            "maintenance": "PATCH /api/v1/maintenance/{id}",
-            "service": "PATCH /api/v1/service-orders/{id}",
+            "maintenance": "PATCH /api/v1/maintenance-tickets/{id}",
+            "service": "PATCH /api/v1/service-orders/{id}/status",
             "contract": "PATCH /api/v1/contracts/{id}",
         },
     }

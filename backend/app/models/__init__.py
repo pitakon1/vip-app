@@ -37,7 +37,7 @@ from .pdpa import (
     PrivacyPolicyVersion,
 )
 from .feature_flag import FeatureFlag
-from .chat import Conversation, Message, MessageType
+from .chat import Conversation, Message, MessageType, ChatParticipant
 from .contract import (
     Contract,
     ContractStatus,
@@ -82,6 +82,11 @@ from .market_data import (
     ChurnSignal,
 )
 from .rbac import Permission, RolePermission, UserGroup, UserGroupMember
+
+# 全局注册乐观锁版本号自增（Web 与 Celery worker 都从本模块导入模型）
+from app.core.concurrency import install_version_bumper
+
+install_version_bumper()
 
 __all__ = [
     "TimestampMixin",
@@ -131,6 +136,7 @@ __all__ = [
     "Conversation",
     "Message",
     "MessageType",
+    "ChatParticipant",
     "Contract",
     "ContractStatus",
     "ContractParty",

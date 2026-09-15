@@ -25,7 +25,7 @@ interface CalendarItem {
 const typeConfig: Record<ItemType, { color: string; bg: string; label: string; icon: keyof typeof Ionicons.glyphMap }> = {
   viewing: { color: colors.primary, bg: 'rgba(20, 184, 166, 0.12)', label: '带看', icon: 'eye-outline' },
   todo: { color: colors.warning, bg: 'rgba(217, 119, 6, 0.12)', label: '待办', icon: 'checkbox-outline' },
-  contract: { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)', label: '合同', icon: 'document-text-outline' },
+  contract: { color: '#7a5cd6', bg: 'rgba(122, 92, 214, 0.12)', label: '合同', icon: 'document-text-outline' },
   maintenance: { color: colors.error, bg: 'rgba(220, 38, 38, 0.12)', label: '维护', icon: 'construct-outline' },
 };
 

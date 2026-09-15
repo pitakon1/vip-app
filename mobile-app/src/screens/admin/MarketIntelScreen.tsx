@@ -1,5 +1,5 @@
 /**
- * 数据决策：市场指数 / 研究报告 / 流失预警
+ * 数据决策：市场指数 / 研究报告 / 智能匹配 / 流失预警
  */
 import React, { useCallback, useState } from 'react';
 import {
@@ -15,9 +15,9 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import colors from '@/theme/colors';
-import { marketDataApi } from '@/services/api';
+import { leadsApi, marketDataApi } from '@/services/api';
 
-type Tab = 'index' | 'report' | 'churn';
+type Tab = 'index' | 'report' | 'match' | 'churn';
 
 const RTYPE: Record<string, string> = { district: '区域', city: '城市', country: '国家' };
 const SIGNAL_TYPE: Record<string, string> = {
@@ -28,6 +28,7 @@ const SIGNAL_TYPE: Record<string, string> = {
 const LEVEL: Record<string, string> = { info: '提示', warning: '警告', critical: '严重' };
 const fmtMoney = (v?: number, c?: string) => `${c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿'}${Number(v ?? 0).toLocaleString()}`;
 const pick = (d: any) => (Array.isArray(d?.items) ? d.items : Array.isArray(d) ? d : []);
+const fmtTime = (v?: string) => (v ? String(v).replace('T', ' ').slice(0, 16) : '');
 
 export default function MarketIntelScreen() {
   const [tab, setTab] = useState<Tab>('index');
@@ -52,6 +53,12 @@ export default function MarketIntelScreen() {
   const [rPeriod, setRPeriod] = useState('');
   const [rSummary, setRSummary] = useState('');
 
+  // 智能匹配
+  const [leads, setLeads] = useState<any[]>([]);
+  const [leadId, setLeadId] = useState('');
+  const [matches, setMatches] = useState<any[]>([]);
+  const [computing, setComputing] = useState(false);
+
   // 流失预警
   const [signals, setSignals] = useState<any[]>([]);
   const [showSigForm, setShowSigForm] = useState(false);
@@ -59,7 +66,7 @@ export default function MarketIntelScreen() {
   const [sLevel, setSLevel] = useState('info');
   const [sDetail, setSDetail] = useState('');
 
-  const load = useCallback(async (target: Tab) => {
+  const load = useCallback(async (target: Tab, currentLead: string = '') => {
     setLoading(true);
     try {
       if (target === 'index') {
@@ -68,6 +75,13 @@ export default function MarketIntelScreen() {
       } else if (target === 'report') {
         const res: any = await marketDataApi.reports({ page_size: 100 });
         setReports(pick(res?.data));
+      } else if (target === 'match') {
+        const [leadRes, matchRes]: any[] = await Promise.all([
+          leadsApi.list({ page_size: 50 }),
+          marketDataApi.matches(currentLead ? { lead_id: currentLead } : {}),
+        ]);
+        setLeads(pick(leadRes?.data));
+        setMatches(pick(matchRes?.data));
       } else if (target === 'churn') {
         const res: any = await marketDataApi.churnSignals({ page_size: 100 });
         setSignals(pick(res?.data));
@@ -84,8 +98,8 @@ export default function MarketIntelScreen() {
     useCallback(() => { load('index'); }, [load]),
   );
 
-  const switchTab = (t: Tab) => { setTab(t); load(t); };
-  const reload = async () => { setRefreshing(true); await load(tab); };
+  const switchTab = (t: Tab) => { setTab(t); load(t, leadId); };
+  const reload = async () => { setRefreshing(true); await load(tab, leadId); };
 
   const addIndex = async () => {
     if (!iValue || !iPeriod) return;
@@ -131,6 +145,49 @@ export default function MarketIntelScreen() {
     await load('churn');
   };
 
+  // 选中线索后重新计算并拉取该线索的匹配
+  const selectLead = async (id: string) => {
+    const next = id === leadId ? '' : id;
+    setLeadId(next);
+    await load('match', next);
+  };
+
+  const compute = async () => {
+    if (!leadId) {
+      Alert.alert('请先选择线索');
+      return;
+    }
+    setComputing(true);
+    try {
+      await marketDataApi.computeMatches({ lead_id: leadId, limit: 10 });
+      await load('match', leadId);
+    } catch (e: any) {
+      Alert.alert(e?.message || '计算匹配失败');
+    } finally {
+      setComputing(false);
+    }
+  };
+
+  const notify = async (id: string) => {
+    try {
+      const res: any = await marketDataApi.notifyMatch(id, {});
+      Alert.alert(res?.data?.already_notified ? '该匹配此前已推送过' : '已推送给租客');
+      await load('match', leadId);
+    } catch (e: any) {
+      Alert.alert(e?.message || '推送失败');
+    }
+  };
+
+  const assign = async (id: string) => {
+    try {
+      const res: any = await marketDataApi.assignChurnSignal(id, {});
+      Alert.alert(res?.data?.reassigned ? '已改派跟进人' : '已派发跟进');
+      await load('churn');
+    } catch (e: any) {
+      Alert.alert(e?.message || '派发失败，需先为租约指定负责员工');
+    }
+  };
+
   const resolve = async (id: string) => {
     await marketDataApi.resolveChurnSignal(id);
     await load('churn');
@@ -139,6 +196,7 @@ export default function MarketIntelScreen() {
   const TABS: { key: Tab; label: string }[] = [
     { key: 'index', label: '市场指数' },
     { key: 'report', label: '研究报告' },
+    { key: 'match', label: '智能匹配' },
     { key: 'churn', label: '流失预警' },
   ];
 
@@ -248,6 +306,62 @@ export default function MarketIntelScreen() {
           </>
         )}
 
+        {/* —— 智能匹配 —— */}
+        {tab === 'match' && (
+          <>
+            <View style={styles.toolbar}>
+              <TouchableOpacity style={styles.addBtn} onPress={compute}>
+                <Text style={styles.addBtnText}>{computing ? '计算中...' : '计算匹配'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.toolbarHint}>先选线索，再计算推荐房源</Text>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leadRow}>
+              {leads.length === 0 && !loading ? (
+                <Text style={styles.empty}>暂无线索</Text>
+              ) : (
+                leads.map((l) => (
+                  <TouchableOpacity
+                    key={l.id}
+                    style={[styles.chip, leadId === l.id && styles.chipActive]}
+                    onPress={() => selectLead(l.id)}
+                  >
+                    <Text style={[styles.chipText, leadId === l.id && styles.chipTextActive]} numberOfLines={1}>
+                      {l.name || l.phone || '线索'}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+
+            {matches.length === 0 && !loading && <Text style={styles.empty}>暂无匹配结果</Text>}
+            {matches.map((m) => (
+              <View key={m.id} style={styles.card}>
+                <View style={styles.cardHead}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {m.room_number || m.property_id}
+                  </Text>
+                  <View style={[styles.pill, styles.pillOk]}>
+                    <Text style={[styles.pillText, styles.pillOkText]}>匹配度 {m.score ?? 0}</Text>
+                  </View>
+                </View>
+                {m.address ? <Text style={styles.sub}>地址：{m.address}</Text> : null}
+                {m.monthly_rent != null ? (
+                  <Text style={styles.bigNum}>{fmtMoney(m.monthly_rent, m.currency)}/月</Text>
+                ) : null}
+                <Text style={styles.sub}>
+                  {m.notified_at ? `已于 ${fmtTime(m.notified_at)} 推送` : '尚未推送'}
+                </Text>
+                <View style={styles.actions}>
+                  <TouchableOpacity style={styles.actBtn} onPress={() => notify(m.id)}>
+                    <Text style={styles.actBtnText}>{m.notified_at ? '再次推送' : '推送租客'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
         {/* —— 流失预警 —— */}
         {tab === 'churn' && (
           <>
@@ -292,13 +406,19 @@ export default function MarketIntelScreen() {
                 {s.detail ? <Text style={styles.summary} numberOfLines={2}>详情：{s.detail}</Text> : null}
                 {s.suggested_action ? <Text style={styles.sub}>建议：{s.suggested_action}</Text> : null}
                 <Text style={styles.sub}>
+                  {s.assigned_to ? `跟进人：${s.assigned_to_name || s.assigned_to}` : '未派发跟进'}
+                </Text>
+                <Text style={styles.sub}>
                   {s.triggered_at ? `触发 ${String(s.triggered_at).replace('T', ' ').slice(0, 19)}` : ''}
                   {s.is_resolved ? ' · 已处理' : ''}
                 </Text>
                 {!s.is_resolved && (
                   <View style={styles.actions}>
-                    <TouchableOpacity style={styles.actBtn} onPress={() => resolve(s.id)}>
-                      <Text style={styles.actBtnText}>标记处理</Text>
+                    <TouchableOpacity style={styles.actBtn} onPress={() => assign(s.id)}>
+                      <Text style={styles.actBtnText}>{s.assigned_to ? '改派跟进' : '派发跟进'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.actBtnGhost} onPress={() => resolve(s.id)}>
+                      <Text style={styles.actBtnGhostText}>标记处理</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -320,13 +440,15 @@ const styles = StyleSheet.create({
   tabTextActive: { color: '#fff', fontWeight: '600' },
   body: { flex: 1, paddingHorizontal: 16 },
   loading: { paddingVertical: 32, alignItems: 'center' },
-  toolbar: { flexDirection: 'row', justifyContent: 'flex-start', marginVertical: 8 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 10, marginVertical: 8 },
+  toolbarHint: { flex: 1, fontSize: 12, color: colors.ink3 },
   addBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 8, paddingHorizontal: 16 },
   addBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   form: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16 },
   input: { height: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: colors.ink, marginBottom: 12 },
   multiline: { height: 72, textAlignVertical: 'top' },
   chipRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
+  leadRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 12, color: colors.ink3 },
@@ -349,7 +471,9 @@ const styles = StyleSheet.create({
   pillWarnText: { color: colors.warning },
   pillDangerText: { color: colors.error },
   pillText: { fontSize: 11 },
-  actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
   actBtn: { backgroundColor: colors.primary, borderRadius: colors.radius.full, paddingVertical: 7, paddingHorizontal: 14 },
   actBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  actBtnGhost: { borderRadius: colors.radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 7, paddingHorizontal: 14 },
+  actBtnGhostText: { color: colors.ink2, fontSize: 12, fontWeight: '600' },
 });

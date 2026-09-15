@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -17,6 +17,7 @@ from app.models import (
     ServiceType,
     ServiceOrderStatus,
     User,
+    UserRole,
 )
 
 router = APIRouter(prefix="/service-orders", tags=["service-orders"])
@@ -43,6 +44,13 @@ class ServiceOrderStatusUpdate(BaseModel):
     rating: Optional[int] = None
 
 
+class ServiceOrderReview(BaseModel):
+    """服务订单评价请求：1-5 星 + 可选文字反馈。"""
+
+    rating: int = Field(ge=1, le=5)
+    comment: Optional[str] = Field(default=None, max_length=1000)
+
+
 @router.get("")
 def list_service_orders(
     pagination: PaginationParams = Depends(),
@@ -52,8 +60,13 @@ def list_service_orders(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """推荐服务订单列表。"""
+    """推荐服务订单列表。
+
+    业主/租客只能看到自己下的订单；员工及以上角色（派单/受理方）可看全部。
+    """
     conditions = [ServiceOrder.deleted_at.is_(None)]
+    if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
+        conditions.append(ServiceOrder.orderer_id == user.id)
     if status:
         conditions.append(ServiceOrder.status == status)
     if service_type:
@@ -104,10 +117,15 @@ def get_service_order(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """获取推荐服务订单详情。"""
+    """获取推荐服务订单详情（业主/租客仅限自己的订单）。"""
     order = session.get(ServiceOrder, order_id)
     if not order or order.deleted_at:
         raise HTTPException(status_code=404, detail="Service order not found")
+    if (
+        user.role not in (UserRole.admin, UserRole.agent, UserRole.employee)
+        and order.orderer_id != user.id
+    ):
+        raise HTTPException(status_code=403, detail="Not allowed to view this order")
     return order
 
 
@@ -118,7 +136,11 @@ def update_service_order_status(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """更新推荐服务订单状态。"""
+    """更新推荐服务订单状态（派单/完成由员工及以上角色操作）。"""
+    if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
+        raise HTTPException(
+            status_code=403, detail="Not allowed to update service order status"
+        )
     order = session.get(ServiceOrder, order_id)
     if not order or order.deleted_at:
         raise HTTPException(status_code=404, detail="Service order not found")
@@ -131,6 +153,51 @@ def update_service_order_status(
     for key, value in update_data.items():
         setattr(order, key, value)
     session.add(order)
+    session.commit()
+    session.refresh(order)
+    return order
+
+
+@router.post("/{order_id}/review")
+def review_service_order(
+    order_id: uuid.UUID,
+    req: ServiceOrderReview,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """业主/租客对已完成的服务订单评分（1-5）并留反馈，形成服务闭环。
+
+    - 仅「已完成」订单可评价；
+    - 同一订单只能评价一次（重复评价返回 409）；
+    - 仅下单人本人或管理员可评价。
+    """
+    order = session.get(ServiceOrder, order_id)
+    if not order or order.deleted_at:
+        raise HTTPException(status_code=404, detail="Service order not found")
+    if order.orderer_id != user.id and user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Not allowed to review this order")
+    if order.status != ServiceOrderStatus.completed:
+        raise HTTPException(
+            status_code=409, detail="Only completed service orders can be reviewed"
+        )
+    if order.reviewed_at:
+        raise HTTPException(status_code=409, detail="Service order already reviewed")
+
+    order.rating = req.rating
+    order.review_comment = req.comment
+    order.reviewed_at = datetime.utcnow()
+    session.add(order)
+    publish_event(
+        session,
+        "service_order.reviewed",
+        "service_order",
+        order.id,
+        {
+            "rating": order.rating,
+            "provider_id": order.provider_id,
+            "reviewed_by": str(user.id),
+        },
+    )
     session.commit()
     session.refresh(order)
     return order

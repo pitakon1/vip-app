@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { message, Modal, Spin, Empty } from 'antd'
 import dayjs from 'dayjs'
@@ -94,9 +94,32 @@ const normalizeCategory = (c?: string): DocCategory => {
   ) {
     return 'ownership'
   }
-  if (v === 'tax' || v === '税务') return 'tax'
+  // 后端 DocumentType 为 tax_invoice / wht_certificate，前端统一归入「税务」
+  if (v === 'tax' || v === 'tax_invoice' || v === 'wht_certificate' || v === '税务') {
+    return 'tax'
+  }
   return 'other'
 }
+
+// 前端展示分类 -> 后端 DocumentType（后端无「产权证明」枚举，归入 other）
+type BackendDocType =
+  | 'contract'
+  | 'receipt'
+  | 'inspection_photo'
+  | 'tax_invoice'
+  | 'wht_certificate'
+  | 'other'
+
+const CATEGORY_TO_TYPE: Record<Exclude<DocCategory, 'all'>, BackendDocType> = {
+  contract: 'contract',
+  receipt: 'receipt',
+  ownership: 'other',
+  tax: 'tax_invoice',
+  other: 'other',
+}
+
+// 上传白名单（与后端 ALLOWED_DOCUMENT_TYPES 保持一致）
+const UPLOAD_ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx'
 
 // 按文件扩展名选择图标类型
 const docIconType = (name: string): 'pdf' | 'img' | 'xls' | 'doc' => {
@@ -185,6 +208,8 @@ interface DisplayDoc {
   statusLabel: string
   file_url: string
   iconType: 'pdf' | 'img' | 'xls' | 'doc'
+  /** 是否来自接口（false 为演示兜底数据，不可删除） */
+  fromApi: boolean
 }
 
 const Documents = () => {
@@ -193,6 +218,10 @@ const Documents = () => {
   const [timeFilter, setTimeFilter] = useState(TIME_OPTIONS[0])
   const [loading, setLoading] = useState(false)
   const [documents, setDocuments] = useState<OwnerDocument[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pendingCategory, setPendingCategory] = useState<Exclude<DocCategory, 'all'>>('other')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchDocuments = useCallback(async () => {
     setLoading(true)
@@ -237,19 +266,59 @@ const Documents = () => {
     window.open(doc.file_url, '_blank')
   }
 
-  const handleUpload = () => {
-    message.info('上传功能即将上线')
+  // 选择文件后先确认分类，再上传（分类是必填项，静默默认会让类型筛选失真）
+  const handleFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    // 清空 value，保证连续上传同一个文件也能触发 change
+    e.target.value = ''
+    if (!f) return
+    setPendingCategory(activeTab === 'all' ? 'other' : activeTab)
+    setPendingFile(f)
   }
 
-  const handleDelete = (name: string) => {
+  const handleUploadConfirm = async () => {
+    if (!pendingFile) return
+    const formData = new FormData()
+    formData.append('file', pendingFile)
+    formData.append('type', CATEGORY_TO_TYPE[pendingCategory])
+    // 标题取文件名（去掉扩展名），后端在取不到标题时也会这样兜底
+    formData.append('title', pendingFile.name.replace(/\.[^.]+$/, ''))
+    setUploading(true)
+    try {
+      await api.post('/documents/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      message.success('文档上传成功')
+      setPendingFile(null)
+      await fetchDocuments()
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      message.error(detail || '上传失败，请稍后重试')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDelete = (doc: DisplayDoc) => {
+    if (!doc.fromApi) {
+      message.warning('演示数据不支持删除')
+      return
+    }
     Modal.confirm({
       title: '删除文档',
-      content: `确定要删除文档「${name}」吗？删除后无法恢复。`,
+      content: `确定要删除文档「${doc.name}」吗？删除后无法恢复。`,
       okText: '删除',
       okButtonProps: { danger: true },
       cancelText: '取消',
-      onOk: () => {
-        message.success(`文档「${name}」已删除`)
+      onOk: async () => {
+        try {
+          await api.delete(`/documents/${doc.id}`)
+          message.success(`文档「${doc.name}」已删除`)
+          await fetchDocuments()
+        } catch (err: any) {
+          const detail = err?.response?.data?.detail
+          message.error(detail || '删除失败，请稍后重试')
+        }
       },
     })
   }
@@ -277,6 +346,7 @@ const Documents = () => {
           statusLabel: '已归档',
           file_url: d.file_url || '',
           iconType: docIconType(name),
+          fromApi: true,
         })
       })
     } else {
@@ -293,6 +363,7 @@ const Documents = () => {
           statusLabel: d.statusLabel,
           file_url: '',
           iconType: docIconType(d.name),
+          fromApi: false,
         })
       })
     }
@@ -333,10 +404,21 @@ const Documents = () => {
           <p className="rent-page-header__subtitle">查看和管理您的房产相关文档</p>
         </div>
         <div className="rent-page-header__actions">
-          <button type="button" className="rent-btn rent-btn--primary" onClick={handleUpload}>
+          <button
+            type="button"
+            className="rent-btn rent-btn--primary"
+            onClick={() => fileInputRef.current?.click()}
+          >
             {uploadIcon}
             上传文档
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={UPLOAD_ACCEPT}
+            style={{ display: 'none' }}
+            onChange={handleFilePicked}
+          />
         </div>
       </div>
 
@@ -454,7 +536,7 @@ const Documents = () => {
                       <button
                         type="button"
                         className="rent-btn rent-btn--danger-ghost rent-btn--sm"
-                        onClick={() => handleDelete(doc.name)}
+                        onClick={() => handleDelete(doc)}
                       >
                         删除
                       </button>
@@ -476,6 +558,34 @@ const Documents = () => {
         <button type="button" className="rent-pagination__btn">3</button>
         <button type="button" className="rent-pagination__btn" aria-label="下一页">{chevronRight}</button>
       </div>
+
+      {/* 上传确认：确认文件与分类后再提交 */}
+      <Modal
+        open={!!pendingFile}
+        title="上传文档"
+        okText="上传"
+        cancelText="取消"
+        confirmLoading={uploading}
+        onOk={handleUploadConfirm}
+        onCancel={() => !uploading && setPendingFile(null)}
+      >
+        <div className="owner-upload-modal">
+          <div className="owner-upload-modal__file">{pendingFile?.name}</div>
+          <label className="owner-upload-modal__label" htmlFor="owner-upload-category">
+            文档分类
+          </label>
+          <select
+            id="owner-upload-category"
+            className="rent-form-select"
+            value={pendingCategory}
+            onChange={(e) => setPendingCategory(e.target.value as Exclude<DocCategory, 'all'>)}
+          >
+            {TYPE_OPTIONS.filter((o) => o.value !== 'all').map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+      </Modal>
     </div>
   )
 }

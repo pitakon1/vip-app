@@ -234,8 +234,10 @@ export const marketDataApi = {
   reports: (params?: any) => request({ url: `/market-data/reports${qs(params)}`, method: 'GET' }),
   computeMatches: (params: any) => request({ url: `/market-data/matches/compute${qs(params)}`, method: 'POST' }),
   listMatches: (params?: any) => request({ url: `/market-data/matches${qs(params)}`, method: 'GET' }),
+  notifyMatch: (id: string, data?: any) => request({ url: `/market-data/matches/${id}/notify`, method: 'POST', data: data ?? {} }),
   churnSignals: (params?: any) => request({ url: `/market-data/churn-signals${qs(params)}`, method: 'GET' }),
   createChurnSignal: (params: any) => request({ url: `/market-data/churn-signals${qs(params)}`, method: 'POST' }),
+  assignChurnSignal: (id: string, data?: any) => request({ url: `/market-data/churn-signals/${id}/assign`, method: 'POST', data: data ?? {} }),
   resolveChurnSignal: (id: string) => request({ url: `/market-data/churn-signals/${id}/resolve`, method: 'POST' })
 }
 
