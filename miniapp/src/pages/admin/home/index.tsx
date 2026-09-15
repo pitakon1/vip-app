@@ -4,12 +4,11 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import {
   dashboardApi,
-  auditApi,
   commissionRulesApi
 } from '@/services/api'
 import './index.scss'
 
-type Tab = 'overview' | 'recon' | 'trend' | 'audit' | 'commission'
+type Tab = 'overview' | 'recon' | 'commission'
 
 interface ReconRow {
   property?: string
@@ -25,14 +24,6 @@ interface TrendRow {
   leases_new?: number
   leads_new?: number
   viewings_new?: number
-}
-
-interface AuditRow {
-  id: string
-  action: string
-  resource_type: string
-  actor_name?: string
-  occurred_at?: string
 }
 
 interface CommissionRule {
@@ -99,8 +90,6 @@ const SCOPE: Record<string, string> = {
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'overview', label: '运营概览', icon: '📊' },
   { key: 'recon', label: '财务对账', icon: '💰' },
-  { key: 'trend', label: '运营趋势', icon: '📈' },
-  { key: 'audit', label: '审计日志', icon: '📝' },
   { key: 'commission', label: '佣金规则', icon: '⚙️' },
 ]
 
@@ -146,12 +135,8 @@ export default function AdminHomePage() {
     by_property: [],
     records: []
   })
-  // 运营趋势
-  const [trend, setTrend] = useState<TrendRow[]>([])
-  // 首页收入趋势（近6月）
+  // 运营趋势（并入运营概览，仅下拉纳入 6 个月迷你图）
   const [homeTrend, setHomeTrend] = useState<TrendRow[]>([])
-  // 审计
-  const [audits, setAudits] = useState<AuditRow[]>([])
   // 佣金规则
   const [rules, setRules] = useState<CommissionRule[]>([])
   const [ruleForm, setRuleForm] = useState({
@@ -211,31 +196,6 @@ export default function AdminHomePage() {
     }
   }
 
-  const fetchTrend = async () => {
-    setLoading(true)
-    try {
-      const res = await dashboardApi.trend({ months: 12 })
-      setTrend(Array.isArray(pick(res, 'series')) ? pick(res, 'series') : [])
-    } catch (e) {
-      Taro.showToast({ title: '加载趋势失败', icon: 'none' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchAudits = async () => {
-    setLoading(true)
-    try {
-      const res: any = await auditApi.list({})
-      const items = pick(res, 'items') ?? (Array.isArray(res?.data) ? res.data : [])
-      setAudits(items)
-    } catch (e) {
-      Taro.showToast({ title: '加载审计失败', icon: 'none' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const fetchRules = async () => {
     setLoading(true)
     try {
@@ -253,8 +213,6 @@ export default function AdminHomePage() {
     setTab(t)
     if (t === 'overview' && Object.keys(summary).length === 0) fetchOverview()
     if (t === 'recon' && recon.by_property.length === 0) fetchRecon()
-    if (t === 'trend' && trend.length === 0) fetchTrend()
-    if (t === 'audit' && audits.length === 0) fetchAudits()
     if (t === 'commission' && rules.length === 0) fetchRules()
   }
 
@@ -349,12 +307,23 @@ export default function AdminHomePage() {
           <View
             className='adm-special__cap'
             hoverClass='adm-special__cap--hover'
-            onClick={() => Taro.navigateTo({ url: '/pages/admin/audit/index' })}
+            onClick={() => Taro.navigateTo({ url: '/pages/admin/review/index' })}
           >
-            <Text className='adm-special__cap-icon'>📝</Text>
+            <Text className='adm-special__cap-icon'>✓</Text>
             <View className='adm-special__cap-body'>
-              <Text className='adm-special__cap-title'>审计日志</Text>
-              <Text className='adm-special__cap-desc'>操作留痕</Text>
+              <Text className='adm-special__cap-title'>工单审核</Text>
+              <Text className='adm-special__cap-desc'>外勤 · 报修 · 订单</Text>
+            </View>
+          </View>
+          <View
+            className='adm-special__cap'
+            hoverClass='adm-special__cap--hover'
+            onClick={() => Taro.navigateTo({ url: '/pages/admin/accounts/index' })}
+          >
+            <Text className='adm-special__cap-icon'>👤</Text>
+            <View className='adm-special__cap-body'>
+              <Text className='adm-special__cap-title'>账号管理</Text>
+              <Text className='adm-special__cap-desc'>启停 · 重置密码</Text>
             </View>
           </View>
         </ScrollView>
@@ -557,72 +526,6 @@ export default function AdminHomePage() {
                 </View>
               )}
             </View>
-          </View>
-        )}
-
-        {/* ===== 运营趋势 ===== */}
-        {tab === 'trend' && (
-          <View className='adm-section'>
-            <View className='adm-section__head'>
-              <Text className='adm-section__title'>近 12 个月运营趋势</Text>
-            </View>
-            {trend.length === 0 ? (
-              <StateView loading={loading} icon='📈' title='暂无数据' desc='运营趋势将在积累数据后展示' />
-            ) : (
-              <View className='adm-table'>
-                <View className='adm-table__row adm-table__row--head'>
-                  <Text className='adm-table__cell adm-table__cell--left'>月份</Text>
-                  <Text className='adm-table__cell'>营收</Text>
-                  <Text className='adm-table__cell'>新签</Text>
-                  <Text className='adm-table__cell'>新线索</Text>
-                </View>
-                {trend.map((t, idx) => (
-                  <View key={t.month} className={`adm-table__row ${idx % 2 === 1 ? 'adm-table__row--alt' : ''}`}>
-                    <Text className='adm-table__cell adm-table__cell--left'>
-                      {t.month.replace('-', '.')}
-                    </Text>
-                    <Text className='adm-table__cell'>{fmtMoney(t.revenue)}</Text>
-                    <Text className='adm-table__cell'>{t.leases_new ?? 0}</Text>
-                    <Text className='adm-table__cell'>{t.leads_new ?? 0}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* ===== 审计日志 ===== */}
-        {tab === 'audit' && (
-          <View className='adm-section'>
-            <View className='adm-section__head'>
-              <Text className='adm-section__title'>审计日志</Text>
-              <Text className='adm-section__hint'>系统操作记录</Text>
-            </View>
-            {audits.length === 0 ? (
-              <StateView loading={loading} icon='📝' title='暂无日志' desc='系统操作记录将在此展示' />
-            ) : (
-              <View className='adm-audit-list'>
-                {audits.map((a) => (
-                  <View key={a.id} className='adm-audit-item'>
-                    <View className='adm-audit-item__dot' />
-                    <View className='adm-audit-item__content'>
-                      <View className='adm-audit-item__top'>
-                        <Text className='adm-audit-item__action'>{a.action || '-'}</Text>
-                        <View className='adm-tag adm-tag--info'>
-                          <Text>{a.resource_type || '-'}</Text>
-                        </View>
-                      </View>
-                      <View className='adm-audit-item__meta'>
-                        <Text className='adm-audit-item__actor'>{a.actor_name || '系统'}</Text>
-                        <Text className='adm-audit-item__time'>
-                          {a.occurred_at ? String(a.occurred_at).replace('T', ' ').slice(0, 19) : ''}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
           </View>
         )}
 

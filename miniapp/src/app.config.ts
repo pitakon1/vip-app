@@ -21,6 +21,8 @@ export default {
     'pages/admin/reconciliation/index',
     'pages/admin/trend/index',
     'pages/admin/audit/index',
+    'pages/admin/review/index',
+    'pages/admin/accounts/index',
     'pages/owner/payments/index',
     'pages/tenant/home/index',
     'pages/tenant/documents/index',

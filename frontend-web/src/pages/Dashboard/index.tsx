@@ -117,6 +117,7 @@ const riskMeta = [
     value: (s: Record<string, number>) => `${s.expiring_leases ?? 0}`,
     unit: '份',
     desc: (s: Record<string, number>) => `${s.expiring_property ?? ''}${s.expiring_leases && s.expiring_leases > 0 ? ` 等 ${s.expiring_leases} 份合同临近到期` : '暂无临近到期合同'}`,
+    ratio: (s: Record<string, number>) => Math.min(Number(s.expiring_leases ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
     path: '/leases',
     icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8',
   },
@@ -126,6 +127,7 @@ const riskMeta = [
     value: (s: Record<string, number>) => `${s.upcoming_payments ?? 0}`,
     unit: '笔',
     desc: () => '逾期金额待核 · 请及时催收',
+    ratio: (s: Record<string, number>) => Math.min(Number(s.upcoming_payments ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
     path: '/payments',
     icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
   },
@@ -135,12 +137,13 @@ const riskMeta = [
     value: (s: Record<string, number>) => `${s.vacant && s.total_properties ? Math.round((s.vacant / s.total_properties) * 100) : 0}`,
     unit: '% · 警戒线 10%',
     desc: () => '建议关注高空置片区，及时补充房源',
+    ratio: (s: Record<string, number>) => Math.min(Number(s.occupancy_rate ?? 0) / 100, 1),
     path: '/properties',
     icon: 'M18 20v-10M12 20V4M6 20v-6',
   },
 ]
 
-// 快捷入口（对齐原型 cockpit-ext）
+// 快捷入口：高频操作直达（侧边栏已有的一级导航不计重复）
 const quickMeta = [
   {
     label: '房源管理',
@@ -151,17 +154,17 @@ const quickMeta = [
     icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10',
   },
   {
-    label: '合同管理',
-    sub: (s: Record<string, number>) => `${s.rented ?? 0} 份在租 · 续签提醒`,
-    path: '/leases',
-    bg: 'rgba(22,163,74,0.1)',
-    color: 'var(--state-success)',
-    icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8',
+    label: '工单审核',
+    sub: () => '外勤 · 报修 · 服务 · 合同待办',
+    path: '/system/review-center',
+    bg: 'rgba(217,119,6,0.1)',
+    color: 'var(--state-warning)',
+    icon: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3',
   },
   {
-    label: '客户管理',
-    sub: () => '租客跟进 · 合同台账',
-    path: '/crm',
+    label: '账号管理',
+    sub: () => '开通 · 启停 · 重置密码',
+    path: '/system/users',
     bg: 'rgba(14,165,233,0.1)',
     color: 'var(--state-info)',
     icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
@@ -169,9 +172,9 @@ const quickMeta = [
   {
     label: '财务对账',
     sub: () => '收款核对 · 逾期催收',
-    path: '/payments',
-    bg: 'rgba(217,119,6,0.1)',
-    color: 'var(--state-warning)',
+    path: '/reconciliation',
+    bg: 'rgba(22,163,74,0.1)',
+    color: 'var(--state-success)',
     icon: 'M1 4h22v16H1zM1 10h23',
   },
 ]
@@ -358,6 +361,30 @@ const Dashboard = () => {
               <div className="rent-risk-card__label">{card.label}</div>
               <div className="rent-risk-card__value">{card.value(summary)}<span>{card.unit}</span></div>
               <div className="rent-risk-card__desc">{card.desc(summary)}</div>
+              <div
+                style={{
+                  marginTop: 10,
+                  height: 6,
+                  borderRadius: 999,
+                  background: 'rgba(148,163,184,0.15)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${Math.round(((card as any).ratio?.(summary) ?? 0) * 100)}%`,
+                    height: '100%',
+                    borderRadius: 999,
+                    background:
+                      card.tone === 'warning'
+                        ? 'var(--state-warning)'
+                        : card.tone === 'danger'
+                        ? 'var(--state-error)'
+                        : 'var(--state-info)',
+                    transition: 'width 0.4s ease',
+                  }}
+                />
+              </div>
             </div>
             <button
               className="rent-btn rent-btn--sm rent-btn--ghost rent-risk-card__cta"

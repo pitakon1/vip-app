@@ -15,6 +15,8 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.config import settings
 from app.core.logging import configure_logging, get_logger
+from app.core.rbac import seed_permissions
+from app.db import Session, engine
 from app.api.v1 import api_router
 
 # 配置结构化日志
@@ -69,6 +71,9 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理。"""
     logger.info("application.starting", app=settings.APP_NAME, version=settings.APP_VERSION)
     _run_startup_selfcheck()
+    # 幂等补种权限点与角色默认权限（不覆盖已有配置）
+    with Session(engine) as session:
+        seed_permissions(session)
     yield
     logger.info("application.stopped", app=settings.APP_NAME)
 

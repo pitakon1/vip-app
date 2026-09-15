@@ -49,6 +49,12 @@ import EmployeeAttendance from '@/pages/Employee/Attendance'
 import EmployeePerformance from '@/pages/Employee/Performance'
 import EmployeeContacts from '@/pages/Employee/Contacts'
 
+// 系统管理（账号权限体系）
+import SystemUsers from '@/pages/System/Users'
+import SystemGroups from '@/pages/System/Groups'
+import SystemPermissions from '@/pages/System/Permissions'
+import SystemReview from '@/pages/System/ReviewCenter'
+
 import Company from '@/pages/Company'
 import useAuthStore from '@/stores/auth'
 
@@ -129,6 +135,12 @@ const App = () => {
           <Route path="/employee/attendance" element={<EmployeeAttendance />} />
           <Route path="/employee/performance" element={<EmployeePerformance />} />
           <Route path="/employee/contacts" element={<EmployeeContacts />} />
+
+          {/* 系统管理 */}
+          <Route path="/system/users" element={<SystemUsers />} />
+          <Route path="/system/groups" element={<SystemGroups />} />
+          <Route path="/system/permissions" element={<SystemPermissions />} />
+          <Route path="/system/review-center" element={<SystemReview />} />
         </Route>
 
         {/* ===== 租客端（C端 · 顶栏门户 PortalLayout，无侧边栏）===== */}

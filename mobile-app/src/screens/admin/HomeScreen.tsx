@@ -1,5 +1,5 @@
 /**
- * 管理员工作台：运营概览 / 财务对账 / 运营趋势 / 审计日志 / 佣金规则
+ * 管理员工作台：运营概览 / 财务对账 / 佣金规则
  */
 import React, { useCallback, useState } from 'react';
 import {
@@ -19,9 +19,9 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import LineChart from '@/components/charts/LineChart';
 import BarChart from '@/components/charts/BarChart';
-import { dashboardApi, auditApi, commissionRulesApi } from '@/services/api';
+import { dashboardApi, commissionRulesApi } from '@/services/api';
 
-type Tab = 'overview' | 'recon' | 'trend' | 'audit' | 'commission';
+type Tab = 'overview' | 'recon' | 'commission';
 
 interface ReconRow {
   property?: string | null;
@@ -37,14 +37,6 @@ interface TrendRow {
   leases_new?: number;
   leads_new?: number;
   viewings_new?: number;
-}
-
-interface AuditRow {
-  id: string;
-  action: string;
-  resource_type?: string;
-  actor_name?: string | null;
-  occurred_at?: string | null;
 }
 
 interface CommissionRule {
@@ -75,20 +67,18 @@ const SCOPE: Record<string, string> = {
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'overview', label: '运营概览', icon: 'grid-outline' },
   { key: 'recon', label: '财务对账', icon: 'wallet-outline' },
-  { key: 'trend', label: '运营趋势', icon: 'trending-up-outline' },
-  { key: 'audit', label: '审计日志', icon: 'shield-checkmark-outline' },
   { key: 'commission', label: '佣金规则', icon: 'settings-outline' },
 ];
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-// 快捷入口：展示页未覆盖的工作工具，置于 hero 之后、分区之上
+// 快捷入口：高频业务 + 管理体系直达（低频管理功能经 Web 侧边栏可达）
 const QUICK_ACTIONS: { key: string; label: string; icon: IoniconName; route: string }[] = [
   { key: 'props', label: '房源管理', icon: 'home-outline', route: 'EmployeeProperties' },
   { key: 'sale', label: '买卖成交', icon: 'swap-horizontal-outline', route: 'SaleDeals' },
-  { key: 'dist', label: '分销体系', icon: 'git-network-outline', route: 'Distribution' },
   { key: 'markets', label: '多国市场', icon: 'earth-outline', route: 'Markets' },
-  { key: 'intel', label: '数据决策', icon: 'analytics-outline', route: 'MarketIntel' },
+  { key: 'review', label: '工单审核', icon: 'checkbox-outline', route: 'AdminReview' },
+  { key: 'account', label: '账号管理', icon: 'people-outline', route: 'AdminUsers' },
 ];
 
 export default function AdminHomeScreen() {
@@ -102,7 +92,6 @@ export default function AdminHomeScreen() {
   const [totals, setTotals] = useState<{ received?: number; receivable?: number; overdue?: number }>({});
   const [byProperty, setByProperty] = useState<ReconRow[]>([]);
   const [trend, setTrend] = useState<TrendRow[]>([]);
-  const [audits, setAudits] = useState<AuditRow[]>([]);
   const [rules, setRules] = useState<CommissionRule[]>([]);
 
   const [name, setName] = useState('');
@@ -132,13 +121,6 @@ export default function AdminHomeScreen() {
         const d = res?.data ?? {};
         setTotals(d.totals ?? {});
         setByProperty(d.by_property ?? []);
-      } else if (target === 'trend') {
-        const res: any = await dashboardApi.trend({ months: 12 });
-        setTrend((res?.data ?? {}).series ?? []);
-      } else if (target === 'audit') {
-        const res: any = await auditApi.list({});
-        const d = res?.data ?? {};
-        setAudits((d.items ?? d ?? []) as AuditRow[]);
       } else if (target === 'commission') {
         const res: any = await commissionRulesApi.list({});
         const d = res?.data ?? {};
@@ -166,8 +148,6 @@ export default function AdminHomeScreen() {
   const dataLoaded = (t: Tab) => {
     if (t === 'overview') return Object.keys(summary).length > 0;
     if (t === 'recon') return byProperty.length > 0;
-    if (t === 'trend') return trend.length > 0;
-    if (t === 'audit') return audits.length > 0;
     return rules.length > 0;
   };
 
@@ -431,156 +411,6 @@ export default function AdminHomeScreen() {
                   <Text style={[styles.cell, styles.cellLeft]} numberOfLines={1}>{r.property || '-'}</Text>
                   <Text style={styles.cell}>{fmtMoney(r.received)}</Text>
                   <Text style={[styles.cell, styles.cellError]}>{fmtMoney(r.overdue)}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* ===== 运营趋势 ===== */}
-        {tab === 'trend' && (
-          <View>
-            {/* 营收趋势折线图 */}
-            <View style={styles.trendChartCard}>
-              <View style={styles.chartHeaderRow}>
-                <View>
-                  <Text style={styles.chartCardTitle}>营收趋势</Text>
-                  <Text style={styles.chartCardSub}>近 12 个月</Text>
-                </View>
-                <View style={styles.chartLegend}>
-                  <View style={styles.legendDotLine} />
-                  <Text style={styles.legendText}>营收</Text>
-                </View>
-              </View>
-              {trend.length === 0 ? (
-                !loading && <EmptyState icon="trending-up-outline" title="暂无趋势数据" sub="运营数据积累后展示" />
-              ) : (
-                <LineChart
-                  data={trend.map((t) => ({
-                    label: t.month.slice(5).replace('-', '.'),
-                    value: t.revenue ?? 0,
-                  }))}
-                  height={200}
-                  lineColor={colors.primary}
-                  fillColor={`rgba(${colors.primaryRgb}, 0.12)`}
-                  activeIndex={trend.length - 1}
-                />
-              )}
-            </View>
-
-            {/* 新签 vs 新线索 柱状对比 */}
-            <View style={styles.trendChartCard}>
-              <View style={styles.chartHeaderRow}>
-                <View>
-                  <Text style={styles.chartCardTitle}>业务增长</Text>
-                  <Text style={styles.chartCardSub}>新签合同 & 新线索</Text>
-                </View>
-                <View style={styles.chartLegendRow}>
-                  <View style={styles.legendBarPair}>
-                    <View style={[styles.legendBar, { backgroundColor: colors.success }]} />
-                    <Text style={styles.legendTextSm}>新签</Text>
-                  </View>
-                  <View style={styles.legendBarPair}>
-                    <View style={[styles.legendBar, { backgroundColor: colors.warning }]} />
-                    <Text style={styles.legendTextSm}>线索</Text>
-                  </View>
-                </View>
-              </View>
-              {trend.length > 0 ? (
-                <View style={styles.dualBarWrap}>
-                  {trend.slice(-8).map((t, idx) => {
-                    const maxVal = Math.max(
-                      ...trend.map((m) => Math.max(m.leases_new ?? 0, m.leads_new ?? 0)),
-                      1
-                    );
-                    const leaseH = Math.max(((t.leases_new ?? 0) / maxVal) * 100, 3);
-                    const leadH = Math.max(((t.leads_new ?? 0) / maxVal) * 100, 3);
-                    return (
-                      <View key={t.month} style={styles.dualBarCol}>
-                        <View style={styles.dualBarValues}>
-                          <Text style={styles.dualBarVal}>{t.leases_new ?? 0}</Text>
-                          <Text style={styles.dualBarVal2}>{t.leads_new ?? 0}</Text>
-                        </View>
-                        <View style={styles.dualBars}>
-                          <View
-                            style={[
-                              styles.dualBar,
-                              styles.dualBarLeft,
-                              { height: `${leaseH}%`, backgroundColor: colors.success },
-                            ]}
-                          />
-                          <View
-                            style={[
-                              styles.dualBar,
-                              styles.dualBarRight,
-                              { height: `${leadH}%`, backgroundColor: colors.warning },
-                            ]}
-                          />
-                        </View>
-                        <Text style={styles.dualBarLabel}>{t.month.slice(5).replace('-', '')}月</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              ) : null}
-            </View>
-
-            {/* 概览数据网格 */}
-            <View style={styles.trendStatsGrid}>
-              <View style={styles.trendStatCard}>
-                <Text style={styles.trendStatLabel}>总营收</Text>
-                <Text style={styles.trendStatVal}>
-                  {fmtMoney(trend.reduce((s, t) => s + (t.revenue ?? 0), 0))}
-                </Text>
-                <View style={[styles.trendStatBar, { backgroundColor: colors.primary }]} />
-              </View>
-              <View style={styles.trendStatCard}>
-                <Text style={styles.trendStatLabel}>新签合同</Text>
-                <Text style={styles.trendStatVal}>
-                  {trend.reduce((s, t) => s + (t.leases_new ?? 0), 0)}
-                </Text>
-                <View style={[styles.trendStatBar, { backgroundColor: colors.success }]} />
-              </View>
-              <View style={styles.trendStatCard}>
-                <Text style={styles.trendStatLabel}>新增线索</Text>
-                <Text style={styles.trendStatVal}>
-                  {trend.reduce((s, t) => s + (t.leads_new ?? 0), 0)}
-                </Text>
-                <View style={[styles.trendStatBar, { backgroundColor: colors.warning }]} />
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* ===== 审计日志 ===== */}
-        {tab === 'audit' && (
-          <View>
-            <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>审计日志</Text>
-              <Text style={styles.sectionHint}>系统操作记录</Text>
-            </View>
-            {audits.length === 0 && !loading && (
-              <EmptyState icon="shield-checkmark-outline" title="暂无审计日志" sub="系统操作记录将在此展示" />
-            )}
-            <View style={styles.auditList}>
-              {audits.map((a, idx) => (
-                <View key={a.id} style={styles.auditItem}>
-                  <View style={styles.auditDot} />
-                  {idx < audits.length - 1 && <View style={styles.auditLine} />}
-                  <View style={styles.auditContent}>
-                    <View style={styles.auditTop}>
-                      <Text style={styles.auditAction} numberOfLines={1}>{a.action || '-'}</Text>
-                      <View style={[styles.tag, styles.tagInfo]}>
-                        <Text style={[styles.tagText, styles.tagInfo_text]}>{a.resource_type || '-'}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.auditMeta}>
-                      <Text style={styles.auditActor}>{a.actor_name || '系统'}</Text>
-                      <Text style={styles.auditTime}>
-                        {a.occurred_at ? a.occurred_at.replace('T', ' ').slice(0, 19) : ''}
-                      </Text>
-                    </View>
-                  </View>
                 </View>
               ))}
             </View>
@@ -932,57 +762,6 @@ const styles = StyleSheet.create({
   cell: { flex: 1, fontSize: 12, color: colors.ink2, textAlign: 'center' },
   cellLeft: { flex: 1.4, textAlign: 'left', fontWeight: '600', color: colors.ink },
   cellError: { color: colors.error, fontWeight: '600' },
-
-  /* ===== 审计时间线 ===== */
-  auditList: { position: 'relative', paddingLeft: 8 },
-  auditItem: {
-    flexDirection: 'row',
-    position: 'relative',
-    paddingBottom: 14,
-  },
-  auditDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.primary,
-    marginTop: 14,
-    marginRight: 12,
-    zIndex: 1,
-    borderWidth: 3,
-    borderColor: `rgba(${colors.primaryRgb}, 0.15)`,
-  },
-  auditLine: {
-    position: 'absolute',
-    left: 5,
-    top: 26,
-    bottom: 0,
-    width: 2,
-    backgroundColor: colors.border,
-  },
-  auditContent: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.lg,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...colors.shadow.sm,
-  },
-  auditTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-    gap: 8,
-  },
-  auditAction: { fontSize: 14, fontWeight: '700', color: colors.ink, flex: 1 },
-  auditMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  auditActor: { fontSize: 12, color: colors.ink2, fontWeight: '500' },
-  auditTime: { fontSize: 11, color: colors.ink3 },
 
   /* ===== 表单 ===== */
   formCard: {

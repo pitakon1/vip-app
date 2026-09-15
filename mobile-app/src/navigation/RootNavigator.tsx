@@ -28,6 +28,8 @@ import CRMScreen from '../screens/employee/CRMScreen';
 import PerformanceScreen from '../screens/employee/PerformanceScreen';
 import PropertiesScreen from '../screens/employee/PropertiesScreen';
 import CalendarScreen from '../screens/employee/CalendarScreen';
+import AdminReviewScreen from '../screens/admin/AdminReviewScreen';
+import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
 import ContactScreen from '../screens/employee/ContactScreen';
 import OwnerPaymentsScreen from '../screens/owner/PaymentsScreen';
 import OwnerMarketingScreen from '../screens/owner/MarketingScreen';
@@ -62,6 +64,8 @@ export type RootStackParamList = {
   Calendar: undefined;
   OwnerPayments: undefined;
   OwnerMarketing: undefined;
+  AdminReview: undefined;
+  AdminUsers: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -107,6 +111,8 @@ export function RootNavigator() {
           <Stack.Screen name="Performance" component={PerformanceScreen} options={{ headerShown: true, title: '我的业绩' }} />
           <Stack.Screen name="EmployeeProperties" component={PropertiesScreen} options={{ headerShown: true, title: '房源管理' }} />
           <Stack.Screen name="Calendar" component={CalendarScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AdminReview" component={AdminReviewScreen} options={{ headerShown: true, title: '工单审核' }} />
+          <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ headerShown: true, title: '账号管理' }} />
           <Stack.Screen name="Contacts" component={ContactScreen} options={{ headerShown: true, title: '同事通讯录' }} />
           <Stack.Screen name="OwnerPayments" component={OwnerPaymentsScreen} options={{ headerShown: true, title: '我的付款' }} />
           <Stack.Screen name="OwnerMarketing" component={OwnerMarketingScreen} options={{ headerShown: true, title: '委托挂牌与营销' }} />

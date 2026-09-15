@@ -81,6 +81,7 @@ from .market_data import (
     PropertyMatch,
     ChurnSignal,
 )
+from .rbac import Permission, RolePermission, UserGroup, UserGroupMember
 
 __all__ = [
     "TimestampMixin",
@@ -172,4 +173,8 @@ __all__ = [
     "MarketReport",
     "PropertyMatch",
     "ChurnSignal",
+    "Permission",
+    "RolePermission",
+    "UserGroup",
+    "UserGroupMember",
 ]
