@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>账单缴费</title>
+    <title>我的</title>
     <style id="theme-vars">
 /* =========================================================
    HaoFang.World — 品牌设计令牌 (Refined Premium)
@@ -1158,7 +1158,7 @@ body {
   <header class="rent-mobile__header">
     <div class="rent-mobile__header-left">
       <img class="rent-mobile__logo" src="../assets/haofang-logo.jpg" alt="HaoFang.World" style="width:34px;height:34px;object-fit:contain;border-radius: 8px;background:#fff;padding:3px;flex-shrink:0;display:inline-block;">
-      <h1 class="rent-mobile__title">账单缴费</h1>
+      <h1 class="rent-mobile__title">我的</h1>
     </div>
     <div class="rent-mobile__header-right">
       <div class="rent-wx-capsule" style="display:flex;align-items:center;height:32px;border:1px solid var(--rent-border);border-radius:16px;padding:0 8px;gap:8px;background:rgba(255,255,255,0.6);">
@@ -1172,199 +1172,163 @@ body {
 
   <main class="rent-mobile__main" data-scroll-region="primary">
 
-<!-- Summary card -->
-<div class="rent-mobile__card" style="background:linear-gradient(135deg,#14b8a6 0%,#0d9488 100%);border:none;color:#fff;margin-bottom:16px;">
-  <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-bottom:4px;">待缴总额</div>
-  <div style="font-size:28px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;line-height:1.1;">RM 3,800</div>
-  <div style="height:1px;background:rgba(255,255,255,0.2);margin:16px 0;"></div>
-  <div style="display:flex;justify-content:space-between;gap:12px;">
+<!-- 用户卡 -->
+<div class="rent-mobile__card" style="background:var(--rent-primary);border:none;color:#fff;margin-bottom:12px;">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div class="rent-avatar" style="width:48px;height:48px;font-size:20px;border-radius:16px;background:rgba(255,255,255,0.22);color:#fff;">陈</div>
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:19px;font-weight:700;color:#fff;">陈业主</span>
+        <span class="rent-badge" style="background:rgba(255,255,255,0.22);color:#fff;">业主</span>
+      </div>
+      <div style="font-size: 13px;color:rgba(255,255,255,0.82);margin-top:4px;">chen@rentflow.com</div>
+    </div>
+  </div>
+  <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.18);display:flex;align-items:flex-end;gap:18px;">
     <div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-bottom:2px;">本月已缴</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.75);margin-bottom:2px;">名下有房源</div>
+      <div style="font-size: 17px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;">4 套</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.75);margin-bottom:2px;">其中在租</div>
+      <div style="font-size: 17px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;">3 套</div>
+    </div>
+    <div style="margin-left:auto;text-align:right;">
+      <div style="font-size:11px;color:rgba(255,255,255,0.75);margin-bottom:2px;">本月实收</div>
       <div style="font-size: 17px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;">RM 12,800</div>
     </div>
-    <div style="text-align:right;">
-      <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-bottom:2px;">物业费</div>
-      <div style="font-size: 17px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;">RM 1,200</div>
-    </div>
   </div>
 </div>
 
-<!-- Filter chips -->
-<div class="no-scrollbar" style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;padding-bottom:4px;">
-  <button style="padding:7px 16px;border-radius:9999px;border:none;background:var(--rent-primary);color:#fff;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;font-family:var(--rent-font-sans);">全部</button>
-  <button style="padding:7px 16px;border-radius:9999px;border:1px solid var(--rent-border);background:var(--rent-surface);color:var(--rent-ink-2);font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;font-family:var(--rent-font-sans);">待缴</button>
-  <button style="padding:7px 16px;border-radius:9999px;border:1px solid var(--rent-border);background:var(--rent-surface);color:var(--rent-ink-2);font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;font-family:var(--rent-font-sans);">已缴</button>
-  <button style="padding:7px 16px;border-radius:9999px;border:1px solid var(--rent-border);background:var(--rent-surface);color:var(--rent-ink-2);font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;font-family:var(--rent-font-sans);">逾期</button>
-</div>
+<!-- 账单缴费入口 -->
+<a href="owner-mini-payments.html" class="rent-mobile__card" data-dom-id="link-owner-mini-payments" style="display:flex;align-items:center;gap:12px;text-decoration:none;margin-bottom:16px;">
+  <div style="width:44px;height:44px;border-radius:12px;background:rgba(217,119,6,0.12);color:var(--state-warning);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+  </div>
+  <div style="flex:1;min-width:0;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-size: 15px;font-weight:600;color:var(--rent-ink);">账单缴费</span>
+      <span class="rent-badge rent-badge--warning">2 笔待缴</span>
+    </div>
+    <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">待缴总额 RM 3,800 · 物业费 / 水电费 / 燃气费</div>
+  </div>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+</a>
 
-<h3 class="rent-mobile__section-title">账单列表</h3>
-
-<!-- Bill 1 -->
-<div class="rent-mobile__card">
-  <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
-    <div style="width:40px;height:40px;border-radius:8px;background:rgba(20,184,166,0.10);color:var(--rent-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+<!-- 常用功能 -->
+<h3 class="rent-mobile__section-title">常用功能</h3>
+<div class="rent-mobile__card" style="padding:0 16px;">
+  <a href="owner-mini-income.html" class="rent-mobile__list-item" data-dom-id="link-owner-mini-income" style="text-decoration:none;">
+    <div style="width:38px;height:38px;border-radius:12px;background:rgba(20,184,166,0.1);color:var(--rent-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
     </div>
     <div style="flex:1;min-width:0;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
-        <span style="font-size: 15px;font-weight:600;color:var(--rent-ink);">物业费</span>
-        <span class="rent-badge rent-badge--warning">待缴</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-3);flex-wrap:wrap;">
-        <span>Sunway Mesmerrra</span>
-        <span>·</span>
-        <span>到期 2024-08-15</span>
-      </div>
+      <div style="font-size: 15px;font-weight:600;color:var(--rent-ink);">收益报表</div>
+      <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">租金到账 · 年度收益汇总</div>
     </div>
-  </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;">
-    <span style="font-size:20px;font-weight:700;color:var(--rent-ink);font-variant-numeric:tabular-nums;letter-spacing:-0.02em;">RM 1,200</span>
-    <button class="rent-btn rent-btn--primary rent-btn--sm">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-      立即缴费
-    </button>
-  </div>
-</div>
-
-<!-- Bill 2 -->
-<div class="rent-mobile__card">
-  <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
-    <div style="width:40px;height:40px;border-radius:8px;background:rgba(14,165,233,0.10);color:#0ea5e9;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+  </a>
+  <a href="owner-mini-services.html" class="rent-mobile__list-item" data-dom-id="link-owner-mini-services" style="text-decoration:none;">
+    <div style="width:38px;height:38px;border-radius:12px;background:rgba(22,163,74,0.1);color:var(--state-success);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
     </div>
     <div style="flex:1;min-width:0;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
-        <span style="font-size: 15px;font-weight:600;color:var(--rent-ink);">水电费</span>
-        <span class="rent-badge rent-badge--success">已缴</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-3);flex-wrap:wrap;">
-        <span>Sunway Mesmerrra</span>
-        <span>·</span>
-        <span>到期 2024-08-10</span>
-      </div>
+      <div style="font-size: 15px;font-weight:600;color:var(--rent-ink);">物业服务</div>
+      <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">保洁 · 维修 · 代管工单</div>
     </div>
-  </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;">
-    <span style="font-size:20px;font-weight:700;color:var(--rent-ink);font-variant-numeric:tabular-nums;letter-spacing:-0.02em;">RM 380</span>
-    <button class="rent-btn rent-btn--secondary rent-btn--sm" disabled>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-      已缴清
-    </button>
-  </div>
-</div>
-
-<!-- Bill 3 -->
-<div class="rent-mobile__card">
-  <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
-    <div style="width:40px;height:40px;border-radius:8px;background:rgba(20,184,166,0.10);color:var(--rent-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+  </a>
+  <a href="owner-mini-documents.html" class="rent-mobile__list-item" data-dom-id="link-owner-mini-documents" style="text-decoration:none;">
+    <div style="width:38px;height:38px;border-radius:12px;background:rgba(14,165,233,0.1);color:var(--state-info);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
     </div>
     <div style="flex:1;min-width:0;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
-        <span style="font-size: 15px;font-weight:600;color:var(--rent-ink);">物业费</span>
-        <span class="rent-badge rent-badge--warning">待缴</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-3);flex-wrap:wrap;">
-        <span>Mont Kiara Bayu</span>
-        <span>·</span>
-        <span>到期 2024-08-20</span>
-      </div>
+      <div style="font-size: 15px;font-weight:600;color:var(--rent-ink);">租房文档</div>
+      <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">托管合同 · 产权证明</div>
     </div>
-  </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;">
-    <span style="font-size:20px;font-weight:700;color:var(--rent-ink);font-variant-numeric:tabular-nums;letter-spacing:-0.02em;">RM 980</span>
-    <button class="rent-btn rent-btn--primary rent-btn--sm">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-      立即缴费
-    </button>
-  </div>
-</div>
-
-<!-- Bill 4 -->
-<div class="rent-mobile__card">
-  <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
-    <div style="width:40px;height:40px;border-radius:8px;background:rgba(220,38,38,0.10);color:#dc2626;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3l-2 2-7 7a4 4 0 0 0 5.66 5.66l7-7 2-2a4 4 0 0 0-5.66-5.66z"/><line x1="8" y1="8" x2="16" y2="16"/></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+  </a>
+  <a href="owner-mini-consign.html" class="rent-mobile__list-item" data-dom-id="link-owner-mini-consign" style="text-decoration:none;">
+    <div style="width:38px;height:38px;border-radius:12px;background:rgba(124,58,237,0.1);color:#6d4fc0;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="10" y1="11" x2="14" y2="11"/><line x1="10" y1="15" x2="14" y2="15"/></svg>
     </div>
     <div style="flex:1;min-width:0;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
-        <span style="font-size: 15px;font-weight:600;color:var(--rent-ink);">燃气费</span>
-        <span class="rent-badge rent-badge--error">逾期</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-3);flex-wrap:wrap;">
-        <span>Sunway Rio Sintra</span>
-        <span>·</span>
-        <span>到期 2024-08-05</span>
-      </div>
+      <div style="font-size: 15px;font-weight:600;color:var(--rent-ink);">委托中心</div>
+      <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">委托出租 · 委托出售进度</div>
     </div>
-  </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;">
-    <span style="font-size:20px;font-weight:700;color:var(--rent-ink);font-variant-numeric:tabular-nums;letter-spacing:-0.02em;">RM 150</span>
-    <button class="rent-btn rent-btn--danger rent-btn--sm">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      逾期缴费
-    </button>
-  </div>
-</div>
-
-<!-- Bill 5 -->
-<div class="rent-mobile__card">
-  <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
-    <div style="width:40px;height:40px;border-radius:8px;background:rgba(14,165,233,0.10);color:#0ea5e9;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+  </a>
+  <a href="owner-mini-property-detail.html" class="rent-mobile__list-item" data-dom-id="link-owner-mini-property-detail" style="text-decoration:none;">
+    <div style="width:38px;height:38px;border-radius:12px;background:rgba(20,184,166,0.1);color:var(--rent-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
     </div>
     <div style="flex:1;min-width:0;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
-        <span style="font-size: 15px;font-weight:600;color:var(--rent-ink);">水电费</span>
-        <span class="rent-badge rent-badge--success">已缴</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-3);flex-wrap:wrap;">
-        <span>双威金沙国际公寓</span>
-        <span>·</span>
-        <span>到期 2024-08-12</span>
-      </div>
+      <div style="font-size: 15px;font-weight:600;color:var(--rent-ink);">我的房源</div>
+      <div style="font-size: 13px;color:var(--rent-ink-3);margin-top:2px;">4 套房源 · 3 套在租</div>
     </div>
-  </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;">
-    <span style="font-size:20px;font-weight:700;color:var(--rent-ink);font-variant-numeric:tabular-nums;letter-spacing:-0.02em;">RM 520</span>
-    <button class="rent-btn rent-btn--secondary rent-btn--sm" disabled>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-      已缴清
-    </button>
-  </div>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+  </a>
 </div>
 
-<!-- Bill 6 -->
-<div class="rent-mobile__card">
-  <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
-    <div style="width:40px;height:40px;border-radius:8px;background:rgba(20,184,166,0.10);color:var(--rent-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+<!-- 设置 -->
+<h3 class="rent-mobile__section-title">设置</h3>
+<div class="rent-mobile__card" style="padding:0 16px;">
+  <div class="rent-mobile__list-item">
+    <div style="width:38px;height:38px;border-radius:12px;background:rgba(85,96,108,0.1);color:var(--rent-ink-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
     </div>
     <div style="flex:1;min-width:0;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
-        <span style="font-size: 15px;font-weight:600;color:var(--rent-ink);">物业费</span>
-        <span class="rent-badge rent-badge--warning">待缴</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size: 13px;color:var(--rent-ink-3);flex-wrap:wrap;">
-        <span>Sunway Rio Sintra</span>
-        <span>·</span>
-        <span>到期 2024-08-25</span>
-      </div>
+      <div style="font-size: 15px;font-weight:600;color:var(--rent-ink);">账号与安全</div>
     </div>
+    <span style="font-size: 13px;color:var(--rent-ink-3);">138****8888</span>
   </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;">
-    <span style="font-size:20px;font-weight:700;color:var(--rent-ink);font-variant-numeric:tabular-nums;letter-spacing:-0.02em;">RM 850</span>
-    <button class="rent-btn rent-btn--primary rent-btn--sm">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-      立即缴费
-    </button>
+  <div class="rent-mobile__list-item">
+    <div style="width:38px;height:38px;border-radius:12px;background:rgba(85,96,108,0.1);color:var(--rent-ink-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size: 15px;font-weight:600;color:var(--rent-ink);">语言设置</div>
+    </div>
+    <span style="font-size: 13px;color:var(--rent-ink-3);">简体中文</span>
+  </div>
+  <div class="rent-mobile__list-item">
+    <div style="width:38px;height:38px;border-radius:12px;background:rgba(85,96,108,0.1);color:var(--rent-ink-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size: 15px;font-weight:600;color:var(--rent-ink);">通知提醒</div>
+    </div>
+    <span class="rent-badge rent-badge--success">已开启</span>
+  </div>
+  <div class="rent-mobile__list-item">
+    <div style="width:38px;height:38px;border-radius:12px;background:rgba(85,96,108,0.1);color:var(--rent-ink-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size: 15px;font-weight:600;color:var(--rent-ink);">帮助中心</div>
+    </div>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" stroke-width="2" style="flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+  </div>
+  <div class="rent-mobile__list-item">
+    <div style="width:38px;height:38px;border-radius:12px;background:rgba(85,96,108,0.1);color:var(--rent-ink-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size: 15px;font-weight:600;color:var(--rent-ink);">关于我们</div>
+    </div>
+    <span style="font-size: 13px;color:var(--rent-ink-3);">HaoFang.World v2.4.1</span>
   </div>
 </div>
 
+<!-- 退出登录 -->
+<button class="rent-btn rent-btn--danger rent-btn--block" data-dom-id="back-login" style="margin-top:16px;">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+  退出登录
+</button>
   </main>
 
     <nav class="rent-mobile__bottom-nav">
-    <a class="rent-mobile__tab" data-nav-key="owner-mini-dashboard" href="owner-mini-dashboard.html" data-dom-id="nav-owner-mini-dashboard" data-active="true">
+    <a class="rent-mobile__tab" data-nav-key="owner-mini-dashboard" href="owner-mini-dashboard.html" data-dom-id="nav-owner-mini-dashboard">
       <svg class="rent-mobile__tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       <span>首页</span>
     </a>
@@ -1376,7 +1340,7 @@ body {
       <svg class="rent-mobile__tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
       <span>服务</span>
     </a>
-    <a class="rent-mobile__tab" data-nav-key="owner-mini-settings" href="owner-mini-payments.html" data-dom-id="nav-owner-mini-settings">
+    <a class="rent-mobile__tab" data-nav-key="owner-mini-settings" href="owner-mini-settings.html" data-dom-id="nav-owner-mini-settings" data-active="true">
       <svg class="rent-mobile__tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       <span>我的</span>
     </a>

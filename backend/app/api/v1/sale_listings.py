@@ -1,15 +1,15 @@
 """售房/求购挂牌路由（买卖交易闭环）。"""
 import uuid
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.pagination import PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     User,
     UserRole,
@@ -48,6 +48,44 @@ class ValuationIn(BaseModel):
     factors: Optional[str] = None
 
 
+class SaleListingOut(BaseModel):
+    """售房/求购挂牌响应（与 _serialize 输出一致）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    sale_type: Optional[str] = None
+    title: Optional[str] = None
+    property_id: Optional[str] = None
+    owner_user_id: Optional[str] = None
+    agent_user_id: Optional[str] = None
+    address: Optional[str] = None
+    asking_price: Optional[float] = None
+    currency: Optional[str] = None
+    size_sqm: Optional[float] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    status: Optional[str] = None
+    license_ref: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class ValuationOut(BaseModel):
+    """估价记录响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    method: Optional[str] = None
+    market_value: Optional[float] = None
+    low_estimate: Optional[float] = None
+    high_estimate: Optional[float] = None
+    currency: Optional[str] = None
+    confidence: Optional[int] = None
+    factors: Optional[str] = None
+    created_at: Optional[str] = None
+
+
 def _serialize(listing: SaleListing) -> dict:
     return {
         "id": str(listing.id),
@@ -68,7 +106,7 @@ def _serialize(listing: SaleListing) -> dict:
     }
 
 
-@router.get("")
+@router.get("", response_model=Page[SaleListingOut])
 def list_sale_listings(
     sale_type: Optional[SaleType] = None,
     status: Optional[ListingStatus] = None,
@@ -140,7 +178,7 @@ def create_sale_listing(
     return _serialize(listing)
 
 
-@router.get("/{listing_id}")
+@router.get("/{listing_id}", response_model=SaleListingOut)
 def get_sale_listing(
     listing_id: uuid.UUID,
     session: Session = Depends(get_session),
@@ -238,7 +276,7 @@ def create_valuation(
     }
 
 
-@router.get("/{listing_id}/valuations")
+@router.get("/{listing_id}/valuations", response_model=List[ValuationOut])
 def list_valuations(
     listing_id: uuid.UUID,
     session: Session = Depends(get_session),

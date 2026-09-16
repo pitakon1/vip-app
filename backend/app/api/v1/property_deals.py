@@ -1,15 +1,15 @@
 """产权成交、定金(Iscrow)托管、按揭申请路由（买卖交易闭环）。"""
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate
 from app.models import (
     User,
     UserRole,
@@ -49,6 +49,55 @@ class MortgageIn(BaseModel):
     term_months: int = 360
 
 
+class PropertyDealOut(BaseModel):
+    """成交响应（与 _deal_dict 输出一致）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    sale_listing_id: Optional[str] = None
+    sales_user_id: Optional[str] = None
+    buyer_user_id: Optional[str] = None
+    property_id: Optional[str] = None
+    sale_price: Optional[float] = None
+    currency: Optional[str] = None
+    status: Optional[str] = None
+    signed_at: Optional[str] = None
+    transfer_date: Optional[str] = None
+    agent_user_id: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class EscrowOut(BaseModel):
+    """定金托管记录响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    deal_id: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    status: Optional[str] = None
+    deposited_at: Optional[str] = None
+    released_at: Optional[str] = None
+
+
+class MortgageOut(BaseModel):
+    """按揭申请响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    bank: Optional[str] = None
+    loan_amount: Optional[float] = None
+    currency: Optional[str] = None
+    term_months: Optional[int] = None
+    status: Optional[str] = None
+    status_at: Optional[str] = None
+    created_at: Optional[str] = None
+
+
 def _deal_dict(d: PropertyDeal) -> dict:
     return {
         "id": str(d.id),
@@ -67,7 +116,7 @@ def _deal_dict(d: PropertyDeal) -> dict:
     }
 
 
-@router.get("")
+@router.get("", response_model=Page[PropertyDealOut])
 def list_deals(
     status: Optional[PropertyDealStatus] = None,
     pagination: PaginationParams = Depends(),
@@ -121,7 +170,7 @@ def create_deal(
     return _deal_dict(deal)
 
 
-@router.get("/{deal_id}")
+@router.get("/{deal_id}", response_model=PropertyDealOut)
 def get_deal(
     deal_id: uuid.UUID,
     session: Session = Depends(get_session),
@@ -184,7 +233,7 @@ def create_escrow(
     }
 
 
-@router.get("/escrows/{deal_id}")
+@router.get("/escrows/{deal_id}", response_model=List[EscrowOut])
 def list_escrows(
     deal_id: uuid.UUID,
     session: Session = Depends(get_session),
@@ -279,7 +328,7 @@ def create_mortgage(
     }
 
 
-@router.get("/mortgages/mine")
+@router.get("/mortgages/mine", response_model=List[MortgageOut])
 def my_mortgages(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),

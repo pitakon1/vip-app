@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -23,6 +24,71 @@ DEAL_TYPE_LABELS = {
     DealType.renewal: "续约成交",
     DealType.management: "托管服务",
 }
+
+
+# ---------------- 响应模型（OpenAPI 契约） ----------------
+class PerformanceBreakdownItem(BaseModel):
+    """成交类型拆分条目。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    deal_type: Optional[str] = None
+    label: Optional[str] = None
+    amount: Optional[float] = None
+    count: Optional[int] = None
+    percent: Optional[float] = None
+
+
+class PerformanceSummary(BaseModel):
+    """业绩汇总口径（本年/本月/累计/成交类型拆分）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    year: Optional[int] = None
+    month: Optional[int] = None
+    year_total: Optional[float] = None
+    month_total: Optional[float] = None
+    deals_total: Optional[int] = None
+    month_deals: Optional[int] = None
+    commission_total: Optional[float] = None
+    month_commission: Optional[float] = None
+    new_rentals: Optional[int] = None
+    renewals: Optional[int] = None
+    management: Optional[int] = None
+    breakdown: Optional[List[PerformanceBreakdownItem]] = None
+
+
+class PerformanceMonthRow(BaseModel):
+    """月度业绩序列条目。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    year: Optional[int] = None
+    month: Optional[int] = None
+    revenue: Optional[float] = None
+    commission: Optional[float] = None
+    deals: Optional[int] = None
+
+
+class MyPerformanceOut(BaseModel):
+    """我的业绩报表响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    summary: Optional[PerformanceSummary] = None
+    monthly: Optional[List[PerformanceMonthRow]] = None
+
+
+class PerformanceLeaderboardRow(BaseModel):
+    """业绩排行榜条目。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    employee_id: Optional[str] = None
+    employee_name: Optional[str] = None
+    total_commission: Optional[float] = None
+    total_revenue: Optional[float] = None
+    deals: Optional[int] = None
 
 
 def _get_employee(session: Session, user: User) -> Employee:
@@ -139,7 +205,7 @@ def _build_summary(
     }
 
 
-@router.get("/me")
+@router.get("/me", response_model=MyPerformanceOut)
 def get_my_performance(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
@@ -154,7 +220,7 @@ def get_my_performance(
     }
 
 
-@router.get("/leaderboard")
+@router.get("/leaderboard", response_model=List[PerformanceLeaderboardRow])
 def get_performance_leaderboard(
     year: Optional[int] = None,
     month: Optional[int] = None,

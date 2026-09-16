@@ -15,6 +15,8 @@ const roleRedirectPath = (role: string): string => {
     case 'owner': return '/owner/dashboard'
     case 'tenant': return '/tenant/dashboard'
     case 'employee': return '/employee/dashboard'
+    // agent 与 employee 共用销售工作台（与 RoleRedirect 保持一致）
+    case 'agent': return '/employee/dashboard'
     default: return '/dashboard'
   }
 }

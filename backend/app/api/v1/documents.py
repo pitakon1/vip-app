@@ -22,7 +22,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, get_current_user_allow_query_token
-from app.core.pagination import PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.uploads import HEAD_BYTES, detect_document_mime
 from app.models import (
     Document,
@@ -189,7 +189,7 @@ class DocumentCreate(BaseModel):
     tags: Optional[List[str]] = None
 
 
-@router.get("")
+@router.get("", response_model=Page[Document])
 def list_documents(
     pagination: PaginationParams = Depends(),
     type: Optional[DocumentType] = None,
@@ -343,7 +343,7 @@ def delete_document(
     return {"ok": True, "deleted_id": str(doc.id)}
 
 
-@router.get("/{document_id}")
+@router.get("/{document_id}", response_model=Document)
 def get_document(
     document_id: uuid.UUID,
     session: Session = Depends(get_session),

@@ -95,6 +95,151 @@
   }
 }
 
+/* ===== 业主端：品牌青绿实底用户卡（对齐 owner-mini-settings.html） ===== */
+.owner-hero {
+  margin: 24rpx 24rpx 0;
+  padding: 32rpx 28rpx 28rpx;
+  background-color: var(--primary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-primary);
+  color: var(--primary-foreground);
+
+  &__top {
+    display: flex;
+    align-items: center;
+  }
+
+  /* 实底卡内头像用白色半透明底 + 白字 */
+  .avatar {
+    background-color: rgba(var(--primary-foreground-rgb), 0.3);
+    margin-right: 28rpx;
+
+    .avatar-text {
+      color: var(--primary-foreground);
+    }
+  }
+
+  &__info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 8rpx;
+  }
+
+  &__name {
+    font-size: 36rpx;
+    font-weight: 700;
+    color: var(--primary-foreground);
+    margin-right: 12rpx;
+  }
+
+  &__badge {
+    padding: 4rpx 16rpx;
+    border-radius: var(--radius-full);
+    background-color: rgba(var(--primary-foreground-rgb), 0.22);
+    color: var(--primary-foreground);
+    font-size: 22rpx;
+  }
+
+  &__email {
+    display: block;
+    font-size: 24rpx;
+    color: rgba(var(--primary-foreground-rgb), 0.82);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 三指标：名下有房源 / 其中在租 / 本月实收 */
+  &__stats {
+    display: flex;
+    align-items: flex-end;
+    margin-top: 28rpx;
+    padding-top: 20rpx;
+    border-top: 1px solid rgba(var(--primary-foreground-rgb), 0.18);
+  }
+
+  &__stat {
+    margin-right: 40rpx;
+
+    &--right {
+      margin-left: auto;
+      margin-right: 0;
+      text-align: right;
+    }
+  }
+
+  &__stat-label {
+    display: block;
+    font-size: 22rpx;
+    color: rgba(var(--primary-foreground-rgb), 0.75);
+    margin-bottom: 4rpx;
+  }
+
+  &__stat-value {
+    font-size: 32rpx;
+    font-weight: 700;
+    color: var(--primary-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ===== 业主端：账单缴费入口卡（对齐 owner-mini-settings.html） ===== */
+.bill-entry {
+  display: flex;
+  align-items: center;
+  margin: 20rpx 24rpx 0;
+  padding: 24rpx;
+  background-color: var(--card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+
+  &__icon {
+    width: 64rpx;
+    height: 64rpx;
+    flex-shrink: 0;
+    margin-right: 20rpx;
+    border-radius: var(--radius-md);
+    background-color: rgba(var(--warning-rgb), 0.12);
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: 30rpx 30rpx;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 4rpx;
+  }
+
+  &__title {
+    font-size: 30rpx;
+    font-weight: 600;
+    color: var(--ink);
+    margin-right: 12rpx;
+  }
+
+  &__desc {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 /* 头像 */
 .avatar {
   width: 112rpx;

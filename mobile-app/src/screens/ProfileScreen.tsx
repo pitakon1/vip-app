@@ -15,7 +15,14 @@ import { useAuthStore } from '@/stores/auth';
 import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
 import colors from '@/theme/colors';
-import { leasesApi, propertyDealApi, saleListingApi } from '@/services/api';
+import {
+  leasesApi,
+  ownerApi,
+  ownersApi,
+  paymentsApi,
+  propertyDealApi,
+  saleListingApi,
+} from '@/services/api';
 import { useI18n, LANG_LABELS, LANGS, type AppLang } from '@/i18n';
 import type { UserRole } from '@/types';
 
@@ -36,11 +43,13 @@ interface FuncEntry {
 
 // 各角色「我的」常用功能（按角色差异化；路由必须已在 RootNavigator 注册）
 const FUNC_BY_ROLE: Record<UserRole, FuncEntry[]> = {
-  // 业主：资产相关
+  // 业主：对齐 owner-mobile-settings.html「常用功能」五项
   owner: [
     { key: 'income', labelKey: 'profile.income', icon: 'wallet', navigate: 'OwnerIncome' },
     { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'OwnerServices' },
     { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'OwnerDocuments' },
+    { key: 'consign', labelKey: 'profile.consign', icon: 'clipboard', navigate: 'OwnerMarketing' },
+    { key: 'myProperties', labelKey: 'profile.myProperties', icon: 'home', navigate: 'OwnerPropertyDetail' },
   ],
   // 租客：付费/文档/增值服务（对齐租客端原型「常用功能」三项）
   tenant: [
@@ -97,6 +106,10 @@ interface SettingItem {
 const APP_COMPANY = 'HaoFang.World';
 const APP_VERSION = 'v2.4.1';
 
+// 已缴判定（与业主账单页 OwnerPaymentsScreen 状态口径一致：非已缴均计入待缴）
+const PAID_STATUSES = ['succeeded', 'refunded', 'paid'];
+const isPaidStatus = (s?: string) => PAID_STATUSES.includes(String(s || '').toLowerCase());
+
 const DAY_MS = 86400000;
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
 const fmtRent = (v?: number, c?: string) =>
@@ -126,11 +139,18 @@ export default function ProfileScreen() {
   const [langVisible, setLangVisible] = useState(false);
   const [activeLease, setActiveLease] = useState<any>(null);
   const [deals, setDeals] = useState<any[]>([]);
+  // 业主：名下房源 / 本月实收 / 待缴账单（真实接口，失败静默降级）
+  const [ownerProps, setOwnerProps] = useState<any[]>([]);
+  const [ownerPayments, setOwnerPayments] = useState<any[]>([]);
+  const [ownerAnnual, setOwnerAnnual] = useState<any>(null);
+  const [ownerPropsOk, setOwnerPropsOk] = useState(false);
+  const [ownerBillsOk, setOwnerBillsOk] = useState(false);
   const { lang, setLang, t } = useI18n();
   const navigation = useNavigation<any>();
 
   const isTenant = user?.role === 'tenant';
   const isAdmin = user?.role === 'admin';
+  const isOwner = user?.role === 'owner';
 
   // 后端无对应编辑接口的功能，点击统一提示「暂未开放」（不伪造假数据）
   const showNotAvailable = (name: string) => {
@@ -152,6 +172,21 @@ export default function ProfileScreen() {
       return;
     }
     showNotAvailable(item.label);
+  };
+
+  // 常用功能点击：业主「我的房源」进入需带房源 id（OwnerPropertyDetail 依赖 params.id）
+  // 名下无房源时降级到业主首页（该页有房源卡片列表），避免落到「房源不存在」空态
+  const handleFuncPress = (entry: FuncEntry) => {
+    if (entry.navigate === 'OwnerPropertyDetail') {
+      const firstId = ownerProps[0]?.id;
+      if (!firstId) {
+        navigation.navigate('OwnerHome');
+        return;
+      }
+      navigation.navigate('OwnerPropertyDetail', { id: String(firstId) });
+      return;
+    }
+    navigation.navigate(entry.navigate);
   };
 
   // 管理端「我的」区块数据（对齐 admin-mobile-settings.html）
@@ -247,6 +282,42 @@ export default function ProfileScreen() {
     };
   }, [isTenant]);
 
+  // 业主：名下房源 / 年度收益汇总（取当月实收）/ 本人账单（待缴口径）
+  useEffect(() => {
+    if (!isOwner) return;
+    let alive = true;
+    const year = new Date().getFullYear();
+    Promise.allSettled([
+      ownerApi.properties(),
+      ownersApi.annualSummary(year),
+      paymentsApi.mine(),
+    ]).then(([pRes, aRes, bRes]) => {
+      if (!alive) return;
+      const pick = (res: PromiseSettledResult<any>): any[] | null => {
+        if (res.status !== 'fulfilled') return null;
+        const data = res.value?.data;
+        const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
+        return Array.isArray(items) ? items : null;
+      };
+      const props = pick(pRes);
+      if (props) {
+        setOwnerProps(props);
+        setOwnerPropsOk(true);
+      }
+      if (aRes.status === 'fulfilled') {
+        setOwnerAnnual((aRes.value?.data as any) ?? null);
+      }
+      const bills = pick(bRes);
+      if (bills) {
+        setOwnerPayments(bills);
+        setOwnerBillsOk(true);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [isOwner]);
+
   const handleLogout = () => {
     const doLogout = () => logout();
     // react-native-web 下 Alert.alert 是空实现，需用浏览器原生 confirm
@@ -263,6 +334,87 @@ export default function ProfileScreen() {
   };
 
   const currentLang = LANG_LABELS[lang];
+
+  /* ===== 业主用户卡三项指标（真实接口；取不到显示 -） ===== */
+  const ownerPropCount = ownerPropsOk ? ownerProps.length : null;
+  const ownerRentedCount = ownerPropsOk
+    ? ownerProps.filter((p) =>
+        ['rented', 'active'].includes(String(p?.status || '').toLowerCase()),
+      ).length
+    : null;
+
+  // 本月实收：年度汇总里匹配当月的 bucket，无匹配时取最近一个月桶
+  const ownerMonthReceived = (() => {
+    const buckets: any[] = Array.isArray(ownerAnnual?.by_month) ? ownerAnnual.by_month : [];
+    if (!buckets.length) return null;
+    const now = new Date();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const bucket =
+      buckets.find((b) => {
+        const m = String(b?.month ?? '');
+        return (
+          m === `${now.getFullYear()}-${mm}` ||
+          m === mm ||
+          Number(b?.month) === now.getMonth() + 1
+        );
+      }) ?? buckets[buckets.length - 1];
+    return Number(bucket?.received ?? 0);
+  })();
+  const ownerCurrency =
+    ownerAnnual?.currency || ownerProps[0]?.currency || 'THB';
+
+  /* ===== 业主待缴账单（复用业主账单页 paymentsApi.mine 口径） ===== */
+  const ownerDueBills = ownerPayments.filter((p) => !isPaidStatus(p?.status));
+  const ownerDueTotal = ownerDueBills.reduce((s, p) => s + Number(p?.amount || 0), 0);
+  const ownerBillsCurrency = ownerPayments[0]?.currency || ownerCurrency;
+
+  const numText = (v: number | null, unitKey: string) =>
+    v === null ? '-' : `${v} ${t(unitKey)}`;
+
+  // 业主「设置」五项（对齐 owner-mobile-settings.html；无接口的项点击提示暂未开放）
+  const ownerSettingItems: SettingItem[] = [
+    {
+      key: 'account',
+      icon: 'lock-closed',
+      label: t('profile.account'),
+      value: user?.phone ? maskPhone(user.phone) : undefined,
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+    {
+      key: 'language',
+      icon: 'globe',
+      label: t('profile.language'),
+      value: currentLang,
+      openLang: true,
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+    {
+      key: 'notify',
+      icon: 'notifications',
+      label: t('profile.notify'),
+      value: t('profile.notifyOn'),
+      valueTone: 'success',
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+    {
+      key: 'help',
+      icon: 'help-circle',
+      label: t('profile.help'),
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+    {
+      key: 'about',
+      icon: 'information-circle',
+      label: t('profile.about'),
+      value: `${APP_COMPANY} ${APP_VERSION}`,
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+  ];
 
   // 当前角色的常用功能；未登录/未知角色给通用兜底
   const entries = user ? FUNC_BY_ROLE[user.role] ?? FUNC_BY_ROLE.tenant : FUNC_BY_ROLE.tenant;
@@ -313,6 +465,55 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* 用户卡补充：名下房源 / 在租 / 本月实收（仅业主，数据来自真实接口） */}
+      {isOwner && (
+        <View style={styles.ownerStatsStrip}>
+          <View style={styles.ownerStatCol}>
+            <Text style={styles.ownerStatLabel}>{t('profile.ownerUnits')}</Text>
+            <Text style={styles.ownerStatValue}>{numText(ownerPropCount, 'profile.unitCount')}</Text>
+          </View>
+          <View style={styles.ownerStatCol}>
+            <Text style={styles.ownerStatLabel}>{t('profile.ownerRented')}</Text>
+            <Text style={styles.ownerStatValue}>{numText(ownerRentedCount, 'profile.unitCount')}</Text>
+          </View>
+          <View style={[styles.ownerStatCol, styles.ownerStatColRight]}>
+            <Text style={styles.ownerStatLabel}>{t('profile.ownerReceived')}</Text>
+            <Text style={styles.ownerStatValue}>
+              {ownerMonthReceived === null
+                ? '-'
+                : fmtRent(ownerMonthReceived, ownerCurrency)}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* 账单缴费入口（仅业主；账单接口取数失败时不渲染，避免编造金额） */}
+      {isOwner && ownerBillsOk && (
+        <TouchableOpacity
+          style={styles.ownerBillCard}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('OwnerPayments')}
+        >
+          <View style={styles.ownerBillIcon}>
+            <Ionicons name="card" size={22} color={colors.warning} />
+          </View>
+          <View style={styles.ownerBillBody}>
+            <View style={styles.ownerBillTitleRow}>
+              <Text style={styles.ownerBillTitle}>{t('profile.bills')}</Text>
+              <View style={styles.ownerBillBadge}>
+                <Text style={styles.ownerBillBadgeText}>
+                  {`${ownerDueBills.length} ${t('profile.pendingBills')}`}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.ownerBillSub} numberOfLines={1}>
+              {`${t('profile.billsDueTotal')} ${fmtRent(ownerDueTotal, ownerBillsCurrency)} · ${t('profile.billsTypes')}`}
+            </Text>
+          </View>
+          <Text style={styles.arrow}>›</Text>
+        </TouchableOpacity>
+      )}
 
       {/* 用户卡补充：当前租约（仅租客且存在生效租约时） */}
       {isTenant && activeLease && (
@@ -543,6 +744,59 @@ export default function ProfileScreen() {
             ))}
           </Card>
         </>
+      ) : isOwner ? (
+        <>
+          {/* 常用功能（业主对齐 owner-mobile-settings.html 五项） */}
+          <Card title="常用功能">
+            {entries.map((entry, idx) => (
+              <TouchableOpacity
+                key={entry.key}
+                style={[styles.settingRow, idx < entries.length - 1 && styles.settingRowBorder]}
+                onPress={() => handleFuncPress(entry)}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: colors.sidebarActive }]}>
+                    <Ionicons name={entry.icon} size={17} color={colors.primary} />
+                  </View>
+                  <Text style={styles.settingLabel}>{t(entry.labelKey)}</Text>
+                </View>
+                <Text style={styles.arrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </Card>
+
+          {/* 设置（业主对齐原型五项；无接口项点击提示暂未开放） */}
+          <Card title={t('profile.settings')}>
+            {ownerSettingItems.map((item, idx) => (
+              <TouchableOpacity
+                key={item.key}
+                style={[
+                  styles.settingRow,
+                  idx < ownerSettingItems.length - 1 && styles.settingRowBorder,
+                ]}
+                onPress={() => handleSettingPress(item)}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon} size={16} color={item.color} />
+                  </View>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
+                </View>
+                {item.value ? (
+                  <Text
+                    style={[
+                      styles.settingValue,
+                      item.valueTone === 'success' && styles.settingValueSuccess,
+                    ]}
+                  >
+                    {item.value}
+                  </Text>
+                ) : null}
+                <Text style={styles.arrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </Card>
+        </>
       ) : (
         <>
           {/* 常用功能（按角色差异化） */}
@@ -758,6 +1012,68 @@ const styles = StyleSheet.create({
     color: colors.ink3,
     marginTop: 16,
   },
+
+  /* ===== 业主：用户卡三项指标（名下有房源 / 其中在租 / 本月实收） ===== */
+  ownerStatsStrip: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginHorizontal: 12,
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  ownerStatCol: { minWidth: 0, marginRight: 16 },
+  ownerStatColRight: { marginLeft: 'auto', marginRight: 0, alignItems: 'flex-end' },
+  ownerStatLabel: { fontSize: 11, color: colors.ink3, marginBottom: 2 },
+  ownerStatValue: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+  },
+
+  /* ===== 业主：账单缴费入口 ===== */
+  ownerBillCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 12,
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.card,
+  },
+  ownerBillIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: colors.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.warningLight,
+  },
+  ownerBillBody: { flex: 1, minWidth: 0 },
+  ownerBillTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  ownerBillTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  ownerBillBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.warningLight,
+  },
+  ownerBillBadgeText: { fontSize: 11, fontWeight: '600', color: colors.warning },
+  ownerBillSub: { fontSize: 13, color: colors.ink3, marginTop: 2 },
 
   /* ===== 当前租约（用户卡补充） ===== */
   leaseStrip: {

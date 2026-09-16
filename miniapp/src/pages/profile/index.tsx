@@ -3,7 +3,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import BottomNav from '@/components/BottomNav'
 import useAuthStore from '@/stores/auth'
-import { authApi, companyApi, leasesApi, propertyDealApi } from '@/services/api'
+import { authApi, companyApi, leasesApi, ownerApi, paymentsApi, propertyDealApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
 import type { IconKey } from '@/utils/icons'
 import type { User } from '@/types'
@@ -81,14 +81,21 @@ const BUSINESS_ROWS: RowEntry[] = [
   { key: 'commission', label: '佣金设置', icon: 'chart', url: '/pages/admin/commission-rules/index' }
 ]
 
-// 业主端「我的业务」入口
-const OWNER_BUSINESS_ROWS: RowEntry[] = [
-  { key: 'properties', label: '我的房屋', desc: '名下房产与出租状态', url: '/pages/owner/home/index', icon: 'home' },
-  { key: 'income', label: '收入汇总', desc: '租金收益与结算明细', url: '/pages/owner/income/index', icon: 'money' },
-  { key: 'payments', label: '账单缴费', desc: '物业费 · 水电费账单', url: '/pages/owner/payments/index', icon: 'card' },
-  { key: 'documents', label: '文档管理', desc: '委托合同 · 产权资料', url: '/pages/owner/documents/index', icon: 'doc' },
-  { key: 'services', label: '增值服务', desc: '保洁 · 维修 · 代管服务', url: '/pages/owner/services/index', icon: 'clipboard' },
-  { key: 'marketing', label: '市场推广', desc: '挂牌推广与定价建议', url: '/pages/owner/marketing/index', icon: 'trend' }
+// 业主端「常用功能」：对齐 owner-mini-settings.html（前 4 项；「我的房源」动态跳转单独处理）
+const OWNER_MENU_ROWS: RowEntry[] = [
+  { key: 'income', label: '收益报表', desc: '租金到账 · 年度收益汇总', url: '/pages/owner/income/index', icon: 'money' },
+  { key: 'services', label: '物业服务', desc: '保洁 · 维修 · 代管工单', url: '/pages/owner/services/index', icon: 'clipboard' },
+  { key: 'documents', label: '租房文档', desc: '托管合同 · 产权证明', url: '/pages/owner/documents/index', icon: 'doc' },
+  { key: 'marketing', label: '委托中心', desc: '委托出租 · 委托出售进度', url: '/pages/owner/marketing/index', icon: 'trend' }
+]
+
+// 业主端「设置」：对齐 owner-mini-settings.html；右侧值均来自真实数据/用户信息
+const OWNER_SETTING_ROWS: Array<RowEntry & { badge?: boolean }> = [
+  { key: 'account', label: '账号与安全', icon: 'user' },
+  { key: 'language', label: '语言设置', value: '简体中文', icon: 'clipboard' },
+  { key: 'notification', label: '通知提醒', badge: true, icon: 'megaphone' },
+  { key: 'help', label: '帮助中心', icon: 'calendar' },
+  { key: 'about', label: '关于我们', icon: 'star' }
 ]
 
 // 员工 / 代理端：原型无「我的」页，仅保留必要入口
@@ -138,7 +145,14 @@ function pickList<T>(res: any): T[] {
 }
 
 const formatMoney = (v: any, currency?: string) => {
-  const cur = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : '฿'
+  const cur =
+    currency === 'USD'
+      ? '$'
+      : currency === 'CNY'
+        ? '¥'
+        : currency === 'MYR' || currency === 'RM'
+          ? 'RM '
+          : '฿'
   return `${cur}${Number(v || 0).toLocaleString()}`
 }
 
@@ -201,6 +215,12 @@ export default function ProfilePage() {
   const [lease, setLease] = useState<any>(null)
   const [deals, setDeals] = useState<any[]>([])
   const [appVersion, setAppVersion] = useState('')
+  // 业主「我的」：指标条 / 待缴账单（真实接口，失败静默降级）
+  const [ownerProps, setOwnerProps] = useState<any[]>([])
+  const [ownerPropsOk, setOwnerPropsOk] = useState(false)
+  const [ownerAnnual, setOwnerAnnual] = useState<any>(null)
+  const [ownerBills, setOwnerBills] = useState<any[]>([])
+  const [ownerBillsOk, setOwnerBillsOk] = useState(false)
 
   useDidShow(() => {
     loadFromStorage()
@@ -211,8 +231,12 @@ export default function ProfilePage() {
       if (currentRole === 'tenant') {
         loadTenantData()
       }
-      if (currentRole === 'admin' || currentRole === 'owner') {
+      if (currentRole === 'admin') {
         loadAppInfo()
+      }
+      if (currentRole === 'owner') {
+        loadAppInfo()
+        loadOwnerData()
       }
     }
   })
@@ -239,6 +263,30 @@ export default function ProfilePage() {
       setAppVersion(info?.version || '')
     } catch (error) {
       console.warn('[Profile] 获取版本信息失败', error)
+    }
+  }
+
+  // 业主「我的」：名下房源 / 本月实收 / 待缴账单，各自独立容错，失败静默降级
+  const loadOwnerData = async () => {
+    try {
+      const propRes: any = await ownerApi.properties()
+      setOwnerProps(pickList(propRes))
+      setOwnerPropsOk(true)
+    } catch (error) {
+      console.warn('[Profile] 获取名下房源失败', error)
+    }
+    try {
+      const annRes: any = await ownerApi.annualFinancialSummary(new Date().getFullYear())
+      setOwnerAnnual(annRes?.data ?? annRes ?? null)
+    } catch (error) {
+      console.warn('[Profile] 获取年度财务汇总失败', error)
+    }
+    try {
+      const billRes: any = await paymentsApi.mine()
+      setOwnerBills(pickList(billRes))
+      setOwnerBillsOk(true)
+    } catch (error) {
+      console.warn('[Profile] 获取待缴账单失败', error)
     }
   }
 
@@ -284,6 +332,39 @@ export default function ProfilePage() {
     Taro.showToast({ title: `「${label}」暂未开放`, icon: 'none' })
   }
 
+  // 业主「我的房源」：进入需带房源 id；名下无房源时降级到业主首页（该页有房源卡片列表）
+  const handleOwnerPropsPress = () => {
+    const firstId = ownerProps[0]?.id
+    if (!firstId) {
+      handleNavigate('/pages/owner/home/index')
+      return
+    }
+    handleNavigate(`/pages/owner/property-detail/index?id=${firstId}`)
+  }
+
+  // 业主「设置」行：有值时不显示箭头；通知提醒用成功徽章（对齐 owner-mini-settings.html）
+  const renderSettingRow = (entry: RowEntry & { badge?: boolean }) => (
+    <View
+      key={entry.key}
+      className='list-row'
+      onClick={() => (entry.url ? handleNavigate(entry.url) : handleTodo(entry.label))}
+    >
+      <View className='list-row__icon icon-svg' style={iconStyle(entry.icon, 34)} />
+      <View className='list-row__body'>
+        <Text className='list-row__label'>{entry.label}</Text>
+      </View>
+      {entry.badge ? (
+        <View className='badge badge--success'>
+          <View className='bg-dot' />
+          <Text>已开启</Text>
+        </View>
+      ) : (
+        !!entry.value && <Text className='list-row__value'>{entry.value}</Text>
+      )}
+      {!entry.value && !entry.badge && <View className='chevron' />}
+    </View>
+  )
+
   const role = user?.role
   const isTenant = role === 'tenant'
   const isAdmin = role === 'admin'
@@ -294,6 +375,40 @@ export default function ProfilePage() {
 
   const phoneValue = user?.phone ? maskPhone(user.phone) : '未绑定'
   const emailValue = user?.email ? maskEmail(user.email) : '未绑定'
+
+  // 业主「我的」派生数据（在租口径与业主账单/收益页一致：status ∈ rented/active）
+  const ownerPropCount = ownerPropsOk ? ownerProps.length : null
+  const ownerRentedCount = ownerPropsOk
+    ? ownerProps.filter((p: any) =>
+        ['rented', 'active'].includes(String(p?.status || ''))
+      ).length
+    : null
+  // 本月实收：年度汇总里匹配当月 bucket，无匹配时取最近一个月桶
+  const ownerBuckets: any[] = Array.isArray(ownerAnnual?.by_month) ? ownerAnnual.by_month : []
+  const ownerMonthReceived = (() => {
+    if (!ownerBuckets.length) return null
+    const now = new Date()
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    const bucket =
+      ownerBuckets.find((b: any) => {
+        const m = String(b?.month ?? '')
+        return (
+          m === `${now.getFullYear()}-${mm}` ||
+          m === mm ||
+          Number(b?.month) === now.getMonth() + 1
+        )
+      }) ?? ownerBuckets[ownerBuckets.length - 1]
+    return Number(bucket?.received ?? 0)
+  })()
+  const ownerCurrency = ownerAnnual?.currency || ownerProps[0]?.currency || 'THB'
+  const ownerBillsCurrency = ownerBills[0]?.currency || ownerCurrency
+  const ownerPendingBills = ownerBills.filter((p: any) =>
+    ['pending', 'processing', 'expired'].includes(String(p?.status || ''))
+  )
+  const ownerPendingTotal = ownerPendingBills.reduce(
+    (sum: number, p: any) => sum + Number(p?.amount || 0),
+    0
+  )
 
   /** 通用列表行（图标 + 文案 + 值/说明 + 箭头） */
   const renderRow = (entry: RowEntry) => (
@@ -550,31 +665,106 @@ export default function ProfilePage() {
 
       {isOwner && (
         <>
-          {/* 业主端原型页（owner-mini-settings.html）与账单缴费页内容重复，此处按「我的」语义组织 */}
-          <View className='profile-card'>
-            <View className='avatar avatar--lg'>
-              <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
-            </View>
-            <View className='profile-card__body'>
-              <Text className='profile-card__name'>{user?.name || '业主'}</Text>
-              <View className='badge badge--primary'>
-                <Text>{ROLE_TEXT[role || ''] || '业主'}</Text>
+          {/* 用户卡：品牌青绿实底 + 三指标（对齐 owner-mini-settings.html） */}
+          <View className='owner-hero'>
+            <View className='owner-hero__top'>
+              <View className='avatar'>
+                <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
+              </View>
+              <View className='owner-hero__info'>
+                <View className='owner-hero__name-row'>
+                  <Text className='owner-hero__name'>{user?.name || '业主'}</Text>
+                  <View className='owner-hero__badge'>
+                    <Text>{ROLE_TEXT[role || ''] || '业主'}</Text>
+                  </View>
+                </View>
+                {user?.email && <Text className='owner-hero__email'>{user.email}</Text>}
               </View>
             </View>
-            <View className='profile-card__edit' onClick={() => handleTodo('编辑资料')}>
-              <View className='icon-svg' style={iconStyle('edit', 28)} />
-              <Text>编辑资料</Text>
+            <View className='owner-hero__stats'>
+              <View className='owner-hero__stat'>
+                <Text className='owner-hero__stat-label'>名下有房源</Text>
+                <Text className='owner-hero__stat-value'>
+                  {ownerPropCount === null ? '-' : `${ownerPropCount} 套`}
+                </Text>
+              </View>
+              <View className='owner-hero__stat'>
+                <Text className='owner-hero__stat-label'>其中在租</Text>
+                <Text className='owner-hero__stat-value'>
+                  {ownerRentedCount === null ? '-' : `${ownerRentedCount} 套`}
+                </Text>
+              </View>
+              <View className='owner-hero__stat owner-hero__stat--right'>
+                <Text className='owner-hero__stat-label'>本月实收</Text>
+                <Text className='owner-hero__stat-value'>
+                  {ownerMonthReceived === null
+                    ? '-'
+                    : formatMoney(ownerMonthReceived, ownerCurrency)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* 账单缴费入口（账单接口取数失败时不渲染，避免编造金额） */}
+          {ownerBillsOk && (
+            <View
+              className='bill-entry'
+              onClick={() => handleNavigate('/pages/owner/payments/index')}
+            >
+              <View className='bill-entry__icon icon-svg' style={iconStyle('card', 30)} />
+              <View className='bill-entry__body'>
+                <View className='bill-entry__title-row'>
+                  <Text className='bill-entry__title'>账单缴费</Text>
+                  <View className='badge badge--warning'>
+                    <Text>{ownerPendingBills.length} 笔待缴</Text>
+                  </View>
+                </View>
+                <Text className='bill-entry__desc'>
+                  待缴总额 {formatMoney(ownerPendingTotal, ownerBillsCurrency)} · 物业费 / 水电费 / 燃气费
+                </Text>
+              </View>
+              <View className='chevron' />
+            </View>
+          )}
+
+          <View className='section-title'>
+            <Text>常用功能</Text>
+          </View>
+          <View className='panel panel--list'>
+            {OWNER_MENU_ROWS.map(renderRow)}
+            {/* 我的房源：进入需带房源 id；名下无房源时降级到业主首页 */}
+            <View className='list-row' onClick={handleOwnerPropsPress}>
+              <View className='list-row__icon icon-svg' style={iconStyle('home', 34)} />
+              <View className='list-row__body'>
+                <Text className='list-row__label'>我的房源</Text>
+                <Text className='list-row__desc'>
+                  {ownerPropCount === null
+                    ? '房源信息加载中'
+                    : `${ownerPropCount} 套房源 · ${ownerRentedCount} 套在租`}
+                </Text>
+              </View>
+              <View className='chevron' />
             </View>
           </View>
 
           <View className='section-title'>
-            <Text>我的业务</Text>
+            <Text>设置</Text>
           </View>
-          <View className='panel panel--list'>{OWNER_BUSINESS_ROWS.map(renderRow)}</View>
-
-          {renderAccountSections()}
-
-          {renderAboutSection()}
+          <View className='panel panel--list'>
+            {OWNER_SETTING_ROWS.map((entry) => {
+              const value =
+                entry.key === 'account'
+                  ? user?.phone
+                    ? maskPhone(user.phone)
+                    : ''
+                  : entry.key === 'about'
+                    ? appVersion
+                      ? `HaoFang.World v${appVersion}`
+                      : ''
+                    : entry.value
+              return renderSettingRow({ ...entry, value })
+            })}
+          </View>
         </>
       )}
 

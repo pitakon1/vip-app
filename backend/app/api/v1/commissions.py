@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import require_admin, require_employee
-from app.core.pagination import PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import CommissionSettlement, Employee, SettlementStatus, User
 
 router = APIRouter(prefix="/commissions", tags=["commissions"])
@@ -26,7 +26,7 @@ def _get_employee(session: Session, user: User) -> Employee:
     return employee
 
 
-@router.get("/me")
+@router.get("/me", response_model=Page[CommissionSettlement])
 def my_commissions(
     pagination: PaginationParams = Depends(),
     status: SettlementStatus | None = None,
@@ -50,7 +50,7 @@ def my_commissions(
     return paginate_query(session, stmt, pagination)
 
 
-@router.get("")
+@router.get("", response_model=Page[CommissionSettlement])
 def list_commissions(
     pagination: PaginationParams = Depends(),
     status: SettlementStatus | None = None,

@@ -193,6 +193,20 @@ def seed_all():
             is_active=True,
         )
         session.add(employee)
+        # agent 角色与 employee 共用销售工作台（工作台/业绩/考勤等接口按 employee 档案取数），
+        # 因此也必须为其创建员工档案，否则 agent 登录后访问员工接口会 404。
+        agent_employee = Employee(
+            id=uuid.uuid4(),
+            user_id=agent.id,
+            employee_code="EMP002",
+            department="Sales",
+            position="Broker Agent",
+            hire_date=(datetime.now(timezone.utc) - timedelta(days=400)).date(),
+            phone="+66813456789",
+            wechat_id="broker_xiaoming",
+            is_active=True,
+        )
+        session.add(agent_employee)
         session.commit()
         session.refresh(employee)
 

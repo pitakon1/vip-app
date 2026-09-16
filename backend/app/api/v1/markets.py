@@ -1,13 +1,13 @@
 """多国扩张底座路由：市场配置、本地支付渠道、合规文档。"""
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate
 from app.models import (
     User,
     UserRole,
@@ -56,6 +56,54 @@ class ComplianceIn(BaseModel):
     version: str = "1.0"
 
 
+class MarketConfigOut(BaseModel):
+    """市场配置响应（与 _market_dict 输出一致）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    market_code: Optional[str] = None
+    country_name: Optional[str] = None
+    currency: Optional[str] = None
+    default_language: Optional[str] = None
+    timezone: Optional[str] = None
+    status: Optional[str] = None
+    published: Optional[bool] = None
+    license_required: Optional[bool] = None
+    vat_rate: Optional[float] = None
+    transfer_fee_rate: Optional[float] = None
+    pdpa_enabled: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+class PaymentChannelOut(BaseModel):
+    """本地支付渠道响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    market_code: Optional[str] = None
+    channel_code: Optional[str] = None
+    channel_name: Optional[str] = None
+    channel_type: Optional[str] = None
+    status: Optional[str] = None
+    supported_currency: Optional[str] = None
+
+
+class ComplianceDocOut(BaseModel):
+    """合规文档响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    market_code: Optional[str] = None
+    doc_type: Optional[str] = None
+    title: Optional[str] = None
+    language: Optional[str] = None
+    version: Optional[str] = None
+    effective_date: Optional[str] = None
+
+
 def _market_dict(m: MarketConfig) -> dict:
     return {
         "id": str(m.id),
@@ -74,7 +122,7 @@ def _market_dict(m: MarketConfig) -> dict:
     }
 
 
-@router.get("")
+@router.get("", response_model=Page[MarketConfigOut])
 def list_markets(
     published_only: bool = False,
     pagination: PaginationParams = Depends(),
@@ -119,7 +167,7 @@ def create_market(
     return _market_dict(m)
 
 
-@router.get("/channels")
+@router.get("/channels", response_model=List[PaymentChannelOut])
 def list_channels(
     market_code: Optional[str] = None,
     session: Session = Depends(get_session),
@@ -173,7 +221,7 @@ def create_channel(
     }
 
 
-@router.get("/compliance")
+@router.get("/compliance", response_model=List[ComplianceDocOut])
 def list_compliance(
     market_code: Optional[str] = None,
     session: Session = Depends(get_session),

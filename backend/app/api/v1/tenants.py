@@ -18,7 +18,7 @@ class TenantUpdate(BaseModel):
     monthly_income: Optional[float] = None
 
 
-@router.get("/me")
+@router.get("/me", response_model=Tenant)
 def get_my_tenant_info(
     session: Session = Depends(get_session),
     user: User = Depends(require_tenant),

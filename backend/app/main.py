@@ -6,6 +6,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Optional
 
 import structlog
 from fastapi import Depends, FastAPI, Request
@@ -13,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from pydantic import BaseModel, ConfigDict
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -48,6 +50,35 @@ _INTEGRATION_PROBES = [
     ("电子签", "CONTRACT_SIGNING_SECRET", False),
 ]
 _FALLBACK_SECRETS = (_DEFAULT_SECRET, "change-me-signing-secret")
+
+
+class RootInfoOut(BaseModel):
+    """根路由项目信息。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    name: Optional[str] = None
+    version: Optional[str] = None
+    docs: Optional[str] = None
+    health: Optional[str] = None
+
+
+class HealthOut(BaseModel):
+    """存活探针响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    status: Optional[str] = None
+    version: Optional[str] = None
+
+
+class ReadinessOut(BaseModel):
+    """就绪探针响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    status: Optional[str] = None
+    checks: Optional[dict] = None
 
 
 def _run_startup_selfcheck() -> None:
@@ -217,7 +248,7 @@ app.mount(
 )
 
 
-@app.get("/", tags=["root"])
+@app.get("/", response_model=RootInfoOut, tags=["root"])
 async def root():
     """根路由，返回项目信息。"""
     return {
@@ -228,7 +259,7 @@ async def root():
     }
 
 
-@app.get("/health", tags=["health"])
+@app.get("/health", response_model=HealthOut, tags=["health"])
 async def health_check():
     """存活探针（liveness）：进程能响应即 200，不探测外部依赖。
 
@@ -262,7 +293,7 @@ def _check_redis() -> dict:
         return {"status": "error", "detail": str(exc)[:200]}
 
 
-@app.get("/health/ready", tags=["health"])
+@app.get("/health/ready", response_model=ReadinessOut, tags=["health"])
 def readiness_check(response: Response):
     """就绪探针（readiness）：真实探测数据库与 Redis。
 

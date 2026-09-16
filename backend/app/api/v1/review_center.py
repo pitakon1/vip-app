@@ -3,7 +3,10 @@
 审核动作复用各业务既有端点（外勤 approve、报修 PATCH、服务订单 PATCH、合同流转），
 本模块只做聚合查询，便于管理端"待办审核中心"一屏查看。
 """
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select, desc
 
 from app.db import get_session
@@ -24,6 +27,31 @@ from app.models import (
 
 router = APIRouter(prefix="/review-center", tags=["review-center"])
 
+
+class ReviewTodoItemOut(BaseModel):
+    """聚合待办审核条目。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    type: Optional[str] = None
+    id: Optional[str] = None
+    title: Optional[str] = None
+    applicant: Optional[str] = None
+    reason: Optional[str] = None
+    status: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class ReviewTodoListOut(BaseModel):
+    """聚合待办审核列表。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    summary: Optional[dict] = None
+    total: Optional[int] = None
+    items: List[ReviewTodoItemOut] = Field(default_factory=list)
+    review_endpoints: Optional[dict] = None
+
 # 各业务"待审核"状态
 _TRIP_PENDING = [TripStatus.pending]
 _TICKET_PENDING = [
@@ -42,7 +70,7 @@ _CONTRACT_PENDING = [
 ]
 
 
-@router.get("/todos")
+@router.get("/todos", response_model=ReviewTodoListOut)
 def review_todos(
     session: Session = Depends(get_session),
     user: User = Depends(

@@ -98,7 +98,7 @@ def create_service_package(
     return package
 
 
-@router.get("/me")
+@router.get("/me", response_model=list[ServicePackage])
 def get_my_packages(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),
@@ -113,7 +113,7 @@ def get_my_packages(
     return packages
 
 
-@router.get("/{package_id}")
+@router.get("/{package_id}", response_model=ServicePackage)
 def get_service_package(
     package_id: uuid.UUID,
     session: Session = Depends(get_session),

@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.auth import get_current_user
 from app.core.events import publish_event
-from app.core.pagination import PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     ServiceOrder,
     ServiceType,
@@ -50,7 +50,7 @@ class ServiceOrderReview(BaseModel):
     comment: Optional[str] = Field(default=None, max_length=1000)
 
 
-@router.get("")
+@router.get("", response_model=Page[ServiceOrder])
 def list_service_orders(
     pagination: PaginationParams = Depends(),
     status: Optional[ServiceOrderStatus] = None,
@@ -105,7 +105,7 @@ def create_service_order(
     return order
 
 
-@router.get("/{order_id}")
+@router.get("/{order_id}", response_model=ServiceOrder)
 def get_service_order(
     order_id: uuid.UUID,
     session: Session = Depends(get_session),

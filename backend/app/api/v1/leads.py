@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.auth import get_current_user, require_agent
 from app.core.events import publish_event
-from app.core.pagination import PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import Lead, LeadStage, User
 
 router = APIRouter(prefix="/leads", tags=["leads"])
@@ -52,7 +52,7 @@ class LeadUpdate(BaseModel):
     source: Optional[str] = None
 
 
-@router.get("")
+@router.get("", response_model=Page[Lead])
 def list_leads(
     pagination: PaginationParams = Depends(),
     stage: Optional[LeadStage] = None,
@@ -92,7 +92,7 @@ def create_lead(
     return lead
 
 
-@router.get("/{lead_id}")
+@router.get("/{lead_id}", response_model=Lead)
 def get_lead(
     lead_id: uuid.UUID,
     session: Session = Depends(get_session),

@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, require_admin
-from app.core.pagination import PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import Notification, NotificationStatus, User
 from app.providers.notification.base import (
     NotificationChannel as ProviderChannel,
@@ -34,7 +34,7 @@ class DispatchRequest(BaseModel):
     metadata: Optional[dict] = None
 
 
-@router.get("/me")
+@router.get("/me", response_model=Page[Notification])
 def list_my_notifications(
     pagination: PaginationParams = Depends(),
     session: Session = Depends(get_session),

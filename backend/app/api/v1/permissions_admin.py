@@ -1,6 +1,8 @@
 """角色权限配置 API（管理员配置角色 - 权限点）。权限点：role:manage"""
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -13,12 +15,31 @@ from app.models import Permission, RolePermission, User, UserRole
 
 router = APIRouter(prefix="/admin/permissions", tags=["admin-permissions"])
 
+
+class PermissionsViewOut(BaseModel):
+    """权限点分组列表 + 每个角色的当前分配。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    categories: Optional[dict] = None
+    roles: Optional[dict] = None
+    meta: Optional[dict] = None
+
+
+class RolePermissionsOut(BaseModel):
+    """指定角色的权限点列表。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    role: Optional[str] = None
+    permissions: Optional[list] = None
+
 # 权限点由应用启动时的 seed_permissions 幂等补种（见 app.main lifespan）。
 # 此前这三个只读端点也在请求内调用 seed_permissions：每次请求约 45 次 SELECT + COMMIT，
 # 且把写操作混进了 GET，因此改为依赖启动种子 + 权限变更后失效缓存。
 
 
-@router.get("")
+@router.get("", response_model=PermissionsViewOut)
 def list_permissions(
     session: Session = Depends(get_session),
     user: User = Depends(require_permission("role:manage")),
@@ -44,7 +65,7 @@ def list_permissions(
     }
 
 
-@router.get("/roles/{role}")
+@router.get("/roles/{role}", response_model=RolePermissionsOut)
 def get_role_permissions(
     role: UserRole,
     session: Session = Depends(get_session),

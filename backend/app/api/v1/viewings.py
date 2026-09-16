@@ -8,15 +8,15 @@
 """
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, require_employee
-from app.core.pagination import PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     Employee,
     Property,
@@ -45,6 +45,38 @@ class ViewingUpdate(BaseModel):
     assigned_to: Optional[uuid.UUID] = None
     completed_at: Optional[datetime] = None
     cancel_reason: Optional[str] = None
+
+
+# ---------------- 响应模型（OpenAPI 契约） ----------------
+class ViewingOut(BaseModel):
+    """预约看房对外字段（含房源标题/地址等附加信息）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    property_id: Optional[str] = None
+    property_title: Optional[str] = None
+    property_address: Optional[str] = None
+    scheduled_at: Optional[str] = None
+    notes: Optional[str] = None
+    visitor_name: Optional[str] = None
+    visitor_phone: Optional[str] = None
+    visitor_email: Optional[str] = None
+    status: Optional[str] = None
+    assigned_to: Optional[str] = None
+    lead_id: Optional[str] = None
+    completed_at: Optional[str] = None
+    cancel_reason: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class ViewingListOut(BaseModel):
+    """我的预约列表（非分页结构：items + total）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    items: Optional[List[ViewingOut]] = None
+    total: Optional[int] = None
 
 
 def _can_manage(user: User, v: ViewingAppointment) -> bool:
@@ -101,7 +133,7 @@ def create_viewing(
     return _with_property(session, appointment)
 
 
-@router.get("")
+@router.get("", response_model=Page[ViewingOut])
 def list_viewings(
     pagination: PaginationParams = Depends(),
     status: Optional[ViewingStatus] = None,
@@ -126,7 +158,7 @@ def list_viewings(
     return page
 
 
-@router.get("/mine")
+@router.get("/mine", response_model=ViewingListOut)
 def list_my_viewings(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
@@ -143,7 +175,7 @@ def list_my_viewings(
     return {"items": [_with_property(session, v) for v in items], "total": len(items)}
 
 
-@router.get("/{viewing_id}")
+@router.get("/{viewing_id}", response_model=ViewingOut)
 def get_viewing(
     viewing_id: uuid.UUID,
     session: Session = Depends(get_session),

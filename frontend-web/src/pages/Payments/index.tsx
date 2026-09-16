@@ -46,8 +46,12 @@ const toDisplayType = (p: Payment): DisplayType => {
 interface QueryParams {
   page: number
   pageSize: number
-  status?: PaymentStatus
+  status?: string
   keyword?: string
+  payment_type?: string
+  channel?: string
+  date_from?: string
+  date_to?: string
 }
 
 const Payments = () => {
@@ -80,6 +84,10 @@ const Payments = () => {
         pageSize: queryParams.pageSize,
         status: queryParams.status,
         keyword: queryParams.keyword,
+        payment_type: queryParams.payment_type,
+        channel: queryParams.channel,
+        date_from: queryParams.date_from,
+        date_to: queryParams.date_to,
       })
       const payload = res.data?.data ?? res.data
       setData(payload?.items ?? [])
@@ -183,8 +191,20 @@ const Payments = () => {
     setQueryParams((p) => ({ ...p, keyword: value || undefined, page: 1 }))
   }
 
-  const handleStatusChange = (value: PaymentStatus | undefined) => {
+  const handleStatusChange = (value: string | undefined) => {
     setQueryParams((p) => ({ ...p, status: value, page: 1 }))
+  }
+
+  // 类型/方式/日期筛选：点击「筛选」后统一应用到列表查询
+  const handleApplyFilter = () => {
+    setQueryParams((p) => ({
+      ...p,
+      payment_type: filterType || undefined,
+      channel: filterMethod || undefined,
+      date_from: filterStart || undefined,
+      date_to: filterEnd || undefined,
+      page: 1,
+    }))
   }
 
   const openRefund = (record: Payment) => {
@@ -334,7 +354,7 @@ const Payments = () => {
             </svg>
             <input
               type="text"
-              placeholder="搜索租客 / 合同号"
+              placeholder="搜索租客姓名"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSearch((e.target as HTMLInputElement).value)
               }}
@@ -349,8 +369,12 @@ const Payments = () => {
           onChange={(e) => setFilterType(e.target.value)}
         >
           <option value="">全部类型</option>
-          <option value="income">收款</option>
-          <option value="expense">付款</option>
+          <option value="rent">租金</option>
+          <option value="deposit">押金</option>
+          <option value="commission">佣金</option>
+          <option value="service_fee">服务费</option>
+          <option value="utility">水电</option>
+          <option value="tax">税费</option>
           <option value="refund">退款</option>
         </select>
         <select
@@ -358,7 +382,7 @@ const Payments = () => {
           style={{ width: 'auto', minWidth: 120 }}
           aria-label="状态"
           value={queryParams.status || ''}
-          onChange={(e) => handleStatusChange((e.target.value || undefined) as PaymentStatus | undefined)}
+          onChange={(e) => handleStatusChange(e.target.value || undefined)}
         >
           <option value="">全部状态</option>
           <option value="succeeded">已完成</option>
@@ -374,11 +398,12 @@ const Payments = () => {
           onChange={(e) => setFilterMethod(e.target.value)}
         >
           <option value="">全部方式</option>
-          <option value="银行转账">银行转账</option>
-          <option value="信用卡">信用卡</option>
-          <option value="支付宝">支付宝</option>
-          <option value="微信">微信</option>
-          <option value="Wise">Wise</option>
+          <option value="promptpay">PromptPay</option>
+          <option value="bank_transfer">银行转账</option>
+          <option value="stripe">信用卡</option>
+          <option value="alipay">支付宝</option>
+          <option value="wechat">微信</option>
+          <option value="wise">Wise</option>
         </select>
         <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
           <input
@@ -399,7 +424,10 @@ const Payments = () => {
             onChange={(e) => setFilterEnd(e.target.value)}
           />
         </div>
-        <button className="rent-btn rent-btn--primary rent-btn--sm">
+        <button
+          className="rent-btn rent-btn--primary rent-btn--sm"
+          onClick={handleApplyFilter}
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
           </svg>
@@ -438,7 +466,10 @@ const Payments = () => {
                   const tMeta = typeMeta[dt]
                   const code = (p as any).code || `PMT-${p.id}`
                   const tenantName = (p as any).tenant_name || p.lease_id || '-'
-                  const contractCode = (p as any).contract_code || p.lease_id || '-'
+                  // 后端 Lease 无合同号字段：以租约 ID 前 8 位生成可读合同编号
+                  const contractCode =
+                    (p as any).contract_code ||
+                    (p.lease_id ? `LS-${String(p.lease_id).slice(0, 8).toUpperCase()}` : '-')
                   const date = p.paid_at || p.due_date || '-'
                   const channel = p.channel || '-'
                   const isRefundable = ds === 'overdue'

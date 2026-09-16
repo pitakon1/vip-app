@@ -4,15 +4,15 @@
 """
 
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate
 from app.models import Favorite, Property, User
 
 router = APIRouter(prefix="/favorites", tags=["favorites"])
@@ -21,6 +21,35 @@ router = APIRouter(prefix="/favorites", tags=["favorites"])
 class FavoriteToggle(BaseModel):
     property_id: uuid.UUID
     notes: Optional[str] = None
+
+
+class FavoriteItemOut(BaseModel):
+    """`GET /favorites` 中的单条收藏（附带房源标题/地址/月租金）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    property_id: Optional[str] = None
+    title: Optional[str] = None
+    room_number: Optional[str] = None
+    address: Optional[str] = None
+    monthly_rent: Optional[float] = None
+    currency: Optional[str] = None
+    property_type: Optional[str] = None
+    photo: Optional[Any] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class FavoriteStatusOut(BaseModel):
+    """`GET /favorites/status/{property_id}`。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    ok: Optional[bool] = None
+    property_id: Optional[str] = None
+    favorited: Optional[bool] = None
 
 
 @router.post("")
@@ -80,7 +109,7 @@ def remove_favorite(
     return {"ok": True, "favorited": False, "property_id": str(property_id)}
 
 
-@router.get("")
+@router.get("", response_model=Page[FavoriteItemOut])
 def list_favorites(
     pagination: PaginationParams = Depends(),
     session: Session = Depends(get_session),
@@ -121,7 +150,7 @@ def list_favorites(
     return paginate(items[offset : offset + limit], total, pagination)
 
 
-@router.get("/status/{property_id}")
+@router.get("/status/{property_id}", response_model=FavoriteStatusOut)
 def get_favorite_status(
     property_id: uuid.UUID,
     session: Session = Depends(get_session),

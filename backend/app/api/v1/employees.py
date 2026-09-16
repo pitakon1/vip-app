@@ -4,14 +4,16 @@
 不再读取手动填报的 performances 表。
 """
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import require_admin, require_employee
-from app.core.pagination import PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     CommissionSettlement,
     Employee,
@@ -29,7 +31,150 @@ from app.models import (
 router = APIRouter(prefix="/employees", tags=["employees"])
 
 
-@router.get("")
+# ---------------- 响应模型（OpenAPI 契约） ----------------
+class EmployeeListItem(BaseModel):
+    """员工列表项：员工档案全字段 + 账号姓名/邮箱等附加信息。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[uuid.UUID] = None
+    user_id: Optional[uuid.UUID] = None
+    employee_code: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
+    hire_date: Optional[date] = None
+    phone: Optional[str] = None
+    line_id: Optional[str] = None
+    wechat_id: Optional[str] = None
+    is_active: Optional[bool] = None
+    manager_id: Optional[uuid.UUID] = None
+    broker_id: Optional[uuid.UUID] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
+    metadata_: Optional[Dict[str, Any]] = None
+    version: Optional[int] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    employee_no: Optional[str] = None
+    status: Optional[str] = None
+
+
+class EmployeeDirectoryItem(BaseModel):
+    """通讯录条目（仅协作所需联系方式，不含敏感字段）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    employee_no: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    position: Optional[str] = None
+    department: Optional[str] = None
+    phone: Optional[str] = None
+    wechat: Optional[str] = None
+    line: Optional[str] = None
+
+
+class EmployeeDirectoryOut(BaseModel):
+    """通讯录响应：条目列表 + 总数 + 部门下拉数据。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    items: Optional[List[EmployeeDirectoryItem]] = None
+    total: Optional[int] = None
+    departments: Optional[List[str]] = None
+
+
+class EmployeeLeaderboardRow(BaseModel):
+    """员工业绩排行榜条目。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    full_name: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
+    performance: Optional[float] = None
+    deals: Optional[int] = None
+    is_self: Optional[bool] = None
+
+
+class EmployeePerformanceItem(BaseModel):
+    """员工业绩明细（佣金结算记录）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    lease_id: Optional[str] = None
+    deal_type: Optional[str] = None
+    commission_base: Optional[float] = None
+    commission_rate: Optional[float] = None
+    commission_amount: Optional[float] = None
+    currency: Optional[str] = None
+    status: Optional[str] = None
+    created_at: Optional[str] = None
+    settled_at: Optional[str] = None
+
+
+class WorkbenchSummary(BaseModel):
+    """工作台汇总指标。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    lease_count: Optional[int] = None
+    pending_receivable: Optional[int] = None
+    overdue_receivable: Optional[int] = None
+    open_maintenance: Optional[int] = None
+    avg_resolve_hours: Optional[float] = None
+
+
+class FollowUpLeaseItem(BaseModel):
+    """工作台-即将到期租约条目。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    lease_id: Optional[str] = None
+    property_title: Optional[str] = None
+    monthly_rent: Optional[float] = None
+    currency: Optional[str] = None
+    end_date: Optional[str] = None
+    days_to_expire: Optional[int] = None
+
+
+class ReceivableItem(BaseModel):
+    """工作台-应收租金单条目。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    payment_id: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    due_date: Optional[str] = None
+    is_overdue: Optional[bool] = None
+    status: Optional[str] = None
+
+
+class ReceivablesBucket(BaseModel):
+    """工作台-应收分组（待收/逾期）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    pending: Optional[List[ReceivableItem]] = None
+    overdue: Optional[List[ReceivableItem]] = None
+
+
+class EmployeeWorkbenchOut(BaseModel):
+    """员工工作台聚合响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    summary: Optional[WorkbenchSummary] = None
+    follow_up_leases: Optional[List[FollowUpLeaseItem]] = None
+    receivables: Optional[ReceivablesBucket] = None
+
+
+@router.get("", response_model=Page[EmployeeListItem])
 def list_employees(
     pagination: PaginationParams = Depends(),
     department: str | None = None,
@@ -58,7 +203,7 @@ def list_employees(
     return page
 
 
-@router.get("/directory")
+@router.get("/directory", response_model=EmployeeDirectoryOut)
 def employee_directory(
     keyword: str | None = None,
     department: str | None = None,
@@ -127,7 +272,7 @@ def employee_directory(
     }
 
 
-@router.get("/me")
+@router.get("/me", response_model=Employee)
 def get_my_employee_info(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
@@ -144,7 +289,7 @@ def get_my_employee_info(
     return employee
 
 
-@router.get("/leaderboard")
+@router.get("/leaderboard", response_model=List[EmployeeLeaderboardRow])
 def get_leaderboard(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
@@ -188,7 +333,7 @@ def get_leaderboard(
     return result[:20]
 
 
-@router.get("/{employee_id}/performance")
+@router.get("/{employee_id}/performance", response_model=List[EmployeePerformanceItem])
 def get_employee_performance(
     employee_id: uuid.UUID,
     session: Session = Depends(get_session),
@@ -220,7 +365,7 @@ def get_employee_performance(
     ]
 
 
-@router.get("/workbench")
+@router.get("/workbench", response_model=EmployeeWorkbenchOut)
 def get_employee_workbench(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),

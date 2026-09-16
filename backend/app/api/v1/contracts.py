@@ -8,8 +8,10 @@
 """
 import uuid
 from datetime import datetime
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -20,6 +22,45 @@ from app.models import (
 from app.services import esign_service
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
+
+
+class ContractSummary(BaseModel):
+    """合同列表条目。"""
+
+    id: Optional[str] = None
+    title: Optional[str] = None
+    status: Optional[str] = None
+    language: Optional[str] = None
+    document_hash: Optional[str] = None
+    created_at: Optional[str] = None
+    signed_at: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class ContractPartyResponse(BaseModel):
+    """合同签署方。"""
+
+    id: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    signed: Optional[bool] = None
+    signed_at: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class ContractDetailResponse(BaseModel):
+    """合同详情（含当事人）。"""
+
+    id: Optional[str] = None
+    title: Optional[str] = None
+    status: Optional[str] = None
+    language: Optional[str] = None
+    document_hash: Optional[str] = None
+    content_html: Optional[str] = None
+    created_at: Optional[str] = None
+    parties: Optional[List[ContractPartyResponse]] = None
+    model_config = ConfigDict(extra="allow")
 
 
 @router.post("/generate")
@@ -134,7 +175,7 @@ def sign_contract(
     return {"party_id": str(party.id), "signed": True, "signature_hash": sig_hash}
 
 
-@router.get("")
+@router.get("", response_model=List[ContractSummary])
 def list_contracts(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
@@ -154,7 +195,7 @@ def list_contracts(
     ]
 
 
-@router.get("/{contract_id}")
+@router.get("/{contract_id}", response_model=ContractDetailResponse)
 def get_contract(
     contract_id: uuid.UUID,
     session: Session = Depends(get_session),

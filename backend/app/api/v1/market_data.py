@@ -5,16 +5,16 @@
 """
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
 from app.core.events import publish_event
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate
 from app.models import (
     User,
     UserRole,
@@ -82,6 +82,78 @@ def _notify_user(
     return True
 
 
+class MarketIndexOut(BaseModel):
+    """市场指数响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    market_code: Optional[str] = None
+    index_type: Optional[str] = None
+    period: Optional[str] = None
+    value: Optional[float] = None
+    delta_pct: Optional[float] = None
+    sample_count: Optional[int] = None
+    avg_price_sqm: Optional[float] = None
+    avg_rent: Optional[float] = None
+    currency: Optional[str] = None
+
+
+class MarketReportOut(BaseModel):
+    """市场报告响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    market_code: Optional[str] = None
+    report_type: Optional[str] = None
+    area: Optional[str] = None
+    property_type: Optional[str] = None
+    period: Optional[str] = None
+    summary: Optional[str] = None
+    published_at: Optional[str] = None
+
+
+class PropertyMatchOut(BaseModel):
+    """房源匹配结果响应（含房源信息与推送状态）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    lead_id: Optional[str] = None
+    user_id: Optional[str] = None
+    property_id: Optional[str] = None
+    room_number: Optional[str] = None
+    address: Optional[str] = None
+    monthly_rent: Optional[float] = None
+    currency: Optional[str] = None
+    score: Optional[int] = None
+    reason: Optional[str] = None
+    seen: Optional[bool] = None
+    notified_at: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class ChurnSignalOut(BaseModel):
+    """流失预警信号响应（含跟进人姓名）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    tenant_id: Optional[str] = None
+    user_id: Optional[str] = None
+    lease_id: Optional[str] = None
+    signal_type: Optional[str] = None
+    level: Optional[str] = None
+    detail: Optional[str] = None
+    triggered_at: Optional[str] = None
+    is_resolved: Optional[bool] = None
+    suggested_action: Optional[str] = None
+    assigned_to: Optional[str] = None
+    assigned_to_name: Optional[str] = None
+    assigned_at: Optional[str] = None
+
+
 class IndexIn(BaseModel):
     market_code: str
     index_type: str = "sale"
@@ -118,7 +190,7 @@ class MatchNotifyIn(BaseModel):
     user_id: Optional[uuid.UUID] = None
 
 
-@router.get("/indices")
+@router.get("/indices", response_model=List[MarketIndexOut])
 def list_indices(
     market_code: Optional[str] = None,
     index_type: Optional[str] = None,
@@ -181,7 +253,7 @@ def create_index(
     return {"id": str(idx.id), "market_code": idx.market_code, "period": idx.period, "value": idx.value}
 
 
-@router.get("/reports")
+@router.get("/reports", response_model=Page[MarketReportOut])
 def list_reports(
     market_code: Optional[str] = None,
     period: Optional[str] = None,
@@ -319,7 +391,7 @@ def compute_matches(
     }
 
 
-@router.get("/matches")
+@router.get("/matches", response_model=List[PropertyMatchOut])
 def list_matches(
     lead_id: Optional[uuid.UUID] = None,
     user_id: Optional[uuid.UUID] = None,
@@ -469,7 +541,7 @@ def _resolve_assignee(
     return employee
 
 
-@router.get("/churn-signals")
+@router.get("/churn-signals", response_model=Page[ChurnSignalOut])
 def list_churn_signals(
     level: Optional[str] = None,
     is_resolved: Optional[bool] = None,

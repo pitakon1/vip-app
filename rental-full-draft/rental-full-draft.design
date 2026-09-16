@@ -2136,7 +2136,7 @@
           },
           {
             "domId": "nav-owner-mobile-settings",
-            "targetPageId": "page-owner-mobile-payments",
+            "targetPageId": "page-owner-mobile-settings",
             "hideEdge": true
           },
           {
@@ -2185,7 +2185,7 @@
           },
           {
             "domId": "nav-owner-mobile-settings",
-            "targetPageId": "page-owner-mobile-payments",
+            "targetPageId": "page-owner-mobile-settings",
             "hideEdge": true
           },
           {
@@ -2234,7 +2234,7 @@
           },
           {
             "domId": "nav-owner-mobile-settings",
-            "targetPageId": "page-owner-mobile-payments",
+            "targetPageId": "page-owner-mobile-settings",
             "hideEdge": true
           },
           {
@@ -2283,7 +2283,7 @@
           },
           {
             "domId": "nav-owner-mobile-settings",
-            "targetPageId": "page-owner-mobile-payments",
+            "targetPageId": "page-owner-mobile-settings",
             "hideEdge": true
           },
           {
@@ -2334,6 +2334,79 @@
             "domId": "nav-owner-mobile-services",
             "targetPageId": "page-owner-mobile-services",
             "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-settings",
+            "targetPageId": "page-owner-mobile-settings",
+            "hideEdge": true
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
+            "hideEdge": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-owner-mobile-settings",
+      "title": "我的(App)",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1785900283900,
+      "canvasData": {
+        "x": 2000,
+        "y": 4750,
+        "group": 6,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1020,
+          "viewportWidth": 375,
+          "sourceHash": "fnv1a-omob-set",
+          "measuredAt": 1785900283900
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/owner-mobile-settings.html",
+        "interactions": [
+          {
+            "domId": "nav-owner-mobile-dashboard",
+            "targetPageId": "page-owner-mobile-dashboard",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-income",
+            "targetPageId": "page-owner-mobile-income",
+            "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mobile-services",
+            "targetPageId": "page-owner-mobile-services",
+            "hideEdge": true
+          },
+          {
+            "domId": "link-owner-mobile-income",
+            "targetPageId": "page-owner-mobile-income"
+          },
+          {
+            "domId": "link-owner-mobile-services",
+            "targetPageId": "page-owner-mobile-services"
+          },
+          {
+            "domId": "link-owner-mobile-documents",
+            "targetPageId": "page-owner-mobile-documents"
+          },
+          {
+            "domId": "link-owner-mobile-consign",
+            "targetPageId": "page-owner-mobile-consign"
+          },
+          {
+            "domId": "link-owner-mobile-property-detail",
+            "targetPageId": "page-owner-mobile-property-detail"
+          },
+          {
+            "domId": "link-owner-mobile-payments",
+            "targetPageId": "page-owner-mobile-payments"
           },
           {
             "domId": "back-login",
@@ -4735,6 +4808,11 @@
             "domId": "nav-owner-mini-services",
             "targetPageId": "page-owner-mini-services",
             "hideEdge": true
+          },
+          {
+            "domId": "nav-owner-mini-settings",
+            "targetPageId": "page-owner-mini-settings",
+            "hideEdge": true
           }
         ]
       }
@@ -5142,7 +5220,7 @@
     },
     {
       "id": "page-owner-mini-settings",
-      "title": "付款设置(小程序)",
+      "title": "我的(小程序)",
       "type": "page",
       "version": 1,
       "createdAt": 1785821921828,
@@ -5152,7 +5230,7 @@
         "group": 8,
         "layoutSnapshot": {
           "version": 1,
-          "contentHeight": 812,
+          "contentHeight": 1020,
           "viewportWidth": 375,
           "sourceHash": "fnv1a-ownmini-set",
           "measuredAt": 1785821921828
@@ -5172,13 +5250,37 @@
             "hideEdge": true
           },
           {
-            "domId": "nav-owner-mini-documents",
-            "targetPageId": "page-owner-mini-documents",
+            "domId": "nav-owner-mini-services",
+            "targetPageId": "page-owner-mini-services",
             "hideEdge": true
           },
           {
-            "domId": "nav-owner-mini-services",
-            "targetPageId": "page-owner-mini-services",
+            "domId": "link-owner-mini-income",
+            "targetPageId": "page-owner-mini-income"
+          },
+          {
+            "domId": "link-owner-mini-services",
+            "targetPageId": "page-owner-mini-services"
+          },
+          {
+            "domId": "link-owner-mini-documents",
+            "targetPageId": "page-owner-mini-documents"
+          },
+          {
+            "domId": "link-owner-mini-consign",
+            "targetPageId": "page-owner-mini-consign"
+          },
+          {
+            "domId": "link-owner-mini-property-detail",
+            "targetPageId": "page-owner-mini-property-detail"
+          },
+          {
+            "domId": "link-owner-mini-payments",
+            "targetPageId": "page-owner-mini-payments"
+          },
+          {
+            "domId": "back-login",
+            "targetPageId": "page-login",
             "hideEdge": true
           }
         ]

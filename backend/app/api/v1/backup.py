@@ -3,7 +3,10 @@
 - POST /backup/run    手动触发一次备份（每日由 Celery 定时任务触发 backup_type=daily）
 - GET  /backup/jobs   备份任务记录
 """
+from typing import Optional
+
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -12,6 +15,20 @@ from app.models import User, BackupJob, BackupType
 from app.services import backup_service
 
 router = APIRouter(prefix="/backup", tags=["backup"])
+
+
+class BackupJobOut(BaseModel):
+    """备份任务记录。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    type: Optional[str] = None
+    status: Optional[str] = None
+    file_path: Optional[str] = None
+    size_bytes: Optional[int] = None
+    error: Optional[str] = None
+    created_at: Optional[str] = None
 
 
 @router.post("/run")
@@ -31,7 +48,7 @@ def run_backup(
     }
 
 
-@router.get("/jobs")
+@router.get("/jobs", response_model=list[BackupJobOut])
 def list_jobs(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),

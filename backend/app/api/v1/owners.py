@@ -1,10 +1,10 @@
 """业主路由：业主个人信息、房源与租金收入。"""
 from collections import defaultdict
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -31,6 +31,79 @@ class OwnerUpdate(BaseModel):
     contact_preference: Optional[str] = None
 
 
+class MarketingItemOut(BaseModel):
+    """`GET /owners/me/marketing` 中的单条可推广房源。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    title: Optional[str] = None
+    address: Optional[str] = None
+    monthly_rent: Optional[float] = None
+    currency: Optional[str] = None
+    property_type: Optional[str] = None
+    size_sqm: Optional[float] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    photo: Optional[Any] = None
+    status: Optional[str] = None
+    share_url: Optional[str] = None
+
+
+class MarketingOut(BaseModel):
+    """`GET /owners/me/marketing`。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    items: List[MarketingItemOut] = Field(default_factory=list)
+    total_vacant: Optional[int] = None
+    total_properties: Optional[int] = None
+
+
+class PricingSuggestionDetailOut(BaseModel):
+    """`GET /owners/me/pricing-suggestion` 中单条建议明细。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    direction: Optional[str] = None
+    diff_pct: Optional[float] = None
+    suggested: Optional[float] = None
+
+
+class PricingItemOut(BaseModel):
+    """`GET /owners/me/pricing-suggestion` 中的单条房源比价结果。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    property_id: Optional[str] = None
+    title: Optional[str] = None
+    monthly_rent: Optional[float] = None
+    currency: Optional[str] = None
+    property_type: Optional[str] = None
+    peer_count: Optional[int] = None
+    peer_avg: Optional[float] = None
+    peer_range: Optional[List[Optional[float]]] = None
+    suggestion: Optional[PricingSuggestionDetailOut] = None
+
+
+class PricingMarketOut(BaseModel):
+    """`GET /owners/me/pricing-suggestion` 中的市场基准说明。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    based_on: Optional[str] = None
+    currency: Optional[str] = None
+
+
+class PricingSuggestionOut(BaseModel):
+    """`GET /owners/me/pricing-suggestion`。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    items: List[PricingItemOut] = Field(default_factory=list)
+    market: Optional[PricingMarketOut] = None
+
+
 def _get_owner(session: Session, user: User) -> Owner:
     """根据当前用户获取业主记录。"""
     owner = session.exec(
@@ -44,7 +117,7 @@ def _get_owner(session: Session, user: User) -> Owner:
     return owner
 
 
-@router.get("/me")
+@router.get("/me", response_model=Owner)
 def get_my_owner_info(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),
@@ -70,7 +143,7 @@ def update_my_owner_info(
     return owner
 
 
-@router.get("/me/properties")
+@router.get("/me/properties", response_model=List[Property])
 def get_my_properties(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),
@@ -96,7 +169,7 @@ def get_my_properties(
     return properties
 
 
-@router.get("/me/documents")
+@router.get("/me/documents", response_model=List[Document])
 def get_my_documents(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),
@@ -234,7 +307,7 @@ def _my_properties(session: Session, owner: Owner) -> list:
     ).all()
 
 
-@router.get("/me/marketing")
+@router.get("/me/marketing", response_model=MarketingOut)
 def get_marketing(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),
@@ -268,7 +341,7 @@ def get_marketing(
     }
 
 
-@router.get("/me/pricing-suggestion")
+@router.get("/me/pricing-suggestion", response_model=PricingSuggestionOut)
 def get_pricing_suggestion(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),

@@ -321,6 +321,9 @@ const Contacts = () => {
           {visible.map((e) => {
             const tone = getTone(e)
             const initial = (e.full_name || '?').charAt(0)
+            // 社交链接：有联系方式才可跳转，缺失时点击改为复制该字段
+            const waLink = e.phone ? `https://wa.me/${e.phone.replace(/\D/g, '')}` : null
+            const lineLink = e.line ? `https://line.me/R/ti/p/${encodeURIComponent(e.line)}` : null
             return (
               <div className="rent-card" key={e.id}>
                 <div className="rent-card__body rent-contact-card__body">
@@ -347,34 +350,56 @@ const Contacts = () => {
                   </div>
                   <div className="rent-contact-social">
                     <a
-                      href="#"
-                      title="WhatsApp"
+                      href={waLink || '#'}
+                      title={e.phone ? `WhatsApp：${e.phone}` : 'WhatsApp'}
                       className="rent-contact-social__btn rent-contact-social__btn--wa"
-                      onClick={(ev) => ev.preventDefault()}
+                      onClick={(ev) => {
+                        if (!waLink) {
+                          ev.preventDefault()
+                          handleCopy(e.phone || '', '手机号')
+                        }
+                      }}
+                      target={waLink ? '_blank' : undefined}
+                      rel="noreferrer"
                     >
                       <IconWa size={16} />
                     </a>
                     <a
                       href="#"
-                      title="WeChat"
+                      title={e.wechat ? `微信号：${e.wechat}` : 'WeChat'}
                       className="rent-contact-social__btn rent-contact-social__btn--wc"
-                      onClick={(ev) => ev.preventDefault()}
+                      onClick={(ev) => {
+                        ev.preventDefault()
+                        handleCopy(e.wechat || '', '微信号')
+                      }}
                     >
                       <IconWc size={16} />
                     </a>
                     <a
-                      href="#"
-                      title="Line"
+                      href={lineLink || '#'}
+                      title={e.line ? `Line：${e.line}` : 'Line'}
                       className="rent-contact-social__btn rent-contact-social__btn--line"
-                      onClick={(ev) => ev.preventDefault()}
+                      onClick={(ev) => {
+                        if (!lineLink) {
+                          ev.preventDefault()
+                          handleCopy(e.line || '', 'Line ID')
+                        }
+                      }}
+                      target={lineLink ? '_blank' : undefined}
+                      rel="noreferrer"
                     >
                       <IconLine size={16} />
                     </a>
                   </div>
                   <a
-                    href="#"
+                    href={e.email ? `mailto:${e.email}` : '#'}
                     className="rent-btn rent-btn--primary rent-btn--sm rent-btn--block"
-                    onClick={(ev) => ev.preventDefault()}
+                    onClick={(ev) => {
+                      if (!e.email) {
+                        ev.preventDefault()
+                        handleCopy(e.email || '', '邮箱')
+                      }
+                    }}
                   >
                     <IconMsg size={14} />
                     发送消息

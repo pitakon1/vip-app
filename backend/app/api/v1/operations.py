@@ -8,8 +8,10 @@
 权限点：data:view（与经营数据查看一致）
 """
 from datetime import datetime, timedelta
+from typing import Optional
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import case as sa_case
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -30,6 +32,48 @@ from app.models import (
 )
 
 router = APIRouter(prefix="/operations", tags=["operations"])
+
+
+class OperationsOverviewOut(BaseModel):
+    """运营数据看板聚合。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    funnel: Optional[list] = None
+    leads_by_stage: Optional[dict] = None
+    activity: Optional[dict] = None
+    by_country: Optional[list] = None
+    sources: Optional[list] = None
+    revenue: Optional[dict] = None
+
+
+class ActivityTrendOut(BaseModel):
+    """活跃趋势（day / week / month 上卷）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    granularity: Optional[str] = None
+    days: Optional[int] = None
+    series: Optional[dict] = None
+
+
+class CountryDetailOut(BaseModel):
+    """国家下钻：按城市聚合房源 / 在租 / 出租率。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    country: Optional[str] = None
+    total_properties: Optional[int] = None
+    cities: Optional[list] = None
+
+
+class DailyTrendOut(BaseModel):
+    """近 N 日活跃趋势（按日）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    days: Optional[int] = None
+    daily: Optional[dict] = None
 
 # 看板聚合较重（十余次查询），加短 TTL 缓存；管理员查看容忍分钟级延迟
 OVERVIEW_CACHE_KEY = "operations:overview"
@@ -74,7 +118,7 @@ def _daily_active(session: Session, days: int) -> dict[str, int]:
     return out
 
 
-@router.get("/overview")
+@router.get("/overview", response_model=OperationsOverviewOut)
 def operations_overview(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
@@ -212,7 +256,7 @@ def operations_overview(
     return payload
 
 
-@router.get("/activity")
+@router.get("/activity", response_model=ActivityTrendOut)
 def operations_activity(
     days: int = 30,
     granularity: str = "day",
@@ -268,7 +312,7 @@ def operations_activity(
     }
 
 
-@router.get("/country/{country}")
+@router.get("/country/{country}", response_model=CountryDetailOut)
 def operations_country_detail(
     country: str,
     session: Session = Depends(get_session),
@@ -307,7 +351,7 @@ def operations_country_detail(
     return {"country": country, "total_properties": total_props, "cities": cities}
 
 
-@router.get("/trend")
+@router.get("/trend", response_model=DailyTrendOut)
 def operations_activity_trend(
     days: int = 30,
     session: Session = Depends(get_session),

@@ -4,7 +4,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.db import get_session
 from app.core.rate_limit import AUTH_LIMIT, limiter
@@ -50,6 +50,17 @@ class RegisterRequest(BaseModel):
     full_name: str
     role: UserRole = UserRole.tenant
     phone: str | None = None
+
+
+class UserMeOut(BaseModel):
+    """`GET /auth/me`：当前登录用户摘要。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str | None = None
+    email: str | None = None
+    full_name: str | None = None
+    role: str | None = None
 
 
 def _build_token_response(user: User) -> TokenResponse:
@@ -179,7 +190,7 @@ def logout(
     )
 
 
-@router.get("/me")
+@router.get("/me", response_model=UserMeOut)
 def get_me(current_user: User = Depends(get_current_user)):
     return {
         "id": str(current_user.id),

@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -209,7 +209,7 @@ def create_lease(
     return lease
 
 
-@router.get("/me")
+@router.get("/me", response_model=List[Lease])
 def get_my_leases(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
@@ -228,7 +228,7 @@ def get_my_leases(
     return leases
 
 
-@router.get("/{lease_id}")
+@router.get("/{lease_id}", response_model=Lease)
 def get_lease(
     lease_id: uuid.UUID,
     session: Session = Depends(get_session),

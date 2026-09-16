@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, require_agent
-from app.core.pagination import PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import Project, User
 from app.providers.geo import geo_provider
 
@@ -49,7 +49,7 @@ class ProjectUpdate(BaseModel):
     amenities: Optional[Dict[str, Any]] = None
 
 
-@router.get("")
+@router.get("", response_model=Page[Project])
 def list_projects(
     pagination: PaginationParams = Depends(),
     district: Optional[str] = None,
@@ -88,7 +88,7 @@ def create_project(
     return project
 
 
-@router.get("/{project_id}")
+@router.get("/{project_id}", response_model=Project)
 def get_project(
     project_id: uuid.UUID,
     session: Session = Depends(get_session),

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import exists, or_
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
@@ -84,6 +84,64 @@ class PropertyUpdate(BaseModel):
     video_url: Optional[str] = None
     # 可选乐观锁：客户端传回读到的 version，服务端不一致则 409 拒绝覆盖
     version: Optional[int] = None
+
+
+class PropertyDetail(BaseModel):
+    """房源详情响应（含项目名称与业主名称，覆盖 model_dump 全字段）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[uuid.UUID] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
+    metadata_: Optional[dict] = None
+    version: Optional[int] = None
+    project_id: Optional[uuid.UUID] = None
+    owner_id: Optional[uuid.UUID] = None
+    room_number: Optional[str] = None
+    floor: Optional[int] = None
+    building: Optional[str] = None
+    address: Optional[str] = None
+    property_type: Optional[str] = None
+    monthly_rent: Optional[float] = None
+    currency: Optional[str] = None
+    deposit_amount: Optional[float] = None
+    deposit_months: Optional[int] = None
+    size_sqm: Optional[float] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    status: Optional[PropertyStatus] = None
+    description: Optional[str] = None
+    photos: Optional[list] = None
+    furnished: Optional[bool] = None
+    available_from: Optional[datetime] = None
+    video_url: Optional[str] = None
+    project_name: Optional[str] = None
+    owner_name: Optional[str] = None
+
+
+class PropertyLeaseItem(BaseModel):
+    """房源租约列表项（附带租客名称）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    status: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    monthly_rent: Optional[float] = None
+    currency: Optional[str] = None
+    tenant_id: Optional[str] = None
+    tenant_name: Optional[str] = None
+
+
+class PropertyLeaseList(BaseModel):
+    """房源租约列表响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    items: List[PropertyLeaseItem] = []
 
 
 def _keyword_conditions(terms: List[str]) -> list:
@@ -328,7 +386,7 @@ def list_property_map_points(
     ]
 
 
-@router.get("/{property_id}")
+@router.get("/{property_id}", response_model=PropertyDetail)
 def get_property(
     property_id: uuid.UUID,
     session: Session = Depends(get_session),
@@ -392,7 +450,7 @@ def delete_property(
     return {"detail": "Property deleted"}
 
 
-@router.get("/{property_id}/leases")
+@router.get("/{property_id}/leases", response_model=PropertyLeaseList)
 def list_property_leases(
     property_id: uuid.UUID,
     session: Session = Depends(get_session),

@@ -5,8 +5,10 @@
 """
 import uuid
 from datetime import date, datetime
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -19,6 +21,92 @@ from app.config import settings
 from app.providers.geo import geo_provider, is_within_radius
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
+
+
+# ---------------- 响应模型（OpenAPI 契约） ----------------
+class OfficeLocation(BaseModel):
+    """公司基准点坐标。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
+class TodayAttendanceOut(BaseModel):
+    """今日考勤状态 + 定位半径信息。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    checked_in: Optional[bool] = None
+    checked_out: Optional[bool] = None
+    status: Optional[str] = None
+    check_in_time: Optional[str] = None
+    check_out_time: Optional[str] = None
+    check_in_location: Optional[Dict[str, Any]] = None
+    check_out_location: Optional[Dict[str, Any]] = None
+    radius_km: Optional[float] = None
+    office: Optional[OfficeLocation] = None
+
+
+class ExternalTripOut(BaseModel):
+    """外勤/出差申请条目。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    trip_date: Optional[str] = None
+    to_location: Optional[str] = None
+    reason: Optional[str] = None
+    status: Optional[str] = None
+    reply_note: Optional[str] = None
+
+
+class AttendanceDateRange(BaseModel):
+    """考勤核对-日期区间。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    start: Optional[str] = None
+    end: Optional[str] = None
+    days: Optional[int] = None
+
+
+class AttendanceDayRow(BaseModel):
+    """考勤核对-单日记录。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    date: Optional[str] = None
+    status: Optional[str] = None
+    check_in: Optional[str] = None
+    check_out: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class AttendanceAdminRecord(BaseModel):
+    """考勤核对-单员工记录。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    employee_id: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    department: Optional[str] = None
+    employee_code: Optional[str] = None
+    days: Optional[List[AttendanceDayRow]] = None
+
+
+class AttendanceAdminRecordsOut(BaseModel):
+    """考勤核对-全员明细与汇总。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    range: Optional[AttendanceDateRange] = None
+    total_employees: Optional[int] = None
+    summary: Optional[Dict[str, int]] = None
+    department: Optional[str] = None
+    records: Optional[List[AttendanceAdminRecord]] = None
 
 
 def _get_employee(session: Session, user: User) -> Employee:
@@ -138,7 +226,7 @@ def check_out(
     return attendance
 
 
-@router.get("/today")
+@router.get("/today", response_model=TodayAttendanceOut)
 def today_attendance(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
@@ -181,7 +269,7 @@ def today_attendance(
     return base
 
 
-@router.get("/me")
+@router.get("/me", response_model=List[Attendance])
 def my_attendance(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
@@ -229,7 +317,7 @@ def apply_external_trip(
     }
 
 
-@router.get("/external-trips")
+@router.get("/external-trips", response_model=List[ExternalTripOut])
 def list_external_trips(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
@@ -278,7 +366,7 @@ def approve_external_trip(
 # ---------------------------------------------------------------------------
 # 管理员考勤核对：查看全部员工的考勤记录与汇总
 # ---------------------------------------------------------------------------
-@router.get("/admin/records")
+@router.get("/admin/records", response_model=AttendanceAdminRecordsOut)
 def admin_attendance_records(
     start_date: date | None = None,
     end_date: date | None = None,

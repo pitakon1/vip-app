@@ -5,7 +5,10 @@
 - GET /billing/pricing/quotes?code=...&qty=...  单个服务计价（价税分离）
 - GET /billing/pricing/convert?amount=..&from=..&to=..  多币种换算
 """
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.auth import get_current_user  # noqa: F401  (占位，未来可做权限)
 from app.services.pricing import (
@@ -23,7 +26,57 @@ from app.services.pricing import (
 router = APIRouter(prefix="/billing", tags=["billing", "pricing"])
 
 
-@router.get("/pricing")
+class PricingRulesOut(BaseModel):
+    """业务规则总览（价目 / 押金 / 币种 / 税费）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    service_catalog: Optional[dict] = None
+    vat: Optional[dict] = None
+    deposit: Optional[dict] = None
+    currency: Optional[dict] = None
+
+
+class ServiceQuoteOut(BaseModel):
+    """单个服务报价（价税分离）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    code: Optional[str] = None
+    label_zh: Optional[str] = None
+    label_en: Optional[str] = None
+    label_th: Optional[str] = None
+    unit: Optional[str] = None
+    base_price: Optional[float] = None
+    quantity: Optional[int] = None
+    base_amount: Optional[float] = None
+    tax_amount: Optional[float] = None
+    total_amount: Optional[float] = None
+    tax_inclusive: Optional[bool] = None
+
+
+class CurrencyConvertOut(BaseModel):
+    """多币种换算结果。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    amount: Optional[float] = None
+    from_currency: Optional[str] = Field(default=None, alias="from")
+    to_currency: Optional[str] = Field(default=None, alias="to")
+    amount_in_thb: Optional[float] = None
+    result: Optional[float] = None
+
+
+class IntegrationStatusOut(BaseModel):
+    """第三方对接状态。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    payment: Optional[dict] = None
+    reserved: Optional[dict] = None
+
+
+@router.get("/pricing", response_model=PricingRulesOut)
 def get_pricing_rules():
     """业务规则总览：价目（不含税）、押金规则、多币种、税费。"""
     return {
@@ -42,7 +95,7 @@ def get_pricing_rules():
     }
 
 
-@router.get("/pricing/quotes")
+@router.get("/pricing/quotes", response_model=ServiceQuoteOut)
 def get_service_quote(code: str, qty: int = 1):
     """按服务编码返回价税分离的报价。"""
     try:
@@ -51,7 +104,7 @@ def get_service_quote(code: str, qty: int = 1):
         raise HTTPException(status_code=404, detail=f"Unknown service code: {code}")
 
 
-@router.get("/pricing/convert")
+@router.get("/pricing/convert", response_model=CurrencyConvertOut)
 def convert_currency(amount: float, from_currency: str, to_currency: str):
     """多币种换算（基于基准率）。"""
     if from_currency.upper() not in CURRENCY_TO_THB or to_currency.upper() not in CURRENCY_TO_THB:
@@ -66,7 +119,7 @@ def convert_currency(amount: float, from_currency: str, to_currency: str):
     }
 
 
-@router.get("/integrations")
+@router.get("/integrations", response_model=IntegrationStatusOut)
 def list_integration_status():
     """第三方对接状态（H 组：支付已实现，OCR/短信/通知/地图/税务为预留 stub）。"""
     from app.providers.registry import RESERVED_REGISTRY

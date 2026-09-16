@@ -6,7 +6,10 @@
 实际生成需配置 OPENAI_API_KEY；未配置时返回保留提示。
 """
 
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session
 
 from app.db import get_session
@@ -17,7 +20,17 @@ from app.providers.ai import ai_client, ai_health
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 
-@router.get("/health")
+class AIHealthOut(BaseModel):
+    """AI 能力清单与配置状态。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    capabilities: Optional[List[str]] = None
+    configured: Optional[bool] = None
+    model: Optional[str] = None
+
+
+@router.get("/health", response_model=AIHealthOut)
 def health(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),

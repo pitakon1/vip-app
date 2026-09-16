@@ -20,13 +20,13 @@ import mimetypes
 import os
 import secrets
 import uuid
-from datetime import datetime
+from datetime import date as date_type, datetime
 from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -117,6 +117,124 @@ class LateFeeWaiveRequest(BaseModel):
     # 不传表示把剩余滞纳金全额减免
     amount: Optional[float] = Field(default=None, gt=0)
     reason: str = ""
+
+
+class PaymentChannelItem(BaseModel):
+    """可用支付渠道条目（GET /payments/channels 的 items 元素）。"""
+
+    channel: Optional[str] = None
+    name: Optional[str] = None
+    region: Optional[str] = None
+    type: Optional[str] = None
+    fee: Optional[str] = None
+    desc: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class ChannelsResponse(BaseModel):
+    """支付渠道列表响应。"""
+
+    items: Optional[List[PaymentChannelItem]] = None
+    recommended: Optional[List[str]] = None
+    currency: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class MyPaymentsResponse(BaseModel):
+    """我的付款记录响应（items 为 Payment 实例列表）。"""
+
+    items: Optional[List[Payment]] = None
+    total: Optional[int] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class ReconciliationGroup(BaseModel):
+    """对账聚合条目（按状态或按渠道）。"""
+
+    status: Optional[str] = None
+    channel: Optional[str] = None
+    count: Optional[int] = None
+    amount: Optional[float] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class ReconciliationsResponse(BaseModel):
+    """对账统计响应。"""
+
+    by_status: Optional[List[ReconciliationGroup]] = None
+    by_channel: Optional[List[ReconciliationGroup]] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class ReceiptRecipient(BaseModel):
+    """缴费凭证中的收款方信息。"""
+
+    name: Optional[str] = None
+    email: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class PaymentReceiptResponse(BaseModel):
+    """缴费凭证（收款收据）响应。"""
+
+    payment_id: Optional[str] = None
+    reference_no: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    payment_type: Optional[str] = None
+    status: Optional[str] = None
+    channel: Optional[str] = None
+    channel_transaction_id: Optional[str] = None
+    due_date: Optional[str] = None
+    paid_at: Optional[str] = None
+    created_at: Optional[str] = None
+    description: Optional[str] = None
+    recipient: Optional[ReceiptRecipient] = None
+    property_id: Optional[str] = None
+    lease_id: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class InvoiceBillTo(BaseModel):
+    """发票抬头信息。"""
+
+    name: Optional[str] = None
+    email: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class PaymentInvoiceResponse(BaseModel):
+    """税务发票导出数据响应。"""
+
+    invoice_no: Optional[str] = None
+    invoice_type: Optional[str] = None
+    payment_id: Optional[str] = None
+    issue_date: Optional[str] = None
+    paid_at: Optional[str] = None
+    bill_to: Optional[InvoiceBillTo] = None
+    currency: Optional[str] = None
+    net_amount: Optional[float] = None
+    tax_amount: Optional[float] = None
+    vat_rate: Optional[float] = None
+    total_amount: Optional[float] = None
+    payment_type: Optional[str] = None
+    description: Optional[str] = None
+    channel: Optional[str] = None
+    channel_transaction_id: Optional[str] = None
+    property_id: Optional[str] = None
+    lease_id: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class PaymentStatusResponse(BaseModel):
+    """支付状态查询响应。"""
+
+    ok: Optional[bool] = None
+    payment_id: Optional[str] = None
+    status: Optional[str] = None
+    channel_transaction_id: Optional[str] = None
+    error: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
 
 
 def _can_manage(user: User, payment: Payment) -> bool:
@@ -219,10 +337,15 @@ def _save_receipt(upload: UploadFile) -> str:
 @router.get("", response_model=Page[Payment])
 def list_payments(
     pagination: PaginationParams = Depends(),
-    status: Optional[PaymentStatus] = None,
+    status: Optional[str] = Query(
+        None, description="状态筛选；overdue 为派生状态（pending 且已过截止日）"
+    ),
     payment_type: Optional[PaymentType] = None,
     lease_id: Optional[uuid.UUID] = None,
     channel: Optional[str] = None,
+    date_from: Optional[date_type] = None,
+    date_to: Optional[date_type] = None,
+    keyword: Optional[str] = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -233,19 +356,60 @@ def list_payments(
             (Payment.payer_id == user.id) | (Payment.payee_id == user.id)
         )
     if status:
-        conditions.append(Payment.status == status)
+        if status == "overdue":
+            # 派生状态：待收且已过缴费截止日（与 dashboard/employees 口径一致）
+            conditions.append(
+                (Payment.status == PaymentStatus.pending)
+                & (Payment.due_date.is_not(None))
+                & (Payment.due_date < datetime.utcnow())
+            )
+        else:
+            try:
+                conditions.append(Payment.status == PaymentStatus(status))
+            except ValueError:
+                raise HTTPException(
+                    status_code=400, detail=f"Invalid status: {status}"
+                )
     if payment_type:
         conditions.append(Payment.payment_type == payment_type)
     if lease_id:
         conditions.append(Payment.lease_id == lease_id)
     if channel:
         conditions.append(Payment.channel == channel)
+    if date_from:
+        conditions.append(
+            Payment.created_at >= datetime.combine(date_from, datetime.min.time())
+        )
+    if date_to:
+        conditions.append(
+            Payment.created_at <= datetime.combine(date_to, datetime.max.time())
+        )
+    if keyword:
+        kw = keyword.strip()
+        # 按付款方/收款方姓名模糊搜索（租约/合同暂无合同号字段，仅支持人名）
+        matched_user_ids = {
+            r[0]
+            for r in session.exec(
+                select(User.id).where(User.full_name.contains(kw))
+            ).all()
+        }
+        if matched_user_ids:
+            conditions.append(
+                (Payment.payer_id.in_(matched_user_ids))
+                | (
+                    Payment.payee_id.is_not(None)
+                    & Payment.payee_id.in_(matched_user_ids)
+                )
+            )
+        else:
+            # 无人名命中 → 空结果
+            conditions.append(Payment.id.is_(None))
 
     stmt = select(Payment).where(*conditions).order_by(Payment.created_at.desc())
     return paginate_query(session, stmt, pagination)
 
 
-@router.get("/channels")
+@router.get("/channels", response_model=ChannelsResponse)
 def list_channels(
     currency: str = "THB",
     user: User = Depends(get_current_user),
@@ -300,7 +464,7 @@ def create_payment(
     return payment
 
 
-@router.get("/me")
+@router.get("/me", response_model=MyPaymentsResponse)
 def list_my_payments(
     payment_type: Optional[PaymentType] = None,
     limit: int = Query(500, ge=1, le=2000),
@@ -387,7 +551,7 @@ def payment_webhook(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/reconciliations")
+@router.get("/reconciliations", response_model=ReconciliationsResponse)
 def payment_reconciliations(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
@@ -413,7 +577,7 @@ def payment_reconciliations(
     }
 
 
-@router.get("/{payment_id}")
+@router.get("/{payment_id}", response_model=Payment)
 def get_payment(
     payment_id: uuid.UUID,
     session: Session = Depends(get_session),
@@ -426,7 +590,7 @@ def get_payment(
     return payment
 
 
-@router.get("/{payment_id}/receipt")
+@router.get("/{payment_id}/receipt", response_model=PaymentReceiptResponse)
 def get_payment_receipt(
     payment_id: uuid.UUID,
     session: Session = Depends(get_session),
@@ -460,7 +624,7 @@ def get_payment_receipt(
     }
 
 
-@router.get("/{payment_id}/invoice")
+@router.get("/{payment_id}/invoice", response_model=PaymentInvoiceResponse)
 def get_payment_invoice(
     payment_id: uuid.UUID,
     session: Session = Depends(get_session),
@@ -510,7 +674,7 @@ def get_payment_invoice(
     }
 
 
-@router.get("/{payment_id}/status")
+@router.get("/{payment_id}/status", response_model=PaymentStatusResponse)
 def get_payment_status(
     payment_id: uuid.UUID,
     session: Session = Depends(get_session),

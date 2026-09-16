@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.auth import get_current_user, require_agent
 from app.core.events import publish_event
-from app.core.pagination import PaginationParams, paginate, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate, paginate_query
 from app.models import (
     MaintenanceTicket,
     Tenant,
@@ -51,7 +51,7 @@ class MaintenanceTicketUpdate(BaseModel):
     cost: Optional[float] = None
 
 
-@router.get("")
+@router.get("", response_model=Page[MaintenanceTicket])
 def list_maintenance_tickets(
     pagination: PaginationParams = Depends(),
     status: Optional[TicketStatus] = None,
@@ -112,7 +112,7 @@ def create_maintenance_ticket(
     return ticket
 
 
-@router.get("/{ticket_id}")
+@router.get("/{ticket_id}", response_model=MaintenanceTicket)
 def get_maintenance_ticket(
     ticket_id: uuid.UUID,
     session: Session = Depends(get_session),

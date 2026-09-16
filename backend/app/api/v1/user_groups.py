@@ -1,9 +1,9 @@
 """用户分组 API（管理员维护分组与成员）。权限点：group:manage"""
 import uuid
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -26,6 +26,39 @@ class GroupUpdate(BaseModel):
 
 class MemberAdd(BaseModel):
     user_id: uuid.UUID
+
+
+class UserGroupMemberOut(BaseModel):
+    """分组内成员（含展示名 / 邮箱）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    user_id: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+
+
+class UserGroupOut(BaseModel):
+    """用户分组（含成员）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    member_count: Optional[int] = None
+    members: List[UserGroupMemberOut] = Field(default_factory=list)
+    created_at: Optional[str] = None
+
+
+class UserGroupListOut(BaseModel):
+    """分组列表。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    items: List[UserGroupOut] = Field(default_factory=list)
+    total: Optional[int] = None
 
 
 def _serialize_group(session: Session, g: UserGroup) -> dict:
@@ -60,7 +93,7 @@ def _serialize_group(session: Session, g: UserGroup) -> dict:
     }
 
 
-@router.get("")
+@router.get("", response_model=UserGroupListOut)
 def list_groups(
     session: Session = Depends(get_session),
     user: User = Depends(require_permission("group:manage")),

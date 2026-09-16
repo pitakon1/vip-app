@@ -11,13 +11,13 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.pagination import PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import BrokerPartner, CommissionRule, CommissionRuleScope, Employee, User
 
 router = APIRouter(prefix="/commission-rules", tags=["commission-rules"])
@@ -55,6 +55,30 @@ class CommissionRuleUpdate(BaseModel):
     effective_to: Optional[datetime] = None
 
 
+class CommissionRuleResponse(BaseModel):
+    """佣金规则响应（_to_dict 输出的全部字段）。"""
+
+    id: Optional[str] = None
+    name: Optional[str] = None
+    deal_type: Optional[str] = None
+    rate: Optional[float] = None
+    scope: Optional[str] = None
+    department: Optional[str] = None
+    employee_id: Optional[str] = None
+    broker_id: Optional[str] = None
+    cap_amount: Optional[float] = None
+    minimum_amount: Optional[float] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    effective_from: Optional[datetime] = None
+    effective_to: Optional[datetime] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
+    version: Optional[int] = None
+    model_config = ConfigDict(extra="allow")
+
+
 def _to_dict(r: CommissionRule) -> dict:
     return {
         **r.model_dump(exclude={"metadata_"}),
@@ -78,7 +102,7 @@ def _broker_of_user(session: Session, user: User) -> Optional[uuid.UUID]:
     return b.id if b else None
 
 
-@router.get("")
+@router.get("", response_model=Page[CommissionRuleResponse])
 def list_commission_rules(
     pagination: PaginationParams = Depends(),
     deal_type: Optional[str] = None,
@@ -163,7 +187,7 @@ def create_commission_rule(
     return _to_dict(rule)
 
 
-@router.get("/{rule_id}")
+@router.get("/{rule_id}", response_model=CommissionRuleResponse)
 def get_commission_rule(
     rule_id: uuid.UUID,
     session: Session = Depends(get_session),

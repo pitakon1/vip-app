@@ -8,18 +8,47 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import require_admin
-from app.core.pagination import PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import AuditLog, User
 
 router = APIRouter(prefix="/audit-logs", tags=["audit"])
 
 
-@router.get("")
+class AuditLogOut(BaseModel):
+    """审计日志记录（含操作人展示名）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    action: Optional[str] = None
+    resource_type: Optional[str] = None
+    resource_id: Optional[str] = None
+    actor_user_id: Optional[str] = None
+    actor_name: Optional[str] = None
+    actor_email: Optional[str] = None
+    pii_fields_accessed: Optional[list] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    request_id: Optional[str] = None
+    occurred_at: Optional[str] = None
+
+
+class AuditLogSummaryOut(BaseModel):
+    """审计汇总：按动作与资源类型聚合数量。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    by_action: Optional[list] = None
+    by_resource: Optional[list] = None
+
+
+@router.get("", response_model=Page[AuditLogOut])
 def list_audit_logs(
     pagination: PaginationParams = Depends(),
     action: Optional[str] = None,
@@ -75,7 +104,7 @@ def list_audit_logs(
     return page
 
 
-@router.get("/summary")
+@router.get("/summary", response_model=AuditLogSummaryOut)
 def audit_log_summary(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),

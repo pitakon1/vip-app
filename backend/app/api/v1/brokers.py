@@ -1,15 +1,15 @@
 """开放分销体系路由：外部渠道商、转介绍、联合单分成。"""
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select, or_
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate
 from app.models import (
     User,
     UserRole,
@@ -41,6 +41,57 @@ class BrokerIn(BaseModel):
 class BrokerApprove(BaseModel):
     level: BrokerLevel = BrokerLevel.silver
     base_rate: float = 0.0
+
+
+class BrokerOut(BaseModel):
+    """渠道商响应（与 _broker_dict 输出一致）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    user_id: Optional[str] = None
+    partner_name: Optional[str] = None
+    broker_type: Optional[str] = None
+    level: Optional[str] = None
+    status: Optional[str] = None
+    invite_code: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    country: Optional[str] = None
+    base_rate: Optional[float] = None
+    upline_partner_id: Optional[str] = None
+    commission_paid: Optional[float] = None
+    deal_count: Optional[int] = None
+    approved_at: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class BrokerInviteOut(BaseModel):
+    """邀请码信息响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    invite_code: Optional[str] = None
+    partner_name: Optional[str] = None
+
+
+class ReferralOut(BaseModel):
+    """转介绍记录响应（与 _referral_dict 输出一致）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    referrer_user_id: Optional[str] = None
+    referrer_partner_id: Optional[str] = None
+    invite_code: Optional[str] = None
+    referred_name: Optional[str] = None
+    referred_phone: Optional[str] = None
+    source: Optional[str] = None
+    channel: Optional[str] = None
+    status: Optional[str] = None
+    reward_status: Optional[str] = None
+    created_at: Optional[str] = None
 
 
 def _gen_code(session: Session) -> str:
@@ -90,7 +141,7 @@ def _referral_dict(r: Referral) -> dict:
     }
 
 
-@router.get("")
+@router.get("", response_model=Page[BrokerOut])
 def list_brokers(
     status: Optional[BrokerStatus] = None,
     level: Optional[BrokerLevel] = None,
@@ -143,7 +194,7 @@ def create_broker(
     return _broker_dict(broker)
 
 
-@router.get("/me")
+@router.get("/me", response_model=BrokerOut)
 def my_broker(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
@@ -168,7 +219,7 @@ def my_broker(
     return _broker_dict(broker)
 
 
-@router.get("/invite/{invite_code}")
+@router.get("/invite/{invite_code}", response_model=BrokerInviteOut)
 def get_invite(
     invite_code: str,
     session: Session = Depends(get_session),
@@ -258,7 +309,7 @@ def create_referral(
     return _referral_dict(ref)
 
 
-@router.get("/referrals/mine")
+@router.get("/referrals/mine", response_model=List[ReferralOut])
 def my_referrals(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
