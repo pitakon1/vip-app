@@ -1,0 +1,29 @@
+# ===== 依赖与构建产物（容器内由 npm ci / npm run build 重建）=====
+node_modules/
+dist/
+.vite/
+.swc/
+*.tsbuildinfo
+
+# ===== 环境与密钥 =====
+.env
+.env.*
+!.env.example
+
+# ===== 版本控制与编辑器 =====
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ===== 日志与缓存 =====
+*.log
+npm-debug.log*
+.cache/
+coverage/
+
+# ===== 文档 =====
+*.md
+!README.md

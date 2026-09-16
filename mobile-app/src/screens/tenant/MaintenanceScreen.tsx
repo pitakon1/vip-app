@@ -24,15 +24,42 @@ const PRIORITY_OPTIONS: Array<{ label: string; value: MaintenanceTicket['priorit
 ];
 
 const statusMeta: Record<string, { text: string; color: string; bg: string }> = {
-  submitted: { text: '已提交', color: colors.warning, bg: '#fff6e6' },
-  accepted: { text: '已受理', color: colors.info, bg: '#e6f4fd' },
+  submitted: { text: '待处理', color: colors.warning, bg: colors.warningLight },
+  accepted: { text: '已受理', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
   in_progress: { text: '处理中', color: colors.primary, bg: colors.sidebarActive },
-  resolved: { text: '已解决', color: colors.success, bg: '#e7f6ee' },
-  closed: { text: '已关闭', color: colors.ink3, bg: 'colors.surface2' },
+  resolved: { text: '已完成', color: colors.success, bg: colors.successLight },
+  closed: { text: '已关闭', color: colors.ink3, bg: colors.surface2 },
+};
+
+// 优先级徽标（对齐原型：紧急=红 / 高=橙 / 中=蓝 / 低=灰）
+const priorityMeta: Record<string, { color: string; bg: string }> = {
+  urgent: { color: colors.error, bg: colors.errorLight },
+  high: { color: colors.warning, bg: colors.warningLight },
+  medium: { color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  low: { color: colors.ink2, bg: colors.surface2 },
+};
+
+// 状态 Tabs（对齐原型：全部 / 待处理 / 处理中 / 已完成）
+type StatusTabKey = 'all' | 'pending' | 'processing' | 'done';
+const STATUS_TABS: { key: StatusTabKey; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'pending', label: '待处理' },
+  { key: 'processing', label: '处理中' },
+  { key: 'done', label: '已完成' },
+];
+
+const matchTab = (status: string, tab: StatusTabKey) => {
+  if (tab === 'all') return true;
+  if (tab === 'pending') return status === 'submitted';
+  if (tab === 'processing') return status === 'accepted' || status === 'in_progress';
+  return status === 'resolved' || status === 'closed';
 };
 
 const formatDate = (x?: string) =>
   x ? x.replace('T', ' ').slice(0, 16) : '—';
+
+// 工单编号（原型 #MT-001；此处用真实 id 前缀派生，不虚构编号）
+const ticketCode = (id: string) => `#${id.slice(0, 8).toUpperCase()}`;
 
 interface TicketRow extends MaintenanceTicket {}
 
@@ -46,6 +73,7 @@ export default function MaintenanceScreen() {
   // 工单列表
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusTab, setStatusTab] = useState<StatusTabKey>('all');
 
   // 详情弹窗
   const [selected, setSelected] = useState<TicketRow | null>(null);
@@ -121,6 +149,9 @@ export default function MaintenanceScreen() {
 
   const renderTicket = ({ item }: { item: TicketRow }) => {
     const meta = statusMeta[item.status] ?? statusMeta.submitted;
+    const prio = priorityMeta[item.priority] ?? priorityMeta.medium;
+    const prioLabel =
+      PRIORITY_OPTIONS.find((p) => p.value === item.priority)?.label ?? '—';
     return (
       <TouchableOpacity
         style={styles.ticketCard}
@@ -128,24 +159,39 @@ export default function MaintenanceScreen() {
         onPress={() => openDetail(item)}
       >
         <View style={styles.ticketTop}>
+          <Text style={styles.ticketCode}>{ticketCode(item.id)}</Text>
           <Text style={styles.ticketTitle} numberOfLines={1}>
             {item.title || '报修工单'}
           </Text>
-          <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
-            <Text style={[styles.statusText, { color: meta.color }]}>{meta.text}</Text>
-          </View>
         </View>
         {!!item.description && (
           <Text style={styles.ticketDesc} numberOfLines={2}>
             {item.description}
           </Text>
         )}
-        <Text style={styles.ticketMeta}>
-          {PRIORITY_OPTIONS.find((p) => p.value === item.priority)?.label ?? '—'}优先级 · {formatDate(item.createdAt)}
-        </Text>
+        <View style={styles.ticketBottom}>
+          <View style={styles.ticketBadges}>
+            <View style={[styles.chip, { backgroundColor: prio.bg }]}>
+              <Text style={[styles.chipText, { color: prio.color }]}>{prioLabel}</Text>
+            </View>
+            <View style={[styles.chip, { backgroundColor: meta.bg }]}>
+              <Text style={[styles.chipText, { color: meta.color }]}>{meta.text}</Text>
+            </View>
+          </View>
+          <Text style={styles.ticketDate}>{formatDate(item.createdAt)}</Text>
+        </View>
       </TouchableOpacity>
     );
   };
+
+  // Stat Row / Tabs 计数均来自真实工单
+  const pendingCount = tickets.filter((t) => t.status === 'submitted').length;
+  const processingCount = tickets.filter(
+    (t) => t.status === 'accepted' || t.status === 'in_progress'
+  ).length;
+  const tabCount = (key: StatusTabKey) =>
+    tickets.filter((t) => matchTab(t.status, key)).length;
+  const visibleTickets = tickets.filter((t) => matchTab(t.status, statusTab));
 
   return (
     <ScrollView
@@ -153,7 +199,68 @@ export default function MaintenanceScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Card title="提交报修">
+      {/* Stat Row（真实工单统计） */}
+      <View style={styles.statRow}>
+        <View style={styles.stat}>
+          <Text style={styles.statLabel}>待处理</Text>
+          <Text
+            style={[styles.statValue, pendingCount > 0 && { color: colors.warning }]}
+          >
+            {pendingCount} 个
+          </Text>
+        </View>
+        <View style={styles.stat}>
+          <Text style={styles.statLabel}>处理中</Text>
+          <Text
+            style={[styles.statValue, processingCount > 0 && { color: colors.primary }]}
+          >
+            {processingCount} 个
+          </Text>
+        </View>
+      </View>
+
+      {/* 状态 Tabs（计数来自真实工单） */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.statusTabs}
+      >
+        {STATUS_TABS.map((t) => {
+          const active = statusTab === t.key;
+          return (
+            <TouchableOpacity
+              key={t.key}
+              style={[styles.statusTab, active && styles.statusTabActive]}
+              onPress={() => setStatusTab(t.key)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.statusTabText, active && styles.statusTabTextActive]}>
+                {t.label} {tabCount(t.key)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* 工单列表 */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>工单列表</Text>
+      </View>
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : visibleTickets.length === 0 ? (
+        <Text style={styles.empty}>暂无报修记录</Text>
+      ) : (
+        visibleTickets.map((t) => renderTicket({ item: t }))
+      )}
+
+      {/* 提交报修（现有业务逻辑保留，按原型置于列表之后） */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>提交报修</Text>
+      </View>
+      <Card>
         <Text style={styles.label}>标题</Text>
         <TextInput
           style={styles.input}
@@ -202,19 +309,6 @@ export default function MaintenanceScreen() {
           )}
         </TouchableOpacity>
       </Card>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>我的报修记录</Text>
-      </View>
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : tickets.length === 0 ? (
-        <Text style={styles.empty}>暂无报修记录</Text>
-      ) : (
-        tickets.map((t) => renderTicket({ item: t }))
-      )}
 
       {/* 工单详情 + 评价弹窗 */}
       <Modal
@@ -300,7 +394,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
@@ -311,7 +405,7 @@ const styles = StyleSheet.create({
   priorityBtn: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
@@ -321,7 +415,7 @@ const styles = StyleSheet.create({
   priorityTextActive: { color: colors.primary, fontWeight: '600' },
   submitBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: colors.radius.md,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 20,
@@ -331,32 +425,69 @@ const styles = StyleSheet.create({
 
   sectionHeader: { paddingHorizontal: 12, marginTop: 12, marginBottom: 4 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+  // Stat Row
+  statRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    marginBottom: 12,
+  },
+  stat: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  statLabel: { fontSize: 12, color: colors.ink3 },
+  statValue: { fontSize: 20, fontWeight: '700', color: colors.ink, marginTop: 4 },
+  // 状态 Tabs
+  statusTabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 4 },
+  statusTab: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface2,
+  },
+  statusTabActive: { backgroundColor: colors.primary },
+  statusTabText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  statusTabTextActive: { color: colors.primaryForeground, fontWeight: '600' },
   empty: { textAlign: 'center', color: colors.ink3, marginTop: 20 },
   ticketCard: {
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: colors.radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 12,
     marginHorizontal: 12,
     marginVertical: 6,
   },
-  ticketTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  ticketTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.text, marginRight: 8 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
-  statusText: { fontSize: 11, fontWeight: '600' },
-  ticketDesc: { fontSize: 13, color: colors.ink2, marginTop: 6 },
-  ticketMeta: { fontSize: 11, color: colors.ink3, marginTop: 8 },
+  ticketTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  ticketCode: { fontSize: 13, color: colors.ink3 },
+  ticketTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.text },
+  chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: colors.radius.sm },
+  chipText: { fontSize: 11, fontWeight: '600' },
+  ticketDesc: { fontSize: 13, color: colors.ink3, marginBottom: 8 },
+  ticketBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ticketBadges: { flexDirection: 'row', gap: 6 },
+  ticketDate: { fontSize: 13, color: colors.ink3 },
 
   modalWrap: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.alpha('0,0,0', 0.4),
     justifyContent: 'flex-end',
   },
   modalCard: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
     padding: 16,
     paddingBottom: 28,
   },
@@ -375,7 +506,7 @@ const styles = StyleSheet.create({
   feedbackInput: { minHeight: 70 },
   rateBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: colors.radius.md,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 12,

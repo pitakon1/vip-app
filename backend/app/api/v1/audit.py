@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import require_admin
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import PaginationParams, paginate_query
 from app.models import AuditLog, User
 
 router = APIRouter(prefix="/audit-logs", tags=["audit"])
@@ -49,15 +49,11 @@ def list_audit_logs(
         .where(*conditions)
         .order_by(AuditLog.occurred_at.desc())
     )
-    count_stmt = select(func.count(AuditLog.id)).where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(
-        stmt.offset(pagination.offset).limit(pagination.limit)
-    ).all()
+    page = paginate_query(session, stmt, pagination)
 
     users = {u.id: u for u in session.exec(select(User)).all()}
     enriched = []
-    for log in items:
+    for log in page.items:
         actor = users.get(log.actor_user_id)
         enriched.append(
             {
@@ -75,7 +71,8 @@ def list_audit_logs(
                 "occurred_at": log.occurred_at.isoformat() if log.occurred_at else None,
             }
         )
-    return paginate(enriched, total, pagination)
+    page.items = enriched
+    return page
 
 
 @router.get("/summary")

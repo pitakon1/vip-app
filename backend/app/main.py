@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import structlog
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
@@ -18,12 +18,14 @@ from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
+from app.core.auth import require_role
 from app.core.error_handlers import rate_limited_response, register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.metrics import observe
 from app.core.rate_limit import apply_default_limit, limiter
 from app.core.rbac import seed_permissions
 from app.db import Session, engine
+from app.models import UserRole
 from app.redis_client import get_redis_sync
 from app.api.v1 import api_router
 
@@ -50,12 +52,24 @@ _FALLBACK_SECRETS = (_DEFAULT_SECRET, "change-me-signing-secret")
 
 def _run_startup_selfcheck() -> None:
     """启动自检：核对密钥强度与第三方集成是否处于 mock/降级模式。"""
-    # 1) 密钥强度：非 DEBUG 下仍用默认/示例签名密钥属高危
-    if not settings.DEBUG and settings.SECRET_KEY in _FALLBACK_SECRETS:
+    # 1) 签名密钥：未配置或仍是默认/示例值时，非 DEBUG 环境直接拒绝启动。
+    #    配置项默认值已改为空串，此处 fail closed，避免"忘了改默认值"就上线。
+    if not settings.SECRET_KEY:
+        hint = (
+            "SECRET_KEY 未配置。缺失签名密钥会让会话令牌无法校验；"
+            "非 DEBUG 环境拒绝启动，DEBUG 下请先在后端 .env 中设置。"
+        )
+        if settings.DEBUG:
+            logger.warning("startup.selfcheck.secret_key_missing", hint=hint)
+        else:
+            logger.error("startup.selfcheck.secret_key_missing", hint=hint)
+            raise RuntimeError(hint)
+    elif not settings.DEBUG and settings.SECRET_KEY in _FALLBACK_SECRETS:
         logger.error(
             "startup.selfcheck.insecure_secret_key",
             hint="生产环境必须设置强随机 SECRET_KEY，避免可预测签名导致会话伪造。",
         )
+        raise RuntimeError("SECRET_KEY 仍是默认/示例值：非 DEBUG 环境拒绝启动。")
     elif settings.DEBUG:
         logger.info("startup.selfcheck.debug_mode", secret_key_ok=True)
 
@@ -107,13 +121,17 @@ async def lifespan(app: FastAPI):
     logger.info("application.stopped", app=settings.APP_NAME)
 
 
+# 交互式文档与 OpenAPI 描述只在 DEBUG 下开放：生产环境暴露它们等于把完整
+# 接口结构（含参数名、权限边界）交给攻击者做枚举。
+_DOCS_ENABLED = settings.DEBUG
+
 app = FastAPI(
     title="房地产租赁管理系统 API",
     description="房地产租赁管理系统后端服务",
     version=settings.APP_VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if _DOCS_ENABLED else None,
+    redoc_url="/redoc" if _DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if _DOCS_ENABLED else None,
     lifespan=lifespan,
 )
 
@@ -189,8 +207,14 @@ app.add_middleware(
 # 挂载 v1 API 路由
 app.include_router(api_router)
 
-# 挂载上传文件静态服务（/uploads/... 直接可访问）
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+# 挂载公开媒体静态服务。**仅**房源图片/视频等本就需要匿名浏览的内容：
+# 证件、合同等敏感文档落在 uploads/documents，不再静态托管，
+# 只能经 GET /api/v1/documents/{id}/file（带令牌 + 归属校验）读取。
+PUBLIC_MEDIA_DIR = UPLOAD_DIR / "properties"
+PUBLIC_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/uploads/properties", StaticFiles(directory=PUBLIC_MEDIA_DIR), name="uploads"
+)
 
 
 @app.get("/", tags=["root"])
@@ -257,8 +281,18 @@ def readiness_check(response: Response):
     return {"status": status, "checks": {"database": database, "redis": redis}}
 
 
-@app.get("/metrics", tags=["monitoring"], include_in_schema=False)
+# /metrics 的访问守卫：DEBUG 下开放（本地调试方便）；生产环境要求管理员令牌，
+# 指标里带着请求量、业务分布等信息，匿名可读等于对外泄露运营规模与接口热度。
+_METRICS_GUARD = [] if settings.DEBUG else [Depends(require_role(UserRole.admin))]
+
+
+@app.get(
+    "/metrics",
+    tags=["monitoring"],
+    include_in_schema=False,
+    dependencies=_METRICS_GUARD,
+)
 async def metrics():
-    """Prometheus 指标端点。"""
+    """Prometheus 指标端点（访问策略见 `_METRICS_GUARD`）。"""
     data = generate_latest()
     return Response(content=data, media_type=CONTENT_TYPE_LATEST)

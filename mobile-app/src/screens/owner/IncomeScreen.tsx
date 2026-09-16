@@ -2,26 +2,27 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   StyleSheet,
   RefreshControl,
-  Alert,
-  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import { ownerApi } from '@/services/api';
-import LineChart from '@/components/charts/LineChart';
-import ProgressStack from '@/components/charts/ProgressStack';
+import BarChart from '@/components/charts/BarChart';
+import { ownerApi, ownersApi } from '@/services/api';
+
+type IoniconName = keyof typeof Ionicons.glyphMap;
+type IncomeStatus = 'received' | 'pending' | 'overdue';
 
 interface IncomeRecord {
   id: string;
   property?: string | null;
   month: string;
   amount: number;
-  status: 'received' | 'pending' | 'overdue';
+  status: IncomeStatus;
 }
 
 interface IncomeSummary {
@@ -32,50 +33,71 @@ interface IncomeSummary {
   records?: IncomeRecord[];
 }
 
-const statusMap: Record<IncomeRecord['status'], { label: string; color: string; bg: string }> = {
-  received: { label: '已到账', color: colors.success, bg: 'rgba(22, 163, 74, 0.1)' },
-  pending: { label: '待入账', color: colors.warning, bg: 'rgba(217, 119, 6, 0.1)' },
-  overdue: { label: '逾期', color: colors.error, bg: 'rgba(220, 38, 38, 0.1)' },
+interface AnnualMonthly {
+  month?: string | number;
+  received?: number;
+  pending?: number;
+  overdue?: number;
+  count?: number;
+}
+
+interface AnnualSummary {
+  by_month?: AnnualMonthly[];
+  totals?: { received?: number; pending?: number; overdue?: number; count?: number };
+}
+
+const statusMap: Record<IncomeStatus, { label: string; color: string; bg: string; icon: IoniconName }> = {
+  received: { label: '已到账', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), icon: 'cash-outline' },
+  pending: { label: '待收', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), icon: 'time-outline' },
+  overdue: { label: '逾期', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1), icon: 'alert-circle-outline' },
 };
 
 const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿');
 
-// 生成近 6 个月收入趋势
-const genTrend = (total: number) => {
-  const base = total || 45000;
-  return [
-    { label: '4月', value: Math.round(base * 0.72) },
-    { label: '5月', value: Math.round(base * 0.85) },
-    { label: '6月', value: Math.round(base * 0.78) },
-    { label: '7月', value: Math.round(base * 0.92) },
-    { label: '8月', value: Math.round(base * 0.88) },
-    { label: '9月', value: base },
-  ];
+// 把月度字段转成 "N月"
+const monthLabel = (m?: string | number) => {
+  const nums = String(m ?? '').match(/\d+/g);
+  const last = nums && nums.length ? nums[nums.length - 1] : '';
+  return last ? `${last}月` : '-';
 };
+
+const FILTERS: { key: 'all' | IncomeStatus; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'received', label: '已到账' },
+  { key: 'pending', label: '待收' },
+  { key: 'overdue', label: '逾期' },
+];
 
 export default function IncomeScreen() {
   const [summary, setSummary] = useState<IncomeSummary>({});
+  const [annual, setAnnual] = useState<AnnualSummary | null>(null);
+  const [filter, setFilter] = useState<'all' | IncomeStatus>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadIncome = useCallback(async () => {
-    try {
-      const res = await ownerApi.income();
-      const data = res.data as any;
-      const records: IncomeRecord[] = data?.records ?? [];
+    const year = new Date().getFullYear();
+    const [incomeRes, annualRes] = await Promise.allSettled([
+      ownerApi.income(),
+      ownersApi.annualSummary(year),
+    ]);
+
+    if (incomeRes.status === 'fulfilled') {
+      const data = incomeRes.value?.data as any;
       setSummary({
         total_income: data?.total_income,
         receivable_total: data?.receivable_total,
         overdue_total: data?.overdue_total,
         currency: data?.currency ?? 'THB',
-        records,
+        records: Array.isArray(data?.records) ? data.records : [],
       });
-    } catch (err: any) {
-      Alert.alert('加载失败', err?.response?.data?.message || '无法获取收入数据');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
+    if (annualRes.status === 'fulfilled') {
+      setAnnual((annualRes.value?.data as AnnualSummary) ?? null);
+    }
+
+    setLoading(false);
+    setRefreshing(false);
   }, []);
 
   useEffect(() => {
@@ -87,49 +109,37 @@ export default function IncomeScreen() {
     loadIncome();
   }, [loadIncome]);
 
-  const fmt = (v?: number) => `${cur(summary.currency)}${Number(v || 0).toLocaleString()}`;
+  const ccy = summary.currency;
+  const fmt = (v?: number) => `${cur(ccy)}${Number(v || 0).toLocaleString()}`;
   const records = summary.records ?? [];
 
+  /* ===== 月度趋势：真实 by_month 数据 ===== */
+  const months = annual?.by_month ?? [];
   const trendData = useMemo(
-    () => genTrend(summary.total_income ?? 0),
-    [summary.total_income]
+    () =>
+      months.slice(-6).map((m) => ({
+        label: monthLabel(m.month),
+        value: Number(m.received ?? 0),
+      })),
+    [months],
   );
 
-  const statusSegments = useMemo(() => {
-    const received = summary.total_income ?? 0;
-    const pending = summary.receivable_total ?? 0;
-    const overdue = summary.overdue_total ?? 0;
-    return [
-      { value: received, color: colors.success, label: '已到账', subLabel: '租金已入账' },
-      { value: pending, color: colors.warning, label: '待入账', subLabel: '应收未收' },
-      { value: overdue, color: colors.error, label: '逾期', subLabel: '已超期未付' },
-    ].filter((s) => s.value > 0);
-  }, [summary.total_income, summary.receivable_total, summary.overdue_total]);
+  /* ===== Hero 口径 ===== */
+  const currentBucket = months.length ? months[months.length - 1] : null;
+  const prevBucket = months.length > 1 ? months[months.length - 2] : null;
+  const monthIncome = Number(currentBucket?.received ?? 0);
+  const prevIncome = Number(prevBucket?.received ?? 0);
+  const momPct = prevIncome > 0 ? Math.round(((monthIncome - prevIncome) / prevIncome) * 100) : null;
 
-  const renderItem = ({ item }: { item: IncomeRecord }) => {
-    const st = statusMap[item.status] ?? { label: item.status, color: colors.ink3, bg: colors.surface2 };
-    return (
-      <View style={styles.recordCard}>
-        <View style={styles.recordLeft}>
-          <View style={styles.recordIcon}>
-            <Ionicons name="home-outline" size={18} color={colors.primary} />
-          </View>
-          <View style={styles.recordInfo}>
-            <Text style={styles.property} numberOfLines={1}>
-              {item.property || '房源'}
-            </Text>
-            <Text style={styles.month}>{item.month}</Text>
-          </View>
-        </View>
-        <View style={styles.recordRight}>
-          <Text style={styles.amount}>{fmt(item.amount)}</Text>
-          <View style={[styles.badge, { backgroundColor: st.bg }]}>
-            <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
+  const yearTotal = Number(annual?.totals?.received ?? summary.total_income ?? 0);
+  const dueTotal =
+    Number(annual?.totals?.pending ?? summary.receivable_total ?? 0) +
+    Number(annual?.totals?.overdue ?? summary.overdue_total ?? 0);
+
+  const filtered = useMemo(
+    () => (filter === 'all' ? records : records.filter((r) => r.status === filter)),
+    [records, filter],
+  );
 
   if (loading) {
     return (
@@ -139,102 +149,124 @@ export default function IncomeScreen() {
     );
   }
 
-  const totalAll =
-    (summary.total_income ?? 0) +
-    (summary.receivable_total ?? 0) +
-    (summary.overdue_total ?? 0);
-
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[colors.primary]}
+          tintColor={colors.primary}
+        />
+      }
       showsVerticalScrollIndicator={false}
     >
-      {/* 顶部 Hero 卡 */}
+      {/* ===== Hero：本月收入 / 年累计 / 待收 ===== */}
       <View style={styles.heroCard}>
         <View style={styles.heroTop}>
           <View>
-            <Text style={styles.heroLabel}>累计总收入</Text>
-            <Text style={styles.heroAmount}>{fmt(summary.total_income)}</Text>
+            <Text style={styles.heroLabel}>本月收入</Text>
+            <Text style={styles.heroAmount}>{fmt(monthIncome)}</Text>
           </View>
-          <View style={styles.heroTrend}>
-            <Ionicons name="trending-up" size={14} color="#34d399" />
-            <Text style={styles.heroTrendText}>+8.3%</Text>
-          </View>
+          {momPct != null && (
+            <View style={styles.heroTrend}>
+              <Ionicons
+                name={momPct >= 0 ? 'trending-up' : 'trending-down'}
+                size={13}
+                color={colors.primaryForeground}
+              />
+              <Text style={styles.heroTrendText}>
+                环比 {momPct > 0 ? '+' : ''}
+                {momPct}%
+              </Text>
+            </View>
+          )}
         </View>
         <View style={styles.heroStats}>
           <View style={styles.heroStatItem}>
-            <Text style={[styles.heroStatVal, { color: colors.success }]}>
-              {fmt(summary.receivable_total)}
-            </Text>
-            <Text style={styles.heroStatLabel}>待收</Text>
+            <Text style={styles.heroStatLabel}>年累计收入</Text>
+            <Text style={styles.heroStatVal}>{fmt(yearTotal)}</Text>
           </View>
           <View style={styles.heroDivider} />
           <View style={styles.heroStatItem}>
-            <Text
-              style={[
-                styles.heroStatVal,
-                { color: (summary.overdue_total ?? 0) > 0 ? colors.error : colors.ink3 },
-              ]}
+            <Text style={styles.heroStatLabel}>待收金额</Text>
+            <Text style={styles.heroStatVal}>{fmt(dueTotal)}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* ===== 月度收入趋势 ===== */}
+      <View style={styles.sectionHead}>
+        <Text style={styles.sectionTitle}>月度收入趋势</Text>
+        <Text style={styles.sectionHint}>近 6 个月</Text>
+      </View>
+      <View style={styles.card}>
+        {trendData.length > 0 ? (
+          <BarChart data={trendData} height={150} activeIndex={trendData.length - 1} />
+        ) : (
+          <EmptyState icon="bar-chart-outline" title="暂无月度数据" sub="产生租金流水后这里会展示逐月趋势" />
+        )}
+      </View>
+
+      {/* ===== 筛选 chips ===== */}
+      <View style={styles.chips}>
+        {FILTERS.map((f) => {
+          const active = filter === f.key;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              style={[styles.chip, active && styles.chipActive]}
+              activeOpacity={0.8}
+              onPress={() => setFilter(f.key)}
             >
-              {fmt(summary.overdue_total)}
-            </Text>
-            <Text style={styles.heroStatLabel}>逾期</Text>
-          </View>
-          <View style={styles.heroDivider} />
-          <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatVal}>{records.length}</Text>
-            <Text style={styles.heroStatLabel}>笔数</Text>
-          </View>
-        </View>
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      {/* 收入趋势折线图 */}
-      <View style={styles.chartCard}>
-        <View style={styles.chartHeader}>
-          <Text style={styles.chartTitle}>收入趋势</Text>
-          <Text style={styles.chartSub}>近 6 个月</Text>
-        </View>
-        <LineChart
-          data={trendData}
-          height={200}
-          lineColor={colors.primary}
-          fillColor={`rgba(${colors.primaryRgb}, 0.15)`}
-          activeIndex={5}
-        />
+      {/* ===== 收入明细 ===== */}
+      <View style={styles.sectionHead}>
+        <Text style={styles.sectionTitle}>收入明细</Text>
+        <Text style={styles.sectionHint}>{filtered.length} 笔</Text>
       </View>
-
-      {/* 收入状态分布 */}
-      {statusSegments.length > 0 && (
-        <View style={styles.chartCard}>
-          <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>租金状态</Text>
-            <Text style={styles.chartSub}>合计 {fmt(totalAll)}</Text>
-          </View>
-          <ProgressStack
-            segments={statusSegments}
-            barHeight={14}
-          />
-        </View>
-      )}
-
-      {/* 收入明细列表 */}
-      <Text style={styles.sectionTitle}>收入明细</Text>
-      <FlatList
-        data={records}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        scrollEnabled={false}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
+      <View style={styles.card}>
+        {filtered.length === 0 ? (
           <EmptyState
             icon="wallet-outline"
             title="暂无收入明细"
             sub="租金到账后这里会按时间列出每一笔收款"
           />
-        }
-      />
+        ) : (
+          filtered.map((item, idx) => {
+            const st = statusMap[item.status] ?? statusMap.pending;
+            return (
+              <View
+                key={item.id}
+                style={[styles.recordRow, idx === filtered.length - 1 && styles.recordRowLast]}
+              >
+                <View style={[styles.recordIcon, { backgroundColor: st.bg }]}>
+                  <Ionicons name={st.icon} size={18} color={st.color} />
+                </View>
+                <View style={styles.recordBody}>
+                  <Text style={styles.recordTitle} numberOfLines={1}>
+                    {item.property || '租金收入'}
+                  </Text>
+                  <Text style={styles.recordSub} numberOfLines={1}>{item.month}</Text>
+                </View>
+                <View style={styles.recordRight}>
+                  <Text style={[styles.recordAmount, { color: st.color }]}>{fmt(item.amount)}</Text>
+                  <View style={[styles.badge, { backgroundColor: st.bg }]}>
+                    <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -244,105 +276,116 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
 
-  /* Hero 卡 */
+  /* Hero */
   heroCard: {
-    marginHorizontal: 12,
-    marginTop: 12,
-    padding: 20,
-    borderRadius: 20,
+    marginHorizontal: colors.spacing.lg,
+    marginTop: colors.spacing.md,
+    padding: colors.spacing.xl,
+    borderRadius: colors.radius.xl,
     backgroundColor: colors.primary,
+    ...colors.shadow.primary,
   },
-  heroTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  heroLabel: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  heroLabel: { fontSize: colors.fontSize.base, color: colors.alpha('255, 255, 255', 0.75), fontWeight: '500' },
   heroAmount: {
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.primaryForeground,
     marginTop: 6,
     letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
   },
   heroTrend: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(52, 211, 153, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    gap: 4,
+    backgroundColor: colors.alpha('255, 255, 255', 0.18),
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: colors.radius.full,
   },
-  heroTrendText: { fontSize: 12, color: '#34d399', fontWeight: '600', marginLeft: 3 },
+  heroTrendText: { fontSize: colors.fontSize.base, color: colors.primaryForeground, fontWeight: '600' },
   heroStats: {
     flexDirection: 'row',
-    marginTop: 18,
+    marginTop: colors.spacing.lg,
     paddingTop: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.2)',
+    borderTopColor: colors.alpha('255, 255, 255', 0.2),
   },
-  heroStatItem: { flex: 1, alignItems: 'center' },
-  heroStatVal: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  heroStatLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 3 },
-  heroDivider: { width: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.2)' },
-
-  /* 图表卡 */
-  chartCard: {
-    marginHorizontal: 12,
-    marginTop: 14,
-    padding: 16,
-    paddingBottom: 12,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  chartTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
-  chartSub: { fontSize: 12, color: colors.ink3 },
-
-  /* 明细 */
-  sectionTitle: {
-    fontSize: 16,
+  heroStatItem: { flex: 1, gap: 3 },
+  heroStatLabel: { fontSize: colors.fontSize.sm, color: colors.alpha('255, 255, 255', 0.7) },
+  heroStatVal: {
+    fontSize: 17,
     fontWeight: '700',
-    color: colors.text,
-    marginHorizontal: 12,
-    marginTop: 20,
+    color: colors.primaryForeground,
+    fontVariant: ['tabular-nums'],
+  },
+  heroDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.alpha('255, 255, 255', 0.2), marginHorizontal: 12 },
+
+  /* 区块标题 */
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: colors.spacing.xl,
+    marginTop: colors.spacing.xl,
     marginBottom: 10,
   },
-  list: { paddingHorizontal: 12 },
-  recordCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  sectionHint: { fontSize: colors.fontSize.sm, color: colors.ink3, fontWeight: '500' },
+
+  /* 卡片 */
+  card: {
+    marginHorizontal: colors.spacing.lg,
+    padding: colors.spacing.lg,
     backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
+    borderRadius: colors.radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
   },
-  recordLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  recordIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: 'rgba(20, 184, 166, 0.1)',
-    justifyContent: 'center',
+
+  /* chips */
+  chips: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: colors.spacing.lg,
+    marginTop: colors.spacing.xl,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: colors.fontSize.base, fontWeight: '500', color: colors.ink2 },
+  chipTextActive: { color: colors.primaryForeground, fontWeight: '700' },
+
+  /* 明细行 */
+  recordRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 12,
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
-  recordInfo: { flex: 1 },
-  property: { fontSize: 14, color: colors.text, fontWeight: '600' },
-  month: { fontSize: 12, color: colors.ink3, marginTop: 3 },
-  recordRight: { alignItems: 'flex-end' },
-  amount: { fontSize: 16, color: colors.text, fontWeight: '700' },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, marginTop: 5 },
-  badgeText: { fontSize: 11, fontWeight: '600' },
+  recordRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
+  recordIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: colors.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordBody: { flex: 1, minWidth: 0 },
+  recordTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  recordSub: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
+  recordRight: { alignItems: 'flex-end', gap: 3 },
+  recordAmount: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: colors.radius.full },
+  badgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
 });

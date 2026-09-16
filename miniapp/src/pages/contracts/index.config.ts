@@ -1,1 +1,0 @@
-export default { navigationBarTitleText: '电子签合同' }

@@ -45,3 +45,21 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+
+/**
+ * 文档取件地址（带令牌查询串）。
+ *
+ * `uploads/documents` 已不再由静态服务托管，证件、合同等敏感文件只能经
+ * `/documents/{id}/file`（内联）或 `/download`（附件）取件。而 RN 的
+ * `Linking.openURL` / `Image` 无法附加请求头，因此这里只能把令牌拼进查询串
+ * —— 这是后端为文件类接口专门开放 `?token=` 的原因。
+ * 出于同样的原因，调用方不要把这个地址写入日志或持久化。
+ */
+export async function documentFileUrl(
+  id: string,
+  mode: 'file' | 'download' = 'file',
+): Promise<string | null> {
+  const token = await tokenStorage.get();
+  if (!token) return null;
+  return `${API_BASE_URL}/documents/${id}/${mode}?token=${encodeURIComponent(token)}`;
+}

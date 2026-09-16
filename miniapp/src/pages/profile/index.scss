@@ -1,98 +1,408 @@
+/* 「我的」页：租客 / 管理端 / 业主端对齐各自原型，员工端原型无此页仅保留入口 */
+
 .profile-page {
   min-height: 100vh;
   background-color: var(--bg);
-  padding-bottom: 48px;
+  padding-bottom: 48rpx;
+
+  /* 有固定底栏的分支需留出底栏高度 */
+  &--nav {
+    padding-bottom: 160rpx;
+  }
 }
 
-.profile-header {
+/* ===== 通用卡片容器 ===== */
+.panel {
+  margin: 0 24rpx 8rpx;
+  padding: 16rpx 24rpx;
+  background-color: var(--card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+
+  /* 列表型卡片：行自带上下内边距 */
+  &--list {
+    padding: 0 24rpx;
+  }
+
+  /* 宫格型卡片 */
+  &--grid {
+    padding: 12rpx 8rpx;
+  }
+
+  &__caption {
+    display: block;
+    padding: 24rpx 0 8rpx;
+    font-size: 30rpx;
+    font-weight: 600;
+    color: var(--ink);
+  }
+}
+
+/* ===== 区块标题 ===== */
+.section-title {
+  margin: 32rpx 24rpx 16rpx;
+
+  text {
+    font-size: 32rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+}
+
+/* ===== 资料卡（管理端 / 业主端 / 员工端） ===== */
+.profile-card {
   display: flex;
   align-items: center;
-  padding: 48px 32px;
-  background: var(--primary);
+  margin: 24rpx 24rpx 0;
+  padding: 28rpx 24rpx;
+  background-color: var(--card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
 
-  .avatar {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 32px;
-
-    .avatar-text {
-      font-size: 48px;
-      color: var(--primary-foreground);
-      font-weight: 600;
-    }
+  .avatar--lg {
+    width: 112rpx;
+    height: 112rpx;
+    margin-right: 24rpx;
   }
 
-  .user-info {
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    display: block;
+    font-size: 34rpx;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 10rpx;
+  }
+
+  &__edit {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 12rpx 20rpx;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background-color: var(--surface-2);
 
-    .user-name {
-      font-size: 36px;
-      color: var(--primary-foreground);
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .user-role {
-      font-size: 26px;
-      color: rgba(255, 255, 255, 0.8);
-      margin-bottom: 4px;
-    }
-
-    .user-email,
-    .user-phone {
-      font-size: 24px;
-      color: rgba(255, 255, 255, 0.7);
-      margin-top: 2px;
+    text {
+      font-size: 24rpx;
+      color: var(--ink-2);
+      margin-left: 8rpx;
     }
   }
 }
 
-.menu-list {
-  margin: 24px;
-  background-color: var(--card);
-  border-radius: 16px;
-  overflow: hidden;
+/* 头像 */
+.avatar {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+  background-color: rgba(var(--primary-rgb), 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 
-  .menu-item {
+  .avatar-text {
+    font-size: 44rpx;
+    font-weight: 600;
+    color: var(--primary);
+  }
+}
+
+/* ===== 租客端：渐变用户卡 ===== */
+.role-card {
+  margin: 24rpx;
+  padding: 32rpx;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+  box-shadow: var(--shadow-primary);
+  color: var(--primary-foreground);
+
+  &__top {
+    display: flex;
+    align-items: center;
+  }
+
+  /* 渐变卡内头像用白色半透明底 + 白字 */
+  .avatar {
+    background-color: rgba(var(--primary-foreground-rgb), 0.3);
+    margin-right: 28rpx;
+
+    .avatar-text {
+      color: var(--primary-foreground);
+    }
+  }
+
+  &__info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    display: block;
+    font-size: 36rpx;
+    font-weight: 700;
+    color: var(--primary-foreground);
+    margin-bottom: 8rpx;
+  }
+
+  &__sub {
+    display: block;
+    font-size: 24rpx;
+    color: rgba(var(--primary-foreground-rgb), 0.82);
+  }
+
+  /* 底部当前租约条 */
+  &__strip {
+    display: flex;
+    align-items: center;
+    margin-top: 28rpx;
+    padding-top: 20rpx;
+    border-top: 1px solid rgba(var(--primary-foreground-rgb), 0.18);
+  }
+
+  &__strip-label {
+    font-size: 24rpx;
+    color: rgba(var(--primary-foreground-rgb), 0.85);
+    margin-right: 12rpx;
+  }
+
+  &__strip-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__badge {
+    flex-shrink: 0;
+    margin-left: 12rpx;
+    background-color: rgba(var(--primary-foreground-rgb), 0.22);
+    color: var(--primary-foreground);
+
+    .bg-dot {
+      background-color: var(--primary-foreground);
+    }
+  }
+}
+
+/* 状态圆点（徽章内） */
+.bg-dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background-color: var(--success);
+  flex-shrink: 0;
+}
+
+/* 徽章右间距（配合 .badge 使用） */
+.badge {
+  .bg-dot {
+    margin-right: 8rpx;
+  }
+}
+
+/* ===== 列表行（设置项 / 菜单项 / 订单行通用） ===== */
+.list-row {
+  display: flex;
+  align-items: center;
+  padding: 26rpx 0;
+  border-bottom: 1px solid var(--line);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &__icon {
+    width: 64rpx;
+    height: 64rpx;
+    flex-shrink: 0;
+    margin-right: 20rpx;
+    border-radius: var(--radius-md);
+    background-color: rgba(var(--primary-rgb), 0.1);
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: 34rpx 34rpx;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__label {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  &__desc {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-3);
+    margin-top: 6rpx;
+  }
+
+  &__value {
+    flex-shrink: 0;
+    font-size: 26rpx;
+    color: var(--ink-3);
+    margin-left: 12rpx;
+  }
+}
+
+/* 右箭头（纯 CSS 绘制，避免 emoji 图标） */
+.chevron {
+  width: 16rpx;
+  height: 16rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  border-top: 3rpx solid var(--ink-3);
+  border-right: 3rpx solid var(--ink-3);
+  transform: rotate(45deg);
+}
+
+/* 关于小程序卡片内的紧凑行 */
+.about-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18rpx 0;
+
+  &__label {
+    font-size: 26rpx;
+    color: var(--ink-2);
+  }
+
+  &__value {
+    font-size: 26rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* ===== 租客端：租约卡 ===== */
+.lease-card {
+  padding: 16rpx 0;
+
+  &__head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 32px 24px;
-    border-bottom: 1px solid var(--line);
+    margin-bottom: 12rpx;
+  }
 
-    &:last-child {
-      border-bottom: none;
-    }
+  &__title {
+    flex: 1;
+    min-width: 0;
+    font-size: 32rpx;
+    font-weight: 600;
+    color: var(--ink);
+    margin-right: 12rpx;
+  }
 
-    .menu-text {
-      font-size: 30px;
-      color: var(--ink);
-    }
+  &__meta {
+    display: block;
+    font-size: 26rpx;
+    color: var(--ink-2);
+    margin-bottom: 20rpx;
+  }
 
-    .menu-arrow {
-      font-size: 36px;
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16rpx;
+  }
+
+  &__range {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+
+  &__left {
+    font-size: 24rpx;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  &__sub {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12rpx;
+
+    text {
+      font-size: 22rpx;
       color: var(--ink-3);
     }
   }
 }
 
+.progress {
+  height: 12rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--surface-2);
+  overflow: hidden;
+
+  .progress__bar {
+    height: 100%;
+    border-radius: var(--radius-full);
+    background-color: var(--primary);
+  }
+}
+
+/* ===== 租客端：服务宫格 ===== */
+.service-grid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 16rpx 0;
+
+  &__item {
+    width: 33.333%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20rpx 0;
+  }
+
+  &__icon {
+    width: 76rpx;
+    height: 76rpx;
+    margin-bottom: 12rpx;
+    border-radius: var(--radius-md);
+    background-color: rgba(var(--primary-rgb), 0.1);
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: 36rpx 36rpx;
+  }
+
+  &__label {
+    font-size: 24rpx;
+    color: var(--ink-2);
+  }
+}
+
+/* ===== 退出登录 ===== */
 .logout-wrapper {
-  padding: 48px 32px;
+  padding: 48rpx 24rpx 24rpx;
 
   .logout-btn {
     width: 100%;
-    height: 88px;
-    line-height: 88px;
+    height: 88rpx;
+    line-height: 88rpx;
     background-color: var(--card);
     color: var(--error);
-    font-size: 32px;
-    border-radius: 12px;
-    border: 1px solid rgba(220, 38, 38, 0.2);
+    font-size: 32rpx;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--line);
   }
 }

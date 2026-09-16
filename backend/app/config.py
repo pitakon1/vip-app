@@ -35,8 +35,10 @@ class Settings(BaseSettings):
     # Redis 配置
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # 安全配置
-    SECRET_KEY: str = "super-secret-key-change-in-production"
+    # 安全配置。注意 SECRET_KEY 刻意不设默认值：留空即等于「未配置」，
+    # 非 DEBUG 环境下启动自检会直接拒绝启动（fail closed），
+    # 避免"忘了改默认值"退化成可预测的签名密钥，进而可伪造任意会话。
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -83,7 +85,9 @@ class Settings(BaseSettings):
     #
     # 2) 电子签合同：合同渲染 + 数字签名。SIGNING_SECRET 用于 HMAC 签名，
     #    若检测到 cryptography 库则使用 RSA 签名（更接近生产电子签）。
-    CONTRACT_SIGNING_SECRET: str = "change-me-signing-secret"
+    #    同样不设默认值：缺省时非 DEBUG 环境启动自检会提示（见 main.py 探针表），
+    #    签名时 fail closed 直接报错，避免用公开的示例密钥签出"看起来有效"的合同。
+    CONTRACT_SIGNING_SECRET: str = ""
     CONTRACT_OUTPUT_DIR: str = "./contracts"
 
     # 3) AI 应用预留接口（OpenAI 兼容 /chat/completions）

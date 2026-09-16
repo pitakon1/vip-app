@@ -74,7 +74,7 @@ export default function ChatDetailPage() {
     <View className='chat-detail-page'>
       <ScrollView scrollY className='message-list' scrollWithAnimation>
         {messages.length === 0 && (
-          <View className='empty-tip'>
+          <View className='empty-state'>
             <Text>暂时没有消息，来说点什么吧</Text>
           </View>
         )}

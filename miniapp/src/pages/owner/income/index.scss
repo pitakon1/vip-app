@@ -1,113 +1,333 @@
+/* 业主收入 —— 渐变摘要 + 月度趋势 + 筛选 + 收入明细 */
+
 .owner-income-page {
   min-height: 100vh;
   background-color: var(--bg);
+  /* 底部固定导航占位，避免内容被遮挡 */
+  padding-bottom: 160rpx;
 
   .page-container {
-    padding: 24px;
+    padding: 24rpx;
   }
 
-  .summary-header {
+  /* 收入摘要（渐变卡） */
+  .hero {
+    position: relative;
+    padding: 36rpx 32rpx;
+    border-radius: var(--radius-xl);
     background: var(--primary);
-    border-radius: 16px;
-    padding: 40px 24px;
-    margin-bottom: 24px;
+    margin-bottom: 28rpx;
+    overflow: hidden;
+    box-shadow: var(--shadow-primary);
 
-    .summary-label {
-      display: block;
-      font-size: 26px;
-      color: rgba(255, 255, 255, 0.8);
-      margin-bottom: 12px;
+    &::before {
+      content: '';
+      position: absolute;
+      top: -110rpx;
+      right: -90rpx;
+      width: 300rpx;
+      height: 300rpx;
+      border-radius: 50%;
+      background: rgba(var(--primary-foreground-rgb), 0.08);
     }
 
-    .summary-amount {
+    &__top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16rpx;
+      position: relative;
+      z-index: 1;
+    }
+
+    &__left {
+      min-width: 0;
+    }
+
+    &__label {
       display: block;
-      font-size: 56px;
+      font-size: 24rpx;
+      color: rgba(var(--primary-foreground-rgb), 0.75);
+    }
+
+    &__amount {
+      display: block;
+      font-size: 56rpx;
+      font-weight: 800;
+      color: var(--primary-foreground);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-top: 4rpx;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &__tag {
+      flex-shrink: 0;
+      padding: 8rpx 20rpx;
+      border-radius: var(--radius-full);
+      background: rgba(var(--primary-foreground-rgb), 0.18);
+      color: var(--primary-foreground);
+      font-size: 22rpx;
+      font-weight: 600;
+    }
+
+    &__stats {
+      display: flex;
+      gap: 24rpx;
+      margin-top: 28rpx;
+      padding-top: 24rpx;
+      border-top: 2rpx solid rgba(var(--primary-foreground-rgb), 0.2);
+      position: relative;
+      z-index: 1;
+    }
+
+    &__stat {
+      flex: 1;
+      min-width: 0;
+
+      &--right {
+        text-align: right;
+      }
+    }
+
+    &__stat-label {
+      display: block;
+      font-size: 22rpx;
+      color: rgba(var(--primary-foreground-rgb), 0.75);
+    }
+
+    &__stat-value {
+      display: block;
+      font-size: 34rpx;
       font-weight: 700;
       color: var(--primary-foreground);
-    }
-  }
-
-  .stats-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 24px;
-
-    .stat-item {
-      flex: 1;
-      background-color: var(--card);
-      border-radius: 16px;
-      padding: 24px 12px;
-      margin: 0 6px;
-      text-align: center;
-
-      .stat-label {
-        display: block;
-        font-size: 24px;
-        color: var(--ink-3);
-        margin-bottom: 8px;
-      }
-
-      .stat-value {
-        display: block;
-        font-size: 28px;
-        font-weight: 600;
-        color: var(--ink);
-      }
-
-      .text-warning {
-        color: var(--warning);
-      }
-
-      .text-danger {
-        color: var(--error);
-      }
+      margin-top: 4rpx;
+      font-variant-numeric: tabular-nums;
     }
   }
 
   .section-title {
-    font-size: 32px;
-    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 34rpx;
+    font-weight: 700;
     color: var(--ink);
-    margin-bottom: 16px;
+    margin-bottom: 20rpx;
+    letter-spacing: -0.02em;
+
+    .section-hint {
+      font-size: 24rpx;
+      font-weight: 500;
+      color: var(--ink-3);
+    }
+  }
+
+  .card {
+    background-color: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    padding: 28rpx;
+    margin-bottom: 28rpx;
+    box-shadow: var(--shadow-sm);
+
+    &--list {
+      padding: 0 28rpx;
+    }
   }
 
   .empty-tip {
     text-align: center;
-    padding: 80px 0;
+    padding: 48rpx 0;
     color: var(--ink-3);
-    font-size: 28px;
+    font-size: 26rpx;
   }
 
-  .income-list {
-    .income-card {
+  /* 月度趋势柱状图 */
+  .chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 10rpx;
+    height: 260rpx;
+
+    &__col {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    &__track {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8rpx;
+    }
+
+    &__value {
+      font-size: 20rpx;
+      color: var(--ink-3);
+      font-variant-numeric: tabular-nums;
+
+      &--current {
+        color: var(--primary);
+        font-weight: 700;
+      }
+    }
+
+    &__bar {
+      width: 100%;
+      max-width: 40rpx;
+      min-height: 6rpx;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      background: rgba(var(--primary-rgb), 0.3);
+      transition: height 0.3s ease;
+
+      &--current {
+        background: var(--primary);
+      }
+    }
+
+    &__label {
+      font-size: 20rpx;
+      color: var(--ink-3);
+      margin-top: 10rpx;
+
+      &--current {
+        color: var(--primary);
+        font-weight: 700;
+      }
+    }
+  }
+
+  /* 筛选 chips */
+  .chips {
+    display: flex;
+    gap: 12rpx;
+    margin-bottom: 24rpx;
+
+    &__item {
+      flex-shrink: 0;
+      padding: 12rpx 28rpx;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      color: var(--ink-2);
+      font-size: 24rpx;
+      font-weight: 500;
+
+      &--active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--primary-foreground);
+        font-weight: 600;
+      }
+    }
+  }
+
+  /* 收入明细行 */
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 20rpx;
+    padding: 24rpx 0;
+    border-bottom: 1px solid var(--line);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &__badge {
+      flex-shrink: 0;
+      width: 72rpx;
+      height: 72rpx;
+      border-radius: var(--radius-md);
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      background-color: var(--card);
-      border-radius: 16px;
-      padding: 24px;
-      margin-bottom: 16px;
+      justify-content: center;
 
-      .income-month {
-        .month-text {
-          display: block;
-          font-size: 30px;
-          font-weight: 600;
-          color: var(--ink);
-          margin-bottom: 8px;
-        }
-
-        .property-count {
-          display: block;
-          font-size: 24px;
-          color: var(--ink-3);
-        }
+      &--success {
+        background: rgba(var(--success-rgb), 0.1);
       }
 
-      .income-amount {
-        font-size: 34px;
-        font-weight: 700;
+      &--warning {
+        background: rgba(var(--warning-rgb), 0.1);
+      }
+
+      &--error {
+        background: rgba(var(--error-rgb), 0.1);
+      }
+    }
+
+    &__body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &__title {
+      display: block;
+      font-size: 30rpx;
+      font-weight: 600;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__desc {
+      display: block;
+      font-size: 24rpx;
+      color: var(--ink-3);
+      margin-top: 6rpx;
+    }
+
+    &__right {
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    &__amount {
+      display: block;
+      font-size: 30rpx;
+      font-weight: 700;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+
+      &--success {
         color: var(--success);
+      }
+
+      &--error {
+        color: var(--error);
+      }
+    }
+
+    &__tag {
+      display: inline-block;
+      margin-top: 6rpx;
+      padding: 4rpx 14rpx;
+      border-radius: var(--radius-full);
+      font-size: 20rpx;
+      font-weight: 600;
+
+      &--success {
+        background: rgba(var(--success-rgb), 0.1);
+        color: var(--success);
+      }
+
+      &--warning {
+        background: rgba(var(--warning-rgb), 0.1);
+        color: var(--warning);
+      }
+
+      &--error {
+        background: rgba(var(--error-rgb), 0.1);
+        color: var(--error);
       }
     }
   }

@@ -250,20 +250,43 @@ const Documents = () => {
     fetchDocuments()
   }, [fetchDocuments])
 
-  const handleDownload = (doc: OwnerDocument) => {
-    if (!doc.file_url) {
+  // 证件、合同等敏感文档已不再由 /uploads 静态服务托管，必须带 Authorization
+  // 头走鉴权接口 /documents/{id}/file（预览）或 /download（下载）取件。
+  // 这里用 blob 中转而不是把 token 拼进 URL：URL 会留在历史记录、日志与 Referer 里。
+  const openDocument = async (doc: OwnerDocument, download: boolean) => {
+    if (!doc.file_url || !doc.id) {
       message.error('文件地址不存在')
       return
     }
-    window.open(doc.file_url, '_blank')
+    try {
+      const res = await api.get(
+        `/documents/${doc.id}/${download ? 'download' : 'file'}`,
+        { responseType: 'blob' },
+      )
+      const blobUrl = URL.createObjectURL(res.data as Blob)
+      if (download) {
+        const a = document.createElement('a')
+        a.href = blobUrl
+        a.download = doc.name || 'document'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+      } else {
+        window.open(blobUrl, '_blank')
+      }
+      // 浏览器读取完才回收：过早 revoke 会让预览页/下载拿到空内容
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+    } catch {
+      message.error(download ? '下载文件失败' : '预览文件失败')
+    }
+  }
+
+  const handleDownload = (doc: OwnerDocument) => {
+    void openDocument(doc, true)
   }
 
   const handlePreview = (doc: OwnerDocument) => {
-    if (!doc.file_url) {
-      message.error('文件地址不存在')
-      return
-    }
-    window.open(doc.file_url, '_blank')
+    void openDocument(doc, false)
   }
 
   // 选择文件后先确认分类，再上传（分类是必填项，静默默认会让类型筛选失真）

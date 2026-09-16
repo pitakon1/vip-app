@@ -1,7 +1,7 @@
 /**
- * 管理员工作台：运营概览 / 财务对账 / 佣金规则
+ * 管理员工作台：运营概览 / 财务对账
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -9,20 +9,18 @@ import {
   StyleSheet,
   RefreshControl,
   TouchableOpacity,
-  TextInput,
-  Alert,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import LineChart from '@/components/charts/LineChart';
 import BarChart from '@/components/charts/BarChart';
-import { dashboardApi, commissionRulesApi, brokerApi, employeesApi } from '@/services/api';
+import { dashboardApi, employeesApi } from '@/services/api';
+import api from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
-type Tab = 'overview' | 'recon' | 'commission';
+type Tab = 'overview' | 'recon';
 
 interface ReconRow {
   property?: string | null;
@@ -40,119 +38,23 @@ interface TrendRow {
   viewings_new?: number;
 }
 
-interface CommissionRule {
-  id: string;
-  name: string;
-  deal_type: string;
-  rate: number;
-  scope?: string;
-  is_active?: boolean;
-  [k: string]: any;
-}
-
 const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿');
 const fmtMoney = (v?: number, c?: string) => `${cur(c)}${Number(v ?? 0).toLocaleString()}`;
-
-const DEAL_TYPE: Record<string, string> = {
-  new_rental: '新租',
-  renewal: '续约',
-  purchase: '购房',
-  sale: '出租',
-};
-const SCOPE: Record<string, string> = {
-  all_employees: '全体员工',
-  by_department: '部门',
-  department: '部门',
-  by_employee: '个人',
-  individual: '个人',
-  by_broker: '按分销商',
-};
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'overview', label: '运营概览', icon: 'grid-outline' },
   { key: 'recon', label: '财务对账', icon: 'wallet-outline' },
-  { key: 'commission', label: '佣金设置', icon: 'settings-outline' },
 ];
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-// 表单下拉选择器（展开式，支持搜索）
-interface ScopeOption {
-  key: string;
-  label: string;
-}
-
-function SelectDropdown({
-  label,
-  value,
-  options,
-  open,
-  onToggle,
-  onSelect,
-  searchable = false,
-}: {
-  label: string;
-  value: string;
-  options: ScopeOption[];
-  open: boolean;
-  onToggle: () => void;
-  onSelect: (key: string) => void;
-  searchable?: boolean;
-}) {
-  const [kw, setKw] = useState('');
-  const filtered = kw.trim()
-    ? options.filter((o) => o.label.toLowerCase().includes(kw.trim().toLowerCase()))
-    : options;
-  const current = options.find((o) => o.key === value);
-  return (
-    <View style={styles.formGroup}>
-      <Text style={styles.formLabel}>{label}</Text>
-      <TouchableOpacity style={styles.selectBox} onPress={onToggle} activeOpacity={0.7}>
-        <Text style={[styles.selectText, !current && styles.selectPlaceholder]} numberOfLines={1}>
-          {current ? current.label : `请选择${label}`}
-        </Text>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={colors.ink3} />
-      </TouchableOpacity>
-      {open && (
-        <View style={styles.selectMenu}>
-          {searchable && (
-            <TextInput
-              style={styles.selectSearch}
-              placeholder="搜索..."
-              placeholderTextColor={colors.ink3}
-              value={kw}
-              onChangeText={setKw}
-            />
-          )}
-          {filtered.length === 0 && (
-            <Text style={styles.selectEmpty}>无匹配选项</Text>
-          )}
-          {filtered.map((o) => (
-            <TouchableOpacity
-              key={o.key}
-              style={styles.selectOption}
-              onPress={() => {
-                setKw('');
-                onSelect(o.key);
-                onToggle();
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.selectOptionText, value === o.key && styles.selectOptionTextActive]}>{o.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-}
-
-// 快捷入口：仅保留高频必要功能（运营看板在底部 Tab，不再重复；低频管理功能经 Web 侧边栏可达）
+// 快捷入口：对齐管理端原型首页的 5 项（房源/客户/合同/收款/员工）
 const QUICK_ACTIONS: { key: string; label: string; icon: IoniconName; route: string }[] = [
-  { key: 'props', label: '房源管理', icon: 'home-outline', route: 'EmployeeProperties' },
-  { key: 'sale', label: '买卖成交', icon: 'swap-horizontal-outline', route: 'SaleDeals' },
-  { key: 'review', label: '工单审核', icon: 'checkbox-outline', route: 'AdminReview' },
-  { key: 'account', label: '账号管理', icon: 'people-outline', route: 'AdminUsers' },
+  { key: 'props', label: '房源管理', icon: 'home-outline', route: 'AdminProperties' },
+  { key: 'crm', label: '客户管理', icon: 'people-outline', route: 'AdminCRM' },
+  { key: 'lease', label: '合同管理', icon: 'document-text-outline', route: 'AdminLeases' },
+  { key: 'payment', label: '收款管理', icon: 'card-outline', route: 'AdminPayments' },
+  { key: 'staff', label: '员工管理', icon: 'person-add-outline', route: 'AdminUsers' },
 ];
 
 export default function AdminHomeScreen() {
@@ -163,44 +65,31 @@ export default function AdminHomeScreen() {
   const [tab, setTab] = useState<Tab>('overview');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [scopeOpen, setScopeOpen] = useState(false);
-  const [brokerOpen, setBrokerOpen] = useState(false);
-  const [employeeOpen, setEmployeeOpen] = useState(false);
 
   const [summary, setSummary] = useState<any>({});
   const [expiring, setExpiring] = useState<any[]>([]);
   const [totals, setTotals] = useState<{ received?: number; receivable?: number; overdue?: number }>({});
   const [byProperty, setByProperty] = useState<ReconRow[]>([]);
   const [trend, setTrend] = useState<TrendRow[]>([]);
-  const [rules, setRules] = useState<CommissionRule[]>([]);
+  const [pendingReview, setPendingReview] = useState<number | null>(null);
+  // 最近动态（取最近 4 笔付款记录）+ 员工规模（用于经营指标）
+  const [recentPayments, setRecentPayments] = useState<any[]>([]);
+  const [staff, setStaff] = useState<any[]>([]);
 
-  const [name, setName] = useState('');
-  const [rate, setRate] = useState('');
-  const [dealType, setDealType] = useState('new_rental');
-  const [scope, setScope] = useState('all_employees');
-  const [brokerId, setBrokerId] = useState('');
-  const [department, setDepartment] = useState('');
-  const [employeeId, setEmployeeId] = useState('');
-  const [brokerEmployeeId, setBrokerEmployeeId] = useState('');
-  const [brokers, setBrokers] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
-
-  // 分销商管理员无全局规则权限，默认回退到本渠道
-  useEffect(() => {
-    if (!isAdmin && (scope === 'all_employees' || scope === 'by_department')) {
-      setScope('by_broker');
-    }
-  }, [isAdmin]);
 
   const loadTab = useCallback(async (target: Tab) => {
     setLoading(true);
     try {
       if (target === 'overview') {
-        const [sumRes, expRes, trendRes, reconRes]: any[] = await Promise.all([
+        const [sumRes, expRes, trendRes, reconRes, todoRes, recentRes, staffRes]: any[] = await Promise.all([
           dashboardApi.summary().catch(() => ({ data: {} })),
           dashboardApi.expiringLeases().catch(() => ({ data: { items: [] } })),
           dashboardApi.trend({ months: 12 }).catch(() => ({ data: { series: [] } })),
           dashboardApi.financialReconciliation().catch(() => ({ data: { totals: {}, by_property: [] } })),
+          api.get('/review-center/todos').catch(() => null),
+          api.get('/dashboard/recent-payments').catch(() => null),
+          employeesApi.list({ page: 1, page_size: 100 }).catch(() => null),
         ]);
         setSummary(sumRes?.data ?? {});
         setExpiring((expRes?.data ?? {}).items ?? []);
@@ -210,24 +99,17 @@ export default function AdminHomeScreen() {
         const reconD = reconRes?.data ?? {};
         setTotals((reconD.totals ?? {}) as { received?: number; receivable?: number; overdue?: number });
         setByProperty(reconD.by_property ?? []);
+        const todoItems = todoRes?.data?.items;
+        setPendingReview(Array.isArray(todoItems) ? todoItems.length : null);
+        const recentItems = recentRes?.data?.items;
+        setRecentPayments(Array.isArray(recentItems) ? recentItems.slice(0, 4) : []);
+        const staffD = staffRes?.data ?? {};
+        setStaff(((staffD.items ?? staffD ?? []) as any[]).slice(0, 100));
       } else if (target === 'recon') {
         const res: any = await dashboardApi.financialReconciliation();
         const d = res?.data ?? {};
         setTotals(d.totals ?? {});
         setByProperty(d.by_property ?? []);
-      } else if (target === 'commission') {
-        const res: any = await commissionRulesApi.list({});
-        const d = res?.data ?? {};
-        setRules((d.items ?? d ?? []) as CommissionRule[]);
-        // 分销商/员工列表（用于按分销商/按员工配置差异化费率）
-        const [, broRes, empRes]: any[] = await Promise.all([
-          Promise.resolve(),
-          brokerApi.list({ page_size: 100 }).catch(() => ({ data: { items: [] } })),
-          employeesApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: { items: [] } })),
-        ]);
-        setBrokers((broRes?.data?.items ?? []) as any[]);
-        const empD = empRes?.data ?? {};
-        setEmployees((empD.items ?? empD ?? []) as any[]);
       }
     } catch (e) {
       /* 加载失败不阻塞 */
@@ -250,8 +132,7 @@ export default function AdminHomeScreen() {
 
   const dataLoaded = (t: Tab) => {
     if (t === 'overview') return Object.keys(summary).length > 0;
-    if (t === 'recon') return byProperty.length > 0;
-    return rules.length > 0;
+    return byProperty.length > 0;
   };
 
   const reload = async () => {
@@ -259,101 +140,104 @@ export default function AdminHomeScreen() {
     await loadTab(tab);
   };
 
-  // 近 6 个月营收（用于概览收入趋势图）
-  const revenueTrend = trend.slice(-6).map((t) => ({
+  // 近 7 个月营收（用于概览收入趋势图，对齐原型「近 7 月收入」）
+  const revenueTrend = trend.slice(-7).map((t) => ({
     label: `${Number(t.month?.slice(5))}月`,
     value: t.revenue ?? 0,
   }));
 
-  const addRule = async () => {
-    if (!name || !rate) {
-      Alert.alert('提示', '请填写规则名称与佣金比例');
-      return;
-    }
-    if (scope === 'by_broker' && isAdmin && !brokerId) {
-      Alert.alert('提示', '请选择分销商');
-      return;
-    }
-    if (scope === 'by_employee' && isAdmin && !employeeId) {
-      Alert.alert('提示', '请选择员工');
-      return;
-    }
-    if (scope === 'broker_employee') {
-      if (!brokerId) {
-        Alert.alert('提示', '请先选择分销商');
-        return;
-      }
-      if (!brokerEmployeeId) {
-        Alert.alert('提示', '请选择该分销商的员工');
-        return;
-      }
-    }
-    if (scope === 'by_department' && !department) {
-      Alert.alert('提示', '请输入部门名称');
-      return;
-    }
-    const ruleName = name;
-    try {
-      const payload: any = {
-        name,
-        rate: Number(rate),
-        deal_type: dealType,
-        scope:
-          scope === 'broker_employee'
-            ? 'by_employee'
-            : scope,
-        ...(scope === 'by_employee' || scope === 'broker_employee'
-          ? { employee_id: scope === 'broker_employee' ? brokerEmployeeId : employeeId }
-          : {}),
-        ...(scope === 'broker_employee' ? { broker_id: brokerId } : {}),
-        ...(scope === 'by_broker' && isAdmin ? { broker_id: brokerId } : {}),
-        ...(scope === 'by_department' ? { department } : {}),
-      };
-      await commissionRulesApi.create(payload);
-      setName('');
-      setRate('');
-      setDealType('new_rental');
-      setScope('all_employees');
-      setBrokerId('');
-      setDepartment('');
-      setEmployeeId('');
-      setBrokerEmployeeId('');
-      await loadTab('commission');
-      Alert.alert('新增成功', `佣金设置「${ruleName}」已生效`);
-    } catch (e: any) {
-      Alert.alert('新增失败', e?.response?.data?.message || '请稍后重试');
-    }
-  };
+  /* ===== 风险预警 / 待办汇总（全部由真实接口数据推导） ===== */
+  const ratio = (n: number, d: number) => (d > 0 ? Math.max(0, Math.min(n / d, 1)) : 0);
+  const num = (v: any) => Number(v ?? 0);
+  const expiringCount = num(summary.expiring_leases ?? expiring.length);
+  const vacant = num(summary.vacant);
+  const totalProps = num(summary.total_properties);
+  const vacantRate = totalProps > 0 ? Math.round((vacant / totalProps) * 100) : 0;
+  const overdue = num(totals.overdue);
+  const totalBilling = num(totals.received) + num(totals.receivable) + overdue;
+  const reconDiff = byProperty.filter((r) => num(r.overdue) > 0).length;
+  const hasRisk = expiringCount > 0 || overdue > 0 || vacant > 0;
+
+  const risks = [
+    {
+      key: 'overdue',
+      tone: colors.error,
+      toneRgb: colors.errorRgb,
+      icon: 'cash-outline' as IoniconName,
+      title: '欠租与逾期',
+      value: fmtMoney(overdue),
+      unit: '',
+      desc: `逾期占比 ${Math.round(ratio(overdue, totalBilling) * 100)}% · 待收款 ${num(summary.upcoming_payments)} 笔`,
+      bar: ratio(overdue, totalBilling),
+      onPress: () => switchTab('recon'),
+    },
+    {
+      key: 'vacancy',
+      tone: colors.info,
+      toneRgb: colors.infoRgb,
+      icon: 'bar-chart-outline' as IoniconName,
+      title: '空置率',
+      value: `${vacantRate}`,
+      unit: ' %',
+      desc: `空置 ${vacant} 套 / 共 ${totalProps} 套 · 警戒线 10%`,
+      bar: ratio(vacant, totalProps),
+      onPress: () => navigation.navigate('EmployeeProperties'),
+    },
+  ];
+
+  /* ===== 经营指标（4 项，徽标全部由真实数据推导） ===== */
+  const lastTwo = trend.slice(-2);
+  const momRevenue =
+    lastTwo.length === 2 && num(lastTwo[0].revenue) > 0
+      ? ((num(lastTwo[1].revenue) - num(lastTwo[0].revenue)) / num(lastTwo[0].revenue)) * 100
+      : null;
+  const newLeasesThisMonth = num(trend[trend.length - 1]?.leases_new);
+  const monthPrefix = new Date().toISOString().slice(0, 7);
+  const newHiresThisMonth = staff.filter((e) => String(e.hire_date ?? '').startsWith(monthPrefix)).length;
+
+  const statCards = [
+    {
+      key: 'revenue',
+      label: '本月营收',
+      value: fmtMoney(summary.monthly_revenue),
+      badge: momRevenue === null ? '' : `${momRevenue >= 0 ? '+' : ''}${momRevenue.toFixed(1)}%`,
+      tone: momRevenue !== null && momRevenue < 0 ? colors.error : colors.success,
+    },
+    {
+      key: 'occupancy',
+      label: '出租率',
+      value: `${num(summary.occupancy_rate)}%`,
+      badge: `空置 ${vacant} 套`,
+      tone: colors.warning,
+    },
+    {
+      key: 'leases',
+      label: '在租合同',
+      value: `${num(summary.rented)}`,
+      badge: `+${newLeasesThisMonth} 本月`,
+      tone: colors.success,
+    },
+    {
+      key: 'staff',
+      label: '员工数',
+      value: `${staff.length}`,
+      badge: `+${newHiresThisMonth} 本月`,
+      tone: colors.success,
+    },
+  ];
 
   return (
     <View style={styles.container}>
       {/* 顶部欢迎区 */}
       <View style={styles.hero}>
         <View style={styles.heroLeft}>
-          <Text style={styles.heroTitle}>管理员工作台</Text>
+          <Text style={styles.heroTitle}>管理员首页</Text>
           <Text style={styles.heroSub}>系统管理权限 · 全局数据概览</Text>
         </View>
         <View style={styles.heroBadge}>
           <Ionicons name="shield" size={14} color="#fff" />
           <Text style={styles.heroBadgeText}>ADMIN</Text>
         </View>
-      </View>
-
-      {/* 快捷入口：展示页未覆盖的工作工具，置顶导航 */}
-      <View style={styles.actionGrid}>
-        {QUICK_ACTIONS.map((item) => (
-          <TouchableOpacity
-            key={item.key}
-            style={styles.actionCell}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate(item.route)}
-          >
-            <View style={styles.actionCellIcon}>
-              <Ionicons name={item.icon} size={22} color={colors.primary} />
-            </View>
-            <Text style={styles.actionCellLabel}>{item.label}</Text>
-          </TouchableOpacity>
-        ))}
       </View>
 
       {/* Tab 导航 */}
@@ -397,69 +281,89 @@ export default function AdminHomeScreen() {
         {/* ===== 运营概览 ===== */}
         {tab === 'overview' && (
           <View>
-            {/* 核心数据 */}
-            <View style={styles.primaryRow}>
-              <View style={[styles.primaryCard, styles.cardPrimary]}>
-                <Ionicons name="business-outline" size={22} color="#fff" style={styles.primaryIcon} />
-                <Text style={styles.primaryNum}>{summary.total_properties ?? '-'}</Text>
-                <Text style={styles.primaryLabel}>房源总数</Text>
+            {/* 风险预警（置顶 · 数字 + 占比可视化条并存；无风险数据不渲染） */}
+            {hasRisk && (
+              <View style={styles.riskList}>
+                {risks.map((r) => (
+                  <TouchableOpacity
+                    key={r.key}
+                    style={styles.riskItem}
+                    activeOpacity={0.75}
+                    onPress={r.onPress}
+                  >
+                    <View style={[styles.riskIcon, { backgroundColor: colors.alpha(r.toneRgb, 0.12) }]}>
+                      <Ionicons name={r.icon} size={18} color={r.tone} />
+                    </View>
+                    <View style={styles.riskBody}>
+                      <View style={styles.riskTitleRow}>
+                        <Text style={styles.riskTitle} numberOfLines={1}>{r.title}</Text>
+                        <Text style={[styles.riskValue, { color: r.tone }]}>
+                          {r.value}
+                          {!!r.unit && <Text style={styles.riskUnit}>{r.unit}</Text>}
+                        </Text>
+                      </View>
+                      <Text style={styles.riskDesc} numberOfLines={1}>{r.desc}</Text>
+                      <View style={styles.riskTrack}>
+                        <View style={[styles.riskBar, { flex: Math.max(r.bar, 0.02), backgroundColor: r.tone }]} />
+                        <View style={{ flex: Math.max(1 - r.bar, 0) }} />
+                      </View>
+                    </View>
+                    <Text style={styles.riskCta}>去处理</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <View style={[styles.primaryCard, styles.cardSuccess]}>
-                <Ionicons name="trending-up-outline" size={22} color="#fff" style={styles.primaryIcon} />
-                <Text style={styles.primaryNum}>{summary.occupancy_rate ?? 0}%</Text>
-                <Text style={styles.primaryLabel}>入住率</Text>
-              </View>
-              <View style={[styles.primaryCard, styles.cardWarning]}>
-                <Ionicons name="alarm-outline" size={22} color="#fff" style={styles.primaryIcon} />
-                <Text style={styles.primaryNum}>{summary.expiring_leases ?? 0}</Text>
-                <Text style={styles.primaryLabel}>到期合同</Text>
-              </View>
+            )}
+
+            {/* 经营指标（4 项 + 徽标） */}
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>经营指标</Text>
+              <Text style={styles.sectionHint}>实时汇总</Text>
+            </View>
+            <View style={styles.statRow}>
+              {statCards.slice(0, 2).map((s) => (
+                <View key={s.key} style={styles.statCard}>
+                  <Text style={styles.statLabel}>{s.label}</Text>
+                  <Text style={styles.statNum} numberOfLines={1}>{s.value}</Text>
+                  {!!s.badge && (
+                    <View style={[styles.statBadge, { backgroundColor: colors.alpha(s.tone === colors.error ? colors.errorRgb : s.tone === colors.warning ? colors.warningRgb : colors.successRgb, 0.12) }]}>
+                      <Text style={[styles.statBadgeText, { color: s.tone }]}>{s.badge}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+            <View style={styles.statRow}>
+              {statCards.slice(2).map((s) => (
+                <View key={s.key} style={styles.statCard}>
+                  <Text style={styles.statLabel}>{s.label}</Text>
+                  <Text style={styles.statNum} numberOfLines={1}>{s.value}</Text>
+                  {!!s.badge && (
+                    <View style={[styles.statBadge, { backgroundColor: colors.alpha(s.tone === colors.error ? colors.errorRgb : s.tone === colors.warning ? colors.warningRgb : colors.successRgb, 0.12) }]}>
+                      <Text style={[styles.statBadgeText, { color: s.tone }]}>{s.badge}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
             </View>
 
-            {/* 次级数据 */}
-            <View style={styles.miniRow}>
-              <View style={styles.miniCard}>
-                <Text style={[styles.miniNum, { color: colors.warning }]}>{summary.vacant ?? '-'}</Text>
-                <Text style={styles.miniLabel}>空置</Text>
-              </View>
-              <View style={styles.miniCard}>
-                <Text style={[styles.miniNum, { color: colors.success }]}>{summary.rented ?? '-'}</Text>
-                <Text style={styles.miniLabel}>已出租</Text>
-              </View>
-              <View style={styles.miniCard}>
-                <Text style={[styles.miniNum, { color: colors.error }]}>{summary.upcoming_payments ?? '-'}</Text>
-                <Text style={styles.miniLabel}>待收款</Text>
-              </View>
-              <View style={styles.miniCard}>
-                <Text style={[styles.miniNum, { color: colors.primary }]}>{summary.maintenance ?? '-'}</Text>
-                <Text style={styles.miniLabel}>维护中</Text>
-              </View>
-            </View>
-
-            {/* 营收大卡 */}
-            <View style={styles.revenueCard}>
-              <View style={styles.revenueLeft}>
-                <Text style={styles.revenueLabel}>本月已收租金</Text>
-                <Text style={styles.revenueNum}>{fmtMoney(summary.monthly_revenue)}</Text>
-                <Text style={styles.revenueSub}>在租合同营收 {fmtMoney(summary.active_lease_revenue)}</Text>
-              </View>
-              <View style={styles.revenueIcon}>
-                <Ionicons name="cash-outline" size={40} color="rgba(255,255,255,0.9)" />
-              </View>
-            </View>
-
-            {/* 收入趋势图（近 6 个月营收） */}
+            {/* 经营趋势 · 收入（近 7 个月营收） */}
             {revenueTrend.length > 0 && (
               <View style={styles.trendChartCard}>
                 <View style={styles.chartHeaderRow}>
                   <View>
-                    <Text style={styles.chartCardTitle}>收入趋势</Text>
-                    <Text style={styles.chartCardSub}>近 6 个月营收</Text>
+                    <Text style={styles.chartCardTitle}>经营趋势 · 收入</Text>
+                    <Text style={styles.chartCardSub}>
+                      近 7 个月营收 · 在租合同营收 {fmtMoney(summary.active_lease_revenue)}
+                    </Text>
                   </View>
-                  <View style={styles.chartLegend}>
-                    <View style={styles.legendDotLine} />
-                    <Text style={styles.legendText}>营收</Text>
-                  </View>
+                  {momRevenue !== null && (
+                    <View style={[styles.statBadge, { backgroundColor: colors.alpha(momRevenue < 0 ? colors.errorRgb : colors.successRgb, 0.12) }]}>
+                      <Text style={[styles.statBadgeText, { color: momRevenue < 0 ? colors.error : colors.success }]}>
+                        {momRevenue >= 0 ? '+' : ''}
+                        {momRevenue.toFixed(1)}%
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <BarChart
                   data={revenueTrend}
@@ -469,52 +373,61 @@ export default function AdminHomeScreen() {
               </View>
             )}
 
-            {/* 财务对账概要 */}
-            <View style={styles.reconCard}>
-              <View style={styles.reconHead}>
-                <Text style={styles.chartCardTitle}>财务对账概要</Text>
-                <TouchableOpacity activeOpacity={0.7} onPress={() => switchTab('recon')}>
-                  <Text style={styles.reconMore}>查看明细 ›</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.reconRow}>
-                <View style={styles.reconItem}>
-                  <Text style={[styles.reconNum, { color: colors.success }]}>{fmtMoney(totals.received)}</Text>
-                  <Text style={styles.reconLabel}>实收</Text>
-                </View>
-                <View style={styles.reconDivider} />
-                <View style={styles.reconItem}>
-                  <Text style={[styles.reconNum, { color: colors.warning }]}>{fmtMoney(totals.receivable)}</Text>
-                  <Text style={styles.reconLabel}>待收</Text>
-                </View>
-                <View style={styles.reconDivider} />
-                <View style={styles.reconItem}>
-                  <Text style={[styles.reconNum, { color: colors.error }]}>{fmtMoney(totals.overdue)}</Text>
-                  <Text style={styles.reconLabel}>逾期</Text>
-                </View>
-              </View>
+            {/* 待办汇总（数字与工单审核 / 财务对账 / 合同数据一致） */}
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>待办汇总</Text>
+            </View>
+            <View style={styles.todoRow}>
+              <TouchableOpacity style={styles.todoCard} activeOpacity={0.7} onPress={() => switchTab('recon')}>
+                <Text style={styles.todoLabel}>对账差异</Text>
+                <Text style={[styles.todoNum, { color: colors.error }]}>{reconDiff}</Text>
+              </TouchableOpacity>
             </View>
 
-            {/* 临期租约 */}
+            {/* 快捷入口（5 项，与底部导航/其他入口不重复） */}
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>临期租约</Text>
-              <Text style={styles.sectionHint}>30 天内到期</Text>
+              <Text style={styles.sectionTitle}>快捷入口</Text>
             </View>
-            {expiring.length === 0 && !loading && (
-              <EmptyState icon="alarm-outline" title="无临期租约" sub="30 天内到期的租约会在这里预警" />
-            )}
-            {expiring.map((e: any) => (
-              <View key={e.id} style={styles.expireCard}>
-                <View style={styles.expireMain}>
-                  <Text style={styles.expireTitle} numberOfLines={1}>{e.property_name || '-'}</Text>
-                  <Text style={styles.expireSub}>租客：{e.tenant_name || '-'}</Text>
-                </View>
-                <View style={styles.expireRight}>
-                  <View style={[styles.tag, (e.days_left ?? 0) <= 7 ? styles.tagError : styles.tagWarning]}>
-                    <Text style={[styles.tagText, (e.days_left ?? 0) <= 7 ? styles.tagError_text : styles.tagWarning_text]}>{e.days_left ?? 0} 天</Text>
+            <View style={styles.actionGrid}>
+              {QUICK_ACTIONS.map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={styles.actionCell}
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate(item.route)}
+                >
+                  <View style={styles.actionCellIcon}>
+                    <Ionicons name={item.icon} size={22} color={colors.primary} />
                   </View>
-                  <Text style={styles.expireRent}>{fmtMoney(e.monthly_rent, e.currency)}</Text>
+                  <Text style={styles.actionCellLabel}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* 最近动态（取最近付款记录，无数据给空态） */}
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>最近动态</Text>
+              <Text style={styles.sectionHint}>最近 4 条</Text>
+            </View>
+            {recentPayments.length === 0 && !loading && (
+              <EmptyState icon="time-outline" title="暂无动态" sub="收款到账后这里会生成动态记录" />
+            )}
+            {recentPayments.map((p: any) => (
+              <View key={p.id} style={styles.activityItem}>
+                <View style={[styles.activityIcon, { backgroundColor: colors.alpha(colors.successRgb, 0.12) }]}>
+                  <Ionicons name="cash-outline" size={16} color={colors.success} />
                 </View>
+                <View style={styles.activityBody}>
+                  <Text style={styles.activityTitle} numberOfLines={1}>
+                    {p.payer_name ? `${p.payer_name} 收款到账` : '收款到账'}
+                  </Text>
+                  <Text style={styles.activitySub} numberOfLines={1}>
+                    {[p.description || '租金', String(p.paid_at || p.created_at || '').slice(0, 10)]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </View>
+                <Text style={styles.activityAmount}>{fmtMoney(p.amount, p.currency)}</Text>
               </View>
             ))}
           </View>
@@ -561,186 +474,7 @@ export default function AdminHomeScreen() {
           </View>
         )}
 
-        {/* ===== 佣金规则 ===== */}
-        {tab === 'commission' && (
-          <View>
-            <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>新增设置</Text>
-            </View>
-            <View style={styles.formCard}>
-              <Text style={styles.formLabel}>规则名称</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="如：新签成交佣"
-                placeholderTextColor={colors.ink3}
-                value={name}
-                onChangeText={setName}
-              />
-              <Text style={styles.formLabel}>交易类型</Text>
-              <View style={styles.chipRow}>
-                {Object.keys(DEAL_TYPE).map((k) => (
-                  <TouchableOpacity
-                    key={k}
-                    style={[styles.chip, dealType === k && styles.chipActive]}
-                    onPress={() => setDealType(k)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.chipText, dealType === k && styles.chipTextActive]}>{DEAL_TYPE[k]}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {isAdmin ? (
-                <SelectDropdown
-                  label="适用对象"
-                  value={scope}
-                  options={[
-                    { key: 'all_employees', label: '全体员工' },
-                    { key: 'by_department', label: '部门' },
-                    { key: 'by_employee', label: '员工' },
-                    { key: 'by_broker', label: '分销商' },
-                    { key: 'broker_employee', label: '分销商员工' },
-                  ]}
-                  open={scopeOpen}
-                  onToggle={() => setScopeOpen(!scopeOpen)}
-                  onSelect={(k) => {
-                    setScope(k);
-                    setBrokerId('');
-                    setDepartment('');
-                    setEmployeeId('');
-                  }}
-                />
-              ) : (
-                <SelectDropdown
-                  label="适用对象"
-                  value={scope}
-                  options={[
-                    { key: 'by_broker', label: '本渠道（差异化定价）' },
-                    { key: 'by_employee', label: '本渠道员工' },
-                  ]}
-                  open={scopeOpen}
-                  onToggle={() => setScopeOpen(!scopeOpen)}
-                  onSelect={(k) => {
-                    setScope(k);
-                    setBrokerId('');
-                    setEmployeeId('');
-                  }}
-                />
-              )}
-              {!isAdmin && (
-                <Text style={styles.formHint}>分销商管理员仅可为本渠道及本渠道员工配置差异化费率</Text>
-              )}
-              {(scope === 'by_broker' || scope === 'broker_employee') && isAdmin && brokers.length > 0 && (
-                <SelectDropdown
-                  label="选择分销商"
-                  value={brokerId}
-                  options={brokers.map((b) => ({ key: b.id, label: b.partner_name || b.name }))}
-                  open={brokerOpen}
-                  onToggle={() => {
-                    setBrokerOpen(!brokerOpen);
-                    if (brokerOpen) setBrokerEmployeeId('');
-                  }}
-                  onSelect={(k) => {
-                    setBrokerId(k);
-                    if (scope === 'broker_employee') setBrokerEmployeeId('');
-                  }}
-                  searchable
-                />
-              )}
-              {(scope === 'by_employee' || scope === 'broker_employee') && employees.length > 0 && (
-                <SelectDropdown
-                  label={
-                    scope === 'broker_employee'
-                      ? isAdmin
-                        ? '该分销商员工'
-                        : '本渠道员工'
-                      : isAdmin
-                        ? '员工'
-                        : '本渠道员工'
-                  }
-                  value={scope === 'broker_employee' ? brokerEmployeeId : employeeId}
-                  options={(scope === 'broker_employee' && isAdmin && brokerId
-                    ? employees.filter((e) => e.broker_id === brokerId)
-                    : employees
-                  ).map((e) => ({ key: e.id, label: e.full_name || e.name }))}
-                  open={employeeOpen}
-                  onToggle={() => setEmployeeOpen(!employeeOpen)}
-                  onSelect={(k) => {
-                    if (scope === 'broker_employee') setBrokerEmployeeId(k);
-                    else setEmployeeId(k);
-                  }}
-                  searchable
-                />
-              )}
-              {scope === 'by_department' && isAdmin && (
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>部门名称</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    placeholder="如：租赁部"
-                    placeholderTextColor={colors.ink3}
-                    value={department}
-                    onChangeText={setDepartment}
-                  />
-                </View>
-              )}
-              <Text style={styles.formLabel}>佣金比例 %</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="请输入比例"
-                placeholderTextColor={colors.ink3}
-                keyboardType="numeric"
-                value={rate}
-                onChangeText={setRate}
-              />
-              <TouchableOpacity style={styles.submitBtn} onPress={addRule} activeOpacity={0.7}>
-                <Text style={styles.submitBtnText}>新增设置</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>已有设置</Text>
-              <Text style={styles.sectionHint}>共 {rules.length} 条</Text>
-            </View>
-            {rules.length === 0 && !loading && (
-              <EmptyState icon="settings-outline" title="暂无佣金设置" sub="新增一条设置即可生效" />
-            )}
-            {rules.map((r) => (
-              <View key={r.id} style={styles.ruleCard}>
-                <View style={styles.ruleHead}>
-                  <Text style={styles.ruleName} numberOfLines={1}>{r.name}</Text>
-                  <View style={[styles.tag, r.is_active === false ? styles.tagWarning : styles.tagSuccess]}>
-                    <Text style={[styles.tagText, r.is_active === false ? styles.tagWarning_text : styles.tagSuccess_text]}>{r.is_active === false ? '停用' : '启用'}</Text>
-                  </View>
-                </View>
-                <View style={styles.ruleMeta}>
-                  <View style={styles.ruleMetaItem}>
-                    <Text style={styles.ruleMetaLabel}>类型</Text>
-                    <Text style={styles.ruleMetaValue}>{DEAL_TYPE[r.deal_type] || r.deal_type}</Text>
-                  </View>
-                  <View style={styles.ruleMetaItem}>
-                    <Text style={styles.ruleMetaLabel}>比例</Text>
-                    <Text style={styles.ruleMetaPrimary}>{r.rate}%</Text>
-                  </View>
-                  <View style={styles.ruleMetaItem}>
-                    <Text style={styles.ruleMetaLabel}>适用对象</Text>
-                    <Text style={styles.ruleMetaValue} numberOfLines={1}>
-                      {r.scope === 'by_broker'
-                        ? (brokers.find((b) => b.id === r.broker_id)?.partner_name ||
-                          brokers.find((b) => b.id === r.broker_id)?.name) || r.broker_id || '按分销商'
-                        : r.scope === 'by_employee'
-                          ? (employees.find((e) => e.id === r.employee_id)?.full_name ||
-                            employees.find((e) => e.id === r.employee_id)?.name) || r.employee_id || '个人'
-                          : r.scope === 'by_department'
-                            ? r.department || '部门'
-                            : SCOPE[r.scope || ''] || '全体员工'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+        </ScrollView>
     </View>
   );
 }
@@ -784,11 +518,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  /* ===== 快捷入口宫格（无外壳） ===== */
+  /* ===== 快捷入口宫格 ===== */
   actionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: 12,
     marginBottom: 8,
   },
   actionCell: {
@@ -891,6 +624,60 @@ const styles = StyleSheet.create({
   miniNum: { fontSize: 18, fontWeight: '800', marginBottom: 3, fontVariant: ['tabular-nums'] },
   miniLabel: { fontSize: 10, color: colors.ink3, fontWeight: '500' },
 
+  /* ===== 经营指标（2×2） ===== */
+  statRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    ...colors.shadow.sm,
+  },
+  statLabel: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
+  statNum: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.ink,
+    letterSpacing: -0.3,
+    marginTop: 4,
+    marginBottom: 6,
+    fontVariant: ['tabular-nums'],
+  },
+  statBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: colors.radius.full,
+  },
+  statBadgeText: { fontSize: 11, fontWeight: '700' },
+
+  /* ===== 最近动态 ===== */
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    marginBottom: 8,
+    ...colors.shadow.sm,
+  },
+  activityIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: colors.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityBody: { flex: 1, minWidth: 0 },
+  activityTitle: { fontSize: 14, fontWeight: '600', color: colors.ink, marginBottom: 3 },
+  activitySub: { fontSize: 12, color: colors.ink3 },
+  activityAmount: { fontSize: 14, fontWeight: '700', color: colors.success, fontVariant: ['tabular-nums'] },
+
   /* ===== 营收大卡 ===== */
   revenueCard: {
     flexDirection: 'row',
@@ -955,6 +742,65 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
   sectionHint: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
 
+  /* ===== 风险预警（数字 + 占比条） ===== */
+  riskList: {
+    marginTop: 8,
+    gap: 8,
+  },
+  riskItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    ...colors.shadow.sm,
+  },
+  riskIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: colors.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  riskBody: { flex: 1, minWidth: 0 },
+  riskTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  riskTitle: { fontSize: 14, fontWeight: '700', color: colors.ink, flex: 1 },
+  riskValue: { fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  riskUnit: { fontSize: 11, fontWeight: '600' },
+  riskDesc: { fontSize: 12, color: colors.ink3, marginTop: 2 },
+  riskTrack: {
+    flexDirection: 'row',
+    height: 5,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface2,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  riskBar: { height: 5, borderRadius: colors.radius.full },
+  riskCta: { fontSize: 12, color: colors.primary, fontWeight: '600' },
+
+  /* ===== 待办汇总 ===== */
+  todoRow: { flexDirection: 'row', gap: 8 },
+  todoCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    ...colors.shadow.sm,
+  },
+  todoLabel: { fontSize: 13, color: colors.ink2 },
+  todoNum: { fontSize: 20, fontWeight: '700', fontVariant: ['tabular-nums'] },
+
   /* ===== 临期租约 ===== */
   expireCard: {
     flexDirection: 'row',
@@ -972,22 +818,6 @@ const styles = StyleSheet.create({
   expireSub: { fontSize: 12, color: colors.ink3 },
   expireRight: { alignItems: 'flex-end', marginLeft: 12, gap: 6 },
   expireRent: { fontSize: 14, fontWeight: '700', color: colors.primary },
-
-  /* ===== 标签 ===== */
-  tag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: colors.radius.full,
-  },
-  tagText: { fontSize: 11, fontWeight: '600' },
-  tagError: { backgroundColor: `rgba(${colors.errorRgb}, 0.12)` },
-  tagWarning: { backgroundColor: `rgba(${colors.warningRgb}, 0.12)` },
-  tagInfo: { backgroundColor: `rgba(${colors.primaryRgb}, 0.12)` },
-  tagSuccess: { backgroundColor: `rgba(${colors.successRgb}, 0.12)` },
-  tagError_text: { color: colors.error },
-  tagWarning_text: { color: colors.warning },
-  tagInfo_text: { color: colors.primary },
-  tagSuccess_text: { color: colors.success },
 
   /* ===== 表格 ===== */
   tableCard: {
@@ -1011,127 +841,9 @@ const styles = StyleSheet.create({
   cellLeft: { flex: 1.4, textAlign: 'left', fontWeight: '600', color: colors.ink },
   cellError: { color: colors.error, fontWeight: '600' },
 
-  /* ===== 表单 ===== */
-  formCard: {
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...colors.shadow.sm,
-  },
-  formLabel: { fontSize: 13, fontWeight: '600', color: colors.ink, marginBottom: 8, marginTop: 4 },
-  formGroup: { marginBottom: 4 },
-  formHint: { fontSize: 11, color: colors.ink3, marginTop: 2, marginBottom: 4 },
-  selectBox: {
-    height: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: colors.radius.lg,
-    paddingHorizontal: 14,
-    marginBottom: 4,
-  },
-  selectText: { fontSize: 14, color: colors.ink },
-  selectPlaceholder: { color: colors.ink3 },
-  selectSearch: {
-    height: 40,
-    backgroundColor: colors.background,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    paddingHorizontal: 14,
-    fontSize: 13,
-    color: colors.ink,
-  },
-  selectEmpty: { paddingVertical: 12, paddingHorizontal: 14, fontSize: 12, color: colors.ink3 },
-  selectMenu: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: colors.radius.lg,
-    overflow: 'hidden',
-    marginBottom: 8,
-    ...colors.shadow.sm,
-  },
-  selectOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  selectOptionText: { fontSize: 14, color: colors.ink2 },
-  selectOptionTextActive: { color: colors.primary, fontWeight: '700' },
-  formInput: {
-    height: 44,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: colors.radius.lg,
-    paddingHorizontal: 14,
-    fontSize: 14,
-    color: colors.ink,
-    marginBottom: 4,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 4,
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 12, color: colors.ink3 },
-  chipTextActive: { color: '#fff', fontWeight: '600' },
-  submitBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: colors.radius.lg,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-    ...colors.shadow.primary,
-  },
-  submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-
-  /* ===== 佣金规则卡片 ===== */
-  ruleCard: {
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    padding: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...colors.shadow.sm,
-  },
-  ruleHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  ruleName: { fontSize: 15, fontWeight: '700', color: colors.ink, flex: 1, marginRight: 8 },
-  ruleMeta: { flexDirection: 'row', gap: 12 },
-  ruleMetaItem: { flex: 1 },
-  ruleMetaLabel: { fontSize: 11, color: colors.ink3, marginBottom: 4 },
-  ruleMetaValue: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
-  ruleMetaPrimary: { fontSize: 15, fontWeight: '800', color: colors.primary },
-
   /* ===== 趋势图表 ===== */
   trendChartCard: {
-    marginHorizontal: 12,
-    marginTop: 14,
+    marginTop: 6,
     padding: 16,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,

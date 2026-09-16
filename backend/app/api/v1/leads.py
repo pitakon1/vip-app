@@ -5,13 +5,12 @@ from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, require_agent
 from app.core.events import publish_event
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import PaginationParams, paginate_query
 from app.models import Lead, LeadStage, User
 
 router = APIRouter(prefix="/leads", tags=["leads"])
@@ -69,12 +68,7 @@ def list_leads(
         conditions.append(Lead.assigned_to == assigned_to)
 
     stmt = select(Lead).where(*conditions).order_by(Lead.created_at.desc())
-    count_stmt = select(func.count(Lead.id)).where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(
-        stmt.offset(pagination.offset).limit(pagination.limit)
-    ).all()
-    return paginate(items, total, pagination)
+    return paginate_query(session, stmt, pagination)
 
 
 @router.post("")

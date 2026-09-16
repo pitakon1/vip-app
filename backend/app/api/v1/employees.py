@@ -7,12 +7,11 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import require_admin, require_employee
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import PaginationParams, paginate_query
 from app.models import (
     CommissionSettlement,
     Employee,
@@ -43,11 +42,7 @@ def list_employees(
         conditions.append(Employee.department == department)
 
     stmt = select(Employee).where(*conditions).order_by(Employee.created_at.desc())
-    count_stmt = select(func.count(Employee.id)).where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(
-        stmt.offset(pagination.offset).limit(pagination.limit)
-    ).all()
+    page = paginate_query(session, stmt, pagination)
     users = {u.id: u for u in session.exec(select(User)).all()}
     enriched = [
         {
@@ -57,9 +52,10 @@ def list_employees(
             "employee_no": e.employee_code,
             "status": "active" if e.is_active else "inactive",
         }
-        for e in items
+        for e in page.items
     ]
-    return paginate(enriched, total, pagination)
+    page.items = enriched
+    return page
 
 
 @router.get("/directory")

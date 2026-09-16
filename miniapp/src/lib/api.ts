@@ -69,6 +69,23 @@ export async function request<T = unknown>(options: RequestOptions<T>): Promise<
   }
 }
 
+/** 当前登录令牌（供 downloadFile 等需要显式带头、走不到拦截器的场景使用）。 */
+export function currentToken(): string {
+  return (Taro.getStorageSync('token') as string) || ''
+}
+
+/**
+ * 文档读取绝对地址。
+ *
+ * `uploads/documents` 已不再由静态服务托管，证件、合同等敏感文件只能经
+ * `/documents/{id}/file`（内联）或 `/download`（附件）带鉴权取件，
+ * 因此必须用绝对地址配合 Authorization 头请求，不能再直接用落库的 file_url。
+ */
+export function documentFileUrl(id: string, mode: 'file' | 'download' = 'download') {
+  const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
+  return `${baseURL}/documents/${id}/${mode}`
+}
+
 export default {
   get<T = unknown>(url: string, header?: Record<string, string>) {
     return request<T>({ url, method: 'GET', header })

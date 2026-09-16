@@ -13,6 +13,8 @@ export const authApi = {
 export const propertiesApi = {
   list: (params?: any) => api.get('/properties', { params }),
   get: (id: string) => api.get(`/properties/${id}`),
+  // 关联租约（返回 tenant_name，业主详情页取租客姓名的唯一来源）
+  leases: (id: string) => api.get(`/properties/${id}/leases`),
 };
 
 export const projectsApi = {

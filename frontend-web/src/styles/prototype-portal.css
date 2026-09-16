@@ -3514,3 +3514,158 @@ body {
   .rent-pay-form-row { grid-template-columns: 1fr; }
 }
 
+/* =========================================================
+   租客门户 · 房源详情页 (tenant-property-detail.html 移植)
+   rent-detail-* 结构样式 + rent-v17-* 双业务样式
+   ========================================================= */
+.rent-detail-crumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--rent-ink-3); margin-bottom: 16px; flex-wrap: wrap; }
+.rent-detail-crumb a { color: var(--rent-ink-2); text-decoration: none; transition: color 0.15s; cursor: pointer; }
+.rent-detail-crumb a:hover { color: var(--rent-primary); }
+.rent-detail-crumb__current { color: var(--rent-ink); font-weight: 600; }
+.rent-detail-crumb svg { width: 14px; height: 14px; flex-shrink: 0; }
+.rent-detail-back { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--rent-ink-2); text-decoration: none; margin-bottom: 14px; transition: color 0.15s; cursor: pointer; }
+.rent-detail-back:hover { color: var(--rent-primary); }
+.rent-detail-back svg { width: 15px; height: 15px; }
+
+.rent-detail-wrap { max-width: 980px; margin: 0 auto; padding-bottom: 96px; display: flex; flex-direction: column; gap: 16px; }
+
+.rent-detail-card { background: var(--rent-card); border: 1px solid var(--rent-border); border-radius: 20px; box-shadow: 0 1px 2px rgba(28, 39, 51, 0.05), 0 8px 24px -12px rgba(28, 39, 51, 0.08); padding: 20px; }
+.rent-detail-card--pad0 { padding: 0; overflow: hidden; }
+
+/* 1 图片轮播 */
+.rent-detail-gallery__stage { position: relative; aspect-ratio: 3 / 2; overflow: hidden; }
+.rent-detail-gallery__art {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(135deg, #14b8a6 0%, #2dd4bf 52%, #8a9cfb 100%);
+  background-size: 44px 44px, 44px 44px, 100% 100%;
+}
+.rent-detail-gallery__art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rent-detail-gallery__building { width: 110px; height: 110px; color: rgba(255, 255, 255, 0.92); filter: drop-shadow(0 14px 24px rgba(28, 39, 51, 0.28)); }
+.rent-detail-gallery__count {
+  position: absolute; right: 14px; bottom: 14px;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 11px; border-radius: 999px;
+  background: rgba(28, 39, 51, 0.45); color: #fff; font-size: 12px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.rent-detail-gallery__views { position: absolute; left: 14px; bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.rent-detail-gallery__video {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  background: linear-gradient(90deg, #ff6b35, #ff8e53); color: #fff;
+  font-size: 12px; font-weight: 600; box-shadow: 0 6px 16px -4px rgba(255, 107, 53, 0.55);
+  cursor: pointer;
+}
+.rent-detail-gallery__video svg { width: 13px; height: 13px; }
+.rent-detail-gallery__vr { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: linear-gradient(90deg, #14b8a6, #6d4fc0); color: #fff; font-size: 12px; font-weight: 600; box-shadow: 0 6px 16px -4px rgba(20, 184, 166, 0.5); cursor: pointer; }
+.rent-detail-gallery__vr svg { width: 13px; height: 13px; }
+.rent-detail-gallery__thumbs { display: flex; gap: 8px; padding: 12px; }
+.rent-detail-gallery__thumb { flex: 1; height: 44px; border-radius: 10px; border: 2px solid transparent; cursor: pointer; background-size: cover; background-position: center; }
+.rent-detail-gallery__thumb[data-active="true"] { border-color: var(--rent-primary); box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.18); }
+
+/* 2 价格区 */
+.rent-detail-price__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.rent-detail-price__value { font-size: 30px; font-weight: 700; color: var(--rent-primary); letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.rent-detail-price__value small { font-size: 14px; font-weight: 600; color: var(--rent-ink-3); margin-left: 2px; }
+.rent-detail-price__tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.rent-detail-price__name { font-size: 20px; font-weight: 600; color: var(--rent-ink); margin-top: 16px; letter-spacing: -0.01em; }
+.rent-detail-price__addr { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--rent-ink-3); margin-top: 5px; }
+.rent-detail-price__addr svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* 区块标题 */
+.rent-detail-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; color: var(--rent-ink); margin-bottom: 14px; }
+.rent-detail-title::before { content: ""; width: 4px; height: 16px; border-radius: 2px; background: var(--rent-primary); }
+
+/* 描述与翻译 */
+.rent-detail-desc { font-size: 14px; line-height: 1.75; color: var(--rent-ink-2); margin: 0; white-space: pre-wrap; word-break: break-word; }
+.rent-detail-trans { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--rent-border); }
+
+/* 3 核心信息 */
+.rent-detail-facts__grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.rent-detail-fact { background: var(--rent-surface-2); border: 1px solid var(--rent-border); border-radius: 14px; padding: 14px 8px; text-align: center; }
+.rent-detail-fact__icon { width: 38px; height: 38px; margin: 0 auto 8px; border-radius: 12px; background: rgba(20, 184, 166, 0.1); color: var(--rent-primary); display: flex; align-items: center; justify-content: center; }
+.rent-detail-fact__icon svg { width: 19px; height: 19px; }
+.rent-detail-fact__value { font-size: 14px; font-weight: 600; color: var(--rent-ink); font-variant-numeric: tabular-nums; }
+.rent-detail-fact__label { font-size: 11px; color: var(--rent-ink-3); margin-top: 3px; }
+
+/* 4 卖点与基础配套 */
+.rent-detail-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.rent-detail-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; background: var(--rent-surface-2); border: 1px solid var(--rent-border); font-size: 13px; font-weight: 500; color: var(--rent-ink-2); }
+.rent-detail-chip svg { width: 16px; height: 16px; color: var(--rent-primary); }
+
+/* 5 地图与周边 */
+.rent-detail-map__canvas {
+  position: relative; height: 220px; border-radius: 14px; overflow: hidden; border: 1px solid var(--rent-border);
+  background:
+    linear-gradient(rgba(20, 184, 166, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20, 184, 166, 0.1) 1px, transparent 1px),
+    linear-gradient(135deg, #e7ecff 0%, #f3f5ff 45%, #e6f6ed 100%);
+  background-size: 26px 26px, 26px 26px, 100% 100%;
+}
+.rent-detail-map__canvas::before,
+.rent-detail-map__canvas::after { content: ""; position: absolute; background: rgba(255, 255, 255, 0.9); box-shadow: 0 1px 3px rgba(28, 39, 51, 0.1); }
+.rent-detail-map__canvas::before { left: -10%; right: -10%; top: 60%; height: 14px; border-radius: 8px; transform: rotate(-7deg); }
+.rent-detail-map__canvas::after { top: -10%; bottom: -10%; left: 32%; width: 12px; border-radius: 8px; transform: rotate(68deg); }
+.rent-detail-map__pin { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -100%); width: 38px; height: 38px; color: var(--rent-primary); filter: drop-shadow(0 8px 12px rgba(20, 184, 166, 0.4)); z-index: 2; }
+.rent-detail-map__pin-label { position: absolute; left: 50%; top: 48%; transform: translateX(-50%); z-index: 2; background: var(--rent-card); border: 1px solid var(--rent-border); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: var(--rent-ink); box-shadow: 0 4px 12px -4px rgba(28, 39, 51, 0.18); white-space: nowrap; }
+.rent-detail-map__pois { display: flex; gap: 10px; margin-top: 14px; }
+.rent-detail-poi { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; background: var(--rent-surface-2); border: 1px solid var(--rent-border); }
+.rent-detail-poi__icon { width: 34px; height: 34px; flex-shrink: 0; border-radius: 11px; background: var(--rent-card); color: var(--rent-primary); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(28, 39, 51, 0.08); }
+.rent-detail-poi__icon svg { width: 17px; height: 17px; }
+.rent-detail-poi__name { font-size: 13px; font-weight: 600; color: var(--rent-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rent-detail-poi__dist { font-size: 11px; color: var(--rent-ink-3); margin-top: 2px; }
+
+/* 6 底部固定操作栏 */
+.rent-detail-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--rent-border);
+  box-shadow: 0 -10px 30px -18px rgba(28, 39, 51, 0.2);
+}
+.rent-detail-bar__inner {
+  max-width: 1200px; margin: 0 auto; padding: 12px 40px;
+  display: flex; align-items: center; gap: 10px;
+}
+.rent-detail-bar__fav { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; min-width: 52px; padding: 6px 8px; border: none; background: transparent; cursor: pointer; color: var(--rent-ink-2); font-size: 11px; font-weight: 500; }
+.rent-detail-bar__fav svg { width: 22px; height: 22px; color: var(--rent-primary); }
+.rent-detail-bar__fav[data-active="true"] svg { fill: var(--rent-primary); }
+.rent-detail-bar__agent { flex: 1; max-width: 200px; background: var(--rent-surface); border: 1px solid var(--rent-border); color: var(--rent-ink-2); }
+.rent-detail-bar__book { flex: 1.6; }
+
+/* 双业务（租房 + 买房） */
+.rent-v17-tabs { display: inline-flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid var(--rent-border); }
+.rent-v17-tab { position: relative; padding: 8px 18px; border: none; background: transparent; font-size: 15px; font-weight: 600; color: var(--rent-ink-3); cursor: pointer; transition: color 0.15s; font-family: var(--rent-font-sans); }
+.rent-v17-tab:hover { color: var(--rent-ink); }
+.rent-v17-tab[data-active="true"] { color: var(--rent-primary); }
+.rent-v17-tab[data-active="true"]::after { content: ""; position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%); width: 26px; height: 3px; border-radius: 2px; background: var(--rent-primary); }
+.rent-v17-pane[hidden] { display: none; }
+.rent-v17-price--buy { font-size: 28px; }
+.rent-v17-price--buy small { font-size: 13px; font-weight: 600; color: var(--rent-ink-3); margin-left: 4px; }
+.rent-v17-loan { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: rgba(20, 184, 166, 0.07); border: 1px dashed rgba(20, 184, 166, 0.35); font-size: 13px; color: var(--rent-ink-2); }
+.rent-v17-loan__item { font-weight: 500; }
+.rent-v17-loan b { color: var(--rent-primary); font-weight: 700; font-variant-numeric: tabular-nums; }
+.rent-v17-loan__sep { color: var(--rent-ink-3); }
+.rent-v17-benchmark { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--rent-border); font-size: 12.5px; color: var(--state-success); font-weight: 600; }
+.rent-v17-benchmark svg { width: 14px; height: 14px; flex-shrink: 0; }
+.rent-v17-bar__loan { flex: 1.1; background: rgba(20, 184, 166, 0.08); color: var(--rent-primary); border: 1px solid rgba(20, 184, 166, 0.35); border-radius: 10px; padding: 12px 18px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; font-family: var(--rent-font-sans); }
+.rent-v17-bar__loan:hover { background: rgba(20, 184, 166, 0.15); }
+.rent-v17-bar__loan[hidden] { display: none; }
+
+@media (max-width: 700px) {
+  .rent-detail-wrap { padding-bottom: 88px; gap: 12px; }
+  .rent-detail-facts__grid { grid-template-columns: repeat(3, 1fr); }
+  .rent-detail-gallery__thumbs { padding: 10px; gap: 6px; }
+  .rent-detail-gallery__thumb { height: 38px; }
+  .rent-detail-card { border-radius: 18px; padding: 16px; }
+  .rent-detail-map__pois { flex-direction: column; }
+  .rent-detail-price__value { font-size: 26px; }
+  .rent-v17-price--buy { font-size: 24px; }
+  .rent-v17-loan { font-size: 12px; }
+  .rent-detail-bar__agent { max-width: 120px; }
+  .rent-detail-bar__inner { padding: 10px 16px; }
+}
+

@@ -6,14 +6,13 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, require_agent
 from app.core.concurrency import ensure_version
 from app.core.events import publish_event
-from app.core.pagination import Page, PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     CommissionSettlement,
     DealType,
@@ -158,10 +157,7 @@ def list_leases(
         conditions.append(Lease.tenant_id == tenant_id)
 
     stmt = select(Lease).where(*conditions).order_by(Lease.created_at.desc())
-    count_stmt = select(func.count(Lease.id)).where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(stmt.offset(pagination.offset).limit(pagination.limit)).all()
-    return paginate(items, total, pagination)
+    return paginate_query(session, stmt, pagination)
 
 
 @router.post("")

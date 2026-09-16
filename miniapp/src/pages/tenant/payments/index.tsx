@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { paymentsApi } from '@/services/api'
+import { iconStyle } from '@/utils/icons'
 import './index.scss'
 
 interface Payment {
@@ -34,6 +35,26 @@ const STATUS_MAP: Record<string, { text: string; color: string }> = {
   refunded: { text: '已退款', color: 'var(--info)' },
   disputed: { text: '有争议', color: 'var(--error)' },
   expired: { text: '已过期', color: 'var(--ink-3)' }
+}
+
+/** 状态对应的徽标配色（复用 app.scss 的 badge 修饰类） */
+const STATUS_BADGE: Record<string, string> = {
+  pending: 'badge--warning',
+  processing: 'badge--info',
+  succeeded: 'badge--success',
+  failed: 'badge--error',
+  refunded: 'badge--info',
+  disputed: 'badge--error',
+  expired: ''
+}
+
+/** 列表项标题：优先按账期显示为「YYYY年M月」，无日期时退回账单类型 */
+const monthOf = (p: Payment) => {
+  const raw = p.due_date || p.paid_at
+  if (!raw) return TYPE_MAP[p.payment_type || ''] || '账单'
+  const seg = String(raw).slice(0, 7).split('-')
+  if (seg.length < 2) return String(raw)
+  return `${seg[0]}年${Number(seg[1])}月`
 }
 
 function pickList(res: any): Payment[] {
@@ -82,6 +103,12 @@ export default function TenantPaymentsPage() {
   const pending = payments.filter((p) => p.status === 'pending')
   const dueTotal = pending.reduce((sum, p) => sum + Number(p.amount || 0), 0)
   const currency = pending[0]?.currency || payments[0]?.currency || 'THB'
+  const uploadedCount = payments.filter((p) => !!p.paid_at).length
+  const reviewingCount = payments.filter((p) => p.status === 'processing').length
+
+  const goUploadVoucher = () => {
+    Taro.navigateTo({ url: '/pages/tenant/documents/index' })
+  }
 
   const channelFor = (cur?: string) =>
     cur === 'CNY' ? 'wechat' : cur === 'USD' ? 'stripe' : 'promptpay'
@@ -157,76 +184,102 @@ export default function TenantPaymentsPage() {
   return (
     <View className='tenant-payments-page'>
       <View className='page-container'>
-        <View className='pay-banner'>
-          <Text className='pay-banner-label'>待缴合计</Text>
-          <Text className='pay-banner-amount'>
-            {formatMoney(dueTotal, currency)}
-          </Text>
-          <Text className='pay-banner-sub'>共 {pending.length} 笔待支付账单</Text>
-          {pending.length > 0 && (
-            <View className='pay-banner-btn' onClick={() => handlePay(pending[0])}>
-              <Text className='pay-banner-btn-text'>立即缴费</Text>
+        {pending.length > 0 && (
+          <View className='pay-banner'>
+            <Text className='pay-banner-label'>本月租金</Text>
+            <Text className='pay-banner-amount'>{formatMoney(dueTotal, currency)}</Text>
+            <View className='pay-banner-badges'>
+              <Text className='pay-banner-badge'>待支付</Text>
             </View>
-          )}
+            <View className='pay-banner-cta' onClick={goUploadVoucher}>
+              <Text className='pay-banner-cta-text'>上传凭证</Text>
+            </View>
+            <View className='pay-banner-actions'>
+              <View className='pay-banner-btn pay-banner-btn--ghost' onClick={() => handlePay(pending[0])}>
+                <Text className='pay-banner-btn-text'>立即缴费（共 {pending.length} 笔）</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        <View className='stat-row'>
+          <View className='stat-item'>
+            <Text className='stat-label'>已上传</Text>
+            <Text className='stat-value'>{uploadedCount} 张</Text>
+          </View>
+          <View className='stat-item'>
+            <Text className='stat-label'>待审核</Text>
+            <Text className='stat-value'>{reviewingCount} 笔</Text>
+          </View>
         </View>
 
         <View className='section-title'>
-          <Text>缴费记录</Text>
+          <Text>付款记录</Text>
         </View>
 
         <ScrollView scrollY className='pay-list'>
           {loading && payments.length === 0 && (
-            <View className='empty-tip'>
+            <View className='empty-state'>
               <Text>加载中...</Text>
             </View>
           )}
           {!loading && payments.length === 0 && (
-            <View className='empty-tip'>
+            <View className='empty-state'>
+              <View className='empty-state__icon icon-svg' style={iconStyle('money', 80)} />
               <Text>暂无账单</Text>
             </View>
           )}
-          {payments.map((pay) => {
-            const statusInfo = STATUS_MAP[pay.status || 'pending'] || STATUS_MAP.pending
-            const isPending = pay.status === 'pending'
-            const isSucceeded = pay.status === 'succeeded'
-            return (
-              <View key={pay.id} className='pay-card'>
-                <View className='pay-card-header'>
-                  <Text className='pay-card-type'>
-                    {TYPE_MAP[pay.payment_type || ''] || pay.payment_type || '账单'}
-                  </Text>
-                  <Text className='pay-card-status' style={{ color: statusInfo.color }}>
-                    {statusInfo.text}
-                  </Text>
-                </View>
-                {!!pay.description && (
-                  <Text className='pay-card-desc'>{pay.description}</Text>
-                )}
-                <Text className='pay-card-amount' style={{ color: statusInfo.color }}>
-                  {formatMoney(pay.amount, pay.currency)}
-                </Text>
-                <Text className='pay-card-time'>
-                  截止 {formatDate(pay.due_date)} · 支付 {formatDate(pay.paid_at)}
-                </Text>
-                {isPending && (
-                  <View className='pay-card-btn' onClick={() => handlePay(pay)}>
-                    <Text className='pay-card-btn-text'>去支付</Text>
-                  </View>
-                )}
-                {isSucceeded && (
-                  <View className='pay-card-actions'>
-                    <View className='pay-card-btn' onClick={() => handleReceipt(pay)}>
-                      <Text className='pay-card-btn-text'>查看凭证</Text>
+          {payments.length > 0 && (
+            <View className='pay-card'>
+              {payments.map((pay) => {
+                const statusInfo = STATUS_MAP[pay.status || 'pending'] || STATUS_MAP.pending
+                const isPending = pay.status === 'pending'
+                const isSucceeded = pay.status === 'succeeded'
+                return (
+                  <View key={pay.id} className='pay-item'>
+                    <View className='pay-item-main'>
+                      <View className='pay-item-left'>
+                        <Text className='pay-item-month'>{monthOf(pay)}</Text>
+                        <Text className='pay-item-amount'>
+                          {formatMoney(pay.amount, pay.currency)}
+                        </Text>
+                      </View>
+                      <Text className={`badge pay-item-badge ${STATUS_BADGE[pay.status || 'pending'] || ''}`}>
+                        {statusInfo.text}
+                      </Text>
                     </View>
-                    <View className='pay-card-btn pay-card-btn--primary' onClick={() => handleInvoice(pay)}>
-                      <Text className='pay-card-btn-text'>开发票</Text>
-                    </View>
+                    {!!pay.description && (
+                      <Text className='pay-item-desc'>{pay.description}</Text>
+                    )}
+                    {(isPending || isSucceeded) && (
+                      <View className='pay-item-actions'>
+                        {isPending && (
+                          <View className='pay-chip pay-chip--primary' onClick={() => handlePay(pay)}>
+                            <Text className='pay-chip-text'>去支付</Text>
+                          </View>
+                        )}
+                        {isSucceeded && (
+                          <View className='pay-chip' onClick={() => handleReceipt(pay)}>
+                            <Text className='pay-chip-text'>查看凭证</Text>
+                          </View>
+                        )}
+                        {isSucceeded && (
+                          <View className='pay-chip' onClick={() => handleInvoice(pay)}>
+                            <Text className='pay-chip-text'>开发票</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
-            )
-          })}
+                )
+              })}
+            </View>
+          )}
         </ScrollView>
+      </View>
+
+      <View className='pay-fab' onClick={goUploadVoucher}>
+        <Text className='pay-fab-text'>上传</Text>
       </View>
     </View>
   )

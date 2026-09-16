@@ -548,7 +548,7 @@ const Attendance = () => {
         <div className="rent-card">
           <div className="rent-card__header">
             <h3 className="rent-card__title">本月考勤日历</h3>
-            <span className="rent-text-sm rent-text-muted">{dayjs().format('YYYY年M月')}</span>
+            <span className="rent-caption">{dayjs().format('YYYY年M月')}</span>
           </div>
           <div className="rent-card__body">
             <div className="rent-calendar">
@@ -698,7 +698,7 @@ const Attendance = () => {
       <div className="rent-card" ref={outingFormRef}>
         <div className="rent-card__header">
           <h3 className="rent-card__title">外出登记</h3>
-          <span className="rent-text-sm rent-text-muted">填写外出信息后提交审批</span>
+          <span className="rent-caption">填写外出信息后提交审批</span>
         </div>
         <div className="rent-card__body">
           <div className="rent-grid rent-grid--2 rent-mb-4">
@@ -707,7 +707,7 @@ const Attendance = () => {
               <input
                 className="rent-input"
                 type="text"
-                placeholder="如：阳光花园客户接待中心"
+                placeholder="如：客户接待中心"
                 value={outingLocation}
                 onChange={(e) => setOutingLocation(e.target.value)}
               />

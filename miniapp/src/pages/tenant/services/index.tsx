@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { serviceOrdersApi } from '@/services/api'
 import type { ServiceItem } from '@/types'
+import { iconStyle } from '@/utils/icons'
 import './index.scss'
 
 const PAYMENT_METHODS: Array<{ key: string; label: string }> = [
@@ -12,24 +13,83 @@ const PAYMENT_METHODS: Array<{ key: string; label: string }> = [
   { key: 'bank', label: '银行卡' }
 ]
 
-const RECOMMEND_SERVICES: ServiceItem[] = [
-  { id: 1, name: '房屋保洁服务', description: '专业保洁团队上门服务，2小时深度清洁', price: 199 },
-  { id: 2, name: '管道维修服务', description: '专业管道维修，解决漏水、堵塞等问题', price: 150 },
-  { id: 3, name: '家电维修服务', description: '各类家电维修，空调、洗衣机、冰箱等', price: 128 },
-  { id: 4, name: '宽带办理', description: '高速宽带安装，多种套餐可选', price: 99 },
-  { id: 5, name: '家政服务', description: '专业家政，提供做饭、照看等日常服务', price: 300 }
-]
+interface ServiceOrderRow {
+  id: string | number
+  service_type?: string
+  amount?: number
+  currency?: string
+  status?: string
+  scheduled_at?: string
+  created_at?: string
+}
+
+const SERVICE_TYPE_MAP: Record<string, string> = {
+  cleaning: '日常保洁',
+  ac_cleaning: '空调清洗',
+  wifi_install: '宽带安装',
+  utility_payment: '水电代缴',
+  insurance: '保险代办',
+  tax_payment: '税务代办',
+  annual_management: '年度托管'
+}
+
+const ORDER_STATUS_MAP: Record<string, { text: string; color: string }> = {
+  pending: { text: '待受理', color: 'var(--warning)' },
+  assigned: { text: '已派单', color: 'var(--info)' },
+  in_progress: { text: '服务中', color: 'var(--primary)' },
+  completed: { text: '已完成', color: 'var(--success)' },
+  cancelled: { text: '已取消', color: 'var(--ink-3)' }
+}
+
+/** 订单状态对应的徽标配色 */
+const ORDER_STATUS_BADGE: Record<string, string> = {
+  pending: 'badge--warning',
+  assigned: 'badge--info',
+  in_progress: 'badge--info',
+  completed: 'badge--success',
+  cancelled: 'badge--neutral'
+}
+
+function pickList<T>(res: any): T[] {
+  if (Array.isArray(res)) return res
+  if (Array.isArray(res?.data)) return res.data
+  if (Array.isArray(res?.items)) return res.items
+  if (Array.isArray(res?.list)) return res.list
+  if (Array.isArray(res?.data?.items)) return res.data.items
+  if (Array.isArray(res?.data?.list)) return res.data.list
+  return []
+}
+
+const formatTime = (x?: string) =>
+  x ? x.replace('T', ' ').slice(0, 16) : '—'
 
 export default function TenantServicesPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [services] = useState<ServiceItem[]>(RECOMMEND_SERVICES)
+  // 服务目录由后端配置驱动；接口未返回前不注入任何占位数据
+  const [services] = useState<ServiceItem[]>([])
+  const [orders, setOrders] = useState<ServiceOrderRow[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordering, setOrdering] = useState<number | null>(null)
+
+  const fetchOrders = async () => {
+    setOrdersLoading(true)
+    try {
+      const res = await serviceOrdersApi.list()
+      setOrders(pickList<ServiceOrderRow>(res))
+    } catch (error) {
+      console.error('[TenantServices] 获取服务订单失败', error)
+    } finally {
+      setOrdersLoading(false)
+    }
+  }
 
   useDidShow(() => {
     loadFromStorage()
     if (!useAuthStore.getState().token) {
       Taro.redirectTo({ url: '/pages/login/index' })
+      return
     }
+    fetchOrders()
   })
 
   const handlePay = (service: ServiceItem) => {
@@ -59,7 +119,7 @@ export default function TenantServicesPage() {
       Taro.hideLoading()
       Taro.showModal({
         title: '下单成功',
-        content: `「${service.name}」下单成功，付款方式：${methodLabel}，金额 ฿${service.price}`,
+        content: `「${service.name}」下单成功，付款方式：${methodLabel}`,
         showCancel: false
       })
     } catch (error) {
@@ -74,22 +134,25 @@ export default function TenantServicesPage() {
   return (
     <View className='tenant-services-page'>
       <View className='page-container'>
-        <View className='section-title'>
-          <Text>推荐服务</Text>
-        </View>
-
-        <View className='pay-tip'>
-          <Text className='pay-tip-label'>支持付款方式：</Text>
-          <View className='pay-icons'>
-            {PAYMENT_METHODS.map((m) => (
-              <Text key={m.key} className='pay-icon'>
-                {m.icon} {m.label}
-              </Text>
-            ))}
+        <View className='svc-hero'>
+          <Text className='svc-hero-label'>推荐服务</Text>
+          <Text className='svc-hero-title'>一站式家居服务</Text>
+          <View className='pay-tip'>
+            <Text className='pay-tip-label'>支持付款方式</Text>
+            <View className='pay-icons'>
+              {PAYMENT_METHODS.map((m) => (
+                <Text key={m.key} className='pay-icon'>{m.label}</Text>
+              ))}
+            </View>
           </View>
         </View>
 
-        <ScrollView scrollY className='service-list'>
+        <View className='service-list'>
+          {services.length === 0 && (
+            <View className='empty-tip'>
+              <Text>暂无推荐服务</Text>
+            </View>
+          )}
           {services.map((service) => (
             <View key={service.id} className='service-card'>
               <View className='service-info'>
@@ -98,13 +161,6 @@ export default function TenantServicesPage() {
                 <Text className='service-price'>฿{service.price}</Text>
               </View>
               <View className='service-pay'>
-                <View className='pay-methods'>
-                  {PAYMENT_METHODS.map((m) => (
-                    <Text key={m.key} className='pay-tag'>
-                      {m.icon}
-                    </Text>
-                  ))}
-                </View>
                 <Button
                   className='pay-btn'
                   type='primary'
@@ -112,11 +168,43 @@ export default function TenantServicesPage() {
                   disabled={ordering === service.id}
                   onClick={() => handlePay(service)}
                 >
-                  立即购买
+                  预约
                 </Button>
               </View>
             </View>
           ))}
+        </View>
+
+        <View className='section-title'>
+          <Text>我的订单</Text>
+        </View>
+
+        <ScrollView scrollY className='order-list'>
+          {ordersLoading && orders.length === 0 && (
+            <View className='empty-tip'>
+              <Text>加载中...</Text>
+            </View>
+          )}
+          {!ordersLoading && orders.length === 0 && (
+            <View className='empty-tip'>
+              <Text>暂无服务订单</Text>
+            </View>
+          )}
+          {orders.map((order) => {
+            const status = ORDER_STATUS_MAP[order.status || 'pending'] || ORDER_STATUS_MAP.pending
+            return (
+              <View key={order.id} className='order-card'>
+                <View className='order-icon icon-svg' style={iconStyle('clipboard', 40)} />
+                <View className='order-info'>
+                  <Text className='order-name'>
+                    {SERVICE_TYPE_MAP[order.service_type || ''] || order.service_type || '增值服务'}
+                  </Text>
+                  <Text className='order-time'>{formatTime(order.scheduled_at || order.created_at)}</Text>
+                </View>
+                <Text className='order-status' style={{ color: status.color }}>{status.text}</Text>
+              </View>
+            )
+          })}
         </ScrollView>
       </View>
     </View>

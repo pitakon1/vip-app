@@ -130,7 +130,6 @@ const en: import('./zh').Translation = {
     feature3Desc: 'One-click repair requests, ticket dispatch and tracking, real-time notifications',
     feature4Title: 'Multi-role Collaboration & Permission Control',
     feature4Desc: 'Admin, owner, tenant and staff collaboration with fine-grained permissions',
-    testAccountHint: 'Test account: admin@viprental.com / admin123',
     goRegister: 'Sign up now',
   },
   register: {
@@ -380,7 +379,8 @@ const en: import('./zh').Translation = {
     resale: 'Resale',
     sale: 'For Sale',
     rentUnit: '/mo',
-    saleUnit: '',
+    saleUnit: 'Total',
+    shareUnavailable: 'Listings are not yet split into whole/shared rentals — no shared listings yet',
     entrustRent: 'Entrust Rent',
     entrustSale: 'Entrust Sale',
     entrustRentDesc: 'Pricing · Listing · Management',

@@ -6,11 +6,12 @@ import api from '@/lib/api'
 interface MaintenanceTicket {
   id: string
   ticket_no?: string
-  type: string
+  type?: string
   title?: string
   description: string
-  urgency: 'low' | 'medium' | 'high' | 'urgent'
-  status: 'pending' | 'in_progress' | 'completed'
+  urgency?: 'low' | 'medium' | 'high' | 'urgent'
+  priority?: string
+  status: string
   created_at: string
   updated_at?: string
   photos?: string[]
@@ -22,6 +23,15 @@ interface MaintenanceTicket {
 }
 
 type FilterKey = 'all' | 'pending' | 'in_progress' | 'completed'
+type StatusKey = Exclude<FilterKey, 'all'>
+
+// 接口状态（open/assigned/in_progress/resolved/closed）→ 页面展示分组
+const normalizeStatus = (status?: string): StatusKey => {
+  const v = String(status || '').toLowerCase()
+  if (v === 'in_progress') return 'in_progress'
+  if (v === 'resolved' || v === 'closed' || v === 'completed') return 'completed'
+  return 'pending'
+}
 
 const typeLabelMap: Record<string, string> = {
   plumbing: '水管问题',
@@ -47,84 +57,32 @@ const urgencyLabelMap: Record<string, string> = {
   urgent: '紧急',
 }
 
-const statusClassMap: Record<MaintenanceTicket['status'], string> = {
+const statusClassMap: Record<StatusKey, string> = {
   pending: 'mt-ticket__status--pending',
   in_progress: 'mt-ticket__status--processing',
   completed: 'mt-ticket__status--done',
 }
 
-const statusLabelMap: Record<MaintenanceTicket['status'], string> = {
+const statusLabelMap: Record<StatusKey, string> = {
   pending: '待处理',
   in_progress: '处理中',
   completed: '已完成',
 }
 
-const statusDotColorMap: Record<MaintenanceTicket['status'], string> = {
+const statusDotColorMap: Record<StatusKey, string> = {
   pending: 'var(--state-warning)',
   in_progress: 'var(--state-info)',
   completed: 'var(--state-success)',
 }
 
-const statusProgressMap: Record<MaintenanceTicket['status'], number> = {
+const statusProgressMap: Record<StatusKey, number> = {
   pending: 20,
   in_progress: 60,
   completed: 100,
 }
 
-const STATIC_TICKETS: MaintenanceTicket[] = [
-  {
-    id: 'MT-001',
-    ticket_no: 'MT-001',
-    type: 'plumbing',
-    title: '厨房水管爆裂漏水',
-    description: '厨房水槽下方水管突然破裂，大量漏水，已关闭总阀门，需尽快上门处理。',
-    urgency: 'urgent',
-    status: 'pending',
-    created_at: '2026-08-03 09:30:00',
-    location: '阳光花园 A座12-3',
-    category: '水管管路',
-    assignee: '待分配',
-  },
-  {
-    id: 'MT-002',
-    ticket_no: 'MT-002',
-    type: 'aircon',
-    title: '卧室空调不制冷',
-    description: '主卧空调开启后只出风不制冷，已持续三天，影响正常休息，师傅已上门排查。',
-    urgency: 'high',
-    status: 'in_progress',
-    created_at: '2026-07-30 18:00:00',
-    location: '阳光花园 A座12-3',
-    category: '家电维修',
-    assignee: '李师傅 · 家电维修',
-  },
-  {
-    id: 'MT-003',
-    ticket_no: 'MT-003',
-    type: 'door_window',
-    title: '卧室门锁卡顿',
-    description: '卧室门锁开关困难，钥匙转动卡顿，师傅已更换锁芯并测试开关顺畅。',
-    urgency: 'medium',
-    status: 'completed',
-    created_at: '2026-07-20 10:00:00',
-    location: '阳光花园 A座12-3',
-    category: '门窗五金',
-    assignee: '张师傅 · 门窗维修',
-  },
-  {
-    id: 'MT-004',
-    ticket_no: 'MT-004',
-    type: 'electrical',
-    title: '客厅吸顶灯更换',
-    description: '客厅吸顶灯灯管损坏，已由物业维修组更换为新灯管，照明恢复正常。',
-    urgency: 'low',
-    status: 'completed',
-    created_at: '2026-07-10 14:00:00',
-    location: '阳光花园 A座12-3',
-    category: '灯具电器',
-    assignee: '物业维修组',
-  },
-]
+// 报修位置可选房间（通用房间名，非示例数据；具体房源由真实租约数据拼接）
+const ROOM_OPTIONS = ['客厅', '主卧', '厨房', '卫生间', '公共区域']
 
 const TenantMaintenance = () => {
   const [loading, setLoading] = useState(false)
@@ -132,23 +90,36 @@ const TenantMaintenance = () => {
   const [data, setData] = useState<MaintenanceTicket[]>([])
   const [filter, setFilter] = useState<FilterKey>('all')
 
+  // 当前租客的真实房源（用于报修位置选项）
+  const [propertyLabel, setPropertyLabel] = useState('')
+
   // form state (replaces antd Form)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium')
-  const [location, setLocation] = useState('阳光花园 A座12-3 · 客厅')
+  const [location, setLocation] = useState('')
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get('/maintenance-tickets')
+      const [res, leasesRes] = await Promise.all([
+        api.get('/maintenance-tickets'),
+        api.get('/leases').catch(() => ({ data: { items: [] } })),
+      ])
       const payload = res.data?.data ?? res.data
-      const items = payload?.items ?? []
-      setData(items.length ? items : STATIC_TICKETS)
+      setData(payload?.items ?? [])
+
+      const lPayload = leasesRes.data?.data ?? leasesRes.data
+      const leases: any[] = lPayload?.items ?? []
+      const lease = leases.find((l) => l.status === 'active') || leases[0]
+      const prop = lease?.property
+      setPropertyLabel(
+        prop?.address || prop?.building || prop?.room_number || lease?.property_name || '',
+      )
     } catch {
-      setData(STATIC_TICKETS)
+      setData([])
     } finally {
       setLoading(false)
     }
@@ -158,18 +129,23 @@ const TenantMaintenance = () => {
     fetchData()
   }, [fetchData])
 
+  const locationOptions = useMemo(
+    () => ROOM_OPTIONS.map((room) => (propertyLabel ? `${propertyLabel} · ${room}` : room)),
+    [propertyLabel],
+  )
+
   const counts = useMemo(() => {
     return {
       all: data.length,
-      pending: data.filter((d) => d.status === 'pending').length,
-      in_progress: data.filter((d) => d.status === 'in_progress').length,
-      completed: data.filter((d) => d.status === 'completed').length,
+      pending: data.filter((d) => normalizeStatus(d.status) === 'pending').length,
+      in_progress: data.filter((d) => normalizeStatus(d.status) === 'in_progress').length,
+      completed: data.filter((d) => normalizeStatus(d.status) === 'completed').length,
     }
   }, [data])
 
   const filteredData = useMemo(() => {
     if (filter === 'all') return data
-    return data.filter((d) => d.status === filter)
+    return data.filter((d) => normalizeStatus(d.status) === filter)
   }, [data, filter])
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -182,7 +158,7 @@ const TenantMaintenance = () => {
     setTitle('')
     setDescription('')
     setPriority('medium')
-    setLocation('阳光花园 A座12-3 · 客厅')
+    setLocation('')
     setPhotoFiles([])
     setPhotoPreviews([])
   }
@@ -216,16 +192,16 @@ const TenantMaintenance = () => {
       }
 
       message.success('报修提交成功，工作人员将尽快处理')
+      const localId = `local-${Date.now()}`
       const newTicket: MaintenanceTicket = {
-        id: `MT-${dayjs().format('YYYYMMDDHHmmss')}`,
-        ticket_no: `MT-${dayjs().format('YYYYMMDDHHmmss')}`,
+        id: localId,
         type: 'other',
         title,
         description,
         urgency: priority,
         status: 'pending',
         created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-        location: '阳光花园 A座12-3',
+        location: location || propertyLabel || undefined,
         category: '其他',
         assignee: '待分配',
         progress: [
@@ -252,7 +228,6 @@ const TenantMaintenance = () => {
     { label: '待处理', value: counts.pending, unit: '个', color: 'var(--state-warning)' },
     { label: '处理中', value: counts.in_progress, unit: '个', color: 'var(--state-info)' },
     { label: '已完成', value: counts.completed, unit: '个', color: 'var(--state-success)' },
-    { label: '平均响应', value: '4.2', unit: '小时', color: 'var(--rent-primary)' },
   ]
 
   return (
@@ -312,19 +287,21 @@ const TenantMaintenance = () => {
       <div className="mt-ticket-list">
         {filteredData.length ? (
           filteredData.map((t) => {
-            const idLabel = t.ticket_no || `#${(t.id || '').slice(-6)}`
+            const idLabel = t.ticket_no || (t.id || '').slice(-6)
             const titleLabel = t.title || t.description || '-'
             const descLabel = t.description || ''
-            const barClass = urgencyBarMap[t.urgency] || 'mt-ticket__bar--medium'
-            const stClass = statusClassMap[t.status]
-            const stLabel = statusLabelMap[t.status]
-            const stDot = statusDotColorMap[t.status]
-            const uLabel = urgencyLabelMap[t.urgency] || ''
-            const category = t.category || typeLabelMap[t.type] || '其他'
-            const loc = t.location || '阳光花园 A座12-3'
+            const urgencyKey = t.urgency || t.priority || 'medium'
+            const statusKey = normalizeStatus(t.status)
+            const barClass = urgencyBarMap[urgencyKey] || 'mt-ticket__bar--medium'
+            const stClass = statusClassMap[statusKey]
+            const stLabel = statusLabelMap[statusKey]
+            const stDot = statusDotColorMap[statusKey]
+            const uLabel = urgencyLabelMap[urgencyKey] || ''
+            const category = t.category || typeLabelMap[t.type || ''] || '其他'
+            const loc = t.location || propertyLabel || '—'
             const assignee = t.assignee || '待分配'
             const createdDate = t.created_at ? dayjs(t.created_at).format('YYYY-MM-DD') : '-'
-            const progress = statusProgressMap[t.status] ?? 0
+            const progress = statusProgressMap[statusKey] ?? 0
             return (
               <div key={t.id} className="mt-ticket">
                 <div className={`mt-ticket__bar ${barClass}`}></div>
@@ -350,7 +327,7 @@ const TenantMaintenance = () => {
                       {category}
                     </span>
                   </div>
-                  {t.status === 'in_progress' && (
+                  {statusKey === 'in_progress' && (
                     <div className="mt-ticket__progress-wrap">
                       <div className="mt-ticket__progress-head">
                         <span className="mt-ticket__progress-label">处理进度</span>
@@ -374,13 +351,13 @@ const TenantMaintenance = () => {
                     </div>
                     <div className="mt-ticket__actions">
                       <button className="rent-btn rent-btn--secondary rent-btn--sm">查看详情</button>
-                      {t.status === 'pending' && (
+                      {statusKey === 'pending' && (
                         <button className="rent-btn rent-btn--ghost rent-btn--sm">取消申请</button>
                       )}
-                      {t.status === 'in_progress' && (
+                      {statusKey === 'in_progress' && (
                         <button className="rent-btn rent-btn--ghost rent-btn--sm">联系师傅</button>
                       )}
-                      {t.status === 'completed' && (
+                      {statusKey === 'completed' && (
                         <button className="rent-btn rent-btn--primary rent-btn--sm">评价</button>
                       )}
                     </div>
@@ -448,11 +425,10 @@ const TenantMaintenance = () => {
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                 >
-                  <option>阳光花园 A座12-3 · 客厅</option>
-                  <option>阳光花园 A座12-3 · 主卧</option>
-                  <option>阳光花园 A座12-3 · 厨房</option>
-                  <option>阳光花园 A座12-3 · 卫生间</option>
-                  <option>阳光花园 A座12-3 · 公共区域</option>
+                  <option value="">{propertyLabel || '请选择报修位置'}</option>
+                  {locationOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
                 </select>
               </div>
             </div>

@@ -174,12 +174,25 @@ def test_validation_error_response_shape(api):
 
 
 def test_metrics_are_exported(api):
-    """指标不再为空：/health 的请求数与耗时会被采集。"""
-    client = api.login(api.mk_user())
+    """指标不再为空：/health 的请求数与耗时会被采集。
+
+    /metrics 在非 DEBUG 下要求管理员令牌（匿名可读等于泄露运营规模），
+    故这里以管理员身份访问。
+    """
+    client = api.login(api.mk_user(UserRole.admin))
     assert client.get("/health").status_code == 200
     text = client.get("/metrics").text
     assert 'http_requests_total{method="GET",path="/health",status="200"}' in text
     assert "http_request_duration_seconds_count" in text
+
+
+def test_metrics_require_admin_token_outside_debug(api):
+    """非 DEBUG 下匿名与非管理员都拿不到指标。"""
+    anon = api.login(api.mk_user())
+    assert anon.get("/metrics").status_code == 403
+
+    tenant = api.login(api.mk_user(UserRole.tenant))
+    assert tenant.get("/metrics").status_code == 403
 
 
 # ------------------------------------------------------------ 限流

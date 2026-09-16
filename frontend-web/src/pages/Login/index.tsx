@@ -61,17 +61,18 @@ const Login = () => {
       const res = await authApi.login(email, password)
       const payload = res.data?.data ?? res.data
       const token: string = payload?.access_token ?? payload?.token ?? payload?.accessToken
-      const user: User = payload?.user ?? {
-        id: String(payload?.id ?? ''),
-        full_name: payload?.full_name ?? payload?.name ?? payload?.username ?? email,
-        role: payload?.role ?? 'admin',
-        email,
-      }
       if (!token) {
         message.error(t('login.tokenMissing'))
         return
       }
-      login(token, user)
+      // 角色决定登录后进哪一端，绝不能兜底成 admin —— 一旦后端响应缺少 user，
+      // 兜底就等于把管理端入口开放给任意账号。宁可报错让用户重试。
+      const user: User | undefined = payload?.user
+      if (!user?.role) {
+        message.error(t('login.loginFailed'))
+        return
+      }
+      login(token, user, payload?.refresh_token)
       message.success(t('login.loginSuccess'))
       navigate(roleRedirectPath(user.role))
     } catch (err: any) {
@@ -128,12 +129,14 @@ const Login = () => {
             <p className="rent-login-card__subtitle">{t('login.subtitle')}</p>
           </div>
 
-          {/* 测试账号提示 */}
-          <div className="rent-login-hint">
-            测试账号：<span className="rent-mono">admin@viprental.com / admin123</span>（管理员）
-            · agent@viprental.com / agent123（经纪）· owner@viprental.com / owner123（业主）
-            · tenant@viprental.com / tenant123（租客）
-          </div>
+          {/* 测试账号提示：仅开发构建展示，生产构建里这段账号密码不应出现在页面上 */}
+          {import.meta.env.DEV && (
+            <div className="rent-login-hint">
+              测试账号：<span className="rent-mono">admin@viprental.com / admin123</span>（管理员）
+              · agent@viprental.com / agent123（经纪）· owner@viprental.com / owner123（业主）
+              · tenant@viprental.com / tenant123（租客）
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             {/* 邮箱 */}

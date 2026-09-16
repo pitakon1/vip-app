@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { message } from 'antd'
+import { message, Empty } from 'antd'
 import { auditLogsApi } from '@/services/api'
 import './audit-logs.css'
 
@@ -195,8 +195,23 @@ const AuditLogs = () => {
 
       {/* Filter Bar */}
       <div className="rent-filter-bar">
+        <div className="rent-filter-bar__search">
+          <div className="rent-search" style={{ width: '100%' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="操作员ID / 账号"
+              value={draft.actor_user_id || ''}
+              onChange={(e) => setDraft((p) => ({ ...p, actor_user_id: e.target.value || undefined }))}
+              onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+            />
+          </div>
+        </div>
         <select
-          className="rent-form-select"
+          className="rent-filter-select rent-form-select"
           style={{ width: 'auto', minWidth: 120 }}
           aria-label="操作类型"
           value={draft.action || ''}
@@ -211,7 +226,7 @@ const AuditLogs = () => {
           <option value="read">查看</option>
         </select>
         <select
-          className="rent-form-select"
+          className="rent-filter-select rent-form-select"
           style={{ width: 'auto', minWidth: 120 }}
           aria-label="资源类型"
           value={draft.resource_type || ''}
@@ -226,15 +241,6 @@ const AuditLogs = () => {
           <option value="commission_rule">佣金规则</option>
           <option value="viewing">预约看房</option>
         </select>
-        <div className="rent-search" style={{ width: 'auto', minWidth: 200 }}>
-          <input
-            type="text"
-            placeholder="操作员ID / 账号"
-            value={draft.actor_user_id || ''}
-            onChange={(e) => setDraft((p) => ({ ...p, actor_user_id: e.target.value || undefined }))}
-            onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-          />
-        </div>
         <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
           <input
             type="date"
@@ -259,70 +265,83 @@ const AuditLogs = () => {
       </div>
 
       {/* Table */}
-      {loading ? (
-        <div className="rent-empty"><div className="rent-text-muted">加载中...</div></div>
-      ) : (
-        <div className="rent-table-wrap">
-          <table className="rent-table">
-            <thead>
-              <tr>
-                <th>操作</th>
-                <th>资源</th>
-                <th>资源ID</th>
-                <th>操作员</th>
-                <th>访问的敏感字段</th>
-                <th>IP</th>
-                <th>时间</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.length === 0 && (
-                <tr><td colSpan={7} className="rent-text-muted">暂无匹配的审计记录</td></tr>
-              )}
-              {items.map((log) => {
-                const meta = actionMeta(log.action)
-                const pii = Array.isArray(log.pii_fields_accessed)
-                  ? log.pii_fields_accessed.join(', ')
-                  : log.pii_fields_accessed || '—'
-                return (
-                  <tr key={log.id}>
-                    <td><span className={`rent-badge ${meta.badge}`}>{meta.label}</span></td>
-                    <td>{resourceText(log.resource_type)}</td>
-                    <td><span className="rent-mono">{log.resource_id ? String(log.resource_id).slice(0, 8) : '—'}</span></td>
-                    <td>
-                      <div className="audit-cell">{log.actor_name || '—'}</div>
-                      <div className="audit-pii">{log.actor_email}</div>
-                    </td>
-                    <td className="audit-cell"><span className="audit-pii">{pii}</span></td>
-                    <td><span className="rent-mono">{log.ip_address || '—'}</span></td>
-                    <td className="rent-table__mono">{log.occurred_at ? new Date(log.occurred_at).toLocaleString() : '—'}</td>
+      <div className="rent-card">
+        <div className="rent-card__header">
+          <h3 className="rent-card__title">操作记录</h3>
+        </div>
+        <div className="rent-card__body" style={{ padding: 0 }}>
+          {loading ? (
+            <div className="rent-empty"><div className="rent-text-muted">加载中...</div></div>
+          ) : (
+            <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="rent-table">
+                <thead>
+                  <tr>
+                    <th>操作</th>
+                    <th>资源</th>
+                    <th>资源ID</th>
+                    <th>操作员</th>
+                    <th>访问的敏感字段</th>
+                    <th>IP</th>
+                    <th>时间</th>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {items.length === 0 && (
+                    <tr>
+                      <td colSpan={7}>
+                        <div className="rent-empty">
+                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无匹配的审计记录" />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {items.map((log) => {
+                    const meta = actionMeta(log.action)
+                    const pii = Array.isArray(log.pii_fields_accessed)
+                      ? log.pii_fields_accessed.join(', ')
+                      : log.pii_fields_accessed || '—'
+                    return (
+                      <tr key={log.id}>
+                        <td><span className={`rent-badge ${meta.badge}`}>{meta.label}</span></td>
+                        <td>{resourceText(log.resource_type)}</td>
+                        <td><span className="rent-mono">{log.resource_id ? String(log.resource_id).slice(0, 8) : '—'}</span></td>
+                        <td>
+                          <div className="audit-cell">{log.actor_name || '—'}</div>
+                          <div className="audit-pii">{log.actor_email}</div>
+                        </td>
+                        <td className="audit-cell"><span className="audit-pii">{pii}</span></td>
+                        <td><span className="rent-mono">{log.ip_address || '—'}</span></td>
+                        <td className="rent-table__mono">{log.occurred_at ? new Date(log.occurred_at).toLocaleString() : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-      {/* Pagination */}
-      {!loading && (
-        <div className="rent-pagination">
-          <span className="rent-pagination__info">共 {total.toLocaleString()} 条记录</span>
-          <button
-            className="rent-pagination__btn"
-            aria-label="上一页"
-            disabled={queryParams.page <= 1}
-            onClick={() => setQueryParams((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
-          >‹</button>
-          <span className="rent-pagination__info">{queryParams.page} / {totalPages}</span>
-          <button
-            className="rent-pagination__btn"
-            aria-label="下一页"
-            disabled={queryParams.page >= totalPages}
-            onClick={() => setQueryParams((p) => ({ ...p, page: Math.min(totalPages, p.page + 1) }))}
-          >›</button>
+          {/* Pagination */}
+          {!loading && (
+            <div className="rent-pagination" style={{ padding: '12px 20px' }}>
+              <span className="rent-pagination__info">共 {total.toLocaleString()} 条记录</span>
+              <button
+                className="rent-pagination__btn"
+                aria-label="上一页"
+                disabled={queryParams.page <= 1}
+                onClick={() => setQueryParams((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
+              >‹</button>
+              <span className="rent-pagination__info">{queryParams.page} / {totalPages}</span>
+              <button
+                className="rent-pagination__btn"
+                aria-label="下一页"
+                disabled={queryParams.page >= totalPages}
+                onClick={() => setQueryParams((p) => ({ ...p, page: Math.min(totalPages, p.page + 1) }))}
+              >›</button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

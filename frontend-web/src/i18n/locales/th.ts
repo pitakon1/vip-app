@@ -130,7 +130,6 @@ const th: import('./zh').Translation = {
     feature3Desc: 'ผู้เช่าแจ้งซ่อมคลิกเดียว ติดตามใบงาน แจ้งเตือนข้อความแบบเรียลไทม์',
     feature4Title: 'การทำงานร่วมกันหลายบทบาทและการจัดการสิทธิ์',
     feature4Desc: 'ผู้ดูแล เจ้าของบ้าน ผู้เช่า และพนักงานทำงานร่วมกัน ควบคุมสิทธิ์อย่างละเอียด',
-    testAccountHint: 'บัญชีทดสอบ: admin@viprental.com / admin123',
     goRegister: 'ลงทะเบียนเลย',
   },
   register: {
@@ -380,7 +379,8 @@ const th: import('./zh').Translation = {
     resale: 'มือสอง',
     sale: 'ขาย',
     rentUnit: '/เดือน',
-    saleUnit: '',
+    saleUnit: 'ราคารวม',
+    shareUnavailable: 'ยังไม่มีการแยกเช่าเหมา/เช่าร่วม จึงยังไม่มีห้องเช่าร่วม',
     entrustRent: 'ฝากเช่า',
     entrustSale: 'ฝากขาย',
     entrustRentDesc: 'แนะนำราคา · ประกาศ · บริหาร',

@@ -130,7 +130,6 @@ const zh = {
     feature3Desc: '租户一键报修，工单分派追踪，消息实时通知',
     feature4Title: '多角色协作与权限管理',
     feature4Desc: '管理员、业主、租客、员工四端协同，精细化权限控制',
-    testAccountHint: '测试账号：admin@viprental.com / admin123',
     goRegister: '立即注册',
   },
   register: {
@@ -380,7 +379,8 @@ const zh = {
     resale: '二手房',
     sale: '在售',
     rentUnit: '/月',
-    saleUnit: '',
+    saleUnit: '总价',
+    shareUnavailable: '房源暂未区分整租/合租，暂无合租房源',
     entrustRent: '委托出租',
     entrustSale: '委托出售',
     entrustRentDesc: '定价建议 · 挂牌 · 托管',

@@ -7,3 +7,58 @@
 .rent-text-bold {
   font-weight: 600;
 }
+
+/* =========================================================
+   委托推广四步流程样式（来源: rental-full-draft/pages/owner-consign.html）
+   ========================================================= */
+
+/* ---- 步骤条 ---- */
+.rent-v17-steps { display: flex; align-items: flex-start; padding: 4px 0 20px; }
+.rent-v17-step { flex: 1; text-align: center; position: relative; }
+.rent-v17-step::before {
+  content: ""; position: absolute; top: 13px; left: -50%; width: 100%; height: 2px;
+  background: var(--rent-border);
+}
+.rent-v17-step:first-child::before { display: none; }
+.rent-v17-step--active::before { background: var(--rent-primary); }
+.rent-v17-step__dot {
+  width: 26px; height: 26px; margin: 0 auto 6px; border-radius: 50%;
+  background: var(--rent-surface-2); color: var(--rent-ink-3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; position: relative; z-index: 1;
+}
+.rent-v17-step--active .rent-v17-step__dot {
+  background: var(--rent-primary); color: #fff;
+  box-shadow: 0 4px 12px -4px rgba(20,184,166,.5);
+}
+.rent-v17-step--done .rent-v17-step__dot { background: var(--state-success); color: #fff; }
+.rent-v17-step__label { font-size: 11px; color: var(--rent-ink-3); }
+.rent-v17-step--active .rent-v17-step__label { color: var(--rent-primary); font-weight: 600; }
+
+/* ---- 房源选择项 ---- */
+.rent-v17-pick {
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--rent-border); border-radius: var(--rent-radius-md);
+  padding: 12px 14px; margin-bottom: 10px; cursor: pointer;
+}
+.rent-v17-pick[data-active="true"] {
+  border-color: var(--rent-primary);
+  background: rgba(20,184,166,.04);
+}
+.rent-v17-pick__radio {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--rent-border); display: flex; align-items: center; justify-content: center;
+}
+.rent-v17-pick[data-active="true"] .rent-v17-pick__radio { border-color: var(--rent-primary); }
+.rent-v17-pick[data-active="true"] .rent-v17-pick__radio::after {
+  content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--rent-primary);
+}
+
+/* ---- 字段行 ---- */
+.rent-v17-field {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--rent-border);
+}
+.rent-v17-field:last-child { border-bottom: none; }
+.rent-v17-field__label { width: 88px; flex-shrink: 0; font-size: 13px; color: var(--rent-ink-3); }
+.rent-v17-field__value { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; color: var(--rent-ink); }

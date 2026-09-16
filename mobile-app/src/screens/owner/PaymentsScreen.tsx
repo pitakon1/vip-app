@@ -1,16 +1,21 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   FlatList,
   StyleSheet,
   RefreshControl,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { paymentsApi } from '@/services/api';
+
+type IoniconName = keyof typeof Ionicons.glyphMap;
+type Group = 'due' | 'paid' | 'overdue';
 
 interface Payment {
   id: string;
@@ -35,26 +40,42 @@ const typeLabels: Record<string, string> = {
   refund: '退款',
 };
 
-const statusMeta: Record<
-  string,
-  { text: string; color: string; bg: string }
-> = {
-  pending: { text: '待入账', color: colors.warning, bg: 'rgba(217,119,6,0.1)' },
-  processing: { text: '处理中', color: colors.info, bg: 'rgba(14,165,233,0.1)' },
-  succeeded: { text: '已到账', color: colors.success, bg: 'rgba(22,163,74,0.1)' },
-  failed: { text: '支付失败', color: colors.error, bg: 'rgba(220,38,38,0.1)' },
-  refunded: { text: '已退款', color: colors.info, bg: 'rgba(14,165,233,0.1)' },
-  disputed: { text: '有争议', color: colors.error, bg: 'rgba(220,38,38,0.1)' },
-  expired: { text: '已过期', color: colors.ink3, bg: colors.surface2 },
+const typeIcons: Record<string, IoniconName> = {
+  rent: 'home-outline',
+  deposit: 'lock-closed-outline',
+  commission: 'briefcase-outline',
+  service_fee: 'construct-outline',
+  utility: 'water-outline',
+  tax: 'document-text-outline',
+  refund: 'refresh-outline',
 };
+
+const statusMap: Record<string, { text: string; group: Group; color: string; bg: string }> = {
+  pending: { text: '待缴', group: 'due', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1) },
+  processing: { text: '处理中', group: 'due', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  succeeded: { text: '已缴', group: 'paid', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1) },
+  refunded: { text: '已退款', group: 'paid', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  failed: { text: '逾期', group: 'overdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
+  expired: { text: '逾期', group: 'overdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
+  disputed: { text: '争议', group: 'overdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
+};
+
+const FILTERS: { key: 'all' | Group; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'due', label: '待缴' },
+  { key: 'paid', label: '已缴' },
+  { key: 'overdue', label: '逾期' },
+];
 
 const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿');
 const money = (v: any, c?: string) => `${cur(c)}${Number(v || 0).toLocaleString()}`;
-const formatDate = (x?: string) =>
-  x ? x.replace('T', ' ').slice(0, 16) : '-';
+const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '-');
+
+const groupOf = (status?: string): Group => statusMap[status ?? '']?.group ?? 'due';
 
 export default function OwnerPaymentsScreen() {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [filter, setFilter] = useState<'all' | Group>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -62,11 +83,7 @@ export default function OwnerPaymentsScreen() {
     try {
       const res: any = await paymentsApi.mine();
       const data = res?.data;
-      const items = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.items)
-        ? data.items
-        : [];
+      const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
       setPayments(items as Payment[]);
     } catch (err: any) {
       // 列表失败不阻断渲染，保留空态
@@ -85,52 +102,101 @@ export default function OwnerPaymentsScreen() {
     load();
   }, [load]);
 
-  // 业主视角 KPI：从列表计算
-  const received = payments.filter((p) => p.status === 'succeeded');
-  const pending = payments.filter(
-    (p) => p.status === 'pending' || p.status === 'processing'
+  const ccy = payments[0]?.currency || 'THB';
+
+  /* ===== 汇总卡口径（真实聚合） ===== */
+  const dueTotal = payments
+    .filter((p) => groupOf(p.status) !== 'paid')
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  const monthPaid = useMemo(() => {
+    const now = new Date();
+    return payments
+      .filter((p) => groupOf(p.status) === 'paid' && !!p.paid_at)
+      .filter((p) => {
+        const d = new Date(String(p.paid_at));
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      })
+      .reduce((s, p) => s + Number(p.amount || 0), 0);
+  }, [payments]);
+
+  const utilityTotal = payments
+    .filter((p) => p.payment_type === 'utility')
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  const filtered = useMemo(
+    () => (filter === 'all' ? payments : payments.filter((p) => groupOf(p.status) === filter)),
+    [payments, filter],
   );
-  const disputed = payments.filter(
-    (p) => p.status === 'failed' || p.status === 'disputed' || p.status === 'refunded'
-  );
-  const receivedTotal = received.reduce((s, p) => s + Number(p.amount || 0), 0);
-  const pendingTotal = pending.reduce((s, p) => s + Number(p.amount || 0), 0);
-  const ccy =
-    payments[0]?.currency || received[0]?.currency || 'THB';
+
+  const channelFor = (c?: string) => (c === 'CNY' ? 'wechat' : c === 'USD' ? 'stripe' : 'promptpay');
+
+  const handlePay = async (item: Payment) => {
+    try {
+      const res: any = await paymentsApi.pay(item.id, channelFor(item.currency));
+      const data = res?.data ?? res;
+      setPayments((list) =>
+        list.map((p) => (p.id === item.id ? { ...p, status: 'processing' } : p)),
+      );
+      const checkoutUrl = data?.checkout_url ?? data?.qr_code ?? data?.qr ?? data?.url;
+      Alert.alert(
+        '发起支付',
+        checkoutUrl
+          ? `支付链接已生成，请完成支付：\n${checkoutUrl}`
+          : '支付单已提交，正在处理中。',
+      );
+    } catch (err: any) {
+      Alert.alert('支付失败', err?.response?.data?.detail || '请稍后重试');
+    }
+  };
 
   const renderItem = ({ item }: { item: Payment }) => {
-    const meta = statusMeta[item.status ?? 'pending'] ?? statusMeta.pending;
+    const meta = statusMap[item.status ?? ''] ?? statusMap.pending;
+    const group = groupOf(item.status);
+    const icon = typeIcons[item.payment_type ?? ''] ?? 'receipt-outline';
+    const label = typeLabels[item.payment_type ?? ''] ?? item.payment_type ?? '账单';
+
     return (
       <View style={styles.card}>
         <View style={styles.cardTop}>
-          <View style={[styles.recordIcon]}>
-            <Ionicons name="wallet-outline" size={18} color={colors.primary} />
+          <View style={styles.cardIcon}>
+            <Ionicons name={icon} size={20} color={colors.primary} />
           </View>
           <View style={styles.cardInfo}>
-            <Text style={styles.type} numberOfLines={1}>
-              {typeLabels[item.payment_type ?? ''] ?? item.payment_type ?? '账单'}
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.type} numberOfLines={1}>{label}</Text>
+              <View style={[styles.badge, { backgroundColor: meta.bg }]}>
+                <Text style={[styles.badgeText, { color: meta.color }]}>{meta.text}</Text>
+              </View>
+            </View>
+            <Text style={styles.meta} numberOfLines={1}>
+              {item.property || item.description || '账单'} · 到期 {formatDate(item.due_date)}
             </Text>
-            {!!item.property && (
-              <Text style={styles.property} numberOfLines={1}>
-                <Ionicons name="home-outline" size={12} color={colors.ink3} />{' '}
-                {item.property}
-              </Text>
-            )}
-          </View>
-          <View style={[styles.badge, { backgroundColor: meta.bg }]}>
-            <Text style={[styles.badgeText, { color: meta.color }]}>{meta.text}</Text>
           </View>
         </View>
-        {!!item.description && (
-          <Text style={styles.desc} numberOfLines={2}>{item.description}</Text>
-        )}
-        <View style={styles.amountRow}>
-          <Text style={[styles.amount, { color: meta.color }]}>
-            {money(item.amount, item.currency)}
-          </Text>
-          <Text style={styles.time}>
-            {formatDate(item.paid_at || item.due_date)}
-          </Text>
+        <View style={styles.cardFoot}>
+          <Text style={styles.amount}>{money(item.amount, item.currency || ccy)}</Text>
+          {group === 'paid' ? (
+            <View style={[styles.btn, styles.btnSecondary]}>
+              <Ionicons name="checkmark" size={14} color={colors.ink3} />
+              <Text style={[styles.btnText, { color: colors.ink3 }]}>已缴清</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.btn, group === 'overdue' ? styles.btnDanger : styles.btnPrimary]}
+              activeOpacity={0.85}
+              onPress={() => handlePay(item)}
+            >
+              <Ionicons
+                name={group === 'overdue' ? 'alert-circle-outline' : 'card-outline'}
+                size={14}
+                color={colors.primaryForeground}
+              />
+              <Text style={[styles.btnText, { color: colors.primaryForeground }]}>
+                {group === 'overdue' ? '逾期缴费' : '立即缴费'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -139,7 +205,7 @@ export default function OwnerPaymentsScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <LoadingState label="正在加载付款记录…" />
+        <LoadingState label="正在加载账单…" />
       </View>
     );
   }
@@ -147,44 +213,65 @@ export default function OwnerPaymentsScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={payments}
+        data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
         }
         ListHeaderComponent={
-          <View style={styles.heroCard}>
-            <Text style={styles.heroLabel}>累计已到账</Text>
-            <Text style={styles.heroAmount}>{money(receivedTotal, ccy)}</Text>
-            <View style={styles.heroStats}>
-              <View style={styles.heroStatItem}>
-                <Text style={styles.heroStatVal}>
-                  {money(pendingTotal, ccy)}
-                </Text>
-                <Text style={styles.heroStatLabel}>待入账</Text>
-              </View>
+          <View>
+            {/* 汇总卡：待缴总额 / 本月已缴 / 物业费 */}
+            <View style={styles.heroCard}>
+              <Text style={styles.heroLabel}>待缴总额</Text>
+              <Text style={styles.heroAmount}>{money(dueTotal, ccy)}</Text>
               <View style={styles.heroDivider} />
-              <View style={styles.heroStatItem}>
-                <Text style={styles.heroStatVal}>{pending.length}</Text>
-                <Text style={styles.heroStatLabel}>待处理笔数</Text>
+              <View style={styles.heroStats}>
+                <View>
+                  <Text style={styles.heroStatLabel}>本月已缴</Text>
+                  <Text style={styles.heroStatVal}>{money(monthPaid, ccy)}</Text>
+                </View>
+                <View style={styles.heroStatRight}>
+                  <Text style={styles.heroStatLabel}>物业费</Text>
+                  <Text style={styles.heroStatVal}>{money(utilityTotal, ccy)}</Text>
+                </View>
               </View>
-              <View style={styles.heroDivider} />
-              <View style={styles.heroStatItem}>
-                <Text style={[styles.heroStatVal, { color: colors.error }]}>
-                  {disputed.length}
-                </Text>
-                <Text style={styles.heroStatLabel}>异常笔数</Text>
-              </View>
+            </View>
+
+            {/* 筛选 chips */}
+            <View style={styles.chips}>
+              {FILTERS.map((f) => {
+                const active = filter === f.key;
+                return (
+                  <TouchableOpacity
+                    key={f.key}
+                    style={[styles.chip, active && styles.chipActive]}
+                    activeOpacity={0.8}
+                    onPress={() => setFilter(f.key)}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>账单列表</Text>
+              <Text style={styles.sectionHint}>{filtered.length} 笔</Text>
             </View>
           </View>
         }
         ListEmptyComponent={
           <EmptyState
             icon="documents-outline"
-            title="暂无付款记录"
-            sub="名下房源产生租金或费用结算后，会在这里按时间列出每一笔"
+            title="暂无账单"
+            sub="名下房源产生物业费、水电费或租金结算后，会在这里列出每一笔"
           />
         }
       />
@@ -195,70 +282,114 @@ export default function OwnerPaymentsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  list: { paddingHorizontal: 12, paddingBottom: 24 },
+  list: { paddingHorizontal: colors.spacing.md, paddingBottom: 24 },
 
-  /* 顶部 KPI 汇总 */
+  /* 汇总卡 */
   heroCard: {
-    marginTop: 12,
-    marginBottom: 4,
-    padding: 20,
+    marginTop: colors.spacing.md,
+    marginBottom: colors.spacing.lg,
+    padding: colors.spacing.xl,
     borderRadius: colors.radius.xl,
     backgroundColor: colors.primary,
     ...colors.shadow.primary,
   },
-  heroLabel: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  heroLabel: { fontSize: colors.fontSize.base, color: colors.alpha('255, 255, 255', 0.8) },
   heroAmount: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '800',
-    color: '#fff',
-    marginTop: 6,
-    letterSpacing: -0.5,
+    color: colors.primaryForeground,
+    marginTop: 4,
+    letterSpacing: -0.4,
     fontVariant: ['tabular-nums'],
   },
-  heroStats: {
-    flexDirection: 'row',
-    marginTop: 18,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.2)',
+  heroDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.alpha('255, 255, 255', 0.25),
+    marginVertical: colors.spacing.lg,
   },
-  heroStatItem: { flex: 1, alignItems: 'center' },
-  heroStatVal: { fontSize: 15, fontWeight: '700', color: '#fff', fontVariant: ['tabular-nums'] },
-  heroStatLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 3 },
-  heroDivider: { width: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.2)' },
+  heroStats: { flexDirection: 'row', justifyContent: 'space-between' },
+  heroStatRight: { alignItems: 'flex-end' },
+  heroStatLabel: { fontSize: colors.fontSize.xs, color: colors.alpha('255, 255, 255', 0.7), marginBottom: 2 },
+  heroStatVal: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.primaryForeground,
+    fontVariant: ['tabular-nums'],
+  },
 
-  /* 列表卡片 */
+  /* chips */
+  chips: { flexDirection: 'row', gap: 8, marginBottom: colors.spacing.md },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: colors.fontSize.base, fontWeight: '500', color: colors.ink2 },
+  chipTextActive: { color: colors.primaryForeground, fontWeight: '700' },
+
+  /* 区块标题 */
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  sectionHint: { fontSize: colors.fontSize.sm, color: colors.ink3, fontWeight: '500' },
+
+  /* 账单卡 */
   card: {
     backgroundColor: colors.surface,
     borderRadius: colors.radius.lg,
-    padding: 14,
+    padding: colors.spacing.lg,
     marginBottom: 10,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     ...colors.shadow.sm,
   },
-  cardTop: { flexDirection: 'row', alignItems: 'center' },
-  recordIcon: {
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
+  cardIcon: {
     width: 40,
     height: 40,
-    borderRadius: colors.radius.md,
-    backgroundColor: `rgba(${colors.primaryRgb}, 0.1)`,
+    borderRadius: colors.radius.sm,
+    backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  cardInfo: { flex: 1 },
-  type: { fontSize: 15, fontWeight: '600', color: colors.text },
-  property: { fontSize: 12, color: colors.ink3, marginTop: 3 },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: colors.radius.full, marginLeft: 8 },
-  badgeText: { fontSize: 11, fontWeight: '600' },
-  desc: { fontSize: 12, color: colors.ink2, marginTop: 8 },
-  amountRow: {
+  cardInfo: { flex: 1, minWidth: 0 },
+  cardTitleRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginTop: 10,
+    gap: 8,
+    marginBottom: 4,
   },
-  amount: { fontSize: 18, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  time: { fontSize: 11, color: colors.ink3 },
+  type: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.ink },
+  meta: { fontSize: colors.fontSize.base, color: colors.ink3 },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: colors.radius.full },
+  badgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
+  cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  amount: {
+    fontSize: colors.fontSize['2xl'],
+    fontWeight: '800',
+    color: colors.ink,
+    letterSpacing: -0.3,
+    fontVariant: ['tabular-nums'],
+  },
+  btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: colors.radius.md,
+  },
+  btnPrimary: { backgroundColor: colors.primary },
+  btnDanger: { backgroundColor: colors.error },
+  btnSecondary: { backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border },
+  btnText: { fontSize: colors.fontSize.sm, fontWeight: '700' },
 });

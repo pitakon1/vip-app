@@ -1,24 +1,129 @@
 .tenant-listings-page {
   min-height: 100vh;
   background-color: var(--bg);
+  /* 预留固定底部导航高度，避免内容被遮挡 */
+  padding-bottom: 160rpx;
 
   .page-container {
     padding: 24px 24px 40px;
   }
 
-  .list-title {
+  /* ===== 顶部搜索栏 ===== */
+  .list-search {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    font-size: 34px;
-    font-weight: 700;
-    color: var(--ink);
-    margin-bottom: 24px;
+    align-items: center;
+    background-color: var(--card);
+    border-radius: 999px;
+    padding: 6px 6px 6px 26px;
+    margin-bottom: 18px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
 
-    .list-sub {
-      font-size: 24px;
-      font-weight: 400;
-      color: var(--ink-3);
+    .list-search__input {
+      flex: 1;
+      height: 60px;
+      font-size: 28px;
+      color: var(--ink);
+    }
+
+    .list-search__btn {
+      flex-shrink: 0;
+      height: 60px;
+      padding: 0 32px;
+      border-radius: 999px;
+      background-color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .list-search__btn-text {
+        font-size: 26px;
+        font-weight: 600;
+        color: var(--primary-foreground);
+      }
+    }
+  }
+
+  /* ===== 业务栏：整租 / 合租 / 买房 ===== */
+  .biz-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+
+    .biz-bar__item {
+      flex: 1;
+      height: 68px;
+      border-radius: 999px;
+      background-color: var(--card);
+      border: 2px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &--active {
+        background-color: var(--sidebar-active);
+        border-color: var(--primary);
+
+        .biz-bar__text {
+          color: var(--primary);
+          font-weight: 600;
+        }
+      }
+    }
+
+    .biz-bar__text {
+      font-size: 28px;
+      color: var(--ink-2);
+      font-weight: 500;
+    }
+  }
+
+  /* ===== 结果计数 + 地图入口 ===== */
+  .result-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    padding: 0 4px;
+
+    .result-count {
+      font-size: 26px;
+      color: var(--ink-2);
+
+      .result-count__num {
+        font-size: 30px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+    }
+
+    .map-entry {
+      padding: 8px 22px;
+      border-radius: 999px;
+      background-color: var(--surface-2);
+
+      .map-entry__text {
+        font-size: 24px;
+        font-weight: 500;
+        color: var(--primary);
+      }
+    }
+  }
+
+  .load-more {
+    margin: 8px 0 24px;
+    height: 80px;
+    border-radius: 12px;
+    background-color: var(--card);
+    border: 2px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .load-more__text {
+      font-size: 28px;
+      font-weight: 500;
+      color: var(--primary);
     }
   }
 
@@ -63,7 +168,7 @@
         padding: 0 6px;
         border-radius: 999px;
         background-color: var(--error);
-        color: #fff;
+        color: var(--primary-foreground);
         font-size: 20px;
         line-height: 30px;
         text-align: center;
@@ -118,7 +223,7 @@
         font-weight: 500;
 
         &--active {
-          background-color: color-mix(in srgb, var(--primary) 12%, #fff);
+          background-color: rgba(var(--primary-rgb), 0.12);
           color: var(--primary);
           font-weight: 600;
         }
@@ -147,7 +252,7 @@
 
         &--active {
           background-color: var(--primary);
-          color: var(--primary-foreground, #fff);
+          color: var(--primary-foreground);
           font-weight: 600;
         }
       }
@@ -183,7 +288,7 @@
 
           &--active {
             background-color: var(--primary);
-            color: var(--primary-foreground, #fff);
+            color: var(--primary-foreground);
             font-weight: 600;
           }
         }
@@ -263,7 +368,7 @@
 
         &--primary {
           background-color: var(--primary);
-          color: var(--primary-foreground, #fff);
+          color: var(--primary-foreground);
         }
       }
     }
@@ -312,60 +417,37 @@
   .list-scroll {
     height: auto;
 
-    .empty-tip {
-      text-align: center;
-      color: var(--ink-3);
-      font-size: 26px;
-      padding: 80px 0;
-    }
+    /* 空状态统一使用 app.scss 的 .empty-state */
 
     .house-card {
       display: flex;
       background-color: var(--card);
+      border: 1px solid var(--line);
       border-radius: 16px;
       padding: 20px;
       margin-bottom: 20px;
-      border-top: 6px solid var(--primary);
+      box-shadow: var(--shadow-sm);
       position: relative;
 
-      .house-fav {
-        position: absolute;
-        top: 16px;
-        right: 16px;
-        z-index: 2;
-        width: 56px;
-        height: 56px;
-        background-color: rgba(255, 255, 255, 0.9);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        .house-fav-icon {
-          font-size: 36px;
-          line-height: 1;
-          color: var(--ink-3);
-
-          &.is-faved {
-            color: var(--error);
-          }
-        }
-      }
-
       .house-thumb {
-        width: 200px;
+        position: relative;
+        width: 240px;
         height: 200px;
         border-radius: 12px;
         overflow: hidden;
         margin-right: 20px;
+        background-color: var(--sidebar-active);
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
         .house-img {
-          width: 200px;
+          width: 240px;
           height: 200px;
         }
 
         .house-thumb-ph {
-          width: 200px;
+          width: 240px;
           height: 200px;
           background-color: var(--surface-2);
           display: flex;
@@ -374,12 +456,42 @@
           color: var(--ink-3);
           font-size: 26px;
         }
+
+        /* 缩略图左上角房源类型徽标（对齐原型 .rent-prop-mobile-card__type-badge） */
+        .house-type {
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          font-size: 20px;
+          font-weight: 600;
+          color: var(--primary-foreground);
+          background-color: rgba(28, 39, 51, 0.55);
+          border-radius: var(--radius-sm);
+          padding: 2px 10px;
+        }
+
+        /* 缩略图右上角收藏按钮（对齐原型 .rent-fav-btn） */
+        .house-fav {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          z-index: 2;
+          width: 52px;
+          height: 52px;
+          background-color: rgba(255, 255, 255, 0.92);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: var(--shadow-sm);
+        }
       }
 
       .house-info {
         flex: 1;
         display: flex;
         flex-direction: column;
+        min-width: 0;
 
         .house-title {
           font-size: 30px;
@@ -390,11 +502,12 @@
         .house-addr {
           margin-top: 8px;
           font-size: 24px;
-          color: var(--ink-2);
+          color: var(--ink-3);
         }
 
         .house-tags {
           display: flex;
+          flex-wrap: wrap;
           align-items: center;
           margin-top: 12px;
 
@@ -405,25 +518,32 @@
             padding: 4px 12px;
             border-radius: 8px;
             margin-right: 12px;
+            margin-bottom: 8px;
+          }
+        }
+
+        .house-bottom {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          margin-top: auto;
+          padding-top: 12px;
+
+          .house-rent {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--primary);
+
+            .house-rent-unit {
+              font-size: 22px;
+              font-weight: 400;
+              color: var(--ink-2);
+            }
           }
 
           .house-status {
             font-size: 22px;
             font-weight: 600;
-          }
-        }
-
-        .house-rent {
-          margin-top: auto;
-          padding-top: 12px;
-          font-size: 36px;
-          font-weight: 700;
-          color: var(--primary);
-
-          .house-rent-unit {
-            font-size: 22px;
-            font-weight: 400;
-            color: var(--ink-2);
           }
         }
       }

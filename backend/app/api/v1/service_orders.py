@@ -5,13 +5,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
 from app.core.events import publish_event
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import PaginationParams, paginate_query
 from app.models import (
     ServiceOrder,
     ServiceType,
@@ -77,12 +76,7 @@ def list_service_orders(
     stmt = select(ServiceOrder).where(*conditions).order_by(
         ServiceOrder.created_at.desc()
     )
-    count_stmt = select(func.count(ServiceOrder.id)).where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(
-        stmt.offset(pagination.offset).limit(pagination.limit)
-    ).all()
-    return paginate(items, total, pagination)
+    return paginate_query(session, stmt, pagination)
 
 
 @router.post("")

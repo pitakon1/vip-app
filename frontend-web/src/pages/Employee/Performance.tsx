@@ -143,19 +143,43 @@ const Performance = () => {
     [data],
   )
 
-  // 系统核算的月度业绩记录（有业绩的月份，倒序）
+  // 各月结算状态：取该月佣金结算中最「未完成」的状态（待结算 > 已审核 > 已发放）
+  const monthStatus = useMemo(() => {
+    const map: Record<string, string> = {}
+    data.forEach((r) => {
+      if (!r.created_at) return
+      const key = dayjs(r.created_at).format('YYYY-MM')
+      const st = String(r.status || '')
+      const prev = map[key]
+      if (st === 'pending' || prev === 'pending') map[key] = 'pending'
+      else if (st === 'approved' || prev === 'approved') map[key] = 'approved'
+      else map[key] = 'paid'
+    })
+    return map
+  }, [data])
+
+  // 系统核算的月度业绩记录（有业绩的月份，倒序），状态取自真实佣金结算
   const monthlyRecords = useMemo(
     () =>
       monthly
         .filter((m) => m.deals > 0)
         .slice()
         .reverse()
-        .map((m) => ({
-          month: `${m.month}月业绩`,
-          date: `${m.year}-${String(m.month).padStart(2, '0')}`,
-          desc: `系统自动核算 · 业绩 ${fmtMoney(m.revenue)} · 佣金 ${fmtMoney(m.commission)} · 成交 ${m.deals} 单`,
-        })),
-    [monthly],
+        .map((m) => {
+          const key = `${m.year}-${String(m.month).padStart(2, '0')}`
+          const st = monthStatus[key]
+          const tone = st === 'pending' ? 'warning' : st === 'approved' ? 'info' : 'success'
+          const statusText =
+            st === 'pending' ? '待结算' : st === 'approved' ? '已审核' : st === 'paid' ? '已发放' : '系统核算'
+          return {
+            month: `${m.month}月业绩`,
+            date: key,
+            desc: `系统自动核算 · 业绩 ${fmtMoney(m.revenue)} · 佣金 ${fmtMoney(m.commission)} · 成交 ${m.deals} 单`,
+            tone,
+            statusText,
+          }
+        }),
+    [monthly, monthStatus],
   )
 
   const handleExport = async () => {
@@ -487,16 +511,23 @@ const Performance = () => {
             <div className="rent-timeline">
               {monthlyRecords.map((item) => (
                 <div key={item.month} className="rent-timeline__item">
-                  <div className="rent-timeline__dot rent-timeline__dot--success" />
+                  <div className={`rent-timeline__dot rent-timeline__dot--${item.tone}`} />
                   <div className="rent-flex rent-flex--between">
                     <div>
                       <div className="rent-mb-2">
                         <span className="rent-text-bold">{item.month}</span>
-                        <span className="rent-badge rent-badge--success" style={{ marginLeft: 8 }}>
+                        <span className={`rent-badge rent-badge--${item.tone}`} style={{ marginLeft: 8 }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M20 6L9 17l-5-5" />
+                            {item.tone === 'warning' ? (
+                              <>
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                              </>
+                            ) : (
+                              <path d="M20 6L9 17l-5-5" />
+                            )}
                           </svg>
-                          系统核算
+                          {item.statusText}
                         </span>
                       </div>
                       <div className="rent-text-sm rent-text-muted">{item.desc}</div>

@@ -11,23 +11,35 @@
 - POST   /payments/{id}/pay      发起支付（生成 checkout_url / QR）
 - POST   /payments/{id}/cancel   取消支付单
 - POST   /payments/{id}/proof    登记转账凭证
+- GET    /payments/{id}/proof-file  读取付款凭证原件（带鉴权）
 - POST   /payments/{id}/refund   退款（原路退回 / 线下人工）
 - POST   /payments/{id}/late-fee/waive  减免逾期滞纳金（员工及以上）
 - GET    /payments/reconciliations  对账统计（Admin）
 """
+import mimetypes
+import os
+import secrets
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, require_agent, require_admin
+from app.core.auth import (
+    get_current_user,
+    get_current_user_allow_query_token,
+    require_agent,
+    require_admin,
+)
 from app.core.events import publish_event
-from app.core.pagination import Page, PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate_query
+from app.core.uploads import HEAD_BYTES, detect_document_mime
 from app.models import (
     Payment,
     PaymentType,
@@ -38,6 +50,24 @@ from app.models import (
 from app.providers.payment.service import payment_service
 
 router = APIRouter(prefix="/payments", tags=["payments"])
+
+# 付款凭证落盘目录（backend/uploads/receipts）。
+# 与文档目录同理：该目录不经静态服务托管（main.py 只挂载了 uploads/properties），
+# 转账截图含银行账号、金额、户名，不能靠"猜文件名"公网可读，一律经下方
+# `GET /payments/{id}/proof-file` 带鉴权分发。
+RECEIPT_DIR = Path(__file__).resolve().parents[3] / "uploads" / "receipts"
+MAX_RECEIPT_SIZE = 10 * 1024 * 1024  # 单个凭证 10MB
+RECEIPT_URL_PREFIX = "/uploads/receipts/"
+
+# 凭证允许的内容类型（按文件头嗅探，扩展名可伪造）
+ALLOWED_RECEIPT_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf"}
+ALLOWED_RECEIPT_CONTAINERS = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "application/pdf",
+}
 
 # 支付渠道目录（供前端展示与推荐）
 CHANNEL_CATALOG: List[dict] = [
@@ -103,6 +133,89 @@ def _get_payment_or_404(payment_id: uuid.UUID, session: Session) -> Payment:
     return payment
 
 
+def _validate_receipt_url(receipt_url: str) -> str:
+    """校验入库的 receipt_url：只接受服务端生成的站内路径。
+
+    此前该字段直接采信调用方传入的任意字符串，既可被写成外部地址用于钓鱼，
+    也让「凭证文件」根本不存在于本机。
+    """
+    value = (receipt_url or "").strip()
+    if "://" in value or not value.startswith(RECEIPT_URL_PREFIX):
+        raise HTTPException(
+            status_code=400,
+            detail=f"receipt_url must be an internal {RECEIPT_URL_PREFIX} path",
+        )
+    name = value[len(RECEIPT_URL_PREFIX):]
+    if not name or "/" in name or "\\" in name or name in {".", ".."}:
+        raise HTTPException(
+            status_code=400, detail="receipt_url must not contain directory traversal"
+        )
+    return value
+
+
+def _stored_receipt_path(payment: Payment) -> Path:
+    """把落库的 receipt_url 反解为磁盘路径，并确保不逃出凭证目录。"""
+    url = _validate_receipt_url(payment.receipt_url or "")
+    path = (RECEIPT_DIR / url[len(RECEIPT_URL_PREFIX):]).resolve()
+    if RECEIPT_DIR.resolve() not in path.parents or not path.is_file():
+        raise HTTPException(status_code=404, detail="Receipt file not found on disk")
+    return path
+
+
+def _save_receipt(upload: UploadFile) -> str:
+    """校验并落盘付款凭证，返回可供落库的站内路径。
+
+    与文档上传同一套校验链：扩展名白名单 + 文件头魔数（挡住改名伪装）+
+    体积上限 + 文件名由服务端生成（不采用客户端文件名，避免穿越与覆盖）。
+    """
+    original_name = upload.filename or "receipt"
+    ext = os.path.splitext(original_name)[1].lower()
+    if ext not in ALLOWED_RECEIPT_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unsupported receipt type: {ext or 'none'}"
+                "（支持 JPG / PNG / WEBP / GIF / PDF）"
+            ),
+        )
+    head = upload.file.read(HEAD_BYTES)
+    upload.file.seek(0)
+    detected = detect_document_mime(head)
+    if detected not in ALLOWED_RECEIPT_CONTAINERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File content does not match its extension: {original_name}",
+        )
+
+    RECEIPT_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"receipt_{secrets.token_hex(16)}{ext}"
+    dest = RECEIPT_DIR / filename
+    size = 0
+    try:
+        with dest.open("wb") as buffer:
+            while True:
+                chunk = upload.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > MAX_RECEIPT_SIZE:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "File too large (max "
+                            f"{MAX_RECEIPT_SIZE // (1024 * 1024)}MB)"
+                        ),
+                    )
+                buffer.write(chunk)
+    except HTTPException:
+        dest.unlink(missing_ok=True)
+        raise
+    except Exception:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail="Failed to save receipt")
+    return f"{RECEIPT_URL_PREFIX}{filename}"
+
+
 @router.get("", response_model=Page[Payment])
 def list_payments(
     pagination: PaginationParams = Depends(),
@@ -129,12 +242,7 @@ def list_payments(
         conditions.append(Payment.channel == channel)
 
     stmt = select(Payment).where(*conditions).order_by(Payment.created_at.desc())
-    count_stmt = select(func.count(Payment.id)).where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(
-        stmt.offset(pagination.offset).limit(pagination.limit)
-    ).all()
-    return paginate(items, total, pagination)
+    return paginate_query(session, stmt, pagination)
 
 
 @router.get("/channels")
@@ -226,14 +334,17 @@ def upload_payment_proof(
     amount: float = Form(...),
     payment_date: str = Form(...),
     payment_method: str = Form("bank_transfer"),
-    receipt: Optional[UploadFile] = None,
+    receipt: Optional[UploadFile] = File(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
     """上传付款凭证（旧版兼容）：创建一条待审核支付记录。
 
-    生产环境应将 receipt 文件上传到对象存储，此处仅记录元数据。
+    凭证此前只记了 `receipt.filename`（客户端可随意伪造的名字），文件本身
+    从没落盘，「已上传」其实是假的。现在校验后真正写入 uploads/receipts，
+    并通过 `GET /payments/{id}/proof-file` 带鉴权读取。
     """
+    receipt_url = _save_receipt(receipt) if receipt else None
     payment = Payment(
         payer_id=user.id,
         amount=amount,
@@ -245,7 +356,7 @@ def upload_payment_proof(
         paid_at=datetime.now(),
         due_date=None,
         description=f"凭证上传 {payment_method}",
-        receipt_url=receipt.filename if receipt else None,
+        receipt_url=receipt_url,
     )
     session.add(payment)
     session.commit()
@@ -470,12 +581,15 @@ def submit_payment_proof(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """登记转账凭证（线下渠道）：更新 receipt_url，等待管理端审核。"""
+    """登记转账凭证（线下渠道）：更新 receipt_url，等待管理端审核。
+
+    `receipt_url` 只接受 `/payments/upload` 生成的站内路径，不接受外部地址。
+    """
     payment = _get_payment_or_404(payment_id, session)
     if not _can_manage(user, payment):
         raise HTTPException(status_code=403, detail="Access denied")
 
-    payment.receipt_url = req.receipt_url
+    payment.receipt_url = _validate_receipt_url(req.receipt_url)
     if req.channel:
         payment.channel = req.channel
     if payment.status not in (
@@ -487,6 +601,28 @@ def submit_payment_proof(
     session.commit()
     session.refresh(payment)
     return payment
+
+
+@router.get("/{payment_id}/proof-file")
+def read_payment_proof(
+    payment_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user_allow_query_token),
+):
+    """读取付款凭证原件（内联返回，供预览/打印使用）。
+
+    receipts 目录不对外静态托管，只能经此端点按支付单权限分发。
+    认证支持 `Authorization` 头或 `?token=`（后者供无法设置请求头的
+    预览/下载场景兜底，见 `get_current_user_allow_query_token`）。
+    """
+    payment = _get_payment_or_404(payment_id, session)
+    if not _can_manage(user, payment):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not payment.receipt_url:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    path = _stored_receipt_path(payment)
+    media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    return FileResponse(path, media_type=media_type)
 
 
 @router.post("/{payment_id}/refund")

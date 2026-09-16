@@ -128,13 +128,6 @@ const typeLabelMap: Record<string, string> = {
 
 const fmtMoney = (v: number) => `RM ${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-// 关联房产兜底选项（原型 owner-payments 一致）
-const FALLBACK_PROPERTIES = [
-  { id: 'sunway-mesmerrra', label: 'Sunway Mesmerrra Condo · 单元 12-03A' },
-  { id: 'mont-kiara-bayu', label: 'Mont Kiara Bayu · 单元 08-15B' },
-  { id: 'bangsar-south', label: 'Bangsar South Tower 2 · 单元 21-07C' },
-]
-
 const statusBadgeCls: Record<string, string> = {
   paid: 'rent-badge--success',
   succeeded: 'rent-badge--success',
@@ -147,17 +140,23 @@ const Payments = () => {
   const [loading, setLoading] = useState(false)
   const [records, setRecords] = useState<PaymentRecord[]>([])
   const [currentMethod, setCurrentMethod] = useState<PaymentMethod | null>(null)
-  const [amount, setAmount] = useState<number>(2840)
+  const [amount, setAmount] = useState<number>(0)
   const [submitting, setSubmitting] = useState(false)
-  const [properties, setProperties] = useState<{ id: string; label: string }[]>(FALLBACK_PROPERTIES)
-  const [selectedProperty, setSelectedProperty] = useState<string>(FALLBACK_PROPERTIES[0].id)
+  const [properties, setProperties] = useState<{ id: string; label: string }[]>([])
+  const [selectedProperty, setSelectedProperty] = useState<string>('')
 
   const fetchRecords = useCallback(async () => {
     setLoading(true)
     try {
       const res = await api.get('/payments/me')
       const payload = res.data?.data ?? res.data
-      setRecords(payload?.items ?? [])
+      const items: PaymentRecord[] = payload?.items ?? []
+      setRecords(items)
+      // 以最近一笔未结清账单金额作为默认缴费金额
+      const due = items.find(
+        (r) => !['succeeded', 'paid', 'refunded'].includes(String(r.status || '').toLowerCase()),
+      )
+      setAmount(Number(due?.amount || 0))
     } catch (err: any) {
       message.error(err?.response?.data?.message || '获取付款记录失败')
       setRecords([])
@@ -170,16 +169,15 @@ const Payments = () => {
     try {
       const res = await api.get('/owners/me/properties')
       const items = Array.isArray(res.data) ? res.data : (res.data?.items ?? [])
-      if (items.length) {
-        const mapped = items.map((p: any) => ({
-          id: p.id,
-          label: `${p.address || p.property_name || '房产'} · ${p.room_number || ''}`.replace(' · ', ' · '),
-        }))
-        setProperties(mapped)
-        setSelectedProperty(mapped[0].id)
-      }
+      const mapped = items.map((p: any) => ({
+        id: p.id,
+        label: `${p.address || p.property_name || '房产'} · ${p.room_number || ''}`.replace(' · ', ' · '),
+      }))
+      setProperties(mapped)
+      setSelectedProperty(mapped[0]?.id || '')
     } catch {
-      // 接口不可用时保留原型兜底房产
+      setProperties([])
+      setSelectedProperty('')
     }
   }, [])
 
@@ -218,7 +216,6 @@ const Payments = () => {
       message.success('支付单已创建，请按所选方式完成支付')
       await fetchRecords()
       setCurrentMethod(null)
-      setAmount(2840)
     } catch (err: any) {
       message.error(err?.response?.data?.message || '创建支付单失败')
     } finally {
@@ -299,9 +296,13 @@ const Payments = () => {
                 value={selectedProperty}
                 onChange={(e) => setSelectedProperty(e.target.value)}
               >
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
+                {properties.length ? (
+                  properties.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))
+                ) : (
+                  <option value="">暂无关联房产</option>
+                )}
               </select>
             </div>
 
@@ -430,7 +431,7 @@ const Payments = () => {
             <div className="pay-summary-row">
               <span className="pay-summary-row__label">关联房产</span>
               <span className="pay-summary-row__value">
-                {properties.find((p) => p.id === selectedProperty)?.label.split(' · ')[0] || '房产'}
+                {properties.find((p) => p.id === selectedProperty)?.label.split(' · ')[0] || '—'}
               </span>
             </div>
             <div className="pay-summary-row">

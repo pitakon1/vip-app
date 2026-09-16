@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '@/stores/auth';
 import Card from '@/components/Card';
+import EmptyState from '@/components/EmptyState';
 import colors from '@/theme/colors';
+import { leasesApi, propertyDealApi, saleListingApi } from '@/services/api';
 import { useI18n, LANG_LABELS, LANGS, type AppLang } from '@/i18n';
 import type { UserRole } from '@/types';
 
@@ -36,17 +38,15 @@ interface FuncEntry {
 const FUNC_BY_ROLE: Record<UserRole, FuncEntry[]> = {
   // 业主：资产相关
   owner: [
-    { key: 'properties', labelKey: 'profile.myProperties', icon: 'business', navigate: 'OwnerPortal' },
     { key: 'income', labelKey: 'profile.income', icon: 'wallet', navigate: 'OwnerIncome' },
     { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'OwnerServices' },
     { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'OwnerDocuments' },
   ],
-  // 租客：租约/缴费/报修/看房
+  // 租客：付费/文档/增值服务（对齐租客端原型「常用功能」三项）
   tenant: [
     { key: 'payments', labelKey: 'profile.payments', icon: 'card', navigate: 'Payments' },
     { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'Documents' },
-    { key: 'maintenance', labelKey: 'profile.maintenance', icon: 'construct', navigate: 'TenantMaintenance' },
-    { key: 'viewings', labelKey: 'profile.viewings', icon: 'eye', navigate: 'Viewings' },
+    { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'TenantServices' },
   ],
   // 经纪/员工：销售工作台
   agent: [
@@ -61,21 +61,191 @@ const FUNC_BY_ROLE: Record<UserRole, FuncEntry[]> = {
     { key: 'performance', labelKey: 'profile.performance', icon: 'stats-chart', navigate: 'Performance' },
     { key: 'attendance', labelKey: 'profile.attendance', icon: 'location', navigate: 'Attendance' },
   ],
-  // 管理员：系统管理（员工/考勤核对/备份/地图；员工管理在管理员工作台内）
+  // 管理员：对齐管理端设置原型（员工管理入口；不含考勤与聊天）
   admin: [
-    { key: 'employees', labelKey: 'profile.employees', icon: 'people', navigate: 'Main' },
-    { key: 'attendanceReview', labelKey: 'profile.attendanceReview', icon: 'clipboard', navigate: 'AttendanceReview' },
-    { key: 'backup', labelKey: 'profile.backup', icon: 'cloud-upload', navigate: 'Backup' },
-    { key: 'map', labelKey: 'profile.map', icon: 'map', navigate: 'Map' },
+    { key: 'employees', labelKey: 'profile.employees', icon: 'people', navigate: 'AdminUsers' },
   ],
+};
+
+// 手机号 / 邮箱掩码（对齐 admin-mobile-settings.html 展示格式，如 138****8888 / a***@rentflow.com）
+const maskPhone = (p?: string) =>
+  p && p.length >= 7 ? `${p.slice(0, 3)}****${p.slice(-4)}` : p;
+const maskEmail = (e?: string) => {
+  if (!e || !e.includes('@')) return e;
+  const [u, d] = e.split('@');
+  const head = u ? `${u.slice(0, 1)}${'*'.repeat(Math.max(u.length - 1, 1))}` : '';
+  return `${head}@${d}`;
+};
+
+// 管理端「我的」设置列表项（对齐 admin-mobile-settings.html 区块）
+// 后端无对应的编辑接口时，点击统一提示「暂未开放」；value 仅展示不可编辑
+interface SettingItem {
+  key: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value?: string;
+  color: string;
+  bg: string;
+  /** 语言行：打开语言切换弹层 */
+  openLang?: boolean;
+  /** 跳转已注册导航路由 */
+  route?: string;
+  /** 高亮强调值（如「已开启」用成功绿） */
+  valueTone?: 'success';
+}
+
+const APP_COMPANY = 'HaoFang.World';
+const APP_VERSION = 'v2.4.1';
+
+const DAY_MS = 86400000;
+const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
+const fmtRent = (v?: number, c?: string) =>
+  `${c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿'}${Number(v ?? 0).toLocaleString()}`;
+
+// 租客「我的服务」宫格（对齐原型；仅保留已注册路由的入口）
+const TENANT_SERVICE_GRID: FuncEntry[] = [
+  { key: 'payments', labelKey: 'profile.payments', icon: 'card', navigate: 'Payments' },
+  { key: 'maintenance', labelKey: 'profile.maintenance', icon: 'construct', navigate: 'TenantMaintenance' },
+  { key: 'contact', labelKey: 'profile.contact', icon: 'chatbubble-ellipses', navigate: 'ChatList' },
+];
+
+// 购房订单状态（PropertyDealStatus）
+const DEAL_STATUS: Record<string, { text: string; color: string; bg: string }> = {
+  drafted: { text: '洽谈中', color: colors.ink2, bg: colors.surface2 },
+  escrow_pending: { text: '定金托管中', color: colors.warning, bg: colors.warningLight },
+  signed: { text: '已签约', color: colors.primary, bg: colors.sidebarActive },
+  transferring: { text: '过户中', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  completed: { text: '已完成', color: colors.success, bg: colors.successLight },
+  failed: { text: '交易失败', color: colors.error, bg: colors.errorLight },
+  cancelled: { text: '已取消', color: colors.ink3, bg: colors.surface2 },
 };
 
 export default function ProfileScreen() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const [langVisible, setLangVisible] = useState(false);
+  const [activeLease, setActiveLease] = useState<any>(null);
+  const [deals, setDeals] = useState<any[]>([]);
   const { lang, setLang, t } = useI18n();
   const navigation = useNavigation<any>();
+
+  const isTenant = user?.role === 'tenant';
+  const isAdmin = user?.role === 'admin';
+
+  // 后端无对应编辑接口的功能，点击统一提示「暂未开放」（不伪造假数据）
+  const showNotAvailable = (name: string) => {
+    const msg = `「${name}」功能暂未开放`;
+    if (Platform.OS === 'web') {
+      window.alert(msg);
+    } else {
+      Alert.alert('暂未开放', msg);
+    }
+  };
+
+  const handleSettingPress = (item: SettingItem) => {
+    if (item.route) {
+      navigation.navigate(item.route);
+      return;
+    }
+    if (item.openLang) {
+      setLangVisible(true);
+      return;
+    }
+    showNotAvailable(item.label);
+  };
+
+  // 管理端「我的」区块数据（对齐 admin-mobile-settings.html）
+  const adminAccountItems: SettingItem[] = [
+    { key: 'password', icon: 'lock-closed', label: '修改密码', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
+    {
+      key: 'phone',
+      icon: 'call',
+      label: '绑定手机',
+      value: user?.phone ? maskPhone(user.phone) : undefined,
+      color: colors.info,
+      bg: colors.alpha(colors.infoRgb, 0.1),
+    },
+    {
+      key: 'email',
+      icon: 'mail',
+      label: '绑定邮箱',
+      value: user?.email ? maskEmail(user.email) : undefined,
+      color: colors.info,
+      bg: colors.alpha(colors.infoRgb, 0.1),
+    },
+  ];
+  const adminSystemItems: SettingItem[] = [
+    { key: 'language', icon: 'globe', label: '语言', value: lang === 'en' ? 'English' : lang === 'th' ? 'ไทย' : '中文', openLang: true, color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
+    { key: 'timezone', icon: 'time', label: '时区', value: 'UTC+8', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
+    { key: 'theme', icon: 'color-palette', label: '主题', value: '浅色', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1) },
+    { key: 'notification', icon: 'notifications', label: '通知设置', value: '邮件 · 短信 · 推送', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
+  ];
+  const adminBusinessItems: SettingItem[] = [
+    { key: 'commission', icon: 'settings', label: '佣金设置', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), route: 'CommissionRules' },
+    { key: 'rent-reminder', icon: 'calendar', label: '租金提醒天数', value: '7 天前', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1) },
+    { key: 'lease-reminder', icon: 'document-text', label: '合同到期提醒', value: '30 天前', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+    { key: 'auto-dunning', icon: 'refresh', label: '自动催缴', value: '已开启', valueTone: 'success', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1) },
+  ];
+  const adminAboutItems: SettingItem[] = [
+    { key: 'version', icon: 'information-circle', label: '版本信息', value: APP_VERSION, color: colors.ink2, bg: colors.surface2 },
+    { key: 'terms', icon: 'document-text', label: '用户协议', color: colors.ink2, bg: colors.surface2 },
+    { key: 'privacy', icon: 'shield-checkmark', label: '隐私政策', color: colors.ink2, bg: colors.surface2 },
+  ];
+
+  // 租客：拉取当前生效租约（用户卡与「我的租约」区块共用同一份真实数据）
+  useEffect(() => {
+    if (!isTenant) return;
+    let alive = true;
+    leasesApi
+      .mine()
+      .then((res: any) => {
+        const payload = res?.data;
+        const list = Array.isArray(payload) ? payload : payload?.items ?? [];
+        const active = (list as any[]).find((l: any) => l?.status === 'active') ?? null;
+        if (alive) setActiveLease(active);
+      })
+      .catch(() => {
+        /* 无租约数据不阻塞个人中心 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [isTenant]);
+
+  // 租客：我的购房订单（后端 /property-deals 对非管理角色仅返回本人订单）
+  useEffect(() => {
+    if (!isTenant) return;
+    let alive = true;
+    Promise.allSettled([
+      propertyDealApi.list({ page: 1, page_size: 5 }),
+      saleListingApi.list({ page: 1, page_size: 50 }),
+    ]).then(([dRes, lRes]) => {
+      if (!alive) return;
+      const titles: Record<string, string> = {};
+      if (lRes.status === 'fulfilled') {
+        const d: any = lRes.value?.data;
+        const rows = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
+        (rows as any[]).forEach((r) => {
+          if (r?.id) titles[String(r.id)] = r.title ?? '';
+        });
+      }
+      if (dRes.status === 'fulfilled') {
+        const d: any = dRes.value?.data;
+        const rows = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
+        setDeals(
+          (rows as any[]).map((r) => ({
+            ...r,
+            listing_title: titles[String(r.sale_listing_id ?? '')],
+          })),
+        );
+      } else {
+        setDeals([]);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [isTenant]);
 
   const handleLogout = () => {
     const doLogout = () => logout();
@@ -97,10 +267,23 @@ export default function ProfileScreen() {
   // 当前角色的常用功能；未登录/未知角色给通用兜底
   const entries = user ? FUNC_BY_ROLE[user.role] ?? FUNC_BY_ROLE.tenant : FUNC_BY_ROLE.tenant;
 
+  // 租约进度（已过天数 / 总天数）
+  const startTs = activeLease?.start_date ? new Date(activeLease.start_date).getTime() : 0;
+  const endTs = activeLease?.end_date ? new Date(activeLease.end_date).getTime() : 0;
+  const totalDays = startTs && endTs > startTs ? Math.round((endTs - startTs) / DAY_MS) : 0;
+  const passedDays = startTs
+    ? Math.max(0, Math.min(Math.round((Date.now() - startTs) / DAY_MS), totalDays || 0))
+    : 0;
+  const remainDays = endTs ? Math.max(0, Math.round((endTs - Date.now()) / DAY_MS)) : 0;
+  const leaseProgress = totalDays > 0 ? Math.max(0, Math.min(passedDays / totalDays, 1)) : 0;
+  const leaseName = activeLease
+    ? activeLease.property_name || activeLease.room_number || t('home.myLease')
+    : '';
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* 个人信息 */}
-      <View style={styles.userHeader}>
+      {/* 用户卡（管理端对齐 admin-mobile-settings.html：公司名 + 编辑资料按钮） */}
+      <View style={styles.profileCard}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
             {(user?.name ?? user?.full_name ?? '?').slice(0, 1).toUpperCase()}
@@ -108,53 +291,305 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.userInfo}>
           <Text style={styles.userName}>{user?.name ?? user?.full_name ?? '未知用户'}</Text>
-          <Text style={styles.userMeta}>
-            {user ? roleLabels[user.role] : '未登录'} · {user?.email ?? '-'}
-          </Text>
+          <View style={styles.userMetaRow}>
+            <View style={styles.roleTag}>
+              <Text style={styles.roleTagText}>{user ? roleLabels[user.role] : '未登录'}</Text>
+            </View>
+            {isTenant ? (
+              <Text style={styles.userMeta} numberOfLines={1}>{user?.email ?? '-'}</Text>
+            ) : (
+              <Text style={styles.companyText}>{APP_COMPANY}</Text>
+            )}
+          </View>
         </View>
+        {isAdmin && (
+          <TouchableOpacity
+            style={styles.editButton}
+            activeOpacity={0.8}
+            onPress={() => showNotAvailable('编辑资料')}
+          >
+            <Ionicons name="create-outline" size={13} color={colors.ink2} />
+            <Text style={styles.editButtonText}>编辑资料</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* 常用功能（按角色差异化） */}
-      <Card title="常用功能">
-        {entries.map((entry, idx) => (
-          <TouchableOpacity
-            key={entry.key}
-            style={[styles.settingRow, idx < entries.length - 1 && styles.settingRowBorder]}
-            onPress={() => navigation.navigate(entry.navigate)}
-          >
-            <View style={styles.settingLeft}>
-              <View style={[styles.iconBox, { backgroundColor: colors.sidebarActive }]}>
-                <Ionicons name={entry.icon} size={17} color={colors.primary} />
+      {/* 用户卡补充：当前租约（仅租客且存在生效租约时） */}
+      {isTenant && activeLease && (
+        <View style={styles.leaseStrip}>
+          <Text style={styles.leaseStripLabel}>{t('home.myLease')}</Text>
+          <Text style={styles.leaseStripValue} numberOfLines={1}>{leaseName}</Text>
+          <View style={styles.leaseStripBadge}>
+            <View style={styles.leaseStripDot} />
+            <Text style={styles.leaseStripBadgeText}>{t('home.leaseInforce')}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* 我的租约（仅租客；无租约给空态） */}
+      {isTenant && (
+        <>
+          <Text style={styles.sectionTitle}>我的租约</Text>
+          {activeLease ? (
+            <View style={styles.leaseCard}>
+              <View style={styles.leaseHead}>
+                <Text style={styles.leaseTitle} numberOfLines={1}>{leaseName}</Text>
+                <View style={styles.leaseBadge}>
+                  <View style={styles.leaseDot} />
+                  <Text style={styles.leaseBadgeText}>{t('home.leaseInforce')}</Text>
+                </View>
               </View>
-              <Text style={styles.settingLabel}>{t(entry.labelKey)}</Text>
+              <Text style={styles.leaseMeta}>
+                月租金 {fmtRent(activeLease.monthly_rent, activeLease.currency)}
+                {totalDays > 0 ? ` · 已过 ${passedDays} 天 / 共 ${totalDays} 天` : ''}
+              </Text>
+              <View style={styles.leaseTrack}>
+                <View style={[styles.leaseBar, { flex: Math.max(leaseProgress, 0.02) }]} />
+                <View style={{ flex: Math.max(1 - leaseProgress, 0) }} />
+              </View>
+              <View style={styles.leaseFoot}>
+                <Text style={styles.leaseFootText}>
+                  {fmtDate(activeLease.start_date)} 至 {fmtDate(activeLease.end_date)}
+                </Text>
+                {remainDays > 0 ? <Text style={styles.leaseRemain}>剩余 {remainDays} 天</Text> : null}
+              </View>
+            </View>
+          ) : (
+            <EmptyState icon="document-text-outline" title="暂无生效租约" sub="签约后在这里查看租期进度与租金" />
+          )}
+        </>
+      )}
+
+      {/* 我的购房订单（仅租客；数据来自真实成交单） */}
+      {isTenant && (
+        <>
+          <Text style={styles.sectionTitle}>{t('profile.myDeals')}</Text>
+          {deals.length ? (
+            <View style={styles.leaseCard}>
+              {deals.map((d, idx) => {
+                const meta = DEAL_STATUS[String(d.status ?? '')] ?? DEAL_STATUS.drafted;
+                return (
+                  <View
+                    key={d.id}
+                    style={[styles.dealRow, idx < deals.length - 1 && styles.dealRowBorder]}
+                  >
+                    <View style={styles.dealLeft}>
+                      <Text style={styles.dealTitle} numberOfLines={1}>
+                        {d.listing_title || `购房订单 ${String(d.id ?? '').slice(0, 8)}`}
+                      </Text>
+                      <Text style={styles.dealMeta} numberOfLines={1}>
+                        {d.sale_price
+                          ? `${fmtRent(d.sale_price, d.currency)} · `
+                          : ''}
+                        {fmtDate(d.created_at)}
+                      </Text>
+                    </View>
+                    <View style={[styles.dealBadge, { backgroundColor: meta.bg }]}>
+                      <Text style={[styles.dealBadgeText, { color: meta.color }]}>{meta.text}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <EmptyState
+              icon="pricetag-outline"
+              title="暂无购房订单"
+              sub="提交看房约谈或认购后在这里跟进进度"
+            />
+          )}
+        </>
+      )}
+
+      {/* 我的服务宫格（仅租客，对齐原型） */}
+      {isTenant && (
+        <>
+          <Text style={styles.sectionTitle}>{t('profile.myServices')}</Text>
+          <View style={styles.serviceGrid}>
+            {TENANT_SERVICE_GRID.map((entry) => (
+              <TouchableOpacity
+                key={entry.key}
+                style={styles.serviceCell}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate(entry.navigate)}
+              >
+                <View style={styles.serviceIcon}>
+                  <Ionicons name={entry.icon} size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.serviceLabel} numberOfLines={1}>
+                  {t(entry.labelKey)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
+
+      {/* 管理端「我的」设置区块（对齐 admin-mobile-settings.html） */}
+      {isAdmin ? (
+        <>
+          {/* 账户设置 */}
+          <Text style={styles.settingSectionTitle}>账户设置</Text>
+          <Card style={styles.settingListCard}>
+            {adminAccountItems.map((item, idx) => (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.settingRow, idx < adminAccountItems.length - 1 && styles.settingRowBorder]}
+                onPress={() => handleSettingPress(item)}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon} size={16} color={item.color} />
+                  </View>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
+                </View>
+                {item.value ? (
+                  <Text style={styles.settingValue}>{item.value}</Text>
+                ) : null}
+                <Text style={styles.arrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </Card>
+
+          {/* 系统设置 */}
+          <Text style={styles.settingSectionTitle}>系统设置</Text>
+          <Card style={styles.settingListCard}>
+            {adminSystemItems.map((item, idx) => (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.settingRow, idx < adminSystemItems.length - 1 && styles.settingRowBorder]}
+                onPress={() => handleSettingPress(item)}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon} size={16} color={item.color} />
+                  </View>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
+                </View>
+                {item.value ? (
+                  <Text style={styles.settingValue}>{item.value}</Text>
+                ) : null}
+                <Text style={styles.arrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </Card>
+
+          {/* 业务设置 */}
+          <Text style={styles.settingSectionTitle}>业务设置</Text>
+          <Card style={styles.settingListCard}>
+            {adminBusinessItems.map((item, idx) => (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.settingRow, idx < adminBusinessItems.length - 1 && styles.settingRowBorder]}
+                onPress={() => handleSettingPress(item)}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon} size={16} color={item.color} />
+                  </View>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
+                </View>
+                {item.value ? (
+                  <Text
+                    style={[
+                      styles.settingValue,
+                      item.valueTone === 'success' && styles.settingValueSuccess,
+                    ]}
+                  >
+                    {item.value}
+                  </Text>
+                ) : null}
+                <Text style={styles.arrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </Card>
+
+          {/* 员工管理入口 */}
+          <TouchableOpacity
+            style={styles.employeeEntry}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('AdminUsers')}
+          >
+            <View style={styles.employeeIcon}>
+              <Ionicons name="people" size={18} color={colors.primary} />
+            </View>
+            <View style={styles.employeeInfo}>
+              <Text style={styles.employeeTitle}>员工管理</Text>
+              <Text style={styles.employeeDesc}>管理员工账号、角色与权限</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
-        ))}
-      </Card>
 
-      <Card title={t('profile.settings')}>
-        <TouchableOpacity style={styles.settingRow} onPress={() => setLangVisible(true)}>
-          <Text style={styles.settingLabel}>{t('profile.language')}</Text>
-          <View style={styles.settingRight}>
-            <Text style={styles.settingValue}>{currentLang}</Text>
-            <Text style={styles.arrow}>›</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.settingRow}
-          onPress={() => navigation.navigate('Test')}
-        >
-          <Text style={styles.settingLabel}>{t('profile.testPanel')}</Text>
-          <View style={styles.settingRight}>
-            <Text style={styles.arrow}>›</Text>
-          </View>
-        </TouchableOpacity>
-      </Card>
+          {/* 关于 */}
+          <Text style={styles.settingSectionTitle}>关于</Text>
+          <Card style={styles.settingListCard}>
+            {adminAboutItems.map((item, idx) => (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.settingRow, idx < adminAboutItems.length - 1 && styles.settingRowBorder]}
+                onPress={() => handleSettingPress(item)}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon} size={16} color={item.color} />
+                  </View>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
+                </View>
+                {item.value ? (
+                  <Text style={styles.settingValue}>{item.value}</Text>
+                ) : null}
+                <Text style={styles.arrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </Card>
+        </>
+      ) : (
+        <>
+          {/* 常用功能（按角色差异化） */}
+          <Card title="常用功能">
+            {entries.map((entry, idx) => (
+              <TouchableOpacity
+                key={entry.key}
+                style={[styles.settingRow, idx < entries.length - 1 && styles.settingRowBorder]}
+                onPress={() => navigation.navigate(entry.navigate)}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: colors.sidebarActive }]}>
+                    <Ionicons name={entry.icon} size={17} color={colors.primary} />
+                  </View>
+                  <Text style={styles.settingLabel}>{t(entry.labelKey)}</Text>
+                </View>
+                <Text style={styles.arrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </Card>
+
+          <Card title={t('profile.settings')}>
+            <TouchableOpacity style={styles.settingRow} onPress={() => setLangVisible(true)}>
+              <Text style={styles.settingLabel}>{t('profile.language')}</Text>
+              <View style={styles.settingRight}>
+                <Text style={styles.settingValue}>{currentLang}</Text>
+                <Text style={styles.arrow}>›</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.settingRow}
+              onPress={() => navigation.navigate('Test')}
+            >
+              <Text style={styles.settingLabel}>{t('profile.testPanel')}</Text>
+              <View style={styles.settingRight}>
+                <Text style={styles.arrow}>›</Text>
+              </View>
+            </TouchableOpacity>
+          </Card>
+        </>
+      )}
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
         <Text style={styles.logoutText}>退出登录</Text>
       </TouchableOpacity>
+
+      {isAdmin && <Text style={styles.footerText}>{`${APP_COMPANY} 管理后台 · ${APP_VERSION}`}</Text>}
 
       <Modal
         visible={langVisible}
@@ -192,17 +627,25 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingVertical: 16,
+    paddingBottom: 32,
   },
-  userHeader: {
+
+  /* ===== 用户卡 ===== */
+  profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 12,
+    marginHorizontal: 12,
+    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.card,
   },
   avatar: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: colors.radius.full,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -215,17 +658,227 @@ const styles = StyleSheet.create({
   userInfo: {
     marginLeft: 14,
     flex: 1,
+    minWidth: 0,
   },
   userName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: colors.text,
   },
+  userMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  roleTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.sidebarActive,
+  },
+  roleTagText: { fontSize: 11, fontWeight: '700', color: colors.primary },
   userMeta: {
     fontSize: 13,
     color: colors.ink3,
-    marginTop: 4,
+    flexShrink: 1,
   },
+  companyText: {
+    fontSize: 13,
+    color: colors.ink3,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface2,
+  },
+  editButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.ink2,
+  },
+
+  /* ===== 管理端设置区块（对齐 admin-mobile-settings.html） ===== */
+  settingSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.ink,
+    letterSpacing: -0.2,
+    marginHorizontal: 12,
+    marginTop: 18,
+    marginBottom: 4,
+  },
+  settingListCard: {
+    paddingVertical: 4,
+    paddingHorizontal: 16,
+  },
+  settingIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: colors.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  settingValueSuccess: {
+    color: colors.success,
+    fontWeight: '600',
+  },
+  employeeEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 12,
+    marginTop: 12,
+    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.card,
+  },
+  employeeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.sidebarActive,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  employeeInfo: { flex: 1, minWidth: 0 },
+  employeeTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  employeeDesc: { fontSize: 13, color: colors.ink3, marginTop: 2 },
+  footerText: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: colors.ink3,
+    marginTop: 16,
+  },
+
+  /* ===== 当前租约（用户卡补充） ===== */
+  leaseStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 12,
+    marginTop: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  leaseStripLabel: { fontSize: 13, color: colors.ink3 },
+  leaseStripValue: { flex: 1, fontSize: 13, fontWeight: '600', color: colors.ink },
+  leaseStripBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  leaseStripDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
+  leaseStripBadgeText: { fontSize: 12, fontWeight: '600', color: colors.success },
+
+  /* ===== 我的租约 ===== */
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.ink,
+    letterSpacing: -0.2,
+    marginHorizontal: 12,
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  leaseCard: {
+    marginHorizontal: 12,
+    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.card,
+  },
+  leaseHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  leaseTitle: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.ink },
+  leaseBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  leaseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
+  leaseBadgeText: { fontSize: 12, fontWeight: '600', color: colors.success },
+  leaseMeta: { fontSize: 13, color: colors.ink2, marginTop: 8 },
+  leaseTrack: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface2,
+    overflow: 'hidden',
+    marginTop: 10,
+  },
+  leaseBar: { height: 6, borderRadius: colors.radius.full, backgroundColor: colors.primary },
+  leaseFoot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 10,
+  },
+  leaseFootText: { fontSize: 12, color: colors.ink3 },
+  leaseRemain: { fontSize: 12, fontWeight: '700', color: colors.primary },
+
+  /* ===== 我的购房订单 ===== */
+  dealRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingVertical: 12,
+  },
+  dealRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  dealLeft: { flex: 1, minWidth: 0 },
+  dealTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  dealMeta: { fontSize: 12, color: colors.ink3, marginTop: 4 },
+  dealBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: colors.radius.full,
+  },
+  dealBadgeText: { fontSize: 11, fontWeight: '600' },
+
+  /* ===== 我的服务宫格 ===== */
+  serviceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.card,
+  },
+  serviceCell: {
+    width: '25%',
+    alignItems: 'center',
+    paddingVertical: 10,
+    gap: 6,
+  },
+  serviceIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: colors.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.sidebarActive,
+  },
+  serviceLabel: { fontSize: 12, color: colors.ink2, maxWidth: 72 },
+
+  /* ===== 列表行 ===== */
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -244,7 +897,7 @@ const styles = StyleSheet.create({
   iconBox: {
     width: 30,
     height: 30,
-    borderRadius: 8,
+    borderRadius: colors.radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -272,7 +925,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 24,
     paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: colors.radius.md,
     alignItems: 'center',
   },
   logoutText: {
@@ -282,13 +935,13 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.alpha('0,0,0', 0.4),
     justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
     padding: 20,
   },
   sheetTitle: {

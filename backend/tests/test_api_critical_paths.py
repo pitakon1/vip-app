@@ -27,6 +27,7 @@ if str(BASE_DIR) not in sys.path:
 
 from app import main as main_module  # noqa: E402
 from app.api.v1 import documents as documents_module  # noqa: E402
+from app.api.v1 import payments as payments_module  # noqa: E402
 from app.core import auth as auth_module  # noqa: E402
 from app.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
@@ -850,6 +851,58 @@ def test_document_upload_and_soft_delete(api, engine, tmp_path, monkeypatch):
         data={"type": "other"},
         files={"file": ("a.pdf", payload, "application/pdf")},
     ).status_code == 403
+
+
+def test_payment_proof_upload_persists_and_requires_auth(api, engine, tmp_path, monkeypatch):
+    """付款凭证：上传真正落盘、只接受站内路径、取件需凭据。
+
+    修复前 `/payments/upload` 只把客户端文件名写进 `receipt_url`，文件从未保存
+    （「已上传」是假的），且落库路径可被调用方随意伪造成外部地址。
+    """
+    receipt_dir = tmp_path / "receipts"
+    monkeypatch.setattr(payments_module, "RECEIPT_DIR", receipt_dir)
+
+    payer_user, _ = _mk_owner(engine)
+    client = api.login(payer_user)
+
+    form = {"amount": "12000", "payment_date": "2026-09-01", "payment_method": "bank_transfer"}
+    payload = b"\xff\xd8\xff\xe0 fake jpeg body"
+    res = client.post(
+        "/api/v1/payments/upload",
+        data=form,
+        files={"receipt": ("transfer.jpg", payload, "image/jpeg")},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["receipt_url"].startswith("/uploads/receipts/")
+    # 文件名由服务端生成，不采用客户端文件名（避免穿越与覆盖）
+    assert "transfer.jpg" not in body["receipt_url"]
+    stored = receipt_dir / pathlib.Path(body["receipt_url"]).name
+    assert stored.exists()
+    assert stored.read_bytes() == payload
+
+    # 改名伪装（扩展名是 jpg、内容是脚本）与非白名单扩展名都被拒
+    assert client.post(
+        "/api/v1/payments/upload",
+        data=form,
+        files={"receipt": ("evil.jpg", b"<script>alert(1)</script>", "image/jpeg")},
+    ).status_code == 400
+    assert client.post(
+        "/api/v1/payments/upload",
+        data=form,
+        files={"receipt": ("note.txt", b"hello", "text/plain")},
+    ).status_code == 400
+
+    # 凭证目录不对匿名请求开放：无凭据取件 401
+    assert TestClient(app).get(
+        f"/api/v1/payments/{body['id']}/proof-file"
+    ).status_code == 401
+
+    # 登记凭证只接受站内路径：外部地址与穿越路径都被拒
+    for bad in ("https://evil.example/x.jpg", "/uploads/receipts/../documents/a.pdf"):
+        assert client.post(
+            f"/api/v1/payments/{body['id']}/proof", json={"receipt_url": bad}
+        ).status_code == 400
 
 
 def _mk_service_order(engine, orderer_id, property_id, status=None):

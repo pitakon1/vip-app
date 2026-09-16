@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Table, Tag, Button, Space, message, Card, Popconfirm } from 'antd'
+import { Button, message, Popconfirm, Empty, Spin } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
 
@@ -18,11 +18,31 @@ interface ReviewData {
   items: ReviewItem[]
 }
 
-const TYPE_META: Record<string, { label: string; color: string }> = {
-  trip: { label: '外勤申请', color: 'warning' },
-  maintenance: { label: '报修工单', color: 'blue' },
-  service: { label: '服务订单', color: 'green' },
-  contract: { label: '合同流转', color: 'purple' },
+const TYPE_META: Record<string, { label: string; badge: string; icon: string[]; style: { background: string; color: string } }> = {
+  trip: {
+    label: '外勤申请',
+    badge: 'rent-badge--warning',
+    icon: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z', 'M9 12l2 2 4-4'],
+    style: { background: 'rgba(217,119,6,0.12)', color: 'var(--state-warning)' },
+  },
+  maintenance: {
+    label: '报修工单',
+    badge: 'rent-badge--info',
+    icon: ['M14.7 6.3a4 4 0 0 0 5 5l-8.5 8.5a2.1 2.1 0 0 1-3-3z', 'M6 18l1 1'],
+    style: { background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' },
+  },
+  service: {
+    label: '服务订单',
+    badge: 'rent-badge--success',
+    icon: ['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2', 'M9 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8z'],
+    style: { background: 'rgba(22,163,74,0.1)', color: 'var(--state-success)' },
+  },
+  contract: {
+    label: '合同流转',
+    badge: 'rent-badge--neutral',
+    icon: ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6'],
+    style: { background: 'rgba(20,184,166,0.1)', color: 'var(--rent-primary)' },
+  },
 }
 const STATUS_LABEL: Record<string, string> = {
   pending: '待处理',
@@ -33,10 +53,22 @@ const STATUS_LABEL: Record<string, string> = {
   sent: '已发出',
   partially_signed: '部分签署',
 }
+const STATUS_BADGE: Record<string, string> = {
+  pending: 'rent-badge--warning',
+  open: 'rent-badge--warning',
+  assigned: 'rent-badge--info',
+  in_progress: 'rent-badge--info',
+  draft: 'rent-badge--neutral',
+  sent: 'rent-badge--info',
+  partially_signed: 'rent-badge--warning',
+}
+
+const PAGE_SIZE = 20
 
 const ReviewCenter = () => {
   const [data, setData] = useState<ReviewData | null>(null)
   const [loading, setLoading] = useState(false)
+  const [page, setPage] = useState(1)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -90,12 +122,18 @@ const ReviewCenter = () => {
 
   if (!data) return null
 
+  const items = data.items ?? []
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const pagedItems = items.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
   return (
     <div className="rent-main">
+      {/* Page Header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title" style={{ margin: '0 0 4px' }}>工单审核中心</h2>
-          <p className="rent-page-header__subtitle" style={{ margin: 0 }}>
+          <h2 className="rent-page-header__title">工单审核中心</h2>
+          <p className="rent-page-header__subtitle">
             统一处理外勤申请、报修工单、服务订单与合同流转待办
           </p>
         </div>
@@ -106,85 +144,146 @@ const ReviewCenter = () => {
         </div>
       </div>
 
-      <div className="rent-grid rent-grid--4" style={{ marginBottom: 16 }}>
+      {/* Stat Cards */}
+      <div className="rent-grid rent-grid--4 rent-mb-5">
         {Object.entries(TYPE_META).map(([k, m]) => (
-          <Card key={k} size="small">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--rent-ink-3)' }}>{m.label}</span>
-              <Tag color={m.color}>{data.summary[k] ?? 0}</Tag>
+          <div className="rent-stat-card" key={k}>
+            <div className="rent-stat-card__head">
+              <div>
+                <div className="rent-stat-card__label">{m.label}</div>
+                <div className="rent-stat-card__value rent-num">{data.summary?.[k] ?? 0}</div>
+                <div className="rent-stat-card__delta rent-text-muted">待办事项</div>
+              </div>
+              <div className="rent-stat-card__icon" style={m.style}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {m.icon.map((d) => (
+                    <path key={d} d={d} />
+                  ))}
+                </svg>
+              </div>
             </div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--rent-ink)', marginTop: 8 }}>
-              {data.summary[k] ?? 0}
-            </div>
-          </Card>
+          </div>
         ))}
       </div>
 
-      <div className="rent-card" style={{ padding: 16 }}>
-        <Table<ReviewItem>
-          rowKey={(r) => `${r.type}-${r.id}`}
-          loading={loading}
-          dataSource={data.items}
-          pagination={{ pageSize: 10, showTotal: (t) => `共 ${t} 项待办` }}
-          locale={{ emptyText: '暂无待办，所有工单已处理完毕' }}
-          columns={[
-            {
-              title: '类型',
-              dataIndex: 'type',
-              width: 110,
-              render: (t: string) => {
-                const m = TYPE_META[t] || { label: t, color: 'default' }
-                return <Tag color={m.color}>{m.label}</Tag>
-              },
-            },
-            { title: '事项', dataIndex: 'title', render: (v) => <span style={{ fontWeight: 600 }}>{v}</span> },
-            { title: '申请人', dataIndex: 'applicant', width: 110 },
-            { title: '内容', dataIndex: 'reason', ellipsis: true },
-            {
-              title: '状态',
-              dataIndex: 'status',
-              width: 100,
-              render: (v: string) => <Tag>{STATUS_LABEL[v] || v}</Tag>,
-            },
-            { title: '提交时间', dataIndex: 'created_at', width: 120, render: (v) => (v ? String(v).replace('T', ' ').slice(0, 16) : '-') },
-            {
-              title: '操作',
-              width: 200,
-              render: (_, r) => (
-                <Space>
-                  {r.type === 'trip' && (
-                    <>
-                      <Button size="small" type="primary" onClick={() => handleTrip(r.id, 'approved')}>
-                        通过
-                      </Button>
-                      <Popconfirm title="确认驳回该外勤申请？" onConfirm={() => handleTrip(r.id, 'rejected')}>
-                        <Button size="small" danger>
-                          驳回
-                        </Button>
-                      </Popconfirm>
-                    </>
-                  )}
-                  {r.type === 'maintenance' && (
-                    <>
-                      <Button size="small" type="primary" onClick={() => handleTicket(r.id, 'assigned')}>
-                        受理
-                      </Button>
-                      <Button size="small" onClick={() => handleTicket(r.id, 'resolved')}>
-                        完结
-                      </Button>
-                    </>
-                  )}
-                  {r.type === 'service' && (
-                    <Button size="small" type="primary" onClick={() => handleOrder(r.id, 'assigned')}>
-                      受理
-                    </Button>
-                  )}
-                  {r.type === 'contract' && <span style={{ color: 'var(--rent-ink-3)' }}>请在合同管理页处理</span>}
-                </Space>
-              ),
-            },
-          ]}
-        />
+      {/* Todo Table */}
+      <div className="rent-card">
+        <div className="rent-card__header">
+          <h3 className="rent-card__title">待审核列表</h3>
+        </div>
+        <div className="rent-card__body" style={{ padding: 0 }}>
+          <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+            <table className="rent-table">
+              <thead>
+                <tr>
+                  <th>类型</th>
+                  <th>对象</th>
+                  <th>申请人</th>
+                  <th>内容</th>
+                  <th>提交时间</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="rent-loading-row">
+                      <Spin size="small" style={{ marginRight: 8 }} />
+                      加载中...
+                    </td>
+                  </tr>
+                ) : items.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="rent-empty">
+                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无待办，所有工单已处理完毕" />
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  pagedItems.map((r) => {
+                    const meta = TYPE_META[r.type] || { label: r.type, badge: 'rent-badge--neutral' }
+                    return (
+                      <tr key={`${r.type}-${r.id}`}>
+                        <td>
+                          <span className={`rent-badge ${meta.badge}`}>{meta.label}</span>
+                        </td>
+                        <td style={{ fontWeight: 600 }}>{r.title || '—'}</td>
+                        <td>{r.applicant || '—'}</td>
+                        <td className="rent-text-muted">{r.reason || '—'}</td>
+                        <td className="rent-table__mono">{r.created_at ? String(r.created_at).replace('T', ' ').slice(0, 16) : '—'}</td>
+                        <td>
+                          <span className={`rent-badge ${STATUS_BADGE[r.status] || 'rent-badge--neutral'}`}>
+                            {STATUS_LABEL[r.status] || r.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="rent-flex rent-gap-2" style={{ flexWrap: 'wrap' }}>
+                            {r.type === 'trip' && (
+                              <>
+                                <button className="rent-btn rent-btn--primary rent-btn--sm" type="button" onClick={() => handleTrip(r.id, 'approved')}>
+                                  通过
+                                </button>
+                                <Popconfirm title="确认驳回该外勤申请？" onConfirm={() => handleTrip(r.id, 'rejected')}>
+                                  <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button">
+                                    驳回
+                                  </button>
+                                </Popconfirm>
+                              </>
+                            )}
+                            {r.type === 'maintenance' && (
+                              <>
+                                <button className="rent-btn rent-btn--primary rent-btn--sm" type="button" onClick={() => handleTicket(r.id, 'assigned')}>
+                                  受理
+                                </button>
+                                <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button" onClick={() => handleTicket(r.id, 'resolved')}>
+                                  完结
+                                </button>
+                              </>
+                            )}
+                            {r.type === 'service' && (
+                              <button className="rent-btn rent-btn--primary rent-btn--sm" type="button" onClick={() => handleOrder(r.id, 'assigned')}>
+                                受理
+                              </button>
+                            )}
+                            {r.type === 'contract' && <span className="rent-text-muted rent-text-sm">请在合同管理页处理</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="rent-pagination" style={{ padding: '12px 20px' }}>
+            <span className="rent-pagination__info">
+              共 {items.length} 条 · 每页 {PAGE_SIZE} 条
+            </span>
+            <button
+              className="rent-pagination__btn"
+              type="button"
+              aria-label="上一页"
+              disabled={safePage <= 1}
+              onClick={() => setPage(Math.max(1, safePage - 1))}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+            </button>
+            <span className="rent-pagination__info">
+              {safePage} / {totalPages}
+            </span>
+            <button
+              className="rent-pagination__btn"
+              type="button"
+              aria-label="下一页"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

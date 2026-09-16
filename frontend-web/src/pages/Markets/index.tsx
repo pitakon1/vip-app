@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
 import { marketApi } from '@/services/api'
 
@@ -52,6 +52,7 @@ const fmtMoney = (v?: number) => Number(v || 0).toFixed(2)
 
 const Markets = () => {
   const [activeTab, setActiveTab] = useState('markets')
+  const [createOpen, setCreateOpen] = useState(false)
   return (
     <div className="rent-main">
       <div className="rent-page-header">
@@ -61,17 +62,22 @@ const Markets = () => {
             多市场配置、本地支付渠道与多国合规文档归档
           </p>
         </div>
+        {activeTab === 'markets' && (
+          <div className="rent-page-header__actions">
+            <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setCreateOpen(true)}>+ 新增市场</button>
+          </div>
+        )}
       </div>
 
       <div className="rent-tabs">
         {TABS.map((t) => (
-          <button key={t.key} type="button" className="rent-tab" data-active={activeTab === t.key} onClick={() => setActiveTab(t.key)}>
+          <button key={t.key} type="button" className="rent-tab" data-active={activeTab === t.key} onClick={() => { setActiveTab(t.key); setCreateOpen(false) }}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {activeTab === 'markets' && <MarketsTab />}
+      {activeTab === 'markets' && <MarketsTab createOpen={createOpen} onOpenChange={setCreateOpen} />}
       {activeTab === 'channels' && <ChannelsTab />}
       {activeTab === 'compliance' && <ComplianceTab />}
     </div>
@@ -79,13 +85,12 @@ const Markets = () => {
 }
 
 /* ===== 市场列表 ===== */
-const MarketsTab = () => {
+const MarketsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
   const [items, setItems] = useState<Market[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [publishedOnly, setPublishedOnly] = useState(false)
-  const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({
     market_code: '', country_name: '', currency: 'THB', default_language: 'th',
@@ -108,6 +113,65 @@ const MarketsTab = () => {
   }, [page, publishedOnly])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // 仅基于当前页数据统计，避免引入额外接口调用
+  const statusCounts = useMemo(() => {
+    const c = { active: 0, launching: 0, paused: 0, published: 0 }
+    items.forEach((m) => {
+      if (m.status === 'active') c.active += 1
+      else if (m.status === 'paused') c.paused += 1
+      else c.launching += 1
+      if (m.published) c.published += 1
+    })
+    return c
+  }, [items])
+
+  const statCards = [
+    {
+      label: '市场总数',
+      value: String(total),
+      iconBg: 'rgba(20,184,166,0.1)',
+      iconColor: 'var(--rent-primary)',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+        </svg>
+      ),
+    },
+    {
+      label: '已上线（当前页）',
+      value: String(statusCounts.active),
+      iconBg: 'rgba(22,163,74,0.1)',
+      iconColor: 'var(--state-success)',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      ),
+    },
+    {
+      label: '筹备中（当前页）',
+      value: String(statusCounts.launching),
+      iconBg: 'rgba(217,119,6,0.12)',
+      iconColor: 'var(--state-warning)',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+        </svg>
+      ),
+    },
+    {
+      label: '已发布（当前页）',
+      value: String(statusCounts.published),
+      iconBg: 'rgba(14,165,233,0.1)',
+      iconColor: 'var(--state-info)',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+        </svg>
+      ),
+    },
+  ]
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
@@ -132,7 +196,7 @@ const MarketsTab = () => {
         sort_order: form.sort_order ? Number(form.sort_order) : 100,
       })
       message.success('市场已创建')
-      setCreateOpen(false)
+      onOpenChange(false)
       setForm({ market_code: '', country_name: '', currency: 'THB', default_language: 'th', timezone: 'Asia/Bangkok', status: 'launching', published: false, license_required: false, vat_rate: '', transfer_fee_rate: '', sort_order: '100' })
       fetchData()
     } catch (e: any) {
@@ -144,13 +208,25 @@ const MarketsTab = () => {
 
   return (
     <>
+      <div className="rent-grid rent-grid--4 rent-mb-5">
+        {statCards.map((c) => (
+          <div className="rent-stat-card" key={c.label}>
+            <div className="rent-stat-card__head">
+              <div>
+                <div className="rent-stat-card__label">{c.label}</div>
+                <div className="rent-stat-card__value rent-num">{c.value}</div>
+              </div>
+              <div className="rent-stat-card__icon" style={{ background: c.iconBg, color: c.iconColor }}>{c.icon}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="rent-filter-bar">
-        <select className="rent-form-select" style={{ width: 'auto', minWidth: 140 }} aria-label="显示" value={publishedOnly ? 'pub' : 'all'} onChange={(e) => { setPublishedOnly(e.target.value === 'pub'); setPage(1) }}>
+        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 140 }} aria-label="显示" value={publishedOnly ? 'pub' : 'all'} onChange={(e) => { setPublishedOnly(e.target.value === 'pub'); setPage(1) }}>
           <option value="all">全部市场</option>
           <option value="pub">仅已发布</option>
         </select>
-        <div style={{ flex: 1 }} />
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setCreateOpen(true)}>+ 新增市场</button>
       </div>
 
       <div className="rent-card">
@@ -188,18 +264,17 @@ const MarketsTab = () => {
               </table>
             </div>
           )}
+          <div className="rent-pagination" style={{ marginTop: 14, padding: '0 22px 16px' }}>
+            <span className="rent-pagination__info">共 {total} 条 · 每页 10 条</span>
+            <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>上一页</button>
+            <span className="rent-pagination__info">{page}</span>
+            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>下一页</button>
+          </div>
         </div>
       </div>
 
-      <div className="rent-pagination">
-        <span className="rent-pagination__info">共 {total} 条</span>
-        <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>上一页</button>
-        <span className="rent-pagination__info">{page}</span>
-        <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>下一页</button>
-      </div>
-
       {createOpen && (
-        <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
+        <div className="rent-modal-backdrop" onClick={() => onOpenChange(false)}>
           <div className="rent-modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header"><h3 className="rent-card__title">新增市场</h3></div>
             <div className="rent-modal__body">
@@ -240,7 +315,7 @@ const MarketsTab = () => {
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => onOpenChange(false)}>取消</button>
               <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? '创建中...' : '创建'}</button>
             </div>
           </div>

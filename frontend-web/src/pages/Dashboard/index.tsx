@@ -28,6 +28,54 @@ ChartJS.register(
 
 type RangeKey = '7d' | '30d' | '12m'
 
+/** `/dashboard/summary` 的聚合指标（后端按业务扩展字段，本页用到哪些就声明哪些）。 */
+interface DashboardMetrics {
+  monthly_revenue?: number
+  active_lease_revenue?: number
+  occupancy_rate?: number
+  total_properties?: number
+  rented?: number
+  vacant?: number
+  expiring_leases?: number
+  upcoming_payments?: number
+  employee_count?: number
+  new_employees?: number
+  expiring_property?: string
+}
+
+/** `/dashboard/expiring-leases` 的条目。 */
+interface ExpiringLease {
+  id: string
+  property_id?: string
+  property_name?: string | null
+  tenant_id?: string
+  tenant_name?: string | null
+  monthly_rent?: number
+  currency?: string
+  end_date: string
+  days_left: number
+}
+
+/** `/dashboard/recent-payments` 的条目。 */
+interface RecentPayment {
+  id: string
+  amount: number
+  currency?: string
+  payment_type?: string | null
+  status?: string | null
+  channel?: string | null
+  due_date?: string | null
+  paid_at?: string | null
+  created_at?: string | null
+  description?: string | null
+  payer_name?: string | null
+}
+
+/** `/employees` 列表条目（本页只用来判断本月新增）。 */
+interface EmployeeRow {
+  created_at?: string
+}
+
 const fmtBaht = (v: number) => `฿${Number(v || 0).toLocaleString()}`
 
 // 收入趋势的月度标签（近 12 个月）
@@ -45,7 +93,22 @@ const TREND_RATIO: Record<RangeKey, number[]> = {
 }
 
 // 与设计稿一致的 KPI 卡片配置（数值由真实接口填充）
-const kpiMeta = [
+interface KpiMeta {
+  label: string
+  /** 限定为数值型指标，避免 key 指到 expiring_property 这类字符串字段 */
+  key: 'monthly_revenue' | 'occupancy_rate' | 'rented' | 'employee_count'
+  format: (v: number) => string
+  delta: (s: DashboardMetrics) => { up: boolean; text: string }
+  icon: string
+  bg: string
+  color: string
+  line?: string
+  poly?: string
+  extra?: string
+  circle?: string
+}
+
+const kpiMeta: KpiMeta[] = [
   {
     label: '本月营收',
     key: 'monthly_revenue',
@@ -54,7 +117,7 @@ const kpiMeta = [
     line: 'M12 1L12 23',
     bg: 'rgba(22,163,74,0.1)',
     color: 'var(--state-success)',
-    delta: (s: Record<string, number>) => ({ up: true, text: '较上月' }),
+    delta: (s: DashboardMetrics) => ({ up: true, text: '较上月' }),
   },
   {
     label: '出租率',
@@ -63,7 +126,7 @@ const kpiMeta = [
     icon: 'M18 20L18 10M12 20L12 4M6 20L6 14',
     bg: 'rgba(217,119,6,0.1)',
     color: 'var(--state-warning)',
-    delta: (s: Record<string, number>) => ({ up: true, text: `空置 ${s.vacant ?? 0} 套` }),
+    delta: (s: DashboardMetrics) => ({ up: true, text: `空置 ${s.vacant ?? 0} 套` }),
   },
   {
     label: '在租合同',
@@ -74,7 +137,7 @@ const kpiMeta = [
     extra: 'M16 13L8 13M16 17L8 17',
     bg: 'rgba(14,165,233,0.1)',
     color: 'var(--state-info)',
-    delta: (s: Record<string, number>) => ({ up: true, text: `${s.expiring_leases ?? 0} 份将到期` }),
+    delta: (s: DashboardMetrics) => ({ up: true, text: `${s.expiring_leases ?? 0} 份将到期` }),
   },
   {
     label: '员工数',
@@ -84,7 +147,7 @@ const kpiMeta = [
     circle: '12 7 4',
     bg: 'rgba(20, 184, 166, 0.1)',
     color: 'var(--rent-primary)',
-    delta: (s: Record<string, number>) => ({ up: true, text: `${s.new_employees ?? 0} 本月新增` }),
+    delta: (s: DashboardMetrics) => ({ up: true, text: `${s.new_employees ?? 0} 本月新增` }),
   },
 ]
 
@@ -114,30 +177,30 @@ const riskMeta = [
   {
     tone: 'warning' as const,
     label: '合同 30 天内到期',
-    value: (s: Record<string, number>) => `${s.expiring_leases ?? 0}`,
+    value: (s: DashboardMetrics) => `${s.expiring_leases ?? 0}`,
     unit: '份',
-    desc: (s: Record<string, number>) => `${s.expiring_property ?? ''}${s.expiring_leases && s.expiring_leases > 0 ? ` 等 ${s.expiring_leases} 份合同临近到期` : '暂无临近到期合同'}`,
-    ratio: (s: Record<string, number>) => Math.min(Number(s.expiring_leases ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
+    desc: (s: DashboardMetrics) => `${s.expiring_property ?? ''}${s.expiring_leases && s.expiring_leases > 0 ? ` 等 ${s.expiring_leases} 份合同临近到期` : '暂无临近到期合同'}`,
+    ratio: (s: DashboardMetrics) => Math.min(Number(s.expiring_leases ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
     path: '/leases',
     icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8',
   },
   {
     tone: 'danger' as const,
     label: '欠租房源',
-    value: (s: Record<string, number>) => `${s.upcoming_payments ?? 0}`,
+    value: (s: DashboardMetrics) => `${s.upcoming_payments ?? 0}`,
     unit: '笔',
     desc: () => '逾期金额待核 · 请及时催收',
-    ratio: (s: Record<string, number>) => Math.min(Number(s.upcoming_payments ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
+    ratio: (s: DashboardMetrics) => Math.min(Number(s.upcoming_payments ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
     path: '/payments',
     icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
   },
   {
     tone: 'info' as const,
     label: '空置率超阈值',
-    value: (s: Record<string, number>) => `${s.vacant && s.total_properties ? Math.round((s.vacant / s.total_properties) * 100) : 0}`,
+    value: (s: DashboardMetrics) => `${s.vacant && s.total_properties ? Math.round((s.vacant / s.total_properties) * 100) : 0}`,
     unit: '% · 警戒线 10%',
     desc: () => '建议关注高空置片区，及时补充房源',
-    ratio: (s: Record<string, number>) => Math.min(Number(s.occupancy_rate ?? 0) / 100, 1),
+    ratio: (s: DashboardMetrics) => Math.min(Number(s.occupancy_rate ?? 0) / 100, 1),
     path: '/properties',
     icon: 'M18 20v-10M12 20V4M6 20v-6',
   },
@@ -147,7 +210,7 @@ const riskMeta = [
 const quickMeta = [
   {
     label: '房源管理',
-    sub: (s: Record<string, number>) => `${s.total_properties ?? 0} 套房源 · 上架维护`,
+    sub: (s: DashboardMetrics) => `${s.total_properties ?? 0} 套房源 · 上架维护`,
     path: '/properties',
     bg: 'rgba(20,184,166,0.1)',
     color: 'var(--rent-primary)',
@@ -182,9 +245,9 @@ const quickMeta = [
 const Dashboard = () => {
   const navigate = useNavigate()
   const [range, setRange] = useState<RangeKey>('12m')
-  const [summary, setSummary] = useState<Record<string, any>>({})
-  const [expiring, setExpiring] = useState<any[]>([])
-  const [payments, setPayments] = useState<any[]>([])
+  const [summary, setSummary] = useState<DashboardMetrics>({})
+  const [expiring, setExpiring] = useState<ExpiringLease[]>([])
+  const [payments, setPayments] = useState<RecentPayment[]>([])
   const [loading, setLoading] = useState(false)
 
   const fetchAll = useCallback(async () => {
@@ -198,7 +261,7 @@ const Dashboard = () => {
       ])
       setSummary(sumRes.data?.data ?? sumRes.data ?? {})
       const expPayload = expRes.data?.data ?? expRes.data
-      const expItems = expPayload?.items ?? []
+      const expItems: ExpiringLease[] = expPayload?.items ?? []
       setExpiring(expItems)
       setSummary((prev) => ({
         ...prev,
@@ -207,15 +270,15 @@ const Dashboard = () => {
       const payPayload = payRes.data?.data ?? payRes.data
       setPayments(payPayload?.items ?? [])
       const empPayload = empRes.data?.data ?? empRes.data
-      const empItems = empPayload?.items ?? []
+      const empItems: EmployeeRow[] = empPayload?.items ?? []
       const now = dayjs()
       setSummary((prev) => ({
         ...prev,
         employee_count: empPayload?.total ?? empItems.length ?? 0,
-        new_employees: empItems.filter((e: any) => e.created_at && dayjs(e.created_at).isSame(now, 'month')).length,
+        new_employees: empItems.filter((e) => e.created_at && dayjs(e.created_at).isSame(now, 'month')).length,
       }))
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取数据失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || '获取数据失败')
     } finally {
       setLoading(false)
     }
@@ -286,20 +349,22 @@ const Dashboard = () => {
     },
   }
 
-  const expiringRows = expiring.map((row: any) => ({
+  const expiringRows = expiring.map((row) => ({
+    id: row.id,
     property: row.property_name || (row.property_id || '').slice(0, 8),
     tenant: row.tenant_name || '—',
     date: row.end_date ? dayjs(row.end_date).format('YYYY-MM-DD') : '—',
     days: row.days_left,
   }))
 
-  const paymentRows = payments.map((p: any) => {
-    const st = PAY_STATUS[p.status] ?? { text: p.status || '—', tone: 'neutral' }
+  const paymentRows = payments.map((p) => {
+    const st = PAY_STATUS[p.status ?? ''] ?? { text: p.status || '—', tone: 'neutral' }
     return {
+      id: p.id,
       tenant: p.payer_name || '—',
       amount: fmtBaht(p.amount),
       date: p.paid_at ? dayjs(p.paid_at).format('YYYY-MM-DD') : p.created_at ? dayjs(p.created_at).format('YYYY-MM-DD') : '—',
-      method: p.channel || PAY_TYPE_TEXT[p.payment_type] || '—',
+      method: p.channel || PAY_TYPE_TEXT[p.payment_type ?? ''] || '—',
       status: st.tone,
       statusText: st.text,
     }
@@ -352,8 +417,8 @@ const Dashboard = () => {
           <div className={`rent-risk-card rent-risk-card--${card.tone}`} key={card.label}>
             <div className="rent-risk-card__icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {card.icon.split('M').slice(1).map((d, i) => (
-                  <path key={i} d={`M${d}`} />
+                {card.icon.split('M').slice(1).map((d) => (
+                  <path key={d} d={`M${d}`} />
                 ))}
               </svg>
             </div>
@@ -372,7 +437,7 @@ const Dashboard = () => {
               >
                 <div
                   style={{
-                    width: `${Math.round(((card as any).ratio?.(summary) ?? 0) * 100)}%`,
+                    width: `${Math.round((card.ratio(summary) ?? 0) * 100)}%`,
                     height: '100%',
                     borderRadius: 999,
                     background:
@@ -469,8 +534,8 @@ const Dashboard = () => {
                 >
                   <div className="rent-quick-item__icon" style={{ background: q.bg, color: q.color }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      {q.icon.split('M').slice(1).map((d, i) => (
-                        <path key={i} d={`M${d}`} />
+                      {q.icon.split('M').slice(1).map((d) => (
+                        <path key={d} d={`M${d}`} />
                       ))}
                     </svg>
                   </div>
@@ -518,8 +583,8 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {expiringRows.map((row, idx) => (
-                    <tr key={row.property + idx}>
+                  {expiringRows.map((row) => (
+                    <tr key={row.id}>
                       <td>{row.property}</td>
                       <td>{row.tenant}</td>
                       <td className="rent-table__mono">{row.date}</td>
@@ -568,8 +633,8 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paymentRows.map((row, idx) => (
-                    <tr key={idx}>
+                  {paymentRows.map((row) => (
+                    <tr key={row.id}>
                       <td>{row.tenant}</td>
                       <td className="rent-table__mono">{row.amount}</td>
                       <td className="rent-table__mono">{row.date}</td>

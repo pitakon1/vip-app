@@ -4,12 +4,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, or_
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import PaginationParams, paginate_query
 from app.models import (
     User,
     UserRole,
@@ -102,14 +102,10 @@ def list_sale_listings(
             )
         )
     # 总数与分页都下推到 SQL，避免把整表拉进内存后再切片
-    count_query = select(func.count()).select_from(query.subquery())
-    total = session.exec(count_query).one()
-    items = session.exec(
-        query.order_by(SaleListing.created_at.desc())
-        .offset(pagination.offset)
-        .limit(pagination.limit)
-    ).all()
-    return paginate([_serialize(i) for i in items], total, pagination)
+    stmt = query.order_by(SaleListing.created_at.desc())
+    page = paginate_query(session, stmt, pagination)
+    page.items = [_serialize(i) for i in page.items]
+    return page
 
 
 @router.post("")

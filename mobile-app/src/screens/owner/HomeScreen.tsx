@@ -2,57 +2,34 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   StyleSheet,
   RefreshControl,
-  Alert,
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import BarChart from '@/components/charts/BarChart';
 import colors from '@/theme/colors';
-import { useAuthStore } from '@/stores/auth';
-import { ownerApi, ownersApi } from '@/services/api';
-import type { Property, PropertyStatus } from '@/types';
+import { leasesApi, maintenanceApi, ownerApi, ownersApi, paymentsApi } from '@/services/api';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
-
-const statusLabels: Record<PropertyStatus, string> = {
-  vacant: '空置',
-  rented: '已出租',
-  renewing: '正在续约',
-  maintenance: '维护中',
-};
-
-const statusColors: Record<PropertyStatus, string> = {
-  vacant: colors.success,
-  rented: colors.primary,
-  renewing: colors.info,
-  maintenance: colors.warning,
-};
-
-const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿');
-const letter = (v?: number, c?: string) => `${cur(c)}${Number(v || 0).toLocaleString()}`;
-
-// 把月度字段转成 "N月"，如 "1月"、"2026-01"、"2026/03" 统一提取后两位数字
-const monthLabel = (m?: string | number) => {
-  const nums = String(m ?? '').match(/\d+/g);
-  const last = nums && nums.length ? nums[nums.length - 1] : '';
-  return `${last}月`;
-};
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-// 快捷入口：收益/增值服务/文档已在底部 Tab，这里只放高频操作
-const QUICK_ACTIONS: { key: string; label: string; icon: IoniconName; route: string }[] = [
-  { key: 'marketing', label: '委托挂牌', icon: 'megaphone-outline', route: 'OwnerMarketing' },
-  { key: 'payments', label: '我的付款', icon: 'receipt-outline', route: 'OwnerPayments' },
-  { key: 'messages', label: '站内消息', icon: 'chatbubble-ellipses-outline', route: 'ChatList' },
-];
+const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿');
+const money = (v?: number, c?: string) =>
+  `${cur(c)}${Number(v || 0).toLocaleString()}`;
+
+const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '-');
+
+const daysUntil = (dateStr?: string) => {
+  if (!dateStr) return Number.NaN;
+  const target = new Date(dateStr).getTime();
+  if (Number.isNaN(target)) return Number.NaN;
+  return Math.ceil((target - Date.now()) / 86400000);
+};
 
 interface AnnualMonthly {
   month?: string | number;
@@ -68,130 +45,273 @@ interface AnnualSummary {
   currency?: string;
 }
 
+interface OwnerProperty {
+  id: string;
+  name?: string;
+  room_number?: string;
+  project_name?: string;
+  address?: string;
+  status?: string;
+  monthly_rent?: number;
+  sale_price?: number;
+  currency?: string;
+  size_sqm?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  tenant_name?: string;
+}
+
+interface OwnerPayment {
+  id: string;
+  amount?: number;
+  currency?: string;
+  payment_type?: string;
+  status?: string;
+  due_date?: string;
+  paid_at?: string;
+  description?: string;
+  property?: string | null;
+  [key: string]: any;
+}
+
+interface OwnerLease {
+  id: string;
+  property_id?: string;
+  property_name?: string;
+  tenant_name?: string;
+  end_date?: string;
+  monthly_rent?: number;
+  currency?: string;
+  status?: string;
+}
+
+interface MaintenanceTicket {
+  id: string;
+  property_id?: string;
+  tenant_id?: string;
+  title?: string;
+  status?: string;
+  created_at?: string;
+  tenant_name?: string;
+  [key: string]: any;
+}
+
+// 快捷入口：4 列图标网格，配色对齐原型（收益 teal / 文档 info / 服务 success / 缴费 warning）
+const QUICK_ACTIONS: {
+  key: string;
+  label: string;
+  icon: IoniconName;
+  color: string;
+  bg: string;
+  route: string;
+}[] = [
+  {
+    key: 'income',
+    label: '收益报表',
+    icon: 'cash-outline',
+    color: colors.primary,
+    bg: colors.alpha(colors.primaryRgb, 0.1),
+    route: 'OwnerIncome',
+  },
+  {
+    key: 'documents',
+    label: '租房文档',
+    icon: 'document-text-outline',
+    color: colors.info,
+    bg: colors.alpha(colors.infoRgb, 0.1),
+    route: 'OwnerDocuments',
+  },
+  {
+    key: 'services',
+    label: '物业服务',
+    icon: 'compass-outline',
+    color: colors.success,
+    bg: colors.alpha(colors.successRgb, 0.1),
+    route: 'OwnerServices',
+  },
+  {
+    key: 'payments',
+    label: '账单缴费',
+    icon: 'card-outline',
+    color: colors.warning,
+    bg: colors.alpha(colors.warningRgb, 0.1),
+    route: 'OwnerPayments',
+  },
+];
+
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const user = useAuthStore((state) => state.user);
-  const [properties, setProperties] = useState<Property[]>([]);
+  const [properties, setProperties] = useState<OwnerProperty[]>([]);
+  const [payments, setPayments] = useState<OwnerPayment[]>([]);
+  const [leases, setLeases] = useState<OwnerLease[]>([]);
+  const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
   const [annual, setAnnual] = useState<AnnualSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadProperties = useCallback(async () => {
+  const load = useCallback(async () => {
     const year = new Date().getFullYear();
-    try {
-      const [propRes, sumRes]: any[] = await Promise.allSettled([
-        ownerApi.properties(),
-        ownersApi.annualSummary(year),
-      ]);
-      if (propRes.status === 'fulfilled') {
-        const data = propRes.value?.data;
-        const items = Array.isArray(data)
-          ? data
-          : (data as any)?.items ?? (data as any)?.data ?? [];
-        setProperties(items as Property[]);
-      }
-      if (sumRes.status === 'fulfilled') {
-        setAnnual(sumRes.value?.data ?? null);
-      }
-    } catch (err: any) {
-      Alert.alert('加载失败', err?.response?.data?.message || '无法获取房源列表');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    const [propRes, sumRes, payRes, leaseRes, ticketRes] = await Promise.allSettled([
+      ownerApi.properties(),
+      ownersApi.annualSummary(year),
+      paymentsApi.mine(),
+      leasesApi.list({ page: 1, limit: 100 }),
+      maintenanceApi.list({ page: 1, limit: 100 }),
+    ]);
+
+    const pick = <T,>(res: PromiseSettledResult<any>): T[] => {
+      if (res.status !== 'fulfilled') return [];
+      const data = res.value?.data;
+      const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
+      return Array.isArray(items) ? (items as T[]) : [];
+    };
+
+    setProperties(pick<OwnerProperty>(propRes));
+    setPayments(pick<OwnerPayment>(payRes));
+    setLeases(pick<OwnerLease>(leaseRes));
+    setTickets(pick<MaintenanceTicket>(ticketRes));
+    if (sumRes.status === 'fulfilled') {
+      setAnnual((sumRes.value?.data as AnnualSummary) ?? null);
     }
+    setLoading(false);
+    setRefreshing(false);
   }, []);
 
   useEffect(() => {
-    loadProperties();
-  }, [loadProperties]);
+    load();
+  }, [load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadProperties();
-  }, [loadProperties]);
+    load();
+  }, [load]);
 
-  // 近 6 个月已实收趋势（图表数据），若后端无月度数据则返回空数组
-  const chartData = useMemo(() => {
-    const months = annual?.by_month ?? [];
-    if (!months.length) return [];
-    return months.slice(-6).map((m) => ({
-      label: monthLabel(m.month),
-      value: Number(m.received ?? 0),
-    }));
+  const currency = properties[0]?.currency || payments[0]?.currency || 'THB';
+
+  const go = (target: string) => navigation.navigate(target as any);
+
+  /* ===== 收益总览：取年度汇总最近一个月桶（真实数据）===== */
+  const income = useMemo(() => {
+    const buckets = annual?.by_month ?? [];
+    const bucket = buckets.length ? buckets[buckets.length - 1] : null;
+    const received = Number(bucket?.received ?? 0);
+    const pending = Number(bucket?.pending ?? 0) + Number(bucket?.overdue ?? 0);
+    const due = received + pending;
+    return {
+      hasData: !!bucket && due > 0,
+      due,
+      received,
+      pending,
+      rate: due > 0 ? Math.round((received / due) * 100) : 0,
+    };
   }, [annual]);
 
-  // 房产状态统计：已出租 / 空置 / 预订（预订以"正在续约"计）
-  const statusCounts = useMemo(() => {
-    const rented = properties.filter((p) => p.status === 'rented').length;
-    const vacant = properties.filter((p) => p.status === 'vacant').length;
-    const prebook = properties.filter((p) => p.status === 'renewing').length;
-    return { rented, vacant, prebook };
+  /* ===== 待处理：待确认租金 ===== */
+  const pendingPayments = useMemo(
+    () =>
+      payments.filter((p) =>
+        ['pending', 'overdue', 'processing'].includes(String(p.status || '').toLowerCase()),
+      ),
+    [payments],
+  );
+
+  /* ===== 最近入账：已到账记录 ===== */
+  const recentIncomes = useMemo(
+    () =>
+      payments
+        .filter((p) => ['succeeded', 'paid'].includes(String(p.status || '').toLowerCase()))
+        .slice(0, 4),
+    [payments],
+  );
+
+  /* ===== 资产概览统计 ===== */
+  const statusCount = useMemo(() => {
+    const count = { vacant: 0, rented: 0, forSale: 0 };
+    properties.forEach((p) => {
+      const s = String(p.status || '').toLowerCase();
+      if (s === 'vacant' || s === 'available') count.vacant += 1;
+      else if (s === 'for_sale' || s === 'on_sale' || s === 'sale') count.forSale += 1;
+      else if (s === 'rented' || s === 'active') count.rented += 1;
+    });
+    return count;
   }, [properties]);
 
-  const totalStatus = statusCounts.rented + statusCounts.vacant + statusCounts.prebook;
+  const rentedProp = useMemo(
+    () =>
+      properties.find((p) =>
+        ['rented', 'active'].includes(String(p.status || '').toLowerCase()),
+      ),
+    [properties],
+  );
+  const saleProp = useMemo(
+    () =>
+      properties.find((p) =>
+        ['for_sale', 'on_sale', 'sale'].includes(String(p.status || '').toLowerCase()),
+      ),
+    [properties],
+  );
 
-  const totals = annual?.totals;
-  const summary = {
-    received: totals?.received,
-    pending: totals?.pending,
-    overdue: totals?.overdue,
-    currency: annual?.currency,
-  };
+  /* ===== 待处理：60 天内到期租约 ===== */
+  const expiringLeases = useMemo(
+    () =>
+      leases
+        .filter((l) => !!l.end_date)
+        .filter((l) => {
+          const d = daysUntil(l.end_date);
+          return !Number.isNaN(d) && d >= 0 && d <= 60;
+        })
+        .sort((a, b) => daysUntil(a.end_date) - daysUntil(b.end_date)),
+    [leases],
+  );
 
-  const userName = user?.name || user?.full_name || user?.username || '业主';
-  const userNameInitial = (user?.name || user?.full_name || user?.username || '业').slice(0, 1);
+  const propTitle = (p: OwnerProperty) =>
+    p.name ||
+    (p.project_name ? `${p.project_name}·${p.room_number ?? ''}` : p.room_number || p.address || '房源');
 
-  const go = (target: string) => {
-    navigation.navigate(target as any);
-  };
+  const propMeta = (p: OwnerProperty) =>
+    `${p.bedrooms ?? 0}室${p.bathrooms ?? 0}厅 ${p.size_sqm ?? 0}㎡`;
 
-  const renderItem = ({ item }: { item: Property }) => {
-    const rent = Number(item.monthly_rent ?? item.rent ?? 0);
-    const c = item.currency === 'USD' ? '$' : item.currency === 'CNY' ? '¥' : '฿';
-    const title = item.title || item.room_number || item.address || '房源';
-    return (
-      <TouchableOpacity
-        activeOpacity={0.7}
-        onPress={() => navigation.navigate('PropertyDetail', { id: item.id })}
-      >
-        <Card title={title}>
-          <View style={styles.row}>
-            <Text style={styles.address} numberOfLines={2}>
-              {item.address}
-            </Text>
-            <View style={[styles.badge, { backgroundColor: statusColors[item.status] }]}>
-              <Text style={styles.badgeText}>{statusLabels[item.status]}</Text>
-            </View>
-          </View>
-          <View style={styles.metaRow}>
-            <Text style={styles.rent}>
-              {c}
-              {rent.toLocaleString()}/月
-            </Text>
-            <Text style={styles.meta}>
-              {item.bedrooms ?? 0}室 · {item.size_sqm ?? item.area ?? 0}㎡
-            </Text>
-          </View>
-        </Card>
-      </TouchableOpacity>
+  /* ===== 待处理：名下房源的报修待审批工单 =====
+     后端 /maintenance-tickets 未按业主归属过滤，故在前端按自己房源 property_id + open 状态筛出 */
+  const pendingRepairs = useMemo(() => {
+    const myIds = properties.map((p) => String(p.id));
+    return tickets.filter(
+      (t) =>
+        String(t.status || '').toLowerCase() === 'open' &&
+        myIds.includes(String(t.property_id || '')),
     );
-  };
+  }, [tickets, properties]);
+
+  const propTitleById = useCallback(
+    (propertyId?: string) => {
+      const p = properties.find((x) => String(x.id) === String(propertyId));
+      return p ? propTitle(p) : '房源';
+    },
+    // propTitle 为纯函数，依赖仅 properties
+    [properties],
+  );
+
+  const expiring = expiringLeases[0];
+  const saleTodoDesc = saleProp
+    ? `${propTitle(saleProp)} 预估价 ${money(Number(saleProp.sale_price || 0) * 0.97, currency)} - ${money(
+        Number(saleProp.sale_price || 0) * 1.03,
+        currency,
+      )}`
+    : null;
+  const todoCount = (saleTodoDesc ? 1 : 0) + (expiring ? 1 : 0) + pendingRepairs.length;
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <LoadingState label="正在加载房源…" />
+        <LoadingState label="正在加载工作台…" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={properties}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
+      <ScrollView
+        contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -200,125 +320,332 @@ export default function HomeScreen() {
             tintColor={colors.primary}
           />
         }
-        ListHeaderComponent={
-          <View>
-            {/* Hero 欢迎区 */}
-            <View style={styles.hero}>
-              <View style={styles.heroLeft}>
-                <Text style={styles.heroHi}>欢迎回来，{userName}</Text>
-                <Text style={styles.heroRole}>名下 {properties.length} 套房产</Text>
+      >
+        {/* ===== 双业务入口：委托出租 / 委托出售 ===== */}
+        <View style={styles.dualRow}>
+          <TouchableOpacity
+            style={[styles.dualEntry, styles.dualEntryRent]}
+            activeOpacity={0.8}
+            onPress={() => go('OwnerMarketing')}
+          >
+            <View style={[styles.dualIcon, { backgroundColor: `rgba(${colors.primaryRgb}, 0.12)` }]}>
+              <Ionicons name="home-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.dualBody}>
+              <Text style={styles.dualTitle}>委托出租</Text>
+              <Text style={styles.dualSub}>托管出租 · 省心收租</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.dualEntry, styles.dualEntrySale]}
+            activeOpacity={0.8}
+            onPress={() => go('OwnerMarketing')}
+          >
+            <View style={[styles.dualIcon, { backgroundColor: `rgba(${colors.warningRgb}, 0.12)` }]}>
+              <Ionicons name="pricetag-outline" size={20} color={colors.warning} />
+            </View>
+            <View style={styles.dualBody}>
+              <Text style={styles.dualTitle}>委托出售</Text>
+              <Text style={styles.dualSub}>在线估价 · 挂牌成交</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
+          </TouchableOpacity>
+        </View>
+
+        {/* ===== 预警卡：待确认租金（有数据才渲染）===== */}
+        {pendingPayments.length > 0 && (
+          <View style={styles.warnCard}>
+            <View style={styles.warnTop}>
+              <View style={styles.warnIcon}>
+                <Ionicons name="notifications-outline" size={22} color={colors.warning} />
               </View>
-              <View style={styles.heroAvatar}>
-                <Text style={styles.heroAvatarText}>{userNameInitial}</Text>
+              <View style={styles.warnBody}>
+                <Text style={styles.warnTitle}>{pendingPayments.length} 笔租金待确认</Text>
+                <Text style={styles.warnDesc} numberOfLines={2}>
+                  {pendingPayments
+                    .slice(0, 3)
+                    .map((p) => `${p.property || p.description || '租金'} ${money(Number(p.amount || 0), p.currency || currency)}`)
+                    .join(' · ')}
+                </Text>
               </View>
             </View>
+            <TouchableOpacity
+              style={styles.warnBtn}
+              activeOpacity={0.85}
+              onPress={() => go('OwnerIncome')}
+            >
+              <Text style={styles.warnBtnText}>去确认</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-            {/* 快捷入口：3 项轻网格，无卡片外壳 */}
-            <View style={styles.actionGrid}>
-              {QUICK_ACTIONS.map((item) => (
-                <TouchableOpacity
-                  key={item.key}
-                  style={styles.actionCell}
-                  activeOpacity={0.7}
-                  onPress={() => go(item.route)}
-                >
-                  <View style={styles.actionCellIcon}>
-                    <Ionicons name={item.icon} size={22} color={colors.primary} />
-                  </View>
-                  <Text style={styles.actionCellLabel}>{item.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* 财务概览：KPI + 近 6 个月收入 */}
-            <View style={styles.perfCard}>
-              <View style={styles.perfHead}>
-                <View style={styles.perfTitleRow}>
-                  <View style={styles.perfIcon}>
-                    <Ionicons name="wallet-outline" size={15} color={colors.primary} />
-                  </View>
-                  <Text style={styles.perfTitle}>财务概览</Text>
-                </View>
-                <TouchableOpacity activeOpacity={0.7} onPress={() => go('OwnerIncome')}>
-                  <Text style={styles.perfMore}>收益中心 ›</Text>
-                </TouchableOpacity>
+        {/* ===== 收益总览 ===== */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>收益总览</Text>
+          <Text style={styles.sectionHint}>租金 + 售房款</Text>
+        </View>
+        <View style={styles.card}>
+          {income.hasData ? (
+            <>
+              <View style={styles.incomeHead}>
+                <Text style={styles.mutedSm}>本月应收</Text>
+                <Text style={styles.incomeDue}>{money(income.due, currency)}</Text>
               </View>
-              <View style={styles.financeKpis}>
-                <View style={styles.financeKpi}>
-                  <Text style={[styles.financeNum, { color: colors.success }]}>{letter(summary.received, summary.currency)}</Text>
-                  <Text style={styles.financeLabel}>实收</Text>
+              <View style={styles.incomeCols}>
+                <View style={styles.incomeCol}>
+                  <Text style={styles.mutedSm}>已收</Text>
+                  <Text style={[styles.incomeColVal, { color: colors.success }]}>
+                    {money(income.received, currency)}
+                  </Text>
                 </View>
-                <View style={styles.perfKpiDivider} />
-                <View style={styles.financeKpi}>
-                  <Text style={[styles.financeNum, { color: colors.warning }]}>{letter(summary.pending, summary.currency)}</Text>
-                  <Text style={styles.financeLabel}>待收</Text>
-                </View>
-                <View style={styles.perfKpiDivider} />
-                <View style={styles.financeKpi}>
-                  <Text style={[styles.financeNum, { color: colors.error }]}>{letter(summary.overdue, summary.currency)}</Text>
-                  <Text style={styles.financeLabel}>逾期</Text>
+                <View style={[styles.incomeCol, styles.incomeColWarn]}>
+                  <Text style={styles.mutedSm}>待收</Text>
+                  <Text style={[styles.incomeColVal, { color: colors.warning }]}>
+                    {money(income.pending, currency)}
+                  </Text>
                 </View>
               </View>
-              {chartData.length > 0 && (
-                <BarChart data={chartData} height={110} activeIndex={chartData.length - 1} />
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressBar, { width: `${income.rate}%` }]} />
+              </View>
+              <View style={styles.incomeFoot}>
+                <Text style={styles.mutedSm}>本月收款进度</Text>
+                <Text style={styles.incomeRate}>已收 {income.rate}%</Text>
+              </View>
+            </>
+          ) : (
+            <EmptyState
+              icon="stats-chart-outline"
+              title="暂无收益数据"
+              sub="名下房源产生租金或售房款后，这里会按本月口径汇总"
+            />
+          )}
+        </View>
+
+        {/* ===== 待处理事项 ===== */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>待处理事项</Text>
+          <Text style={styles.sectionHint}>{todoCount} 项</Text>
+        </View>
+        <View style={styles.card}>
+          {!expiring && !saleTodoDesc ? (
+            <EmptyState icon="checkmark-circle-outline" title="暂无待处理事项" sub="租约与委托都正常" />
+          ) : (
+            <>
+              {expiring && (
+                <View style={styles.todoRow}>
+                  <Ionicons name="time-outline" size={20} color={colors.warning} />
+                  <View style={styles.todoBody}>
+                    <Text style={styles.todoTitle} numberOfLines={1}>
+                      {expiring.property_name || expiring.property_id || '房源'} 租约 {daysUntil(expiring.end_date)} 天后到期
+                    </Text>
+                    <Text style={styles.todoSub}>
+                      租客：{expiring.tenant_name || '-'} · 到期 {formatDate(expiring.end_date)}
+                    </Text>
+                  </View>
+                </View>
               )}
-            </View>
 
-            {/* 房产状态卡：已出租 / 空置 / 预订 + 比例条 */}
-            <View style={styles.statusCard}>
-              <View style={styles.statusHead}>
-                <View style={styles.perfTitleRow}>
-                  <View style={styles.perfIcon}>
-                    <Ionicons name="home-outline" size={15} color={colors.primary} />
+              {saleTodoDesc && (
+                <View style={[styles.todoRow, styles.todoRowSale]}>
+                  <View style={styles.todoSaleIcon}>
+                    <Ionicons name="pricetag-outline" size={18} color={colors.warning} />
                   </View>
-                  <Text style={styles.statusTitle}>房产状态</Text>
+                  <View style={styles.todoBody}>
+                    <Text style={styles.todoTitle} numberOfLines={1}>卖房委托 · 估价待确认</Text>
+                    <Text style={styles.todoSub} numberOfLines={2}>{saleTodoDesc}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.primaryBtn}
+                    activeOpacity={0.85}
+                    onPress={() => go('OwnerMarketing')}
+                  >
+                    <Text style={styles.primaryBtnText}>去确认</Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.statusHint}>共 {properties.length} 套</Text>
-              </View>
-              <View style={styles.financeKpis}>
-                <View style={styles.financeKpi}>
-                  <Text style={[styles.financeNum, { color: colors.success }]}>{statusCounts.rented}</Text>
-                  <Text style={styles.financeLabel}>已出租</Text>
-                </View>
-                <View style={styles.perfKpiDivider} />
-                <View style={styles.financeKpi}>
-                  <Text style={[styles.financeNum, { color: colors.primary }]}>{statusCounts.vacant}</Text>
-                  <Text style={styles.financeLabel}>空置</Text>
-                </View>
-                <View style={styles.perfKpiDivider} />
-                <View style={styles.financeKpi}>
-                  <Text style={[styles.financeNum, { color: colors.warning }]}>{statusCounts.prebook}</Text>
-                  <Text style={styles.financeLabel}>预订</Text>
-                </View>
-              </View>
-              <View style={styles.ratioBar}>
-                {totalStatus > 0 && (
-                  <>
-                    <View style={[styles.ratioSeg, { flex: statusCounts.rented, backgroundColor: colors.success }]} />
-                    <View style={[styles.ratioSeg, { flex: statusCounts.vacant, backgroundColor: colors.primary }]} />
-                    <View style={[styles.ratioSeg, { flex: statusCounts.prebook, backgroundColor: colors.warning }]} />
-                  </>
-                )}
+              )}
+            </>
+          )}
+        </View>
+
+        {/* ===== 租客报修待审批（无待审批工单时不渲染，避免空卡）===== */}
+        {pendingRepairs.length > 0 && (
+          <View style={[styles.card, styles.repairCard]}>
+            <View style={styles.repairHead}>
+              <Text style={styles.repairTitle}>租客报修待审批</Text>
+              <View style={[styles.miniBadge, { backgroundColor: colors.alpha(colors.warningRgb, 0.12) }]}>
+                <Text style={[styles.miniBadgeText, { color: colors.warning }]}>
+                  {pendingRepairs.length} 条
+                </Text>
               </View>
             </View>
+            {pendingRepairs.map((t, idx) => (
+              <View
+                key={t.id || String(idx)}
+                style={[styles.repairRow, idx === pendingRepairs.length - 1 && styles.repairRowLast]}
+              >
+                <View style={styles.repairIcon}>
+                  <Ionicons name="construct-outline" size={18} color={colors.warning} />
+                </View>
+                <View style={styles.todoBody}>
+                  <Text style={styles.repairRowTitle} numberOfLines={1}>
+                    {propTitleById(t.property_id)} · {t.title || '报修工单'}
+                  </Text>
+                  <Text style={styles.repairRowSub} numberOfLines={1}>
+                    {t.tenant_name || '租客'} · {formatDate(t.created_at)} 提交
+                  </Text>
+                </View>
+                {/* 业主侧暂无审批接口（后端 PATCH 仅 agent+ 可用），跳转「服务」跟进工单 */}
+                <TouchableOpacity
+                  style={styles.primaryBtn}
+                  activeOpacity={0.85}
+                  onPress={() => go('OwnerServices')}
+                >
+                  <Text style={styles.primaryBtnText}>审批</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
 
-            {/* 我的房源：列表标题 */}
-            <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>我的房源</Text>
-              <Text style={styles.sectionHint}>{properties.length} 套</Text>
+        {/* ===== 资产概览 ===== */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>资产概览</Text>
+          <Text style={styles.sectionHint}>共 {properties.length} 套</Text>
+        </View>
+        <View style={styles.card}>
+          <View style={styles.statGrid}>
+            <View style={styles.statCell}>
+              <Text style={styles.statVal}>{properties.length}</Text>
+              <Text style={styles.statLabel}>名下房源</Text>
+            </View>
+            <View style={styles.statCell}>
+              <Text style={[styles.statVal, { color: colors.success }]}>{statusCount.rented}</Text>
+              <Text style={styles.statLabel}>在租房源</Text>
+            </View>
+            <View style={styles.statCell}>
+              <Text style={[styles.statVal, { color: colors.ink3 }]}>{statusCount.vacant}</Text>
+              <Text style={styles.statLabel}>空置房源</Text>
             </View>
           </View>
-        }
-        ListEmptyComponent={
-          <EmptyState
-            icon="key-outline"
-            title="暂无房源"
-            sub="名下还没有房源，去委托挂牌，让平台帮你出租或出售"
-            actionLabel="去委托挂牌"
-            onAction={() => go('OwnerMarketing')}
-          />
-        }
-      />
+
+          {(rentedProp || saleProp) && (
+            <View style={styles.propRow}>
+              {rentedProp && (
+                <TouchableOpacity
+                  style={[styles.propCard, styles.propCardRent]}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('OwnerPropertyDetail' as any, { id: rentedProp.id } as any)}
+                >
+                  <View style={[styles.propThumb, { backgroundColor: `rgba(${colors.primaryRgb}, 0.1)` }]}>
+                    <Ionicons name="home-outline" size={26} color={colors.primary} />
+                  </View>
+                  <View style={styles.propHead}>
+                    <Text style={styles.propName} numberOfLines={1}>{propTitle(rentedProp)}</Text>
+                    <View style={[styles.miniBadge, { backgroundColor: colors.alpha(colors.successRgb, 0.12) }]}>
+                      <Text style={[styles.miniBadgeText, { color: colors.success }]}>在租</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.propMeta} numberOfLines={1}>{propMeta(rentedProp)}</Text>
+                  <Text style={styles.propPrice}>
+                    {money(Number(rentedProp.monthly_rent || 0), rentedProp.currency || currency)}
+                    <Text style={styles.propPriceUnit}>/月</Text>
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {saleProp && (
+                <TouchableOpacity
+                  style={[styles.propCard, styles.propCardSale]}
+                  activeOpacity={0.8}
+                  onPress={() => go('OwnerMarketing')}
+                >
+                  <View style={[styles.propThumb, { backgroundColor: `rgba(${colors.warningRgb}, 0.1)` }]}>
+                    <Ionicons name="pricetag-outline" size={26} color={colors.warning} />
+                  </View>
+                  <View style={styles.propHead}>
+                    <Text style={styles.propName} numberOfLines={1}>{propTitle(saleProp)}</Text>
+                    <View style={[styles.miniBadge, { backgroundColor: colors.alpha(colors.warningRgb, 0.12) }]}>
+                      <Text style={[styles.miniBadgeText, { color: colors.warning }]}>在售</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.propMeta} numberOfLines={1}>{propMeta(saleProp)}</Text>
+                  <Text style={styles.propPrice}>
+                    {money(Number(saleProp.sale_price || 0), saleProp.currency || currency)}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {!rentedProp && !saleProp && (
+            <EmptyState
+              icon="key-outline"
+              title="暂无房源数据"
+              sub="去委托挂牌，让平台帮你出租或出售"
+              actionLabel="去委托挂牌"
+              onAction={() => go('OwnerMarketing')}
+            />
+          )}
+        </View>
+
+        {/* ===== 快捷入口 4 列 ===== */}
+        <View style={styles.quickGrid}>
+          {QUICK_ACTIONS.map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              style={styles.quickCell}
+              activeOpacity={0.7}
+              onPress={() => go(item.route)}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: item.bg }]}>
+                <Ionicons name={item.icon} size={20} color={item.color} />
+              </View>
+              <Text style={styles.quickLabel}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ===== 最近入账 ===== */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>最近入账</Text>
+          <Text style={styles.sectionHint}>{recentIncomes.length} 笔</Text>
+        </View>
+        <View style={styles.card}>
+          {recentIncomes.length === 0 ? (
+            <EmptyState icon="wallet-outline" title="暂无入账记录" sub="租金到账后会在这里按时间列出" />
+          ) : (
+            recentIncomes.map((p, idx) => (
+              <View
+                key={p.id || String(idx)}
+                style={[styles.incomeRow, idx === recentIncomes.length - 1 && styles.incomeRowLast]}
+              >
+                <View style={styles.incomeRowIcon}>
+                  <Ionicons name="cash-outline" size={18} color={colors.success} />
+                </View>
+                <View style={styles.incomeRowBody}>
+                  <Text style={styles.incomeRowTitle} numberOfLines={1}>
+                    {p.property || p.description || '租金入账'}
+                  </Text>
+                  <Text style={styles.incomeRowSub} numberOfLines={1}>
+                    {formatDate(p.paid_at || p.due_date)}
+                  </Text>
+                </View>
+                <View style={styles.incomeRowRight}>
+                  <Text style={styles.incomeRowAmount}>
+                    +{money(Number(p.amount || 0), p.currency || currency)}
+                  </Text>
+                  <View style={[styles.miniBadge, { backgroundColor: colors.alpha(colors.successRgb, 0.12) }]}>
+                    <Text style={[styles.miniBadgeText, { color: colors.success }]}>已到账</Text>
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -326,62 +653,240 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list: { paddingVertical: 8, paddingBottom: 32 },
+  content: { paddingTop: colors.spacing.md, paddingBottom: 32 },
 
-  /* ===== Hero 欢迎区 ===== */
-  hero: {
+  /* ===== 双业务入口 ===== */
+  dualRow: { flexDirection: 'row', gap: 10, paddingHorizontal: colors.spacing.lg, marginBottom: colors.spacing.lg },
+  dualEntry: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
+  },
+  dualEntryRent: { borderLeftWidth: 3, borderLeftColor: colors.primary },
+  dualEntrySale: { borderLeftWidth: 3, borderLeftColor: colors.warning },
+  dualIcon: { width: 34, height: 34, borderRadius: colors.radius.md, alignItems: 'center', justifyContent: 'center' },
+  dualBody: { flex: 1, minWidth: 0 },
+  dualTitle: { fontSize: colors.fontSize.base, fontWeight: '700', color: colors.ink },
+  dualSub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2 },
+
+  /* ===== 预警卡 ===== */
+  warnCard: {
+    marginHorizontal: colors.spacing.lg,
+    marginBottom: colors.spacing.lg,
+    padding: 14,
+    borderRadius: colors.radius.xl,
+    borderWidth: 1,
+    borderColor: colors.alpha(colors.warningRgb, 0.35),
+    backgroundColor: colors.alpha(colors.warningRgb, 0.07),
+  },
+  warnTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  warnIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.alpha(colors.warningRgb, 0.14),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  warnBody: { flex: 1, minWidth: 0 },
+  warnTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  warnDesc: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 3, lineHeight: 18 },
+  warnBtn: {
+    marginTop: colors.spacing.md,
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    borderRadius: colors.radius.md,
+    alignItems: 'center',
+    ...colors.shadow.primary,
+  },
+  warnBtnText: { color: colors.primaryForeground, fontSize: colors.fontSize.base, fontWeight: '700' },
+
+  /* ===== 区块标题 ===== */
+  sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 28,
-    paddingBottom: 20,
-    backgroundColor: colors.background,
+    paddingHorizontal: colors.spacing.xl,
+    marginBottom: 10,
   },
-  heroLeft: { flex: 1 },
-  heroHi: {
-    fontSize: 24,
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  sectionHint: { fontSize: colors.fontSize.sm, color: colors.ink3, fontWeight: '500' },
+
+  /* ===== 通用卡片 ===== */
+  card: {
+    marginHorizontal: colors.spacing.lg,
+    marginBottom: colors.spacing.lg,
+    padding: colors.spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
+  },
+  mutedSm: { fontSize: colors.fontSize.sm, color: colors.ink3 },
+
+  /* ===== 收益总览 ===== */
+  incomeHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  incomeDue: {
+    fontSize: colors.fontSize['2xl'],
     fontWeight: '800',
     color: colors.ink,
-    letterSpacing: -0.3,
-    marginBottom: 4,
+    letterSpacing: -0.4,
+    fontVariant: ['tabular-nums'],
   },
-  heroRole: {
-    fontSize: 13,
-    color: colors.ink3,
-    backgroundColor: colors.surface2,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+  incomeCols: { flexDirection: 'row', gap: 12, marginTop: colors.spacing.lg },
+  incomeCol: {
+    flex: 1,
+    padding: 10,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  incomeColWarn: {
+    borderColor: colors.alpha(colors.warningRgb, 0.35),
+    backgroundColor: colors.alpha(colors.warningRgb, 0.07),
+  },
+  incomeColVal: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginTop: 4,
+    fontVariant: ['tabular-nums'],
+  },
+  progressTrack: {
+    height: 8,
     borderRadius: colors.radius.full,
+    backgroundColor: colors.surface2,
     overflow: 'hidden',
-    fontWeight: '500',
+    marginTop: colors.spacing.lg,
   },
-  heroAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
+  progressBar: { height: 8, borderRadius: colors.radius.full, backgroundColor: colors.primary },
+  incomeFoot: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  incomeRate: { fontSize: colors.fontSize.sm, color: colors.primary, fontWeight: '700' },
+
+  /* ===== 待处理事项 ===== */
+  todoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  todoRowSale: { marginTop: colors.spacing.lg },
+  todoSaleIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.alpha(colors.warningRgb, 0.14),
     alignItems: 'center',
     justifyContent: 'center',
-    ...colors.shadow.primary,
   },
-  heroAvatarText: { fontSize: 20, fontWeight: '800', color: colors.primaryForeground },
+  todoBody: { flex: 1, minWidth: 0 },
+  todoTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  todoSub: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 3, lineHeight: 18 },
+  ghostBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface2,
+  },
+  ghostBtnText: { fontSize: colors.fontSize.sm, fontWeight: '600', color: colors.ink2 },
+  primaryBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.primary,
+  },
+  primaryBtnText: { fontSize: colors.fontSize.sm, fontWeight: '700', color: colors.primaryForeground },
 
-  /* ===== 快捷入口（无外壳轻网格，3 项一行） ===== */
-  actionGrid: {
+  /* ===== 租客报修待审批 ===== */
+  repairCard: { paddingHorizontal: colors.spacing.lg },
+  repairHead: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  repairTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  repairRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
+  repairRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
+  repairIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.alpha(colors.warningRgb, 0.1),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  repairRowTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  repairRowSub: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
+
+  /* ===== 资产概览 ===== */
+  statGrid: { flexDirection: 'row', gap: 10 },
+  statCell: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  statVal: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  statLabel: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
+  propRow: { flexDirection: 'row', gap: 10, marginTop: colors.spacing.md },
+  propCard: {
+    flex: 1,
+    padding: 10,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  propCardRent: { backgroundColor: colors.alpha(colors.primaryRgb, 0.04) },
+  propCardSale: { backgroundColor: colors.alpha(colors.warningRgb, 0.05) },
+  propThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: colors.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 8,
   },
-  actionCell: {
-    width: '33.33%',
-    alignItems: 'center',
-    paddingVertical: 10,
-    gap: 6,
+  propHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  propName: { flex: 1, fontSize: colors.fontSize.base, fontWeight: '700', color: colors.ink },
+  propMeta: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 3 },
+  propPrice: {
+    fontSize: colors.fontSize.base,
+    fontWeight: '700',
+    color: colors.primary,
+    marginTop: 6,
+    fontVariant: ['tabular-nums'],
   },
-  actionCellIcon: {
+  propPriceUnit: { fontSize: colors.fontSize.xs, fontWeight: '400', color: colors.ink3 },
+  miniBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: colors.radius.full },
+  miniBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
+
+  /* ===== 快捷入口 ===== */
+  quickGrid: {
+    flexDirection: 'row',
+    marginHorizontal: colors.spacing.md,
+    marginBottom: colors.spacing.lg,
+  },
+  quickCell: { width: '25%', alignItems: 'center', paddingVertical: 10, gap: 6 },
+  quickIcon: {
     width: 44,
     height: 44,
     borderRadius: 14,
@@ -389,97 +894,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionCellLabel: { fontSize: 12, color: colors.ink2, fontWeight: '600' },
+  quickLabel: { fontSize: colors.fontSize.sm, color: colors.ink2, fontWeight: '600' },
 
-  /* ===== 财务概览卡（复用 perfCard 系列） ===== */
-  perfCard: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    ...colors.shadow.sm,
-  },
-  perfHead: {
+  /* ===== 最近入账 ===== */
+  incomeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
-  perfTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  perfIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
-    backgroundColor: `rgba(${colors.primaryRgb}, 0.12)`,
+  incomeRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
+  incomeRowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.alpha(colors.successRgb, 0.12),
     alignItems: 'center',
     justifyContent: 'center',
   },
-  perfMore: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
-  perfTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
-  perfKpiDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-
-  /* ==== KPI（财务 + 状态共用） ===== */
-  financeKpis: { flexDirection: 'row', alignItems: 'stretch', marginBottom: 12 },
-  financeKpi: { flex: 1, alignItems: 'center', gap: 4 },
-  financeNum: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-    lineHeight: 24,
+  incomeRowBody: { flex: 1, minWidth: 0 },
+  incomeRowTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  incomeRowSub: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
+  incomeRowRight: { alignItems: 'flex-end', gap: 3 },
+  incomeRowAmount: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.success,
     fontVariant: ['tabular-nums'],
   },
-  financeLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
-
-  /* ===== 房产状态卡 ===== */
-  statusCard: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    ...colors.shadow.sm,
-  },
-  statusHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  statusTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
-  statusHint: { fontSize: 12, color: colors.ink3, fontWeight: '500', fontVariant: ['tabular-nums'] },
-  ratioBar: {
-    flexDirection: 'row',
-    height: 8,
-    borderRadius: colors.radius.full,
-    overflow: 'hidden',
-    backgroundColor: colors.surface2,
-  },
-  ratioSeg: { height: 8 },
-
-  /* ===== 区块标题 ===== */
-  sectionHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
-  sectionHint: { fontSize: 12, color: colors.ink3, fontWeight: '500', fontVariant: ['tabular-nums'] },
-
-  /* ===== 房源卡片 ===== */
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  address: { flex: 1, color: colors.ink2, fontSize: 13, marginRight: 8 },
-  badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
-  badgeText: { color: colors.primaryForeground, fontSize: 12 },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  rent: { color: colors.primary, fontSize: 16, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  meta: { color: colors.ink3, fontSize: 13 },
-  empty: { textAlign: 'center', color: colors.ink3, marginTop: 32 },
 });

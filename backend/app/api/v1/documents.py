@@ -15,22 +15,38 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import func
+from sqlalchemy import false
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user
-from app.core.pagination import PaginationParams, paginate
+from app.core.auth import get_current_user, get_current_user_allow_query_token
+from app.core.pagination import PaginationParams, paginate_query
 from app.core.uploads import HEAD_BYTES, detect_document_mime
-from app.models import Document, DocumentType, Owner, User, UserRole
+from app.models import (
+    Document,
+    DocumentType,
+    Lease,
+    Owner,
+    Tenant,
+    User,
+    UserRole,
+)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-# 文档落盘目录（backend/uploads/documents），由 /uploads 静态服务暴露
+# 文档落盘目录（backend/uploads/documents）。
+# 注意：该目录**不**由 /uploads 静态服务托管（见 main.py 的静态挂载说明），
+# 证件、合同等敏感文件一律经下方带鉴权的读取接口分发。
 UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "documents"
 MAX_DOCUMENT_SIZE = 20 * 1024 * 1024  # 单个文档 20MB
+
+# 落库的统一前缀：既用于生成，也用于读取时反解磁盘路径（白名单）
+STORED_URL_PREFIX = "/uploads/documents/"
+
+# 可全量访问文档的角色（内部员工侧）
+_STAFF_ROLES = (UserRole.admin, UserRole.agent, UserRole.employee)
 
 # 扩展名 -> (落库 MIME, 允许的文件头识别结果)
 # 扩展名可随意改，所以必须再按文件头确认「内容属于这一类」，否则改名即可上传脚本。
@@ -52,6 +68,91 @@ ALLOWED_DOCUMENT_TYPES: dict[str, tuple[str, set]] = {
         {"application/zip"},
     ),
 }
+
+
+def _owner_id_of(session: Session, user: User) -> Optional[uuid.UUID]:
+    """取当前账号对应的业主档案 id（未建档返回 None）。"""
+    owner = session.exec(
+        select(Owner).where(Owner.user_id == user.id, Owner.deleted_at.is_(None))
+    ).first()
+    return owner.id if owner else None
+
+
+def _lease_ids_of(session: Session, user: User) -> List[uuid.UUID]:
+    """取当前租客名下全部租约 id。"""
+    tenant = session.exec(
+        select(Tenant).where(Tenant.user_id == user.id, Tenant.deleted_at.is_(None))
+    ).first()
+    if not tenant:
+        return []
+    return list(session.exec(select(Lease.id).where(Lease.tenant_id == tenant.id)).all())
+
+
+def _can_read_document(session: Session, user: User, doc: Document) -> bool:
+    """文档可见性判定。
+
+    - 管理员/经纪/员工：全量（内部作业需要跨业主查阅）
+    - 业主：仅本人名下文档
+    - 租客：仅与本人租约关联的文档（未关联租约的文档不对租客开放）
+    """
+    if user.role in _STAFF_ROLES:
+        return True
+    if user.role == UserRole.owner:
+        return doc.owner_id == _owner_id_of(session, user)
+    if user.role == UserRole.tenant:
+        return doc.lease_id is not None and doc.lease_id in _lease_ids_of(session, user)
+    return False
+
+
+def _visibility_conditions(session: Session, user: User) -> list:
+    """把可见性规则翻译成查询条件（列表接口用，避免"看得见却打不开"）。"""
+    if user.role in _STAFF_ROLES:
+        return []
+    if user.role == UserRole.owner:
+        owner_id = _owner_id_of(session, user)
+        return [Document.owner_id == owner_id] if owner_id else [false()]
+    if user.role == UserRole.tenant:
+        lease_ids = _lease_ids_of(session, user)
+        return [Document.lease_id.in_(lease_ids)] if lease_ids else [false()]
+    return [false()]
+
+
+def _validate_stored_url(file_url: str) -> str:
+    """校验入库的 file_url：只接受服务端生成的站内路径。
+
+    此前 `create_document` 原样接受调用方传入的任意 URL，而下载接口又
+    `RedirectResponse(url=doc.file_url)`，等于把正规域名出借给任意钓鱼链接做
+    开放重定向。此处收口到「只能是我们自己生成的那种路径」。
+    """
+    value = (file_url or "").strip()
+    if "://" in value or not value.startswith(STORED_URL_PREFIX):
+        raise HTTPException(
+            status_code=400,
+            detail=f"file_url must be an internal {STORED_URL_PREFIX} path",
+        )
+    name = value[len(STORED_URL_PREFIX):]
+    if not name or "/" in name or "\\" in name or name in {".", ".."}:
+        raise HTTPException(
+            status_code=400, detail="file_url must not contain directory traversal"
+        )
+    return value
+
+
+def _stored_file_path(doc: Document) -> Path:
+    """把落库的 file_url 反解为磁盘路径，并确保不逃出文档目录。"""
+    url = _validate_stored_url(doc.file_url)
+    path = (UPLOAD_DIR / url[len(STORED_URL_PREFIX):]).resolve()
+    if UPLOAD_DIR.resolve() not in path.parents or not path.is_file():
+        raise HTTPException(status_code=404, detail="Document file not found on disk")
+    return path
+
+
+def _attachment_name(doc: Document, path: Path) -> str:
+    """拼下载文件名：标题 + 落盘扩展名，去掉可能破坏响应头的字符。"""
+    stem = "".join(
+        ch for ch in (doc.title or "document") if ch.isprintable() and ch not in '"\\\r\n'
+    ).strip()
+    return f"{stem or 'document'}{path.suffix}"
 
 
 def _owner_id_for_upload(
@@ -97,8 +198,9 @@ def list_documents(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """文档列表（按 type/property_id/lease_id 筛选）。"""
+    """文档列表（按 type/property_id/lease_id 筛选，并按角色收敛可见范围）。"""
     conditions = [Document.deleted_at.is_(None)]
+    conditions.extend(_visibility_conditions(session, user))
     if type:
         conditions.append(Document.type == type)
     if property_id:
@@ -107,12 +209,7 @@ def list_documents(
         conditions.append(Document.lease_id == lease_id)
 
     stmt = select(Document).where(*conditions).order_by(Document.created_at.desc())
-    count_stmt = select(func.count(Document.id)).where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(
-        stmt.offset(pagination.offset).limit(pagination.limit)
-    ).all()
-    return paginate(items, total, pagination)
+    return paginate_query(session, stmt, pagination)
 
 
 @router.post("")
@@ -121,8 +218,15 @@ def create_document(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """上传文档元数据（文件 URL 由前端上传到 MinIO 后传入）。"""
-    doc = Document(**req.model_dump(), uploaded_by=user.id)
+    """登记文档元数据（文件由 /documents/upload 落盘后回填 URL）。
+
+    `file_url` 只接受服务端生成的 `/uploads/documents/<文件名>` 形式，
+    不允许外部地址，避免库里存进任意链接后被下载接口当作跳转目标。
+    """
+    doc = Document(
+        **{**req.model_dump(), "file_url": _validate_stored_url(req.file_url)},
+        uploaded_by=user.id,
+    )
     session.add(doc)
     session.commit()
     session.refresh(doc)
@@ -142,7 +246,8 @@ def upload_document(
 ):
     """上传文档文件并落库元数据（multipart）。
 
-    文件落到本地 `uploads/documents` 并由 /uploads 静态服务暴露。
+    文件落到本地 `uploads/documents`，该目录不对外静态托管，读取需带令牌
+    走 `GET /documents/{id}/file`（预览）或 `/download`（下载）。
     文档中心的「上传文档」入口此前只有前端占位提示，没有任何后端上传能力。
 
     安全校验：扩展名白名单 + 文件头魔数确认（挡住改名伪装）+ 体积上限 +
@@ -207,7 +312,7 @@ def upload_document(
         lease_id=lease_id,
         type=type,
         title=(title or "").strip() or os.path.splitext(original_name)[0],
-        file_url=f"/uploads/documents/{filename}",
+        file_url=f"{STORED_URL_PREFIX}{filename}",
         file_size=size,
         mime_type=file.content_type or canonical_mime,
         file_hash=digest.hexdigest(),
@@ -229,11 +334,8 @@ def delete_document(
     doc = session.get(Document, document_id)
     if not doc or doc.deleted_at:
         raise HTTPException(status_code=404, detail="Document not found")
-    if user.role == UserRole.owner:
-        # 业主只能删自己名下的文档
-        if doc.owner_id != _owner_id_for_upload(session, user, None):
-            raise HTTPException(status_code=403, detail="Access denied")
-    elif user.role == UserRole.tenant:
+    # 租客一律不可删；业主/员工沿用可见性规则（业主限本人名下）
+    if user.role == UserRole.tenant or not _can_read_document(session, user, doc):
         raise HTTPException(status_code=403, detail="Access denied")
     doc.deleted_at = datetime.utcnow()
     session.add(doc)
@@ -247,21 +349,55 @@ def get_document(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """获取文档详情。"""
+    """获取文档详情（需在可见范围内）。"""
     doc = session.get(Document, document_id)
     if not doc or doc.deleted_at:
         raise HTTPException(status_code=404, detail="Document not found")
+    if not _can_read_document(session, user, doc):
+        raise HTTPException(status_code=403, detail="Access denied")
     return doc
+
+
+@router.get("/{document_id}/file")
+def read_document_file(
+    document_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user_allow_query_token),
+):
+    """预览文档原文（内联返回，供 <img> / 小程序 previewImage 使用）。
+
+    认证支持 `Authorization` 头或 `?token=`（见 `get_current_user_allow_query_token`）。
+    文件从磁盘流式回传，不暴露也不重定向到落库路径。
+    """
+    doc = session.get(Document, document_id)
+    if not doc or doc.deleted_at:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not _can_read_document(session, user, doc):
+        raise HTTPException(status_code=403, detail="Access denied")
+    path = _stored_file_path(doc)
+    return FileResponse(path, media_type=doc.mime_type or "application/octet-stream")
 
 
 @router.get("/{document_id}/download")
 def download_document(
     document_id: uuid.UUID,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user_allow_query_token),
 ):
-    """下载文档（重定向到 MinIO presigned URL）。"""
+    """下载文档（附带文件名，浏览器按附件处理）。
+
+    此前实现是 `RedirectResponse(url=doc.file_url)`，而 file_url 曾被允许由调用方
+    任意指定，等于把正规域名出借给外部钓鱼链接做开放重定向；现在一律由服务端
+    解析磁盘路径后流式回传，重定向面彻底移除。
+    """
     doc = session.get(Document, document_id)
     if not doc or doc.deleted_at:
         raise HTTPException(status_code=404, detail="Document not found")
-    return RedirectResponse(url=doc.file_url)
+    if not _can_read_document(session, user, doc):
+        raise HTTPException(status_code=403, detail="Access denied")
+    path = _stored_file_path(doc)
+    return FileResponse(
+        path,
+        media_type=doc.mime_type or "application/octet-stream",
+        filename=_attachment_name(doc, path),
+    )

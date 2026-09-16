@@ -3,12 +3,11 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import require_admin, require_employee
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import PaginationParams, paginate_query
 from app.models import CommissionSettlement, Employee, SettlementStatus, User
 
 router = APIRouter(prefix="/commissions", tags=["commissions"])
@@ -48,12 +47,7 @@ def my_commissions(
         .where(*conditions)
         .order_by(CommissionSettlement.created_at.desc())
     )
-    count_stmt = select(func.count(CommissionSettlement.id)).where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(
-        stmt.offset(pagination.offset).limit(pagination.limit)
-    ).all()
-    return paginate(items, total, pagination)
+    return paginate_query(session, stmt, pagination)
 
 
 @router.get("")
@@ -76,12 +70,7 @@ def list_commissions(
         .where(*conditions)
         .order_by(CommissionSettlement.created_at.desc())
     )
-    count_stmt = select(func.count(CommissionSettlement.id)).where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(
-        stmt.offset(pagination.offset).limit(pagination.limit)
-    ).all()
-    return paginate(items, total, pagination)
+    return paginate_query(session, stmt, pagination)
 
 
 @router.post("/{commission_id}/approve")

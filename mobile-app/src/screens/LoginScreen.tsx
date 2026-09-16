@@ -26,6 +26,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [langVisible, setLangVisible] = useState(false);
+  // 记住我：勾选则持久化 token，取消勾选则本次登录仅在内存态生效
+  const [remember, setRemember] = useState(true);
   const { t, lang, setLang } = useI18n();
   const navigation = useNavigation<any>();
 
@@ -42,7 +44,11 @@ export default function LoginScreen() {
       if (!token || !user) {
         throw new Error('登录响应格式异常');
       }
-      await tokenStorage.set(token);
+      if (remember) {
+        await tokenStorage.set(token);
+      } else {
+        await tokenStorage.remove();
+      }
       useAuthStore.setState({ user, token, isAuthenticated: true });
     } catch (err: any) {
       const message =
@@ -81,11 +87,15 @@ export default function LoginScreen() {
           <Text style={styles.brandTitle}>
             <Text style={styles.brandTitleAccent}>VIP</Text> Rental
           </Text>
-          <Text style={styles.brandSubtitle}>房地产租赁管理系统</Text>
+          <Text style={styles.brandSubtitle}>{t('login.tagline')}</Text>
+          <Text style={styles.brandDesc}>{t('login.taglineSub')}</Text>
         </View>
 
         <View style={styles.formCard}>
           <View style={styles.form}>
+            {/* 欢迎区（对齐原型右卡标题） */}
+            <Text style={styles.cardTitle}>{t('login.welcome')}</Text>
+            <Text style={styles.cardSubtitle}>{t('login.subtitle')}</Text>
             <Text style={styles.label}>{t('login.email')}</Text>
             <TextInput
               style={[styles.input, email.length > 0 && styles.inputFocused]}
@@ -108,6 +118,29 @@ export default function LoginScreen() {
               secureTextEntry
               textContentType="password"
             />
+            {/* 记住我 / 忘记密码 */}
+            <View style={styles.helperRow}>
+              <TouchableOpacity
+                style={styles.rememberRow}
+                activeOpacity={0.8}
+                onPress={() => setRemember((v) => !v)}
+              >
+                <Ionicons
+                  name={remember ? 'checkbox' : 'square-outline'}
+                  size={18}
+                  color={remember ? colors.primary : colors.ink3}
+                />
+                <Text style={styles.rememberText}>{t('login.remember')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() =>
+                  Alert.alert('忘记密码', '请联系管理员在「账号管理」中重置您的登录密码。')
+                }
+              >
+                <Text style={styles.forgotText}>{t('login.forgot')}</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
               style={[styles.button, loading && styles.buttonDisabled]}
               onPress={handleLogin}
@@ -121,6 +154,24 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* 品牌特性（对齐原型左侧品牌区特性列表） */}
+        <View style={styles.features}>
+          {(['login.feature1', 'login.feature2', 'login.feature3', 'login.feature4'] as const).map(
+            (key) => (
+              <View key={key} style={styles.featureRow}>
+                <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                <Text style={styles.featureText}>{t(key)}</Text>
+              </View>
+            ),
+          )}
+        </View>
+
+        {/* 页脚：无自助注册，需管理员开通 */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>{t('login.noAccount')}</Text>
+          <Text style={styles.footerLink}>{t('login.contactAdmin')}</Text>
         </View>
 
         {/* 测试面板入口 */}
@@ -205,7 +256,14 @@ const styles = StyleSheet.create({
   },
   brandSubtitle: {
     fontSize: 14,
+    color: colors.ink2,
+    textAlign: 'center',
+  },
+  brandDesc: {
+    fontSize: 12,
     color: colors.ink3,
+    textAlign: 'center',
+    marginTop: 6,
   },
   formCard: {
     backgroundColor: colors.surface,
@@ -218,6 +276,47 @@ const styles = StyleSheet.create({
   form: {
     width: '100%',
   },
+  /* 卡片欢迎区 */
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.ink,
+    letterSpacing: -0.3,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: colors.ink3,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  /* 记住我 / 忘记密码 */
+  helperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+  rememberText: { fontSize: 13, color: colors.ink2 },
+  forgotText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  /* 品牌特性 */
+  features: {
+    marginTop: 24,
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  featureText: { fontSize: 13, color: colors.ink2 },
+  /* 页脚 */
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 20,
+  },
+  footerText: { fontSize: 13, color: colors.ink3 },
+  footerLink: { fontSize: 13, color: colors.primary, fontWeight: '600' },
   label: {
     fontSize: 14,
     color: colors.ink,
@@ -278,7 +377,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: colors.radius.full,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -288,7 +387,7 @@ const styles = StyleSheet.create({
   },
   langOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.45)',
+    backgroundColor: colors.alpha('0,0,0', 0.45),
     justifyContent: 'center',
     alignItems: 'center',
   },

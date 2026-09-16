@@ -72,11 +72,25 @@ def content_hash(content: str) -> str:
 
 
 def _signing_key() -> bytes:
-    return settings.CONTRACT_SIGNING_SECRET.encode("utf-8")
+    """取合同签名密钥；未配置时 fail closed。
+
+    该配置项默认值已改为空串（原先是一个公开的示例值）。用空/示例密钥做 HMAC
+    等价于没有签名——任何人都能伪造出"校验通过"的合同，故这里直接拒绝签名。
+    """
+    secret = (settings.CONTRACT_SIGNING_SECRET or "").strip()
+    if not secret:
+        raise RuntimeError(
+            "CONTRACT_SIGNING_SECRET 未配置：拒绝签发电子合同签名，"
+            "请在后端 .env 中设置强随机密钥。"
+        )
+    return secret.encode("utf-8")
 
 
 def sign_digest(data: str) -> str:
     """对内容做数字签名：优先 RSA-256，退回 HMAC-SHA256。"""
+    # 先取密钥（未配置时抛错）。RSA 分支并不直接使用该密钥，但同样要求必须配置：
+    # 否则"没配密钥"的环境仍会产出带签名的合同，安全性全凭签名算法本身，难以审计。
+    key_material = _signing_key()
     if _HAS_CRYPTO:
         try:
             # 用 SECRET 派生 RSA 私钥（确定性），便于离线重建验证
@@ -85,7 +99,7 @@ def sign_digest(data: str) -> str:
             return sig.hex()
         except Exception:
             pass
-    return hmac.new(_signing_key(), data.encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.new(key_material, data.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def signature_svg(name: str, stamp: str) -> str:

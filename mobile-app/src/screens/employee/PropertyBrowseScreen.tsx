@@ -1,0 +1,712 @@
+/**
+ * 员工端房源浏览：搜索 + 区域/租金/户型/排序筛选 + 房源卡片（收藏 / 分享客户 / 预约带看）+ 加载更多
+ * 原型：employee-mobile-property-browse.html（底部导航「房源」Tab）
+ * 数据源：/properties（分页 + 关键词/区域同义词/租金区间/户型/排序）、/favorites
+ */
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  Share,
+  Alert,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import colors from '@/theme/colors';
+import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
+import api from '@/lib/api';
+import { favoritesApi } from '@/services/api';
+import { AREA_GROUPS } from '@/data/locationArea';
+
+const PAGE_SIZE = 10;
+
+interface PropertyItem {
+  id: string;
+  room_number?: string | null;
+  building?: string | null;
+  address?: string | null;
+  property_type?: string | null;
+  monthly_rent?: number;
+  currency?: string;
+  status?: string | null;
+  size_sqm?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  floor?: number | null;
+  furnished?: boolean;
+  photos?: unknown[] | null;
+  video_url?: string | null;
+}
+
+const TYPE_META: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+  apartment: { label: '住宅', icon: 'business-outline', color: colors.primary },
+  condo: { label: '公寓', icon: 'business-outline', color: colors.info },
+  house: { label: '别墅', icon: 'home-outline', color: colors.success },
+  villa: { label: '别墅', icon: 'home-outline', color: colors.success },
+  commercial: { label: '商铺', icon: 'storefront-outline', color: colors.warning },
+  office: { label: '写字楼', icon: 'business-outline', color: colors.ink2 },
+};
+
+// 租金区间（与原型「租金」下拉对应，走接口 price_min / price_max）
+const PRICE_RANGES: { key: string; label: string; min?: number; max?: number }[] = [
+  { key: '', label: '不限' },
+  { key: 'u3', label: '3000 以下', min: 0, max: 3000 },
+  { key: '3-6', label: '3000-6000', min: 3000, max: 6000 },
+  { key: '6-10', label: '6000-10000', min: 6000, max: 10000 },
+  { key: 'g10', label: '10000 以上', min: 10000 },
+];
+
+// 户型（走接口 bedrooms_min / bedrooms_max）
+const BEDROOM_OPTIONS: { key: string; label: string; min?: number; max?: number }[] = [
+  { key: '', label: '不限' },
+  { key: '1', label: '1 室', min: 1, max: 1 },
+  { key: '2', label: '2 室', min: 2, max: 2 },
+  { key: '3', label: '3 室及以上', min: 3 },
+];
+
+const SORT_OPTIONS: { key: string; label: string }[] = [
+  { key: 'latest', label: '最新发布' },
+  { key: 'price_asc', label: '租金从低到高' },
+  { key: 'price_desc', label: '租金从高到低' },
+  { key: 'area_desc', label: '面积从大到小' },
+];
+
+const ALL_DISTRICTS = AREA_GROUPS.flatMap((g) => g.children);
+
+const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
+
+type OpenTab = null | 'region' | 'price' | 'layout' | 'sort';
+
+export default function PropertyBrowseScreen() {
+  const navigation = useNavigation<any>();
+  const [items, setItems] = useState<PropertyItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [keyword, setKeyword] = useState('');
+  const [districtKey, setDistrictKey] = useState('');
+  const [priceKey, setPriceKey] = useState('');
+  const [bedKey, setBedKey] = useState('');
+  const [sortKey, setSortKey] = useState('latest');
+  const [openTab, setOpenTab] = useState<OpenTab>(null);
+  const [favSet, setFavSet] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const firstLoad = useRef(true);
+
+  // 组装查询参数：区域走关键词同义词（keywords 需重复参数，故指定 paramsSerializer）
+  const buildParams = useCallback(
+    (targetPage: number) => {
+      const params: Record<string, unknown> = { page: targetPage, page_size: PAGE_SIZE, sort: sortKey };
+      const kw = keyword.trim();
+      if (kw) params.q = kw;
+      const district = ALL_DISTRICTS.find((d) => d.key === districtKey);
+      if (district) params.keywords = district.kws;
+      const price = PRICE_RANGES.find((p) => p.key === priceKey);
+      if (price?.min !== undefined) params.price_min = price.min;
+      if (price?.max !== undefined) params.price_max = price.max;
+      const bed = BEDROOM_OPTIONS.find((b) => b.key === bedKey);
+      if (bed?.min !== undefined) params.bedrooms_min = bed.min;
+      if (bed?.max !== undefined) params.bedrooms_max = bed.max;
+      return params;
+    },
+    [keyword, districtKey, priceKey, bedKey, sortKey],
+  );
+
+  const load = useCallback(
+    async (options?: { nextPage?: number }) => {
+      const targetPage = options?.nextPage ?? 1;
+      try {
+        const res = await api.get('/properties', {
+          params: buildParams(targetPage),
+          paramsSerializer: { indexes: null },
+        });
+        const data = res.data as { items?: PropertyItem[]; total?: number; total_pages?: number };
+        const list = Array.isArray(data) ? (data as unknown as PropertyItem[]) : (data?.items ?? []);
+        setItems((prev) => (targetPage === 1 ? list : [...prev, ...list]));
+        setTotal(data?.total ?? list.length);
+        setTotalPages(data?.total_pages ?? 1);
+        setPage(targetPage);
+      } catch {
+        if (targetPage === 1) {
+          setItems([]);
+          setTotal(0);
+          setTotalPages(1);
+        }
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        setRefreshing(false);
+      }
+    },
+    [buildParams],
+  );
+
+  // 筛选变化后重新查询（关键词做 400ms 防抖）
+  useEffect(() => {
+    if (firstLoad.current) {
+      firstLoad.current = false;
+      load({ nextPage: 1 });
+      return;
+    }
+    const timer = setTimeout(() => load({ nextPage: 1 }), 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keyword, districtKey, priceKey, bedKey, sortKey]);
+
+  // 批量取收藏状态
+  useEffect(() => {
+    if (items.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      items.map((p) =>
+        favoritesApi
+          .status(p.id)
+          .then((r: any) => ({ id: p.id, ok: !!r?.data?.favorited }))
+          .catch(() => ({ id: p.id, ok: false })),
+      ),
+    ).then((rows) => {
+      if (cancelled) return;
+      const map: Record<string, boolean> = {};
+      rows.forEach((r) => {
+        map[r.id] = r.ok;
+      });
+      setFavSet(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load({ nextPage: 1 });
+  }, [load]);
+
+  const onLoadMore = useCallback(async () => {
+    if (loadingMore || page >= totalPages) return;
+    setLoadingMore(true);
+    await load({ nextPage: page + 1 });
+  }, [load, loadingMore, page, totalPages]);
+
+  const toggleFav = async (p: PropertyItem) => {
+    const current = !!favSet[p.id];
+    try {
+      if (current) {
+        await favoritesApi.remove(p.id);
+      } else {
+        await favoritesApi.toggle(p.id);
+      }
+      setFavSet((s) => ({ ...s, [p.id]: !current }));
+    } catch {
+      Alert.alert('操作失败', '请稍后重试');
+    }
+  };
+
+  // 分享客户：调用系统分享，把房源关键信息发给客户
+  const shareToClient = async (p: PropertyItem) => {
+    const title = [p.room_number, p.building].filter(Boolean).join(' ') || p.address || '房源';
+    const price = `${symOf(p.currency)}${Number(p.monthly_rent || 0).toLocaleString()}/月`;
+    const spec = [
+      p.size_sqm ? `${p.size_sqm}㎡` : null,
+      p.bedrooms ? `${p.bedrooms}室` : null,
+      p.bathrooms ? `${p.bathrooms}卫` : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    try {
+      await Share.share({
+        message: [title, p.address, [spec, price].filter(Boolean).join(' · ')]
+          .filter(Boolean)
+          .join('\n'),
+      });
+    } catch {
+      // 用户取消分享无需提示
+    }
+  };
+
+  // 筛选 chip 当前展示文案
+  const regionLabel = districtKey
+    ? ALL_DISTRICTS.find((d) => d.key === districtKey)?.label ?? '区域'
+    : '区域';
+  const priceLabel = priceKey
+    ? PRICE_RANGES.find((p) => p.key === priceKey)?.label ?? '租金'
+    : '租金';
+  const bedLabel = bedKey ? BEDROOM_OPTIONS.find((b) => b.key === bedKey)?.label ?? '户型' : '户型';
+  const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label ?? '排序';
+  const chips: { key: Exclude<OpenTab, null>; label: string; active: boolean }[] = [
+    { key: 'region', label: regionLabel, active: !!districtKey },
+    { key: 'price', label: priceLabel, active: !!priceKey },
+    { key: 'layout', label: bedLabel, active: !!bedKey },
+    { key: 'sort', label: sortLabel, active: sortKey !== 'latest' },
+  ];
+
+  const renderCard = (p: PropertyItem) => {
+    const type = TYPE_META[p.property_type ?? 'apartment'] ?? TYPE_META.apartment;
+    const title = [p.room_number, p.building].filter(Boolean).join(' · ') || p.address || '房源';
+    // 特征行：面积 | 楼层 | 装修（均为真实字段）
+    const feature = [
+      p.size_sqm ? `${p.size_sqm}㎡` : null,
+      p.bedrooms ? `${p.bedrooms}室${p.bathrooms ?? 0}卫` : null,
+      p.floor ? `${p.floor} 层` : null,
+      p.furnished ? '精装修' : null,
+    ]
+      .filter(Boolean)
+      .join(' | ');
+    const tags = [
+      p.video_url ? '视频看房' : null,
+      Array.isArray(p.photos) && p.photos.length > 0 ? `${p.photos.length} 张照片` : null,
+      p.status === 'vacant' ? '随时看房' : null,
+    ].filter(Boolean) as string[];
+
+    return (
+      <View key={p.id} style={styles.card}>
+        <View style={[styles.thumb, { backgroundColor: type.color }]}>
+          <Ionicons name={type.icon} size={26} color={colors.primaryForeground} />
+          <TouchableOpacity
+            style={styles.favBtn}
+            activeOpacity={0.8}
+            onPress={() => toggleFav(p)}
+          >
+            <Ionicons
+              name={favSet[p.id] ? 'heart' : 'heart-outline'}
+              size={15}
+              color={colors.primary}
+            />
+          </TouchableOpacity>
+          <View style={styles.typeBadge}>
+            <Text style={[styles.typeBadgeText, { color: type.color }]}>{type.label}</Text>
+          </View>
+        </View>
+
+        <View style={styles.cardBody}>
+          <View style={styles.topRow}>
+            <Text style={styles.name} numberOfLines={1}>
+              {title}
+            </Text>
+            <Text style={styles.price}>
+              {symOf(p.currency)}
+              {Number(p.monthly_rent || 0).toLocaleString()}
+              <Text style={styles.priceUnit}>/月</Text>
+            </Text>
+          </View>
+          <Text style={styles.addr} numberOfLines={1}>
+            {p.address || '暂无地址'}
+          </Text>
+          {feature ? <Text style={styles.feature}>{feature}</Text> : null}
+          {tags.length > 0 ? (
+            <View style={styles.tags}>
+              {tags.map((t) => (
+                <View key={t} style={styles.tag}>
+                  <Text style={styles.tagText}>{t}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={styles.ghostBtn}
+              activeOpacity={0.8}
+              onPress={() => shareToClient(p)}
+            >
+              <Text style={styles.ghostBtnText}>分享客户</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <LoadingState label="正在加载房源…" />
+      </View>
+    );
+  }
+
+  const hasFilter = !!(keyword || districtKey || priceKey || bedKey || sortKey !== 'latest');
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+      }
+    >
+      {/* 搜索 */}
+      <View style={styles.searchWrap}>
+        <Ionicons name="search" size={16} color={colors.ink3} />
+        <TextInput
+          style={styles.searchInput}
+          value={keyword}
+          onChangeText={setKeyword}
+          placeholder="搜索小区、地址、地铁..."
+          placeholderTextColor={colors.ink3}
+          returnKeyType="search"
+        />
+        {keyword ? (
+          <TouchableOpacity onPress={() => setKeyword('')} activeOpacity={0.7}>
+            <Ionicons name="close-circle" size={16} color={colors.ink3} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {/* 筛选 chips（区域 / 租金 / 户型 / 排序） */}
+      <View style={styles.chipRow}>
+        {chips.map((c) => (
+          <TouchableOpacity
+            key={c.key}
+            style={[styles.chip, (c.active || openTab === c.key) && styles.chipActive]}
+            activeOpacity={0.7}
+            onPress={() => setOpenTab(openTab === c.key ? null : c.key)}
+          >
+            <Text
+              numberOfLines={1}
+              style={[styles.chipText, (c.active || openTab === c.key) && styles.chipTextActive]}
+            >
+              {c.label}
+            </Text>
+            <Ionicons
+              name={openTab === c.key ? 'chevron-up' : 'chevron-down'}
+              size={12}
+              color={c.active || openTab === c.key ? colors.primary : colors.ink3}
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* 下拉面板 */}
+      {openTab !== null ? (
+        <View style={styles.panel}>
+          {openTab === 'region' ? (
+            <>
+              <Text style={styles.panelTitle}>按区域筛选</Text>
+              <ScrollView style={styles.panelScroll} nestedScrollEnabled>
+                {AREA_GROUPS.map((g) => (
+                  <View key={g.cityKey} style={styles.panelGroup}>
+                    <Text style={styles.panelGroupTitle}>
+                      {g.country} · {g.cityLabel}
+                    </Text>
+                    <View style={styles.panelChips}>
+                      {g.children.map((d) => (
+                        <TouchableOpacity
+                          key={d.key}
+                          style={[styles.optionChip, districtKey === d.key && styles.optionChipActive]}
+                          onPress={() => {
+                            setDistrictKey(districtKey === d.key ? '' : d.key);
+                            setOpenTab(null);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.optionText,
+                              districtKey === d.key && styles.optionTextActive,
+                            ]}
+                          >
+                            {d.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            </>
+          ) : null}
+
+          {openTab === 'price' ? (
+            <>
+              <Text style={styles.panelTitle}>按租金筛选</Text>
+              <View style={styles.panelChips}>
+                {PRICE_RANGES.map((p) => (
+                  <TouchableOpacity
+                    key={p.key || 'all'}
+                    style={[styles.optionChip, priceKey === p.key && styles.optionChipActive]}
+                    onPress={() => {
+                      setPriceKey(p.key);
+                      setOpenTab(null);
+                    }}
+                  >
+                    <Text style={[styles.optionText, priceKey === p.key && styles.optionTextActive]}>
+                      {p.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          {openTab === 'layout' ? (
+            <>
+              <Text style={styles.panelTitle}>按户型筛选</Text>
+              <View style={styles.panelChips}>
+                {BEDROOM_OPTIONS.map((b) => (
+                  <TouchableOpacity
+                    key={b.key || 'all'}
+                    style={[styles.optionChip, bedKey === b.key && styles.optionChipActive]}
+                    onPress={() => {
+                      setBedKey(b.key);
+                      setOpenTab(null);
+                    }}
+                  >
+                    <Text style={[styles.optionText, bedKey === b.key && styles.optionTextActive]}>
+                      {b.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          {openTab === 'sort' ? (
+            <>
+              <Text style={styles.panelTitle}>排序方式</Text>
+              {SORT_OPTIONS.map((s) => (
+                <TouchableOpacity
+                  key={s.key}
+                  style={styles.sortItem}
+                  onPress={() => {
+                    setSortKey(s.key);
+                    setOpenTab(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.sortText, sortKey === s.key && styles.sortTextActive]}>
+                    {s.label}
+                  </Text>
+                  {sortKey === s.key ? (
+                    <Ionicons name="checkmark" size={16} color={colors.primary} />
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* 结果统计 */}
+      <Text style={styles.countRow}>
+        共 <Text style={styles.countStrong}>{total}</Text> 套房源
+      </Text>
+
+      {items.length === 0 ? (
+        <EmptyState
+          icon="home-outline"
+          title="暂无房源"
+          sub={hasFilter ? '换个关键词或筛选条件试试' : '暂无可浏览的房源'}
+        />
+      ) : (
+        <View style={styles.list}>
+          {items.map((p) => renderCard(p))}
+
+          {page < totalPages ? (
+            <TouchableOpacity
+              style={styles.loadMore}
+              activeOpacity={0.8}
+              onPress={onLoadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={styles.loadMoreText}>加载更多房源</Text>
+              )}
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { paddingBottom: 32 },
+
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: colors.spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: colors.radius.full,
+    paddingHorizontal: colors.spacing.lg,
+    paddingVertical: 9,
+    marginHorizontal: colors.spacing.lg,
+    marginTop: colors.spacing.md,
+  },
+  searchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
+
+  chipRow: {
+    flexDirection: 'row',
+    gap: colors.spacing.sm,
+    paddingHorizontal: colors.spacing.lg,
+    marginTop: colors.spacing.md,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  chipActive: { borderColor: colors.primary, backgroundColor: colors.alpha(colors.primaryRgb, 0.08) },
+  chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500', maxWidth: 84 },
+  chipTextActive: { color: colors.primary, fontWeight: '600' },
+
+  panel: {
+    marginHorizontal: colors.spacing.md,
+    marginTop: colors.spacing.md,
+    padding: colors.spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.card,
+  },
+  panelTitle: { fontSize: 12, color: colors.ink3, marginBottom: colors.spacing.sm },
+  panelScroll: { maxHeight: 240 },
+  panelGroup: { marginBottom: colors.spacing.sm },
+  panelGroupTitle: { fontSize: 12, color: colors.ink2, fontWeight: '600', marginBottom: 6 },
+  panelChips: { flexDirection: 'row', flexWrap: 'wrap', gap: colors.spacing.sm },
+  optionChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface2,
+  },
+  optionChipActive: { backgroundColor: colors.primary },
+  optionText: { fontSize: 13, color: colors.ink2 },
+  optionTextActive: { color: colors.primaryForeground, fontWeight: '600' },
+  sortItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
+  sortText: { fontSize: 14, color: colors.ink2 },
+  sortTextActive: { color: colors.primary, fontWeight: '600' },
+
+  countRow: {
+    fontSize: 13,
+    color: colors.ink3,
+    marginHorizontal: colors.spacing.lg,
+    marginTop: colors.spacing.lg,
+    marginBottom: colors.spacing.sm,
+  },
+  countStrong: { fontSize: 14, fontWeight: '700', color: colors.ink },
+
+  list: { paddingHorizontal: colors.spacing.md, gap: colors.spacing.md },
+  card: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    padding: colors.spacing.md,
+    ...colors.shadow.card,
+  },
+  thumb: {
+    width: 84,
+    height: 84,
+    borderRadius: colors.radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: colors.spacing.md,
+  },
+  favBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.alpha('255, 255, 255', 0.92),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeBadge: {
+    position: 'absolute',
+    bottom: 6,
+    backgroundColor: colors.alpha('255, 255, 255', 0.92),
+    borderRadius: colors.radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  typeBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '700' },
+  cardBody: { flex: 1, minWidth: 0 },
+  topRow: { flexDirection: 'row', alignItems: 'baseline', gap: colors.spacing.sm },
+  name: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.ink },
+  price: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.primary,
+    fontVariant: ['tabular-nums'],
+  },
+  priceUnit: { fontSize: 11, fontWeight: '500', color: colors.ink3 },
+  addr: { fontSize: 12, color: colors.ink3, marginTop: 3 },
+  feature: { fontSize: 12, color: colors.ink2, marginTop: 6 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: colors.spacing.sm },
+  tag: {
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  tagText: { fontSize: colors.fontSize.xs, color: colors.ink2 },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: colors.spacing.sm,
+    marginTop: colors.spacing.md,
+    paddingTop: colors.spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+  },
+  ghostBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: colors.radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primary,
+  },
+  ghostBtnText: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  primaryBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.primary,
+  },
+  primaryBtnText: { fontSize: 12, fontWeight: '600', color: colors.primaryForeground },
+
+  loadMore: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: colors.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  loadMoreText: { fontSize: 14, fontWeight: '600', color: colors.primary },
+});

@@ -1,90 +1,278 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
   Alert,
   Modal,
   ActivityIndicator,
+  TextInput,
+  RefreshControl,
 } from 'react-native';
-import Card from '@/components/Card';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
-import { serviceOrdersApi } from '@/services/api';
-import type { ServiceOrder } from '@/types';
+import api from '@/lib/api';
+import { leasesApi, serviceOrdersApi } from '@/services/api';
+import { useAuthStore } from '@/stores/auth';
 
-interface ServiceItem {
-  id: string;
-  serviceType: ServiceOrder['serviceType'];
-  title: string;
-  description: string;
-  price: number;
+// 真实价目来源：GET /billing/pricing → service_catalog（价税分离，税费另算）
+interface CatalogItem {
+  code: string;
+  label_zh?: string;
+  unit?: string;
+  base_price?: number;
+  [key: string]: any;
 }
 
-const SERVICES: ServiceItem[] = [
-  { id: '1', serviceType: 'cleaning', title: '日常保洁', description: '2 小时日常保洁服务', price: 120 },
-  { id: '2', serviceType: 'aircon', title: '空调清洗', description: '单台分体空调深度清洗', price: 99 },
-  { id: '3', serviceType: 'wifi', title: '宽带办理', description: '千兆宽带按月办理', price: 99 },
-  { id: '4', serviceType: 'utility', title: '水电代付', description: '按月代缴水电燃气费', price: 20 },
-];
+interface ServiceOrderRow {
+  id: string;
+  service_type?: string;
+  status?: string;
+  amount?: number;
+  currency?: string;
+  scheduled_at?: string;
+  created_at?: string;
+  [key: string]: any;
+}
 
-const PAYMENT_METHODS = [
-  { id: 'qr', label: 'QR 码' },
-  { id: 'visa', label: 'Visa' },
-  { id: 'alipay', label: '支付宝' },
-  { id: 'wechat', label: '微信' },
-  { id: 'wise', label: 'Wise' },
-];
+// 服务图标（按真实服务编码映射）
+const SERVICE_ICONS: Record<string, string> = {
+  cleaning: 'sparkles-outline',
+  ac_cleaning: 'snow-outline',
+  wifi_install: 'wifi-outline',
+  utility_payment: 'flash-outline',
+  insurance: 'shield-checkmark-outline',
+  tax_payment: 'receipt-outline',
+  annual_management: 'calendar-outline',
+};
+
+const orderStatusMeta: Record<string, { text: string; color: string; bg: string }> = {
+  pending: { text: '待处理', color: colors.warning, bg: colors.warningLight },
+  assigned: { text: '已派单', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  in_progress: { text: '进行中', color: colors.primary, bg: colors.sidebarActive },
+  completed: { text: '已完成', color: colors.success, bg: colors.successLight },
+  cancelled: { text: '已取消', color: colors.ink3, bg: colors.surface2 },
+};
+
+const formatMoney = (v: any, currency?: string) => {
+  const cur = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : '฿';
+  return `${cur}${Number(v || 0).toLocaleString()}`;
+};
+
+const formatDate = (x?: string) => (x ? x.replace('T', ' ').slice(0, 16) : '—');
 
 export default function ServicesScreen() {
-  const [selected, setSelected] = useState<ServiceItem | null>(null);
+  const user = useAuthStore((state: any) => state.user);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [orders, setOrders] = useState<ServiceOrderRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeLease, setActiveLease] = useState<any>(null);
+
+  // 预约弹窗
+  const [selected, setSelected] = useState<CatalogItem | null>(null);
+  const [timeText, setTimeText] = useState('');
+  const [noteText, setNoteText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const handlePay = async (method: string) => {
+  const load = useCallback(async () => {
+    const [cRes, oRes, lRes] = await Promise.allSettled([
+      api.get('/billing/pricing'),
+      serviceOrdersApi.list({ page: 1, page_size: 20 }),
+      leasesApi.mine(),
+    ]);
+
+    // 服务价目（真实 catalog）
+    if (cRes.status === 'fulfilled') {
+      const cat: any = (cRes.value as any)?.data?.service_catalog ?? {};
+      setCatalog(
+        Object.entries(cat).map(([code, v]: [string, any]) => ({ code, ...v })),
+      );
+    } else {
+      setCatalog([]);
+    }
+
+    // 我的订单（真实订单）
+    if (oRes.status === 'fulfilled') {
+      const d: any = (oRes.value as any)?.data;
+      const items = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
+      setOrders(items as ServiceOrderRow[]);
+    } else {
+      setOrders([]);
+    }
+
+    // 预约需要关联在租房源
+    if (lRes.status === 'fulfilled') {
+      const d: any = (lRes.value as any)?.data;
+      const list = Array.isArray(d) ? d : d?.items ?? [];
+      setActiveLease(
+        (list as any[]).find((l: any) => l?.status === 'active') ?? null,
+      );
+    } else {
+      setActiveLease(null);
+    }
+
+    setLoading(false);
+    setRefreshing(false);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    load();
+  }, [load]);
+
+  // 预约：写入真实服务订单（orderer_id / orderer_type / property_id 必填）
+  const handleBook = async () => {
     if (!selected) return;
+    if (!user?.id) {
+      Alert.alert('提示', '请先登录后再预约服务');
+      return;
+    }
+    if (!activeLease?.property_id) {
+      Alert.alert('提示', '当前没有生效中的租约，无法关联房源预约服务');
+      return;
+    }
     setSubmitting(true);
     try {
       await serviceOrdersApi.create({
-        serviceType: selected.serviceType,
-        title: selected.title,
-        description: selected.description,
-        price: selected.price,
-        paymentMethod: method,
+        orderer_id: user.id,
+        orderer_type: user.role === 'owner' ? 'owner' : 'tenant',
+        property_id: activeLease.property_id,
+        service_type: selected.code,
+        scheduled_at: timeText.trim()
+          ? timeText.trim().replace(' ', 'T')
+          : undefined,
+        amount: Number(selected.base_price || 0),
+        currency: 'THB',
+        notes: noteText.trim() || undefined,
       });
-      Alert.alert('下单成功', `已通过${method}支付 ฿${selected.price}，服务订单已创建`);
+      Alert.alert('预约成功', '您的服务订单已提交，工作人员将尽快与您联系');
       setSelected(null);
+      setTimeText('');
+      setNoteText('');
+      load();
     } catch (err: any) {
-      Alert.alert('下单失败', err?.response?.data?.message || '请稍后重试');
+      Alert.alert(
+        '预约失败',
+        err?.response?.data?.detail || err?.response?.data?.message || '请稍后重试',
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const renderItem = ({ item }: { item: ServiceItem }) => (
-    <Card title={item.title}>
-      <Text style={styles.description}>{item.description}</Text>
-      <View style={styles.footer}>
-        <Text style={styles.price}>฿{item.price}</Text>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => setSelected(item)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.buttonText}>立即下单</Text>
-        </TouchableOpacity>
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
-    </Card>
-  );
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={SERVICES}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-      />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Hero */}
+        <View style={styles.hero}>
+          <Text style={styles.heroTitle}>推荐服务</Text>
+          <Text style={styles.heroSub}>一站式家居服务</Text>
+        </View>
+
+        {/* 服务卡列表（真实价目） */}
+        {catalog.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Ionicons name="construct-outline" size={40} color={colors.ink3} />
+            <Text style={styles.empty}>暂无可用服务</Text>
+          </View>
+        ) : (
+          catalog.map((item) => (
+            <View key={item.code} style={styles.card}>
+              <View style={styles.cardHead}>
+                <View style={styles.cardIcon}>
+                  <Ionicons
+                    name={(SERVICE_ICONS[item.code] ?? 'construct-outline') as any}
+                    size={20}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={styles.cardInfo}>
+                  <Text style={styles.cardTitle}>
+                    {item.label_zh || item.code}
+                  </Text>
+                  <Text style={styles.cardDesc}>
+                    计费单位：{item.unit || '次'} · 不含税
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.cardFooter}>
+                <View style={styles.priceRow}>
+                  <Text style={styles.price}>
+                    {formatMoney(item.base_price, 'THB')}
+                  </Text>
+                  <Text style={styles.priceUnit}>/{item.unit || '次'}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.bookBtn}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setSelected(item);
+                    setTimeText('');
+                    setNoteText('');
+                  }}
+                >
+                  <Text style={styles.bookBtnText}>预约</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )}
+
+        {/* 我的订单（真实订单数据） */}
+        <Text style={styles.sectionTitle}>我的订单</Text>
+        {orders.length === 0 ? (
+          <Text style={styles.empty}>暂无服务订单</Text>
+        ) : (
+          <View style={styles.orderCard}>
+            {orders.map((o) => {
+              const meta = orderStatusMeta[o.status ?? 'pending'] ?? orderStatusMeta.pending;
+              return (
+                <View key={o.id} style={styles.orderItem}>
+                  <View style={styles.orderInfo}>
+                    <Text style={styles.orderTitle}>
+                      {catalog.find((c) => c.code === o.service_type)?.label_zh ??
+                        o.service_type ??
+                        '服务订单'}
+                    </Text>
+                    <Text style={styles.orderMeta}>
+                      {formatDate(o.scheduled_at ?? o.created_at)} ·{' '}
+                      {formatMoney(o.amount, o.currency)}
+                    </Text>
+                  </View>
+                  <View style={[styles.chip, { backgroundColor: meta.bg }]}>
+                    <Text style={[styles.chipText, { color: meta.color }]}>
+                      {meta.text}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* 预约弹窗 */}
       <Modal
         visible={!!selected}
         transparent
@@ -93,28 +281,51 @@ export default function ServicesScreen() {
       >
         <View style={styles.overlay}>
           <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>选择付款方式</Text>
+            <Text style={styles.sheetTitle}>预约服务</Text>
             {selected ? (
               <Text style={styles.sheetSub}>
-                {selected.title} · ¥{selected.price}
+                {selected.label_zh || selected.code} ·{' '}
+                {formatMoney(selected.base_price, 'THB')}/{selected.unit || '次'}
               </Text>
             ) : null}
-            <View style={styles.methodRow}>
-              {PAYMENT_METHODS.map((m) => (
-                <TouchableOpacity
-                  key={m.id}
-                  style={styles.methodBtn}
-                  onPress={() => handlePay(m.label)}
-                  disabled={submitting}
-                >
-                  <Text style={styles.methodText}>{m.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {submitting ? (
-              <ActivityIndicator style={styles.loading} color={colors.primary} />
-            ) : null}
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setSelected(null)}>
+            <Text style={styles.label}>服务时间</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="如 2026-09-20 10:00"
+              placeholderTextColor={colors.ink3}
+              value={timeText}
+              onChangeText={setTimeText}
+            />
+            <Text style={styles.label}>备注（可选）</Text>
+            <TextInput
+              style={[styles.input, styles.textarea]}
+              placeholder="补充说明你的需求"
+              placeholderTextColor={colors.ink3}
+              value={noteText}
+              onChangeText={setNoteText}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+            {!activeLease?.property_id && (
+              <Text style={styles.warn}>当前没有生效中的租约，提交将失败</Text>
+            )}
+            <TouchableOpacity
+              style={[styles.submitBtn, submitting && styles.btnDisabled]}
+              onPress={handleBook}
+              disabled={submitting}
+              activeOpacity={0.8}
+            >
+              {submitting ? (
+                <ActivityIndicator color={colors.primaryForeground} size="small" />
+              ) : (
+                <Text style={styles.submitText}>提交预约</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setSelected(null)}
+            >
               <Text style={styles.cancelText}>取消</Text>
             </TouchableOpacity>
           </View>
@@ -126,27 +337,133 @@ export default function ServicesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  list: { paddingVertical: 8 },
-  description: { fontSize: 13, color: colors.ink2 },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
-  price: { fontSize: 18, color: colors.error, fontWeight: '600' },
-  button: { backgroundColor: colors.primary, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 6 },
-  buttonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '500' },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20 },
-  sheetTitle: { fontSize: 18, fontWeight: '600', color: colors.text, textAlign: 'center' },
-  sheetSub: { fontSize: 14, color: colors.ink2, textAlign: 'center', marginTop: 6 },
-  methodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 20, justifyContent: 'center' },
-  methodBtn: {
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  content: { paddingBottom: 24 },
+  // Hero
+  hero: {
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(22,119,255,0.06)',
+    paddingVertical: 20,
+    marginBottom: 12,
   },
-  methodText: { color: colors.primary, fontSize: 14, fontWeight: '500' },
-  loading: { marginTop: 16 },
-  cancelBtn: { marginTop: 20, paddingVertical: 12, alignItems: 'center' },
+  heroTitle: { fontSize: 20, fontWeight: '700', color: colors.primaryForeground },
+  heroSub: {
+    fontSize: 13,
+    color: colors.alpha('255,255,255', 0.85),
+    marginTop: 4,
+  },
+  // 服务卡
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    marginHorizontal: 12,
+    marginBottom: 12,
+  },
+  cardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
+  cardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: colors.radius.sm,
+    backgroundColor: colors.sidebarActive,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardInfo: { flex: 1 },
+  cardTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  cardDesc: { fontSize: 13, color: colors.ink3, marginTop: 4 },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline' },
+  price: { fontSize: 20, fontWeight: '700', color: colors.ink },
+  priceUnit: { fontSize: 13, color: colors.ink3, marginLeft: 2 },
+  bookBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: colors.radius.sm,
+  },
+  bookBtnText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
+  // 我的订单
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.ink,
+    paddingHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  orderCard: {
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: 12,
+    paddingHorizontal: 16,
+  },
+  orderItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    gap: 12,
+  },
+  orderInfo: { flex: 1 },
+  orderTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  orderMeta: { fontSize: 13, color: colors.ink3, marginTop: 4 },
+  chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: colors.radius.sm },
+  chipText: { fontSize: 11, fontWeight: '600' },
+  emptyBox: { alignItems: 'center', paddingVertical: 32 },
+  empty: { textAlign: 'center', color: colors.ink3, marginTop: 12, marginBottom: 12 },
+  // 预约弹窗
+  overlay: {
+    flex: 1,
+    backgroundColor: colors.alpha('0,0,0', 0.4),
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
+    padding: 20,
+    paddingBottom: 28,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.ink,
+    textAlign: 'center',
+  },
+  sheetSub: { fontSize: 14, color: colors.ink2, textAlign: 'center', marginTop: 6 },
+  label: { fontSize: 13, color: colors.ink2, marginTop: 14, marginBottom: 6 },
+  input: {
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  textarea: { minHeight: 72 },
+  warn: { fontSize: 12, color: colors.warning, marginTop: 10 },
+  submitBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: colors.radius.md,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 18,
+  },
+  submitText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '600' },
+  btnDisabled: { opacity: 0.6 },
+  cancelBtn: { marginTop: 12, paddingVertical: 10, alignItems: 'center' },
   cancelText: { color: colors.ink3, fontSize: 15 },
 });

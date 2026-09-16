@@ -12,12 +12,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, require_employee
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import PaginationParams, paginate_query
 from app.models import (
     Employee,
     Property,
@@ -122,14 +121,9 @@ def list_viewings(
         .where(*conditions)
         .order_by(ViewingAppointment.scheduled_at.asc())
     )
-    count_stmt = select(func.count(ViewingAppointment.id)).where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(
-        stmt.offset(pagination.offset).limit(pagination.limit)
-    ).all()
-    return paginate(
-        [_with_property(session, v) for v in items], total, pagination
-    )
+    page = paginate_query(session, stmt, pagination)
+    page.items = [_with_property(session, v) for v in page.items]
+    return page
 
 
 @router.get("/mine")

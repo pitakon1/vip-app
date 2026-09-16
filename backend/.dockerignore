@@ -1,0 +1,61 @@
+# ===== 虚拟环境（数百 MB，容器内由 pip install 重建）=====
+.venv/
+venv/
+env/
+
+# ===== Python 缓存与字节码 =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.eggs/
+
+# ===== 测试与静态检查缓存 =====
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+tests/
+
+# ===== 环境与密钥（容器内通过 env_file 注入，禁止打进镜像）=====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ===== 本地数据库文件 =====
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+rental.db*
+
+# ===== 运行时产物（应由具名卷持久化）=====
+uploads/
+contracts/
+backups/
+data/
+logs/
+celerybeat-schedule*
+*.log
+
+# ===== 版本控制与编辑器 =====
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ===== 文档与一次性脚本（无需进镜像）=====
+*.md
+!README.md
+requirements-test.txt
+scripts/

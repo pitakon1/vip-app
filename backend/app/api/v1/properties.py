@@ -9,7 +9,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import exists, func, or_
+from sqlalchemy import exists, or_
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
 
@@ -17,7 +17,7 @@ from app.db import get_session
 from app.core.auth import get_current_user, require_agent
 from app.core.cache import delete_cache_pattern, get_cache, set_cache
 from app.core.concurrency import ensure_version
-from app.core.pagination import Page, PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.uploads import HEAD_BYTES, detect_image_mime
 from app.models import (
     Property,
@@ -220,15 +220,7 @@ def list_properties(
     if geo_join is not None:
         stmt = stmt.join(Project, geo_join)
     stmt = stmt.where(*conditions).order_by(*order_by)
-    count_stmt = select(func.count(Property.id))
-    if geo_join is not None:
-        count_stmt = count_stmt.join(Project, geo_join)
-    count_stmt = count_stmt.where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(
-        stmt.offset(pagination.offset).limit(pagination.limit)
-    ).all()
-    result = paginate(items, total, pagination)
+    result = paginate_query(session, stmt, pagination)
     set_cache(cache_key, result, ttl=60)
     return result
 

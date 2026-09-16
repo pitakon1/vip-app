@@ -1,6 +1,6 @@
 /**
- * 同事通讯录：同事列表 + 部门筛选 + 复制电话 + 紧急联系人
- * 数据源：/employees，接口失败或为空时回退静态示例（与 Web 端一致）
+ * 同事通讯录：搜索 + 按部门分组的同事卡片（消息 / 电话）
+ * 数据源：/employees/directory（全体员工可见，仅返回协作所需联系方式）
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -11,32 +11,33 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Linking,
+  RefreshControl,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import { employeesApi } from '@/services/api';
+import api from '@/lib/api';
+import type { RootStackParamList } from '@/navigation/RootNavigator';
 
 type Tone = 'primary' | 'success' | 'info' | 'warning';
 
 interface Colleague {
   id: string;
+  employee_no?: string | null;
   full_name?: string | null;
   position?: string | null;
   department?: string | null;
   phone?: string | null;
   email?: string | null;
-  _tone?: Tone;
+  wechat?: string | null;
+  line?: string | null;
 }
 
-// 部门 → 徽章/头像色调
-const DEPT_TONE: Record<string, Tone> = {
-  销售部: 'primary',
-  运营部: 'success',
-  技术部: 'info',
-  财务部: 'warning',
-};
+const TONE_ORDER: Tone[] = ['primary', 'success', 'info', 'warning'];
 
 const TONE_COLOR: Record<Tone, string> = {
   primary: colors.primary,
@@ -45,262 +46,278 @@ const TONE_COLOR: Record<Tone, string> = {
   warning: colors.warning,
 };
 
-const DEPARTMENTS = ['全部', '销售部', '运营部', '技术部', '财务部'];
-
-// 接口不可用/为空时回退的示例同事（与 Web 端风格一致）
-const STATIC_CONTACTS: Colleague[] = [
-  { id: 's1', full_name: '王明华', position: '销售经理', department: '销售部', phone: '+60 12-345 6789', _tone: 'primary' },
-  { id: 's2', full_name: '李婷婷', position: '销售代表', department: '销售部', phone: '+60 12-888 2233', _tone: 'success' },
-  { id: 's3', full_name: '张伟强', position: '运营主管', department: '运营部', phone: '+60 16-220 4455', _tone: 'info' },
-  { id: 's4', full_name: '陈晓琳', position: '运营专员', department: '运营部', phone: '+60 11-557 8899', _tone: 'warning' },
-  { id: 's5', full_name: '刘建国', position: '技术总监', department: '技术部', phone: '+60 18-332 1100', _tone: 'primary' },
-  { id: 's6', full_name: '黄思琪', position: '前端工程师', department: '技术部', phone: '+60 17-661 2456', _tone: 'success' },
-  { id: 's7', full_name: '周建华', position: '财务主管', department: '财务部', phone: '+60 15-778 9900', _tone: 'info' },
-  { id: 's8', full_name: '吴美玲', position: '会计', department: '财务部', phone: '+60 13-229 6677', _tone: 'warning' },
-];
-
-const EMERGENCY_CONTACTS = [
-  { name: '赵国栋', position: '总经理', phone: '+60 12-999 0001', tone: 'primary' as Tone },
-  { name: '孙慧敏', position: '人力资源主管', phone: '+60 12-999 0002', tone: 'success' as Tone },
-  { name: '周凯文', position: 'IT 技术支持', phone: '+60 12-999 0003', tone: 'info' as Tone },
-];
-
-const getTone = (e: Colleague): Tone => {
-  if (e._tone) return e._tone;
-  if (e.department && DEPT_TONE[e.department]) return DEPT_TONE[e.department];
-  return 'primary';
-};
-
-const copyText = async (text: string, label: string) => {
-  try {
-    const nc = (globalThis as any).navigator;
-    if (nc?.clipboard?.writeText) {
-      await nc.clipboard.writeText(text);
-      Alert.alert('已复制', `${label}：${text}`);
-      return;
-    }
-  } catch {
-    // 走兜底
-  }
-  Alert.alert(label, text);
+const TONE_RGB: Record<Tone, string> = {
+  primary: colors.primaryRgb,
+  success: colors.successRgb,
+  info: colors.infoRgb,
+  warning: colors.warningRgb,
 };
 
 export default function ContactScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [colleagues, setColleagues] = useState<Colleague[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [keyword, setKeyword] = useState('');
-  const [department, setDepartment] = useState('全部');
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
-      const res: any = await employeesApi.list({ pageSize: 500 });
-      const raw = res?.data ?? res;
-      const items = Array.isArray(raw) ? raw : raw?.items ?? [];
-      setColleagues(items.length ? items : STATIC_CONTACTS);
+      const res = await api.get('/employees/directory');
+      const data = res.data as { items?: Colleague[]; departments?: string[] };
+      setColleagues(data?.items ?? []);
+      setDepartments(data?.departments ?? []);
+      setFailed(false);
     } catch {
-      // 接口不可用时用静态示例，不影响查看
-      setColleagues(STATIC_CONTACTS);
-    } finally {
-      setLoading(false);
+      setColleagues([]);
+      setDepartments([]);
+      setFailed(true);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    (async () => {
+      await load();
+      setLoading(false);
+    })();
   }, [load]);
 
-  const visible = useMemo(() => {
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
+  // 部门分组（顺序沿用后端返回的部门清单，过滤后仍保留出现顺序）
+  const groups = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
-    return colleagues.filter((e) => {
-      if (department !== '全部' && (e.department || '') !== department) return false;
+    const visible = colleagues.filter((e) => {
       if (!kw) return true;
-      const name = (e.full_name || '').toLowerCase();
-      const pos = (e.position || '').toLowerCase();
-      const phone = (e.phone || '').toLowerCase();
-      return name.includes(kw) || pos.includes(kw) || phone.includes(kw);
+      return [e.full_name, e.position, e.department, e.phone, e.employee_no]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(kw);
     });
-  }, [colleagues, keyword, department]);
+    const byDept = new Map<string, Colleague[]>();
+    visible.forEach((e) => {
+      const key = e.department || '其他';
+      if (!byDept.has(key)) byDept.set(key, []);
+      byDept.get(key)!.push(e);
+    });
+    const order = departments.filter((d) => byDept.has(d));
+    const rest = [...byDept.keys()].filter((k) => !order.includes(k)).sort();
+    return [...order, ...rest].map((dept, idx) => ({
+      dept,
+      tone: TONE_ORDER[idx % TONE_ORDER.length],
+      members: byDept.get(dept) ?? [],
+    }));
+  }, [colleagues, departments, keyword]);
+
+  const total = groups.reduce((sum, g) => sum + g.members.length, 0);
+
+  const callPhone = async (phone?: string | null, name?: string | null) => {
+    if (!phone) {
+      Alert.alert('暂无电话', `${name || '该同事'}未登记联系电话`);
+      return;
+    }
+    try {
+      await Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
+    } catch {
+      Alert.alert(name || '联系电话', phone);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <LoadingState label="正在加载通讯录…" />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      {/* 搜索 + 部门筛选 */}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+      }
+    >
+      {/* 搜索 */}
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color={colors.ink3} />
         <TextInput
           style={styles.searchInput}
           value={keyword}
           onChangeText={setKeyword}
-          placeholder="按姓名、职位或电话搜索"
+          placeholder="搜索姓名/部门"
           placeholderTextColor={colors.ink3}
         />
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.depRow}
-        style={styles.depScroll}
-      >
-        {DEPARTMENTS.map((d) => (
-          <TouchableOpacity
-            key={d}
-            activeOpacity={0.7}
-            onPress={() => setDepartment(d)}
-            style={[styles.depChip, department === d && styles.depChipActive]}
-          >
-            <Text style={[styles.depChipText, department === d && styles.depChipTextActive]}>{d}</Text>
+        {keyword ? (
+          <TouchableOpacity onPress={() => setKeyword('')} activeOpacity={0.7}>
+            <Ionicons name="close-circle" size={16} color={colors.ink3} />
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        ) : null}
+      </View>
 
-      <Text style={styles.countRow}>
-        共 {visible.length} 位同事
-      </Text>
-
-      {loading ? (
-        <LoadingState label="正在加载通讯录…" />
-      ) : visible.length === 0 ? (
-        <EmptyState icon="people-outline" title="没有找到同事" sub="换个关键词或部门试试" />
+      {failed ? (
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="通讯录加载失败"
+          sub="请检查网络后下拉刷新重试"
+          actionLabel="重新加载"
+          onAction={() => load()}
+        />
+      ) : total === 0 ? (
+        <EmptyState
+          icon="people-outline"
+          title={keyword ? '没有找到同事' : '暂无同事信息'}
+          sub={keyword ? '换个关键词试试' : '组织内同事登记后会展示在这里'}
+        />
       ) : (
-        <View style={styles.list}>
-          {visible.map((e) => {
-            const tone = getTone(e);
-            const initial = (e.full_name || '?').charAt(0);
-            return (
-              <View key={e.id} style={styles.card}>
-                <View style={[styles.avatar, { backgroundColor: `${TONE_COLOR[tone]}1f` }]}>
-                  <Text style={[styles.avatarText, { color: TONE_COLOR[tone] }]}>{initial}</Text>
-                </View>
-                <View style={styles.cardBody}>
-                  <View style={styles.cardTop}>
-                    <Text style={styles.name} numberOfLines={1}>{e.full_name || '-'}</Text>
-                    {e.department ? (
-                      <View style={[styles.deptBadge, { backgroundColor: `${TONE_COLOR[tone]}1a` }]}>
-                        <Text style={[styles.deptBadgeText, { color: TONE_COLOR[tone] }]}>{e.department}</Text>
-                      </View>
-                    ) : null}
+        groups.map((g) => (
+          <View key={g.dept} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{g.dept}</Text>
+              <View style={[styles.countBadge, { backgroundColor: colors.alpha(TONE_RGB[g.tone], 0.12) }]}>
+                <Text style={[styles.countBadgeText, { color: TONE_COLOR[g.tone] }]}>
+                  {g.members.length} 人
+                </Text>
+              </View>
+            </View>
+            {g.members.map((e, idx) => {
+              const tone = TONE_ORDER[idx % TONE_ORDER.length];
+              return (
+                <View
+                  key={e.id}
+                  style={[styles.row, idx === 0 && styles.rowFirst]}
+                >
+                  <View style={[styles.avatar, { backgroundColor: colors.alpha(TONE_RGB[tone], 0.12) }]}>
+                    <Text style={[styles.avatarText, { color: TONE_COLOR[tone] }]}>
+                      {(e.full_name || '?').charAt(0)}
+                    </Text>
                   </View>
-                  <Text style={styles.position}>{e.position || '同事'}</Text>
-                  {e.phone ? (
-                    <TouchableOpacity style={styles.phoneRow} activeOpacity={0.6} onPress={() => copyText(e.phone!, '手机号')}>
-                      <Text style={styles.phone}>{e.phone}</Text>
-                      <Text style={styles.copy}>复制</Text>
+                  <View style={styles.rowBody}>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {e.full_name || '—'}
+                    </Text>
+                    <Text style={styles.position} numberOfLines={1}>
+                      {e.position || e.employee_no || '同事'}
+                    </Text>
+                    <Text style={styles.phone} numberOfLines={1}>
+                      {e.phone || '未登记电话'}
+                    </Text>
+                  </View>
+                  <View style={styles.actions}>
+                    <TouchableOpacity
+                      style={styles.iconBtnGhost}
+                      activeOpacity={0.7}
+                      onPress={() => navigation.navigate('ChatList')}
+                    >
+                      <Ionicons name="chatbubble-outline" size={15} color={colors.ink2} />
                     </TouchableOpacity>
-                  ) : null}
+                    <TouchableOpacity
+                      style={styles.iconBtnPrimary}
+                      activeOpacity={0.7}
+                      onPress={() => callPhone(e.phone, e.full_name)}
+                    >
+                      <Ionicons name="call-outline" size={15} color={colors.primaryForeground} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        ))
       )}
-
-      {/* 紧急联系人 */}
-      <View style={styles.sectionHead}>
-        <View style={styles.sectionTitleRow}>
-          <View style={styles.sectionIcon}>
-            <Ionicons name="alert-circle-outline" size={15} color={colors.error} />
-          </View>
-          <Text style={styles.sectionTitle}>紧急联系人</Text>
-        </View>
-        <View style={styles.emergencyBadge}>
-          <Text style={styles.emergencyBadgeText}>7×24 应急</Text>
-        </View>
-      </View>
-      <View style={styles.list}>
-        {EMERGENCY_CONTACTS.map((c) => (
-          <View key={c.name} style={styles.card}>
-            <View style={[styles.avatar, { backgroundColor: `${TONE_COLOR[c.tone]}1f` }]}>
-              <Text style={[styles.avatarText, { color: TONE_COLOR[c.tone] }]}>{c.name.charAt(0)}</Text>
-            </View>
-            <View style={styles.cardBody}>
-              <View style={styles.cardTop}>
-                <Text style={styles.name}>{c.name}</Text>
-                <Text style={styles.position}>{c.position}</Text>
-              </View>
-              <TouchableOpacity style={styles.phoneRow} activeOpacity={0.6} onPress={() => copyText(c.phone, '电话')}>
-                <Text style={styles.phone}>{c.phone}</Text>
-                <Text style={styles.copy}>复制</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
-      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16, paddingBottom: 32 },
+  content: { padding: colors.spacing.lg, paddingBottom: 32 },
 
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: colors.spacing.sm,
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     borderRadius: colors.radius.full,
     paddingHorizontal: 14,
     paddingVertical: 9,
-    marginBottom: 12,
+    marginBottom: colors.spacing.lg,
   },
   searchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
 
-  depScroll: { marginHorizontal: -16, marginBottom: 2 },
-  depRow: { gap: 8, paddingHorizontal: 16, paddingVertical: 6 },
-  depChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.surface2,
-  },
-  depChipActive: { backgroundColor: colors.primary },
-  depChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  depChipTextActive: { color: colors.primaryForeground, fontWeight: '600' },
-
-  countRow: { fontSize: 12, color: colors.ink3, marginTop: 8, marginBottom: 10 },
-
-  list: { gap: 10, marginBottom: 12 },
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    padding: 12,
-    ...colors.shadow.sm,
+    paddingHorizontal: colors.spacing.lg,
+    marginBottom: colors.spacing.md,
+    ...colors.shadow.card,
   },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  avatarText: { fontSize: 16, fontWeight: '700' },
-  cardBody: { flex: 1, minWidth: 0 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  name: { fontSize: 15, fontWeight: '700', color: colors.ink, flexShrink: 1 },
-  deptBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
-  deptBadgeText: { fontSize: 10, fontWeight: '600' },
-  position: { fontSize: 12, color: colors.ink2, marginTop: 3 },
-  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  phone: { fontSize: 13, color: colors.ink, fontVariant: ['tabular-nums'] },
-  copy: { fontSize: 12, color: colors.primary, fontWeight: '600' },
-
-  sectionHead: {
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
-    marginBottom: 10,
+    paddingTop: 14,
+    paddingBottom: colors.spacing.sm,
   },
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionIcon: { width: 26, height: 26, borderRadius: 8, backgroundColor: 'rgba(220,38,38,0.1)', alignItems: 'center', justifyContent: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
-  emergencyBadge: { backgroundColor: 'rgba(220,38,38,0.1)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  emergencyBadgeText: { fontSize: 11, fontWeight: '600', color: colors.error },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  countBadge: { borderRadius: colors.radius.full, paddingHorizontal: 10, paddingVertical: 3 },
+  countBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: colors.spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+  },
+  rowFirst: { borderTopWidth: 0 },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: colors.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: colors.spacing.md,
+  },
+  avatarText: { fontSize: 16, fontWeight: '700' },
+  rowBody: { flex: 1, minWidth: 0 },
+  name: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  position: { fontSize: 13, color: colors.ink3, marginTop: 2 },
+  phone: {
+    fontSize: 13,
+    color: colors.ink2,
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
+  },
+  actions: { flexDirection: 'row', gap: 6, marginLeft: colors.spacing.sm },
+  iconBtnGhost: {
+    width: 32,
+    height: 32,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBtnPrimary: {
+    width: 32,
+    height: 32,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

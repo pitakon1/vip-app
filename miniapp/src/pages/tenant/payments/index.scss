@@ -6,11 +6,12 @@
     padding: 24px 24px 40px;
   }
 
+  /* ===== 顶部待缴账单卡（原型 hero：标签 + 大字金额 + 状态徽标 + 白色全宽按钮） ===== */
   .pay-banner {
     background-color: var(--primary);
     border-radius: 16px;
     padding: 32px;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
 
     .pay-banner-label {
       display: block;
@@ -20,33 +21,97 @@
 
     .pay-banner-amount {
       display: block;
-      font-size: 56px;
+      font-size: 64px;
       font-weight: 700;
-      color: var(--card);
+      color: var(--primary-foreground);
       margin-top: 8px;
     }
 
-    .pay-banner-sub {
-      display: block;
-      font-size: 24px;
-      color: rgba(255, 255, 255, 0.85);
-      margin-top: 8px;
+    .pay-banner-badges {
+      margin: 16px 0 28px;
     }
 
-    .pay-banner-btn {
-      margin-top: 28px;
-      display: inline-flex;
+    .pay-banner-badge {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--primary-foreground);
+      background-color: rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+      padding: 6px 18px;
+    }
+
+    /* 主操作：白色全宽按钮 */
+    .pay-banner-cta {
+      height: 84px;
+      border-radius: 999px;
+      background-color: var(--card);
+      display: flex;
       align-items: center;
       justify-content: center;
-      background-color: var(--card);
-      border-radius: 999px;
-      height: 72px;
-      padding: 0 48px;
 
-      .pay-banner-btn-text {
+      .pay-banner-cta-text {
         font-size: 30px;
+        font-weight: 600;
+        color: var(--primary);
+      }
+    }
+
+    .pay-banner-actions {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .pay-banner-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        height: 72px;
+        padding: 0 36px;
+
+        &--ghost {
+          background-color: transparent;
+          border: 2px solid rgba(255, 255, 255, 0.6);
+
+          .pay-banner-btn-text {
+            color: var(--primary-foreground);
+          }
+        }
+
+        .pay-banner-btn-text {
+          font-size: 28px;
+          font-weight: 600;
+        }
+      }
+    }
+  }
+
+  /* ===== 统计行 ===== */
+  .stat-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+
+    .stat-item {
+      flex: 1;
+      background-color: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      text-align: center;
+
+      .stat-value {
+        display: block;
+        font-size: 40px;
         font-weight: 700;
         color: var(--primary);
+        margin-top: 6px;
+      }
+
+      .stat-label {
+        display: block;
+        font-size: 24px;
+        color: var(--ink-3);
       }
     }
   }
@@ -61,98 +126,118 @@
   .pay-list {
     height: auto;
 
-    .empty-tip {
-      text-align: center;
-      color: var(--ink-3);
-      font-size: 26px;
-      padding: 80px 0;
-    }
-
+    /* 付款记录：单张卡片内多行列表项 */
     .pay-card {
       background-color: var(--card);
       border-radius: 16px;
-      padding: 24px;
-      margin-bottom: 20px;
-      border-top: 6px solid var(--primary);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-sm);
+      padding: 0 24px;
 
-      .pay-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+      .pay-item {
+        padding: 26px 0;
+        border-bottom: 1px solid var(--line);
 
-        .pay-card-type {
+        &:last-child {
+          border-bottom: none;
+        }
+
+        .pay-item-main {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .pay-item-left {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .pay-item-month {
+          display: block;
           font-size: 30px;
           font-weight: 600;
           color: var(--ink);
         }
 
-        .pay-card-status {
-          font-size: 24px;
-          font-weight: 600;
-        }
-      }
-
-      .pay-card-desc {
-        display: block;
-        margin-top: 12px;
-        font-size: 24px;
-        color: var(--ink-2);
-      }
-
-      .pay-card-amount {
-        display: block;
-        margin-top: 20px;
-        font-size: 40px;
-        font-weight: 700;
-      }
-
-      .pay-card-time {
-        display: block;
-        margin-top: 16px;
-        font-size: 22px;
-        color: var(--ink-3);
-      }
-
-      .pay-card-actions {
-        margin-top: 20px;
-        display: flex;
-        justify-content: flex-end;
-
-        .pay-card-btn {
-          display: flex;
-          justify-content: flex-end;
-          margin-top: 0;
-
-          & + .pay-card-btn {
-            margin-left: 16px;
-          }
-
-          &--primary .pay-card-btn-text {
-            border-color: var(--primary);
-            background-color: var(--primary);
-            color: var(--card);
-          }
-        }
-      }
-
-      .pay-card-btn {
-        margin-top: 20px;
-        display: flex;
-        justify-content: flex-end;
-
-        .pay-card-btn-text {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          height: 64px;
-          padding: 0 40px;
-          border-radius: 999px;
-          border: 2px solid var(--primary);
+        .pay-item-amount {
+          display: block;
+          margin-top: 6px;
           font-size: 26px;
+          color: var(--ink-3);
+        }
+
+        .pay-item-badge {
+          flex-shrink: 0;
+          font-size: 22px;
           font-weight: 600;
-          color: var(--primary);
+          border-radius: 999px;
+          padding: 6px 18px;
+        }
+
+        .pay-item-desc {
+          display: block;
+          margin-top: 10px;
+          font-size: 24px;
+          color: var(--ink-2);
+        }
+
+        .pay-item-actions {
+          margin-top: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 16px;
+
+          .pay-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 60px;
+            padding: 0 32px;
+            border-radius: 999px;
+            border: 2px solid var(--primary);
+
+            &--primary {
+              background-color: var(--primary);
+
+              .pay-chip-text {
+                color: var(--primary-foreground);
+              }
+            }
+
+            .pay-chip-text {
+              font-size: 24px;
+              font-weight: 600;
+              color: var(--primary);
+            }
+          }
         }
       }
+    }
+  }
+
+  /* ===== 悬浮上传凭证按钮 ===== */
+  .pay-fab {
+    position: fixed;
+    right: 40px;
+    bottom: 120px;
+    height: 96px;
+    padding: 0 36px;
+    border-radius: 999px;
+    background-color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 28px -8px rgba(var(--primary-rgb), 0.6);
+    z-index: 20;
+
+    .pay-fab-text {
+      font-size: 30px;
+      font-weight: 600;
+      color: var(--primary-foreground);
+      line-height: 1;
     }
   }
 }

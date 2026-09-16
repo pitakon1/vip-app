@@ -1,177 +1,317 @@
-/* 业主付款 — 摘要卡 + 付款记录列表 */
+/* 业主账单缴费 —— 渐变摘要 + 筛选 + 账单列表 */
 
 .owner-payments-page {
   min-height: 100vh;
   background-color: var(--bg);
+  /* 底部固定导航占位，避免内容被遮挡 */
+  padding-bottom: 160rpx;
 
   .page-container {
     padding: 24rpx;
   }
 
+  /* 账单摘要（渐变卡） */
   .summary-header {
-    background: var(--primary);
+    padding: 36rpx 32rpx;
     border-radius: var(--radius-xl);
-    padding: 32rpx 28rpx;
+    background: var(--primary);
     margin-bottom: 28rpx;
     box-shadow: var(--shadow-primary);
 
     .summary-label {
       display: block;
-      font-size: 26rpx;
-      color: rgba(255, 255, 255, 0.85);
-      font-weight: 500;
+      font-size: 24rpx;
+      color: rgba(var(--primary-foreground-rgb), 0.8);
     }
 
     .summary-amount {
       display: block;
-      font-size: 52rpx;
+      font-size: 56rpx;
       font-weight: 800;
-      color: #fff;
-      margin-top: 8rpx;
+      color: var(--primary-foreground);
+      margin-top: 4rpx;
       letter-spacing: -0.02em;
-      line-height: 1.2;
+      line-height: 1.15;
       font-variant-numeric: tabular-nums;
+    }
+
+    .summary-divider {
+      height: 2rpx;
+      background: rgba(var(--primary-foreground-rgb), 0.2);
+      margin: 28rpx 0 24rpx;
+    }
+
+    .summary-stats {
+      display: flex;
+      gap: 24rpx;
+    }
+
+    .summary-stat {
+      flex: 1;
+      min-width: 0;
+
+      &--right {
+        text-align: right;
+      }
+
+      &__label {
+        display: block;
+        font-size: 20rpx;
+        color: rgba(var(--primary-foreground-rgb), 0.7);
+      }
+
+      &__value {
+        display: block;
+        font-size: 32rpx;
+        font-weight: 700;
+        color: var(--primary-foreground);
+        margin-top: 4rpx;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+  }
+
+  /* 筛选 chips */
+  .chips {
+    display: flex;
+    gap: 12rpx;
+    margin-bottom: 28rpx;
+
+    &__item {
+      flex-shrink: 0;
+      padding: 12rpx 28rpx;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      color: var(--ink-2);
+      font-size: 24rpx;
+      font-weight: 500;
+
+      &--active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--primary-foreground);
+        font-weight: 600;
+      }
     }
   }
 
   .section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     font-size: 34rpx;
     font-weight: 700;
     color: var(--ink);
     margin-bottom: 20rpx;
     letter-spacing: -0.02em;
+
+    .section-hint {
+      font-size: 24rpx;
+      font-weight: 500;
+      color: var(--ink-3);
+    }
   }
 
-  .pay-list {
+  .empty-tip {
     display: flex;
     flex-direction: column;
-    gap: 16rpx;
+    align-items: center;
+    justify-content: center;
+    padding: 80rpx 0;
+    color: var(--ink-3);
+    font-size: 26rpx;
+
+    &__icon {
+      margin-bottom: 16rpx;
+      opacity: 0.5;
+    }
   }
 
-  .pay-card {
+  .retry-btn {
+    margin-top: 24rpx;
+    height: 68rpx;
+    padding: 0 40rpx;
+    border-radius: var(--radius-lg);
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-size: 26rpx;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--hover {
+      background: var(--primary-hover);
+    }
+  }
+
+  /* 账单列表 */
+  .bill-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20rpx;
+  }
+
+  .bill {
     background: var(--card);
     border: 1px solid var(--line);
-    border-left: 6rpx solid var(--primary);
     border-radius: var(--radius-xl);
-    padding: 24rpx;
+    padding: 28rpx;
     box-shadow: var(--shadow-sm);
 
     &__head {
       display: flex;
       align-items: flex-start;
-      justify-content: space-between;
-      gap: 12rpx;
+      gap: 20rpx;
     }
 
-    &__type-wrap {
+    &__icon {
+      flex-shrink: 0;
+      width: 80rpx;
+      height: 80rpx;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &--success {
+        background: rgba(var(--success-rgb), 0.1);
+      }
+
+      &--warning {
+        background: rgba(var(--warning-rgb), 0.1);
+      }
+
+      &--error {
+        background: rgba(var(--error-rgb), 0.1);
+      }
+
+      &--info {
+        background: rgba(var(--info-rgb), 0.1);
+      }
+
+      &--neutral {
+        background: var(--surface-2);
+      }
+    }
+
+    &__title-wrap {
       flex: 1;
       min-width: 0;
     }
 
-    &__type {
-      display: block;
+    &__title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12rpx;
+    }
+
+    &__title {
+      flex: 1;
+      min-width: 0;
       font-size: 30rpx;
       font-weight: 700;
       color: var(--ink);
-    }
-
-    &__related {
-      display: block;
-      font-size: 22rpx;
-      color: var(--ink-3);
-      margin-top: 4rpx;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
+    &__badge {
+      flex-shrink: 0;
+      padding: 4rpx 16rpx;
+      border-radius: var(--radius-full);
+      font-size: 20rpx;
+      font-weight: 600;
+
+      &--success {
+        background: rgba(var(--success-rgb), 0.1);
+        color: var(--success);
+      }
+
+      &--warning {
+        background: rgba(var(--warning-rgb), 0.1);
+        color: var(--warning);
+      }
+
+      &--error {
+        background: rgba(var(--error-rgb), 0.1);
+        color: var(--error);
+      }
+
+      &--info {
+        background: rgba(var(--info-rgb), 0.1);
+        color: var(--info);
+      }
+
+      &--neutral {
+        background: var(--surface-2);
+        color: var(--ink-2);
+      }
+    }
+
+    &__meta {
+      display: block;
+      font-size: 24rpx;
+      color: var(--ink-3);
+      margin-top: 8rpx;
+    }
+
     &__desc {
       display: block;
-      margin-top: 12rpx;
       font-size: 24rpx;
       color: var(--ink-2);
-      line-height: 1.4;
+      margin-top: 16rpx;
+      line-height: 1.5;
+    }
+
+    &__foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16rpx;
+      margin-top: 24rpx;
     }
 
     &__amount {
-      display: block;
-      margin-top: 20rpx;
-      font-size: 40rpx;
+      flex: 1;
+      min-width: 0;
+      font-size: 38rpx;
       font-weight: 800;
       color: var(--ink);
-      text-align: right;
       letter-spacing: -0.02em;
       font-variant-numeric: tabular-nums;
     }
 
-    &__time {
-      display: block;
-      margin-top: 12rpx;
-      font-size: 22rpx;
-      color: var(--ink-3);
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-  }
-
-  .state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 100rpx 0;
-    background: var(--card);
-    border: 1px dashed var(--line);
-    border-radius: var(--radius-xl);
-
-    &__icon {
-      font-size: 64rpx;
-      margin-bottom: 20rpx;
-      color: var(--ink-3);
-    }
-
-    &__title {
-      font-size: 28rpx;
-      color: var(--ink-2);
-      font-weight: 600;
-    }
-
-    &__desc {
-      font-size: 24rpx;
-      color: var(--ink-3);
-      margin-top: 10rpx;
-    }
-
     &__btn {
-      margin-top: 28rpx;
-      padding: 12rpx 40rpx;
+      flex-shrink: 0;
+      height: 64rpx;
+      padding: 0 28rpx;
+      border-radius: var(--radius-md);
       background: var(--primary);
       color: var(--primary-foreground);
       font-size: 26rpx;
       font-weight: 600;
-      border-radius: var(--radius-full);
-      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-primary);
+
+      &--danger {
+        background: var(--error);
+      }
+
+      &--done {
+        background: var(--surface-2);
+        color: var(--ink-3);
+        box-shadow: none;
+      }
 
       &--hover {
         transform: scale(0.97);
-        background: var(--primary-hover);
       }
     }
-
-    &--loading {
-      .state__spinner {
-        width: 56rpx;
-        height: 56rpx;
-        border: 4rpx solid var(--surface-2);
-        border-top-color: var(--primary);
-        border-radius: 50%;
-        animation: ownpay-spin 0.8s linear infinite;
-        margin-bottom: 24rpx;
-      }
-    }
-  }
-
-  @keyframes ownpay-spin {
-    to { transform: rotate(360deg); }
   }
 }

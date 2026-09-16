@@ -1,13 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Card from '../../components/Card';
+import dayjs from 'dayjs';
 import colors from '../../theme/colors';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
-import { employeesApi, performanceApi } from '../../services/api';
-import BarChart from '../../components/charts/BarChart';
-import ProgressStack from '../../components/charts/ProgressStack';
+import api from '../../lib/api';
+import {
+  employeesApi,
+  performanceApi,
+  leasesApi,
+  propertiesApi,
+  viewingsApi,
+} from '../../services/api';
 
 interface RankItem {
   id: string;
@@ -20,6 +25,8 @@ interface RankItem {
 }
 
 interface Summary {
+  year?: number;
+  month?: number;
   month_deals: number;
   month_total: number;
   month_commission: number;
@@ -27,100 +34,217 @@ interface Summary {
   deals_total: number;
 }
 
-// 模拟近 6 个月业绩趋势（真实数据不足时展示示例数据）
-const genMonthlyTrend = (monthTotal: number) => {
-  const base = monthTotal || 28000;
-  return [
-    { label: '4月', value: Math.round(base * 0.65) },
-    { label: '5月', value: Math.round(base * 0.82) },
-    { label: '6月', value: Math.round(base * 0.7) },
-    { label: '7月', value: Math.round(base * 0.95) },
-    { label: '8月', value: Math.round(base * 0.88) },
-    { label: '9月', value: base },
-  ];
+interface MyEmployee {
+  id?: string;
+  position?: string | null;
+  department?: string | null;
+}
+
+interface Settlement {
+  id: string;
+  lease_id?: string | null;
+  deal_type?: string | null;
+  commission_base?: number;
+  commission_rate?: number;
+  commission_amount?: number;
+  currency?: string;
+  status?: string | null;
+  created_at?: string | null;
+  settled_at?: string | null;
+}
+
+interface LeaseRow {
+  id: string;
+  property_id?: string;
+  monthly_rent?: number;
+  currency?: string;
+}
+
+interface PropertyRow {
+  id: string;
+  room_number?: string | null;
+  address?: string | null;
+}
+
+const DEAL_LABELS: Record<string, string> = {
+  new_rental: '新租成交',
+  renewal: '续约成交',
+  management: '托管服务',
+};
+
+const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+  pending: {
+    label: '待结算',
+    color: colors.warning,
+    bg: colors.alpha(colors.warningRgb, 0.12),
+  },
+  approved: { label: '已审批', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12) },
+  paid: {
+    label: '已结算',
+    color: colors.success,
+    bg: colors.alpha(colors.successRgb, 0.12),
+  },
+};
+
+const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
+const fmtMoney = (v: number | undefined, c = 'THB') =>
+  `${symOf(c)}${Number(v || 0).toLocaleString()}`;
+
+// 费率口径：rate>1 视为百分比（如 5 = 5%），否则视为月租倍数（兼容默认 1.0）
+const rateLabel = (rate?: number) => {
+  if (rate == null) return '佣金';
+  return rate > 1 ? `佣金 (${rate}%)` : `佣金 (${rate} 个月租金)`;
 };
 
 export default function PerformanceScreen() {
   const [leaderboard, setLeaderboard] = useState<RankItem[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [me, setMe] = useState<MyEmployee | null>(null);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
+  const [leaseMap, setLeaseMap] = useState<Record<string, LeaseRow>>({});
+  const [propertyMap, setPropertyMap] = useState<Record<string, PropertyRow>>({});
+  const [monthViewings, setMonthViewings] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    try {
-      const [lbRes, pfRes] = await Promise.all([
-        employeesApi.leaderboard(),
-        performanceApi.mine(),
-      ]);
-      setLeaderboard((lbRes.data ?? []) as RankItem[]);
-      const pf = pfRes.data as any;
+    const [lbRes, pfRes, meRes, leasesRes, propsRes, viewRes] = await Promise.allSettled([
+      employeesApi.leaderboard(),
+      performanceApi.mine(),
+      employeesApi.mine(),
+      leasesApi.list({ page: 1, page_size: 100 }),
+      propertiesApi.list({ page: 1, page_size: 100 }),
+      viewingsApi.list({ page: 1, page_size: 100 }),
+    ]);
+
+    const pickItems = (res: PromiseSettledResult<any>): any[] => {
+      if (res.status !== 'fulfilled') return [];
+      const d = res.value?.data;
+      return Array.isArray(d) ? d : (d?.items ?? []);
+    };
+
+    setLeaderboard(pickItems(lbRes) as RankItem[]);
+
+    if (pfRes.status === 'fulfilled') {
+      const pf = pfRes.value.data as { summary?: Summary };
       setSummary(pf?.summary ?? null);
-    } catch {
-      /* 排行榜/业绩加载失败不阻塞，页面仍可渲染 */
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    }
+
+    const employee = meRes.status === 'fulfilled' ? (meRes.value.data as MyEmployee) : null;
+    setMe(employee ?? null);
+
+    const leases = pickItems(leasesRes) as LeaseRow[];
+    setLeaseMap(
+      leases.reduce<Record<string, LeaseRow>>((acc, l) => {
+        acc[l.id] = l;
+        return acc;
+      }, {}),
+    );
+    const props = pickItems(propsRes) as PropertyRow[];
+    setPropertyMap(
+      props.reduce<Record<string, PropertyRow>>((acc, p) => {
+        acc[p.id] = p;
+        return acc;
+      }, {}),
+    );
+
+    const viewings = pickItems(viewRes) as { scheduled_at?: string | null }[];
+    setMonthViewings(
+      viewings.filter(
+        (v) => v.scheduled_at && dayjs(v.scheduled_at).isSame(dayjs(), 'month'),
+      ).length,
+    );
+
+    // 佣金结算明细（按员工维度，后端已有端点）
+    if (employee?.id) {
+      try {
+        const r = await api.get(`/employees/${employee.id}/performance`);
+        setSettlements(Array.isArray(r.data) ? (r.data as Settlement[]) : []);
+      } catch {
+        setSettlements([]);
+      }
+    } else {
+      setSettlements([]);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    (async () => {
+      await load();
+      setLoading(false);
+    })();
   }, [load]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    load();
+    await load();
+    setRefreshing(false);
   }, [load]);
 
-  const myRank = leaderboard.find((r) => r.is_self)?.id
-    ? leaderboard.findIndex((r) => r.is_self) + 1
-    : 0;
+  const myRankIndex = leaderboard.findIndex((r) => r.is_self);
+  const myRank = myRankIndex >= 0 ? myRankIndex + 1 : 0;
+  const rankTotal = leaderboard.length;
 
-  const monthlyData = useMemo(
-    () => genMonthlyTrend(summary?.month_total ?? 0),
-    [summary?.month_total]
+  const monthSettlements = useMemo(
+    () => settlements.filter((s) => s.created_at && dayjs(s.created_at).isSame(dayjs(), 'month')),
+    [settlements],
+  );
+  // 明细优先展示本月，本月无记录时回落到最近记录，避免空白
+  const detailRows = useMemo(
+    () => (monthSettlements.length > 0 ? monthSettlements : settlements).slice(0, 10),
+    [monthSettlements, settlements],
   );
 
-  const commissionSegments = useMemo(() => {
-    const total = summary?.commission_total ?? 0;
-    const month = summary?.month_commission ?? 0;
-    const base = total || 50000;
-    return [
-      { value: Math.round(base * 0.45), color: colors.primary, label: '租赁佣金', subLabel: '长租/短租成交' },
-      { value: Math.round(base * 0.25), color: colors.warning, label: '销售提成', subLabel: '买卖成交' },
-      { value: Math.round(base * 0.18), color: colors.success, label: '服务奖金', subLabel: '客户维护/续约' },
-      { value: Math.round(base * 0.12), color: colors.info, label: '其他', subLabel: '推荐/补贴' },
-    ];
-  }, [summary?.commission_total, summary?.month_commission]);
+  const settledAmount = useMemo(
+    () =>
+      monthSettlements
+        .filter((s) => s.status === 'paid')
+        .reduce((sum, s) => sum + (s.commission_amount || 0), 0),
+    [monthSettlements],
+  );
+  const pendingAmount = useMemo(
+    () =>
+      monthSettlements
+        .filter((s) => s.status !== 'paid')
+        .reduce((sum, s) => sum + (s.commission_amount || 0), 0),
+    [monthSettlements],
+  );
 
-  const fmt = (v: number) => `฿${Number(v || 0).toLocaleString()}`;
+  const titleOf = (s: Settlement) => {
+    const lease = s.lease_id ? leaseMap[s.lease_id] : undefined;
+    const property = lease?.property_id ? propertyMap[lease.property_id] : undefined;
+    if (!property) return '租赁成交';
+    return [property.room_number, property.address].filter(Boolean).join(' · ') || '房源';
+  };
 
-  const renderRankItem = ({ item, index }: { item: RankItem; index: number }) => {
-    const rank = index + 1;
-    const maxPerf = Math.max(...leaderboard.map((r) => r.performance), 1);
-    const pct = (item.performance / maxPerf) * 100;
-
+  const renderSettlement = (s: Settlement) => {
+    const meta = STATUS_META[s.status ?? 'pending'] ?? STATUS_META.pending;
+    const lease = s.lease_id ? leaseMap[s.lease_id] : undefined;
+    const sub = [
+      DEAL_LABELS[s.deal_type ?? ''] ?? s.deal_type ?? '成交',
+      lease ? `月租 ${fmtMoney(lease.monthly_rent, lease.currency || s.currency || 'THB')}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
     return (
-      <View style={styles.rankCard}>
-        <View style={styles.rankRow}>
-          <View style={[styles.rankBadge, rank <= 3 && styles[`rank${rank}` as 'rank1' | 'rank2' | 'rank3']]}>
-            <Text style={[styles.rankText, rank <= 3 && styles.rankTopText]}>{rank}</Text>
-          </View>
-          <View style={styles.rankInfo}>
-            <Text style={[styles.rankName, item.is_self && styles.rankSelfName]}>
-              {item.full_name || '-'}
-              {item.is_self ? '（我）' : ''}
+      <View key={s.id} style={styles.detailCard}>
+        <View style={styles.detailTop}>
+          <View style={styles.detailInfo}>
+            <Text style={styles.detailName} numberOfLines={1}>
+              {titleOf(s)}
             </Text>
-            <Text style={styles.rankMeta}>
-              {item.position || item.department || '经纪人'} · {item.deals} 单
+            <Text style={styles.detailSub} numberOfLines={1}>
+              {sub}
             </Text>
-            {/* 业绩进度条 */}
-            <View style={styles.perfBarBg}>
-              <View style={[styles.perfBarFill, { width: `${pct}%` }]} />
-            </View>
           </View>
-          <Text style={[styles.rankAmount, item.is_self && styles.rankSelfAmount]}>
-            {fmt(item.performance)}
+          <View style={[styles.badge, { backgroundColor: meta.bg }]}>
+            <Text style={[styles.badgeText, { color: meta.color }]}>{meta.label}</Text>
+          </View>
+        </View>
+        <View style={styles.detailFooter}>
+          <Text style={styles.detailFooterLabel}>{rateLabel(s.commission_rate)}</Text>
+          <Text style={styles.detailAmount}>
+            {fmtMoney(s.commission_amount, s.currency || 'THB')}
           </Text>
         </View>
       </View>
@@ -135,6 +259,10 @@ export default function PerformanceScreen() {
     );
   }
 
+  const periodLabel = summary?.year
+    ? `${summary.year}年${summary.month}月`
+    : dayjs().format('YYYY年M月');
+
   return (
     <ScrollView
       style={styles.container}
@@ -142,85 +270,67 @@ export default function PerformanceScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       showsVerticalScrollIndicator={false}
     >
-      {/* 顶部大数字卡片 */}
+      {/* 本月业绩总览 */}
       <View style={styles.heroCard}>
-        <View style={styles.heroHeader}>
-          <Text style={styles.heroLabel}>本月业绩</Text>
-          <View style={styles.heroBadge}>
-            <Ionicons name="trending-up" size={12} color="#fff" />
-            <Text style={styles.heroBadgeText}>+12.5%</Text>
-          </View>
-        </View>
-        <Text style={styles.heroAmount}>{fmt(summary?.month_total ?? 0)}</Text>
+        <Text style={styles.heroTitle}>本月业绩</Text>
         <Text style={styles.heroSub}>
-          成交 {summary?.month_deals ?? 0} 单 · 佣金 {fmt(summary?.month_commission ?? 0)}
+          {periodLabel}
+          {me?.position ? ` · ${me.position}` : ''}
+          {me?.department ? ` · ${me.department}` : ''}
         </Text>
-        {/* 三栏数据 */}
         <View style={styles.heroStats}>
-          <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatVal}>{summary?.month_deals ?? 0}</Text>
-            <Text style={styles.heroStatLabel}>本月成交</Text>
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatLabel}>本月签约</Text>
+            <Text style={styles.heroStatValue}>
+              {summary?.month_deals ?? 0}
+              <Text style={styles.heroStatUnit}> 单</Text>
+            </Text>
           </View>
-          <View style={styles.heroDivider} />
-          <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatVal}>{fmt(summary?.month_commission ?? 0)}</Text>
-            <Text style={styles.heroStatLabel}>本月佣金</Text>
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatLabel}>带看</Text>
+            <Text style={styles.heroStatValue}>
+              {monthViewings}
+              <Text style={styles.heroStatUnit}> 次</Text>
+            </Text>
           </View>
-          <View style={styles.heroDivider} />
-          <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatVal}>{fmt(summary?.commission_total ?? 0)}</Text>
-            <Text style={styles.heroStatLabel}>累计佣金</Text>
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatLabel}>业绩</Text>
+            <Text style={styles.heroStatValue}>{fmtMoney(summary?.month_total)}</Text>
+          </View>
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatLabel}>排名</Text>
+            <Text style={styles.heroStatValue}>
+              {myRank > 0 ? myRank : '—'}
+              <Text style={styles.heroStatUnit}>/{rankTotal || '—'}</Text>
+            </Text>
           </View>
         </View>
       </View>
 
-      {/* 月度业绩趋势柱状图 */}
-      <View style={styles.chartCard}>
-        <View style={styles.chartHeader}>
-          <Text style={styles.chartTitle}>业绩趋势</Text>
-          <Text style={styles.chartSub}>近 6 个月</Text>
-        </View>
-        <BarChart data={monthlyData} height={180} activeIndex={5} />
-      </View>
-
-      {/* 佣金构成 */}
-      <View style={styles.chartCard}>
-        <View style={styles.chartHeader}>
-          <Text style={styles.chartTitle}>佣金构成</Text>
-          <Text style={styles.chartSub}>累计</Text>
-        </View>
-        <ProgressStack
-          segments={commissionSegments}
-          totalLabel="总佣金"
-          totalValue={fmt(summary?.commission_total ?? 50000)}
-          barHeight={14}
-        />
-      </View>
-
-      {/* 我的排名 */}
-      <View style={styles.rankSummary}>
-        <Ionicons name="trophy-outline" size={18} color={colors.warning} />
-        <Text style={styles.rankSummaryText}>
-          {myRank > 0 ? `当前排名第 ${myRank} 名，继续加油！` : '暂无排名数据'}
-        </Text>
-      </View>
-
-      {/* 业绩排行榜 */}
-      <Text style={styles.sectionTitle}>业绩排行榜</Text>
-      <FlatList
-        data={leaderboard}
-        keyExtractor={(item) => item.id}
-        renderItem={renderRankItem}
-        scrollEnabled={false}
-        contentContainerStyle={styles.rankList}
-        ListEmptyComponent={
+      {/* 佣金明细 */}
+      <Text style={styles.sectionTitle}>佣金明细</Text>
+      {detailRows.length === 0 ? (
+        <View style={styles.emptyCard}>
           <EmptyState
-            icon="stats-chart-outline"
-            title="暂无业绩数据"
-            sub="有成交或分佣记录后会在这里生成排行榜"
+            icon="receipt-outline"
+            title="暂无佣金记录"
+            sub="签约或续约成交后，系统会自动生成佣金结算明细"
           />
-        }
-      />
+        </View>
+      ) : (
+        detailRows.map((s) => renderSettlement(s))
+      )}
+
+      {/* 本月佣金合计 */}
+      <View style={styles.totalCard}>
+        <View style={styles.totalLeft}>
+          <Text style={styles.totalLabel}>本月佣金合计</Text>
+          <Text style={styles.totalSub}>
+            已结算 {fmtMoney(settledAmount)} · 待结算 {fmtMoney(pendingAmount)}
+          </Text>
+        </View>
+        <Text style={styles.totalAmount}>{fmtMoney(summary?.month_commission)}</Text>
+      </View>
     </ScrollView>
   );
 }
@@ -230,139 +340,110 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 32 },
   center: { flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
 
-  /* Hero 大卡 */
+  /* 本月业绩总览 */
   heroCard: {
-    marginHorizontal: 12,
-    marginTop: 12,
-    padding: 20,
-    borderRadius: colors.radius.xxl,
+    marginHorizontal: colors.spacing.md,
+    marginTop: colors.spacing.md,
+    padding: colors.spacing.xl,
+    borderRadius: colors.radius.xl,
     backgroundColor: colors.primary,
-    position: 'relative',
-    overflow: 'hidden',
     ...colors.shadow.primary,
   },
-  heroHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  heroTitle: { fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.primaryForeground },
+  heroSub: {
+    fontSize: 12,
+    color: colors.alpha('255, 255, 255', 0.8),
+    marginTop: 4,
   },
-  heroLabel: { fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: '500' },
-  heroBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    gap: 3,
-  },
-  heroBadgeText: { fontSize: 11, color: '#fff', fontWeight: '600', marginLeft: 3 },
-  heroAmount: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#fff',
-    marginTop: 8,
-    letterSpacing: -0.5,
-  },
-  heroSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
   heroStats: {
     flexDirection: 'row',
-    marginTop: 20,
-    paddingTop: 16,
+    flexWrap: 'wrap',
+    gap: colors.spacing.md,
+    marginTop: colors.spacing.xl,
+    paddingTop: colors.spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.25)',
+    borderTopColor: colors.alpha('255, 255, 255', 0.25),
   },
-  heroStatItem: { flex: 1, alignItems: 'center' },
-  heroStatVal: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  heroStatLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
-  heroDivider: { width: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.25)' },
+  heroStat: { flexGrow: 1, flexBasis: '42%' },
+  heroStatLabel: { fontSize: colors.fontSize.xs, color: colors.alpha('255, 255, 255', 0.7) },
+  heroStatValue: {
+    fontSize: colors.fontSize.xl,
+    fontWeight: '700',
+    color: colors.primaryForeground,
+    marginTop: 4,
+    fontVariant: ['tabular-nums'],
+  },
+  heroStatUnit: { fontSize: 13, fontWeight: '500', color: colors.alpha('255, 255, 255', 0.85) },
 
-  /* 图表卡片 */
-  chartCard: {
-    marginHorizontal: 12,
-    marginTop: 14,
-    padding: 16,
-    paddingBottom: 12,
+  sectionTitle: {
+    fontSize: colors.fontSize.lg,
+    fontWeight: '700',
+    color: colors.ink,
+    marginHorizontal: colors.spacing.lg,
+    marginTop: colors.spacing.xxl,
+    marginBottom: colors.spacing.md,
+  },
+
+  /* 佣金明细 */
+  detailCard: {
+    marginHorizontal: colors.spacing.md,
+    marginBottom: colors.spacing.md,
+    padding: colors.spacing.lg,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    ...colors.shadow.sm,
+    ...colors.shadow.card,
   },
-  chartHeader: {
+  detailTop: { flexDirection: 'row', alignItems: 'flex-start' },
+  detailInfo: { flex: 1, marginRight: colors.spacing.sm },
+  detailName: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  detailSub: { fontSize: 13, color: colors.ink3, marginTop: 2 },
+  badge: { borderRadius: colors.radius.full, paddingHorizontal: 10, paddingVertical: 4 },
+  badgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
+  detailFooter: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    marginTop: colors.spacing.md,
+    paddingTop: colors.spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
-  chartTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
-  chartSub: { fontSize: 12, color: colors.ink3 },
-
-  /* 排行榜 */
-  sectionTitle: {
-    fontSize: 16,
+  detailFooterLabel: { fontSize: 13, color: colors.ink3 },
+  detailAmount: {
+    fontSize: 17,
     fontWeight: '700',
-    color: colors.text,
-    marginHorizontal: 12,
-    marginTop: 20,
-    marginBottom: 10,
+    color: colors.primary,
+    fontVariant: ['tabular-nums'],
   },
-  rankSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 12,
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: `rgba(${colors.warningRgb}, 0.1)`,
-    borderRadius: colors.radius.lg,
-  },
-  rankSummaryText: {
-    marginLeft: 8,
-    fontSize: 13,
-    color: colors.warning,
-    fontWeight: '500',
-  },
-  rankList: { paddingHorizontal: 12, gap: 8 },
-  rankCard: {
+  emptyCard: {
+    marginHorizontal: colors.spacing.md,
     backgroundColor: colors.surface,
-    borderRadius: colors.radius.lg,
-    padding: 14,
-    marginBottom: 8,
+    borderRadius: colors.radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    ...colors.shadow.sm,
   },
-  rankRow: { flexDirection: 'row', alignItems: 'center' },
-  rankBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.surface2,
-    justifyContent: 'center',
+
+  /* 本月佣金合计 */
+  totalCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 12,
-  },
-  rank1: { backgroundColor: colors.warning },
-  rank2: { backgroundColor: colors.ink3 },
-  rank3: { backgroundColor: colors.info },
-  rankText: { fontSize: 14, fontWeight: '700', color: colors.ink2 },
-  rankTopText: { color: '#fff' },
-  rankInfo: { flex: 1, marginRight: 12 },
-  rankName: { fontSize: 14, fontWeight: '600', color: colors.text },
-  rankSelfName: { color: colors.primary },
-  rankMeta: { fontSize: 11, color: colors.ink3, marginTop: 3 },
-  perfBarBg: {
-    height: 4,
+    justifyContent: 'space-between',
+    marginHorizontal: colors.spacing.md,
+    padding: colors.spacing.lg,
     backgroundColor: colors.surface2,
-    borderRadius: 2,
-    marginTop: 8,
-    overflow: 'hidden',
+    borderRadius: colors.radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
-  perfBarFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 2,
+  totalLeft: { flex: 1, marginRight: colors.spacing.md },
+  totalLabel: { fontSize: 13, color: colors.ink3 },
+  totalSub: { fontSize: 13, color: colors.ink3, marginTop: 2 },
+  totalAmount: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.primary,
+    fontVariant: ['tabular-nums'],
   },
-  rankAmount: { fontSize: 14, fontWeight: '700', color: colors.ink },
-  rankSelfAmount: { color: colors.primary },
 });

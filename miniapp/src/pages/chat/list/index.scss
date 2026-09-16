@@ -1,18 +1,189 @@
 .chat-list-page {
   min-height: 100vh;
   background-color: var(--bg);
+  /* 预留固定底部导航高度，避免内容被遮挡 */
+  padding-bottom: 160rpx;
 
   .page-container {
     padding: 24px;
   }
 
-  .empty-tip {
-    text-align: center;
-    padding: 80px 0;
-    color: var(--ink-3);
-    font-size: 28px;
+  /* ===== 标题区：消息中心 + 计数 + 全部已读 ===== */
+  .msg-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+
+    .msg-head__title {
+      font-size: 40px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+    }
+
+    .msg-head__sub {
+      display: block;
+      margin-top: 6px;
+      font-size: 26px;
+      color: var(--ink-3);
+    }
+
+    .msg-head__btn {
+      flex-shrink: 0;
+      padding: 14px 26px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background-color: var(--surface-2);
+      color: var(--ink-2);
+      font-size: 26px;
+
+      &--disabled {
+        opacity: 0.5;
+      }
+
+      .msg-head__btn-text {
+        font-size: 26px;
+        color: var(--ink-2);
+      }
+    }
   }
 
+  /* ===== 分类 Tab ===== */
+  .msg-tabs {
+    width: 100%;
+    white-space: nowrap;
+    margin-bottom: 20px;
+
+    .msg-tabs__inner {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .msg-tab {
+      flex-shrink: 0;
+      padding: 12px 26px;
+      border-radius: 999px;
+      background-color: var(--card);
+      border: 2px solid var(--line);
+
+      &--active {
+        background-color: var(--sidebar-active);
+        border-color: var(--primary);
+      }
+
+      &--active .msg-tab__text {
+        color: var(--primary);
+      }
+
+      .msg-tab__text {
+        font-size: 26px;
+        font-weight: 600;
+        color: var(--ink-2);
+      }
+
+      .msg-tab__count {
+        margin-left: 8px;
+        font-size: 24px;
+        color: var(--ink-3);
+      }
+
+      &--active .msg-tab__count {
+        color: var(--primary);
+      }
+    }
+  }
+
+  /* ===== 消息卡片 ===== */
+  .msg-card {
+    background-color: var(--card);
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-sm);
+    padding: 0 24px;
+
+    .msg-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      padding: 26px 0;
+      border-bottom: 1px solid var(--line);
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .msg-icon {
+        flex-shrink: 0;
+        width: 72px;
+        height: 72px;
+        border-radius: 18px;
+        background-repeat: no-repeat;
+        background-position: center center;
+        background-size: 40px 40px;
+      }
+
+      .msg-body {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .msg-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .msg-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--ink);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .msg-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background-color: var(--error);
+        flex-shrink: 0;
+      }
+
+      .msg-cat-badge {
+        font-size: 20px;
+        flex-shrink: 0;
+      }
+
+      .msg-summary {
+        display: block;
+        margin-top: 8px;
+        font-size: 24px;
+        color: var(--ink-3);
+        line-height: 1.5;
+      }
+
+      .msg-time {
+        flex-shrink: 0;
+        font-size: 22px;
+        color: var(--ink-3);
+      }
+    }
+  }
+
+  .msg-section-title {
+    display: block;
+    margin: 32px 0 16px;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+
+  /* ===== 客服会话 ===== */
   .conversation-list {
     max-height: 1400px;
   }
@@ -22,6 +193,8 @@
     align-items: center;
     background-color: var(--card);
     border-radius: 16px;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-sm);
     padding: 24px;
     margin-bottom: 16px;
 

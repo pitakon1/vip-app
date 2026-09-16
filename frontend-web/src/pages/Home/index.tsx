@@ -81,6 +81,12 @@ const Home = () => {
     navigate('/listings?video=1')
   }, [navigate])
 
+  // 房源详情入口：租客走 C 端门户详情页，其余角色走后台详情页
+  const detailPath = useCallback(
+    (id: string) => (user?.role === 'tenant' ? `/tenant/properties/${id}` : `/properties/detail/${id}`),
+    [user]
+  )
+
   const enterSystem = useCallback(() => {
     if (!token) {
       navigate('/login')
@@ -194,7 +200,7 @@ const Home = () => {
                 <div
                   className="rent-prop-search-card"
                   key={p.id}
-                  onClick={() => token ? navigate(`/properties/detail/${p.id}`) : handleSearch()}
+                  onClick={() => token ? navigate(detailPath(p.id)) : handleSearch()}
                 >
                   <div className="rent-prop-search-card__banner" style={{ background: bannerColorFor(p.id) }}>
                     <button
@@ -259,7 +265,7 @@ const Home = () => {
                       </div>
                       <button
                         className="rent-prop-search-card__cta"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); token ? navigate(`/properties/detail/${p.id}`) : handleSearch() }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); token ? navigate(detailPath(p.id)) : handleSearch() }}
                       >
                         {t('property.viewDetail')}
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

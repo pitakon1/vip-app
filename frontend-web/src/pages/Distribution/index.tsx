@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
 import { brokerApi, propertyDealApi } from '@/services/api'
 
@@ -57,6 +57,7 @@ const shortId = (id?: string) => (id ? String(id).slice(0, 8) : '—')
 
 const Distribution = () => {
   const [activeTab, setActiveTab] = useState('brokers')
+  const [brokerCreateOpen, setBrokerCreateOpen] = useState(false)
   return (
     <div className="rent-main">
       <div className="rent-page-header">
@@ -66,17 +67,33 @@ const Distribution = () => {
             渠道商登记、定级审批、转介绍裂变与联合单佣金分成
           </p>
         </div>
+        <div className="rent-page-header__actions">
+          {activeTab === 'brokers' && (
+            <button className="rent-btn rent-btn--primary" type="button" onClick={() => setBrokerCreateOpen(true)}>
+              登记渠道商
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="rent-tabs">
         {TABS.map((t) => (
-          <button key={t.key} type="button" className="rent-tab" data-active={activeTab === t.key} onClick={() => setActiveTab(t.key)}>
+          <button
+            key={t.key}
+            type="button"
+            className="rent-tab"
+            data-active={activeTab === t.key}
+            onClick={() => {
+              setActiveTab(t.key)
+              setBrokerCreateOpen(false)
+            }}
+          >
             {t.label}
           </button>
         ))}
       </div>
 
-      {activeTab === 'brokers' && <BrokersTab />}
+      {activeTab === 'brokers' && <BrokersTab createOpen={brokerCreateOpen} onOpenChange={setBrokerCreateOpen} />}
       {activeTab === 'referrals' && <ReferralsTab />}
       {activeTab === 'split' && <SplitTab />}
     </div>
@@ -84,14 +101,14 @@ const Distribution = () => {
 }
 
 /* ===== 渠道商 Tab ===== */
-const BrokersTab = () => {
+const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
   const [items, setItems] = useState<Broker[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const [level, setLevel] = useState('')
+  const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [createOpen, setCreateOpen] = useState(false)
   const [approveBroker, setApproveBroker] = useState<Broker | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ partner_name: '', broker_type: 'individual', contact_name: '', contact_phone: '', contact_email: '', country: 'TH', base_rate: '' })
@@ -135,7 +152,7 @@ const BrokersTab = () => {
         base_rate: form.base_rate ? Number(form.base_rate) : 0,
       })
       message.success('渠道商已登记（待审批）')
-      setCreateOpen(false)
+      onOpenChange(false)
       fetchData()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '登记失败')
@@ -177,34 +194,119 @@ const BrokersTab = () => {
     setApproveBroker(b)
   }
 
+  // 状态分布仅基于当前页数据统计，避免引入额外接口调用
+  const statusCounts = useMemo(() => ({
+    pending: items.filter((b) => b.status === 'pending').length,
+    active: items.filter((b) => b.status === 'active').length,
+    suspended: items.filter((b) => b.status === 'suspended').length,
+  }), [items])
+
+  const kw = keyword.trim().toLowerCase()
+  const visibleItems = kw
+    ? items.filter((b) =>
+        (b.partner_name || '').toLowerCase().includes(kw) ||
+        (b.contact_name || '').toLowerCase().includes(kw) ||
+        (b.invite_code || '').toLowerCase().includes(kw))
+    : items
+
+  const statCards = [
+    {
+      label: '渠道商总数',
+      value: String(total),
+      iconBg: 'rgba(20,184,166,0.1)',
+      iconColor: 'var(--rent-primary)',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+        </svg>
+      ),
+    },
+    {
+      label: '待审批（当前页）',
+      value: String(statusCounts.pending),
+      iconBg: 'rgba(217,119,6,0.12)',
+      iconColor: 'var(--state-warning)',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+        </svg>
+      ),
+    },
+    {
+      label: '已激活（当前页）',
+      value: String(statusCounts.active),
+      iconBg: 'rgba(22,163,74,0.1)',
+      iconColor: 'var(--state-success)',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      ),
+    },
+    {
+      label: '已暂停（当前页）',
+      value: String(statusCounts.suspended),
+      iconBg: 'rgba(220,38,38,0.1)',
+      iconColor: 'var(--state-error)',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" /><line x1="10" y1="15" x2="10" y2="9" /><line x1="14" y1="15" x2="14" y2="9" />
+        </svg>
+      ),
+    },
+  ]
+
   return (
     <>
+      <div className="rent-grid rent-grid--4 rent-mb-5">
+        {statCards.map((c) => (
+          <div className="rent-stat-card" key={c.label}>
+            <div className="rent-stat-card__head">
+              <div>
+                <div className="rent-stat-card__label">{c.label}</div>
+                <div className="rent-stat-card__value rent-num">{c.value}</div>
+              </div>
+              <div className="rent-stat-card__icon" style={{ background: c.iconBg, color: c.iconColor }}>{c.icon}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="rent-filter-bar">
-        <select className="rent-form-select" style={{ width: 'auto', minWidth: 130 }} aria-label="状态" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
-          <option value="">全部状态</option>
-          {Object.keys(BROKER_STATUS).map((k) => <option key={k} value={k}>{BROKER_STATUS[k].label}</option>)}
-        </select>
-        <select className="rent-form-select" style={{ width: 'auto', minWidth: 120 }} aria-label="等级" value={level} onChange={(e) => { setLevel(e.target.value); setPage(1) }}>
+        <div className="rent-filter-bar__search">
+          <div className="rent-search" style={{ width: '100%' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" placeholder="搜索分销商名称" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
+          </div>
+        </div>
+        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 120 }} aria-label="等级" value={level} onChange={(e) => { setLevel(e.target.value); setPage(1) }}>
           <option value="">全部等级</option>
           {Object.keys(BROKER_LEVEL).map((k) => <option key={k} value={k}>{BROKER_LEVEL[k]}</option>)}
         </select>
-        <div style={{ flex: 1 }} />
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setCreateOpen(true)}>+ 登记渠道商</button>
+        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 130 }} aria-label="状态" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
+          <option value="">全部状态</option>
+          {Object.keys(BROKER_STATUS).map((k) => <option key={k} value={k}>{BROKER_STATUS[k].label}</option>)}
+        </select>
       </div>
 
       <div className="rent-card">
-        <div className="rent-card__header"><h3 className="rent-card__title">渠道商列表</h3><span className="rent-badge rent-badge--neutral">共 {total} 条</span></div>
+        <div className="rent-card__header"><h3 className="rent-card__title">分销商列表</h3><span className="rent-badge rent-badge--neutral">共 {total} 条</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
           {loading ? (
             <div className="rent-empty rent-text-muted">加载中...</div>
           ) : items.length === 0 ? (
             <div className="rent-empty rent-text-muted">暂无渠道商</div>
+          ) : visibleItems.length === 0 ? (
+            <div className="rent-empty rent-text-muted">没有匹配的渠道商</div>
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
                 <thead><tr><th>名称</th><th>类型</th><th>等级</th><th>状态</th><th>邀请码</th><th>地区</th><th style={{ textAlign: 'right' }}>费率%</th><th>操作</th></tr></thead>
                 <tbody>
-                  {items.map((b) => {
+                  {visibleItems.map((b) => {
                     const st = BROKER_STATUS[b.status || 'pending'] || BROKER_STATUS.pending
                     return (
                       <tr key={b.id}>
@@ -233,18 +335,19 @@ const BrokersTab = () => {
               </table>
             </div>
           )}
+          <div className="rent-pagination" style={{ marginTop: 14, padding: '0 22px 16px' }}>
+            <span className="rent-pagination__info">
+              共 {total} 条 · 每页 10 条{kw ? ` · 当前页匹配 ${visibleItems.length} 条` : ''}
+            </span>
+            <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>上一页</button>
+            <span className="rent-pagination__info">{page}</span>
+            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>下一页</button>
+          </div>
         </div>
       </div>
 
-      <div className="rent-pagination">
-        <span className="rent-pagination__info">共 {total} 条</span>
-        <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>上一页</button>
-        <span className="rent-pagination__info">{page}</span>
-        <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>下一页</button>
-      </div>
-
       {createOpen && (
-        <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
+        <div className="rent-modal-backdrop" onClick={() => onOpenChange(false)}>
           <div className="rent-modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header"><h3 className="rent-card__title">登记渠道商</h3></div>
             <div className="rent-modal__body">
@@ -269,7 +372,7 @@ const BrokersTab = () => {
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => onOpenChange(false)}>取消</button>
               <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? '登记中...' : '登记'}</button>
             </div>
           </div>

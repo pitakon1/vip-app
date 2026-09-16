@@ -27,11 +27,12 @@ const fmtMoney = (v: number) => `฿${Number(v || 0).toLocaleString(undefined, {
 const Trend = () => {
   const [series, setSeries] = useState<SeriesPoint[]>([])
   const [loading, setLoading] = useState(false)
+  const [months, setMonths] = useState(12)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await financialApi.trend({ months: 12 })
+      const res = await financialApi.trend({ months })
       const payload = res.data?.data ?? res.data
       setSeries(payload?.series ?? [])
     } catch (err: any) {
@@ -39,7 +40,7 @@ const Trend = () => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [months])
 
   useEffect(() => {
     fetchData()
@@ -133,11 +134,20 @@ const Trend = () => {
     },
   })
 
+  // 环比：取序列最后两个月的真实数据计算，数据不足则不展示
+  const mom = (key: 'revenue' | 'leases_new' | 'leads_new' | 'viewings_new'): number | null => {
+    if (series.length < 2) return null
+    const prev = Number(series[series.length - 2][key] || 0)
+    const cur = Number(series[series.length - 1][key] || 0)
+    if (!prev) return null
+    return ((cur - prev) / prev) * 100
+  }
+
   const statCards = [
-    { label: '累计营收', value: fmtMoney(totals.revenue), icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' },
-    { label: '新增合同', value: String(totals.leases), icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' },
-    { label: '新增线索', value: String(totals.leads), icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2' },
-    { label: '预约看房', value: String(totals.viewings), icon: 'M8 2v4M16 2v4M3 10h18' },
+    { label: '累计营收', value: fmtMoney(totals.revenue), delta: mom('revenue'), icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' },
+    { label: '新增合同', value: String(totals.leases), delta: mom('leases_new'), icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' },
+    { label: '新增线索', value: String(totals.leads), delta: mom('leads_new'), icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2' },
+    { label: '预约看房', value: String(totals.viewings), delta: mom('viewings_new'), icon: 'M8 2v4M16 2v4M3 10h18' },
   ]
 
   return (
@@ -145,10 +155,10 @@ const Trend = () => {
       <div className="rent-page-header">
         <div>
           <h2 className="rent-page-header__title">运营趋势</h2>
-          <p className="rent-page-header__subtitle">近 12 个月营收与运营指标走势</p>
+          <p className="rent-page-header__subtitle">近 {months} 个月营收与运营指标走势</p>
         </div>
         <div className="rent-page-header__actions">
-          <span className="rent-badge rent-badge--neutral">近12个月</span>
+          <span className="rent-badge rent-badge--neutral">近{months}个月</span>
         </div>
       </div>
 
@@ -160,6 +170,18 @@ const Trend = () => {
               <div>
                 <div className="rent-stat-card__label">{c.label}</div>
                 <div className="rent-stat-card__value trend-chart-col">{c.value}</div>
+                {c.delta !== null && (
+                  <div className={`rent-stat-card__delta ${c.delta >= 0 ? 'rent-stat-card__delta--up' : 'rent-stat-card__delta--down'}`}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      {c.delta >= 0 ? (
+                        <><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></>
+                      ) : (
+                        <><line x1="12" y1="5" x2="12" y2="19" /><polyline points="19 12 12 19 5 12" /></>
+                      )}
+                    </svg>
+                    {c.delta >= 0 ? '+' : ''}{c.delta.toFixed(1)}% 较上月
+                  </div>
+                )}
               </div>
               <div className="rent-stat-card__icon" style={{ background: 'rgba(20,184,166,0.1)', color: 'var(--rent-primary)' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -181,7 +203,13 @@ const Trend = () => {
         <>
           <div className="rent-grid rent-grid--2 rent-mb-5">
             <div className="rent-card">
-              <div className="rent-card__header"><h3 className="rent-card__title">月度营收</h3></div>
+              <div className="rent-card__header">
+                <h3 className="rent-card__title">月度营收</h3>
+                <div className="rent-chart-range-group">
+                  <button type="button" className={`rent-chart-range${months === 8 ? ' rent-chart-range--active' : ''}`} onClick={() => setMonths(8)}>近 8 个月</button>
+                  <button type="button" className={`rent-chart-range${months === 12 ? ' rent-chart-range--active' : ''}`} onClick={() => setMonths(12)}>近 12 个月</button>
+                </div>
+              </div>
               <div className="rent-card__body">
                 <div className="rent-chart-container" style={{ height: 260 }}>
                   <Bar data={revenueChartData} options={chartOptions(fmtMoney)} />

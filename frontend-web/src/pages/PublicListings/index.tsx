@@ -67,16 +67,15 @@ const TYPE_ICON_PATH = (pt: string): string => {
 
 const formatRent = (v: any) => `฿${Number(v || 0).toLocaleString()}`
 
-// 业务 Tab（整租/合租/买房）归属 —— 原型卡片带 data-biz，此处按 id 确定性分配
-const bizOf = (it: any): string => {
-  let h = 0
-  const s = String(it.id || it.room_number || 'x')
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  const r = h % 10
-  if (r < 6) return 'rent'
-  if (r < 8) return 'share'
-  return 'sale'
+// 买卖挂牌总价（币种随挂牌）
+const formatTotal = (v: any, currency?: string) => {
+  const symbol = currency === 'CNY' ? '¥' : currency === 'USD' ? '$' : currency === 'MYR' ? 'RM ' : '฿'
+  return `${symbol}${Number(v || 0).toLocaleString()}`
 }
+
+// 业务 Tab（整租 / 合租 / 买房）
+// - 买房：数据源为真实在售挂牌 /sale-listings（按 property_id 关联房源）
+// - 合租：房源表没有整租/合租字段，无法真实区分 → 空态，不做伪分类
 
 // 按区域 / 按地铁找房（对齐贝壳「区域 | 地铁」下拉面板）
 
@@ -114,6 +113,8 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   // 数据
   const [allItems, setAllItems] = useState<Property[]>([])
   const [loading, setLoading] = useState(false)
+  // 买房业务栏数据源：真实在售挂牌（/sale-listings 需登录，未登录为空）
+  const [saleListings, setSaleListings] = useState<any[]>([])
 
   // 筛选
   const [keyword, setKeyword] = useState('')
@@ -317,6 +318,23 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // 在售挂牌（买房业务栏）：仅登录后拉取，失败按空态处理
+  useEffect(() => {
+    if (!token) {
+      setSaleListings([])
+      return
+    }
+    let cancelled = false
+    api.get('/sale-listings', { params: { page: 1, page_size: 100 } })
+      .then((res) => {
+        const payload = res.data?.data ?? res.data
+        const items = payload?.items ?? []
+        if (!cancelled) setSaleListings(Array.isArray(items) ? items : [])
+      })
+      .catch(() => { if (!cancelled) setSaleListings([]) })
+    return () => { cancelled = true }
+  }, [token])
+
   // ---------- 地图找房（Leaflet + OpenStreetMap 瓦片） ----------
   // 房源坐标来自所属项目（projects.lat/lng），项目未维护坐标的房源不在地图上出现。
   const mapRef = useRef<HTMLDivElement | null>(null)
@@ -373,6 +391,21 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   // 前端筛选 + 排序 + 业务 Tab
   const filteredItems = useMemo(() => {
     let list = [...allItems]
+
+    // 业务 Tab：合租无对应字段 → 诚实空态；买房改挂真实在售挂牌总价
+    if (biz === 'share') return []
+    if (biz === 'sale') {
+      const saleMap = new Map(saleListings.map((s: any) => [String(s.property_id || ''), s]))
+      list = list
+        .filter((it: any) => saleMap.has(String(it.id)))
+        .map((it: any) => {
+          const s: any = saleMap.get(String(it.id))
+          return { ...it, sale_price: s?.asking_price, currency: s?.currency || it.currency }
+        })
+    }
+    // 价格口径：买房看总价，租房看月租
+    const priceOf = (it: any) => Number(biz === 'sale' ? it.sale_price : it.monthly_rent || 0)
+
     const kw = keyword.trim().toLowerCase()
     if (kw) {
       list = list.filter((it: any) =>
@@ -401,7 +434,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
       if (customMax && !Number.isNaN(mx)) pMax = mx
     }
     list = list.filter((it: any) => {
-      const r = Number(it.monthly_rent)
+      const r = priceOf(it)
       return r >= pMin && r <= pMax
     })
     if (areaRange) {
@@ -421,16 +454,15 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     if (statusSel) {
       list = list.filter((it: any) => (it.status || 'vacant').toLowerCase() === statusSel)
     }
-    // 业务 Tab：整租 / 合租 / 买房
-    list = list.filter((it: any) => bizOf(it) === biz)
+    // 业务 Tab 已在开头处理（合租空态 / 买房挂真实总价）
     switch (sort) {
-      case 'price_asc': list.sort((a: any, b: any) => a.monthly_rent - b.monthly_rent); break
-      case 'price_desc': list.sort((a: any, b: any) => b.monthly_rent - a.monthly_rent); break
+      case 'price_asc': list.sort((a: any, b: any) => priceOf(a) - priceOf(b)); break
+      case 'price_desc': list.sort((a: any, b: any) => priceOf(b) - priceOf(a)); break
       case 'area_desc': list.sort((a: any, b: any) => b.size_sqm - a.size_sqm); break
       case 'latest': list.sort((a: any, b: any) => dayjs(b.created_at || 0).valueOf() - dayjs(a.created_at || 0).valueOf()); break
     }
     return list
-  }, [allItems, keyword, activeLocationKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz])
+  }, [allItems, saleListings, keyword, activeLocationKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz])
 
   useEffect(() => { setPage(1) }, [keyword, districtSel, metroSel, activeLocationKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz])
 
@@ -454,7 +486,12 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
 
   const handleCardClick = (item: any) => {
     if (token) {
-      navigate(`/properties/detail/${item.id}`)
+      // 租客走 C 端门户详情页（对齐 tenant-property-detail.html），其余角色走后台详情页
+      navigate(
+        user?.role === 'tenant'
+          ? `/tenant/properties/${item.id}`
+          : `/properties/detail/${item.id}`,
+      )
     } else {
       navigate('/login')
     }
@@ -911,8 +948,12 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
           </div>
           <div className="rent-prop-search-card__foot">
             <div className="rent-prop-search-card__price">
-              <span className="rent-prop-search-card__price-value">{formatRent(rent)}</span>
-              <span className="rent-prop-search-card__price-unit">{t('property.perMonth')}</span>
+              <span className="rent-prop-search-card__price-value">
+                {biz === 'sale' ? formatTotal(item.sale_price, item.currency) : formatRent(rent)}
+              </span>
+              <span className="rent-prop-search-card__price-unit">
+                {biz === 'sale' ? t('browse.saleUnit') : t('property.perMonth')}
+              </span>
             </div>
             <button className="rent-prop-search-card__cta" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCardClick(item) }}>
               {t('property.viewDetail')}
@@ -1165,7 +1206,9 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
         <section className="rent-section">
           <Spin spinning={loading} tip={t('common.loading')}>
             {total === 0 && !loading ? (
-              <div className="rent-empty">{t('common.noData')}</div>
+              <div className="rent-empty">
+                {biz === 'share' ? t('browse.shareUnavailable') : t('common.noData')}
+              </div>
             ) : (
               <div className="rent-prop-grid">
                 {pagedItems.map((item: any) => renderCard(item))}

@@ -293,7 +293,10 @@ def test_deposit_settlement_refund_and_retire(api, engine):
     r = client.post(
         f"/api/v1/leases/{lease_id}/deposit-settlement",
         json={
-            "termination_date": "2026-09-13T00:00:00Z",
+            # 退房日期取「此刻」而非写死：未付租金的 due_date 是 now-3d，
+            # 结算只统计 due_date <= termination_date 的欠款，写死日期会让
+            # 测试在几天后自动失效（欠款被排除 → outstanding_rent 变 0）。
+            "termination_date": datetime.utcnow().isoformat(),
             "damage_charges": 1000,
             "other_deductions": [{"label": "换锁", "amount": 500}],
         },

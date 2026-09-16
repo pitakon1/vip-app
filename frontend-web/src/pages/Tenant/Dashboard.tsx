@@ -54,6 +54,54 @@ interface Notification {
   [key: string]: any
 }
 
+interface BillItem {
+  id: string
+  amount: number
+  currency?: string
+  payment_type?: string
+  status: string
+  due_date?: string
+  paid_at?: string
+  created_at?: string
+  description?: string
+  [key: string]: any
+}
+
+interface TicketItem {
+  id: string
+  ticket_no?: string
+  title?: string
+  description?: string
+  status: string
+  priority?: string
+  created_at: string
+  [key: string]: any
+}
+
+// 账单类型展示名（来自接口 payment_type 字段）
+const BILL_TYPE_LABEL: Record<string, string> = {
+  rent: '租金',
+  deposit: '押金',
+  commission: '佣金',
+  service_fee: '服务费',
+  utility: '水电费',
+  tax: '税费',
+  refund: '退款',
+}
+
+// 工单状态 → 处理进度（由接口 status 派生，非示例数据）
+const TICKET_PROGRESS: Record<string, number> = {
+  open: 20,
+  assigned: 40,
+  in_progress: 70,
+  resolved: 100,
+  closed: 100,
+}
+
+const ACTIVE_TICKET_STATUS = ['open', 'assigned', 'in_progress']
+// 未结清账单状态（已成功/已退款不算未付）
+const SETTLED_BILL_STATUS = ['succeeded', 'refunded']
+
 const GRADIENTS = [
   '#14b8a6',
   '#0ea5e9',
@@ -89,14 +137,18 @@ const TenantDashboard = () => {
   const [allItems, setAllItems] = useState<PropertyItem[]>([])
   const [leases, setLeases] = useState<Lease[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [bills, setBills] = useState<BillItem[]>([])
+  const [tickets, setTickets] = useState<TicketItem[]>([])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [propsRes, leasesRes, notifRes] = await Promise.all([
+      const [propsRes, leasesRes, notifRes, billsRes, ticketsRes] = await Promise.all([
         propertiesApi.list({ page: 1, pageSize: 999 } as any).catch(() => ({ data: { items: [] } })),
         api.get('/leases').catch(() => ({ data: { items: [] } })),
         api.get('/notifications/me').catch(() => ({ data: { items: [] } })),
+        api.get('/payments/me').catch(() => ({ data: { items: [] } })),
+        api.get('/maintenance-tickets').catch(() => ({ data: { items: [] } })),
       ])
 
       const pPayload = propsRes.data?.data ?? propsRes.data
@@ -107,6 +159,12 @@ const TenantDashboard = () => {
 
       const nPayload = notifRes.data?.data ?? notifRes.data
       setNotifications(nPayload?.items ?? [])
+
+      const bPayload = billsRes.data?.data ?? billsRes.data
+      setBills(bPayload?.items ?? [])
+
+      const tPayload = ticketsRes.data?.data ?? ticketsRes.data
+      setTickets(tPayload?.items ?? [])
     } catch (err: any) {
       message.error(err?.response?.data?.message || t('property.fetchFailed'))
     } finally {
@@ -160,36 +218,69 @@ const TenantDashboard = () => {
     [leases],
   )
   const daysToExpiry = useMemo(() => {
-    if (!currentLease?.end_date) return 43
+    if (!currentLease?.end_date) return null
     return dayjs(currentLease.end_date).diff(dayjs(), 'day')
   }, [currentLease])
   const leaseProgress = useMemo(() => {
-    if (!currentLease?.start_date || !currentLease?.end_date) return 88
+    if (!currentLease?.start_date || !currentLease?.end_date) return null
     const total = dayjs(currentLease.end_date).diff(dayjs(currentLease.start_date), 'day')
     const passed = dayjs().diff(dayjs(currentLease.start_date), 'day')
     if (total <= 0) return 0
     return Math.min(100, Math.max(0, Math.round((passed / total) * 100)))
   }, [currentLease])
   const monthlyRent = useMemo(() => {
-    const rent = Number(currentLease?.monthly_rent ?? 3800)
-    return `฿ ${rent.toLocaleString()}`
+    if (!currentLease) return null
+    return formatMoney(Number(currentLease.monthly_rent || 0), currentLease.currency)
   }, [currentLease])
 
+  // ===== 待办：未付账单（真实数据） =====
+  const unpaidBills = useMemo(() => {
+    return bills
+      .filter((b) => !SETTLED_BILL_STATUS.includes(String(b.status || '').toLowerCase()))
+      .sort(
+        (a, b) =>
+          dayjs(a.due_date || a.created_at || 0).valueOf() -
+          dayjs(b.due_date || b.created_at || 0).valueOf(),
+      )
+  }, [bills])
+  const unpaidBill = unpaidBills[0]
+  const unpaidBillLabel = unpaidBill
+    ? BILL_TYPE_LABEL[String(unpaidBill.payment_type || '')] || '待缴账单'
+    : ''
+  const unpaidBillAmount = unpaidBill
+    ? formatMoney(Number(unpaidBill.amount || 0), unpaidBill.currency)
+    : ''
+  const unpaidBillDue = unpaidBill?.due_date
+    ? dayjs(unpaidBill.due_date).format('M月D日')
+    : null
+  const unpaidBillDueIn = unpaidBill?.due_date
+    ? dayjs(unpaidBill.due_date).diff(dayjs(), 'day')
+    : null
+  const unpaidBillDay = unpaidBill?.created_at
+    ? dayjs(unpaidBill.created_at).format('M月D日')
+    : null
+
+  // ===== 待办：进行中报修工单（真实数据） =====
+  const activeTicket = useMemo(
+    () =>
+      tickets.find((tk) => ACTIVE_TICKET_STATUS.includes(String(tk.status || '').toLowerCase())),
+    [tickets],
+  )
+  const activeTicketProgress = activeTicket
+    ? TICKET_PROGRESS[String(activeTicket.status || '').toLowerCase()] ?? 0
+    : 0
+  const activeTicketDays = activeTicket?.created_at
+    ? Math.max(dayjs().diff(dayjs(activeTicket.created_at), 'day'), 0)
+    : null
+
   const reminders = useMemo(() => {
-    if (notifications.length) {
-      return notifications.slice(0, 3).map((n) => ({
-        tone: n.read ? 'neutral' : 'warning',
-        title: n.title || t('common.notifications'),
-        desc: n.content || '',
-        date: n.created_at ? dayjs(n.created_at).format('M月D日') : '—',
-      }))
-    }
-    return [
-      { tone: 'warning', title: t('tenantRemind.rentDue'), desc: `${t('tenantRemind.monthlyRent')} ${monthlyRent} ${t('tenantRemind.toPay')}`, date: '8月15日' },
-      { tone: 'info', title: t('tenantRemind.leaseExpire'), desc: `${t('tenantRemind.expireIn')} ${daysToExpiry} ${t('tenantRemind.days')}`, date: '9月15日' },
-      { tone: 'neutral', title: t('tenantRemind.maintenanceReply'), desc: '#MT-002', date: '—' },
-    ]
-  }, [notifications, monthlyRent, daysToExpiry, t])
+    return notifications.slice(0, 3).map((n) => ({
+      tone: n.read ? 'neutral' : 'warning',
+      title: n.title || t('common.notifications'),
+      desc: n.content || '',
+      date: n.created_at ? dayjs(n.created_at).format('M月D日') : '—',
+    }))
+  }, [notifications, t])
 
   const feedItems = useMemo(() => {
     return reminders.map((r) => ({
@@ -202,12 +293,12 @@ const TenantDashboard = () => {
 
   // ===== 功能宫格 =====
   const funcItems = [
-    { key: 'find', label: t('browse.findNow'), icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22', color: 'var(--rent-primary)', bg: 'rgba(20, 184, 166, 0.12)', go: () => navigate('/properties') },
-    { key: 'map', label: t('browse.mapFind'), icon: 'M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', color: 'var(--state-info)', bg: 'rgba(14,165,233,0.12)', go: () => navigate('/properties') },
-    { key: 'video', label: t('browse.video'), icon: 'M22 8l-6 4 6 4V8Z M2 6h14v12H2z', color: '#14b8a6', bg: 'rgba(139,92,246,0.12)', go: () => navigate('/properties') },
-    { key: 'loan', label: t('browse.loanCalc'), icon: 'M4 2h16v20H4z M8 6h8 M8 10h.01 M12 10h.01 M16 10h.01 M8 14h.01 M12 14h.01 M16 14h.01', color: 'var(--state-warning)', bg: 'rgba(217,119,6,0.12)', go: () => navigate('/properties') },
+    { key: 'find', label: t('browse.findNow'), icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22', color: 'var(--rent-primary)', bg: 'rgba(20, 184, 166, 0.12)', go: () => navigate('/tenant/listings') },
+    { key: 'map', label: t('browse.mapFind'), icon: 'M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', color: 'var(--state-info)', bg: 'rgba(14,165,233,0.12)', go: () => navigate('/tenant/listings') },
+    { key: 'video', label: t('browse.video'), icon: 'M22 8l-6 4 6 4V8Z M2 6h14v12H2z', color: '#14b8a6', bg: 'rgba(139,92,246,0.12)', go: () => navigate('/tenant/listings?video=1') },
+    { key: 'loan', label: t('browse.loanCalc'), icon: 'M4 2h16v20H4z M8 6h8 M8 10h.01 M12 10h.01 M16 10h.01 M8 14h.01 M12 14h.01 M16 14h.01', color: 'var(--state-warning)', bg: 'rgba(217,119,6,0.12)', go: () => navigate('/tenant/listings') },
     { key: 'consign', label: t('browse.consignFind'), icon: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M8 2h8v4H8z M9 13h6 M9 17h4', color: 'var(--state-success)', bg: 'rgba(22,163,74,0.12)', go: () => navigate('/tenant/services') },
-    { key: 'valu', label: t('browse.sellValuation'), icon: 'M23 6 13.5 15.5 8.5 10.5 1 18 M17 6h6v6', color: '#db2777', bg: 'rgba(236,72,153,0.12)', go: () => navigate('/properties') },
+    { key: 'valu', label: t('browse.sellValuation'), icon: 'M23 6 13.5 15.5 8.5 10.5 1 18 M17 6h6v6', color: '#db2777', bg: 'rgba(236,72,153,0.12)', go: () => navigate('/tenant/listings') },
   ]
 
   // ===== 快捷入口金刚区 =====
@@ -219,7 +310,7 @@ const TenantDashboard = () => {
       bg: 'rgba(20,184,166,0.12)',
       color: 'var(--rent-primary)',
       icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
-      go: () => navigate('/properties'),
+      go: () => navigate('/tenant/listings'),
     },
     {
       key: 'pay',
@@ -266,7 +357,7 @@ const TenantDashboard = () => {
       <div
         key={item.id}
         className="rv17-prop"
-        onClick={() => navigate(`/properties/detail/${item.id}`)}
+        onClick={() => navigate(`/tenant/properties/${item.id}`)}
         style={{ cursor: 'pointer' }}
       >
         <div className="rv17-prop__img" style={{ background: gradientFor(String(item.id || item.room_number || '')) }}>
@@ -306,7 +397,7 @@ const TenantDashboard = () => {
       <a
         key={item.id}
         className="rv17-comm"
-        onClick={() => navigate(`/properties/detail/${item.id}`)}
+        onClick={() => navigate(`/tenant/properties/${item.id}`)}
         style={{ cursor: 'pointer' }}
       >
         <div className="rv17-comm__img" style={{ background: gradientFor(String(item.id || item.room_number || '')) }}>
@@ -359,7 +450,7 @@ const TenantDashboard = () => {
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('common.search')}（{searchResults.length}）</h2>
-            <a className="rv17-sec__more" onClick={() => navigate('/properties')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
+            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
           </div>
           <div className="rv17-rail">
             {searchResults.map((it) => renderPropCard(it, biz))}
@@ -385,7 +476,7 @@ const TenantDashboard = () => {
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('browse.featured')}</h2>
-            <a className="rv17-sec__more" onClick={() => navigate('/properties')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
+            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
           </div>
           <div className="rv17-rail">
             {featuredItems.map((it) => renderPropCard(it, 'rent'))}
@@ -399,7 +490,7 @@ const TenantDashboard = () => {
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('browse.newArrivals')}</h2>
-            <a className="rv17-sec__more" onClick={() => navigate('/properties')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
+            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
           </div>
           <div className="rv17-rail">
             {newItems.map((it) => renderPropCard(it, 'rent'))}
@@ -413,7 +504,7 @@ const TenantDashboard = () => {
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">买房推荐楼盘</h2>
-            <a className="rv17-sec__more" onClick={() => navigate('/properties')}>在售楼盘<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
+            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>在售楼盘<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
           </div>
           <div className="rv17-rail">
             {commItems.map((it) => renderCommCard(it))}
@@ -427,7 +518,7 @@ const TenantDashboard = () => {
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">热门二手房</h2>
-            <a className="rv17-sec__more" onClick={() => navigate('/properties')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
+            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
           </div>
           <div className="rv17-rail">
             {saleItems.slice(0, 3).map((it) => renderPropCard(it, 'buy'))}
@@ -438,44 +529,56 @@ const TenantDashboard = () => {
 
       {loading && <div className="rent-empty">{t('common.loading')}…</div>}
 
-      {/* ===== 待办区（置顶）：本月租金 + 报修进度 ===== */}
-      <section className="rent-section">
-        <div className="rent-todo-strip">
-          {/* 本月租金未付：醒目卡片 */}
-          <div className="rent-card rent-todo-pay" style={{ padding: 24 }}>
-            <div className="rent-todo-pay__head">
-              <span className="rent-badge rent-badge--warning"><span className="rent-badge--dot" style={{ background: 'var(--state-warning)' }}></span>本月待办</span>
-              <span className="rent-todo-pay__due">8月15日到期</span>
-            </div>
-            <div className="rent-todo-pay__label">本月租金</div>
-            <div className="rent-todo-pay__amount">{monthlyRent}</div>
-            <p className="rent-todo-pay__sub">账单日 8月1日 · 到期未付将影响信用记录</p>
-            <button
-              type="button"
-              className="rent-btn rent-btn--primary rent-btn--lg rent-btn--block rent-todo-pay__cta"
-              onClick={() => navigate('/tenant/payments')}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-              立即付款
-            </button>
-          </div>
+      {/* ===== 待办区（置顶）：本月租金 + 报修进度（均由真实接口数据驱动，无数据则整块不渲染） ===== */}
+      {(unpaidBill || activeTicket) && (
+        <section className="rent-section">
+          <div className="rent-todo-strip">
+            {/* 本月租金未付：醒目卡片 */}
+            {unpaidBill && (
+              <div className="rent-card rent-todo-pay" style={{ padding: 24 }}>
+                <div className="rent-todo-pay__head">
+                  <span className="rent-badge rent-badge--warning"><span className="rent-badge--dot" style={{ background: 'var(--state-warning)' }}></span>待缴账单</span>
+                  <span className="rent-todo-pay__due">
+                    {unpaidBillDue
+                      ? `${unpaidBillDue}到期${unpaidBillDueIn !== null && unpaidBillDueIn >= 0 ? ` · 剩 ${unpaidBillDueIn} 天` : ''}`
+                      : unpaidBill.status}
+                  </span>
+                </div>
+                <div className="rent-todo-pay__label">{unpaidBillLabel}</div>
+                <div className="rent-todo-pay__amount">{unpaidBillAmount}</div>
+                <p className="rent-todo-pay__sub">
+                  {unpaidBillDay ? `账单日 ${unpaidBillDay} · ` : ''}到期未付将影响信用记录
+                </p>
+                <button
+                  type="button"
+                  className="rent-btn rent-btn--primary rent-btn--lg rent-btn--block rent-todo-pay__cta"
+                  onClick={() => navigate('/tenant/payments')}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                  立即付款
+                </button>
+              </div>
+            )}
 
-          {/* 报修进行中：进度卡 */}
-          <div className="rent-card rent-todo-maint" style={{ padding: 24 }}>
-            <div className="rent-todo-maint__head">
-              <span className="rent-badge rent-badge--info"><span className="rent-badge--dot" style={{ background: 'var(--state-info)' }}></span>报修进行中</span>
-              <span className="rent-todo-maint__id">#MT-002</span>
-            </div>
-            <div className="rent-todo-maint__title">空调不制冷 · 维修处理中</div>
-            <div className="rent-todo-maint__desc">师傅已上门排查，预计 8月7日 完成维修</div>
-            <div className="rent-progress rent-todo-maint__bar"><div className="rent-progress__bar" style={{ width: '65%', background: 'var(--state-info)' }}></div></div>
-            <div className="rent-todo-maint__foot">
-              <span>已处理 3 天</span>
-              <button type="button" className="rent-btn rent-btn--secondary rent-btn--sm" onClick={() => navigate('/tenant/maintenance')}>查看详情</button>
-            </div>
+            {/* 报修进行中：进度卡 */}
+            {activeTicket && (
+              <div className="rent-card rent-todo-maint" style={{ padding: 24 }}>
+                <div className="rent-todo-maint__head">
+                  <span className="rent-badge rent-badge--info"><span className="rent-badge--dot" style={{ background: 'var(--state-info)' }}></span>报修进行中</span>
+                  <span className="rent-todo-maint__id">#{activeTicket.ticket_no || (activeTicket.id || '').slice(-6)}</span>
+                </div>
+                <div className="rent-todo-maint__title">{activeTicket.title || activeTicket.description || '—'}</div>
+                <div className="rent-todo-maint__desc">{activeTicket.description || '—'}</div>
+                <div className="rent-progress rent-todo-maint__bar"><div className="rent-progress__bar" style={{ width: `${activeTicketProgress}%`, background: 'var(--state-info)' }}></div></div>
+                <div className="rent-todo-maint__foot">
+                  <span>{activeTicketDays !== null ? `已处理 ${activeTicketDays} 天` : '—'}</span>
+                  <button type="button" className="rent-btn rent-btn--secondary rent-btn--sm" onClick={() => navigate('/tenant/maintenance')}>查看详情</button>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ===== 两栏：左 = 租约状态 + 快捷入口；右 = 最近动态 ===== */}
       <section className="rent-section">
@@ -494,20 +597,20 @@ const TenantDashboard = () => {
                 </div>
                 <div>
                   <div className="rent-lease__stat-label">{t('property.monthlyRent')}</div>
-                  <div className="rent-lease__stat-value rent-lease__stat-value--mono">{monthlyRent}</div>
+                  <div className="rent-lease__stat-value rent-lease__stat-value--mono">{monthlyRent ?? '—'}</div>
                 </div>
                 <div>
                   <div className="rent-lease__stat-label">{t('tenantRemind.expireIn')}</div>
-                  <div className="rent-lease__stat-value rent-lease__stat-value--mono">{currentLease ? `${daysToExpiry} ${t('tenantRemind.days')}` : '—'}</div>
+                  <div className="rent-lease__stat-value rent-lease__stat-value--mono">{daysToExpiry !== null ? `${daysToExpiry} ${t('tenantRemind.days')}` : '—'}</div>
                 </div>
               </div>
               <div className="rent-lease__progress-wrap">
                 <div className="rent-lease__progress-head">
                   <span className="rent-lease__progress-label">{t('menu.myLeases')} · {today}</span>
-                  <span className="rent-lease__progress-days">{t('tenantRemind.expireIn')} {daysToExpiry} {t('tenantRemind.days')}</span>
+                  <span className="rent-lease__progress-days">{t('tenantRemind.expireIn')} {daysToExpiry !== null ? daysToExpiry : '—'} {t('tenantRemind.days')}</span>
                 </div>
-                <div className="rent-lease__progress"><div className="rent-lease__progress-bar" style={{ width: `${leaseProgress}%` }}></div></div>
-                <div className="rent-lease__progress-foot">已过 {leaseProgress}% · 到期 {currentLease?.end_date ? dayjs(currentLease.end_date).format('YYYY-MM-DD') : '—'}</div>
+                <div className="rent-lease__progress"><div className="rent-lease__progress-bar" style={{ width: `${leaseProgress ?? 0}%` }}></div></div>
+                <div className="rent-lease__progress-foot">已过 {leaseProgress !== null ? `${leaseProgress}%` : '—'} · 到期 {currentLease?.end_date ? dayjs(currentLease.end_date).format('YYYY-MM-DD') : '—'}</div>
               </div>
             </div>
 
@@ -544,16 +647,20 @@ const TenantDashboard = () => {
               </a>
             </div>
             <div className="rent-card__body">
-              <div className="rent-timeline">
-                {feedItems.map((f, idx) => (
-                  <div key={idx} className="rent-timeline__item">
-                    <span className={`rent-timeline__dot rent-timeline__dot--${f.tone}`}></span>
-                    <div className="rent-todo-feed__title">{f.title}</div>
-                    <div className="rent-todo-feed__sub">{f.desc}</div>
-                    <div className="rent-todo-feed__date">{f.date}</div>
-                  </div>
-                ))}
-              </div>
+              {feedItems.length ? (
+                <div className="rent-timeline">
+                  {feedItems.map((f, idx) => (
+                    <div key={idx} className="rent-timeline__item">
+                      <span className={`rent-timeline__dot rent-timeline__dot--${f.tone}`}></span>
+                      <div className="rent-todo-feed__title">{f.title}</div>
+                      <div className="rent-todo-feed__sub">{f.desc}</div>
+                      <div className="rent-todo-feed__date">{f.date}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rent-empty">{t('common.noData')}</div>
+              )}
             </div>
           </div>
         </div>

@@ -40,13 +40,13 @@ const statusMeta: Record<
   string,
   { text: string; color: string; bg: string }
 > = {
-  pending: { text: '待支付', color: colors.warning, bg: '#fff6e6' },
+  pending: { text: '待支付', color: colors.warning, bg: colors.warningLight },
   processing: { text: '处理中', color: colors.primary, bg: colors.sidebarActive },
-  succeeded: { text: '已支付', color: colors.success, bg: '#e7f6ee' },
-  failed: { text: '支付失败', color: colors.error, bg: '#fdecec' },
-  refunded: { text: '已退款', color: colors.info, bg: '#e6f4fd' },
-  disputed: { text: '有争议', color: colors.error, bg: '#fdecec' },
-  expired: { text: '已过期', color: colors.ink3, bg: 'colors.surface2' },
+  succeeded: { text: '已支付', color: colors.success, bg: colors.successLight },
+  failed: { text: '支付失败', color: colors.error, bg: colors.errorLight },
+  refunded: { text: '已退款', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  disputed: { text: '有争议', color: colors.error, bg: colors.errorLight },
+  expired: { text: '已过期', color: colors.ink3, bg: colors.surface2 },
 };
 
 const formatMoney = (v: any, currency?: string) => {
@@ -56,6 +56,14 @@ const formatMoney = (v: any, currency?: string) => {
 
 const formatDate = (x?: string) =>
   x ? x.replace('T', ' ').slice(0, 16) : '—';
+
+// 付款记录以「月份」为主标题（对齐原型：2025年7月 + 金额 + 状态徽标）
+const monthLabel = (x?: string) => {
+  if (!x) return '';
+  const d = new Date(x);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}年${d.getMonth() + 1}月`;
+};
 
 export default function PaymentsScreen() {
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -89,11 +97,29 @@ export default function PaymentsScreen() {
   }, [load]);
 
   const pending = payments.filter((p) => p.status === 'pending');
+  // Stat Row 真实统计（对齐原型：已上传 / 待审核，此处映射为已支付 / 待支付）
+  const paidCount = payments.filter(
+    (p) => p.status === 'succeeded' || p.status === 'paid'
+  ).length;
   const dueTotal = pending.reduce(
     (sum, p) => sum + Number(p.amount || 0),
     0
   );
   const currency = pending[0]?.currency || payments[0]?.currency || 'THB';
+
+  // 本月租金：当月到期的租金类账单（真实数据；无则回退为待缴合计）
+  const now = new Date();
+  const monthRent = pending.find((p) => {
+    if (p.payment_type !== 'rent' || !p.due_date) return false;
+    const d = new Date(p.due_date);
+    return (
+      !Number.isNaN(d.getTime()) &&
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth()
+    );
+  });
+  const heroLabel = monthRent ? '本月租金' : '待缴合计';
+  const heroAmount = monthRent ? Number(monthRent.amount || 0) : dueTotal;
 
   const channelFor = (cur?: string) =>
     cur === 'CNY' ? 'wechat' : cur === 'USD' ? 'stripe' : 'promptpay';
@@ -201,25 +227,31 @@ export default function PaymentsScreen() {
     const isSucceeded = item.status === 'succeeded';
     return (
       <View style={styles.card}>
-        <View style={styles.cardTop}>
-          <Text style={styles.type}>
-            {typeLabels[item.payment_type ?? ''] ?? item.payment_type ?? '账单'}
-          </Text>
-          <View style={[styles.badge, { backgroundColor: meta.bg }]}>
-            <Text style={[styles.badgeText, { color: meta.color }]}>{meta.text}</Text>
+        {/* 行式记录：月份 + 类型/截止 + 金额 + 状态徽标（对齐原型） */}
+        <View style={styles.rowMain}>
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowTitle} numberOfLines={1}>
+              {monthLabel(item.due_date) ||
+                typeLabels[item.payment_type ?? ''] ||
+                item.payment_type ||
+                '账单'}
+            </Text>
+            <Text style={styles.rowSub} numberOfLines={1}>
+              {typeLabels[item.payment_type ?? ''] ?? '账单'} · 截止 {formatDate(item.due_date)}
+            </Text>
+            {!!item.description && (
+              <Text style={styles.rowDesc} numberOfLines={1}>
+                {item.description}
+              </Text>
+            )}
+          </View>
+          <View style={styles.rowRight}>
+            <Text style={styles.rowAmount}>{formatMoney(item.amount, item.currency)}</Text>
+            <View style={[styles.badge, { backgroundColor: meta.bg }]}>
+              <Text style={[styles.badgeText, { color: meta.color }]}>{meta.text}</Text>
+            </View>
           </View>
         </View>
-        {!!item.description && (
-          <Text style={styles.desc} numberOfLines={2}>
-            {item.description}
-          </Text>
-        )}
-        <Text style={[styles.amount, { color: meta.color }]}>
-          {formatMoney(item.amount, item.currency)}
-        </Text>
-        <Text style={styles.time}>
-          截止 {formatDate(item.due_date)} · 支付 {formatDate(item.paid_at)}
-        </Text>
         {isPending && (
           <TouchableOpacity
             style={styles.payBtn}
@@ -247,6 +279,7 @@ export default function PaymentsScreen() {
             </TouchableOpacity>
           </View>
         )}
+        {!!item.paid_at && <Text style={styles.time}>支付时间 {formatDate(item.paid_at)}</Text>}
       </View>
     );
   };
@@ -262,19 +295,41 @@ export default function PaymentsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.banner}>
-        <Text style={styles.bannerLabel}>待缴合计</Text>
-        <Text style={styles.bannerAmount}>{formatMoney(dueTotal, currency)}</Text>
+        <View style={styles.bannerHead}>
+          <Text style={styles.bannerLabel}>{heroLabel}</Text>
+          {pending.length > 0 && (
+            <View style={styles.bannerBadge}>
+              <Text style={styles.bannerBadgeText}>待支付</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.bannerAmount}>{formatMoney(heroAmount, currency)}</Text>
         <Text style={styles.bannerSub}>共 {pending.length} 笔待支付账单</Text>
         {pending.length > 0 && (
           <TouchableOpacity
             style={styles.bannerBtn}
             activeOpacity={0.85}
-            onPress={() => handlePay(pending[0])}
+            onPress={() => handlePay(monthRent ?? pending[0])}
           >
             <Text style={styles.bannerBtnText}>立即缴费</Text>
           </TouchableOpacity>
         )}
       </View>
+      {/* Stat Row（真实账单统计） */}
+      <View style={styles.statRow}>
+        <View style={styles.stat}>
+          <Text style={styles.statLabel}>已支付</Text>
+          <Text style={styles.statValue}>{paidCount} 笔</Text>
+        </View>
+        <View style={styles.stat}>
+          <Text style={styles.statLabel}>待支付</Text>
+          <Text style={[styles.statValue, pending.length > 0 && { color: colors.warning }]}>
+            {pending.length} 笔
+          </Text>
+        </View>
+      </View>
+      {/* 付款记录 */}
+      <Text style={styles.sectionTitle}>付款记录</Text>
       <FlatList
         data={payments}
         keyExtractor={(item) => item.id}
@@ -319,42 +374,73 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     marginBottom: 12,
   },
-  bannerLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 13 },
+  bannerLabel: { color: colors.alpha('255,255,255', 0.85), fontSize: 13 },
+  bannerHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bannerBadge: {
+    backgroundColor: colors.alpha('255,255,255', 0.2),
+    borderRadius: colors.radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  bannerBadgeText: { color: colors.primaryForeground, fontSize: 11, fontWeight: '600' },
   bannerAmount: {
-    color: '#ffffff',
+    color: colors.primaryForeground,
     fontSize: 28,
     fontWeight: '700',
     marginTop: 4,
   },
-  bannerSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
+  bannerSub: { color: colors.alpha('255,255,255', 0.85), fontSize: 12, marginTop: 2 },
   bannerBtn: {
     alignSelf: 'flex-start',
     marginTop: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     paddingHorizontal: 18,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: colors.radius.full,
   },
   bannerBtnText: { color: colors.primary, fontSize: 14, fontWeight: '700' },
+  statRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  stat: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  statLabel: { fontSize: 12, color: colors.ink3 },
+  statValue: { fontSize: 20, fontWeight: '700', color: colors.ink, marginTop: 4 },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
   list: { paddingHorizontal: 12, paddingBottom: 20 },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: colors.radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 14,
     marginBottom: 12,
   },
-  cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  type: { fontSize: 15, fontWeight: '600', color: colors.text },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
+  rowMain: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  rowLeft: { flex: 1, minWidth: 0 },
+  rowTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  rowSub: { fontSize: 12, color: colors.ink3, marginTop: 4 },
+  rowDesc: { fontSize: 12, color: colors.ink2, marginTop: 4 },
+  rowRight: { alignItems: 'flex-end', gap: 6 },
+  rowAmount: { fontSize: 17, fontWeight: '700', color: colors.ink },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: colors.radius.sm },
   badgeText: { fontSize: 11, fontWeight: '600' },
-  desc: { fontSize: 12, color: colors.ink2, marginTop: 6 },
-  amount: { fontSize: 18, fontWeight: '700', marginTop: 10 },
   time: { fontSize: 11, color: colors.ink3, marginTop: 6 },
   empty: { textAlign: 'center', color: colors.ink3, marginTop: 32 },
   payBtn: {
@@ -363,7 +449,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: colors.radius.full,
   },
   payBtnText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
   receiptBtn: {
@@ -374,7 +460,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: colors.radius.full,
   },
   receiptBtnText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   succBtnRow: {
@@ -385,13 +471,13 @@ const styles = StyleSheet.create({
   },
   invWrap: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.alpha('0,0,0', 0.4),
     justifyContent: 'center',
     padding: 24,
   },
   invCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: colors.radius.xl,
     padding: 20,
     paddingTop: 34,
   },

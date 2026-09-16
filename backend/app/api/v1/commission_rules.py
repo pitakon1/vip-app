@@ -12,12 +12,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func, or_
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import PaginationParams, paginate_query
 from app.models import BrokerPartner, CommissionRule, CommissionRuleScope, Employee, User
 
 router = APIRouter(prefix="/commission-rules", tags=["commission-rules"])
@@ -116,10 +116,9 @@ def list_commission_rules(
         conditions.append(CommissionRule.broker_id == broker_id)
 
     stmt = select(CommissionRule).where(*conditions).order_by(CommissionRule.created_at.desc())
-    count_stmt = select(func.count(CommissionRule.id)).where(*conditions)
-    total = session.exec(count_stmt).one()
-    items = session.exec(stmt.offset(pagination.offset).limit(pagination.limit)).all()
-    return paginate([_to_dict(r) for r in items], total, pagination)
+    page = paginate_query(session, stmt, pagination)
+    page.items = [_to_dict(r) for r in page.items]
+    return page
 
 
 @router.post("")

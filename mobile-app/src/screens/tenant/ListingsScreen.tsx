@@ -19,7 +19,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
-import { propertiesApi, translateApi, favoritesApi } from '@/services/api';
+import { propertiesApi, translateApi, favoritesApi, saleListingApi } from '@/services/api';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
 
@@ -40,6 +40,14 @@ interface Listing {
   [key: string]: any;
 }
 
+// 业务归属 Tab（对齐原型 rv17-bizbar：整租 / 合租 / 买房）
+type BizKey = 'rent' | 'share' | 'sale';
+const BIZ_TABS: { key: BizKey; label: string }[] = [
+  { key: 'rent', label: '整租' },
+  { key: 'share', label: '合租' },
+  { key: 'sale', label: '买房' },
+];
+
 const FILTERS = [
   { key: '', label: '全部' },
   { key: 'apartment', label: '公寓' },
@@ -47,6 +55,21 @@ const FILTERS = [
   { key: 'condo', label: '公寓' },
   { key: 'office', label: '写字楼' },
 ];
+
+// 买卖挂牌（真实数据源：GET /sale-listings）
+interface SaleListing {
+  id: string;
+  property_id?: string | null;
+  title?: string;
+  address?: string;
+  asking_price?: number;
+  currency?: string;
+  size_sqm?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  status?: string;
+  [key: string]: any;
+}
 
 // 价格区间（月租，THB）—— 贝壳式：预设快捷区间 + 自定义最低/最高
 interface PricePreset { key: string; label: string; min: number; max: number }
@@ -145,9 +168,14 @@ export default function ListingsScreen() {
   const [areaCustomMin, setAreaCustomMin] = useState(''); // 自定义最低面积（㎡）
   const [areaCustomMax, setAreaCustomMax] = useState(''); // 自定义最高面积（㎡）
   const [sortKey, setSortKey] = useState('default');
-  type OpenTab = null | 'region' | 'price' | 'layout' | 'more' | 'sort';
+  type OpenTab = null | 'region' | 'price' | 'layout' | 'area' | 'more' | 'sort';
   const [openTab, setOpenTab] = useState<OpenTab>(null);
   const [translatingId, setTranslatingId] = useState<string | null>(null);
+  // 业务归属 Tab（整租 / 合租 / 买房）
+  const [biz, setBiz] = useState<BizKey>('rent');
+  const [saleListings, setSaleListings] = useState<SaleListing[]>([]);
+  const [saleLoading, setSaleLoading] = useState(false);
+  const [saleLoaded, setSaleLoaded] = useState(false);
   // 按区域/按地铁（对齐贝壳「区域 | 地铁」双Tab）
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area');
   const [districtSel, setDistrictSel] = useState<string | null>(null); // 已选城区 key
@@ -190,6 +218,28 @@ export default function ListingsScreen() {
   useEffect(() => {
     loadListings();
   }, [loadListings]);
+
+  // 买房 Tab：懒加载真实在售挂牌（GET /sale-listings）
+  const loadSaleListings = useCallback(async () => {
+    setSaleLoading(true);
+    try {
+      const res = await saleListingApi.list({ page: 1, page_size: 50 });
+      const data = res.data;
+      const items = Array.isArray(data)
+        ? data
+        : (data as any)?.items ?? (data as any)?.data ?? [];
+      setSaleListings(items as SaleListing[]);
+    } catch {
+      setSaleListings([]);
+    } finally {
+      setSaleLoading(false);
+      setSaleLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (biz === 'sale' && !saleLoaded) loadSaleListings();
+  }, [biz, saleLoaded, loadSaleListings]);
 
   // 批量拉取当前列表的收藏状态
   useEffect(() => {
@@ -304,9 +354,14 @@ export default function ListingsScreen() {
     : customMin || customMax
     ? '自定义'
     : '价格';
-  const bedLabel = bedFilter ? BEDROOM_OPTIONS.find((b) => b.key === bedFilter)?.label ?? '房型' : '房型';
+  const bedLabel = bedFilter ? BEDROOM_OPTIONS.find((b) => b.key === bedFilter)?.label ?? '户型' : '户型';
+  const areaLabel = areaRange
+    ? AREA_PRESETS.find((a) => a.key === areaRange)?.label ?? '面积'
+    : areaCustomMin || areaCustomMax
+    ? '自定义'
+    : '面积';
   const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label ?? '排序';
-  const moreBadge = (hasAreaFilter ? 1 : 0) + (statusFilter ? 1 : 0);
+  const moreBadge = statusFilter ? 1 : 0;
 
   const toggleTab = (key: OpenTab) => {
     if (openTab === key) {
@@ -330,10 +385,11 @@ export default function ListingsScreen() {
       setCustomMax('');
     } else if (key === 'layout') {
       setBedFilter('');
-    } else if (key === 'more') {
+    } else if (key === 'area') {
       setAreaRange('');
       setAreaCustomMin('');
       setAreaCustomMax('');
+    } else if (key === 'more') {
       setStatusFilter('');
     } else if (key === 'sort') {
       setSortKey('default');
@@ -353,15 +409,20 @@ export default function ListingsScreen() {
   const filterTabs = [
     { key: 'region', label: districtSel || metroSel.length ? regionLabel : '区域', active: !!activeLocationKw.length, badge: 0 },
     { key: 'price', label: hasPriceFilter ? priceLabel : '价格', active: hasPriceFilter, badge: 0 },
-    { key: 'layout', label: bedFilter ? bedLabel : '房型', active: !!bedFilter, badge: 0 },
+    { key: 'layout', label: bedFilter ? bedLabel : '户型', active: !!bedFilter, badge: 0 },
+    { key: 'area', label: areaLabel, active: hasAreaFilter, badge: 0 },
     { key: 'more', label: '更多', active: moreBadge > 0, badge: moreBadge },
     { key: 'sort', label: sortKey !== 'default' ? sortLabel : '排序', active: sortKey !== 'default', badge: 0 },
   ] as { key: OpenTab; label: string; active: boolean; badge: number }[];
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadListings();
-  }, [loadListings]);
+    if (biz === 'sale') {
+      loadSaleListings().finally(() => setRefreshing(false));
+    } else {
+      loadListings();
+    }
+  }, [loadListings, biz, loadSaleListings]);
 
   const handleTranslate = async (item: Listing) => {
     const source = item.description || item.address || '';
@@ -452,6 +513,15 @@ export default function ListingsScreen() {
     return arr;
   }, [filtered, sortKey]);
 
+  // 买房 Tab 数据（真实挂牌，仅按关键字过滤）
+  const saleFiltered = useMemo(() => {
+    if (!keyword) return saleListings;
+    const kw = keyword.toLowerCase();
+    return saleListings.filter((s) =>
+      `${s.title ?? ''} ${s.address ?? ''}`.toLowerCase().includes(kw),
+    );
+  }, [saleListings, keyword]);
+
   const renderItem = ({ item }: { item: Listing }) => {
     const photo = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : null;
     return (
@@ -465,7 +535,7 @@ export default function ListingsScreen() {
             <Image source={{ uri: photo }} style={styles.thumb} resizeMode="cover" />
           ) : (
             <View style={[styles.thumb, styles.thumbPlaceholder]}>
-              <Text style={styles.thumbPlaceholderText}>房源</Text>
+              <Ionicons name="home-outline" size={28} color={colors.ink3} />
             </View>
           )}
           <View style={[styles.statusBadge, { backgroundColor: statusColors(item.status) }]}>
@@ -480,7 +550,7 @@ export default function ListingsScreen() {
             <Ionicons
               name={favSet[item.id] ? 'heart' : 'heart-outline'}
               size={18}
-              color={favSet[item.id] ? colors.error : '#ffffff'}
+              color={favSet[item.id] ? colors.error : colors.primaryForeground}
             />
           </TouchableOpacity>
         </View>
@@ -516,6 +586,49 @@ export default function ListingsScreen() {
       </TouchableOpacity>
     );
   };
+
+  // 买房挂牌卡片（真实数据：挂牌价 / 面积 / 户型）
+  const renderSaleItem = ({ item }: { item: SaleListing }) => (
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.85}
+      onPress={() => {
+        if (item.property_id) {
+          navigation.navigate('PropertyDetail', { id: item.property_id });
+        } else {
+          Alert.alert('提示', '该挂牌暂未关联房源详情');
+        }
+      }}
+    >
+      <View style={styles.thumbWrap}>
+        <View style={[styles.thumb, styles.thumbPlaceholder]}>
+          <Ionicons name="pricetag-outline" size={28} color={colors.ink3} />
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: colors.warning }]}>
+          <Text style={styles.statusText}>在售</Text>
+        </View>
+      </View>
+      <View style={styles.info}>
+        <Text style={styles.title} numberOfLines={1}>
+          {item.title || '未命名挂牌'}
+        </Text>
+        <Text style={styles.address} numberOfLines={1}>
+          {item.address || '暂无地址'}
+        </Text>
+        <View style={styles.tagRow}>
+          <Text style={styles.tag}>
+            {item.bedrooms ?? 0}室·{item.size_sqm ?? 0}㎡
+          </Text>
+        </View>
+        <View style={styles.bottomRow}>
+          <Text style={styles.rent}>
+            {formatRent(item.asking_price, item.currency)}
+            <Text style={styles.rentUnit}> 总价</Text>
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 
   const statusColors = (s?: string) => {
     switch (s) {
@@ -554,7 +667,35 @@ export default function ListingsScreen() {
           />
         </View>
       </View>
-      {/* 类型筛选条（金刚区直达） */}
+      {/* 业务归属 Tab（整租 / 合租 / 买房）+ 地图入口 */}
+      <View style={styles.bizBar}>
+        {BIZ_TABS.map((b) => (
+          <TouchableOpacity
+            key={b.key}
+            style={[styles.bizItem, biz === b.key && styles.bizItemActive]}
+            onPress={() => {
+              setBiz(b.key);
+              setOpenTab(null);
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.bizText, biz === b.key && styles.bizTextActive]}>
+              {b.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {/* 结果计数 */}
+      <View style={styles.resultCount}>
+        <Text style={styles.resultCountText}>
+          共 <Text style={styles.resultCountNum}>
+            {biz === 'sale' ? saleFiltered.length : biz === 'share' ? 0 : sortedData.length}
+          </Text> 套房源
+        </Text>
+      </View>
+      {/* 类型筛选条（金刚区直达） —— 买卖挂牌不适用租赁筛选维度 */}
+      {biz !== 'sale' && (
+        <>
       <View style={styles.filterBar}>
         {FILTERS.map((f) => (
           <TouchableOpacity
@@ -772,7 +913,7 @@ export default function ListingsScreen() {
               </>
             )}
 
-            {openTab === 'more' && (
+            {openTab === 'area' && (
               <>
                 <Text style={styles.dropGroupTitle}>面积</Text>
                 <View style={styles.filterGroup}>
@@ -815,6 +956,19 @@ export default function ListingsScreen() {
                     <Text style={styles.priceCustomUnit}>㎡</Text>
                   </View>
                 </View>
+                <View style={styles.panelActions}>
+                  <TouchableOpacity style={styles.resetBtn} onPress={() => resetCurrent('area')} activeOpacity={0.7}>
+                    <Text style={styles.resetText}>重置</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmCurrent('area')} activeOpacity={0.7}>
+                    <Text style={styles.confirmText}>确定</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {openTab === 'more' && (
+              <>
                 <Text style={styles.dropGroupTitle}>房源状态</Text>
                 <View style={styles.filterGroup}>
                   {STATUS_FILTERS.map((s) => (
@@ -859,18 +1013,38 @@ export default function ListingsScreen() {
           </View>
         )}
       </View>
-      {/* 列表 */}
+      </>
+      )}
+      {/* 列表：整租=真实租赁房源 / 合租=暂无数据源 / 买房=真实在售挂牌 */}
       <FlatList
-        data={sortedData}
+        data={(biz === 'sale' ? saleFiltered : biz === 'share' ? [] : sortedData) as any[]}
         keyExtractor={(item) => item.id}
-        renderItem={renderItem}
+        renderItem={(biz === 'sale' ? renderSaleItem : renderItem) as any}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Ionicons name="home-outline" size={44} color={colors.ink3} />
-            <Text style={styles.empty}>没有找到合适的房源</Text>
-            <Text style={styles.emptySub}>试试调整关键字或筛选条件</Text>
+            {biz === 'sale' && saleLoading ? (
+              <ActivityIndicator size="large" color={colors.primary} />
+            ) : (
+              <>
+                <Ionicons
+                  name={biz === 'share' ? 'people-outline' : 'home-outline'}
+                  size={44}
+                  color={colors.ink3}
+                />
+                <Text style={styles.empty}>
+                  {biz === 'share' ? '暂无合租房源' : '没有找到合适的房源'}
+                </Text>
+                <Text style={styles.emptySub}>
+                  {biz === 'share'
+                    ? '当前房源数据未区分合租/整租'
+                    : biz === 'sale'
+                    ? '暂无在售挂牌'
+                    : '试试调整关键字或筛选条件'}
+                </Text>
+              </>
+            )}
           </View>
         }
       />
@@ -893,12 +1067,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // 业务归属 Tab（整租 / 合租 / 买房）+ 地图
+  bizBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  bizItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface2,
+  },
+  bizItemActive: { backgroundColor: colors.primary },
+  bizText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  bizTextActive: { color: colors.primaryForeground, fontWeight: '600' },
+  mapBtn: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  mapBtnText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  resultCount: { paddingHorizontal: 16, paddingBottom: 8 },
+  resultCountText: { fontSize: 12, color: colors.ink2 },
+  resultCountNum: { color: colors.primary, fontWeight: '700', fontSize: 14 },
   searchInput: {
     flex: 1,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: colors.radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
@@ -908,7 +1115,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: colors.radius.md,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -937,7 +1144,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: 12,
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: colors.radius.md,
     overflow: 'hidden',
   },
   filterTab: {
@@ -965,7 +1172,7 @@ const styles = StyleSheet.create({
   filterTabBadge: {
     minWidth: 16,
     height: 16,
-    borderRadius: 8,
+    borderRadius: colors.radius.full,
     backgroundColor: colors.error,
     alignItems: 'center',
     justifyContent: 'center',
@@ -978,12 +1185,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: colors.radius.lg,
+    borderBottomRightRadius: colors.radius.lg,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,
-    shadowColor: '#1c2733',
+    shadowColor: colors.ink,
     shadowOpacity: 0.12,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
@@ -1029,11 +1236,14 @@ const styles = StyleSheet.create({
   priceCustomDivider: { fontSize: 13, color: colors.ink3 },
   // 底部筛选弹层（对齐贝壳）
   sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
-  sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,23,42,0.45)' },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.alpha('0,0,0', 0.45),
+  },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
     paddingTop: 6,
     maxHeight: '85%',
   },
@@ -1071,7 +1281,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: colors.radius.md,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1081,7 +1291,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: colors.radius.md,
     backgroundColor: colors.primary,
   },
   confirmText: { fontSize: 14, color: colors.primaryForeground, fontWeight: '600' },
@@ -1097,7 +1307,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 16,
     paddingVertical: 7,
-    borderRadius: 999,
+    borderRadius: colors.radius.full,
     backgroundColor: colors.surface2,
   },
   locTabActive: {
@@ -1117,7 +1327,7 @@ const styles = StyleSheet.create({
   locLineChip: {
     paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: 999,
+    borderRadius: colors.radius.full,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1138,7 +1348,7 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: colors.radius.full,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1153,7 +1363,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: colors.radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
@@ -1182,7 +1392,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: colors.alpha('0,0,0', 0.25),
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Card, Table, Tag, message, Spin, Progress, Drawer, Button } from 'antd'
+import { Tag, message, Spin, Progress, Drawer, Empty } from 'antd'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -131,15 +131,51 @@ const Operations = () => {
       {/* 活跃度 */}
       <div className="rent-grid rent-grid--4 rent-mb-5">
         {[
-          { label: '日活 DAU', value: activity?.dau ?? 0, color: 'var(--rent-primary)' },
-          { label: '周活 WAU', value: activity?.wau ?? 0, color: 'var(--state-info)' },
-          { label: '月活 MAU', value: activity?.mau ?? 0, color: 'var(--state-warning)' },
-          { label: '本月实收', value: `${revenue.currency || 'THB'} ${Number(revenue.month_paid ?? 0).toLocaleString()}`, color: 'var(--state-success)' },
+          {
+            label: '日活 DAU',
+            value: activity?.dau ?? 0,
+            note: '近 30 日活跃用户',
+            icon: ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'M9 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8z'],
+            style: { background: 'rgba(20,184,166,0.1)', color: 'var(--rent-primary)' },
+          },
+          {
+            label: '周活 WAU',
+            value: activity?.wau ?? 0,
+            note: '近 7 日活跃用户',
+            icon: ['M3 3v18h18', 'M18 17V9', 'M13 17V5', 'M8 17v-3'],
+            style: { background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' },
+          },
+          {
+            label: '月活 MAU',
+            value: activity?.mau ?? 0,
+            note: '近 30 日活跃用户',
+            icon: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z', 'M12 6v6l4 2'],
+            style: { background: 'rgba(217,119,6,0.12)', color: 'var(--state-warning)' },
+          },
+          {
+            label: '本月实收',
+            value: `${revenue.currency || 'THB'} ${Number(revenue.month_paid ?? 0).toLocaleString()}`,
+            note: '本月实收合计',
+            icon: ['M12 2v20', 'M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'],
+            style: { background: 'rgba(22,163,74,0.1)', color: 'var(--state-success)' },
+          },
         ].map((c) => (
           <div className="rent-stat-card" key={c.label}>
-            <div className="rent-stat-card__label">{c.label}</div>
-            <div className="rent-stat-card__value" style={{ fontSize: 26, color: c.color }}>
-              {c.value}
+            <div className="rent-stat-card__head">
+              <div>
+                <div className="rent-stat-card__label">{c.label}</div>
+                <div className="rent-stat-card__value rent-num" style={{ fontSize: 26 }}>
+                  {c.value}
+                </div>
+                <div className="rent-stat-card__delta rent-text-muted">{c.note}</div>
+              </div>
+              <div className="rent-stat-card__icon" style={c.style}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {c.icon.map((d) => (
+                    <path key={d} d={d} />
+                  ))}
+                </svg>
+              </div>
             </div>
           </div>
         ))}
@@ -234,32 +270,46 @@ const Operations = () => {
             <h3 className="rent-card__title">按国家分布</h3>
           </div>
           <div className="rent-card__body">
-            <Table<CountryRow>
-              rowKey="country"
-              size="small"
-              pagination={false}
-              dataSource={countries}
-              locale={{ emptyText: '暂无国家维度数据' }}
-              columns={[
-                { title: '国家', dataIndex: 'country' },
-                { title: '房源', dataIndex: 'properties' },
-                { title: '在租', dataIndex: 'rented' },
-                {
-                  title: '出租率',
-                  dataIndex: 'occupancy',
-                  render: (v: number) => <Progress percent={v} size="small" strokeColor="var(--state-success)" />,
-                },
-                {
-                  title: '',
-                  width: 72,
-                  render: (_, r) => (
-                    <Button size="small" type="link" onClick={() => loadCountry(r.country)}>
-                      下钻 ›
-                    </Button>
-                  ),
-                },
-              ]}
-            />
+            <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="rent-table">
+                <thead>
+                  <tr>
+                    <th>国家</th>
+                    <th>房源</th>
+                    <th>在租</th>
+                    <th>出租率</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {countries.length === 0 ? (
+                    <tr>
+                      <td colSpan={5}>
+                        <div className="rent-empty">
+                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无国家维度数据" />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    countries.map((r) => (
+                      <tr key={r.country}>
+                        <td>{r.country}</td>
+                        <td className="rent-num">{r.properties}</td>
+                        <td className="rent-num">{r.rented}</td>
+                        <td style={{ minWidth: 140 }}>
+                          <Progress percent={r.occupancy} size="small" strokeColor="var(--state-success)" />
+                        </td>
+                        <td>
+                          <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button" onClick={() => loadCountry(r.country)}>
+                            下钻 ›
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -301,24 +351,34 @@ const Operations = () => {
         width={420}
       >
         {cityRows.length === 0 ? (
-          <div className="rent-empty" style={{ color: 'var(--rent-ink-3)' }}>暂无城市维度数据</div>
+          <div className="rent-empty">
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无城市维度数据" />
+          </div>
         ) : (
-          <Table
-            rowKey="city"
-            size="small"
-            pagination={false}
-            dataSource={cityRows}
-            columns={[
-              { title: '城市', dataIndex: 'city' },
-              { title: '房源', dataIndex: 'properties', width: 70 },
-              { title: '在租', dataIndex: 'rented', width: 70 },
-              {
-                title: '出租率',
-                dataIndex: 'occupancy',
-                render: (v: number) => <Progress percent={v} size="small" strokeColor="var(--state-success)" />,
-              },
-            ]}
-          />
+          <div className="rent-table-wrap">
+            <table className="rent-table">
+              <thead>
+                <tr>
+                  <th>城市</th>
+                  <th>房源</th>
+                  <th>在租</th>
+                  <th>出租率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cityRows.map((r) => (
+                  <tr key={r.city}>
+                    <td>{r.city}</td>
+                    <td className="rent-num">{r.properties}</td>
+                    <td className="rent-num">{r.rented}</td>
+                    <td style={{ minWidth: 120 }}>
+                      <Progress percent={r.occupancy} size="small" strokeColor="var(--state-success)" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Drawer>
     </div>

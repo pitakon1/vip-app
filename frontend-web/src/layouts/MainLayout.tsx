@@ -59,7 +59,7 @@ const buildSections = (role: string, t: TFunction): NavSection[] => {
           label: s('overview'),
           items: [
             { key: '/tenant/dashboard', label: t('menu.myHome'), icon: icon('M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z') },
-            { key: '/properties', label: t('menu.browseProperties'), icon: icon('M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22') },
+            { key: '/tenant/listings', label: t('menu.browseProperties'), icon: icon('M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22') },
           ],
         },
         {
@@ -103,7 +103,7 @@ const buildSections = (role: string, t: TFunction): NavSection[] => {
           ],
         },
       ]
-    default: // admin —— 定位：系统管理、查看业绩、查看员工（不再展示宏观战略）
+    case 'admin': // 定位：系统管理、查看业绩、查看员工（不再展示宏观战略）
       return [
         {
           label: s('overview'),
@@ -144,6 +144,8 @@ const buildSections = (role: string, t: TFunction): NavSection[] => {
           ],
         },
       ]
+    default: // 未知/缺失角色：不产出任何菜单（fail closed，避免误开管理端入口）
+      return []
   }
 }
 
@@ -184,7 +186,7 @@ const buildMobileTabs = (role: string, t: TFunction): NavItem[] => {
         { key: '/employee/performance', label: t('menu.performance'), icon: icon('M12 15l3.5-3.5 M12 3v0 M2 12h2 M20 12h2 M12 22v0') },
         { key: '/employee/contacts', label: t('menu.contacts'), icon: icon('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0') },
       ]
-    default: // admin
+    case 'admin':
       return [
         { key: '/dashboard', label: t('menu.dashboard'), icon: icon('M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z') },
         { key: '/properties', label: t('menu.properties'), icon: icon('M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22') },
@@ -192,6 +194,8 @@ const buildMobileTabs = (role: string, t: TFunction): NavItem[] => {
         { key: '/payments', label: t('menu.payments'), icon: icon('M1 4h22v16H1z M1 10h23') },
         { key: '/settings', label: t('menu.settings'), icon: icon('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z') },
       ]
+    default: // 未知/缺失角色：不产出底部 Tab
+      return []
   }
 }
 
@@ -202,7 +206,9 @@ const MainLayout = () => {
   const { user, logout } = useAuthStore()
   const { t } = useTranslation()
 
-  const role = user?.role || 'admin'
+  // 兜底为空角色而不是 admin：user 缺失（本地缓存被清、令牌与用户不同步）时
+  // 不应拿到管理端菜单，菜单构建的 default 分支返回空即可。
+  const role = user?.role || ''
   const isConsumer = role !== 'admin' && role !== 'agent'
   const sections = useMemo(() => buildSections(role, t), [role, t])
   const mobileTabs = useMemo(() => buildMobileTabs(role, t), [role, t])
@@ -252,9 +258,9 @@ const MainLayout = () => {
 
   const displayName = user?.full_name || user?.name || t('welcome')
   const avatarChar = (displayName || 'U').charAt(0).toUpperCase()
-  const brandKey = roleBrandKey[role] || 'admin'
+  const brandKey = roleBrandKey[role]
   // 侧边栏品牌标签：对齐设计稿仅显示角色名（logo 图已含 HaoFang.World 字标）
-  const brandLabel = t(`role.${brandKey}`)
+  const brandLabel = brandKey ? t(`role.${brandKey}`) : ''
 
   return (
     <div className="rent-app" data-ui={isConsumer ? 'consumer' : 'admin'}>

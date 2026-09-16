@@ -17,6 +17,28 @@ const STATUS_MAP: Record<MaintenanceStatus, { text: string; color: string }> = {
 const PRIORITY_OPTIONS: MaintenancePriority[] = ['low', 'medium', 'high']
 const PRIORITY_LABELS = ['低', '中', '高']
 
+/** 优先级徽标配色（高=error / 中=warning / 低=info） */
+const PRIORITY_BADGE: Record<MaintenancePriority, string> = {
+  high: 'badge--error',
+  medium: 'badge--warning',
+  low: 'badge--info'
+}
+
+/** 状态徽标配色 */
+const STATUS_BADGE: Record<MaintenanceStatus, string> = {
+  pending: 'badge--warning',
+  processing: 'badge--info',
+  completed: 'badge--success',
+  cancelled: 'badge--neutral'
+}
+
+const TABS = [
+  { key: 'all', label: '全部' },
+  { key: 'pending', label: '待处理' },
+  { key: 'processing', label: '处理中' },
+  { key: 'completed', label: '已完成' }
+]
+
 function pickList(res: any): MaintenanceTicket[] {
   if (Array.isArray(res)) return res
   if (Array.isArray(res?.data)) return res.data
@@ -36,6 +58,7 @@ export default function TenantMaintenancePage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<MaintenancePriority>('medium')
+  const [tab, setTab] = useState('all')
 
   // 工单详情弹层 + 评价
   const [activeTicket, setActiveTicket] = useState<MaintenanceTicket | null>(null)
@@ -148,18 +171,88 @@ export default function TenantMaintenancePage() {
 
   const priorityIndex = PRIORITY_OPTIONS.indexOf(priority)
 
+  const counts = {
+    all: tickets.length,
+    pending: tickets.filter((t) => t.status === 'pending').length,
+    processing: tickets.filter((t) => t.status === 'processing').length,
+    completed: tickets.filter((t) => t.status === 'completed').length
+  }
+
+  const visibleTickets =
+    tab === 'all' ? tickets : tickets.filter((t) => t.status === tab)
+
   return (
     <View className='tenant-maintenance-page'>
       <View className='page-container'>
-        <View className='action-section'>
-          <Button
-            className='create-btn'
-            type='primary'
-            onClick={() => setShowForm(!showForm)}
-          >
-            {showForm ? '取消报修' : '+ 新建报修'}
-          </Button>
+        <View className='stat-row'>
+          <View className='stat-item'>
+            <Text className='stat-label'>待处理</Text>
+            <Text className='stat-value'>{counts.pending} 个</Text>
+          </View>
+          <View className='stat-item'>
+            <Text className='stat-label'>处理中</Text>
+            <Text className='stat-value'>{counts.processing} 个</Text>
+          </View>
         </View>
+
+        <ScrollView scrollX className='ticket-tabs'>
+          <View className='ticket-tabs-inner'>
+            {TABS.map((t) => (
+              <View
+                key={t.key}
+                className={`ticket-tab ${tab === t.key ? 'ticket-tab--active' : ''}`}
+                onClick={() => setTab(t.key)}
+              >
+                <Text className='ticket-tab-text'>
+                  {t.label} {counts[t.key as keyof typeof counts]}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        <View className='section-title'>
+          <Text>工单列表</Text>
+        </View>
+
+        <ScrollView scrollY className='ticket-list'>
+          {loading && tickets.length === 0 && (
+            <View className='empty-state'>
+              <Text>加载中...</Text>
+            </View>
+          )}
+          {!loading && visibleTickets.length === 0 && (
+            <View className='empty-state'>
+              <View className='empty-state__icon icon-svg' style={iconStyle('clipboard', 80)} />
+              <Text>暂无报修记录</Text>
+            </View>
+          )}
+          {visibleTickets.map((ticket) => {
+            const statusInfo = STATUS_MAP[ticket.status] || STATUS_MAP.pending
+            const priorityLabel =
+              PRIORITY_LABELS[PRIORITY_OPTIONS.indexOf(ticket.priority)] ?? '中'
+            return (
+              <View key={ticket.id} className='ticket-card' onClick={() => openDetail(ticket)}>
+                <View className='ticket-header'>
+                  <Text className='ticket-no'>#{String(ticket.id).slice(0, 8)}</Text>
+                  <Text className='ticket-title'>{ticket.title}</Text>
+                </View>
+                <Text className='ticket-desc'>{ticket.description}</Text>
+                <View className='ticket-footer'>
+                  <View className='ticket-badges'>
+                    <Text className={`badge ${PRIORITY_BADGE[ticket.priority] || 'badge--info'}`}>
+                      {priorityLabel}
+                    </Text>
+                    <Text className={`badge ${STATUS_BADGE[ticket.status] || 'badge--warning'}`}>
+                      {statusInfo.text}
+                    </Text>
+                  </View>
+                  <Text className='ticket-date'>{ticket.createdAt}</Text>
+                </View>
+              </View>
+            )
+          })}
+        </ScrollView>
 
         {showForm && (
           <View className='form-card'>
@@ -214,45 +307,6 @@ export default function TenantMaintenancePage() {
             </Button>
           </View>
         )}
-
-        <View className='section-title'>
-          <Text>报修记录</Text>
-        </View>
-
-        <ScrollView scrollY className='ticket-list'>
-          {loading && tickets.length === 0 && (
-            <View className='empty-tip'>
-              <Text>加载中...</Text>
-            </View>
-          )}
-          {!loading && tickets.length === 0 && (
-            <View className='empty-tip'>
-              <Text>暂无报修记录</Text>
-            </View>
-          )}
-          {tickets.map((ticket) => {
-            const statusInfo = STATUS_MAP[ticket.status] || STATUS_MAP.pending
-            const priorityLabel =
-              PRIORITY_LABELS[PRIORITY_OPTIONS.indexOf(ticket.priority)] ?? '中'
-            return (
-              <View key={ticket.id} className='ticket-card' onClick={() => openDetail(ticket)}>
-                <View className='ticket-header'>
-                  <Text className='ticket-title'>{ticket.title}</Text>
-                  <Text className='ticket-status' style={{ color: statusInfo.color }}>
-                    {statusInfo.text}
-                  </Text>
-                </View>
-                <Text className='ticket-desc'>{ticket.description}</Text>
-                <View className='ticket-footer'>
-                  <Text className='ticket-priority'>
-                    优先级：{priorityLabel}
-                  </Text>
-                  <Text className='ticket-date'>{ticket.createdAt}</Text>
-                </View>
-              </View>
-            )
-          })}
-        </ScrollView>
 
         {activeTicket && (
           <View className='rate-mask' onClick={closeDetail}>
@@ -311,6 +365,10 @@ export default function TenantMaintenancePage() {
             </View>
           </View>
         )}
+      </View>
+
+      <View className='ticket-fab' onClick={() => setShowForm(!showForm)}>
+        <Text className='ticket-fab-text'>{showForm ? '×' : '＋'}</Text>
       </View>
     </View>
   )

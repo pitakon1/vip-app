@@ -3,21 +3,70 @@
   background-color: var(--bg);
 
   .page-container {
-    padding: 24px;
+    padding: 24px 24px 40px;
   }
 
-  .upload-section {
-    margin-bottom: 24px;
+  /* ===== 可横滑分类 Tabs ===== */
+  .doc-tabs {
+    white-space: nowrap;
+    margin-bottom: 20px;
 
-    .upload-btn {
-      width: 100%;
-      height: 88px;
-      line-height: 88px;
+    .doc-tabs-inner {
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+
+      .doc-tab {
+        padding: 12px 32px;
+        border-radius: 999px;
+        background-color: var(--card);
+        border: 2px solid var(--line);
+
+        .doc-tab-text {
+          font-size: 26px;
+          color: var(--ink-2);
+          font-weight: 500;
+        }
+
+        &--active {
+          background-color: var(--primary);
+          border-color: var(--primary);
+
+          .doc-tab-text {
+            color: var(--primary-foreground);
+            font-weight: 600;
+          }
+        }
+      }
+    }
+  }
+
+  /* ===== 统计行 ===== */
+  .stat-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 8px;
+
+    .stat-item {
+      flex: 1;
       background-color: var(--card);
-      color: var(--primary);
-      font-size: 30px;
-      border-radius: 12px;
-      border: 2px dashed var(--primary);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      text-align: center;
+
+      .stat-value {
+        display: block;
+        font-size: 40px;
+        font-weight: 700;
+        color: var(--primary);
+        margin-top: 6px;
+      }
+
+      .stat-label {
+        display: block;
+        font-size: 24px;
+        color: var(--ink-3);
+      }
     }
   }
 
@@ -25,38 +74,48 @@
     font-size: 32px;
     font-weight: 600;
     color: var(--ink);
-    margin-bottom: 16px;
-  }
-
-  .empty-tip {
-    text-align: center;
-    padding: 80px 0;
-    color: var(--ink-3);
-    font-size: 28px;
+    margin: 24px 0 16px;
   }
 
   .document-list {
+    height: auto;
+
+    /* 每份文档为独立卡片：头部（图标 + 名称 + 类型徽标/日期）+ 全宽下载按钮 */
     .document-card {
-      display: flex;
-      align-items: center;
       background-color: var(--card);
-      border-radius: 16px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-sm);
       padding: 24px;
       margin-bottom: 16px;
 
+      .doc-head {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 24px;
+      }
+
       .doc-icon {
-        width: 80px;
-        height: 80px;
-        background-color: rgba(14, 165, 233, 0.1);
-        border-radius: 12px;
+        width: 72px;
+        height: 72px;
+        flex-shrink: 0;
+        border-radius: var(--radius-md);
         display: flex;
         align-items: center;
         justify-content: center;
         margin-right: 24px;
         overflow: hidden;
 
-        .icon-text {
-          font-size: 40px;
+        &--primary {
+          background-color: rgba(var(--primary-rgb), 0.1);
+        }
+
+        &--info {
+          background-color: rgba(var(--info-rgb), 0.1);
+        }
+
+        &--neutral {
+          background-color: var(--surface-2);
         }
 
         .doc-image {
@@ -67,10 +126,12 @@
 
       .doc-info {
         flex: 1;
+        min-width: 0;
 
         .doc-name {
           display: block;
           font-size: 30px;
+          font-weight: 600;
           color: var(--ink);
           margin-bottom: 8px;
           overflow: hidden;
@@ -80,14 +141,11 @@
 
         .doc-meta {
           display: flex;
+          align-items: center;
+          gap: 16px;
 
           .doc-type {
-            font-size: 24px;
-            color: var(--primary);
-            background-color: rgba(14, 165, 233, 0.1);
-            padding: 4px 12px;
-            border-radius: 4px;
-            margin-right: 16px;
+            font-size: 22px;
           }
 
           .doc-date {
@@ -97,11 +155,42 @@
         }
       }
 
-      .doc-arrow {
-        font-size: 36px;
-        color: var(--ink-3);
-        margin-left: 16px;
+      .doc-download {
+        height: 72px;
+        border-radius: 999px;
+        border: 2px solid var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .doc-download-text {
+          font-size: 26px;
+          color: var(--primary);
+          font-weight: 600;
+        }
       }
+    }
+  }
+
+  /* ===== 悬浮上传按钮 ===== */
+  .doc-fab {
+    position: fixed;
+    right: 40px;
+    bottom: 120px;
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    background-color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 28px -8px rgba(var(--primary-rgb), 0.6);
+    z-index: 20;
+
+    .doc-fab-text {
+      font-size: 52px;
+      color: var(--primary-foreground);
+      line-height: 1;
     }
   }
 }

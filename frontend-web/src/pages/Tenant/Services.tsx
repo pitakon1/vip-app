@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { message } from 'antd'
 import dayjs from 'dayjs'
+import api from '@/lib/api'
 
 interface ServiceItem {
   id: string
@@ -25,18 +26,28 @@ interface Booking {
   preferredDate?: string
   orderNo?: string
   amount?: number
+  rating?: number
   [key: string]: any
 }
 
-interface Review {
-  id: string
-  name: string
-  initial: string
-  avatarBg: string
-  service: string
-  date: string
-  score: number
-  text: string
+// 接口状态（pending/assigned/in_progress/completed/cancelled）→ 页面展示状态
+const normalizeBookingStatus = (status?: string): Booking['status'] => {
+  const v = String(status || '').toLowerCase()
+  if (v === 'completed') return 'completed'
+  if (v === 'cancelled') return 'cancelled'
+  if (v === 'in_progress') return 'in_progress'
+  return 'pending'
+}
+
+// 服务类型展示名（接口 service_type 字段，含目录外类型）
+const SERVICE_TYPE_LABEL: Record<string, string> = {
+  cleaning: '家政清洁',
+  ac_cleaning: '空调清洗',
+  wifi_install: 'WiFi安装',
+  utility_payment: '水电费代付',
+  insurance: '保险代办',
+  tax_payment: '税务代缴',
+  annual_management: '年度托管',
 }
 
 const statusLabelMap: Record<Booking['status'], string> = {
@@ -72,13 +83,6 @@ const ServiceIcon = ({ type }: { type: ServiceItem['iconType'] }) => {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
   )
-}
-
-const Star = ({ filled }: { filled: boolean }) => {
-  if (filled) {
-    return <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-  }
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
 }
 
 const SERVICES: ServiceItem[] = [
@@ -133,104 +137,43 @@ const SERVICES: ServiceItem[] = [
   },
 ]
 
-const STATIC_BOOKINGS: Booking[] = [
-  {
-    id: 'b-1',
-    serviceId: 'cleaning',
-    serviceName: '家政清洁',
-    status: 'pending',
-    createdAt: '2026-08-03 10:00:00',
-    preferredDate: '2026-08-05',
-    orderNo: 'SV2026080301',
-    amount: 120,
-  },
-  {
-    id: 'b-2',
-    serviceId: 'ac_cleaning',
-    serviceName: '空调清洗',
-    status: 'in_progress',
-    createdAt: '2026-08-02 14:00:00',
-    preferredDate: '2026-08-04',
-    orderNo: 'SV2026080202',
-    amount: 160,
-  },
-  {
-    id: 'b-3',
-    serviceId: 'wifi_install',
-    serviceName: 'WiFi安装',
-    status: 'completed',
-    createdAt: '2026-07-28 09:00:00',
-    preferredDate: '2026-07-28',
-    orderNo: 'SV2026072803',
-    amount: 150,
-  },
-  {
-    id: 'b-4',
-    serviceId: 'utility_payment',
-    serviceName: '水电费代付',
-    status: 'completed',
-    createdAt: '2026-07-25 16:00:00',
-    preferredDate: '2026-07-25',
-    orderNo: 'SV2026072504',
-    amount: 0,
-  },
-  {
-    id: 'b-5',
-    serviceId: 'cleaning',
-    serviceName: '家政清洁',
-    status: 'cancelled',
-    createdAt: '2026-07-20 11:00:00',
-    preferredDate: '2026-07-20',
-    orderNo: 'SV2026072005',
-    amount: 120,
-  },
-]
-
-const REVIEWS: Review[] = [
-  {
-    id: 'r-1',
-    name: '王租客',
-    initial: '王',
-    avatarBg: 'var(--rent-primary)',
-    service: '家政清洁',
-    date: '2026-07-18',
-    score: 5.0,
-    text: '保洁阿姨非常专业，全屋打扫得干干净净，厨房油污处理得很到位，预约流程也很顺畅，下次还会选择。',
-  },
-  {
-    id: 'r-2',
-    name: 'Lim Wei',
-    initial: '林',
-    avatarBg: 'var(--state-info)',
-    service: '空调清洗',
-    date: '2026-07-15',
-    score: 4.0,
-    text: '师傅上门准时，两台空调清洗后制冷明显改善。就是工作时长比预期多了一点，总体满意。',
-  },
-  {
-    id: 'r-3',
-    name: 'Tan Mei',
-    initial: '陈',
-    avatarBg: 'var(--state-success)',
-    service: 'WiFi安装',
-    date: '2026-07-10',
-    score: 5.0,
-    text: '网络工程师很专业，30分钟就完成安装调试，全屋信号覆盖无死角，体验非常棒，强烈推荐！',
-  },
-]
-
 const TenantServices = () => {
-  const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS)
+  const [bookings, setBookings] = useState<Booking[]>([])
+
+  const fetchBookings = useCallback(async () => {
+    try {
+      const res = await api.get('/service-orders')
+      const payload = res.data?.data ?? res.data
+      const items = payload?.items ?? []
+      setBookings(
+        items.map((o: any) => ({
+          id: o.id,
+          serviceId: o.service_type,
+          serviceName: SERVICE_TYPE_LABEL[o.service_type] || o.service_type || '增值服务',
+          status: normalizeBookingStatus(o.status),
+          createdAt: o.created_at,
+          preferredDate: o.scheduled_at,
+          orderNo: o.order_no,
+          amount: Number(o.amount || 0),
+          rating: o.rating,
+        })),
+      )
+    } catch {
+      setBookings([])
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchBookings()
+  }, [fetchBookings])
 
   const handleBook = (service: ServiceItem) => {
-    const orderNo = `SV${dayjs().format('YYYYMMDD')}${String(bookings.length + 1).padStart(2, '0')}`
     const newBooking: Booking = {
-      id: `b-${Date.now()}`,
+      id: `local-${Date.now()}`,
       serviceId: service.id,
       serviceName: service.name,
       status: 'pending',
       createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-      orderNo,
       amount: service.price,
     }
     setBookings((prev) => [newBooking, ...prev])
@@ -242,10 +185,16 @@ const TenantServices = () => {
     return `฿${amount.toLocaleString()}`
   }
 
+  const completedCount = bookings.filter((b) => b.status === 'completed').length
+  const ratedBookings = bookings.filter((b) => typeof b.rating === 'number' && Number(b.rating) > 0)
+  const avgRating = ratedBookings.length
+    ? (ratedBookings.reduce((sum, b) => sum + Number(b.rating), 0) / ratedBookings.length).toFixed(1)
+    : null
+
   const heroStats = [
     { value: String(SERVICES.length), label: '项服务' },
-    { value: '2,800+', label: '完成订单' },
-    { value: '4.8', label: '平均评分' },
+    { value: String(completedCount), label: '完成订单' },
+    { value: avgRating ?? '—', label: '平均评分' },
   ]
 
   return (
@@ -336,7 +285,7 @@ const TenantServices = () => {
               return (
                 <div key={item.id} className="svc-order-item">
                   <div className="svc-order-item__left">
-                    <span className="svc-order-item__no">{item.orderNo || item.id}</span>
+                    <span className="svc-order-item__no">{item.orderNo || `#${item.id.slice(-6)}`}</span>
                     <div className="svc-order-item__name">{item.serviceName}</div>
                   </div>
                   <div className="svc-order-item__mid">
@@ -370,28 +319,7 @@ const TenantServices = () => {
           <a className="svc-section__link">更多评价</a>
         </div>
         <div className="svc-reviews">
-          {REVIEWS.map((r) => (
-            <div key={r.id} className="svc-review">
-              <div className="svc-review__head">
-                <div className="svc-review__user">
-                  <div className="svc-review__avatar" style={{ background: r.avatarBg }}>{r.initial}</div>
-                  <div>
-                    <div className="svc-review__name">{r.name}</div>
-                    <div className="svc-review__meta">{r.service} · {r.date}</div>
-                  </div>
-                </div>
-                <div className="svc-review__rating">
-                  <div className="svc-review__stars">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <Star key={i} filled={i <= Math.round(r.score)} />
-                    ))}
-                  </div>
-                  <span className="svc-review__score">{r.score.toFixed(1)}</span>
-                </div>
-              </div>
-              <p className="svc-review__text">{r.text}</p>
-            </div>
-          ))}
+          <div className="rent-empty">暂无服务评价</div>
         </div>
       </section>
 

@@ -9,13 +9,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
 from app.core.rbac import require_permission, get_user_permissions
-from app.core.pagination import Page, PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.security import get_password_hash
 from app.schemas.user import AccountMeOut, UserAdminOut
 from app.models import (
@@ -131,18 +130,15 @@ def list_users(
         conditions.append(
             (User.full_name.like(kw)) | (User.email.like(kw)) | (User.phone.like(kw))
         )
-    total = session.exec(select(func.count(User.id)).where(*conditions)).one()
-    items = session.exec(
+    stmt = (
         select(User)
         .where(*conditions)
         .order_by(User.created_at.desc())
-        .offset(pagination.offset)
-        .limit(pagination.limit)
-    ).all()
-    emp_map, groups_map = _batch_extras(session, [u.id for u in items])
-    return paginate(
-        [_serialize_user(u, emp_map, groups_map) for u in items], total, pagination
     )
+    page = paginate_query(session, stmt, pagination)
+    emp_map, groups_map = _batch_extras(session, [u.id for u in page.items])
+    page.items = [_serialize_user(u, emp_map, groups_map) for u in page.items]
+    return page
 
 
 @router.post("", status_code=201, response_model=UserAdminOut)

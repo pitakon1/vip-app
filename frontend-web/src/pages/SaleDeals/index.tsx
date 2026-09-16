@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { message } from 'antd'
+import { Empty, message } from 'antd'
 import { saleListingApi, propertyDealApi } from '@/services/api'
+
+/* ===== 看板列定义（覆盖全部挂牌状态） ===== */
+const LISTING_KANBAN_COLUMNS: { key: string; title: string; statuses: string[] }[] = [
+  { key: 'active', title: '在售', statuses: ['active'] },
+  { key: 'pending', title: '待审', statuses: ['pending'] },
+  { key: 'contracted', title: '已签约', statuses: ['contracted'] },
+  { key: 'closed', title: '已成交', statuses: ['closed'] },
+  { key: 'ended', title: '已取消 / 已过期', statuses: ['cancelled', 'expired'] },
+]
 
 /* ===== 常量与翻译 ===== */
 const LISTING_STATUS: Record<string, { label: string; badge: string }> = {
@@ -83,6 +92,7 @@ const TABS = [
 const SaleDeals = () => {
   const [activeTab, setActiveTab] = useState('listing')
   const [loading, setLoading] = useState(false)
+  const [listingCreateOpen, setListingCreateOpen] = useState(false)
 
   return (
     <div className="rent-main">
@@ -93,6 +103,11 @@ const SaleDeals = () => {
             从挂牌、估价、产权成交到定金托管与按揭审批的全流程管理
           </p>
         </div>
+        {activeTab === 'listing' && (
+          <div className="rent-page-header__actions">
+            <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setListingCreateOpen(true)}>+ 发布挂牌</button>
+          </div>
+        )}
       </div>
 
       <div className="rent-tabs">
@@ -102,14 +117,14 @@ const SaleDeals = () => {
             type="button"
             className="rent-tab"
             data-active={activeTab === t.key}
-            onClick={() => setActiveTab(t.key)}
+            onClick={() => { setActiveTab(t.key); setListingCreateOpen(false) }}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      {activeTab === 'listing' && <ListingTab loading={loading} setLoading={setLoading} />}
+      {activeTab === 'listing' && <ListingTab loading={loading} setLoading={setLoading} createOpen={listingCreateOpen} onOpenChange={setListingCreateOpen} />}
       {activeTab === 'deal' && <DealTab loading={loading} setLoading={setLoading} />}
       {activeTab === 'escrow' && <EscrowTab loading={loading} setLoading={setLoading} />}
       {activeTab === 'mortgage' && <MortgageTab loading={loading} setLoading={setLoading} />}
@@ -118,13 +133,13 @@ const SaleDeals = () => {
 }
 
 /* ===== 售房挂牌 Tab ===== */
-const ListingTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v: boolean) => void }) => {
+const ListingTab = ({ loading, setLoading, createOpen, onOpenChange }: { loading: boolean; setLoading: (v: boolean) => void; createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
   const [items, setItems] = useState<Listing[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [saleType, setSaleType] = useState('')
   const [status, setStatus] = useState('')
-  const [createOpen, setCreateOpen] = useState(false)
+  const [view, setView] = useState<'kanban' | 'list'>('kanban')
   const [valOpen, setValOpen] = useState<{ listing: Listing; items: any[] } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ title: '', sale_type: 'sell', asking_price: '', currency: 'THB', address: '', size_sqm: '', bedrooms: '', bathrooms: '', description: '' })
@@ -168,7 +183,7 @@ const ListingTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v:
         description: form.description || undefined,
       })
       message.success('挂牌已发布')
-      setCreateOpen(false)
+      onOpenChange(false)
       setForm({ title: '', sale_type: 'sell', asking_price: '', currency: 'THB', address: '', size_sqm: '', bedrooms: '', bathrooms: '', description: '' })
       fetchData()
     } catch (e: any) {
@@ -202,19 +217,22 @@ const ListingTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v:
   return (
     <>
       <div className="rent-filter-bar">
-        <select className="rent-form-select" style={{ width: 'auto', minWidth: 120 }} aria-label="类型" value={saleType} onChange={(e) => { setSaleType(e.target.value); setPage(1) }}>
+        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 120 }} aria-label="类型" value={saleType} onChange={(e) => { setSaleType(e.target.value); setPage(1) }}>
           <option value="">全部类型</option>
           <option value="sell">挂卖</option>
           <option value="buy">挂买</option>
         </select>
-        <select className="rent-form-select" style={{ width: 'auto', minWidth: 130 }} aria-label="状态" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
+        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 130 }} aria-label="状态" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
           <option value="">全部状态</option>
           {Object.keys(LISTING_STATUS).map((k) => (
             <option key={k} value={k}>{LISTING_STATUS[k].label}</option>
           ))}
         </select>
         <div style={{ flex: 1 }} />
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setCreateOpen(true)}>+ 发布挂牌</button>
+        <div className="rent-chart-range-group">
+          <button type="button" className={`rent-chart-range${view === 'kanban' ? ' rent-chart-range--active' : ''}`} onClick={() => setView('kanban')}>看板视图</button>
+          <button type="button" className={`rent-chart-range${view === 'list' ? ' rent-chart-range--active' : ''}`} onClick={() => setView('list')}>列表视图</button>
+        </div>
       </div>
 
       <div className="rent-card">
@@ -225,6 +243,39 @@ const ListingTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v:
         <div className="rent-card__body" style={{ padding: 0 }}>
           {loading ? (
             <div className="rent-empty rent-text-muted">加载中...</div>
+          ) : view === 'kanban' ? (
+            items.length === 0 ? (
+              <div className="rent-empty"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无挂牌数据" /></div>
+            ) : (
+              <div className="rent-kanban" style={{ padding: '18px 22px' }}>
+                {LISTING_KANBAN_COLUMNS.map((col) => {
+                  const colItems = items.filter((it) => col.statuses.includes(it.status || 'active'))
+                  return (
+                    <div className="rent-kanban__column" key={col.key}>
+                      <div className="rent-kanban__column-header">
+                        <span className="rent-kanban__column-title">{col.title}</span>
+                        <span className="rent-kanban__column-count">{colItems.length}</span>
+                      </div>
+                      {colItems.length === 0 ? (
+                        <div className="rent-text-muted" style={{ fontSize: 12, padding: '8px 2px' }}>—</div>
+                      ) : colItems.map((it) => (
+                        <div className="rent-kanban__card" key={it.id}>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{it.title || it.address || '—'}</div>
+                          <div className="rent-num" style={{ color: 'var(--rent-primary)', fontWeight: 700, margin: '4px 0 6px' }}>
+                            {it.currency ? `${it.currency} ` : ''}{fmtMoney(it.asking_price)}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--rent-ink-3)' }}>
+                            {SALE_TYPE[it.sale_type || ''] || '—'}
+                            {it.size_sqm != null ? ` · ${it.size_sqm}㎡` : ''}
+                            {it.bedrooms != null ? ` · ${it.bedrooms}室` : ''}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            )
           ) : items.length === 0 ? (
             <div className="rent-empty rent-text-muted">暂无挂牌数据</div>
           ) : (
@@ -266,18 +317,17 @@ const ListingTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v:
               </table>
             </div>
           )}
+          <div className="rent-pagination" style={{ marginTop: 14, padding: '0 22px 16px' }}>
+            <span className="rent-pagination__info">共 {total} 条 · 每页 10 条</span>
+            <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>上一页</button>
+            <span className="rent-pagination__info">{page}</span>
+            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>下一页</button>
+          </div>
         </div>
       </div>
 
-      <div className="rent-pagination">
-        <span className="rent-pagination__info">共 {total} 条</span>
-        <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>上一页</button>
-        <span className="rent-pagination__info">{page}</span>
-        <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>下一页</button>
-      </div>
-
       {createOpen && (
-        <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
+        <div className="rent-modal-backdrop" onClick={() => onOpenChange(false)}>
           <div className="rent-modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header"><h3 className="rent-card__title">发布挂牌</h3></div>
             <div className="rent-modal__body">
@@ -327,7 +377,7 @@ const ListingTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v:
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => onOpenChange(false)}>取消</button>
               <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? '发布中...' : '发布'}</button>
             </div>
           </div>

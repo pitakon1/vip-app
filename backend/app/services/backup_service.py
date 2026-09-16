@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
-from sqlalchemy import text
 from sqlmodel import SQLModel, Session, select
 
 from app.config import settings
@@ -33,19 +32,18 @@ STALE_JOB_MINUTES = 180
 
 
 def _serialize_row(row: Any) -> Dict[str, Any]:
+    # 经 RowMapping 按列名取值：select(Table) 得到的是「无键」Row，
+    # 直接 row["列名"] 会退化成 tuple 下标并抛 TypeError。
+    mapping = row._mapping
     data = {}
-    for col in row._mapping.keys():
-        val = row[col]
+    for col in mapping.keys():
+        val = mapping[col]
         if hasattr(val, "isoformat"):
             val = val.isoformat()
         elif hasattr(val, "value"):
             val = val.value
         data[col] = val
     return data
-
-
-def _table_names() -> List[str]:
-    return [t.name for t in SQLModel.metadata.sorted_tables]
 
 
 def snapshot_to_file(session: Session, path: Path) -> Path:
@@ -59,15 +57,18 @@ def snapshot_to_file(session: Session, path: Path) -> Path:
         with gzip.open(path, "wt", encoding="utf-8") as fh:
             fh.write("{")
             first_table = True
-            for table in _table_names():
+            for table in SQLModel.metadata.sorted_tables:
+                name = table.name
                 if not first_table:
                     fh.write(",")
                 first_table = False
-                fh.write(json.dumps(table, ensure_ascii=False) + ": [")
+                fh.write(json.dumps(name, ensure_ascii=False) + ": [")
                 try:
-                    result = session.execute(text(f"SELECT * FROM {table}"))
+                    # 用 Table 对象而不是 f-string 拼表名：标识符引用（保留字、
+                    # 大小写、特殊字符）交给 SQLAlchemy 按方言处理。
+                    result = session.execute(select(table))
                 except Exception as exc:  # 表不存在时跳过（迁移与模型不同步）
-                    logger.warning("backup.skip_table", table=table, error=str(exc))
+                    logger.warning("backup.skip_table", table=name, error=str(exc))
                     fh.write("]")
                     continue
                 first_row = True
@@ -79,7 +80,7 @@ def snapshot_to_file(session: Session, path: Path) -> Path:
                         json.dumps(_serialize_row(row), ensure_ascii=False, default=str)
                     )
                 fh.write("]")
-                written.append(table)
+                written.append(name)
             fh.write("}")
     except Exception:
         # 落盘失败时删除半成品，避免留下无法恢复的文件

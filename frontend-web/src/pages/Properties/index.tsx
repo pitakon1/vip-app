@@ -50,8 +50,8 @@ const Properties = () => {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
 
-  // 角色感知
-  const role = user?.role || 'admin'
+  // 角色感知。兜底为空角色而不是 admin：user 缺失时不应解锁管理态视图
+  const role = user?.role || ''
   const isManageMode = role === 'admin' || role === 'agent' || role === 'employee'
 
   // 数据

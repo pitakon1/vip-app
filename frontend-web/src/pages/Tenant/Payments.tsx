@@ -20,6 +20,17 @@ interface PaymentVoucher {
 }
 
 type FilterKey = 'all' | 'pending' | 'approved' | 'rejected'
+type StatusKey = Exclude<FilterKey, 'all'>
+
+// 接口状态（pending/processing/succeeded/failed/refunded/expired/disputed）→ 页面展示分组
+const normalizeStatus = (status?: string): StatusKey => {
+  const v = String(status || '').toLowerCase()
+  if (v === 'succeeded' || v === 'paid' || v === 'approved') return 'approved'
+  if (v === 'failed' || v === 'expired' || v === 'disputed' || v === 'refunded' || v === 'rejected') {
+    return 'rejected'
+  }
+  return 'pending'
+}
 
 const chipLabelMap: Record<FilterKey, string> = {
   all: '全部',
@@ -28,7 +39,7 @@ const chipLabelMap: Record<FilterKey, string> = {
   rejected: '逾期',
 }
 
-const recordStatusMap: Record<PaymentVoucher['status'], { label: string; cls: string }> = {
+const recordStatusMap: Record<StatusKey, { label: string; cls: string }> = {
   pending: { label: '待审核', cls: 'rent-pay-record__status--warning' },
   approved: { label: '已确认', cls: 'rent-pay-record__status--success' },
   rejected: { label: '已驳回', cls: 'rent-pay-record__status--error' },
@@ -65,15 +76,6 @@ const defaultMethodIcon = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
 )
 
-const STATIC_BILLS: PaymentVoucher[] = [
-  { id: 's-1', amount: 1200, payment_date: '2024-08-15', payment_method: 'bank_transfer', status: 'pending', bill_type: '物业费', property_name: 'Sunway Mesmerrra', due_date: '2024-08-15', created_at: '2024-08-01 10:00:00' },
-  { id: 's-2', amount: 380, payment_date: '2024-08-10', payment_method: 'promptpay', status: 'approved', bill_type: '水电费', property_name: 'Sunway Mesmerrra', due_date: '2024-08-10', created_at: '2024-08-01 09:00:00' },
-  { id: 's-3', amount: 980, payment_date: '2024-08-20', payment_method: 'bank_transfer', status: 'pending', bill_type: '物业费', property_name: 'Mont Kiara Bayu', due_date: '2024-08-20', created_at: '2024-08-01 11:00:00' },
-  { id: 's-4', amount: 150, payment_date: '2024-08-05', payment_method: 'cash', status: 'rejected', bill_type: '燃气费', property_name: 'Sunway Rio Sintra', due_date: '2024-08-05', created_at: '2024-08-01 14:00:00' },
-  { id: 's-5', amount: 520, payment_date: '2024-08-12', payment_method: 'promptpay', status: 'approved', bill_type: '水电费', property_name: '双威金沙国际公寓', due_date: '2024-08-12', created_at: '2024-08-01 16:00:00' },
-  { id: 's-6', amount: 850, payment_date: '2024-08-25', payment_method: 'bank_transfer', status: 'pending', bill_type: '物业费', property_name: 'Sunway Rio Sintra', due_date: '2024-08-25', created_at: '2024-08-01 18:00:00' },
-]
-
 const TenantPayments = () => {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -87,17 +89,22 @@ const TenantPayments = () => {
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer')
   const [fileName, setFileName] = useState('')
   const [fileObj, setFileObj] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | undefined>(undefined)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const res = await api.get('/payments/me')
       const payload = res.data?.data ?? res.data
-      const items = payload?.items ?? []
-      setData(items.length ? items : STATIC_BILLS)
+      // 真实字段映射：接口使用 channel / payment_type
+      setData(
+        (payload?.items ?? []).map((p: any) => ({
+          ...p,
+          payment_method: p.payment_method ?? p.channel,
+          bill_type: p.bill_type ?? p.payment_type,
+        })),
+      )
     } catch {
-      setData(STATIC_BILLS)
+      setData([])
     } finally {
       setLoading(false)
     }
@@ -109,22 +116,20 @@ const TenantPayments = () => {
 
   const filteredData = useMemo(() => {
     if (filter === 'all') return data
-    return data.filter((d) => d.status === filter)
+    return data.filter((d) => normalizeStatus(d.status) === filter)
   }, [data, filter])
 
   const summary = useMemo(() => {
-    const pending = data.filter((d) => d.status === 'pending')
-    const approved = data.filter((d) => d.status === 'approved')
-    const propertyFee = data.filter((d) => (d.bill_type || '物业费') === '物业费')
+    const pending = data.filter((d) => normalizeStatus(d.status) === 'pending')
+    const approved = data.filter((d) => normalizeStatus(d.status) === 'approved')
     const sum = (arr: PaymentVoucher[]) => arr.reduce((acc, x) => acc + Number(x.amount || 0), 0)
     return {
       pendingTotal: sum(pending),
       approvedTotal: sum(approved),
-      propertyFeeTotal: sum(propertyFee),
     }
   }, [data])
 
-  // 搜索：凭证编号 / 月份 / 类型 / 房产
+  // 搜索：凭证编号 / 月份 / 类型
   const searchFiltered = useMemo(() => {
     const kw = keyword.trim().toLowerCase()
     if (!kw) return filteredData
@@ -133,7 +138,6 @@ const TenantPayments = () => {
       return [
         d.id,
         d.bill_type,
-        d.property_name,
         methodLabelMap[d.payment_method],
         dateStr,
       ]
@@ -155,25 +159,23 @@ const TenantPayments = () => {
   }, [searchFiltered])
 
   const firstPending = useMemo(
-    () => data.find((d) => d.status === 'pending'),
+    () => data.find((d) => normalizeStatus(d.status) === 'pending'),
     [data],
   )
-  const heroProperty = firstPending?.property_name || '阳光花园 A座12-3'
+  const heroProperty = firstPending?.property_name || firstPending?.description || ''
   const heroDue = firstPending?.due_date
     ? dayjs(firstPending.due_date).format('M月D日')
-    : '8月15日'
+    : ''
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) {
       setFileObj(null)
       setFileName('')
-      setPreviewUrl(undefined)
       return
     }
     setFileObj(f)
     setFileName(f.name)
-    setPreviewUrl(URL.createObjectURL(f))
   }
 
   const scrollToUpload = () => {
@@ -205,27 +207,21 @@ const TenantPayments = () => {
     }
 
     try {
-      try {
-        await api.post('/payments/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
-      } catch {
-        // API 不可用时本地展示
+      // 后端会校验并真正落盘凭证（返回落库的 receipt_url），失败即抛错。
+      // 这里不再吞掉异常、也不再伪造一条本地记录——「已上传」必须是服务端确认过的。
+      const res = await api.post('/payments/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const payload = res.data?.data ?? res.data
+      if (!payload?.id) {
+        throw new Error('upload response missing id')
       }
 
       message.success('凭证上传成功，等待审核')
       const newItem: PaymentVoucher = {
-        id: `local-${Date.now()}`,
-        amount: amt,
-        payment_date: paymentDate,
-        payment_method: paymentMethod,
-        receipt_url: previewUrl,
-        status: 'pending',
-        review_comment: '',
-        bill_type: '物业费',
-        property_name: '阳光花园 A座12-3',
-        due_date: paymentDate,
-        created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+        ...payload,
+        payment_method: payload.payment_method ?? payload.channel,
+        bill_type: payload.bill_type ?? payload.payment_type,
       }
       setData((prev) => [newItem, ...prev])
       setAmount('')
@@ -233,9 +229,8 @@ const TenantPayments = () => {
       setPaymentMethod('bank_transfer')
       setFileObj(null)
       setFileName('')
-      setPreviewUrl(undefined)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '上传失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || '上传失败')
     } finally {
       setSubmitting(false)
     }
@@ -262,17 +257,23 @@ const TenantPayments = () => {
             <h2 className="rent-pay-hero__amount">฿{summary.pendingTotal.toLocaleString()}</h2>
             <span className="rent-pay-hero__status"><span className="rent-pay-hero__status-dot"></span>待支付</span>
           </div>
-          <div className="rent-pay-hero__meta">
-            <span className="rent-pay-hero__meta-item">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/></svg>
-              {heroProperty}
-            </span>
-            <span className="rent-pay-hero__meta-sep"></span>
-            <span className="rent-pay-hero__meta-item">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              请于 {heroDue} 前完成支付
-            </span>
-          </div>
+          {(heroProperty || heroDue) && (
+            <div className="rent-pay-hero__meta">
+              {heroProperty && (
+                <span className="rent-pay-hero__meta-item">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/></svg>
+                  {heroProperty}
+                </span>
+              )}
+              {heroProperty && heroDue && <span className="rent-pay-hero__meta-sep"></span>}
+              {heroDue && (
+                <span className="rent-pay-hero__meta-item">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  请于 {heroDue} 前完成支付
+                </span>
+              )}
+            </div>
+          )}
           <button className="rent-pay-hero__upload" onClick={scrollToUpload}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             上传付款凭证
@@ -287,11 +288,11 @@ const TenantPayments = () => {
           <div className="rent-pay-summary__label">已上传凭证</div>
         </div>
         <div className="rent-pay-summary__item">
-          <div><span className="rent-pay-summary__num">{data.filter((d) => d.status === 'pending').length}</span><span className="rent-pay-summary__num-unit">笔</span></div>
+          <div><span className="rent-pay-summary__num">{data.filter((d) => normalizeStatus(d.status) === 'pending').length}</span><span className="rent-pay-summary__num-unit">笔</span></div>
           <div className="rent-pay-summary__label">待审核</div>
         </div>
         <div className="rent-pay-summary__item">
-          <div><span className="rent-pay-summary__num">{data.filter((d) => d.status === 'approved').length}</span><span className="rent-pay-summary__num-unit">笔</span></div>
+          <div><span className="rent-pay-summary__num">{data.filter((d) => normalizeStatus(d.status) === 'approved').length}</span><span className="rent-pay-summary__num-unit">笔</span></div>
           <div className="rent-pay-summary__label">已确认</div>
         </div>
       </div>
@@ -368,8 +369,13 @@ const TenantPayments = () => {
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               </div>
               <div className="rent-pay-file-drop__text">点击或拖拽文件到此处上传</div>
-              <div className="rent-pay-file-drop__hint">支持单张图片，不超过 5MB</div>
-              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+              <div className="rent-pay-file-drop__hint">支持单张图片或 PDF，不超过 10MB</div>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
             </label>
             {fileName && <div className="rent-pay-file-name">已选择：{fileName}</div>}
           </div>
@@ -394,7 +400,8 @@ const TenantPayments = () => {
                 <span className="rent-pay-month__count">{bills.length} 笔</span>
               </div>
               {bills.map((bill, idx) => {
-                const st = recordStatusMap[bill.status] ?? { label: bill.status, cls: 'rent-pay-record__status--warning' }
+                const statusKey = normalizeStatus(bill.status)
+                const st = recordStatusMap[statusKey]
                 const method = methodLabelMap[bill.payment_method] || bill.payment_method || '其他'
                 const uploadDate = dayjs(bill.created_at || bill.payment_date).format('YYYY-MM-DD')
                 const recordNo = `PAY-${dayjs(bill.payment_date || bill.created_at).format('YYYY-MM')}${String(idx + 1).padStart(2, '0')}`
@@ -404,7 +411,7 @@ const TenantPayments = () => {
                       {methodIconMap[bill.payment_method] || defaultMethodIcon}
                     </div>
                     <div className="rent-pay-record__main">
-                      <div className="rent-pay-record__id">{bill.id.startsWith('s-') || bill.id.startsWith('local-') ? recordNo : bill.id}</div>
+                      <div className="rent-pay-record__id">{bill.id.startsWith('local-') ? recordNo : bill.id}</div>
                       <div className="rent-pay-record__meta">
                         <span>{method}</span>
                         <span className="rent-pay-record__meta-sep"></span>
@@ -416,7 +423,7 @@ const TenantPayments = () => {
                       <span className="rent-pay-record__status-dot"></span>{st.label}
                     </div>
                     <div className="rent-pay-record__actions">
-                      {bill.status === 'rejected' ? (
+                      {statusKey === 'rejected' ? (
                         <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={scrollToUpload}>重新上传</button>
                       ) : (
                         <button className="rent-btn rent-btn--secondary rent-btn--sm">查看</button>

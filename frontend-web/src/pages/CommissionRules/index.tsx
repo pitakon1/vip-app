@@ -342,6 +342,10 @@ const CommissionRules = () => {
         <div className="rent-empty"><div className="rent-text-muted">加载中...</div></div>
       ) : (
         <div className="rent-card">
+          <div className="rent-card__header">
+            <h3 className="rent-card__title">佣金规则</h3>
+            <span className="rent-badge rent-badge--neutral">共 {items.length} 条</span>
+          </div>
           <div className="rent-card__body" style={{ padding: 0 }}>
             {items.length === 0 ? (
               <div className="rent-empty rent-text-muted">暂无佣金设置，点击右上角「新增设置」开始配置</div>
@@ -423,6 +427,9 @@ const CommissionRules = () => {
           </div>
         </div>
       )}
+      <div className="rent-form-hint" style={{ marginTop: 12 }}>
+        适用对象支持全体员工、部门、员工、分销商与分销商员工；分销商管理员仅可为本渠道及本渠道员工配置差异化费率。结算时按「员工 &gt; 部门 &gt; 分销商 &gt; 全局 &gt; 默认」优先级匹配规则。
+      </div>
 
       {/* Modal */}
       {modalOpen && (

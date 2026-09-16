@@ -1,0 +1,271 @@
+/* 管理端 · 收款管理（对齐 admin-mini-payments.html） */
+.apay-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  box-sizing: border-box;
+  padding-bottom: 160rpx;
+}
+
+.apay-scroll {
+  flex: 1;
+  overflow: hidden;
+  padding: 24rpx 24rpx 0;
+}
+
+/* ===== 收入汇总大卡 ===== */
+.apay-hero {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+  border-radius: var(--radius-xl);
+  padding: 32rpx;
+  color: var(--primary-foreground);
+  box-shadow: var(--shadow-primary);
+  margin-bottom: 24rpx;
+
+  &__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  &__left {
+    display: flex;
+    flex-direction: column;
+    gap: 10rpx;
+  }
+
+  &__label {
+    font-size: 26rpx;
+    color: rgba(var(--primary-foreground-rgb), 0.75);
+  }
+
+  &__value {
+    font-size: 56rpx;
+    font-weight: 700;
+    color: var(--primary-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__icon {
+    width: 88rpx;
+    height: 88rpx;
+    border-radius: var(--radius-lg);
+    background: rgba(var(--primary-foreground-rgb), 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__split {
+    display: flex;
+    align-items: center;
+    margin-top: 28rpx;
+    padding-top: 24rpx;
+    border-top: 1px solid rgba(var(--primary-foreground-rgb), 0.2);
+  }
+
+  &__cell {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8rpx;
+    align-items: center;
+  }
+
+  &__cell-label {
+    font-size: 24rpx;
+    color: rgba(var(--primary-foreground-rgb), 0.75);
+  }
+
+  &__cell-value {
+    font-size: 34rpx;
+    font-weight: 700;
+    color: var(--primary-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__divider {
+    width: 1px;
+    height: 60rpx;
+    background: rgba(var(--primary-foreground-rgb), 0.2);
+  }
+
+  &__rate {
+    margin-top: 24rpx;
+  }
+
+  &__rate-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12rpx;
+  }
+
+  &__rate-label {
+    font-size: 24rpx;
+    color: rgba(var(--primary-foreground-rgb), 0.75);
+  }
+
+  &__rate-value {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary-foreground);
+  }
+
+  &__bar {
+    height: 12rpx;
+    border-radius: var(--radius-full);
+    background: rgba(var(--primary-foreground-rgb), 0.25);
+    overflow: hidden;
+  }
+
+  &__bar-fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    background: var(--primary-foreground);
+  }
+}
+
+/* ===== 状态筛选 ===== */
+.apay-chips {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  margin-bottom: 20rpx;
+}
+
+.apay-chip {
+  flex-shrink: 0;
+  height: 60rpx;
+  padding: 0 28rpx;
+  margin-right: 16rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+
+  &--active {
+    background: rgba(var(--primary-rgb), 0.1);
+    border-color: var(--primary);
+  }
+
+  &--active .apay-chip__text {
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--ink-2);
+  }
+}
+
+/* ===== 区块标题 ===== */
+.apay-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+
+  &__title {
+    font-size: 32rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  &__count {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* ===== 交易记录条目 ===== */
+.apay-item {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+
+  &__icon {
+    width: 80rpx;
+    height: 80rpx;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--surface-2);
+
+    &--primary { background: rgba(var(--primary-rgb), 0.12); }
+    &--info { background: rgba(var(--info-rgb), 0.12); }
+    &--success { background: rgba(var(--success-rgb), 0.12); }
+    &--warning { background: rgba(var(--warning-rgb), 0.12); }
+    &--neutral { background: var(--surface-2); }
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8rpx;
+  }
+
+  &__name {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__meta {
+    font-size: 22rpx;
+    color: var(--ink-3);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__right {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8rpx;
+  }
+
+  &__amount {
+    font-size: 34rpx;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ===== 状态 ===== */
+.apay-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  padding: 120rpx 0;
+
+  &__text {
+    font-size: 28rpx;
+    color: var(--ink-3);
+  }
+
+  &__desc {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}

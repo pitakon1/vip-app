@@ -1,0 +1,277 @@
+/* 管理端 · 合同管理（对齐 admin-mini-leases.html） */
+.ale-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24rpx 24rpx 160rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 搜索栏 ===== */
+.ale-search {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+
+  &__input {
+    flex: 1;
+    height: 80rpx;
+    padding: 0 28rpx;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-full);
+    font-size: 28rpx;
+    color: var(--ink);
+    box-sizing: border-box;
+  }
+
+  &__btn {
+    flex-shrink: 0;
+    height: 80rpx;
+    padding: 0 32rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-primary);
+  }
+
+  &__btn-text {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: var(--primary-foreground);
+  }
+}
+
+/* ===== 状态筛选 ===== */
+.ale-chips {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  margin-bottom: 20rpx;
+}
+
+.ale-chip {
+  flex-shrink: 0;
+  height: 60rpx;
+  padding: 0 28rpx;
+  margin-right: 16rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+
+  &--active {
+    background: rgba(var(--primary-rgb), 0.1);
+    border-color: var(--primary);
+  }
+
+  &--active .ale-chip__text {
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--ink-2);
+  }
+}
+
+/* ===== 统计 ===== */
+.ale-stats {
+  display: flex;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 20rpx 0;
+  margin-bottom: 24rpx;
+}
+
+.ale-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6rpx;
+
+  &__value {
+    font-size: 34rpx;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__label {
+    font-size: 22rpx;
+    color: var(--ink-3);
+  }
+
+  &--primary &__value { color: var(--primary); }
+  &--success &__value { color: var(--success); }
+  &--warning &__value { color: var(--warning); }
+  &--error &__value { color: var(--error); }
+}
+
+/* ===== 区块标题 ===== */
+.ale-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+
+  &__title {
+    font-size: 32rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  &__count {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* ===== 合同卡片 ===== */
+.ale-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12rpx;
+    margin-bottom: 12rpx;
+  }
+
+  &__no {
+    flex: 1;
+    font-size: 24rpx;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__tenant {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 14rpx;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+    margin-bottom: 10rpx;
+  }
+
+  &__row-text {
+    flex: 1;
+    font-size: 24rpx;
+    color: var(--ink-3);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__divider {
+    height: 1px;
+    background: var(--line);
+    margin: 18rpx 0;
+  }
+
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16rpx;
+  }
+
+  &__rent {
+    display: flex;
+    flex-direction: column;
+    gap: 4rpx;
+  }
+
+  &__rent-label {
+    font-size: 22rpx;
+    color: var(--ink-3);
+  }
+
+  &__rent-value {
+    font-size: 34rpx;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+  }
+}
+
+/* ===== 按钮 ===== */
+.ale-btn {
+  height: 64rpx;
+  padding: 0 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+
+  &--ghost {
+    background: var(--surface-2);
+  }
+
+  &--primary {
+    background: var(--primary);
+  }
+
+  &--disabled {
+    opacity: 0.5;
+  }
+
+  &__text {
+    font-size: 24rpx;
+    font-weight: 600;
+
+    &--ghost {
+      color: var(--ink-2);
+    }
+
+    &--primary {
+      color: var(--primary-foreground);
+    }
+  }
+}
+
+/* ===== 状态 ===== */
+.ale-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  padding: 120rpx 0;
+
+  &__text {
+    font-size: 28rpx;
+    color: var(--ink-3);
+  }
+
+  &__desc {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}

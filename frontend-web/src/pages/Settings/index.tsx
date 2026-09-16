@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { message } from 'antd'
+import { message, Empty } from 'antd'
 import { companyApi, backupApi } from '@/services/api'
 import type { CompanyInfo } from '@/types'
 import brandLogo from '@/assets/haofang-logo.jpg'
@@ -347,6 +347,7 @@ const Settings = () => {
 
       {/* ===== Tab 1: 公司信息 ===== */}
       {activeTab === 'company' && (
+        <div className="rent-tab-panel" data-active="true">
         <div className="rent-card">
           <div className="rent-card__header">
             <h3 className="rent-card__title">公司信息</h3>
@@ -460,11 +461,12 @@ const Settings = () => {
             </button>
           </div>
         </div>
+        </div>
       )}
 
       {/* ===== Tab 2: 支付渠道 ===== */}
       {activeTab === 'payment' && (
-        <>
+        <div className="rent-tab-panel" data-active="true">
           <p className="rent-body rent-mb-4">启用并配置租客可用的付款方式。已启用的渠道将显示在账单支付页面。</p>
           <div className="rent-grid rent-grid--2" style={{ alignItems: 'start' }}>
             {channels.map((ch) => (
@@ -523,11 +525,12 @@ const Settings = () => {
               {saving ? '保存中...' : '保存渠道配置'}
             </button>
           </div>
-        </>
+        </div>
       )}
 
       {/* ===== Tab 3: 通知设置 ===== */}
       {activeTab === 'notification' && (
+        <div className="rent-tab-panel" data-active="true">
         <div className="rent-card">
           <div className="rent-card__header">
             <h3 className="rent-card__title">通知规则</h3>
@@ -577,11 +580,12 @@ const Settings = () => {
             </button>
           </div>
         </div>
+        </div>
       )}
 
       {/* ===== Tab 4: 权限管理 ===== */}
       {activeTab === 'permission' && (
-        <>
+        <div className="rent-tab-panel" data-active="true">
           <p className="rent-body rent-mb-4">以下为系统预设的角色权限矩阵。每个角色可执行的操作已按职责分配。</p>
           <div className="rent-card">
             <div className="rent-card__header">
@@ -662,11 +666,12 @@ const Settings = () => {
               <span className="rent-text-sm rent-text-muted" style={{ marginLeft: 'auto' }}>权限按角色预设，如需自定义请联系系统管理员</span>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* ===== Tab 5: 数据备份 ===== */}
       {activeTab === 'backup' && (
+        <div className="rent-tab-panel" data-active="true">
         <div className="rent-card">
           <div className="rent-card__header">
             <h3 className="rent-card__title">数据备份与每日同步</h3>
@@ -700,7 +705,11 @@ const Settings = () => {
                 <tbody>
                   {backupJobs.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="rent-text-muted">暂无备份记录</td>
+                      <td colSpan={6}>
+                        <div className="rent-empty">
+                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无备份记录" />
+                        </div>
+                      </td>
                     </tr>
                   )}
                   {backupJobs.map((job) => (
@@ -721,6 +730,7 @@ const Settings = () => {
               </table>
             </div>
           </div>
+        </div>
         </div>
       )}
     </div>

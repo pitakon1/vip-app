@@ -1,103 +1,456 @@
+/* 业主物业服务 —— 工单概览 + 筛选 + 工单列表 + 推荐服务 */
+
 .owner-services-page {
   min-height: 100vh;
   background-color: var(--bg);
+  /* 底部固定导航占位，避免内容被遮挡 */
+  padding-bottom: 160rpx;
 
   .page-container {
-    padding: 24px;
+    padding: 24rpx;
+  }
+
+  /* 概览统计 */
+  .stat-row {
+    display: flex;
+    gap: 20rpx;
+    margin-bottom: 28rpx;
+  }
+
+  .stat {
+    flex: 1;
+    min-width: 0;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    padding: 28rpx 24rpx;
+    box-shadow: var(--shadow-sm);
+
+    &__label {
+      display: block;
+      font-size: 24rpx;
+      color: var(--ink-3);
+    }
+
+    &__value {
+      display: block;
+      font-size: 44rpx;
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      margin-top: 8rpx;
+      line-height: 1.15;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &__badge {
+      display: inline-block;
+      margin-top: 12rpx;
+      padding: 4rpx 16rpx;
+      border-radius: var(--radius-full);
+      font-size: 20rpx;
+      font-weight: 600;
+
+      &--info {
+        background: rgba(var(--info-rgb), 0.1);
+        color: var(--info);
+      }
+
+      &--success {
+        background: rgba(var(--success-rgb), 0.1);
+        color: var(--success);
+      }
+    }
+  }
+
+  /* 筛选 chips */
+  .chips {
+    display: flex;
+    gap: 12rpx;
+    margin-bottom: 28rpx;
+
+    &__item {
+      flex-shrink: 0;
+      padding: 12rpx 28rpx;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      color: var(--ink-2);
+      font-size: 24rpx;
+      font-weight: 500;
+
+      &--active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--primary-foreground);
+        font-weight: 600;
+      }
+    }
   }
 
   .section-title {
-    font-size: 32px;
-    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 34rpx;
+    font-weight: 700;
     color: var(--ink);
-    margin-bottom: 16px;
+    margin-bottom: 20rpx;
+    letter-spacing: -0.02em;
+
+    &--gap {
+      margin-top: 40rpx;
+    }
+
+    .section-hint {
+      font-size: 24rpx;
+      font-weight: 500;
+      color: var(--ink-3);
+    }
   }
 
+  .empty-tip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80rpx 0;
+    color: var(--ink-3);
+    font-size: 26rpx;
+
+    &__icon {
+      margin-bottom: 16rpx;
+      opacity: 0.5;
+    }
+  }
+
+  .retry-btn {
+    margin-top: 24rpx;
+    height: 68rpx;
+    padding: 0 40rpx;
+    border-radius: var(--radius-lg);
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-size: 26rpx;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--hover {
+      background: var(--primary-hover);
+    }
+  }
+
+  /* 工单列表 */
+  .order-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20rpx;
+  }
+
+  .order {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    padding: 28rpx;
+    box-shadow: var(--shadow-sm);
+
+    &__head {
+      display: flex;
+      align-items: flex-start;
+      gap: 20rpx;
+    }
+
+    &__icon {
+      flex-shrink: 0;
+      width: 80rpx;
+      height: 80rpx;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &--primary {
+        background: rgba(var(--primary-rgb), 0.1);
+      }
+
+      &--success {
+        background: rgba(var(--success-rgb), 0.1);
+      }
+
+      &--warning {
+        background: rgba(var(--warning-rgb), 0.1);
+      }
+
+      &--info {
+        background: rgba(var(--info-rgb), 0.1);
+      }
+
+      &--neutral {
+        background: var(--surface-2);
+      }
+    }
+
+    &__body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &__title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12rpx;
+    }
+
+    &__title {
+      flex: 1;
+      min-width: 0;
+      font-size: 30rpx;
+      font-weight: 700;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__badge {
+      flex-shrink: 0;
+      padding: 4rpx 16rpx;
+      border-radius: var(--radius-full);
+      font-size: 20rpx;
+      font-weight: 600;
+
+      &--primary {
+        background: rgba(var(--primary-rgb), 0.1);
+        color: var(--primary);
+      }
+
+      &--success {
+        background: rgba(var(--success-rgb), 0.1);
+        color: var(--success);
+      }
+
+      &--warning {
+        background: rgba(var(--warning-rgb), 0.1);
+        color: var(--warning);
+      }
+
+      &--info {
+        background: rgba(var(--info-rgb), 0.1);
+        color: var(--info);
+      }
+
+      &--neutral {
+        background: var(--surface-2);
+        color: var(--ink-2);
+      }
+    }
+
+    &__meta {
+      display: flex;
+      align-items: center;
+      gap: 8rpx;
+      margin-top: 8rpx;
+      font-size: 24rpx;
+      color: var(--ink-3);
+    }
+
+    &__no {
+      flex-shrink: 0;
+      font-weight: 600;
+    }
+
+    &__dot {
+      flex-shrink: 0;
+    }
+
+    &__prop {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__notes {
+      display: block;
+      font-size: 24rpx;
+      color: var(--ink-2);
+      margin-top: 8rpx;
+      line-height: 1.5;
+    }
+
+    &__progress {
+      display: flex;
+      align-items: center;
+      gap: 16rpx;
+      margin-top: 24rpx;
+    }
+
+    &__pct {
+      flex-shrink: 0;
+      font-size: 24rpx;
+      font-weight: 700;
+      color: var(--ink-2);
+      font-variant-numeric: tabular-nums;
+
+      &--primary {
+        color: var(--primary);
+      }
+
+      &--success {
+        color: var(--success);
+      }
+
+      &--warning {
+        color: var(--warning);
+      }
+
+      &--neutral {
+        color: var(--ink-3);
+      }
+    }
+  }
+
+  /* 进度条 */
+  .progress {
+    flex: 1;
+    height: 12rpx;
+    border-radius: var(--radius-full);
+    background: var(--surface-2);
+    overflow: hidden;
+
+    &__bar {
+      height: 100%;
+      border-radius: var(--radius-full);
+      background: var(--primary);
+
+      &--success {
+        background: var(--success);
+      }
+
+      &--warning {
+        background: var(--warning);
+      }
+
+      &--neutral {
+        background: var(--ink-3);
+      }
+    }
+  }
+
+  /* 支付方式提示 */
   .pay-tip {
-    background-color: rgba(217, 119, 6, 0.1);
-    border-radius: 12px;
-    padding: 16px 24px;
-    margin-bottom: 24px;
+    background: rgba(var(--warning-rgb), 0.1);
+    border-radius: var(--radius-lg);
+    padding: 20rpx 24rpx;
+    margin-bottom: 24rpx;
 
     .pay-tip-label {
-      font-size: 26px;
-      color: var(--warning);
       display: block;
-      margin-bottom: 8px;
+      font-size: 26rpx;
+      color: var(--warning);
+      margin-bottom: 12rpx;
     }
 
     .pay-icons {
       display: flex;
       flex-wrap: wrap;
+      gap: 24rpx;
 
       .pay-icon {
-        font-size: 24px;
+        display: flex;
+        align-items: center;
+        gap: 8rpx;
+        font-size: 24rpx;
         color: var(--ink-2);
-        margin-right: 16px;
-        margin-bottom: 4px;
       }
     }
   }
 
+  /* 推荐服务 */
   .service-list {
-    .service-card {
-      background-color: var(--card);
-      border-radius: 16px;
-      padding: 24px;
-      margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20rpx;
+  }
 
-      .service-info {
-        margin-bottom: 16px;
+  .service-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    padding: 28rpx;
+    box-shadow: var(--shadow-sm);
 
-        .service-name {
-          display: block;
-          font-size: 32px;
-          font-weight: 600;
-          color: var(--ink);
-          margin-bottom: 8px;
-        }
-
-        .service-desc {
-          display: block;
-          font-size: 26px;
-          color: var(--ink-3);
-          margin-bottom: 12px;
-          line-height: 1.5;
-        }
-
-        .service-price {
-          display: block;
-          font-size: 36px;
-          font-weight: 700;
-          color: var(--error);
-        }
-      }
-
-      .service-pay {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-
-        .pay-methods {
-          display: flex;
-
-          .pay-tag {
-            font-size: 32px;
-            margin-right: 12px;
-          }
-        }
-
-        .pay-btn {
-          width: 240px;
-          height: 72px;
-          line-height: 72px;
-          background-color: var(--primary);
-          color: var(--primary-foreground);
-          font-size: 28px;
-          border-radius: 8px;
-          padding: 0;
-        }
-      }
+    .service-info {
+      margin-bottom: 24rpx;
     }
+
+    .service-name {
+      display: block;
+      font-size: 30rpx;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 8rpx;
+    }
+
+    .service-desc {
+      display: block;
+      font-size: 24rpx;
+      color: var(--ink-3);
+      margin-bottom: 12rpx;
+      line-height: 1.5;
+    }
+
+    .service-price {
+      display: block;
+      font-size: 36rpx;
+      font-weight: 800;
+      color: var(--error);
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .service-pay {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .pay-btn {
+      width: 240rpx;
+      height: 72rpx;
+      line-height: 72rpx;
+      background-color: var(--primary);
+      color: var(--primary-foreground);
+      font-size: 28rpx;
+      font-weight: 600;
+      border-radius: var(--radius-md);
+      padding: 0;
+    }
+  }
+}
+
+/* 悬浮入口：委托挂牌（对齐原型 .rent-mobile__fab，悬浮于底部导航之上） */
+.owner-fab {
+  position: fixed;
+  right: 32rpx;
+  bottom: 168rpx;
+  z-index: 90;
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-primary);
+  transition: all 0.15s ease;
+
+  &--hover {
+    transform: scale(0.94);
+    background: var(--primary-hover);
   }
 }

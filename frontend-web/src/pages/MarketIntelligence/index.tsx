@@ -55,10 +55,18 @@ const TABS = [
   { key: 'churn', label: '流失预警' },
 ]
 
+// 页头主操作：按 Tab 对应各自的创建动作（智能匹配无创建入口）
+const PRIMARY_ACTION: Record<string, string> = {
+  indices: '发布指数',
+  reports: '发布报告',
+  churn: '生成信号',
+}
+
 const fmtNum = (v?: number) => Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const MarketIntelligence = () => {
   const [activeTab, setActiveTab] = useState('indices')
+  const [createOpen, setCreateOpen] = useState(false)
   return (
     <div className="rent-main">
       <div className="rent-page-header">
@@ -66,31 +74,35 @@ const MarketIntelligence = () => {
           <h2 className="rent-page-header__title">数据与决策</h2>
           <p className="rent-page-header__subtitle">市场指数、研究报告与租客流失预警信号</p>
         </div>
+        {PRIMARY_ACTION[activeTab] && (
+          <div className="rent-page-header__actions">
+            <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setCreateOpen(true)}>+ {PRIMARY_ACTION[activeTab]}</button>
+          </div>
+        )}
       </div>
 
       <div className="rent-tabs">
         {TABS.map((t) => (
-          <button key={t.key} type="button" className="rent-tab" data-active={activeTab === t.key} onClick={() => setActiveTab(t.key)}>
+          <button key={t.key} type="button" className="rent-tab" data-active={activeTab === t.key} onClick={() => { setActiveTab(t.key); setCreateOpen(false) }}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {activeTab === 'indices' && <IndicesTab />}
-      {activeTab === 'reports' && <ReportsTab />}
+      {activeTab === 'indices' && <IndicesTab createOpen={createOpen} onOpenChange={setCreateOpen} />}
+      {activeTab === 'reports' && <ReportsTab createOpen={createOpen} onOpenChange={setCreateOpen} />}
       {activeTab === 'matches' && <MatchesTab />}
-      {activeTab === 'churn' && <ChurnTab />}
+      {activeTab === 'churn' && <ChurnTab createOpen={createOpen} onOpenChange={setCreateOpen} />}
     </div>
   )
 }
 
 /* ===== 市场指数 ===== */
-const IndicesTab = () => {
+const IndicesTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
   const [items, setItems] = useState<Index[]>([])
   const [loading, setLoading] = useState(false)
   const [marketCode, setMarketCode] = useState('')
   const [indexType, setIndexType] = useState('')
-  const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ market_code: '', index_type: 'sale', period: '', value: '', delta_pct: '', sample_count: '0', avg_price_sqm: '', avg_rent: '', currency: 'THB' })
 
@@ -129,7 +141,7 @@ const IndicesTab = () => {
         currency: form.currency || 'THB',
       })
       message.success('指数已发布')
-      setCreateOpen(false)
+      onOpenChange(false)
       setForm({ market_code: '', index_type: 'sale', period: '', value: '', delta_pct: '', sample_count: '0', avg_price_sqm: '', avg_rent: '', currency: 'THB' })
       fetchData()
     } catch (e: any) {
@@ -149,7 +161,6 @@ const IndicesTab = () => {
           <option value="rent">租金指数</option>
         </select>
         <div style={{ flex: 1 }} />
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setCreateOpen(true)}>+ 发布指数</button>
       </div>
 
       <div className="rent-card">
@@ -183,7 +194,7 @@ const IndicesTab = () => {
       </div>
 
       {createOpen && (
-        <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
+        <div className="rent-modal-backdrop" onClick={() => onOpenChange(false)}>
           <div className="rent-modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header"><h3 className="rent-card__title">发布市场指数</h3></div>
             <div className="rent-modal__body">
@@ -209,7 +220,7 @@ const IndicesTab = () => {
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => onOpenChange(false)}>取消</button>
               <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? '发布中...' : '发布'}</button>
             </div>
           </div>
@@ -220,13 +231,12 @@ const IndicesTab = () => {
 }
 
 /* ===== 市场报告 ===== */
-const ReportsTab = () => {
+const ReportsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
   const [items, setItems] = useState<Report[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [markets, setMarkets] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ market_code: '', report_type: 'district', area: '', property_type: '', period: '', summary: '', metrics_json: '' })
 
@@ -254,6 +264,11 @@ const ReportsTab = () => {
     } catch { /* 忽略 */ }
   }
 
+  // 弹窗由页头按钮打开时，按需加载市场下拉
+  useEffect(() => {
+    if (createOpen) loadMarkets()
+  }, [createOpen])
+
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
   const handleCreate = async () => {
@@ -273,7 +288,7 @@ const ReportsTab = () => {
         metrics_json: form.metrics_json || undefined,
       })
       message.success('报告已发布')
-      setCreateOpen(false)
+      onOpenChange(false)
       setForm({ market_code: '', report_type: 'district', area: '', property_type: '', period: '', summary: '', metrics_json: '' })
       fetchData()
     } catch (e: any) {
@@ -288,7 +303,6 @@ const ReportsTab = () => {
       <div className="rent-filter-bar">
         <span className="rent-text-muted">已发布的区域/类型市场研究报告</span>
         <div style={{ flex: 1 }} />
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => { loadMarkets(); setCreateOpen(true) }}>+ 发布报告</button>
       </div>
 
       <div className="rent-card">
@@ -329,7 +343,7 @@ const ReportsTab = () => {
       </div>
 
       {createOpen && (
-        <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
+        <div className="rent-modal-backdrop" onClick={() => onOpenChange(false)}>
           <div className="rent-modal" style={{ width: 500 }} onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header"><h3 className="rent-card__title">发布市场报告</h3></div>
             <div className="rent-modal__body">
@@ -359,7 +373,7 @@ const ReportsTab = () => {
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => onOpenChange(false)}>取消</button>
               <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? '发布中...' : '发布'}</button>
             </div>
           </div>
@@ -504,7 +518,7 @@ const MatchesTab = () => {
 }
 
 /* ===== 流失预警 ===== */
-const ChurnTab = () => {
+const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
   const [items, setItems] = useState<Signal[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -512,7 +526,6 @@ const ChurnTab = () => {
   const [resolved, setResolved] = useState('')
   const [leads, setLeads] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ signal_type: 'lease_expiring', level: 'warning', detail: '', suggested_action: '', lead_id: '' })
   // 派发跟进
@@ -550,6 +563,9 @@ const ChurnTab = () => {
     } catch { /* 忽略 */ }
   }
 
+  // 页头「生成信号」打开时按需加载线索选项
+  useEffect(() => { if (createOpen) loadLeads() }, [createOpen])
+
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
   const handleCreate = async () => {
@@ -563,7 +579,7 @@ const ChurnTab = () => {
         user_id: form.lead_id || undefined,
       })
       message.success('预警信号已生成')
-      setCreateOpen(false)
+      onOpenChange(false)
       setForm({ signal_type: 'lease_expiring', level: 'warning', detail: '', suggested_action: '', lead_id: '' })
       fetchData()
     } catch (e: any) {
@@ -629,7 +645,6 @@ const ChurnTab = () => {
         </select>
         <div style={{ flex: 1 }} />
         <span className="rent-badge rent-badge--warning">待处理 {summary} 条</span>
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => { loadLeads(); setCreateOpen(true) }}>+ 生成信号</button>
       </div>
 
       <div className="rent-card">
@@ -688,7 +703,7 @@ const ChurnTab = () => {
       </div>
 
       {createOpen && (
-        <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
+        <div className="rent-modal-backdrop" onClick={() => onOpenChange(false)}>
           <div className="rent-modal" style={{ width: 460 }} onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header"><h3 className="rent-card__title">生成流失预警信号</h3></div>
             <div className="rent-modal__body">
@@ -720,7 +735,7 @@ const ChurnTab = () => {
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => onOpenChange(false)}>取消</button>
               <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? '生成中...' : '生成'}</button>
             </div>
           </div>

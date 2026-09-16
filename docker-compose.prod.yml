@@ -1,0 +1,169 @@
+# ============================================================
+# 生产编排（严格模拟生产）
+# 与 docker-compose.yml（开发态）的差异：
+#   1. 去掉 ./backend:/app 源码挂载 —— 镜像内即代码，避免宿主机文件覆盖容器
+#   2. 配置来源改为 ./.env.prod（强随机密钥、DEBUG=false、PG 强口令）
+#   3. 仅对外暴露 3000（前端 Nginx 统一入口），PG/Redis/API 只走容器内网
+#   4. uploads / contracts / backups 具名卷持久化，重建容器不丢运行时数据
+#   5. restart: always + 日志轮转，避免磁盘被日志打满
+#
+# 启动：docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+# 停止：docker compose --env-file .env.prod -f docker-compose.prod.yml down
+# ============================================================
+
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必填}@postgres:5432/${POSTGRES_DB:-rental_db}
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+  DEBUG: "false"
+
+# 后端三个容器共用的持久化挂载（上传文件 / 合同渲染 / 每日备份）
+x-backend-volumes: &backend-volumes
+  - backend_uploads:/app/uploads
+  - backend_contracts:/app/contracts
+  - backend_backups:/app/backups
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  # ---------- PostgreSQL 15 ----------
+  postgres:
+    image: postgres:15
+    container_name: rental_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必填}
+      POSTGRES_DB: ${POSTGRES_DB:-rental_db}
+    # 生产不对外暴露数据库端口；需本地排查时再临时放开
+    # ports:
+    #   - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-rental_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *default-logging
+
+  # ---------- Redis 7 ----------
+  redis:
+    image: redis:7
+    container_name: rental_redis
+    restart: always
+    # 开启 AOF，重启不丢限流/队列相关数据
+    command: redis-server --appendonly yes
+    # 生产不对外暴露端口
+    # ports:
+    #   - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging: *default-logging
+
+  # ---------- FastAPI 后端（多 worker）----------
+  fastapi:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: rental-backend:prod
+    container_name: rental_fastapi
+    restart: always
+    env_file:
+      - ./.env.prod
+    environment: *backend-env
+    volumes: *backend-volumes
+    # 生产统一由前端 Nginx 的 /api、/health 反代；如需直连 /docs 再临时放开
+    # ports:
+    #   - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health/ready')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    logging: *default-logging
+
+  # ---------- Celery Worker ----------
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: rental-backend:prod
+    container_name: rental_celery
+    restart: always
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-4} -Q default,notification,maintenance
+    env_file:
+      - ./.env.prod
+    environment: *backend-env
+    volumes: *backend-volumes
+    depends_on:
+      redis:
+        condition: service_healthy
+      fastapi:
+        condition: service_healthy
+    logging: *default-logging
+
+  # ---------- Celery Beat（定时调度）----------
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: rental-backend:prod
+    container_name: rental_celery_beat
+    restart: always
+    command: celery -A app.celery_app beat --loglevel=info -s /beat/celerybeat-schedule
+    env_file:
+      - ./.env.prod
+    environment: *backend-env
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_contracts:/app/contracts
+      - backend_backups:/app/backups
+      - celery_beat_data:/beat
+    depends_on:
+      redis:
+        condition: service_healthy
+      fastapi:
+        condition: service_healthy
+    logging: *default-logging
+
+  # ---------- 前端 Web（生产构建 + Nginx 托管，唯一对外入口）----------
+  frontend:
+    build:
+      context: ./frontend-web
+      dockerfile: Dockerfile
+    image: rental-frontend:prod
+    container_name: rental_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      fastapi:
+        condition: service_healthy
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+  redis_data:
+  celery_beat_data:
+  backend_uploads:
+  backend_contracts:
+  backend_backups:

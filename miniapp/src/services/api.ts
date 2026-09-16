@@ -17,6 +17,11 @@ export const propertiesApi = {
   list: (params?: any) => request({ url: '/properties', method: 'GET', data: params })
 }
 
+// 公司信息（公开接口）：仅取真实版本号供「我的 - 关于」展示，避免写死版本
+export const companyApi = {
+  info: () => request({ url: '/company/info', method: 'GET' })
+}
+
 // ============ 客户线索（CRM）============
 export const leadsApi = {
   list: (params?: any) => request({ url: '/leads', method: 'GET', data: params }),
@@ -32,6 +37,8 @@ export const leasesApi = {
 
 export const paymentsApi = {
   mine: () => request({ url: '/payments/me', method: 'GET' }),
+  // 收款列表（员工日历页取租金到期用，支持 status/payment_type/lease_id 等筛选）
+  list: (params?: any) => request({ url: `/payments${qs(params)}`, method: 'GET' }),
   pay: (id: string, data: any) => request({ url: `/payments/${id}/pay`, method: 'POST', data }),
   receipt: (id: string) => request({ url: `/payments/${id}/receipt`, method: 'GET' }),
   invoice: (id: string) => request({ url: `/payments/${id}/invoice`, method: 'GET' })
@@ -123,6 +130,8 @@ export const attendanceApi = {
   checkIn: (data: any) => request({ url: '/attendance/check-in', method: 'POST', data }),
   checkOut: (data: any) => request({ url: '/attendance/check-out', method: 'POST', data }),
   today: () => request({ url: '/attendance/today', method: 'GET' }),
+  // 我的考勤明细（按日期倒序），用于本月统计与考勤记录列表
+  myAttendance: (params?: any) => request({ url: `/attendance/me${qs(params)}`, method: 'GET' }),
   // 500KM 外需填外勤申请
   externalTrips: (params?: any) => request({ url: '/attendance/external-trips', method: 'GET', data: params }),
   createExternalTrip: (data: any) => request({ url: '/attendance/external-trips', method: 'POST', data }),
@@ -176,6 +185,18 @@ const qs = (params?: any) => {
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
   return parts.length ? `?${parts.join('&')}` : ''
+}
+
+// ============ 员工业绩与佣金 ============
+// 业绩：本月汇总 / 历史月度 / 排行榜
+export const performanceApi = {
+  me: (params?: any) => request({ url: `/performance/me${qs(params)}`, method: 'GET' }),
+  leaderboard: (params?: any) => request({ url: `/performance/leaderboard${qs(params)}`, method: 'GET' })
+}
+
+// 我的佣金结算明细
+export const commissionsApi = {
+  mine: (params?: any) => request({ url: `/commissions/me${qs(params)}`, method: 'GET' })
 }
 
 // ============ 买卖交易闭环（挂牌 / 成交 / 托管 / 按揭） ============
@@ -244,6 +265,7 @@ export const marketDataApi = {
 export default {
   authApi,
   propertiesApi,
+  companyApi,
   leadsApi,
   leasesApi,
   paymentsApi,
@@ -254,6 +276,8 @@ export default {
   notificationsApi,
   ownerApi,
   attendanceApi,
+  performanceApi,
+  commissionsApi,
   chatApi,
   contractsApi,
   aiApi,

@@ -45,6 +45,7 @@ secrets/
 *.sqlite
 *.sqlite3
 *.db-journal
+*.db.bak-*
 backend/data/
 backend/uploads/
 # 运行时产物：每日备份、合同渲染输出、Celery beat 调度文件

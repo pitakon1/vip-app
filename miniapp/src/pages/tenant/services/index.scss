@@ -3,46 +3,81 @@
   background-color: var(--bg);
 
   .page-container {
-    padding: 24px;
+    padding: 24px 24px 40px;
+  }
+
+  /* ===== Hero：推荐服务 ===== */
+  .svc-hero {
+    position: relative;
+    background: var(--primary);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    box-shadow:
+      0 20px 40px -20px rgba(var(--primary-rgb), 0.45),
+      0 8px 20px -10px rgba(var(--primary-rgb), 0.3);
+
+    .svc-hero-label {
+      display: block;
+      font-size: 24px;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .svc-hero-title {
+      display: block;
+      font-size: 40px;
+      font-weight: 700;
+      color: var(--primary-foreground);
+      margin-top: 6px;
+    }
+
+    .pay-tip {
+      margin-top: 20px;
+      margin-bottom: 0;
+      background-color: rgba(255, 255, 255, 0.16);
+      border-radius: var(--radius-lg);
+      padding: 14px 20px;
+
+      .pay-tip-label {
+        font-size: 24px;
+        color: rgba(255, 255, 255, 0.85);
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      .pay-icons {
+        display: flex;
+        flex-wrap: wrap;
+
+        .pay-icon {
+          font-size: 24px;
+          color: var(--primary-foreground);
+          margin-right: 20px;
+          margin-bottom: 4px;
+        }
+      }
+    }
   }
 
   .section-title {
     font-size: 32px;
     font-weight: 600;
     color: var(--ink);
-    margin-bottom: 16px;
+    margin: 24px 0 16px;
   }
 
-  .pay-tip {
-    background-color: rgba(217, 119, 6, 0.1);
-    border-radius: 12px;
-    padding: 16px 24px;
-    margin-bottom: 24px;
-
-    .pay-tip-label {
-      font-size: 26px;
-      color: var(--warning);
-      display: block;
-      margin-bottom: 8px;
-    }
-
-    .pay-icons {
-      display: flex;
-      flex-wrap: wrap;
-
-      .pay-icon {
-        font-size: 24px;
-        color: var(--ink-2);
-        margin-right: 16px;
-        margin-bottom: 4px;
-      }
-    }
+  .empty-tip {
+    text-align: center;
+    color: var(--ink-3);
+    font-size: 26px;
+    padding: 60px 0;
   }
 
   .service-list {
     .service-card {
       background-color: var(--card);
-      border-radius: 16px;
+      border-radius: var(--radius-lg);
       padding: 24px;
       margin-bottom: 16px;
 
@@ -76,27 +111,67 @@
       .service-pay {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-
-        .pay-methods {
-          display: flex;
-
-          .pay-tag {
-            font-size: 32px;
-            margin-right: 12px;
-          }
-        }
+        justify-content: flex-end;
 
         .pay-btn {
-          width: 240px;
+          width: 200px;
           height: 72px;
           line-height: 72px;
           background-color: var(--primary);
           color: var(--primary-foreground);
           font-size: 28px;
-          border-radius: 8px;
+          border-radius: var(--radius-sm);
           padding: 0;
         }
+      }
+    }
+  }
+
+  /* ===== 我的订单 ===== */
+  .order-list {
+    height: auto;
+
+    .order-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background-color: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 16px;
+
+      .order-icon {
+        flex-shrink: 0;
+        background-color: rgba(var(--primary-rgb), 0.1);
+        background-repeat: no-repeat;
+        background-position: center center;
+        background-size: 40rpx 40rpx;
+        border-radius: var(--radius-md);
+      }
+
+      .order-info {
+        flex: 1;
+        min-width: 0;
+
+        .order-name {
+          display: block;
+          font-size: 30px;
+          font-weight: 600;
+          color: var(--ink);
+        }
+
+        .order-time {
+          display: block;
+          font-size: 24px;
+          color: var(--ink-3);
+          margin-top: 6px;
+        }
+      }
+
+      .order-status {
+        font-size: 24px;
+        font-weight: 600;
+        flex-shrink: 0;
       }
     }
   }

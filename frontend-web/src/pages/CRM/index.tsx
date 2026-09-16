@@ -396,11 +396,18 @@ const CRM = () => {
                     {pipelineStats.conversionRate}
                     <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>%</span>
                   </div>
-                  <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-3)' }}>
+                  <div className={`rent-stat-card__delta${hasLeads ? ' rent-stat-card__delta--up' : ''}`} style={hasLeads ? undefined : { color: 'var(--rent-ink-3)' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="5" y1="12" x2="19" y2="12" />
+                      {hasLeads ? (
+                        <>
+                          <line x1="12" y1="19" x2="12" y2="5" />
+                          <polyline points="5 12 12 5 19 12" />
+                        </>
+                      ) : (
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      )}
                     </svg>
-                    由真实线索数据计算
+                    转化率 = 已成交 / 线索总数
                   </div>
                 </div>
                 <div className="rent-stat-card__icon" style={{ background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' }}>

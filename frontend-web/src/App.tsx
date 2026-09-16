@@ -38,6 +38,7 @@ import OwnerMarketing from '@/pages/Owner/Marketing'
 
 // 租客端页面
 import TenantDashboard from '@/pages/Tenant/Dashboard'
+import TenantPropertyDetail from '@/pages/Tenant/PropertyDetail'
 import TenantPayments from '@/pages/Tenant/Payments'
 import TenantDocuments from '@/pages/Tenant/Documents'
 import TenantServices from '@/pages/Tenant/Services'
@@ -102,8 +103,9 @@ const App = () => {
 
           {/* 管理端路由 */}
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/properties" element={<Properties />} />
-          <Route path="/properties/detail/:id" element={<PropertyDetail />} />
+          {/* 房源库/详情属 B 端，租客走门户壳（/tenant/listings、/tenant/properties/:id） */}
+          <Route path="/properties" element={<ProtectedRoute denyRoles={['tenant']}><Properties /></ProtectedRoute>} />
+          <Route path="/properties/detail/:id" element={<ProtectedRoute denyRoles={['tenant']}><PropertyDetail /></ProtectedRoute>} />
           <Route path="/crm" element={<CRM />} />
           <Route path="/leases" element={<Leases />} />
           <Route path="/payments" element={<Payments />} />
@@ -154,6 +156,7 @@ const App = () => {
           }
         >
           <Route path="/tenant/dashboard" element={<TenantDashboard />} />
+          <Route path="/tenant/properties/:id" element={<TenantPropertyDetail />} />
           <Route path="/tenant/listings" element={<PublicListings compact />} />
           <Route path="/tenant/payments" element={<TenantPayments />} />
           <Route path="/tenant/documents" element={<TenantDocuments />} />

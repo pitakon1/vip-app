@@ -1,0 +1,361 @@
+/* 管理端 · 房源详情（对齐 admin-mini-property-detail.html） */
+.apd-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  box-sizing: border-box;
+  padding-bottom: 160rpx;
+}
+
+/* ===== 返回条 ===== */
+.apd-nav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 88rpx;
+  padding: 0 24rpx;
+
+  &__back {
+    display: flex;
+    align-items: center;
+    gap: 6rpx;
+    min-width: 120rpx;
+  }
+
+  &__back-icon {
+    font-size: 36rpx;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  &__back-text {
+    font-size: 28rpx;
+    color: var(--ink-2);
+  }
+
+  &__title {
+    font-size: 32rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  &__placeholder {
+    min-width: 120rpx;
+  }
+}
+
+.apd-scroll {
+  flex: 1;
+  overflow: hidden;
+  padding: 0 24rpx;
+}
+
+/* ===== 头图占位 ===== */
+.apd-hero {
+  position: relative;
+  height: 320rpx;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.2), rgba(var(--primary-rgb), 0.05));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24rpx;
+
+  &__ph {
+    font-size: 28rpx;
+    color: var(--primary);
+    opacity: 0.5;
+  }
+
+  &__badge {
+    position: absolute;
+    left: 24rpx;
+    top: 24rpx;
+    padding: 6rpx 20rpx;
+    background: rgba(var(--primary-rgb), 0.16);
+    color: var(--primary);
+    font-size: 24rpx;
+    border-radius: var(--radius-full);
+  }
+}
+
+/* ===== 卡片 ===== */
+.apd-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+
+  &__title {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 20rpx;
+  }
+}
+
+/* ===== 名称 / 地址 ===== */
+.apd-head {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 14rpx;
+
+  &__name {
+    flex: 1;
+    font-size: 40rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+}
+
+.apd-addr {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+
+  &__text {
+    flex: 1;
+    font-size: 26rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* ===== 关键指标 ===== */
+.apd-key-stats {
+  display: flex;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx 0;
+  margin-bottom: 24rpx;
+}
+
+.apd-key-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+
+  &__value {
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+
+    &--primary {
+      color: var(--primary);
+    }
+  }
+
+  &__label {
+    font-size: 22rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* ===== 信息网格 ===== */
+.apd-info-grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.apd-info-item {
+  width: 50%;
+  padding: 14rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+
+  &--wide {
+    width: 100%;
+  }
+
+  &__label {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+
+  &__value {
+    font-size: 28rpx;
+    color: var(--ink);
+    font-weight: 500;
+  }
+}
+
+.apd-desc {
+  display: block;
+  margin-top: 18rpx;
+  padding-top: 18rpx;
+  border-top: 1px solid var(--line);
+  font-size: 26rpx;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+
+/* ===== 操作按钮 ===== */
+.apd-action-row {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.apd-action-btn {
+  flex: 1;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--primary-rgb), 0.1);
+  border-radius: var(--radius-md);
+
+  &__text {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary);
+  }
+}
+
+/* ===== 当前租客 ===== */
+.apd-tenant-head {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding-bottom: 20rpx;
+  border-bottom: 1px solid var(--line);
+}
+
+.apd-tenant-avatar {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: var(--radius-full);
+  background: rgba(var(--primary-rgb), 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &__text {
+    font-size: 34rpx;
+    font-weight: 700;
+    color: var(--primary);
+  }
+}
+
+.apd-tenant-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+
+  &__name {
+    font-size: 30rpx;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  &__code {
+    font-size: 22rpx;
+    color: var(--ink-3);
+  }
+}
+
+.apd-tenant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 18rpx;
+
+  &__label {
+    font-size: 26rpx;
+    color: var(--ink-3);
+  }
+
+  &__value {
+    font-size: 26rpx;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ===== 维修记录 ===== */
+.apd-maint-item {
+  display: flex;
+  gap: 16rpx;
+  padding: 18rpx 0;
+  border-bottom: 1px solid var(--line);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+.apd-maint-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: var(--radius-full);
+  margin-top: 12rpx;
+  flex-shrink: 0;
+  background: var(--ink-3);
+
+  &--open { background: var(--warning); }
+  &--assigned { background: var(--info); }
+  &--in_progress { background: var(--primary); }
+  &--resolved { background: var(--success); }
+  &--closed { background: var(--ink-3); }
+}
+
+.apd-maint-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.apd-maint-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.apd-maint-title {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.apd-maint-date {
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+.apd-maint-desc {
+  font-size: 26rpx;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+
+/* ===== 状态 ===== */
+.apd-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  padding: 120rpx 0;
+
+  &--inline {
+    padding: 40rpx 0;
+  }
+
+  &__text {
+    font-size: 28rpx;
+    color: var(--ink-3);
+  }
+}
