@@ -13,6 +13,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import { paymentsApi } from '@/services/api';
+import { fmtMoney as formatMoney, fmtDate } from '@/utils/format';
+
+const formatDate = (x?: string) => fmtDate(x, 'minute');
 
 interface Payment {
   id: string;
@@ -48,14 +51,6 @@ const statusMeta: Record<
   disputed: { text: '有争议', color: colors.error, bg: colors.errorLight },
   expired: { text: '已过期', color: colors.ink3, bg: colors.surface2 },
 };
-
-const formatMoney = (v: any, currency?: string) => {
-  const cur = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : '฿';
-  return `${cur}${Number(v || 0).toLocaleString()}`;
-};
-
-const formatDate = (x?: string) =>
-  x ? x.replace('T', ' ').slice(0, 16) : '—';
 
 // 付款记录以「月份」为主标题（对齐原型：2025年7月 + 金额 + 状态徽标）
 const monthLabel = (x?: string) => {

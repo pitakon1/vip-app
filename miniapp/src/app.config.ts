@@ -15,7 +15,6 @@ export default {
     'pages/employee/property-edit/index',
     'pages/employee/property-browse/index',
     'pages/employee/crm/index',
-    'pages/employee/calendar/index',
     'pages/employee/contacts/index',
     'pages/admin/home/index',
     'pages/admin/properties/index',

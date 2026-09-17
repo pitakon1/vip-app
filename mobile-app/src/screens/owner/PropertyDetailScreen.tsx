@@ -16,6 +16,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { documentsApi, paymentsApi, propertiesApi } from '@/services/api';
+import { fmtMoney as money } from '@/utils/format';
 import { documentFileUrl } from '@/lib/api';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -25,10 +26,6 @@ type OwnerDetailParamList = {
   OwnerPropertyDetail: { id: string };
 };
 
-const CUR_SYMBOL: Record<string, string> = { CNY: '¥', THB: '฿', EUR: '€', USD: '$', MYR: 'RM' };
-
-const cur = (c?: string) => CUR_SYMBOL[c || ''] || '฿';
-const money = (v?: number, c?: string) => `${cur(c)}${Number(v || 0).toLocaleString()}`;
 const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '-');
 
 interface PropertyDetail {

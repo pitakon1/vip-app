@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import { propertiesApi, leasesApi, paymentsApi, maintenanceApi, saleListingApi } from '@/services/api';
+import { fmtMoney as formatMoney } from '@/utils/format';
 import { useI18n } from '@/i18n';
 
 interface Listing {
@@ -146,11 +147,6 @@ const ticketStatusMeta: Record<
 };
 
 const OPEN_TICKET_STATUS = ['submitted', 'accepted', 'in_progress'];
-
-const formatMoney = (v: any, currency?: string) => {
-  const cur = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : 'THB';
-  return `${cur === 'THB' ? '฿' : cur}${Number(v || 0).toLocaleString()}`;
-};
 
 const formatDay = (x?: string) => (x ? String(x).slice(0, 10) : '—');
 

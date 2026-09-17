@@ -130,14 +130,9 @@ export const ownerApi = {
   create: (data: any) => api.post('/properties', data),
   update: (id: string, data: any) => api.patch(`/properties/${id}`, data),
   remove: (id: string) => api.delete(`/properties/${id}`),
-  // 照片上传/删除（multipart，与 propertiesApi 对齐）
-  uploadPhotos: (id: string, files: any[]) => {
-    const fd = new FormData();
-    files.forEach((f) => fd.append('files', f as any));
-    return api.post(`/properties/${id}/photos`, fd);
-  },
-  deletePhoto: (id: string, url: string) =>
-    api.delete(`/properties/${id}/photos`, { params: { url } }),
+  // 照片上传/删除（与 propertiesApi 同实现，直接复用）
+  uploadPhotos: propertiesApi.uploadPhotos,
+  deletePhoto: propertiesApi.deletePhoto,
 };
 
 // v1.9 房东工作台
@@ -269,26 +264,6 @@ export const marketApi = {
   compliance: (marketCode?: string) =>
     api.get('/markets/compliance', { params: marketCode ? { market_code: marketCode } : {} }),
   createCompliance: (data: any) => api.post('/markets/compliance', data),
-};
-
-// —— 战略：数据决策 ——
-export const marketDataApi = {
-  indices: (params?: any) => api.get('/market-data/indices', { params }),
-  createIndex: (data: any) => api.post('/market-data/indices', data),
-  reports: (params?: any) => api.get('/market-data/reports', { params }),
-  createReport: (data: any) => api.post('/market-data/reports', data),
-  matches: (params?: any) => api.get('/market-data/matches', { params }),
-  // 为线索计算房源匹配（写入匹配记录后由 /matches 读取）
-  computeMatches: (data: any) => api.post('/market-data/matches/compute', data),
-  // 把匹配结果推送给租客（重复推送幂等）
-  notifyMatch: (id: string, data?: any) =>
-    api.post(`/market-data/matches/${id}/notify`, data ?? {}),
-  churnSignals: (params?: any) => api.get('/market-data/churn-signals', { params }),
-  createChurnSignal: (data: any) => api.post('/market-data/churn-signals', data),
-  // 把流失预警派发给员工跟进（assignee_id 缺省时取租约负责员工）
-  assignChurnSignal: (id: string, data?: any) =>
-    api.post(`/market-data/churn-signals/${id}/assign`, data ?? {}),
-  resolveChurnSignal: (id: string) => api.post(`/market-data/churn-signals/${id}/resolve`),
 };
 
 // 客户线索（用于撮合与跟进）

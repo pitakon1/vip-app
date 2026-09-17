@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi, saleListingApi } from '@/services/api'
+import { fmtMoney as money } from '@/utils/format'
 import './index.scss'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
@@ -69,20 +70,6 @@ interface Valuation {
 const pick = (res: any, key: string, fallback: any[] = []) => {
   const d = res?.data ?? res
   return Array.isArray(d?.[key]) ? d[key] : d?.items ?? fallback
-}
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  THB: '฿',
-  CNY: '¥',
-  MYR: 'RM',
-  RM: 'RM',
-  USD: '$',
-  EUR: '€'
-}
-
-const money = (v?: number, currency?: string) => {
-  const sym = CURRENCY_SYMBOL[String(currency || 'THB').toUpperCase()] || ''
-  return `${sym}${Number(v || 0).toLocaleString()}`
 }
 
 const propertyTypeText = (t?: string) =>

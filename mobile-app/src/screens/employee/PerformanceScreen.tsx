@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, RefreshControl, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import colors from '../../theme/colors';
 import EmptyState from '../../components/EmptyState';

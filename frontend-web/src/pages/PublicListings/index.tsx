@@ -10,6 +10,7 @@ import dayjs from 'dayjs'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '@/lib/api'
+import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import type { Property } from '@/types'
@@ -65,13 +66,8 @@ const TYPE_ICON_PATH = (pt: string): string => {
   }
 }
 
-const formatRent = (v: any) => `฿${Number(v || 0).toLocaleString()}`
-
-// 买卖挂牌总价（币种随挂牌）
-const formatTotal = (v: any, currency?: string) => {
-  const symbol = currency === 'CNY' ? '¥' : currency === 'USD' ? '$' : currency === 'MYR' ? 'RM ' : '฿'
-  return `${symbol}${Number(v || 0).toLocaleString()}`
-}
+// 买卖挂牌总价（币种随挂牌；MYR 与公共模块 RM 键对齐）
+const formatTotal = (v: any, currency?: string) => formatMoney(Number(v || 0), currency === 'MYR' ? 'RM' : currency)
 
 // 业务 Tab（整租 / 合租 / 买房）
 // - 买房：数据源为真实在售挂牌 /sale-listings（按 property_id 关联房源）
@@ -522,7 +518,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
       })
         .bindPopup(
           `<div style="font-weight:600;color:#1c2733">${mapPointName(p)}</div>` +
-            `<div style="font-weight:600;color:#14b8a6">${formatRent(Number(p.monthly_rent || 0))}</div>` +
+            `<div style="font-weight:600;color:#14b8a6">${formatMoney(Number(p.monthly_rent || 0))}</div>` +
             `<div style="font-size:12px;color:#64748b">${p.project_name || ''}</div>`
         )
         .on('click', () => handleCardClick(p))
@@ -949,7 +945,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
           <div className="rent-prop-search-card__foot">
             <div className="rent-prop-search-card__price">
               <span className="rent-prop-search-card__price-value">
-                {biz === 'sale' ? formatTotal(item.sale_price, item.currency) : formatRent(rent)}
+                {biz === 'sale' ? formatTotal(item.sale_price, item.currency) : formatMoney(rent)}
               </span>
               <span className="rent-prop-search-card__price-unit">
                 {biz === 'sale' ? t('browse.saleUnit') : t('property.perMonth')}
@@ -1195,7 +1191,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
             {mapPoints.slice(0, 6).map((p: any) => (
               <div key={p.id} className="rv17-map__mini" onClick={() => handleCardClick(p)}>
                 <div className="rv17-map__mini-name">{mapPointName(p)}</div>
-                <div className="rv17-map__mini-price">{formatRent(Number(p.monthly_rent || 0))}</div>
+                <div className="rv17-map__mini-price">{formatMoney(Number(p.monthly_rent || 0))}</div>
                 <span className="rv17-map__mini-tag">{p.video_url ? t('browse.video') : (p.project_name || '')}</span>
               </div>
             ))}

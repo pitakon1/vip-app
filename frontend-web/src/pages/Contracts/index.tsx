@@ -105,7 +105,7 @@ const Contracts = () => {
     if (!detail.contract) return
     contractsApi
       .sign(detail.contract.id, partyId)
-      .then((res) => {
+      .then(() => {
         message.success('签署成功')
         handleOpen(detail.contract!.id)
       })

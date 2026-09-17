@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { leasesApi, propertiesApi, dashboardApi } from '@/services/api'
+import { fmtMoney } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
@@ -35,18 +36,8 @@ const FILTERS: { key: string; label: string }[] = [
   { key: 'terminated', label: '已终止' }
 ]
 
-const CURRENCY_SYMBOL: Record<string, string> = {
-  CNY: '¥',
-  THB: '฿',
-  EUR: '€',
-  USD: '$'
-}
-
 const PAGE_SIZE = 100
 const EXPIRE_DAYS = 30
-
-const fmtMoney = (v?: number, currency?: string) =>
-  `${CURRENCY_SYMBOL[currency || 'THB'] || ''}${Number(v || 0).toLocaleString()}`
 
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-')
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Card, Tabs, Checkbox, Button, Space, message, Spin, Tag } from 'antd'
+import { Card, Tabs, Checkbox, Button, Space, message, Tag } from 'antd'
 import { SaveOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
 

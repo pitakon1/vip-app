@@ -13,6 +13,7 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import BarChart from '@/components/charts/BarChart';
 import { ownerApi, ownersApi } from '@/services/api';
+import { fmtMoney } from '@/utils/format';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type IncomeStatus = 'received' | 'pending' | 'overdue';
@@ -51,8 +52,6 @@ const statusMap: Record<IncomeStatus, { label: string; color: string; bg: string
   pending: { label: '待收', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), icon: 'time-outline' },
   overdue: { label: '逾期', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1), icon: 'alert-circle-outline' },
 };
-
-const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿');
 
 // 把月度字段转成 "N月"
 const monthLabel = (m?: string | number) => {
@@ -110,7 +109,7 @@ export default function IncomeScreen() {
   }, [loadIncome]);
 
   const ccy = summary.currency;
-  const fmt = (v?: number) => `${cur(ccy)}${Number(v || 0).toLocaleString()}`;
+  const fmt = (v?: number) => fmtMoney(v, ccy);
   const records = summary.records ?? [];
 
   /* ===== 月度趋势：真实 by_month 数据 ===== */

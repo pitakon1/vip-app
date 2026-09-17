@@ -8,8 +8,8 @@ from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select, or_
 
 from app.db import get_session
-from app.core.auth import get_current_user
-from app.core.pagination import Page, PaginationParams, paginate
+from app.core.auth import STAFF_ROLES, get_current_user
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     User,
     UserRole,
@@ -23,7 +23,7 @@ from app.models import (
 
 router = APIRouter(prefix="/brokers", tags=["brokers"])
 
-_ADMIN_ROLES = (UserRole.admin, UserRole.agent, UserRole.employee)
+# 员工角色（可看全量）：统一走 core.auth.STAFF_ROLES
 
 
 class BrokerIn(BaseModel):
@@ -150,7 +150,7 @@ def list_brokers(
     user: User = Depends(get_current_user),
 ):
     """渠道商列表（管理/经纪人）。"""
-    if user.role not in _ADMIN_ROLES:
+    if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="No permission")
     query = select(BrokerPartner).where(BrokerPartner.deleted_at.is_(None))
     if status:
@@ -158,10 +158,9 @@ def list_brokers(
     if level:
         query = query.where(BrokerPartner.level == level)
     query = query.order_by(BrokerPartner.created_at.desc())
-    items = session.exec(query).all()
-    total = len(items)
-    offset, limit = pagination.offset, pagination.limit
-    return paginate([_broker_dict(i) for i in items][offset : offset + limit], total, pagination)
+    page = paginate_query(session, query, pagination)
+    page.items = [_broker_dict(i) for i in page.items]
+    return page
 
 
 @router.post("")
@@ -171,7 +170,7 @@ def create_broker(
     user: User = Depends(get_current_user),
 ):
     """登记外部渠道商/独立经纪人（管理/经纪人发起，默认待审）。"""
-    if user.role not in _ADMIN_ROLES:
+    if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="No permission")
     code = _gen_code(session)
     broker = BrokerPartner(
@@ -336,7 +335,7 @@ def create_split(
     user: User = Depends(get_current_user),
 ):
     """创建联合单分成（多人/多角色拆分佣金）。"""
-    if user.role not in _ADMIN_ROLES:
+    if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="No permission")
     created = []
     for p in participants:

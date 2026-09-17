@@ -14,7 +14,6 @@ import {
   ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
@@ -25,8 +24,6 @@ import {
   leadsApi,
   authApi,
 } from '@/services/api';
-
-type IoniconName = keyof typeof Ionicons.glyphMap;
 
 interface ViewingItem {
   id: string;

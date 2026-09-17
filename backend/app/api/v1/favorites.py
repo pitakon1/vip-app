@@ -4,6 +4,7 @@
 """
 
 import uuid
+from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,7 +13,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.pagination import Page, PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import Favorite, Property, User
 
 router = APIRouter(prefix="/favorites", tags=["favorites"])
@@ -101,7 +102,6 @@ def remove_favorite(
     ).first()
     if not fav:
         raise HTTPException(status_code=404, detail="Favorite not found")
-    from datetime import datetime
 
     fav.deleted_at = datetime.utcnow()
     session.add(fav)
@@ -116,38 +116,41 @@ def list_favorites(
     user: User = Depends(get_current_user),
 ):
     """我的收藏列表（附带房源标题/地址/月租金）。"""
-    favs = session.exec(
+    query = (
         select(Favorite)
         .where(
             Favorite.user_id == user.id,
             Favorite.deleted_at.is_(None),
         )
         .order_by(Favorite.created_at.desc())
-    ).all()
-    props = {p.id: p for p in session.exec(select(Property)).all()}
-    items = []
-    for f in favs:
-        p = props.get(f.property_id)
-        items.append(
-            {
-                "id": str(f.id),
-                "property_id": str(f.property_id),
-                "title": p.room_number if p else None,
-                "room_number": p.room_number if p else None,
-                "address": p.address if p else None,
-                "monthly_rent": p.monthly_rent if p else None,
-                "currency": p.currency if p else "THB",
-                "property_type": p.property_type if p else None,
-                "photo": (p.photos[0] if p and p.photos else None),
-                "notes": f.notes,
-                "status": p.status.value if p else None,
-                "created_at": f.created_at.isoformat() if f.created_at else None,
-            }
-        )
-    total = len(items)
-    offset = pagination.offset
-    limit = pagination.limit
-    return paginate(items[offset : offset + limit], total, pagination)
+    )
+    page = paginate_query(session, query, pagination)
+    props = {
+        p.id: p
+        for p in session.exec(
+            select(Property).where(
+                Property.id.in_([f.property_id for f in page.items])
+            )
+        ).all()
+    }
+    page.items = [
+        {
+            "id": str(f.id),
+            "property_id": str(f.property_id),
+            "title": p.room_number if (p := props.get(f.property_id)) else None,
+            "room_number": p.room_number if (p := props.get(f.property_id)) else None,
+            "address": p.address if (p := props.get(f.property_id)) else None,
+            "monthly_rent": p.monthly_rent if (p := props.get(f.property_id)) else None,
+            "currency": p.currency if (p := props.get(f.property_id)) else "THB",
+            "property_type": p.property_type if (p := props.get(f.property_id)) else None,
+            "photo": (p.photos[0] if (p := props.get(f.property_id)) and p.photos else None),
+            "notes": f.notes,
+            "status": p.status.value if (p := props.get(f.property_id)) else None,
+            "created_at": f.created_at.isoformat() if f.created_at else None,
+        }
+        for f in page.items
+    ]
+    return page
 
 
 @router.get("/status/{property_id}", response_model=FavoriteStatusOut)

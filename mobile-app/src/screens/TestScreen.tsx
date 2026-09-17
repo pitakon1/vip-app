@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { tokenStorage } from '@/lib/storage';
 import { useAuthStore } from '@/stores/auth';
-import { authApi, propertiesApi, leasesApi, paymentsApi, notificationsApi, ownerApi, employeesApi, documentsApi, serviceOrdersApi, maintenanceApi } from '@/services/api';
+import { authApi, propertiesApi, leasesApi, paymentsApi, notificationsApi, ownerApi, employeesApi, documentsApi } from '@/services/api';
 import apiClient from '@/lib/api';
 
 // ==================== 类型 ====================

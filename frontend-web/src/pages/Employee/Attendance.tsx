@@ -103,10 +103,6 @@ const Attendance = () => {
   // v1.8 GPS 考勤
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'denied'>('idle')
   const [geoInfo, setGeoInfo] = useState<{ distance_km?: number; within_radius?: boolean; address?: string } | null>(null)
-  const [serverCheckedIn, setServerCheckedIn] = useState(false)
-  const [serverCheckedOut, setServerCheckedOut] = useState(false)
-
-  const today = dayjs().format('YYYY-MM-DD')
 
   // 加载我的考勤记录（真实数据，不做静态兜底）
   const loadRecords = useCallback(() => {
@@ -128,8 +124,6 @@ const Attendance = () => {
       .today()
       .then((res) => {
         const d = res.data
-        setServerCheckedIn(!!d.checked_in)
-        setServerCheckedOut(!!d.checked_out)
         if (d.check_in_time) setCheckInTime(dayjs(d.check_in_time).format('HH:mm:ss'))
         if (d.check_out_time) setCheckOutTime(dayjs(d.check_out_time).format('HH:mm:ss'))
         if (d.check_in_location?.address) setGeoInfo(d.check_in_location)
@@ -179,12 +173,10 @@ const Attendance = () => {
       if (endpoint === 'check-in') {
         await attendanceApi.checkIn({ lat, lng })
         setCheckInTime(dayjs().format('HH:mm:ss'))
-        setServerCheckedIn(true)
         message.success('定位打卡成功（上班）')
       } else {
         await attendanceApi.checkOut({ lat, lng })
         setCheckOutTime(dayjs().format('HH:mm:ss'))
-        setServerCheckedOut(true)
         message.success('定位打卡成功（下班）')
       }
       // 打卡后刷新记录，日历与明细立即反映最新状态

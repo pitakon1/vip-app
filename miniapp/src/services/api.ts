@@ -48,7 +48,6 @@ export const leadsApi = {
   get: (id: string) => request({ url: `/leads/${id}`, method: 'GET' }),
   create: (data: any) => request({ url: '/leads', method: 'POST', data }),
   update: (id: string, data: any) => request({ url: `/leads/${id}`, method: 'PATCH', data }),
-  updateStatus: (id: string, data: any) => request({ url: `/leads/${id}`, method: 'PATCH', data }),
   delete: (id: string) => request({ url: `/leads/${id}`, method: 'DELETE' })
 }
 
@@ -119,16 +118,9 @@ export const ownerApi = {
   // 编辑名下房源（后端已放开 owner 对 PATCH /properties/{id} 的权限）
   update: (id: string, data: any) =>
     request({ url: `/properties/${id}`, method: 'PATCH', data }),
-  // 照片上传（multipart，后端先传后保存 url 列表到 photos）
-  uploadPhotos: (id: string, files: any[]) =>
-    Taro.uploadFile({
-      url: `/properties/${id}/photos`,
-      filePath: files[0].url,
-      name: 'files',
-      header: { Authorization: `Bearer ${Taro.getStorageSync('token')}` }
-    }),
-  deletePhoto: (id: string, url: string) =>
-    request({ url: `/properties/${id}/photos?url=${encodeURIComponent(url)}`, method: 'DELETE' }),
+  // 照片上传（multipart，与 propertiesApi 同实现，直接复用）
+  uploadPhotos: propertiesApi.uploadPhotos,
+  deletePhoto: propertiesApi.deletePhoto,
   income: () => request({ url: '/owners/me/income', method: 'GET' }),
   marketing: () => request({ url: '/owners/me/marketing', method: 'GET' }),
   pricingSuggestion: () => request({ url: '/owners/me/pricing-suggestion', method: 'GET' }),
@@ -304,19 +296,6 @@ export const marketApi = {
   createCompliance: (data: any) => request({ url: '/markets/compliance', method: 'POST', data })
 }
 
-// ============ 数据决策（指数 / 报告 / 匹配 / 流失预警） ============
-export const marketDataApi = {
-  indices: (params?: any) => request({ url: `/market-data/indices${qs(params)}`, method: 'GET' }),
-  reports: (params?: any) => request({ url: `/market-data/reports${qs(params)}`, method: 'GET' }),
-  computeMatches: (params: any) => request({ url: `/market-data/matches/compute${qs(params)}`, method: 'POST' }),
-  listMatches: (params?: any) => request({ url: `/market-data/matches${qs(params)}`, method: 'GET' }),
-  notifyMatch: (id: string, data?: any) => request({ url: `/market-data/matches/${id}/notify`, method: 'POST', data: data ?? {} }),
-  churnSignals: (params?: any) => request({ url: `/market-data/churn-signals${qs(params)}`, method: 'GET' }),
-  createChurnSignal: (params: any) => request({ url: `/market-data/churn-signals${qs(params)}`, method: 'POST' }),
-  assignChurnSignal: (id: string, data?: any) => request({ url: `/market-data/churn-signals/${id}/assign`, method: 'POST', data: data ?? {} }),
-  resolveChurnSignal: (id: string) => request({ url: `/market-data/churn-signals/${id}/resolve`, method: 'POST' })
-}
-
 export default {
   authApi,
   propertiesApi,
@@ -348,6 +327,5 @@ export default {
   saleListingApi,
   propertyDealApi,
   brokerApi,
-  marketApi,
-  marketDataApi
+  marketApi
 }

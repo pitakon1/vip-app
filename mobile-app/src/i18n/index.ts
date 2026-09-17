@@ -576,7 +576,7 @@ export const messages: Record<AppLang, Record<string, string>> = {
 
 const loadLang = async (): Promise<AppLang> => {
   try {
-    const saved = await tokenStorage.get();
+    await tokenStorage.get();
     // lang 单独存储于 localStorage 的 app_lang
     if (typeof globalThis.localStorage !== 'undefined') {
       const v = globalThis.localStorage.getItem(LANG_STORAGE_KEY);

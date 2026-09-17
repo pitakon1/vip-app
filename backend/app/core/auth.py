@@ -109,3 +109,22 @@ require_agent = require_role(UserRole.admin, UserRole.agent)
 require_employee = require_role(UserRole.admin, UserRole.agent, UserRole.employee)
 require_owner = require_role(UserRole.admin, UserRole.owner)
 require_tenant = require_role(UserRole.admin, UserRole.tenant)
+
+# 内部员工角色元组（可看全量数据）；多个路由各自复制过一份，统一从这里取
+STAFF_ROLES = (UserRole.admin, UserRole.agent, UserRole.employee)
+
+
+def serialize_user(user: User) -> dict:
+    """项目内统一的用户脱敏序列化：不暴露 hashed_password / token_version 等敏感字段。
+
+    users_admin 的账号列表/详情在其基础上追加员工档案、分组等管理字段。
+    """
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role.value,
+        "phone": user.phone,
+        "avatar_url": user.avatar_url,
+        "preferred_language": user.preferred_language,
+    }

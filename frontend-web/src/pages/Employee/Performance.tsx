@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Spin, Empty } from 'antd'
 import dayjs, { Dayjs } from 'dayjs'
 import api from '@/lib/api'
+import { formatMoney } from '@/lib/money'
 import { downloadReport } from '@/lib/download'
 import './performance.css'
 
@@ -48,7 +49,7 @@ interface MonthPerf {
   deals: number
 }
 
-const fmtMoney = (v: number) => `RM ${Number(v || 0).toLocaleString()}`
+const fmtMoney = (v: number) => formatMoney(v, 'RM')
 
 // 柱图值紧凑展示：28400 -> 28.4k
 const fmtCompact = (v: number) => {
@@ -333,7 +334,7 @@ const Performance = () => {
           {/* CSS Bar Chart */}
           <div style={{ marginBottom: 24 }}>
             <div className="rent-bar-chart">
-              {barData.map((b, i) => (
+              {barData.map((b) => (
                 <div key={b.label} className="rent-bar-chart__col">
                   <div className={`rent-bar-chart__val${b.active ? ' rent-bar-chart__val--active' : ''}`}>
                     {b.value}
@@ -346,7 +347,7 @@ const Performance = () => {
               ))}
             </div>
             <div className="rent-bar-chart__labels">
-              {barData.map((b, i) => (
+              {barData.map((b) => (
                 <div
                   key={b.label}
                   className={`rent-bar-chart__label${b.active ? ' rent-bar-chart__label--active' : ''}`}

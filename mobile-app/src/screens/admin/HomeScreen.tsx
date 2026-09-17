@@ -18,7 +18,6 @@ import LoadingState from '@/components/LoadingState';
 import BarChart from '@/components/charts/BarChart';
 import { dashboardApi, employeesApi } from '@/services/api';
 import api from '@/lib/api';
-import { useAuthStore } from '@/stores/auth';
 
 type Tab = 'overview';
 
@@ -58,9 +57,6 @@ const QUICK_ACTIONS: { key: string; label: string; icon: IoniconName; route: str
 
 export default function AdminHomeScreen() {
   const navigation = useNavigation<any>();
-  const user = useAuthStore((s) => s.user);
-  // 角色：管理员可选全部层级；分销商管理员仅本渠道 + 本渠道员工
-  const isAdmin = user?.role === 'admin';
   const [tab, setTab] = useState<Tab>('overview');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,23 +66,19 @@ export default function AdminHomeScreen() {
   const [totals, setTotals] = useState<{ received?: number; receivable?: number; overdue?: number }>({});
   const [byProperty, setByProperty] = useState<ReconRow[]>([]);
   const [trend, setTrend] = useState<TrendRow[]>([]);
-  const [pendingReview, setPendingReview] = useState<number | null>(null);
   // 最近动态（取最近 4 笔付款记录）+ 员工规模（用于经营指标）
   const [recentPayments, setRecentPayments] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
-
-  const [employees, setEmployees] = useState<any[]>([]);
 
   const loadTab = useCallback(async (target: Tab) => {
     setLoading(true);
     try {
       if (target === 'overview') {
-        const [sumRes, expRes, trendRes, reconRes, todoRes, recentRes, staffRes]: any[] = await Promise.all([
+        const [sumRes, expRes, trendRes, reconRes, recentRes, staffRes]: any[] = await Promise.all([
           dashboardApi.summary().catch(() => ({ data: {} })),
           dashboardApi.expiringLeases().catch(() => ({ data: { items: [] } })),
           dashboardApi.trend({ months: 12 }).catch(() => ({ data: { series: [] } })),
           dashboardApi.financialReconciliation().catch(() => ({ data: { totals: {}, by_property: [] } })),
-          api.get('/review-center/todos').catch(() => null),
           api.get('/dashboard/recent-payments').catch(() => null),
           employeesApi.list({ page: 1, page_size: 100 }).catch(() => null),
         ]);
@@ -98,8 +90,6 @@ export default function AdminHomeScreen() {
         const reconD = reconRes?.data ?? {};
         setTotals((reconD.totals ?? {}) as { received?: number; receivable?: number; overdue?: number });
         setByProperty(reconD.by_property ?? []);
-        const todoItems = todoRes?.data?.items;
-        setPendingReview(Array.isArray(todoItems) ? todoItems.length : null);
         const recentItems = recentRes?.data?.items;
         setRecentPayments(Array.isArray(recentItems) ? recentItems.slice(0, 4) : []);
         const staffD = staffRes?.data ?? {};
@@ -121,10 +111,10 @@ export default function AdminHomeScreen() {
 
   const switchTab = (t: Tab) => {
     setTab(t);
-    if (!dataLoaded(t)) loadTab(t);
+    if (!dataLoaded()) loadTab(t);
   };
 
-  const dataLoaded = (t: Tab) => {
+  const dataLoaded = () => {
     return Object.keys(summary).length > 0;
   };
 

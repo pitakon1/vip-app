@@ -4,6 +4,7 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { request } from '@/lib/api'
 import { favoritesApi, saleListingApi } from '@/services/api'
+import { fmtMoney as formatMoney } from '@/utils/format'
 import { ICONS, iconStyle } from '@/utils/icons'
 import './index.scss'
 
@@ -91,11 +92,6 @@ function photoUrl(p: any): string {
   if (!p) return ''
   if (typeof p === 'string') return p
   return p.url || p.src || p.path || ''
-}
-
-const formatMoney = (v?: number, currency = 'THB') => {
-  const cur = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : currency === 'MYR' ? 'RM ' : '฿'
-  return `${cur}${Number(v || 0).toLocaleString()}`
 }
 
 const formatDay = (x?: string) => {

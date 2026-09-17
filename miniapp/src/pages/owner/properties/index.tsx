@@ -3,6 +3,7 @@ import { View, Text, Input, Textarea, ScrollView, Picker, Switch, Image } from '
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi } from '@/services/api'
+import { fmtMoney as money } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
@@ -52,20 +53,6 @@ function pickList(res: any): any[] {
   return []
 }
 
-const CURRENCY_SYMBOL: Record<string, string> = {
-  THB: '฿',
-  CNY: '¥',
-  MYR: 'RM',
-  RM: 'RM',
-  USD: '$',
-  EUR: '€'
-}
-
-const money = (v?: number, currency?: string) => {
-  const sym = CURRENCY_SYMBOL[String(currency || 'THB').toUpperCase()] || ''
-  return `${sym}${Number(v || 0).toLocaleString()}`
-}
-
 // ============ 列表展示映射（对齐管理端） ============
 const TYPE_LABELS: Record<string, string> = {
   apartment: '公寓',
@@ -75,14 +62,6 @@ const TYPE_LABELS: Record<string, string> = {
   commercial: '商铺',
   shop: '商铺',
   office: '写字楼'
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  vacant: '空置中',
-  rented: '已出租',
-  renewing: '续约中',
-  maintenance: '维护中',
-  reserved: '已预订'
 }
 
 // 状态筛选 chips
@@ -196,16 +175,16 @@ const emptyForm = (): EditForm => ({
 const toForm = (p: OwnerProp): EditForm => ({
   room_number: p.room_number || '',
   building: p.building || '',
-  floor: p.floor ?? '',
+  floor: String(p.floor ?? ''),
   address: p.address || '',
   property_type: p.property_type || 'apartment',
   currency: p.currency || 'THB',
-  monthly_rent: p.monthly_rent ?? '',
-  deposit_amount: p.deposit_amount ?? '',
-  deposit_months: p.deposit_months ?? '',
-  size_sqm: p.size_sqm ?? '',
-  bedrooms: p.bedrooms ?? '',
-  bathrooms: p.bathrooms ?? '',
+  monthly_rent: String(p.monthly_rent ?? ''),
+  deposit_amount: String(p.deposit_amount ?? ''),
+  deposit_months: String(p.deposit_months ?? ''),
+  size_sqm: String(p.size_sqm ?? ''),
+  bedrooms: String(p.bedrooms ?? ''),
+  bathrooms: String(p.bathrooms ?? ''),
   status: p.status || 'vacant',
   available_from: p.available_from ? String(p.available_from).slice(0, 10) : '',
   furnished: !!p.furnished,
@@ -506,10 +485,6 @@ export default function OwnerPropertiesPage() {
     TYPE_GROUPS.findIndex((g) => g.keys.includes(form.property_type))
   )
   const curIdx = Math.max(0, CURRENCY_OPTIONS.indexOf(form.currency))
-  const statusIdx = Math.max(
-    0,
-    EDIT_STATUS_OPTIONS.findIndex((s) => s.value === form.status)
-  )
 
   return (
     <View className='op-page'>

@@ -3,6 +3,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi } from '@/services/api'
+import { fmtMoney as money } from '@/utils/format'
 import './index.scss'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
@@ -43,20 +44,6 @@ const EMPTY_INCOME: IncomeData = {
   rented_count: 0,
   vacant_count: 0,
   records: []
-}
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  THB: '฿',
-  CNY: '¥',
-  MYR: 'RM',
-  RM: 'RM',
-  USD: '$',
-  EUR: '€'
-}
-
-const money = (v?: number, currency?: string) => {
-  const sym = CURRENCY_SYMBOL[String(currency || 'THB').toUpperCase()] || ''
-  return `${sym}${Number(v || 0).toLocaleString()}`
 }
 
 const shortMoney = (v: number) =>

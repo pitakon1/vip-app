@@ -1,5 +1,6 @@
 """认证路由：登录、注册、刷新令牌、获取当前用户信息。"""
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
@@ -15,7 +16,7 @@ from app.core.security import (
     decode_access_token,
     get_password_hash,
 )
-from app.core.auth import get_current_user, is_token_revoked
+from app.core.auth import get_current_user, is_token_revoked, serialize_user
 from app.models.user import User, UserRole
 from app.models.owner import Owner
 from app.models.tenant import Tenant
@@ -93,15 +94,13 @@ def login(
     form: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session),
 ):
-    from datetime import datetime as _dt
-
     user = session.exec(select(User).where(User.email == form.username)).first()
     if not user or not verify_password(form.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
     # 记录登录时间（运营看板 DAU/MAU 数据源）
-    user.last_login_at = _dt.utcnow()
+    user.last_login_at = datetime.utcnow()
     session.add(user)
     session.commit()
     return _build_token_response(user)
@@ -197,19 +196,6 @@ def get_me(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
         "full_name": current_user.full_name,
         "role": current_user.role.value,
-    }
-
-
-def serialize_user(user: User) -> dict:
-    """项目内统一的用户脱敏序列化：不暴露 hashed_password / token_version 等敏感字段。"""
-    return {
-        "id": str(user.id),
-        "email": user.email,
-        "full_name": user.full_name,
-        "role": user.role.value,
-        "phone": user.phone,
-        "avatar_url": user.avatar_url,
-        "preferred_language": user.preferred_language,
     }
 
 

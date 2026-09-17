@@ -4,6 +4,7 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { request, currentToken, documentFileUrl } from '@/lib/api'
 import { leasesApi, paymentsApi, documentsApi } from '@/services/api'
+import { fmtMoney as money } from '@/utils/format'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
@@ -77,20 +78,6 @@ function pickList(res: any): any[] {
   if (Array.isArray(d.items)) return d.items
   if (Array.isArray(d.list)) return d.list
   return []
-}
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  THB: '฿',
-  CNY: '¥',
-  MYR: 'RM',
-  RM: 'RM',
-  USD: '$',
-  EUR: '€'
-}
-
-const money = (v?: number, currency?: string) => {
-  const sym = CURRENCY_SYMBOL[String(currency || 'THB').toUpperCase()] || ''
-  return `${sym}${Number(v || 0).toLocaleString()}`
 }
 
 const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '—')

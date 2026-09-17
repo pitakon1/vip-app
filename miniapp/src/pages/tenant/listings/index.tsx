@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Image, Input } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { propertiesApi, favoritesApi } from '@/services/api'
+import { fmtMoney as formatRent } from '@/utils/format'
 import { AREA_GROUPS } from '@/data/locationArea'
 import { METRO_LINES } from '@/data/locationMetro'
 import { iconStyle } from '@/utils/icons'
@@ -142,11 +143,6 @@ function pickList(res: any): Listing[] {
   if (Array.isArray(res?.data?.items)) return res.data.items
   if (Array.isArray(res?.data?.list)) return res.data.list
   return []
-}
-
-const formatRent = (v?: number, currency?: string) => {
-  const cur = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : '฿'
-  return `${cur}${Number(v || 0).toLocaleString()}`
 }
 
 // 当前展开的筛选 Tab；null = 全部收起

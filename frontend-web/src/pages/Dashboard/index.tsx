@@ -15,6 +15,7 @@ import {
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import api from '@/lib/api'
+import { formatMoney } from '@/lib/money'
 import './dashboard.css'
 
 ChartJS.register(
@@ -77,8 +78,6 @@ interface EmployeeRow {
   created_at?: string
 }
 
-const fmtBaht = (v: number) => `฿${Number(v || 0).toLocaleString()}`
-
 // 收入趋势的月度标签（近 12 个月）
 const monthLabels = (format: string) => {
   const labels: string[] = []
@@ -122,7 +121,7 @@ const Dashboard = () => {
     {
       label: t('dashboardOps.kpiMonthRevenue'),
       key: 'monthly_revenue',
-      format: fmtBaht,
+      format: formatMoney,
       icon: 'M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
       line: 'M12 1L12 23',
       bg: 'rgba(22,163,74,0.1)',
@@ -331,7 +330,7 @@ const Dashboard = () => {
         cornerRadius: 8,
         displayColors: false,
         callbacks: {
-          label: (ctx: any) => `฿${Number(ctx.parsed.y).toLocaleString()}`,
+          label: (ctx: any) => formatMoney(Number(ctx.parsed.y)),
         },
       },
     },
@@ -366,7 +365,7 @@ const Dashboard = () => {
     return {
       id: p.id,
       tenant: p.payer_name || '—',
-      amount: fmtBaht(p.amount),
+      amount: formatMoney(p.amount),
       date: p.paid_at ? dayjs(p.paid_at).format('YYYY-MM-DD') : p.created_at ? dayjs(p.created_at).format('YYYY-MM-DD') : '—',
       method: p.channel || PAY_TYPE_TEXT[p.payment_type ?? ''] || '—',
       status: st.tone,

@@ -15,7 +15,10 @@ import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import api from '@/lib/api';
 import { leasesApi, serviceOrdersApi } from '@/services/api';
+import { fmtMoney as formatMoney, fmtDate } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
+
+const formatDate = (x?: string) => fmtDate(x, 'minute');
 
 // 真实价目来源：GET /billing/pricing → service_catalog（价税分离，税费另算）
 interface CatalogItem {
@@ -55,13 +58,6 @@ const orderStatusMeta: Record<string, { text: string; color: string; bg: string 
   completed: { text: '已完成', color: colors.success, bg: colors.successLight },
   cancelled: { text: '已取消', color: colors.ink3, bg: colors.surface2 },
 };
-
-const formatMoney = (v: any, currency?: string) => {
-  const cur = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : '฿';
-  return `${cur}${Number(v || 0).toLocaleString()}`;
-};
-
-const formatDate = (x?: string) => (x ? x.replace('T', ' ').slice(0, 16) : '—');
 
 export default function ServicesScreen() {
   const user = useAuthStore((state: any) => state.user);

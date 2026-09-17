@@ -5,12 +5,6 @@ import { leasesApi, propertiesApi } from '@/services/api'
 import type { Lease, LeaseStatus, Property } from '@/types'
 import './leases.css'
 
-const statusLabelMap: Record<LeaseStatus, string> = {
-  active: '生效中',
-  expired: '已到期',
-  terminated: '已终止',
-}
-
 type DisplayStatus = 'active' | 'expiring' | 'expired' | 'terminated'
 
 const displayStatusMeta: Record<DisplayStatus, { label: string; badge: string; dot: string }> = {

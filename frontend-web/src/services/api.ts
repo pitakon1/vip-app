@@ -1,5 +1,4 @@
 import api from '@/lib/api'
-import { downloadReport } from '@/lib/download'
 
 /**
  * 查询串参数：只透传给 axios，不做业务校验。

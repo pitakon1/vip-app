@@ -16,18 +16,14 @@
 - POST   /payments/{id}/late-fee/waive  减免逾期滞纳金（员工及以上）
 - GET    /payments/reconciliations  对账统计（Admin）
 """
-import csv
-import io
 import mimetypes
-import os
-import secrets
 import uuid
 from datetime import date as date_type, datetime
 from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -41,7 +37,14 @@ from app.core.auth import (
 )
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate_query
-from app.core.uploads import HEAD_BYTES, detect_document_mime
+from app.core.payments import payment_bucket
+from app.core.csv_export import csv_response
+from app.core.uploads import (
+    detect_document_mime,
+    resolve_stored_path,
+    save_upload,
+    validate_internal_url,
+)
 from app.models import (
     Payment,
     PaymentType,
@@ -272,27 +275,18 @@ def _validate_receipt_url(receipt_url: str) -> str:
     此前该字段直接采信调用方传入的任意字符串，既可被写成外部地址用于钓鱼，
     也让「凭证文件」根本不存在于本机。
     """
-    value = (receipt_url or "").strip()
-    if "://" in value or not value.startswith(RECEIPT_URL_PREFIX):
-        raise HTTPException(
-            status_code=400,
-            detail=f"receipt_url must be an internal {RECEIPT_URL_PREFIX} path",
-        )
-    name = value[len(RECEIPT_URL_PREFIX):]
-    if not name or "/" in name or "\\" in name or name in {".", ".."}:
-        raise HTTPException(
-            status_code=400, detail="receipt_url must not contain directory traversal"
-        )
-    return value
+    return validate_internal_url(receipt_url, RECEIPT_URL_PREFIX, "receipt_url")
 
 
 def _stored_receipt_path(payment: Payment) -> Path:
     """把落库的 receipt_url 反解为磁盘路径，并确保不逃出凭证目录。"""
-    url = _validate_receipt_url(payment.receipt_url or "")
-    path = (RECEIPT_DIR / url[len(RECEIPT_URL_PREFIX):]).resolve()
-    if RECEIPT_DIR.resolve() not in path.parents or not path.is_file():
-        raise HTTPException(status_code=404, detail="Receipt file not found on disk")
-    return path
+    return resolve_stored_path(
+        payment.receipt_url or "",
+        RECEIPT_DIR,
+        RECEIPT_URL_PREFIX,
+        url_name="receipt_url",
+        not_found_message="Receipt file not found on disk",
+    )
 
 
 def _save_receipt(upload: UploadFile) -> str:
@@ -301,52 +295,18 @@ def _save_receipt(upload: UploadFile) -> str:
     与文档上传同一套校验链：扩展名白名单 + 文件头魔数（挡住改名伪装）+
     体积上限 + 文件名由服务端生成（不采用客户端文件名，避免穿越与覆盖）。
     """
-    original_name = upload.filename or "receipt"
-    ext = os.path.splitext(original_name)[1].lower()
-    if ext not in ALLOWED_RECEIPT_EXTENSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Unsupported receipt type: {ext or 'none'}"
-                "（支持 JPG / PNG / WEBP / GIF / PDF）"
-            ),
-        )
-    head = upload.file.read(HEAD_BYTES)
-    upload.file.seek(0)
-    detected = detect_document_mime(head)
-    if detected not in ALLOWED_RECEIPT_CONTAINERS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File content does not match its extension: {original_name}",
-        )
-
-    RECEIPT_DIR.mkdir(parents=True, exist_ok=True)
-    filename = f"receipt_{secrets.token_hex(16)}{ext}"
-    dest = RECEIPT_DIR / filename
-    size = 0
-    try:
-        with dest.open("wb") as buffer:
-            while True:
-                chunk = upload.file.read(1024 * 1024)
-                if not chunk:
-                    break
-                size += len(chunk)
-                if size > MAX_RECEIPT_SIZE:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            "File too large (max "
-                            f"{MAX_RECEIPT_SIZE // (1024 * 1024)}MB)"
-                        ),
-                    )
-                buffer.write(chunk)
-    except HTTPException:
-        dest.unlink(missing_ok=True)
-        raise
-    except Exception:
-        dest.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail="Failed to save receipt")
-    return f"{RECEIPT_URL_PREFIX}{filename}"
+    return save_upload(
+        upload,
+        RECEIPT_DIR,
+        MAX_RECEIPT_SIZE,
+        ALLOWED_RECEIPT_EXTENSIONS,
+        {ext: ALLOWED_RECEIPT_CONTAINERS for ext in ALLOWED_RECEIPT_EXTENSIONS},
+        detector=detect_document_mime,
+        name_prefix="receipt",
+        url_prefix=RECEIPT_URL_PREFIX,
+        label="receipt",
+        supported_text="（支持 JPG / PNG / WEBP / GIF / PDF）",
+    )
 
 
 @router.get("", response_model=Page[Payment])
@@ -372,7 +332,9 @@ def list_payments(
         )
     if status:
         if status == "overdue":
-            # 派生状态：待收且已过缴费截止日（与 dashboard/employees 口径一致）
+            # 派生状态：待收且已过缴费截止日。这是 SQL 侧筛选（只算 pending），
+            # 与 core.payments.payment_bucket 的"逾期"口径（含 failed / 非 refunded）
+            # 不同，属既有行为，勿强行对齐。
             conditions.append(
                 (Payment.status == PaymentStatus.pending)
                 & (Payment.due_date.is_not(None))
@@ -599,24 +561,14 @@ def export_reconciliation_csv(
 ):
     """导出对账单明细 CSV（Admin）：与财务对账列表同口径。
 
-    复用财务对账的分桶口径（received / pending / overdue），导出逐笔明细，
-    供线下对账归档。这里未复用 exports._csv_response 的私有函数，改为本地
-    渲染，避免跨模块耦合。
+    复用财务对账的分桶口径（received / pending / overdue，见 core.payments），
+    导出逐笔明细，供线下对账归档。
     """
     now = datetime.now()
     conditions = [Payment.deleted_at.is_(None)]
     payments = session.exec(
         select(Payment).where(*conditions).order_by(Payment.created_at.desc())
     ).all()
-
-    def _bucket(p: Payment) -> str:
-        if p.status == PaymentStatus.succeeded:
-            return "received"
-        if p.status == PaymentStatus.failed:
-            return "overdue"
-        if p.due_date and p.due_date < now and p.status != PaymentStatus.refunded:
-            return "overdue"
-        return "pending"
 
     payer_ids = {p.payer_id for p in payments} | {
         p.payee_id for p in payments if p.payee_id
@@ -626,41 +578,30 @@ def export_reconciliation_csv(
         for u in session.exec(select(User).where(User.id.in_(payer_ids))).all()
     }
 
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow(
-        ["创建时间", "支付单号", "类型", "金额", "币种", "状态", "对账口径",
-         "渠道", "应付日期", "实收日期", "付款方", "收款方", "核销状态", "核销时间"]
-    )
-    for p in payments:
-        writer.writerow(
-            [
-                p.created_at.strftime("%Y-%m-%d %H:%M:%S") if p.created_at else "",
-                str(p.id),
-                p.payment_type.value if p.payment_type else "",
-                p.amount,
-                p.currency,
-                p.status.value if p.status else "",
-                _bucket(p),
-                p.channel or "",
-                p.due_date.strftime("%Y-%m-%d") if p.due_date else "",
-                p.paid_at.strftime("%Y-%m-%d %H:%M:%S") if p.paid_at else "",
-                names.get(p.payer_id, ""),
-                names.get(p.payee_id, "") if p.payee_id else "",
-                p.reconciliation_status or "unreconciled",
-                p.reconciled_at.strftime("%Y-%m-%d %H:%M:%S") if p.reconciled_at else "",
-            ]
-        )
-    content = ("\ufeff" + buffer.getvalue()).encode("utf-8")
-    return Response(
-        content=content,
-        media_type="text/csv; charset=utf-8",
-        headers={
-            "Content-Disposition": (
-                f'attachment; filename="reconciliations_{now.strftime("%Y%m%d")}.csv"'
-            )
-        },
-    )
+    header = [
+        "创建时间", "支付单号", "类型", "金额", "币种", "状态", "对账口径",
+        "渠道", "应付日期", "实收日期", "付款方", "收款方", "核销状态", "核销时间",
+    ]
+    rows = [
+        [
+            p.created_at.strftime("%Y-%m-%d %H:%M:%S") if p.created_at else "",
+            str(p.id),
+            p.payment_type.value if p.payment_type else "",
+            p.amount,
+            p.currency,
+            p.status.value if p.status else "",
+            payment_bucket(p, now),
+            p.channel or "",
+            p.due_date.strftime("%Y-%m-%d") if p.due_date else "",
+            p.paid_at.strftime("%Y-%m-%d %H:%M:%S") if p.paid_at else "",
+            names.get(p.payer_id, ""),
+            names.get(p.payee_id, "") if p.payee_id else "",
+            p.reconciliation_status or "unreconciled",
+            p.reconciled_at.strftime("%Y-%m-%d %H:%M:%S") if p.reconciled_at else "",
+        ]
+        for p in payments
+    ]
+    return csv_response(header, rows, f"reconciliations_{now.strftime('%Y%m%d')}.csv")
 
 
 @router.get("/{payment_id}", response_model=Payment)

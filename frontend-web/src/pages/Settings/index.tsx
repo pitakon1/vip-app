@@ -20,15 +20,6 @@ interface CompanyFormState {
   timezone: string
 }
 
-interface SystemFormState {
-  systemName: string
-  contact: string
-  contactPhone: string
-  notificationEnabled: boolean
-  autoAssign: boolean
-  maintenanceMode: boolean
-}
-
 // 权限矩阵数据
 const PERMISSION_MATRIX = [
   { name: '查看房源', admin: true, owner: true, tenant: true, employee: true },
@@ -150,16 +141,6 @@ const Settings = () => {
     timezone: 'Asia/Bangkok (UTC+7)',
   })
 
-  // 系统设置表单 state
-  const [systemForm, setSystemForm] = useState<SystemFormState>({
-    systemName: '',
-    contact: '',
-    contactPhone: '',
-    notificationEnabled: true,
-    autoAssign: false,
-    maintenanceMode: false,
-  })
-
   // 通知行状态
   const [notifyRows, setNotifyRows] = useState(NOTIFICATION_ROWS)
 
@@ -168,7 +149,7 @@ const Settings = () => {
 
   // v1.8 数据备份状态
   const [backupJobs, setBackupJobs] = useState<any[]>([])
-  const [backupLoading, setBackupLoading] = useState(false)
+  const [backupLoading] = useState(false)
   const [backupRunning, setBackupRunning] = useState(false)
 
   const fetchBackupJobs = async () => {
@@ -259,20 +240,6 @@ const Settings = () => {
 
   const handleCompanyReset = () => {
     fetchCompanyInfo()
-  }
-
-  const handleSystemSave = async () => {
-    try {
-      setSaving(true)
-      // 系统设置暂无独立接口，本地保存示意
-      message.success('系统设置已保存')
-      // eslint-disable-next-line no-console
-      console.log('system settings:', systemForm)
-    } catch (err: any) {
-      message.error('保存失败')
-    } finally {
-      setSaving(false)
-    }
   }
 
   const handleNotifySave = () => {

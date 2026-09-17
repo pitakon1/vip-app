@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import require_owner
+from app.core.payments import is_past_due
 from app.models import (
     Document,
     Owner,
@@ -250,7 +251,7 @@ def get_my_income(
             )
         else:
             receivable_total += amount
-            is_overdue = bool(p.due_date and p.due_date < now)
+            is_overdue = is_past_due(p, now)
             if is_overdue:
                 overdue_total += amount
             status = "overdue" if is_overdue else "pending"
@@ -444,7 +445,7 @@ def get_annual_financial_summary(
         monthly[m]["count"] += 1
         if p.status == PaymentStatus.succeeded:
             monthly[m]["received"] += amount
-        elif p.due_date and p.due_date < now:
+        elif is_past_due(p, now):
             monthly[m]["overdue"] += amount
         else:
             monthly[m]["pending"] += amount

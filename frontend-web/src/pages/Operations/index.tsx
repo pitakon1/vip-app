@@ -35,8 +35,6 @@ interface CountryRow {
   occupancy: number
 }
 
-const ROLE_LABEL: Record<string, string> = { admin: '管理员', agent: '经纪人', employee: '员工', owner: '业主', tenant: '租客' }
-
 const Operations = () => {
   const [funnel, setFunnel] = useState<FunnelRow[]>([])
   const [activity, setActivity] = useState<Activity | null>(null)
@@ -100,7 +98,6 @@ const Operations = () => {
   }
 
   const trendEntries = Object.entries(series).sort((a, b) => a[0].localeCompare(b[0]))
-  const maxFunnel = Math.max(...funnel.map((f) => f.value), 1)
   const maxSource = Math.max(...sources.map((s) => s.count), 1)
   const STAGE_LABEL: Record<string, string> = {
     inquiring: '咨询中',

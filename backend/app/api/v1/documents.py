@@ -1,7 +1,6 @@
 """文档路由：文档上传、元数据管理与下载。"""
 import hashlib
 import os
-import secrets
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -21,9 +20,14 @@ from sqlalchemy import false
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, get_current_user_allow_query_token
+from app.core.auth import STAFF_ROLES, get_current_user, get_current_user_allow_query_token
 from app.core.pagination import Page, PaginationParams, paginate_query
-from app.core.uploads import HEAD_BYTES, detect_document_mime
+from app.core.uploads import (
+    detect_document_mime,
+    resolve_stored_path,
+    save_upload,
+    validate_internal_url,
+)
 from app.models import (
     Document,
     DocumentType,
@@ -45,8 +49,7 @@ MAX_DOCUMENT_SIZE = 20 * 1024 * 1024  # 单个文档 20MB
 # 落库的统一前缀：既用于生成，也用于读取时反解磁盘路径（白名单）
 STORED_URL_PREFIX = "/uploads/documents/"
 
-# 可全量访问文档的角色（内部员工侧）
-_STAFF_ROLES = (UserRole.admin, UserRole.agent, UserRole.employee)
+# 可全量访问文档的角色（内部员工侧）：统一走 core.auth.STAFF_ROLES
 
 # 扩展名 -> (落库 MIME, 允许的文件头识别结果)
 # 扩展名可随意改，所以必须再按文件头确认「内容属于这一类」，否则改名即可上传脚本。
@@ -95,7 +98,7 @@ def _can_read_document(session: Session, user: User, doc: Document) -> bool:
     - 业主：仅本人名下文档
     - 租客：仅与本人租约关联的文档（未关联租约的文档不对租客开放）
     """
-    if user.role in _STAFF_ROLES:
+    if user.role in STAFF_ROLES:
         return True
     if user.role == UserRole.owner:
         return doc.owner_id == _owner_id_of(session, user)
@@ -106,7 +109,7 @@ def _can_read_document(session: Session, user: User, doc: Document) -> bool:
 
 def _visibility_conditions(session: Session, user: User) -> list:
     """把可见性规则翻译成查询条件（列表接口用，避免"看得见却打不开"）。"""
-    if user.role in _STAFF_ROLES:
+    if user.role in STAFF_ROLES:
         return []
     if user.role == UserRole.owner:
         owner_id = _owner_id_of(session, user)
@@ -124,27 +127,18 @@ def _validate_stored_url(file_url: str) -> str:
     `RedirectResponse(url=doc.file_url)`，等于把正规域名出借给任意钓鱼链接做
     开放重定向。此处收口到「只能是我们自己生成的那种路径」。
     """
-    value = (file_url or "").strip()
-    if "://" in value or not value.startswith(STORED_URL_PREFIX):
-        raise HTTPException(
-            status_code=400,
-            detail=f"file_url must be an internal {STORED_URL_PREFIX} path",
-        )
-    name = value[len(STORED_URL_PREFIX):]
-    if not name or "/" in name or "\\" in name or name in {".", ".."}:
-        raise HTTPException(
-            status_code=400, detail="file_url must not contain directory traversal"
-        )
-    return value
+    return validate_internal_url(file_url, STORED_URL_PREFIX, "file_url")
 
 
 def _stored_file_path(doc: Document) -> Path:
     """把落库的 file_url 反解为磁盘路径，并确保不逃出文档目录。"""
-    url = _validate_stored_url(doc.file_url)
-    path = (UPLOAD_DIR / url[len(STORED_URL_PREFIX):]).resolve()
-    if UPLOAD_DIR.resolve() not in path.parents or not path.is_file():
-        raise HTTPException(status_code=404, detail="Document file not found on disk")
-    return path
+    return resolve_stored_path(
+        doc.file_url,
+        UPLOAD_DIR,
+        STORED_URL_PREFIX,
+        url_name="file_url",
+        not_found_message="Document file not found on disk",
+    )
 
 
 def _attachment_name(doc: Document, path: Path) -> str:
@@ -264,47 +258,26 @@ def upload_document(
                 "（支持 PDF / JPG / PNG / WEBP / GIF / DOC(X) / XLS(X)）"
             ),
         )
-    canonical_mime, expected_containers = allowed
-    head = file.file.read(HEAD_BYTES)
-    file.file.seek(0)
-    detected = detect_document_mime(head)
-    if detected not in expected_containers:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File content does not match its extension: {original_name}",
-        )
+    canonical_mime, _ = allowed
 
     target_owner_id = _owner_id_for_upload(session, user, owner_id)
 
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    filename = f"doc_{secrets.token_hex(16)}{ext}"
-    dest = UPLOAD_DIR / filename
     digest = hashlib.sha256()
-    size = 0
-    try:
-        # 边写边算哈希与大小，避免为算哈希再读一遍文件
-        with dest.open("wb") as buffer:
-            while True:
-                chunk = file.file.read(1024 * 1024)
-                if not chunk:
-                    break
-                size += len(chunk)
-                if size > MAX_DOCUMENT_SIZE:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            "File too large (max "
-                            f"{MAX_DOCUMENT_SIZE // (1024 * 1024)}MB)"
-                        ),
-                    )
-                digest.update(chunk)
-                buffer.write(chunk)
-    except HTTPException:
-        dest.unlink(missing_ok=True)
-        raise
-    except Exception:
-        dest.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail="Failed to save document")
+    file_url = save_upload(
+        file,
+        UPLOAD_DIR,
+        MAX_DOCUMENT_SIZE,
+        set(ALLOWED_DOCUMENT_TYPES),
+        {ext: containers for ext, (_, containers) in ALLOWED_DOCUMENT_TYPES.items()},
+        detector=detect_document_mime,
+        name_prefix="doc",
+        url_prefix=STORED_URL_PREFIX,
+        label="document",
+        supported_text="（支持 PDF / JPG / PNG / WEBP / GIF / DOC(X) / XLS(X)）",
+        digest=digest,
+    )
+    # save_upload 逐块读完整个上传流，此时指针位置即实际字节数
+    size = file.file.tell()
 
     doc = Document(
         owner_id=target_owner_id,
@@ -312,7 +285,7 @@ def upload_document(
         lease_id=lease_id,
         type=type,
         title=(title or "").strip() or os.path.splitext(original_name)[0],
-        file_url=f"{STORED_URL_PREFIX}{filename}",
+        file_url=file_url,
         file_size=size,
         mime_type=file.content_type or canonical_mime,
         file_hash=digest.hexdigest(),

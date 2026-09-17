@@ -6,11 +6,10 @@ from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user
-from app.core.pagination import Page, PaginationParams, paginate
+from app.core.auth import STAFF_ROLES, get_current_user
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     User,
-    UserRole,
     MarketConfig,
     MarketStatus,
     LocalPaymentChannel,
@@ -19,7 +18,7 @@ from app.models import (
 
 router = APIRouter(prefix="/markets", tags=["markets"])
 
-_ADMIN_ROLES = (UserRole.admin, UserRole.agent, UserRole.employee)
+# 员工角色（可看全量）：统一走 core.auth.STAFF_ROLES
 
 
 class MarketIn(BaseModel):
@@ -134,10 +133,9 @@ def list_markets(
     if published_only:
         query = query.where(MarketConfig.published.is_(True))
     query = query.order_by(MarketConfig.sort_order)
-    items = session.exec(query).all()
-    total = len(items)
-    offset, limit = pagination.offset, pagination.limit
-    return paginate([_market_dict(i) for i in items][offset : offset + limit], total, pagination)
+    page = paginate_query(session, query, pagination)
+    page.items = [_market_dict(i) for i in page.items]
+    return page
 
 
 @router.post("")
@@ -146,9 +144,9 @@ def create_market(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    if user.role not in _ADMIN_ROLES:
+    if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="No permission")
-    m = MarketConfig(
+    market = MarketConfig(
         market_code=req.market_code.upper(),
         country_name=req.country_name,
         currency=req.currency,
@@ -162,10 +160,10 @@ def create_market(
         pdpa_enabled=req.pdpa_enabled,
         sort_order=req.sort_order,
     )
-    session.add(m)
+    session.add(market)
     session.commit()
-    session.refresh(m)
-    return _market_dict(m)
+    session.refresh(market)
+    return _market_dict(market)
 
 
 @router.get("/channels", response_model=List[PaymentChannelOut])
@@ -199,9 +197,9 @@ def create_channel(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    if user.role not in _ADMIN_ROLES:
+    if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="No permission")
-    c = LocalPaymentChannel(
+    channel = LocalPaymentChannel(
         market_code=req.market_code.upper(),
         channel_code=req.channel_code,
         channel_name=req.channel_name,
@@ -210,15 +208,15 @@ def create_channel(
         supported_currency=req.supported_currency,
         sort_order=req.sort_order,
     )
-    session.add(c)
+    session.add(channel)
     session.commit()
-    session.refresh(c)
+    session.refresh(channel)
     return {
-        "id": str(c.id),
-        "market_code": c.market_code,
-        "channel_code": c.channel_code,
-        "channel_name": c.channel_name,
-        "status": c.status.value,
+        "id": str(channel.id),
+        "market_code": channel.market_code,
+        "channel_code": channel.channel_code,
+        "channel_name": channel.channel_name,
+        "status": channel.status.value,
     }
 
 
@@ -252,9 +250,9 @@ def create_compliance(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    if user.role not in _ADMIN_ROLES:
+    if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="No permission")
-    d = ComplianceDoc(
+    doc = ComplianceDoc(
         market_code=req.market_code.upper(),
         doc_type=req.doc_type,
         title=req.title,
@@ -262,7 +260,7 @@ def create_compliance(
         content=req.content,
         version=req.version,
     )
-    session.add(d)
+    session.add(doc)
     session.commit()
-    session.refresh(d)
-    return {"id": str(d.id), "market_code": d.market_code, "title": d.title}
+    session.refresh(doc)
+    return {"id": str(doc.id), "market_code": doc.market_code, "title": doc.title}

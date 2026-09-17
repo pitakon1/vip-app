@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.pagination import Page, PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     User,
     UserRole,
@@ -133,10 +133,9 @@ def list_deals(
             | (PropertyDeal.sales_user_id == user.id)
         )
     query = query.order_by(PropertyDeal.created_at.desc())
-    items = session.exec(query).all()
-    total = len(items)
-    offset, limit = pagination.offset, pagination.limit
-    return paginate([_deal_dict(i) for i in items][offset : offset + limit], total, pagination)
+    page = paginate_query(session, query, pagination)
+    page.items = [_deal_dict(i) for i in page.items]
+    return page
 
 
 @router.post("")

@@ -25,6 +25,7 @@ import {
   saleListingApi,
 } from '@/services/api';
 import { useI18n, LANG_LABELS, LANGS, type AppLang } from '@/i18n';
+import { fmtMoney as fmtRent } from '@/utils/format';
 import type { UserRole } from '@/types';
 
 const roleLabels: Record<UserRole, string> = {
@@ -107,8 +108,6 @@ const APP_VERSION = 'v2.4.1';
 
 const DAY_MS = 86400000;
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
-const fmtRent = (v?: number, c?: string) =>
-  `${c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿'}${Number(v ?? 0).toLocaleString()}`;
 
 // 租客「我的服务」宫格（对齐原型；仅保留已注册路由的入口）
 const TENANT_SERVICE_GRID: FuncEntry[] = [

@@ -26,7 +26,7 @@ const Chat = () => {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [draft, setDraft] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading] = useState(false)
   const [title, setTitle] = useState('')
   const [peerIds, setPeerIds] = useState('')
   const wsRef = useRef<WebSocket | null>(null)

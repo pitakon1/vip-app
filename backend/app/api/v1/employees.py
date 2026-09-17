@@ -13,6 +13,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import require_admin, require_employee
+from app.core.payments import is_past_due
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     CommissionSettlement,
@@ -432,7 +433,7 @@ def get_employee_workbench(
             "amount": p.amount,
             "currency": p.currency or "THB",
             "due_date": p.due_date.isoformat() if p.due_date else None,
-            "is_overdue": bool(p.due_date and p.due_date < now),
+            "is_overdue": is_past_due(p, now),
             "status": p.status.value if p.status else None,
         }
         for p in receivables

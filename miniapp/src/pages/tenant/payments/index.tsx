@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { paymentsApi } from '@/services/api'
+import { fmtMoney as formatMoney } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import './index.scss'
 
@@ -64,11 +65,6 @@ function pickList(res: any): Payment[] {
   if (Array.isArray(res?.data?.items)) return res.data.items
   if (Array.isArray(res?.data?.list)) return res.data.list
   return []
-}
-
-const formatMoney = (v?: number, currency?: string) => {
-  const cur = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : '฿'
-  return `${cur}${Number(v || 0).toLocaleString()}`
 }
 
 const formatDate = (x?: string) => (x ? x.replace('T', ' ').slice(0, 16) : '—')

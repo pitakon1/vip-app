@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { employeesApi, adminUsersApi } from '@/services/api'
+import { fmtMoney } from '@/utils/format'
 import useAuthStore from '@/stores/auth'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
@@ -36,16 +37,6 @@ const FILTERS: { key: string; label: string }[] = [
 ]
 
 const PAGE_SIZE = 100
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  CNY: '¥',
-  THB: '฿',
-  EUR: '€',
-  USD: '$'
-}
-
-const fmtMoney = (v?: number, currency = 'THB') =>
-  `${CURRENCY_SYMBOL[currency] ?? ''}${Number(v || 0).toLocaleString()}`
 
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-')
 

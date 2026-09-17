@@ -13,6 +13,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { paymentsApi } from '@/services/api';
+import { fmtMoney as money } from '@/utils/format';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type Group = 'due' | 'paid' | 'overdue';
@@ -67,8 +68,6 @@ const FILTERS: { key: 'all' | Group; label: string }[] = [
   { key: 'overdue', label: '逾期' },
 ];
 
-const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿');
-const money = (v: any, c?: string) => `${cur(c)}${Number(v || 0).toLocaleString()}`;
 const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '-');
 
 const groupOf = (status?: string): Group => statusMap[status ?? '']?.group ?? 'due';

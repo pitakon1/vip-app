@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow } from '@tarojs/taro'
 import { maintenanceApi } from '@/services/api'
+import { fmtMoney } from '@/utils/format'
 import { request } from '@/lib/api'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
@@ -46,16 +47,6 @@ const TICKET_STATUS: Record<string, { text: string; cls: string }> = {
   resolved: { text: '已完成', cls: 'badge--success' },
   closed: { text: '已关闭', cls: 'badge--neutral' }
 }
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  CNY: '¥',
-  THB: '฿',
-  EUR: '€',
-  USD: '$'
-}
-
-const fmtMoney = (v?: number, currency?: string) =>
-  `${CURRENCY_SYMBOL[currency || 'THB'] || ''}${Number(v || 0).toLocaleString()}`
 
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-')
 

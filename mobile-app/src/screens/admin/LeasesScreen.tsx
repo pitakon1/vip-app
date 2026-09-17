@@ -16,7 +16,6 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
@@ -67,7 +66,6 @@ const fmtDate = (v?: string | null) => (v ? String(v).slice(0, 10) : '-');
 const leaseNoOf = (id: string) => `LC-${id.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
 
 export default function AdminLeasesScreen() {
-  const navigation = useNavigation<any>();
   const [leases, setLeases] = useState<LeaseRow[]>([]);
   const [total, setTotal] = useState(0);
   const [propMap, setPropMap] = useState<Record<string, PropertyRow>>({});

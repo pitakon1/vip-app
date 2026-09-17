@@ -12,7 +12,7 @@ from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, serialize_user
 from app.core.rbac import require_permission, get_user_permissions
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.security import get_password_hash
@@ -85,18 +85,14 @@ def _batch_extras(
 
 def _serialize_user(u: User, emp_map: dict, groups_map: dict) -> dict:
     emp = emp_map.get(u.id)
-    return {
-        "id": str(u.id),
-        "email": u.email,
-        "phone": u.phone,
-        "full_name": u.full_name,
-        "role": u.role.value,
-        "is_active": u.is_active,
-        "is_verified": u.is_verified,
-        "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
-        "created_at": u.created_at.isoformat() if u.created_at else None,
-        "groups": groups_map.get(u.id, []),
-        "employee": (
+    data = serialize_user(u)
+    data.update(
+        is_active=u.is_active,
+        is_verified=u.is_verified,
+        last_login_at=u.last_login_at.isoformat() if u.last_login_at else None,
+        created_at=u.created_at.isoformat() if u.created_at else None,
+        groups=groups_map.get(u.id, []),
+        employee=(
             {
                 "employee_code": emp.employee_code,
                 "department": emp.department,
@@ -105,7 +101,8 @@ def _serialize_user(u: User, emp_map: dict, groups_map: dict) -> dict:
             if emp
             else None
         ),
-    }
+    )
+    return data
 
 
 def _serialize_one(session: Session, u: User) -> dict:

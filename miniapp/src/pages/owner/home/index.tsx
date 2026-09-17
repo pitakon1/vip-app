@@ -3,6 +3,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi } from '@/services/api'
+import { fmtMoney as money } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
@@ -40,20 +41,6 @@ function pickList(res: any): any[] {
   if (Array.isArray(d?.data)) return d.data
   if (Array.isArray(d?.records)) return d.records
   return []
-}
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  THB: '฿',
-  CNY: '¥',
-  MYR: 'RM',
-  RM: 'RM',
-  USD: '$',
-  EUR: '€'
-}
-
-const money = (v?: number, currency?: string) => {
-  const sym = CURRENCY_SYMBOL[String(currency || 'THB').toUpperCase()] || ''
-  return `${sym}${Number(v || 0).toLocaleString()}`
 }
 
 const propertyTitle = (p: OwnerProp) =>

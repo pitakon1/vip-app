@@ -3,7 +3,7 @@
  * 原型：employee-mobile-property-browse.html（底部导航「房源」Tab）
  * 数据源：/properties（分页 + 关键词/区域同义词/租金区间/户型/排序）、/favorites
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,6 @@ import {
   Share,
   Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
@@ -85,7 +84,6 @@ const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'M
 type OpenTab = null | 'region' | 'price' | 'layout' | 'sort';
 
 export default function PropertyBrowseScreen() {
-  const navigation = useNavigation<any>();
   const [items, setItems] = useState<PropertyItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);

@@ -12,12 +12,11 @@ from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user
+from app.core.auth import STAFF_ROLES, get_current_user, require_employee
 from app.core.events import publish_event
-from app.core.pagination import Page, PaginationParams, paginate
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     User,
-    UserRole,
     Employee,
     Lead,
     Lease,
@@ -25,6 +24,7 @@ from app.models import (
     NotificationChannel,
     NotificationStatus,
     Property,
+    PropertyStatus,
     MarketIndex,
     MarketReport,
     PropertyMatch,
@@ -33,12 +33,7 @@ from app.models import (
 
 router = APIRouter(prefix="/market-data", tags=["market-data"])
 
-_ADMIN_ROLES = (UserRole.admin, UserRole.agent, UserRole.employee)
-
-
-def _require_staff(user: User) -> None:
-    if user.role not in _ADMIN_ROLES:
-        raise HTTPException(status_code=403, detail="No permission")
+# 员工角色（可看全量）：统一走 core.auth.STAFF_ROLES；写操作依赖 require_employee
 
 
 def _notify_user(
@@ -232,9 +227,9 @@ def list_indices(
 def create_index(
     req: IndexIn,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
-    if user.role not in _ADMIN_ROLES:
+    if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="No permission")
     idx = MarketIndex(
         market_code=req.market_code.upper(),
@@ -270,35 +265,30 @@ def list_reports(
         query = query.where(MarketReport.market_code == market_code.upper())
     if period:
         query = query.where(MarketReport.period == period)
-    items = session.exec(query).all()
-    total = len(items)
-    offset, limit = pagination.offset, pagination.limit
-    return paginate(
-        [
-            {
-                "id": str(r.id),
-                "market_code": r.market_code,
-                "report_type": r.report_type,
-                "area": r.area,
-                "property_type": r.property_type,
-                "period": r.period,
-                "summary": r.summary,
-                "published_at": r.published_at.isoformat() if r.published_at else None,
-            }
-            for r in items
-        ][offset : offset + limit],
-        total,
-        pagination,
-    )
+    page = paginate_query(session, query, pagination)
+    page.items = [
+        {
+            "id": str(r.id),
+            "market_code": r.market_code,
+            "report_type": r.report_type,
+            "area": r.area,
+            "property_type": r.property_type,
+            "period": r.period,
+            "summary": r.summary,
+            "published_at": r.published_at.isoformat() if r.published_at else None,
+        }
+        for r in page.items
+    ]
+    return page
 
 
 @router.post("/reports")
 def create_report(
     req: ReportIn,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
-    if user.role not in _ADMIN_ROLES:
+    if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="No permission")
     r = MarketReport(
         market_code=req.market_code.upper(),
@@ -323,7 +313,7 @@ def create_report(
 def _compute_match(lead: Lead, prop: Property) -> int:
     """简化的匹配评分：预算区间 + 物业类型 + 面积 + 空置状态。"""
     score = 0
-    if prop.status == "vacant":
+    if prop.status == PropertyStatus.vacant:
         score += 30
     # 预算匹配
     if lead.budget_min and lead.budget_max:
@@ -341,15 +331,14 @@ def compute_matches(
     lead_id: uuid.UUID,
     limit: int = 10,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
     """为指定线索计算房源匹配推荐并写入记录。"""
-    _require_staff(user)
     lead = session.get(Lead, lead_id)
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     props = session.exec(
-        select(Property).where(Property.deleted_at.is_(None), Property.status == "vacant")
+        select(Property).where(Property.deleted_at.is_(None), Property.status == PropertyStatus.vacant)
     ).all()
     scored = sorted(
         ((_compute_match(lead, p), p) for p in props), key=lambda x: x[0], reverse=True
@@ -443,14 +432,13 @@ def notify_match(
     match_id: uuid.UUID,
     req: MatchNotifyIn,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
     """把匹配结果以站内通知推送给租客。
 
     仅首次推送会落通知（`notified_at` 既是推送时间也是幂等闸门），
     重复调用只回读状态，不会产生第二条通知。
     """
-    _require_staff(user)
     match = session.get(PropertyMatch, match_id)
     if not match or match.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -547,10 +535,9 @@ def list_churn_signals(
     is_resolved: Optional[bool] = None,
     pagination: PaginationParams = Depends(),
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
     """流失预警信号（管理/经纪人跟进）。"""
-    _require_staff(user)
     query = (
         select(ChurnSignal)
         .where(ChurnSignal.deleted_at.is_(None))
@@ -560,12 +547,10 @@ def list_churn_signals(
         query = query.where(ChurnSignal.level == level)
     if is_resolved is not None:
         query = query.where(ChurnSignal.is_resolved == is_resolved)
-    items = session.exec(query).all()
-    total = len(items)
-    offset, limit = pagination.offset, pagination.limit
+    page = paginate_query(session, query, pagination)
 
     # 跟进人姓名一次性查齐，避免每行回查
-    employee_ids = [s.assigned_to for s in items if s.assigned_to]
+    employee_ids = [s.assigned_to for s in page.items if s.assigned_to]
     names: dict = {}
     if employee_ids:
         employees = session.exec(
@@ -582,28 +567,25 @@ def list_churn_signals(
             for e in employees
         }
 
-    return paginate(
-        [
-            {
-                "id": str(s.id),
-                "tenant_id": str(s.tenant_id) if s.tenant_id else None,
-                "user_id": str(s.user_id) if s.user_id else None,
-                "lease_id": str(s.lease_id) if s.lease_id else None,
-                "signal_type": s.signal_type,
-                "level": s.level,
-                "detail": s.detail,
-                "triggered_at": s.triggered_at.isoformat() if s.triggered_at else None,
-                "is_resolved": s.is_resolved,
-                "suggested_action": s.suggested_action,
-                "assigned_to": str(s.assigned_to) if s.assigned_to else None,
-                "assigned_to_name": names.get(s.assigned_to) if s.assigned_to else None,
-                "assigned_at": s.assigned_at.isoformat() if s.assigned_at else None,
-            }
-            for s in items
-        ][offset : offset + limit],
-        total,
-        pagination,
-    )
+    page.items = [
+        {
+            "id": str(s.id),
+            "tenant_id": str(s.tenant_id) if s.tenant_id else None,
+            "user_id": str(s.user_id) if s.user_id else None,
+            "lease_id": str(s.lease_id) if s.lease_id else None,
+            "signal_type": s.signal_type,
+            "level": s.level,
+            "detail": s.detail,
+            "triggered_at": s.triggered_at.isoformat() if s.triggered_at else None,
+            "is_resolved": s.is_resolved,
+            "suggested_action": s.suggested_action,
+            "assigned_to": str(s.assigned_to) if s.assigned_to else None,
+            "assigned_to_name": names.get(s.assigned_to) if s.assigned_to else None,
+            "assigned_at": s.assigned_at.isoformat() if s.assigned_at else None,
+        }
+        for s in page.items
+    ]
+    return page
 
 
 @router.post("/churn-signals")
@@ -616,9 +598,8 @@ def create_churn_signal(
     user_id: Optional[uuid.UUID] = None,
     lease_id: Optional[uuid.UUID] = None,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
-    _require_staff(user)
     sig = ChurnSignal(
         signal_type=signal_type,
         level=level,
@@ -644,10 +625,9 @@ def assign_churn_signal(
     signal_id: uuid.UUID,
     req: ChurnAssignIn,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
     """把流失预警派发给员工跟进：落库跟进人 + 给该员工发站内待办通知。"""
-    _require_staff(user)
     sig = session.get(ChurnSignal, signal_id)
     if not sig or sig.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Signal not found")
@@ -703,9 +683,8 @@ def assign_churn_signal(
 def resolve_churn_signal(
     signal_id: uuid.UUID,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
-    _require_staff(user)
     sig = session.get(ChurnSignal, signal_id)
     if not sig:
         raise HTTPException(status_code=404, detail="Signal not found")

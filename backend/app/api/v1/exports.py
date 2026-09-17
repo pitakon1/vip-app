@@ -11,18 +11,16 @@
 - 考勤：admin 导出全部（按日期区间，可筛部门）；其他员工只能导出自己的
 - 员工通讯录：全体员工可见，但只含协作联系方式，不含佣金/薪资
 """
-import csv
-import io
 import uuid
 from datetime import date as date_type, datetime
 from typing import Optional, Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import Response
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
-from app.core.auth import get_current_user, require_employee
+from app.core.auth import STAFF_ROLES, get_current_user, require_employee
+from app.core.csv_export import csv_response
 from app.db import get_session
 from app.models import (
     Attendance,
@@ -46,24 +44,7 @@ router = APIRouter(prefix="/exports", tags=["exports"])
 # 单次导出行数上限：报表是给人看的，不是数据同步，超过这个量前端也打不开。
 MAX_ROWS = 50000
 
-# 员工类角色（可看全量数据）；其余角色一律只看自己
-_STAFF_ROLES = (UserRole.admin, UserRole.agent, UserRole.employee)
-
-
-def _csv_response(
-    header: Sequence[str], rows: Sequence[Sequence], filename: str
-) -> Response:
-    """把行数据渲染成 CSV 附件响应（带 BOM，Excel 打开不乱码）。"""
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow(header)
-    writer.writerows(rows)
-    content = ("\ufeff" + buffer.getvalue()).encode("utf-8")
-    return Response(
-        content=content,
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+# 员工类角色（可看全量数据）；其余角色一律只看自己：统一走 core.auth.STAFF_ROLES
 
 
 def _stamp() -> str:
@@ -172,7 +153,7 @@ def export_properties(
                 _dt(p.created_at),
             ]
         )
-    return _csv_response(
+    return csv_response(
         [
             "房号",
             "楼盘",
@@ -210,7 +191,7 @@ def export_payments(
 ):
     """导出收付款流水（员工看全部，其余角色只看与自己相关的）。"""
     conditions = [Payment.deleted_at.is_(None)]
-    if user.role not in _STAFF_ROLES:
+    if user.role not in STAFF_ROLES:
         conditions.append(
             (Payment.payer_id == user.id) | (Payment.payee_id == user.id)
         )
@@ -256,7 +237,7 @@ def export_payments(
         ]
         for p in payments
     ]
-    return _csv_response(
+    return csv_response(
         [
             "创建时间",
             "支付单号",
@@ -349,7 +330,7 @@ def export_commissions(
                 _dt(i.paid_at),
             ]
         )
-    return _csv_response(
+    return csv_response(
         [
             "创建时间",
             "员工",
@@ -435,7 +416,7 @@ def export_attendance(
                 r.notes or "",
             ]
         )
-    return _csv_response(
+    return csv_response(
         ["日期", "员工", "工号", "部门", "考勤状态", "上班打卡", "下班打卡", "备注"],
         rows,
         f"attendance_{start.isoformat()}_{end.isoformat()}.csv",
@@ -488,7 +469,7 @@ def export_employees(
                 e.hire_date.isoformat() if e.hire_date else "",
             ]
         )
-    return _csv_response(
+    return csv_response(
         ["工号", "姓名", "部门", "职位", "手机", "邮箱", "微信", "Line", "入职日期"],
         rows,
         f"employees_{_stamp()}.csv",

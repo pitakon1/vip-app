@@ -20,6 +20,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { propertiesApi, translateApi, favoritesApi, viewingsApi, saleListingApi } from '@/services/api';
+import { fmtMoney as formatMoney } from '@/utils/format';
 
 interface PropertyDetail {
   id: string;
@@ -73,11 +74,6 @@ const statusLabels: Record<string, string> = {
   renewing: '续约中',
   maintenance: '维护中',
   reserved: '已预订',
-};
-
-const formatMoney = (v: any, currency?: string) => {
-  const symbol = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : '฿';
-  return `${symbol}${Number(v || 0).toLocaleString()}`;
 };
 
 const screenWidth = Dimensions.get('window').width;

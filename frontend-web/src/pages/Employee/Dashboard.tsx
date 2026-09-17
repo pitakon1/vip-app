@@ -3,32 +3,9 @@ import { message, Spin, Empty } from 'antd'
 import { Link } from 'react-router-dom'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
+import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
 import './dashboard.css'
-
-interface LeaderRow {
-  id: string
-  full_name: string
-  department?: string
-  position?: string
-  performance?: number
-  deals?: number
-  target?: number
-  is_self?: boolean
-  [key: string]: any
-}
-
-interface LeaseRow {
-  id: string
-  property_id: string
-  tenant_id: string
-  end_date: string
-  start_date: string
-  monthly_rent: number
-  currency: string
-  status: string
-  [key: string]: any
-}
 
 interface SummaryData {
   monthly_deals?: number
@@ -85,8 +62,6 @@ const formatInterested = (value: any): string => {
   return String(value)
 }
 
-const formatMoney = (v: number) => `RM ${Number(v || 0).toLocaleString()}`
-
 // 柱图值紧凑展示：28400 -> 28.4k
 const fmtCompact = (v: number) => {
   const n = Number(v || 0)
@@ -125,10 +100,8 @@ const formatRelativeTime = (iso?: string, today?: dayjs.Dayjs) => {
 const Dashboard = () => {
   const user = useAuthStore((s) => s.user)
   const [loading, setLoading] = useState(false)
-  const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([])
   const [summary, setSummary] = useState<SummaryData>({})
   const [monthly, setMonthly] = useState<MonthPerf[]>([])
-  const [leases, setLeases] = useState<LeaseRow[]>([])
   const [leads, setLeads] = useState<any[]>([])
   const [followUpLeases, setFollowUpLeases] = useState<FollowUpLease[]>([])
   const [viewings, setViewings] = useState<any[]>([])
@@ -137,12 +110,8 @@ const Dashboard = () => {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [lbRes, sumRes, leaseRes, leadsRes, wbRes, vwRes, pfRes] = await Promise.all([
-        api.get('/employees/leaderboard').catch(() => ({ data: { items: [] } })),
+      const [sumRes, leadsRes, wbRes, vwRes, pfRes] = await Promise.all([
         api.get('/dashboard/summary').catch(() => ({ data: {} })),
-        api.get('/leases', { params: { pageSize: 100 } }).catch(() => ({
-          data: { items: [] },
-        })),
         api.get('/leads', { params: { pageSize: 50 } }).catch(() => ({
           data: { items: [] },
         })),
@@ -153,17 +122,11 @@ const Dashboard = () => {
         api.get('/performance/mine').catch(() => ({ data: {} })),
       ])
 
-      const lbPayload = lbRes.data?.data ?? lbRes.data
-      setLeaderboard(lbPayload?.items ?? lbPayload ?? [])
-
       const sumPayload = sumRes.data?.data ?? sumRes.data
       setSummary(sumPayload ?? {})
 
       const pfPayload = pfRes.data?.data ?? pfRes.data
       setMonthly(Array.isArray(pfPayload?.monthly) ? pfPayload.monthly : [])
-
-      const leasePayload = leaseRes.data?.data ?? leaseRes.data
-      setLeases(leasePayload?.items ?? [])
 
       const leadsPayload = leadsRes.data?.data ?? leadsRes.data
       setLeads(leadsPayload?.items ?? [])
@@ -185,20 +148,7 @@ const Dashboard = () => {
     fetchAll()
   }, [fetchAll])
 
-  // 今日待办：租金提醒 + 合约到期
   const today = dayjs()
-  const rentReminders = leases.filter((l) => {
-    if (!l.start_date) return false
-    const start = dayjs(l.start_date)
-    return start.date() === today.date() && l.status === 'active'
-  })
-
-  const expiringLeases = leases.filter((l) => {
-    if (!l.end_date) return false
-    const days = dayjs(l.end_date).diff(today, 'day')
-    return days >= 0 && days <= 30 && l.status === 'active'
-  })
-
   const monthlyDeals = Number(summary.monthly_deals ?? 0)
   const monthlyCommission = Number(summary.monthly_commission ?? 0)
   const rank = Number(summary.rank ?? 0)
@@ -432,7 +382,7 @@ const Dashboard = () => {
                 <div className="rent-wb-strip__label">本月成交</div>
               </div>
               <div className="rent-wb-strip__cell">
-                <div className="rent-wb-strip__value rent-wb-strip__value--md">{summary.monthly_commission === undefined ? '-' : formatMoney(monthlyCommission)}</div>
+                <div className="rent-wb-strip__value rent-wb-strip__value--md">{summary.monthly_commission === undefined ? '-' : formatMoney(monthlyCommission, 'RM')}</div>
                 <div className="rent-wb-strip__label">佣金收入</div>
               </div>
               <div className="rent-wb-strip__cell">

@@ -384,6 +384,8 @@ def financial_reconciliation(
 
     records = []
     for p in payments:
+        # 注意：这里的"逾期"口径不排除 refunded（refunded 且已过截止日也算 overdue），
+        # 与 core.payments.payment_bucket（refunded 归 pending）不同，属既有行为，保留。
         if p.status == PaymentStatus.succeeded:
             bucket = "received"
         elif p.due_date and p.due_date < now:

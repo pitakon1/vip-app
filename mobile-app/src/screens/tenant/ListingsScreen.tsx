@@ -20,6 +20,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import { propertiesApi, translateApi, favoritesApi, saleListingApi } from '@/services/api';
+import { fmtMoney as formatRent } from '@/utils/format';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
 
@@ -148,11 +149,6 @@ const matchLocation = (item: any, kws: string[]): boolean =>
       .map((v) => String(v).toLowerCase())
       .some((v) => v.includes(k))
   );
-
-const formatRent = (v: any, currency?: string) => {
-  const cur = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : '฿';
-  return `${cur}${Number(v || 0).toLocaleString()}`;
-};
 
 export default function ListingsScreen() {
   const [listings, setListings] = useState<Listing[]>([]);

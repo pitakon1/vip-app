@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { View, Text, Input, ScrollView, Picker } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { propertiesApi, dashboardApi } from '@/services/api'
+import { fmtMoney as fmtRent } from '@/utils/format'
 import { request } from '@/lib/api'
 import { iconStyle } from '@/utils/icons'
 import { AREA_GROUPS } from '@/data/locationArea'
@@ -41,13 +42,6 @@ const STATUS_LABELS: Record<string, string> = {
   maintenance: '维护中',
   reserved: '已预订'
 } as const
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  CNY: '¥',
-  THB: '฿',
-  EUR: '€',
-  USD: '$'
-}
 
 const FILTERS: { key: string; label: string }[] = [
   { key: '', label: '全部' },
@@ -112,9 +106,6 @@ function pickList(res: any): PropertyItem[] {
   if (Array.isArray(d?.items)) return d.items
   return []
 }
-
-const fmtRent = (v?: number, currency?: string) =>
-  `${CURRENCY_SYMBOL[currency || 'THB'] || ''}${Number(v || 0).toLocaleString()}`
 
 export default function AdminPropertiesPage() {
   const [list, setList] = useState<PropertyItem[]>([])

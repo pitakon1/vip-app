@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { dashboardApi, paymentsApi } from '@/services/api'
+import { fmtMoney } from '@/utils/format'
 import { request } from '@/lib/api'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
@@ -85,9 +86,6 @@ const TYPE_OPTIONS: string[] = ['rent', 'deposit', 'commission', 'service_fee', 
 const CHANNEL_OPTIONS: string[] = ['promptpay', 'stripe', 'wechat', 'alipay', 'wise', 'paypal', 'bank_transfer']
 
 const PAGE_SIZE = 100
-
-const fmtMoney = (v?: number, currency?: string) =>
-  `${CURRENCY_SYMBOL[currency || 'THB'] || ''}${Number(v || 0).toLocaleString()}`
 
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-')
 

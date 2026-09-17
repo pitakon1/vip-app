@@ -632,7 +632,7 @@ const DealTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v: bo
 }
 
 /* ===== 定金托管 Tab ===== */
-const EscrowTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v: boolean) => void }) => {
+const EscrowTab = ({ setLoading }: { loading: boolean; setLoading: (v: boolean) => void }) => {
   const [deals, setDeals] = useState<Deal[]>([])
   const [dealId, setDealId] = useState('')
   const [escrows, setEscrows] = useState<Escrow[]>([])

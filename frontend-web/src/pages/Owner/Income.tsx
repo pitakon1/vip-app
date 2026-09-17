@@ -57,7 +57,6 @@ interface IncomeRow {
 }
 
 const fmtMoney = (v: number) => `RM ${Math.round(convertCurrency(v, 'RM')).toLocaleString()}`
-const fmtMoneyDec = (v: number) => `RM ${convertCurrency(v, 'RM').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const monthKey = (d: string | undefined) => {
   if (!d) return ''
@@ -136,19 +135,6 @@ const Income = () => {
   useEffect(() => {
     fetchData()
   }, [fetchData])
-
-  // 当前月份的租金记录
-  const monthlyPayments = useMemo(() => {
-    const monthStr = selectedMonth.format('YYYY-MM')
-    return payments
-      .filter(
-        (p) => monthKey(p.paid_at || p.due_date) === monthStr,
-      )
-      .sort((a, b) =>
-        dayjs(b.paid_at || b.due_date || 0).valueOf() -
-        dayjs(a.paid_at || a.due_date || 0).valueOf(),
-      )
-  }, [payments, selectedMonth])
 
   // 平均月租（基于已收租金记录）
   const avgRent = useMemo(() => {

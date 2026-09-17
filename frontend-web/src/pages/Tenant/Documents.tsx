@@ -141,7 +141,7 @@ const TenantDocuments = () => {
 
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<DocItem[]>([])
-  const [file, setFile] = useState<File | null>(null)
+  const [, setFile] = useState<File | null>(null)
   const [activeTab, setActiveTab] = useState<SegmentKey>('all')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -199,14 +199,6 @@ const TenantDocuments = () => {
     } catch (err: any) {
       message.error(err?.response?.data?.message || t('tenantDocuments.uploadFailed'))
     }
-  }
-
-  const handleUpload = async () => {
-    if (!file) {
-      message.warning(t('tenantDocuments.warnChooseFile'))
-      return
-    }
-    await doUpload(file)
   }
 
   const handleHeroSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

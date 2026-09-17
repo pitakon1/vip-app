@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
+import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import brandLogo from '@/assets/haofang-logo.jpg'
@@ -46,8 +47,6 @@ const TYPE_ICON_PATH = (pt: string): string => {
       return 'M3 21h18M5 21V7l8-4v18M19 21V11l-6-4'
   }
 }
-
-const fmtRent = (v: number) => `฿${Number(v || 0).toLocaleString()}`
 
 const Home = () => {
   const navigate = useNavigate()
@@ -260,7 +259,7 @@ const Home = () => {
                     </div>
                     <div className="rent-prop-search-card__foot">
                       <div className="rent-prop-search-card__price">
-                        <span className="rent-prop-search-card__price-value">{fmtRent(p.monthly_rent)}</span>
+                        <span className="rent-prop-search-card__price-value">{formatMoney(p.monthly_rent)}</span>
                         <span className="rent-prop-search-card__price-unit">{t('property.perMonth')}</span>
                       </div>
                       <button

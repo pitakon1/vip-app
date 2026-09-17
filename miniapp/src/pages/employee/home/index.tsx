@@ -3,6 +3,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { employeesApi, leadsApi, viewingsApi, performanceApi } from '@/services/api'
+import { fmtMoney } from '@/utils/format'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
 
@@ -60,11 +61,6 @@ function pickList(res: any): any[] {
   if (Array.isArray(res?.data)) return res.data
   if (Array.isArray(res?.data?.items)) return res.data.items
   return []
-}
-
-const fmtMoney = (v: number | undefined, currency?: string) => {
-  const sym: Record<string, string> = { CNY: '¥', THB: '฿', EUR: '€', USD: '$' }
-  return `${sym[currency || 'THB'] || '฿'}${Number(v || 0).toLocaleString()}`
 }
 
 // 柱图值紧凑展示：28400 -> 28.4k

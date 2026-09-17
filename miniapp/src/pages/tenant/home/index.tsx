@@ -11,6 +11,7 @@ import {
   maintenanceApi,
   favoritesApi
 } from '@/services/api'
+import { fmtMoney as formatMoney } from '@/utils/format'
 import type { NotificationType } from '@/types'
 import { iconStyle } from '@/utils/icons'
 import type { IconKey } from '@/utils/icons'
@@ -102,11 +103,6 @@ function pickList<T>(res: any): T[] {
   if (Array.isArray(res?.data?.items)) return res.data.items
   if (Array.isArray(res?.data?.list)) return res.data.list
   return []
-}
-
-const formatMoney = (v: any, currency?: string) => {
-  const cur = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : '฿'
-  return `${cur}${Number(v || 0).toLocaleString()}`
 }
 
 const formatDay = (x?: string) => (x ? String(x).slice(0, 10) : '')

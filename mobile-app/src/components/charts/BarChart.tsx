@@ -15,12 +15,10 @@ export default function BarChart({
   data,
   maxValue,
   height = 160,
-  unit = '',
   labelColor,
   activeIndex,
 }: BarChartProps) {
   const max = maxValue ?? Math.max(...data.map((d) => d.value), 1);
-  const barCount = data.length;
 
   return (
     <View style={[styles.container, { height }]}>

@@ -1,7 +1,4 @@
 """房源路由：房源 CRUD、照片上传及关联租约查询。"""
-import os
-import secrets
-import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -18,7 +15,7 @@ from app.core.auth import get_current_user
 from app.core.cache import delete_cache_pattern, get_cache, set_cache
 from app.core.concurrency import ensure_version
 from app.core.pagination import Page, PaginationParams, paginate_query
-from app.core.uploads import HEAD_BYTES, detect_image_mime
+from app.core.uploads import detect_image_mime, save_upload
 from app.models import (
     Property,
     PropertyStatus,
@@ -27,6 +24,7 @@ from app.models import (
     Project,
     Tenant,
     User,
+    UserRole,
 )
 
 router = APIRouter(prefix="/properties", tags=["properties"])
@@ -144,12 +142,17 @@ class PropertyLeaseList(BaseModel):
     items: List[PropertyLeaseItem] = []
 
 
+def _role_value(user: User) -> str:
+    """把 user.role 规整为字符串值（兼容已修复的 .value/hasattr 防御）。"""
+    return user.role.value if hasattr(user.role, "value") else str(user.role)
+
+
 def _ensure_owner_access(user: User, prop: Property, session: Session) -> None:
     """权限：管理员/经纪人可操作任意房源；业主仅可操作名下房源。"""
-    role = user.role.value if hasattr(user.role, "value") else str(user.role)
-    if role in ("admin", "agent"):
+    role = _role_value(user)
+    if role in {UserRole.admin.value, UserRole.agent.value}:
         return
-    if role != "owner":
+    if role != UserRole.owner.value:
         raise HTTPException(status_code=403, detail="Access denied")
     owner = session.exec(
         select(Owner).where(
@@ -312,8 +315,8 @@ def create_property(
     员工/经纪人/管理员等内部角色仍需显式指定 owner_id；其余角色（如租客）禁止创建。
     """
     payload = req.model_dump()
-    role = user.role.value if hasattr(user.role, "value") else str(user.role)
-    if role == "owner":
+    role = _role_value(user)
+    if role == UserRole.owner.value:
         owner = session.exec(
             select(Owner).where(
                 Owner.user_id == user.id,
@@ -324,7 +327,7 @@ def create_property(
             raise HTTPException(status_code=404, detail="Owner profile not found")
         payload["owner_id"] = owner.id
     else:
-        if role not in ("admin", "agent", "employee"):
+        if role not in {UserRole.admin.value, UserRole.agent.value, UserRole.employee.value}:
             raise HTTPException(status_code=403, detail="Access denied")
         if not payload.get("owner_id"):
             raise HTTPException(status_code=400, detail="owner_id is required")
@@ -463,8 +466,8 @@ def update_property(
         raise HTTPException(status_code=404, detail="Property not found")
     _ensure_owner_access(user, prop, session)
     update_data = req.model_dump(exclude_unset=True)
-    role = user.role.value if hasattr(user.role, "value") else str(user.role)
-    if role == "owner":
+    role = _role_value(user)
+    if role == UserRole.owner.value:
         # 业主不可通过 PATCH 转移房源归属
         update_data.pop("owner_id", None)
     ensure_version(prop, update_data.pop("version", None), "房源")
@@ -555,36 +558,23 @@ def upload_property_photos(
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     saved_urls: List[str] = []
     for file in files:
-        original_name = file.filename or "photo"
-        ext = os.path.splitext(original_name)[1].lower()
-        if ext not in ALLOWED_IMAGE_EXTENSIONS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported image type: {ext or 'none'}",
-            )
-        # 扩展名可伪造，必须再按文件内容（魔数）确认它真的是图片
-        head = file.file.read(HEAD_BYTES)
-        file.file.seek(0)
-        if detect_image_mime(head) is None:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"File content is not a valid image: {original_name}"
+        saved_urls.append(
+            save_upload(
+                file,
+                UPLOAD_DIR,
+                MAX_PHOTO_SIZE,
+                ALLOWED_IMAGE_EXTENSIONS,
+                None,
+                detector=detect_image_mime,
+                name_prefix=str(property_id),
+                url_prefix="/uploads/properties/",
+                label="image",
+                invalid_content_message=(
+                    f"File content is not a valid image: {file.filename or 'photo'}"
                     "（仅支持 JPG/PNG/GIF/BMP/WEBP，且内容需与扩展名一致）"
                 ),
             )
-        filename = f"{property_id}_{secrets.token_hex(8)}{ext}"
-        dest = UPLOAD_DIR / filename
-        try:
-            with dest.open("wb") as buffer:
-                shutil.copyfileobj(file.file, buffer, length=1024 * 1024)
-        except Exception:
-            dest.unlink(missing_ok=True)
-            raise HTTPException(status_code=500, detail="Failed to save photo")
-        if dest.stat().st_size > MAX_PHOTO_SIZE:
-            dest.unlink(missing_ok=True)
-            raise HTTPException(status_code=400, detail=f"File too large (max {MAX_PHOTO_SIZE // (1024 * 1024)}MB)")
-        saved_urls.append(f"/uploads/properties/{filename}")
+        )
 
     # 追加到 photos 列表
     existing = list(prop.photos or [])

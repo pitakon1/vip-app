@@ -103,14 +103,6 @@ const paymentMethods: PaymentMethod[] = [
   },
 ]
 
-const statusColorMap: Record<string, string> = {
-  succeeded: 'green',
-  paid: 'green',
-  pending: 'orange',
-  failed: 'red',
-  overdue: 'red',
-}
-
 const statusLabelMap: Record<string, string> = {
   succeeded: '成功',
   paid: '已支付',
@@ -203,7 +195,7 @@ const Payments = () => {
     }
     setSubmitting(true)
     try {
-      const res = await api.post('/payments', {
+      await api.post('/payments', {
         payer_id: user.id,
         amount,
         currency: 'RM',
@@ -212,7 +204,6 @@ const Payments = () => {
         idempotency_key: `owner-pay-${user.id}-${Date.now()}`,
         description: '业主在线缴费',
       })
-      const payment = res.data?.data ?? res.data
       message.success('支付单已创建，请按所选方式完成支付')
       await fetchRecords()
       setCurrentMethod(null)

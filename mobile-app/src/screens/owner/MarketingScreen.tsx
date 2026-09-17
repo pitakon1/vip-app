@@ -15,18 +15,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { ownerApi, ownersApi, saleListingApi } from '@/services/api';
-
-type IoniconName = keyof typeof Ionicons.glyphMap;
-
-const CUR_SYMBOL: Record<string, string> = {
-  CNY: '¥',
-  THB: '฿',
-  EUR: '€',
-  USD: '$',
-};
-
-const money = (v?: number, c?: string) =>
-  `${CUR_SYMBOL[c || ''] || '฿'}${Number(v || 0).toLocaleString()}`;
+import { fmtMoney as money } from '@/utils/format';
 
 const propertyTypeText = (t?: string) =>
   t === 'apartment' ? '公寓' : t === 'villa' ? '别墅' : t === 'condo' ? '公寓' : t || '房源';
@@ -119,7 +108,7 @@ export default function OwnerMarketingScreen() {
   const [tab, setTab] = useState<'rent' | 'sale'>('rent');
   const [vacants, setVacants] = useState<VacantItem[]>([]);
   const [totalVacant, setTotalVacant] = useState(0);
-  const [totalProperties, setTotalProperties] = useState(0);
+  const [, setTotalProperties] = useState(0);
   const [pricing, setPricing] = useState<PricingItem[]>([]);
   const [properties, setProperties] = useState<OwnerProperty[]>([]);
   const [listings, setListings] = useState<SaleListing[]>([]);
@@ -245,9 +234,6 @@ export default function OwnerMarketingScreen() {
       ? `${money(pRange[0], selectedPricing?.currency)} ~ ${money(pRange[1], selectedPricing?.currency)}`
       : '暂无区间数据';
   const dirMeta = DIRECTION_META[selectedPricing?.suggestion?.direction || 'keep'] ?? DIRECTION_META.keep;
-
-  const occupancy =
-    totalProperties > 0 ? Math.round(((totalProperties - totalVacant) / totalProperties) * 100) : 0;
 
   const stepState = (index: number, activeIdx: number) =>
     index < activeIdx ? 'done' : index === activeIdx ? 'active' : 'idle';

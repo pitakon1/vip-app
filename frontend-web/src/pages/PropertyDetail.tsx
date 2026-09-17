@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { message } from 'antd'
-import type { CarouselRef } from 'antd/es/carousel'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { translateApi, documentsApi } from '@/services/api'
@@ -40,25 +39,6 @@ interface PropertyDetail {
   [key: string]: any
 }
 
-const GRADIENTS = [
-  '#667eea',
-  '#f093fb',
-  '#4facfe',
-  '#43e97b',
-  '#fa709a',
-  '#30cfd0',
-  '#5ee7df',
-  '#ff9a9e',
-]
-
-const gradientFor = (seed: string, idx = 0) => {
-  let h = idx
-  for (let i = 0; i < (seed || 'x').length; i++) {
-    h = (h * 31 + (seed || 'x').charCodeAt(i)) >>> 0
-  }
-  return GRADIENTS[h % GRADIENTS.length]
-}
-
 const formatRent = (v: any) => `฿${Number(v || 0).toLocaleString()}`
 const formatDate = (v?: string) => {
   if (!v) return '-'
@@ -82,34 +62,6 @@ const statusLabelMap: Record<string, string> = {
   reserved: '已预订',
   maintenance: '维护中',
 }
-
-const decorationLabelMap: Record<string, string> = {
-  fine: '精装',
-  deluxe: '精装',
-  simple: '简装',
-  rough: '毛坯',
-}
-
-const furnitureLabelMap: Record<string, string> = {
-  full: '全配',
-  partial: '部分',
-  none: '无',
-}
-
-const DEFAULT_AMENITIES = [
-  '空调',
-  '热水器',
-  '洗衣机',
-  '冰箱',
-  '电视',
-  '网络',
-  '停车位',
-  '健身房',
-  '游泳池',
-  '24小时安保',
-  '电梯',
-  '花园',
-]
 
 // 租约状态文案
 const leaseStatusMap: Record<string, string> = {
@@ -140,15 +92,11 @@ const DOC_TYPE_BADGE: Record<string, string> = {
 const PropertyDetail = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const carouselRef = useRef<CarouselRef>(null)
 
   const [detail, setDetail] = useState<PropertyDetail | null>(null)
   const [loading, setLoading] = useState(false)
-  const [similar, setSimilar] = useState<PropertyDetail[]>([])
   const [leases, setLeases] = useState<any[]>([])
   const [docs, setDocs] = useState<any[]>([])
-  const [currentSlide, setCurrentSlide] = useState(0)
-  const [favorited, setFavorited] = useState(false)
   // v1.8 Google 翻译：房源描述可自行翻译
   const [translatedDesc, setTranslatedDesc] = useState<string | null>(null)
   const [translating, setTranslating] = useState(false)
@@ -193,19 +141,6 @@ const PropertyDetail = () => {
     }
   }, [id])
 
-  const fetchSimilar = useCallback(async () => {
-    try {
-      const res = await api.get('/properties', {
-        params: { page: 1, page_size: 8, limit: 8, status: 'vacant' },
-      })
-      const payload = res.data?.data ?? res.data
-      const items: PropertyDetail[] = payload?.items ?? []
-      setSimilar(items.filter((it) => String(it.id) !== String(id)).slice(0, 4))
-    } catch {
-      setSimilar([])
-    }
-  }, [id])
-
   const fetchLeases = useCallback(async () => {
     if (!id) return
     try {
@@ -247,96 +182,10 @@ const PropertyDetail = () => {
 
   useEffect(() => {
     fetchDetail()
-    fetchSimilar()
     fetchLeases()
     fetchDocs()
-    setFavorited(false)
-    setCurrentSlide(0)
     window.scrollTo?.({ top: 0 })
-  }, [fetchDetail, fetchSimilar, fetchLeases, fetchDocs, id])
-
-  const slides = useMemo(() => {
-    const roomNo = detail?.room_number || '—'
-    const projectName = detail?.project_name || detail?.project_id || ''
-    const count = detail?.images?.length || 4
-    const arr = Array.from({ length: Math.max(count, 4) })
-    return arr.map((_, idx) => ({
-      key: idx,
-      gradient: gradientFor(String(detail?.id || roomNo), idx),
-      roomNo,
-      projectName,
-    }))
-  }, [detail])
-
-  const amenities = useMemo(() => {
-    if (detail?.amenities && Array.isArray(detail.amenities) && detail.amenities.length) {
-      return detail.amenities
-    }
-    return DEFAULT_AMENITIES
-  }, [detail])
-
-  const infoItems = useMemo(() => {
-    if (!detail) return []
-    const d = detail
-    return [
-      {
-        label: '户型',
-        value: `${d.bedrooms ?? 0}室${d.bathrooms ?? 0}卫`,
-      },
-      {
-        label: '面积',
-        value: `${Number(d.size_sqm || 0)}㎡`,
-      },
-      {
-        label: '楼层',
-        value: d.floor ? `${d.floor}层` : '-',
-      },
-      {
-        label: '朝向',
-        value: d.orientation || '-',
-      },
-      {
-        label: '装修',
-        value:
-          decorationLabelMap[d.decoration || ''] || d.decoration || '-',
-      },
-      {
-        label: '家具',
-        value: d.furniture
-          ? furnitureLabelMap[d.furniture] || d.furniture
-          : d.furnished
-            ? '全配'
-            : '部分',
-      },
-      {
-        label: '押金',
-        value: d.deposit_months
-          ? `${d.deposit_months}个月`
-          : d.deposit_amount
-            ? formatRent(d.deposit_amount)
-            : '-',
-      },
-      {
-        label: '可入住日期',
-        value: formatDate(d.available_date),
-      },
-    ]
-  }, [detail])
-
-  const handleBook = () => {
-    message.success('预约成功，经纪人将尽快联系您')
-  }
-
-  const handleFavorite = () => {
-    setFavorited((v) => {
-      message.success(v ? '已取消收藏' : '收藏成功')
-      return !v
-    })
-  }
-
-  const handleSimilarClick = (sid: string) => {
-    navigate(`/properties/detail/${sid}`)
-  }
+  }, [fetchDetail, fetchLeases, fetchDocs, id])
 
   if (loading) {
     return <div className="rent-main"><div className="rent-empty">加载中...</div></div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Spin, Empty } from 'antd'
 import { employeesApi } from '@/services/api'
+import { formatMoney } from '@/lib/money'
 import type { Employee, EmployeeStatus } from '@/types'
 import './employees.css'
 
@@ -30,14 +31,12 @@ const getStatusBadge = (status: string): { cls: string; text: string } => {
   return { cls: 'rent-badge--neutral', text: status || '-' }
 }
 
-const formatMoney = (v: number) => `฿${Number(v || 0).toLocaleString()}`
-
 const Employees = () => {
   const [data, setData] = useState<Employee[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [leaderboard, setLeaderboard] = useState<Employee[]>([])
-  const [leaderLoading, setLeaderLoading] = useState(false)
+  const [, setLeaderLoading] = useState(false)
   const [queryParams, setQueryParams] = useState<QueryParams>({
     page: 1,
     pageSize: 10,

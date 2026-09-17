@@ -14,11 +14,8 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
 import { ownerApi, ownersApi } from '@/services/api';
+import { fmtMoney as money } from '@/utils/format';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
-
-const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿');
-const money = (v?: number, c?: string) =>
-  `${cur(c)}${Number(v || 0).toLocaleString()}`;
 
 interface AnnualMonthly {
   month?: string | number;
