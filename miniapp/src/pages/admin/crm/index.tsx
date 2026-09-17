@@ -65,6 +65,68 @@ export default function AdminCrmPage() {
   // 员工 id → 姓名（用于「负责人」展示）
   const [agentMap, setAgentMap] = useState<Record<string, string>>({})
 
+  // 新建/编辑线索表单
+  const [showSheet, setShowSheet] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState<{
+    name: string
+    phone: string
+    source: string
+    stage: string
+    notes: string
+  }>({ name: '', phone: '', source: '', stage: 'inquiring', notes: '' })
+  const setFormField = (k: keyof typeof form, v: string) =>
+    setForm((p) => ({ ...p, [k]: v }))
+
+  const openNew = () => {
+    setEditingId(null)
+    setForm({ name: '', phone: '', source: '', stage: 'inquiring', notes: '' })
+    setShowSheet(true)
+  }
+
+  const openEdit = (l: LeadItem) => {
+    setEditingId(l.id)
+    setForm({
+      name: l.name || '',
+      phone: l.phone || '',
+      source: l.source || '',
+      stage: l.stage || 'inquiring',
+      notes: (l.notes as string) || ''
+    })
+    setShowSheet(true)
+  }
+
+  const closeSheet = () => setShowSheet(false)
+
+  const submit = async () => {
+    if (!form.name.trim()) return Taro.showToast({ title: '请输入客户姓名', icon: 'none' })
+    const payload: Record<string, unknown> = { name: form.name.trim(), stage: form.stage }
+    if (form.phone) payload.phone = form.phone
+    if (form.source) payload.source = form.source
+    if (form.notes) payload.notes = form.notes
+    try {
+      if (editingId) await leadsApi.update(editingId, payload)
+      else await leadsApi.create(payload)
+      Taro.showToast({ title: '已保存', icon: 'success' })
+      closeSheet()
+      fetchLeads()
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || '保存失败', icon: 'none' })
+    }
+  }
+
+  const remove = async (l: LeadItem) => {
+    const res = await Taro.showModal({ title: '删除确认', content: `确定删除「${l.name || '该线索'}」吗？` })
+    if (!res.confirm) return
+    try {
+      await leadsApi.delete(l.id)
+      Taro.showToast({ title: '已删除', icon: 'success' })
+      fetchLeads()
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || '删除失败', icon: 'none' })
+    }
+  }
+
   const fetchLeads = async () => {
     setLoading(true)
     try {
@@ -185,7 +247,12 @@ export default function AdminCrmPage() {
 
       <View className='crm-section-head'>
         <Text className='crm-section-head__title'>客户列表</Text>
-        <Text className='crm-section-head__count'>共 {visible.length} 位</Text>
+        <View className='crm-section-head__right'>
+          <Text className='crm-section-head__count'>共 {visible.length} 位</Text>
+          <View className='crm-addbox' onClick={openNew}>
+            <Text className='crm-addbox__text'>+ 新建线索</Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView scrollY className='crm-list'>
@@ -256,11 +323,87 @@ export default function AdminCrmPage() {
                     {agentMap[String(l.assigned_to || '')] || '未分配'}
                   </Text>
                 </View>
+
+                <View className='crm-card__actions'>
+                  <View className='crm-act' onClick={() => openEdit(l)}>编辑</View>
+                  <View className='crm-act crm-act--del' onClick={() => remove(l)}>删除</View>
+                </View>
               </View>
             </View>
           )
         })}
       </ScrollView>
+
+      {/* 新建/编辑线索弹层 */}
+      {showSheet && (
+        <>
+          <View className='crm-mask' onClick={closeSheet} />
+          <View className='crm-sheet'>
+            <Text className='crm-sheet__title'>{editingId ? '编辑线索' : '新建线索'}</Text>
+
+            <View className='crm-field'>
+              <Text className='crm-field__label crm-field__label--req'>姓名</Text>
+              <Input
+                className='crm-field__input'
+                value={form.name}
+                placeholder='客户姓名'
+                onInput={(e) => setFormField('name', e.detail.value)}
+              />
+            </View>
+
+            <View className='crm-field'>
+              <Text className='crm-field__label'>电话</Text>
+              <Input
+                className='crm-field__input'
+                type='text'
+                value={form.phone}
+                placeholder='联系电话'
+                onInput={(e) => setFormField('phone', e.detail.value)}
+              />
+            </View>
+
+            <View className='crm-field'>
+              <Text className='crm-field__label'>来源</Text>
+              <Input
+                className='crm-field__input'
+                value={form.source}
+                placeholder='如：中介 / 转介绍 / 广告'
+                onInput={(e) => setFormField('source', e.detail.value)}
+              />
+            </View>
+
+            <View className='crm-field'>
+              <Text className='crm-field__label crm-field__label--req'>阶段</Text>
+              <View
+                className='crm-field__select'
+                onClick={() =>
+                  Taro.showActionSheet({ itemList: Object.keys(STAGE_META).map((k) => STAGE_META[k].text) })
+                    .then((r) => {
+                      const key = Object.keys(STAGE_META)[r.tapIndex]
+                      if (key) setFormField('stage', key)
+                    })
+                    .catch(() => {})
+                }
+              >
+                <Text>{STAGE_META[form.stage]?.text || form.stage}</Text>
+                <Text className='crm-field__tag'>▾</Text>
+              </View>
+            </View>
+
+            <View className='crm-field'>
+              <Text className='crm-field__label'>备注</Text>
+              <Input
+                className='crm-field__input'
+                value={form.notes}
+                placeholder='跟进备注（选填）'
+                onInput={(e) => setFormField('notes', e.detail.value)}
+              />
+            </View>
+
+            <View className='crm-submit' onClick={submit}>保存</View>
+          </View>
+        </>
+      )}
 
       {/* 底部导航：客户 */}
       <BottomNav role='admin' active='crm' />

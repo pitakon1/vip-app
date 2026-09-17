@@ -20,7 +20,6 @@ import Employees from '@/pages/Employees'
 import Settings from '@/pages/Settings'
 import AuditLogs from '@/pages/AuditLogs'
 import Viewings from '@/pages/Viewings'
-import Reconciliation from '@/pages/Reconciliation'
 import Trend from '@/pages/Trend'
 import CommissionRules from '@/pages/CommissionRules'
 import SaleDeals from '@/pages/SaleDeals'
@@ -114,7 +113,6 @@ const App = () => {
           <Route path="/employees" element={<Employees />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/viewings" element={<Viewings />} />
-          <Route path="/reconciliation" element={<Reconciliation />} />
           <Route path="/trend" element={<Trend />} />
           <Route path="/commission-rules" element={<CommissionRules />} />
           <Route path="/audit-logs" element={<AuditLogs />} />

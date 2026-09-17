@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { View, Text, Input, ScrollView } from '@tarojs/components'
+import { View, Text, Input, ScrollView, Picker } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { propertiesApi, dashboardApi } from '@/services/api'
 import { request } from '@/lib/api'
 import { iconStyle } from '@/utils/icons'
+import { AREA_GROUPS } from '@/data/locationArea'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
 
@@ -37,8 +38,9 @@ const STATUS_LABELS: Record<string, string> = {
   vacant: '空置中',
   rented: '已出租',
   renewing: '续约中',
-  maintenance: '维护中'
-}
+  maintenance: '维护中',
+  reserved: '已预订'
+} as const
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   CNY: '¥',
@@ -51,10 +53,57 @@ const FILTERS: { key: string; label: string }[] = [
   { key: '', label: '全部' },
   { key: 'vacant', label: '空置中' },
   { key: 'rented', label: '已出租' },
+  { key: 'renewing', label: '续约中' },
   { key: 'maintenance', label: '维护中' }
 ]
 
 const PAGE_SIZE = 100
+
+// 房型选项：''=不限, '0'=单间, '1'/'2'=精确居室, '3'=3室及以上, '4'=4室及以上（对齐租客端 4室+）
+const BEDROOM_OPTIONS = [
+  { key: '', label: '不限房型' },
+  { key: '0', label: '单间' },
+  { key: '1', label: '1室' },
+  { key: '2', label: '2室' },
+  { key: '3', label: '3室+' },
+  { key: '4', label: '4室+' }
+]
+
+// 价格区间（单位 万/月 THB，语义与租客端对齐）：''=不限, 预设 key, 'custom'=自定义
+const PRICE_OPTIONS = [
+  { key: '', label: '不限价格' },
+  { key: 'u3', label: '≤3万' },
+  { key: '3-5', label: '3-5万' },
+  { key: '5-8', label: '5-8万' },
+  { key: 'g8', label: '≥8万' },
+  { key: 'custom', label: '自定义' }
+]
+
+// 面积区间（对齐租客端）：''=不限, 预设 key, 'custom'=自定义
+const AREA_OPTIONS = [
+  { key: '', label: '不限面积' },
+  { key: '0-50', label: '≤50㎡' },
+  { key: '50-100', label: '50-100㎡' },
+  { key: '100-150', label: '100-150㎡' },
+  { key: '150-200', label: '150-200㎡' },
+  { key: '200+', label: '≥200㎡' },
+  { key: 'custom', label: '自定义' }
+]
+
+const SORT_OPTIONS = [
+  { key: 'latest', label: '默认排序' },
+  { key: 'price_asc', label: '价格从低到高' },
+  { key: 'price_desc', label: '价格从高到低' },
+  { key: 'area_desc', label: '面积从大到小' }
+]
+
+// 区域/位置选项：扁平化 AREA_GROUPS（语义与租客端同数据源，key 选中后以 kws 走后端 keywords）
+const REGION_OPTIONS: { key: string; label: string; kws: string[] }[] = [
+  { key: '', label: '不限区域', kws: [] },
+  ...AREA_GROUPS.flatMap((g) =>
+    g.children.map((d) => ({ key: `${g.cityKey}:${d.key}`, label: `${g.cityLabel}·${d.label}`, kws: d.kws }))
+  )
+]
 
 // 统一解析列表响应（Page[Property] / 直接数组 两种形态）
 function pickList(res: any): PropertyItem[] {
@@ -74,6 +123,16 @@ export default function AdminPropertiesPage() {
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
+  const [bedrooms, setBedrooms] = useState('')
+  const [priceRange, setPriceRange] = useState('')
+  const [priceCustomMin, setPriceCustomMin] = useState('')
+  const [priceCustomMax, setPriceCustomMax] = useState('')
+  const [areaRange, setAreaRange] = useState('')
+  const [areaCustomMin, setAreaCustomMin] = useState('')
+  const [areaCustomMax, setAreaCustomMax] = useState('')
+  const [region, setRegion] = useState('')
+  const [hasVideo, setHasVideo] = useState(false)
+  const [sort, setSort] = useState('latest')
 
   const fetchSummary = async () => {
     try {
@@ -84,17 +143,80 @@ export default function AdminPropertiesPage() {
     }
   }
 
-  const fetchList = async (nextStatus = status, q = query) => {
+  // 由筛选 state 构建后端查询参数（服务端过滤以保证正确分页）。overrides 用于状态尚未更新时传本次变更。
+  const buildParams = (over: Partial<{
+    status: string; q: string; bedrooms: string; priceRange: string;
+    priceCustomMin: string; priceCustomMax: string; areaRange: string;
+    areaCustomMin: string; areaCustomMax: string; region: string;
+    hasVideo: boolean; sort: string
+  }> = {}) => {
+    const p: Record<string, any> = { page: 1, page_size: PAGE_SIZE, sort: 'latest' }
+    const st = over.status ?? status
+    const q = over.q ?? query
+    const bd = over.bedrooms ?? bedrooms
+    const pr = over.priceRange ?? priceRange
+    const pcMin = over.priceCustomMin ?? priceCustomMin
+    const pcMax = over.priceCustomMax ?? priceCustomMax
+    const ar = over.areaRange ?? areaRange
+    const acMin = over.areaCustomMin ?? areaCustomMin
+    const acMax = over.areaCustomMax ?? areaCustomMax
+    const rg = over.region ?? region
+    const hv = over.hasVideo ?? hasVideo
+    const so = over.sort ?? sort
+
+    if (q) p.q = q
+    if (st) p.status = st
+    if (so !== 'latest') p.sort = so
+    // 房型：单间=>0,0；3室以上/4室以上=>min=key 不设上限
+    if (bd !== '') {
+      if (bd === '3' || bd === '4') p.bedrooms_min = Number(bd)
+      else { p.bedrooms_min = Number(bd); p.bedrooms_max = Number(bd) }
+    }
+    // 价格区间：按预设（万→THB）/自定义按需设 min/max
+    if (pr) {
+      if (pr === 'custom') {
+        if (pcMin) p.price_min = Number(pcMin) * 10000
+        if (pcMax) p.price_max = Number(pcMax) * 10000
+      } else if (pr === 'u3') {
+        p.price_max = 30000
+      } else if (pr === 'g8') {
+        p.price_min = 80000
+      } else {
+        const [mn, mx] = pr.split('-').map(Number)
+        if (!Number.isNaN(mn)) p.price_min = mn * 10000
+        if (!Number.isNaN(mx)) p.price_max = mx * 10000
+      }
+    }
+    // 面积区间：200+按需设 min
+    if (ar) {
+      if (ar === 'custom') {
+        if (acMin) p.area_min = Number(acMin)
+        if (acMax) p.area_max = Number(acMax)
+      } else if (ar === '200+') {
+        p.area_min = 200
+      } else {
+        const [mn, mx] = ar.split('-').map(Number)
+        if (!Number.isNaN(mn)) p.area_min = mn
+        if (!Number.isNaN(mx)) p.area_max = mx
+      }
+    }
+    // 区域/位置：选中的城区关键词走后端 keywords（与租客端同语义）
+    if (rg) {
+      const node = REGION_OPTIONS.find((o) => o.key === rg)
+      if (node && node.kws.length) p.keywords = node.kws
+    }
+    // 只看带视频
+    if (hv) p.has_video = true
+    return p
+  }
+
+  const fetchList = async (over: Parameters<typeof buildParams>[0] = {}) => {
     setLoading(true)
     try {
-      const res: any = await propertiesApi.list({
-        page: 1,
-        page_size: PAGE_SIZE,
-        sort: 'latest',
-        ...(q ? { q } : {}),
-        ...(nextStatus ? { status: nextStatus } : {})
-      })
-      setList(pickList(res))
+      const res: any = await propertiesApi.list(buildParams(over))
+      const items = pickList(res)
+      // 排序：后端支持 latest/price_asc/price_desc/area_desc，无需客户端兜底
+      setList(items)
     } catch (error) {
       console.error('[AdminProperties] 获取房源失败', error)
       Taro.showToast({ title: '加载房源失败', icon: 'none' })
@@ -111,19 +233,53 @@ export default function AdminPropertiesPage() {
   const handleSearch = () => {
     const q = keyword.trim()
     setQuery(q)
-    fetchList(status, q)
+    fetchList({ q })
   }
 
   const changeStatus = (key: string) => {
     setStatus(key)
-    fetchList(key, query)
+    fetchList({ status: key })
+  }
+
+  // 筛选项变更：重置到第 1 页（page 恒为 1）并重新请求
+  const changeBedrooms = (key: string) => {
+    setBedrooms(key)
+    fetchList({ bedrooms: key })
+  }
+  const changePriceRange = (key: string) => {
+    setPriceRange(key)
+    fetchList({ priceRange: key })
+  }
+  const changePriceCustom = (which: 'min' | 'max', val: string) => {
+    if (which === 'min') { setPriceCustomMin(val); fetchList({ priceCustomMin: val }) }
+    else { setPriceCustomMax(val); fetchList({ priceCustomMax: val }) }
+  }
+  const changeAreaRange = (key: string) => {
+    setAreaRange(key)
+    fetchList({ areaRange: key })
+  }
+  const changeAreaCustom = (which: 'min' | 'max', val: string) => {
+    if (which === 'min') { setAreaCustomMin(val); fetchList({ areaCustomMin: val }) }
+    else { setAreaCustomMax(val); fetchList({ areaCustomMax: val }) }
+  }
+  const changeSort = (key: string) => {
+    setSort(key)
+    fetchList({ sort: key })
+  }
+  const changeRegion = (key: string) => {
+    setRegion(key)
+    fetchList({ region: key })
+  }
+  const toggleHasVideo = () => {
+    setHasVideo(!hasVideo)
+    fetchList({ hasVideo: !hasVideo })
   }
 
   const openDetail = (item: PropertyItem) => {
     Taro.navigateTo({ url: `/pages/admin/property-detail/index?id=${item.id}` })
   }
 
-  // 软删除房源：后端 DELETE /properties/{id}（require_agent）
+  // 软删除房源：后端 DELETE /properties/{id}（require_agent）。删除即下架，前台天然隐藏。
   const removeProperty = (item: PropertyItem) => {
     Taro.showModal({
       title: '删除房源',
@@ -179,6 +335,87 @@ export default function AdminPropertiesPage() {
           </View>
         ))}
       </ScrollView>
+
+      {/* 高级筛选：区域 / 房型 / 价格 / 面积 / 排序 */}
+      <ScrollView scrollX className='ap-chips ap-filter'>
+        {[
+          { opts: REGION_OPTIONS, value: region, onChange: changeRegion },
+          { opts: BEDROOM_OPTIONS, value: bedrooms, onChange: changeBedrooms },
+          { opts: PRICE_OPTIONS, value: priceRange, onChange: changePriceRange },
+          { opts: AREA_OPTIONS, value: areaRange, onChange: changeAreaRange },
+          { opts: SORT_OPTIONS, value: sort, onChange: changeSort }
+        ].map((g, idx) => {
+          const activeIdx = Math.max(0, g.opts.findIndex((o) => o.key === g.value))
+          return (
+            <Picker
+              key={idx}
+              mode='selector'
+              range={g.opts.map((o) => o.label)}
+              value={activeIdx}
+              onChange={(e: any) => g.onChange(g.opts[Number(e.detail.value)].key)}
+            >
+              <View className={`ap-chip ${g.value !== g.opts[0].key ? 'ap-chip--active' : ''}`}>
+                <Text className='ap-chip__text'>{g.opts[activeIdx].label}</Text>
+                <Text className='ap-chip__caret'>▾</Text>
+              </View>
+            </Picker>
+          )
+        })}
+        {/* 只看带视频 */}
+        <View
+          className={`ap-chip ${hasVideo ? 'ap-chip--active' : ''}`}
+          onClick={toggleHasVideo}
+        >
+          <Text className='ap-chip__text'>只看视频</Text>
+          <Text className='ap-chip__caret'>{hasVideo ? '✓' : ''}</Text>
+        </View>
+      </ScrollView>
+
+      {/* 自定义输入：仅在对应区间选择「自定义」时显示 */}
+      {(priceRange === 'custom' || areaRange === 'custom') && (
+        <View className='ap-custom'>
+          {priceRange === 'custom' && (
+            <View className='ap-custom__group'>
+              <Text className='ap-custom__name'>价格(万)</Text>
+              <Input
+                className='ap-custom__input'
+                type='number'
+                placeholder='最低'
+                value={priceCustomMin}
+                onInput={(e: any) => changePriceCustom('min', e.detail.value)}
+              />
+              <Text className='ap-custom__sep'>-</Text>
+              <Input
+                className='ap-custom__input'
+                type='number'
+                placeholder='最高'
+                value={priceCustomMax}
+                onInput={(e: any) => changePriceCustom('max', e.detail.value)}
+              />
+            </View>
+          )}
+          {areaRange === 'custom' && (
+            <View className='ap-custom__group'>
+              <Text className='ap-custom__name'>面积</Text>
+              <Input
+                className='ap-custom__input'
+                type='number'
+                placeholder='最小'
+                value={areaCustomMin}
+                onInput={(e: any) => changeAreaCustom('min', e.detail.value)}
+              />
+              <Text className='ap-custom__sep'>-</Text>
+              <Input
+                className='ap-custom__input'
+                type='number'
+                placeholder='最大'
+                value={areaCustomMax}
+                onInput={(e: any) => changeAreaCustom('max', e.detail.value)}
+              />
+            </View>
+          )}
+        </View>
+      )}
 
       {/* 统计（来源：/dashboard/summary） */}
       <View className='ap-stats'>

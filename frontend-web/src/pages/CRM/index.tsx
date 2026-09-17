@@ -84,6 +84,7 @@ interface QueryParams {
 }
 
 interface CreateFormValues {
+  id?: string
   name: string
   nationality: string
   phone: string
@@ -91,10 +92,13 @@ interface CreateFormValues {
   budget_max: string
   assigned_to: string
   source: string
+  stage: LeadStatus | ''
   requirement: string
+  notes: string
 }
 
 const emptyCreateForm: CreateFormValues = {
+  id: undefined,
   name: '',
   nationality: '',
   phone: '',
@@ -102,7 +106,9 @@ const emptyCreateForm: CreateFormValues = {
   budget_max: '',
   assigned_to: '',
   source: '',
+  stage: 'new',
   requirement: '',
+  notes: '',
 }
 
 const CRM = () => {
@@ -185,13 +191,30 @@ const CRM = () => {
     setModalOpen(true)
   }
 
+  const openEdit = (lead: Lead) => {
+    setCreateForm({
+      id: String(lead.id),
+      name: lead.name,
+      nationality: lead.nationality || '',
+      phone: lead.phone || '',
+      email: lead.email || '',
+      budget_max: lead.budget_max != null ? String(lead.budget_max) : '',
+      assigned_to: lead.assigned_to || '',
+      source: lead.source || '',
+      stage: (lead.stage as LeadStatus) || 'new',
+      requirement: lead.requirement || '',
+      notes: lead.notes || '',
+    })
+    setModalOpen(true)
+  }
+
   const openEditStage = (record: Lead) => {
     setCurrentLead(record)
     setStageValue(record.stage as LeadStatus)
     setStageModalOpen(true)
   }
 
-  const handleCreate = async () => {
+  const handleSubmit = async () => {
     if (!createForm.name.trim()) {
       message.error('请输入姓名')
       return
@@ -202,7 +225,7 @@ const CRM = () => {
     }
     try {
       setSubmitting(true)
-      await leadsApi.create({
+      const payload = {
         name: createForm.name,
         nationality: createForm.nationality,
         phone: createForm.phone,
@@ -210,15 +233,34 @@ const CRM = () => {
         budget_max: createForm.budget_max ? Number(createForm.budget_max) : undefined,
         assigned_to: createForm.assigned_to,
         source: createForm.source,
+        stage: createForm.stage || undefined,
         requirement: createForm.requirement,
-      } as any)
-      message.success('创建成功')
+        notes: createForm.notes,
+      } as any
+      if (createForm.id) {
+        await leadsApi.update(createForm.id, payload)
+        message.success('更新成功')
+      } else {
+        await leadsApi.create(payload)
+        message.success('创建成功')
+      }
       setModalOpen(false)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '创建失败')
+      message.error(err?.response?.data?.message || '保存失败')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (lead: Lead) => {
+    if (!window.confirm(`确定删除客户「${lead.name}」？该操作不可恢复。`)) return
+    try {
+      await leadsApi.delete(String(lead.id))
+      message.success('已删除')
+      fetchData()
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || '删除失败')
     }
   }
 
@@ -509,9 +551,21 @@ const CRM = () => {
                     </td>
                     <td>{lead.assigned_to || '-'}</td>
                     <td>
-                      <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openEditStage(lead)}>
-                        编辑阶段
-                      </button>
+                      <div className="rent-flex rent-gap-2">
+                        <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openEdit(lead)}>
+                          编辑
+                        </button>
+                        <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openEditStage(lead)}>
+                          阶段
+                        </button>
+                        <button
+                          className="rent-btn rent-btn--ghost rent-btn--sm"
+                          style={{ color: 'var(--state-error)', borderColor: 'var(--state-error)' }}
+                          onClick={() => handleDelete(lead)}
+                        >
+                          删除
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -550,7 +604,7 @@ const CRM = () => {
         <div className="rent-modal-backdrop" onClick={() => setModalOpen(false)}>
           <div className="rent-modal crm-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">新增线索</h3>
+              <h3 className="rent-card__title">{createForm.id ? '编辑线索' : '新增线索'}</h3>
               <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setModalOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -630,6 +684,18 @@ const CRM = () => {
                   placeholder="请输入来源"
                 />
               </div>
+              <div className="rent-form-group">
+                <label className="rent-form-label">阶段</label>
+                <select
+                  className="rent-form-select"
+                  value={createForm.stage}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, stage: e.target.value as LeadStatus }))}
+                >
+                  {Object.entries(stageLabelMap).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+              </div>
               <div className="rent-form-group" style={{ marginBottom: 0 }}>
                 <label className="rent-form-label">需求</label>
                 <textarea
@@ -640,11 +706,21 @@ const CRM = () => {
                   placeholder="请输入客户需求"
                 />
               </div>
+              <div className="rent-form-group" style={{ marginBottom: 0 }}>
+                <label className="rent-form-label">备注</label>
+                <textarea
+                  className="rent-form-textarea"
+                  rows={2}
+                  value={createForm.notes}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="跟进备注 / 补充信息"
+                />
+              </div>
             </div>
             <div className="rent-modal__footer">
               <button className="rent-btn rent-btn--secondary" onClick={() => setModalOpen(false)}>取消</button>
-              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>
-                {submitting ? '提交中...' : '确定'}
+              <button className="rent-btn rent-btn--primary" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? '提交中...' : createForm.id ? '保存' : '确定'}
               </button>
             </div>
           </div>

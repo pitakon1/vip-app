@@ -23,6 +23,7 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { commissionRulesApi, brokerApi, employeesApi } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
+import { useI18n } from '@/i18n';
 
 interface CommissionRule {
   id: string;
@@ -37,19 +38,33 @@ interface CommissionRule {
   [k: string]: any;
 }
 
-const DEAL_TYPE: Record<string, string> = {
-  new_rental: '新租',
-  renewal: '续约',
-  purchase: '购房',
-  sale: '出租',
+interface Broker {
+  id: string;
+  name?: string;
+  partner_name?: string;
+}
+
+interface Employee {
+  id: string;
+  name?: string;
+  full_name?: string;
+  broker_id?: string;
+}
+
+const DEAL_TYPE_KEYS = ['new_rental', 'renewal', 'purchase', 'sale'];
+const DEAL_TYPE_LABEL_KEY: Record<string, string> = {
+  new_rental: 'comm.deal.newRental',
+  renewal: 'comm.deal.renewal',
+  purchase: 'comm.deal.purchase',
+  sale: 'comm.deal.sale',
 };
-const SCOPE: Record<string, string> = {
-  all_employees: '全体员工',
-  by_department: '部门',
-  department: '部门',
-  by_employee: '员工',
-  individual: '员工',
-  by_broker: '分销商',
+const SCOPE_LABEL_KEY: Record<string, string> = {
+  all_employees: 'comm.allEmployees',
+  by_department: 'comm.department',
+  department: 'comm.department',
+  by_employee: 'comm.employee',
+  individual: 'comm.employee',
+  by_broker: 'comm.broker',
 };
 
 interface ScopeOption {
@@ -74,6 +89,7 @@ function SelectDropdown({
   onSelect: (key: string) => void;
   searchable?: boolean;
 }) {
+  const { t } = useI18n();
   const [kw, setKw] = useState('');
   const filtered = kw.trim()
     ? options.filter((o) => o.label.toLowerCase().includes(kw.trim().toLowerCase()))
@@ -84,7 +100,7 @@ function SelectDropdown({
       <Text style={styles.formLabel}>{label}</Text>
       <TouchableOpacity style={styles.selectBox} onPress={onToggle} activeOpacity={0.7}>
         <Text style={[styles.selectText, !current && styles.selectPlaceholder]} numberOfLines={1}>
-          {current ? current.label : `请选择${label}`}
+          {current ? current.label : `${t('comm.pleaseSelect')}${label}`}
         </Text>
         <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={colors.ink3} />
       </TouchableOpacity>
@@ -93,13 +109,13 @@ function SelectDropdown({
           {searchable && (
             <TextInput
               style={styles.selectSearch}
-              placeholder="搜索..."
+              placeholder={t('comm.search')}
               placeholderTextColor={colors.ink3}
               value={kw}
               onChangeText={setKw}
             />
           )}
-          {filtered.length === 0 && <Text style={styles.selectEmpty}>无匹配选项</Text>}
+          {filtered.length === 0 && <Text style={styles.selectEmpty}>{t('comm.noMatch')}</Text>}
           {filtered.map((o) => (
             <TouchableOpacity
               key={o.key}
@@ -123,13 +139,14 @@ function SelectDropdown({
 }
 
 export default function CommissionRulesScreen() {
+  const { t } = useI18n();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
 
   const [loading, setLoading] = useState(true);
   const [rules, setRules] = useState<CommissionRule[]>([]);
-  const [brokers, setBrokers] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [brokers, setBrokers] = useState<Broker[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [scopeOpen, setScopeOpen] = useState(false);
   const [brokerOpen, setBrokerOpen] = useState(false);
@@ -176,29 +193,29 @@ export default function CommissionRulesScreen() {
 
   const addRule = async () => {
     if (!name || !rate) {
-      Alert.alert('提示', '请填写规则名称与佣金比例');
+      Alert.alert(t('comm.title'), t('comm.ruleNameRateRequired'));
       return;
     }
     if (scope === 'by_broker' && isAdmin && !brokerId) {
-      Alert.alert('提示', '请选择分销商');
+      Alert.alert(t('comm.title'), t('comm.selBroker'));
       return;
     }
     if (scope === 'by_employee' && isAdmin && !employeeId) {
-      Alert.alert('提示', '请选择员工');
+      Alert.alert(t('comm.title'), t('comm.selEmployee'));
       return;
     }
     if (scope === 'broker_employee') {
       if (!brokerId) {
-        Alert.alert('提示', '请先选择分销商');
+        Alert.alert(t('comm.title'), t('comm.selBrokerFirst'));
         return;
       }
       if (!brokerEmployeeId) {
-        Alert.alert('提示', '请选择该分销商的员工');
+        Alert.alert(t('comm.title'), t('comm.selBrokerEmployee'));
         return;
       }
     }
     if (scope === 'by_department' && !department) {
-      Alert.alert('提示', '请输入部门名称');
+      Alert.alert(t('comm.title'), t('comm.enterDept'));
       return;
     }
     const ruleName = name;
@@ -225,23 +242,23 @@ export default function CommissionRulesScreen() {
       setEmployeeId('');
       setBrokerEmployeeId('');
       await load();
-      Alert.alert('新增成功', `佣金设置「${ruleName}」已生效`);
+      Alert.alert(t('comm.addSuccess'), t('comm.addSuccessMsg').replace('{name}', ruleName));
     } catch (e: any) {
-      Alert.alert('新增失败', e?.response?.data?.message || '请稍后重试');
+      Alert.alert(t('comm.addFail'), e?.response?.data?.message || t('comm.retry'));
     }
   };
 
   const scopeNameOf = (r: CommissionRule) => {
     if (r.scope === 'by_broker') {
       const b = brokers.find((x) => x.id === r.broker_id);
-      return (b?.partner_name || b?.name) || r.broker_id || '分销商';
+      return (b?.partner_name || b?.name) || r.broker_id || t('comm.broker');
     }
     if (r.scope === 'by_employee') {
       const e = employees.find((x) => x.id === r.employee_id);
-      return (e?.full_name || e?.name) || r.employee_id || '员工';
+      return (e?.full_name || e?.name) || r.employee_id || t('comm.employee');
     }
-    if (r.scope === 'by_department' || r.scope === 'department') return r.department || '部门';
-    return SCOPE[r.scope || ''] || '全体员工';
+    if (r.scope === 'by_department' || r.scope === 'department') return r.department || t('comm.department');
+    return t(SCOPE_LABEL_KEY[r.scope || ''] || 'comm.allEmployees');
   };
 
   return (
@@ -251,46 +268,46 @@ export default function CommissionRulesScreen() {
       showsVerticalScrollIndicator={false}
     >
       {loading ? (
-        <LoadingState label="正在加载佣金设置…" />
+        <LoadingState label={t('comm.loading')} />
       ) : (
         <>
           {/* 新增设置 */}
           <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>新增设置</Text>
-            <Text style={styles.sectionHint}>按层级差异化定价</Text>
+            <Text style={styles.sectionTitle}>{t('comm.addNew')}</Text>
+            <Text style={styles.sectionHint}>{t('comm.byLevelHint')}</Text>
           </View>
           <View style={styles.formCard}>
-            <Text style={styles.formLabel}>规则名称</Text>
+            <Text style={styles.formLabel}>{t('comm.ruleName')}</Text>
             <TextInput
               style={styles.formInput}
-              placeholder="如：新签成交佣"
+              placeholder={t('comm.ruleNamePlaceholder')}
               placeholderTextColor={colors.ink3}
               value={name}
               onChangeText={setName}
             />
-            <Text style={styles.formLabel}>交易类型</Text>
+            <Text style={styles.formLabel}>{t('comm.dealType')}</Text>
             <View style={styles.chipRow}>
-              {Object.keys(DEAL_TYPE).map((k) => (
+              {DEAL_TYPE_KEYS.map((k) => (
                 <TouchableOpacity
                   key={k}
                   style={[styles.chip, dealType === k && styles.chipActive]}
                   onPress={() => setDealType(k)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.chipText, dealType === k && styles.chipTextActive]}>{DEAL_TYPE[k]}</Text>
+                  <Text style={[styles.chipText, dealType === k && styles.chipTextActive]}>{t(DEAL_TYPE_LABEL_KEY[k])}</Text>
                 </TouchableOpacity>
               ))}
             </View>
             {isAdmin ? (
               <SelectDropdown
-                label="适用对象"
+                label={t('comm.appliedTo')}
                 value={scope}
                 options={[
-                  { key: 'all_employees', label: '全体员工' },
-                  { key: 'by_department', label: '部门' },
-                  { key: 'by_employee', label: '员工' },
-                  { key: 'by_broker', label: '分销商' },
-                  { key: 'broker_employee', label: '分销商员工' },
+                  { key: 'all_employees', label: t('comm.allEmployees') },
+                  { key: 'by_department', label: t('comm.department') },
+                  { key: 'by_employee', label: t('comm.employee') },
+                  { key: 'by_broker', label: t('comm.broker') },
+                  { key: 'broker_employee', label: t('comm.brokerEmployee') },
                 ]}
                 open={scopeOpen}
                 onToggle={() => setScopeOpen(!scopeOpen)}
@@ -303,11 +320,11 @@ export default function CommissionRulesScreen() {
               />
             ) : (
               <SelectDropdown
-                label="适用对象"
+                label={t('comm.appliedTo')}
                 value={scope}
                 options={[
-                  { key: 'by_broker', label: '本渠道（差异化定价）' },
-                  { key: 'by_employee', label: '本渠道员工' },
+                  { key: 'by_broker', label: t('comm.ourChannel') },
+                  { key: 'by_employee', label: t('comm.ourChannelEmployee') },
                 ]}
                 open={scopeOpen}
                 onToggle={() => setScopeOpen(!scopeOpen)}
@@ -319,13 +336,13 @@ export default function CommissionRulesScreen() {
               />
             )}
             {!isAdmin && (
-              <Text style={styles.formHint}>分销商管理员仅可为本渠道及本渠道员工配置差异化费率</Text>
+              <Text style={styles.formHint}>{t('comm.dealerHint')}</Text>
             )}
             {(scope === 'by_broker' || scope === 'broker_employee') && isAdmin && brokers.length > 0 && (
               <SelectDropdown
-                label="选择分销商"
+                label={t('comm.brokerSelectLabel')}
                 value={brokerId}
-                options={brokers.map((b) => ({ key: b.id, label: b.partner_name || b.name }))}
+                options={brokers.map((b) => ({ key: b.id, label: b.partner_name || b.name || b.id }))}
                 open={brokerOpen}
                 onToggle={() => {
                   setBrokerOpen(!brokerOpen);
@@ -343,17 +360,17 @@ export default function CommissionRulesScreen() {
                 label={
                   scope === 'broker_employee'
                     ? isAdmin
-                      ? '该分销商员工'
-                      : '本渠道员工'
+                      ? t('comm.thisBrokerEmployee')
+                      : t('comm.ourChannelEmployee')
                     : isAdmin
-                      ? '员工'
-                      : '本渠道员工'
+                      ? t('comm.employee')
+                      : t('comm.ourChannelEmployee')
                 }
                 value={scope === 'broker_employee' ? brokerEmployeeId : employeeId}
                 options={(scope === 'broker_employee' && isAdmin && brokerId
                   ? employees.filter((e) => e.broker_id === brokerId)
                   : employees
-                ).map((e) => ({ key: e.id, label: e.full_name || e.name }))}
+                ).map((e) => ({ key: e.id, label: e.full_name || e.name || e.id }))}
                 open={employeeOpen}
                 onToggle={() => setEmployeeOpen(!employeeOpen)}
                 onSelect={(k) => {
@@ -365,37 +382,37 @@ export default function CommissionRulesScreen() {
             )}
             {scope === 'by_department' && isAdmin && (
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>部门名称</Text>
+                <Text style={styles.formLabel}>{t('comm.departmentLabel')}</Text>
                 <TextInput
                   style={styles.formInput}
-                  placeholder="如：租赁部"
+                  placeholder={t('comm.deptPlaceholder')}
                   placeholderTextColor={colors.ink3}
                   value={department}
                   onChangeText={setDepartment}
                 />
               </View>
             )}
-            <Text style={styles.formLabel}>佣金比例 %</Text>
+            <Text style={styles.formLabel}>{t('comm.rateLabel')}</Text>
             <TextInput
               style={styles.formInput}
-              placeholder="请输入比例"
+              placeholder={t('comm.ratePlaceholder')}
               placeholderTextColor={colors.ink3}
               keyboardType="numeric"
               value={rate}
               onChangeText={setRate}
             />
             <TouchableOpacity style={styles.submitBtn} onPress={addRule} activeOpacity={0.7}>
-              <Text style={styles.submitBtnText}>新增设置</Text>
+              <Text style={styles.submitBtnText}>{t('comm.addNew')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* 已有设置 */}
           <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>已有设置</Text>
-            <Text style={styles.sectionHint}>共 {rules.length} 条</Text>
+            <Text style={styles.sectionTitle}>{t('comm.existing')}</Text>
+            <Text style={styles.sectionHint}>{t('comm.totalCount').replace('{n}', String(rules.length))}</Text>
           </View>
           {rules.length === 0 ? (
-            <EmptyState icon="settings-outline" title="暂无佣金设置" sub="新增一条设置即可生效" />
+            <EmptyState icon="settings-outline" title={t('comm.noRules')} sub={t('comm.noRulesSub')} />
           ) : (
             rules.map((r) => (
               <View key={r.id} style={styles.ruleCard}>
@@ -403,21 +420,21 @@ export default function CommissionRulesScreen() {
                   <Text style={styles.ruleName} numberOfLines={1}>{r.name}</Text>
                   <View style={[styles.tag, r.is_active === false ? styles.tagWarning : styles.tagSuccess]}>
                     <Text style={[styles.tagText, r.is_active === false ? styles.tagWarning_text : styles.tagSuccess_text]}>
-                      {r.is_active === false ? '停用' : '启用'}
+                      {r.is_active === false ? t('comm.disable') : t('comm.enable')}
                     </Text>
                   </View>
                 </View>
                 <View style={styles.ruleMeta}>
                   <View style={styles.ruleMetaItem}>
-                    <Text style={styles.ruleMetaLabel}>类型</Text>
-                    <Text style={styles.ruleMetaValue}>{DEAL_TYPE[r.deal_type] || r.deal_type}</Text>
+                    <Text style={styles.ruleMetaLabel}>{t('comm.type')}</Text>
+                    <Text style={styles.ruleMetaValue}>{t(DEAL_TYPE_LABEL_KEY[r.deal_type] || '') || r.deal_type}</Text>
                   </View>
                   <View style={styles.ruleMetaItem}>
-                    <Text style={styles.ruleMetaLabel}>比例</Text>
+                    <Text style={styles.ruleMetaLabel}>{t('comm.rateShort')}</Text>
                     <Text style={styles.ruleMetaPrimary}>{r.rate}%</Text>
                   </View>
                   <View style={styles.ruleMetaItem}>
-                    <Text style={styles.ruleMetaLabel}>适用对象</Text>
+                    <Text style={styles.ruleMetaLabel}>{t('comm.appliedTo')}</Text>
                     <Text style={styles.ruleMetaValue} numberOfLines={1}>
                       {scopeNameOf(r)}
                     </Text>

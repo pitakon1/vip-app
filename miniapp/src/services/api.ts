@@ -1,3 +1,4 @@
+import Taro from '@tarojs/taro'
 import { request } from '@/lib/api'
 
 export const authApi = {
@@ -10,11 +11,30 @@ export const authApi = {
       header: { 'Content-Type': 'application/x-www-form-urlencoded' }
     }),
   register: (data: any) => request({ url: '/auth/register', method: 'POST', data }),
-  me: () => request({ url: '/auth/me', method: 'GET' })
+  me: () => request({ url: '/auth/me', method: 'GET' }),
+  // 「我的」账户/设置自助
+  updateMe: (data: any) => request({ url: '/auth/me', method: 'PATCH', data }),
+  changePassword: (data: { old_password: string; new_password: string }) =>
+    request({ url: '/auth/me/password', method: 'POST', data }),
+  preferences: () => request({ url: '/auth/me/preferences', method: 'GET' }),
+  updatePreferences: (data: any) => request({ url: '/auth/me/preferences', method: 'PATCH', data })
 }
 
 export const propertiesApi = {
-  list: (params?: any) => request({ url: '/properties', method: 'GET', data: params })
+  list: (params?: any) => request({ url: '/properties', method: 'GET', data: params }),
+  get: (id: string) => request({ url: `/properties/${id}`, method: 'GET' }),
+  update: (id: string, data: any) =>
+    request({ url: `/properties/${id}`, method: 'PATCH', data }),
+  // 照片上传（multipart，后端先传后保存 url 列表到 photos）
+  uploadPhotos: (id: string, files: any[]) =>
+    Taro.uploadFile({
+      url: `/properties/${id}/photos`,
+      filePath: files[0].url,
+      name: 'files',
+      header: { Authorization: `Bearer ${Taro.getStorageSync('token')}` }
+    }),
+  deletePhoto: (id: string, url: string) =>
+    request({ url: `/properties/${id}/photos`, method: 'DELETE', data: { url } })
 }
 
 // 公司信息（公开接口）：仅取真实版本号供「我的 - 关于」展示，避免写死版本
@@ -25,7 +45,11 @@ export const companyApi = {
 // ============ 客户线索（CRM）============
 export const leadsApi = {
   list: (params?: any) => request({ url: '/leads', method: 'GET', data: params }),
-  updateStatus: (id: string, data: any) => request({ url: `/leads/${id}`, method: 'PATCH', data })
+  get: (id: string) => request({ url: `/leads/${id}`, method: 'GET' }),
+  create: (data: any) => request({ url: '/leads', method: 'POST', data }),
+  update: (id: string, data: any) => request({ url: `/leads/${id}`, method: 'PATCH', data }),
+  updateStatus: (id: string, data: any) => request({ url: `/leads/${id}`, method: 'PATCH', data }),
+  delete: (id: string) => request({ url: `/leads/${id}`, method: 'DELETE' })
 }
 
 export const leasesApi = {
@@ -39,6 +63,11 @@ export const paymentsApi = {
   mine: () => request({ url: '/payments/me', method: 'GET' }),
   // 收款列表（员工日历页取租金到期用，支持 status/payment_type/lease_id 等筛选）
   list: (params?: any) => request({ url: `/payments${qs(params)}`, method: 'GET' }),
+  // 手动记账 / 确认到账（管理端写操作）
+  create: (data: any) => request({ url: '/payments', method: 'POST', data }),
+  get: (id: string) => request({ url: `/payments/${id}`, method: 'GET' }),
+  confirm: (id: string, data: any) =>
+    request({ url: `/payments/${id}/confirm`, method: 'POST', data }),
   pay: (id: string, data: any) => request({ url: `/payments/${id}/pay`, method: 'POST', data }),
   receipt: (id: string) => request({ url: `/payments/${id}/receipt`, method: 'GET' }),
   invoice: (id: string) => request({ url: `/payments/${id}/invoice`, method: 'GET' })
@@ -114,6 +143,16 @@ export const dashboardApi = {
 export const auditApi = {
   list: (params?: any) => request({ url: '/audit-logs', method: 'GET', data: params }),
   summary: () => request({ url: '/audit-logs/summary', method: 'GET' })
+}
+
+// 管理端：账号管理（列表 / 开通 / 编辑 / 启停 / 删除）
+export const adminUsersApi = {
+  list: (params?: any) => request({ url: '/admin/users', method: 'GET', data: params }),
+  create: (data: any) => request({ url: '/admin/users', method: 'POST', data }),
+  update: (id: string, data: any) =>
+    request({ url: `/admin/users/${id}`, method: 'PATCH', data }),
+  deleteUser: (id: string) => request({ url: `/admin/users/${id}`, method: 'DELETE' }),
+  me: () => request({ url: '/admin/users/me', method: 'GET' })
 }
 
 // 管理端：佣金规则配置
@@ -288,6 +327,7 @@ export default {
   employeesApi,
   dashboardApi,
   auditApi,
+  adminUsersApi,
   commissionRulesApi,
   saleListingApi,
   propertyDealApi,

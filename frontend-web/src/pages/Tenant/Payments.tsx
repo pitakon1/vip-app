@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
@@ -32,28 +33,6 @@ const normalizeStatus = (status?: string): StatusKey => {
   return 'pending'
 }
 
-const chipLabelMap: Record<FilterKey, string> = {
-  all: '全部',
-  pending: '待缴',
-  approved: '已缴',
-  rejected: '逾期',
-}
-
-const recordStatusMap: Record<StatusKey, { label: string; cls: string }> = {
-  pending: { label: '待审核', cls: 'rent-pay-record__status--warning' },
-  approved: { label: '已确认', cls: 'rent-pay-record__status--success' },
-  rejected: { label: '已驳回', cls: 'rent-pay-record__status--error' },
-}
-
-const methodLabelMap: Record<string, string> = {
-  bank_transfer: '银行转账',
-  cash: '现金',
-  alipay: '支付宝',
-  wechat: '微信支付',
-  promptpay: 'PromptPay',
-  credit_card: '信用卡',
-}
-
 const methodIconMap: Record<string, React.ReactNode> = {
   bank_transfer: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/></svg>
@@ -77,6 +56,7 @@ const defaultMethodIcon = (
 )
 
 const TenantPayments = () => {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [data, setData] = useState<PaymentVoucher[]>([])
@@ -89,6 +69,28 @@ const TenantPayments = () => {
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer')
   const [fileName, setFileName] = useState('')
   const [fileObj, setFileObj] = useState<File | null>(null)
+
+  const chipLabelMap: Record<FilterKey, string> = {
+    all: t('tenantPayments.chipAll'),
+    pending: t('tenantPayments.chipPending'),
+    approved: t('tenantPayments.chipApproved'),
+    rejected: t('tenantPayments.chipRejected'),
+  }
+
+  const recordStatusMap: Record<StatusKey, { label: string; cls: string }> = {
+    pending: { label: t('tenantPayments.statusPending'), cls: 'rent-pay-record__status--warning' },
+    approved: { label: t('tenantPayments.statusApproved'), cls: 'rent-pay-record__status--success' },
+    rejected: { label: t('tenantPayments.statusRejected'), cls: 'rent-pay-record__status--error' },
+  }
+
+  const methodLabelMap: Record<string, string> = {
+    bank_transfer: t('tenantPayments.methodBankTransfer'),
+    cash: t('tenantPayments.methodCash'),
+    alipay: t('tenantPayments.methodAlipay'),
+    wechat: t('tenantPayments.methodWechat'),
+    promptpay: t('tenantPayments.methodPromptpay'),
+    credit_card: t('tenantPayments.methodCreditCard'),
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -134,7 +136,7 @@ const TenantPayments = () => {
     const kw = keyword.trim().toLowerCase()
     if (!kw) return filteredData
     return filteredData.filter((d) => {
-      const dateStr = dayjs(d.payment_date || d.created_at).format('YYYY年M月')
+      const dateStr = dayjs(d.payment_date || d.created_at).format(t('tenantPayments.monthFormat'))
       return [
         d.id,
         d.bill_type,
@@ -144,13 +146,13 @@ const TenantPayments = () => {
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(kw))
     })
-  }, [filteredData, keyword])
+  }, [filteredData, keyword, t])
 
   // 按月分组（倒序）
   const monthGroups = useMemo(() => {
     const map = new Map<string, PaymentVoucher[]>()
     for (const d of searchFiltered) {
-      const key = dayjs(d.payment_date || d.created_at || dayjs()).format('YYYY年M月')
+      const key = dayjs(d.payment_date || d.created_at || dayjs()).format(t('tenantPayments.monthFormat'))
       const arr = map.get(key) || []
       arr.push(d)
       map.set(key, arr)
@@ -164,7 +166,7 @@ const TenantPayments = () => {
   )
   const heroProperty = firstPending?.property_name || firstPending?.description || ''
   const heroDue = firstPending?.due_date
-    ? dayjs(firstPending.due_date).format('M月D日')
+    ? dayjs(firstPending.due_date).format(t('tenantPayments.dateDisplayFormat'))
     : ''
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,15 +188,15 @@ const TenantPayments = () => {
   const handleSubmit = async () => {
     const amt = Number(amount)
     if (!amount || isNaN(amt) || amt <= 0) {
-      message.warning('请输入付款金额')
+      message.warning(t('tenantPayments.warnAmount'))
       return
     }
     if (!paymentDate) {
-      message.warning('请选择付款日期')
+      message.warning(t('tenantPayments.warnDate'))
       return
     }
     if (!paymentMethod) {
-      message.warning('请选择付款方式')
+      message.warning(t('tenantPayments.warnMethod'))
       return
     }
     setSubmitting(true)
@@ -217,7 +219,7 @@ const TenantPayments = () => {
         throw new Error('upload response missing id')
       }
 
-      message.success('凭证上传成功，等待审核')
+      message.success(t('tenantPayments.uploadSuccess'))
       const newItem: PaymentVoucher = {
         ...payload,
         payment_method: payload.payment_method ?? payload.channel,
@@ -230,7 +232,7 @@ const TenantPayments = () => {
       setFileObj(null)
       setFileName('')
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || '上传失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('tenantPayments.uploadFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -242,7 +244,7 @@ const TenantPayments = () => {
     <>
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <span className="rent-text-muted">加载中…</span>
+          <span className="rent-text-muted">{t('common.loading')}</span>
         </div>
       )}
 
@@ -252,10 +254,10 @@ const TenantPayments = () => {
         <div className="rent-pay-hero__deco rent-pay-hero__deco--2"></div>
         <div className="rent-pay-hero__deco rent-pay-hero__deco--3"></div>
         <div className="rent-pay-hero__content">
-          <p className="rent-pay-hero__label">本月租金</p>
+          <p className="rent-pay-hero__label">{t('tenantPayments.monthRent')}</p>
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
             <h2 className="rent-pay-hero__amount">฿{summary.pendingTotal.toLocaleString()}</h2>
-            <span className="rent-pay-hero__status"><span className="rent-pay-hero__status-dot"></span>待支付</span>
+            <span className="rent-pay-hero__status"><span className="rent-pay-hero__status-dot"></span>{t('tenantPayments.toPay')}</span>
           </div>
           {(heroProperty || heroDue) && (
             <div className="rent-pay-hero__meta">
@@ -269,14 +271,14 @@ const TenantPayments = () => {
               {heroDue && (
                 <span className="rent-pay-hero__meta-item">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  请于 {heroDue} 前完成支付
+                  {t('tenantPayments.payBefore', { date: heroDue })}
                 </span>
               )}
             </div>
           )}
           <button className="rent-pay-hero__upload" onClick={scrollToUpload}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            上传付款凭证
+            {t('tenantPayments.uploadVoucher')}
           </button>
         </div>
       </div>
@@ -284,16 +286,16 @@ const TenantPayments = () => {
       {/* 付款状态摘要条 */}
       <div className="rent-pay-summary">
         <div className="rent-pay-summary__item">
-          <div><span className="rent-pay-summary__num">{data.length}</span><span className="rent-pay-summary__num-unit">张</span></div>
-          <div className="rent-pay-summary__label">已上传凭证</div>
+          <div><span className="rent-pay-summary__num">{data.length}</span><span className="rent-pay-summary__num-unit">{t('tenantPayments.uploadedCount')}</span></div>
+          <div className="rent-pay-summary__label">{t('tenantPayments.uploadedVouchers')}</div>
         </div>
         <div className="rent-pay-summary__item">
-          <div><span className="rent-pay-summary__num">{data.filter((d) => normalizeStatus(d.status) === 'pending').length}</span><span className="rent-pay-summary__num-unit">笔</span></div>
-          <div className="rent-pay-summary__label">待审核</div>
+          <div><span className="rent-pay-summary__num">{data.filter((d) => normalizeStatus(d.status) === 'pending').length}</span><span className="rent-pay-summary__num-unit">{t('tenantPayments.unitCount')}</span></div>
+          <div className="rent-pay-summary__label">{t('tenantPayments.pendingReview')}</div>
         </div>
         <div className="rent-pay-summary__item">
-          <div><span className="rent-pay-summary__num">{data.filter((d) => normalizeStatus(d.status) === 'approved').length}</span><span className="rent-pay-summary__num-unit">笔</span></div>
-          <div className="rent-pay-summary__label">已确认</div>
+          <div><span className="rent-pay-summary__num">{data.filter((d) => normalizeStatus(d.status) === 'approved').length}</span><span className="rent-pay-summary__num-unit">{t('tenantPayments.unitCount')}</span></div>
+          <div className="rent-pay-summary__label">{t('tenantPayments.confirmed')}</div>
         </div>
       </div>
 
@@ -302,7 +304,7 @@ const TenantPayments = () => {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input
           type="text"
-          placeholder="搜索凭证编号、月份..."
+          placeholder={t('tenantPayments.searchPlaceholder')}
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
         />
@@ -325,23 +327,23 @@ const TenantPayments = () => {
       {/* 上传凭证表单 */}
       <div className="rent-card" id="pay-upload" style={{ marginBottom: 32 }}>
         <div className="rent-card__header">
-          <h3 className="rent-card__title">上传付款凭证</h3>
+          <h3 className="rent-card__title">{t('tenantPayments.uploadTitle')}</h3>
         </div>
         <div className="rent-card__body">
           <div className="rent-pay-form-row">
             <div className="rent-pay-form-group">
-              <label className="rent-pay-form-label">付款金额</label>
+              <label className="rent-pay-form-label">{t('tenantPayments.labelAmount')}</label>
               <input
                 className="rent-pay-form-input"
                 type="number"
                 min={0}
-                placeholder="请输入付款金额"
+                placeholder={t('tenantPayments.amountPlaceholder')}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
               />
             </div>
             <div className="rent-pay-form-group">
-              <label className="rent-pay-form-label">付款日期</label>
+              <label className="rent-pay-form-label">{t('tenantPayments.labelDate')}</label>
               <input
                 className="rent-pay-form-input"
                 type="date"
@@ -351,7 +353,7 @@ const TenantPayments = () => {
             </div>
           </div>
           <div className="rent-pay-form-group">
-            <label className="rent-pay-form-label">付款方式</label>
+            <label className="rent-pay-form-label">{t('tenantPayments.labelMethod')}</label>
             <select
               className="rent-pay-form-select"
               value={paymentMethod}
@@ -363,13 +365,13 @@ const TenantPayments = () => {
             </select>
           </div>
           <div className="rent-pay-form-group">
-            <label className="rent-pay-form-label">上传凭证图片</label>
+            <label className="rent-pay-form-label">{t('tenantPayments.labelImage')}</label>
             <label className="rent-pay-file-drop">
               <div className="rent-pay-file-drop__icon">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               </div>
-              <div className="rent-pay-file-drop__text">点击或拖拽文件到此处上传</div>
-              <div className="rent-pay-file-drop__hint">支持单张图片或 PDF，不超过 10MB</div>
+              <div className="rent-pay-file-drop__text">{t('tenantPayments.dropText')}</div>
+              <div className="rent-pay-file-drop__hint">{t('tenantPayments.dropHint')}</div>
               <input
                 type="file"
                 accept="image/*,application/pdf"
@@ -377,32 +379,32 @@ const TenantPayments = () => {
                 onChange={handleFileChange}
               />
             </label>
-            {fileName && <div className="rent-pay-file-name">已选择：{fileName}</div>}
+            {fileName && <div className="rent-pay-file-name">{t('tenantPayments.selected', { name: fileName })}</div>}
           </div>
           <button
             className="rent-btn rent-btn--primary rent-btn--block"
             disabled={submitting}
             onClick={handleSubmit}
           >
-            {submitting ? '提交中…' : '提交凭证'}
+            {submitting ? t('tenantPayments.submitting') : t('tenantPayments.submitVoucher')}
           </button>
         </div>
       </div>
 
       {/* 付款记录 */}
       <div className="rent-pay-section">
-        <h3 className="rent-pay-section__title">付款记录</h3>
+        <h3 className="rent-pay-section__title">{t('tenantPayments.recordsTitle')}</h3>
         {monthGroups.length ? (
           monthGroups.map(([month, bills]) => (
             <div key={month} className="rent-pay-month">
               <div className="rent-pay-month__header">
                 <h4 className="rent-pay-month__title">{month}</h4>
-                <span className="rent-pay-month__count">{bills.length} 笔</span>
+                <span className="rent-pay-month__count">{bills.length} {t('tenantPayments.countUnit')}</span>
               </div>
               {bills.map((bill, idx) => {
                 const statusKey = normalizeStatus(bill.status)
                 const st = recordStatusMap[statusKey]
-                const method = methodLabelMap[bill.payment_method] || bill.payment_method || '其他'
+                const method = methodLabelMap[bill.payment_method] || bill.payment_method || t('tenantPayments.otherMethod')
                 const uploadDate = dayjs(bill.created_at || bill.payment_date).format('YYYY-MM-DD')
                 const recordNo = `PAY-${dayjs(bill.payment_date || bill.created_at).format('YYYY-MM')}${String(idx + 1).padStart(2, '0')}`
                 return (
@@ -415,7 +417,7 @@ const TenantPayments = () => {
                       <div className="rent-pay-record__meta">
                         <span>{method}</span>
                         <span className="rent-pay-record__meta-sep"></span>
-                        <span>上传于 {uploadDate}</span>
+                        <span>{t('tenantPayments.uploadedAt', { date: uploadDate })}</span>
                       </div>
                     </div>
                     <div className="rent-pay-record__amount">฿{Number(bill.amount || 0).toLocaleString()}</div>
@@ -424,9 +426,9 @@ const TenantPayments = () => {
                     </div>
                     <div className="rent-pay-record__actions">
                       {statusKey === 'rejected' ? (
-                        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={scrollToUpload}>重新上传</button>
+                        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={scrollToUpload}>{t('tenantPayments.reupload')}</button>
                       ) : (
-                        <button className="rent-btn rent-btn--secondary rent-btn--sm">查看</button>
+                        <button className="rent-btn rent-btn--secondary rent-btn--sm">{t('tenantPayments.view')}</button>
                       )}
                     </div>
                   </div>
@@ -435,7 +437,7 @@ const TenantPayments = () => {
             </div>
           ))
         ) : (
-          <div className="rent-empty">暂无付款记录</div>
+          <div className="rent-empty">{t('tenantPayments.empty')}</div>
         )}
       </div>
     </>

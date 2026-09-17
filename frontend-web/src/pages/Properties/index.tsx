@@ -10,16 +10,22 @@ import {
   Col,
   Select,
   Spin,
+  Switch,
+  Upload,
+  Popover,
   message,
 } from 'antd'
 import {
   ExclamationCircleOutlined,
+  PlusOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { propertiesApi, projectsApi } from '@/services/api'
 import { downloadReport } from '@/lib/download'
 import useAuthStore from '@/stores/auth'
 import type { Project, Property } from '@/types'
+import { AREA_GROUPS } from '@/data/locationArea'
+import { METRO_LINES } from '@/data/locationMetro'
 import './properties.css'
 
 // ==================== 常量 ====================
@@ -40,6 +46,14 @@ const bannerColorFor = (seed: string) => {
 }
 
 const formatRent = (v: any) => Number(v || 0).toLocaleString()
+
+// 命中关键词：房源地址/城市/项目名/城区/区域任一包含即可（区域/地铁筛选，与租客端口径一致）
+const matchLocation = (item: any, kws: string[]): boolean =>
+  kws.some((k) =>
+    [item.address, item.city, item.project_id, item.district, item.area]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(k))
+  )
 
 const PAGE_SIZE = 10
 
@@ -63,14 +77,72 @@ const Properties = () => {
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('')
   const [propertyType, setPropertyType] = useState('')
+  // 房间数：''=不限, '0'=单间, '1'/'2'=精确居室, '3'=3室及以上
+  const [bedrooms, setBedrooms] = useState('')
+  // 价格区间：''=不限, 预设区间 key（如 '5000-10000'/'50000+'）, 'custom'=自定义
+  const [priceRange, setPriceRange] = useState('')
+  const [priceCustomMin, setPriceCustomMin] = useState('')
+  const [priceCustomMax, setPriceCustomMax] = useState('')
+  // 面积区间：''=不限, 预设区间 key（如 '50-100'/'200+'）, 'custom'=自定义
+  const [areaRange, setAreaRange] = useState('')
+  const [areaCustomMin, setAreaCustomMin] = useState('')
+  const [areaCustomMax, setAreaCustomMax] = useState('')
   const [sort, setSort] = useState('created')
   const [page, setPage] = useState(1)
+
+  // 按区域 / 按地铁定位（与租客端 PublicListings 交互逻辑一致）
+  const [locTab, setLocTab] = useState<'area' | 'metro'>('area')
+  const [locOpen, setLocOpen] = useState(false)                        // 面板开合
+  const [districtSel, setDistrictSel] = useState<string | null>(null) // 已选城区 key
+  const [metroSel, setMetroSel] = useState<string[]>([])              // 已选站点 name（已确认）
+  const [metroDraft, setMetroDraft] = useState<string[]>([])          // 站点多选草稿（确定后提交）
+  const [metroLine, setMetroLine] = useState<string>(METRO_LINES[0].key)
+  // 只看带视频
+  const [onlyVideo, setOnlyVideo] = useState(false)
+
+  // 已选区域/地铁的命中关键词（并入列表筛选）
+  const activeLocationKw = useMemo<string[]>(() => {
+    if (districtSel) {
+      const node = AREA_GROUPS.flatMap((g) => g.children).find((d) => d.key === districtSel)
+      return node ? node.kws : []
+    }
+    if (metroSel.length) {
+      const lines = METRO_LINES.flatMap((l) => l.stations)
+      return lines.filter((s) => metroSel.includes(s.name)).flatMap((s) => s.kws)
+    }
+    return []
+  }, [districtSel, metroSel])
+
+  // 定位面板：区域点击即生效且与地铁互斥；地铁为草稿多选，确定后提交
+  const applyDistrict = (key: string | null) => {
+    if (districtSel === key) { setDistrictSel(null); return }
+    setDistrictSel(key)
+    setMetroSel([])
+    setMetroDraft([])
+  }
+  const resetLoc = () => { setDistrictSel(null); setMetroSel([]); setMetroDraft([]) }
+  const onLocOpenChange = (open: boolean) => {
+    if (open) setMetroDraft(metroSel)
+    setLocOpen(open)
+  }
+  const toggleStation = (name: string) => {
+    setMetroDraft((d) => (d.includes(name) ? d.filter((s) => s !== name) : [...d, name]))
+  }
+  const confirmMetro = () => {
+    setMetroSel(metroDraft)
+    if (metroDraft.length) setDistrictSel(null)
+    setLocOpen(false)
+  }
+  const clearMetroDraft = () => { setMetroDraft([]); setMetroSel([]) }
+  const activeLine = useMemo(() => METRO_LINES.find((l) => l.key === metroLine), [metroLine])
 
   // 弹窗
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm()
+  // 照片 url 列表（仅编辑态可上传；随 handleSubmit 一并提交）
+  const [photos, setPhotos] = useState<string[]>([])
 
   // 项目坐标弹窗：地图找房的点位取自项目经纬度，此处在 Web 端补齐录入入口
   type CoordRow = { id: string; name: string; address: string; lat: number | null; lng: number | null }
@@ -210,6 +282,55 @@ const Properties = () => {
     if (propertyType) {
       list = list.filter((it: any) => (it.property_type || '').toLowerCase() === propertyType)
     }
+    // 按区域 / 按地铁：命中已选城区/站点关键词（与租客端口径一致）
+    if (activeLocationKw.length) {
+      list = list.filter((it: any) => matchLocation(it, activeLocationKw))
+    }
+    // 只看带视频
+    if (onlyVideo) {
+      list = list.filter((it: any) => !!it.video_url)
+    }
+    // 房间数（对齐后端 bedrooms_min/bedrooms_max：'0'=单间, '1'/'2'/'3' 精确, '4'=≥4）
+    if (bedrooms !== '') {
+      const n = Number(bedrooms)
+      if (bedrooms === '4') {
+        list = list.filter((it: any) => Number(it.bedrooms || 0) >= 4)
+      } else {
+        list = list.filter((it: any) => Number(it.bedrooms || 0) === n)
+      }
+    }
+    // 价格区间（对齐后端 price_min/price_max）：预设区间 or 自定义
+    {
+      let pMin = 0, pMax = Infinity
+      if (priceRange === 'custom') {
+        if (priceCustomMin) { const mn = Number(priceCustomMin); if (!Number.isNaN(mn)) pMin = mn }
+        if (priceCustomMax) { const mx = Number(priceCustomMax); if (!Number.isNaN(mx)) pMax = mx }
+      } else if (priceRange) {
+        const [mn, mx] = priceRange.split('-').map(Number)
+        if (!Number.isNaN(mn)) pMin = mn
+        if (!Number.isNaN(mx)) pMax = mx
+      }
+      list = list.filter((it: any) => {
+        const r = Number(it.monthly_rent || 0)
+        return r >= pMin && r <= pMax
+      })
+    }
+    // 面积区间（对齐后端 area_min/area_max）：预设区间 or 自定义
+    {
+      let aMin = 0, aMax = Infinity
+      if (areaRange === 'custom') {
+        if (areaCustomMin) { const mn = Number(areaCustomMin); if (!Number.isNaN(mn) && mn > 0) aMin = mn }
+        if (areaCustomMax) { const mx = Number(areaCustomMax); if (!Number.isNaN(mx) && mx > 0) aMax = mx }
+      } else if (areaRange) {
+        const [mn, mx] = areaRange.split('-').map(Number)
+        if (!Number.isNaN(mn)) aMin = mn
+        if (!Number.isNaN(mx)) aMax = mx
+      }
+      list = list.filter((it: any) => {
+        const s = Number(it.size_sqm || 0)
+        return s >= aMin && s <= aMax
+      })
+    }
     switch (sort) {
       case 'rent-asc': list.sort((a: any, b: any) => a.monthly_rent - b.monthly_rent); break
       case 'rent-desc': list.sort((a: any, b: any) => b.monthly_rent - a.monthly_rent); break
@@ -219,9 +340,9 @@ const Properties = () => {
         break
     }
     return list
-  }, [allItems, keyword, status, propertyType, sort])
+  }, [allItems, keyword, status, propertyType, activeLocationKw, onlyVideo, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
 
-  useEffect(() => { setPage(1) }, [keyword, status, propertyType, sort])
+  useEffect(() => { setPage(1) }, [keyword, status, propertyType, activeLocationKw, onlyVideo, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
 
   const total = filteredItems.length
   const pagedItems = useMemo(() => {
@@ -249,15 +370,31 @@ const Properties = () => {
 
   // ==================== CRUD ====================
 
-  const openCreate = () => { setEditingId(null); form.resetFields(); setModalOpen(true) }
+  const openCreate = () => {
+    setEditingId(null)
+    setPhotos([])
+    form.resetFields()
+    setModalOpen(true)
+  }
 
   const openEdit = (record: Property) => {
     setEditingId(String(record.id))
+    setPhotos(record.photos || [])
     form.setFieldsValue({
       project_id: record.project_id, room_number: record.room_number,
       owner_id: record.owner_id, monthly_rent: record.monthly_rent,
       deposit_amount: record.deposit_amount, size_sqm: record.size_sqm,
       bedrooms: record.bedrooms, bathrooms: record.bathrooms, status: record.status,
+      address: record.address || undefined,
+      building: record.building ?? undefined,
+      floor: record.floor ?? undefined,
+      property_type: record.property_type || undefined,
+      currency: record.currency || 'THB',
+      deposit_months: record.deposit_months ?? undefined,
+      furnished: record.furnished ?? false,
+      available_from: record.available_from || record.available_date || undefined,
+      description: record.description || undefined,
+      photos: record.photos || [],
       video_url: record.video_url || undefined,
     })
     setModalOpen(true)
@@ -283,12 +420,16 @@ const Properties = () => {
     })
   }
 
+  // 上架/下架已废弃：删除即下架（前端不再调用 listing_status 更新）
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields()
       setSubmitting(true)
-      if (editingId) { await propertiesApi.update(editingId, values); message.success(t('property.updateSuccess')) }
-      else { await propertiesApi.create(values); message.success(t('property.createSuccess')) }
+      // 照片仅在编辑态存在；构建提交载荷时按 editingId 合并照片 url 列表
+      const payload = editingId ? { ...values, photos } : values
+      if (editingId) { await propertiesApi.update(editingId, payload); message.success(t('property.updateSuccess')) }
+      else { await propertiesApi.create(payload); message.success(t('property.createSuccess')) }
       setModalOpen(false)
       fetchData()
     } catch (err: any) {
@@ -296,6 +437,37 @@ const Properties = () => {
       message.error(err?.response?.data?.message || t('property.saveFailed'))
     } finally { setSubmitting(false) }
   }
+
+  // ==================== 照片上传/删除 ====================
+
+  const uploadPhoto = async (file: File) => {
+    if (!editingId) { message.warning(t('property.saveFirst')); return }
+    try {
+      const res = await propertiesApi.uploadPhotos(editingId, [file])
+      const d = res.data?.data ?? res.data
+      setPhotos(Array.isArray(d?.photos) ? d.photos : [])
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || t('property.uploadFailed'))
+    }
+  }
+
+  const removePhoto = async (url: string) => {
+    if (!editingId) return
+    try {
+      const res = await propertiesApi.deletePhoto(editingId, url)
+      const d = res.data?.data ?? res.data
+      setPhotos(Array.isArray(d?.photos) ? d.photos : [])
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || t('property.deletePhotoFailed'))
+    }
+  }
+
+  const photoFileList = photos.map((url, idx) => ({
+    uid: `photo-${idx}`,
+    name: url.split('/').pop() || `photo-${idx}`,
+    status: 'done' as const,
+    url,
+  }))
 
   // ==================== 列表项渲染 ====================
 
@@ -385,6 +557,126 @@ const Properties = () => {
     )
   }
 
+  // 定位面板图标
+  const LocIcon = ({ kind }: { kind: 'area' | 'metro' }) => (
+    kind === 'area'
+      ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="12" rx="2" /><path d="M9 8h6M6 21l1.5-3h9L18 21M8 9v2M12 9v2M16 9v2" /></svg>
+  )
+
+  // 定位面板（区域实时单选 · 地铁草稿多选，与租客端 PublicListings 一致）
+  const locLabel = (() => {
+    if (districtSel) {
+      const node = AREA_GROUPS.flatMap((g) => g.children).find((d) => d.key === districtSel)
+      return node ? node.label : '按区域'
+    }
+    if (metroSel.length) {
+      const first = metroSel[0]
+      return metroSel.length > 1 ? `${first} +${metroSel.length - 1}` : first
+    }
+    return '按区域'
+  })()
+
+  const locPanelContent = (
+    <div className="prop-loc-panel">
+      <div className="prop-loc-panel__tabs">
+        {(['area', 'metro'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            className={`prop-loc-panel__tab ${locTab === tab ? 'prop-loc-panel__tab--active' : ''}`}
+            onClick={() => setLocTab(tab)}
+          >
+            <LocIcon kind={tab} />
+            {tab === 'area' ? '按区域' : '按地铁'}
+          </button>
+        ))}
+      </div>
+
+      {locTab === 'area' ? (
+        <div className="prop-loc-panel__body">
+          {AREA_GROUPS.map((g) => (
+            <div className="prop-loc-panel__group" key={g.cityKey}>
+              <div className="prop-loc-panel__group-title">{g.country} · {g.cityLabel}</div>
+              <div className="prop-loc-panel__chips">
+                <button
+                  type="button"
+                  className={`prop-loc-panel__chip ${districtSel === null ? 'prop-loc-panel__chip--active' : ''}`}
+                  onClick={() => applyDistrict(null)}
+                >
+                  不限
+                </button>
+                {g.children.map((d) => (
+                  <button
+                    key={d.key}
+                    type="button"
+                    className={`prop-loc-panel__chip ${districtSel === d.key ? 'prop-loc-panel__chip--active' : ''}`}
+                    onClick={() => applyDistrict(d.key)}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="prop-loc-panel__metro">
+          <div className="prop-loc-panel__lines">
+            {METRO_LINES.map((l) => (
+              <button
+                key={l.key}
+                type="button"
+                className={`prop-loc-panel__line ${metroLine === l.key ? 'prop-loc-panel__line--active' : ''}`}
+                onClick={() => setMetroLine(l.key)}
+              >
+                {l.cityLabel} · {l.name}
+              </button>
+            ))}
+          </div>
+          <div className="prop-loc-panel__stations">
+            <div className="prop-loc-panel__stations-title">{activeLine ? `${activeLine.cityLabel} · ${activeLine.name}` : ''}</div>
+            <div className="prop-loc-panel__chips">
+              {activeLine?.stations.map((s) => (
+                <button
+                  key={s.name}
+                  type="button"
+                  className={`prop-loc-panel__chip ${metroDraft.includes(s.name) ? 'prop-loc-panel__chip--active' : ''}`}
+                  onClick={() => toggleStation(s.name)}
+                >
+                  {s.name}
+                </button>
+              ))}
+              {activeLine && !activeLine.stations.length && <span className="prop-loc-panel__empty">暂无</span>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="prop-loc-panel__footer">
+        {locTab === 'metro' && (
+          <span className="prop-loc-panel__count">已选 <strong>{metroDraft.length}</strong></span>
+        )}
+        <div className="prop-loc-panel__actions">
+          <button
+            type="button"
+            className="prop-loc-panel__btn prop-loc-panel__btn--ghost"
+            onClick={() => (locTab === 'metro' ? clearMetroDraft() : resetLoc())}
+          >
+            重置
+          </button>
+          <button
+            type="button"
+            className="prop-loc-panel__btn prop-loc-panel__btn--primary"
+            onClick={() => (locTab === 'metro' ? confirmMetro() : setLocOpen(false))}
+          >
+            确定
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   // ==================== 渲染 ====================
 
   return (
@@ -425,6 +717,23 @@ const Properties = () => {
             onChange={(e) => setKeyword(e.target.value)}
           />
         </div>
+        <Popover
+          trigger="click"
+          open={locOpen}
+          onOpenChange={onLocOpenChange}
+          placement="bottomLeft"
+          overlayClassName="prop-loc-popover"
+          content={locPanelContent}
+        >
+          <button
+            type="button"
+            className={`prop-loc-btn ${activeLocationKw.length ? 'prop-loc-btn--active' : ''}`}
+          >
+            <LocIcon kind={metroSel.length ? 'metro' : 'area'} />
+            {locLabel}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9" /></svg>
+          </button>
+        </Popover>
         <select className="rent-form-select rent-filter-bar__select" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">全部状态</option>
           <option value="rented">{statusLabelMap.rented}</option>
@@ -438,11 +747,86 @@ const Properties = () => {
           <option value="shop">{propertyTypeMap.shop}</option>
           <option value="office">{propertyTypeMap.office}</option>
         </select>
+        <select className="rent-form-select rent-filter-bar__select" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)}>
+          <option value="">不限房型</option>
+          <option value="0">单间</option>
+          <option value="1">1室</option>
+          <option value="2">2室</option>
+          <option value="3">3室</option>
+          <option value="4">4室及以上</option>
+        </select>
+        <select className="rent-form-select rent-filter-bar__select" value={priceRange} onChange={(e) => setPriceRange(e.target.value)}>
+          <option value="">不限价格</option>
+          <option value="0-5000">5000以下</option>
+          <option value="5000-10000">5000-10000</option>
+          <option value="10000-20000">10000-20000</option>
+          <option value="20000-50000">20000-50000</option>
+          <option value="50000+">50000以上</option>
+          <option value="custom">自定义价格</option>
+        </select>
+        {priceRange === 'custom' && (
+          <div className="rent-filter-bar__custom">
+            <input
+              className="rent-filter-bar__custom-input"
+              type="number"
+              min={0}
+              value={priceCustomMin}
+              placeholder="最低"
+              onChange={(e) => setPriceCustomMin(e.target.value)}
+            />
+            <span className="rent-filter-bar__custom-sep">-</span>
+            <input
+              className="rent-filter-bar__custom-input"
+              type="number"
+              min={0}
+              value={priceCustomMax}
+              placeholder="最高"
+              onChange={(e) => setPriceCustomMax(e.target.value)}
+            />
+          </div>
+        )}
+        <select className="rent-form-select rent-filter-bar__select" value={areaRange} onChange={(e) => setAreaRange(e.target.value)}>
+          <option value="">不限面积</option>
+          <option value="0-50">50㎡以下</option>
+          <option value="50-100">50-100㎡</option>
+          <option value="100-200">100-200㎡</option>
+          <option value="200+">200㎡以上</option>
+          <option value="custom">自定义面积</option>
+        </select>
+        {areaRange === 'custom' && (
+          <div className="rent-filter-bar__custom">
+            <input
+              className="rent-filter-bar__custom-input"
+              type="number"
+              min={0}
+              value={areaCustomMin}
+              placeholder="最小"
+              onChange={(e) => setAreaCustomMin(e.target.value)}
+            />
+            <span className="rent-filter-bar__custom-sep">-</span>
+            <input
+              className="rent-filter-bar__custom-input"
+              type="number"
+              min={0}
+              value={areaCustomMax}
+              placeholder="最大"
+              onChange={(e) => setAreaCustomMax(e.target.value)}
+            />
+          </div>
+        )}
         <select className="rent-form-select rent-filter-bar__select" value={sort} onChange={(e) => setSort(e.target.value)}>
           <option value="created">最近创建</option>
           <option value="rent-asc">租金升序</option>
           <option value="rent-desc">租金降序</option>
         </select>
+        <button
+          type="button"
+          className={`prop-video-btn ${onlyVideo ? 'prop-video-btn--active' : ''}`}
+          onClick={() => setOnlyVideo((v) => !v)}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="14" height="14" rx="2" /><polygon points="22 7 16 11 16 13 22 17 22 7" /></svg>
+          只看带视频
+        </button>
       </div>
 
       {/* Property Card Grid（对齐原型 rent-grid--auto） */}
@@ -523,18 +907,73 @@ const Properties = () => {
           </Row>
           <Row gutter={16}>
             <Col span={12}><Form.Item label={t('property.owner')} name="owner_id"><Input placeholder={t('property.ownerPlaceholder')} /></Form.Item></Col>
-            <Col span={12}><Form.Item label={t('property.layout')} name="layout"><Input placeholder={t('property.layoutPlaceholder')} /></Form.Item></Col>
+            <Col span={12}>
+              <Form.Item label={t('property.propertyType')} name="property_type">
+                <Select placeholder={t('property.propertyTypePlaceholder')} options={Object.entries(propertyTypeMap).map(([k, v]) => ({ value: k, label: v }))} allowClear />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label={t('property.address')} name="address" rules={[{ required: true, message: t('property.addressPlaceholder') }]}>
+            <Input placeholder={t('property.addressPlaceholder')} />
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={8}><Form.Item label={t('property.building')} name="building"><InputNumber style={{ width: '100%' }} placeholder={t('property.building')} /></Form.Item></Col>
+            <Col span={8}><Form.Item label={t('property.floor')} name="floor"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.floor')} /></Form.Item></Col>
+            <Col span={8}>
+              <Form.Item label={t('property.currency')} name="currency" rules={[{ required: true, message: t('property.currency') }]}>
+                <Select placeholder={t('property.currency')} options={[{ value: 'THB', label: 'THB' }, { value: 'USD', label: '$' }, { value: 'CNY', label: 'CNY' }]} />
+              </Form.Item>
+            </Col>
           </Row>
           <Row gutter={16}>
             <Col span={8}><Form.Item label={t('property.monthlyRent')} name="monthly_rent" rules={[{ required: true, message: t('property.monthlyRent') }]}><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.monthlyRent')} /></Form.Item></Col>
             <Col span={8}><Form.Item label={t('property.deposit')} name="deposit_amount"><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.deposit')} /></Form.Item></Col>
-            <Col span={8}><Form.Item label={`${t('property.area')}(㎡)`} name="size_sqm" rules={[{ required: true, message: t('property.area') }]}><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.areaPlaceholder')} /></Form.Item></Col>
+            <Col span={8}><Form.Item label={t('property.depositMonths')} name="deposit_months"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.depositMonths')} /></Form.Item></Col>
           </Row>
           <Row gutter={16}>
-            <Col span={8}><Form.Item label={t('property.bedrooms')} name="bedrooms"><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.bedrooms')} /></Form.Item></Col>
-            <Col span={8}><Form.Item label={t('property.bathrooms')} name="bathrooms"><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.bathrooms')} /></Form.Item></Col>
-            <Col span={8}><Form.Item label={t('common.status')} name="status" rules={[{ required: true, message: t('property.statusPlaceholder') }]}><Select placeholder={t('property.statusPlaceholder')} options={Object.entries(statusLabelMap).map(([k, v]) => ({ value: k, label: v }))} /></Form.Item></Col>
+            <Col span={8}><Form.Item label={t('property.area')} name="size_sqm" rules={[{ required: true, message: t('property.area') }]}><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.areaPlaceholder')} /></Form.Item></Col>
+            <Col span={8}><Form.Item label={t('property.bedrooms')} name="bedrooms"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.bedrooms')} /></Form.Item></Col>
+            <Col span={8}><Form.Item label={t('property.bathrooms')} name="bathrooms"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.bathrooms')} /></Form.Item></Col>
           </Row>
+          <Row gutter={16}>
+            <Col span={10}>
+              <Form.Item label={t('common.status')} name="status" rules={[{ required: true, message: t('property.statusPlaceholder') }]}>
+                <Select placeholder={t('property.statusPlaceholder')} options={Object.entries(statusLabelMap).map(([k, v]) => ({ value: k, label: v }))} />
+              </Form.Item>
+            </Col>
+            <Col span={10}><Form.Item label={t('property.availableFrom')} name="available_from"><Input placeholder="YYYY-MM-DD" /></Form.Item></Col>
+            <Col span={4}>
+              <Form.Item label={t('property.furnished')} name="furnished" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label={t('property.layout')} name="layout">
+            <Input placeholder={t('property.layoutPlaceholder')} />
+          </Form.Item>
+          <Form.Item label={t('property.description')} name="description">
+            <Input.TextArea rows={4} placeholder={t('property.descriptionPlaceholder')} />
+          </Form.Item>
+          {editingId ? (
+            <Form.Item label={t('property.photos')}>
+              <Upload
+                listType="picture-card"
+                fileList={photoFileList}
+                accept="image/*"
+                onRemove={(file) => {
+                  const url = (file as any).url
+                  if (url) removePhoto(url)
+                  return true
+                }}
+                customRequest={({ file }) => { uploadPhoto(file as File) }}
+              >
+                <div>
+                  <PlusOutlined />
+                  <div style={{ marginTop: 8 }}>{t('property.upload')}</div>
+                </div>
+              </Upload>
+            </Form.Item>
+          ) : null}
           <Form.Item label={t('property.videoUrl')} name="video_url">
             <Input placeholder={t('property.videoUrlPlaceholder')} allowClear />
           </Form.Item>

@@ -19,9 +19,8 @@ import OwnerServicesScreen from '../screens/owner/ServicesScreen';
 // 员工端页面
 import EmployeeHomeScreen from '../screens/employee/HomeScreen';
 import EmployeePropertyBrowseScreen from '../screens/employee/PropertyBrowseScreen';
-import AttendanceScreen from '../screens/attendance/AttendanceScreen';
 import PerformanceScreen from '../screens/employee/PerformanceScreen';
-import ContactScreen from '../screens/employee/ContactScreen';
+import CRMScreen from '../screens/employee/CRMScreen';
 
 // 管理端页面
 import AdminHomeScreen from '../screens/admin/HomeScreen';
@@ -35,6 +34,56 @@ import ChatListScreen from '../screens/chat/ChatListScreen';
 const Tab = createBottomTabNavigator();
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
+
+// 底部导航按原型对齐（rental-full-draft/pages/*-mobile-*.html 的 data-nav-key）。
+// 角色 -> Tab 列表作为本端单一配置源，供下方统一渲染，去除各角色重复的 Tab.Screen 结构。
+interface TabDef {
+  name: string;
+  component: React.ComponentType<any>;
+  icon: IoniconName;
+  /** i18n key，文案取自 src/i18n 的 tab.* */
+  labelKey: string;
+}
+
+const ROLE_TABS: Record<UserRole, TabDef[]> = {
+  // 管理端 首页 / 房源 / 客户 / 收款 / 我的
+  admin: [
+    { name: 'AdminHome', component: AdminHomeScreen, icon: 'home', labelKey: 'tab.home' },
+    { name: 'AdminProperties', component: AdminPropertiesScreen, icon: 'business', labelKey: 'tab.properties' },
+    { name: 'AdminCRM', component: AdminCRMScreen, icon: 'people', labelKey: 'tab.customers' },
+    { name: 'AdminPayments', component: AdminPaymentsScreen, icon: 'card', labelKey: 'tab.payments' },
+    { name: 'AdminProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
+  ],
+  // 员工/经纪端 首页 / 房源 / 客户 / 业绩 / 我的（通讯录移至「我的」内）
+  employee: [
+    { name: 'EmployeeHome', component: EmployeeHomeScreen, icon: 'home', labelKey: 'tab.home' },
+    { name: 'EmployeePropertyBrowse', component: EmployeePropertyBrowseScreen, icon: 'business', labelKey: 'tab.properties' },
+    { name: 'EmployeeCRM', component: CRMScreen, icon: 'people', labelKey: 'tab.customers' },
+    { name: 'EmployeePerformance', component: PerformanceScreen, icon: 'stats-chart', labelKey: 'tab.performance' },
+    { name: 'EmployeeProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
+  ],
+  agent: [
+    { name: 'EmployeeHome', component: EmployeeHomeScreen, icon: 'home', labelKey: 'tab.home' },
+    { name: 'EmployeePropertyBrowse', component: EmployeePropertyBrowseScreen, icon: 'business', labelKey: 'tab.properties' },
+    { name: 'EmployeeCRM', component: CRMScreen, icon: 'people', labelKey: 'tab.customers' },
+    { name: 'EmployeePerformance', component: PerformanceScreen, icon: 'stats-chart', labelKey: 'tab.performance' },
+    { name: 'EmployeeProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
+  ],
+  // 业主端 首页 / 收益 / 服务 / 我的
+  owner: [
+    { name: 'OwnerHome', component: OwnerHomeScreen, icon: 'home', labelKey: 'tab.home' },
+    { name: 'OwnerIncome', component: OwnerIncomeScreen, icon: 'wallet', labelKey: 'tab.income' },
+    { name: 'OwnerServices', component: OwnerServicesScreen, icon: 'hammer', labelKey: 'tab.services' },
+    { name: 'OwnerProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
+  ],
+  // 租客端 首页 / 找房 / 消息 / 我的
+  tenant: [
+    { name: 'TenantHome', component: TenantHomeScreen, icon: 'home', labelKey: 'tab.home' },
+    { name: 'TenantListings', component: TenantListingsScreen, icon: 'search', labelKey: 'tab.listings' },
+    { name: 'TenantChat', component: ChatListScreen, icon: 'chatbubbles', labelKey: 'tab.messages' },
+    { name: 'TenantProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
+  ],
+};
 
 const makeTabOptions = (icon: IoniconName, title: string) => ({
   title,
@@ -65,59 +114,19 @@ const screenOptions = {
   tabBarLabelStyle: { fontSize: 11 },
 };
 
-// 底部导航按原型对齐（rental-full-draft/pages/*-mobile-*.html 的 data-nav-key）：
-//   管理端 首页 / 房源 / 客户 / 收款 / 我的
-//   员工端 首页 / 房源 / 考勤 / 业绩 / 通讯录
-//   业主端 首页 / 收益 / 服务 / 我的
-//   租客端 首页 / 找房 / 消息 / 我的
-// 原型未覆盖的页面（OwnerDocuments / AdminOps / EmployeeChat 等）保留为 RootNavigator 的 Stack 路由。
-
-function OwnerTabs() {
+// 统一按 ROLE_TABS 渲染底部导航，消除各角色重复的 Tab.Screen 结构。
+function RoleTabs({ defs }: { defs: TabDef[] }) {
   const { t } = useI18n();
   return (
     <Tab.Navigator screenOptions={screenOptions}>
-      <Tab.Screen name="OwnerHome" component={OwnerHomeScreen} options={makeTabOptions('home', t('tab.home'))} />
-      <Tab.Screen name="OwnerIncome" component={OwnerIncomeScreen} options={makeTabOptions('wallet', t('tab.income'))} />
-      <Tab.Screen name="OwnerServices" component={OwnerServicesScreen} options={makeTabOptions('hammer', t('tab.services'))} />
-      <Tab.Screen name="OwnerProfile" component={ProfileScreen} options={makeTabOptions('person', t('tab.profile'))} />
-    </Tab.Navigator>
-  );
-}
-
-function TenantTabs() {
-  const { t } = useI18n();
-  return (
-    <Tab.Navigator screenOptions={screenOptions}>
-      <Tab.Screen name="TenantHome" component={TenantHomeScreen} options={makeTabOptions('home', t('tab.home'))} />
-      <Tab.Screen name="TenantListings" component={TenantListingsScreen} options={makeTabOptions('search', t('tab.listings'))} />
-      <Tab.Screen name="TenantChat" component={ChatListScreen} options={makeTabOptions('chatbubbles', t('tab.messages'))} />
-      <Tab.Screen name="TenantProfile" component={ProfileScreen} options={makeTabOptions('person', t('tab.profile'))} />
-    </Tab.Navigator>
-  );
-}
-
-function EmployeeTabs() {
-  const { t } = useI18n();
-  return (
-    <Tab.Navigator screenOptions={screenOptions}>
-      <Tab.Screen name="EmployeeHome" component={EmployeeHomeScreen} options={makeTabOptions('home', t('tab.home'))} />
-      <Tab.Screen name="EmployeePropertyBrowse" component={EmployeePropertyBrowseScreen} options={makeTabOptions('business', t('tab.properties'))} />
-      <Tab.Screen name="EmployeeAttendance" component={AttendanceScreen} options={makeTabOptions('finger-print', t('tab.attendance'))} />
-      <Tab.Screen name="EmployeePerformance" component={PerformanceScreen} options={makeTabOptions('stats-chart', t('tab.performance'))} />
-      <Tab.Screen name="EmployeeContacts" component={ContactScreen} options={makeTabOptions('people', t('tab.contacts'))} />
-    </Tab.Navigator>
-  );
-}
-
-function AdminTabs() {
-  const { t } = useI18n();
-  return (
-    <Tab.Navigator screenOptions={screenOptions}>
-      <Tab.Screen name="AdminHome" component={AdminHomeScreen} options={makeTabOptions('home', t('tab.home'))} />
-      <Tab.Screen name="AdminProperties" component={AdminPropertiesScreen} options={makeTabOptions('business', t('tab.properties'))} />
-      <Tab.Screen name="AdminCRM" component={AdminCRMScreen} options={makeTabOptions('people', t('tab.customers'))} />
-      <Tab.Screen name="AdminPayments" component={AdminPaymentsScreen} options={makeTabOptions('card', t('tab.payments'))} />
-      <Tab.Screen name="AdminProfile" component={ProfileScreen} options={makeTabOptions('person', t('tab.profile'))} />
+      {defs.map((d) => (
+        <Tab.Screen
+          key={d.name}
+          name={d.name}
+          component={d.component}
+          options={makeTabOptions(d.icon, t(d.labelKey))}
+        />
+      ))}
     </Tab.Navigator>
   );
 }
@@ -126,16 +135,5 @@ export default function MainTabNavigator() {
   const user = useAuthStore((state) => state.user);
   const role: UserRole = user?.role ?? 'tenant';
 
-  switch (role) {
-    case 'admin':
-      return <AdminTabs />;
-    case 'owner':
-      return <OwnerTabs />;
-    case 'agent':
-    case 'employee':
-      return <EmployeeTabs />;
-    case 'tenant':
-    default:
-      return <TenantTabs />;
-  }
+  return <RoleTabs defs={ROLE_TABS[role]} />;
 }

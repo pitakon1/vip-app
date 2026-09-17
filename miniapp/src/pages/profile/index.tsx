@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import BottomNav from '@/components/BottomNav'
 import useAuthStore from '@/stores/auth'
@@ -98,12 +98,11 @@ const OWNER_SETTING_ROWS: Array<RowEntry & { badge?: boolean }> = [
   { key: 'about', label: '关于我们', icon: 'star' }
 ]
 
-// 员工 / 代理端：原型无「我的」页，仅保留必要入口
+// 员工 / 代理端：常用入口（客户 / 业绩已在底部导航，不再重复；通讯录移至「我的」）
 const STAFF_ROWS: RowEntry[] = [
-  { key: 'workbench', label: '销售工作台', url: '/pages/employee/home/index', icon: 'chart' },
-  { key: 'listings', label: '房源搜索', url: '/pages/tenant/listings/index', icon: 'home' },
-  { key: 'performance', label: '我的业绩', url: '/pages/employee/performance/index', icon: 'trend' },
-  { key: 'attendance', label: '考勤打卡', url: '/pages/attendance/index', icon: 'calendar' }
+  { key: 'contacts', label: '通讯录', desc: '同事与部门通讯录', url: '/pages/employee/contacts/index', icon: 'user' },
+  { key: 'attendance', label: '考勤打卡', desc: '上下班 GPS 定位打卡', url: '/pages/attendance/index', icon: 'calendar' },
+  { key: 'manageProperties', label: '房源管理', desc: '我的房源与上下架管理', url: '/pages/employee/properties/index', icon: 'home' }
 ]
 
 // 角色文案（与原型顶部身份标签一致）
@@ -332,6 +331,157 @@ export default function ProfilePage() {
     Taro.showToast({ title: `「${label}」暂未开放`, icon: 'none' })
   }
 
+  const showToast = (msg: string) => {
+    Taro.showToast({ title: msg, icon: 'none' })
+  }
+
+  // ===== 编辑资料 =====
+  const [editVisible, setEditVisible] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+
+  const openEdit = () => {
+    setEditName((user as any)?.full_name || (user as any)?.name || '')
+    setEditPhone(user?.phone || '')
+    setEditEmail(user?.email || '')
+    setEditVisible(true)
+  }
+
+  const saveEdit = async () => {
+    if (!editName.trim()) {
+      showToast('请填写姓名')
+      return
+    }
+    setEditSaving(true)
+    try {
+      const payload: Record<string, string> = { full_name: editName.trim() }
+      if (editPhone !== (user?.phone || '')) payload.phone = editPhone.trim()
+      if (editEmail !== (user?.email || '')) payload.email = editEmail.trim()
+      const res: any = await authApi.updateMe(payload)
+      // 用返回的最新用户刷新本地状态（含认证 store 与缓存）
+      const latest = res?.data ?? res
+      const token = useAuthStore.getState().token
+      if (latest && token) useAuthStore.getState().login(token, latest)
+      Taro.setStorageSync('user', latest)
+      loadFromStorage()
+      setEditVisible(false)
+      showToast('已保存')
+    } catch (e: any) {
+      showToast(e?.message || '保存失败')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  // ===== 修改密码 =====
+  const [pwdVisible, setPwdVisible] = useState(false)
+  const [oldPwd, setOldPwd] = useState('')
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [pwdSaving, setPwdSaving] = useState(false)
+
+  const openPwd = () => {
+    setOldPwd('')
+    setNewPwd('')
+    setConfirmPwd('')
+    setPwdVisible(true)
+  }
+
+  const savePwd = async () => {
+    if (!oldPwd || !newPwd) {
+      showToast('请填写完整')
+      return
+    }
+    if (newPwd.length < 6) {
+      showToast('新密码至少 6 位')
+      return
+    }
+    if (newPwd !== confirmPwd) {
+      showToast('两次输入的新密码不一致')
+      return
+    }
+    setPwdSaving(true)
+    try {
+      await authApi.changePassword({ old_password: oldPwd, new_password: newPwd })
+      setPwdVisible(false)
+      // 改密后所有旧令牌失效
+      logout()
+      Taro.removeStorageSync('token')
+      Taro.removeStorageSync('user')
+      showToast('已修改，请重新登录')
+      setTimeout(() => Taro.redirectTo({ url: '/pages/login/index' }), 800)
+    } catch (e: any) {
+      showToast(e?.message || '修改失败')
+    } finally {
+      setPwdSaving(false)
+    }
+  }
+
+  // ===== 时区 / 通知设置 =====
+  const [prefVisible, setPrefVisible] = useState(false)
+  const [prefTimezone, setPrefTimezone] = useState('Asia/Bangkok')
+  const [prefEmail, setPrefEmail] = useState(true)
+  const [prefPush, setPrefPush] = useState(true)
+  const [prefSaving, setPrefSaving] = useState(false)
+
+  const openPrefs = async () => {
+    setPrefVisible(true)
+    try {
+      const res: any = await authApi.preferences()
+      const p = res?.data ?? res
+      setPrefTimezone(p?.timezone || 'Asia/Bangkok')
+      setPrefEmail(p?.notify_email !== false)
+      setPrefPush(p?.notify_push !== false)
+    } catch (e) {
+      console.warn('[Profile] 读取偏好失败', e)
+    }
+  }
+
+  const savePrefs = async () => {
+    setPrefSaving(true)
+    try {
+      await authApi.updatePreferences({
+        timezone: prefTimezone.trim() || undefined,
+        notify_email: prefEmail,
+        notify_push: prefPush
+      })
+      setPrefVisible(false)
+      showToast('已保存')
+    } catch (e: any) {
+      showToast(e?.message || '保存失败')
+    } finally {
+      setPrefSaving(false)
+    }
+  }
+
+  /** 设置/账户行统一点击：已接入的账户·设置项走后端接口，未接入的仍提示未开放 */
+  const handleRowPress = (entry: RowEntry) => {
+    if (entry.url) {
+      handleNavigate(entry.url)
+      return
+    }
+    switch (entry.key) {
+      case 'password':
+        openPwd()
+        return
+      case 'phone':
+      case 'email':
+      case 'account':
+        openEdit()
+        return
+      case 'timezone':
+      case 'notification':
+      case 'language':
+      case 'notify':
+        openPrefs()
+        return
+      default:
+        handleTodo(entry.label)
+    }
+  }
+
   // 业主「我的房源」：进入需带房源 id；名下无房源时降级到业主首页（该页有房源卡片列表）
   const handleOwnerPropsPress = () => {
     const firstId = ownerProps[0]?.id
@@ -347,7 +497,7 @@ export default function ProfilePage() {
     <View
       key={entry.key}
       className='list-row'
-      onClick={() => (entry.url ? handleNavigate(entry.url) : handleTodo(entry.label))}
+      onClick={() => handleRowPress(entry)}
     >
       <View className='list-row__icon icon-svg' style={iconStyle(entry.icon, 34)} />
       <View className='list-row__body'>
@@ -370,8 +520,8 @@ export default function ProfilePage() {
   const isAdmin = role === 'admin'
   const isOwner = role === 'owner'
   const isStaff = role === 'agent' || role === 'employee'
-  /** 租客 / 管理端 / 业主端有原型「我的」页，底部导航对齐原型；员工端原型无此页，不加底栏 */
-  const hasBottomNav = isTenant || isAdmin || isOwner
+  /** 租客 / 管理端 / 业主端 / 员工端皆有「我的」页，底部导航对齐原型 */
+  const hasBottomNav = isTenant || isAdmin || isOwner || isStaff
 
   const phoneValue = user?.phone ? maskPhone(user.phone) : '未绑定'
   const emailValue = user?.email ? maskEmail(user.email) : '未绑定'
@@ -415,7 +565,7 @@ export default function ProfilePage() {
     <View
       key={entry.key}
       className='list-row'
-      onClick={() => (entry.url ? handleNavigate(entry.url) : handleTodo(entry.label))}
+      onClick={() => handleRowPress(entry)}
     >
       <View className='list-row__icon icon-svg' style={iconStyle(entry.icon, 34)} />
       <View className='list-row__body'>
@@ -633,7 +783,7 @@ export default function ProfilePage() {
                 <Text>{ROLE_TEXT[role || ''] || '管理员'}</Text>
               </View>
             </View>
-            <View className='profile-card__edit' onClick={() => handleTodo('编辑资料')}>
+            <View className='profile-card__edit' onClick={openEdit}>
               <View className='icon-svg' style={iconStyle('edit', 28)} />
               <Text>编辑资料</Text>
             </View>
@@ -770,7 +920,7 @@ export default function ProfilePage() {
 
       {isStaff && (
         <>
-          {/* 员工 / 代理端原型无「我的」页，仅保留必要入口且不加底栏 */}
+          {/* 员工 / 经纪端个人卡 */}
           <View className='profile-card'>
             <View className='avatar avatar--lg'>
               <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
@@ -799,6 +949,136 @@ export default function ProfilePage() {
       {isTenant && <BottomNav role='tenant' active='profile' />}
       {isAdmin && <BottomNav role='admin' active='settings' />}
       {isOwner && <BottomNav role='owner' active='settings' />}
+      {isStaff && <BottomNav role='employee' active='settings' />}
+
+      {/* 编辑资料弹层 */}
+      {editVisible && (
+        <View className='modal-mask' onClick={() => setEditVisible(false)}>
+          <View className='modal-sheet' onClick={(e) => e.stopPropagation()}>
+            <Text className='modal-sheet__title'>编辑资料</Text>
+            <View className='form-field'>
+              <Text className='form-field__label'>姓名</Text>
+              <Input
+                className='form-field__input'
+                value={editName}
+                onInput={(e) => setEditName(e.detail.value)}
+                placeholder='请输入姓名'
+              />
+            </View>
+            <View className='form-field'>
+              <Text className='form-field__label'>手机号</Text>
+              <Input
+                className='form-field__input'
+                value={editPhone}
+                onInput={(e) => setEditPhone(e.detail.value)}
+                placeholder='请输入手机号'
+              />
+            </View>
+            <View className='form-field'>
+              <Text className='form-field__label'>邮箱</Text>
+              <Input
+                className='form-field__input'
+                value={editEmail}
+                onInput={(e) => setEditEmail(e.detail.value)}
+                placeholder='请输入邮箱'
+              />
+            </View>
+            <View className='modal-actions'>
+              <Button className='modal-btn modal-btn--ghost' onClick={() => setEditVisible(false)}>
+                取消
+              </Button>
+              <Button className='modal-btn modal-btn--primary' disabled={editSaving} onClick={saveEdit}>
+                {editSaving ? '保存中...' : '保存'}
+              </Button>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* 修改密码弹层 */}
+      {pwdVisible && (
+        <View className='modal-mask' onClick={() => setPwdVisible(false)}>
+          <View className='modal-sheet' onClick={(e) => e.stopPropagation()}>
+            <Text className='modal-sheet__title'>修改密码</Text>
+            <View className='form-field'>
+              <Text className='form-field__label'>当前密码</Text>
+              <Input
+                className='form-field__input'
+                password
+                value={oldPwd}
+                onInput={(e) => setOldPwd(e.detail.value)}
+                placeholder='请输入当前密码'
+              />
+            </View>
+            <View className='form-field'>
+              <Text className='form-field__label'>新密码</Text>
+              <Input
+                className='form-field__input'
+                password
+                value={newPwd}
+                onInput={(e) => setNewPwd(e.detail.value)}
+                placeholder='至少 6 位'
+              />
+            </View>
+            <View className='form-field'>
+              <Text className='form-field__label'>确认新密码</Text>
+              <Input
+                className='form-field__input'
+                password
+                value={confirmPwd}
+                onInput={(e) => setConfirmPwd(e.detail.value)}
+                placeholder='再次输入新密码'
+              />
+            </View>
+            <View className='modal-actions'>
+              <Button className='modal-btn modal-btn--ghost' onClick={() => setPwdVisible(false)}>
+                取消
+              </Button>
+              <Button className='modal-btn modal-btn--primary' disabled={pwdSaving} onClick={savePwd}>
+                {pwdSaving ? '提交中...' : '确认修改'}
+              </Button>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* 时区 / 通知设置弹层 */}
+      {prefVisible && (
+        <View className='modal-mask' onClick={() => setPrefVisible(false)}>
+          <View className='modal-sheet' onClick={(e) => e.stopPropagation()}>
+            <Text className='modal-sheet__title'>通知设置</Text>
+            <View className='form-field'>
+              <Text className='form-field__label'>时区</Text>
+              <Input
+                className='form-field__input'
+                value={prefTimezone}
+                onInput={(e) => setPrefTimezone(e.detail.value)}
+                placeholder='如 Asia/Bangkok'
+              />
+            </View>
+            <View className='toggle-row' onClick={() => setPrefEmail(!prefEmail)}>
+              <Text className='toggle-row__label'>邮件通知</Text>
+              <Text className={prefEmail ? 'toggle-row__val--on' : 'toggle-row__val--off'}>
+                {prefEmail ? '✓ 开启' : '关闭'}
+              </Text>
+            </View>
+            <View className='toggle-row' onClick={() => setPrefPush(!prefPush)}>
+              <Text className='toggle-row__label'>推送通知</Text>
+              <Text className={prefPush ? 'toggle-row__val--on' : 'toggle-row__val--off'}>
+                {prefPush ? '✓ 开启' : '关闭'}
+              </Text>
+            </View>
+            <View className='modal-actions'>
+              <Button className='modal-btn modal-btn--ghost' onClick={() => setPrefVisible(false)}>
+                取消
+              </Button>
+              <Button className='modal-btn modal-btn--primary' disabled={prefSaving} onClick={savePrefs}>
+                {prefSaving ? '保存中...' : '保存'}
+              </Button>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   )
 }

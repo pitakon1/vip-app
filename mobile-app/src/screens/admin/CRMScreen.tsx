@@ -6,7 +6,7 @@
  * 说明：与员工端 CRM 相互独立（员工端见 screens/employee/CRMScreen.tsx），
  *       底部导航「客户」Tab 与管理端首页快捷入口均指向本页。
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
+  FlatList,
+  Modal,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
@@ -23,6 +25,8 @@ import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
 import api from '../../lib/api';
 import { leadsApi } from '../../services/api';
+import { useI18n } from '../../i18n';
+import { useRefreshList } from '../../hooks/useRefreshList';
 
 interface Lead {
   id: string;
@@ -40,29 +44,23 @@ interface Lead {
   stage?: string | null;
   assigned_to?: string | null;
   source?: string | null;
+  notes?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
 
-const STAGES: { key: string; label: string; color: string; rgb: string }[] = [
-  { key: 'inquiring', label: '咨询中', color: colors.info, rgb: colors.infoRgb },
-  { key: 'viewing_scheduled', label: '看房中', color: colors.primary, rgb: colors.primaryRgb },
-  { key: 'negotiating', label: '谈判中', color: colors.warning, rgb: colors.warningRgb },
-  { key: 'pending_contract', label: '待签约', color: colors.info, rgb: colors.infoRgb },
-  { key: 'closed', label: '已成交', color: colors.success, rgb: colors.successRgb },
+const STAGES: { key: string; labelKey: string; color: string; rgb: string }[] = [
+  { key: 'inquiring', labelKey: 'crm.stage.inquiring', color: colors.info, rgb: colors.infoRgb },
+  { key: 'viewing_scheduled', labelKey: 'crm.stage.viewing', color: colors.primary, rgb: colors.primaryRgb },
+  { key: 'negotiating', labelKey: 'crm.stage.negotiating', color: colors.warning, rgb: colors.warningRgb },
+  { key: 'pending_contract', labelKey: 'crm.stage.pending', color: colors.info, rgb: colors.infoRgb },
+  { key: 'closed', labelKey: 'crm.stage.closed', color: colors.success, rgb: colors.successRgb },
 ];
-
-const stageMeta = (key?: string | null) =>
-  STAGES.find((s) => s.key === key) ?? {
-    key: 'inquiring',
-    label: key || '未知',
-    color: colors.ink2,
-    rgb: colors.primaryRgb,
-  };
 
 const symOf = (c?: string | null) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
 export default function AdminCRMScreen() {
+  const { t } = useI18n();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stageTotals, setStageTotals] = useState<Record<string, number>>({});
   const [totalCustomers, setTotalCustomers] = useState(0);
@@ -70,8 +68,85 @@ export default function AdminCRMScreen() {
   const [nameMap, setNameMap] = useState<Record<string, string>>({});
   const [stage, setStage] = useState('');
   const [keyword, setKeyword] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+
+  // 线索表单弹窗（id 存在为编辑，否则新建）
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: '',
+    phone: '',
+    source: '',
+    property: '',
+    stage: STAGES[0].key,
+    notes: '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const openNew = () => {
+    setEditingId(null);
+    setForm({ name: '', phone: '', source: '', property: '', stage: STAGES[0].key, notes: '' });
+    setFormOpen(true);
+  };
+  const openEdit = (l: Lead) => {
+    setEditingId(l.id);
+    setForm({
+      name: l.name || '',
+      phone: l.phone || '',
+      source: l.source || '',
+      property: String(l.interested_projects?.[0] ?? ''),
+      stage: l.stage || STAGES[0].key,
+      notes: l.notes || '',
+    });
+    setFormOpen(true);
+  };
+  const submitForm = async () => {
+    if (!form.name.trim()) {
+      Alert.alert(t('crm.new'), t('crm.nameRequired'));
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        name: form.name.trim(),
+        phone: form.phone.trim() || null,
+        source: form.source.trim() || null,
+        stage: form.stage,
+        notes: form.notes.trim() || null,
+      };
+      const prop = form.property.trim();
+      payload.interested_projects = prop ? [prop] : [];
+      if (editingId) {
+        await leadsApi.update(editingId, payload);
+      } else {
+        await leadsApi.create(payload);
+      }
+      Alert.alert(t('crm.new'), editingId ? t('crm.saved') : t('crm.created'));
+      setFormOpen(false);
+      load();
+    } catch (e: any) {
+      Alert.alert(t('crm.new'), e?.response?.data?.detail || t('crm.saveFail'));
+    } finally {
+      setSaving(false);
+    }
+  };
+  const confirmDelete = (l: Lead) => {
+    Alert.alert(t('crm.delete'), `${t('crm.deleteConfirm')}「${l.name || t('crm.unnamed')}」？`, [
+      { text: t('crm.cancel'), style: 'cancel' },
+      {
+        text: t('crm.delete'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await leadsApi.delete(l.id);
+            Alert.alert(t('crm.delete'), t('crm.deleted'));
+            load();
+          } catch (e: any) {
+            Alert.alert(t('crm.delete'), e?.response?.data?.detail || t('crm.deleteFail'));
+          }
+        },
+      },
+    ]);
+  };
 
   const load = useCallback(async () => {
     const results = await Promise.allSettled([
@@ -119,18 +194,7 @@ export default function AdminCRMScreen() {
     }
   }, [stage]);
 
-  useEffect(() => {
-    (async () => {
-      await load();
-      setLoading(false);
-    })();
-  }, [load]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }, [load]);
+  const { loading, refreshControl } = useRefreshList(load);
 
   const visibleLeads = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
@@ -144,86 +208,96 @@ export default function AdminCRMScreen() {
     );
   }, [leads, keyword]);
 
-  const renderLead = (l: Lead) => {
-    const meta = stageMeta(l.stage);
-    const budget =
-      l.budget_max || l.budget_min
-        ? `预算 ${symOf(l.budget_currency)}${Number(l.budget_max || l.budget_min || 0).toLocaleString()}`
-        : null;
-    const tags = [
-      budget,
-      l.interested_projects?.length ? `意向项目 ${l.interested_projects.length}` : null,
-      l.recommended_projects?.length ? `推荐房源 ${l.recommended_projects.length}` : null,
-      l.source ? `来源 ${l.source}` : null,
-    ].filter(Boolean) as string[];
-    const contact = l.phone || l.line_id || l.wechat_id || l.email || '未留联系方式';
-    const owner = l.assigned_to ? nameMap[l.assigned_to] : null;
-    const lastFollow = l.updated_at || l.created_at;
+  const renderItem = useCallback(
+    ({ item: l }: { item: Lead }) => {
+      const meta = STAGES.find((s) => s.key === l.stage);
+      const metaColor = meta?.color ?? colors.ink2;
+      const metaRgb = meta?.rgb ?? colors.primaryRgb;
+      const metaLabel = meta ? t(meta.labelKey) : l.stage || t('crm.unknownStage');
+      const budget =
+        l.budget_max || l.budget_min
+          ? `${t('crm.budget')} ${symOf(l.budget_currency)}${Number(l.budget_max || l.budget_min || 0).toLocaleString()}`
+          : null;
+      const tags = [
+        budget,
+        l.interested_projects?.length ? `${t('crm.interestProject')} ${l.interested_projects.length}` : null,
+        l.recommended_projects?.length ? `${t('crm.recommend')} ${l.recommended_projects.length}` : null,
+        l.source ? `${t('crm.source')} ${l.source}` : null,
+      ].filter(Boolean) as string[];
+      const contact = l.phone || l.line_id || l.wechat_id || l.email || t('crm.noContact');
+      const owner = l.assigned_to ? nameMap[l.assigned_to] : null;
+      const lastFollow = l.updated_at || l.created_at;
 
-    return (
-      <View key={l.id} style={styles.leadCard}>
-        <View style={styles.leadTop}>
-          <View style={[styles.avatar, { backgroundColor: colors.alpha(meta.rgb, 0.12) }]}>
-            <Text style={[styles.avatarText, { color: meta.color }]}>
-              {(l.name || '?').charAt(0)}
+      return (
+        <View style={styles.leadCard}>
+          <View style={styles.leadTop}>
+            <View style={[styles.avatar, { backgroundColor: colors.alpha(metaRgb, 0.12) }]}>
+              <Text style={[styles.avatarText, { color: metaColor }]}>
+                {(l.name || '?').charAt(0)}
+              </Text>
+            </View>
+            <View style={styles.leadInfo}>
+              <View style={styles.leadHead}>
+                <Text style={styles.leadName} numberOfLines={1}>
+                  {l.name || t('crm.unnamed')}
+                </Text>
+                <View style={[styles.stageBadge, { backgroundColor: colors.alpha(metaRgb, 0.12) }]}>
+                  <Text style={[styles.stageBadgeText, { color: metaColor }]}>{metaLabel}</Text>
+                </View>
+              </View>
+              <View style={styles.contactRow}>
+                <Ionicons name="call-outline" size={12} color={colors.ink3} />
+                <Text style={styles.contactText} numberOfLines={1}>
+                  {contact}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {tags.length > 0 ? (
+            <View style={styles.tags}>
+              {tags.map((tag) => (
+                <View key={tag} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          <View style={styles.followRow}>
+            <Ionicons name="time-outline" size={12} color={colors.ink3} />
+            <Text style={styles.followText}>
+              {lastFollow ? `${t('crm.lastFollow')}: ${dayjs(lastFollow).format('MM-DD')}` : t('crm.noFollow')}
+              {owner ? ` · ${t('crm.owner')} ${owner}` : ''}
             </Text>
           </View>
-          <View style={styles.leadInfo}>
-            <View style={styles.leadHead}>
-              <Text style={styles.leadName} numberOfLines={1}>
-                {l.name || '未命名客户'}
-              </Text>
-              <View style={[styles.stageBadge, { backgroundColor: colors.alpha(meta.rgb, 0.12) }]}>
-                <Text style={[styles.stageBadgeText, { color: meta.color }]}>{meta.label}</Text>
-              </View>
-            </View>
-            <View style={styles.contactRow}>
-              <Ionicons name="call-outline" size={12} color={colors.ink3} />
-              <Text style={styles.contactText} numberOfLines={1}>
-                {contact}
-              </Text>
-            </View>
+
+          <View style={styles.leadActions}>
+            <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => openEdit(l)}>
+              <Ionicons name="create-outline" size={14} color={colors.primary} />
+              <Text style={[styles.leadActionText, { color: colors.primary }]}>{t('crm.actionEdit')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => confirmDelete(l)}>
+              <Ionicons name="trash-outline" size={14} color={colors.error} />
+              <Text style={[styles.leadActionText, { color: colors.error }]}>{t('crm.actionDelete')}</Text>
+            </TouchableOpacity>
           </View>
         </View>
-
-        {tags.length > 0 ? (
-          <View style={styles.tags}>
-            {tags.map((t) => (
-              <View key={t} style={styles.tag}>
-                <Text style={styles.tagText}>{t}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        <View style={styles.followRow}>
-          <Ionicons name="time-outline" size={12} color={colors.ink3} />
-          <Text style={styles.followText}>
-            {lastFollow ? `最后跟进: ${dayjs(lastFollow).format('MM-DD')}` : '暂无跟进记录'}
-            {owner ? ` · 负责人 ${owner}` : ''}
-          </Text>
-        </View>
-      </View>
-    );
-  };
+      );
+    },
+    [nameMap, t],
+  );
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <LoadingState label="正在加载客户数据…" />
+        <LoadingState label={t('crm.loading')} />
       </View>
     );
   }
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-      }
-    >
+  const listHeader = (
+    <>
       {/* 搜索 */}
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color={colors.ink3} />
@@ -231,11 +305,16 @@ export default function AdminCRMScreen() {
           style={styles.searchInput}
           value={keyword}
           onChangeText={setKeyword}
-          placeholder="搜索客户姓名/电话"
+          placeholder={t('crm.searchPlaceholder')}
           placeholderTextColor={colors.ink3}
         />
         {keyword ? (
-          <TouchableOpacity onPress={() => setKeyword('')} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => setKeyword('')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={t('crm.clearSearch')}
+          >
             <Ionicons name="close-circle" size={16} color={colors.ink3} />
           </TouchableOpacity>
         ) : null}
@@ -254,7 +333,7 @@ export default function AdminCRMScreen() {
           style={[styles.chip, stage === '' && styles.chipActive]}
         >
           <Text style={[styles.chipText, stage === '' && styles.chipTextActive]}>
-            全部 <Text style={styles.chipCount}>{totalCustomers}</Text>
+            {t('crm.all')} <Text style={styles.chipCount}>{totalCustomers}</Text>
           </Text>
         </TouchableOpacity>
         {STAGES.map((s) => (
@@ -265,7 +344,7 @@ export default function AdminCRMScreen() {
             style={[styles.chip, stage === s.key && styles.chipActive]}
           >
             <Text style={[styles.chipText, stage === s.key && styles.chipTextActive]}>
-              {s.label} <Text style={styles.chipCount}>{stageTotals[s.key] ?? 0}</Text>
+              {t(s.labelKey)} <Text style={styles.chipCount}>{stageTotals[s.key] ?? 0}</Text>
             </Text>
           </TouchableOpacity>
         ))}
@@ -274,39 +353,110 @@ export default function AdminCRMScreen() {
       {/* 统计行 */}
       <View style={styles.statRow}>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>总客户</Text>
+          <Text style={styles.statLabel}>{t('crm.totalCustomers')}</Text>
           <Text style={[styles.statValue, { color: colors.primary }]}>{totalCustomers}</Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>意向</Text>
+          <Text style={styles.statLabel}>{t('crm.intent')}</Text>
           <Text style={[styles.statValue, { color: colors.info }]}>
             {stageTotals.inquiring ?? 0}
           </Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>已签约</Text>
+          <Text style={styles.statLabel}>{t('crm.signed')}</Text>
           <Text style={[styles.statValue, { color: colors.success }]}>
             {stageTotals.closed ?? 0}
           </Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>本月新增</Text>
+          <Text style={styles.statLabel}>{t('crm.monthNew')}</Text>
           <Text style={[styles.statValue, { color: colors.warning }]}>{monthNew ?? '—'}</Text>
         </View>
       </View>
 
       {/* 客户列表 */}
-      <Text style={styles.sectionTitle}>客户列表</Text>
-      {visibleLeads.length === 0 ? (
-        <EmptyState
-          icon="people-outline"
-          title={keyword ? '没有找到客户' : '暂无客户线索'}
-          sub={keyword ? '换个姓名或电话试试' : '平台客户线索会展示在这里'}
-        />
-      ) : (
-        <View style={styles.list}>{visibleLeads.map((l) => renderLead(l))}</View>
-      )}
-    </ScrollView>
+      <View style={styles.sectionHead}>
+        <Text style={styles.sectionTitle}>{t('crm.list')}</Text>
+        <TouchableOpacity style={styles.addBtn} activeOpacity={0.8} onPress={openNew}>
+          <Ionicons name="add" size={14} color="#fff" />
+          <Text style={styles.addBtnText}>{t('crm.new')}</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+
+  const listEmpty = (
+    <EmptyState
+      icon="people-outline"
+      title={keyword ? t('crm.noFound') : t('crm.noLead')}
+      sub={keyword ? t('crm.noFoundSub') : t('crm.noLeadSub')}
+    />
+  );
+
+  const stageOptions = STAGES.map((s) => ({ key: s.key, label: t(s.labelKey) }));
+
+  return (
+    <>
+      <FlatList
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        data={visibleLeads}
+        keyExtractor={(l) => l.id}
+        renderItem={renderItem}
+        refreshControl={refreshControl}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+      />
+
+      {/* 新建 / 编辑线索弹窗 */}
+      <Modal visible={formOpen} transparent animationType="fade" onRequestClose={() => setFormOpen(false)}>
+        <View style={styles.modalMask}>
+          <ScrollView contentContainerStyle={styles.modalCardWrap}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>{editingId ? t('crm.edit') : t('crm.new')}</Text>
+
+              <Text style={styles.fieldLabel}>{t('crm.formName')} *</Text>
+              <TextInput style={styles.fieldInput} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} placeholderTextColor={colors.ink3} />
+
+              <Text style={styles.fieldLabel}>{t('crm.formPhone')}</Text>
+              <TextInput style={styles.fieldInput} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} placeholderTextColor={colors.ink3} />
+
+              <Text style={styles.fieldLabel}>{t('crm.formSource')}</Text>
+              <TextInput style={styles.fieldInput} value={form.source} onChangeText={(v) => setForm((f) => ({ ...f, source: v }))} placeholderTextColor={colors.ink3} />
+
+              <Text style={styles.fieldLabel}>{t('crm.formProperty')}</Text>
+              <TextInput style={styles.fieldInput} value={form.property} onChangeText={(v) => setForm((f) => ({ ...f, property: v }))} placeholderTextColor={colors.ink3} />
+
+              <Text style={styles.fieldLabel}>{t('crm.formStage')}</Text>
+              <View style={styles.chipWrapper}>
+                {stageOptions.map((s) => (
+                  <TouchableOpacity
+                    key={s.key}
+                    style={[styles.chipInline, form.stage === s.key && styles.chipInlineActive]}
+                    onPress={() => setForm((f) => ({ ...f, stage: s.key }))}
+                  >
+                    <Text style={[styles.chipInlineText, form.stage === s.key && styles.chipInlineTextActive]}>{s.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.fieldLabel}>{t('crm.formNotes')}</Text>
+              <TextInput style={[styles.fieldInput, styles.multilineInput]} value={form.notes} onChangeText={(v) => setForm((f) => ({ ...f, notes: v }))} multiline placeholderTextColor={colors.ink3} />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setFormOpen(false)}>
+                  <Text style={styles.modalCancelText}>{t('crm.cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} disabled={saving} onPress={submitForm}>
+                  <Text style={styles.modalOkText}>{saving ? '...' : t('crm.save')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -377,7 +527,68 @@ const styles = StyleSheet.create({
     marginTop: colors.spacing.xl,
     marginBottom: colors.spacing.sm,
   },
-  list: { paddingHorizontal: colors.spacing.md, gap: colors.spacing.md },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: colors.spacing.lg,
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    borderRadius: colors.radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  addBtnText: { fontSize: 12, color: colors.primaryForeground, fontWeight: '600' },
+
+  leadActions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: colors.spacing.md,
+    paddingTop: colors.spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  leadActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  leadActionText: { fontSize: 12, fontWeight: '600' },
+
+  /* ===== 表单弹窗 ===== */
+  modalMask: { flex: 1, backgroundColor: 'rgba(15,23,42,0.4)', justifyContent: 'center', padding: 28 },
+  modalCardWrap: { justifyContent: 'center' },
+  modalCard: { backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 20 },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, marginBottom: 6 },
+  fieldLabel: { fontSize: 12, color: colors.ink3, fontWeight: '600', marginTop: 12, marginBottom: 6 },
+  fieldInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  multilineInput: { minHeight: 72, textAlignVertical: 'top' },
+  chipWrapper: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chipInline: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: colors.radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  chipInlineActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipInlineText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  chipInlineTextActive: { color: '#fff', fontWeight: '600' },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  modalBtn: { flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: colors.radius.lg },
+  modalCancel: { backgroundColor: colors.surface2 },
+  modalCancelText: { color: colors.ink2, fontWeight: '600' },
+  modalOk: { backgroundColor: colors.primary },
+  modalOkText: { color: colors.primaryForeground, fontWeight: '600' },
 
   leadCard: {
     backgroundColor: colors.surface,
@@ -385,6 +596,8 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: colors.spacing.lg,
+    marginHorizontal: colors.spacing.md,
+    marginBottom: colors.spacing.md,
     ...colors.shadow.card,
   },
   leadTop: { flexDirection: 'row', alignItems: 'flex-start' },

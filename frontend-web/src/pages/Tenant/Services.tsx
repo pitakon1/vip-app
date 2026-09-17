@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
@@ -39,24 +40,7 @@ const normalizeBookingStatus = (status?: string): Booking['status'] => {
   return 'pending'
 }
 
-// 服务类型展示名（接口 service_type 字段，含目录外类型）
-const SERVICE_TYPE_LABEL: Record<string, string> = {
-  cleaning: '家政清洁',
-  ac_cleaning: '空调清洗',
-  wifi_install: 'WiFi安装',
-  utility_payment: '水电费代付',
-  insurance: '保险代办',
-  tax_payment: '税务代缴',
-  annual_management: '年度托管',
-}
-
-const statusLabelMap: Record<Booking['status'], string> = {
-  pending: '待处理',
-  in_progress: '进行中',
-  completed: '已完成',
-  cancelled: '已取消',
-}
-
+// 服务类型/状态展示名（接口字段，组件内用 t() 映射到语言包）
 const statusClassMap: Record<Booking['status'], string> = {
   pending: 'svc-order-status--warning',
   in_progress: 'svc-order-status--info',
@@ -85,60 +69,78 @@ const ServiceIcon = ({ type }: { type: ServiceItem['iconType'] }) => {
   )
 }
 
-const SERVICES: ServiceItem[] = [
-  {
-    id: 'cleaning',
-    name: '家政清洁',
-    description: '专业保洁团队上门，全屋深度清洁，厨房卫浴专项处理。',
-    price: 120,
-    unit: '次',
-    badge: '热门',
-    badgeType: 'primary',
-    iconBg: 'rgba(20, 184, 166, 0.12)',
-    iconColor: 'var(--rent-primary)',
-    iconType: 'cleaning',
-  },
-  {
-    id: 'ac_cleaning',
-    name: '空调清洗',
-    description: '拆机深度清洗，杀菌除味，延长空调使用寿命，改善制冷效果。',
-    price: 80,
-    unit: '台',
-    badge: '推荐',
-    badgeType: 'info',
-    iconBg: 'rgba(14,165,233,0.12)',
-    iconColor: 'var(--state-info)',
-    iconType: 'ac',
-  },
-  {
-    id: 'wifi_install',
-    name: 'WiFi安装',
-    description: '专业网络工程师上门安装调试路由器，覆盖检测与信号优化。',
-    price: 150,
-    unit: '次',
-    badge: '新上',
-    badgeType: 'success',
-    iconBg: 'rgba(22,163,74,0.12)',
-    iconColor: 'var(--state-success)',
-    iconType: 'wifi',
-  },
-  {
-    id: 'utility_payment',
-    name: '水电费代付',
-    description: '平台代缴水电网费，账单自动同步，省心省力，无需排队。',
-    price: 0,
-    unit: '次',
-    badge: '免费',
-    badgeType: 'warning',
-    iconBg: 'rgba(217,119,6,0.12)',
-    iconColor: 'var(--state-warning)',
-    iconType: 'utility',
-    free: true,
-  },
-]
-
 const TenantServices = () => {
+  const { t } = useTranslation()
   const [bookings, setBookings] = useState<Booking[]>([])
+
+  const SERVICE_TYPE_LABEL: Record<string, string> = {
+    cleaning: t('tenantServices.serviceType.cleaning'),
+    ac_cleaning: t('tenantServices.serviceType.ac_cleaning'),
+    wifi_install: t('tenantServices.serviceType.wifi_install'),
+    utility_payment: t('tenantServices.serviceType.utility_payment'),
+    insurance: t('tenantServices.serviceType.insurance'),
+    tax_payment: t('tenantServices.serviceType.tax_payment'),
+    annual_management: t('tenantServices.serviceType.annual_management'),
+  }
+
+  const statusLabelMap: Record<Booking['status'], string> = {
+    pending: t('tenantServices.bookStatus.pending'),
+    in_progress: t('tenantServices.bookStatus.in_progress'),
+    completed: t('tenantServices.bookStatus.completed'),
+    cancelled: t('tenantServices.bookStatus.cancelled'),
+  }
+
+  const SERVICES: ServiceItem[] = [
+    {
+      id: 'cleaning',
+      name: t('tenantServices.serviceName.cleaning'),
+      description: t('tenantServices.serviceDesc.cleaning'),
+      price: 120,
+      unit: t('tenantServices.serviceUnit.cleaning'),
+      badge: t('tenantServices.serviceBadge.cleaning'),
+      badgeType: 'primary',
+      iconBg: 'rgba(20, 184, 166, 0.12)',
+      iconColor: 'var(--rent-primary)',
+      iconType: 'cleaning',
+    },
+    {
+      id: 'ac_cleaning',
+      name: t('tenantServices.serviceName.ac_cleaning'),
+      description: t('tenantServices.serviceDesc.ac_cleaning'),
+      price: 80,
+      unit: t('tenantServices.serviceUnit.ac_cleaning'),
+      badge: t('tenantServices.serviceBadge.ac_cleaning'),
+      badgeType: 'info',
+      iconBg: 'rgba(14,165,233,0.12)',
+      iconColor: 'var(--state-info)',
+      iconType: 'ac',
+    },
+    {
+      id: 'wifi_install',
+      name: t('tenantServices.serviceName.wifi_install'),
+      description: t('tenantServices.serviceDesc.wifi_install'),
+      price: 150,
+      unit: t('tenantServices.serviceUnit.wifi_install'),
+      badge: t('tenantServices.serviceBadge.wifi_install'),
+      badgeType: 'success',
+      iconBg: 'rgba(22,163,74,0.12)',
+      iconColor: 'var(--state-success)',
+      iconType: 'wifi',
+    },
+    {
+      id: 'utility_payment',
+      name: t('tenantServices.serviceName.utility_payment'),
+      description: t('tenantServices.serviceDesc.utility_payment'),
+      price: 0,
+      unit: t('tenantServices.serviceUnit.utility_payment'),
+      badge: t('tenantServices.serviceBadge.utility_payment'),
+      badgeType: 'warning',
+      iconBg: 'rgba(217,119,6,0.12)',
+      iconColor: 'var(--state-warning)',
+      iconType: 'utility',
+      free: true,
+    },
+  ]
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -149,7 +151,7 @@ const TenantServices = () => {
         items.map((o: any) => ({
           id: o.id,
           serviceId: o.service_type,
-          serviceName: SERVICE_TYPE_LABEL[o.service_type] || o.service_type || '增值服务',
+          serviceName: SERVICE_TYPE_LABEL[o.service_type] || o.service_type || t('tenantServices.otherService'),
           status: normalizeBookingStatus(o.status),
           createdAt: o.created_at,
           preferredDate: o.scheduled_at,
@@ -161,7 +163,7 @@ const TenantServices = () => {
     } catch {
       setBookings([])
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     fetchBookings()
@@ -177,7 +179,7 @@ const TenantServices = () => {
       amount: service.price,
     }
     setBookings((prev) => [newBooking, ...prev])
-    message.success('预约成功')
+    message.success(t('tenantServices.bookedSuccess'))
   }
 
   const formatAmount = (amount?: number) => {
@@ -192,9 +194,9 @@ const TenantServices = () => {
     : null
 
   const heroStats = [
-    { value: String(SERVICES.length), label: '项服务' },
-    { value: String(completedCount), label: '完成订单' },
-    { value: avgRating ?? '—', label: '平均评分' },
+    { value: String(SERVICES.length), label: t('tenantServices.itemCount') },
+    { value: String(completedCount), label: t('tenantServices.completedOrders') },
+    { value: avgRating ?? '—', label: t('tenantServices.avgRating') },
   ]
 
   return (
@@ -207,10 +209,10 @@ const TenantServices = () => {
         <div className="svc-hero__content">
           <span className="svc-hero__eyebrow">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .587l3.668 7.431L24 9.75l-6 5.847 1.417 8.265L12 19.771l-7.417 4.091L6 15.597 0 9.75l8.332-1.732z"/></svg>
-            租客专享
+            {t('tenantServices.tenantExclusive')}
           </span>
-          <h2 className="svc-hero__title">推荐服务</h2>
-          <p className="svc-hero__subtitle">一站式家居服务：清洁、维修、水电代付</p>
+          <h2 className="svc-hero__title">{t('tenantServices.recommendedTitle')}</h2>
+          <p className="svc-hero__subtitle">{t('tenantServices.recommendedSubtitle')}</p>
           <button
             className="svc-hero__action"
             onClick={() => {
@@ -219,7 +221,7 @@ const TenantServices = () => {
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            发起预约
+            {t('tenantServices.startBooking')}
           </button>
         </div>
         <div className="svc-hero__stats">
@@ -235,8 +237,8 @@ const TenantServices = () => {
       {/* Service Categories */}
       <section className="svc-section" id="svc-categories">
         <div className="svc-section__head">
-          <h3 className="svc-section__title">服务分类</h3>
-          <span className="svc-section__hint">选择你需要的家居服务</span>
+          <h3 className="svc-section__title">{t('tenantServices.categoryTitle')}</h3>
+          <span className="svc-section__hint">{t('tenantServices.categoryHint')}</span>
         </div>
         <div className="svc-category-grid">
           {SERVICES.map((s) => (
@@ -251,15 +253,15 @@ const TenantServices = () => {
               <p className="svc-category-card__desc">{s.description}</p>
               <div className="svc-category-card__footer">
                 <div>
-                  <span className="svc-category-card__price-label">{s.free ? '服务费' : '起价'}</span>
+                  <span className="svc-category-card__price-label">{s.free ? t('tenantServices.priceLabel') : t('tenantServices.priceFrom')}</span>
                   {s.free ? (
-                    <span className="svc-category-card__price" style={{ color: 'var(--state-success)' }}>免费服务</span>
+                    <span className="svc-category-card__price" style={{ color: 'var(--state-success)' }}>{t('tenantServices.freeService')}</span>
                   ) : (
                     <span className="svc-category-card__price">฿{s.price}<span className="svc-category-card__price-unit">/{s.unit}</span></span>
                   )}
                 </div>
                 <button className="svc-category-card__btn" onClick={() => handleBook(s)}>
-                  预约服务
+                  {t('tenantServices.bookService')}
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </button>
               </div>
@@ -271,8 +273,8 @@ const TenantServices = () => {
       {/* My Service Orders */}
       <section className="svc-section">
         <div className="svc-section__head">
-          <h3 className="svc-section__title">我的服务订单</h3>
-          <a className="svc-section__link">查看全部</a>
+          <h3 className="svc-section__title">{t('tenantServices.myOrders')}</h3>
+          <a className="svc-section__link">{t('tenantServices.viewAll')}</a>
         </div>
         <div className="svc-order-list">
           {bookings.length ? (
@@ -298,16 +300,16 @@ const TenantServices = () => {
                       {stLabel}
                     </span>
                     {item.status === 'completed' ? (
-                      <button className="rent-btn rent-btn--primary rent-btn--sm">评价</button>
+                      <button className="rent-btn rent-btn--primary rent-btn--sm">{t('tenantServices.review')}</button>
                     ) : (
-                      <button className="rent-btn rent-btn--secondary rent-btn--sm">详情</button>
+                      <button className="rent-btn rent-btn--secondary rent-btn--sm">{t('tenantServices.detail')}</button>
                     )}
                   </div>
                 </div>
               )
             })
           ) : (
-            <div className="rent-empty">暂无预约记录</div>
+            <div className="rent-empty">{t('tenantServices.emptyOrders')}</div>
           )}
         </div>
       </section>
@@ -315,11 +317,11 @@ const TenantServices = () => {
       {/* Service Reviews */}
       <section className="svc-section">
         <div className="svc-section__head">
-          <h3 className="svc-section__title">服务评价</h3>
-          <a className="svc-section__link">更多评价</a>
+          <h3 className="svc-section__title">{t('tenantServices.reviewsTitle')}</h3>
+          <a className="svc-section__link">{t('tenantServices.moreReviews')}</a>
         </div>
         <div className="svc-reviews">
-          <div className="rent-empty">暂无服务评价</div>
+          <div className="rent-empty">{t('tenantServices.emptyReviews')}</div>
         </div>
       </section>
 
@@ -332,17 +334,17 @@ const TenantServices = () => {
             <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M20 12v9H4v-9"/><rect x="2" y="7" width="20" height="5" rx="1"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
           </div>
           <div>
-            <h3 className="svc-promo__title">年度服务套餐 · 省心更省钱</h3>
-            <p className="svc-promo__desc">包含 6 次家政清洁 + 4 台空调清洗 + 免费水电代付，全年无忧</p>
+            <h3 className="svc-promo__title">{t('tenantServices.promoTitle')}</h3>
+            <p className="svc-promo__desc">{t('tenantServices.promoDesc')}</p>
             <div className="svc-promo__price-row">
               <span className="svc-promo__price">฿1,288</span>
               <span className="svc-promo__price-old">฿1,680</span>
-              <span className="svc-promo__save">立省 ฿392</span>
+              <span className="svc-promo__save">{t('tenantServices.saveLabel')}</span>
             </div>
           </div>
         </div>
-        <button className="svc-promo__btn" onClick={() => message.success('套餐购买成功')}>
-          立即购买套餐
+        <button className="svc-promo__btn" onClick={() => message.success(t('tenantServices.purchaseSuccess'))}>
+          {t('tenantServices.buyNow')}
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </button>
       </section>

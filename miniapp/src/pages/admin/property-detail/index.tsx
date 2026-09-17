@@ -97,30 +97,10 @@ export default function AdminPropertyDetailPage() {
   // 当前租客 = 最近一条履约中租约（后端 /properties/{id}/leases 已附租客名）
   const activeLease = leases.find((l) => l.status === 'active') || leases[0]
 
-  // 编辑房源：原型为「本页」操作 → 切换房源状态（PATCH /properties/{id}）
-  const editStatus = () => {
-    if (!detail) return
-    const keys = ['vacant', 'rented', 'renewing', 'maintenance']
-    const labels = keys.map((k) => STATUS_LABELS[k])
-    Taro.showActionSheet({
-      itemList: labels,
-      success: async (r) => {
-        const next = keys[r.tapIndex]
-        if (!next || next === detail.status) return
-        try {
-          await request({
-            url: `/properties/${id}`,
-            method: 'PATCH',
-            data: { status: next }
-          })
-          Taro.showToast({ title: '已更新状态', icon: 'none' })
-          fetchAll()
-        } catch (error) {
-          console.error('[AdminPropertyDetail] 更新房源状态失败', error)
-          Taro.showToast({ title: '更新失败', icon: 'none' })
-        }
-      }
-    })
+  // 编辑房源：进入完整编辑表单页（含字段编辑 + 照片）
+  const goEdit = () => {
+    if (!id) return
+    Taro.navigateTo({ url: `/pages/employee/property-edit/index?id=${id}` })
   }
 
   const goLeases = () => {
@@ -244,7 +224,7 @@ export default function AdminPropertyDetailPage() {
 
         {/* 操作区 */}
         <View className='apd-action-row'>
-          <View className='apd-action-btn' onClick={editStatus}>
+          <View className='apd-action-btn' onClick={goEdit}>
             <Text className='apd-action-btn__text'>编辑房源</Text>
           </View>
           <View className='apd-action-btn' onClick={goLeases}>

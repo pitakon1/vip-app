@@ -5,6 +5,7 @@ import useAuthStore from '@/stores/auth'
 import { propertiesApi, favoritesApi, viewingsApi } from '@/services/api'
 import { AREA_GROUPS } from '@/data/locationArea'
 import BottomNav from '@/components/BottomNav'
+import { usePaginatedList } from '@/hooks/usePaginatedList'
 import './index.scss'
 
 interface Property {
@@ -98,12 +99,26 @@ const defaultSlot = () => {
 
 export default function EmployeePropertyBrowsePage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [list, setList] = useState<Property[]>([])
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState(false)
+  const {
+    list,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    fetch: fetchList,
+    fetchMore
+  } = usePaginatedList<Property>({
+    pageSize: PAGE_SIZE,
+    fetcher: async (p, ps, params) => {
+      const res: any = await propertiesApi.list({
+        page: p,
+        page_size: ps,
+        ...((params as any)?.q ? { q: (params as any).q } : {})
+      })
+      return pickList(res)
+    },
+    onError: () => Taro.showToast({ title: '加载房源失败', icon: 'none' })
+  })
 
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
@@ -121,30 +136,6 @@ export default function EmployeePropertyBrowsePage() {
   const [bookingId, setBookingId] = useState<string>('')
   const [visitorName, setVisitorName] = useState('')
   const [slot, setSlot] = useState(defaultSlot())
-
-  const fetchList = async (nextPage = 1, q = query) => {
-    if (nextPage === 1) setLoading(true)
-    else setLoadingMore(true)
-    setError(false)
-    try {
-      const res: any = await propertiesApi.list({
-        page: nextPage,
-        page_size: PAGE_SIZE,
-        ...(q ? { q } : {})
-      })
-      const items = pickList(res)
-      setList((prev) => (nextPage === 1 ? items : [...prev, ...items]))
-      setPage(nextPage)
-      setHasMore(items.length >= PAGE_SIZE)
-    } catch (err) {
-      console.error('[PropertyBrowse] 获取房源失败', err)
-      if (nextPage === 1) setError(true)
-      Taro.showToast({ title: '加载房源失败', icon: 'none' })
-    } finally {
-      setLoading(false)
-      setLoadingMore(false)
-    }
-  }
 
   const fetchFavorites = async () => {
     try {
@@ -169,12 +160,7 @@ export default function EmployeePropertyBrowsePage() {
   const onSearch = () => {
     const q = keyword.trim()
     setQuery(q)
-    fetchList(1, q)
-  }
-
-  const onLoadMore = () => {
-    if (loading || loadingMore || !hasMore) return
-    fetchList(page + 1)
+    fetchList(1, { q })
   }
 
   // 收藏切换（真实接口，失败回滚）
@@ -540,7 +526,7 @@ export default function EmployeePropertyBrowsePage() {
 
         {/* 加载更多 */}
         {hasMore && visible.length > 0 && (
-          <View className='pb-more' onClick={onLoadMore}>
+          <View className='pb-more' onClick={fetchMore}>
             <Text className='pb-more__text'>
               {loadingMore ? '加载中...' : '加载更多房源'}
             </Text>

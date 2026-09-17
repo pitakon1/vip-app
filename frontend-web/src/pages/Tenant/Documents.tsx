@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
@@ -18,14 +19,6 @@ interface DocItem {
   [key: string]: any
 }
 
-const typeLabelMap: Record<DocType, string> = {
-  lease_contract: '合同',
-  receipt: '收据',
-  certificate: '其他',
-  report: '其他',
-  other: '其他',
-}
-
 const cardIconMap: Record<DocType, string> = {
   lease_contract: 'rent-doc-card__icon--contract',
   receipt: 'rent-doc-card__icon--receipt',
@@ -40,14 +33,6 @@ const cardTagMap: Record<DocType, string> = {
   certificate: 'rent-doc-tag--other',
   report: 'rent-doc-tag--other',
   other: 'rent-doc-tag--other',
-}
-
-const cardStatusMap: Record<DocType, { label: string; cls: string }> = {
-  lease_contract: { label: '已签署', cls: 'rent-doc-status--success' },
-  receipt: { label: '已归档', cls: 'rent-doc-status--neutral' },
-  certificate: { label: '已归档', cls: 'rent-doc-status--neutral' },
-  report: { label: '已归档', cls: 'rent-doc-status--neutral' },
-  other: { label: '待审核', cls: 'rent-doc-status--warning' },
 }
 
 const DocIcon = ({ type }: { type: DocType }) => {
@@ -136,6 +121,24 @@ const STATIC_DOCS: DocItem[] = [
 ]
 
 const TenantDocuments = () => {
+  const { t } = useTranslation()
+
+  const typeLabelMap: Record<DocType, string> = {
+    lease_contract: t('tenantDocuments.typeLabel.lease_contract'),
+    receipt: t('tenantDocuments.typeLabel.receipt'),
+    certificate: t('tenantDocuments.typeLabel.certificate'),
+    report: t('tenantDocuments.typeLabel.report'),
+    other: t('tenantDocuments.typeLabel.other'),
+  }
+
+  const cardStatusMap: Record<DocType, { label: string; cls: string }> = {
+    lease_contract: { label: t('tenantDocuments.statusLabel.lease_contract'), cls: 'rent-doc-status--success' },
+    receipt: { label: t('tenantDocuments.statusLabel.receipt'), cls: 'rent-doc-status--neutral' },
+    certificate: { label: t('tenantDocuments.statusLabel.certificate'), cls: 'rent-doc-status--neutral' },
+    report: { label: t('tenantDocuments.statusLabel.report'), cls: 'rent-doc-status--neutral' },
+    other: { label: t('tenantDocuments.statusLabel.other'), cls: 'rent-doc-status--warning' },
+  }
+
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<DocItem[]>([])
   const [file, setFile] = useState<File | null>(null)
@@ -180,7 +183,7 @@ const TenantDocuments = () => {
       } catch {
         // API 不可用时仅本地展示
       }
-      message.success('合同上传成功')
+      message.success(t('tenantDocuments.uploadSuccess'))
       const newItem: DocItem = {
         id: `local-${Date.now()}`,
         name: f.name,
@@ -189,18 +192,18 @@ const TenantDocuments = () => {
         uploadDate: dayjs().format('YYYY-MM-DD'),
         created_at: dayjs().format('YYYY-MM-DD'),
         size: Math.round(f.size / 1024),
-        source: '本地文件',
+        source: t('tenantDocuments.sourceLocal'),
       }
       setData((prev) => [newItem, ...prev])
       setFile(null)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '上传失败')
+      message.error(err?.response?.data?.message || t('tenantDocuments.uploadFailed'))
     }
   }
 
   const handleUpload = async () => {
     if (!file) {
-      message.warning('请先选择要上传的文件')
+      message.warning(t('tenantDocuments.warnChooseFile'))
       return
     }
     await doUpload(file)
@@ -224,29 +227,29 @@ const TenantDocuments = () => {
   }
 
   const segments: { key: SegmentKey; label: string }[] = [
-    { key: 'all', label: '全部文档' },
-    { key: 'lease_contract', label: '租赁合同' },
-    { key: 'receipt', label: '付款收据' },
-    { key: 'other', label: '其他文件' },
+    { key: 'all', label: t('tenantDocuments.allDocs') },
+    { key: 'lease_contract', label: t('tenantDocuments.leaseContracts') },
+    { key: 'receipt', label: t('tenantDocuments.paymentReceipts') },
+    { key: 'other', label: t('tenantDocuments.otherFiles') },
   ]
 
   return (
     <>
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <span className="rent-text-muted">加载中…</span>
+          <span className="rent-text-muted">{t('tenantDocuments.loading')}</span>
         </div>
       )}
 
       {/* Clean hero row */}
       <div className="rent-doc-hero">
         <div className="rent-doc-hero__text">
-          <h1 className="rent-doc-hero__title">我的文档</h1>
-          <p className="rent-doc-hero__subtitle">查看和管理您的租赁文件</p>
+          <h1 className="rent-doc-hero__title">{t('tenantDocuments.myDocs')}</h1>
+          <p className="rent-doc-hero__subtitle">{t('tenantDocuments.subtitle')}</p>
         </div>
         <button className="rent-doc-hero__action" onClick={() => inputRef.current?.click()}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          上传文档
+          {t('tenantDocuments.uploadDoc')}
         </button>
         <input
           ref={inputRef}
@@ -272,7 +275,7 @@ const TenantDocuments = () => {
       </div>
 
       {/* Result count */}
-      <div className="rent-doc-count">共 <span className="rent-doc-count__num">{filteredData.length}</span> 份文档</div>
+      <div className="rent-doc-count" dangerouslySetInnerHTML={{ __html: t('tenantDocuments.count', { count: filteredData.length }) }} />
 
       {/* Document grid */}
       <div>
@@ -282,7 +285,7 @@ const TenantDocuments = () => {
               const dateStr = r.uploadDate || r.created_at || ''
               const sizeStr = formatSize(r.size)
               const tagCls = cardTagMap[r.type] || cardTagMap.other
-              const tagLabel = typeLabelMap[r.type] || '其他'
+              const tagLabel = typeLabelMap[r.type] || t('tenantDocuments.typeLabel.other')
               const iconCls = cardIconMap[r.type] || cardIconMap.other
               const st = cardStatusMap[r.type] || cardStatusMap.other
               const canOpen = !!r.url && r.url !== '#'
@@ -302,17 +305,17 @@ const TenantDocuments = () => {
                   </div>
                   <div className="rent-doc-card__foot">
                     <div className="rent-doc-card__meta-row">
-                      {dateStr && <span className="rent-doc-card__date">上传于 {dayjs(dateStr).format('YYYY-MM-DD')}</span>}
+                      {dateStr && <span className="rent-doc-card__date">{t('tenantDocuments.uploadedAt', { date: dayjs(dateStr).format('YYYY-MM-DD') })}</span>}
                       <span className={`rent-doc-status ${st.cls}`}><span className="rent-doc-status__dot"></span>{st.label}</span>
                     </div>
                     <div className="rent-doc-card__actions">
                       <button className="rent-btn rent-btn--secondary rent-btn--sm" disabled={!canOpen} onClick={() => handleDownload(r)}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        下载
+                        {t('tenantDocuments.download')}
                       </button>
                       <button className="rent-btn rent-btn--ghost rent-btn--sm" disabled={!canOpen} onClick={() => handlePreview(r)}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                        预览
+                        {t('tenantDocuments.preview')}
                       </button>
                     </div>
                   </div>
@@ -320,7 +323,7 @@ const TenantDocuments = () => {
               )
             })
           ) : (
-            <div className="rent-empty">暂无文档</div>
+            <div className="rent-empty">{t('tenantDocuments.empty')}</div>
           )}
         </div>
       </div>

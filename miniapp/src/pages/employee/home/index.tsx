@@ -122,12 +122,10 @@ const greeting = () => {
   return '晚上好'
 }
 
-// 快捷操作（对齐原型 4 宫格）
+// 快捷操作：只放不在底部导航里的功能（考勤打卡 / 房源管理）；房源浏览·业绩·客户等已在 Tab
 const QUICK_ACTIONS: { label: string; icon: IconKey; url: string }[] = [
-  { label: '房源浏览', icon: 'home', url: '/pages/employee/property-browse/index' },
   { label: '考勤打卡', icon: 'calendar', url: '/pages/attendance/index' },
-  { label: '业绩查询', icon: 'chart', url: '/pages/employee/performance/index' },
-  { label: '通讯录', icon: 'user', url: '/pages/employee/contacts/index' }
+  { label: '房源管理', icon: 'home', url: '/pages/employee/properties/index' }
 ]
 
 export default function EmployeeHomePage() {

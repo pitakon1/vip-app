@@ -14,7 +14,7 @@ from .base import TimestampMixin
 
 
 class PropertyStatus(str, Enum):
-    """房源状态枚举。"""
+    """房源租态枚举。"""
 
     vacant = "vacant"
     rented = "rented"

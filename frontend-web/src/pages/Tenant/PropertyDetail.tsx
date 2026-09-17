@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { DatePicker, Input, InputNumber, Modal, message } from 'antd'
 import dayjs from 'dayjs'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 
@@ -96,16 +97,6 @@ const Icon = ({ d, fill = 'none' }: { d: string; fill?: string }) => (
   </svg>
 )
 
-const PROPERTY_TYPE_LABEL: Record<string, string> = {
-  apartment: '公寓',
-  condo: '公寓',
-  villa: '别墅',
-  house: '别墅',
-  shop: '商铺',
-  commercial: '商铺',
-  office: '写字楼',
-}
-
 const photoUrl = (item: any): string | null => {
   if (!item) return null
   if (typeof item === 'string') return item
@@ -123,8 +114,19 @@ const toBody = (res: any): any => {
 }
 
 const TenantPropertyDetail = () => {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+
+  const PROPERTY_TYPE_LABEL: Record<string, string> = {
+    apartment: t('propertyType.apartment'),
+    condo: t('propertyType.condo'),
+    villa: t('propertyType.villa'),
+    house: t('propertyType.house'),
+    shop: t('propertyType.shop'),
+    commercial: t('propertyType.commercial'),
+    office: t('propertyType.office'),
+  }
 
   const [detail, setDetail] = useState<PropertyItem | null>(null)
   const [project, setProject] = useState<ProjectItem | null>(null)
@@ -204,12 +206,12 @@ const TenantPropertyDetail = () => {
         setFavorited(false)
       }
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || '获取房源详情失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('tenantPropertyDetail.fetchFailed'))
       setDetail(null)
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, t])
 
   useEffect(() => {
     fetchAll()
@@ -241,22 +243,26 @@ const TenantPropertyDetail = () => {
 
   const facts = useMemo(() => {
     const d = detail
-    const floorText = d?.floor ? (d?.building ? `${d.building} · ${d.floor}层` : `${d.floor}层`) : null
+    const floorText = d?.floor
+      ? d?.building
+        ? t('tenantPropertyDetail.buildingFloor', { building: d.building, floor: d.floor })
+        : t('tenantPropertyDetail.floorText', { floor: d.floor })
+      : null
     const layoutText =
-      d?.bedrooms || d?.bathrooms ? `${d?.bedrooms ?? 0}室${d?.bathrooms ?? 0}卫` : null
+      d?.bedrooms || d?.bathrooms ? t('tenantPropertyDetail.roomBath', { bed: d?.bedrooms ?? 0, bath: d?.bathrooms ?? 0 }) : null
     return [
-      { key: 'area', icon: ICONS.area, label: '建筑面积', value: d?.size_sqm ? `${d.size_sqm}㎡` : '—' },
-      { key: 'layout', icon: ICONS.layout, label: '户型', value: layoutText || '—' },
-      { key: 'floor', icon: ICONS.layers, label: '所在楼层', value: floorText || '—' },
+      { key: 'area', icon: ICONS.area, label: t('tenantPropertyDetail.badgeArea'), value: d?.size_sqm ? t('tenantPropertyDetail.areaValue', { area: d.size_sqm }) : t('tenantPropertyDetail.noValue') },
+      { key: 'layout', icon: ICONS.layout, label: t('tenantPropertyDetail.badgeLayout'), value: layoutText || t('tenantPropertyDetail.noValue') },
+      { key: 'floor', icon: ICONS.layers, label: t('tenantPropertyDetail.badgeFloor'), value: floorText || t('tenantPropertyDetail.noValue') },
       {
         key: 'type',
         icon: ICONS.tag,
-        label: '物业类型',
-        value: PROPERTY_TYPE_LABEL[String(d?.property_type || '')] || '—',
+        label: t('tenantPropertyDetail.badgeType'),
+        value: PROPERTY_TYPE_LABEL[String(d?.property_type || '')] || t('tenantPropertyDetail.noValue'),
       },
-      { key: 'furniture', icon: ICONS.sofa, label: '家具配套', value: d?.furnished ? '全屋家具' : '无家具' },
+      { key: 'furniture', icon: ICONS.sofa, label: t('tenantPropertyDetail.badgeFurniture'), value: d?.furnished ? t('tenantPropertyDetail.furnitureFull') : t('tenantPropertyDetail.furnitureNone') },
     ]
-  }, [detail])
+  }, [detail, t])
 
   const chips = useMemo(() => {
     const d = detail
@@ -264,37 +270,37 @@ const TenantPropertyDetail = () => {
     const list: string[] = []
     const typeLabel = PROPERTY_TYPE_LABEL[String(d.property_type || '')]
     if (typeLabel) list.push(typeLabel)
-    if (d.furnished) list.push('全屋家具')
-    if (d.deposit_months) list.push(`押 ${d.deposit_months} 付 1`)
+    if (d.furnished) list.push(t('tenantPropertyDetail.chipFurniture'))
+    if (d.deposit_months) list.push(t('tenantPropertyDetail.chipDeposit', { deposit: d.deposit_months }))
     if (d.available_from) {
       const dt = dayjs(d.available_from)
-      if (dt.isValid()) list.push(`${dt.format('M月D日')}起可入住`)
+      if (dt.isValid()) list.push(t('tenantPropertyDetail.chipAvailable', { date: dt.format(t('tenantDashboard.monthDayFormat')) }))
     }
-    if (d.video_url) list.push('视频看房')
-    if (d.status === 'vacant') list.push('随时可看房')
+    if (d.video_url) list.push(t('tenantPropertyDetail.chipVideo'))
+    if (d.status === 'vacant') list.push(t('tenantPropertyDetail.chipViewNow'))
     return list
-  }, [detail])
+  }, [detail, t])
 
   const pois = useMemo(() => {
     if (!project) return [] as { key: string; icon: string; name: string; label: string }[]
     const list: { key: string; icon: string; name: string; label: string }[] = []
     if (project.nearest_subway) {
-      list.push({ key: 'subway', icon: ICONS.subway, name: project.nearest_subway, label: '最近地铁 / 轻轨站' })
+      list.push({ key: 'subway', icon: ICONS.subway, name: project.nearest_subway, label: t('tenantPropertyDetail.poiSubway') })
     }
     const region = [project.city, project.district].filter(Boolean).join(' · ')
     if (region) {
-      list.push({ key: 'region', icon: ICONS.pin, name: region, label: '所在城市 · 区域' })
+      list.push({ key: 'region', icon: ICONS.pin, name: region, label: t('tenantPropertyDetail.poiRegion') })
     }
     if (project.property_management_company) {
       list.push({
         key: 'pm',
         icon: ICONS.users,
         name: project.property_management_company,
-        label: '物业管理',
+        label: t('tenantPropertyDetail.poiPm'),
       })
     }
     return list
-  }, [project])
+  }, [project, t])
 
   const buyPrice = Number(saleListing?.asking_price || 0)
   const buyCurrency = saleListing?.currency || currency
@@ -318,14 +324,14 @@ const TenantPropertyDetail = () => {
       if (favorited) {
         await api.delete(`/favorites/${id}`)
         setFavorited(false)
-        message.success('已取消收藏')
+        message.success(t('tenantPropertyDetail.unFavored'))
       } else {
         await api.post('/favorites', { property_id: id })
         setFavorited(true)
-        message.success('已加入收藏')
+        message.success(t('tenantPropertyDetail.favored'))
       }
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '操作失败，请稍后重试')
+      message.error(err?.response?.data?.detail || t('tenantPropertyDetail.opFailed'))
     } finally {
       setFavBusy(false)
     }
@@ -333,7 +339,7 @@ const TenantPropertyDetail = () => {
 
   const handleBooking = async () => {
     if (!id || !bookingAt) {
-      message.warning('请选择预约看房时间')
+      message.warning(t('tenantPropertyDetail.warnViewingTime'))
       return
     }
     setBookingBusy(true)
@@ -343,12 +349,12 @@ const TenantPropertyDetail = () => {
         scheduled_at: bookingAt.toISOString(),
         notes: bookingNote || null,
       })
-      message.success('预约已提交，经纪人会尽快与您确认')
+      message.success(t('tenantPropertyDetail.bookedSubmitted'))
       setBookingOpen(false)
       setBookingAt(null)
       setBookingNote('')
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '提交预约失败')
+      message.error(err?.response?.data?.detail || t('tenantPropertyDetail.submitFailed'))
     } finally {
       setBookingBusy(false)
     }
@@ -357,7 +363,7 @@ const TenantPropertyDetail = () => {
   const handleTranslate = async () => {
     const source = detail?.description || ''
     if (!source) {
-      message.warning('暂无可翻译的房源描述')
+      message.warning(t('tenantPropertyDetail.warnTranslate'))
       return
     }
     setTranslating(true)
@@ -366,38 +372,38 @@ const TenantPropertyDetail = () => {
       const data = res.data?.data ?? res.data
       setTranslatedDesc(data?.translated_text || source)
     } catch {
-      message.error('翻译失败')
+      message.error(t('tenantPropertyDetail.translateFailed'))
     } finally {
       setTranslating(false)
     }
   }
 
   if (loading) {
-    return <div className="rent-empty">加载中…</div>
+    return <div className="rent-empty">{t('tenantPropertyDetail.loading')}</div>
   }
 
   if (!detail) {
     return (
       <>
         <nav className="rent-detail-crumb">
-          <a onClick={() => navigate('/tenant/dashboard')}>首页</a>
+          <a onClick={() => navigate('/tenant/dashboard')}>{t('tenantPropertyDetail.crumbHome')}</a>
           <Icon d={ICONS.chevron} />
-          <a onClick={() => navigate('/tenant/listings')}>找房源</a>
+          <a onClick={() => navigate('/tenant/listings')}>{t('tenantPropertyDetail.crumbListings')}</a>
         </nav>
-        <div className="rent-empty">房源不存在或已被下架</div>
+        <div className="rent-empty">{t('tenantPropertyDetail.emptyDetail')}</div>
       </>
     )
   }
 
-  const displayName = detail.room_number || detail.address || '房源详情'
+  const displayName = detail.room_number || detail.address || t('tenantPropertyDetail.detailDefaultName')
 
   return (
     <>
       {/* 面包屑 */}
       <nav className="rent-detail-crumb" aria-label="面包屑">
-        <a onClick={() => navigate('/tenant/dashboard')}>首页</a>
+        <a onClick={() => navigate('/tenant/dashboard')}>{t('tenantPropertyDetail.crumbHome')}</a>
         <Icon d={ICONS.chevron} />
-        <a onClick={() => navigate('/tenant/listings')}>找房源</a>
+        <a onClick={() => navigate('/tenant/listings')}>{t('tenantPropertyDetail.crumbListings')}</a>
         <Icon d={ICONS.chevron} />
         <span className="rent-detail-crumb__current">{displayName}</span>
       </nav>
@@ -436,7 +442,7 @@ const TenantPropertyDetail = () => {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <Icon d={ICONS.play} /> 视频看房
+                  <Icon d={ICONS.play} /> {t('tenantPropertyDetail.videoTour')}
                 </a>
               )}
             </span>
@@ -466,7 +472,7 @@ const TenantPropertyDetail = () => {
               data-active={biz === 'rent'}
               onClick={() => setBiz('rent')}
             >
-              租房
+              {t('tenantPropertyDetail.bizRent')}
             </button>
             <button
               className="rent-v17-tab"
@@ -475,7 +481,7 @@ const TenantPropertyDetail = () => {
               data-active={biz === 'buy'}
               onClick={() => setBiz('buy')}
             >
-              买房
+              {t('tenantPropertyDetail.bizBuy')}
             </button>
           </div>
 
@@ -484,19 +490,19 @@ const TenantPropertyDetail = () => {
               <div>
                 <div className="rent-detail-price__value">
                   {formatMoney(detail.monthly_rent, currency)}
-                  <small>/月</small>
+                  <small>{t('tenantPropertyDetail.perMonth')}</small>
                 </div>
                 <div className="rent-detail-price__tags">
                   <span className="rent-badge rent-badge--primary">
-                    {PROPERTY_TYPE_LABEL[String(detail.property_type || '')] || '在租房源'}
+                    {PROPERTY_TYPE_LABEL[String(detail.property_type || '')] || t('tenantPropertyDetail.inRent')}
                   </span>
                   <span className="rent-badge rent-badge--primary">
-                    {detail.furnished ? '全屋家具' : '可自配家具'}
+                    {detail.furnished ? t('tenantPropertyDetail.fullFurniture') : t('tenantPropertyDetail.selfFurniture')}
                   </span>
                 </div>
               </div>
               {detail.status === 'vacant' && (
-                <span className="rent-badge rent-badge--success">可预约看房</span>
+                <span className="rent-badge rent-badge--success">{t('tenantPropertyDetail.canView')}</span>
               )}
             </div>
             <h1 className="rent-detail-price__name">{displayName}</h1>
@@ -513,25 +519,25 @@ const TenantPropertyDetail = () => {
                   <div>
                     <div className="rent-detail-price__value rent-v17-price--buy">
                       {formatMoney(buyPrice, buyCurrency)}
-                      <small>总价</small>
+                      <small>{t('tenantPropertyDetail.totalPrice')}</small>
                     </div>
                     <div className="rent-detail-price__tags">
-                      <span className="rent-badge rent-badge--primary">可售</span>
+                      <span className="rent-badge rent-badge--primary">{t('tenantPropertyDetail.available')}</span>
                       {saleListing.title && (
                         <span className="rent-badge rent-badge--primary">{saleListing.title}</span>
                       )}
                     </div>
                   </div>
-                  <span className="rent-badge rent-badge--success">可预约看房</span>
+                  <span className="rent-badge rent-badge--success">{t('tenantPropertyDetail.canView')}</span>
                 </div>
                 <div className="rent-v17-loan">
-                  <span className="rent-v17-loan__item">首付 {loanDownPct}%</span>
+                  <span className="rent-v17-loan__item">{t('tenantPropertyDetail.downPayment', { pct: loanDownPct })}</span>
                   <span className="rent-v17-loan__sep">·</span>
                   <span className="rent-v17-loan__item">
-                    贷款 <b>{formatMoney(buyLoanAmount, buyCurrency)}</b>
+                    {t('tenantPropertyDetail.loan')} <b>{formatMoney(buyLoanAmount, buyCurrency)}</b>
                   </span>
                   <span className="rent-v17-loan__sep">·</span>
-                  <span className="rent-v17-loan__item">{loanYears} 年期</span>
+                  <span className="rent-v17-loan__item">{t('tenantPropertyDetail.yearTerm', { years: loanYears })}</span>
                 </div>
                 <h2 className="rent-detail-price__name">
                   {saleListing.title || displayName}
@@ -542,14 +548,14 @@ const TenantPropertyDetail = () => {
                 </p>
               </>
             ) : (
-              <div className="rent-empty">该房源暂无出售挂牌</div>
+              <div className="rent-empty">{t('tenantPropertyDetail.noSaleListing')}</div>
             )}
           </div>
         </section>
 
         {/* 3 核心信息 */}
         <section className="rent-detail-card">
-          <div className="rent-detail-title">核心信息</div>
+          <div className="rent-detail-title">{t('tenantPropertyDetail.coreInfo')}</div>
           <div className="rent-detail-facts__grid">
             {facts.map((f) => (
               <div className="rent-detail-fact" key={f.key}>
@@ -564,15 +570,18 @@ const TenantPropertyDetail = () => {
           {benchmark && (
             <div className="rent-v17-benchmark">
               <Icon d={ICONS.check} />
-              同小区均价 {formatMoney(benchmark.avg, benchmark.currency)}/月 ·{' '}
-              {benchmark.lower ? '低于' : '高于'}均价 {benchmark.pct}%
+              {t('tenantPropertyDetail.avgPrice', {
+                amount: formatMoney(benchmark.avg, benchmark.currency),
+                rel: benchmark.lower ? t('tenantPropertyDetail.belowAvg') : t('tenantPropertyDetail.aboveAvg'),
+                pct: benchmark.pct,
+              })}
             </div>
           )}
         </section>
 
         {/* 4 卖点与基础配套 */}
         <section className="rent-detail-card">
-          <div className="rent-detail-title">房源卖点与基础配套</div>
+          <div className="rent-detail-title">{t('tenantPropertyDetail.sellingPoints')}</div>
           {chips.length ? (
             <div className="rent-detail-chips">
               {chips.map((c) => (
@@ -583,13 +592,13 @@ const TenantPropertyDetail = () => {
               ))}
             </div>
           ) : (
-            <div className="rent-empty">暂无配套信息</div>
+            <div className="rent-empty">{t('tenantPropertyDetail.emptyFacility')}</div>
           )}
         </section>
 
         {/* 5 房源描述与翻译 */}
         <section className="rent-detail-card">
-          <div className="rent-detail-title">房源描述</div>
+          <div className="rent-detail-title">{t('tenantPropertyDetail.propertyDesc')}</div>
           {detail.description ? (
             <>
               <p className="rent-detail-desc">{translatedDesc || detail.description}</p>
@@ -600,9 +609,9 @@ const TenantPropertyDetail = () => {
                   value={transTarget}
                   onChange={(e) => setTransTarget(e.target.value)}
                 >
-                  <option value="zh">中文</option>
-                  <option value="en">English</option>
-                  <option value="th">ไทย</option>
+                  <option value="zh">{t('language.zh')}</option>
+                  <option value="en">{t('language.en')}</option>
+                  <option value="th">{t('language.th')}</option>
                 </select>
                 <button
                   className="rent-btn rent-btn--ghost rent-btn--sm"
@@ -610,7 +619,7 @@ const TenantPropertyDetail = () => {
                   disabled={translating}
                   onClick={handleTranslate}
                 >
-                  {translating ? '翻译中…' : '翻译描述'}
+                  {translating ? t('tenantPropertyDetail.notTranslating') : t('tenantPropertyDetail.translateDesc')}
                 </button>
                 {translatedDesc && (
                   <button
@@ -618,19 +627,19 @@ const TenantPropertyDetail = () => {
                     type="button"
                     onClick={() => setTranslatedDesc(null)}
                   >
-                    查看原文
+                    {t('tenantPropertyDetail.viewOriginal')}
                   </button>
                 )}
               </div>
             </>
           ) : (
-            <div className="rent-empty">暂无房源描述</div>
+            <div className="rent-empty">{t('tenantPropertyDetail.emptyDesc')}</div>
           )}
         </section>
 
         {/* 6 位置与周边 */}
         <section className="rent-detail-card">
-          <div className="rent-detail-title">位置与周边</div>
+          <div className="rent-detail-title">{t('tenantPropertyDetail.location')}</div>
           <div className="rent-detail-map__canvas">
             <svg
               className="rent-detail-map__pin"
@@ -661,7 +670,7 @@ const TenantPropertyDetail = () => {
               ))}
             </div>
           ) : (
-            <div className="rent-empty">暂无周边配套信息</div>
+            <div className="rent-empty">{t('tenantPropertyDetail.emptyPoi')}</div>
           )}
         </section>
       </div>
@@ -678,7 +687,7 @@ const TenantPropertyDetail = () => {
             onClick={handleToggleFavorite}
           >
             <Icon d={ICONS.heart} />
-            <span>{favorited ? '已收藏' : '收藏'}</span>
+            <span>{favorited ? t('tenantPropertyDetail.favorited') : t('tenantPropertyDetail.addFavorite')}</span>
           </button>
           <button
             className="rent-btn rent-v17-bar__loan"
@@ -686,26 +695,26 @@ const TenantPropertyDetail = () => {
             hidden={biz !== 'buy' || !saleListing}
             onClick={() => setLoanOpen(true)}
           >
-            算贷款
+            {t('tenantPropertyDetail.calcLoan_placeholder')}
           </button>
           <button
             className="rent-btn rent-btn--primary rent-btn--lg rent-detail-bar__book"
             type="button"
             onClick={() => setBookingOpen(true)}
           >
-            立即预约看房
+            {t('tenantPropertyDetail.bookNow')}
           </button>
         </div>
       </div>
 
       {/* 预约看房 */}
       <Modal
-        title="预约看房"
+        title={t('tenantPropertyDetail.bookModalTitle')}
         open={bookingOpen}
         onCancel={() => setBookingOpen(false)}
         onOk={handleBooking}
-        okText="提交预约"
-        cancelText="取消"
+        okText={t('tenantPropertyDetail.submitBooking')}
+        cancelText={t('common.cancel')}
         confirmLoading={bookingBusy}
         destroyOnClose
       >
@@ -714,7 +723,7 @@ const TenantPropertyDetail = () => {
         </div>
         <div style={{ marginBottom: 12 }}>
           <div className="rent-pay-form-label" style={{ marginBottom: 6 }}>
-            看房时间
+            {t('tenantPropertyDetail.viewingTime')}
           </div>
           <DatePicker
             showTime={{ format: 'HH:mm' }}
@@ -727,20 +736,20 @@ const TenantPropertyDetail = () => {
         </div>
         <div>
           <div className="rent-pay-form-label" style={{ marginBottom: 6 }}>
-            备注（选填）
+            {t('tenantPropertyDetail.noteOptional')}
           </div>
           <Input.TextArea
             rows={3}
             value={bookingNote}
             onChange={(e) => setBookingNote(e.target.value)}
-            placeholder="例如：希望周末上午看房"
+            placeholder={t('tenantPropertyDetail.notePlaceholder')}
           />
         </div>
       </Modal>
 
       {/* 贷款试算 */}
       <Modal
-        title="贷款试算"
+        title={t('tenantPropertyDetail.loanModalTitle')}
         open={loanOpen}
         onCancel={() => setLoanOpen(false)}
         footer={null}
@@ -749,7 +758,7 @@ const TenantPropertyDetail = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
             <div className="rent-pay-form-label" style={{ marginBottom: 6 }}>
-              总价
+              {t('tenantPropertyDetail.loanTotal')}
             </div>
             <div style={{ fontWeight: 600, color: 'var(--rent-ink)' }}>
               {formatMoney(buyPrice, buyCurrency)}
@@ -757,7 +766,7 @@ const TenantPropertyDetail = () => {
           </div>
           <div>
             <div className="rent-pay-form-label" style={{ marginBottom: 6 }}>
-              首付比例（%）
+              {t('tenantPropertyDetail.loanDownPct')}
             </div>
             <InputNumber
               min={0}
@@ -769,7 +778,7 @@ const TenantPropertyDetail = () => {
           </div>
           <div>
             <div className="rent-pay-form-label" style={{ marginBottom: 6 }}>
-              贷款年限（年）
+              {t('tenantPropertyDetail.loanYears')}
             </div>
             <InputNumber
               min={1}
@@ -781,7 +790,7 @@ const TenantPropertyDetail = () => {
           </div>
           <div>
             <div className="rent-pay-form-label" style={{ marginBottom: 6 }}>
-              年利率（%，选填）
+              {t('tenantPropertyDetail.loanRate')}
             </div>
             <InputNumber
               min={0}
@@ -790,24 +799,24 @@ const TenantPropertyDetail = () => {
               style={{ width: '100%' }}
               value={loanRate ?? undefined}
               onChange={(v) => setLoanRate(v === null || v === undefined ? null : Number(v))}
-              placeholder="填写后计算月供"
+              placeholder={t('tenantPropertyDetail.loanRatePlaceholder')}
             />
           </div>
           <div className="rent-v17-loan" style={{ marginTop: 0 }}>
             <span className="rent-v17-loan__item">
-              首付 <b>{formatMoney(buyDown, buyCurrency)}</b>
+              {t('tenantPropertyDetail.downPaymentAmount')} <b>{formatMoney(buyDown, buyCurrency)}</b>
             </span>
             <span className="rent-v17-loan__sep">·</span>
             <span className="rent-v17-loan__item">
-              贷款 <b>{formatMoney(buyLoanAmount, buyCurrency)}</b>
+              {t('tenantPropertyDetail.loan')} <b>{formatMoney(buyLoanAmount, buyCurrency)}</b>
             </span>
             <span className="rent-v17-loan__sep">·</span>
             <span className="rent-v17-loan__item">
-              月供{' '}
+              {t('tenantPropertyDetail.monthlyPayment')}{' '}
               <b>
                 {loanResult?.monthly
-                  ? `${formatMoney(loanResult.monthly, buyCurrency)}/月`
-                  : '待填年利率'}
+                  ? `${formatMoney(loanResult.monthly, buyCurrency)}${t('tenantPropertyDetail.perMonth')}`
+                  : t('tenantPropertyDetail.waitRate')}
               </b>
             </span>
           </div>

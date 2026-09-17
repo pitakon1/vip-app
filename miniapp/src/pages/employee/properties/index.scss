@@ -313,6 +313,21 @@
     border-top: 1px solid var(--line);
   }
 
+  &__badges {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+  }
+
+  &__off {
+    padding: 4rpx 14rpx;
+    border-radius: var(--radius-full);
+    background: var(--surface-2);
+    color: var(--ink-2);
+    font-size: 22rpx;
+    font-weight: 600;
+  }
+
   &__rent {
     font-size: 34rpx;
     font-weight: 800;

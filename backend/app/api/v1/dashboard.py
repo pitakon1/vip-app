@@ -406,6 +406,8 @@ def financial_reconciliation(
                 "due_date": p.due_date.isoformat() if p.due_date else None,
                 "paid_at": p.paid_at.isoformat() if p.paid_at else None,
                 "created_at": p.created_at.isoformat() if p.created_at else None,
+                "reconciliation_status": p.reconciliation_status or "unreconciled",
+                "reconciled_at": p.reconciled_at.isoformat() if p.reconciled_at else None,
             }
         )
 

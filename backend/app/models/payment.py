@@ -73,6 +73,17 @@ class Payment(TimestampMixin, table=True):
     )
     late_fee_updated_at: Optional[datetime] = None
 
+    # 财务对账核销：记录管理端核对到账的时间、操作人、备注与核销状态。
+    reconciled_at: Optional[datetime] = None
+    reconciled_by: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="users.id"
+    )
+    reconciliation_note: Optional[str] = None
+    reconciliation_status: Optional[str] = Field(
+        default="unreconciled",
+        sa_column_kwargs={"server_default": "'unreconciled'"},
+    )
+
     @property
     def late_fee_due(self) -> float:
         """尚需缴纳的滞纳金（毛额扣除已减免）。"""

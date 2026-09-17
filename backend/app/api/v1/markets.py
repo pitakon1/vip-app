@@ -127,6 +127,7 @@ def list_markets(
     published_only: bool = False,
     pagination: PaginationParams = Depends(),
     session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ):
     """市场列表。published_only=True 时仅返回对外已发布市场（前台用）。"""
     query = select(MarketConfig).where(MarketConfig.deleted_at.is_(None))

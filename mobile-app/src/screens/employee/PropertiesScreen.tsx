@@ -15,6 +15,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
@@ -82,6 +83,7 @@ const SORTS: { key: string; label: string }[] = [
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
 export default function PropertiesScreen() {
+  const navigation = useNavigation<any>();
   const [items, setItems] = useState<PropertyItem[]>([]);
   const [total, setTotal] = useState(0);
   const [vacantTotal, setVacantTotal] = useState<number | null>(null);
@@ -224,7 +226,12 @@ export default function PropertiesScreen() {
     ].filter(Boolean) as string[];
 
     return (
-      <View key={p.id} style={styles.card}>
+      <TouchableOpacity
+        key={p.id}
+        style={styles.card}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('PropertyEdit', { id: p.id })}
+      >
         <View style={[styles.thumb, { backgroundColor: type.color }]}>
           <Ionicons name={type.icon} size={26} color={colors.primaryForeground} />
           <View style={styles.typeBadge}>
@@ -260,12 +267,14 @@ export default function PropertiesScreen() {
               {Number(p.monthly_rent || 0).toLocaleString()}
               <Text style={styles.priceUnit}>/月</Text>
             </Text>
-            <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
-              <Text style={[styles.statusBadgeText, { color: meta.color }]}>{meta.label}</Text>
+            <View style={styles.badgeGroup}>
+              <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
+                <Text style={[styles.statusBadgeText, { color: meta.color }]}>{meta.label}</Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -502,6 +511,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   priceUnit: { fontSize: 12, fontWeight: '500', color: colors.ink3 },
+  badgeGroup: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statusBadge: { borderRadius: colors.radius.full, paddingHorizontal: 10, paddingVertical: 3 },
   statusBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
 

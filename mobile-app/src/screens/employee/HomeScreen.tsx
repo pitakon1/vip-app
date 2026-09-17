@@ -28,12 +28,10 @@ import {
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-// 快捷操作：顺序与文案对齐原型（房源浏览 / 考勤打卡 / 业绩查询 / 通讯录）
+// 快捷操作：只放不在底部导航(Tab)里的功能；房源浏览/业绩/客户等已在 Tab，不再重复展示
 const QUICK_ACTIONS: { key: string; label: string; icon: IoniconName; route: string }[] = [
-  { key: 'browse', label: '房源浏览', icon: 'search-outline', route: 'EmployeePropertyBrowse' },
   { key: 'attendance', label: '考勤打卡', icon: 'time-outline', route: 'Attendance' },
-  { key: 'performance', label: '业绩查询', icon: 'trending-up-outline', route: 'Performance' },
-  { key: 'contacts', label: '通讯录', icon: 'people-outline', route: 'Contacts' },
+  { key: 'manageProperties', label: '房源管理', icon: 'business-outline', route: 'EmployeeProperties' },
 ];
 
 interface ViewingItem {

@@ -67,6 +67,19 @@ const Payments = () => {
   const [waivePayment, setWaivePayment] = useState<Payment | null>(null)
   const [waiveAmount, setWaiveAmount] = useState('')
   const [waiveReason, setWaiveReason] = useState('')
+  // 手动记账
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualForm, setManualForm] = useState({
+    payer_id: '', payee_id: '', amount: '', currency: 'THB',
+    payment_type: 'rent', channel: 'bank_transfer', due_date: '', description: '',
+  })
+  // 确认到账
+  const [confirmTarget, setConfirmTarget] = useState<Payment | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  // 查看详情
+  const [detail, setDetail] = useState<Payment | null>(null)
+  const [detailType, setDetailType] = useState<'detail' | 'receipt' | 'invoice'>('detail')
+  const [docData, setDocData] = useState<Record<string, any> | null>(null)
   const [queryParams, setQueryParams] = useState<QueryParams>({
     page: 1,
     pageSize: 10,
@@ -273,6 +286,74 @@ const Payments = () => {
     }
   }
 
+  // 手动记账提交
+  const handleManualSubmit = async () => {
+    if (!Number(manualForm.amount) || Number(manualForm.amount) <= 0) {
+      message.error('请输入有效的金额')
+      return
+    }
+    try {
+      setSubmitting(true)
+      await paymentsApi.create({
+        ...manualForm,
+        payer_id: manualForm.payer_id || undefined,
+        payee_id: manualForm.payee_id || undefined,
+        amount: Number(manualForm.amount),
+        due_date: manualForm.due_date || undefined,
+        description: manualForm.description || undefined,
+      })
+      message.success('已登记')
+      setManualOpen(false)
+      setManualForm({
+        payer_id: '', payee_id: '', amount: '', currency: 'THB',
+        payment_type: 'rent', channel: 'bank_transfer', due_date: '', description: '',
+      })
+      fetchData()
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || '登记失败')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // 确认到账
+  const openConfirm = (record: Payment) => setConfirmTarget(record)
+  const handleConfirmSub = async () => {
+    if (!confirmTarget) return
+    try {
+      setConfirming(true)
+      await paymentsApi.confirm(String(confirmTarget.id), { note: undefined })
+      message.success('已确认到账')
+      setConfirmTarget(null)
+      fetchData()
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || '确认失败')
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  // 查看详情 / 凭证 / 发票
+  const openDetail = (record: Payment, type: 'detail' | 'receipt' | 'invoice' = 'detail') => {
+    setDetail(record)
+    setDetailType(type)
+    setDocData(null)
+    if (type === 'detail') return
+    const apiFn = type === 'receipt' ? paymentsApi.receipt : paymentsApi.invoice
+    apiFn(String(record.id))
+      .then((res: any) => {
+        // 后端返回 { data: {...} } 或直接对象；若是文件流则带 urls
+        const payload = res?.data?.data ?? res?.data ?? res
+        setDocData(typeof payload === 'string' ? { url: payload } : payload)
+      })
+      .catch(() => {
+        setDocData({ error: true })
+      })
+  }
+
+  const setManual = (k: keyof typeof manualForm) => (e: any) =>
+    setManualForm((f) => ({ ...f, [k]: e.target.value }))
+
   return (
     <div className="rent-main">
       {/* Page Header */}
@@ -290,7 +371,7 @@ const Payments = () => {
             </svg>
             导出
           </button>
-          <button className="rent-btn rent-btn--primary">
+          <button className="rent-btn rent-btn--primary" onClick={() => setManualOpen(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
@@ -508,9 +589,9 @@ const Payments = () => {
                       </td>
                       <td>
                         <div className="rent-flex rent-gap-2">
-                          <button className="rent-btn rent-btn--ghost rent-btn--sm">查看</button>
+                          <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openDetail(p, 'detail')}>查看</button>
                           {isConfirmable && (
-                            <button className="rent-btn rent-btn--primary rent-btn--sm">确认</button>
+                            <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => openConfirm(p)}>确认</button>
                           )}
                           {feeDue > 0 && (
                             <button
@@ -661,6 +742,159 @@ const Payments = () => {
               <button className="rent-btn rent-btn--primary" onClick={handleWaive} disabled={submitting}>
                 {submitting ? '提交中...' : '确定减免'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual entry modal */}
+      {manualOpen && (
+        <div className="rent-modal-backdrop" onClick={() => setManualOpen(false)}>
+          <div className="rent-modal payments-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="rent-modal__header">
+              <h3 className="rent-card__title">手动记账</h3>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setManualOpen(false)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="rent-modal__body">
+              <div className="rent-form-group">
+                <label className="rent-form-label">付款人 / 租客 ID</label>
+                <input className="rent-form-input" placeholder="租客 ID（可留空）" value={manualForm.payer_id} onChange={setManual('payer_id')} />
+              </div>
+              <div className="rent-form-group">
+                <label className="rent-form-label">收款人 / 收款方 ID</label>
+                <input className="rent-form-input" placeholder="收款方 ID（可留空）" value={manualForm.payee_id} onChange={setManual('payee_id')} />
+              </div>
+              <div className="rent-form-group">
+                <label className="rent-form-label">金额 *</label>
+                <div className="rent-flex rent-gap-2">
+                  <input className="rent-form-input" type="number" min="0" step="0.01" placeholder="0.00" value={manualForm.amount} onChange={setManual('amount')} />
+                  <select className="rent-form-select" style={{ width: 110 }} aria-label="币种" value={manualForm.currency} onChange={setManual('currency')}>
+                    <option value="THB">THB</option>
+                    <option value="CNY">CNY</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+              </div>
+              <div className="rent-form-group">
+                <label className="rent-form-label">费用类型</label>
+                <select className="rent-form-select" aria-label="费用类型" value={manualForm.payment_type} onChange={setManual('payment_type')}>
+                  <option value="rent">租金</option>
+                  <option value="deposit">押金</option>
+                  <option value="commission">佣金</option>
+                  <option value="service_fee">服务费</option>
+                  <option value="utility">水电费</option>
+                  <option value="tax">税费</option>
+                </select>
+              </div>
+              <div className="rent-form-group">
+                <label className="rent-form-label">收款方式</label>
+                <select className="rent-form-select" aria-label="收款方式" value={manualForm.channel} onChange={setManual('channel')}>
+                  <option value="promptpay">PromptPay</option>
+                  <option value="bank_transfer">银行转账</option>
+                  <option value="stripe">信用卡</option>
+                  <option value="alipay">支付宝</option>
+                  <option value="wechat">微信</option>
+                  <option value="wise">Wise</option>
+                </select>
+              </div>
+              <div className="rent-form-group">
+                <label className="rent-form-label">到期日期</label>
+                <input className="rent-form-input" type="date" value={manualForm.due_date} onChange={setManual('due_date')} />
+              </div>
+              <div className="rent-form-group" style={{ marginBottom: 0 }}>
+                <label className="rent-form-label">备注</label>
+                <textarea className="rent-form-textarea" rows={3} placeholder="补充说明（选填）" value={manualForm.description} onChange={setManual('description')} />
+              </div>
+            </div>
+            <div className="rent-modal__footer">
+              <button className="rent-btn rent-btn--secondary" onClick={() => setManualOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--primary" onClick={handleManualSubmit} disabled={submitting}>
+                {submitting ? '提交中...' : '登记'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm arrival modal */}
+      {confirmTarget && (
+        <div className="rent-modal-backdrop" onClick={() => setConfirmTarget(null)}>
+          <div className="rent-modal payments-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="rent-modal__header">
+              <h3 className="rent-card__title">确认到账</h3>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setConfirmTarget(null)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="rent-modal__body">
+              <p className="rent-text-muted rent-text-sm" style={{ marginTop: 0 }}>
+                {`确认该笔款项已到账？金额 ${formatAmount(confirmTarget)} ฿（${statusMeta[toDisplayStatus(confirmTarget)].label}）`}
+              </p>
+            </div>
+            <div className="rent-modal__footer">
+              <button className="rent-btn rent-btn--secondary" onClick={() => setConfirmTarget(null)}>取消</button>
+              <button className="rent-btn rent-btn--primary" onClick={handleConfirmSub} disabled={confirming}>
+                {confirming ? '提交中...' : '确认到账'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail / receipt / invoice modal */}
+      {detail && (
+        <div className="rent-modal-backdrop" onClick={() => setDetail(null)}>
+          <div className="rent-modal payments-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="rent-modal__header">
+              <h3 className="rent-card__title">付款明细</h3>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setDetail(null)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="rent-modal__body">
+              {detailType === 'detail' ? (
+                <>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">流水号</span><span className="rent-mono">{(detail as any).code || `PMT-${detail.id}`}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">金额</span><span>{formatAmount(detail)} {(detail as any).currency || 'THB'}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">类型</span><span>{typeMeta[toDisplayType(detail)].label}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">状态</span><span>{statusMeta[toDisplayStatus(detail)].label}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">方式</span><span>{detail.channel || '-'}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">到期日</span><span>{detail.due_date || '-'}</span></div></div>
+                  <div className="rent-form-group" style={{ marginBottom: 0 }}><div className="rent-modal-row"><span className="rent-text-muted">备注</span><span>{detail.description || '-'}</span></div></div>
+                </>
+              ) : docData === null ? (
+                <div className="rent-empty rent-text-muted">加载中...</div>
+              ) : (docData as any)?.error ? (
+                <div className="rent-empty rent-text-muted">凭证/发票获取失败</div>
+              ) : (
+                <div className="rent-empty">
+                  {(docData as any)?.url ? (
+                    <img src={(docData as any).url} alt="凭证/发票" style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} />
+                  ) : (
+                    <pre className="rent-text-muted" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(docData, null, 2)}</pre>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="rent-modal__footer rent-flex" style={{ justifyContent: 'flex-end', gap: 8 }}>
+              {detailType === 'detail' && (
+                <>
+                  <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openDetail(detail, 'receipt')}>缴费凭证</button>
+                  <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openDetail(detail, 'invoice')}>发票</button>
+                </>
+              )}
+              <button className="rent-btn rent-btn--secondary" onClick={() => setDetail(null)}>关闭</button>
             </div>
           </div>
         </div>

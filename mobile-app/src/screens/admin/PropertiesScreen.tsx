@@ -4,7 +4,7 @@
  * 区块：搜索 → 状态筛选 → 统计行（总/空置/已出租/维护中）→ 房源列表（管理 + 删除）
  * 数据源：/properties（分页 + 状态筛选 + 关键词）
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,8 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import api from '@/lib/api';
 import { propertiesApi } from '@/services/api';
+import { AREA_GROUPS } from '@/data/locationArea';
+import { METRO_LINES } from '@/data/locationMetro';
 
 const PAGE_SIZE = 10;
 
@@ -53,18 +55,71 @@ const TYPE_META: Record<string, { label: string; icon: keyof typeof Ionicons.gly
 const STATUS_META: Record<string, { label: string; color: string; rgb: string }> = {
   vacant: { label: '空置中', color: colors.warning, rgb: colors.warningRgb },
   rented: { label: '已出租', color: colors.success, rgb: colors.successRgb },
+  reserved: { label: '已预订', color: colors.primary, rgb: colors.primaryRgb },
   maintenance: { label: '维护中', color: colors.info, rgb: colors.infoRgb },
   renewing: { label: '续约中', color: colors.primary, rgb: colors.primaryRgb },
 };
 
+// 状态筛选（口径与租客端 ListingsScreen 一致：含已预订）
 const CHIPS: { key: string; label: string }[] = [
   { key: '', label: '全部' },
-  { key: 'vacant', label: '空置中' },
+  { key: 'vacant', label: '空置' },
   { key: 'rented', label: '已出租' },
+  { key: 'reserved', label: '已预订' },
   { key: 'maintenance', label: '维护中' },
 ];
 
+// 选筛选项（取值口径与 Web / 租客端一致）
+const BEDROOM_OPTIONS: { key: string; label: string }[] = [
+  { key: '', label: '不限房型' },
+  { key: '0', label: '单间' },
+  { key: '1', label: '1室' },
+  { key: '2', label: '2室' },
+  { key: '3', label: '3室及以上' },
+];
+// 价格区间（月租，THB，万 → ×10000）—— 对齐租客端 PRICE_RANGES
+const PRICE_OPTIONS: { key: string; label: string; min: number; max: number }[] = [
+  { key: '', label: '不限价格', min: 0, max: Infinity },
+  { key: 'u3', label: '≤3万', min: 0, max: 30000 },
+  { key: '3-5', label: '3-5万', min: 30000, max: 50000 },
+  { key: '5-8', label: '5-8万', min: 50000, max: 80000 },
+  { key: 'g8', label: '≥8万', min: 80000, max: Infinity },
+  { key: 'custom', label: '自定义', min: 0, max: Infinity },
+];
+// 面积区间（㎡）—— 对齐租客端 AREA_PRESETS
+const AREA_OPTIONS: { key: string; label: string; min: number; max: number }[] = [
+  { key: '', label: '不限面积', min: 0, max: Infinity },
+  { key: 'u50', label: '≤50㎡', min: 0, max: 50 },
+  { key: '50-100', label: '50-100㎡', min: 50, max: 100 },
+  { key: '100-150', label: '100-150㎡', min: 100, max: 150 },
+  { key: '150-200', label: '150-200㎡', min: 150, max: 200 },
+  { key: 'g200', label: '≥200㎡', min: 200, max: Infinity },
+  { key: 'custom', label: '自定义', min: 0, max: Infinity },
+];
+// 排序（对齐租客端 SORT_OPTIONS）
+const SORT_OPTIONS: { key: string; label: string }[] = [
+  { key: 'default', label: '默认排序' },
+  { key: 'latest', label: '最新发布' },
+  { key: 'price_asc', label: '价格从低到高' },
+  { key: 'price_desc', label: '价格从高到低' },
+  { key: 'area_desc', label: '面积从大到小' },
+];
+
+const optionLabel = (opts: { key: string; label: string }[], key: string, fallback: string) =>
+  opts.find((o) => o.key === key)?.label ?? fallback;
+
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
+
+// 命中区域/地铁关键词：房源地址/标题/房号/城市/区域任一包含即匹配（对齐租客端 matchLocation）
+const matchLocation = (item: any, kws: string[]): boolean =>
+  kws.some((k) =>
+    [item.address, item.title, item.room_number, item.city, item.district, item.area]
+      .filter(Boolean)
+      .map((v) => String(v).toLowerCase())
+      .some((v) => v.includes(k))
+  );
+
+const allDistricts = AREA_GROUPS.flatMap((g) => g.children);
 
 export default function AdminPropertiesScreen() {
   const navigation = useNavigation<any>();
@@ -75,6 +130,22 @@ export default function AdminPropertiesScreen() {
   const [totalPages, setTotalPages] = useState(1);
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('');
+  // 扩展筛选（口径与 Web / 租客端一致）
+  const [bedrooms, setBedrooms] = useState('');
+  const [priceRange, setPriceRange] = useState('');
+  const [priceCustomMin, setPriceCustomMin] = useState('');
+  const [priceCustomMax, setPriceCustomMax] = useState('');
+  const [areaRange, setAreaRange] = useState('');
+  const [areaCustomMin, setAreaCustomMin] = useState('');
+  const [areaCustomMax, setAreaCustomMax] = useState('');
+  const [sort, setSort] = useState('default');
+  // 位置筛选（对齐租客端「区域 | 地铁」）
+  const [locTab, setLocTab] = useState<'area' | 'metro'>('area');
+  const [districtSel, setDistrictSel] = useState<string | null>(null);
+  const [metroLine, setMetroLine] = useState<string>(METRO_LINES[0].key);
+  const [metroSel, setMetroSel] = useState<string[]>([]);
+  const [metroDraft, setMetroDraft] = useState<string[]>([]);
+  const [activeFilter, setActiveFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -108,14 +179,62 @@ export default function AdminPropertiesScreen() {
         const params: Record<string, unknown> = {
           page: targetPage,
           page_size: PAGE_SIZE,
-          sort: 'latest',
         };
+        if (sort === 'latest') params.sort = 'latest';
         if (kw.trim()) params.q = kw.trim();
         if (status) params.status = status;
+
+        // 房型：单间=0,0；1/2 精确；3+ 则 bedrooms_min=3
+        if (bedrooms !== '') {
+          if (bedrooms === '3') params.bedrooms_min = 3;
+          else {
+            const n = Number(bedrooms);
+            params.bedrooms_min = n;
+            params.bedrooms_max = n;
+          }
+        }
+        // 价格区间（对齐租客端：预设快捷区间或自定义，万 → ×10000 THB）
+        if (priceRange) {
+          if (priceRange === 'custom') {
+            const mn = (Number(priceCustomMin) || 0) * 10000;
+            const mx = (Number(priceCustomMax) || 0) * 10000;
+            if (priceCustomMin !== '') params.price_min = mn;
+            if (priceCustomMax !== '') params.price_max = mx;
+          } else {
+            const preset = PRICE_OPTIONS.find((o) => o.key === priceRange);
+            if (preset) {
+              if (preset.min > 0) params.price_min = preset.min;
+              if (Number.isFinite(preset.max)) params.price_max = preset.max;
+            }
+          }
+        }
+        // 面积区间（对齐租客端：预设快捷区间或自定义 ㎡）
+        if (areaRange) {
+          if (areaRange === 'custom') {
+            const mn = Number(areaCustomMin);
+            const mx = Number(areaCustomMax);
+            if (areaCustomMin !== '' && !Number.isNaN(mn)) params.area_min = mn;
+            if (areaCustomMax !== '' && !Number.isNaN(mx)) params.area_max = mx;
+          } else {
+            const preset = AREA_OPTIONS.find((o) => o.key === areaRange);
+            if (preset) {
+              if (preset.min > 0) params.area_min = preset.min;
+              if (Number.isFinite(preset.max)) params.area_max = preset.max;
+            }
+          }
+        }
+
         const res = await propertiesApi.list(params);
         const d = (res as any)?.data ?? {};
         const list = (Array.isArray(d) ? d : d.items ?? []) as PropertyItem[];
-        setItems((prev) => (targetPage === 1 ? list : [...prev, ...list]));
+        // latest 由后端排序；价格/面积排序后端可能不支持，客户端对已加载 items 兜底
+        setItems((prev) => {
+          const next = targetPage === 1 ? list : [...prev, ...list];
+          if (sort === 'price_asc') next.sort((a, b) => (a.monthly_rent ?? 0) - (b.monthly_rent ?? 0));
+          else if (sort === 'price_desc') next.sort((a, b) => (b.monthly_rent ?? 0) - (a.monthly_rent ?? 0));
+          else if (sort === 'area_desc') next.sort((a, b) => (b.size_sqm ?? 0) - (a.size_sqm ?? 0));
+          return next;
+        });
         setTotal(typeof d.total === 'number' ? d.total : list.length);
         setTotalPages(typeof d.total_pages === 'number' ? d.total_pages : 1);
         setPage(targetPage);
@@ -131,7 +250,8 @@ export default function AdminPropertiesScreen() {
         setRefreshing(false);
       }
     },
-    [keyword, status],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort],
   );
 
   useEffect(() => {
@@ -147,7 +267,7 @@ export default function AdminPropertiesScreen() {
     }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keyword, status]);
+  }, [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -180,6 +300,24 @@ export default function AdminPropertiesScreen() {
       },
     ]);
   };
+
+  // 位置筛选（客户端关键词过滤，对齐租客端：只作用于已加载 items）
+  const activeLocationKw = useMemo(() => {
+    if (districtSel) {
+      const node = allDistricts.find((d) => d.key === districtSel);
+      return node ? node.kws : [];
+    }
+    if (metroSel.length) {
+      const stations = METRO_LINES.flatMap((l) => l.stations);
+      return stations.filter((s) => metroSel.includes(s.name)).flatMap((s) => s.kws);
+    }
+    return [];
+  }, [districtSel, metroSel]);
+
+  const displayItems = useMemo(() => {
+    if (!activeLocationKw.length) return items;
+    return items.filter((it) => matchLocation(it, activeLocationKw));
+  }, [items, activeLocationKw]);
 
   if (loading) {
     return (
@@ -235,6 +373,269 @@ export default function AdminPropertiesScreen() {
         ))}
       </ScrollView>
 
+      {/* 筛选：房型 / 价格 / 面积 / 排序（口径与 Web / 租客端一致） */}
+      <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'bedrooms' && styles.filterChipActive]}
+          activeOpacity={0.7}
+          onPress={() => setActiveFilter(activeFilter === 'bedrooms' ? '' : 'bedrooms')}
+        >
+          <Text style={[styles.filterChipText, activeFilter === 'bedrooms' && styles.filterChipTextActive]}>
+            房型：{optionLabel(BEDROOM_OPTIONS, bedrooms, '不限房型')}
+          </Text>
+          <Ionicons name="chevron-down" size={13} color={activeFilter === 'bedrooms' ? colors.primary : colors.ink3} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'price' && styles.filterChipActive]}
+          activeOpacity={0.7}
+          onPress={() => setActiveFilter(activeFilter === 'price' ? '' : 'price')}
+        >
+          <Text style={[styles.filterChipText, activeFilter === 'price' && styles.filterChipTextActive]}>
+            价格：{priceRange === 'custom' ? '自定义' : optionLabel(PRICE_OPTIONS, priceRange, '不限价格')}
+          </Text>
+          <Ionicons name="chevron-down" size={13} color={activeFilter === 'price' ? colors.primary : colors.ink3} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'area' && styles.filterChipActive]}
+          activeOpacity={0.7}
+          onPress={() => setActiveFilter(activeFilter === 'area' ? '' : 'area')}
+        >
+          <Text style={[styles.filterChipText, activeFilter === 'area' && styles.filterChipTextActive]}>
+            面积：{areaRange === 'custom' ? '自定义' : optionLabel(AREA_OPTIONS, areaRange, '不限面积')}
+          </Text>
+          <Ionicons name="chevron-down" size={13} color={activeFilter === 'area' ? colors.primary : colors.ink3} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'location' && styles.filterChipActive]}
+          activeOpacity={0.7}
+          onPress={() => setActiveFilter(activeFilter === 'location' ? '' : 'location')}
+        >
+          <Text style={[styles.filterChipText, activeFilter === 'location' && styles.filterChipTextActive]}>
+            区域：{districtSel || metroSel.length ? '已选' : '不限'}
+          </Text>
+          <Ionicons name="chevron-down" size={13} color={activeFilter === 'location' ? colors.primary : colors.ink3} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'sort' && styles.filterChipActive]}
+          activeOpacity={0.7}
+          onPress={() => setActiveFilter(activeFilter === 'sort' ? '' : 'sort')}
+        >
+          <Text style={[styles.filterChipText, activeFilter === 'sort' && styles.filterChipTextActive]}>
+            排序：{optionLabel(SORT_OPTIONS, sort, '默认排序')}
+          </Text>
+          <Ionicons name="chevron-down" size={13} color={activeFilter === 'sort' ? colors.primary : colors.ink3} />
+        </TouchableOpacity>
+      </View>
+
+      {/* 展开的筛选项 */}
+      {activeFilter === 'bedrooms' && (
+        <View style={styles.optRow}>
+          {BEDROOM_OPTIONS.map((o) => (
+            <TouchableOpacity
+              key={o.key || 'any'}
+              style={[styles.optChip, bedrooms === o.key && styles.optChipActive]}
+              activeOpacity={0.7}
+              onPress={() => setBedrooms(o.key)}
+            >
+              <Text style={[styles.optChipText, bedrooms === o.key && styles.optChipTextActive]}>{o.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {activeFilter === 'price' && (
+        <View style={styles.optRow}>
+          {PRICE_OPTIONS.map((o) => (
+            <TouchableOpacity
+              key={o.key || 'any'}
+              style={[styles.optChip, priceRange === o.key && styles.optChipActive]}
+              activeOpacity={0.7}
+              onPress={() => setPriceRange(o.key)}
+            >
+              <Text style={[styles.optChipText, priceRange === o.key && styles.optChipTextActive]}>{o.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+      {activeFilter === 'price' && priceRange === 'custom' && (
+        <View style={styles.customRow}>
+          <Text style={styles.customLabel}>最低</Text>
+          <TextInput
+            style={styles.customInput}
+            value={priceCustomMin}
+            onChangeText={setPriceCustomMin}
+            keyboardType="numeric"
+            placeholder="如 3"
+            placeholderTextColor={colors.ink3}
+          />
+          <Text style={styles.customSep}>-</Text>
+          <Text style={styles.customLabel}>最高</Text>
+          <TextInput
+            style={styles.customInput}
+            value={priceCustomMax}
+            onChangeText={setPriceCustomMax}
+            keyboardType="numeric"
+            placeholder="如 8"
+            placeholderTextColor={colors.ink3}
+          />
+          <Text style={styles.customLabel}>万/月</Text>
+        </View>
+      )}
+
+      {activeFilter === 'area' && (
+        <View style={styles.optRow}>
+          {AREA_OPTIONS.map((o) => (
+            <TouchableOpacity
+              key={o.key || 'any'}
+              style={[styles.optChip, areaRange === o.key && styles.optChipActive]}
+              activeOpacity={0.7}
+              onPress={() => setAreaRange(o.key)}
+            >
+              <Text style={[styles.optChipText, areaRange === o.key && styles.optChipTextActive]}>{o.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+      {activeFilter === 'area' && areaRange === 'custom' && (
+        <View style={styles.customRow}>
+          <Text style={styles.customLabel}>最小</Text>
+          <TextInput
+            style={styles.customInput}
+            value={areaCustomMin}
+            onChangeText={setAreaCustomMin}
+            keyboardType="numeric"
+            placeholder="如 60"
+            placeholderTextColor={colors.ink3}
+          />
+          <Text style={styles.customSep}>-</Text>
+          <Text style={styles.customLabel}>最大</Text>
+          <TextInput
+            style={styles.customInput}
+            value={areaCustomMax}
+            onChangeText={setAreaCustomMax}
+            keyboardType="numeric"
+            placeholder="如 120"
+            placeholderTextColor={colors.ink3}
+          />
+        </View>
+      )}
+
+      {activeFilter === 'sort' && (
+        <View style={styles.optRow}>
+          {SORT_OPTIONS.map((o) => (
+            <TouchableOpacity
+              key={o.key}
+              style={[styles.optChip, sort === o.key && styles.optChipActive]}
+              activeOpacity={0.7}
+              onPress={() => setSort(o.key)}
+            >
+              <Text style={[styles.optChipText, sort === o.key && styles.optChipTextActive]}>{o.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* 位置筛选（对齐租客端「区域 | 地铁」） */}
+      {activeFilter === 'location' && (
+        <View>
+          <View style={styles.customRow}>
+            {(['area', 'metro'] as const).map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={[styles.locTabChip, locTab === t && styles.locTabChipActive]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (t === 'metro') setMetroDraft(metroSel);
+                  setLocTab(t);
+                }}
+              >
+                <Text style={[styles.locTabText, locTab === t && styles.locTabTextActive]}>
+                  {t === 'area' ? '区域' : '地铁'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {locTab === 'area' ? (
+            <>
+              <View style={styles.optRow}>
+                <TouchableOpacity
+                  style={[styles.optChip, districtSel === null && styles.optChipActive]}
+                  activeOpacity={0.7}
+                  onPress={() => setDistrictSel(null)}
+                >
+                  <Text style={[styles.optChipText, districtSel === null && styles.optChipTextActive]}>不限</Text>
+                </TouchableOpacity>
+              </View>
+              {AREA_GROUPS.map((g) => (
+                <View key={g.cityKey}>
+                  <Text style={styles.locGroupLabel}>{g.country} · {g.cityLabel}</Text>
+                  <View style={styles.optRow}>
+                    {g.children.map((d) => (
+                      <TouchableOpacity
+                        key={d.key}
+                        style={[styles.optChip, districtSel === d.key && styles.optChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() => setDistrictSel(d.key)}
+                      >
+                        <Text style={[styles.optChipText, districtSel === d.key && styles.optChipTextActive]}>{d.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </>
+          ) : (
+            <>
+              <Text style={styles.locGroupLabel}>线路</Text>
+              <View style={[styles.optRow, styles.locLineRow]}>
+                {METRO_LINES.map((l) => (
+                  <TouchableOpacity
+                    key={l.key}
+                    style={[styles.optChip, metroLine === l.key && styles.optChipActive]}
+                    activeOpacity={0.7}
+                    onPress={() => setMetroLine(l.key)}
+                  >
+                    <Text style={[styles.optChipText, metroLine === l.key && styles.optChipTextActive]}>
+                      {l.cityLabel} · {l.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.locGroupLabel}>
+                站点{metroDraft.length ? ` · 已选 ${metroDraft.length}` : ''}
+              </Text>
+              <View style={styles.optRow}>
+                {METRO_LINES.find((l) => l.key === metroLine)?.stations.map((s) => (
+                  <TouchableOpacity
+                    key={s.name}
+                    style={[styles.optChip, metroDraft.includes(s.name) && styles.optChipActive]}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      setMetroDraft((d) => (d.includes(s.name) ? d.filter((x) => x !== s.name) : [...d, s.name]))
+                    }
+                  >
+                    <Text style={[styles.optChipText, metroDraft.includes(s.name) && styles.optChipTextActive]}>{s.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.customRow}>
+                <TouchableOpacity style={styles.optChip} activeOpacity={0.7} onPress={() => setMetroDraft([])}>
+                  <Text style={styles.optChipText}>清除</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.optChip, styles.locConfirmBtn]} activeOpacity={0.7} onPress={() => setMetroSel(metroDraft)}>
+                  <Text style={styles.optChipText}>确定</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+      )}
+
       {/* 统计行 */}
       <View style={styles.statRow}>
         <View style={styles.statCell}>
@@ -257,14 +658,14 @@ export default function AdminPropertiesScreen() {
 
       {/* 房源列表 */}
       <Text style={styles.sectionTitle}>房源列表</Text>
-      {items.length === 0 ? (
+      {displayItems.length === 0 ? (
         <EmptyState
           icon="business-outline"
-          title={keyword ? '没有找到房源' : '暂无房源'}
-          sub={keyword ? '换个名称或地址试试' : '新增房源后会展示在这里'}
+          title={keyword || activeLocationKw.length ? '没有找到房源' : '暂无房源'}
+          sub={keyword || activeLocationKw.length ? '换个名称、地址或筛选条件试试' : '新增房源后会展示在这里'}
         />
       ) : (
-        items.map((p) => {
+        displayItems.map((p) => {
           const type = TYPE_META[p.property_type ?? 'apartment'] ?? TYPE_META.apartment;
           const meta = STATUS_META[p.status ?? 'vacant'] ?? {
             label: p.status ?? '未知',
@@ -292,7 +693,11 @@ export default function AdminPropertiesScreen() {
                 </View>
               </View>
 
-              <View style={styles.cardBody}>
+              <TouchableOpacity
+                style={styles.cardBody}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('PropertyEdit', { id: p.id })}
+              >
                 <Text style={styles.name} numberOfLines={1}>
                   {[p.room_number, p.building].filter(Boolean).join(' · ') || '未命名房源'}
                 </Text>
@@ -308,7 +713,7 @@ export default function AdminPropertiesScreen() {
                     <Text style={styles.priceUnit}> /月</Text>
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
 
               <View style={styles.cardFoot}>
                 <TouchableOpacity
@@ -370,6 +775,93 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
+
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  filterChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.alpha(colors.primaryRgb, 0.08),
+  },
+  filterChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  filterChipTextActive: { color: colors.primary, fontWeight: '600' },
+
+  optRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  optChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  optChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  optChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  optChipTextActive: { color: '#fff', fontWeight: '600' },
+
+  customRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  customLabel: { fontSize: 13, color: colors.ink2 },
+  customSep: { fontSize: 13, color: colors.ink3 },
+  customInput: {
+    flex: 1,
+    height: 36,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+    fontSize: 13,
+    color: colors.ink,
+  },
+
+  // 位置筛选（区域 | 地铁）
+  locTabChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  locTabChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  locTabText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  locTabTextActive: { color: '#fff', fontWeight: '600' },
+  locGroupLabel: {
+    fontSize: 12,
+    color: colors.ink3,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  locLineRow: { flexWrap: 'wrap' },
+  locConfirmBtn: { backgroundColor: colors.primary },
 
   statRow: { flexDirection: 'row', gap: 8, marginHorizontal: 20 },
   statCell: {

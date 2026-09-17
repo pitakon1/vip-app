@@ -79,6 +79,61 @@
     font-size: 26rpx;
     color: var(--ink-2);
   }
+
+  &__caret {
+    font-size: 22rpx;
+    color: var(--ink-3);
+    margin-left: 8rpx;
+  }
+}
+
+/* ===== 高级筛选（房型/价格/面积/排序） ===== */
+.ap-filter {
+  margin-top: -8rpx;
+}
+
+/* 自定义区间输入 */
+.ap-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+  padding: 20rpx;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
+
+  &__group {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+  }
+
+  &__name {
+    flex-shrink: 0;
+    width: 64rpx;
+    font-size: 26rpx;
+    color: var(--ink-2);
+  }
+
+  &__input {
+    flex: 1;
+    height: 68rpx;
+    padding: 0 20rpx;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    font-size: 26rpx;
+    color: var(--ink);
+    box-sizing: border-box;
+  }
+
+  &__sep {
+    flex-shrink: 0;
+    font-size: 26rpx;
+    color: var(--ink-3);
+  }
 }
 
 /* ===== 统计四宫格 ===== */
@@ -184,6 +239,17 @@
     &--maintenance { color: var(--info); }
   }
 
+  &__off {
+    position: absolute;
+    right: 20rpx;
+    top: 48rpx;
+    padding: 2rpx 12rpx;
+    background: rgba(0, 0, 0, 0.42);
+    color: #fff;
+    font-size: 20rpx;
+    border-radius: var(--radius-full);
+  }
+
   &__body {
     padding: 24rpx 24rpx 16rpx;
   }
@@ -259,6 +325,14 @@
     justify-content: center;
     background: rgba(var(--primary-rgb), 0.1);
     border-radius: var(--radius-md);
+
+    &--off {
+      background: var(--surface-2);
+    }
+
+    &--off .ap-card__manage-text {
+      color: var(--ink-2);
+    }
   }
 
   &__manage-text {

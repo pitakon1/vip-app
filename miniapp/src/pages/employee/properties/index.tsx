@@ -199,23 +199,13 @@ export default function EmployeePropertiesPage() {
     return tags.slice(0, 3)
   }
 
-  // 点击卡片 → 操作面板
+  // 点击卡片 → 操作面板（删除房源等同下架，前台天然隐藏）
   const onCardTap = (it: Property) => {
     Taro.showActionSheet({
-      itemList: ['查看详情', '变更状态'],
+      itemList: ['编辑房源'],
       success: (r) => {
         if (r.tapIndex === 0) {
-          const st = getStatus(it.status)
-          Taro.showModal({
-            title: it.room_number || '房源详情',
-            content: `${it.bedrooms || 0} 室 · ${it.size_sqm || 0} ㎡\n${
-              it.address || '暂无地址'
-            }\n月租 ${formatRent(it.monthly_rent, it.currency)} · 状态 ${st.label}`,
-            showCancel: false,
-            confirmText: '知道了'
-          })
-        } else {
-          Taro.showToast({ title: '请在 Web 端变更房源状态', icon: 'none' })
+          Taro.navigateTo({ url: `/pages/employee/property-edit/index?id=${it.id}` })
         }
       }
     })
@@ -388,8 +378,10 @@ export default function EmployeePropertiesPage() {
                       {formatRent(it.monthly_rent, it.currency)}
                       <Text className='p-card__unit'>/月</Text>
                     </Text>
-                    <View className={`p-badge ${st.cls}`}>
-                      <Text>{st.label}</Text>
+                    <View className='p-card__badges'>
+                      <View className={`p-badge ${st.cls}`}>
+                        <Text>{st.label}</Text>
+                      </View>
                     </View>
                   </View>
                 </View>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
@@ -33,16 +34,6 @@ const normalizeStatus = (status?: string): StatusKey => {
   return 'pending'
 }
 
-const typeLabelMap: Record<string, string> = {
-  plumbing: '水管问题',
-  electrical: '电路问题',
-  aircon: '空调维修',
-  appliance: '家电维修',
-  door_window: '门窗维修',
-  wall: '墙面问题',
-  other: '其他',
-}
-
 const urgencyBarMap: Record<string, string> = {
   urgent: 'mt-ticket__bar--urgent',
   high: 'mt-ticket__bar--high',
@@ -50,23 +41,10 @@ const urgencyBarMap: Record<string, string> = {
   low: 'mt-ticket__bar--low',
 }
 
-const urgencyLabelMap: Record<string, string> = {
-  low: '低',
-  medium: '中',
-  high: '高',
-  urgent: '紧急',
-}
-
 const statusClassMap: Record<StatusKey, string> = {
   pending: 'mt-ticket__status--pending',
   in_progress: 'mt-ticket__status--processing',
   completed: 'mt-ticket__status--done',
-}
-
-const statusLabelMap: Record<StatusKey, string> = {
-  pending: '待处理',
-  in_progress: '处理中',
-  completed: '已完成',
 }
 
 const statusDotColorMap: Record<StatusKey, string> = {
@@ -81,10 +59,35 @@ const statusProgressMap: Record<StatusKey, number> = {
   completed: 100,
 }
 
-// 报修位置可选房间（通用房间名，非示例数据；具体房源由真实租约数据拼接）
-const ROOM_OPTIONS = ['客厅', '主卧', '厨房', '卫生间', '公共区域']
-
 const TenantMaintenance = () => {
+  const { t } = useTranslation()
+
+  const typeLabelMap: Record<string, string> = {
+    plumbing: t('tenantMaintenance.type.plumbing'),
+    electrical: t('tenantMaintenance.type.electrical'),
+    aircon: t('tenantMaintenance.type.aircon'),
+    appliance: t('tenantMaintenance.type.appliance'),
+    door_window: t('tenantMaintenance.type.door_window'),
+    wall: t('tenantMaintenance.type.wall'),
+    other: t('tenantMaintenance.type.other'),
+  }
+
+  const urgencyLabelMap: Record<string, string> = {
+    low: t('tenantMaintenance.priorityLow'),
+    medium: t('tenantMaintenance.priorityMedium'),
+    high: t('tenantMaintenance.priorityHigh'),
+    urgent: t('tenantMaintenance.urgent'),
+  }
+
+  const statusLabelMap: Record<StatusKey, string> = {
+    pending: t('tenantMaintenance.pending'),
+    in_progress: t('tenantMaintenance.inProgress'),
+    completed: t('tenantMaintenance.completed'),
+  }
+
+  // 报修位置可选房间（通用房间名，非示例数据；具体房源由真实租约数据拼接）
+  const ROOM_OPTIONS = t('tenantMaintenance.roomOptions', { returnObjects: true }) as string[]
+
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [data, setData] = useState<MaintenanceTicket[]>([])
@@ -131,7 +134,7 @@ const TenantMaintenance = () => {
 
   const locationOptions = useMemo(
     () => ROOM_OPTIONS.map((room) => (propertyLabel ? `${propertyLabel} · ${room}` : room)),
-    [propertyLabel],
+    [propertyLabel, ROOM_OPTIONS],
   )
 
   const counts = useMemo(() => {
@@ -165,11 +168,11 @@ const TenantMaintenance = () => {
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      message.warning('请输入报修标题')
+      message.warning(t('tenantMaintenance.warnTitle'))
       return
     }
     if (!description.trim()) {
-      message.warning('请输入问题描述')
+      message.warning(t('tenantMaintenance.warnDesc'))
       return
     }
     setSubmitting(true)
@@ -191,7 +194,7 @@ const TenantMaintenance = () => {
         // API 不可用时本地展示
       }
 
-      message.success('报修提交成功，工作人员将尽快处理')
+      message.success(t('tenantMaintenance.submitSuccess'))
       const localId = `local-${Date.now()}`
       const newTicket: MaintenanceTicket = {
         id: localId,
@@ -202,47 +205,47 @@ const TenantMaintenance = () => {
         status: 'pending',
         created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
         location: location || propertyLabel || undefined,
-        category: '其他',
-        assignee: '待分配',
+        category: t('tenantMaintenance.categoryOther'),
+        assignee: t('tenantMaintenance.waitingAssign'),
         progress: [
-          { time: dayjs().format('YYYY-MM-DD HH:mm:ss'), content: '工单已提交' },
+          { time: dayjs().format('YYYY-MM-DD HH:mm:ss'), content: t('tenantMaintenance.progressTicket') },
         ],
       }
       setData((prev) => [newTicket, ...prev])
       resetForm()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '提交失败')
+      message.error(err?.response?.data?.message || t('tenantMaintenance.submitFailed'))
     } finally {
       setSubmitting(false)
     }
   }
 
   const segments: { key: FilterKey; label: string; count: number }[] = [
-    { key: 'all', label: '全部', count: counts.all },
-    { key: 'pending', label: '待处理', count: counts.pending },
-    { key: 'in_progress', label: '处理中', count: counts.in_progress },
-    { key: 'completed', label: '已完成', count: counts.completed },
+    { key: 'all', label: t('tenantMaintenance.all'), count: counts.all },
+    { key: 'pending', label: t('tenantMaintenance.pending'), count: counts.pending },
+    { key: 'in_progress', label: t('tenantMaintenance.inProgress'), count: counts.in_progress },
+    { key: 'completed', label: t('tenantMaintenance.completed'), count: counts.completed },
   ]
 
   const summaryItems = [
-    { label: '待处理', value: counts.pending, unit: '个', color: 'var(--state-warning)' },
-    { label: '处理中', value: counts.in_progress, unit: '个', color: 'var(--state-info)' },
-    { label: '已完成', value: counts.completed, unit: '个', color: 'var(--state-success)' },
+    { label: t('tenantMaintenance.pending'), value: counts.pending, unit: t('tenantMaintenance.countUnit'), color: 'var(--state-warning)' },
+    { label: t('tenantMaintenance.inProgress'), value: counts.in_progress, unit: t('tenantMaintenance.countUnit'), color: 'var(--state-info)' },
+    { label: t('tenantMaintenance.completed'), value: counts.completed, unit: t('tenantMaintenance.countUnit'), color: 'var(--state-success)' },
   ]
 
   return (
     <>
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <span className="rent-text-muted">加载中…</span>
+          <span className="rent-text-muted">{t('tenantMaintenance.loading')}</span>
         </div>
       )}
 
       {/* Hero */}
       <div className="mt-hero">
         <div>
-          <h2 className="mt-hero__title">报修申请</h2>
-          <p className="mt-hero__subtitle">提交维修申请，跟踪处理进度</p>
+          <h2 className="mt-hero__title">{t('tenantMaintenance.submitMaintenance')}</h2>
+          <p className="mt-hero__subtitle">{t('tenantMaintenance.subtitle')}</p>
         </div>
         <button
           className="mt-hero__btn"
@@ -252,7 +255,7 @@ const TenantMaintenance = () => {
           }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          提交报修
+          {t('tenantMaintenance.submitBtn')}
         </button>
       </div>
 
@@ -286,24 +289,24 @@ const TenantMaintenance = () => {
       {/* Ticket List */}
       <div className="mt-ticket-list">
         {filteredData.length ? (
-          filteredData.map((t) => {
-            const idLabel = t.ticket_no || (t.id || '').slice(-6)
-            const titleLabel = t.title || t.description || '-'
-            const descLabel = t.description || ''
-            const urgencyKey = t.urgency || t.priority || 'medium'
-            const statusKey = normalizeStatus(t.status)
+          filteredData.map((ticket) => {
+            const idLabel = ticket.ticket_no || (ticket.id || '').slice(-6)
+            const titleLabel = ticket.title || ticket.description || '-'
+            const descLabel = ticket.description || ''
+            const urgencyKey = ticket.urgency || ticket.priority || 'medium'
+            const statusKey = normalizeStatus(ticket.status)
             const barClass = urgencyBarMap[urgencyKey] || 'mt-ticket__bar--medium'
             const stClass = statusClassMap[statusKey]
             const stLabel = statusLabelMap[statusKey]
             const stDot = statusDotColorMap[statusKey]
             const uLabel = urgencyLabelMap[urgencyKey] || ''
-            const category = t.category || typeLabelMap[t.type || ''] || '其他'
-            const loc = t.location || propertyLabel || '—'
-            const assignee = t.assignee || '待分配'
-            const createdDate = t.created_at ? dayjs(t.created_at).format('YYYY-MM-DD') : '-'
+            const category = ticket.category || typeLabelMap[ticket.type || ''] || t('tenantMaintenance.categoryOther')
+            const loc = ticket.location || propertyLabel || '—'
+            const assignee = ticket.assignee || t('tenantMaintenance.waitingAssign')
+            const createdDate = ticket.created_at ? dayjs(ticket.created_at).format('YYYY-MM-DD') : '-'
             const progress = statusProgressMap[statusKey] ?? 0
             return (
-              <div key={t.id} className="mt-ticket">
+              <div key={ticket.id} className="mt-ticket">
                 <div className={`mt-ticket__bar ${barClass}`}></div>
                 <div className="mt-ticket__body">
                   <div className="mt-ticket__top">
@@ -330,7 +333,7 @@ const TenantMaintenance = () => {
                   {statusKey === 'in_progress' && (
                     <div className="mt-ticket__progress-wrap">
                       <div className="mt-ticket__progress-head">
-                        <span className="mt-ticket__progress-label">处理进度</span>
+                        <span className="mt-ticket__progress-label">{t('tenantMaintenance.progress')}</span>
                         <span className="mt-ticket__progress-value">{progress}%</span>
                       </div>
                       <div className="rent-progress">
@@ -342,7 +345,7 @@ const TenantMaintenance = () => {
                     <div className="mt-ticket__footer-info">
                       <span className="mt-ticket__meta-item">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        提交于 {createdDate}
+                        {t('tenantMaintenance.submittedAt', { date: createdDate })}
                       </span>
                       <span className="mt-ticket__meta-item">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -350,15 +353,15 @@ const TenantMaintenance = () => {
                       </span>
                     </div>
                     <div className="mt-ticket__actions">
-                      <button className="rent-btn rent-btn--secondary rent-btn--sm">查看详情</button>
+                      <button className="rent-btn rent-btn--secondary rent-btn--sm">{t('tenantMaintenance.viewDetail')}</button>
                       {statusKey === 'pending' && (
-                        <button className="rent-btn rent-btn--ghost rent-btn--sm">取消申请</button>
+                        <button className="rent-btn rent-btn--ghost rent-btn--sm">{t('tenantMaintenance.cancelApply')}</button>
                       )}
                       {statusKey === 'in_progress' && (
-                        <button className="rent-btn rent-btn--ghost rent-btn--sm">联系师傅</button>
+                        <button className="rent-btn rent-btn--ghost rent-btn--sm">{t('tenantMaintenance.contactWorker')}</button>
                       )}
                       {statusKey === 'completed' && (
-                        <button className="rent-btn rent-btn--primary rent-btn--sm">评价</button>
+                        <button className="rent-btn rent-btn--primary rent-btn--sm">{t('tenantMaintenance.review')}</button>
                       )}
                     </div>
                   </div>
@@ -367,38 +370,38 @@ const TenantMaintenance = () => {
             )
           })
         ) : (
-          <div className="rent-empty">暂无报修记录</div>
+          <div className="rent-empty">{t('tenantMaintenance.empty')}</div>
         )}
       </div>
 
       {/* New Ticket Form */}
       <div className="mt-form-card" id="new-ticket-form">
         <div className="mt-form-card__header">
-          <h3 className="mt-form-card__title">提交新报修</h3>
+          <h3 className="mt-form-card__title">{t('tenantMaintenance.newTicketTitle')}</h3>
           <span className="rent-badge rent-badge--primary">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            新申请
+            {t('tenantMaintenance.badgeNew')}
           </span>
         </div>
         <div className="mt-form-card__body">
           <form className="mt-form" onSubmit={(e) => { e.preventDefault(); handleSubmit() }}>
             <div>
-              <label className="mt-form__label">报修标题 <span className="req">*</span></label>
+              <label className="mt-form__label">{t('tenantMaintenance.labelTitle')} <span className="req">*</span></label>
               <input
                 type="text"
                 className="mt-form__input"
-                placeholder="请简述问题，例如：卫生间水管漏水"
+                placeholder={t('tenantMaintenance.titlePlaceholder')}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
             </div>
 
             <div>
-              <label className="mt-form__label">问题描述 <span className="req">*</span></label>
+              <label className="mt-form__label">{t('tenantMaintenance.labelDesc')} <span className="req">*</span></label>
               <textarea
                 rows={4}
                 className="mt-form__textarea"
-                placeholder="请详细描述问题发生的时间、位置和具体表现，便于师傅快速判断..."
+                placeholder={t('tenantMaintenance.descPlaceholder')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -406,26 +409,26 @@ const TenantMaintenance = () => {
 
             <div className="mt-form__row">
               <div>
-                <label className="mt-form__label">优先级</label>
+                <label className="mt-form__label">{t('tenantMaintenance.labelPriority')}</label>
                 <select
                   className="mt-form__select"
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as any)}
                 >
-                  <option value="low">低 — 不影响正常生活</option>
-                  <option value="medium">中 — 影响部分使用</option>
-                  <option value="high">高 — 严重影响生活</option>
-                  <option value="urgent">紧急 — 存在安全隐患或需立即处理</option>
+                  <option value="low">{t('tenantMaintenance.priorityOptionLow')}</option>
+                  <option value="medium">{t('tenantMaintenance.priorityOptionMedium')}</option>
+                  <option value="high">{t('tenantMaintenance.priorityOptionHigh')}</option>
+                  <option value="urgent">{t('tenantMaintenance.priorityOptionUrgent')}</option>
                 </select>
               </div>
               <div>
-                <label className="mt-form__label">报修位置</label>
+                <label className="mt-form__label">{t('tenantMaintenance.labelLocation')}</label>
                 <select
                   className="mt-form__select"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                 >
-                  <option value="">{propertyLabel || '请选择报修位置'}</option>
+                  <option value="">{propertyLabel || t('tenantMaintenance.locationPlaceholder')}</option>
                   {locationOptions.map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
@@ -434,19 +437,19 @@ const TenantMaintenance = () => {
             </div>
 
             <div>
-              <label className="mt-form__label">上传照片</label>
+              <label className="mt-form__label">{t('tenantMaintenance.labelPhoto')}</label>
               <label className="mt-form__upload">
                 <div className="mt-form__upload-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 </div>
-                <span className="mt-form__upload-text">点击上传或拖拽图片到此处</span>
-                <span className="mt-form__upload-hint">支持 JPG / PNG，单张不超过 5MB，最多 6 张</span>
+                <span className="mt-form__upload-text">{t('tenantMaintenance.uploadText')}</span>
+                <span className="mt-form__upload-hint">{t('tenantMaintenance.uploadHint')}</span>
                 <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handlePhotoChange} />
               </label>
               {photoPreviews.length > 0 && (
                 <div className="mt-form__photos">
                   {photoPreviews.map((src, i) => (
-                    <img key={i} className="mt-form__photo-thumb" src={src} alt={`照片 ${i + 1}`} />
+                    <img key={i} className="mt-form__photo-thumb" src={src} alt={t('tenantMaintenance.photoAltComplete', { index: i + 1 })} />
                   ))}
                 </div>
               )}
@@ -455,13 +458,13 @@ const TenantMaintenance = () => {
             <div className="mt-form__footer">
               <span className="mt-form__footer-hint">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                提交后物业将在 4 小时内响应并分配维修师傅
+                {t('tenantMaintenance.footerHint')}
               </span>
               <div className="mt-form__footer-actions">
-                <button type="button" className="rent-btn rent-btn--secondary" onClick={resetForm}>取消</button>
+                <button type="button" className="rent-btn rent-btn--secondary" onClick={resetForm}>{t('tenantMaintenance.cancel')}</button>
                 <button type="submit" className="mt-submit-btn" disabled={submitting}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-                  {submitting ? '提交中…' : '提交报修'}
+                  {submitting ? t('tenantMaintenance.submitting') : t('tenantMaintenance.submitBtn')}
                 </button>
               </div>
             </div>

@@ -7,6 +7,7 @@ import { AREA_GROUPS } from '@/data/locationArea'
 import { METRO_LINES } from '@/data/locationMetro'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import { usePaginatedList } from '@/hooks/usePaginatedList'
 import './index.scss'
 
 interface Listing {
@@ -154,9 +155,19 @@ type OpenTab = null | 'region' | 'price' | 'layout' | 'more' | 'sort'
 export default function TenantListingsPage() {
   const router = useRouter()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [listings, setListings] = useState<Listing[]>([])
-  const [loading, setLoading] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
+  const { list: listings, loading, loadingMore, hasMore, fetch: fetchListings, fetchMore } =
+    usePaginatedList<Listing>({
+      pageSize: PAGE_SIZE,
+      fetcher: async (p, ps, params) => {
+        const res: any = await propertiesApi.list({
+          page: p,
+          page_size: ps,
+          ...((params as any)?.q ? { q: (params as any).q } : {})
+        })
+        return pickList(res)
+      },
+      onError: () => Taro.showToast({ title: '加载房源失败', icon: 'none' })
+    })
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
   const [favPending, setFavPending] = useState<Set<string>>(new Set())
 
@@ -165,8 +176,6 @@ export default function TenantListingsPage() {
   const [keyword, setKeyword] = useState<string>(router.params?.q ? decodeURIComponent(router.params.q) : '')
   const [query, setQuery] = useState<string>(router.params?.q ? decodeURIComponent(router.params.q) : '')
   const [biz, setBiz] = useState<BizKey>(initialBiz)
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
 
   // 按区域 / 按地铁（对齐贝壳「区域 | 地铁」下拉面板）
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area')
@@ -217,28 +226,6 @@ export default function TenantListingsPage() {
     }
   }
 
-  const fetchListings = async (nextPage = 1, q = query) => {
-    if (nextPage === 1) setLoading(true)
-    else setLoadingMore(true)
-    try {
-      const res = await propertiesApi.list({
-        page: nextPage,
-        page_size: PAGE_SIZE,
-        ...(q ? { q } : {})
-      })
-      const list = pickList(res)
-      setListings((prev) => (nextPage === 1 ? list : [...prev, ...list]))
-      setPage(nextPage)
-      setHasMore(list.length >= PAGE_SIZE)
-    } catch (error) {
-      console.error('[Listings] 获取房源失败', error)
-      Taro.showToast({ title: '加载房源失败', icon: 'none' })
-    } finally {
-      setLoading(false)
-      setLoadingMore(false)
-    }
-  }
-
   useDidShow(() => {
     loadFromStorage()
     if (!useAuthStore.getState().token) {
@@ -252,12 +239,7 @@ export default function TenantListingsPage() {
   const handleSearch = () => {
     const q = keyword.trim()
     setQuery(q)
-    fetchListings(1, q)
-  }
-
-  const handleLoadMore = () => {
-    if (loadingMore || !hasMore) return
-    fetchListings(page + 1)
+    fetchListings(1, { q })
   }
 
   const toggleFavorite = async (e: any, item: Listing) => {
@@ -920,7 +902,7 @@ export default function TenantListingsPage() {
 
           {/* ===== 加载更多 ===== */}
           {hasMore && (
-            <View className='load-more' onClick={handleLoadMore}>
+            <View className='load-more' onClick={fetchMore}>
               <Text className='load-more__text'>
                 {loadingMore ? '加载中...' : '加载更多房源'}
               </Text>

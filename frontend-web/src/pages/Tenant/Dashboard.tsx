@@ -78,17 +78,7 @@ interface TicketItem {
   [key: string]: any
 }
 
-// 账单类型展示名（来自接口 payment_type 字段）
-const BILL_TYPE_LABEL: Record<string, string> = {
-  rent: '租金',
-  deposit: '押金',
-  commission: '佣金',
-  service_fee: '服务费',
-  utility: '水电费',
-  tax: '税费',
-  refund: '退款',
-}
-
+// 账单类型展示名（来自接口 payment_type 字段，见组件内 BILL_TYPE_LABEL）
 // 工单状态 → 处理进度（由接口 status 派生，非示例数据）
 const TICKET_PROGRESS: Record<string, number> = {
   open: 20,
@@ -127,6 +117,16 @@ const formatPrice = (v: any, cur?: string) => formatMoney(Number(v || 0), cur)
 const TenantDashboard = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
+
+  const BILL_TYPE_LABEL: Record<string, string> = {
+    rent: t('dashboardOps.payType.rent'),
+    deposit: t('dashboardOps.payType.deposit'),
+    commission: t('dashboardOps.payType.commission'),
+    service_fee: t('dashboardOps.payType.service_fee'),
+    utility: t('dashboardOps.payType.utility'),
+    tax: t('dashboardOps.payType.tax'),
+    refund: t('dashboardOps.payType.refund'),
+  }
 
   // ===== 双业务状态 =====
   const [biz, setBiz] = useState<'rent' | 'buy'>('rent')
@@ -245,19 +245,19 @@ const TenantDashboard = () => {
   }, [bills])
   const unpaidBill = unpaidBills[0]
   const unpaidBillLabel = unpaidBill
-    ? BILL_TYPE_LABEL[String(unpaidBill.payment_type || '')] || '待缴账单'
+    ? BILL_TYPE_LABEL[String(unpaidBill.payment_type || '')] || t('tenantRemind.billPending')
     : ''
   const unpaidBillAmount = unpaidBill
     ? formatMoney(Number(unpaidBill.amount || 0), unpaidBill.currency)
     : ''
   const unpaidBillDue = unpaidBill?.due_date
-    ? dayjs(unpaidBill.due_date).format('M月D日')
+    ? dayjs(unpaidBill.due_date).format(t('tenantDashboard.monthDayFormat'))
     : null
   const unpaidBillDueIn = unpaidBill?.due_date
     ? dayjs(unpaidBill.due_date).diff(dayjs(), 'day')
     : null
   const unpaidBillDay = unpaidBill?.created_at
-    ? dayjs(unpaidBill.created_at).format('M月D日')
+    ? dayjs(unpaidBill.created_at).format(t('tenantDashboard.monthDayFormat'))
     : null
 
   // ===== 待办：进行中报修工单（真实数据） =====
@@ -278,7 +278,7 @@ const TenantDashboard = () => {
       tone: n.read ? 'neutral' : 'warning',
       title: n.title || t('common.notifications'),
       desc: n.content || '',
-      date: n.created_at ? dayjs(n.created_at).format('M月D日') : '—',
+      date: n.created_at ? dayjs(n.created_at).format(t('tenantDashboard.monthDayFormat')) : '—',
     }))
   }, [notifications, t])
 
@@ -305,8 +305,8 @@ const TenantDashboard = () => {
   const quickCards = [
     {
       key: 'find',
-      title: '找房源',
-      desc: '搜索房源 · 预约看房',
+      title: t('tenantDashboard.findRent'),
+      desc: t('tenantDashboard.findRentDesc'),
       bg: 'rgba(20,184,166,0.12)',
       color: 'var(--rent-primary)',
       icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
@@ -314,8 +314,8 @@ const TenantDashboard = () => {
     },
     {
       key: 'pay',
-      title: '上传付款',
-      desc: '提交本月租金凭证',
+      title: t('tenantDashboard.uploadPay'),
+      desc: t('tenantDashboard.uploadPayDesc'),
       bg: 'rgba(22,163,74,0.12)',
       color: 'var(--state-success)',
       icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
@@ -323,8 +323,8 @@ const TenantDashboard = () => {
     },
     {
       key: 'svc',
-      title: '预约服务',
-      desc: '清洁、维修、代付',
+      title: t('tenantDashboard.bookService'),
+      desc: t('tenantDashboard.bookServiceDesc'),
       bg: 'rgba(14,165,233,0.12)',
       color: 'var(--state-info)',
       icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>,
@@ -332,8 +332,8 @@ const TenantDashboard = () => {
     },
     {
       key: 'mt',
-      title: '提交报修',
-      desc: '在线提交维修申请',
+      title: t('tenantDashboard.submitMaint'),
+      desc: t('tenantDashboard.submitMaintDesc'),
       bg: 'rgba(217,119,6,0.12)',
       color: 'var(--state-warning)',
       icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>,
@@ -345,13 +345,13 @@ const TenantDashboard = () => {
   const renderPropCard = (item: PropertyItem, mode: 'rent' | 'buy') => {
     const projectName = item.project_name || item.project_id || ''
     const title = projectName ? `${projectName} · ${item.room_number}` : item.room_number || '—'
-    const ptype = item.property_type || '公寓'
+    const ptype = item.property_type || t('tenantDashboard.propTypeDefault')
     const addr = item.address || item.city || '—'
     const tag = mode === 'buy' ? t('browse.resale') : ptype
     const price = mode === 'buy'
       ? <span className="rv17-prop__price">{formatPrice(item.sale_price, item.currency)}</span>
       : <span className="rv17-prop__price">{formatRent(item.monthly_rent, item.currency)}<span className="rv17-prop__price-unit">{t('browse.rentUnit')}</span></span>
-    const meta = `${item.bedrooms ?? 0}卧${item.bathrooms ?? 0}浴 · ${item.size_sqm || 0}㎡`
+    const meta = t('tenantDashboard.bedroomBath', { bed: item.bedrooms ?? 0, bath: item.bathrooms ?? 0, size: item.size_sqm || 0 })
 
     return (
       <div
@@ -390,9 +390,9 @@ const TenantDashboard = () => {
   // ===== 买房推荐楼盘渲染 =====
   const renderCommCard = (item: PropertyItem) => {
     const projectName = item.project_name || item.project_id || ''
-    const title = projectName || item.room_number || '在售楼盘'
+    const title = projectName || item.room_number || t('tenantDashboard.inSaleUnit')
     const addr = item.address || item.city || '—'
-    const sub = `${item.bedrooms ?? 0}卧${item.bathrooms ?? 0}浴 · ${item.size_sqm || 0}㎡ · 精装交付`
+    const sub = `${t('tenantDashboard.bedroomBath', { bed: item.bedrooms ?? 0, bath: item.bathrooms ?? 0, size: item.size_sqm || 0 })} · ${t('tenantDashboard.furnishedDelivery')}`
     return (
       <a
         key={item.id}
@@ -402,19 +402,19 @@ const TenantDashboard = () => {
       >
         <div className="rv17-comm__img" style={{ background: gradientFor(String(item.id || item.room_number || '')) }}>
           <svg className="rv17-comm__img-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
-          <span className="rv17-comm__badge">在售</span>
+          <span className="rv17-comm__badge">{t('tenantDashboard.forSale')}</span>
         </div>
         <div className="rv17-comm__body">
           <h3 className="rv17-comm__name">{title}</h3>
           <p className="rv17-comm__addr">{addr}</p>
-          <div className="rv17-comm__price">{formatPrice(item.sale_price, item.currency)}<span className="rv17-comm__price-unit">起</span></div>
+          <div className="rv17-comm__price">{formatPrice(item.sale_price, item.currency)}<span className="rv17-comm__price-unit">{t('tenantDashboard.startUnit')}</span></div>
           <div className="rv17-comm__sub">{sub}</div>
         </div>
       </a>
     )
   }
 
-  const today = dayjs().format('YYYY年M月D日 · dddd')
+  const today = dayjs().format(t('tenantDashboard.todayFormat'))
 
   return (
     <>
@@ -503,8 +503,8 @@ const TenantDashboard = () => {
       {!keyword.trim() && biz === 'buy' && (
         <div className="rv17-sec">
           <div className="rv17-sec__head">
-            <h2 className="rv17-sec__title">买房推荐楼盘</h2>
-            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>在售楼盘<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
+            <h2 className="rv17-sec__title">{t('tenantDashboard.buyRecommend')}</h2>
+            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('tenantDashboard.inSaleUnit')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
           </div>
           <div className="rv17-rail">
             {commItems.map((it) => renderCommCard(it))}
@@ -517,7 +517,7 @@ const TenantDashboard = () => {
       {!keyword.trim() && biz === 'buy' && (
         <div className="rv17-sec">
           <div className="rv17-sec__head">
-            <h2 className="rv17-sec__title">热门二手房</h2>
+            <h2 className="rv17-sec__title">{t('tenantDashboard.hotResaleOrders')}</h2>
             <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
           </div>
           <div className="rv17-rail">
@@ -537,17 +537,17 @@ const TenantDashboard = () => {
             {unpaidBill && (
               <div className="rent-card rent-todo-pay" style={{ padding: 24 }}>
                 <div className="rent-todo-pay__head">
-                  <span className="rent-badge rent-badge--warning"><span className="rent-badge--dot" style={{ background: 'var(--state-warning)' }}></span>待缴账单</span>
+                  <span className="rent-badge rent-badge--warning"><span className="rent-badge--dot" style={{ background: 'var(--state-warning)' }}></span>{t('tenantRemind.billPending')}</span>
                   <span className="rent-todo-pay__due">
                     {unpaidBillDue
-                      ? `${unpaidBillDue}到期${unpaidBillDueIn !== null && unpaidBillDueIn >= 0 ? ` · 剩 ${unpaidBillDueIn} 天` : ''}`
+                      ? t('tenantRemind.dueOn', { date: unpaidBillDue }) + (unpaidBillDueIn !== null && unpaidBillDueIn >= 0 ? t('tenantRemind.daysLeftSuffix', { days: unpaidBillDueIn }) : '')
                       : unpaidBill.status}
                   </span>
                 </div>
                 <div className="rent-todo-pay__label">{unpaidBillLabel}</div>
                 <div className="rent-todo-pay__amount">{unpaidBillAmount}</div>
                 <p className="rent-todo-pay__sub">
-                  {unpaidBillDay ? `账单日 ${unpaidBillDay} · ` : ''}到期未付将影响信用记录
+                  {unpaidBillDay ? `${t('tenantRemind.billDate')} ${unpaidBillDay} · ` : ''}{t('tenantRemind.payDue')}
                 </p>
                 <button
                   type="button"
@@ -555,7 +555,7 @@ const TenantDashboard = () => {
                   onClick={() => navigate('/tenant/payments')}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                  立即付款
+                  {t('tenantRemind.payNow')}
                 </button>
               </div>
             )}
@@ -564,15 +564,15 @@ const TenantDashboard = () => {
             {activeTicket && (
               <div className="rent-card rent-todo-maint" style={{ padding: 24 }}>
                 <div className="rent-todo-maint__head">
-                  <span className="rent-badge rent-badge--info"><span className="rent-badge--dot" style={{ background: 'var(--state-info)' }}></span>报修进行中</span>
+                  <span className="rent-badge rent-badge--info"><span className="rent-badge--dot" style={{ background: 'var(--state-info)' }}></span>{t('tenantRemind.maintProgress')}</span>
                   <span className="rent-todo-maint__id">#{activeTicket.ticket_no || (activeTicket.id || '').slice(-6)}</span>
                 </div>
                 <div className="rent-todo-maint__title">{activeTicket.title || activeTicket.description || '—'}</div>
                 <div className="rent-todo-maint__desc">{activeTicket.description || '—'}</div>
                 <div className="rent-progress rent-todo-maint__bar"><div className="rent-progress__bar" style={{ width: `${activeTicketProgress}%`, background: 'var(--state-info)' }}></div></div>
                 <div className="rent-todo-maint__foot">
-                  <span>{activeTicketDays !== null ? `已处理 ${activeTicketDays} 天` : '—'}</span>
-                  <button type="button" className="rent-btn rent-btn--secondary rent-btn--sm" onClick={() => navigate('/tenant/maintenance')}>查看详情</button>
+                  <span>{activeTicketDays !== null ? `${t('tenantRemind.processedDays')} ${activeTicketDays} ${t('tenantRemind.days')}` : '—'}</span>
+                  <button type="button" className="rent-btn rent-btn--secondary rent-btn--sm" onClick={() => navigate('/tenant/maintenance')}>{t('tenantRemind.viewDetail')}</button>
                 </div>
               </div>
             )}
@@ -610,14 +610,14 @@ const TenantDashboard = () => {
                   <span className="rent-lease__progress-days">{t('tenantRemind.expireIn')} {daysToExpiry !== null ? daysToExpiry : '—'} {t('tenantRemind.days')}</span>
                 </div>
                 <div className="rent-lease__progress"><div className="rent-lease__progress-bar" style={{ width: `${leaseProgress ?? 0}%` }}></div></div>
-                <div className="rent-lease__progress-foot">已过 {leaseProgress !== null ? `${leaseProgress}%` : '—'} · 到期 {currentLease?.end_date ? dayjs(currentLease.end_date).format('YYYY-MM-DD') : '—'}</div>
+                <div className="rent-lease__progress-foot">{t('tenantRemind.elapsed')} {leaseProgress !== null ? `${leaseProgress}%` : '—'} · {t('tenantRemind.expireAt')} {currentLease?.end_date ? dayjs(currentLease.end_date).format('YYYY-MM-DD') : '—'}</div>
               </div>
             </div>
 
             {/* 快捷入口金刚区 */}
             <div className="rent-card">
               <div className="rent-card__header">
-                <h3 className="rent-card__title">快捷入口</h3>
+                <h3 className="rent-card__title">{t('tenantRemind.quickEntry')}</h3>
               </div>
               <div className="rent-card__body" style={{ padding: 24 }}>
                 <div className="rent-quick-grid">
@@ -641,8 +641,8 @@ const TenantDashboard = () => {
           {/* 右栏：最近动态 */}
           <div className="rent-card rent-todo-feed">
             <div className="rent-card__header">
-              <h3 className="rent-card__title">最近动态</h3>
-              <a className="rent-section__link" onClick={() => navigate('/tenant/maintenance')}>全部记录
+              <h3 className="rent-card__title">{t('tenantRemind.recentNews')}</h3>
+              <a className="rent-section__link" onClick={() => navigate('/tenant/maintenance')}>{t('tenantRemind.allRecords')}
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
               </a>
             </div>

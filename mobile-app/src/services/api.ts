@@ -8,11 +8,28 @@ export const authApi = {
     }),
   register: (data: any) => api.post('/auth/register', data),
   me: () => api.get('/auth/me'),
+  // 「我的」账户/设置自助
+  updateMe: (data: any) => api.patch('/auth/me', data),
+  changePassword: (data: { old_password: string; new_password: string }) =>
+    api.post('/auth/me/password', data),
+  preferences: () => api.get('/auth/me/preferences'),
+  updatePreferences: (data: any) => api.patch('/auth/me/preferences', data),
 };
 
 export const propertiesApi = {
   list: (params?: any) => api.get('/properties', { params }),
   get: (id: string) => api.get(`/properties/${id}`),
+  // 房源编辑补全：PATCH /properties/{id}，接受普通编辑字段（如 monthly_rent、status 租态）。
+  // 注意：已移除 listing_status 发布态，删除即下架。
+  update: (id: string, data: any) => api.patch(`/properties/${id}`, data),
+  // 照片上传/删除（multipart，后端先传后保存 url 列表到 photos）
+  uploadPhotos: (id: string, files: any[]) => {
+    const fd = new FormData()
+    files.forEach((f) => fd.append('files', f as any))
+    return api.post(`/properties/${id}/photos`, fd)
+  },
+  deletePhoto: (id: string, url: string) =>
+    api.delete(`/properties/${id}/photos`, { params: { url } }),
   // 关联租约（返回 tenant_name，业主详情页取租客姓名的唯一来源）
   leases: (id: string) => api.get(`/properties/${id}/leases`),
 };
@@ -35,6 +52,9 @@ export const leasesApi = {
 export const paymentsApi = {
   list: (params?: any) => api.get('/payments', { params }),
   mine: () => api.get('/payments/me'),
+  // 管理端手动记账 / 确认到账
+  create: (data: any) => api.post('/payments', data),
+  confirm: (id: string, data: any = {}) => api.post(`/payments/${id}/confirm`, data),
   pay: (id: string, channel: string) => api.post(`/payments/${id}/pay`, { channel }),
   receipt: (id: string) => api.get(`/payments/${id}/receipt`),
   invoice: (id: string) => api.get(`/payments/${id}/invoice`),
@@ -199,7 +219,7 @@ export const propertyDealApi = {
   list: (params?: any) => api.get('/property-deals', { params }),
   create: (data: any) => api.post('/property-deals', data),
   changeStatus: (id: string, status: string) =>
-    api.post(`/property-deals/${id}/status`, null, { params: { status } }),
+    api.patch(`/property-deals/${id}/status`, null, { params: { status } }),
   // 定金(Iscrow)托管
   createEscrow: (data: any) => api.post('/property-deals/escrows', data),
   escrows: (dealId: string) => api.get(`/property-deals/escrows/${dealId}`),
@@ -262,4 +282,14 @@ export const marketDataApi = {
 // 客户线索（用于撮合与跟进）
 export const leadsApi = {
   list: (params?: any) => api.get('/leads', { params }),
+  create: (data: any) => api.post('/leads', data),
+  update: (id: string, data: any) => api.patch(`/leads/${id}`, data),
+  delete: (id: string) => api.delete(`/leads/${id}`),
+};
+
+// 管理端账号操作
+export const usersAdminApi = {
+  list: (params?: any) => api.get('/admin/users', { params }),
+  create: (data: any) => api.post('/admin/users', data),
+  deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
 };

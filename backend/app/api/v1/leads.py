@@ -143,3 +143,26 @@ def update_lead(
     session.commit()
     session.refresh(lead)
     return lead
+
+
+@router.delete("/{lead_id}")
+def delete_lead(
+    lead_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_agent),
+):
+    """删除线索（软删除，脱敏归档而非硬删）。"""
+    lead = session.get(Lead, lead_id)
+    if not lead or lead.deleted_at:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    lead.deleted_at = datetime.now()
+    session.add(lead)
+    publish_event(
+        session,
+        "lead.deleted",
+        "lead",
+        lead.id,
+        {"name": lead.name, "deleted_by": str(user.id)},
+    )
+    session.commit()
+    return {"id": str(lead.id), "ok": True, "deleted": True}

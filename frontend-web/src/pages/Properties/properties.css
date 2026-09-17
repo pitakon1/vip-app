@@ -3,6 +3,34 @@
    垂直列表 · 左图右信息 · 管道符分隔 · 状态色标签
    ========================================================= */
 
+/* ===== 筛选栏自定义区间输入（价格 / 面积的自定义最小·最大）===== */
+.rent-filter-bar__custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rent-filter-bar__custom-input {
+  width: 76px;
+  height: 34px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--rent-ink-1);
+  background: var(--rent-surface, #fff);
+  border: 1px solid var(--rent-border);
+  border-radius: 6px;
+  outline: none;
+}
+.rent-filter-bar__custom-input:focus {
+  border-color: var(--rent-primary);
+}
+.rent-filter-bar__custom-input::placeholder {
+  color: var(--rent-ink-3);
+}
+.rent-filter-bar__custom-sep {
+  color: var(--rent-ink-3);
+  font-size: 13px;
+}
+
 /* ===== 管理后台房源卡片（rent-prop-card）===== */
 .rent-prop-card {
   display: flex;
@@ -544,4 +572,235 @@
   text-align: center;
   font-size: 13px;
   color: var(--rent-ink-3);
+}
+
+/* ===== 区域/地铁定位触发器按钮 ===== */
+.prop-loc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: var(--rent-ink-1);
+  background: var(--rent-surface, #fff);
+  border: 1px solid var(--rent-border);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--rent-font-sans);
+}
+.prop-loc-btn:hover {
+  border-color: var(--rent-primary);
+}
+.prop-loc-btn--active {
+  color: var(--rent-primary);
+  border-color: var(--rent-primary);
+  background: rgba(20, 184, 166, 0.06);
+}
+.prop-loc-btn svg {
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+}
+.prop-loc-btn--active svg {
+  color: var(--rent-primary);
+}
+
+/* ===== 区域/地铁定位面板 ===== */
+.prop-loc-popover .ant-popover-inner {
+  padding: 0;
+  border-radius: 10px;
+}
+.prop-loc-panel {
+  width: 560px;
+  max-width: 86vw;
+  font-size: 13px;
+  color: var(--rent-ink-1);
+}
+.prop-loc-panel__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 12px 0;
+}
+.prop-loc-panel__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+}
+.prop-loc-panel__tab svg {
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+}
+.prop-loc-panel__tab--active {
+  color: var(--rent-primary);
+  font-weight: 600;
+  border-bottom-color: var(--rent-primary);
+}
+.prop-loc-panel__tab--active svg {
+  color: var(--rent-primary);
+}
+.prop-loc-panel__body {
+  padding: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.prop-loc-panel__group {
+  margin-bottom: 12px;
+}
+.prop-loc-panel__group:last-child {
+  margin-bottom: 0;
+}
+.prop-loc-panel__group-title,
+.prop-loc-panel__stations-title {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--rent-ink-3);
+}
+.prop-loc-panel__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.prop-loc-panel__chip {
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--rent-ink-2);
+  background: var(--rent-surface-2);
+  border: 1px solid var(--rent-border);
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+}
+.prop-loc-panel__chip:hover {
+  border-color: var(--rent-primary);
+  color: var(--rent-primary);
+}
+.prop-loc-panel__chip--active {
+  color: var(--rent-primary);
+  border-color: var(--rent-primary);
+  background: rgba(20, 184, 166, 0.1);
+  font-weight: 600;
+}
+.prop-loc-panel__metro {
+  display: flex;
+  flex-direction: column;
+  max-height: 340px;
+}
+.prop-loc-panel__lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px;
+  border-bottom: 1px solid var(--rent-border);
+}
+.prop-loc-panel__line {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--rent-ink-2);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+}
+.prop-loc-panel__line:hover {
+  color: var(--rent-primary);
+}
+.prop-loc-panel__line--active {
+  color: var(--rent-primary);
+  background: rgba(20, 184, 166, 0.08);
+  border-color: var(--rent-primary);
+  font-weight: 600;
+}
+.prop-loc-panel__stations {
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+.prop-loc-panel__empty {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+}
+.prop-loc-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-top: 1px solid var(--rent-border);
+}
+.prop-loc-panel__count {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+}
+.prop-loc-panel__count strong {
+  color: var(--rent-primary);
+}
+.prop-loc-panel__actions {
+  display: flex;
+  gap: 8px;
+}
+.prop-loc-panel__btn {
+  padding: 6px 18px;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+}
+.prop-loc-panel__btn--ghost {
+  color: var(--rent-ink-2);
+  background: none;
+  border: 1px solid var(--rent-border);
+}
+.prop-loc-panel__btn--ghost:hover {
+  color: var(--rent-primary);
+  border-color: var(--rent-primary);
+}
+.prop-loc-panel__btn--primary {
+  color: #fff;
+  background: var(--rent-primary);
+  border: 1px solid var(--rent-primary);
+}
+.prop-loc-panel__btn--primary:hover {
+  opacity: 0.9;
+}
+
+/* ===== 只看带视频按钮 ===== */
+.prop-video-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--rent-ink-1);
+  background: var(--rent-surface, #fff);
+  border: 1px solid var(--rent-border);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--rent-font-sans);
+}
+.prop-video-btn svg {
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+}
+.prop-video-btn:hover {
+  border-color: var(--rent-primary);
+  color: var(--rent-primary);
+}
+.prop-video-btn--active {
+  color: var(--rent-primary);
+  border-color: var(--rent-primary);
+  background: rgba(20, 184, 166, 0.08);
+}
+.prop-video-btn--active svg {
+  color: var(--rent-primary);
 }

@@ -18,6 +18,7 @@ interface AuthState {
   error: string | null;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  setUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -54,4 +55,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     void tokenStorage.remove();
     set({ user: null, token: null, isAuthenticated: false });
   },
+
+  setUser: (user) => set({ user }),
 }));

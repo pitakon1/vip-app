@@ -8,6 +8,7 @@ import {
   ScrollView,
   Modal,
   Platform,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -16,6 +17,7 @@ import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
 import colors from '@/theme/colors';
 import {
+  authApi,
   leasesApi,
   ownerApi,
   ownersApi,
@@ -57,18 +59,16 @@ const FUNC_BY_ROLE: Record<UserRole, FuncEntry[]> = {
     { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'Documents' },
     { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'TenantServices' },
   ],
-  // 经纪/员工：销售工作台
+  // 经纪/员工：销售工作台（客户/业绩已是 Tab，不再重复；通讯录收进「我的」）
   agent: [
-    { key: 'properties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'EmployeeProperties' },
-    { key: 'crm', labelKey: 'profile.crm', icon: 'people', navigate: 'CRM' },
-    { key: 'performance', labelKey: 'profile.performance', icon: 'stats-chart', navigate: 'Performance' },
+    { key: 'contacts', labelKey: 'profile.contacts', icon: 'people', navigate: 'Contacts' },
     { key: 'attendance', labelKey: 'profile.attendance', icon: 'location', navigate: 'Attendance' },
+    { key: 'properties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'EmployeeProperties' },
   ],
   employee: [
-    { key: 'properties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'EmployeeProperties' },
-    { key: 'crm', labelKey: 'profile.crm', icon: 'people', navigate: 'CRM' },
-    { key: 'performance', labelKey: 'profile.performance', icon: 'stats-chart', navigate: 'Performance' },
+    { key: 'contacts', labelKey: 'profile.contacts', icon: 'people', navigate: 'Contacts' },
     { key: 'attendance', labelKey: 'profile.attendance', icon: 'location', navigate: 'Attendance' },
+    { key: 'properties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'EmployeeProperties' },
   ],
   // 管理员：对齐管理端设置原型（员工管理入口；不含考勤与聊天）
   admin: [
@@ -136,6 +136,7 @@ const DEAL_STATUS: Record<string, { text: string; color: string; bg: string }> =
 export default function ProfileScreen() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const setUser = useAuthStore((state) => state.setUser);
   const [langVisible, setLangVisible] = useState(false);
   const [activeLease, setActiveLease] = useState<any>(null);
   const [deals, setDeals] = useState<any[]>([]);
@@ -171,7 +172,140 @@ export default function ProfileScreen() {
       setLangVisible(true);
       return;
     }
+    // 「我的」账户/设置自助接入对应后端接口
+    if (item.key === 'password') {
+      setPwdVisible(true);
+      return;
+    }
+    if (item.key === 'phone' || item.key === 'email' || item.key === 'account') {
+      openEdit();
+      return;
+    }
+    if (item.key === 'timezone' || item.key === 'notification' || item.key === 'notify') {
+      openPrefs();
+      return;
+    }
     showNotAvailable(item.label);
+  };
+
+  // ===== 编辑资料 =====
+  const [editVisible, setEditVisible] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
+  const openEdit = () => {
+    setEditName(user?.full_name ?? '');
+    setEditPhone(user?.phone ?? '');
+    setEditEmail(user?.email ?? '');
+    setEditVisible(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editName.trim()) {
+      showNotAvailable('请填写姓名');
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const payload: Record<string, string> = { full_name: editName.trim() };
+      if (editPhone !== (user?.phone ?? '')) payload.phone = editPhone.trim();
+      if (editEmail !== (user?.email ?? '')) payload.email = editEmail.trim();
+      const { data } = await authApi.updateMe(payload);
+      setUser({ ...user, ...(data ?? {}) } as any);
+      setEditVisible(false);
+      showToast('已保存');
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail;
+      showNotAvailable(typeof detail === 'string' ? detail : '保存失败');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  // ===== 修改密码 =====
+  const [pwdVisible, setPwdVisible] = useState(false);
+  const [oldPwd, setOldPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [pwdSaving, setPwdSaving] = useState(false);
+
+  const savePassword = async () => {
+    if (!oldPwd || !newPwd) {
+      showNotAvailable('请填写完整');
+      return;
+    }
+    if (newPwd.length < 6) {
+      showNotAvailable('新密码至少 6 位');
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      showNotAvailable('两次输入的新密码不一致');
+      return;
+    }
+    setPwdSaving(true);
+    try {
+      await authApi.changePassword({ old_password: oldPwd, new_password: newPwd });
+      setPwdVisible(false);
+      setOldPwd('');
+      setNewPwd('');
+      setConfirmPwd('');
+      // 改密后所有旧令牌失效，建议重新登录
+      logout();
+      showToast('密码已修改，请重新登录');
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail;
+      showNotAvailable(typeof detail === 'string' ? detail : '修改失败');
+    } finally {
+      setPwdSaving(false);
+    }
+  };
+
+  // ===== 时区 / 通知设置 =====
+  const [prefVisible, setPrefVisible] = useState(false);
+  const [prefTimezone, setPrefTimezone] = useState('Asia/Bangkok');
+  const [prefEmail, setPrefEmail] = useState(true);
+  const [prefPush, setPrefPush] = useState(true);
+  const [prefSaving, setPrefSaving] = useState(false);
+
+  const openPrefs = async () => {
+    setPrefVisible(true);
+    try {
+      const { data } = await authApi.preferences();
+      const p = data ?? {};
+      setPrefTimezone(p.timezone || 'Asia/Bangkok');
+      setPrefEmail(p.notify_email !== false);
+      setPrefPush(p.notify_push !== false);
+    } catch {
+      /* 读取失败用默认值 */
+    }
+  };
+
+  const savePrefs = async () => {
+    setPrefSaving(true);
+    try {
+      await authApi.updatePreferences({
+        timezone: prefTimezone.trim() || undefined,
+        notify_email: prefEmail,
+        notify_push: prefPush,
+      });
+      setPrefVisible(false);
+      showToast('已保存');
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail;
+      showNotAvailable(typeof detail === 'string' ? detail : '保存失败');
+    } finally {
+      setPrefSaving(false);
+    }
+  };
+
+  const showToast = (msg: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(msg);
+    } else {
+      Alert.alert(msg);
+    }
   };
 
   // 常用功能点击：业主「我的房源」进入需带房源 id（OwnerPropertyDetail 依赖 params.id）
@@ -458,7 +592,7 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={styles.editButton}
             activeOpacity={0.8}
-            onPress={() => showNotAvailable('编辑资料')}
+            onPress={openEdit}
           >
             <Ionicons name="create-outline" size={13} color={colors.ink2} />
             <Text style={styles.editButtonText}>编辑资料</Text>
@@ -867,6 +1001,170 @@ export default function ProfileScreen() {
                 {lang === id ? <Text style={styles.check}>✓</Text> : null}
               </TouchableOpacity>
             ))}
+          </View>
+        </View>
+      </Modal>
+
+      {/* 编辑资料弹层 */}
+      <Modal
+        visible={editVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditVisible(false)}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>编辑资料</Text>
+            <Text style={styles.fieldLabel}>姓名</Text>
+            <TextInput
+              style={styles.input}
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="请输入姓名"
+              placeholderTextColor={colors.ink3}
+            />
+            <Text style={styles.fieldLabel}>手机号</Text>
+            <TextInput
+              style={styles.input}
+              value={editPhone}
+              onChangeText={setEditPhone}
+              placeholder="请输入手机号"
+              placeholderTextColor={colors.ink3}
+              keyboardType="phone-pad"
+            />
+            <Text style={styles.fieldLabel}>邮箱</Text>
+            <TextInput
+              style={styles.input}
+              value={editEmail}
+              onChangeText={setEditEmail}
+              placeholder="请输入邮箱"
+              placeholderTextColor={colors.ink3}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                style={styles.sheetCancel}
+                onPress={() => setEditVisible(false)}
+              >
+                <Text style={styles.sheetCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.sheetConfirm}
+                disabled={editSaving}
+                onPress={saveEdit}
+              >
+                <Text style={styles.sheetConfirmText}>{editSaving ? '保存中...' : '保存'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 修改密码弹层 */}
+      <Modal
+        visible={pwdVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPwdVisible(false)}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>修改密码</Text>
+            <Text style={styles.fieldLabel}>当前密码</Text>
+            <TextInput
+              style={styles.input}
+              value={oldPwd}
+              onChangeText={setOldPwd}
+              placeholder="请输入当前密码"
+              placeholderTextColor={colors.ink3}
+              secureTextEntry
+            />
+            <Text style={styles.fieldLabel}>新密码</Text>
+            <TextInput
+              style={styles.input}
+              value={newPwd}
+              onChangeText={setNewPwd}
+              placeholder="至少 6 位"
+              placeholderTextColor={colors.ink3}
+              secureTextEntry
+            />
+            <Text style={styles.fieldLabel}>确认新密码</Text>
+            <TextInput
+              style={styles.input}
+              value={confirmPwd}
+              onChangeText={setConfirmPwd}
+              placeholder="再次输入新密码"
+              placeholderTextColor={colors.ink3}
+              secureTextEntry
+            />
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                style={styles.sheetCancel}
+                onPress={() => setPwdVisible(false)}
+              >
+                <Text style={styles.sheetCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.sheetConfirm}
+                disabled={pwdSaving}
+                onPress={savePassword}
+              >
+                <Text style={styles.sheetConfirmText}>{pwdSaving ? '提交中...' : '确认修改'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 时区 / 通知设置弹层 */}
+      <Modal
+        visible={prefVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPrefVisible(false)}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>通知设置</Text>
+            <Text style={styles.fieldLabel}>时区</Text>
+            <TextInput
+              style={styles.input}
+              value={prefTimezone}
+              onChangeText={setPrefTimezone}
+              placeholder="如 Asia/Bangkok"
+              placeholderTextColor={colors.ink3}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.prefRow}
+              onPress={() => setPrefEmail(!prefEmail)}
+            >
+              <Text style={styles.prefLabel}>邮件通知</Text>
+              <Text style={prefEmail ? styles.check : styles.prefOff}>{prefEmail ? '✓ 开启' : '关闭'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.prefRow}
+              onPress={() => setPrefPush(!prefPush)}
+            >
+              <Text style={styles.prefLabel}>推送通知</Text>
+              <Text style={prefPush ? styles.check : styles.prefOff}>{prefPush ? '✓ 开启' : '关闭'}</Text>
+            </TouchableOpacity>
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                style={styles.sheetCancel}
+                onPress={() => setPrefVisible(false)}
+              >
+                <Text style={styles.sheetCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.sheetConfirm}
+                disabled={prefSaving}
+                onPress={savePrefs}
+              >
+                <Text style={styles.sheetConfirmText}>{prefSaving ? '保存中...' : '保存'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1282,5 +1580,67 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.primary,
     fontWeight: '600',
+  },
+
+  /* ===== 「我的」自助设置弹层 ===== */
+  fieldLabel: {
+    fontSize: 13,
+    color: colors.ink2,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.text,
+    backgroundColor: colors.surface,
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 18,
+  },
+  sheetCancel: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface2,
+  },
+  sheetCancelText: {
+    fontSize: 15,
+    color: colors.ink2,
+  },
+  sheetConfirm: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.primary,
+  },
+  sheetConfirmText: {
+    fontSize: 15,
+    color: colors.primaryForeground,
+    fontWeight: '600',
+  },
+  prefRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  prefLabel: {
+    fontSize: 15,
+    color: colors.text,
+  },
+  prefOff: {
+    fontSize: 14,
+    color: colors.ink3,
   },
 });

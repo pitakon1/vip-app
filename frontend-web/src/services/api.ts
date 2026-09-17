@@ -1,4 +1,5 @@
 import api from '@/lib/api'
+import { downloadReport } from '@/lib/download'
 
 /**
  * 查询串参数：只透传给 axios，不做业务校验。
@@ -34,6 +35,14 @@ export const propertiesApi = {
   create: (data: RequestBody) => api.post('/properties', data),
   update: (id: string, data: RequestBody) => api.patch(`/properties/${id}`, data),
   delete: (id: string) => api.delete(`/properties/${id}`),
+  // 照片上传/删除（multipart，后端先传后保存 url 列表到 photos）
+  uploadPhotos: (id: string, files: File[]) => {
+    const fd = new FormData()
+    files.forEach((f) => fd.append('files', f))
+    return api.post(`/properties/${id}/photos`, fd)
+  },
+  deletePhoto: (id: string, url: string) =>
+    api.delete(`/properties/${id}/photos`, { params: { url } }),
 }
 
 // Leases
@@ -52,6 +61,7 @@ export const leadsApi = {
   get: (id: string) => api.get(`/leads/${id}`),
   create: (data: RequestBody) => api.post('/leads', data),
   update: (id: string, data: RequestBody) => api.patch(`/leads/${id}`, data),
+  delete: (id: string) => api.delete(`/leads/${id}`),
 }
 
 // Payments
@@ -63,6 +73,16 @@ export const paymentsApi = {
   // 减免逾期滞纳金；amount 不传表示全额减免剩余部分
   waiveLateFee: (id: string, amount: number | null, reason: string) =>
     api.post(`/payments/${id}/late-fee/waive`, { amount: amount ?? undefined, reason }),
+  // 手动记账（后台登记一笔应收/收款）
+  create: (data: RequestBody) => api.post('/payments', data),
+  // 管理端确认到账（线下凭证核销）
+  confirm: (id: string, data: RequestBody) => api.post(`/payments/${id}/confirm`, data),
+  // 财务核销（对账留痕）
+  reconcile: (id: string, note?: string) =>
+    api.post(`/payments/${id}/reconcile`, { note }),
+  // 缴费凭证 / 发票
+  receipt: (id: string) => api.get(`/payments/${id}/receipt`),
+  invoice: (id: string) => api.get(`/payments/${id}/invoice`),
 }
 
 // Projects
@@ -199,9 +219,8 @@ export const viewingsApi = {
     api.patch(`/viewings/${id}`, { status }),
 }
 
-// 财务对账 + 运营趋势
+// 运营趋势
 export const financialApi = {
-  reconciliation: () => api.get('/dashboard/financial-reconciliation'),
   trend: (params?: QueryParams) => api.get('/dashboard/trend', { params }),
 }
 

@@ -228,6 +228,31 @@
     font-size: 22rpx;
     color: var(--ink-3);
   }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-top: 20rpx;
+    padding-top: 20rpx;
+    border-top: 1px solid var(--line);
+  }
+}
+
+/* 删除账号 */
+.ac-act {
+  height: 56rpx;
+  padding: 0 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  border-radius: var(--radius-full);
+
+  &--del {
+    color: var(--danger, #ff4d4f);
+    background: rgba(255, 77, 79, 0.08);
+  }
 }
 
 /* 头像（按序着色） */

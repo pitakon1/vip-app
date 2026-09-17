@@ -236,9 +236,11 @@ export default function AdminPropertyDetailScreen() {
           <Text style={styles.name} numberOfLines={2}>
             {[property.room_number, property.building].filter(Boolean).join(' · ') || '未命名房源'}
           </Text>
-          <View style={[styles.badge, { backgroundColor: colors.alpha(statusMeta.rgb, 0.12) }]}>
-            <View style={[styles.dot, { backgroundColor: statusMeta.color }]} />
-            <Text style={[styles.badgeText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
+          <View style={styles.badgeWrap}>
+            <View style={[styles.badge, { backgroundColor: colors.alpha(statusMeta.rgb, 0.12) }]}>
+              <View style={[styles.dot, { backgroundColor: statusMeta.color }]} />
+              <Text style={[styles.badgeText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
+            </View>
           </View>
         </View>
         <View style={styles.addrRow}>
@@ -289,7 +291,7 @@ export default function AdminPropertyDetailScreen() {
         <TouchableOpacity
           style={styles.actionCell}
           activeOpacity={0.7}
-          onPress={() => navigation.navigate('EmployeeProperties')}
+          onPress={() => navigation.navigate('PropertyEdit', { id: property.id })}
         >
           <View style={[styles.actionIcon, { backgroundColor: colors.alpha(colors.primaryRgb, 0.12) }]}>
             <Ionicons name="create-outline" size={18} color={colors.primary} />
@@ -423,6 +425,7 @@ const styles = StyleSheet.create({
     ...colors.shadow.card,
   },
   headTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  badgeWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.ink },
   addrRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
   addr: { flex: 1, fontSize: 12, color: colors.ink3 },

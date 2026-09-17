@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { message } from 'antd'
 import { commissionRulesApi, employeesApi } from '@/services/api'
 import api from '@/lib/api'
@@ -40,32 +41,7 @@ interface FormState {
   is_active: boolean
 }
 
-const DEAL_TYPE_TEXT: Record<DealType, string> = {
-  new_rental: '新签约',
-  renewal: '续约',
-  management: '代运营',
-}
-
-const SCOPE_TEXT: Record<Scope, string> = {
-  all_employees: '全体员工',
-  by_department: '按部门',
-  by_employee: '按员工',
-  by_broker: '按分销商（差异化定价）',
-}
-
 // 适用对象层级：管理员可配置全部；分销商管理员仅本渠道及本渠道员工
-const SCOPE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'all_employees', label: '全体员工' },
-  { value: 'by_department', label: '部门' },
-  { value: 'by_employee', label: '员工' },
-  { value: 'by_broker', label: '分销商' },
-  { value: 'broker_employee', label: '分销商员工' },
-]
-const BROKER_SCOPE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'by_broker', label: '本渠道（差异化定价）' },
-  { value: 'by_employee', label: '本渠道员工' },
-]
-
 const emptyForm = (): FormState => ({
   name: '',
   deal_type: 'new_rental',
@@ -88,6 +64,11 @@ interface Employee {
   broker_id?: string
 }
 
+interface Broker {
+  id: string
+  partner_name: string
+}
+
 interface DropOpt {
   value: string
   label: string
@@ -105,6 +86,7 @@ function SearchSelect({
   options: DropOpt[]
   onChange: (v: string) => void
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [kw, setKw] = useState('')
   const current = options.find((o) => o.value === value)
@@ -122,11 +104,11 @@ function SearchSelect({
           <input
             autoFocus
             className="rent-search-select__search"
-            placeholder="搜索..."
+            placeholder={t('commissionRules.search')}
             value={kw}
             onChange={(e) => setKw(e.target.value)}
           />
-          {filtered.length === 0 && <div className="rent-search-select__empty">无匹配选项</div>}
+          {filtered.length === 0 && <div className="rent-search-select__empty">{t('commissionRules.noMatch')}</div>}
           {filtered.map((o) => (
             <div
               key={o.value}
@@ -148,13 +130,36 @@ function SearchSelect({
 
 const CommissionRules = () => {
   const { user } = useAuthStore()
+  const { t } = useTranslation()
   // 角色：平台管理员可选全部层级；分销商管理员（agent/employee 绑定渠道）仅本渠道 + 本渠道员工（后端已按角色鉴权）
   const isAdmin = user?.role === 'admin'
+  const dealTypeText: Record<DealType, string> = {
+    new_rental: t('commissionRules.dealType.new_rental'),
+    renewal: t('commissionRules.dealType.renewal'),
+    management: t('commissionRules.dealType.management'),
+  }
+  const scopeText: Record<Scope, string> = {
+    all_employees: t('commissionRules.scope.all_employees'),
+    by_department: t('commissionRules.scope.by_department'),
+    by_employee: t('commissionRules.scope.by_employee'),
+    by_broker: t('commissionRules.scope.by_broker'),
+  }
+  const scopeOptions: { value: string; label: string }[] = [
+    { value: 'all_employees', label: t('commissionRules.scopeOption.all_employees') },
+    { value: 'by_department', label: t('commissionRules.scopeOption.by_department') },
+    { value: 'by_employee', label: t('commissionRules.scopeOption.by_employee') },
+    { value: 'by_broker', label: t('commissionRules.scopeOption.by_broker') },
+    { value: 'broker_employee', label: t('commissionRules.scopeOption.broker_employee') },
+  ]
+  const brokerScopeOptions: { value: string; label: string }[] = [
+    { value: 'by_broker', label: t('commissionRules.brokerScopeOption.by_broker') },
+    { value: 'by_employee', label: t('commissionRules.brokerScopeOption.by_employee') },
+  ]
   const [items, setItems] = useState<CommissionRule[]>([])
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [brokers, setBrokers] = useState<{ id: string; partner_name: string }[]>([])
+  const [brokers, setBrokers] = useState<Broker[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
@@ -166,11 +171,11 @@ const CommissionRules = () => {
       const payload = res.data?.data ?? res.data
       setItems(payload?.items ?? payload ?? [])
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取佣金设置失败')
+      message.error(err?.response?.data?.message || t('commissionRules.fetchFailed'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const fetchEmployees = useCallback(async () => {
     try {
@@ -186,7 +191,7 @@ const CommissionRules = () => {
     try {
       const res = await api.get('/brokers', { params: { page_size: 100 } })
       const payload = res.data?.data ?? res.data
-      setBrokers((payload?.items ?? []).map((b: any) => ({ id: b.id, partner_name: b.partner_name })))
+      setBrokers((payload?.items ?? []).map((b: Broker) => ({ id: b.id, partner_name: b.partner_name })))
     } catch {
       setBrokers([])
     }
@@ -227,28 +232,28 @@ const CommissionRules = () => {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
-      message.error('请输入规则名称')
+      message.error(t('commissionRules.errName'))
       return
     }
     if (!form.rate || Number(form.rate) < 0) {
-      message.error('请输入有效佣金比例')
+      message.error(t('commissionRules.errRate'))
       return
     }
     if (form.scope === 'by_department' && !form.department.trim()) {
-      message.error('请输入部门名称')
+      message.error(t('commissionRules.errDept'))
       return
     }
     if ((form.scope === 'by_employee' || form.scope === 'broker_employee') && form.scope === 'by_employee' && !form.employee_id) {
-      message.error('请选择员工')
+      message.error(t('commissionRules.errEmployee'))
       return
     }
     if (form.scope === 'broker_employee') {
       if (!form.broker_id) {
-        message.error('请先选择分销商')
+        message.error(t('commissionRules.errBrokerRequired'))
         return
       }
       if (!form.broker_employee_id) {
-        message.error('请选择该分销商的员工')
+        message.error(t('commissionRules.errBrokerEmployee'))
         return
       }
     }
@@ -268,7 +273,7 @@ const CommissionRules = () => {
       }
       if (form.scope === 'broker_employee') payload.broker_id = form.broker_id
       if (form.scope === 'by_broker' && isAdmin && !form.broker_id) {
-        message.error('请选择分销商')
+        message.error(t('commissionRules.errBrokerRequired'))
         return
       }
       if (form.scope === 'by_broker' && isAdmin) payload.broker_id = form.broker_id
@@ -277,15 +282,15 @@ const CommissionRules = () => {
 
       if (editingId) {
         await commissionRulesApi.update(editingId, payload)
-        message.success('佣金设置已更新')
+        message.success(t('commissionRules.updated'))
       } else {
         await commissionRulesApi.create(payload)
-        message.success('佣金设置已创建')
+        message.success(t('commissionRules.created'))
       }
       setModalOpen(false)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '保存失败')
+      message.error(err?.response?.data?.message || t('commissionRules.saveFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -294,21 +299,21 @@ const CommissionRules = () => {
   const toggleActive = async (rule: CommissionRule) => {
     try {
       await commissionRulesApi.update(rule.id, { is_active: !rule.is_active })
-      message.success(rule.is_active ? '规则已停用' : '规则已启用')
+      message.success(rule.is_active ? t('commissionRules.ruleDisabled') : t('commissionRules.ruleEnabled'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '操作失败')
+      message.error(err?.response?.data?.message || t('commissionRules.opFailed'))
     }
   }
 
   const handleDelete = async (rule: CommissionRule) => {
-    if (!window.confirm(`确定删除佣金设置「${rule.name}」吗？`)) return
+    if (!window.confirm(t('commissionRules.deleteConfirm', { name: rule.name }))) return
     try {
       await commissionRulesApi.delete(rule.id)
-      message.success('佣金设置已删除')
+      message.success(t('commissionRules.deleted'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '删除失败')
+      message.error(err?.response?.data?.message || t('commissionRules.deleteFailed'))
     }
   }
 
@@ -324,8 +329,8 @@ const CommissionRules = () => {
     <div className="rent-main">
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">佣金设置</h2>
-          <p className="rent-page-header__subtitle">按交易类型与适用对象配置员工佣金比例（支持分销商差异化定价）</p>
+          <h2 className="rent-page-header__title">{t('commissionRules.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('commissionRules.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <button className="rent-btn rent-btn--primary" onClick={openCreate}>
@@ -333,34 +338,34 @@ const CommissionRules = () => {
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            新增规则
+            {t('commissionRules.addRule')}
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="rent-empty"><div className="rent-text-muted">加载中...</div></div>
+        <div className="rent-empty"><div className="rent-text-muted">{t('common.loading')}</div></div>
       ) : (
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">佣金规则</h3>
-            <span className="rent-badge rent-badge--neutral">共 {items.length} 条</span>
+            <h3 className="rent-card__title">{t('commissionRules.listTitle')}</h3>
+            <span className="rent-badge rent-badge--neutral">{t('commissionRules.countItem', { count: items.length })}</span>
           </div>
           <div className="rent-card__body" style={{ padding: 0 }}>
             {items.length === 0 ? (
-              <div className="rent-empty rent-text-muted">暂无佣金设置，点击右上角「新增设置」开始配置</div>
+              <div className="rent-empty rent-text-muted">{t('commissionRules.empty')}</div>
             ) : (
               <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
                 <table className="rent-table">
                   <thead>
                     <tr>
-                      <th>规则名称</th>
-                      <th>交易类型</th>
-                      <th>比例</th>
-                      <th>适用对象</th>
-                      <th>金额上下限</th>
-                      <th>状态</th>
-                      <th>操作</th>
+                      <th>{t('commissionRules.colName')}</th>
+                      <th>{t('commissionRules.colDealType')}</th>
+                      <th>{t('commissionRules.colRate')}</th>
+                      <th>{t('commissionRules.colScope')}</th>
+                      <th>{t('commissionRules.colLimits')}</th>
+                      <th>{t('commissionRules.colStatus')}</th>
+                      <th>{t('commissionRules.colAction')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -372,11 +377,11 @@ const CommissionRules = () => {
                             ? r.employee_name || r.employee_id || '—'
                             : r.scope === 'by_broker'
                               ? brokers.find((b) => b.id === r.broker_id)?.partner_name || r.broker_id || '—'
-                              : '全体'
+                              : t('commissionRules.allScope')
                       const limits =
                         r.minimum_amount != null || r.cap_amount != null
-                          ? `฿${Number(r.minimum_amount ?? 0)} ~ ${r.cap_amount != null ? `฿${Number(r.cap_amount)}` : '无上限'}`
-                          : '无'
+                          ? `฿${Number(r.minimum_amount ?? 0)} ~ ${r.cap_amount != null ? `฿${Number(r.cap_amount)}` : t('commissionRules.noCap')}`
+                          : t('commissionRules.noLimit')
                       return (
                         <tr key={r.id}>
                           <td>
@@ -387,33 +392,33 @@ const CommissionRules = () => {
                               </div>
                             )}
                           </td>
-                          <td>{DEAL_TYPE_TEXT[r.deal_type] || r.deal_type}</td>
+                          <td>{dealTypeText[r.deal_type] || r.deal_type}</td>
                           <td className="cr-rate">{rateAsPercent(r.rate)}</td>
                           <td>
-                            <div>{SCOPE_TEXT[r.scope] || r.scope}</div>
+                            <div>{scopeText[r.scope] || r.scope}</div>
                             <div className="rent-text-sm rent-text-muted">{scopeDetail}</div>
                           </td>
                           <td><span className="rent-table__mono">{limits}</span></td>
                           <td>
                             <span className={`rent-badge ${r.is_active ? 'rent-badge--success' : 'rent-badge--neutral'}`}>
-                              {r.is_active ? '启用' : '停用'}
+                              {r.is_active ? t('commissionRules.active') : t('commissionRules.inactive')}
                             </span>
                           </td>
                           <td>
                             <div className="rent-flex rent-gap-2">
-                              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openEdit(r)}>编辑</button>
+                              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openEdit(r)}>{t('common.edit')}</button>
                               <button
                                 className="rent-btn rent-btn--ghost rent-btn--sm"
                                 onClick={() => toggleActive(r)}
                               >
-                                {r.is_active ? '停用' : '启用'}
+                                {r.is_active ? t('commissionRules.inactive') : t('commissionRules.active')}
                               </button>
                               <button
                                 className="rent-btn rent-btn--ghost rent-btn--sm"
                                 style={{ color: 'var(--state-error)', borderColor: 'var(--state-error)' }}
                                 onClick={() => handleDelete(r)}
                               >
-                                删除
+                                {t('common.delete')}
                               </button>
                             </div>
                           </td>
@@ -428,7 +433,7 @@ const CommissionRules = () => {
         </div>
       )}
       <div className="rent-form-hint" style={{ marginTop: 12 }}>
-        适用对象支持全体员工、部门、员工、分销商与分销商员工；分销商管理员仅可为本渠道及本渠道员工配置差异化费率。结算时按「员工 &gt; 部门 &gt; 分销商 &gt; 全局 &gt; 默认」优先级匹配规则。
+        {t('commissionRules.rulesHint')}
       </div>
 
       {/* Modal */}
@@ -436,7 +441,7 @@ const CommissionRules = () => {
         <div className="rent-modal-backdrop" onClick={() => !submitting && setModalOpen(false)}>
           <div className="rent-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">{editingId ? '编辑佣金设置' : '新增佣金设置'}</h3>
+              <h3 className="rent-card__title">{editingId ? t('commissionRules.editTitle') : t('commissionRules.createTitle')}</h3>
               <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setModalOpen(false)} disabled={submitting}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -446,43 +451,43 @@ const CommissionRules = () => {
             </div>
             <div className="rent-modal__body">
               <div className="rent-form-group">
-                <label className="rent-form-label">规则名称 *</label>
+                <label className="rent-form-label">{t('commissionRules.labelRuleName')}</label>
                 <input
                   className="rent-form-input"
                   type="text"
-                  placeholder="例如：新签约佣金"
+                  placeholder={t('commissionRules.placeholderRuleName')}
                   value={form.name}
                   onChange={(e) => set('name', e.target.value)}
                 />
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">交易类型 *</label>
+                  <label className="rent-form-label">{t('commissionRules.labelDealType')}</label>
                   <select
                     className="rent-form-select"
                     value={form.deal_type}
                     onChange={(e) => set('deal_type', e.target.value)}
                   >
-                    {Object.entries(DEAL_TYPE_TEXT).map(([k, v]) => (
+                    {Object.entries(dealTypeText).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
                     ))}
                   </select>
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">佣金比例 (%) *</label>
+                  <label className="rent-form-label">{t('commissionRules.labelRate')}</label>
                   <input
                     className="rent-form-input"
                     type="number"
                     min="0"
                     step="0.1"
-                    placeholder="例如 5"
+                    placeholder={t('commissionRules.placeholderRate')}
                     value={form.rate}
                     onChange={(e) => set('rate', e.target.value)}
                   />
                 </div>
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">适用对象 *</label>
+                <label className="rent-form-label">{t('commissionRules.labelScope')}</label>
                 <select
                   className="rent-form-select"
                   value={form.scope}
@@ -491,23 +496,23 @@ const CommissionRules = () => {
                     setForm((p) => ({ ...p, broker_employee_id: '' }))
                   }}
                 >
-                  {(isAdmin ? SCOPE_OPTIONS : BROKER_SCOPE_OPTIONS).map((o) => (
+                  {(isAdmin ? scopeOptions : brokerScopeOptions).map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
                 {!isAdmin && (
                   <div className="rent-text-sm rent-text-muted" style={{ marginTop: 6 }}>
-                    分销商管理员仅可为本渠道及本渠道员工配置差异化费率
+                    {t('commissionRules.brokerRestrict')}
                   </div>
                 )}
               </div>
               {form.scope === 'by_department' && isAdmin && (
                 <div className="rent-form-group">
-                  <label className="rent-form-label">部门 *</label>
+                  <label className="rent-form-label">{t('commissionRules.labelDepartment')}</label>
                   <input
                     className="rent-form-input"
                     type="text"
-                    placeholder="例如：租赁部"
+                    placeholder={t('commissionRules.placeholderDepartment')}
                     value={form.department}
                     onChange={(e) => set('department', e.target.value)}
                   />
@@ -515,9 +520,9 @@ const CommissionRules = () => {
               )}
               {form.scope === 'by_employee' && (
                 <div className="rent-form-group">
-                  <label className="rent-form-label">员工 *</label>
+                  <label className="rent-form-label">{t('commissionRules.labelEmployee')}</label>
                   <SearchSelect
-                    placeholder={isAdmin ? '请选择员工（可搜索）' : '请选择本渠道员工（可搜索）'}
+                    placeholder={isAdmin ? t('commissionRules.placeholderEmployeeAdmin') : t('commissionRules.placeholderEmployeeBroker')}
                     value={form.employee_id}
                     options={employees.map((emp) => ({
                       value: emp.id,
@@ -527,16 +532,16 @@ const CommissionRules = () => {
                   />
                   {!isAdmin && (
                     <div className="rent-text-sm rent-text-muted" style={{ marginTop: 6 }}>
-                      仅可选择本渠道下属员工（跨渠道员工将被拒绝）
+                      {t('commissionRules.empRestrict')}
                     </div>
                   )}
                 </div>
               )}
               {form.scope === 'by_broker' && isAdmin && (
                 <div className="rent-form-group">
-                  <label className="rent-form-label">分销商 *</label>
+                  <label className="rent-form-label">{t('commissionRules.labelBroker')}</label>
                   <SearchSelect
-                    placeholder="请选择分销商（可搜索）"
+                    placeholder={t('commissionRules.placeholderBroker')}
                     value={form.broker_id}
                     options={brokers.map((b) => ({ value: b.id, label: b.partner_name }))}
                     onChange={(v) => set('broker_id', v)}
@@ -546,9 +551,9 @@ const CommissionRules = () => {
               {form.scope === 'broker_employee' && isAdmin && (
                 <>
                   <div className="rent-form-group">
-                    <label className="rent-form-label">分销商 *</label>
+                    <label className="rent-form-label">{t('commissionRules.labelBroker')}</label>
                     <SearchSelect
-                      placeholder="请选择分销商（可搜索）"
+                      placeholder={t('commissionRules.placeholderBroker')}
                       value={form.broker_id}
                       options={brokers.map((b) => ({ value: b.id, label: b.partner_name }))}
                       onChange={(v) => {
@@ -558,9 +563,9 @@ const CommissionRules = () => {
                     />
                   </div>
                   <div className="rent-form-group">
-                    <label className="rent-form-label">该分销商员工 *</label>
+                    <label className="rent-form-label">{t('commissionRules.labelBrokerEmployee')}</label>
                     <SearchSelect
-                      placeholder="请选择该分销商员工（可搜索）"
+                      placeholder={t('commissionRules.placeholderBrokerEmployee')}
                       value={form.broker_employee_id}
                       options={brokerEmployeeOptions.map((emp) => ({
                         value: emp.id,
@@ -573,34 +578,34 @@ const CommissionRules = () => {
               )}
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">最低佣金 (¥)</label>
+                  <label className="rent-form-label">{t('commissionRules.labelMinAmount')}</label>
                   <input
                     className="rent-form-input"
                     type="number"
                     min="0"
-                    placeholder="可选"
+                    placeholder={t('commissionRules.placeholderOptional')}
                     value={form.minimum_amount}
                     onChange={(e) => set('minimum_amount', e.target.value)}
                   />
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">佣金上限 (¥)</label>
+                  <label className="rent-form-label">{t('commissionRules.labelCapAmount')}</label>
                   <input
                     className="rent-form-input"
                     type="number"
                     min="0"
-                    placeholder="可选"
+                    placeholder={t('commissionRules.placeholderOptional')}
                     value={form.cap_amount}
                     onChange={(e) => set('cap_amount', e.target.value)}
                   />
                 </div>
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">描述</label>
+                <label className="rent-form-label">{t('common.detail')}</label>
                 <textarea
                   className="rent-form-textarea"
                   rows={2}
-                  placeholder="规则说明（可选）"
+                  placeholder={t('commissionRules.placeholderDescription')}
                   value={form.description}
                   onChange={(e) => set('description', e.target.value)}
                 />
@@ -615,13 +620,13 @@ const CommissionRules = () => {
                   <span className="rent-switch__track" />
                   <span className="rent-switch__thumb" />
                 </label>
-                <span className="rent-text-sm">启用该规则</span>
+                <span className="rent-text-sm">{t('commissionRules.enableRule')}</span>
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setModalOpen(false)} disabled={submitting}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setModalOpen(false)} disabled={submitting}>{t('common.cancel')}</button>
               <button className="rent-btn rent-btn--primary" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? '保存中...' : '保存'}
+                {submitting ? t('commissionRules.saving') : t('common.save')}
               </button>
             </div>
           </div>

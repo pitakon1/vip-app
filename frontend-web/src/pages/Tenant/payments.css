@@ -4,7 +4,7 @@
 .rent-pay-summary {
   position: relative;
   overflow: hidden;
-  background: #14b8a6;
+  background: var(--rent-primary);
   border: none;
   color: #fff;
   border-radius: var(--rent-radius-lg);

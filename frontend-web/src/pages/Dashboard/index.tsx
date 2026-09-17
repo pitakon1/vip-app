@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import { message, Empty, Spin } from 'antd'
 import {
@@ -79,9 +80,9 @@ interface EmployeeRow {
 const fmtBaht = (v: number) => `฿${Number(v || 0).toLocaleString()}`
 
 // 收入趋势的月度标签（近 12 个月）
-const monthLabels = () => {
+const monthLabels = (format: string) => {
   const labels: string[] = []
-  for (let i = 11; i >= 0; i--) labels.push(dayjs().subtract(i, 'month').format('M月'))
+  for (let i = 11; i >= 0; i--) labels.push(dayjs().subtract(i, 'month').format(format))
   return labels
 }
 
@@ -92,7 +93,7 @@ const TREND_RATIO: Record<RangeKey, number[]> = {
   '7d': [0.615, 0.865, 0.538, 1, 0.692, 0.788, 0.75],
 }
 
-// 与设计稿一致的 KPI 卡片配置（数值由真实接口填充）
+// KPI 卡片配置（数值由真实接口填充）
 interface KpiMeta {
   label: string
   /** 限定为数值型指标，避免 key 指到 expiring_property 这类字符串字段 */
@@ -108,147 +109,150 @@ interface KpiMeta {
   circle?: string
 }
 
-const kpiMeta: KpiMeta[] = [
-  {
-    label: '本月营收',
-    key: 'monthly_revenue',
-    format: (v: number) => fmtBaht(v),
-    icon: 'M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
-    line: 'M12 1L12 23',
-    bg: 'rgba(22,163,74,0.1)',
-    color: 'var(--state-success)',
-    delta: (s: DashboardMetrics) => ({ up: true, text: '较上月' }),
-  },
-  {
-    label: '出租率',
-    key: 'occupancy_rate',
-    format: (v: number) => `${v ?? 0}%`,
-    icon: 'M18 20L18 10M12 20L12 4M6 20L6 14',
-    bg: 'rgba(217,119,6,0.1)',
-    color: 'var(--state-warning)',
-    delta: (s: DashboardMetrics) => ({ up: true, text: `空置 ${s.vacant ?? 0} 套` }),
-  },
-  {
-    label: '在租合同',
-    key: 'rented',
-    format: (v: number) => String(v ?? 0),
-    icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z',
-    poly: '14 2 14 8 20 8',
-    extra: 'M16 13L8 13M16 17L8 17',
-    bg: 'rgba(14,165,233,0.1)',
-    color: 'var(--state-info)',
-    delta: (s: DashboardMetrics) => ({ up: true, text: `${s.expiring_leases ?? 0} 份将到期` }),
-  },
-  {
-    label: '员工数',
-    key: 'employee_count',
-    format: (v: number) => String(v ?? 0),
-    icon: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2',
-    circle: '12 7 4',
-    bg: 'rgba(20, 184, 166, 0.1)',
-    color: 'var(--rent-primary)',
-    delta: (s: DashboardMetrics) => ({ up: true, text: `${s.new_employees ?? 0} 本月新增` }),
-  },
-]
-
-// 付款状态文案与色调
-const PAY_STATUS: Record<string, { text: string; tone: string }> = {
-  succeeded: { text: '已收款', tone: 'success' },
-  pending: { text: '待确认', tone: 'warning' },
-  processing: { text: '处理中', tone: 'info' },
-  failed: { text: '支付失败', tone: 'error' },
-  refunded: { text: '已退款', tone: 'neutral' },
-  disputed: { text: '争议中', tone: 'error' },
-  expired: { text: '已过期', tone: 'neutral' },
-}
-
-const PAY_TYPE_TEXT: Record<string, string> = {
-  rent: '租金',
-  deposit: '押金',
-  commission: '佣金',
-  service_fee: '服务费',
-  utility: '水电费',
-  tax: '税费',
-  refund: '退款',
-}
-
-// 风险预警区（对齐原型 admin-dashboard：warning/danger/info 三卡）
-const riskMeta = [
-  {
-    tone: 'warning' as const,
-    label: '合同 30 天内到期',
-    value: (s: DashboardMetrics) => `${s.expiring_leases ?? 0}`,
-    unit: '份',
-    desc: (s: DashboardMetrics) => `${s.expiring_property ?? ''}${s.expiring_leases && s.expiring_leases > 0 ? ` 等 ${s.expiring_leases} 份合同临近到期` : '暂无临近到期合同'}`,
-    ratio: (s: DashboardMetrics) => Math.min(Number(s.expiring_leases ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
-    path: '/leases',
-    icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8',
-  },
-  {
-    tone: 'danger' as const,
-    label: '欠租房源',
-    value: (s: DashboardMetrics) => `${s.upcoming_payments ?? 0}`,
-    unit: '笔',
-    desc: () => '逾期金额待核 · 请及时催收',
-    ratio: (s: DashboardMetrics) => Math.min(Number(s.upcoming_payments ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
-    path: '/payments',
-    icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
-  },
-  {
-    tone: 'info' as const,
-    label: '空置率超阈值',
-    value: (s: DashboardMetrics) => `${s.vacant && s.total_properties ? Math.round((s.vacant / s.total_properties) * 100) : 0}`,
-    unit: '% · 警戒线 10%',
-    desc: () => '建议关注高空置片区，及时补充房源',
-    ratio: (s: DashboardMetrics) => Math.min(Number(s.occupancy_rate ?? 0) / 100, 1),
-    path: '/properties',
-    icon: 'M18 20v-10M12 20V4M6 20v-6',
-  },
-]
-
-// 快捷入口：高频操作直达（侧边栏已有的一级导航不计重复）
-const quickMeta = [
-  {
-    label: '房源管理',
-    sub: (s: DashboardMetrics) => `${s.total_properties ?? 0} 套房源 · 上架维护`,
-    path: '/properties',
-    bg: 'rgba(20,184,166,0.1)',
-    color: 'var(--rent-primary)',
-    icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10',
-  },
-  {
-    label: '工单审核',
-    sub: () => '外勤 · 报修 · 服务 · 合同待办',
-    path: '/system/review-center',
-    bg: 'rgba(217,119,6,0.1)',
-    color: 'var(--state-warning)',
-    icon: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3',
-  },
-  {
-    label: '账号管理',
-    sub: () => '开通 · 启停 · 重置密码',
-    path: '/system/users',
-    bg: 'rgba(14,165,233,0.1)',
-    color: 'var(--state-info)',
-    icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
-  },
-  {
-    label: '财务对账',
-    sub: () => '收款核对 · 逾期催收',
-    path: '/reconciliation',
-    bg: 'rgba(22,163,74,0.1)',
-    color: 'var(--state-success)',
-    icon: 'M1 4h22v16H1zM1 10h23',
-  },
-]
-
 const Dashboard = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [range, setRange] = useState<RangeKey>('12m')
   const [summary, setSummary] = useState<DashboardMetrics>({})
   const [expiring, setExpiring] = useState<ExpiringLease[]>([])
   const [payments, setPayments] = useState<RecentPayment[]>([])
   const [loading, setLoading] = useState(false)
+
+  const kpiMeta: KpiMeta[] = [
+    {
+      label: t('dashboardOps.kpiMonthRevenue'),
+      key: 'monthly_revenue',
+      format: fmtBaht,
+      icon: 'M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+      line: 'M12 1L12 23',
+      bg: 'rgba(22,163,74,0.1)',
+      color: 'var(--state-success)',
+      delta: () => ({ up: true, text: t('dashboardOps.vsLastMonth') }),
+    },
+    {
+      label: t('dashboardOps.kpiOccupancy'),
+      key: 'occupancy_rate',
+      format: (v: number) => `${v ?? 0}%`,
+      icon: 'M18 20L18 10M12 20L12 4M6 20L6 14',
+      bg: 'rgba(217,119,6,0.1)',
+      color: 'var(--state-warning)',
+      delta: (s: DashboardMetrics) => ({ up: true, text: t('dashboardOps.deltaVacant', { count: s.vacant ?? 0 }) }),
+    },
+    {
+      label: t('dashboardOps.kpiActiveLease'),
+      key: 'rented',
+      format: (v: number) => String(v ?? 0),
+      icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z',
+      poly: '14 2 14 8 20 8',
+      extra: 'M16 13L8 13M16 17L8 17',
+      bg: 'rgba(14,165,233,0.1)',
+      color: 'var(--state-info)',
+      delta: (s: DashboardMetrics) => ({ up: true, text: t('dashboardOps.deltaExpiring', { count: s.expiring_leases ?? 0 }) }),
+    },
+    {
+      label: t('dashboardOps.kpiEmployee'),
+      key: 'employee_count',
+      format: (v: number) => String(v ?? 0),
+      icon: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2',
+      circle: '12 7 4',
+      bg: 'rgba(20, 184, 166, 0.1)',
+      color: 'var(--rent-primary)',
+      delta: (s: DashboardMetrics) => ({ up: true, text: t('dashboardOps.deltaNewEmployee', { count: s.new_employees ?? 0 }) }),
+    },
+  ]
+
+  // 付款状态文案与色调
+  const PAY_STATUS: Record<string, { text: string; tone: string }> = {
+    succeeded: { text: t('dashboardOps.paySucceeded'), tone: 'success' },
+    pending: { text: t('dashboardOps.payPending'), tone: 'warning' },
+    processing: { text: t('dashboardOps.payProcessing'), tone: 'info' },
+    failed: { text: t('dashboardOps.payFailed'), tone: 'error' },
+    refunded: { text: t('dashboardOps.payRefunded'), tone: 'neutral' },
+    disputed: { text: t('dashboardOps.payDisputed'), tone: 'error' },
+    expired: { text: t('dashboardOps.payExpired'), tone: 'neutral' },
+  }
+
+  const PAY_TYPE_TEXT: Record<string, string> = {
+    rent: t('dashboardOps.payType.rent'),
+    deposit: t('dashboardOps.payType.deposit'),
+    commission: t('dashboardOps.payType.commission'),
+    service_fee: t('dashboardOps.payType.service_fee'),
+    utility: t('dashboardOps.payType.utility'),
+    tax: t('dashboardOps.payType.tax'),
+    refund: t('dashboardOps.payType.refund'),
+  }
+
+  // 风险预警区（对齐原型 admin-dashboard：warning/danger/info 三卡）
+  const riskMeta = [
+    {
+      tone: 'warning' as const,
+      label: t('dashboardOps.riskExpiringContract'),
+      value: (s: DashboardMetrics) => `${s.expiring_leases ?? 0}`,
+      unit: t('dashboardOps.unitContract'),
+      desc: (s: DashboardMetrics) => {
+        if (!s.expiring_leases || s.expiring_leases <= 0) return t('dashboardOps.riskExpiringDesc')
+        const name = s.expiring_property ? `${s.expiring_property} ` : ''
+        return name + t('dashboardOps.riskExpiringPending', { count: s.expiring_leases })
+      },
+      ratio: (s: DashboardMetrics) => Math.min(Number(s.expiring_leases ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
+      path: '/leases',
+      icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8',
+    },
+    {
+      tone: 'danger' as const,
+      label: t('dashboardOps.riskOverdue'),
+      value: (s: DashboardMetrics) => `${s.upcoming_payments ?? 0}`,
+      unit: t('dashboardOps.unitPayment'),
+      desc: () => t('dashboardOps.riskOverdueDesc'),
+      ratio: (s: DashboardMetrics) => Math.min(Number(s.upcoming_payments ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
+      path: '/payments',
+      icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+    },
+    {
+      tone: 'info' as const,
+      label: t('dashboardOps.riskVacant'),
+      value: (s: DashboardMetrics) => `${s.vacant && s.total_properties ? Math.round((s.vacant / s.total_properties) * 100) : 0}`,
+      unit: t('dashboardOps.vacateUnit'),
+      desc: () => t('dashboardOps.riskVacantDesc'),
+      ratio: (s: DashboardMetrics) => Math.min(Number(s.occupancy_rate ?? 0) / 100, 1),
+      path: '/properties',
+      icon: 'M18 20v-10M12 20V4M6 20v-6',
+    },
+  ]
+
+  // 快捷入口：高频操作直达（侧边栏已有的一级导航不计重复）
+  const quickMeta = [
+    {
+      label: t('dashboardOps.quickProperties'),
+      sub: (s: DashboardMetrics) => t('dashboardOps.quickPropertiesSub', { count: s.total_properties ?? 0 }),
+      path: '/properties',
+      bg: 'rgba(20,184,166,0.1)',
+      color: 'var(--rent-primary)',
+      icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10',
+    },
+    {
+      label: t('dashboardOps.quickReview'),
+      sub: () => t('dashboardOps.quickReviewSub'),
+      path: '/system/review-center',
+      bg: 'rgba(217,119,6,0.1)',
+      color: 'var(--state-warning)',
+      icon: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3',
+    },
+    {
+      label: t('dashboardOps.quickAccounts'),
+      sub: () => t('dashboardOps.quickAccountsSub'),
+      path: '/system/users',
+      bg: 'rgba(14,165,233,0.1)',
+      color: 'var(--state-info)',
+      icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+    },
+  ]
+
+  const rangeMeta = [
+    { key: '7d' as RangeKey, label: t('dashboardOps.range7d') },
+    { key: '30d' as RangeKey, label: t('dashboardOps.range30d') },
+    { key: '12m' as RangeKey, label: t('dashboardOps.range12m') },
+  ]
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -278,11 +282,11 @@ const Dashboard = () => {
         new_employees: empItems.filter((e) => e.created_at && dayjs(e.created_at).isSame(now, 'month')).length,
       }))
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || '获取数据失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('dashboardOps.fetchFailed'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     fetchAll()
@@ -292,10 +296,10 @@ const Dashboard = () => {
 
   // 收入趋势：以真实月度收入为锚点，按设计稿相对形状生成
   const lineChartData = {
-    labels: monthLabels(),
+    labels: monthLabels(t('dashboardOps.monthFormat')),
     datasets: [
       {
-        label: '收入 (฿)',
+        label: t('dashboardOps.income'),
         data: TREND_RATIO['12m'].map((r) => Math.round(baseRevenue * r)),
         borderColor: '#14b8a6',
         backgroundColor: 'rgba(20, 184, 166, 0.08)',
@@ -370,21 +374,15 @@ const Dashboard = () => {
     }
   })
 
-  const rangeMeta = [
-    { key: '7d' as RangeKey, label: '近7天' },
-    { key: '30d' as RangeKey, label: '近30天' },
-    { key: '12m' as RangeKey, label: '近12月' },
-  ]
-
   return (
     <div className="rent-main">
 
       {/* Page Header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">经营驾驶舱</h2>
+          <h2 className="rent-page-header__title">{t('dashboardOps.title')}</h2>
           <p className="rent-page-header__subtitle">
-            {dayjs().format('YYYY年M月D日')} · 系统运行正常
+            {dayjs().format(t('dashboardOps.dateFormat'))} · {t('dashboardOps.systemNormal')}
           </p>
         </div>
         <div className="rent-page-header__actions">
@@ -400,7 +398,7 @@ const Dashboard = () => {
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
-            管理房源
+            {t('dashboardOps.manageProperties')}
           </a>
         </div>
       </div>
@@ -409,7 +407,7 @@ const Dashboard = () => {
       {loading && (
         <div className="owner-loading-bar" style={{ marginBottom: 16 }}>
           <Spin size="small" style={{ marginRight: 8 }} />
-          数据加载中…
+          {t('dashboardOps.loadingData')}
         </div>
       )}
       <div className="rent-risk-grid rent-mb-5">
@@ -455,7 +453,7 @@ const Dashboard = () => {
               className="rent-btn rent-btn--sm rent-btn--ghost rent-risk-card__cta"
               onClick={() => navigate(card.path)}
             >
-              去处理
+              {t('dashboardOps.goHandle')}
             </button>
           </div>
         ))}
@@ -499,7 +497,7 @@ const Dashboard = () => {
         {/* Chart Card */}
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">经营趋势 · 收入</h3>
+            <h3 className="rent-card__title">{t('dashboardOps.trendRevenue')}</h3>
             <div className="rent-chart-range-group">
               {rangeMeta.map((r) => (
                 <button
@@ -522,7 +520,7 @@ const Dashboard = () => {
         {/* Quick Actions */}
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">快捷入口</h3>
+            <h3 className="rent-card__title">{t('dashboardOps.quickEntry')}</h3>
           </div>
           <div className="rent-card__body">
             <div className="rent-quick-grid">
@@ -555,7 +553,7 @@ const Dashboard = () => {
         {/* Left: Expiring Contracts */}
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">即将到期合同</h3>
+            <h3 className="rent-card__title">{t('dashboardOps.expiringTitle')}</h3>
             <a
               href="#"
               className="rent-btn rent-btn--ghost rent-btn--sm"
@@ -564,22 +562,22 @@ const Dashboard = () => {
                 navigate('/leases')
               }}
             >
-              查看全部
+              {t('dashboardOps.viewAll')}
             </a>
           </div>
           <div style={{ overflowX: 'auto' }}>
             {expiringRows.length === 0 ? (
               <div className="rent-empty">
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无即将到期的合同" />
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('dashboardOps.expiringEmpty')} />
               </div>
             ) : (
               <table className="rent-table">
                 <thead>
                   <tr>
-                    <th>房源</th>
-                    <th>租客</th>
-                    <th>到期日</th>
-                    <th>状态</th>
+                    <th>{t('dashboardOps.colProperty')}</th>
+                    <th>{t('dashboardOps.colTenant')}</th>
+                    <th>{t('dashboardOps.colExpireDate')}</th>
+                    <th>{t('dashboardOps.colStatus')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -590,7 +588,7 @@ const Dashboard = () => {
                       <td className="rent-table__mono">{row.date}</td>
                       <td>
                         <span className="rent-badge rent-badge--warning">
-                          {row.days > 0 ? `${row.days}天后到期` : '即将到期'}
+                          {row.days > 0 ? t('dashboardOps.daysLater', { days: row.days }) : t('dashboardOps.dueSoon')}
                         </span>
                       </td>
                     </tr>
@@ -604,7 +602,7 @@ const Dashboard = () => {
         {/* Right: Recent Payments */}
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">近期收款记录</h3>
+            <h3 className="rent-card__title">{t('dashboardOps.recentPayTitle')}</h3>
             <a
               href="#"
               className="rent-btn rent-btn--ghost rent-btn--sm"
@@ -613,23 +611,23 @@ const Dashboard = () => {
                 navigate('/payments')
               }}
             >
-              查看全部
+              {t('dashboardOps.viewAll')}
             </a>
           </div>
           <div style={{ overflowX: 'auto' }}>
             {paymentRows.length === 0 ? (
               <div className="rent-empty">
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无收款记录" />
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('dashboardOps.recentPayEmpty')} />
               </div>
             ) : (
               <table className="rent-table">
                 <thead>
                   <tr>
-                    <th>租客</th>
-                    <th>金额</th>
-                    <th>日期</th>
-                    <th>方式</th>
-                    <th>状态</th>
+                    <th>{t('dashboardOps.colTenant')}</th>
+                    <th>{t('dashboardOps.colAmount')}</th>
+                    <th>{t('dashboardOps.colDate')}</th>
+                    <th>{t('dashboardOps.colMethod')}</th>
+                    <th>{t('dashboardOps.colStatus')}</th>
                   </tr>
                 </thead>
                 <tbody>

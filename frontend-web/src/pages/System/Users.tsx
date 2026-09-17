@@ -120,6 +120,16 @@ const Users = () => {
     }
   }
 
+  const handleDelete = async (row: Account) => {
+    try {
+      await api.delete(`/admin/users/${row.id}`)
+      message.success('账号已删除')
+      fetchData()
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || '删除失败')
+    }
+  }
+
   const handleResetPwd = async () => {
     const { new_password } = await pwdForm.validateFields()
     try {
@@ -336,6 +346,20 @@ const Users = () => {
                           >
                             <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button">
                               {row.is_active ? '停用' : '启用'}
+                            </button>
+                          </Popconfirm>
+                          <Popconfirm
+                            title="删除后不可恢复，确定删除该账号？"
+                            okText="删除"
+                            okButtonProps={{ danger: true }}
+                            onConfirm={() => handleDelete(row)}
+                          >
+                            <button
+                              className="rent-btn rent-btn--ghost rent-btn--sm"
+                              type="button"
+                              style={{ color: 'var(--state-error)', borderColor: 'var(--state-error)' }}
+                            >
+                              删除
                             </button>
                           </Popconfirm>
                         </div>

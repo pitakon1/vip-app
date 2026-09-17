@@ -305,7 +305,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get('/properties', { params: queryParams })
+      const res = await api.get('/properties', { params: { ...queryParams } })
       const payload = res.data?.data ?? res.data
       const items = payload?.items ?? []
       setAllItems(Array.isArray(items) ? items : [])

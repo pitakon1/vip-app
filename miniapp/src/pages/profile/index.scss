@@ -551,3 +551,100 @@
     border: 1px solid var(--line);
   }
 }
+
+/* ===== 「我的」账户/设置自助弹层 ===== */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-sheet {
+  width: 100%;
+  padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+  background-color: var(--card);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+
+  &__title {
+    display: block;
+    font-size: 34rpx;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 8rpx;
+  }
+}
+
+.form-field {
+  margin-top: 20rpx;
+
+  &__label {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-2);
+    margin-bottom: 8rpx;
+  }
+
+  &__input {
+    height: 80rpx;
+    line-height: 80rpx;
+    padding: 0 24rpx;
+    font-size: 28rpx;
+    color: var(--ink);
+    background-color: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+}
+
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 0;
+  border-bottom: 1px solid var(--line);
+
+  &__label {
+    font-size: 28rpx;
+    color: var(--ink);
+  }
+
+  &__val--on {
+    font-size: 26rpx;
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  &__val--off {
+    font-size: 26rpx;
+    color: var(--ink-3);
+  }
+}
+
+.modal-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 40rpx;
+
+  .modal-btn {
+    flex: 1;
+    height: 80rpx;
+    line-height: 80rpx;
+    font-size: 30rpx;
+    border-radius: var(--radius-md);
+    border: none;
+
+    &--ghost {
+      background-color: var(--bg);
+      color: var(--ink-2);
+    }
+
+    &--primary {
+      background-color: var(--primary);
+      color: var(--on-primary, #fff);
+    }
+  }
+}

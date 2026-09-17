@@ -7,10 +7,11 @@
 """
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.auth import get_current_user  # noqa: F401  (占位，未来可做权限)
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.services.pricing import (
     CURRENCY_TO_THB,
     DEPOSIT_MONTHS_BY_OWNER,
@@ -77,7 +78,7 @@ class IntegrationStatusOut(BaseModel):
 
 
 @router.get("/pricing", response_model=PricingRulesOut)
-def get_pricing_rules():
+def get_pricing_rules(user: User = Depends(get_current_user)):
     """业务规则总览：价目（不含税）、押金规则、多币种、税费。"""
     return {
         "service_catalog": SERVICE_PRICE_CATALOG,
@@ -96,7 +97,7 @@ def get_pricing_rules():
 
 
 @router.get("/pricing/quotes", response_model=ServiceQuoteOut)
-def get_service_quote(code: str, qty: int = 1):
+def get_service_quote(code: str, qty: int = 1, user: User = Depends(get_current_user)):
     """按服务编码返回价税分离的报价。"""
     try:
         return service_quote(code, qty)
@@ -105,7 +106,12 @@ def get_service_quote(code: str, qty: int = 1):
 
 
 @router.get("/pricing/convert", response_model=CurrencyConvertOut)
-def convert_currency(amount: float, from_currency: str, to_currency: str):
+def convert_currency(
+    amount: float,
+    from_currency: str,
+    to_currency: str,
+    user: User = Depends(get_current_user),
+):
     """多币种换算（基于基准率）。"""
     if from_currency.upper() not in CURRENCY_TO_THB or to_currency.upper() not in CURRENCY_TO_THB:
         raise HTTPException(status_code=400, detail="Unsupported currency")
@@ -120,7 +126,7 @@ def convert_currency(amount: float, from_currency: str, to_currency: str):
 
 
 @router.get("/integrations", response_model=IntegrationStatusOut)
-def list_integration_status():
+def list_integration_status(user: User = Depends(get_current_user)):
     """第三方对接状态（H 组：支付已实现，OCR/短信/通知/地图/税务为预留 stub）。"""
     from app.providers.registry import RESERVED_REGISTRY
 

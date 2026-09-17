@@ -200,6 +200,153 @@ def get_me(current_user: User = Depends(get_current_user)):
     }
 
 
+def serialize_user(user: User) -> dict:
+    """项目内统一的用户脱敏序列化：不暴露 hashed_password / token_version 等敏感字段。"""
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role.value,
+        "phone": user.phone,
+        "avatar_url": user.avatar_url,
+        "preferred_language": user.preferred_language,
+    }
+
+
+class UpdateSelfRequest(BaseModel):
+    """更新当前用户资料：允许全名/手机/邮箱/头像；其余字段忽略。"""
+
+    full_name: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    avatar_url: str | None = None
+
+
+@router.patch("/me")
+def update_me(
+    req: UpdateSelfRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """更新当前用户资料。
+
+    邮箱 / 手机号若与**其它**账号冲突返回 409；未提供的字段保持不变。
+    返回按项目既有方式脱敏后的最新用户。
+    """
+    data = req.model_dump(exclude_unset=True)
+    if not data:
+        return serialize_user(user)
+
+    if data.get("email") is not None and data["email"] != user.email:
+        clash = session.exec(
+            select(User).where(User.email == data["email"], User.id != user.id)
+        ).first()
+        if clash:
+            raise HTTPException(status_code=409, detail="Email already in use")
+        user.email = data["email"]
+    if data.get("phone") is not None and data["phone"] != user.phone:
+        clash = session.exec(
+            select(User).where(User.phone == data["phone"], User.id != user.id)
+        ).first()
+        if clash:
+            raise HTTPException(status_code=409, detail="Phone already in use")
+        user.phone = data["phone"]
+    if data.get("full_name") is not None:
+        user.full_name = data["full_name"]
+    if data.get("avatar_url") is not None:
+        user.avatar_url = data["avatar_url"]
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return serialize_user(user)
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@router.post("/me/password")
+def change_password(
+    req: ChangePasswordRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """修改当前用户密码：校验旧密码，成功则递增 token_version 使其它会话失效。"""
+    if not req.new_password or len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    if not verify_password(req.old_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Incorrect old password")
+    user.hashed_password = get_password_hash(req.new_password)
+    user.token_version = int(user.token_version or 0) + 1
+    session.add(user)
+    session.commit()
+    return {
+        "ok": True,
+        "message": "Password updated. Other sessions have been signed out.",
+    }
+
+
+class PreferencesOut(BaseModel):
+    language: str = "zh"
+    timezone: str | None = None
+    notify_email: bool = True
+    notify_push: bool = True
+
+
+class UpdatePreferencesRequest(BaseModel):
+    """个人偏好：合并语义，仅更新传入字段。language 限定 zh/en/th。"""
+
+    language: str | None = None
+    timezone: str | None = None
+    notify_email: bool | None = None
+    notify_push: bool | None = None
+
+
+def _prefs_to_out(user: User) -> PreferencesOut:
+    return PreferencesOut(
+        language=(user.preferred_language or "zh"),
+        timezone=user.timezone,
+        notify_email=user.notify_email,
+        notify_push=user.notify_push,
+    )
+
+
+@router.get("/me/preferences", response_model=PreferencesOut)
+def get_my_preferences(user: User = Depends(get_current_user)):
+    """读取当前用户个人偏好。"""
+    return _prefs_to_out(user)
+
+
+@router.patch("/me/preferences", response_model=PreferencesOut)
+def update_my_preferences(
+    req: UpdatePreferencesRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """更新当前用户个人偏好（合并语义，只更新传入的字段）。"""
+    data = req.model_dump(exclude_unset=True)
+    if data.get("language") is not None:
+        lang = data["language"]
+        if lang not in ("zh", "en", "th"):
+            raise HTTPException(status_code=400, detail="language must be one of zh/en/th")
+        user.preferred_language = lang
+    if data.get("timezone") is not None:
+        if not data["timezone"].strip():
+            raise HTTPException(status_code=400, detail="timezone must not be empty")
+        user.timezone = data["timezone"]
+    if data.get("notify_email") is not None:
+        user.notify_email = bool(data["notify_email"])
+    if data.get("notify_push") is not None:
+        user.notify_push = bool(data["notify_push"])
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return _prefs_to_out(user)
+
+
 @router.delete("/me")
 def delete_me(session: Session = Depends(get_session), user: User = Depends(get_current_user)):
     """账号注销（G2）：软删除并匿名化 PII。

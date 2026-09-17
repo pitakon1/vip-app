@@ -22,7 +22,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import api from '@/lib/api';
-import { employeesApi } from '@/services/api';
+import { authApi, employeesApi, usersAdminApi } from '@/services/api';
 
 interface EmployeeRow {
   id: string;
@@ -75,12 +75,66 @@ export default function AdminUsersScreen() {
   const [newPwd, setNewPwd] = useState('');
   const [kw, setKw] = useState('');
   const [filter, setFilter] = useState<StatusFilter>('all');
+  const [meId, setMeId] = useState<string | null>(null);
+
+  // 新建员工账号
+  const [showCreate, setShowCreate] = useState(false);
+  const [createSaving, setCreateSaving] = useState(false);
+  const [form, setForm] = useState({
+    full_name: '',
+    email: '',
+    department: '',
+    position: '',
+    password: '123456',
+  });
+  const openCreate = () => {
+    setForm({ full_name: '', email: '', department: '', position: '', password: '123456' });
+    setShowCreate(true);
+  };
+  const doCreate = async () => {
+    if (!form.full_name.trim()) {
+      Alert.alert('提示', '请填写姓名');
+      return;
+    }
+    const email = form.email.trim();
+    if (!email) {
+      Alert.alert('提示', '请填写邮箱');
+      return;
+    }
+    if (!form.password || form.password.length < 6) {
+      Alert.alert('提示', '初始密码至少 6 位');
+      return;
+    }
+    setCreateSaving(true);
+    try {
+      await usersAdminApi.create({
+        role: 'employee',
+        full_name: form.full_name.trim(),
+        email,
+        department: form.department.trim() || undefined,
+        position: form.position.trim() || undefined,
+        password: form.password,
+      });
+      Alert.alert('成功', '员工账号已创建');
+      setShowCreate(false);
+      fetchData();
+    } catch (e: any) {
+      Alert.alert('失败', e?.response?.data?.detail || '创建失败');
+    } finally {
+      setCreateSaving(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
-    const [empRes, leadRes] = await Promise.allSettled([
+    const [empRes, leadRes, meRes] = await Promise.allSettled([
       employeesApi.list({ page: 1, page_size: 100 }),
       employeesApi.leaderboard(),
+      authApi.me(),
     ]);
+    if (meRes.status === 'fulfilled') {
+      const me = (meRes.value as any)?.data;
+      if (me?.id) setMeId(me.id);
+    }
     try {
       if (empRes.status === 'fulfilled') {
         const d = (empRes.value as any)?.data ?? {};
@@ -124,6 +178,33 @@ export default function AdminUsersScreen() {
     } catch (e: any) {
       Alert.alert('失败', e?.response?.data?.detail || '操作失败');
     }
+  };
+
+  const deleteUser = (emp: EmployeeRow) => {
+    if (!emp.user_id) {
+      Alert.alert('无法操作', '该员工未绑定登录账号');
+      return;
+    }
+    Alert.alert(
+      '删除账号',
+      `确认删除「${emp.full_name || emp.user_id}」的账号？删除后历史单据保留，账号立即失效且不可恢复。`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await usersAdminApi.deleteUser(emp.user_id as string);
+              Alert.alert('成功', '账号已删除');
+              fetchData();
+            } catch (e: any) {
+              Alert.alert('失败', e?.response?.data?.detail || '删除失败');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const doResetPwd = async () => {
@@ -283,9 +364,15 @@ export default function AdminUsersScreen() {
       {/* 列表 */}
       <View style={styles.listHead}>
         <Text style={styles.listTitle}>员工列表</Text>
-        <Text style={styles.listHint}>
-          共 {total} 人{probationCount > 0 ? ` · 试用期 ${probationCount} 人` : ''}
-        </Text>
+        <View style={styles.listHeadRight}>
+          <Text style={styles.listHint}>
+            共 {total} 人{probationCount > 0 ? ` · 试用期 ${probationCount} 人` : ''}
+          </Text>
+          <TouchableOpacity style={styles.createBtn} activeOpacity={0.7} onPress={openCreate}>
+            <Ionicons name="add" size={15} color="#fff" />
+            <Text style={styles.createBtnText}>新建</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {visible.length === 0 ? (
@@ -362,6 +449,12 @@ export default function AdminUsersScreen() {
                     {emp.is_active ? '停用账号' : '启用账号'}
                   </Text>
                 </TouchableOpacity>
+                {emp.user_id && emp.user_id !== meId ? (
+                  <TouchableOpacity style={styles.actionLink} activeOpacity={0.7} onPress={() => deleteUser(emp)}>
+                    <Ionicons name="trash-outline" size={14} color={colors.error} />
+                    <Text style={[styles.actionText, { color: colors.error }]}>删除账号</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </View>
           );
@@ -387,6 +480,67 @@ export default function AdminUsersScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} onPress={doResetPwd}>
                 <Text style={styles.modalOkText}>确认重置</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 新建员工账号 */}
+      <Modal visible={showCreate} transparent animationType="fade" onRequestClose={() => setShowCreate(false)}>
+        <View style={styles.modalMask}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>新建员工账号</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={form.full_name}
+              onChangeText={(t) => setForm((f) => ({ ...f, full_name: t }))}
+              placeholder="姓名 *"
+              placeholderTextColor={colors.ink3}
+              autoFocus
+            />
+            <TextInput
+              style={styles.modalInput}
+              value={form.email}
+              onChangeText={(t) => setForm((f) => ({ ...f, email: t }))}
+              placeholder="邮箱 *"
+              placeholderTextColor={colors.ink3}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+            <TextInput
+              style={styles.modalInput}
+              value={form.department}
+              onChangeText={(t) => setForm((f) => ({ ...f, department: t }))}
+              placeholder="部门（选填）"
+              placeholderTextColor={colors.ink3}
+            />
+            <TextInput
+              style={styles.modalInput}
+              value={form.position}
+              onChangeText={(t) => setForm((f) => ({ ...f, position: t }))}
+              placeholder="职位（选填）"
+              placeholderTextColor={colors.ink3}
+            />
+            <TextInput
+              style={styles.modalInput}
+              value={form.password}
+              onChangeText={(t) => setForm((f) => ({ ...f, password: t }))}
+              placeholder="初始密码（至少 6 位）"
+              placeholderTextColor={colors.ink3}
+              secureTextEntry
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setShowCreate(false)}>
+                <Text style={styles.modalCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalOk, createSaving && styles.modalBtnDisabled]}
+                activeOpacity={0.7}
+                disabled={createSaving}
+                onPress={doCreate}
+              >
+                <Text style={styles.modalOkText}>{createSaving ? '创建中…' : '创建'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -458,6 +612,17 @@ const styles = StyleSheet.create({
   },
   listTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
   listHint: { fontSize: 11, color: colors.ink3, flexShrink: 1, textAlign: 'right' },
+  listHeadRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  createBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: colors.radius.full,
+  },
+  createBtnText: { fontSize: 12, color: '#fff', fontWeight: '700' },
 
   card: {
     marginHorizontal: 20,
@@ -519,4 +684,5 @@ const styles = StyleSheet.create({
   modalCancelText: { color: colors.ink2, fontWeight: '600' },
   modalOk: { backgroundColor: colors.primary },
   modalOkText: { color: '#fff', fontWeight: '600' },
+  modalBtnDisabled: { opacity: 0.6 },
 });

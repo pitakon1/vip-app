@@ -22,6 +22,7 @@ import PropertiesScreen from '../screens/employee/PropertiesScreen';
 import CalendarScreen from '../screens/employee/CalendarScreen';
 import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
 import AdminPropertyDetailScreen from '../screens/admin/PropertyDetailScreen';
+import PropertyEditScreen from '../screens/admin/PropertyEditScreen';
 import AdminLeasesScreen from '../screens/admin/LeasesScreen';
 import EmployeePropertyBrowseScreen from '../screens/employee/PropertyBrowseScreen';
 import OwnerPropertyDetailScreen from '../screens/owner/PropertyDetailScreen';
@@ -54,6 +55,7 @@ export type RootStackParamList = {
   OwnerMarketing: undefined;
   AdminUsers: undefined;
   AdminPropertyDetail: { id: string };
+  PropertyEdit: { id?: string } | { initial?: any } | undefined;
   AdminLeases: undefined;
   EmployeePropertyBrowse: undefined;
   OwnerPropertyDetail: { id: string };
@@ -103,6 +105,7 @@ export function RootNavigator() {
           <Stack.Screen name="OwnerPropertyDetail" component={OwnerPropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />
           <Stack.Screen name="EmployeePropertyBrowse" component={EmployeePropertyBrowseScreen} options={{ headerShown: true, title: '房源浏览' }} />
           <Stack.Screen name="AdminPropertyDetail" component={AdminPropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />
+          <Stack.Screen name="PropertyEdit" component={PropertyEditScreen} options={{ headerShown: true, title: '编辑房源' }} />
           <Stack.Screen name="AdminLeases" component={AdminLeasesScreen} options={{ headerShown: true, title: '合同管理' }} />
         </>
       ) : (

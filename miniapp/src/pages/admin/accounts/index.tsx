@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { employeesApi } from '@/services/api'
+import { employeesApi, adminUsersApi } from '@/services/api'
+import useAuthStore from '@/stores/auth'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
@@ -66,6 +67,24 @@ export default function AdminEmployeesPage() {
   const [filter, setFilter] = useState('')
   // 员工业绩（来源：/employees/leaderboard，按佣金结算累计核算）
   const [perfMap, setPerfMap] = useState<Record<string, { amount: number; deals: number }>>({})
+  // 当前登录账号 id（禁止删除自己）
+  const currentUserId = useAuthStore((s) => s.user)?.id ?? null
+
+  const remove = async (e: EmployeeItem) => {
+    if (!e.user_id) return
+    const res = await Taro.showModal({
+      title: '删除账号',
+      content: `确定删除「${e.full_name || '该员工'}」的账号吗？该操作不可恢复。`
+    })
+    if (!res.confirm) return
+    try {
+      await adminUsersApi.deleteUser(e.user_id)
+      Taro.showToast({ title: '已删除', icon: 'success' })
+      fetchEmployees()
+    } catch (err: any) {
+      Taro.showToast({ title: err?.message || '删除失败', icon: 'none' })
+    }
+  }
 
   const fetchEmployees = async () => {
     setLoading(true)
@@ -274,6 +293,12 @@ export default function AdminEmployeesPage() {
                   {perf ? `占团队最高 ${percent}%` : `入职 ${fmtDate(e.hire_date)}`}
                 </Text>
               </View>
+
+              {!!e.user_id && String(e.user_id) !== String(currentUserId) && (
+                <View className='ac-card__actions'>
+                  <View className='ac-act ac-act--del' onClick={() => remove(e)}>删除账号</View>
+                </View>
+              )}
             </View>
           )
         })}

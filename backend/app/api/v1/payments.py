@@ -16,6 +16,8 @@
 - POST   /payments/{id}/late-fee/waive  减免逾期滞纳金（员工及以上）
 - GET    /payments/reconciliations  对账统计（Admin）
 """
+import csv
+import io
 import mimetypes
 import os
 import secrets
@@ -25,7 +27,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -117,6 +119,19 @@ class LateFeeWaiveRequest(BaseModel):
     # 不传表示把剩余滞纳金全额减免
     amount: Optional[float] = Field(default=None, gt=0)
     reason: str = ""
+
+
+class ConfirmRequest(BaseModel):
+    """管理端「确认到账」入参。"""
+
+    paid_at: Optional[datetime] = None  # 缺省取当前时间
+    note: Optional[str] = None  # 到账备注
+
+
+class ReconcileRequest(BaseModel):
+    """财务「核销」入参。"""
+
+    note: Optional[str] = None
 
 
 class PaymentChannelItem(BaseModel):
@@ -577,6 +592,77 @@ def payment_reconciliations(
     }
 
 
+@router.get("/reconciliations/export.csv")
+def export_reconciliation_csv(
+    session: Session = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    """导出对账单明细 CSV（Admin）：与财务对账列表同口径。
+
+    复用财务对账的分桶口径（received / pending / overdue），导出逐笔明细，
+    供线下对账归档。这里未复用 exports._csv_response 的私有函数，改为本地
+    渲染，避免跨模块耦合。
+    """
+    now = datetime.now()
+    conditions = [Payment.deleted_at.is_(None)]
+    payments = session.exec(
+        select(Payment).where(*conditions).order_by(Payment.created_at.desc())
+    ).all()
+
+    def _bucket(p: Payment) -> str:
+        if p.status == PaymentStatus.succeeded:
+            return "received"
+        if p.status == PaymentStatus.failed:
+            return "overdue"
+        if p.due_date and p.due_date < now and p.status != PaymentStatus.refunded:
+            return "overdue"
+        return "pending"
+
+    payer_ids = {p.payer_id for p in payments} | {
+        p.payee_id for p in payments if p.payee_id
+    }
+    names = {
+        u.id: (u.full_name or u.email)
+        for u in session.exec(select(User).where(User.id.in_(payer_ids))).all()
+    }
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(
+        ["创建时间", "支付单号", "类型", "金额", "币种", "状态", "对账口径",
+         "渠道", "应付日期", "实收日期", "付款方", "收款方", "核销状态", "核销时间"]
+    )
+    for p in payments:
+        writer.writerow(
+            [
+                p.created_at.strftime("%Y-%m-%d %H:%M:%S") if p.created_at else "",
+                str(p.id),
+                p.payment_type.value if p.payment_type else "",
+                p.amount,
+                p.currency,
+                p.status.value if p.status else "",
+                _bucket(p),
+                p.channel or "",
+                p.due_date.strftime("%Y-%m-%d") if p.due_date else "",
+                p.paid_at.strftime("%Y-%m-%d %H:%M:%S") if p.paid_at else "",
+                names.get(p.payer_id, ""),
+                names.get(p.payee_id, "") if p.payee_id else "",
+                p.reconciliation_status or "unreconciled",
+                p.reconciled_at.strftime("%Y-%m-%d %H:%M:%S") if p.reconciled_at else "",
+            ]
+        )
+    content = ("\ufeff" + buffer.getvalue()).encode("utf-8")
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="reconciliations_{now.strftime("%Y%m%d")}.csv"'
+            )
+        },
+    )
+
+
 @router.get("/{payment_id}", response_model=Payment)
 def get_payment(
     payment_id: uuid.UUID,
@@ -761,6 +847,75 @@ def submit_payment_proof(
         PaymentStatus.refunded,
     ):
         payment.status = PaymentStatus.pending
+    session.add(payment)
+    session.commit()
+    session.refresh(payment)
+    return payment
+
+
+@router.post("/{payment_id}/confirm")
+def confirm_payment(
+    payment_id: uuid.UUID,
+    req: ConfirmRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_agent),
+):
+    """管理端确认到账：把待确认 / 处理中的线下收款置为已到账。
+
+    适用于「租客上传银行转账凭证后，后台人工核销到账」的场景。确认后写
+    核销字段，便于财务对账留痕。
+    """
+    payment = _get_payment_or_404(payment_id, session)
+    if payment.status not in (PaymentStatus.pending, PaymentStatus.processing):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot confirm payment in state: {payment.status.value}",
+        )
+
+    payment.status = PaymentStatus.succeeded
+    payment.paid_at = req.paid_at or datetime.now()
+    payment.channel = payment.channel or "bank_transfer"
+    if req.note:
+        payment.description = (
+            (payment.description + " | ") if payment.description else ""
+        ) + req.note
+    # 写财务核销字段：确认到账即视为已核销
+    payment.reconciled_at = datetime.now()
+    payment.reconciled_by = user.id
+    payment.reconciliation_status = "reconciled"
+    payment.reconciliation_note = req.note or "管理端确认到账"
+    session.add(payment)
+    session.commit()
+    session.refresh(payment)
+    return payment
+
+
+@router.post("/{payment_id}/reconcile")
+def reconcile_payment(
+    payment_id: uuid.UUID,
+    req: ReconcileRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    """财务核销：标记某一笔应收已核对到账。
+
+    与 confirm 的区别：confirm 会改变收付款状态，reconcile 只改核销状态，
+    用于对账时对「已到账/未到账」的单据做财务核对留痕。
+    """
+    payment = _get_payment_or_404(payment_id, session)
+    if payment.status in (
+        PaymentStatus.refunded,
+        PaymentStatus.expired,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot reconcile payment in state: {payment.status.value}",
+        )
+
+    payment.reconciled_at = datetime.now()
+    payment.reconciled_by = user.id
+    payment.reconciliation_status = "reconciled"
+    payment.reconciliation_note = req.note or payment.reconciliation_note
     session.add(payment)
     session.commit()
     session.refresh(payment)

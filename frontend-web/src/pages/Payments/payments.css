@@ -14,3 +14,10 @@
 .payments-modal .rent-form-group {
   margin-bottom: 16px;
 }
+
+/* 详情弹窗键值行 */
+.payments-modal .rent-modal-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

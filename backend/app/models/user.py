@@ -37,6 +37,10 @@ class User(TimestampMixin, table=True):
     is_active: bool = Field(default=True)
     is_verified: bool = Field(default=False)
     preferred_language: str = Field(default="zh", max_length=5)  # zh/en/th
+    # 用户偏好：时区与通知开关（「我的-设置」可读写）
+    timezone: Optional[str] = Field(default=None, max_length=64)
+    notify_email: bool = Field(default=True)
+    notify_push: bool = Field(default=True)
     # 运营看板 DAU/WAU/MAU 与活跃趋势都按该字段做范围过滤与分组，需要索引
     last_login_at: Optional[datetime] = Field(default=None, index=True)
     avatar_url: Optional[str] = None

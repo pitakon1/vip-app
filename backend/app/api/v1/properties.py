@@ -325,6 +325,7 @@ def list_property_map_points(
     price_min: Optional[float] = Query(None, ge=0),
     price_max: Optional[float] = Query(None, ge=0),
     has_video: Optional[bool] = Query(None, description="只看有视频看房的房源"),
+
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):

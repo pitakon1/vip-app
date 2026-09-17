@@ -20,7 +20,7 @@ import { dashboardApi, employeesApi } from '@/services/api';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
-type Tab = 'overview' | 'recon';
+type Tab = 'overview';
 
 interface ReconRow {
   property?: string | null;
@@ -43,7 +43,6 @@ const fmtMoney = (v?: number, c?: string) => `${cur(c)}${Number(v ?? 0).toLocale
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'overview', label: '运营概览', icon: 'grid-outline' },
-  { key: 'recon', label: '财务对账', icon: 'wallet-outline' },
 ];
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -105,11 +104,6 @@ export default function AdminHomeScreen() {
         setRecentPayments(Array.isArray(recentItems) ? recentItems.slice(0, 4) : []);
         const staffD = staffRes?.data ?? {};
         setStaff(((staffD.items ?? staffD ?? []) as any[]).slice(0, 100));
-      } else if (target === 'recon') {
-        const res: any = await dashboardApi.financialReconciliation();
-        const d = res?.data ?? {};
-        setTotals(d.totals ?? {});
-        setByProperty(d.by_property ?? []);
       }
     } catch (e) {
       /* 加载失败不阻塞 */
@@ -131,8 +125,7 @@ export default function AdminHomeScreen() {
   };
 
   const dataLoaded = (t: Tab) => {
-    if (t === 'overview') return Object.keys(summary).length > 0;
-    return byProperty.length > 0;
+    return Object.keys(summary).length > 0;
   };
 
   const reload = async () => {
@@ -169,7 +162,7 @@ export default function AdminHomeScreen() {
       unit: '',
       desc: `逾期占比 ${Math.round(ratio(overdue, totalBilling) * 100)}% · 待收款 ${num(summary.upcoming_payments)} 笔`,
       bar: ratio(overdue, totalBilling),
-      onPress: () => switchTab('recon'),
+      onPress: () => navigation.navigate('AdminPayments'),
     },
     {
       key: 'vacancy',
@@ -181,7 +174,7 @@ export default function AdminHomeScreen() {
       unit: ' %',
       desc: `空置 ${vacant} 套 / 共 ${totalProps} 套 · 警戒线 10%`,
       bar: ratio(vacant, totalProps),
-      onPress: () => navigation.navigate('EmployeeProperties'),
+      onPress: () => navigation.navigate('AdminProperties'),
     },
   ];
 
@@ -378,7 +371,7 @@ export default function AdminHomeScreen() {
               <Text style={styles.sectionTitle}>待办汇总</Text>
             </View>
             <View style={styles.todoRow}>
-              <TouchableOpacity style={styles.todoCard} activeOpacity={0.7} onPress={() => switchTab('recon')}>
+              <TouchableOpacity style={styles.todoCard} activeOpacity={0.7} onPress={() => navigation.navigate('AdminPayments')}>
                 <Text style={styles.todoLabel}>对账差异</Text>
                 <Text style={[styles.todoNum, { color: colors.error }]}>{reconDiff}</Text>
               </TouchableOpacity>
@@ -430,47 +423,6 @@ export default function AdminHomeScreen() {
                 <Text style={styles.activityAmount}>{fmtMoney(p.amount, p.currency)}</Text>
               </View>
             ))}
-          </View>
-        )}
-
-        {/* ===== 财务对账 ===== */}
-        {tab === 'recon' && (
-          <View>
-            <View style={styles.primaryRow}>
-              <View style={[styles.primaryCard, styles.cardSuccess]}>
-                <Text style={styles.primaryNum}>{fmtMoney(totals.received)}</Text>
-                <Text style={styles.primaryLabel}>已收款</Text>
-              </View>
-              <View style={[styles.primaryCard, styles.cardWarning]}>
-                <Text style={styles.primaryNum}>{fmtMoney(totals.receivable)}</Text>
-                <Text style={styles.primaryLabel}>应收未收</Text>
-              </View>
-              <View style={[styles.primaryCard, styles.cardError]}>
-                <Text style={styles.primaryNum}>{fmtMoney(totals.overdue)}</Text>
-                <Text style={styles.primaryLabel}>逾期</Text>
-              </View>
-            </View>
-
-            <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>按房源对账</Text>
-            </View>
-            {byProperty.length === 0 && !loading && (
-              <EmptyState icon="wallet-outline" title="暂无对账数据" sub="收款入账后这里会按房源汇总" />
-            )}
-            <View style={styles.tableCard}>
-              <View style={[styles.tableRow, styles.tableHead]}>
-                <Text style={[styles.cell, styles.cellLeft]}>房源</Text>
-                <Text style={styles.cell}>已收</Text>
-                <Text style={styles.cell}>逾期</Text>
-              </View>
-              {byProperty.map((r, i) => (
-                <View key={i} style={[styles.tableRow, i % 2 === 1 && styles.tableRowAlt]}>
-                  <Text style={[styles.cell, styles.cellLeft]} numberOfLines={1}>{r.property || '-'}</Text>
-                  <Text style={styles.cell}>{fmtMoney(r.received)}</Text>
-                  <Text style={[styles.cell, styles.cellError]}>{fmtMoney(r.overdue)}</Text>
-                </View>
-              ))}
-            </View>
           </View>
         )}
 

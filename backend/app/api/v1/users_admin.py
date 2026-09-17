@@ -4,7 +4,7 @@
        account:deactivate / account:reset_password
 """
 import uuid
-from datetime import date as date_type
+from datetime import date as date_type, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,6 +19,7 @@ from app.core.security import get_password_hash
 from app.schemas.user import AccountMeOut, UserAdminOut
 from app.models import (
     Employee,
+    Lead,
     User,
     UserGroup,
     UserGroupMember,
@@ -239,6 +240,51 @@ def deactivate_user(
     session.add(u)
     session.commit()
     return {"id": str(u.id), "is_active": False}
+
+
+@router.delete("/{user_id}")
+def delete_user(
+    user_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    admin: User = Depends(require_permission("account:deactivate")),
+):
+    """删除账号（软删除）。
+
+    采用软删除：置 deleted_at 并停用、令牌失效，避免硬删造成历史单据
+    外键孤儿；同时处理关联数据（员工档案软删、名下线索责任人置空）。
+    """
+    u = session.get(User, user_id)
+    if not u or u.deleted_at:
+        raise HTTPException(status_code=404, detail="User not found")
+    if u.id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+
+    u.deleted_at = datetime.now()
+    u.is_active = False
+    # 递增令牌版本号，使该账号已签发的令牌全部失效
+    u.token_version = int(u.token_version or 0) + 1
+    session.add(u)
+
+    # 名下员工档案一并软删
+    emp = session.exec(
+        select(Employee).where(
+            Employee.user_id == u.id, Employee.deleted_at.is_(None)
+        )
+    ).first()
+    if emp:
+        emp.deleted_at = datetime.now()
+        session.add(emp)
+
+    # 名下线索的责任人置空，避免孤儿引用（线索本身保留）
+    leads = session.exec(
+        select(Lead).where(Lead.assigned_to == u.id, Lead.deleted_at.is_(None))
+    ).all()
+    for lead in leads:
+        lead.assigned_to = None
+        session.add(lead)
+
+    session.commit()
+    return {"id": str(u.id), "ok": True, "deleted": True}
 
 
 @router.post("/{user_id}/activate")

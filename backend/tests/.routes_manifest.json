@@ -1,0 +1,1605 @@
+[
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/auth/login",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/auth/register",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/auth/refresh",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/auth/logout",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/auth/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/auth/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/auth/me/password",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/auth/me/preferences",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/auth/me/preferences",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/auth/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/dashboard/summary",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/dashboard/recent-payments",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/dashboard/expiring-leases",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/dashboard/property-status-distribution",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/dashboard/financial-reconciliation",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/dashboard/trend",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/properties",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/properties",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/properties/map-points",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/properties/{property_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/properties/{property_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/properties/{property_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/properties/{property_id}/leases",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/properties/{property_id}/photos",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/properties/{property_id}/photos",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/projects",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/projects",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/projects/{project_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/projects/{project_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/projects/{project_id}/geocode",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/leases",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/leases",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/leases/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/leases/{lease_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/leases/{lease_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/leases/{lease_id}/renew",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/leases/{lease_id}/terminate",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/leases/{lease_id}/deposit-settlement",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/leads",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/leads",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/leads/{lead_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/leads/{lead_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/payments",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/payments/channels",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/payments",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/payments/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/payments/upload",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/payments/webhook/{channel}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/payments/reconciliations",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/payments/{payment_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/payments/{payment_id}/receipt",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/payments/{payment_id}/invoice",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/payments/{payment_id}/status",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/payments/{payment_id}/pay",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/payments/{payment_id}/cancel",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/payments/{payment_id}/proof",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/payments/{payment_id}/proof-file",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/payments/{payment_id}/refund",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/payments/{payment_id}/late-fee/waive",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/documents",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/documents",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/documents/upload",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/documents/{document_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/documents/{document_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/documents/{document_id}/file",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/documents/{document_id}/download",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/service-orders",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/service-orders",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/service-orders/{order_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/service-orders/{order_id}/status",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/service-orders/{order_id}/review",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/service-packages",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/service-packages/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/service-packages/{package_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/service-packages/{package_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/maintenance-tickets",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/maintenance-tickets",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/maintenance-tickets/{ticket_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/maintenance-tickets/{ticket_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/maintenance-tickets/{ticket_id}/rate",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/notifications/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/notifications/dispatch",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/notifications/{notification_id}/read",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/notifications/read-all",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/performance/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/performance/leaderboard",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/employees",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/employees/directory",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/employees/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/employees/leaderboard",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/employees/{employee_id}/performance",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/employees/workbench",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/attendance/check-in",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/attendance/check-out",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/attendance/today",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/attendance/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/attendance/external-trips",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/attendance/external-trips",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/attendance/external-trips/{trip_id}/approve",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/attendance/admin/records",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/commissions/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/commissions",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/commissions/{commission_id}/approve",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/tenants/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/tenants/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/owners/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/owners/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/owners/me/properties",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/owners/me/documents",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/owners/me/income",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/owners/me/marketing",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/owners/me/pricing-suggestion",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/owners/me/annual-financial-summary",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/company/info",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PUT"
+    ],
+    "path": "/api/v1/company/info",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/billing/pricing",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/billing/pricing/quotes",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/billing/pricing/convert",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/billing/integrations",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/chat/conversations",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/chat/conversations",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/chat/conversations/{conversation_id}/messages",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/chat/conversations/{conversation_id}/messages",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "*"
+    ],
+    "path": "/api/v1/chat/ws/chat/{conversation_id}",
+    "type": "APIWebSocketRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/generate",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/parties",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/sign",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/contracts",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/contracts/{contract_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/ai/health",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/ai/chat",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/backup/run",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/backup/jobs",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/geo/geocode",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/geo/reverse",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/geo/distance",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/geo/attendance",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/translate",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/translate/bulk",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/viewings",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/viewings",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/viewings/mine",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/viewings/{viewing_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/viewings/{viewing_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/audit-logs",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/audit-logs/summary",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/commission-rules",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/commission-rules",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/commission-rules/{rule_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/commission-rules/{rule_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/commission-rules/{rule_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/favorites",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/favorites/{property_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/favorites",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/favorites/status/{property_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/sale-listings",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/sale-listings",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/sale-listings/{listing_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/sale-listings/{listing_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/sale-listings/{listing_id}/status",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/sale-listings/{listing_id}/valuations",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/sale-listings/{listing_id}/valuations",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/property-deals",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/property-deals",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/property-deals/{deal_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/property-deals/{deal_id}/status",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/property-deals/escrows",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/property-deals/escrows/{deal_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/property-deals/escrows/{escrow_id}/release",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/property-deals/escrows/{escrow_id}/refund",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/property-deals/mortgages",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/property-deals/mortgages/mine",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/property-deals/mortgages/{mortgage_id}/status",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/brokers",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/brokers",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/brokers/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/brokers/invite/{invite_code}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/brokers/{broker_id}/approve",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/brokers/{broker_id}/suspend",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/brokers/referrals",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/brokers/referrals/mine",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/brokers/split-deals",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/markets",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/markets",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/markets/channels",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/markets/channels",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/markets/compliance",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/markets/compliance",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/market-data/indices",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/market-data/indices",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/market-data/reports",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/market-data/reports",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/market-data/matches/compute",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/market-data/matches",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/market-data/matches/{match_id}/notify",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/market-data/churn-signals",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/market-data/churn-signals",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/market-data/churn-signals/{signal_id}/assign",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/market-data/churn-signals/{signal_id}/resolve",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/admin/users",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/admin/users",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/admin/users/{user_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/admin/users/{user_id}/deactivate",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/admin/users/{user_id}/activate",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/admin/users/{user_id}/reset-password",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/admin/users/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/user-groups",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/user-groups",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/user-groups/{group_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/user-groups/{group_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/user-groups/{group_id}/members",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/user-groups/{group_id}/members/{user_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/admin/permissions",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/admin/permissions/roles/{role}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PUT"
+    ],
+    "path": "/api/v1/admin/permissions/roles/{role}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/review-center/todos",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/operations/overview",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/operations/activity",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/operations/country/{country}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/operations/trend",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/exports/properties",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/exports/payments",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/exports/commissions",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/exports/attendance",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/exports/employees",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/health",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/health/ready",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/metrics",
+    "type": "APIRoute"
+  }
+]

@@ -102,8 +102,12 @@
 
   &__btn {
     font-size: 26rpx;
-    padding: 8rpx 28rpx;
+    padding: 0 36rpx;
+    min-height: 88rpx;
+    display: flex;
+    align-items: center;
     border-radius: var(--radius-full);
+    box-sizing: border-box;
 
     &--edit {
       color: var(--primary);
@@ -137,7 +141,7 @@
 .cr-mask {
   position: fixed;
   inset: 0;
-  background: rgba(28, 39, 51, 0.5);
+  background: rgba(var(--ink-rgb), 0.5);
   z-index: 50;
 }
 
@@ -229,7 +233,7 @@
   position: fixed;
   inset: 0;
   z-index: 70;
-  background: rgba(28, 39, 51, 0.5);
+  background: rgba(var(--ink-rgb), 0.5);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
