@@ -108,12 +108,36 @@ def create_maintenance_ticket(
     """创建报修工单，发布 maintenance_ticket.created 事件。
 
     - 租客或业主均可提交：tenant_id / owner_id 至少提供其一；
-    - owner_id 缺省时按房源归属自动补充，业主端可见自己房源的工单。
+    - owner_id 缺省时按房源归属自动补充，业主端可见自己房源的工单；
+    - 租客/业主提交时强制绑定本人档案，防止越权替他人挂单。
     """
     data = req.model_dump(exclude_unset=True)
+    prop = session.get(Property, req.property_id)
+    if not prop or prop.deleted_at:
+        raise HTTPException(status_code=404, detail="Property not found")
+    if user.role == UserRole.tenant:
+        tenant = session.exec(
+            select(Tenant).where(
+                Tenant.user_id == user.id,
+                Tenant.deleted_at.is_(None),
+            )
+        ).first()
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant profile not found")
+        data["tenant_id"] = tenant.id
+    elif user.role == UserRole.owner:
+        owner = session.exec(
+            select(Owner).where(
+                Owner.user_id == user.id,
+                Owner.deleted_at.is_(None),
+            )
+        ).first()
+        if not owner:
+            raise HTTPException(status_code=404, detail="Owner profile not found")
+        data["owner_id"] = owner.id
+        data.pop("tenant_id", None)
     if not data.get("owner_id"):
-        prop = session.get(Property, req.property_id)
-        if prop and prop.owner_id:
+        if prop.owner_id:
             data["owner_id"] = prop.owner_id
     if not data.get("tenant_id") and not data.get("owner_id"):
         raise HTTPException(

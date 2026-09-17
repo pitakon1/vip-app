@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Form,
@@ -111,6 +111,9 @@ const Properties = () => {
   const [form] = Form.useForm()
   // 照片 url 列表（仅编辑态可上传；随 handleSubmit 一并提交）
   const [photos, setPhotos] = useState<string[]>([])
+  // 打开编辑时的基线照片（取消时回滚会话内新增的照片）
+  const [basePhotos, setBasePhotos] = useState<string[]>([])
+  const sessionUploadsRef = useRef<string[]>([])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -174,9 +177,14 @@ const Properties = () => {
         if (priceCustomMin) { const mn = Number(priceCustomMin); if (!Number.isNaN(mn)) pMin = mn }
         if (priceCustomMax) { const mx = Number(priceCustomMax); if (!Number.isNaN(mx)) pMax = mx }
       } else if (priceRange) {
-        const [mn, mx] = priceRange.split('-').map(Number)
-        if (!Number.isNaN(mn)) pMin = mn
-        if (!Number.isNaN(mx)) pMax = mx
+        if (priceRange.endsWith('+')) {
+          const mn = Number(priceRange.slice(0, -1))
+          if (!Number.isNaN(mn)) pMin = mn
+        } else {
+          const [mn, mx] = priceRange.split('-').map(Number)
+          if (!Number.isNaN(mn)) pMin = mn
+          if (!Number.isNaN(mx)) pMax = mx
+        }
       }
       list = list.filter((it: any) => {
         const r = Number(it.monthly_rent || 0)
@@ -190,9 +198,14 @@ const Properties = () => {
         if (areaCustomMin) { const mn = Number(areaCustomMin); if (!Number.isNaN(mn) && mn > 0) aMin = mn }
         if (areaCustomMax) { const mx = Number(areaCustomMax); if (!Number.isNaN(mx) && mx > 0) aMax = mx }
       } else if (areaRange) {
-        const [mn, mx] = areaRange.split('-').map(Number)
-        if (!Number.isNaN(mn)) aMin = mn
-        if (!Number.isNaN(mx)) aMax = mx
+        if (areaRange.endsWith('+')) {
+          const mn = Number(areaRange.slice(0, -1))
+          if (!Number.isNaN(mn)) aMin = mn
+        } else {
+          const [mn, mx] = areaRange.split('-').map(Number)
+          if (!Number.isNaN(mn)) aMin = mn
+          if (!Number.isNaN(mx)) aMax = mx
+        }
       }
       list = list.filter((it: any) => {
         const s = Number(it.size_sqm || 0)
@@ -241,6 +254,7 @@ const Properties = () => {
   const openCreate = () => {
     setEditingId(null)
     setEditingRecord(null)
+    setBasePhotos([])
     setPhotos([])
     setModalOpen(true)
   }
@@ -248,8 +262,22 @@ const Properties = () => {
   const openEdit = (record: OwnerProperty) => {
     setEditingId(String(record.id))
     setEditingRecord(record)
+    setBasePhotos(record.photos || [])
     setPhotos(record.photos || [])
     setModalOpen(true)
+  }
+
+  // 取消编辑：回滚本次会话新上传的照片（仅删除会话内新增、不属于基线的），保持服务端与展示一致
+  const handleCancel = () => {
+    const toRemove = sessionUploadsRef.current.filter((u) => !basePhotos.includes(u))
+    if (editingId && toRemove.length) {
+      toRemove.forEach((u) => {
+        propertiesApi.deletePhoto(editingId!, u).catch(() => {})
+      })
+    }
+    sessionUploadsRef.current = []
+    setPhotos(basePhotos)
+    setModalOpen(false)
   }
 
   // 编辑态回填（Modal destroyOnClose 每次重建，Form 挂载后写入）
@@ -327,7 +355,12 @@ const Properties = () => {
     try {
       const res = await propertiesApi.uploadPhotos(editingId, [file])
       const d = res.data?.data ?? res.data
-      setPhotos(Array.isArray(d?.photos) ? d.photos : [])
+      const next = Array.isArray(d?.photos) ? d.photos : []
+      setPhotos((prev) => {
+        const added = next.filter((u: string) => !prev.includes(u))
+        sessionUploadsRef.current.push(...added)
+        return next
+      })
     } catch (err: any) {
       message.error(err?.response?.data?.detail || '照片上传失败，请稍后重试')
     }
@@ -652,7 +685,7 @@ const Properties = () => {
       <Modal
         title={editingId ? '编辑房源' : '新增房源'}
         open={modalOpen}
-        onCancel={() => setModalOpen(false)}
+        onCancel={handleCancel}
         onOk={handleSubmit}
         confirmLoading={submitting}
         okText="保存"

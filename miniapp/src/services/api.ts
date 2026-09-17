@@ -34,7 +34,7 @@ export const propertiesApi = {
       header: { Authorization: `Bearer ${Taro.getStorageSync('token')}` }
     }),
   deletePhoto: (id: string, url: string) =>
-    request({ url: `/properties/${id}/photos`, method: 'DELETE', data: { url } })
+    request({ url: `/properties/${id}/photos?url=${encodeURIComponent(url)}`, method: 'DELETE' })
 }
 
 // 公司信息（公开接口）：仅取真实版本号供「我的 - 关于」展示，避免写死版本
@@ -128,7 +128,7 @@ export const ownerApi = {
       header: { Authorization: `Bearer ${Taro.getStorageSync('token')}` }
     }),
   deletePhoto: (id: string, url: string) =>
-    request({ url: `/properties/${id}/photos`, method: 'DELETE', data: { url } }),
+    request({ url: `/properties/${id}/photos?url=${encodeURIComponent(url)}`, method: 'DELETE' }),
   income: () => request({ url: '/owners/me/income', method: 'GET' }),
   marketing: () => request({ url: '/owners/me/marketing', method: 'GET' }),
   pricingSuggestion: () => request({ url: '/owners/me/pricing-suggestion', method: 'GET' }),

@@ -309,10 +309,11 @@ def create_property(
     """创建房源。
 
     业主端「新增房源」：业主角色时自动按当前用户绑定 owner_id（忽略客户端传入）；
-    员工/经纪人等内部角色仍需显式指定 owner_id。
+    员工/经纪人/管理员等内部角色仍需显式指定 owner_id；其余角色（如租客）禁止创建。
     """
     payload = req.model_dump()
-    if user.role.value == "owner":
+    role = user.role.value if hasattr(user.role, "value") else str(user.role)
+    if role == "owner":
         owner = session.exec(
             select(Owner).where(
                 Owner.user_id == user.id,
@@ -322,8 +323,11 @@ def create_property(
         if not owner:
             raise HTTPException(status_code=404, detail="Owner profile not found")
         payload["owner_id"] = owner.id
-    elif not payload.get("owner_id"):
-        raise HTTPException(status_code=400, detail="owner_id is required")
+    else:
+        if role not in ("admin", "agent", "employee"):
+            raise HTTPException(status_code=403, detail="Access denied")
+        if not payload.get("owner_id"):
+            raise HTTPException(status_code=400, detail="owner_id is required")
     prop = Property(**payload)
     session.add(prop)
     session.commit()
@@ -459,6 +463,10 @@ def update_property(
         raise HTTPException(status_code=404, detail="Property not found")
     _ensure_owner_access(user, prop, session)
     update_data = req.model_dump(exclude_unset=True)
+    role = user.role.value if hasattr(user.role, "value") else str(user.role)
+    if role == "owner":
+        # 业主不可通过 PATCH 转移房源归属
+        update_data.pop("owner_id", None)
     ensure_version(prop, update_data.pop("version", None), "房源")
     for key, value in update_data.items():
         setattr(prop, key, value)
