@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Spin, Empty } from 'antd'
 import { Link } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -36,6 +36,15 @@ interface SummaryData {
   yearly_commission?: number
   rank?: number
   [key: string]: any
+}
+
+// 月度业绩行（/performance/mine 返回的 monthly 序列）
+interface MonthPerf {
+  year: number
+  month: number
+  revenue?: number
+  commission?: number
+  deals?: number
 }
 
 interface FollowUpLease {
@@ -78,6 +87,12 @@ const formatInterested = (value: any): string => {
 
 const formatMoney = (v: number) => `RM ${Number(v || 0).toLocaleString()}`
 
+// 柱图值紧凑展示：28400 -> 28.4k
+const fmtCompact = (v: number) => {
+  const n = Number(v || 0)
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
+}
+
 // 带看状态标签
 const VIEWING_STATUS_META: Record<string, { text: string; badge: string }> = {
   pending: { text: '待确认', badge: 'rent-badge--neutral' },
@@ -112,6 +127,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false)
   const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([])
   const [summary, setSummary] = useState<SummaryData>({})
+  const [monthly, setMonthly] = useState<MonthPerf[]>([])
   const [leases, setLeases] = useState<LeaseRow[]>([])
   const [leads, setLeads] = useState<any[]>([])
   const [followUpLeases, setFollowUpLeases] = useState<FollowUpLease[]>([])
@@ -121,7 +137,7 @@ const Dashboard = () => {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [lbRes, sumRes, leaseRes, leadsRes, wbRes, vwRes] = await Promise.all([
+      const [lbRes, sumRes, leaseRes, leadsRes, wbRes, vwRes, pfRes] = await Promise.all([
         api.get('/employees/leaderboard').catch(() => ({ data: { items: [] } })),
         api.get('/dashboard/summary').catch(() => ({ data: {} })),
         api.get('/leases', { params: { pageSize: 100 } }).catch(() => ({
@@ -134,6 +150,7 @@ const Dashboard = () => {
         api.get('/viewings', { params: { pageSize: 100 } }).catch(() => ({
           data: { items: [] },
         })),
+        api.get('/performance/mine').catch(() => ({ data: {} })),
       ])
 
       const lbPayload = lbRes.data?.data ?? lbRes.data
@@ -141,6 +158,9 @@ const Dashboard = () => {
 
       const sumPayload = sumRes.data?.data ?? sumRes.data
       setSummary(sumPayload ?? {})
+
+      const pfPayload = pfRes.data?.data ?? pfRes.data
+      setMonthly(Array.isArray(pfPayload?.monthly) ? pfPayload.monthly : [])
 
       const leasePayload = leaseRes.data?.data ?? leaseRes.data
       setLeases(leasePayload?.items ?? [])
@@ -182,6 +202,19 @@ const Dashboard = () => {
   const monthlyDeals = Number(summary.monthly_deals ?? 0)
   const monthlyCommission = Number(summary.monthly_commission ?? 0)
   const rank = Number(summary.rank ?? 0)
+
+  // 柱图数据：近 6 个月佣金走势（与 App 首页图表一致）
+  const barData = useMemo(() => {
+    const six = monthly.slice(-6)
+    const max = Math.max(1, ...six.map((m) => Number(m.commission ?? 0)))
+    const cur = dayjs()
+    return six.map((m) => ({
+      label: `${m.month}月`,
+      value: fmtCompact(Number(m.commission ?? 0)),
+      height: `${Math.max(4, Math.round((Number(m.commission ?? 0) / max) * 100))}%`,
+      active: m.year === cur.year() && m.month === cur.month() + 1,
+    }))
+  }, [monthly])
 
   // 全部来自真实接口数据，无演示兜底
   // 今日工作台时间线：当天真实带看，按时间升序
@@ -387,7 +420,7 @@ const Dashboard = () => {
         {/* 右栏 */}
         <div className="rent-flex rent-flex--col" style={{ gap: 16 }}>
 
-          {/* 业绩摘要（一行三格，真实数据无兜底） */}
+          {/* 业绩摘要：本月三格 + 近 6 个月佣金柱图 */}
           <div className="rent-card">
             <div className="rent-card__header">
               <h3 className="rent-card__title">业绩摘要</h3>
@@ -407,33 +440,22 @@ const Dashboard = () => {
                 <div className="rent-wb-strip__label">团队排名</div>
               </div>
             </div>
-          </div>
-
-          {/* 快捷操作 */}
-          <div className="rent-card">
-            <div className="rent-card__header">
-              <h3 className="rent-card__title">快捷操作</h3>
-            </div>
-            <div className="rent-card__body">
-              <div className="rent-wb-actions">
-                <Link to="/viewings" className="rent-wb-action">
-                  <div className="rent-wb-action__icon" style={{ background: 'rgba(20,184,166,0.1)', color: 'var(--rent-primary)' }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="12" y1="14" x2="12" y2="18" /><line x1="10" y1="16" x2="14" y2="16" /></svg>
+            <div className="rent-card__body" style={{ paddingTop: 4 }}>
+              <div className="rent-bar-chart" style={{ height: 150 }}>
+                {barData.map((b) => (
+                  <div key={b.label} className="rent-bar-chart__col">
+                    <div className={`rent-bar-chart__val${b.active ? ' rent-bar-chart__val--active' : ''}`}>{b.value}</div>
+                    <div
+                      className={`rent-bar-chart__bar${b.active ? ' rent-bar-chart__bar--active' : ''}`}
+                      style={{ height: b.height }}
+                    />
                   </div>
-                  <span className="rent-wb-action__label">新建带看</span>
-                </Link>
-                <Link to="/crm" className="rent-wb-action">
-                  <div className="rent-wb-action__icon" style={{ background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-                  </div>
-                  <span className="rent-wb-action__label">联系客户</span>
-                </Link>
-                <Link to="/properties" className="rent-wb-action">
-                  <div className="rent-wb-action__icon" style={{ background: 'rgba(22,163,74,0.1)', color: 'var(--state-success)' }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                  </div>
-                  <span className="rent-wb-action__label">房源管理</span>
-                </Link>
+                ))}
+              </div>
+              <div className="rent-bar-chart__labels">
+                {barData.map((b) => (
+                  <div key={b.label} className={`rent-bar-chart__label${b.active ? ' rent-bar-chart__label--active' : ''}`}>{b.label}</div>
+                ))}
               </div>
             </div>
           </div>

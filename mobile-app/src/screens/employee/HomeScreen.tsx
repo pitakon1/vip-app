@@ -28,12 +28,6 @@ import {
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-// 快捷操作：只放不在底部导航(Tab)里的功能；房源浏览/业绩/客户等已在 Tab，不再重复展示
-const QUICK_ACTIONS: { key: string; label: string; icon: IoniconName; route: string }[] = [
-  { key: 'attendance', label: '考勤打卡', icon: 'time-outline', route: 'Attendance' },
-  { key: 'manageProperties', label: '房源管理', icon: 'business-outline', route: 'EmployeeProperties' },
-];
-
 interface ViewingItem {
   id: string;
   property_id?: string;
@@ -240,6 +234,36 @@ export default function HomeScreen() {
     };
   }, [monthly, perf]);
 
+  // 业绩柱状图：近 6 个月佣金（纯 View 实现，无图表库依赖）
+  const chartBars = useMemo(() => {
+    const now = new Date();
+    const months: { year: number; month: number; label: string; isCurrent: boolean }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+        label: `${d.getMonth() + 1}月`,
+        isCurrent: i === 0,
+      });
+    }
+    const rows = months.map((m) => {
+      const row = monthly.find((r) => r.year === m.year && r.month === m.month);
+      return { ...m, commission: row?.commission ?? 0 };
+    });
+    const max = Math.max(...rows.map((r) => r.commission), 1);
+    return rows.map((r) => ({
+      ...r,
+      height: r.commission > 0 ? Math.max(10, (r.commission / max) * 64) : 4,
+      valueText:
+        r.commission > 0
+          ? r.commission >= 10000
+            ? `${Math.round(r.commission / 1000)}k`
+            : String(Math.round(r.commission))
+          : '',
+    }));
+  }, [monthly]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadAll();
@@ -392,47 +416,74 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* 业绩摘要（一行三格 + 环比） */}
-      <Text style={styles.blockTitle}>业绩摘要</Text>
-      <View style={styles.stripCard}>
-        <View style={styles.stripCell}>
-          <Text style={[styles.stripValue, { color: colors.primary }]}>
-            {perf?.month_deals ?? 0}
-            <Text style={styles.stripUnit}> 单</Text>
-          </Text>
-          <Text style={styles.stripLabel}>本月成交</Text>
-          {deltas.deals ? <Text style={styles.stripDelta}>{deltas.deals}</Text> : null}
-        </View>
-        <View style={styles.stripDivider} />
-        <View style={styles.stripCell}>
-          <Text style={styles.stripValue}>{money(perf?.month_commission)}</Text>
-          <Text style={styles.stripLabel}>佣金收入</Text>
-          {deltas.commission ? <Text style={styles.stripDelta}>{deltas.commission}</Text> : null}
-        </View>
-        <View style={styles.stripDivider} />
-        <View style={styles.stripCell}>
-          <Text style={styles.stripValue}>{myRank > 0 ? `第 ${myRank}` : '—'}</Text>
-          <Text style={styles.stripLabel}>团队排名</Text>
-          <Text style={styles.stripDelta}>共 {leaderboard.length || 0} 人</Text>
-        </View>
+      {/* 业绩摘要（图表卡片：关键指标 + 近 6 个月佣金柱状图 + 环比） */}
+      <View style={styles.blockTitleRow}>
+        <Text style={styles.blockTitle}>业绩摘要</Text>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={() => navigation.navigate('Performance')}
+        >
+          <Text style={styles.chartMore}>查看详情 ›</Text>
+        </TouchableOpacity>
       </View>
+      <View style={styles.chartCard}>
+        <View style={styles.chartKeyRow}>
+          <View style={styles.chartKeyCell}>
+            <Text style={[styles.chartKeyValue, { color: colors.primary }]}>
+              {perf?.month_deals ?? 0}
+              <Text style={styles.chartKeyUnit}> 单</Text>
+            </Text>
+            <Text style={styles.chartKeyLabel}>本月成交</Text>
+          </View>
+          <View style={styles.chartKeyDivider} />
+          <View style={styles.chartKeyCell}>
+            <Text style={styles.chartKeyValue}>{money(perf?.month_commission)}</Text>
+            <Text style={styles.chartKeyLabel}>佣金收入</Text>
+          </View>
+          <View style={styles.chartKeyDivider} />
+          <View style={styles.chartKeyCell}>
+            <Text style={styles.chartKeyValue}>{myRank > 0 ? `第 ${myRank}` : '—'}</Text>
+            <Text style={styles.chartKeyLabel}>团队排名</Text>
+          </View>
+        </View>
 
-      {/* 快捷操作 */}
-      <Text style={styles.blockTitle}>快捷操作</Text>
-      <View style={styles.actionGrid}>
-        {QUICK_ACTIONS.map((item) => (
-          <TouchableOpacity
-            key={item.key}
-            style={styles.actionCell}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate(item.route)}
-          >
-            <View style={styles.actionCellIcon}>
-              <Ionicons name={item.icon} size={20} color={colors.primary} />
+        <View style={styles.chartDivider} />
+
+        <View style={styles.chartTitleRow}>
+          <Text style={styles.chartTitle}>近 6 个月佣金趋势</Text>
+          {deltas.commission ? (
+            <Text style={styles.chartTitleDelta}>{deltas.commission} 较上月</Text>
+          ) : null}
+        </View>
+
+        <View style={styles.chartWrap}>
+          {chartBars.map((b) => (
+            <View key={b.label} style={styles.chartCol}>
+              <Text style={[styles.chartBarValue, b.isCurrent && styles.chartBarValueActive]}>
+                {b.valueText}
+              </Text>
+              <View style={styles.chartBarTrack}>
+                <View
+                  style={[
+                    styles.chartBar,
+                    { height: b.height, backgroundColor: b.isCurrent ? colors.primary : colors.alpha(colors.primaryRgb, 0.32) },
+                  ]}
+                />
+              </View>
+              <Text style={[styles.chartBarLabel, b.isCurrent && styles.chartBarLabelActive]}>
+                {b.label}
+              </Text>
             </View>
-            <Text style={styles.actionCellLabel}>{item.label}</Text>
-          </TouchableOpacity>
-        ))}
+          ))}
+        </View>
+
+        {deltas.deals ? (
+          <View style={styles.chartDeltaRow}>
+            <Text style={styles.chartDelta}>{deltas.deals}</Text>
+            <Text style={styles.chartDeltaMuted}>（以月度业绩为基数）</Text>
+          </View>
+        ) : null}
       </View>
     </ScrollView>
   );
@@ -487,6 +538,19 @@ const styles = StyleSheet.create({
     color: colors.ink,
     letterSpacing: -0.2,
     paddingHorizontal: 20,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  blockTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 20,
+  },
+  chartMore: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
     marginTop: 4,
     marginBottom: 12,
   },
@@ -580,52 +644,75 @@ const styles = StyleSheet.create({
   },
   followBtnText: { fontSize: 12, fontWeight: '700', color: colors.primary },
 
-  /* ===== 业绩摘要 ===== */
-  stripCard: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
+  /* ===== 业绩摘要图表卡片 ===== */
+  chartCard: {
     marginHorizontal: 20,
     marginBottom: 20,
-    paddingVertical: 14,
+    padding: 16,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
     ...colors.shadow.sm,
   },
-  stripCell: { flex: 1, alignItems: 'center', gap: 4 },
-  stripDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-  stripValue: {
+  chartKeyRow: { flexDirection: 'row', alignItems: 'stretch' },
+  chartKeyCell: { flex: 1, alignItems: 'center', gap: 4 },
+  chartKeyDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  chartKeyValue: {
     fontSize: 20,
     fontWeight: '800',
     color: colors.ink,
     letterSpacing: -0.3,
     fontVariant: ['tabular-nums'],
   },
-  stripUnit: { fontSize: 13, fontWeight: '500', color: colors.ink3 },
-  stripLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
-  stripDelta: { fontSize: 11, color: colors.ink3 },
-
-  /* ===== 快捷入口宫格（一行 4 格） ===== */
-  actionGrid: {
+  chartKeyUnit: { fontSize: 13, fontWeight: '500', color: colors.ink3 },
+  chartKeyLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
+  chartDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginVertical: 14,
+  },
+  chartTitleRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
-  actionCell: {
-    width: '25%',
+  chartTitle: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  chartTitleDelta: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  chartWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  chartCol: { flex: 1, alignItems: 'center', gap: 4 },
+  chartBarValue: {
+    fontSize: 11,
+    color: colors.ink3,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  chartBarValueActive: { color: colors.primary },
+  chartBarTrack: {
+    height: 64,
+    width: 18,
+    justifyContent: 'flex-end',
+    borderRadius: colors.radius.sm,
+    backgroundColor: colors.surface2,
+    overflow: 'hidden',
+  },
+  chartBar: {
+    width: 18,
+    borderTopLeftRadius: colors.radius.sm,
+    borderTopRightRadius: colors.radius.sm,
+  },
+  chartBarLabel: { fontSize: 11, color: colors.ink3 },
+  chartBarLabelActive: { color: colors.primary, fontWeight: '700' },
+  chartDeltaRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
     gap: 6,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
-  actionCellIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionCellLabel: { fontSize: 12, color: colors.ink2, fontWeight: '600' },
+  chartDelta: { fontSize: 12, fontWeight: '600', color: colors.success },
+  chartDeltaMuted: { fontSize: 12, color: colors.ink3 },
 });

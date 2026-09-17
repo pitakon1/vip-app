@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { message } from 'antd'
+import { useSearchParams } from 'react-router-dom'
 import { chatApi } from '@/services/api'
 import './chat.css'
 
@@ -30,6 +31,8 @@ const Chat = () => {
   const [peerIds, setPeerIds] = useState('')
   const wsRef = useRef<WebSocket | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const [searchParams] = useSearchParams()
+  const urlId = searchParams.get('id')
 
   // 加载会话列表
   useEffect(() => {
@@ -71,6 +74,12 @@ const Chat = () => {
     }
     wsRef.current = ws
   }
+
+  // URL ?id= 直接打开会话（CRM「发消息」跳转）
+  useEffect(() => {
+    if (urlId) openConv(urlId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlId])
 
   useEffect(() => () => wsRef.current?.close(), [])
 

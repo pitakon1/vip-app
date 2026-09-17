@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Input, Textarea } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
-import { serviceOrdersApi, ownerApi } from '@/services/api'
-import type { ServiceItem } from '@/types'
-import './index.scss'
+import { serviceOrdersApi, maintenanceApi, ownerApi } from '@/services/api'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import './index.scss'
 
 interface ServiceOrder {
   id: string
@@ -24,43 +23,89 @@ interface ServiceOrder {
   created_at?: string
 }
 
+interface RepairTicket {
+  id: string
+  property_id?: string
+  title?: string
+  description?: string
+  priority?: string
+  status?: string
+  created_at?: string
+}
+
+interface WorkItem {
+  kind: 'order' | 'ticket'
+  id: string
+  status: string
+  created_at?: string
+  raw: ServiceOrder | RepairTicket
+}
+
 interface OwnerProp {
   id?: string | number
   room_number?: string
   display_name?: string
+  name?: string
+  project_name?: string
   address?: string
 }
 
-interface PayMethod {
-  key: string
-  label: string
-  icon: IconKey
+const pickList = (res: any): any[] => {
+  if (Array.isArray(res)) return res
+  const d = res?.data ?? res ?? {}
+  if (Array.isArray(d)) return d
+  if (Array.isArray(d?.items)) return d.items
+  if (Array.isArray(d?.list)) return d.list
+  if (Array.isArray(d?.data)) return d.data
+  return []
 }
 
-const PAYMENT_METHODS: PayMethod[] = [
-  { key: 'wechat', label: '微信支付', icon: 'wechat' },
-  { key: 'alipay', label: '支付宝', icon: 'alipay' },
-  { key: 'bank', label: '银行卡', icon: 'bank' }
-]
+const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '—')
 
-// 推荐服务列表（无后端列表接口时使用本地推荐）
-const RECOMMEND_SERVICES: ServiceItem[] = [
-  { id: 1, name: '房屋保洁服务', description: '专业保洁团队上门服务，2小时深度清洁', price: 199 },
-  { id: 2, name: '管道维修服务', description: '专业管道维修，解决漏水、堵塞等问题', price: 150 },
-  { id: 3, name: '家电维修服务', description: '各类家电维修，空调、洗衣机、冰箱等', price: 128 },
-  { id: 4, name: '搬家服务', description: '专业搬家团队，提供包装、搬运一站式服务', price: 500 },
-  { id: 5, name: '甲醛检测治理', description: '专业甲醛检测与治理，保障居住健康', price: 399 }
-]
+const toTime = (x?: string) => {
+  if (!x) return 0
+  const t = new Date(String(x).replace(' ', 'T')).getTime()
+  return Number.isNaN(t) ? 0 : t
+}
 
 // 服务类型（对齐后端 ServiceType 枚举）
-const SERVICE_TYPE_META: Record<string, { label: string; icon: IconKey }> = {
-  cleaning: { label: '房屋保洁', icon: 'gear' },
-  ac_cleaning: { label: '空调清洗', icon: 'gear' },
-  wifi_install: { label: '网络安装', icon: 'card' },
-  utility_payment: { label: '代缴水电', icon: 'money' },
-  insurance: { label: '保险服务', icon: 'doc' },
-  tax_payment: { label: '税务代办', icon: 'doc' },
-  annual_management: { label: '年度托管', icon: 'clipboard' }
+const TYPE_META: Record<string, { label: string; icon: IconKey }> = {
+  cleaning: { label: '清洁服务', icon: 'home' },
+  ac_cleaning: { label: '空调清洗保养', icon: 'gear' },
+  wifi_install: { label: '网络安装', icon: 'megaphone' },
+  utility_payment: { label: '水电代缴', icon: 'money' },
+  insurance: { label: '房屋保险', icon: 'doc' },
+  tax_payment: { label: '税务代缴', icon: 'card' },
+  annual_management: { label: '年度托管', icon: 'clipboard' },
+  aircon: { label: '空调清洗保养', icon: 'gear' },
+  management: { label: '房屋托管', icon: 'home' },
+  wifi: { label: '网络安装', icon: 'megaphone' },
+  utility: { label: '水电代缴', icon: 'money' },
+  other: { label: '其他服务', icon: 'clipboard' }
+}
+
+const metaOfType = (t?: string) => TYPE_META[t || ''] || TYPE_META.other
+
+// 可购买的服务类型（提交服务订单用）
+const PURCHASE_TYPES = [
+  'cleaning',
+  'ac_cleaning',
+  'wifi_install',
+  'utility_payment',
+  'insurance',
+  'tax_payment',
+  'annual_management'
+]
+
+// 服务商品一句话描述（陈列卡片用）
+const SVC_DESC: Record<string, string> = {
+  cleaning: '全屋深度清洁，专业人员上门',
+  ac_cleaning: '空调深度清洗，出风更清新',
+  wifi_install: '光纤宽带上门安装调试',
+  utility_payment: '水电燃气费代缴，省心省力',
+  insurance: '房屋财产保障，安心托管',
+  tax_payment: '房产税务代办，合规省心',
+  annual_management: '全年托管，租金收益最大化'
 }
 
 // 工单状态（对齐后端 ServiceOrderStatus 枚举），进度由状态推导
@@ -72,53 +117,74 @@ const STATUS_META: Record<string, { label: string; cls: string; pct: number }> =
   cancelled: { label: '已取消', cls: 'neutral', pct: 0 }
 }
 
-const metaOfType = (t?: string) => SERVICE_TYPE_META[t || ''] || { label: '增值服务', icon: 'clipboard' as IconKey }
-const metaOfStatus = (s?: string) => STATUS_META[s || ''] || { label: '待响应', cls: 'warning', pct: 20 }
+const metaOfStatus = (s?: string) => STATUS_META[s || ''] || STATUS_META.pending
 
-const FILTERS: Array<{ key: string; label: string; statuses?: string[] }> = [
-  { key: 'all', label: '全部' },
-  { key: 'active', label: '处理中', statuses: ['assigned', 'in_progress'] },
-  { key: 'completed', label: '已完成', statuses: ['completed'] },
-  { key: 'pending', label: '待响应', statuses: ['pending'] }
-]
-
-const pickList = (res: any): any[] => {
-  if (Array.isArray(res)) return res
-  const d = res?.data ?? res ?? {}
-  if (Array.isArray(d)) return d
-  if (Array.isArray(d?.items)) return d.items
-  if (Array.isArray(d?.list)) return d.list
-  return []
+// 报修工单状态（对齐后端 TicketStatus 枚举）
+const TICKET_STATUS_META: Record<string, { label: string; cls: string; pct: number }> = {
+  open: { label: '待处理', cls: 'warning', pct: 20 },
+  assigned: { label: '已派单', cls: 'info', pct: 40 },
+  in_progress: { label: '处理中', cls: 'primary', pct: 60 },
+  resolved: { label: '已解决', cls: 'success', pct: 100 },
+  closed: { label: '已关闭', cls: 'neutral', pct: 100 }
 }
 
-const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '—')
+const metaOfTicketStatus = (s?: string) => TICKET_STATUS_META[s || ''] || TICKET_STATUS_META.open
 
-const shortId = (id?: string) =>
-  id ? `#SR-${String(id).replace(/-/g, '').slice(0, 6).toUpperCase()}` : '#SR-'
+// 报修优先级（对齐后端 TicketPriority 枚举）
+const PRIORITY_META: Record<string, string> = {
+  low: '低',
+  medium: '中',
+  high: '高',
+  urgent: '紧急'
+}
+
+// 我的工单状态筛选
+type FilterKey = 'all' | 'processing' | 'completed' | 'pending'
+
+const FILTER_CHIPS: Array<{ key: FilterKey; label: string }> = [
+  { key: 'all', label: '全部' },
+  { key: 'processing', label: '处理中' },
+  { key: 'completed', label: '已完成' },
+  { key: 'pending', label: '待响应' }
+]
 
 export default function OwnerServicesPage() {
+  const user = useAuthStore((state) => state.user)
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [services] = useState<ServiceItem[]>(RECOMMEND_SERVICES)
-  const [ordering, setOrdering] = useState<number | null>(null)
+  const [tab, setTab] = useState<'services' | 'repairs'>('services')
   const [orders, setOrders] = useState<ServiceOrder[]>([])
+  const [tickets, setTickets] = useState<RepairTicket[]>([])
   const [properties, setProperties] = useState<OwnerProp[]>([])
-  const [activeFilter, setActiveFilter] = useState('all')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
 
-  const fetchOrders = async () => {
+  // 提交报修弹窗
+  const [ticketModal, setTicketModal] = useState(false)
+  const [ticketProp, setTicketProp] = useState<string | null>(null)
+  const [ticketTitle, setTicketTitle] = useState('')
+  const [ticketDesc, setTicketDesc] = useState('')
+  const [ticketPriority, setTicketPriority] = useState('medium')
+  const [submitting, setSubmitting] = useState(false)
+
+  // 购买服务弹窗
+  const [buyModal, setBuyModal] = useState(false)
+  const [buyProp, setBuyProp] = useState<string | null>(null)
+  const [buyType, setBuyType] = useState<string | null>(null)
+  const [buying, setBuying] = useState(false)
+
+  const fetchAll = async () => {
     setLoading(true)
-    setError(false)
     try {
-      const [orderRes, propRes]: [any, any] = await Promise.all([
-        serviceOrdersApi.list(),
+      const [orderRes, ticketRes, propRes]: [any, any, any] = await Promise.all([
+        serviceOrdersApi.list({ page: 1, limit: 100 }),
+        maintenanceApi.list({ page: 1, limit: 100 }),
         ownerApi.properties().catch(() => null)
       ])
       setOrders(pickList(orderRes) as ServiceOrder[])
+      setTickets(pickList(ticketRes) as RepairTicket[])
       setProperties(pickList(propRes) as OwnerProp[])
     } catch (e) {
       console.error('[OwnerServices] 获取工单失败', e)
-      setError(true)
     } finally {
       setLoading(false)
     }
@@ -130,211 +196,457 @@ export default function OwnerServicesPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchOrders()
+    fetchAll()
   })
 
   const propertyName = (id?: string) => {
     if (!id) return ''
     const p = properties.find((x) => String(x.id) === String(id))
-    return p?.display_name || p?.room_number || p?.address || ''
+    return p?.display_name || p?.name || [p?.project_name, p?.room_number].filter(Boolean).join(' ') || p?.address || ''
   }
 
-  const handlePay = (service: ServiceItem) => {
-    Taro.showActionSheet({
-      itemList: PAYMENT_METHODS.map((m) => m.label),
-      success: (res) => {
-        const method = PAYMENT_METHODS[res.tapIndex]
-        createOrder(service, method.key, method.label)
-      }
-    })
+  // 合并工单：服务单 + 报修单按 created_at 倒序混合
+  const workItems: WorkItem[] = [
+    ...orders.map((o) => ({
+      kind: 'order' as const,
+      id: String(o.id),
+      status: String(o.status || ''),
+      created_at: o.created_at,
+      raw: o
+    })),
+    ...tickets.map((t) => ({
+      kind: 'ticket' as const,
+      id: String(t.id),
+      status: String(t.status || ''),
+      created_at: t.created_at,
+      raw: t
+    }))
+  ].sort((a, b) => toTime(b.created_at) - toTime(a.created_at))
+
+  // 状态分组：处理中 / 已完成 / 待响应（其余不归属任何筛选，仅在「全部」可见）
+  const groupOf = (kind: WorkItem['kind'], status: string): FilterKey => {
+    if (kind === 'order') {
+      if (status === 'assigned' || status === 'in_progress') return 'processing'
+      if (status === 'completed') return 'completed'
+      if (status === 'pending') return 'pending'
+      return 'all'
+    }
+    if (status === 'assigned' || status === 'in_progress') return 'processing'
+    if (status === 'resolved' || status === 'closed') return 'completed'
+    if (status === 'open') return 'pending'
+    return 'all'
   }
 
-  const createOrder = async (
-    service: ServiceItem,
-    methodKey: string,
-    methodLabel: string
-  ) => {
-    setOrdering(service.id)
-    Taro.showLoading({ title: '下单中...', mask: true })
+  const countOf = (key: FilterKey) =>
+    key === 'all' ? workItems.length : workItems.filter((it) => groupOf(it.kind, it.status) === key).length
+
+  const merged = workItems.filter((it) => activeFilter === 'all' || groupOf(it.kind, it.status) === activeFilter)
+
+  /* ===== 提交报修 ===== */
+  const submitTicket = async () => {
+    if (!ticketProp) {
+      Taro.showToast({ title: '请选择报修房源', icon: 'none' })
+      return
+    }
+    if (!ticketTitle.trim()) {
+      Taro.showToast({ title: '请填写报修标题', icon: 'none' })
+      return
+    }
+    setSubmitting(true)
+    Taro.showLoading({ title: '提交中...', mask: true })
     try {
-      await serviceOrdersApi.create({
-        serviceId: service.id,
-        serviceName: service.name,
-        amount: service.price,
-        paymentMethod: methodKey
+      await maintenanceApi.create({
+        property_id: ticketProp,
+        title: ticketTitle.trim(),
+        description: ticketDesc.trim() || ticketTitle.trim(),
+        priority: ticketPriority
       })
       Taro.hideLoading()
+      setTicketModal(false)
+      setTicketProp(null)
+      setTicketTitle('')
+      setTicketDesc('')
+      setTicketPriority('medium')
       Taro.showModal({
-        title: '下单成功',
-        content: `「${service.name}」下单成功，付款方式：${methodLabel}，金额 ฿${service.price}`,
+        title: '提交成功',
+        content: '报修工单已提交，工作人员将尽快处理',
         showCancel: false
       })
-      fetchOrders()
-    } catch (error) {
-      console.error('[OwnerServices] 下单失败', error)
+      fetchAll()
+    } catch (err: any) {
+      console.error('[OwnerServices] 提交报修失败', err)
       Taro.hideLoading()
-      Taro.showToast({ title: '下单失败，请重试', icon: 'none' })
+      Taro.showToast({ title: err?.response?.data?.message || '提交失败，请重试', icon: 'none' })
     } finally {
-      setOrdering(null)
+      setSubmitting(false)
     }
   }
 
-  const thisMonth = new Date().toISOString().slice(0, 7)
-  const activeOrders = orders.filter((o) => ['pending', 'assigned', 'in_progress'].includes(String(o.status || '')))
-  const monthOrders = orders.filter((o) => String(o.created_at || '').slice(0, 7) === thisMonth)
-  const monthDone = monthOrders.filter((o) => String(o.status || '') === 'completed').length
+  /* ===== 购买服务 ===== */
+  const submitBuy = async () => {
+    if (!buyProp) {
+      Taro.showToast({ title: '请选择服务房源', icon: 'none' })
+      return
+    }
+    if (!buyType) {
+      Taro.showToast({ title: '请选择服务类型', icon: 'none' })
+      return
+    }
+    setBuying(true)
+    Taro.showLoading({ title: '提交中...', mask: true })
+    try {
+      await serviceOrdersApi.create({
+        orderer_id: user?.id,
+        orderer_type: 'owner',
+        property_id: buyProp,
+        service_type: buyType,
+        amount: 0,
+        currency: 'THB',
+        notes: metaOfType(buyType).label
+      })
+      Taro.hideLoading()
+      setBuyModal(false)
+      setBuyProp(null)
+      setBuyType(null)
+      Taro.showModal({
+        title: '购买成功',
+        content: '服务订单已创建，工作人员将尽快联系您',
+        showCancel: false
+      })
+      fetchAll()
+    } catch (err: any) {
+      console.error('[OwnerServices] 购买服务失败', err)
+      Taro.hideLoading()
+      Taro.showToast({ title: err?.response?.data?.message || '下单失败，请重试', icon: 'none' })
+    } finally {
+      setBuying(false)
+    }
+  }
 
-  const activeStatuses = FILTERS.find((f) => f.key === activeFilter)?.statuses
-  const filtered = activeStatuses ? orders.filter((o) => activeStatuses.includes(String(o.status || ''))) : orders
+  const resetTicketModal = () => {
+    setTicketModal(false)
+    setTicketProp(null)
+    setTicketTitle('')
+    setTicketDesc('')
+    setTicketPriority('medium')
+  }
+
+  const resetBuyModal = () => {
+    setBuyModal(false)
+    setBuyProp(null)
+    setBuyType(null)
+  }
+
+  // 房源选择 chips（无房源时引导去委托挂牌）
+  const renderPropertyPicker = (selected: string | null, onSelect: (id: string) => void) => {
+    if (properties.length === 0) {
+      return (
+        <View
+          className='sheet-empty-prop'
+          hoverClass='sheet-empty-prop--hover'
+          onClick={() => Taro.navigateTo({ url: '/pages/owner/marketing/index' })}
+        >
+          <Text>暂无房源，去委托挂牌 ›</Text>
+        </View>
+      )
+    }
+    return (
+      <View className='pick-wrap'>
+        {properties.map((p) => {
+          const active = String(p.id) === selected
+          const label = p.display_name || p.name || [p.project_name, p.room_number].filter(Boolean).join(' ') || p.address || '房源'
+          return (
+            <View
+              key={String(p.id)}
+              className={`pick-chip${active ? ' pick-chip--active' : ''}`}
+              hoverClass='pick-chip--hover'
+              onClick={() => onSelect(String(p.id))}
+            >
+              <Text className={`pick-chip__text${active ? ' pick-chip__text--active' : ''}`}>{label}</Text>
+            </View>
+          )
+        })}
+      </View>
+    )
+  }
 
   return (
     <View className='owner-services-page'>
       <View className='page-container'>
-        {/* 概览 stat row */}
-        <View className='stat-row'>
-          <View className='stat'>
-            <Text className='stat__label'>处理中工单</Text>
-            <Text className='stat__value'>{activeOrders.length}</Text>
-            <Text className='stat__badge stat__badge--info'>跟进中</Text>
-          </View>
-          <View className='stat'>
-            <Text className='stat__label'>本月工单</Text>
-            <Text className='stat__value'>{monthOrders.length}</Text>
-            <Text className='stat__badge stat__badge--success'>{monthDone} 已完成</Text>
-          </View>
+        {/* 分类 Tab：服务商城 / 我的工单 */}
+        <View className='tab-row'>
+          {[
+            { key: 'services' as const, label: '服务商城' },
+            { key: 'repairs' as const, label: '我的工单' }
+          ].map((t) => {
+            const active = tab === t.key
+            return (
+              <View
+                key={t.key}
+                className={`tab-btn${active ? ' tab-btn--active' : ''}`}
+                hoverClass='tab-btn--hover'
+                onClick={() => setTab(t.key)}
+              >
+                <Text className={`tab-btn__text${active ? ' tab-btn__text--active' : ''}`}>{t.label}</Text>
+              </View>
+            )
+          })}
         </View>
 
-        {/* 筛选 */}
-        <View className='chips'>
-          {FILTERS.map((f) => (
+        {/* services Tab：服务商品陈列 */}
+        {tab === 'services' && (
+          <>
+            <View className='section-title'>
+              <Text>服务商品</Text>
+              <Text className='section-hint'>按需购买 · 专人上门</Text>
+            </View>
+            <View className='svc-grid'>
+              {PURCHASE_TYPES.map((t) => {
+                const meta = metaOfType(t)
+                return (
+                  <View
+                    key={t}
+                    className='svc-card'
+                    hoverClass='svc-card--hover'
+                    onClick={() => {
+                      setBuyType(t)
+                      setBuyModal(true)
+                    }}
+                  >
+                    <View className='svc-card__icon'>
+                      <View className='icon-svg' style={iconStyle(meta.icon, 44)} />
+                    </View>
+                    <Text className='svc-card__name'>{meta.label}</Text>
+                    <Text className='svc-card__desc'>{SVC_DESC[t]}</Text>
+                    <View className='svc-card__buy'>
+                      <Text className='svc-card__buy-text'>去购买</Text>
+                      <Text className='svc-card__buy-arrow'>›</Text>
+                    </View>
+                  </View>
+                )
+              })}
+            </View>
+          </>
+        )}
+
+        {/* 我的工单 Tab：提交报修 + 状态筛选 + 合并列表 */}
+        {tab === 'repairs' && (
+          <>
             <View
-              key={f.key}
-              className={`chips__item ${activeFilter === f.key ? 'chips__item--active' : ''}`}
-              onClick={() => setActiveFilter(f.key)}
+              className='repair-btn'
+              hoverClass='repair-btn--hover'
+              onClick={() => setTicketModal(true)}
             >
-              <Text>{f.label}</Text>
+              <View className='icon-svg' style={iconStyle('gear', 32)} />
+              <Text className='repair-btn__text'>提交报修</Text>
             </View>
-          ))}
-        </View>
 
-        <View className='section-title'>
-          <Text>我的工单</Text>
-          <Text className='section-hint'>{filtered.length} 单</Text>
-        </View>
-
-        {loading && orders.length === 0 && (
-          <View className='empty-tip'>
-            <Text>加载中...</Text>
-          </View>
-        )}
-
-        {!loading && error && orders.length === 0 && (
-          <View className='empty-tip'>
-            <Text>加载失败，请重试</Text>
-            <View className='retry-btn' onClick={fetchOrders} hoverClass='retry-btn--hover'>
-              <Text>重新加载</Text>
-            </View>
-          </View>
-        )}
-
-        {!loading && !error && filtered.length === 0 && (
-          <View className='empty-tip'>
-            <View className='empty-tip__icon icon-svg' style={iconStyle('gear', 48)} />
-            <Text>{orders.length === 0 ? '暂无工单' : '该状态下暂无工单'}</Text>
-          </View>
-        )}
-
-        {!loading && filtered.length > 0 && (
-          <View className='order-list'>
-            {filtered.map((order) => {
-              const typeMeta = metaOfType(order.service_type)
-              const statusMeta = metaOfStatus(order.status)
-              const prop = propertyName(order.property_id)
-              return (
-                <View key={order.id} className='order'>
-                  <View className='order__head'>
-                    <View className={`order__icon order__icon--${statusMeta.cls}`}>
-                      <View className='icon-svg' style={iconStyle(typeMeta.icon, 40)} />
-                    </View>
-                    <View className='order__body'>
-                      <View className='order__title-row'>
-                        <Text className='order__title'>{typeMeta.label}</Text>
-                        <Text className={`order__badge order__badge--${statusMeta.cls}`}>{statusMeta.label}</Text>
-                      </View>
-                      <View className='order__meta'>
-                        <Text className='order__no'>{shortId(order.id)}</Text>
-                        {!!prop && <Text className='order__dot'>·</Text>}
-                        {!!prop && <Text className='order__prop'>{prop}</Text>}
-                        <Text className='order__dot'>·</Text>
-                        <Text>{fmtDate(order.created_at)}</Text>
-                      </View>
-                      {!!order.notes && <Text className='order__notes'>{order.notes}</Text>}
-                    </View>
+            {/* 状态筛选 chips */}
+            <View className='filter-chips'>
+              {FILTER_CHIPS.map((c) => {
+                const active = activeFilter === c.key
+                const count = countOf(c.key)
+                return (
+                  <View
+                    key={c.key}
+                    className={`filter-chip${active ? ' filter-chip--active' : ''}`}
+                    hoverClass='filter-chip--hover'
+                    onClick={() => setActiveFilter(c.key)}
+                  >
+                    <Text className={`filter-chip__text${active ? ' filter-chip__text--active' : ''}`}>
+                      {c.label}
+                      {count > 0 ? ` ${count}` : ''}
+                    </Text>
                   </View>
-                  <View className='order__progress'>
-                    <View className='progress'>
-                      <View
-                        className={`progress__bar progress__bar--${statusMeta.cls}`}
-                        style={{ width: `${statusMeta.pct}%` }}
-                      />
-                    </View>
-                    <Text className={`order__pct order__pct--${statusMeta.cls}`}>{statusMeta.pct}%</Text>
-                  </View>
-                </View>
-              )
-            })}
-          </View>
-        )}
-
-        {/* 推荐服务 */}
-        <View className='section-title section-title--gap'>
-          <Text>推荐服务</Text>
-        </View>
-
-        <View className='pay-tip'>
-          <Text className='pay-tip-label'>支持付款方式：</Text>
-          <View className='pay-icons'>
-            {PAYMENT_METHODS.map((m) => (
-              <View key={m.key} className='pay-icon'>
-                <View className='icon-svg' style={iconStyle(m.icon, 28)} />
-                <Text>{m.label}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View className='service-list'>
-          {services.map((service) => (
-            <View key={service.id} className='service-card'>
-              <View className='service-info'>
-                <Text className='service-name'>{service.name}</Text>
-                <Text className='service-desc'>{service.description}</Text>
-                <Text className='service-price'>฿{service.price}</Text>
-              </View>
-              <View className='service-pay'>
-                <Button
-                  className='pay-btn'
-                  type='primary'
-                  loading={ordering === service.id}
-                  disabled={ordering === service.id}
-                  onClick={() => handlePay(service)}
-                >
-                  立即购买
-                </Button>
-              </View>
+                )
+              })}
             </View>
-          ))}
-        </View>
+
+            <View className='section-title'>
+              <Text>我的工单</Text>
+              <Text className='section-hint'>{merged.length} 单</Text>
+            </View>
+
+            {loading && merged.length === 0 && (
+              <View className='empty-tip'>
+                <Text>加载中...</Text>
+              </View>
+            )}
+
+            {!loading && merged.length === 0 && (
+              <View className='empty-tip'>
+                <View className='empty-tip__icon icon-svg' style={iconStyle('gear', 48)} />
+                <Text>暂无工单</Text>
+              </View>
+            )}
+
+            {/* 合并列表：服务单 / 报修单 */}
+            {!loading && merged.length > 0 && (
+              <View className='order-list'>
+                {merged.map((it) => {
+                  if (it.kind === 'order') {
+                    const o = it.raw as ServiceOrder
+                    const meta = metaOfType(o.service_type)
+                    const statusMeta = metaOfStatus(o.status)
+                    const prop = propertyName(o.property_id)
+                    return (
+                      <View key={o.id} className='order'>
+                        <View className='order__head'>
+                          <View className={`order__icon order__icon--${statusMeta.cls}`}>
+                            <View className='icon-svg' style={iconStyle(meta.icon, 36)} />
+                          </View>
+                          <View className='order__body'>
+                            <View className='order__title-row'>
+                              <Text className='order__title'>{meta.label}</Text>
+                              <Text className={`order__badge order__badge--${statusMeta.cls}`}>{statusMeta.label}</Text>
+                            </View>
+                            <View className='order__meta'>
+                              {!!prop && <Text className='order__prop'>{prop}</Text>}
+                              {!!prop && <Text className='order__dot'>·</Text>}
+                              <Text>{fmtDate(o.created_at)}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    )
+                  }
+                  const t = it.raw as RepairTicket
+                  const statusMeta = metaOfTicketStatus(t.status)
+                  const prio = PRIORITY_META[String(t.priority || 'medium')] || '中'
+                  const prop = propertyName(t.property_id)
+                  return (
+                    <View key={t.id} className='order'>
+                      <View className='order__head'>
+                        <View className='order__icon order__icon--warning'>
+                          <View className='icon-svg' style={iconStyle('gear', 36)} />
+                        </View>
+                        <View className='order__body'>
+                          <View className='order__title-row'>
+                            <Text className='order__prio'>优先级 {prio}</Text>
+                            <Text className='order__title'>{t.title || '报修工单'}</Text>
+                            <Text className={`order__badge order__badge--${statusMeta.cls}`}>{statusMeta.label}</Text>
+                          </View>
+                          <View className='order__meta'>
+                            {!!prop && <Text className='order__prop'>{prop}</Text>}
+                            {!!prop && <Text className='order__dot'>·</Text>}
+                            <Text>{fmtDate(t.created_at)}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  )
+                })}
+              </View>
+            )}
+          </>
+        )}
       </View>
 
-      {/* 悬浮入口：委托挂牌 */}
-      <View
-        className='owner-fab'
-        hoverClass='owner-fab--hover'
-        onClick={() => Taro.navigateTo({ url: '/pages/owner/marketing/index' })}
-      >
-        <View className='icon-svg' style={iconStyle('edit', 44)} />
-      </View>
+      {/* 提交报修弹窗 */}
+      {ticketModal && (
+        <View className='sheet-mask' onClick={resetTicketModal}>
+          <View className='sheet' onClick={(e) => e.stopPropagation()}>
+            <View className='sheet__head'>
+              <Text className='sheet__title'>提交报修</Text>
+              <View className='sheet__close icon-svg' style={iconStyle('close', 36)} onClick={resetTicketModal} />
+            </View>
+            <View className='sheet__body'>
+              <Text className='field-label'>报修房源</Text>
+              {renderPropertyPicker(ticketProp, (id) => setTicketProp(id))}
+
+              <Text className='field-label'>优先级</Text>
+              <View className='pick-wrap'>
+                {(['low', 'medium', 'high', 'urgent'] as const).map((p) => {
+                  const active = ticketPriority === p
+                  return (
+                    <View
+                      key={p}
+                      className={`pick-chip${active ? ' pick-chip--active' : ''}`}
+                      hoverClass='pick-chip--hover'
+                      onClick={() => setTicketPriority(p)}
+                    >
+                      <Text className={`pick-chip__text${active ? ' pick-chip__text--active' : ''}`}>
+                        {PRIORITY_META[p]}
+                      </Text>
+                    </View>
+                  )
+                })}
+              </View>
+
+              <Text className='field-label'>报修标题</Text>
+              <Input
+                className='input'
+                value={ticketTitle}
+                onInput={(e) => setTicketTitle(e.detail.value)}
+                placeholder='如：空调不制冷 / 水管漏水'
+                maxlength={60}
+              />
+
+              <Text className='field-label'>问题描述</Text>
+              <Textarea
+                className='input input--area'
+                value={ticketDesc}
+                onInput={(e) => setTicketDesc(e.detail.value)}
+                placeholder='请描述具体问题，便于工作人员准备工具（选填）'
+                maxlength={300}
+              />
+
+              <View
+                className={`submit-btn${submitting ? ' submit-btn--disabled' : ''}`}
+                hoverClass='submit-btn--hover'
+                onClick={submitTicket}
+              >
+                <Text className='submit-btn__text'>{submitting ? '提交中…' : '提交工单'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* 购买服务弹窗 */}
+      {buyModal && (
+        <View className='sheet-mask' onClick={resetBuyModal}>
+          <View className='sheet' onClick={(e) => e.stopPropagation()}>
+            <View className='sheet__head'>
+              <Text className='sheet__title'>购买服务</Text>
+              <View className='sheet__close icon-svg' style={iconStyle('close', 36)} onClick={resetBuyModal} />
+            </View>
+            <View className='sheet__body'>
+              <Text className='field-label'>服务房源</Text>
+              {renderPropertyPicker(buyProp, (id) => setBuyProp(id))}
+
+              <Text className='field-label'>服务类型</Text>
+              <View className='pick-wrap'>
+                {PURCHASE_TYPES.map((t) => {
+                  const meta = metaOfType(t)
+                  const active = buyType === t
+                  return (
+                    <View
+                      key={t}
+                      className={`pick-chip${active ? ' pick-chip--active' : ''}`}
+                      hoverClass='pick-chip--hover'
+                      onClick={() => setBuyType(t)}
+                    >
+                      <View className='icon-svg' style={iconStyle(meta.icon, 28)} />
+                      <Text className={`pick-chip__text${active ? ' pick-chip__text--active' : ''}`}>
+                        {meta.label}
+                      </Text>
+                    </View>
+                  )
+                })}
+              </View>
+
+              <View
+                className={`submit-btn${buying ? ' submit-btn--disabled' : ''}`}
+                hoverClass='submit-btn--hover'
+                onClick={submitBuy}
+              >
+                <Text className='submit-btn__text'>{buying ? '提交中…' : '确认购买'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
 
       <BottomNav role='owner' active='services' />
     </View>

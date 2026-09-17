@@ -4,7 +4,7 @@ import { message } from 'antd'
 import type { CarouselRef } from 'antd/es/carousel'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
-import { translateApi } from '@/services/api'
+import { translateApi, documentsApi } from '@/services/api'
 import './PropertyDetail.css'
 
 interface PropertyDetail {
@@ -119,6 +119,24 @@ const leaseStatusMap: Record<string, string> = {
   terminated: '已退租',
 }
 
+// 文档类型（后端 DocumentType 枚举）→ 展示文案与徽章色调
+const DOC_TYPE_LABEL: Record<string, string> = {
+  contract: '合同',
+  receipt: '收据',
+  inspection_photo: '验房照片',
+  tax_invoice: '税务发票',
+  wht_certificate: '预扣税证明',
+  other: '其他',
+}
+const DOC_TYPE_BADGE: Record<string, string> = {
+  contract: 'rent-badge--primary',
+  receipt: 'rent-badge--success',
+  inspection_photo: 'rent-badge--info',
+  tax_invoice: 'rent-badge--warning',
+  wht_certificate: 'rent-badge--warning',
+  other: 'rent-badge--neutral',
+}
+
 const PropertyDetail = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -128,6 +146,7 @@ const PropertyDetail = () => {
   const [loading, setLoading] = useState(false)
   const [similar, setSimilar] = useState<PropertyDetail[]>([])
   const [leases, setLeases] = useState<any[]>([])
+  const [docs, setDocs] = useState<any[]>([])
   const [currentSlide, setCurrentSlide] = useState(0)
   const [favorited, setFavorited] = useState(false)
   // v1.8 Google 翻译：房源描述可自行翻译
@@ -198,14 +217,43 @@ const PropertyDetail = () => {
     }
   }, [id])
 
+  const fetchDocs = useCallback(async () => {
+    if (!id) return
+    try {
+      const res = await documentsApi.list({ property_id: id, page_size: 50 })
+      const payload = res.data?.data ?? res.data
+      const items = Array.isArray(payload) ? payload : (payload?.items ?? [])
+      setDocs(items)
+    } catch {
+      setDocs([])
+    }
+  }, [id])
+
+  // 打开文档：与业主文档页一致，带鉴权头走 /documents/{id}/file 取 blob 后新窗口预览
+  const openDoc = async (doc: any) => {
+    if (!doc?.id) {
+      message.error('文件地址不存在')
+      return
+    }
+    try {
+      const res = await api.get(`/documents/${doc.id}/file`, { responseType: 'blob' })
+      const blobUrl = URL.createObjectURL(res.data as Blob)
+      window.open(blobUrl, '_blank')
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+    } catch {
+      message.error('打开文档失败')
+    }
+  }
+
   useEffect(() => {
     fetchDetail()
     fetchSimilar()
     fetchLeases()
+    fetchDocs()
     setFavorited(false)
     setCurrentSlide(0)
     window.scrollTo?.({ top: 0 })
-  }, [fetchDetail, fetchSimilar, fetchLeases, id])
+  }, [fetchDetail, fetchSimilar, fetchLeases, fetchDocs, id])
 
   const slides = useMemo(() => {
     const roomNo = detail?.room_number || '—'
@@ -567,6 +615,42 @@ const PropertyDetail = () => {
           {translatedDesc && detail.description && (
             <div className="rent-text-sm rent-text-muted rent-mt-2" style={{ borderTop: '1px solid var(--rent-line)', paddingTop: 8 }}>
               原文：{detail.description}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 相关文档 */}
+      <div className="rent-card rent-mb-4">
+        <div className="rent-card__header">
+          <h3 className="rent-card__title">相关文档</h3>
+          <span className="rent-text-sm rent-text-muted">共 {docs.length} 份</span>
+        </div>
+        <div className="rent-card__body">
+          {docs.length === 0 ? (
+            <div className="rent-text-muted" style={{ padding: '8px 0' }}>暂无相关文档</div>
+          ) : (
+            <div className="rent-doc-list">
+              {docs.map((d) => (
+                <div className="rent-doc-row" key={d.id}>
+                  <div className="rent-doc-row__main">
+                    <div className="rent-doc-row__name">{d.title || d.name || '未命名文档'}</div>
+                    <div className="rent-doc-row__meta">
+                      <span className={`rent-badge ${DOC_TYPE_BADGE[d.type] || 'rent-badge--neutral'}`}>
+                        {DOC_TYPE_LABEL[d.type] || '其他'}
+                      </span>
+                      <span>{d.created_at ? formatDate(d.created_at) : ''}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="rent-btn rent-btn--ghost rent-btn--sm"
+                    onClick={() => openDoc(d)}
+                  >
+                    查看
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>

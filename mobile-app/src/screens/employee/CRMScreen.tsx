@@ -3,6 +3,7 @@
  * 原型：admin-mobile-crm.html
  * 区块：搜索 → 阶段筛选（带计数）→ 统计行 → 客户列表
  * 数据源：/leads（真实客户线索 + 各阶段计数）、/employees/directory
+ * 说明：与管理员端一致支持填写/修改客户阶段（leadsApi.update），不对员工开放新建/删除
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -13,14 +14,18 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Modal,
+  Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import colors from '../../theme/colors';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
 import api from '../../lib/api';
-import { leadsApi } from '../../services/api';
+import { chatApi, leadsApi } from '../../services/api';
 
 interface Lead {
   id: string;
@@ -38,6 +43,7 @@ interface Lead {
   stage?: string | null;
   assigned_to?: string | null;
   source?: string | null;
+  notes?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
@@ -70,6 +76,101 @@ export default function CRMScreen() {
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // 编辑线索弹窗（对齐管理员端：可填写姓名/电话/来源/意向项目/阶段/备注）
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: '',
+    phone: '',
+    source: '',
+    property: '',
+    stage: STAGES[0].key,
+    notes: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const navigation = useNavigation<any>();
+
+  // 联系客户：直接拨打
+  const callCustomer = (l: Lead) => {
+    const phone = (l.phone || '').trim();
+    if (!phone) {
+      Alert.alert('联系客户', '该客户未留电话');
+      return;
+    }
+    Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => {
+      Alert.alert('联系客户', '无法拨打电话');
+    });
+  };
+
+  // 联系客户：App 内发消息（按手机号解析客户账号并创建/进入会话）
+  const chatCustomer = async (l: Lead) => {
+    const phone = (l.phone || '').trim();
+    if (!phone) {
+      Alert.alert('联系客户', '该客户未留电话，无法发起会话');
+      return;
+    }
+    try {
+      const res = await chatApi.createConversation({
+        title: l.name?.trim() || '客户咨询',
+        participant_phones: [phone],
+      });
+      const conv = res.data?.data ?? res.data;
+      navigation.navigate('ChatDetail', {
+        conversationId: conv?.id,
+        title: conv?.title ?? l.name ?? '会话',
+      });
+    } catch (e: any) {
+      Alert.alert(
+        '无法发消息',
+        e?.response?.data?.detail ||
+          e?.response?.data?.message ||
+          '该客户尚未注册账号，请先通过电话联系',
+      );
+    }
+  };
+
+  const openEdit = (l: Lead) => {
+    setEditingId(l.id);
+    setForm({
+      name: l.name || '',
+      phone: l.phone || '',
+      source: l.source || '',
+      property: String(l.interested_projects?.[0] ?? ''),
+      stage: l.stage || STAGES[0].key,
+      notes: l.notes || '',
+    });
+    setFormOpen(true);
+  };
+
+  const submitForm = async () => {
+    if (!form.name.trim()) {
+      Alert.alert('编辑线索', '请填写客户姓名');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        name: form.name.trim(),
+        phone: form.phone.trim() || null,
+        source: form.source.trim() || null,
+        stage: form.stage,
+        notes: form.notes.trim() || null,
+      };
+      const prop = form.property.trim();
+      payload.interested_projects = prop ? [prop] : [];
+      if (editingId) {
+        await leadsApi.update(editingId, payload);
+      }
+      Alert.alert('编辑线索', '保存成功');
+      setFormOpen(false);
+      load();
+    } catch (e: any) {
+      Alert.alert('编辑线索', e?.response?.data?.detail || '保存失败，请稍后重试');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const load = useCallback(async () => {
     const results = await Promise.allSettled([
@@ -201,6 +302,21 @@ export default function CRMScreen() {
             {owner ? ` · 负责人 ${owner}` : ''}
           </Text>
         </View>
+
+        <View style={styles.leadActions}>
+          <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => callCustomer(l)}>
+            <Ionicons name="call-outline" size={14} color={colors.primary} />
+            <Text style={[styles.leadActionText, { color: colors.primary }]}>电话</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => chatCustomer(l)}>
+            <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primary} />
+            <Text style={[styles.leadActionText, { color: colors.primary }]}>发消息</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => openEdit(l)}>
+            <Ionicons name="create-outline" size={14} color={colors.primary} />
+            <Text style={[styles.leadActionText, { color: colors.primary }]}>编辑状态</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -214,14 +330,13 @@ export default function CRMScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-      }
-    >
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
       {/* 搜索 */}
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color={colors.ink3} />
@@ -304,7 +419,56 @@ export default function CRMScreen() {
       ) : (
         <View style={styles.list}>{visibleLeads.map((l) => renderLead(l))}</View>
       )}
-    </ScrollView>
+      </ScrollView>
+
+      {/* 编辑客户状态弹窗（对齐管理员端表单） */}
+      <Modal visible={formOpen} transparent animationType="fade" onRequestClose={() => setFormOpen(false)}>
+        <View style={styles.modalMask}>
+          <ScrollView contentContainerStyle={styles.modalCardWrap}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>编辑客户状态</Text>
+
+              <Text style={styles.fieldLabel}>姓名 *</Text>
+              <TextInput style={styles.fieldInput} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} placeholderTextColor={colors.ink3} />
+
+              <Text style={styles.fieldLabel}>电话</Text>
+              <TextInput style={styles.fieldInput} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} placeholderTextColor={colors.ink3} />
+
+              <Text style={styles.fieldLabel}>来源</Text>
+              <TextInput style={styles.fieldInput} value={form.source} onChangeText={(v) => setForm((f) => ({ ...f, source: v }))} placeholderTextColor={colors.ink3} />
+
+              <Text style={styles.fieldLabel}>意向房产</Text>
+              <TextInput style={styles.fieldInput} value={form.property} onChangeText={(v) => setForm((f) => ({ ...f, property: v }))} placeholderTextColor={colors.ink3} />
+
+              <Text style={styles.fieldLabel}>客户状态</Text>
+              <View style={styles.chipWrapper}>
+                {STAGES.map((s) => (
+                  <TouchableOpacity
+                    key={s.key}
+                    style={[styles.chipInline, form.stage === s.key && styles.chipInlineActive]}
+                    onPress={() => setForm((f) => ({ ...f, stage: s.key }))}
+                  >
+                    <Text style={[styles.chipInlineText, form.stage === s.key && styles.chipInlineTextActive]}>{s.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.fieldLabel}>备注</Text>
+              <TextInput style={[styles.fieldInput, styles.multilineInput]} value={form.notes} onChangeText={(v) => setForm((f) => ({ ...f, notes: v }))} multiline placeholderTextColor={colors.ink3} />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setFormOpen(false)}>
+                  <Text style={styles.modalCancelText}>取消</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} disabled={saving} onPress={submitForm}>
+                  <Text style={styles.modalOkText}>{saving ? '...' : '保存'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -417,4 +581,56 @@ const styles = StyleSheet.create({
   tagText: { fontSize: colors.fontSize.xs, color: colors.ink2, fontWeight: '500' },
   followRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: colors.spacing.md },
   followText: { fontSize: colors.fontSize.xs, color: colors.ink3 },
+
+  /* ===== 编辑操作行 ===== */
+  leadActions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: colors.spacing.md,
+    paddingTop: colors.spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  leadActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  leadActionText: { fontSize: 12, fontWeight: '600' },
+
+  /* ===== 编辑弹窗 ===== */
+  modalMask: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.4)',
+    justifyContent: 'center',
+    padding: 28,
+  },
+  modalCardWrap: { justifyContent: 'center' },
+  modalCard: { backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 20 },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, marginBottom: 6 },
+  fieldLabel: { fontSize: 12, color: colors.ink3, fontWeight: '600', marginTop: 12, marginBottom: 6 },
+  fieldInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  multilineInput: { minHeight: 72, textAlignVertical: 'top' },
+  chipWrapper: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chipInline: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: colors.radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  chipInlineActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipInlineText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  chipInlineTextActive: { color: '#fff', fontWeight: '600' },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  modalBtn: { flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: colors.radius.lg },
+  modalCancel: { backgroundColor: colors.surface2 },
+  modalCancelText: { color: colors.ink2, fontWeight: '600' },
+  modalOk: { backgroundColor: colors.primary },
+  modalOkText: { color: colors.primaryForeground, fontWeight: '600' },
 });

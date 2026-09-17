@@ -18,7 +18,7 @@ interface NavItem {
  * 各角色底部导航项。
  * 顺序与标签严格取自原型底部导航（`rent-mobile__tab` 的 `data-nav-key` 序列）：
  *   管理端 = 首页 / 房源 / 客户 / 收款 / 我的
- *   员工端 = 首页 / 房源 / 客户 / 业绩 / 我的（通讯录已移入「我的」）
+ *   员工端 = 首页 / 房源 / 客户 / 消息 / 我的（业绩已并入首页图表，通讯录已移入「我的」）
  *   业主端 = 首页 / 收益 / 服务 / 我的
  *   租客端 = 首页 / 找房 / 消息 / 我的
  */
@@ -34,7 +34,7 @@ const NAV_MAP: Record<NavRole, NavItem[]> = {
     { key: 'dashboard', label: '首页', icon: 'home', path: '/pages/employee/home/index' },
     { key: 'properties', label: '房源', icon: 'building', path: '/pages/employee/property-browse/index' },
     { key: 'crm', label: '客户', icon: 'users', path: '/pages/employee/crm/index' },
-    { key: 'performance', label: '业绩', icon: 'chart', path: '/pages/employee/performance/index' },
+    { key: 'messages', label: '消息', icon: 'message', path: '/pages/chat/list/index' },
     { key: 'settings', label: '我的', icon: 'user', path: '/pages/profile/index' },
   ],
   owner: [

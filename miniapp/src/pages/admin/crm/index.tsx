@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { leadsApi, employeesApi } from '@/services/api'
+import { leadsApi, employeesApi, chatApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
@@ -195,6 +195,29 @@ export default function AdminCrmPage() {
     Taro.makePhoneCall({ phoneNumber: phone }).catch(() => {})
   }
 
+  // 联系客户：App/小程序内发消息（按手机号解析客户账号并创建会话）
+  const chatCustomer = async (l: LeadItem) => {
+    const phone = (l.phone || '').trim()
+    if (!phone) {
+      Taro.showToast({ title: '客户未留电话，无法发消息', icon: 'none' })
+      return
+    }
+    try {
+      const res: any = await chatApi.createConversation({
+        title: (l.name || '客户咨询').trim(),
+        participant_phones: [phone]
+      })
+      const conv = res?.data?.data ?? res?.data
+      if (!conv?.id) throw new Error('会话创建失败')
+      Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
+    } catch (error: any) {
+      Taro.showToast({
+        title: error?.message || '客户未注册账号，请先通过电话联系',
+        icon: 'none'
+      })
+    }
+  }
+
   return (
     <View className='crm-page'>
       {/* 搜索栏 */}
@@ -325,6 +348,7 @@ export default function AdminCrmPage() {
                 </View>
 
                 <View className='crm-card__actions'>
+                  <View className='crm-act' onClick={() => chatCustomer(l)}>发消息</View>
                   <View className='crm-act' onClick={() => openEdit(l)}>编辑</View>
                   <View className='crm-act crm-act--del' onClick={() => remove(l)}>删除</View>
                 </View>

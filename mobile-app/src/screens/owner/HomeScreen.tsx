@@ -13,23 +13,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
-import { leasesApi, maintenanceApi, ownerApi, ownersApi, paymentsApi } from '@/services/api';
+import { ownerApi, ownersApi } from '@/services/api';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
-
-type IoniconName = keyof typeof Ionicons.glyphMap;
 
 const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿');
 const money = (v?: number, c?: string) =>
   `${cur(c)}${Number(v || 0).toLocaleString()}`;
-
-const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '-');
-
-const daysUntil = (dateStr?: string) => {
-  if (!dateStr) return Number.NaN;
-  const target = new Date(dateStr).getTime();
-  if (Number.isNaN(target)) return Number.NaN;
-  return Math.ceil((target - Date.now()) / 86400000);
-};
 
 interface AnnualMonthly {
   month?: string | number;
@@ -61,102 +50,18 @@ interface OwnerProperty {
   tenant_name?: string;
 }
 
-interface OwnerPayment {
-  id: string;
-  amount?: number;
-  currency?: string;
-  payment_type?: string;
-  status?: string;
-  due_date?: string;
-  paid_at?: string;
-  description?: string;
-  property?: string | null;
-  [key: string]: any;
-}
-
-interface OwnerLease {
-  id: string;
-  property_id?: string;
-  property_name?: string;
-  tenant_name?: string;
-  end_date?: string;
-  monthly_rent?: number;
-  currency?: string;
-  status?: string;
-}
-
-interface MaintenanceTicket {
-  id: string;
-  property_id?: string;
-  tenant_id?: string;
-  title?: string;
-  status?: string;
-  created_at?: string;
-  tenant_name?: string;
-  [key: string]: any;
-}
-
-// 快捷入口：4 列图标网格，配色对齐原型（收益 teal / 文档 info / 服务 success / 缴费 warning）
-const QUICK_ACTIONS: {
-  key: string;
-  label: string;
-  icon: IoniconName;
-  color: string;
-  bg: string;
-  route: string;
-}[] = [
-  {
-    key: 'income',
-    label: '收益报表',
-    icon: 'cash-outline',
-    color: colors.primary,
-    bg: colors.alpha(colors.primaryRgb, 0.1),
-    route: 'OwnerIncome',
-  },
-  {
-    key: 'documents',
-    label: '租房文档',
-    icon: 'document-text-outline',
-    color: colors.info,
-    bg: colors.alpha(colors.infoRgb, 0.1),
-    route: 'OwnerDocuments',
-  },
-  {
-    key: 'services',
-    label: '物业服务',
-    icon: 'compass-outline',
-    color: colors.success,
-    bg: colors.alpha(colors.successRgb, 0.1),
-    route: 'OwnerServices',
-  },
-  {
-    key: 'payments',
-    label: '账单缴费',
-    icon: 'card-outline',
-    color: colors.warning,
-    bg: colors.alpha(colors.warningRgb, 0.1),
-    route: 'OwnerPayments',
-  },
-];
-
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [properties, setProperties] = useState<OwnerProperty[]>([]);
-  const [payments, setPayments] = useState<OwnerPayment[]>([]);
-  const [leases, setLeases] = useState<OwnerLease[]>([]);
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
   const [annual, setAnnual] = useState<AnnualSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     const year = new Date().getFullYear();
-    const [propRes, sumRes, payRes, leaseRes, ticketRes] = await Promise.allSettled([
+    const [propRes, sumRes] = await Promise.allSettled([
       ownerApi.properties(),
       ownersApi.annualSummary(year),
-      paymentsApi.mine(),
-      leasesApi.list({ page: 1, limit: 100 }),
-      maintenanceApi.list({ page: 1, limit: 100 }),
     ]);
 
     const pick = <T,>(res: PromiseSettledResult<any>): T[] => {
@@ -167,9 +72,6 @@ export default function HomeScreen() {
     };
 
     setProperties(pick<OwnerProperty>(propRes));
-    setPayments(pick<OwnerPayment>(payRes));
-    setLeases(pick<OwnerLease>(leaseRes));
-    setTickets(pick<MaintenanceTicket>(ticketRes));
     if (sumRes.status === 'fulfilled') {
       setAnnual((sumRes.value?.data as AnnualSummary) ?? null);
     }
@@ -186,7 +88,7 @@ export default function HomeScreen() {
     load();
   }, [load]);
 
-  const currency = properties[0]?.currency || payments[0]?.currency || 'THB';
+  const currency = properties[0]?.currency || 'THB';
 
   const go = (target: string) => navigation.navigate(target as any);
 
@@ -206,24 +108,6 @@ export default function HomeScreen() {
     };
   }, [annual]);
 
-  /* ===== 待处理：待确认租金 ===== */
-  const pendingPayments = useMemo(
-    () =>
-      payments.filter((p) =>
-        ['pending', 'overdue', 'processing'].includes(String(p.status || '').toLowerCase()),
-      ),
-    [payments],
-  );
-
-  /* ===== 最近入账：已到账记录 ===== */
-  const recentIncomes = useMemo(
-    () =>
-      payments
-        .filter((p) => ['succeeded', 'paid'].includes(String(p.status || '').toLowerCase()))
-        .slice(0, 4),
-    [payments],
-  );
-
   /* ===== 资产概览统计 ===== */
   const statusCount = useMemo(() => {
     const count = { vacant: 0, rented: 0, forSale: 0 };
@@ -236,34 +120,6 @@ export default function HomeScreen() {
     return count;
   }, [properties]);
 
-  const rentedProp = useMemo(
-    () =>
-      properties.find((p) =>
-        ['rented', 'active'].includes(String(p.status || '').toLowerCase()),
-      ),
-    [properties],
-  );
-  const saleProp = useMemo(
-    () =>
-      properties.find((p) =>
-        ['for_sale', 'on_sale', 'sale'].includes(String(p.status || '').toLowerCase()),
-      ),
-    [properties],
-  );
-
-  /* ===== 待处理：60 天内到期租约 ===== */
-  const expiringLeases = useMemo(
-    () =>
-      leases
-        .filter((l) => !!l.end_date)
-        .filter((l) => {
-          const d = daysUntil(l.end_date);
-          return !Number.isNaN(d) && d >= 0 && d <= 60;
-        })
-        .sort((a, b) => daysUntil(a.end_date) - daysUntil(b.end_date)),
-    [leases],
-  );
-
   const propTitle = (p: OwnerProperty) =>
     p.name ||
     (p.project_name ? `${p.project_name}·${p.room_number ?? ''}` : p.room_number || p.address || '房源');
@@ -271,34 +127,13 @@ export default function HomeScreen() {
   const propMeta = (p: OwnerProperty) =>
     `${p.bedrooms ?? 0}室${p.bathrooms ?? 0}厅 ${p.size_sqm ?? 0}㎡`;
 
-  /* ===== 待处理：名下房源的报修待审批工单 =====
-     后端 /maintenance-tickets 未按业主归属过滤，故在前端按自己房源 property_id + open 状态筛出 */
-  const pendingRepairs = useMemo(() => {
-    const myIds = properties.map((p) => String(p.id));
-    return tickets.filter(
-      (t) =>
-        String(t.status || '').toLowerCase() === 'open' &&
-        myIds.includes(String(t.property_id || '')),
-    );
-  }, [tickets, properties]);
-
-  const propTitleById = useCallback(
-    (propertyId?: string) => {
-      const p = properties.find((x) => String(x.id) === String(propertyId));
-      return p ? propTitle(p) : '房源';
-    },
-    // propTitle 为纯函数，依赖仅 properties
-    [properties],
-  );
-
-  const expiring = expiringLeases[0];
-  const saleTodoDesc = saleProp
-    ? `${propTitle(saleProp)} 预估价 ${money(Number(saleProp.sale_price || 0) * 0.97, currency)} - ${money(
-        Number(saleProp.sale_price || 0) * 1.03,
-        currency,
-      )}`
-    : null;
-  const todoCount = (saleTodoDesc ? 1 : 0) + (expiring ? 1 : 0) + pendingRepairs.length;
+  const propStatusText = (p: OwnerProperty) => {
+    const s = String(p.status || '').toLowerCase();
+    if (s === 'vacant' || s === 'available') return { text: '空置', color: colors.ink3 };
+    if (s === 'for_sale' || s === 'on_sale' || s === 'sale')
+      return { text: '在售', color: colors.warning };
+    return { text: '在租', color: colors.success };
+  };
 
   if (loading) {
     return (
@@ -321,83 +156,23 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* ===== 双业务入口：委托出租 / 委托出售 ===== */}
-        <View style={styles.dualRow}>
-          <TouchableOpacity
-            style={[styles.dualEntry, styles.dualEntryRent]}
-            activeOpacity={0.8}
-            onPress={() => go('OwnerMarketing')}
-          >
-            <View style={[styles.dualIcon, { backgroundColor: `rgba(${colors.primaryRgb}, 0.12)` }]}>
-              <Ionicons name="home-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.dualBody}>
-              <Text style={styles.dualTitle}>委托出租</Text>
-              <Text style={styles.dualSub}>托管出租 · 省心收租</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.dualEntry, styles.dualEntrySale]}
-            activeOpacity={0.8}
-            onPress={() => go('OwnerMarketing')}
-          >
-            <View style={[styles.dualIcon, { backgroundColor: `rgba(${colors.warningRgb}, 0.12)` }]}>
-              <Ionicons name="pricetag-outline" size={20} color={colors.warning} />
-            </View>
-            <View style={styles.dualBody}>
-              <Text style={styles.dualTitle}>委托出售</Text>
-              <Text style={styles.dualSub}>在线估价 · 挂牌成交</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
-          </TouchableOpacity>
-        </View>
-
-        {/* ===== 预警卡：待确认租金（有数据才渲染）===== */}
-        {pendingPayments.length > 0 && (
-          <View style={styles.warnCard}>
-            <View style={styles.warnTop}>
-              <View style={styles.warnIcon}>
-                <Ionicons name="notifications-outline" size={22} color={colors.warning} />
-              </View>
-              <View style={styles.warnBody}>
-                <Text style={styles.warnTitle}>{pendingPayments.length} 笔租金待确认</Text>
-                <Text style={styles.warnDesc} numberOfLines={2}>
-                  {pendingPayments
-                    .slice(0, 3)
-                    .map((p) => `${p.property || p.description || '租金'} ${money(Number(p.amount || 0), p.currency || currency)}`)
-                    .join(' · ')}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.warnBtn}
-              activeOpacity={0.85}
-              onPress={() => go('OwnerIncome')}
-            >
-              <Text style={styles.warnBtnText}>去确认</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ===== 收益总览 ===== */}
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>收益总览</Text>
-          <Text style={styles.sectionHint}>租金 + 售房款</Text>
-        </View>
-        <View style={styles.card}>
+        {/* ===== 收益总览（点击进入收益中心查看详情）===== */}
+        <TouchableOpacity
+          style={styles.card}
+          activeOpacity={0.85}
+          onPress={() => go('OwnerIncome')}
+        >
           {income.hasData ? (
             <>
               <View style={styles.incomeHead}>
-                <Text style={styles.mutedSm}>本月应收</Text>
-                <Text style={styles.incomeDue}>{money(income.due, currency)}</Text>
+                <Text style={styles.mutedSm}>本月实收</Text>
+                <Text style={styles.incomeDue}>{money(income.received, currency)}</Text>
               </View>
               <View style={styles.incomeCols}>
                 <View style={styles.incomeCol}>
-                  <Text style={styles.mutedSm}>已收</Text>
-                  <Text style={[styles.incomeColVal, { color: colors.success }]}>
-                    {money(income.received, currency)}
+                  <Text style={styles.mutedSm}>本月应收</Text>
+                  <Text style={[styles.incomeColVal, { color: colors.ink }]}>
+                    {money(income.due, currency)}
                   </Text>
                 </View>
                 <View style={[styles.incomeCol, styles.incomeColWarn]}>
@@ -412,7 +187,7 @@ export default function HomeScreen() {
               </View>
               <View style={styles.incomeFoot}>
                 <Text style={styles.mutedSm}>本月收款进度</Text>
-                <Text style={styles.incomeRate}>已收 {income.rate}%</Text>
+                <Text style={styles.incomeRate}>已收 {income.rate}% · 查看明细 ›</Text>
               </View>
             </>
           ) : (
@@ -420,100 +195,18 @@ export default function HomeScreen() {
               icon="stats-chart-outline"
               title="暂无收益数据"
               sub="名下房源产生租金或售房款后，这里会按本月口径汇总"
+              actionLabel="查看收益中心"
+              onAction={() => go('OwnerIncome')}
             />
           )}
-        </View>
+        </TouchableOpacity>
 
-        {/* ===== 待处理事项 ===== */}
+        {/* ===== 房源管理 ===== */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>待处理事项</Text>
-          <Text style={styles.sectionHint}>{todoCount} 项</Text>
-        </View>
-        <View style={styles.card}>
-          {!expiring && !saleTodoDesc ? (
-            <EmptyState icon="checkmark-circle-outline" title="暂无待处理事项" sub="租约与委托都正常" />
-          ) : (
-            <>
-              {expiring && (
-                <View style={styles.todoRow}>
-                  <Ionicons name="time-outline" size={20} color={colors.warning} />
-                  <View style={styles.todoBody}>
-                    <Text style={styles.todoTitle} numberOfLines={1}>
-                      {expiring.property_name || expiring.property_id || '房源'} 租约 {daysUntil(expiring.end_date)} 天后到期
-                    </Text>
-                    <Text style={styles.todoSub}>
-                      租客：{expiring.tenant_name || '-'} · 到期 {formatDate(expiring.end_date)}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {saleTodoDesc && (
-                <View style={[styles.todoRow, styles.todoRowSale]}>
-                  <View style={styles.todoSaleIcon}>
-                    <Ionicons name="pricetag-outline" size={18} color={colors.warning} />
-                  </View>
-                  <View style={styles.todoBody}>
-                    <Text style={styles.todoTitle} numberOfLines={1}>卖房委托 · 估价待确认</Text>
-                    <Text style={styles.todoSub} numberOfLines={2}>{saleTodoDesc}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.primaryBtn}
-                    activeOpacity={0.85}
-                    onPress={() => go('OwnerMarketing')}
-                  >
-                    <Text style={styles.primaryBtnText}>去确认</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </>
-          )}
-        </View>
-
-        {/* ===== 租客报修待审批（无待审批工单时不渲染，避免空卡）===== */}
-        {pendingRepairs.length > 0 && (
-          <View style={[styles.card, styles.repairCard]}>
-            <View style={styles.repairHead}>
-              <Text style={styles.repairTitle}>租客报修待审批</Text>
-              <View style={[styles.miniBadge, { backgroundColor: colors.alpha(colors.warningRgb, 0.12) }]}>
-                <Text style={[styles.miniBadgeText, { color: colors.warning }]}>
-                  {pendingRepairs.length} 条
-                </Text>
-              </View>
-            </View>
-            {pendingRepairs.map((t, idx) => (
-              <View
-                key={t.id || String(idx)}
-                style={[styles.repairRow, idx === pendingRepairs.length - 1 && styles.repairRowLast]}
-              >
-                <View style={styles.repairIcon}>
-                  <Ionicons name="construct-outline" size={18} color={colors.warning} />
-                </View>
-                <View style={styles.todoBody}>
-                  <Text style={styles.repairRowTitle} numberOfLines={1}>
-                    {propTitleById(t.property_id)} · {t.title || '报修工单'}
-                  </Text>
-                  <Text style={styles.repairRowSub} numberOfLines={1}>
-                    {t.tenant_name || '租客'} · {formatDate(t.created_at)} 提交
-                  </Text>
-                </View>
-                {/* 业主侧暂无审批接口（后端 PATCH 仅 agent+ 可用），跳转「服务」跟进工单 */}
-                <TouchableOpacity
-                  style={styles.primaryBtn}
-                  activeOpacity={0.85}
-                  onPress={() => go('OwnerServices')}
-                >
-                  <Text style={styles.primaryBtnText}>审批</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* ===== 资产概览 ===== */}
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>资产概览</Text>
-          <Text style={styles.sectionHint}>共 {properties.length} 套</Text>
+          <Text style={styles.sectionTitle}>房源管理</Text>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => go('OwnerProperties')}>
+            <Text style={styles.moreLink}>全部 {properties.length} 套 ›</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.card}>
           <View style={styles.statGrid}>
@@ -523,126 +216,63 @@ export default function HomeScreen() {
             </View>
             <View style={styles.statCell}>
               <Text style={[styles.statVal, { color: colors.success }]}>{statusCount.rented}</Text>
-              <Text style={styles.statLabel}>在租房源</Text>
+              <Text style={styles.statLabel}>在租</Text>
             </View>
             <View style={styles.statCell}>
               <Text style={[styles.statVal, { color: colors.ink3 }]}>{statusCount.vacant}</Text>
-              <Text style={styles.statLabel}>空置房源</Text>
+              <Text style={styles.statLabel}>空置</Text>
             </View>
           </View>
 
-          {(rentedProp || saleProp) && (
-            <View style={styles.propRow}>
-              {rentedProp && (
-                <TouchableOpacity
-                  style={[styles.propCard, styles.propCardRent]}
-                  activeOpacity={0.8}
-                  onPress={() => navigation.navigate('OwnerPropertyDetail' as any, { id: rentedProp.id } as any)}
-                >
-                  <View style={[styles.propThumb, { backgroundColor: `rgba(${colors.primaryRgb}, 0.1)` }]}>
-                    <Ionicons name="home-outline" size={26} color={colors.primary} />
-                  </View>
-                  <View style={styles.propHead}>
-                    <Text style={styles.propName} numberOfLines={1}>{propTitle(rentedProp)}</Text>
-                    <View style={[styles.miniBadge, { backgroundColor: colors.alpha(colors.successRgb, 0.12) }]}>
-                      <Text style={[styles.miniBadgeText, { color: colors.success }]}>在租</Text>
+          {properties.length > 0 && (
+            <View style={styles.propList}>
+              {properties.slice(0, 3).map((p, idx) => {
+                const st = propStatusText(p);
+                const last = idx === Math.min(properties.length, 3) - 1;
+                return (
+                  <TouchableOpacity
+                    key={p.id || String(idx)}
+                    style={[styles.propListItem, last && styles.propListLast]}
+                    activeOpacity={0.7}
+                    onPress={() => navigation.navigate('OwnerPropertyDetail', { id: p.id })}
+                  >
+                    <View style={[styles.propListIcon, { backgroundColor: `${st.color}14` }]}>
+                      <Ionicons name="home-outline" size={18} color={st.color} />
                     </View>
-                  </View>
-                  <Text style={styles.propMeta} numberOfLines={1}>{propMeta(rentedProp)}</Text>
-                  <Text style={styles.propPrice}>
-                    {money(Number(rentedProp.monthly_rent || 0), rentedProp.currency || currency)}
-                    <Text style={styles.propPriceUnit}>/月</Text>
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {saleProp && (
-                <TouchableOpacity
-                  style={[styles.propCard, styles.propCardSale]}
-                  activeOpacity={0.8}
-                  onPress={() => go('OwnerMarketing')}
-                >
-                  <View style={[styles.propThumb, { backgroundColor: `rgba(${colors.warningRgb}, 0.1)` }]}>
-                    <Ionicons name="pricetag-outline" size={26} color={colors.warning} />
-                  </View>
-                  <View style={styles.propHead}>
-                    <Text style={styles.propName} numberOfLines={1}>{propTitle(saleProp)}</Text>
-                    <View style={[styles.miniBadge, { backgroundColor: colors.alpha(colors.warningRgb, 0.12) }]}>
-                      <Text style={[styles.miniBadgeText, { color: colors.warning }]}>在售</Text>
+                    <View style={styles.todoBody}>
+                      <View style={styles.propListTop}>
+                        <Text style={styles.propListName} numberOfLines={1}>{propTitle(p)}</Text>
+                        <View style={[styles.miniBadge, { backgroundColor: `${st.color}1F` }]}>
+                          <Text style={[styles.miniBadgeText, { color: st.color }]}>{st.text}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.propListMeta} numberOfLines={1}>
+                        {propMeta(p)}
+                        {p.tenant_name ? ` · 租客 ${p.tenant_name}` : ''}
+                      </Text>
+                      <Text style={styles.propListPrice}>
+                        {p.monthly_rent
+                          ? `${money(Number(p.monthly_rent), p.currency || currency)}/月`
+                          : p.sale_price
+                            ? money(Number(p.sale_price), p.currency || currency)
+                            : '暂无挂牌价'}
+                      </Text>
                     </View>
-                  </View>
-                  <Text style={styles.propMeta} numberOfLines={1}>{propMeta(saleProp)}</Text>
-                  <Text style={styles.propPrice}>
-                    {money(Number(saleProp.sale_price || 0), saleProp.currency || currency)}
-                  </Text>
-                </TouchableOpacity>
-              )}
+                    <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
 
-          {!rentedProp && !saleProp && (
+          {properties.length === 0 && (
             <EmptyState
               icon="key-outline"
-              title="暂无房源数据"
-              sub="去委托挂牌，让平台帮你出租或出售"
-              actionLabel="去委托挂牌"
-              onAction={() => go('OwnerMarketing')}
+              title="暂无房源"
+              sub="在房源管理页发布委托挂牌，让平台帮你出租或出售"
+              actionLabel="去房源管理"
+              onAction={() => go('OwnerProperties')}
             />
-          )}
-        </View>
-
-        {/* ===== 快捷入口 4 列 ===== */}
-        <View style={styles.quickGrid}>
-          {QUICK_ACTIONS.map((item) => (
-            <TouchableOpacity
-              key={item.key}
-              style={styles.quickCell}
-              activeOpacity={0.7}
-              onPress={() => go(item.route)}
-            >
-              <View style={[styles.quickIcon, { backgroundColor: item.bg }]}>
-                <Ionicons name={item.icon} size={20} color={item.color} />
-              </View>
-              <Text style={styles.quickLabel}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ===== 最近入账 ===== */}
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>最近入账</Text>
-          <Text style={styles.sectionHint}>{recentIncomes.length} 笔</Text>
-        </View>
-        <View style={styles.card}>
-          {recentIncomes.length === 0 ? (
-            <EmptyState icon="wallet-outline" title="暂无入账记录" sub="租金到账后会在这里按时间列出" />
-          ) : (
-            recentIncomes.map((p, idx) => (
-              <View
-                key={p.id || String(idx)}
-                style={[styles.incomeRow, idx === recentIncomes.length - 1 && styles.incomeRowLast]}
-              >
-                <View style={styles.incomeRowIcon}>
-                  <Ionicons name="cash-outline" size={18} color={colors.success} />
-                </View>
-                <View style={styles.incomeRowBody}>
-                  <Text style={styles.incomeRowTitle} numberOfLines={1}>
-                    {p.property || p.description || '租金入账'}
-                  </Text>
-                  <Text style={styles.incomeRowSub} numberOfLines={1}>
-                    {formatDate(p.paid_at || p.due_date)}
-                  </Text>
-                </View>
-                <View style={styles.incomeRowRight}>
-                  <Text style={styles.incomeRowAmount}>
-                    +{money(Number(p.amount || 0), p.currency || currency)}
-                  </Text>
-                  <View style={[styles.miniBadge, { backgroundColor: colors.alpha(colors.successRgb, 0.12) }]}>
-                    <Text style={[styles.miniBadgeText, { color: colors.success }]}>已到账</Text>
-                  </View>
-                </View>
-              </View>
-            ))
           )}
         </View>
       </ScrollView>
@@ -830,7 +460,8 @@ const styles = StyleSheet.create({
   repairRowTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
   repairRowSub: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
 
-  /* ===== 资产概览 ===== */
+  /* ===== 房源管理 ===== */
+  moreLink: { fontSize: colors.fontSize.sm, color: colors.primary, fontWeight: '600' },
   statGrid: { flexDirection: 'row', gap: 10 },
   statCell: {
     flex: 1,
@@ -847,6 +478,33 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   statLabel: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
+  propList: { marginTop: colors.spacing.md },
+  propListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
+  propListLast: { borderBottomWidth: 0, paddingBottom: 0 },
+  propListIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: colors.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  propListTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  propListName: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.ink },
+  propListMeta: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
+  propListPrice: {
+    fontSize: colors.fontSize.base,
+    fontWeight: '700',
+    color: colors.primary,
+    marginTop: 4,
+    fontVariant: ['tabular-nums'],
+  },
   propRow: { flexDirection: 'row', gap: 10, marginTop: colors.spacing.md },
   propCard: {
     flex: 1,
@@ -878,23 +536,6 @@ const styles = StyleSheet.create({
   propPriceUnit: { fontSize: colors.fontSize.xs, fontWeight: '400', color: colors.ink3 },
   miniBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: colors.radius.full },
   miniBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
-
-  /* ===== 快捷入口 ===== */
-  quickGrid: {
-    flexDirection: 'row',
-    marginHorizontal: colors.spacing.md,
-    marginBottom: colors.spacing.lg,
-  },
-  quickCell: { width: '25%', alignItems: 'center', paddingVertical: 10, gap: 6 },
-  quickIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: `rgba(${colors.primaryRgb}, 0.1)`,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickLabel: { fontSize: colors.fontSize.sm, color: colors.ink2, fontWeight: '600' },
 
   /* ===== 最近入账 ===== */
   incomeRow: {

@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
-import { request } from '@/lib/api'
-import { leasesApi, paymentsApi } from '@/services/api'
+import { request, currentToken, documentFileUrl } from '@/lib/api'
+import { leasesApi, paymentsApi, documentsApi } from '@/services/api'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
@@ -48,6 +48,17 @@ interface OwnerPayment {
   paid_at?: string
   created_at?: string
   description?: string
+  property_id?: string
+}
+
+interface OwnerDocument {
+  id: string
+  type?: string
+  title?: string
+  file_url?: string
+  file_size?: number
+  mime_type?: string
+  created_at?: string
   property_id?: string
 }
 
@@ -140,6 +151,34 @@ const paymentStatusOf = (p: OwnerPayment): { text: string; cls: string; icon: Ic
   return { text: '已关闭', cls: 'neutral', icon: 'close' }
 }
 
+// 文档类型（对齐后端 DocumentType 枚举）
+const DOC_TYPE_META: Record<string, { label: string; cls: string; icon: IconKey }> = {
+  contract: { label: '合同', cls: 'primary', icon: 'doc' },
+  receipt: { label: '收据', cls: 'success', icon: 'clipboard' },
+  tax_invoice: { label: '发票', cls: 'warning', icon: 'doc' },
+  wht_certificate: { label: '扣税凭证', cls: 'info', icon: 'clipboard' },
+  inspection_photo: { label: '证件', cls: 'info', icon: 'card' },
+  other: { label: '报表', cls: 'neutral', icon: 'chart' }
+}
+
+const docMetaOf = (t?: string) =>
+  DOC_TYPE_META[t || ''] || { label: '其他', cls: 'neutral', icon: 'doc' as IconKey }
+
+// openDocument 无法从「无扩展名的临时路径」推断格式，需显式给出 fileType
+type OpenableFileType = 'doc' | 'docx' | 'xls' | 'xlsx' | 'ppt' | 'pptx' | 'pdf'
+
+const OPENABLE_TYPES: readonly string[] = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'pdf']
+
+const fileTypeOf = (doc: OwnerDocument): OpenableFileType | undefined => {
+  const ext = String(doc.title || '').split('.').pop()?.toLowerCase() || ''
+  if (OPENABLE_TYPES.includes(ext)) return ext as OpenableFileType
+  const mime = String(doc.mime_type || '')
+  if (mime === 'application/pdf') return 'pdf'
+  if (mime.includes('word')) return 'docx'
+  if (mime.includes('excel') || mime.includes('spreadsheet')) return 'xlsx'
+  return undefined
+}
+
 export default function OwnerPropertyDetailPage() {
   const router = useRouter()
   const propertyId = router.params?.id || ''
@@ -148,6 +187,7 @@ export default function OwnerPropertyDetailPage() {
   const [property, setProperty] = useState<OwnerProperty | null>(null)
   const [leases, setLeases] = useState<OwnerLease[]>([])
   const [payments, setPayments] = useState<OwnerPayment[]>([])
+  const [documents, setDocuments] = useState<OwnerDocument[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
 
@@ -159,14 +199,16 @@ export default function OwnerPropertyDetailPage() {
     setLoading(true)
     setError(false)
     try {
-      const [propRes, leaseRes, payRes] = await Promise.all([
+      const [propRes, leaseRes, payRes, docRes] = await Promise.all([
         request<any>({ url: `/properties/${propertyId}`, method: 'GET' }),
         leasesApi.list({ property_id: propertyId }).catch(() => null),
-        paymentsApi.mine().catch(() => null)
+        paymentsApi.mine().catch(() => null),
+        documentsApi.list({ property_id: propertyId }).catch(() => null)
       ])
       setProperty(toBody(propRes) as OwnerProperty)
       setLeases(pickList(leaseRes) as OwnerLease[])
       setPayments(pickList(payRes) as OwnerPayment[])
+      setDocuments(pickList(docRes) as OwnerDocument[])
     } catch (e) {
       console.error('[OwnerPropertyDetail] 加载失败', e)
       setError(true)
@@ -223,6 +265,58 @@ export default function OwnerPropertyDetailPage() {
   const currency = property?.currency || activeLease?.currency || 'THB'
   const pStatus = String(property?.status || 'vacant')
   const historyPayments = propertyPayments.slice(0, 8)
+
+  // 本房源相关文档（按创建时间倒序）
+  const propertyDocs = documents
+    .filter((d) => String(d.property_id || '') === String(propertyId))
+    .sort((a, b) => toTime(b.created_at) - toTime(a.created_at))
+
+  /**
+   * 取件并打开文档：uploads/documents 已不对静态服务开放，先 downloadFile
+   * （可带 Authorization 头）落到本地临时文件，再交给 previewImage / openDocument。
+   * showMenu 开启时系统菜单提供保存/转发入口，即小程序侧的「下载」。
+   */
+  const openDoc = async (doc: OwnerDocument) => {
+    if (!doc.id) {
+      Taro.showToast({ title: '暂无文件', icon: 'none' })
+      return
+    }
+    Taro.showLoading({ title: '加载中', mask: true })
+    let localPath = ''
+    try {
+      const token = currentToken()
+      const res = await Taro.downloadFile({
+        url: documentFileUrl(doc.id, 'download'),
+        header: token ? { Authorization: `Bearer ${token}` } : {}
+      })
+      if (res.statusCode !== 200 || !res.tempFilePath) {
+        throw new Error(`HTTP ${res.statusCode}`)
+      }
+      localPath = res.tempFilePath
+    } catch (e) {
+      console.error('[OwnerPropertyDetail] 取件失败', e)
+      Taro.hideLoading()
+      Taro.showToast({ title: '文件加载失败', icon: 'none' })
+      return
+    }
+    Taro.hideLoading()
+
+    if (String(doc.mime_type || '').startsWith('image/')) {
+      Taro.previewImage({ urls: [localPath] })
+      return
+    }
+    const fileType = fileTypeOf(doc)
+    if (!fileType) {
+      Taro.showToast({ title: '该类型暂不支持在小程序内打开', icon: 'none' })
+      return
+    }
+    try {
+      await Taro.openDocument({ filePath: localPath, fileType, showMenu: true })
+    } catch (e) {
+      console.error('[OwnerPropertyDetail] 打开失败', e)
+      Taro.showToast({ title: '文件打开失败', icon: 'none' })
+    }
+  }
 
   return (
     <View className='owner-property-detail-page'>
@@ -377,6 +471,43 @@ export default function OwnerPropertyDetailPage() {
               )}
             </View>
 
+            {/* 相关文档 */}
+            <View className='section-title'>
+              <Text>相关文档</Text>
+              <Text className='section-hint'>{propertyDocs.length} 份</Text>
+            </View>
+            <View className='card card--list'>
+              {propertyDocs.length === 0 ? (
+                <View className='empty-state'>
+                  <Text>暂无相关文档</Text>
+                </View>
+              ) : (
+                propertyDocs.map((doc) => {
+                  const meta = docMetaOf(doc.type)
+                  return (
+                    <View
+                      key={doc.id}
+                      className='doc-row'
+                      hoverClass='doc-row--hover'
+                      onClick={() => openDoc(doc)}
+                    >
+                      <View className={`doc-row__badge doc-row__badge--${meta.cls}`}>
+                        <View className='icon-svg' style={iconStyle(meta.icon, 36)} />
+                      </View>
+                      <View className='doc-row__body'>
+                        <Text className='doc-row__title'>{doc.title || '未命名文档'}</Text>
+                        <View className='doc-row__meta'>
+                          <Text className={`doc-row__tag doc-row__tag--${meta.cls}`}>{meta.label}</Text>
+                          <Text>{fmtDate(doc.created_at)}</Text>
+                        </View>
+                      </View>
+                      <Text className='doc-row__arrow'>›</Text>
+                    </View>
+                  )
+                })
+              )}
+            </View>
+
             {/* 快捷操作 */}
             <View className='section-title'>
               <Text>快捷操作</Text>
@@ -397,14 +528,6 @@ export default function OwnerPropertyDetailPage() {
               >
                 <View className='action-row__icon icon-svg' style={iconStyle('card', 40)} />
                 <Text className='action-row__label'>发起收款</Text>
-              </View>
-              <View
-                className='action-row__item'
-                hoverClass='action-row__item--hover'
-                onClick={() => Taro.navigateTo({ url: '/pages/owner/services/index' })}
-              >
-                <View className='action-row__icon icon-svg' style={iconStyle('gear', 40)} />
-                <Text className='action-row__label'>预约服务</Text>
               </View>
             </View>
           </View>

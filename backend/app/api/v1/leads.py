@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, require_agent
+from app.core.auth import get_current_user, require_agent, require_employee
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import Lead, LeadStage, User
@@ -110,7 +110,7 @@ def update_lead(
     lead_id: uuid.UUID,
     req: LeadUpdate,
     session: Session = Depends(get_session),
-    user: User = Depends(require_agent),
+    user: User = Depends(require_employee),
 ):
     """更新线索（含阶段变更），如果 stage 变了发布 lead.stage_changed 事件。"""
     lead = session.get(Lead, lead_id)

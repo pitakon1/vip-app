@@ -26,6 +26,7 @@ import PropertyEditScreen from '../screens/admin/PropertyEditScreen';
 import AdminLeasesScreen from '../screens/admin/LeasesScreen';
 import EmployeePropertyBrowseScreen from '../screens/employee/PropertyBrowseScreen';
 import OwnerPropertyDetailScreen from '../screens/owner/PropertyDetailScreen';
+import OwnerPropertiesScreen from '../screens/owner/PropertiesScreen';
 import OwnerDocumentsScreen from '../screens/owner/DocumentsScreen';
 import ContactScreen from '../screens/employee/ContactScreen';
 import OwnerPaymentsScreen from '../screens/owner/PaymentsScreen';
@@ -59,6 +60,7 @@ export type RootStackParamList = {
   AdminLeases: undefined;
   EmployeePropertyBrowse: undefined;
   OwnerPropertyDetail: { id: string };
+  OwnerProperties: undefined;
   OwnerDocuments: undefined;
 };
 
@@ -102,6 +104,7 @@ export function RootNavigator() {
           <Stack.Screen name="OwnerPayments" component={OwnerPaymentsScreen} options={{ headerShown: true, title: '我的付款' }} />
           <Stack.Screen name="OwnerMarketing" component={OwnerMarketingScreen} options={{ headerShown: true, title: '委托挂牌与营销' }} />
           <Stack.Screen name="OwnerDocuments" component={OwnerDocumentsScreen} options={{ headerShown: true, title: '租房文档' }} />
+          <Stack.Screen name="OwnerProperties" component={OwnerPropertiesScreen} options={{ headerShown: true, title: '房源管理' }} />
           <Stack.Screen name="OwnerPropertyDetail" component={OwnerPropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />
           <Stack.Screen name="EmployeePropertyBrowse" component={EmployeePropertyBrowseScreen} options={{ headerShown: true, title: '房源浏览' }} />
           <Stack.Screen name="AdminPropertyDetail" component={AdminPropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />

@@ -3,7 +3,6 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { employeesApi, performanceApi, commissionsApi, leasesApi, propertiesApi, viewingsApi } from '@/services/api'
-import BottomNav from '@/components/BottomNav'
 import './index.scss'
 
 interface RankItem {
@@ -338,8 +337,6 @@ export default function EmployeePerformancePage() {
           )}
         </View>
       </View>
-
-      <BottomNav role='employee' active='performance' />
     </View>
   )
 }

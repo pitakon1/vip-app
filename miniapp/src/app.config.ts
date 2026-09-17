@@ -3,6 +3,7 @@ export default {
     'pages/index/index',
     'pages/login/index',
     'pages/owner/home/index',
+    'pages/owner/properties/index',
     'pages/owner/documents/index',
     'pages/owner/services/index',
     'pages/owner/income/index',

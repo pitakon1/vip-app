@@ -13,6 +13,8 @@ from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate, paginate_query
 from app.models import (
     MaintenanceTicket,
+    Owner,
+    Property,
     Tenant,
     TicketPriority,
     TicketStatus,
@@ -30,7 +32,9 @@ class MaintenanceTicketRate(BaseModel):
 
 class MaintenanceTicketCreate(BaseModel):
     property_id: uuid.UUID
-    tenant_id: uuid.UUID
+    # 提交方二选一：租客或业主（都不传时按房源归属自动补业主）
+    tenant_id: Optional[uuid.UUID] = None
+    owner_id: Optional[uuid.UUID] = None
     lease_id: Optional[uuid.UUID] = None
     title: str
     description: str
@@ -60,7 +64,7 @@ def list_maintenance_tickets(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """报修工单列表。租客角色仅返回自己名下的工单。"""
+    """报修工单列表。租客仅见自己的工单；业主仅见自己房源的工单。"""
     conditions = [MaintenanceTicket.deleted_at.is_(None)]
     if user.role == UserRole.tenant:
         tenant = session.exec(
@@ -72,6 +76,16 @@ def list_maintenance_tickets(
         if not tenant:
             return paginate([], 0, pagination)
         conditions.append(MaintenanceTicket.tenant_id == tenant.id)
+    elif user.role == UserRole.owner:
+        owner = session.exec(
+            select(Owner).where(
+                Owner.user_id == user.id,
+                Owner.deleted_at.is_(None),
+            )
+        ).first()
+        if not owner:
+            return paginate([], 0, pagination)
+        conditions.append(MaintenanceTicket.owner_id == owner.id)
     if status:
         conditions.append(MaintenanceTicket.status == status)
     if priority:
@@ -91,8 +105,22 @@ def create_maintenance_ticket(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """创建报修工单，发布 maintenance_ticket.created 事件。"""
-    ticket = MaintenanceTicket(**req.model_dump())
+    """创建报修工单，发布 maintenance_ticket.created 事件。
+
+    - 租客或业主均可提交：tenant_id / owner_id 至少提供其一；
+    - owner_id 缺省时按房源归属自动补充，业主端可见自己房源的工单。
+    """
+    data = req.model_dump(exclude_unset=True)
+    if not data.get("owner_id"):
+        prop = session.get(Property, req.property_id)
+        if prop and prop.owner_id:
+            data["owner_id"] = prop.owner_id
+    if not data.get("tenant_id") and not data.get("owner_id"):
+        raise HTTPException(
+            status_code=400,
+            detail="工单需指定提交方：租客或业主至少其一",
+        )
+    ticket = MaintenanceTicket(**data)
     session.add(ticket)
     publish_event(
         session,

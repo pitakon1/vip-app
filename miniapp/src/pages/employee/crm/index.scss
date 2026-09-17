@@ -202,6 +202,34 @@
     font-size: 22rpx;
     color: var(--ink-3);
   }
+
+  &__edit {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 6rpx 20rpx;
+    border-radius: var(--radius-full);
+    background: rgba(var(--primary-rgb), 0.1);
+
+    &:active {
+      opacity: 0.8;
+    }
+
+    &--ghost {
+      margin-left: 12rpx;
+      background: transparent;
+      border: 1px solid var(--primary);
+
+      .crm-card__edit-text {
+        color: var(--primary);
+      }
+    }
+  }
+
+  &__edit-text {
+    font-size: 22rpx;
+    font-weight: 600;
+    color: var(--primary);
+  }
 }
 
 /* 头像：按阶段着色 */
@@ -265,5 +293,114 @@
   &__desc {
     font-size: 24rpx;
     color: var(--ink-3);
+  }
+}
+
+/* ===== 编辑客户状态弹层（复用「我的」页弹层约定） ===== */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-sheet {
+  width: 100%;
+  padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+  background-color: var(--card);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+
+  &__title {
+    display: block;
+    font-size: 34rpx;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 8rpx;
+  }
+}
+
+.form-field {
+  margin-top: 20rpx;
+
+  &__label {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-2);
+    margin-bottom: 8rpx;
+  }
+
+  &__input {
+    height: 80rpx;
+    line-height: 80rpx;
+    padding: 0 24rpx;
+    font-size: 28rpx;
+    color: var(--ink);
+    background-color: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-sizing: border-box;
+  }
+
+  &__textarea {
+    height: 160rpx;
+    line-height: 1.5;
+    padding: 20rpx 24rpx;
+  }
+}
+
+/* 客户状态选项 chips */
+.crm-edit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.crm-edit-chip {
+  padding: 14rpx 28rpx;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+
+  &--active {
+    background: rgba(var(--primary-rgb), 0.1);
+    border-color: var(--primary);
+  }
+
+  &--active .crm-edit-chip__text {
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--ink-2);
+  }
+}
+
+.modal-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 40rpx;
+
+  .modal-btn {
+    flex: 1;
+    height: 80rpx;
+    line-height: 80rpx;
+    font-size: 30rpx;
+    border-radius: var(--radius-md);
+    border: none;
+
+    &--ghost {
+      background-color: var(--bg);
+      color: var(--ink-2);
+    }
+
+    &--primary {
+      background-color: var(--primary);
+      color: var(--on-primary, #fff);
+    }
   }
 }

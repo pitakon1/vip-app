@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { View, Text, Input, ScrollView } from '@tarojs/components'
+import { View, Text, Input, ScrollView, Button, Textarea } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { leadsApi } from '@/services/api'
+import { leadsApi, chatApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
@@ -13,6 +13,7 @@ interface LeadItem {
   email?: string
   stage?: string
   source?: string
+  notes?: string
   budget_min?: number
   budget_max?: number
   budget_currency?: string
@@ -101,6 +102,74 @@ export default function EmployeeCrmPage() {
   const callPhone = (phone?: string) => {
     if (!phone) return
     Taro.makePhoneCall({ phoneNumber: phone }).catch(() => {})
+  }
+
+  // 联系客户：App/小程序内发消息（按手机号解析客户账号并创建会话）
+  const chatCustomer = async (l: LeadItem) => {
+    const phone = (l.phone || '').trim()
+    if (!phone) {
+      Taro.showToast({ title: '客户未留电话，无法发消息', icon: 'none' })
+      return
+    }
+    try {
+      const res: any = await chatApi.createConversation({
+        title: (l.name || '客户咨询').trim(),
+        participant_phones: [phone]
+      })
+      const conv = res?.data?.data ?? res?.data
+      if (!conv?.id) throw new Error('会话创建失败')
+      Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
+    } catch (error: any) {
+      Taro.showToast({
+        title: error?.message || '客户未注册账号，请先通过电话联系',
+        icon: 'none'
+      })
+    }
+  }
+
+  // 编辑客户状态弹窗
+  const [editOpen, setEditOpen] = useState(false)
+  const [editingId, setEditingId] = useState('')
+  const [editName, setEditName] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editSource, setEditSource] = useState('')
+  const [editStage, setEditStage] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const openEdit = (l: LeadItem) => {
+    setEditingId(l.id)
+    setEditName(l.name || '')
+    setEditPhone(l.phone || '')
+    setEditSource(l.source || '')
+    setEditStage(l.stage || '')
+    setEditNotes(l.notes || '')
+    setEditOpen(true)
+  }
+
+  const submitEdit = async () => {
+    if (!editName.trim()) {
+      Taro.showToast({ title: '请填写客户姓名', icon: 'none' })
+      return
+    }
+    if (!editingId) return
+    setSaving(true)
+    try {
+      await leadsApi.update(editingId, {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        source: editSource.trim(),
+        stage: editStage,
+        notes: editNotes.trim()
+      })
+      Taro.showToast({ title: '已更新客户状态', icon: 'success' })
+      setEditOpen(false)
+      fetchLeads()
+    } catch (error: any) {
+      Taro.showToast({ title: error?.message || '更新失败', icon: 'none' })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -215,12 +284,85 @@ export default function EmployeeCrmPage() {
                   <Text className='crm-card__foot-text'>
                     跟进 {fmtDate(l.updated_at || l.created_at)}
                   </Text>
+                  <View className='crm-card__edit' onClick={() => openEdit(l)}>
+                    <Text className='crm-card__edit-text'>编辑状态</Text>
+                  </View>
+                  <View className='crm-card__edit crm-card__edit--ghost' onClick={() => chatCustomer(l)}>
+                    <Text className='crm-card__edit-text'>发消息</Text>
+                  </View>
                 </View>
               </View>
             </View>
           )
         })}
       </ScrollView>
+
+      {/* 编辑客户状态弹层 */}
+      {editOpen && (
+        <View className='modal-mask' onClick={() => setEditOpen(false)}>
+          <View className='modal-sheet' onClick={(e) => e.stopPropagation()}>
+            <Text className='modal-sheet__title'>编辑客户状态</Text>
+            <View className='form-field'>
+              <Text className='form-field__label'>姓名 *</Text>
+              <Input
+                className='form-field__input'
+                value={editName}
+                onInput={(e) => setEditName(e.detail.value)}
+                placeholder='请输入客户姓名'
+              />
+            </View>
+            <View className='form-field'>
+              <Text className='form-field__label'>电话</Text>
+              <Input
+                className='form-field__input'
+                value={editPhone}
+                onInput={(e) => setEditPhone(e.detail.value)}
+                placeholder='请输入联系电话'
+              />
+            </View>
+            <View className='form-field'>
+              <Text className='form-field__label'>来源</Text>
+              <Input
+                className='form-field__input'
+                value={editSource}
+                onInput={(e) => setEditSource(e.detail.value)}
+                placeholder='如 线上咨询 / 朋友介绍'
+              />
+            </View>
+            <View className='form-field'>
+              <Text className='form-field__label'>客户状态</Text>
+              <View className='crm-edit-chips'>
+                {FILTERS.filter((f) => f.key).map((f) => (
+                  <View
+                    key={f.key}
+                    className={`crm-edit-chip ${editStage === f.key ? 'crm-edit-chip--active' : ''}`}
+                    onClick={() => setEditStage(f.key)}
+                  >
+                    <Text className='crm-edit-chip__text'>{f.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <View className='form-field'>
+              <Text className='form-field__label'>备注</Text>
+              <Textarea
+                className='form-field__input form-field__textarea'
+                value={editNotes}
+                onInput={(e) => setEditNotes(e.detail.value)}
+                placeholder='需求备注（可选）'
+              />
+            </View>
+            <View className='modal-actions'>
+              <Button className='modal-btn modal-btn--ghost' onClick={() => setEditOpen(false)}>
+                取消
+              </Button>
+              <Button className='modal-btn modal-btn--primary' disabled={saving} onClick={submitEdit}>
+                {saving ? '保存中...' : '保存'}
+              </Button>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* 底部导航：客户 */}
       <BottomNav role='employee' active='crm' />

@@ -114,11 +114,27 @@ export const notificationsApi = {
 
 export const ownerApi = {
   properties: () => request({ url: '/owners/me/properties', method: 'GET' }),
+  // 业主自建房源：owner_id 由后端按当前用户自动绑定，客户端不传
+  create: (data: any) => request({ url: '/properties', method: 'POST', data }),
+  // 编辑名下房源（后端已放开 owner 对 PATCH /properties/{id} 的权限）
+  update: (id: string, data: any) =>
+    request({ url: `/properties/${id}`, method: 'PATCH', data }),
+  // 照片上传（multipart，后端先传后保存 url 列表到 photos）
+  uploadPhotos: (id: string, files: any[]) =>
+    Taro.uploadFile({
+      url: `/properties/${id}/photos`,
+      filePath: files[0].url,
+      name: 'files',
+      header: { Authorization: `Bearer ${Taro.getStorageSync('token')}` }
+    }),
+  deletePhoto: (id: string, url: string) =>
+    request({ url: `/properties/${id}/photos`, method: 'DELETE', data: { url } }),
   income: () => request({ url: '/owners/me/income', method: 'GET' }),
   marketing: () => request({ url: '/owners/me/marketing', method: 'GET' }),
   pricingSuggestion: () => request({ url: '/owners/me/pricing-suggestion', method: 'GET' }),
   annualFinancialSummary: (year?: number) =>
-    request({ url: '/owners/me/annual-financial-summary', method: 'GET', data: { year } })
+    request({ url: '/owners/me/annual-financial-summary', method: 'GET', data: { year } }),
+  remove: (id: string) => request({ url: `/properties/${id}`, method: 'DELETE' })
 }
 
 // 员工端：工作台（含租约临期 SLA 跟进）与同事通讯录

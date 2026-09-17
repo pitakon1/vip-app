@@ -3,7 +3,7 @@ import { View, Text, Button, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import BottomNav from '@/components/BottomNav'
 import useAuthStore from '@/stores/auth'
-import { authApi, companyApi, leasesApi, ownerApi, paymentsApi, propertyDealApi } from '@/services/api'
+import { authApi, companyApi, leasesApi, ownerApi, propertyDealApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
 import type { IconKey } from '@/utils/icons'
 import type { User } from '@/types'
@@ -214,12 +214,10 @@ export default function ProfilePage() {
   const [lease, setLease] = useState<any>(null)
   const [deals, setDeals] = useState<any[]>([])
   const [appVersion, setAppVersion] = useState('')
-  // 业主「我的」：指标条 / 待缴账单（真实接口，失败静默降级）
+  // 业主「我的」：指标条（真实接口，失败静默降级）
   const [ownerProps, setOwnerProps] = useState<any[]>([])
   const [ownerPropsOk, setOwnerPropsOk] = useState(false)
   const [ownerAnnual, setOwnerAnnual] = useState<any>(null)
-  const [ownerBills, setOwnerBills] = useState<any[]>([])
-  const [ownerBillsOk, setOwnerBillsOk] = useState(false)
 
   useDidShow(() => {
     loadFromStorage()
@@ -265,7 +263,7 @@ export default function ProfilePage() {
     }
   }
 
-  // 业主「我的」：名下房源 / 本月实收 / 待缴账单，各自独立容错，失败静默降级
+  // 业主「我的」：名下房源 / 本月实收，各自独立容错，失败静默降级
   const loadOwnerData = async () => {
     try {
       const propRes: any = await ownerApi.properties()
@@ -279,13 +277,6 @@ export default function ProfilePage() {
       setOwnerAnnual(annRes?.data ?? annRes ?? null)
     } catch (error) {
       console.warn('[Profile] 获取年度财务汇总失败', error)
-    }
-    try {
-      const billRes: any = await paymentsApi.mine()
-      setOwnerBills(pickList(billRes))
-      setOwnerBillsOk(true)
-    } catch (error) {
-      console.warn('[Profile] 获取待缴账单失败', error)
     }
   }
 
@@ -551,14 +542,6 @@ export default function ProfilePage() {
     return Number(bucket?.received ?? 0)
   })()
   const ownerCurrency = ownerAnnual?.currency || ownerProps[0]?.currency || 'THB'
-  const ownerBillsCurrency = ownerBills[0]?.currency || ownerCurrency
-  const ownerPendingBills = ownerBills.filter((p: any) =>
-    ['pending', 'processing', 'expired'].includes(String(p?.status || ''))
-  )
-  const ownerPendingTotal = ownerPendingBills.reduce(
-    (sum: number, p: any) => sum + Number(p?.amount || 0),
-    0
-  )
 
   /** 通用列表行（图标 + 文案 + 值/说明 + 箭头） */
   const renderRow = (entry: RowEntry) => (
@@ -855,28 +838,6 @@ export default function ProfilePage() {
             </View>
           </View>
 
-          {/* 账单缴费入口（账单接口取数失败时不渲染，避免编造金额） */}
-          {ownerBillsOk && (
-            <View
-              className='bill-entry'
-              onClick={() => handleNavigate('/pages/owner/payments/index')}
-            >
-              <View className='bill-entry__icon icon-svg' style={iconStyle('card', 30)} />
-              <View className='bill-entry__body'>
-                <View className='bill-entry__title-row'>
-                  <Text className='bill-entry__title'>账单缴费</Text>
-                  <View className='badge badge--warning'>
-                    <Text>{ownerPendingBills.length} 笔待缴</Text>
-                  </View>
-                </View>
-                <Text className='bill-entry__desc'>
-                  待缴总额 {formatMoney(ownerPendingTotal, ownerBillsCurrency)} · 物业费 / 水电费 / 燃气费
-                </Text>
-              </View>
-              <View className='chevron' />
-            </View>
-          )}
-
           <View className='section-title'>
             <Text>常用功能</Text>
           </View>
@@ -920,7 +881,7 @@ export default function ProfilePage() {
 
       {isStaff && (
         <>
-          {/* 员工 / 经纪端个人卡 */}
+          {/* 员工 / 经纪端个人卡（对齐管理员端：编辑资料入口） */}
           <View className='profile-card'>
             <View className='avatar avatar--lg'>
               <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
@@ -931,12 +892,19 @@ export default function ProfilePage() {
                 <Text>{ROLE_TEXT[role || ''] || '员工'}</Text>
               </View>
             </View>
+            <View className='profile-card__edit' onClick={openEdit}>
+              <View className='icon-svg' style={iconStyle('edit', 28)} />
+              <Text>编辑资料</Text>
+            </View>
           </View>
 
           <View className='section-title'>
             <Text>常用入口</Text>
           </View>
           <View className='panel panel--list'>{STAFF_ROWS.map(renderRow)}</View>
+
+          {renderAccountSections()}
+          {renderAboutSection()}
         </>
       )}
 

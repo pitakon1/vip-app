@@ -21,7 +21,6 @@ import {
   leasesApi,
   ownerApi,
   ownersApi,
-  paymentsApi,
   propertyDealApi,
   saleListingApi,
 } from '@/services/api';
@@ -106,10 +105,6 @@ interface SettingItem {
 const APP_COMPANY = 'HaoFang.World';
 const APP_VERSION = 'v2.4.1';
 
-// 已缴判定（与业主账单页 OwnerPaymentsScreen 状态口径一致：非已缴均计入待缴）
-const PAID_STATUSES = ['succeeded', 'refunded', 'paid'];
-const isPaidStatus = (s?: string) => PAID_STATUSES.includes(String(s || '').toLowerCase());
-
 const DAY_MS = 86400000;
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
 const fmtRent = (v?: number, c?: string) =>
@@ -140,18 +135,18 @@ export default function ProfileScreen() {
   const [langVisible, setLangVisible] = useState(false);
   const [activeLease, setActiveLease] = useState<any>(null);
   const [deals, setDeals] = useState<any[]>([]);
-  // 业主：名下房源 / 本月实收 / 待缴账单（真实接口，失败静默降级）
+  // 业主：名下房源 / 本月实收（真实接口，失败静默降级）
   const [ownerProps, setOwnerProps] = useState<any[]>([]);
-  const [ownerPayments, setOwnerPayments] = useState<any[]>([]);
   const [ownerAnnual, setOwnerAnnual] = useState<any>(null);
   const [ownerPropsOk, setOwnerPropsOk] = useState(false);
-  const [ownerBillsOk, setOwnerBillsOk] = useState(false);
   const { lang, setLang, t } = useI18n();
   const navigation = useNavigation<any>();
 
   const isTenant = user?.role === 'tenant';
   const isAdmin = user?.role === 'admin';
   const isOwner = user?.role === 'owner';
+  // 员工端：经纪人 / 员工 / 管理员均提供「我的」账户与设置自助区块
+  const isStaff = isAdmin || user?.role === 'agent' || user?.role === 'employee';
 
   // 后端无对应编辑接口的功能，点击统一提示「暂未开放」（不伪造假数据）
   const showNotAvailable = (name: string) => {
@@ -424,8 +419,7 @@ export default function ProfileScreen() {
     Promise.allSettled([
       ownerApi.properties(),
       ownersApi.annualSummary(year),
-      paymentsApi.mine(),
-    ]).then(([pRes, aRes, bRes]) => {
+    ]).then(([pRes, aRes]) => {
       if (!alive) return;
       const pick = (res: PromiseSettledResult<any>): any[] | null => {
         if (res.status !== 'fulfilled') return null;
@@ -440,11 +434,6 @@ export default function ProfileScreen() {
       }
       if (aRes.status === 'fulfilled') {
         setOwnerAnnual((aRes.value?.data as any) ?? null);
-      }
-      const bills = pick(bRes);
-      if (bills) {
-        setOwnerPayments(bills);
-        setOwnerBillsOk(true);
       }
     });
     return () => {
@@ -496,11 +485,6 @@ export default function ProfileScreen() {
   })();
   const ownerCurrency =
     ownerAnnual?.currency || ownerProps[0]?.currency || 'THB';
-
-  /* ===== 业主待缴账单（复用业主账单页 paymentsApi.mine 口径） ===== */
-  const ownerDueBills = ownerPayments.filter((p) => !isPaidStatus(p?.status));
-  const ownerDueTotal = ownerDueBills.reduce((s, p) => s + Number(p?.amount || 0), 0);
-  const ownerBillsCurrency = ownerPayments[0]?.currency || ownerCurrency;
 
   const numText = (v: number | null, unitKey: string) =>
     v === null ? '-' : `${v} ${t(unitKey)}`;
@@ -588,7 +572,7 @@ export default function ProfileScreen() {
             )}
           </View>
         </View>
-        {isAdmin && (
+        {isStaff && (
           <TouchableOpacity
             style={styles.editButton}
             activeOpacity={0.8}
@@ -620,33 +604,6 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </View>
-      )}
-
-      {/* 账单缴费入口（仅业主；账单接口取数失败时不渲染，避免编造金额） */}
-      {isOwner && ownerBillsOk && (
-        <TouchableOpacity
-          style={styles.ownerBillCard}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('OwnerPayments')}
-        >
-          <View style={styles.ownerBillIcon}>
-            <Ionicons name="card" size={22} color={colors.warning} />
-          </View>
-          <View style={styles.ownerBillBody}>
-            <View style={styles.ownerBillTitleRow}>
-              <Text style={styles.ownerBillTitle}>{t('profile.bills')}</Text>
-              <View style={styles.ownerBillBadge}>
-                <Text style={styles.ownerBillBadgeText}>
-                  {`${ownerDueBills.length} ${t('profile.pendingBills')}`}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.ownerBillSub} numberOfLines={1}>
-              {`${t('profile.billsDueTotal')} ${fmtRent(ownerDueTotal, ownerBillsCurrency)} · ${t('profile.billsTypes')}`}
-            </Text>
-          </View>
-          <Text style={styles.arrow}>›</Text>
-        </TouchableOpacity>
       )}
 
       {/* 用户卡补充：当前租约（仅租客且存在生效租约时） */}
@@ -931,9 +888,106 @@ export default function ProfileScreen() {
             ))}
           </Card>
         </>
-      ) : (
+      ) : isStaff ? (
         <>
           {/* 常用功能（按角色差异化） */}
+          <Card title="常用功能">
+            {entries.map((entry, idx) => (
+              <TouchableOpacity
+                key={entry.key}
+                style={[styles.settingRow, idx < entries.length - 1 && styles.settingRowBorder]}
+                onPress={() => navigation.navigate(entry.navigate)}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: colors.sidebarActive }]}>
+                    <Ionicons name={entry.icon} size={17} color={colors.primary} />
+                  </View>
+                  <Text style={styles.settingLabel}>{t(entry.labelKey)}</Text>
+                </View>
+                <Text style={styles.arrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </Card>
+
+          {/* 账户设置（对齐管理员端「我的」：修改密码/绑定手机/绑定邮箱） */}
+          <Text style={styles.settingSectionTitle}>账户设置</Text>
+          <Card style={styles.settingListCard}>
+            {adminAccountItems.map((item, idx) => (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.settingRow, idx < adminAccountItems.length - 1 && styles.settingRowBorder]}
+                onPress={() => handleSettingPress(item)}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon} size={16} color={item.color} />
+                  </View>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
+                </View>
+                {item.value ? (
+                  <Text style={styles.settingValue}>{item.value}</Text>
+                ) : null}
+                <Text style={styles.arrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </Card>
+
+          {/* 系统设置（语言/时区/通知设置） */}
+          <Text style={styles.settingSectionTitle}>系统设置</Text>
+          <Card style={styles.settingListCard}>
+            {adminSystemItems.map((item, idx) => (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.settingRow, idx < adminSystemItems.length - 1 && styles.settingRowBorder]}
+                onPress={() => handleSettingPress(item)}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon} size={16} color={item.color} />
+                  </View>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
+                </View>
+                {item.value ? (
+                  <Text
+                    style={[
+                      styles.settingValue,
+                      item.valueTone === 'success' && styles.settingValueSuccess,
+                    ]}
+                  >
+                    {item.value}
+                  </Text>
+                ) : null}
+                <Text style={styles.arrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </Card>
+
+          {/* 关于（版本/用户协议/隐私政策） */}
+          <Text style={styles.settingSectionTitle}>关于</Text>
+          <Card style={styles.settingListCard}>
+            {adminAboutItems.map((item, idx) => (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.settingRow, idx < adminAboutItems.length - 1 && styles.settingRowBorder]}
+                onPress={() => handleSettingPress(item)}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon} size={16} color={item.color} />
+                  </View>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
+                </View>
+                {item.value ? (
+                  <Text style={styles.settingValue}>{item.value}</Text>
+                ) : null}
+                <Text style={styles.arrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </Card>
+        </>
+      ) : (
+        <>
+          {/* 常用功能（租客按角色差异化） */}
           <Card title="常用功能">
             {entries.map((entry, idx) => (
               <TouchableOpacity
@@ -1333,45 +1387,6 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontVariant: ['tabular-nums'],
   },
-
-  /* ===== 业主：账单缴费入口 ===== */
-  ownerBillCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginHorizontal: 12,
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    ...colors.shadow.card,
-  },
-  ownerBillIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: colors.radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.warningLight,
-  },
-  ownerBillBody: { flex: 1, minWidth: 0 },
-  ownerBillTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  ownerBillTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  ownerBillBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.warningLight,
-  },
-  ownerBillBadgeText: { fontSize: 11, fontWeight: '600', color: colors.warning },
-  ownerBillSub: { fontSize: 13, color: colors.ink3, marginTop: 2 },
 
   /* ===== 当前租约（用户卡补充） ===== */
   leaseStrip: {

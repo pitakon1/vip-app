@@ -19,7 +19,6 @@ import OwnerServicesScreen from '../screens/owner/ServicesScreen';
 // 员工端页面
 import EmployeeHomeScreen from '../screens/employee/HomeScreen';
 import EmployeePropertyBrowseScreen from '../screens/employee/PropertyBrowseScreen';
-import PerformanceScreen from '../screens/employee/PerformanceScreen';
 import CRMScreen from '../screens/employee/CRMScreen';
 
 // 管理端页面
@@ -54,19 +53,19 @@ const ROLE_TABS: Record<UserRole, TabDef[]> = {
     { name: 'AdminPayments', component: AdminPaymentsScreen, icon: 'card', labelKey: 'tab.payments' },
     { name: 'AdminProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
   ],
-  // 员工/经纪端 首页 / 房源 / 客户 / 业绩 / 我的（通讯录移至「我的」内）
+  // 员工/经纪端 首页 / 房源 / 客户 / 消息 / 我的（业绩已并入首页图表，通讯录移至「我的」内）
   employee: [
     { name: 'EmployeeHome', component: EmployeeHomeScreen, icon: 'home', labelKey: 'tab.home' },
     { name: 'EmployeePropertyBrowse', component: EmployeePropertyBrowseScreen, icon: 'business', labelKey: 'tab.properties' },
     { name: 'EmployeeCRM', component: CRMScreen, icon: 'people', labelKey: 'tab.customers' },
-    { name: 'EmployeePerformance', component: PerformanceScreen, icon: 'stats-chart', labelKey: 'tab.performance' },
+    { name: 'EmployeeChat', component: ChatListScreen, icon: 'chatbubbles', labelKey: 'tab.messages' },
     { name: 'EmployeeProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
   ],
   agent: [
     { name: 'EmployeeHome', component: EmployeeHomeScreen, icon: 'home', labelKey: 'tab.home' },
     { name: 'EmployeePropertyBrowse', component: EmployeePropertyBrowseScreen, icon: 'business', labelKey: 'tab.properties' },
     { name: 'EmployeeCRM', component: CRMScreen, icon: 'people', labelKey: 'tab.customers' },
-    { name: 'EmployeePerformance', component: PerformanceScreen, icon: 'stats-chart', labelKey: 'tab.performance' },
+    { name: 'EmployeeChat', component: ChatListScreen, icon: 'chatbubbles', labelKey: 'tab.messages' },
     { name: 'EmployeeProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
   ],
   // 业主端 首页 / 收益 / 服务 / 我的

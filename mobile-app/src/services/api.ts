@@ -126,6 +126,18 @@ export const notificationsApi = {
 export const ownerApi = {
   properties: () => api.get('/owners/me/properties'),
   income: () => api.get('/owners/me/income'),
+  // 业主新增/编辑房源：owner_id 由后端按当前用户自动绑定
+  create: (data: any) => api.post('/properties', data),
+  update: (id: string, data: any) => api.patch(`/properties/${id}`, data),
+  remove: (id: string) => api.delete(`/properties/${id}`),
+  // 照片上传/删除（multipart，与 propertiesApi 对齐）
+  uploadPhotos: (id: string, files: any[]) => {
+    const fd = new FormData();
+    files.forEach((f) => fd.append('files', f as any));
+    return api.post(`/properties/${id}/photos`, fd);
+  },
+  deletePhoto: (id: string, url: string) =>
+    api.delete(`/properties/${id}/photos`, { params: { url } }),
 };
 
 // v1.9 房东工作台

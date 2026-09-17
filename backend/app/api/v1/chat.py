@@ -262,10 +262,18 @@ def create_conversation(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """创建会话。payload: {title?, participant_user_ids: [uuid...], entity_type?, entity_id?}"""
+    """创建会话。payload: {title?, participant_user_ids: [uuid...], participant_phones: [str], entity_type?, entity_id?}
+
+    participant_phones：CRM「联系客户-发消息」按手机号解析客户账号，
+    命中注册用户则加入参与者；未命中且无其他参与者时报 404（客户未注册）。
+    """
     raw_ids = payload.get("participant_user_ids") or []
-    if not raw_ids:
-        raise HTTPException(status_code=400, detail="participant_user_ids required")
+    raw_phones = payload.get("participant_phones") or []
+    if not raw_ids and not raw_phones:
+        raise HTTPException(
+            status_code=400,
+            detail="participant_user_ids or participant_phones required",
+        )
 
     normalized: list[str] = []
     for value in raw_ids:
@@ -275,8 +283,23 @@ def create_conversation(
             raise HTTPException(status_code=400, detail=f"Invalid user id: {value}")
         if uid not in normalized:
             normalized.append(uid)
+
+    # 按手机号解析客户账号（命中注册用户则加入会话）
+    for phone in payload.get("participant_phones") or []:
+        p = str(phone).strip()
+        if not p:
+            continue
+        found = session.exec(select(User).where(User.phone == p)).first()
+        if found and str(found.id) not in normalized:
+            normalized.append(str(found.id))
+
     if str(user.id) not in normalized:
         normalized.append(str(user.id))
+    if len(normalized) <= 1:
+        raise HTTPException(
+            status_code=404,
+            detail="客户尚未注册账号，暂无法在 App 内发消息，请先通过电话联系",
+        )
 
     conv = Conversation(
         title=payload.get("title") or "咨询会话",

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { message, Modal, Form, Select, DatePicker, InputNumber, Input, Rate } from 'antd'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { message, Modal, Form, Select, DatePicker, InputNumber, Input, Rate, Tag, Empty } from 'antd'
 import dayjs from 'dayjs'
 import type { ReactNode } from 'react'
 import api from '@/lib/api'
@@ -24,6 +24,7 @@ interface ServiceOrderItem {
   service_type: string
   status: string
   scheduled_at?: string
+  created_at?: string
   completed_at?: string
   amount: number
   currency: string
@@ -52,6 +53,16 @@ interface PropertyOption {
   address: string
   monthly_rent: number
   currency: string
+}
+
+interface MaintenanceTicketItem {
+  id: string
+  property_id?: string
+  title: string
+  description?: string
+  priority: string
+  status: string
+  created_at?: string
 }
 
 // 服务卡片数据（与原型 owner-services 一致）
@@ -188,6 +199,48 @@ const ORDER_STATUS_META: Record<string, { label: string; tone: string }> = {
   cancelled: { label: '已取消', tone: 'neutral' },
 }
 
+// 报修工单状态 → 展示文案与徽章色调
+const TICKET_STATUS_META: Record<string, { label: string; tone: string }> = {
+  open: { label: '待响应', tone: 'warning' },
+  assigned: { label: '已派单', tone: 'info' },
+  in_progress: { label: '处理中', tone: 'info' },
+  resolved: { label: '已解决', tone: 'success' },
+  closed: { label: '已关闭', tone: 'neutral' },
+}
+
+const PRIORITY_LABEL: Record<string, string> = {
+  low: '低',
+  medium: '中',
+  high: '高',
+  urgent: '紧急',
+}
+
+// 「我的工单」状态筛选 chips
+const TICKET_FILTERS: { value: 'all' | 'processing' | 'completed' | 'pending'; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'processing', label: '处理中' },
+  { value: 'completed', label: '已完成' },
+  { value: 'pending', label: '待响应' },
+]
+
+// 状态徽章色调 → antd Tag color
+const tagColorOf = (tone: string) =>
+  tone === 'success' ? 'success' : tone === 'warning' ? 'warning' : tone === 'info' ? 'processing' : 'default'
+
+// 「我的工单」合并列表行
+interface TicketRow {
+  id: string
+  kind: 'service' | 'repair'
+  title: string
+  status: string
+  badgeLabel: string
+  badgeTone: string
+  date: string
+  property: string
+  priorityLabel: string
+  canReview: boolean
+}
+
 // 从卡片价格文案（如 "RM 150"）解析出金额数值
 const parseAmount = (price: string) => Number(String(price).replace(/[^\d.]/g, '')) || 0
 
@@ -294,6 +347,14 @@ const Services = () => {
   const [reviewOrder, setReviewOrder] = useState<ServiceOrderItem | null>(null)
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [reviewForm] = Form.useForm()
+  // 提交报修弹窗
+  const [repairOpen, setRepairOpen] = useState(false)
+  const [repairSubmitting, setRepairSubmitting] = useState(false)
+  const [repairForm] = Form.useForm()
+  // 双 Tab：服务商城 | 我的工单
+  const [activeTab, setActiveTab] = useState<'mall' | 'tickets'>('mall')
+  const [tickets, setTickets] = useState<MaintenanceTicketItem[]>([])
+  const [ticketFilter, setTicketFilter] = useState<'all' | 'processing' | 'completed' | 'pending'>('all')
 
   const fetchPackages = useCallback(async () => {
     try {
@@ -313,6 +374,15 @@ const Services = () => {
     }
   }, [])
 
+  const fetchTickets = useCallback(async () => {
+    try {
+      const res = await api.get('/maintenance-tickets', { params: { page_size: 50 } })
+      setTickets(Array.isArray(res.data) ? res.data : (res.data?.items ?? []))
+    } catch {
+      setTickets([])
+    }
+  }, [])
+
   const fetchProperties = useCallback(async () => {
     try {
       const res = await api.get('/owners/me/properties')
@@ -326,8 +396,9 @@ const Services = () => {
   useEffect(() => {
     fetchPackages()
     fetchOrders()
+    fetchTickets()
     fetchProperties()
-  }, [fetchPackages, fetchOrders, fetchProperties])
+  }, [fetchPackages, fetchOrders, fetchTickets, fetchProperties])
 
   const openBooking = (service: ServiceItem) => {
     if (!properties.length) {
@@ -446,9 +517,90 @@ const Services = () => {
     }
   }
 
+  const openRepair = () => {
+    if (!properties.length) {
+      message.warning('暂无可报修的房源，请先在「我的房源」中添加')
+      return
+    }
+    repairForm.setFieldsValue({
+      property_id: properties[0]?.id,
+      priority: 'medium',
+      title: '',
+      description: '',
+    })
+    setRepairOpen(true)
+  }
+
+  const handleRepairSubmit = async () => {
+    try {
+      const values = await repairForm.validateFields()
+      setRepairSubmitting(true)
+      await api.post('/maintenance-tickets', {
+        property_id: values.property_id,
+        title: values.title,
+        description: values.description || values.title,
+        priority: values.priority,
+      })
+      message.success('报修工单已提交，工作人员将尽快处理')
+      setRepairOpen(false)
+      repairForm.resetFields()
+    } catch (err: any) {
+      if (err?.response) {
+        message.error(err?.response?.data?.detail || '提交失败，请稍后重试')
+      }
+      // validateFields 失败时静默
+    } finally {
+      setRepairSubmitting(false)
+    }
+  }
+
   const scrollToPlans = () => {
     plansRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+
+  // 「我的工单」合并列表：服务订单 + 报修工单，按 created_at 倒序混合排序
+  const mergedTickets = useMemo(() => {
+    const rows: TicketRow[] = []
+    orders.forEach((o) => {
+      const st = ORDER_STATUS_META[o.status] || { label: o.status, tone: 'neutral' }
+      const property = properties.find((p) => p.id === o.property_id)
+      rows.push({
+        id: `svc-${o.id}`,
+        kind: 'service',
+        title: SERVICE_TYPE_LABEL[o.service_type] || o.service_type,
+        status: o.status,
+        badgeLabel: st.label,
+        badgeTone: st.tone,
+        date: o.created_at || o.scheduled_at || '',
+        property: property ? property.room_number : '',
+        priorityLabel: '',
+        canReview: o.status === 'completed' && !o.reviewed_at,
+      })
+    })
+    tickets.forEach((t) => {
+      const st = TICKET_STATUS_META[t.status] || { label: t.status, tone: 'neutral' }
+      const property = properties.find((p) => p.id === t.property_id)
+      rows.push({
+        id: `repair-${t.id}`,
+        kind: 'repair',
+        title: t.title,
+        status: t.status,
+        badgeLabel: st.label,
+        badgeTone: st.tone,
+        date: t.created_at || '',
+        property: property ? property.room_number : '',
+        priorityLabel: PRIORITY_LABEL[t.priority] || t.priority || '',
+        canReview: false,
+      })
+    })
+    const inStatus = (r: TicketRow, list: string[]) => list.includes(r.status)
+    let filtered = rows
+    if (ticketFilter === 'processing') filtered = rows.filter((r) => inStatus(r, ['assigned', 'in_progress']))
+    else if (ticketFilter === 'completed') filtered = rows.filter((r) => inStatus(r, ['completed', 'resolved', 'closed']))
+    else if (ticketFilter === 'pending') filtered = rows.filter((r) => inStatus(r, ['pending', 'open']))
+    const ts = (d: string) => (d ? dayjs(d).valueOf() : 0)
+    return filtered.sort((a, b) => ts(b.date) - ts(a.date))
+  }, [orders, tickets, properties, ticketFilter])
 
   return (
     <div className="rent-main">
@@ -459,13 +611,38 @@ const Services = () => {
           <p className="rent-page-header__subtitle">为您的房产提供一站式增值服务</p>
         </div>
         <div className="rent-page-header__actions">
-          <button type="button" className="rent-btn rent-btn--secondary" onClick={scrollToPlans}>
+          <button type="button" className="rent-btn rent-btn--primary" onClick={openRepair}>
+            提交报修
+          </button>
+          <button type="button" className="rent-btn rent-btn--secondary" onClick={() => { setActiveTab('mall'); setTimeout(scrollToPlans, 0) }}>
             {trashIcon}
             我的订阅
           </button>
         </div>
       </div>
 
+      {/* 双 Tab：服务商城 | 我的工单 */}
+      <div className="rent-tabs">
+        <button
+          type="button"
+          className="rent-tab"
+          data-active={activeTab === 'mall'}
+          onClick={() => setActiveTab('mall')}
+        >
+          服务商城
+        </button>
+        <button
+          type="button"
+          className="rent-tab"
+          data-active={activeTab === 'tickets'}
+          onClick={() => setActiveTab('tickets')}
+        >
+          我的工单
+        </button>
+      </div>
+
+      {activeTab === 'mall' ? (
+        <>
       {/* Featured Banner */}
       <div
         className="rent-card rent-mb-5"
@@ -673,55 +850,79 @@ const Services = () => {
               </div>
             </div>
           )}
-
-          {/* 服务订单（来自 /service-orders，已完成且未评价的可直接评价） */}
-          {orders.length > 0 && (
-            <div className="rent-sub-section">
-              <h4 className="rent-sub-title">我的服务订单</h4>
-              <div className="rent-sub-list">
-                {orders.map((o) => {
-                  const st = ORDER_STATUS_META[o.status] || { label: o.status, tone: 'neutral' }
-                  const property = properties.find((p) => p.id === o.property_id)
-                  const canReview = o.status === 'completed' && !o.reviewed_at
-                  return (
-                    <div className="rent-sub-item" key={o.id}>
+        </div>
+      </div>
+        </>
+      ) : (
+        <>
+          {/* 我的工单 Tab：服务订单 + 报修工单 合并列表 */}
+          <div className="rent-card rent-mb-5">
+            <div className="rent-card__header">
+              <h3 className="rent-card__title">我的工单</h3>
+              <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={openRepair}>
+                提交报修
+              </button>
+            </div>
+            <div className="rent-card__body">
+              <div className="rent-chips">
+                {TICKET_FILTERS.map((f) => (
+                  <button
+                    key={f.value}
+                    type="button"
+                    className="rent-chip"
+                    data-active={ticketFilter === f.value}
+                    onClick={() => setTicketFilter(f.value)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              {mergedTickets.length === 0 ? (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无工单" style={{ padding: '32px 0' }} />
+              ) : (
+                <div className="rent-sub-list">
+                  {mergedTickets.map((row) => (
+                    <div className="rent-sub-item" key={row.id}>
                       <div className="rent-sub-item__main">
                         <div className="rent-sub-item__name">
-                          {SERVICE_TYPE_LABEL[o.service_type] || o.service_type}
-                          {property ? ` · ${property.room_number}` : ''}
+                          <span className={`rent-badge ${row.kind === 'service' ? 'rent-badge--primary' : 'rent-badge--info'}`}>
+                            {row.kind === 'service' ? '服务单' : '报修'}
+                          </span>
+                          {row.title}
+                          {row.kind === 'repair' && row.priorityLabel && (
+                            <span className="rent-badge rent-badge--warning" style={{ marginLeft: 8 }}>
+                              {row.priorityLabel}优先级
+                            </span>
+                          )}
                         </div>
                         <div className="rent-sub-item__meta">
-                          {o.scheduled_at ? `预约时间 ${dayjs(o.scheduled_at).format('YYYY-MM-DD HH:mm')}` : '未指定时间'}
-                          {o.notes ? ` · ${o.notes}` : ''}
+                          {row.property ? `房源 ${row.property}` : ''}
+                          {row.date ? ` · ${dayjs(row.date).format('YYYY-MM-DD')}` : ''}
                         </div>
-                        {o.reviewed_at && (
-                          <div className="rent-sub-item__meta" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Rate disabled value={Number(o.rating || 0)} style={{ fontSize: 12 }} />
-                            {o.review_comment ? <span>{o.review_comment}</span> : <span>已评价</span>}
-                          </div>
-                        )}
                       </div>
                       <div className="rent-sub-item__right">
-                        <span className="rent-sub-item__amount">{fmtMoney(o.amount, o.currency)}</span>
-                        <span className={`rent-badge rent-badge--${st.tone}`}>{st.label}</span>
-                        {canReview && (
+                        <Tag color={tagColorOf(row.badgeTone)}>{row.badgeLabel}</Tag>
+                        {row.kind === 'service' && row.canReview && (
                           <button
                             type="button"
                             className="rent-btn rent-btn--secondary rent-btn--sm"
-                            onClick={() => openReview(o)}
+                            onClick={() => {
+                              const o = orders.find((x) => `svc-${x.id}` === row.id)
+                              if (o) openReview(o)
+                            }}
                           >
                             评价
                           </button>
                         )}
                       </div>
                     </div>
-                  )
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        </>
+      )}
 
       {/* ===== Subscribe Modal ===== */}
       <Modal
@@ -852,6 +1053,45 @@ const Services = () => {
           </Form.Item>
           <Form.Item name="notes" label="备注">
             <Input.TextArea rows={3} maxLength={200} placeholder="如房号、门禁方式、特殊要求等" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ===== 提交报修 Modal ===== */}
+      <Modal
+        title="提交报修"
+        open={repairOpen}
+        onCancel={() => !repairSubmitting && setRepairOpen(false)}
+        onOk={handleRepairSubmit}
+        confirmLoading={repairSubmitting}
+        okText="提交工单"
+        cancelText="取消"
+      >
+        <Form form={repairForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item name="property_id" label="报修房源" rules={[{ required: true, message: '请选择房源' }]}>
+            <Select
+              placeholder="请选择房源"
+              options={properties.map((p) => ({
+                value: p.id,
+                label: `${p.room_number} · ${p.address || ''}`,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item name="priority" label="优先级" rules={[{ required: true }]}>
+            <Select
+              options={[
+                { value: 'low', label: '低' },
+                { value: 'medium', label: '中' },
+                { value: 'high', label: '高' },
+                { value: 'urgent', label: '紧急' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="title" label="报修标题" rules={[{ required: true, message: '请填写报修标题' }]}>
+            <Input maxLength={60} placeholder="如：空调不制冷 / 水管漏水" />
+          </Form.Item>
+          <Form.Item name="description" label="问题描述">
+            <Input.TextArea rows={3} maxLength={300} placeholder="请描述具体问题，便于工作人员准备工具（选填）" />
           </Form.Item>
         </Form>
       </Modal>

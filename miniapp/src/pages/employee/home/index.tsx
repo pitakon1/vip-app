@@ -1,10 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { employeesApi, leadsApi, viewingsApi, performanceApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
-import { iconStyle, type IconKey } from '@/utils/icons'
 import './index.scss'
 
 interface ViewingItem {
@@ -40,6 +39,15 @@ interface PerfSummary {
   month_commission?: number
 }
 
+// 月度业绩行（/performance/mine 返回的 monthly 序列）
+interface MonthPerf {
+  year: number
+  month: number
+  revenue?: number
+  commission?: number
+  deals?: number
+}
+
 const pick = (res: any, key?: string): any => {
   const d = res?.data ?? res
   if (key) return d?.[key]
@@ -57,6 +65,12 @@ function pickList(res: any): any[] {
 const fmtMoney = (v: number | undefined, currency?: string) => {
   const sym: Record<string, string> = { CNY: '¥', THB: '฿', EUR: '€', USD: '$' }
   return `${sym[currency || 'THB'] || '฿'}${Number(v || 0).toLocaleString()}`
+}
+
+// 柱图值紧凑展示：28400 -> 28.4k
+const fmtCompact = (v: number | undefined) => {
+  const n = Number(v || 0)
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
 }
 
 // 带看状态标签
@@ -122,12 +136,6 @@ const greeting = () => {
   return '晚上好'
 }
 
-// 快捷操作：只放不在底部导航里的功能（考勤打卡 / 房源管理）；房源浏览·业绩·客户等已在 Tab
-const QUICK_ACTIONS: { label: string; icon: IconKey; url: string }[] = [
-  { label: '考勤打卡', icon: 'calendar', url: '/pages/attendance/index' },
-  { label: '房源管理', icon: 'home', url: '/pages/employee/properties/index' }
-]
-
 export default function EmployeeHomePage() {
   const user = useAuthStore((state) => state.user)
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
@@ -135,6 +143,7 @@ export default function EmployeeHomePage() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [board, setBoard] = useState<LeaderRow[]>([])
   const [perf, setPerf] = useState<PerfSummary>({})
+  const [monthly, setMonthly] = useState<MonthPerf[]>([])
   const [loading, setLoading] = useState(false)
 
   const fetchAll = async () => {
@@ -153,6 +162,8 @@ export default function EmployeeHomePage() {
       setBoard(Array.isArray(lbRaw) ? lbRaw : [])
       const sum = pick(pf, 'summary') as PerfSummary | undefined
       setPerf(sum && typeof sum === 'object' ? sum : {})
+      const mon = pick(pf, 'monthly')
+      setMonthly(Array.isArray(mon) ? mon : [])
     } catch (error) {
       console.error('[EmployeeHome] 加载失败', error)
     } finally {
@@ -187,6 +198,19 @@ export default function EmployeeHomePage() {
   const monthDeals = perf.month_deals ?? selfRow?.deals
   const monthCommission = perf.month_commission ?? selfRow?.performance
   const hasPerf = monthDeals !== undefined || monthCommission !== undefined
+
+  // 柱图数据：近 6 个月佣金走势
+  const barData = useMemo(() => {
+    const six = monthly.slice(-6)
+    const max = Math.max(1, ...six.map((m) => Number(m.commission ?? 0)))
+    const now = new Date()
+    return six.map((m) => ({
+      label: `${m.month}月`,
+      value: fmtCompact(Number(m.commission ?? 0)),
+      height: `${Math.max(4, Math.round((Number(m.commission ?? 0) / max) * 64))}px`,
+      active: m.year === now.getFullYear() && m.month === now.getMonth() + 1
+    }))
+  }, [monthly])
 
   return (
     <View className='emp-home'>
@@ -330,7 +354,7 @@ export default function EmployeeHomePage() {
           </View>
         </View>
 
-        {/* 业绩摘要（一行三格） */}
+        {/* 业绩摘要：本月三格 + 近 6 个月佣金柱图 */}
         {hasPerf && (
           <View className='emp-section'>
             <View className='emp-section__head'>
@@ -365,32 +389,33 @@ export default function EmployeeHomePage() {
                 <Text className='emp-strip__label'>团队排名</Text>
               </View>
             </View>
-          </View>
-        )}
-
-        {/* 快捷操作 */}
-        <View className='emp-section'>
-          <View className='emp-section__head'>
-            <View className='emp-section__title-row'>
-              <Text className='emp-section__title'>快捷操作</Text>
+            <View className='emp-chart-card'>
+              <View className='emp-chart'>
+                {barData.map((b) => (
+                  <View key={b.label} className='emp-chart__col'>
+                    <Text className={`emp-chart__val${b.active ? ' emp-chart__val--active' : ''}`}>
+                      {b.value}
+                    </Text>
+                    <View
+                      className={`emp-chart__bar${b.active ? ' emp-chart__bar--active' : ''}`}
+                      style={{ height: b.height }}
+                    />
+                  </View>
+                ))}
+              </View>
+              <View className='emp-chart__labels'>
+                {barData.map((b) => (
+                  <Text
+                    key={b.label}
+                    className={`emp-chart__label${b.active ? ' emp-chart__label--active' : ''}`}
+                  >
+                    {b.label}
+                  </Text>
+                ))}
+              </View>
             </View>
           </View>
-          <View className='emp-quick'>
-            {QUICK_ACTIONS.map((a) => (
-              <View
-                key={a.label}
-                className='emp-quick__item'
-                hoverClass='emp-quick__item--hover'
-                onClick={() => Taro.navigateTo({ url: a.url })}
-              >
-                <View className='emp-quick__icon'>
-                  <Text className='emp-quick__icon-svg' style={iconStyle(a.icon, 44)} />
-                </View>
-                <Text className='emp-quick__label'>{a.label}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        )}
       </View>
 
       <BottomNav role='employee' active='dashboard' />

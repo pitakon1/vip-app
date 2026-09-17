@@ -424,6 +424,117 @@
     }
   }
 
+  /* 相关文档行 */
+  .doc-row {
+    display: flex;
+    align-items: center;
+    gap: 20rpx;
+    padding: 24rpx 0;
+    border-bottom: 1px solid var(--line);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &--hover {
+      opacity: 0.85;
+    }
+
+    &__badge {
+      flex-shrink: 0;
+      width: 68rpx;
+      height: 68rpx;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-2);
+
+      &--primary {
+        background: rgba(var(--primary-rgb), 0.1);
+      }
+
+      &--success {
+        background: rgba(var(--success-rgb), 0.1);
+      }
+
+      &--warning {
+        background: rgba(var(--warning-rgb), 0.1);
+      }
+
+      &--info {
+        background: rgba(var(--info-rgb), 0.1);
+      }
+
+      &--neutral {
+        background: var(--surface-2);
+      }
+    }
+
+    &__body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &__title {
+      display: block;
+      font-size: 30rpx;
+      font-weight: 600;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__meta {
+      display: flex;
+      align-items: center;
+      gap: 12rpx;
+      margin-top: 6rpx;
+      font-size: 24rpx;
+      color: var(--ink-3);
+    }
+
+    &__tag {
+      flex-shrink: 0;
+      padding: 4rpx 14rpx;
+      border-radius: var(--radius-full);
+      font-size: 20rpx;
+      font-weight: 600;
+
+      &--primary {
+        background: rgba(var(--primary-rgb), 0.1);
+        color: var(--primary);
+      }
+
+      &--success {
+        background: rgba(var(--success-rgb), 0.1);
+        color: var(--success);
+      }
+
+      &--warning {
+        background: rgba(var(--warning-rgb), 0.1);
+        color: var(--warning);
+      }
+
+      &--info {
+        background: rgba(var(--info-rgb), 0.1);
+        color: var(--info);
+      }
+
+      &--neutral {
+        background: var(--surface-2);
+        color: var(--ink-2);
+      }
+    }
+
+    &__arrow {
+      flex-shrink: 0;
+      font-size: 32rpx;
+      color: var(--ink-3);
+    }
+  }
+
   /* 快捷操作 */
   .action-row {
     display: flex;

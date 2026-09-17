@@ -29,6 +29,7 @@ import MarketIntelligence from '@/pages/MarketIntelligence'
 
 // 业主端页面
 import OwnerDashboard from '@/pages/Owner/Dashboard'
+import OwnerProperties from '@/pages/Owner/Properties'
 import OwnerDocuments from '@/pages/Owner/Documents'
 import OwnerIncome from '@/pages/Owner/Income'
 import OwnerServices from '@/pages/Owner/Services'
@@ -124,7 +125,7 @@ const App = () => {
 
           {/* 业主端路由 */}
           <Route path="/owner/dashboard" element={<OwnerDashboard />} />
-          <Route path="/owner/properties" element={<OwnerDashboard />} />
+          <Route path="/owner/properties" element={<OwnerProperties />} />
           <Route path="/owner/income" element={<OwnerIncome />} />
           <Route path="/owner/documents" element={<OwnerDocuments />} />
           <Route path="/owner/services" element={<OwnerServices />} />

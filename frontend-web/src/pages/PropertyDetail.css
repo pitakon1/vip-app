@@ -233,6 +233,42 @@
   margin-top: 6px;
 }
 
+/* ===== 相关文档 ===== */
+.rent-doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rent-doc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface-2);
+}
+.rent-doc-row__main {
+  flex: 1;
+  min-width: 0;
+}
+.rent-doc-row__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rent-doc-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin-top: 4px;
+}
+
 /* ===== 响应式 ===== */
 @media (max-width: 768px) {
   .rent-prop-header {

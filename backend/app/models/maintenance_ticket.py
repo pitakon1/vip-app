@@ -38,7 +38,13 @@ class MaintenanceTicket(TimestampMixin, table=True):
     __tablename__ = "maintenance_tickets"
 
     property_id: uuid.UUID = Field(foreign_key="properties.id", index=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id")
+    # 提交方二选一：租客（tenants.id）或业主（owners.id）
+    tenant_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="tenants.id", index=True
+    )
+    owner_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="owners.id", index=True
+    )
     lease_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="leases.id"
     )

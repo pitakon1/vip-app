@@ -6,6 +6,8 @@ import {
   StyleSheet,
   RefreshControl,
   TouchableOpacity,
+  Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -13,7 +15,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import { paymentsApi, propertiesApi } from '@/services/api';
+import { documentsApi, paymentsApi, propertiesApi } from '@/services/api';
+import { documentFileUrl } from '@/lib/api';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -68,6 +71,29 @@ interface OwnerPayment {
   description?: string;
 }
 
+interface OwnerDocument {
+  id: string;
+  title?: string;
+  type?: string;
+  created_at?: string;
+  [key: string]: any;
+}
+
+/* 文档类型映射（与 DocumentsScreen 一致） */
+const DOC_TYPE_META: Record<
+  string,
+  { label: string; color: string; bg: string; icon: IoniconName }
+> = {
+  contract: { label: '合同', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), icon: 'document-text-outline' },
+  receipt: { label: '收据', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), icon: 'receipt-outline' },
+  inspection_photo: { label: '验房照片', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), icon: 'image-outline' },
+  tax_invoice: { label: '税务发票', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), icon: 'document-outline' },
+  wht_certificate: { label: '代扣税凭证', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1), icon: 'document-outline' },
+  other: { label: '其他', color: colors.ink3, bg: colors.surface2, icon: 'folder-outline' },
+};
+
+const docMetaOf = (type?: string) => DOC_TYPE_META[type ?? ''] ?? DOC_TYPE_META.other;
+
 const PAY_TYPE_LABEL: Record<string, string> = {
   rent: '租金',
   deposit: '押金',
@@ -116,6 +142,7 @@ export default function OwnerPropertyDetailScreen() {
   const [prop, setProp] = useState<PropertyDetail | null>(null);
   const [leases, setLeases] = useState<PropertyLease[]>([]);
   const [payments, setPayments] = useState<OwnerPayment[]>([]);
+  const [docs, setDocs] = useState<OwnerDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -125,10 +152,11 @@ export default function OwnerPropertyDetailScreen() {
       setRefreshing(false);
       return;
     }
-    const [propRes, leaseRes, payRes] = await Promise.allSettled([
+    const [propRes, leaseRes, payRes, docRes] = await Promise.allSettled([
       propertiesApi.get(propertyId),
       propertiesApi.leases(propertyId),
       paymentsApi.mine(),
+      documentsApi.list({ property_id: propertyId }),
     ]);
 
     const pickItems = <T,>(res: PromiseSettledResult<any>): T[] => {
@@ -145,6 +173,7 @@ export default function OwnerPropertyDetailScreen() {
     }
     setLeases(pickItems<PropertyLease>(leaseRes));
     setPayments(pickItems<OwnerPayment>(payRes));
+    setDocs(pickItems<OwnerDocument>(docRes));
     setLoading(false);
     setRefreshing(false);
   }, [propertyId]);
@@ -159,6 +188,21 @@ export default function OwnerPropertyDetailScreen() {
   }, [load]);
 
   const go = (target: string) => navigation.navigate(target as any);
+
+  /* 打开文档：与 DocumentsScreen 一致，经带鉴权的 /documents/{id}/file?token= 取件 */
+  const openDoc = useCallback(async (docId?: string) => {
+    const url = docId ? await documentFileUrl(docId, 'file') : null;
+    if (!url) {
+      Alert.alert('无法打开', '登录状态已失效，请重新登录');
+      return;
+    }
+    const supported = await Linking.canOpenURL(url).catch(() => false);
+    if (!supported) {
+      Alert.alert('无法打开', '当前设备不支持打开该类型文件');
+      return;
+    }
+    Linking.openURL(url);
+  }, []);
 
   const currency = prop?.currency || leases[0]?.currency || 'THB';
 
@@ -268,14 +312,6 @@ export default function OwnerPropertyDetailScreen() {
       color: colors.success,
       bg: colors.alpha(colors.successRgb, 0.1),
       route: 'OwnerPayments',
-    },
-    {
-      key: 'service',
-      label: '预约服务',
-      icon: 'compass-outline',
-      color: colors.info,
-      bg: colors.alpha(colors.infoRgb, 0.1),
-      route: 'OwnerServices',
     },
   ];
 
@@ -423,6 +459,48 @@ export default function OwnerPropertyDetailScreen() {
               title="本月暂无账单"
               sub="本房源本月租金账单生成后，这里会显示应收与已收"
             />
+          )}
+        </View>
+
+        {/* ===== 相关文档 ===== */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>相关文档</Text>
+          <Text style={styles.sectionHint}>{docs.length} 份</Text>
+        </View>
+        <View style={styles.card}>
+          {docs.length === 0 ? (
+            <EmptyState
+              icon="document-text-outline"
+              title="暂无相关文档"
+              sub="该房源暂无上传的合同或证件文件"
+            />
+          ) : (
+            docs.map((d, idx, arr) => {
+              const meta = docMetaOf(d.type);
+              return (
+                <TouchableOpacity
+                  key={d.id || String(idx)}
+                  style={[styles.flowRow, idx === arr.length - 1 && styles.flowRowLast]}
+                  activeOpacity={0.7}
+                  onPress={() => openDoc(d.id)}
+                >
+                  <View style={[styles.flowIcon, { backgroundColor: meta.bg }]}>
+                    <Ionicons name={meta.icon} size={18} color={meta.color} />
+                  </View>
+                  <View style={styles.flowBody}>
+                    <Text style={styles.flowTitle} numberOfLines={1}>
+                      {d.title || '未命名文档'}
+                    </Text>
+                    <Text style={styles.flowMeta} numberOfLines={1}>
+                      {formatDate(d.created_at)}
+                    </Text>
+                  </View>
+                  <View style={[styles.badge, { backgroundColor: meta.bg }]}>
+                    <Text style={[styles.badgeText, { color: meta.color }]}>{meta.label}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
           )}
         </View>
 

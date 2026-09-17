@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Spin } from 'antd'
-import { leadsApi } from '@/services/api'
+import { useNavigate } from 'react-router-dom'
+import { chatApi, leadsApi } from '@/services/api'
 import type { Lead, LeadStatus } from '@/types'
 import './crm.css'
 
@@ -112,6 +113,7 @@ const emptyCreateForm: CreateFormValues = {
 }
 
 const CRM = () => {
+  const navigate = useNavigate()
   const [data, setData] = useState<Lead[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -261,6 +263,34 @@ const CRM = () => {
       fetchData()
     } catch (err: any) {
       message.error(err?.response?.data?.message || '删除失败')
+    }
+  }
+
+  // 联系客户：直接拨打
+  const handleCall = (lead: Lead) => {
+    if (!lead.phone) {
+      message.warning('该客户未留电话')
+      return
+    }
+    window.location.href = `tel:${lead.phone.replace(/\s/g, '')}`
+  }
+
+  // 联系客户：Web 内发消息（按手机号解析客户账号并创建会话）
+  const handleChat = async (lead: Lead) => {
+    if (!lead.phone) {
+      message.warning('该客户未留电话，无法发消息')
+      return
+    }
+    try {
+      const res = await chatApi.createConversation({
+        title: lead.name || '客户咨询',
+        participant_phones: [lead.phone],
+      })
+      const conv = res.data?.data ?? res.data
+      if (!conv?.id) throw new Error('会话创建失败')
+      navigate(`/chat?id=${conv.id}`)
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || err?.response?.data?.detail || '客户未注册账号，请先通过电话联系')
     }
   }
 
@@ -552,6 +582,12 @@ const CRM = () => {
                     <td>{lead.assigned_to || '-'}</td>
                     <td>
                       <div className="rent-flex rent-gap-2">
+                        <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => handleCall(lead)}>
+                          电话
+                        </button>
+                        <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => handleChat(lead)}>
+                          发消息
+                        </button>
                         <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openEdit(lead)}>
                           编辑
                         </button>

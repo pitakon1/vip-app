@@ -14,7 +14,7 @@ from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, require_agent
+from app.core.auth import get_current_user
 from app.core.cache import delete_cache_pattern, get_cache, set_cache
 from app.core.concurrency import ensure_version
 from app.core.pagination import Page, PaginationParams, paginate_query
@@ -40,7 +40,7 @@ MAX_PHOTOS = 20
 
 class PropertyCreate(BaseModel):
     project_id: Optional[uuid.UUID] = None
-    owner_id: uuid.UUID
+    owner_id: Optional[uuid.UUID] = None
     room_number: str
     floor: Optional[int] = None
     building: Optional[str] = None
@@ -142,6 +142,23 @@ class PropertyLeaseList(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     items: List[PropertyLeaseItem] = []
+
+
+def _ensure_owner_access(user: User, prop: Property, session: Session) -> None:
+    """权限：管理员/经纪人可操作任意房源；业主仅可操作名下房源。"""
+    role = user.role.value if hasattr(user.role, "value") else str(user.role)
+    if role in ("admin", "agent"):
+        return
+    if role != "owner":
+        raise HTTPException(status_code=403, detail="Access denied")
+    owner = session.exec(
+        select(Owner).where(
+            Owner.user_id == user.id,
+            Owner.deleted_at.is_(None),
+        )
+    ).first()
+    if not owner or prop.owner_id != owner.id:
+        raise HTTPException(status_code=403, detail="只能操作自己名下的房源")
 
 
 def _keyword_conditions(terms: List[str]) -> list:
@@ -287,10 +304,27 @@ def list_properties(
 def create_property(
     req: PropertyCreate,
     session: Session = Depends(get_session),
-    user: User = Depends(require_agent),
+    user: User = Depends(get_current_user),
 ):
-    """创建房源（agent+ 权限）。"""
-    prop = Property(**req.model_dump())
+    """创建房源。
+
+    业主端「新增房源」：业主角色时自动按当前用户绑定 owner_id（忽略客户端传入）；
+    员工/经纪人等内部角色仍需显式指定 owner_id。
+    """
+    payload = req.model_dump()
+    if user.role.value == "owner":
+        owner = session.exec(
+            select(Owner).where(
+                Owner.user_id == user.id,
+                Owner.deleted_at.is_(None),
+            )
+        ).first()
+        if not owner:
+            raise HTTPException(status_code=404, detail="Owner profile not found")
+        payload["owner_id"] = owner.id
+    elif not payload.get("owner_id"):
+        raise HTTPException(status_code=400, detail="owner_id is required")
+    prop = Property(**payload)
     session.add(prop)
     session.commit()
     session.refresh(prop)
@@ -417,12 +451,13 @@ def update_property(
     property_id: uuid.UUID,
     req: PropertyUpdate,
     session: Session = Depends(get_session),
-    user: User = Depends(require_agent),
+    user: User = Depends(get_current_user),
 ):
-    """更新房源信息。"""
+    """更新房源信息（业主仅可编辑名下房源；经纪人/管理员可编辑任意）。"""
     prop = session.get(Property, property_id)
     if not prop or prop.deleted_at:
         raise HTTPException(status_code=404, detail="Property not found")
+    _ensure_owner_access(user, prop, session)
     update_data = req.model_dump(exclude_unset=True)
     ensure_version(prop, update_data.pop("version", None), "房源")
     for key, value in update_data.items():
@@ -438,12 +473,13 @@ def update_property(
 def delete_property(
     property_id: uuid.UUID,
     session: Session = Depends(get_session),
-    user: User = Depends(require_agent),
+    user: User = Depends(get_current_user),
 ):
-    """软删除房源。"""
+    """软删除房源（业主仅可删除名下房源；经纪人/管理员可删任意）。"""
     prop = session.get(Property, property_id)
     if not prop or prop.deleted_at:
         raise HTTPException(status_code=404, detail="Property not found")
+    _ensure_owner_access(user, prop, session)
     prop.deleted_at = datetime.utcnow()
     session.add(prop)
     session.commit()
@@ -493,12 +529,16 @@ def upload_property_photos(
     property_id: uuid.UUID,
     files: List[UploadFile] = File(...),
     session: Session = Depends(get_session),
-    user: User = Depends(require_agent),
+    user: User = Depends(get_current_user),
 ):
-    """上传房源照片（multipart，支持多张）。文件保存到本地 uploads 目录并追加到 photos 列表。"""
+    """上传房源照片（multipart，支持多张）。文件保存到本地 uploads 目录并追加到 photos 列表。
+
+    业主仅可上传名下房源照片；经纪人/管理员可上传任意。
+    """
     prop = session.get(Property, property_id)
     if not prop or prop.deleted_at:
         raise HTTPException(status_code=404, detail="Property not found")
+    _ensure_owner_access(user, prop, session)
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
     if len(files) > MAX_PHOTOS:
@@ -554,12 +594,13 @@ def delete_property_photo(
     property_id: uuid.UUID,
     url: str,
     session: Session = Depends(get_session),
-    user: User = Depends(require_agent),
+    user: User = Depends(get_current_user),
 ):
-    """删除房源照片（按 URL 从 photos 列表移除，并删除本地文件）。"""
+    """删除房源照片（按 URL 从 photos 列表移除，并删除本地文件）。业主仅可操作名下房源。"""
     prop = session.get(Property, property_id)
     if not prop or prop.deleted_at:
         raise HTTPException(status_code=404, detail="Property not found")
+    _ensure_owner_access(user, prop, session)
 
     photos = list(prop.photos or [])
     if url not in photos:
