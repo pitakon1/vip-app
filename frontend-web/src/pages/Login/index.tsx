@@ -47,6 +47,19 @@ const FEATURES = [
   },
 ]
 
+const PhoneIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+)
+
+const EmailIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+    <polyline points="22,6 12,13 2,6" />
+  </svg>
+)
+
 const Login = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
@@ -56,8 +69,9 @@ const Login = () => {
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
 
-  // 邮箱密码 / 手机号验证码 两种登录方式切换
-  const [tab, setTab] = useState<'email' | 'phone'>('email')
+  // Reddit 分步式：方式选择屏(choose) → 对应表单屏(form)
+  const [stage, setStage] = useState<'choose' | 'form'>('choose')
+  const [method, setMethod] = useState<'phone' | 'email'>('email')
   const [countryCode, setCountryCode] = useState('+86')
   const [phone, setPhone] = useState('')
   const [smsCode, setSmsCode] = useState('')
@@ -95,7 +109,7 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (tab === 'email') {
+    if (method === 'email') {
       const nextErrors: { email?: string; password?: string } = {}
       if (!email) nextErrors.email = t('login.emailRequired')
       if (!password) nextErrors.password = t('login.passwordRequired')
@@ -113,7 +127,7 @@ const Login = () => {
     }
     setSubmitting(true)
     try {
-      const res = tab === 'phone'
+      const res = method === 'phone'
         ? await authApi.loginByOtp(phoneWithCode(countryCode, phone), smsCode)
         : await authApi.login(email, password)
       if (!handleAuthSuccess(res)) return
@@ -195,194 +209,215 @@ const Login = () => {
             <p className="rent-login-card__subtitle">{t('login.subtitle')}</p>
           </div>
 
-          {/* 快速登录区：社交按钮 + 「或」分隔 */}
-          <div className="rent-auth-social">
-            <OAuthButtons onSuccess={handleAuthSuccess} />
-            <div className="rent-auth-divider" aria-hidden="true">
-              <span>{t('register.or')}</span>
-            </div>
-          </div>
-
-          {/* 测试账号提示：仅开发构建展示，生产构建里这段账号密码不应出现在页面上 */}
-          {import.meta.env.DEV && tab === 'email' && (
-            <div className="rent-login-hint">
-              测试账号：<span className="rent-mono">admin@viprental.com / admin123</span>（管理员）
-              · agent@viprental.com / agent123（经纪）· owner@viprental.com / owner123（业主）
-              · tenant@viprental.com / tenant123（租客）
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            {/* 邮箱密码 / 手机号验证码 切换：胶囊分段 Tab */}
-            <div className="rent-auth-seg" role="tablist">
-              <button
-                type="button"
-                className={`rent-auth-seg__tab${tab === 'phone' ? ' is-active' : ''}`}
-                onClick={() => setTab('phone')}
-              >
-                {t('login.phoneLogin')}
-              </button>
-              <button
-                type="button"
-                className={`rent-auth-seg__tab${tab === 'email' ? ' is-active' : ''}`}
-                onClick={() => setTab('email')}
-              >
-                {t('login.emailLogin')}
-              </button>
-            </div>
-
-            {/* 邮箱密码登录 */}
-            {tab === 'email' && (
-              <>
-                <div className="rent-form-group">
-                  <label className="rent-form-label" htmlFor="login-email">{t('login.email')}</label>
-                  <input
-                    type="email"
-                    id="login-email"
-                    className={`rent-form-input${errors.email ? ' rent-form-input--error' : ''}`}
-                    placeholder={t('login.emailPlaceholder')}
-                    autoComplete="email"
-                    autoFocus
-                    aria-invalid={!!errors.email}
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value)
-                      if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }))
-                    }}
-                  />
-                  {errors.email && <div className="rent-form-error" role="alert">{errors.email}</div>}
+          {stage === 'choose' ? (
+            <>
+              {/* 方式选择屏：OAuth + 「或」+ 手机号/邮箱 */}
+              <div className="rent-auth-social">
+                <OAuthButtons onSuccess={handleAuthSuccess} />
+                <div className="rent-auth-divider" aria-hidden="true">
+                  <span>{t('register.or')}</span>
                 </div>
+              </div>
 
-                <div className="rent-form-group">
-                  <label className="rent-form-label" htmlFor="login-password">{t('login.password')}</label>
-                  <input
-                    type="password"
-                    id="login-password"
-                    className={`rent-form-input${errors.password ? ' rent-form-input--error' : ''}`}
-                    placeholder={t('login.passwordPlaceholder')}
-                    autoComplete="current-password"
-                    aria-invalid={!!errors.password}
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value)
-                      if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }))
-                    }}
-                  />
-                  {errors.password && <div className="rent-form-error" role="alert">{errors.password}</div>}
-                </div>
+              <div className="rent-login-methods">
+                <button
+                  type="button"
+                  className="continue-btn"
+                  onClick={() => { setMethod('phone'); setStage('form') }}
+                >
+                  <span className="continue-btn__icon" aria-hidden="true"><PhoneIcon /></span>
+                  {t('login.phone')}
+                </button>
+                <button
+                  type="button"
+                  className="continue-btn"
+                  onClick={() => { setMethod('email'); setStage('form') }}
+                >
+                  <span className="continue-btn__icon" aria-hidden="true"><EmailIcon /></span>
+                  {t('login.email')}
+                </button>
+              </div>
 
-                {/* 记住我 + 忘记密码 */}
-                <div className="rent-login-row">
-                  <label className="rent-checkbox">
-                    <input type="checkbox" id="remember-me" />
-                    <span>{t('login.rememberMe')}</span>
-                  </label>
-                  <a
-                    href="#"
-                    className="rent-login-link"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      message.info(t('login.forgotPasswordHint'))
-                    }}
-                  >
-                    {t('login.forgotPassword')}
-                  </a>
-                </div>
-              </>
-            )}
-
-            {/* 手机号 + 验证码登录 */}
-            {tab === 'phone' && (
-              <>
-                <div className="rent-form-group">
-                  <label className="rent-form-label" htmlFor="login-phone">{t('login.phone')}</label>
-                  <div className="rent-phone-row">
-                    <select
-                      id="login-country"
-                      className="rent-form-select"
-                      value={countryCode}
-                      onChange={(e) => setCountryCode(e.target.value)}
-                    >
-                      {COUNTRY_CODES.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="tel"
-                      id="login-phone"
-                      className="rent-form-input"
-                      placeholder={t('login.phonePlaceholder')}
-                      autoComplete="tel"
-                      autoFocus
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="rent-form-group">
-                  <label className="rent-form-label" htmlFor="login-code">{t('login.verificationCode')}</label>
-                  <div className="rent-otp-row">
-                    <input
-                      type="text"
-                      id="login-code"
-                      className="rent-form-input"
-                      placeholder={t('login.codePlaceholder')}
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      value={smsCode}
-                      onChange={(e) => setSmsCode(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="rent-btn rent-btn--ghost rent-btn--nowrap"
-                      onClick={handleRequestOtp}
-                      disabled={sending || countdown > 0}
-                    >
-                      {countdown > 0
-                        ? `${t('register.resend')} (${countdown}s)`
-                        : (sending ? t('login.sending') : t('login.getCode'))}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* 登录按钮 */}
-            <button type="submit" className="rent-btn rent-btn--primary rent-btn--lg rent-btn--block" disabled={submitting}>
-              {submitting ? (
-                <>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              {/* 底部：去注册 */}
+              <p className="rent-login-footer">
+                {t('login.noAccount')}
+                <a
+                  onClick={(e) => {
+                    e.preventDefault()
+                    navigate('/register')
+                  }}
+                >
+                  {t('login.goRegister')}
+                </a>
+              </p>
+            </>
+          ) : (
+            <>
+              {/* 表单屏：左上角返回箭头回方式选择屏 */}
+              <div className="rent-login-back">
+                <button
+                  type="button"
+                  className="rent-login-back__btn"
+                  onClick={() => { setStage('choose'); setErrors({}) }}
+                  aria-label={t('common.back')}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
                   </svg>
-                  {t('login.signingIn')}
-                </>
-              ) : (
-                <>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                    <polyline points="10 17 15 12 10 7" />
-                    <line x1="15" y1="12" x2="3" y2="12" />
-                  </svg>
-                  {t('login.signIn')}
-                </>
+                </button>
+              </div>
+
+              {/* 测试账号提示：仅开发构建展示 */}
+              {import.meta.env.DEV && method === 'email' && (
+                <div className="rent-login-hint">
+                  测试账号：<span className="rent-mono">admin@viprental.com / admin123</span>（管理员）
+                  · agent@viprental.com / agent123（经纪）· owner@viprental.com / owner123（业主）
+                  · tenant@viprental.com / tenant123（租客）
+                </div>
               )}
-            </button>
-          </form>
 
-          {/* 底部 */}
-          <p className="rent-login-footer">
-            {t('login.noAccount')}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault()
-                message.info(t('login.contactAdminHint'))
-              }}
-            >
-              {t('login.contactAdmin')}
-            </a>
-          </p>
+              <form onSubmit={handleSubmit}>
+                {/* 邮箱密码登录 */}
+                {method === 'email' && (
+                  <>
+                    <div className="rent-form-group">
+                      <label className="rent-form-label" htmlFor="login-email">{t('login.email')}</label>
+                      <input
+                        type="email"
+                        id="login-email"
+                        className={`rent-form-input${errors.email ? ' rent-form-input--error' : ''}`}
+                        placeholder={t('login.emailPlaceholder')}
+                        autoComplete="email"
+                        autoFocus
+                        aria-invalid={!!errors.email}
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value)
+                          if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }))
+                        }}
+                      />
+                      {errors.email && <div className="rent-form-error" role="alert">{errors.email}</div>}
+                    </div>
+
+                    <div className="rent-form-group">
+                      <label className="rent-form-label" htmlFor="login-password">{t('login.password')}</label>
+                      <input
+                        type="password"
+                        id="login-password"
+                        className={`rent-form-input${errors.password ? ' rent-form-input--error' : ''}`}
+                        placeholder={t('login.passwordPlaceholder')}
+                        autoComplete="current-password"
+                        aria-invalid={!!errors.password}
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value)
+                          if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }))
+                        }}
+                      />
+                      {errors.password && <div className="rent-form-error" role="alert">{errors.password}</div>}
+                    </div>
+
+                    {/* 记住我 + 忘记密码 */}
+                    <div className="rent-login-row">
+                      <label className="rent-checkbox">
+                        <input type="checkbox" id="remember-me" />
+                        <span>{t('login.rememberMe')}</span>
+                      </label>
+                      <a
+                        href="#"
+                        className="rent-login-link"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          message.info(t('login.forgotPasswordHint'))
+                        }}
+                      >
+                        {t('login.forgotPassword')}
+                      </a>
+                    </div>
+                  </>
+                )}
+
+                {/* 手机号 + 验证码登录 */}
+                {method === 'phone' && (
+                  <>
+                    <div className="rent-form-group">
+                      <label className="rent-form-label" htmlFor="login-phone">{t('login.phone')}</label>
+                      <div className="rent-phone-row">
+                        <select
+                          id="login-country"
+                          className="rent-form-select"
+                          value={countryCode}
+                          onChange={(e) => setCountryCode(e.target.value)}
+                        >
+                          {COUNTRY_CODES.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="tel"
+                          id="login-phone"
+                          className="rent-form-input"
+                          placeholder={t('login.phonePlaceholder')}
+                          autoComplete="tel"
+                          autoFocus
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rent-form-group">
+                      <label className="rent-form-label" htmlFor="login-code">{t('login.verificationCode')}</label>
+                      <div className="rent-otp-row">
+                        <input
+                          type="text"
+                          id="login-code"
+                          className="rent-form-input"
+                          placeholder={t('login.codePlaceholder')}
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          value={smsCode}
+                          onChange={(e) => setSmsCode(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="rent-btn rent-btn--ghost rent-btn--nowrap"
+                          onClick={handleRequestOtp}
+                          disabled={sending || countdown > 0}
+                        >
+                          {countdown > 0
+                            ? `${t('register.resend')} (${countdown}s)`
+                            : (sending ? t('login.sending') : t('login.getCode'))}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* 登录按钮 */}
+                <button type="submit" className="rent-btn rent-btn--primary rent-btn--lg rent-btn--block" disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                      </svg>
+                      {t('login.signingIn')}
+                    </>
+                  ) : (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                        <polyline points="10 17 15 12 10 7" />
+                        <line x1="15" y1="12" x2="3" y2="12" />
+                      </svg>
+                      {t('login.signIn')}
+                    </>
+                  )}
+                </button>
+              </form>
+            </>
+          )}
         </div>
       </section>
     </main>

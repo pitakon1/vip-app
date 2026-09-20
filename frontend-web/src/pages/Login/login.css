@@ -270,40 +270,34 @@
   white-space: nowrap;
 }
 
-/* ---- 邮箱密码 / 手机号验证码 模式切换：seamless 胶囊分段 Tab ---- */
-.rent-auth-seg {
+/* ---- 方式选择屏：手机号/邮箱入口按钮列 ---- */
+.rent-login-methods {
   display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--rent-surface-muted, #f1f3f5);
-  border-radius: var(--rent-radius-full);
-  margin-bottom: 26px;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.rent-auth-seg__tab {
-  flex: 1;
-  padding: 9px 12px;
-  border: none;
+/* ---- 表单屏：左上角返回箭头 ---- */
+.rent-login-back {
+  margin-bottom: 20px;
+}
+
+.rent-login-back__btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rent-border, #edeff1);
   border-radius: var(--rent-radius-full);
-  background: transparent;
-  color: var(--rent-ink-3);
-  font-family: var(--rent-font-sans);
-  font-size: 14px;
-  font-weight: 600;
+  background: #ffffff;
+  color: #1a1a1b;
   cursor: pointer;
-  text-align: center;
-  white-space: nowrap;
   transition: all 0.15s;
 }
 
-.rent-auth-seg__tab:hover {
-  color: var(--rent-ink);
-}
-
-.rent-auth-seg__tab.is-active {
-  background: #fff;
-  color: var(--rent-primary);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.14);
+.rent-login-back__btn:hover {
+  background: #f6f7f8;
 }
 
 /* ---- 国家码 + 手机号 / 验证码 + 按钮 ---- */

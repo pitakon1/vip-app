@@ -24,7 +24,8 @@ import OAuthButtons from '@/components/OAuthButtons';
 import OAuthMockModal from '@/components/OAuthMockModal';
 import colors from '@/theme/colors';
 
-type Mode = 'phone' | 'email';
+type Method = 'phone' | 'email';
+type Stage = 'choose' | 'form';
 type Role = 'tenant' | 'owner';
 type FocusField =
   | 'country'
@@ -52,7 +53,9 @@ export default function RegisterScreen() {
     mockBusy,
   } = useOAuth();
 
-  const [mode, setMode] = useState<Mode>('phone');
+  // Reddit 式分步：choose = 方式选择屏，form = 对应表单屏
+  const [stage, setStage] = useState<Stage>('choose');
+  const [method, setMethod] = useState<Method>('phone');
   // 手机号模式
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [countryVisible, setCountryVisible] = useState(false);
@@ -82,23 +85,23 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     let ok = true;
     let msg = '';
-    if (mode === 'phone' && !phone.trim()) {
+    if (method === 'phone' && !phone.trim()) {
       msg = '请输入手机号';
       ok = false;
     }
-    if (mode === 'email' && !email.trim()) {
+    if (method === 'email' && !email.trim()) {
       msg = '请输入邮箱';
       ok = false;
     }
-    if (!code && mode === 'phone') {
+    if (!code && method === 'phone') {
       msg = '请输入验证码';
       ok = false;
     }
-    if (mode === 'email' && !password) {
+    if (method === 'email' && !password) {
       msg = '请输入密码';
       ok = false;
     }
-    if (mode === 'email' && password !== confirm) {
+    if (method === 'email' && password !== confirm) {
       msg = '两次输入的密码不一致';
       ok = false;
     }
@@ -115,7 +118,7 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       const payload =
-        mode === 'phone'
+        method === 'phone'
           ? { phone: `${country.value}${phone.trim()}`, code: code.trim(), full_name: name.trim(), role }
           : { email: email.trim(), password, full_name: name.trim(), role };
       const { data } = await authApi.register(payload);
@@ -142,215 +145,226 @@ export default function RegisterScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingTop: 32 + insets.top, paddingBottom: insets.bottom + 24 },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => navigation.goBack()}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityRole="button"
-            accessibilityLabel="返回登录"
-          >
-            <Ionicons name="arrow-back" size={22} color={colors.ink} />
-          </TouchableOpacity>
-          <Text style={styles.brandTitle}>
-            <Text style={styles.brandTitleAccent}>VIP</Text> Rental
-          </Text>
-          <Text style={styles.brandSubtitle}>创建你的账号</Text>
-        </View>
-
-        {/* Google / Apple 一键登录（独立社交区，含「或」分隔线） */}
-        <OAuthButtons loading={oauthLoading} onGoogle={loginWithGoogle} onApple={loginWithApple} />
-
-        {/* 胶囊分段 Tab：手机号注册 / 邮箱注册 */}
-        <View style={styles.segContainer}>
-          {(
-            [
-              ['phone', 'phone-portrait-outline', '手机号注册'],
-              ['email', 'mail-outline', '邮箱注册'],
-            ] as const
-          ).map(([m, icon, label]) => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.segItem, mode === m && styles.segItemActive]}
-              onPress={() => {
-                setMode(m);
-                setError('');
-              }}
-              activeOpacity={0.7}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: mode === m }}
-              accessibilityLabel={label}
-            >
-              <Ionicons name={icon} size={18} color={mode === m ? colors.primary : colors.ink3} />
-              <Text style={[styles.segText, mode === m && styles.segTextActive]}>{label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {mode === 'phone' ? (
-          <>
-            {/* 国家码 + 手机号 */}
-            <TouchableOpacity
-              style={[
-                styles.input,
-                styles.countryField,
-                focused === 'country' ? styles.inputFocused : undefined,
-              ]}
-              onPress={() => setCountryVisible(true)}
-              accessibilityRole="button"
-              accessibilityLabel="选择国家码"
-            >
-              <Text style={styles.countryText}>{country.label}</Text>
-              <Ionicons name="chevron-down" size={16} color={colors.ink3} />
-            </TouchableOpacity>
-
-            <TextInput
-              style={focusedStyle('phone')}
-              placeholder="手机号"
-              placeholderTextColor={colors.ink3}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              textContentType="telephoneNumber"
-              onFocus={() => setFocused('phone')}
-              onBlur={() => setFocused(null)}
-              accessibilityLabel="手机号"
-            />
-
-            {/* 验证码 输入 + 获取验证码文字按钮 */}
-            <View style={styles.codeRow}>
-              <TextInput
-                style={[styles.codeInput, focused === 'code' ? styles.inputFocused : undefined]}
-                placeholder="验证码"
-                placeholderTextColor={colors.ink3}
-                value={code}
-                onChangeText={setCode}
-                keyboardType="number-pad"
-                onFocus={() => setFocused('code')}
-                onBlur={() => setFocused(null)}
-                accessibilityLabel="验证码"
-              />
-              <TouchableOpacity
-                style={styles.codeBtn}
-                onPress={handleSendCode}
-                disabled={secondsLeft > 0 || sending}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={secondsLeft > 0 ? `重新获取，${secondsLeft}秒` : '获取验证码'}
-              >
-                {sending ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Text style={[styles.codeBtnText, secondsLeft > 0 && styles.codeBtnTextMuted]}>
-                    {secondsLeft > 0 ? `${secondsLeft}s` : '获取验证码'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : (
-          <>
-            <TextInput
-              style={focusedStyle('email')}
-              placeholder="邮箱"
-              placeholderTextColor={colors.ink3}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              onFocus={() => setFocused('email')}
-              onBlur={() => setFocused(null)}
-              accessibilityLabel="邮箱"
-            />
-            <TextInput
-              style={focusedStyle('password')}
-              placeholder="密码"
-              placeholderTextColor={colors.ink3}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              onFocus={() => setFocused('password')}
-              onBlur={() => setFocused(null)}
-              accessibilityLabel="密码"
-            />
-            <TextInput
-              style={focusedStyle('confirm')}
-              placeholder="确认密码"
-              placeholderTextColor={colors.ink3}
-              value={confirm}
-              onChangeText={setConfirm}
-              secureTextEntry
-              onFocus={() => setFocused('confirm')}
-              onBlur={() => setFocused(null)}
-              accessibilityLabel="确认密码"
-            />
-          </>
-        )}
-
-        <TextInput
-          style={focusedStyle('name')}
-          placeholder="姓名"
-          placeholderTextColor={colors.ink3}
-          value={name}
-          onChangeText={setName}
-          onFocus={() => setFocused('name')}
-          onBlur={() => setFocused(null)}
-          accessibilityLabel="姓名"
-        />
-
-        {/* 角色 两个紧凑胶囊 */}
-        <View style={styles.roleRow}>
-          {(
-            [
-              ['tenant', '租客'],
-              ['owner', '房东'],
-            ] as [Role, string][]
-          ).map(([r, label]) => (
-            <TouchableOpacity
-              key={r}
-              style={[styles.roleItem, role === r && styles.roleItemActive]}
-              onPress={() => setRole(r)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: role === r }}
-              accessibilityLabel={`注册为${label}`}
-            >
-              <Text style={[styles.roleText, role === r && styles.roleTextActive]}>{label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {!!error && <Text style={styles.fieldError}>{error}</Text>}
-
-        {/* 全宽胶囊主按钮 */}
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleRegister}
-          disabled={loading}
-          activeOpacity={0.85}
+      {stage === 'choose' ? (
+        /* ---------------- 方式选择屏 ---------------- */
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingTop: 32 + insets.top, paddingBottom: insets.bottom + 24 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {loading ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <Text style={styles.buttonText}>注册</Text>
-          )}
-        </TouchableOpacity>
+          <View style={styles.header}>
+            <Text style={styles.brandTitle}>
+              <Text style={styles.brandTitleAccent}>VIP</Text> Rental
+            </Text>
+            <Text style={styles.brandSubtitle}>创建你的账号</Text>
+            <Text style={styles.brandDesc}>选择一种方式继续</Text>
+          </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>已有账号？</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
-            <Text style={styles.footerLink}>去登录</Text>
+          {/* 一列整宽白色胶囊：Google / Apple / 或 / 手机号 / 邮箱 */}
+          <OAuthButtons
+            loading={oauthLoading}
+            onGoogle={loginWithGoogle}
+            onApple={loginWithApple}
+            onPhone={() => {
+              setMethod('phone');
+              setStage('form');
+            }}
+            onEmail={() => {
+              setMethod('email');
+              setStage('form');
+            }}
+          />
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>已有账号？</Text>
+            <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
+              <Text style={styles.footerLink}>去登录</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      ) : (
+        /* ---------------- 对应表单屏 ---------------- */
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingTop: 16 + insets.top, paddingBottom: insets.bottom + 24 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.formHeader}>
+            <TouchableOpacity
+              style={styles.formBack}
+              onPress={() => setStage('choose')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="返回方式选择"
+            >
+              <Ionicons name="arrow-back" size={22} color={colors.ink} />
+            </TouchableOpacity>
+            <Text style={styles.formTitle}>创建你的账号</Text>
+          </View>
+
+          {method === 'phone' ? (
+            <>
+              {/* 国家码 + 手机号 */}
+              <TouchableOpacity
+                style={[
+                  styles.input,
+                  styles.countryField,
+                  focused === 'country' ? styles.inputFocused : undefined,
+                ]}
+                onPress={() => setCountryVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel="选择国家码"
+              >
+                <Text style={styles.countryText}>{country.label}</Text>
+                <Ionicons name="chevron-down" size={16} color={colors.ink3} />
+              </TouchableOpacity>
+
+              <TextInput
+                style={focusedStyle('phone')}
+                placeholder="手机号"
+                placeholderTextColor={colors.ink3}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                textContentType="telephoneNumber"
+                onFocus={() => setFocused('phone')}
+                onBlur={() => setFocused(null)}
+                accessibilityLabel="手机号"
+              />
+
+              {/* 验证码 输入 + 获取验证码文字按钮 */}
+              <View style={styles.codeRow}>
+                <TextInput
+                  style={[styles.codeInput, focused === 'code' ? styles.inputFocused : undefined]}
+                  placeholder="验证码"
+                  placeholderTextColor={colors.ink3}
+                  value={code}
+                  onChangeText={setCode}
+                  keyboardType="number-pad"
+                  onFocus={() => setFocused('code')}
+                  onBlur={() => setFocused(null)}
+                  accessibilityLabel="验证码"
+                />
+                <TouchableOpacity
+                  style={styles.codeBtn}
+                  onPress={handleSendCode}
+                  disabled={secondsLeft > 0 || sending}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={secondsLeft > 0 ? `重新获取，${secondsLeft}秒` : '获取验证码'}
+                >
+                  {sending ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={[styles.codeBtnText, secondsLeft > 0 && styles.codeBtnTextMuted]}>
+                      {secondsLeft > 0 ? `${secondsLeft}s` : '获取验证码'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={focusedStyle('email')}
+                placeholder="邮箱"
+                placeholderTextColor={colors.ink3}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                onFocus={() => setFocused('email')}
+                onBlur={() => setFocused(null)}
+                accessibilityLabel="邮箱"
+              />
+              <TextInput
+                style={focusedStyle('password')}
+                placeholder="密码"
+                placeholderTextColor={colors.ink3}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                onFocus={() => setFocused('password')}
+                onBlur={() => setFocused(null)}
+                accessibilityLabel="密码"
+              />
+              <TextInput
+                style={focusedStyle('confirm')}
+                placeholder="确认密码"
+                placeholderTextColor={colors.ink3}
+                value={confirm}
+                onChangeText={setConfirm}
+                secureTextEntry
+                onFocus={() => setFocused('confirm')}
+                onBlur={() => setFocused(null)}
+                accessibilityLabel="确认密码"
+              />
+            </>
+          )}
+
+          <TextInput
+            style={focusedStyle('name')}
+            placeholder="姓名"
+            placeholderTextColor={colors.ink3}
+            value={name}
+            onChangeText={setName}
+            onFocus={() => setFocused('name')}
+            onBlur={() => setFocused(null)}
+            accessibilityLabel="姓名"
+          />
+
+          {/* 角色 两个紧凑胶囊 */}
+          <View style={styles.roleRow}>
+            {(
+              [
+                ['tenant', '租客'],
+                ['owner', '房东'],
+              ] as [Role, string][]
+            ).map(([r, label]) => (
+              <TouchableOpacity
+                key={r}
+                style={[styles.roleItem, role === r && styles.roleItemActive]}
+                onPress={() => setRole(r)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: role === r }}
+                accessibilityLabel={`注册为${label}`}
+              >
+                <Text style={[styles.roleText, role === r && styles.roleTextActive]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {!!error && <Text style={styles.fieldError}>{error}</Text>}
+
+          {/* 全宽胶囊主按钮 */}
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleRegister}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.primaryForeground} />
+            ) : (
+              <Text style={styles.buttonText}>注册</Text>
+            )}
           </TouchableOpacity>
-        </View>
-      </ScrollView>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>已有账号？</Text>
+            <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
+              <Text style={styles.footerLink}>去登录</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      )}
 
       {/* 国家码选择弹层 */}
       <Modal
@@ -408,40 +422,26 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: { alignItems: 'center', marginBottom: 28 },
-  backBtn: {
-    position: 'absolute',
-    left: -8,
-    top: -4,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   brandTitle: { fontSize: 28, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
   brandTitleAccent: { color: colors.primary },
   brandSubtitle: { fontSize: 14, color: colors.ink2, marginTop: 8 },
-  /* 胶囊分段控件（手机号 / 邮箱切换） */
-  segContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.fieldFill,
-    borderRadius: colors.radius.full,
-    padding: 4,
-    gap: 4,
-    marginTop: 22,
-    marginBottom: 22,
-  },
-  segItem: {
-    flex: 1,
+  brandDesc: { fontSize: 12, color: colors.ink3, marginTop: 6 },
+  // 表单屏头部：返回 + 标题
+  formHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: colors.radius.full,
+    marginBottom: 22,
   },
-  segItemActive: { backgroundColor: colors.surface, ...colors.shadow.sm },
-  segText: { fontSize: 14, color: colors.ink3, fontWeight: '600' },
-  segTextActive: { color: colors.primary, fontWeight: '700' },
+  formBack: {
+    position: 'absolute',
+    left: -8,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formTitle: { fontSize: 20, fontWeight: '800', color: colors.ink, letterSpacing: -0.3 },
   input: {
     backgroundColor: colors.fieldFill,
     borderRadius: 14,

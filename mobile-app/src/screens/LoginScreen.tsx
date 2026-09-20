@@ -27,9 +27,13 @@ import OAuthButtons from '@/components/OAuthButtons';
 import OAuthMockModal from '@/components/OAuthMockModal';
 import colors from '@/theme/colors';
 
+type Stage = 'choose' | 'form';
+
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState<'email' | 'phone'>('email');
+  // Reddit 式分步：choose = 方式选择屏，form = 对应表单屏
+  const [stage, setStage] = useState<Stage>('choose');
+  const [method, setMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -70,7 +74,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     let ok = true;
-    if (mode === 'email') {
+    if (method === 'email') {
       if (!email.trim()) {
         setEmailError('请输入邮箱');
         ok = false;
@@ -97,7 +101,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const { data } =
-        mode === 'email'
+        method === 'email'
           ? await authApi.login(email.trim(), password)
           : await authApi.loginByOtp(`${country.value}${phone.trim()}`, code.trim());
       const token: string | undefined = data?.token ?? data?.access_token;
@@ -134,214 +138,232 @@ export default function LoginScreen() {
         <Ionicons name="globe-outline" size={18} color={colors.ink2} />
       </TouchableOpacity>
 
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: 80 + insets.top, paddingBottom: insets.bottom + 24 }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <Image
-            source={require('../../assets/haofang-logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-            accessibilityLabel="logo"
+      {stage === 'choose' ? (
+        /* ---------------- 方式选择屏 ---------------- */
+        <ScrollView
+          contentContainerStyle={[styles.scroll, { paddingTop: 80 + insets.top, paddingBottom: insets.bottom + 24 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Image
+              source={require('../../assets/haofang-logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+              accessibilityLabel="logo"
+            />
+            <Text style={styles.brandTitle}>
+              <Text style={styles.brandTitleAccent}>VIP</Text> Rental
+            </Text>
+            <Text style={styles.brandSubtitle}>{t('login.tagline')}</Text>
+            <Text style={styles.brandDesc}>{t('login.taglineSub')}</Text>
+          </View>
+
+          {/* 一列整宽白色胶囊：Google / Apple / 或 / 手机号 / 邮箱 */}
+          <OAuthButtons
+            loading={oauthLoading}
+            onGoogle={loginWithGoogle}
+            onApple={loginWithApple}
+            onPhone={() => {
+              setMethod('phone');
+              setStage('form');
+            }}
+            onEmail={() => {
+              setMethod('email');
+              setStage('form');
+            }}
           />
-          <Text style={styles.brandTitle}>
-            <Text style={styles.brandTitleAccent}>VIP</Text> Rental
-          </Text>
-          <Text style={styles.brandSubtitle}>{t('login.tagline')}</Text>
-          <Text style={styles.brandDesc}>{t('login.taglineSub')}</Text>
-        </View>
 
-        <View style={styles.formCard}>
-          <View style={styles.form}>
-            {/* 欢迎区（对齐原型右卡标题） */}
-            <Text style={styles.cardTitle}>{t('login.welcome')}</Text>
-            <Text style={styles.cardSubtitle}>{t('login.subtitle')}</Text>
-
-            {/* Google / Apple 一键登录（独立社交区，含「或」分隔线） */}
-            <OAuthButtons loading={oauthLoading} onGoogle={loginWithGoogle} onApple={loginWithApple} />
-
-            {/* 胶囊分段 Tab：邮箱登录 / 手机号登录 */}
-            <View style={styles.segContainer}>
-              {(
-                [
-                  ['email', 'mail-outline', '邮箱登录'],
-                  ['phone', 'phone-portrait-outline', '手机号登录'],
-                ] as const
-              ).map(([m, icon, label]) => (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.segItem, mode === m && styles.segItemActive]}
-                  onPress={() => setMode(m)}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: mode === m }}
-                  accessibilityLabel={label}
-                >
-                  <Ionicons name={icon} size={17} color={mode === m ? colors.primary : colors.ink3} />
-                  <Text style={[styles.segText, mode === m && styles.segTextActive]}>{label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {mode === 'email' ? (
-              <>
-            <Text style={styles.label}>{t('login.email')}</Text>
-            <TextInput
-              style={[styles.input, (email.length > 0 || emailError) && styles.inputFocused, !!emailError && styles.inputError]}
-              placeholder="请输入邮箱"
-              placeholderTextColor={colors.ink3}
-              value={email}
-              onChangeText={(v) => {
-                setEmail(v);
-                if (emailError) setEmailError('');
-              }}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              textContentType="emailAddress"
-            />
-            {!!emailError && <Text style={styles.fieldError}>{emailError}</Text>}
-            <Text style={styles.label}>{t('login.password')}</Text>
-            <TextInput
-              style={[styles.input, (password.length > 0 || passwordError) && styles.inputFocused, !!passwordError && styles.inputError]}
-              placeholder="请输入密码"
-              placeholderTextColor={colors.ink3}
-              value={password}
-              onChangeText={(v) => {
-                setPassword(v);
-                if (passwordError) setPasswordError('');
-              }}
-              secureTextEntry
-              textContentType="password"
-            />
-            {!!passwordError && <Text style={styles.fieldError}>{passwordError}</Text>}
-              </>
-            ) : (
-              <>
-                <Text style={styles.label}>国家 / 地区</Text>
-                <TouchableOpacity
-                  style={styles.countryField}
-                  onPress={() => setCountryVisible(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel="选择国家码"
-                >
-                  <Text style={styles.countryText}>{country.label}</Text>
-                  <Ionicons name="chevron-down" size={16} color={colors.ink3} />
-                </TouchableOpacity>
-
-                <Text style={styles.label}>手机号</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="请输入手机号"
-                  placeholderTextColor={colors.ink3}
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  textContentType="telephoneNumber"
-                  accessibilityLabel="手机号"
-                />
-
-                <Text style={styles.label}>验证码</Text>
-                <View style={styles.codeRow}>
-                  <TextInput
-                    style={[styles.input, styles.codeInput]}
-                    placeholder="输入验证码"
-                    placeholderTextColor={colors.ink3}
-                    value={code}
-                    onChangeText={setCode}
-                    keyboardType="number-pad"
-                    accessibilityLabel="验证码"
-                  />
-                  <TouchableOpacity
-                    style={[styles.codeBtn, (secondsLeft > 0 || sending) && styles.codeBtnDisabled]}
-                    onPress={handleSendCode}
-                    disabled={secondsLeft > 0 || sending}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    accessibilityLabel={secondsLeft > 0 ? `重新获取，${secondsLeft}秒` : '获取验证码'}
-                  >
-                    {sending ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    ) : (
-                      <Text style={styles.codeBtnText}>
-                        {secondsLeft > 0 ? `${secondsLeft}s` : '获取验证码'}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
+          {/* 品牌特性 */}
+          <View style={styles.features}>
+            {(['login.feature1', 'login.feature2', 'login.feature3', 'login.feature4'] as const).map(
+              (key) => (
+                <View key={key} style={styles.featureRow}>
+                  <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                  <Text style={styles.featureText}>{t(key)}</Text>
                 </View>
-              </>
+              ),
             )}
-            {/* 记住我 / 忘记密码 */}
-            <View style={styles.helperRow}>
-              <TouchableOpacity
-                style={styles.rememberRow}
-                activeOpacity={0.8}
-                onPress={() => setRemember((v) => !v)}
-              >
-                <Ionicons
-                  name={remember ? 'checkbox' : 'square-outline'}
-                  size={18}
-                  color={remember ? colors.primary : colors.ink3}
-                />
-                <Text style={styles.rememberText}>{t('login.remember')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() =>
-                  Alert.alert('忘记密码', '请联系管理员在「账号管理」中重置您的登录密码。')
-                }
-              >
-                <Text style={styles.forgotText}>{t('login.forgot')}</Text>
-              </TouchableOpacity>
-            </View>
+          </View>
+
+          {/* 页脚：去注册 */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>还没有账号？</Text>
             <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleLogin}
-              disabled={loading}
-              activeOpacity={0.85}
+              onPress={() => navigation.navigate('Register')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="去注册"
             >
-              {loading ? (
-                <ActivityIndicator color={colors.primaryForeground} />
-              ) : (
-                <Text style={styles.buttonText}>{t('login.submit')}</Text>
-              )}
+              <Text style={styles.footerLink}>去注册</Text>
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* 品牌特性（对齐原型左侧品牌区特性列表） */}
-        <View style={styles.features}>
-          {(['login.feature1', 'login.feature2', 'login.feature3', 'login.feature4'] as const).map(
-            (key) => (
-              <View key={key} style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-                <Text style={styles.featureText}>{t(key)}</Text>
-              </View>
-            ),
-          )}
-        </View>
-
-        {/* 页脚：去注册 */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>还没有账号？</Text>
+          {/* 测试面板入口 */}
           <TouchableOpacity
-            onPress={() => navigation.navigate('Register')}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="去注册"
+            style={styles.testEntry}
+            onPress={() => navigation.navigate('Test')}
           >
-            <Text style={styles.footerLink}>去注册</Text>
+            <Text style={styles.testEntryText}>测试调试面板</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* 测试面板入口 */}
-        <TouchableOpacity
-          style={styles.testEntry}
-          onPress={() => navigation.navigate('Test')}
+        </ScrollView>
+      ) : (
+        /* ---------------- 对应表单屏 ---------------- */
+        <ScrollView
+          contentContainerStyle={[styles.scroll, { paddingTop: 16 + insets.top, paddingBottom: insets.bottom + 24 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.testEntryText}>测试调试面板</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <View style={styles.formHeader}>
+            <TouchableOpacity
+              style={styles.formBack}
+              onPress={() => setStage('choose')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="返回方式选择"
+            >
+              <Ionicons name="arrow-back" size={22} color={colors.ink} />
+            </TouchableOpacity>
+            <Text style={styles.formTitle}>{t('login.welcome')}</Text>
+          </View>
+
+          {method === 'email' ? (
+            <>
+              <Text style={styles.label}>{t('login.email')}</Text>
+              <TextInput
+                style={[styles.input, (email.length > 0 || emailError) && styles.inputFocused, !!emailError && styles.inputError]}
+                placeholder="请输入邮箱"
+                placeholderTextColor={colors.ink3}
+                value={email}
+                onChangeText={(v) => {
+                  setEmail(v);
+                  if (emailError) setEmailError('');
+                }}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                textContentType="emailAddress"
+              />
+              {!!emailError && <Text style={styles.fieldError}>{emailError}</Text>}
+              <Text style={styles.label}>{t('login.password')}</Text>
+              <TextInput
+                style={[styles.input, (password.length > 0 || passwordError) && styles.inputFocused, !!passwordError && styles.inputError]}
+                placeholder="请输入密码"
+                placeholderTextColor={colors.ink3}
+                value={password}
+                onChangeText={(v) => {
+                  setPassword(v);
+                  if (passwordError) setPasswordError('');
+                }}
+                secureTextEntry
+                textContentType="password"
+              />
+              {!!passwordError && <Text style={styles.fieldError}>{passwordError}</Text>}
+            </>
+          ) : (
+            <>
+              <Text style={styles.label}>国家 / 地区</Text>
+              <TouchableOpacity
+                style={styles.countryField}
+                onPress={() => setCountryVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel="选择国家码"
+              >
+                <Text style={styles.countryText}>{country.label}</Text>
+                <Ionicons name="chevron-down" size={16} color={colors.ink3} />
+              </TouchableOpacity>
+
+              <Text style={styles.label}>手机号</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="请输入手机号"
+                placeholderTextColor={colors.ink3}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                textContentType="telephoneNumber"
+                accessibilityLabel="手机号"
+              />
+
+              <Text style={styles.label}>验证码</Text>
+              <View style={styles.codeRow}>
+                <TextInput
+                  style={[styles.input, styles.codeInput]}
+                  placeholder="输入验证码"
+                  placeholderTextColor={colors.ink3}
+                  value={code}
+                  onChangeText={setCode}
+                  keyboardType="number-pad"
+                  accessibilityLabel="验证码"
+                />
+                <TouchableOpacity
+                  style={[styles.codeBtn, (secondsLeft > 0 || sending) && styles.codeBtnDisabled]}
+                  onPress={handleSendCode}
+                  disabled={secondsLeft > 0 || sending}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={secondsLeft > 0 ? `重新获取，${secondsLeft}秒` : '获取验证码'}
+                >
+                  {sending ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={styles.codeBtnText}>
+                      {secondsLeft > 0 ? `${secondsLeft}s` : '获取验证码'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+          {/* 记住我 / 忘记密码 */}
+          <View style={styles.helperRow}>
+            <TouchableOpacity
+              style={styles.rememberRow}
+              activeOpacity={0.8}
+              onPress={() => setRemember((v) => !v)}
+            >
+              <Ionicons
+                name={remember ? 'checkbox' : 'square-outline'}
+                size={18}
+                color={remember ? colors.primary : colors.ink3}
+              />
+              <Text style={styles.rememberText}>{t('login.remember')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() =>
+                Alert.alert('忘记密码', '请联系管理员在「账号管理」中重置您的登录密码。')
+              }
+            >
+              <Text style={styles.forgotText}>{t('login.forgot')}</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.primaryForeground} />
+            ) : (
+              <Text style={styles.submitBtnText}>{t('login.submit')}</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* 页脚：去注册 */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>还没有账号？</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Register')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="去注册"
+            >
+              <Text style={styles.footerLink}>去注册</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      )}
 
       {/* 语言选择弹层 */}
       <Modal
@@ -445,7 +467,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 28,
   },
   logo: {
     width: 110,
@@ -473,29 +495,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
   },
-  formCard: {
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xxl,
-    padding: 28,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...colors.shadow.sm,
+  // 表单屏头部：返回 + 标题
+  formHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
   },
-  form: {
-    width: '100%',
+  formBack: {
+    position: 'absolute',
+    left: -6,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  /* 卡片欢迎区 */
-  cardTitle: {
-    fontSize: 22,
+  formTitle: {
+    fontSize: 20,
     fontWeight: '800',
     color: colors.ink,
     letterSpacing: -0.3,
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: colors.ink3,
-    marginTop: 6,
-    marginBottom: 20,
   },
   /* 记住我 / 忘记密码 */
   helperRow: {
@@ -507,28 +526,6 @@ const styles = StyleSheet.create({
   rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
   rememberText: { fontSize: 13, color: colors.ink2 },
   forgotText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
-  /* 胶囊分段控件（邮箱登录 / 手机号登录） */
-  segContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.fieldFill,
-    borderRadius: colors.radius.full,
-    padding: 4,
-    gap: 4,
-    marginTop: 4,
-    marginBottom: 20,
-  },
-  segItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: colors.radius.full,
-  },
-  segItemActive: { backgroundColor: colors.surface, ...colors.shadow.sm },
-  segText: { fontSize: 14, color: colors.ink3, fontWeight: '600' },
-  segTextActive: { color: colors.primary, fontWeight: '700' },
   /* 手机号登录 */
   countryField: {
     flexDirection: 'row',
@@ -605,22 +602,19 @@ const styles = StyleSheet.create({
     marginTop: -10,
     marginBottom: 12,
   },
-  button: {
+  submitBtn: {
     backgroundColor: colors.primary,
-    borderRadius: colors.radius.lg,
-    paddingVertical: 15,
+    borderRadius: colors.radius.full,
+    height: 52,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginTop: 6,
     ...colors.shadow.primary,
   },
-  buttonPressed: {
-    backgroundColor: colors.primaryHover,
-    transform: [{ scale: 0.98 }],
-  },
-  buttonDisabled: {
+  submitBtnDisabled: {
     opacity: 0.6,
   },
-  buttonText: {
+  submitBtnText: {
     color: colors.primaryForeground,
     fontSize: 16,
     fontWeight: '700',

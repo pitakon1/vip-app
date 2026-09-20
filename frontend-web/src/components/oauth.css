@@ -1,43 +1,24 @@
 /* =========================================================
-   OAuth（Google / Apple）一键登录按钮
-   复用 `.rent-auth-method__btn` 白底胶囊按钮样式（两页通用），
-   这里只补充图标定位、Apple 图标填充色与加载旋转态。
+   OAuth（Google / Apple）与「方式选择屏」通用整宽白色胶囊按钮
+   Reddit 分步式：方式选择屏的所有入口按钮共享 .continue-btn 外观
+   （1px 浅灰边、border-radius:999px、hover 浅灰底，文字居中、图标固定左侧）
    ========================================================= */
 
-/* 容器：竖排堆叠两个按钮 + 下方与表单分隔 */
+/* OAuth 区块：竖排堆叠两个按钮 */
 .rent-oauth {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 26px;
 }
 
-/* 复用既有白底胶囊按钮外观 */
-.rent-oauth .rent-oauth__btn {
+/* 通用整宽胶囊按钮（OAuth + 手机号/邮箱方式按钮共用） */
+.continue-btn {
+  position: relative;
+  width: 100%;
   height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* 图标固定在按钮最左侧（登录页无 .rent-auth-method，需自行定位） */
-.rent-oauth .rent-oauth__btn .rent-auth-method__icon {
-  position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: inline-flex;
-  color: #9a9ea3;
-}
-
-.rent-oauth .rent-oauth__btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-/* Android / 页面未定义 .rent-auth-method 时的兜底外观 */
-.rent-oauth .rent-oauth__btn {
-  position: relative;
   padding: 0 16px;
   border: 1px solid #edeff1;
   border-radius: 999px;
@@ -50,8 +31,23 @@
   transition: all 0.15s;
 }
 
-.rent-oauth .rent-oauth__btn:hover {
+.continue-btn:hover {
   background: #f6f7f8;
+}
+
+.continue-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 图标固定在按钮最左侧 */
+.continue-btn__icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: #000000;
 }
 
 /* Apple 品牌黑色图标 */
