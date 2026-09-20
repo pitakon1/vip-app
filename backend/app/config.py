@@ -132,6 +132,12 @@ class Settings(BaseSettings):
     WECHAT_APPID: str = ""
     WECHAT_SECRET: str = ""
 
+    # 11) Google / Apple OAuth 登录。
+    #     未配置（空串）时走 mock/dev 兜底（仅 DEBUG 生效），非 DEBUG 拒绝返回 503。
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""  # 为后续后端交换 token 预留，本期只存不用
+    APPLE_CLIENT_ID: str = ""
+
     @property
     def cors_origins(self) -> List[str]:
         """解析后的 CORS 源列表。

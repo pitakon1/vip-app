@@ -1,0 +1,76 @@
+/* =========================================================
+   OAuth（Google / Apple）一键登录按钮
+   复用 `.rent-auth-method__btn` 白底胶囊按钮样式（两页通用），
+   这里只补充图标定位、Apple 图标填充色与加载旋转态。
+   ========================================================= */
+
+/* 容器：竖排堆叠两个按钮 + 下方与表单分隔 */
+.rent-oauth {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+/* 复用既有白底胶囊按钮外观 */
+.rent-oauth .rent-oauth__btn {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 图标固定在按钮最左侧（登录页无 .rent-auth-method，需自行定位） */
+.rent-oauth .rent-oauth__btn .rent-auth-method__icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: #9a9ea3;
+}
+
+.rent-oauth .rent-oauth__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Android / 页面未定义 .rent-auth-method 时的兜底外观 */
+.rent-oauth .rent-oauth__btn {
+  position: relative;
+  padding: 0 16px;
+  border: 1px solid #edeff1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1a1a1b;
+  font-family: var(--rent-font-sans, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rent-oauth .rent-oauth__btn:hover {
+  background: #f6f7f8;
+}
+
+/* Apple 品牌黑色图标 */
+.rent-oauth__apple {
+  display: inline-flex;
+  color: #000000;
+}
+
+/* 加载旋转 */
+.rent-oauth__spin {
+  color: #9a9ea3;
+}
+
+.rent-oauth__spin svg {
+  animation: rent-oauth-spin 0.8s linear infinite;
+}
+
+@keyframes rent-oauth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -19,6 +19,9 @@ import { authApi } from '@/services/api';
 import { tokenStorage } from '@/lib/storage';
 import { notifyError } from '@/utils/feedback';
 import { useOtp, COUNTRY_CODES, DEFAULT_COUNTRY } from '@/hooks/useOtp';
+import { useOAuth } from '@/hooks/useOAuth';
+import OAuthButtons from '@/components/OAuthButtons';
+import OAuthMockModal from '@/components/OAuthMockModal';
 import colors from '@/theme/colors';
 
 type Mode = 'phone' | 'email';
@@ -36,6 +39,18 @@ export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { sending, secondsLeft, sendOtp } = useOtp();
+  const {
+    oauthLoading,
+    loginWithGoogle,
+    loginWithApple,
+    mockVisible,
+    mockProvider,
+    mockEmail,
+    setMockEmail,
+    submitMock,
+    closeMock,
+    mockBusy,
+  } = useOAuth();
 
   const [mode, setMode] = useState<Mode>('phone');
   // 手机号模式
@@ -174,6 +189,9 @@ export default function RegisterScreen() {
           </Text>
           <Text style={styles.brandSubtitle}>创建你的账号</Text>
         </View>
+
+        {/* Google / Apple 一键登录 */}
+        <OAuthButtons loading={oauthLoading} onGoogle={loginWithGoogle} onApple={loginWithApple} />
 
         {/* 注册方式大按钮选择器 */}
         <View style={styles.methods}>
@@ -378,6 +396,17 @@ export default function RegisterScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* OAuth mock 邮箱弹窗 */}
+      <OAuthMockModal
+        visible={mockVisible}
+        provider={mockProvider}
+        email={mockEmail}
+        busy={mockBusy}
+        onChangeEmail={setMockEmail}
+        onCancel={closeMock}
+        onSubmit={submitMock}
+      />
     </KeyboardAvoidingView>
   );
 }

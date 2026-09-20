@@ -23,6 +23,11 @@ export const authApi = {
   loginByOtp: (phone: string, code: string) =>
     api.post('/auth/login/otp', { phone, code }),
   me: () => api.get('/auth/me'),
+  // 第三方 OAuth 登录（Google / Apple）；status 用于判断走真实授权还是开发 mock
+  oauthStatus: () => api.get('/auth/oauth/status'),
+  // id_token 为真实授权凭证；mock_email 为开发 mock 模式指定邮箱
+  oauthGoogle: (data: RequestBody) => api.post('/auth/oauth/google', data),
+  oauthApple: (data: RequestBody) => api.post('/auth/oauth/apple', data),
 }
 
 // Dashboard

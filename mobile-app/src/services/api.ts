@@ -8,6 +8,12 @@ export const authApi = {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     }),
   register: (data: any) => api.post('/auth/register', data),
+  // Google / Apple 一键登录（OAuth status 含 enabled/mock 开关，mock 分支供本地无凭据时兜底）
+  oauthStatus: () => api.get('/auth/oauth/status'),
+  oauthGoogle: (data: { id_token?: string; mock_email?: string }) =>
+    api.post('/auth/oauth/google', data),
+  oauthApple: (data: { id_token?: string; mock_email?: string }) =>
+    api.post('/auth/oauth/apple', data),
   // 手机号/邮箱验证码：发送 OTP（dev/未配短信凭据时明文码在响应 dev_code 里）
   requestOtp: (recipient: string, channel: string) =>
     api.post('/auth/otp/request', { recipient, channel }),

@@ -6,6 +6,7 @@ import { authApi } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import type { User } from '@/types'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import OAuthButtons from '@/components/OAuthButtons'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './register.css'
 
@@ -183,6 +184,9 @@ const Register = () => {
             <h2 className="rent-login-card__title">{t('register.title')}</h2>
             <p className="rent-login-card__subtitle">{t('register.subtitle')}</p>
           </div>
+
+          {/* 一键登录（Google / Apple）——放表单上方，真实授权或开发 mock */}
+          <OAuthButtons onSuccess={(res) => handleAuthSuccess(res?.data?.data ?? res?.data)} />
 
           <form onSubmit={handleSubmit}>
             {/* 注册方式选择：堆叠大按钮（Reddit 风格），即模式开关 */}

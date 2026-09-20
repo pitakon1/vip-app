@@ -6,6 +6,7 @@ import { authApi } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import type { User } from '@/types'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import OAuthButtons from '@/components/OAuthButtons'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './login.css'
 
@@ -193,6 +194,9 @@ const Login = () => {
             <h2 className="rent-login-card__title">{t('login.welcomeBack')}</h2>
             <p className="rent-login-card__subtitle">{t('login.subtitle')}</p>
           </div>
+
+          {/* 一键登录（Google / Apple）——放表单上方，真实授权或开发 mock */}
+          <OAuthButtons onSuccess={handleAuthSuccess} />
 
           {/* 邮箱密码 / 手机号验证码 切换 */}
           <div className="rent-auth-mode" role="tablist">

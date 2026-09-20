@@ -22,6 +22,9 @@ import { tokenStorage } from '@/lib/storage';
 import { useI18n, LANG_LABELS, LANGS, type AppLang } from '@/i18n';
 import { notifyError } from '@/utils/feedback';
 import { useOtp, COUNTRY_CODES, DEFAULT_COUNTRY } from '@/hooks/useOtp';
+import { useOAuth } from '@/hooks/useOAuth';
+import OAuthButtons from '@/components/OAuthButtons';
+import OAuthMockModal from '@/components/OAuthMockModal';
 import colors from '@/theme/colors';
 
 export default function LoginScreen() {
@@ -39,6 +42,18 @@ export default function LoginScreen() {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const { sending, secondsLeft, sendOtp } = useOtp();
+  const {
+    oauthLoading,
+    loginWithGoogle,
+    loginWithApple,
+    mockVisible,
+    mockProvider,
+    mockEmail,
+    setMockEmail,
+    submitMock,
+    closeMock,
+    mockBusy,
+  } = useOAuth();
   // 记住我：勾选则持久化 token，取消勾选则本次登录仅在内存态生效
   const [remember, setRemember] = useState(true);
   const { t, lang, setLang } = useI18n();
@@ -143,6 +158,9 @@ export default function LoginScreen() {
             {/* 欢迎区（对齐原型右卡标题） */}
             <Text style={styles.cardTitle}>{t('login.welcome')}</Text>
             <Text style={styles.cardSubtitle}>{t('login.subtitle')}</Text>
+
+            {/* Google / Apple 一键登录 + 或 分隔 */}
+            <OAuthButtons loading={oauthLoading} onGoogle={loginWithGoogle} onApple={loginWithApple} />
 
             {/* 登录方式切换：邮箱 / 手机号 */}
             <View style={styles.modeTabs}>
@@ -400,6 +418,17 @@ export default function LoginScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* OAuth mock 邮箱弹窗 */}
+      <OAuthMockModal
+        visible={mockVisible}
+        provider={mockProvider}
+        email={mockEmail}
+        busy={mockBusy}
+        onChangeEmail={setMockEmail}
+        onCancel={closeMock}
+        onSubmit={submitMock}
+      />
     </KeyboardAvoidingView>
   );
 }

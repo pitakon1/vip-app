@@ -32,6 +32,7 @@ from app.providers.notification.base import NotificationChannel, NotificationMes
 from app.providers.notification.sms_provider import SMSProvider
 from app.providers.notification.email_provider import EmailProvider
 from app.services import wechat as wechat_service
+from app.services import oauth as oauth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -102,6 +103,11 @@ class WxLoginRequest(BaseModel):
 
 class WxBindPhoneRequest(BaseModel):
     code: str
+
+
+class OAuthLoginRequest(BaseModel):
+    id_token: str | None = None
+    mock_email: str | None = None
 
 
 class UserMeOut(BaseModel):
@@ -427,6 +433,113 @@ def wx_bind_phone(
     session.commit()
     session.refresh(user)
     return serialize_user(user)
+
+
+@router.get("/oauth/status")
+def oauth_status():
+    """Google/Apple OAuth 可用状态（供前端决定走真实授权还是 mock）。"""
+    return {
+        "google": {"enabled": bool(settings.GOOGLE_CLIENT_ID), "mock": settings.DEBUG},
+        "apple": {"enabled": bool(settings.APPLE_CLIENT_ID), "mock": settings.DEBUG},
+    }
+
+
+def _oauth_find_or_create(
+    session: Session,
+    email: str,
+    full_name: str | None,
+) -> User:
+    """按邮箱找/建 OAuth 用户（role=tenant, is_verified=True）。
+
+    已存在直接复用；不存在则以随机密码创建并同步租客档案。返回 user（未校验 active）。
+    """
+    user = session.exec(select(User).where(User.email == email)).first()
+    if not user:
+        user = User(
+            email=email,
+            hashed_password=get_password_hash(secrets.token_hex(16)),
+            full_name=(full_name or "").strip() or "用户",
+            role=UserRole.tenant,
+            is_verified=True,
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        _sync_role_profile(session, user)
+    return user
+
+
+def _resolve_oauth_login(
+    provider: str,
+    client_id: str,
+    verifier,
+    req: OAuthLoginRequest,
+) -> tuple[str, str | None]:
+    """解析 OAuth 登录身份：(email, name)。
+
+    顺序：已配置 → 校验真实 idToken；未配置 → DEBUG+mock_email 兜底。
+    校验失败返回 401，非法 mock_email 返回 400，未配置返回 503。
+    """
+    fail_detail = f"{provider} login failed"
+    not_configured = f"{provider} sign-in not configured"
+    if client_id:
+        data = verifier((req.id_token or "").strip())
+        if not data:
+            raise HTTPException(status_code=401, detail=fail_detail)
+        if data.get("aud") != client_id:
+            raise HTTPException(status_code=401, detail=fail_detail)
+        return str(data.get("email")), data.get("name")
+    elif settings.DEBUG and req.mock_email:
+        mock = req.mock_email.strip()
+        if _is_valid_email(mock):
+            logger.info("oauth.mock %s=%s", provider.lower(), mock)
+            return mock, None
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid mock email for developer sign-in",
+        )
+    else:
+        raise HTTPException(status_code=503, detail=not_configured)
+
+
+@router.post("/oauth/google", response_model=TokenResponse)
+@limiter.limit(AUTH_LIMIT)
+def oauth_google_login(
+    request: Request,
+    req: OAuthLoginRequest,
+    session: Session = Depends(get_session),
+):
+    """Google OAuth 登录。未配置 GOOGLE_CLIENT_ID 时仅 DEBUG+mock_email 兜底。"""
+    email, name = _resolve_oauth_login(
+        "Google",
+        settings.GOOGLE_CLIENT_ID,
+        oauth_service.verify_google_id_token,
+        req,
+    )
+    user = _oauth_find_or_create(session, email, name)
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account disabled")
+    return _finalize_login(session, user)
+
+
+@router.post("/oauth/apple", response_model=TokenResponse)
+@limiter.limit(AUTH_LIMIT)
+def oauth_apple_login(
+    request: Request,
+    req: OAuthLoginRequest,
+    session: Session = Depends(get_session),
+):
+    """Apple OAuth 登录。未配置 APPLE_CLIENT_ID 时仅 DEBUG+mock_email 兜底。"""
+    email, name = _resolve_oauth_login(
+        "Apple",
+        settings.APPLE_CLIENT_ID,
+        oauth_service.verify_apple_id_token,
+        req,
+    )
+    user = _oauth_find_or_create(session, email, name)
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account disabled")
+    return _finalize_login(session, user)
 
 
 @router.post("/refresh", response_model=TokenResponse)
