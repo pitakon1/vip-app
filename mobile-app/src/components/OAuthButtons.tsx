@@ -109,12 +109,6 @@ export default function OAuthButtons({ loading, onGoogle, onApple, onPhone, onEm
         <Text style={styles.text}>使用 Apple 登录</Text>
       </TouchableOpacity>
 
-      <View style={styles.dividerRow}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>或</Text>
-        <View style={styles.dividerLine} />
-      </View>
-
       <TouchableOpacity
         style={styles.btn}
         onPress={onPhone}
@@ -159,18 +153,6 @@ const styles = StyleSheet.create({
     color: colors.ink,
     letterSpacing: 0.2,
   },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 6,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.fieldFillBorder,
-  },
-  dividerText: { fontSize: 13, color: colors.ink3 },
   // ---- Google G 四色字形 ----
   gBox: { position: 'relative', overflow: 'hidden' },
   gBlue: {

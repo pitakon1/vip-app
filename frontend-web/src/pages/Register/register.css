@@ -233,29 +233,7 @@
   margin-bottom: 4px;
 }
 
-/* 「或」分隔线：左线-灰字-右线 */
-.rent-register-page .rent-auth-divider {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 4px 0 24px;
-  color: #878a8c;
-}
 
-.rent-register-page .rent-auth-divider::before,
-.rent-register-page .rent-auth-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #edeff1;
-}
-
-.rent-register-page .rent-auth-divider span {
-  font-family: var(--rent-font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-}
 
 /* =========================================================
    方式选择屏：手机号/邮箱入口按钮列 + 表单屏返回箭头

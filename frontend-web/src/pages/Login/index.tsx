@@ -214,9 +214,6 @@ const Login = () => {
               {/* 方式选择屏：OAuth + 「或」+ 手机号/邮箱 */}
               <div className="rent-auth-social">
                 <OAuthButtons onSuccess={handleAuthSuccess} />
-                <div className="rent-auth-divider" aria-hidden="true">
-                  <span>{t('register.or')}</span>
-                </div>
               </div>
 
               <div className="rent-login-methods">
