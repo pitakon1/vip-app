@@ -169,6 +169,12 @@ export default function OwnerMarketingPage() {
     fetchAll()
   })
 
+  // 切换年份时重新拉取该年度的财务汇总数据
+  useEffect(() => {
+    fetchAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year])
+
   // 定价建议按 property_id 关联，口径不一致时回退按房源标题匹配
   const pricingOf = useCallback(
     (item?: VacantItem | null) => {

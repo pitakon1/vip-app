@@ -49,7 +49,7 @@ export default function EmployeeContactsPage() {
   const fetchAll = async () => {
     setLoading(true)
     try {
-      const res = await employeesApi.list({ pageSize: 500 })
+      const res = await employeesApi.list({ page: 1, page_size: 500 })
       setColleagues(pickList(res))
     } catch {
       setColleagues([])

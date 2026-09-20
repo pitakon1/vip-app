@@ -341,7 +341,7 @@ export default function EmployeePropertiesPage() {
               >
                 <View className='p-card__thumb'>
                   {photo ? (
-                    <Image className='p-card__photo' src={photo} mode='aspectFill' />
+                    <Image className='p-card__photo' src={photo} mode='aspectFill' lazyLoad />
                   ) : (
                     <Text className='p-card__ph'>房源</Text>
                   )}

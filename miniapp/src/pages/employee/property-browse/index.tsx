@@ -422,7 +422,7 @@ export default function EmployeePropertyBrowsePage() {
               <View key={p.id} className='pb-card'>
                 <View className='pb-card__thumb'>
                   {photo ? (
-                    <Image className='pb-card__photo' src={photo} mode='aspectFill' />
+                    <Image className='pb-card__photo' src={photo} mode='aspectFill' lazyLoad />
                   ) : (
                     <Text className='pb-card__ph'>房源</Text>
                   )}

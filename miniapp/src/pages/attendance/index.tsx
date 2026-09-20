@@ -183,9 +183,14 @@ export default function AttendancePage() {
     if (acting) return
     let loc = location
     if (!loc) loc = await getLoc()
+    if (!loc) {
+      setLocState('denied')
+      Taro.showToast({ title: '请先授权定位后再打卡', icon: 'none' })
+      return
+    }
     setActing(true)
     try {
-      const payload = loc ? { lat: loc.latitude, lng: loc.longitude } : {}
+      const payload = { lat: loc.latitude, lng: loc.longitude }
       if (mode === 'in') await attendanceApi.checkIn(payload)
       else await attendanceApi.checkOut(payload)
       Taro.showToast({ title: mode === 'in' ? '上班打卡成功' : '下班打卡成功', icon: 'success' })

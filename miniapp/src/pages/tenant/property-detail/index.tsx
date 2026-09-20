@@ -323,6 +323,7 @@ export default function TenantPropertyDetailPage() {
                     className={`gallery-thumb ${index === photoIndex ? 'gallery-thumb--active' : ''}`}
                     src={url}
                     mode='aspectFill'
+                    lazyLoad
                     onClick={() => pickPhoto(index)}
                   />
                 ))}
