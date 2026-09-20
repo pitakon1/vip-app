@@ -84,6 +84,16 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
         {
           key: '/company',
           labelKey: 'menu.company',
+          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01',
+        },
+      ],
+    },
+    {
+      labelKey: 'menu.section.personal',
+      items: [
+        {
+          key: '/owner/my',
+          labelKey: 'menu.profile',
           mobileLabelKey: 'portal.profile',
           icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01',
         },
@@ -350,7 +360,7 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
 
 /** 移动端底部 Tab 展示白名单（自上而下）。未列出的菜单项只在侧边栏展示。 */
 export const ROLE_MOBILE_KEYS: Record<string, string[]> = {
-  owner: ['/owner/dashboard', '/owner/income', '/owner/marketing', '/owner/services', '/company'],
+  owner: ['/owner/dashboard', '/owner/income', '/owner/marketing', '/owner/services', '/owner/my'],
   tenant: ['/tenant/dashboard', '/tenant/payments', '/tenant/documents', '/tenant/services', '/tenant/maintenance'],
   agent: ['/employee/dashboard', '/properties', '/listings', '/employee/attendance', '/employee/performance', '/employee/contacts'],
   employee: ['/employee/dashboard', '/properties', '/listings', '/employee/attendance', '/employee/performance', '/employee/contacts'],

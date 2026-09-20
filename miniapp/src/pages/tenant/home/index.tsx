@@ -5,16 +5,12 @@ import useAuthStore from '@/stores/auth'
 import {
   notificationsApi,
   translateApi,
-  leasesApi,
   propertiesApi,
-  paymentsApi,
-  maintenanceApi,
   favoritesApi
 } from '@/services/api'
 import { fmtMoney as formatMoney } from '@/utils/format'
 import type { NotificationType } from '@/types'
 import { iconStyle } from '@/utils/icons'
-import type { IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
 
@@ -55,37 +51,6 @@ const notifCategory = (n: NotifRow): NotificationType => {
 const notifTitle = (n: NotifRow) => n?.subject || n?.title || '通知'
 const notifTime = (n: NotifRow) => n?.created_at || n?.createdAt || ''
 
-type GridEntry = { key: string; label: string; url: string; icon: IconKey }
-
-// 功能宫格：按「是否在租」分流。访客态仅保留找房与服务入口；在租态展示履约服务。
-// 底部导航已含「找房」「消息」，此处不重复放置这两项入口。
-const VISITOR_GRID: GridEntry[] = [
-  { key: 'services', label: '服务', url: '/pages/tenant/services/index', icon: 'clipboard' }
-]
-
-const TENANT_GRID: GridEntry[] = [
-  { key: 'payments', label: '缴费', url: '/pages/tenant/payments/index', icon: 'card' },
-  { key: 'maintenance', label: '报修', url: '/pages/tenant/maintenance/index', icon: 'edit' },
-  { key: 'services', label: '服务', url: '/pages/tenant/services/index', icon: 'clipboard' },
-  { key: 'documents', label: '文档', url: '/pages/tenant/documents/index', icon: 'doc' }
-]
-
-// 快捷入口金刚区与功能宫格重复，已并入上方宫格，入口统一收敛（底部导航含「找房/消息」）
-
-const MAINT_PROGRESS: Record<string, number> = {
-  pending: 20,
-  processing: 65,
-  completed: 100,
-  cancelled: 0
-}
-
-const MAINT_LABEL: Record<string, string> = {
-  pending: '待处理',
-  processing: '处理中',
-  completed: '已完成',
-  cancelled: '已取消'
-}
-
 function pickList<T>(res: any): T[] {
   if (Array.isArray(res)) return res
   if (Array.isArray(res?.data)) return res.data
@@ -118,9 +83,6 @@ export default function TenantHomePage() {
 
   const [notifications, setNotifications] = useState<NotifRow[]>([])
   const [properties, setProperties] = useState<any[]>([])
-  const [leases, setLeases] = useState<any[]>([])
-  const [payments, setPayments] = useState<any[]>([])
-  const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [biz, setBiz] = useState<'rent' | 'buy'>('rent')
   const [keyword, setKeyword] = useState('')
@@ -134,21 +96,14 @@ export default function TenantHomePage() {
 
   const loadData = async () => {
     setLoading(true)
-    const [propsRes, leaseRes, payRes, maintRes, notifRes] = await Promise.all([
+    const [propsRes, notifRes] = await Promise.all([
       propertiesApi.list({ page: 1, pageSize: 100 }).catch(() => null),
-      leasesApi.mine().catch(() => null),
-      paymentsApi.mine().catch(() => null),
-      maintenanceApi.list().catch(() => null),
       notificationsApi.mine().catch(() => null)
     ])
     const props = pickList<any>(propsRes)
-    const leaseList = pickList<any>(leaseRes)
     setProperties(props)
-    setLeases(leaseList)
-    setPayments(pickList<any>(payRes))
-    setTickets(pickList<any>(maintRes))
     setNotifications(pickList<NotifRow>(notifRes))
-    if (leaseList.length === 0 && props.length === 0 && !payRes) {
+    if (props.length === 0 && !propsRes) {
       // 全部接口失败时给出提示，但不注入任何占位数据
       Taro.showToast({ title: '加载失败，请下拉重试', icon: 'none' })
     }
@@ -240,9 +195,6 @@ export default function TenantHomePage() {
   }
 
   // ===== 派生数据 =====
-  const isRenting = leases.some((l) => l?.status === 'active')
-  const activeGrid = isRenting ? TENANT_GRID : VISITOR_GRID
-
   const rentItems = properties
     .filter((p) => !p?.sale_price || p?.monthly_rent)
     .slice()
@@ -260,36 +212,10 @@ export default function TenantHomePage() {
   const newItems = rentItems.slice(0, 6)
   const commItems = saleItems.slice(0, 3)
 
-  const currentLease = leases.find((l) => l?.status === 'active') || leases[0] || null
-
-  const duePayment = payments
-    .filter((p) => p?.status === 'pending')
-    .slice()
-    .sort(
-      (a, b) =>
-        new Date(a?.due_date || 0).getTime() - new Date(b?.due_date || 0).getTime()
-    )[0]
-
-  const activeTicket = tickets.find((t) => t?.status === 'processing')
-
   const cities = Array.from(
     new Set(properties.map((p) => p?.city).filter(Boolean))
   ) as string[]
   const cityLabel = city || cities[0] || '选择城市'
-
-  const leaseDaysLeft = currentLease
-    ? Math.max(
-        0,
-        Math.ceil((new Date(currentLease?.end_date || '').getTime() - Date.now()) / 86400000)
-      )
-    : null
-
-  const leaseProgressValue = (() => {
-    const start = new Date(currentLease?.start_date || '').getTime()
-    const end = new Date(currentLease?.end_date || '').getTime()
-    if (!start || !end || end <= start) return 0
-    return Math.min(100, Math.max(0, Math.round(((Date.now() - start) / (end - start)) * 100)))
-  })()
 
   const feedItems = notifications.slice(0, 4)
 
@@ -419,56 +345,6 @@ export default function TenantHomePage() {
           </View>
         </View>
 
-        {!!duePayment && (
-          <View className='todo-pay'>
-            <View className='todo-pay__head'>
-              <Text className='todo-badge todo-badge--warning'>本月待办</Text>
-              {!!duePayment?.due_date && (
-                <Text className='todo-pay__due'>到期 {formatDay(duePayment.due_date)}</Text>
-              )}
-            </View>
-            <Text className='todo-pay__label'>本月租金</Text>
-            <Text className='todo-pay__amount'>
-              {formatMoney(duePayment?.amount, duePayment?.currency)}
-            </Text>
-            <Text className='todo-pay__sub'>到期未付将影响信用记录</Text>
-            <View
-              className='todo-pay__cta'
-              onClick={() => goQuick('/pages/tenant/payments/index')}
-            >
-              <Text className='todo-pay__cta-text'>立即付款</Text>
-            </View>
-          </View>
-        )}
-
-        {!!activeTicket && (
-          <View className='todo-maint'>
-            <View className='todo-maint__head'>
-              <Text className='todo-badge todo-badge--info'>报修进行中</Text>
-              <Text className='todo-maint__id'>#{String(activeTicket.id).slice(0, 8)}</Text>
-            </View>
-            <Text className='todo-maint__title'>{activeTicket.title || '报修工单'}</Text>
-            <Text className='todo-maint__desc'>{activeTicket.description || '—'}</Text>
-            <View className='progress'>
-              <View
-                className='progress__bar'
-                style={{ width: `${MAINT_PROGRESS[activeTicket.status] ?? 0}%` }}
-              />
-            </View>
-            <View className='todo-maint__foot'>
-              <Text className='todo-maint__meta'>
-                提交于 {formatDay(activeTicket.created_at || activeTicket.createdAt)}
-              </Text>
-              <View
-                className='todo-maint__btn'
-                onClick={() => goQuick('/pages/tenant/maintenance/index')}
-              >
-                <Text className='todo-maint__btn-text'>查看详情</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
         <View className='browse-banner' onClick={() => goQuick('/pages/tenant/listings/index')}>
           <View className='browse-banner__icon icon-svg' style={iconStyle('home', 44)} />
           <View className='browse-banner__body'>
@@ -478,51 +354,9 @@ export default function TenantHomePage() {
           <Text className='browse-banner__arrow'>›</Text>
         </View>
 
-        <View className='rv-func-grid'>
-          {activeGrid.map((entry) => (
-            <View
-              key={entry.key}
-              className='rv-func-item'
-              onClick={() => goQuick(entry.url)}
-            >
-              <View
-                className={`rv-func-icon rv-func-icon--${entry.key} icon-svg`}
-                style={iconStyle(entry.icon, 44)}
-              />
-              <Text className='rv-func-label'>{entry.label}</Text>
-            </View>
-          ))}
-        </View>
-
         {renderRail('精选房源', featuredItems)}
         {renderRail('新上房源', newItems)}
         {renderRail('热门二手房', commItems)}
-
-        {currentLease && (
-          <View className='lease-card'>
-            <View className='lease-card__head'>
-              <Text className='lease-card__title'>租约状态</Text>
-              <Text className='lease-badge'>
-                {currentLease?.status === 'active' ? '生效中' : currentLease?.status || '—'}
-              </Text>
-            </View>
-            <Text className='lease-card__name'>{propertyTitle(currentLease)}</Text>
-            <Text className='lease-card__meta'>
-              月租金 {formatMoney(currentLease?.monthly_rent, currentLease?.currency)}
-            </Text>
-            <View className='progress'>
-              <View className='progress__bar' style={{ width: `${leaseProgressValue}%` }} />
-            </View>
-            <View className='lease-card__foot'>
-              <Text className='lease-card__range'>
-                {formatDay(currentLease?.start_date)} 至 {formatDay(currentLease?.end_date)}
-              </Text>
-              {leaseDaysLeft !== null && (
-                <Text className='lease-card__left'>剩余 {leaseDaysLeft} 天</Text>
-              )}
-            </View>
-          </View>
-        )}
 
         <View className='rv-block-head'>
           <Text className='rv-block-title rv-block-title--inline'>最近动态</Text>

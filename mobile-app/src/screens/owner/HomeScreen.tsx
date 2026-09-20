@@ -1,7 +1,9 @@
 /**
- * 业主资产管理总览（对齐贝壳业主服务心智）
- * 一屏聚合：资产概览（出租率）→ 收益趋势 → 房源概览 → 我的上架单 → 待办/提醒 → 底部快捷网格。
- * 原则：聚合总览优先，明细仍由各栈页（OwnerProperties/Payments/Marketing/Services/Documents/MyListings）承担。
+ * 业主「资产管理」独立页（我的 → 资产管理 / OwnerHome 路由）。
+ * 首页已统一为租客同款视觉（问候/搜索/资产速览条/房源 rail），此处只承载业主差异内容：
+ * 资产概览（出租率）→ 收益趋势 → 房源概览 → 我的上架单 → 待办/提醒。
+ * 明细仍由各栈页（OwnerProperties/Payments/Marketing/Services/Documents/MyListings）承担；
+ * 区块标题等视觉参数与统一首页保持一致（sectionTitle 18px / letterSpacing -0.3）。
  * 数据一律复用现有真实接口，不编造。
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -27,8 +29,6 @@ import { fmtMoney as money } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 import type { Listing } from '@/types';
-
-type IoniconName = keyof typeof Ionicons.glyphMap;
 
 interface AnnualMonthly {
   month?: string | number;
@@ -59,14 +59,6 @@ interface OwnerProperty {
   bathrooms?: number;
   tenant_name?: string;
 }
-
-// 底部快捷网格（沿用项目网格样式；明细栈页均已在 RootNavigator 注册）
-const QUICK_GRID: { key: string; label: string; icon: IoniconName; color: string; bg: string; target: string }[] = [
-  { key: 'payments', label: '收益明细', icon: 'card-outline', color: colors.success, bg: `${colors.successRgb}1A`, target: 'OwnerPayments' },
-  { key: 'marketing', label: '委托挂牌与营销', icon: 'megaphone-outline', color: colors.warning, bg: `${colors.warningRgb}1A`, target: 'OwnerMarketing' },
-  { key: 'services', label: '增值服务', icon: 'sparkles-outline', color: colors.primary, bg: `${colors.primaryRgb}1A`, target: 'OwnerServices' },
-  { key: 'documents', label: '物业文档', icon: 'folder-open-outline', color: colors.info, bg: `${colors.infoRgb}1A`, target: 'OwnerDocuments' },
-];
 
 // 上架单状态元数据（仓库 MyListingsScreen 同口径）
 const LIST_STATUS: Record<string, { text: string; color: string; bg: string }> = {
@@ -479,26 +471,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         )}
-
-        {/* ===== 6. 底部快捷网格 ===== */}
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>快捷入口</Text>
-        </View>
-        <View style={styles.quickGrid}>
-          {QUICK_GRID.map((item) => (
-            <TouchableOpacity
-              key={item.key}
-              style={styles.quickCell}
-              activeOpacity={0.8}
-              onPress={() => go(item.target)}
-            >
-              <View style={[styles.quickIcon, { backgroundColor: item.bg }]}>
-                <Ionicons name={item.icon} size={20} color={item.color} />
-              </View>
-              <Text style={styles.quickLabel} numberOfLines={1}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
       </ScrollView>
     </View>
   );
@@ -547,7 +519,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: colors.spacing.xl,
     marginBottom: 10,
   },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.ink, letterSpacing: -0.3 },
   sectionHint: { fontSize: colors.fontSize.sm, color: colors.ink3, fontWeight: '600' },
 
   /* ===== 通用卡片 ===== */
@@ -644,26 +616,4 @@ const styles = StyleSheet.create({
   },
   miniBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: colors.radius.full },
   miniBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
-
-  /* ===== 底部快捷网格 ===== */
-  quickGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: colors.spacing.lg,
-    paddingVertical: colors.spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...colors.shadow.sm,
-  },
-  quickCell: { width: '25%', alignItems: 'center', paddingVertical: 12, gap: 7 },
-  quickIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: colors.radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickLabel: { fontSize: colors.fontSize.xs, color: colors.ink2 },
 });

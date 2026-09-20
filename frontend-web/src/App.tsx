@@ -37,6 +37,7 @@ import DedupeReview from '@/pages/DedupeReview'
 
 // 业主端页面
 import OwnerDashboard from '@/pages/Owner/Dashboard'
+import OwnerMy from '@/pages/Owner/My'
 import OwnerProperties from '@/pages/Owner/Properties'
 import OwnerDocuments from '@/pages/Owner/Documents'
 import OwnerIncome from '@/pages/Owner/Income'
@@ -46,11 +47,16 @@ import OwnerMarketing from '@/pages/Owner/Marketing'
 
 // 租客端页面
 import TenantDashboard from '@/pages/Tenant/Dashboard'
+import TenantMy from '@/pages/Tenant/My'
 import TenantPropertyDetail from '@/pages/Tenant/PropertyDetail'
 import TenantPayments from '@/pages/Tenant/Payments'
 import TenantDocuments from '@/pages/Tenant/Documents'
 import TenantServices from '@/pages/Tenant/Services'
 import TenantMaintenance from '@/pages/Tenant/Maintenance'
+import TenantLeases from '@/pages/Tenant/Leases'
+import TenantLeaseDetail from '@/pages/Tenant/LeaseDetail'
+import TenantDeals from '@/pages/Tenant/Deals'
+import TenantDealDetail from '@/pages/Tenant/DealDetail'
 
 // 员工端页面
 import EmployeeDashboard from '@/pages/Employee/Dashboard'
@@ -139,6 +145,7 @@ const App = () => {
           <Route path="/owner/services" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerServices /></ProtectedRoute>} />
           <Route path="/owner/payments" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerPayments /></ProtectedRoute>} />
           <Route path="/owner/marketing" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerMarketing /></ProtectedRoute>} />
+          <Route path="/owner/my" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerMy /></ProtectedRoute>} />
 
           {/* 员工端路由：仅员工/管理员 */}
           <Route path="/employee/dashboard" element={<ProtectedRoute denyRoles={['tenant','owner','agent']}><EmployeeDashboard /></ProtectedRoute>} />
@@ -172,12 +179,17 @@ const App = () => {
           }
         >
           <Route path="/tenant/dashboard" element={<TenantDashboard />} />
+          <Route path="/tenant/my" element={<TenantMy />} />
           <Route path="/tenant/properties/:id" element={<TenantPropertyDetail />} />
           <Route path="/tenant/listings" element={<PublicListings compact />} />
           <Route path="/tenant/payments" element={<TenantPayments />} />
           <Route path="/tenant/documents" element={<TenantDocuments />} />
           <Route path="/tenant/services" element={<TenantServices />} />
           <Route path="/tenant/maintenance" element={<TenantMaintenance />} />
+          <Route path="/tenant/leases" element={<TenantLeases />} />
+          <Route path="/tenant/leases/:id" element={<TenantLeaseDetail />} />
+          <Route path="/tenant/deals" element={<TenantDeals />} />
+          <Route path="/tenant/deals/:id" element={<TenantDealDetail />} />
         </Route>
 
         {/* ===== 404 兜底（未匹配路径）===== */}

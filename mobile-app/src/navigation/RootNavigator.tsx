@@ -29,6 +29,7 @@ import EmployeePropertyBrowseScreen from '../screens/employee/PropertyBrowseScre
 import OwnerPropertyDetailScreen from '../screens/owner/PropertyDetailScreen';
 import OwnerHomeScreen from '../screens/owner/HomeScreen';
 import OwnerPropertiesScreen from '../screens/owner/PropertiesScreen';
+import OwnerIncomeScreen from '../screens/owner/IncomeScreen';
 import OwnerDocumentsScreen from '../screens/tenant/DocumentsScreen';
 import ContactScreen from '../screens/employee/ContactScreen';
 import OwnerMarketingScreen from '../screens/owner/MarketingScreen';
@@ -36,12 +37,15 @@ import ListingPublishScreen from '../screens/listing/ListingPublishScreen';
 import MyListingsScreen from '../screens/listing/MyListingsScreen';
 import PublicListingsScreen from '../screens/listing/PublicListingsScreen';
 import BrokerAgreementScreen from '../screens/broker/BrokerAgreementScreen';
+import FeatureNotAvailableScreen from '../screens/FeatureNotAvailableScreen';
 import SettingsLanguageScreen from '../screens/settings/SettingsLanguageScreen';
 import EditProfileScreen from '../screens/settings/EditProfileScreen';
 import ChangePasswordScreen from '../screens/settings/ChangePasswordScreen';
 import NotificationPrefsScreen from '../screens/settings/NotificationPrefsScreen';
 import MyLeaseScreen from '../screens/settings/MyLeaseScreen';
+import MyLeaseDetailScreen from '../screens/settings/MyLeaseDetailScreen';
 import MyOrdersScreen from '../screens/settings/MyOrdersScreen';
+import MyOrderDetailScreen from '../screens/settings/MyOrderDetailScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -66,6 +70,7 @@ export type RootStackParamList = {
   Contacts: undefined;
   Calendar: undefined;
   OwnerHome: undefined;
+  OwnerIncome: undefined;
   OwnerPayments: undefined;
   OwnerMarketing: undefined;
   AdminUsers: undefined;
@@ -76,6 +81,7 @@ export type RootStackParamList = {
   OwnerPropertyDetail: { id: string };
   OwnerProperties: undefined;
   OwnerDocuments: undefined;
+  FeatureNotAvailable: { feature?: string; hint?: string } | undefined;
   ListingPublish: { id?: string } | undefined;
   MyListings: undefined;
   PublicListings: undefined;
@@ -84,8 +90,10 @@ export type RootStackParamList = {
   EditProfile: undefined;
   ChangePassword: undefined;
   NotificationPrefs: undefined;
-  MyLease: { activeLease?: any };
-  MyOrders: { deals?: any[] };
+  MyLease: undefined;
+  MyLeaseDetail: { lease_id: string };
+  MyOrders: undefined;
+  MyOrderDetail: { deal_id: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -113,8 +121,8 @@ export function RootNavigator() {
           <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ headerShown: true, title: '考勤打卡' }} />
           <Stack.Screen name="PropertyDetail" component={PropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />
           <Stack.Screen name="PropertySearch" component={TenantListingsScreen} options={{ headerShown: true, title: '房源搜索' }} />
-          <Stack.Screen name="Documents" component={DocumentsScreen} options={{ headerShown: true, title: '我的文档' }} />
-          <Stack.Screen name="TenantMaintenance" component={MaintenanceScreen} options={{ headerShown: true, title: '报修工单' }} />
+          <Stack.Screen name="Documents" component={DocumentsScreen} options={{ headerShown: true, title: '文档中心' }} />
+          <Stack.Screen name="TenantMaintenance" component={MaintenanceScreen} options={{ headerShown: true, title: '服务工单' }} />
           <Stack.Screen name="TenantServices" component={ServicesScreen} options={{ headerShown: true, title: '增值服务' }} />
           <Stack.Screen name="OwnerServices" component={ServicesScreen} options={{ headerShown: true, title: '增值服务' }} />
           <Stack.Screen name="Payments" component={PaymentsScreen} options={{ headerShown: true, title: '缴费中心' }} />
@@ -127,10 +135,12 @@ export function RootNavigator() {
           <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ headerShown: true, title: '账号管理' }} />
           <Stack.Screen name="Contacts" component={ContactScreen} options={{ headerShown: true, title: '同事通讯录' }} />
           <Stack.Screen name="OwnerHome" component={OwnerHomeScreen} options={{ headerShown: true, title: '资产管理' }} />
+          <Stack.Screen name="OwnerIncome" component={OwnerIncomeScreen} options={{ headerShown: true, title: '收益明细' }} />
           <Stack.Screen name="OwnerPayments" component={PaymentsScreen} options={{ headerShown: true, title: '我的付款' }} />
           <Stack.Screen name="OwnerMarketing" component={OwnerMarketingScreen} options={{ headerShown: true, title: '委托挂牌与营销' }} />
-          <Stack.Screen name="OwnerDocuments" component={OwnerDocumentsScreen} options={{ headerShown: true, title: '我的文档' }} />
+          <Stack.Screen name="OwnerDocuments" component={OwnerDocumentsScreen} options={{ headerShown: true, title: '文档中心' }} />
           <Stack.Screen name="OwnerProperties" component={OwnerPropertiesScreen} options={{ headerShown: true, title: '房源管理' }} />
+          <Stack.Screen name="FeatureNotAvailable" component={FeatureNotAvailableScreen} options={{ headerShown: true, title: '' }} />
           <Stack.Screen name="OwnerPropertyDetail" component={OwnerPropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />
           <Stack.Screen name="ListingPublish" component={ListingPublishScreen} options={{ headerShown: true, title: '发布房源' }} />
           <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ headerShown: true, title: '我的上架单' }} />
@@ -145,7 +155,9 @@ export function RootNavigator() {
           <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: true, title: '修改密码' }} />
           <Stack.Screen name="NotificationPrefs" component={NotificationPrefsScreen} options={{ headerShown: true, title: '通知设置' }} />
           <Stack.Screen name="MyLease" component={MyLeaseScreen} options={{ headerShown: true, title: '我的租约' }} />
-          <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ headerShown: true, title: '我的订单' }} />
+          <Stack.Screen name="MyLeaseDetail" component={MyLeaseDetailScreen} options={{ headerShown: true, title: '租约详情' }} />
+          <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ headerShown: true, title: '我的交易订单' }} />
+          <Stack.Screen name="MyOrderDetail" component={MyOrderDetailScreen} options={{ headerShown: true, title: '订单详情' }} />
         </>
       ) : (
         <>

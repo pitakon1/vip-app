@@ -588,3 +588,46 @@
   .rent-main { padding: 12px; }
   .rent-stat-card__value { font-size: 24px; }
 }
+
+/* ===== 三端统一的「我的」页（租客 /owner/my、/tenant/my 共用） ===== */
+.rent-my { display: flex; flex-direction: column; gap: 16px; max-width: 860px; }
+.rent-my__user {
+  display: flex; align-items: center; gap: 14px; padding: 20px;
+  background: rgba(var(--rent-primary-rgb), 0.06);
+}
+.rent-my__settings { padding: 8px 16px; display: flex; flex-direction: column; }
+.rent-my__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--rent-border);
+}
+.rent-my__row:last-child { border-bottom: none; }
+.rent-my__deal-info { flex: 1; min-width: 0; }
+.rent-my__grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+}
+.rent-my__cell {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px 8px; border-radius: 12px; cursor: pointer;
+  background: var(--rent-surface-2); color: var(--rent-ink);
+  border: 1px solid transparent;
+  transition: border-color .2s ease, transform .2s ease;
+}
+.rent-my__cell:hover { border-color: rgba(var(--rent-primary-rgb), 0.35); transform: translateY(-1px); }
+.rent-my__cell-icon {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--rent-primary-rgb), 0.1); color: var(--rent-primary);
+}
+.rent-my__cell-label { font-size: 13px; color: var(--rent-ink-2); text-align: center; }
+.rent-my__stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+@media (max-width: 768px) {
+  .rent-my__grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .rent-my__stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+}
+@media (max-width: 480px) {
+  .rent-my__grid { grid-template-columns: repeat(2, 1fr); }
+  .rent-my__stats { grid-template-columns: 1fr; }
+}

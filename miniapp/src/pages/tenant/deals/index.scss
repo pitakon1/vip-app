@@ -1,0 +1,117 @@
+/* 我的交易订单 —— 列表页 */
+
+.tenant-deals-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+  padding-bottom: 48rpx;
+
+  .page-container {
+    padding: 24rpx;
+  }
+
+  .card {
+    background-color: var(--card);
+    border-radius: var(--radius-xl);
+    padding: 28rpx;
+    margin-bottom: 28rpx;
+    box-shadow: var(--shadow-sm);
+
+    &--list {
+      padding: 0 28rpx;
+    }
+  }
+
+  .empty-tip {
+    text-align: center;
+    padding: 72rpx 0;
+    color: var(--ink-3);
+    font-size: 26rpx;
+  }
+
+  /* 订单行 */
+  .deal-row {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+    padding: 28rpx 0;
+    border-bottom: 1px solid var(--line);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &__left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &__title {
+      display: block;
+      font-size: 30rpx;
+      font-weight: 600;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__meta {
+      display: block;
+      font-size: 24rpx;
+      color: var(--ink-3);
+      margin-top: 8rpx;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &__badge {
+      flex-shrink: 0;
+      padding: 4rpx 14rpx;
+      border-radius: var(--radius-full);
+      font-size: 20rpx;
+      font-weight: 600;
+
+      &--success {
+        background: rgba(var(--success-rgb), 0.1);
+        color: var(--success);
+      }
+
+      &--warning {
+        background: rgba(var(--warning-rgb), 0.1);
+        color: var(--warning);
+      }
+
+      &--primary {
+        background: rgba(var(--primary-rgb), 0.1);
+        color: var(--primary);
+      }
+
+      &--info {
+        background: rgba(var(--info-rgb), 0.1);
+        color: var(--info);
+      }
+
+      &--error {
+        background: rgba(var(--error-rgb), 0.1);
+        color: var(--error);
+      }
+
+      &--neutral {
+        background: var(--surface-2);
+        color: var(--ink-3);
+      }
+    }
+
+    .chevron {
+      flex-shrink: 0;
+    }
+  }
+
+  .chevron {
+    width: 16rpx;
+    height: 16rpx;
+    flex-shrink: 0;
+    border-top: 3rpx solid var(--ink-3);
+    border-right: 3rpx solid var(--ink-3);
+    transform: rotate(45deg);
+  }
+}

@@ -261,6 +261,7 @@ export const saleListingApi = {
 // —— 战略：买卖交易闭环 · 成交/托管/按揭 ——
 export const propertyDealApi = {
   list: (params?: any) => api.get('/property-deals', { params }),
+  get: (id: string) => api.get(`/property-deals/${id}`),
   create: (data: any) => api.post('/property-deals', data),
   changeStatus: (id: string, status: string) =>
     api.patch(`/property-deals/${id}/status`, null, { params: { status } }),

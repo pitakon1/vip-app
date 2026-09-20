@@ -1,18 +1,16 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useRoute, type RouteProp } from '@react-navigation/native';
-import type { RootStackParamList } from '@/navigation/RootNavigator';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import EmptyState from '@/components/EmptyState';
+import { propertyDealApi, saleListingApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 import colors from '@/theme/colors';
 import { fmtMoney as fmtRent } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type Route = RouteProp<RootStackParamList, 'MyOrders'>;
-
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
 
-// 购房订单状态（PropertyDealStatus）
+// 交易订单状态（PropertyDealStatus）
 const DEAL_STATUS: Record<string, { text: string; color: string; bg: string }> = {
   drafted: { text: '洽谈中', color: colors.ink2, bg: colors.surface2 },
   escrow_pending: { text: '定金托管中', color: colors.warning, bg: colors.warningLight },
@@ -24,17 +22,51 @@ const DEAL_STATUS: Record<string, { text: string; color: string; bg: string }> =
 };
 
 /**
- * 我的购房订单（全屏下钻子页）。
- * 由「我的 - 资产 - 我的购房订单」行进入；展示本人订单清单及状态。
- * 数据由 ProfileScreen 加载后经路由参数传入。
+ * 我的交易订单（全屏下钻子页）。
+ * 由「我的 - 常用功能 - 我的交易订单」进入；自拉本人订单清单（含买房与租房交易），点击行进入订单详情。
  */
 export default function MyOrdersScreen() {
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
-  const { params } = useRoute<Route>();
-  const deals: any[] = params?.deals ?? [];
+  const navigation = useNavigation<any>();
+  const [deals, setDeals] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
-  if (!deals.length) {
+  useEffect(() => {
+    let alive = true;
+    Promise.allSettled([
+      propertyDealApi.list({ page: 1, page_size: 50 }),
+      saleListingApi.list({ page: 1, page_size: 50 }),
+    ]).then(([dRes, lRes]) => {
+      if (!alive) return;
+      const titles: Record<string, string> = {};
+      if (lRes.status === 'fulfilled') {
+        const d: any = lRes.value?.data;
+        const rows = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
+        (rows as any[]).forEach((r) => {
+          if (r?.id) titles[String(r.id)] = r.title ?? '';
+        });
+      }
+      if (dRes.status === 'fulfilled') {
+        const d: any = dRes.value?.data;
+        const rows = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
+        setDeals(
+          (rows as any[]).map((r) => ({
+            ...r,
+            listing_title: titles[String(r.sale_listing_id ?? '')],
+          })),
+        );
+      } else {
+        setDeals([]);
+      }
+      if (alive) setLoaded(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (loaded && deals.length === 0) {
     return (
       <View style={[styles.emptyWrap, { paddingTop: insets.top + 24 }]}>
         <EmptyState
@@ -52,13 +84,15 @@ export default function MyOrdersScreen() {
         {deals.map((d, idx) => {
           const meta = DEAL_STATUS[String(d.status ?? '')] ?? DEAL_STATUS.drafted;
           return (
-            <View
+            <TouchableOpacity
               key={d.id}
               style={[styles.dealRow, idx < deals.length - 1 && styles.dealRowBorder]}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('MyOrderDetail', { deal_id: String(d.id) })}
             >
               <View style={styles.dealLeft}>
                 <Text style={styles.dealTitle} numberOfLines={1}>
-                  {d.listing_title || `购房订单 ${String(d.id ?? '').slice(0, 8)}`}
+                  {d.listing_title || `交易订单 ${String(d.id ?? '').slice(0, 8)}`}
                 </Text>
                 <Text style={styles.dealMeta} numberOfLines={1}>
                   {d.sale_price ? `${fmtRent(d.sale_price, d.currency)} · ` : ''}
@@ -68,7 +102,7 @@ export default function MyOrdersScreen() {
               <View style={[styles.dealBadge, { backgroundColor: meta.bg }]}>
                 <Text style={[styles.dealBadgeText, { color: meta.color }]}>{meta.text}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>

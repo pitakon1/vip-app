@@ -89,6 +89,7 @@ export const leadsApi = {
 export const leasesApi = {
   list: (params?: any) => request({ url: '/leases', method: 'GET', data: params }),
   mine: () => request({ url: '/leases/me', method: 'GET' }),
+  get: (id: string) => request({ url: `/leases/${id}`, method: 'GET' }),
   renew: (id: string, data: any) =>
     request({ url: `/leases/${id}/renew`, method: 'POST', data })
 }
@@ -293,6 +294,7 @@ export const saleListingApi = {
 
 export const propertyDealApi = {
   list: (params?: any) => request({ url: `/property-deals${qs(params)}`, method: 'GET' }),
+  get: (id: string) => request({ url: `/property-deals/${id}`, method: 'GET' }),
   create: (data: any) => request({ url: '/property-deals', method: 'POST', data }),
   updateStatus: (id: string, status: string) =>
     request({ url: `/property-deals/${id}/status${qs({ status })}`, method: 'PATCH' }),

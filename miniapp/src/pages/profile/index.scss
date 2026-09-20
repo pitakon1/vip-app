@@ -154,39 +154,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-
-  /* 三指标：名下有房源 / 其中在租 / 本月实收 */
-  &__stats {
-    display: flex;
-    align-items: flex-end;
-    margin-top: 28rpx;
-    padding-top: 20rpx;
-    border-top: 1px solid rgba(var(--primary-foreground-rgb), 0.18);
-  }
-
-  &__stat {
-    margin-right: 40rpx;
-
-    &--right {
-      margin-left: auto;
-      margin-right: 0;
-      text-align: right;
-    }
-  }
-
-  &__stat-label {
-    display: block;
-    font-size: 22rpx;
-    color: rgba(var(--primary-foreground-rgb), 0.75);
-    margin-bottom: 4rpx;
-  }
-
-  &__stat-value {
-    font-size: 32rpx;
-    font-weight: 700;
-    color: var(--primary-foreground);
-    font-variant-numeric: tabular-nums;
-  }
 }
 
 /* ===== 业主端：账单缴费入口卡（对齐 owner-mini-settings.html） ===== */
@@ -505,14 +472,14 @@
   }
 }
 
-/* ===== 租客端：服务宫格 ===== */
+/* ===== 常用功能宫格（4 列，对齐 App 端统一宫格：业主/租客各 4 项，合并 8 项两排） ===== */
 .service-grid {
   display: flex;
   flex-wrap: wrap;
   padding: 16rpx 0;
 
   &__item {
-    width: 33.333%;
+    width: 25%;
     display: flex;
     flex-direction: column;
     align-items: center;

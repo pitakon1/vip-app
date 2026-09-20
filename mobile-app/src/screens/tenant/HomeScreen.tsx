@@ -11,18 +11,16 @@ import {
   Platform,
   Pressable,
   FlatList,
-  type DimensionValue,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
-import { propertiesApi, leasesApi, paymentsApi, maintenanceApi, saleListingApi, ownerApi, ownersApi } from '@/services/api';
+import { propertiesApi, paymentsApi, maintenanceApi, saleListingApi } from '@/services/api';
 import { fmtMoney as formatMoney } from '@/utils/format';
 import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
-import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 
 interface Listing {
   id: string;
@@ -77,33 +75,6 @@ interface Ticket {
 }
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
-type GridIcon = 'search' | 'map' | 'build' | 'document-text' | 'people' | 'card' | 'key' | 'business' | 'calendar' | 'chatbubbles';
-
-interface GridEntry {
-  key: string;
-  icon: GridIcon;
-  route: string;
-  params?: Record<string, any>;
-  labelKey?: string;
-  label?: string;
-}
-
-// 在租态 = 履约服务（去重后 4 格：缴费 / 报修 / 服务 / 文档。
-// 找房源、消息已并入底部「找房」「消息」Tab，首页不再重复展示；
-// 访客态不渲染宫格，找房操作统一走顶部搜索栏与底部「找房」Tab）
-const TENANT_GRID: GridEntry[] = [
-  { key: 'payments', labelKey: 'home.pay', icon: 'card', route: 'Payments' },
-  { key: 'maintenance', label: '报修', icon: 'build', route: 'TenantMaintenance' },
-  { key: 'services', labelKey: 'home.services', icon: 'people', route: 'TenantServices' },
-  { key: 'documents', label: '文档', icon: 'document-text', route: 'Documents' },
-];
-
-/** 宫格项宽度：按实际项数自适应，避免 2 项时右侧空出一半造成观感残缺 */
-const gridItemWidth = (count: number): DimensionValue => {
-  if (count <= 2) return '50%';
-  if (count === 3 || count > 4) return '33.33%';
-  return '25%';
-};
 
 const statusLabels: Record<string, string> = {
   vacant: '空置',
@@ -153,15 +124,7 @@ const ticketStatusMeta: Record<
   closed: { text: '已关闭', color: colors.ink3, bg: colors.surface2, progress: 100 },
 };
 
-const OPEN_TICKET_STATUS = ['submitted', 'accepted', 'in_progress'];
-
 const formatDay = (x?: string) => (x ? String(x).slice(0, 10) : '—');
-
-const daysSince = (x?: string) => {
-  const t = Date.parse(String(x ?? ''));
-  if (!t) return null;
-  return Math.max(0, Math.floor((Date.now() - t) / 86400000));
-};
 
 /**
  * 租房房源卡片。
@@ -315,8 +278,6 @@ export default function HomeScreen() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isRenting, setIsRenting] = useState(false);
-  const [activeLease, setActiveLease] = useState<any>(null);
   const [bizTab, setBizTab] = useState<'rent' | 'buy'>('rent');
   const { t } = useI18n();
   const navigation = useNavigation<any>();
@@ -327,73 +288,10 @@ export default function HomeScreen() {
     () => user?.name || user?.full_name || user?.username || '',
     [user],
   );
-  // 统一首页按身份动态显示：业主额外提供「我要出租/管理房源」入口（轻管理导向，重工具走 Web 门户）。
-  // 使用能力判断而非单一 role：用户可能「既是业主又是租客」，名下有房即可见业主区块，不因 role 是 tenant 漏显。
-  const { canManageProperty: isOwner } = useUserCapabilities();
-
-  // 业主资产速览数据：在管房源 / 在租 / 本月实收（接口取不到时安全降级为 '—'，不阻塞首屏）
-  const [ownerAssets, setOwnerAssets] = useState<{ props: any[]; ok: boolean }>({
-    props: [],
-    ok: false,
-  });
-  const [ownerReceived, setOwnerReceived] = useState<number | null>(null);
-  const [ownerCurrency, setOwnerCurrency] = useState('');
-  useEffect(() => {
-    if (!isOwner) return;
-    let alive = true;
-    const year = new Date().getFullYear();
-    Promise.allSettled([ownerApi.properties(), ownersApi.annualSummary(year)]).then(
-      ([pRes, aRes]) => {
-        if (!alive) return;
-        const pick = (res: PromiseSettledResult<any>): any[] | null => {
-          if (res.status !== 'fulfilled') return null;
-          const data = res.value?.data;
-          const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-          return Array.isArray(items) ? items : null;
-        };
-        const props = pick(pRes);
-        if (props) {
-          setOwnerAssets({ props, ok: true });
-          if (props[0]?.currency) setOwnerCurrency(String(props[0].currency));
-        }
-        if (aRes.status === 'fulfilled') {
-          const annual: any = aRes.value?.data;
-          if (annual?.currency) setOwnerCurrency(String(annual.currency));
-          const buckets: any[] = Array.isArray(annual?.by_month) ? annual.by_month : [];
-          if (buckets.length) {
-            const now = new Date();
-            const mm = String(now.getMonth() + 1).padStart(2, '0');
-            const bucket =
-              buckets.find((b) => {
-                const m = String(b?.month ?? '');
-                return (
-                  m === `${now.getFullYear()}-${mm}` ||
-                  m === mm ||
-                  Number(b?.month) === now.getMonth() + 1
-                );
-              }) ?? buckets[buckets.length - 1];
-            setOwnerReceived(Number(bucket?.received ?? 0));
-          }
-        }
-      },
-    );
-    return () => {
-      alive = false;
-    };
-  }, [isOwner]);
-
-  // 资产速览派生值：在管房源数 / 在租数
-  const ownerPropCount = ownerAssets.ok ? ownerAssets.props.length : null;
-  const ownerRentedCount = ownerAssets.ok
-    ? ownerAssets.props.filter((p) =>
-        ['rented', 'active'].includes(String(p?.status || '').toLowerCase()),
-      ).length
-    : null;
 
   const loadAll = useCallback(async () => {
-    const [pRes, lRes, payRes, mRes, sRes] = await Promise.allSettled([
+    const [pRes, payRes, mRes, sRes] = await Promise.allSettled([
       propertiesApi.list({ page: 1, page_size: 20 }),
-      leasesApi.mine(),
       paymentsApi.mine(),
       maintenanceApi.list({ page: 1, page_size: 20 }),
       saleListingApi.list({ page: 1, limit: 10 }),
@@ -420,18 +318,6 @@ export default function HomeScreen() {
       setSaleItems(items as SaleListing[]);
     }
 
-    // 是否在租：命中「生效中」租约则展示租客履约服务，并缓存该租约用于租约状态卡
-    if (lRes.status === 'fulfilled') {
-      const leases: any = lRes.value?.data;
-      const list = Array.isArray(leases) ? leases : leases?.items ?? [];
-      const active = (list as any[]).find((l: any) => l?.status === 'active');
-      setIsRenting(!!active);
-      setActiveLease(active ?? null);
-    } else {
-      // 接口不可用时保守按访客态展示，避免对非在租用户暴露租客专属入口
-      setIsRenting(false);
-      setActiveLease(null);
-    }
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -452,13 +338,6 @@ export default function HomeScreen() {
     loadAll();
   }, [loadAll]);
 
-  const handleEntry = useCallback(
-    (entry: GridEntry) => {
-      navigation.navigate(entry.route, entry.params);
-    },
-    [navigation],
-  );
-
   const goListings = useCallback(() => navigation.navigate('Listings'), [navigation]);
   const openProperty = useCallback(
     (id: string) => navigation.navigate('PropertyDetail', { id }),
@@ -466,28 +345,15 @@ export default function HomeScreen() {
   );
 
   // ---------- 数据驱动区块 ----------
-  // 待办：最近一笔待支付账单
-  const pendingPayment = useMemo(
-    () => payments.find((p) => p.status === 'pending') ?? null,
-    [payments],
-  );
-  // 报修进行中：最近一张未完结工单
-  const activeTicket = useMemo(
-    () => tickets.find((tk) => OPEN_TICKET_STATUS.includes(String(tk.status ?? ''))) ?? null,
-    [tickets],
-  );
-
   // 推荐房源：合并原「精选」与「新上房源」两条 rail（同一批数据被切成两条会被误读为两类房源）
   const recommended = useMemo(() => listings.slice(0, 10), [listings]);
 
-  // 城市标签：取真实房源/租约数据中出现的城市（仅作静态展示，不代表 GPS 定位）
+  // 城市标签：取真实房源数据中出现的城市（仅作静态展示，不代表 GPS 定位）
   const cityLabel = useMemo(() => {
     const rows: any[] = [...recommended, ...saleItems];
     const city = rows.map((i) => i?.city).find((c: any) => !!c);
-    if (city) return String(city);
-    const leaseCity = activeLease?.property_city ?? activeLease?.city;
-    return leaseCity ? String(leaseCity) : '';
-  }, [recommended, saleItems, activeLease]);
+    return city ? String(city) : '';
+  }, [recommended, saleItems]);
 
   // 最近动态：账单 + 报修按时间倒序合并。
   // title 只保留类型/事项名，状态一律交给右侧徽标表达，避免同一状态出现两次
@@ -532,33 +398,20 @@ export default function HomeScreen() {
     return rows.sort((a, b) => b.at - a.at).slice(0, 5);
   }, [payments, tickets]);
 
-  // 租约进度 / 剩余天数
-  const leaseProgress = useMemo(() => {
-    const s = Date.parse(String(activeLease?.start_date ?? ''));
-    const e = Date.parse(String(activeLease?.end_date ?? ''));
-    if (!s || !e || e <= s) return { percent: 0, remainDays: null as number | null };
-    const percent = Math.min(100, Math.max(3, Math.round(((Date.now() - s) / (e - s)) * 100)));
-    return { percent, remainDays: Math.ceil((e - Date.now()) / 86400000) };
-  }, [activeLease]);
-
-  // 「买房」上下文：隐藏全部租房履约模块，只保留搜索栏 + 业务 Tab + 购房 rail
+  // 「买房」上下文：隐藏租房 rail，只展示购房 rail
   const isRentTab = bizTab === 'rent';
 
-  // 外层 FlatList 的数据区块：房源 rail / 租约卡 / 最近动态。
+  // 外层 FlatList 的数据区块：房源 rail / 最近动态。
   // 房源卡统一在横向 rail（ScrollView horizontal）里，纵向只按「区块」懒加载，
-  // 避免首页一次性渲染并挂载全部内容；按当前状态动态决定是否追加租约卡与动态。
-  // 加载中仅渲染一个「加载」占位区块：顶部的问候/搜索/宫格/Tab 已在 ListHeader 立即展示，
+  // 避免首页一次性渲染并挂载全部内容。最近动态区块固定渲染（无数据时展示空态），
+  // 保证不同身份/状态用户看到一致的页面排版。
+  // 加载中仅渲染一个「加载」占位区块：顶部的问候/搜索/Tab 已在 ListHeader 立即展示，
   // 数据到位后该区块替换为实际内容，避免整页停留在白屏/加载漩涡。
-  type BodySection = { key: 'rail' | 'lease' | 'activity' | 'loading' };
+  type BodySection = { key: 'rail' | 'activity' | 'loading' };
   const bodySections = useMemo<BodySection[]>(() => {
     if (loading) return [{ key: 'loading' }];
-    const secs: BodySection[] = [{ key: 'rail' }];
-    if (isRentTab) {
-      if (isRenting && activeLease) secs.push({ key: 'lease' });
-      if (activities.length > 0) secs.push({ key: 'activity' });
-    }
-    return secs;
-  }, [isRentTab, isRenting, activeLease, activities, loading]);
+    return [{ key: 'rail' }, { key: 'activity' }];
+  }, [loading]);
 
   // 渲染单个数据区块（rail 内部仍是横向 ScrollView，保持横向滚动行为不变）
   const renderBodySection = ({ item }: { item: BodySection }) => {
@@ -643,63 +496,43 @@ export default function HomeScreen() {
             )}
           </>
         );
-      case 'lease':
-        return (
-          <View style={styles.card}>
-            <View style={styles.cardHead}>
-              <Text style={styles.cardTitle}>租约状态</Text>
-              <View style={styles.badgeSuccess}>
-                <Text style={styles.badgeSuccessText}>{t('home.leaseInforce')}</Text>
-              </View>
-            </View>
-            <Text style={styles.leaseName} numberOfLines={1}>
-              {activeLease.property_name || activeLease.room_number || t('home.myLease')}
-            </Text>
-            <Text style={styles.leaseMeta}>
-              {formatMoney(activeLease.monthly_rent ?? activeLease.rent, activeLease.currency)}/月
-            </Text>
-            <View style={styles.progress}>
-              <View style={[styles.progressBar, { width: `${leaseProgress.percent}%` }]} />
-            </View>
-            <View style={styles.cardFoot}>
-              <Text style={styles.cardFootText}>
-                {formatDay(activeLease.start_date)} 至 {formatDay(activeLease.end_date)}
-              </Text>
-              {leaseProgress.remainDays !== null && (
-                <Text style={styles.linkText}>剩余 {leaseProgress.remainDays} 天</Text>
-              )}
-            </View>
-          </View>
-        );
       case 'activity':
         return (
           <>
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>最近动态</Text>
             </View>
-            <View style={styles.card}>
-              {activities.map((a, idx) => (
-                <View
-                  key={a.id}
-                  style={[styles.actRow, idx < activities.length - 1 && styles.actRowDivider]}
-                >
-                  <View style={[styles.actIcon, { backgroundColor: a.bg }]}>
-                    <Ionicons name={a.icon} size={16} color={a.color} />
+            {activities.length === 0 ? (
+              <EmptyState
+                icon="notifications-outline"
+                title="暂无动态"
+                sub="账单、报修等动态会显示在这里"
+              />
+            ) : (
+              <View style={styles.card}>
+                {activities.map((a, idx) => (
+                  <View
+                    key={a.id}
+                    style={[styles.actRow, idx < activities.length - 1 && styles.actRowDivider]}
+                  >
+                    <View style={[styles.actIcon, { backgroundColor: a.bg }]}>
+                      <Ionicons name={a.icon} size={16} color={a.color} />
+                    </View>
+                    <View style={styles.actBody}>
+                      <Text style={styles.actTitle} numberOfLines={1}>
+                        {a.title}
+                      </Text>
+                      <Text style={styles.actSub} numberOfLines={1}>
+                        {a.sub}
+                      </Text>
+                    </View>
+                    <View style={[styles.actBadge, { backgroundColor: a.bg }]}>
+                      <Text style={[styles.actBadgeText, { color: a.color }]}>{a.badge}</Text>
+                    </View>
                   </View>
-                  <View style={styles.actBody}>
-                    <Text style={styles.actTitle} numberOfLines={1}>
-                      {a.title}
-                    </Text>
-                    <Text style={styles.actSub} numberOfLines={1}>
-                      {a.sub}
-                    </Text>
-                  </View>
-                  <View style={[styles.actBadge, { backgroundColor: a.bg }]}>
-                    <Text style={[styles.actBadgeText, { color: a.color }]}>{a.badge}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
+                ))}
+              </View>
+            )}
           </>
         );
       default:
@@ -755,48 +588,6 @@ export default function HomeScreen() {
         </View>
       </TouchableOpacity>
 
-      {/* 2.5 业主资产管理速览：在管房源 / 在租 / 本月实收 + 「去管理」入口。
-         合并原「我要出租/管理房源」入口卡与资数三格为一整条，避免同一资产内容重复出现 */}
-      {isOwner && (
-        <TouchableOpacity
-          style={styles.ownerStrip}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('MyListings')}
-          accessibilityRole="button"
-          accessibilityLabel={t('home.manageAsset')}
-        >
-          <View style={styles.ownerStripStats}>
-            <View style={styles.ownerStripCell}>
-              <Text style={styles.ownerStripValue}>
-                {ownerPropCount === null ? '-' : ownerPropCount}
-              </Text>
-              <Text style={styles.ownerStripLabel}>{t('profile.ownerUnits')}</Text>
-            </View>
-            <View style={styles.ownerStripCell}>
-              <Text style={styles.ownerStripValue}>
-                {ownerRentedCount === null ? '-' : ownerRentedCount}
-              </Text>
-              <Text style={styles.ownerStripLabel}>{t('profile.ownerRented')}</Text>
-            </View>
-            <View style={styles.ownerStripCell}>
-              <Text style={styles.ownerStripValue} numberOfLines={1} adjustsFontSizeToFit>
-                {ownerReceived === null ? '-' : formatMoney(ownerReceived, ownerCurrency)}
-              </Text>
-              <Text style={styles.ownerStripLabel}>{t('profile.ownerReceived')}</Text>
-            </View>
-            <View style={styles.ownerStripGo}>
-              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-            </View>
-          </View>
-          <View style={styles.ownerStripFoot}>
-            <Ionicons name="key-outline" size={14} color={colors.primary} />
-            <Text style={styles.ownerStripFootText} numberOfLines={1}>
-              {t('home.manageAssetSub')}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      )}
-
       {/* 3. 双业务 Tab：租房 / 买房 */}
       <View style={styles.bizTabs}>
         {(['rent', 'buy'] as const).map((b) => (
@@ -813,108 +604,7 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* 4. 待办：本月租金未付（仅租房上下文 + 有真实待支付账单才渲染） */}
-      {isRentTab && pendingPayment && (
-        <TouchableOpacity
-          style={[styles.card, styles.todoPay]}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('Payments')}
-        >
-          <View style={styles.cardHead}>
-            <View style={styles.badgeWarning}>
-              <Text style={styles.badgeWarningText}>本月待办</Text>
-            </View>
-            <Text style={styles.todoDue}>{formatDay(pendingPayment.due_date)} 到期</Text>
-          </View>
-          <Text style={styles.todoLabel}>
-            {paymentTypeLabels[String(pendingPayment.payment_type ?? '')] ?? '本月租金'}
-          </Text>
-          <Text style={styles.todoAmount}>
-            {formatMoney(pendingPayment.amount, pendingPayment.currency)}
-          </Text>
-          <Text style={styles.todoSub}>
-            {pendingPayment.description || '请及时缴纳，逾期可能影响信用记录'}
-          </Text>
-          <View style={styles.primaryBtn}>
-            <Text style={styles.primaryBtnText}>立即付款</Text>
-          </View>
-        </TouchableOpacity>
-      )}
-
-      {/* 5. 报修进行中：进度卡（仅租房上下文 + 有未完结工单才渲染） */}
-      {isRentTab && activeTicket && (
-        <TouchableOpacity
-          style={[styles.card, styles.todoMaint]}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('TenantMaintenance')}
-        >
-          <View style={styles.cardHead}>
-            <View style={styles.badgeInfo}>
-              <Text style={styles.badgeInfoText}>报修进行中</Text>
-            </View>
-            <Text style={styles.ticketNo}>#{String(activeTicket.id).slice(0, 8)}</Text>
-          </View>
-          <Text style={styles.todoMaintTitle} numberOfLines={1}>
-            {activeTicket.title || '报修工单'} ·{' '}
-            {(ticketStatusMeta[String(activeTicket.status ?? '')] ?? ticketStatusMeta.submitted).text}
-          </Text>
-          {!!activeTicket.description && (
-            <Text style={styles.todoMaintDesc} numberOfLines={2}>
-              {activeTicket.description}
-            </Text>
-          )}
-          <View style={styles.progress}>
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  width: `${
-                    (ticketStatusMeta[String(activeTicket.status ?? '')] ?? ticketStatusMeta.submitted)
-                      .progress
-                  }%`,
-                  backgroundColor:
-                    (ticketStatusMeta[String(activeTicket.status ?? '')] ?? ticketStatusMeta.submitted)
-                      .color,
-                },
-              ]}
-            />
-          </View>
-          <View style={styles.cardFoot}>
-            <Text style={styles.cardFootText}>
-              {daysSince(activeTicket.createdAt ?? activeTicket.created_at) !== null
-                ? `已处理 ${daysSince(activeTicket.createdAt ?? activeTicket.created_at)} 天`
-                : formatDay(activeTicket.createdAt ?? activeTicket.created_at)}
-            </Text>
-            <Text style={styles.linkText}>查看详情</Text>
-          </View>
-        </TouchableOpacity>
-      )}
-
-      {/* 6. 在租履约宫格（仅租客且有生效租约时展示：缴费/报修/服务/文档。
-          访客态不渲染——公寓/写字楼等找房分类不再做首页快捷入口，统一走顶部搜索栏与底部「找房」Tab） */}
-      {isRentTab && isRenting && (
-        <View style={styles.grid}>
-          {TENANT_GRID.map((entry) => (
-            <TouchableOpacity
-              key={entry.key}
-              style={[styles.gridItem, { width: gridItemWidth(TENANT_GRID.length) }]}
-              activeOpacity={0.7}
-              onPress={() => handleEntry(entry)}
-              accessibilityRole="button"
-              accessibilityLabel={entry.labelKey ? t(entry.labelKey) : entry.label}
-            >
-              <View style={styles.gridIconBox}>
-                <Ionicons name={entry.icon} size={22} color={colors.primary} />
-              </View>
-              <Text style={styles.gridLabel}>
-                {entry.labelKey ? t(entry.labelKey) : entry.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* 7-9. 房源 rail / 租约卡 / 最近动态，已移入外层 FlatList 的 data（renderBodySection 按区块懒加载渲染） */}
+      {/* 4. 房源 rail / 最近动态，已移入外层 FlatList 的 data（renderBodySection 按区块懒加载渲染） */}
         </>
       }
     />
@@ -933,20 +623,6 @@ const styles = StyleSheet.create({
     marginBottom: colors.spacing.md,
     ...colors.shadow.card,
   },
-  cardHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: colors.spacing.sm,
-  },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
-  cardFoot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: colors.spacing.sm,
-  },
-  cardFootText: { fontSize: 12, color: colors.ink2 },
 
   /* 问候 */
   greeting: { marginBottom: colors.spacing.md },
@@ -977,49 +653,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  /* 业主资产管理速览条（合并原「我要出租/管理房源」入口卡，数据真实接口，取不到降级为 '-'） */
-  ownerStrip: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: colors.radius.lg,
-    marginBottom: colors.spacing.md,
-    overflow: 'hidden',
-    ...colors.shadow.sm,
-  },
-  ownerStripStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: colors.spacing.md,
-    paddingTop: colors.spacing.md,
-  },
-  ownerStripCell: { flex: 1, minWidth: 0, paddingRight: colors.spacing.sm },
-  ownerStripValue: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: colors.ink,
-    letterSpacing: -0.3,
-    minHeight: 24,
-  },
-  ownerStripLabel: { fontSize: 12, color: colors.ink2, marginTop: 2 },
-  ownerStripGo: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: colors.sidebarActive,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ownerStripFoot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: colors.spacing.xs,
-    marginTop: colors.spacing.sm,
-    marginBottom: colors.spacing.md,
-    paddingHorizontal: colors.spacing.md,
-  },
-  ownerStripFootText: { flex: 1, fontSize: 12, color: colors.primary, fontWeight: '600' },
 
   /* 数据区骨架屏：尺寸对齐真实房源卡（propCard 宽 210 / 图高 110） */
   skeletonBlock: { paddingBottom: colors.spacing.sm },
@@ -1061,86 +694,6 @@ const styles = StyleSheet.create({
     marginBottom: colors.spacing.sm,
   },
   locationText: { flex: 1, fontSize: 13, fontWeight: '500', color: colors.ink2 },
-
-  /* 待办卡 */
-  todoPay: { borderLeftWidth: 3, borderLeftColor: colors.warning },
-  todoDue: { fontSize: 12, color: colors.ink2 },
-  todoLabel: { fontSize: 13, color: colors.ink2 },
-  // 待缴金额用 warning 语义色（原先误用品牌青绿，会把「欠款」渲染成正面信号）
-  todoAmount: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.warning,
-    marginTop: colors.spacing.xs,
-    letterSpacing: -0.5,
-  },
-  todoSub: { fontSize: 12, color: colors.ink2, marginTop: colors.spacing.xs, lineHeight: 18 },
-  primaryBtn: {
-    marginTop: colors.spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: colors.radius.full,
-    paddingVertical: colors.spacing.md,
-    alignItems: 'center',
-  },
-  primaryBtnText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' },
-
-  /* 报修卡 */
-  todoMaint: { borderLeftWidth: 3, borderLeftColor: colors.info },
-  todoMaintTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  todoMaintDesc: { fontSize: 13, color: colors.ink2, marginTop: colors.spacing.xs, lineHeight: 18 },
-  ticketNo: { fontSize: 12, color: colors.ink2 },
-
-  /* 进度条 */
-  progress: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.surface2,
-    overflow: 'hidden',
-    marginTop: colors.spacing.md,
-  },
-  progressBar: { height: 6, borderRadius: 3, backgroundColor: colors.primary },
-
-  /* 徽标 */
-  badgeWarning: {
-    backgroundColor: colors.warningLight,
-    paddingHorizontal: colors.spacing.sm,
-    paddingVertical: 3,
-    borderRadius: colors.radius.sm,
-  },
-  badgeWarningText: { fontSize: 12, fontWeight: '700', color: colors.warning },
-  badgeInfo: {
-    backgroundColor: colors.alpha(colors.infoRgb, 0.1),
-    paddingHorizontal: colors.spacing.sm,
-    paddingVertical: 3,
-    borderRadius: colors.radius.sm,
-  },
-  badgeInfoText: { fontSize: 12, fontWeight: '700', color: colors.info },
-  badgeSuccess: {
-    backgroundColor: colors.successLight,
-    paddingHorizontal: colors.spacing.sm,
-    paddingVertical: 3,
-    borderRadius: colors.radius.sm,
-  },
-  badgeSuccessText: { fontSize: 12, fontWeight: '700', color: colors.success },
-
-  /* 功能宫格：去掉白色卡片外壳，让宫格直接落在背景色上、靠区块标题分组 */
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingVertical: colors.spacing.lg,
-    marginBottom: colors.spacing.md,
-  },
-  gridItem: { alignItems: 'center', paddingVertical: colors.spacing.sm },
-  gridIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: colors.sidebarActive,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: colors.spacing.sm,
-  },
-  gridLabel: { fontSize: 12, color: colors.ink, fontWeight: '500' },
 
   /* 区块标题 */
   sectionHead: {
@@ -1203,10 +756,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   propPriceUnit: { fontSize: 12, fontWeight: '400', color: colors.ink2 },
-
-  /* 租约状态卡 */
-  leaseName: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  leaseMeta: { fontSize: 13, color: colors.ink2, marginTop: colors.spacing.xs },
 
   /* 最近动态 */
   actRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: colors.spacing.md },
