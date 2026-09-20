@@ -420,11 +420,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   brandLogo: {
-    width: 200,
-    height: 80,
+    width: 260,
+    height: 100,
     alignSelf: 'center',
     resizeMode: 'contain',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   // 表单屏头部：返回 + 标题
   formHeader: {
