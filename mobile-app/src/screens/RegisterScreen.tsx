@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   footerText: { fontSize: 14, color: colors.ink3 },
-  footerLink: { fontSize: 14, color: colors.ink, fontWeight: '800' },
+  footerLink: { fontSize: 14, color: colors.primary, fontWeight: '700' },
   overlay: {
     flex: 1,
     backgroundColor: colors.alpha('0,0,0', 0.45),

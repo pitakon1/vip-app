@@ -506,10 +506,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 4,
-    marginTop: 20,
+    marginTop: 22,
   },
-  footerText: { fontSize: 13, color: colors.ink3 },
-  footerLink: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  footerText: { fontSize: 14, color: colors.ink3 },
+  footerLink: { fontSize: 14, color: colors.primary, fontWeight: '700' },
   label: {
     fontSize: 14,
     color: colors.ink,
