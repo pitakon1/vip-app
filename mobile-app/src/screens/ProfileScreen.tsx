@@ -341,7 +341,6 @@ export default function ProfileScreen() {
   const adminSystemItems: SettingItem[] = [
     { key: 'language', icon: 'globe', label: '语言', value: lang === 'en' ? 'English' : lang === 'th' ? 'ไทย' : '中文', openLang: true, color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
     { key: 'timezone', icon: 'time', label: '时区', value: 'UTC+8', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
-    { key: 'theme', icon: 'color-palette', label: '主题', value: '浅色', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1) },
     { key: 'notification', icon: 'notifications', label: '通知设置', value: '邮件 · 短信 · 推送', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
   ];
   const adminBusinessItems: SettingItem[] = [
