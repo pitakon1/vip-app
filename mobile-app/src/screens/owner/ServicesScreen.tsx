@@ -111,6 +111,32 @@ const SVC_DESC: Record<string, string> = {
   annual_management: '全年托管，租金收益最大化',
 };
 
+// 服务基准单价（THB，不含税），与后端 pricing.SERVICE_PRICE_CATALOG 保持一致，
+// 用于在购买弹窗内展示单价/总价。年度托管 base_price 依月租而定，这里仅作占位。
+const UNIT_PRICE_MAP: Record<string, number> = {
+  cleaning: 1500,
+  ac_cleaning: 800,
+  wifi_install: 500,
+  utility_payment: 200,
+  insurance: 300,
+  tax_payment: 500,
+  annual_management: 0,
+};
+
+// 购买方式（三种计费方式）
+type BuyModel = 'monthly' | 'per_use' | 'annual';
+const BUY_MODEL_OPTIONS: { key: BuyModel; label: string }[] = [
+  { key: 'monthly', label: '按月' },
+  { key: 'per_use', label: '按次' },
+  { key: 'annual', label: '按年' },
+];
+// 各计费方式的周期可选值（monthly=月数，annual=年数，per_use 忽略）
+const INTERVAL_OPTIONS: Record<BuyModel, number[]> = {
+  monthly: [1, 3, 6, 12],
+  per_use: [],
+  annual: [1, 2, 3],
+};
+
 interface StatusMeta {
   label: string;
   color: string;
@@ -212,6 +238,15 @@ export default function ServicesScreen() {
   const [buyProp, setBuyProp] = useState<string | null>(null);
   const [buyType, setBuyType] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
+  // 三种计费方式：按月/按次/按年 + 周期数
+  const [buyModel, setBuyModel] = useState<BuyModel>('monthly');
+  const [buyInterval, setBuyInterval] = useState<number>(1);
+
+  // 当前选中服务的单价
+  const buyUnitPrice = buyType ? UNIT_PRICE_MAP[buyType] ?? 0 : 0;
+  // 总价：monthly/annual = 单价 × 周期；per_use = 单价（单次）
+  const buyTotal =
+    buyModel === 'per_use' ? buyUnitPrice : buyUnitPrice * buyInterval;
 
   const loadData = useCallback(async () => {
     const [orderRes, ticketRes, propRes] = await Promise.allSettled([
@@ -352,13 +387,18 @@ export default function ServicesScreen() {
         orderer_type: 'owner',
         property_id: buyProp,
         service_type: buyType,
-        amount: 0,
+        amount: buyTotal,
         currency: 'THB',
         notes: TYPE_META[buyType]?.label,
+        // 购买计费：按购买方式与周期透传给后端记录
+        billing_model: buyModel,
+        billing_interval: buyModel === 'per_use' ? 1 : buyInterval,
+        billing_amount: buyUnitPrice,
       });
       setBuyModal(false);
       setBuyProp(null);
       setBuyType(null);
+      setBuyInterval(1);
       Alert.alert('购买成功', '服务订单已创建，工作人员将尽快联系您');
       loadData();
     } catch (err: any) {
@@ -366,7 +406,7 @@ export default function ServicesScreen() {
     } finally {
       setBuying(false);
     }
-  }, [buyProp, buyType, user?.id, loadData]);
+  }, [buyProp, buyType, buyModel, buyInterval, buyTotal, buyUnitPrice, user?.id, loadData]);
 
   const resetTicketModal = () => {
     setTicketModal(false);
@@ -380,6 +420,8 @@ export default function ServicesScreen() {
     setBuyModal(false);
     setBuyProp(null);
     setBuyType(null);
+    setBuyModel('monthly');
+    setBuyInterval(1);
   };
 
   /* ===== 合并工单行（服务单 / 报修单）===== */
@@ -723,6 +765,73 @@ export default function ServicesScreen() {
                 })}
               </View>
 
+              <Text style={styles.fieldLabel}>购买方式</Text>
+              <View style={styles.modelRow}>
+                {BUY_MODEL_OPTIONS.map((m) => {
+                  const active = buyModel === m.key;
+                  return (
+                    <TouchableOpacity
+                      key={m.key}
+                      style={[styles.modelBtn, active && styles.modelBtnActive]}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setBuyModel(m.key);
+                        // 切换计费方式时重置周期为默认 1
+                        setBuyInterval(1);
+                      }}
+                    >
+                      <Text
+                        style={[styles.modelBtnText, active && styles.modelBtnTextActive]}
+                      >
+                        {m.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* 按月/按年：选择周期数 */}
+              {INTERVAL_OPTIONS[buyModel].length > 0 && (
+                <>
+                  <Text style={styles.fieldLabel}>
+                    {buyModel === 'monthly' ? '周期（月）' : '周期（年）'}
+                  </Text>
+                  <View style={styles.pickWrap}>
+                    {INTERVAL_OPTIONS[buyModel].map((iv) => {
+                      const active = buyInterval === iv;
+                      return (
+                        <TouchableOpacity
+                          key={iv}
+                          style={[styles.pickChip, active && styles.pickChipActive]}
+                          activeOpacity={0.8}
+                          onPress={() => setBuyInterval(iv)}
+                        >
+                          <Text
+                            style={[styles.pickChipText, active && styles.pickChipTextActive]}
+                          >
+                            {iv}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {/* 价格摘要：单价 + 总价 */}
+              <View style={styles.priceRow}>
+                <View style={styles.priceCell}>
+                  <Text style={styles.priceLabel}>单价</Text>
+                  <Text style={styles.priceValue}>THB {buyUnitPrice}</Text>
+                </View>
+                <View style={styles.priceCell}>
+                  <Text style={styles.priceLabel}>
+                    {buyModel === 'per_use' ? '本次金额' : '总价'}
+                  </Text>
+                  <Text style={[styles.priceValue, styles.priceTotal]}>THB {buyTotal}</Text>
+                </View>
+              </View>
+
               <TouchableOpacity
                 style={[styles.submitBtn, buying && styles.submitBtnDisabled]}
                 activeOpacity={0.85}
@@ -1002,6 +1111,47 @@ const styles = StyleSheet.create({
   pickChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   pickChipText: { fontSize: 13, fontWeight: '500', color: colors.ink2 },
   pickChipTextActive: { color: colors.primaryForeground, fontWeight: '600' },
+  /* 购买方式：分段按钮 */
+  modelRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: colors.spacing.md,
+    padding: 3,
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.lg,
+  },
+  modelBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: colors.radius.md,
+    alignItems: 'center',
+  },
+  modelBtnActive: { backgroundColor: colors.surface, ...colors.shadow.sm },
+  modelBtnText: { fontSize: 14, fontWeight: '600', color: colors.ink3 },
+  modelBtnTextActive: { color: colors.primary, fontWeight: '700' },
+  /* 价格摘要 */
+  priceRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: colors.spacing.md,
+  },
+  priceCell: {
+    flex: 1,
+    padding: colors.spacing.lg,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  priceLabel: { fontSize: colors.fontSize.sm, color: colors.ink3, fontWeight: '500' },
+  priceValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.ink,
+    marginTop: 4,
+    fontVariant: ['tabular-nums'],
+  },
+  priceTotal: { color: colors.primary },
   emptyProp: {
     padding: 14,
     borderRadius: colors.radius.lg,

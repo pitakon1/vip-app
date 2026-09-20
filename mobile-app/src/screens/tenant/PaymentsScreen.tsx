@@ -4,16 +4,19 @@ import {
   Text,
   FlatList,
   StyleSheet,
-  ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
-  Alert,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import { paymentsApi } from '@/services/api';
 import { fmtMoney as formatMoney, fmtDate } from '@/utils/format';
+import { notify, notifyError } from '@/utils/feedback';
+import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
+import { useI18n } from '@/i18n';
 
 const formatDate = (x?: string) => fmtDate(x, 'minute');
 
@@ -61,9 +64,13 @@ const monthLabel = (x?: string) => {
 };
 
 export default function PaymentsScreen() {
+  const { t } = useI18n();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  // 当前正在发起支付的账单 id（避免重复提交 + 按钮 loading）
+  const [payingId, setPayingId] = useState<string | null>(null);
   // 发票弹窗
   const [invoiceItem, setInvoiceItem] = useState<Payment | null>(null);
   const [invoiceData, setInvoiceData] = useState<any>(null);
@@ -79,8 +86,9 @@ export default function PaymentsScreen() {
         ? data.items
         : [];
       setPayments(items as Payment[]);
+      setLoadError(false);
     } catch {
-      // 忽略加载失败
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -120,6 +128,7 @@ export default function PaymentsScreen() {
     cur === 'CNY' ? 'wechat' : cur === 'USD' ? 'stripe' : 'promptpay';
 
   const handlePay = async (item: Payment) => {
+    setPayingId(item.id);
     try {
       const res: any = await paymentsApi.pay(item.id, channelFor(item.currency));
       const data = res?.data ?? res;
@@ -128,17 +137,16 @@ export default function PaymentsScreen() {
       );
       const checkoutUrl =
         data?.checkout_url ?? data?.qr_code ?? data?.qr ?? data?.url;
-      Alert.alert(
+      notify(
         '发起支付',
         checkoutUrl
           ? `支付链接已生成，请完成支付：\n${checkoutUrl}`
           : '支付单已提交，正在处理中。未配置支付渠道时将使用演示通道。'
       );
     } catch (err: any) {
-      Alert.alert(
-        '支付失败',
-        err?.response?.data?.detail || '请稍后重试'
-      );
+      notifyError('支付失败', err, () => handlePay(item));
+    } finally {
+      setPayingId(null);
     }
   };
 
@@ -154,12 +162,9 @@ export default function PaymentsScreen() {
         `渠道：${r.channel || '-'}${r.channel_transaction_id ? `（${r.channel_transaction_id}）` : ''}`,
         `支付时间：${formatDate(r.paid_at ?? item.paid_at)}`,
       ].join('\n');
-      Alert.alert('缴费凭证', lines, [
-        { text: '关闭' },
-        { text: '知道了', style: 'default' },
-      ]);
+      notify('缴费凭证', lines);
     } catch (err: any) {
-      Alert.alert('获取凭证失败', err?.response?.data?.detail || '请稍后重试');
+      notifyError('获取凭证失败', err, () => handleReceipt(item));
     }
   };
 
@@ -171,8 +176,9 @@ export default function PaymentsScreen() {
       const res: any = await paymentsApi.invoice(item.id);
       setInvoiceData(res?.data ?? res);
     } catch (err: any) {
-      Alert.alert('获取发票失败', err?.response?.data?.detail || '请稍后重试');
       setInvoiceItem(null);
+      setInvoiceData(null);
+      notifyError('获取发票失败', err, () => openInvoice(item));
     } finally {
       setInvoiceLoading(false);
     }
@@ -249,11 +255,19 @@ export default function PaymentsScreen() {
         </View>
         {isPending && (
           <TouchableOpacity
-            style={styles.payBtn}
+            style={[styles.payBtn, payingId === item.id && styles.payBtnDisabled]}
             activeOpacity={0.8}
             onPress={() => handlePay(item)}
+            disabled={payingId === item.id}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={`${typeLabels[item.payment_type ?? ''] ?? '账单'}，去支付`}
           >
-            <Text style={styles.payBtnText}>去支付</Text>
+            {payingId === item.id ? (
+              <ActivityIndicator color={colors.primaryForeground} size="small" />
+            ) : (
+              <Text style={styles.payBtnText}>去支付</Text>
+            )}
           </TouchableOpacity>
         )}
         {isSucceeded && (
@@ -262,6 +276,9 @@ export default function PaymentsScreen() {
               style={styles.receiptBtn}
               activeOpacity={0.8}
               onPress={() => handleReceipt(item)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="查看缴费凭证"
             >
               <Text style={styles.receiptBtnText}>查看凭证</Text>
             </TouchableOpacity>
@@ -269,6 +286,9 @@ export default function PaymentsScreen() {
               style={styles.receiptBtn}
               activeOpacity={0.8}
               onPress={() => openInvoice(item)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="查看发票"
             >
               <Text style={styles.receiptBtnText}>发票</Text>
             </TouchableOpacity>
@@ -282,10 +302,14 @@ export default function PaymentsScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingState label="加载账单中…" />
       </View>
     );
   }
+
+  // banner 发起中目标（一次性屏蔽重复点击）
+  const bannerTarget = monthRent ?? pending[0];
+  const bannerPaying = !!bannerTarget && payingId === bannerTarget.id;
 
   return (
     <View style={styles.container}>
@@ -302,11 +326,18 @@ export default function PaymentsScreen() {
         <Text style={styles.bannerSub}>共 {pending.length} 笔待支付账单</Text>
         {pending.length > 0 && (
           <TouchableOpacity
-            style={styles.bannerBtn}
+            style={[styles.bannerBtn, bannerPaying && styles.payBtnDisabled]}
             activeOpacity={0.85}
-            onPress={() => handlePay(monthRent ?? pending[0])}
+            onPress={() => handlePay(bannerTarget!)}
+            disabled={bannerPaying}
+            accessibilityRole="button"
+            accessibilityLabel="立即缴费"
           >
-            <Text style={styles.bannerBtnText}>立即缴费</Text>
+            {bannerPaying ? (
+              <ActivityIndicator color={colors.primary} size="small" />
+            ) : (
+              <Text style={styles.bannerBtnText}>立即缴费</Text>
+            )}
           </TouchableOpacity>
         )}
       </View>
@@ -331,7 +362,25 @@ export default function PaymentsScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
-        ListEmptyComponent={<Text style={styles.empty}>暂无账单</Text>}
+        ListEmptyComponent={
+          loadError ? (
+            <EmptyState
+              icon="cloud-offline-outline"
+              title={t('loadFailed')}
+              sub={t('loadFailedSub')}
+              actionLabel={t('retry')}
+              onAction={async () => {
+                setLoading(true);
+                await load();
+              }}
+            />
+          ) : payments.length === 0 ? (
+            <EmptyState icon="card-outline" title={t('empty.bills')} sub={t('empty.billsSub')} />
+          ) : (
+            <View />
+          )
+        }
+        ListFooterComponent={<View style={{ height: 12 }} />}
       />
 
       {/* 发票弹窗 */}
@@ -343,7 +392,14 @@ export default function PaymentsScreen() {
       >
         <View style={styles.invWrap}>
           <View style={styles.invCard}>
-            <TouchableOpacity style={styles.invClose} onPress={closeInvoice} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.invClose}
+              onPress={closeInvoice}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="关闭"
+            >
               <Ionicons name="close" size={22} color={colors.ink2} />
             </TouchableOpacity>
             {invoiceLoading ? (
@@ -441,20 +497,25 @@ const styles = StyleSheet.create({
   payBtn: {
     alignSelf: 'flex-end',
     marginTop: 12,
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: colors.radius.full,
   },
+  payBtnDisabled: { opacity: 0.6 },
   payBtnText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
   receiptBtn: {
     alignSelf: 'flex-end',
     marginTop: 12,
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.primary,
     paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: colors.radius.full,
   },
   receiptBtnText: { color: colors.primary, fontSize: 14, fontWeight: '600' },

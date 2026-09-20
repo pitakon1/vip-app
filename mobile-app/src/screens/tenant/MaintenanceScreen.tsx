@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ScrollView,
   ActivityIndicator,
   Modal,
@@ -14,6 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import Card from '@/components/Card';
 import colors from '@/theme/colors';
 import { maintenanceApi } from '@/services/api';
+import { notify, notifyError } from '@/utils/feedback';
+import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
+import { useI18n } from '@/i18n';
 import type { MaintenanceTicket } from '@/types';
 
 const PRIORITY_OPTIONS: Array<{ label: string; value: MaintenanceTicket['priority'] }> = [
@@ -64,15 +67,21 @@ const ticketCode = (id: string) => `#${id.slice(0, 8).toUpperCase()}`;
 interface TicketRow extends MaintenanceTicket {}
 
 export default function MaintenanceScreen() {
+  const { t } = useI18n();
+  const scrollRef = useRef<ScrollView>(null);
   // 提交表单
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<MaintenanceTicket['priority']>('medium');
   const [submitting, setSubmitting] = useState(false);
+  // 内联校验（红边 + 文案，放在字段旁）
+  const [titleError, setTitleError] = useState('');
+  const [descError, setDescError] = useState('');
 
   // 工单列表
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [statusTab, setStatusTab] = useState<StatusTabKey>('all');
 
   // 详情弹窗
@@ -88,8 +97,9 @@ export default function MaintenanceScreen() {
       const d = res?.data;
       const items = Array.isArray(d) ? d : Array.isArray(d?.items) ? d.items : [];
       setTickets(items as TicketRow[]);
+      setLoadError(false);
     } catch {
-      // 忽略加载失败
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -99,11 +109,27 @@ export default function MaintenanceScreen() {
     loadTickets();
   }, [loadTickets]);
 
+  // 空态点「去报修」：滚动到底部的提交表单
+  const scrollToForm = () => {
+    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+  };
+
   const handleSubmit = async () => {
+    // 内联校验：必填标题；描述非空时至少 2 字
+    let ok = true;
     if (!title.trim()) {
-      Alert.alert('提示', '请输入报修标题');
-      return;
+      setTitleError(t('maint.titleRequired'));
+      ok = false;
+    } else {
+      setTitleError('');
     }
+    if (description.trim() && description.trim().length < 2) {
+      setDescError(t('maint.descInvalid'));
+      ok = false;
+    } else {
+      setDescError('');
+    }
+    if (!ok) return;
     setSubmitting(true);
     try {
       await maintenanceApi.create({
@@ -111,13 +137,15 @@ export default function MaintenanceScreen() {
         description: description.trim(),
         priority,
       });
-      Alert.alert('提交成功', '您的报修工单已提交，工作人员将尽快处理');
+      notify(t('maint.submitSuccess'), t('maint.submitSuccessMsg'));
       setTitle('');
       setDescription('');
       setPriority('medium');
+      setTitleError('');
+      setDescError('');
       loadTickets();
     } catch (err: any) {
-      Alert.alert('提交失败', err?.response?.data?.message || '请稍后重试');
+      notifyError(t('maint.submitFail'), err, () => handleSubmit());
     } finally {
       setSubmitting(false);
     }
@@ -137,11 +165,11 @@ export default function MaintenanceScreen() {
     setRatingLoading(true);
     try {
       await maintenanceApi.rate(selected.id, { rating, feedback: feedback.trim() || undefined });
-      Alert.alert('感谢评价', '您的评价已提交，感谢您的反馈');
+      notify(t('maint.rateSuccess'), t('maint.rateSuccessMsg'));
       setSelected(null);
       loadTickets();
     } catch (err: any) {
-      Alert.alert('评价失败', err?.response?.data?.detail || err?.response?.data?.message || '请稍后重试');
+      notifyError(t('maint.rateFail'), err, () => handleRate());
     } finally {
       setRatingLoading(false);
     }
@@ -195,6 +223,7 @@ export default function MaintenanceScreen() {
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.container}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
@@ -248,10 +277,27 @@ export default function MaintenanceScreen() {
       </View>
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <LoadingState label="加载工单中…" />
         </View>
+      ) : loadError && visibleTickets.length === 0 ? (
+        <EmptyState
+          icon="cloud-offline-outline"
+          title={t('loadFailed')}
+          sub={t('loadFailedSub')}
+          actionLabel={t('retry')}
+          onAction={() => {
+            setLoading(true);
+            loadTickets();
+          }}
+        />
       ) : visibleTickets.length === 0 ? (
-        <Text style={styles.empty}>暂无报修记录</Text>
+        <EmptyState
+          icon="construct-outline"
+          title={t('empty.maintenance')}
+          sub={t('empty.maintenanceSub')}
+          actionLabel={t('maint.goSubmit')}
+          onAction={scrollToForm}
+        />
       ) : (
         visibleTickets.map((t) => renderTicket({ item: t }))
       )}
@@ -261,32 +307,42 @@ export default function MaintenanceScreen() {
         <Text style={styles.sectionTitle}>提交报修</Text>
       </View>
       <Card>
-        <Text style={styles.label}>标题</Text>
+        <Text style={styles.label}>{t('maint.title')}</Text>
         <TextInput
-          style={styles.input}
-          placeholder="请简述问题，如：水管漏水"
+          style={[styles.input, !!titleError && styles.inputError]}
+          placeholder={t('maint.titlePlaceholder')}
           placeholderTextColor={colors.ink3}
           value={title}
-          onChangeText={setTitle}
+          onChangeText={(v) => {
+            setTitle(v);
+            if (titleError) setTitleError('');
+          }}
         />
-        <Text style={styles.label}>详细描述</Text>
+        {!!titleError && <Text style={styles.fieldError}>{titleError}</Text>}
+        <Text style={styles.label}>{t('maint.desc')}</Text>
         <TextInput
-          style={[styles.input, styles.textarea]}
-          placeholder="请描述问题详情"
+          style={[styles.input, styles.textarea, !!descError && styles.inputError]}
+          placeholder={t('maint.descPlaceholder')}
           placeholderTextColor={colors.ink3}
           value={description}
-          onChangeText={setDescription}
+          onChangeText={(v) => {
+            setDescription(v);
+            if (descError) setDescError('');
+          }}
           multiline
           numberOfLines={4}
           textAlignVertical="top"
         />
-        <Text style={styles.label}>优先级</Text>
+        {!!descError && <Text style={styles.fieldError}>{descError}</Text>}
+        <Text style={styles.label}>{t('maint.priority')}</Text>
         <View style={styles.priorityRow}>
           {PRIORITY_OPTIONS.map((opt) => (
             <TouchableOpacity
               key={opt.value}
               style={[styles.priorityBtn, priority === opt.value && styles.priorityBtnActive]}
               onPress={() => setPriority(opt.value)}
+              accessibilityRole="button"
+              accessibilityLabel={`优先级 ${opt.label}`}
             >
               <Text
                 style={[styles.priorityText, priority === opt.value && styles.priorityTextActive]}
@@ -301,11 +357,13 @@ export default function MaintenanceScreen() {
           onPress={handleSubmit}
           disabled={submitting}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={t('maint.submit')}
         >
           {submitting ? (
             <ActivityIndicator color={colors.primaryForeground} />
           ) : (
-            <Text style={styles.submitText}>提交工单</Text>
+            <Text style={styles.submitText}>{t('maint.submit')}</Text>
           )}
         </TouchableOpacity>
       </Card>
@@ -321,7 +379,13 @@ export default function MaintenanceScreen() {
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>工单详情</Text>
-              <TouchableOpacity onPress={() => setSelected(null)} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => setSelected(null)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel="关闭"
+              >
                 <Ionicons name="close" size={22} color={colors.ink2} />
               </TouchableOpacity>
             </View>
@@ -343,7 +407,14 @@ export default function MaintenanceScreen() {
                     <Text style={styles.modalLabel}>服务评价</Text>
                     <View style={styles.starRow}>
                       {[1, 2, 3, 4, 5].map((s) => (
-                        <TouchableOpacity key={s} onPress={() => setRating(s)} activeOpacity={0.7}>
+                        <TouchableOpacity
+                          key={s}
+                          onPress={() => setRating(s)}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${s} 星`}
+                        >
                           <Ionicons
                             name={rating >= s ? 'star' : 'star-outline'}
                             size={28}
@@ -400,10 +471,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
+  inputError: { borderColor: colors.error, backgroundColor: colors.surface },
+  fieldError: { fontSize: 12, color: colors.error, marginTop: 6, marginBottom: -2 },
   textarea: { minHeight: 90 },
   priorityRow: { flexDirection: 'row', gap: 8 },
   priorityBtn: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 10,
     borderRadius: colors.radius.sm,
     borderWidth: 1,

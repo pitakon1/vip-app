@@ -42,6 +42,9 @@ interface PropertyDetail {
   size_sqm?: number;
   bedrooms?: number;
   bathrooms?: number;
+  /** 项目经纬度（取自所属项目，未维护时为缺省） */
+  lat?: number;
+  lng?: number;
 }
 
 interface PropertyLease {
@@ -598,6 +601,14 @@ const styles = StyleSheet.create({
   mutedSm: { fontSize: colors.fontSize.sm, color: colors.ink3 },
   badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.full },
   badgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
+  mapCard: {
+    marginHorizontal: colors.spacing.lg,
+    marginBottom: colors.spacing.lg,
+    borderRadius: colors.radius.xl,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
 
   /* 房源信息卡 */
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },

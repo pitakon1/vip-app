@@ -21,6 +21,9 @@ import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import { propertiesApi, translateApi, favoritesApi, saleListingApi } from '@/services/api';
 import { fmtMoney as formatRent } from '@/utils/format';
+import { notify, notifyError } from '@/utils/feedback';
+import EmptyState from '@/components/EmptyState';
+import { useI18n } from '@/i18n';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
 
@@ -151,8 +154,10 @@ const matchLocation = (item: any, kws: string[]): boolean =>
   );
 
 export default function ListingsScreen() {
+  const { t } = useI18n();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [priceRange, setPriceRange] = useState('');
@@ -201,8 +206,14 @@ export default function ListingsScreen() {
           ? data
           : (data as any)?.items ?? (data as any)?.data ?? [];
         setListings(items as Listing[]);
+        setLoadError(false);
       } catch (err: any) {
-        Alert.alert('加载失败', err?.response?.data?.message || '无法获取房源');
+        setLoadError(true);
+        // web 下 Alert.alert 是空实现，这里统一走 web 安全反馈（失败可见 + 可重试）
+        notifyError('加载失败', err, () => {
+          setLoading(true);
+          loadListings();
+        });
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -270,7 +281,7 @@ export default function ListingsScreen() {
         setFavSet((s) => ({ ...s, [item.id]: true }));
       }
     } catch {
-      Alert.alert('操作失败', '请稍后重试');
+      notify('操作失败', '请稍后重试');
     } finally {
       setFavLoading((s) => ({ ...s, [item.id]: false }));
     }
@@ -431,12 +442,9 @@ export default function ListingsScreen() {
       const res = await translateApi.translate(source, 'zh');
       const data = res.data;
       const text = data?.translated_text ?? '';
-      Alert.alert(
-        '翻译结果（中文）',
-        text || '翻译服务未配置密钥，已返回原文本。',
-      );
+      notify('翻译结果（中文）', text || '翻译服务未配置密钥，已返回原文本。');
     } catch {
-      Alert.alert('翻译失败', '请稍后重试');
+      notify('翻译失败', '请稍后重试');
     } finally {
       setTranslatingId(null);
     }
@@ -542,6 +550,10 @@ export default function ListingsScreen() {
             onPress={() => handleToggleFav(item)}
             disabled={favLoading[item.id]}
             activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={favSet[item.id] ? '取消收藏' : '收藏房源'}
+            accessibilityState={{ disabled: !!favLoading[item.id] }}
           >
             <Ionicons
               name={favSet[item.id] ? 'heart' : 'heart-outline'}
@@ -572,6 +584,10 @@ export default function ListingsScreen() {
               style={styles.translateBtn}
               onPress={() => handleTranslate(item)}
               disabled={translatingId === item.id}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Google 翻译"
+              accessibilityState={{ disabled: translatingId === item.id }}
             >
               <Text style={styles.translateText}>
                 {translatingId === item.id ? '翻译中...' : 'Google 翻译'}
@@ -1022,6 +1038,17 @@ export default function ListingsScreen() {
           <View style={styles.emptyBox}>
             {biz === 'sale' && saleLoading ? (
               <ActivityIndicator size="large" color={colors.primary} />
+            ) : loadError && biz !== 'sale' ? (
+              <EmptyState
+                icon="cloud-offline-outline"
+                title={t('loadFailed')}
+                sub={t('loadFailedSub')}
+                actionLabel={t('retry')}
+                onAction={() => {
+                  setLoading(true);
+                  loadListings();
+                }}
+              />
             ) : (
               <>
                 <Ionicons

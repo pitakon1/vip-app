@@ -12,6 +12,7 @@
   "dependencies": {
     "@ant-design/icons": "^5.5.2",
     "@ant-design/pro-components": "^2.8.2",
+    "@react-google-maps/api": "^2.20.8",
     "antd": "^5.23.0",
     "axios": "^1.7.9",
     "chart.js": "^4.5.1",

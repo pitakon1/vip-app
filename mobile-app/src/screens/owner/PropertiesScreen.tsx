@@ -127,6 +127,25 @@ const propStatusMeta = (p: OwnerProperty) => {
   return STATUS_META[s] ?? { label: s || '未知', color: colors.ink2, rgb: colors.primaryRgb };
 };
 
+// 宫格色块卡顶部背景用状态色（在租 success / 空置 ink3 / 在售 warning 的浅色）
+const gridStatusColor = (p: OwnerProperty) => {
+  const s = String(p.status || '').toLowerCase();
+  if (s === 'for_sale' || s === 'on_sale' || s === 'sale') return colors.warning; // 在售
+  if (s === 'vacant' || s === 'available') return colors.ink3; // 空置
+  return colors.success; // 在租
+};
+
+// 宫格卡价格：优先月租，其次售价
+const gridPrice = (p: OwnerProperty) => {
+  if (p.monthly_rent) {
+    return { text: `${cur(p.currency)}${Number(p.monthly_rent).toLocaleString()}`, suffix: '/月' };
+  }
+  if (p.sale_price) {
+    return { text: `${cur(p.currency)}${Number(p.sale_price).toLocaleString()}`, suffix: '' };
+  }
+  return { text: '暂无挂牌价', suffix: '' };
+};
+
 // 状态筛选（对齐管理端：全部/空置/在租/维护中/已预订）
 const STATUS_CHIPS: { key: string; label: string }[] = [
   { key: '', label: '全部' },
@@ -217,6 +236,18 @@ const normalizePhotos = (raw: unknown): string[] => {
     .filter(Boolean) as string[];
 };
 
+// react-native-web 下 `Alert.alert` 是空实现（什么都不显示），会把新增/删除的结果与失败原因
+// 静默吞掉，导致用户点击后「没有任何反应」。这里在 web 上降级到浏览器原生 `window.alert`，
+// 让真实结果（成功/具体错误）对用户可见。
+const notify = (title?: string, message?: string) => {
+  const text = message ? `标题：${title ?? ''}\n${message}` : (title ?? '');
+  if (Platform.OS === 'web') {
+    window.alert(text);
+  } else {
+    Alert.alert(title ?? '', message ?? '');
+  }
+};
+
 export default function PropertiesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [properties, setProperties] = useState<OwnerProperty[]>([]);
@@ -235,6 +266,8 @@ export default function PropertiesScreen() {
   const [areaCustomMax, setAreaCustomMax] = useState('');
   const [sort, setSort] = useState('default');
   const [activeFilter, setActiveFilter] = useState('');
+  // 列表 / 宫格 切换（默认列表）
+  const [view, setView] = useState<'list' | 'grid'>('list');
 
   // 新增/编辑弹窗
   const [formModal, setFormModal] = useState(false);
@@ -445,15 +478,15 @@ export default function PropertiesScreen() {
     try {
       if (editingId) {
         await ownerApi.update(editingId, payload);
-        Alert.alert('保存成功', '房源信息已更新');
+        notify('保存成功', '房源信息已更新');
       } else {
         await ownerApi.create(payload);
-        Alert.alert('新增成功');
+        notify('新增成功');
       }
       closeForm();
       load();
     } catch (err: any) {
-      Alert.alert(editingId ? '保存失败' : '新增失败', err?.response?.data?.detail || '请稍后重试');
+      notify(editingId ? '保存失败' : '新增失败', err?.response?.data?.detail || '请稍后重试');
     } finally {
       setSubmitting(false);
     }
@@ -521,9 +554,9 @@ export default function PropertiesScreen() {
       try {
         await ownerApi.remove(item.id);
         setProperties((prev) => prev.filter((p) => p.id !== item.id));
-        Alert.alert('删除成功', '房源已删除');
+        notify('删除成功', '房源已删除');
       } catch (err: any) {
-        Alert.alert('删除失败', err?.response?.data?.detail || '请稍后重试');
+        notify('删除失败', err?.response?.data?.detail || '请稍后重试');
       }
     };
     // react-native-web 下 Alert.alert 是空实现，用浏览器原生 confirm
@@ -817,11 +850,29 @@ export default function PropertiesScreen() {
 
         {/* 房源列表 */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>房源列表</Text>
-          <TouchableOpacity style={styles.addBtn} activeOpacity={0.8} onPress={openCreate}>
-            <Ionicons name="add" size={16} color={colors.primaryForeground} />
-            <Text style={styles.addBtnText}>新增房源</Text>
-          </TouchableOpacity>
+          <View>
+            <Text style={styles.sectionTitle}>房源列表</Text>
+            <Text style={styles.sectionCount}>{filtered.length} 套</Text>
+          </View>
+          <View style={styles.sectionActions}>
+            {/* 列表↔宫格切换 */}
+            <TouchableOpacity
+              style={styles.viewToggle}
+              activeOpacity={0.8}
+              onPress={() => setView((v) => (v === 'list' ? 'grid' : 'list'))}
+              hitSlop={8}
+            >
+              <Ionicons
+                name={view === 'list' ? 'grid-outline' : 'list-outline'}
+                size={18}
+                color={colors.ink2}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addBtn} activeOpacity={0.8} onPress={openCreate}>
+              <Ionicons name="add" size={16} color={colors.primaryForeground} />
+              <Text style={styles.addBtnText}>新增房源</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {filtered.length === 0 ? (
@@ -830,6 +881,35 @@ export default function PropertiesScreen() {
             title={hasFilter ? '没有找到房源' : '暂无房源'}
             sub={hasFilter ? '换个名称、地址或筛选条件试试' : '点击右上角「新增房源」登记你的第一套房'}
           />
+        ) : view === 'grid' ? (
+          /* ===== 宫格视图：2 列色块卡（顶部状态色浅背景）===== */
+          <View style={styles.gridWrap}>
+            {filtered.map((p) => {
+              const sc = gridStatusColor(p);
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  style={styles.gridCard}
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate('OwnerPropertyDetail', { id: p.id })}
+                >
+                  <View style={[styles.gridBanner, { backgroundColor: `${sc}1A` }]}>
+                    <View style={[styles.gridBadge, { backgroundColor: `${sc}2E` }]}>
+                      <Text style={[styles.gridBadgeText, { color: sc }]}>{propStatusMeta(p).label}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.gridName} numberOfLines={1}>{propTitle(p)}</Text>
+                  <Text style={[styles.gridPrice, { color: colors.primary }]} numberOfLines={1}>
+                    {gridPrice(p).text}
+                    {gridPrice(p).suffix ? (
+                      <Text style={styles.gridPriceUnit}>{gridPrice(p).suffix}</Text>
+                    ) : null}
+                  </Text>
+                  <Text style={styles.gridAddr} numberOfLines={1}>{p.address || '暂无地址'}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         ) : (
           filtered.map((p) => {
             const type = TYPE_META[p.property_type ?? 'apartment'] ?? TYPE_META.apartment;
@@ -1168,6 +1248,62 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   addBtnText: { fontSize: colors.fontSize.sm, fontWeight: '700', color: colors.primaryForeground },
+
+  /* 列表/宫格 切换 + 计数 */
+  sectionCount: { fontSize: 11, color: colors.ink3, marginTop: 2 },
+  sectionActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  viewToggle: {
+    width: 32,
+    height: 32,
+    borderRadius: colors.radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* 宫格视图（2 列色块卡） */
+  gridWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  gridCard: {
+    flexGrow: 1,
+    flexBasis: '44%',
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    marginBottom: 4,
+    ...colors.shadow.sm,
+  },
+  gridBanner: {
+    height: 64,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    paddingBottom: 6,
+    paddingRight: 8,
+  },
+  gridBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: colors.radius.full,
+  },
+  gridBadgeText: { fontSize: 10, fontWeight: '700' },
+  gridName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.ink,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+  },
+  gridPrice: { fontSize: 15, fontWeight: '800', paddingHorizontal: 12, marginTop: 4, fontVariant: ['tabular-nums'] },
+  gridPriceUnit: { fontSize: 10, fontWeight: '500', color: colors.ink3 },
+  gridAddr: { fontSize: 11, color: colors.ink3, paddingHorizontal: 12, paddingBottom: 12, marginTop: 4 },
 
   /* 房源卡片（对齐管理端） */
   card: {

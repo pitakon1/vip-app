@@ -960,6 +960,20 @@ const en: import('./zh').Translation = {
     sourceLocal: 'Local file',
     warnChooseFile: 'Please select a file to upload first',
   },
+  map: {
+    mapLoading: 'Loading map…',
+    searchPlaceholder: 'Search a place / project',
+    searchError: 'Could not locate that place, please try a different keyword',
+    myLocation: 'My location',
+    locUnsupported: 'Geolocation is not supported by this browser',
+    locDenied: 'Location failed or permission denied',
+    directions: 'Directions',
+    clearRoute: 'Clear route',
+    origin: 'Origin address',
+    destination: 'Destination address',
+    routeFillBoth: 'Please fill in both origin and destination',
+    routeError: 'Route failed or address could not be resolved. Check origin/destination and retry.',
+  },
 }
 
 export default en

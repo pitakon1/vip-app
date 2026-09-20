@@ -123,10 +123,17 @@ export default function OwnerPaymentsScreen() {
     .filter((p) => p.payment_type === 'utility')
     .reduce((s, p) => s + Number(p.amount || 0), 0);
 
-  const filtered = useMemo(
-    () => (filter === 'all' ? payments : payments.filter((p) => groupOf(p.status) === filter)),
-    [payments, filter],
-  );
+  // 待支付优先排序：未结清按到期日升序在前，已结清按支付时间降序在后
+  const filtered = useMemo(() => {
+    const base = filter === 'all' ? payments : payments.filter((p) => groupOf(p.status) === filter);
+    const unpaid = base.filter((p) => groupOf(p.status) !== 'paid');
+    const paid = base.filter((p) => groupOf(p.status) === 'paid');
+    unpaid.sort(
+      (a, b) => (a.due_date || '').localeCompare(b.due_date || '') || Number(b.amount || 0) - Number(a.amount || 0),
+    );
+    paid.sort((a, b) => (b.paid_at || b.due_date || '').localeCompare(a.paid_at || a.due_date || ''));
+    return [...unpaid, ...paid];
+  }, [payments, filter]);
 
   const channelFor = (c?: string) => (c === 'CNY' ? 'wechat' : c === 'USD' ? 'stripe' : 'promptpay');
 
@@ -192,7 +199,7 @@ export default function OwnerPaymentsScreen() {
                 color={colors.primaryForeground}
               />
               <Text style={[styles.btnText, { color: colors.primaryForeground }]}>
-                {group === 'overdue' ? '逾期缴费' : '立即缴费'}
+                {group === 'overdue' ? '补缴' : '去支付'}
               </Text>
             </TouchableOpacity>
           )}
@@ -226,14 +233,14 @@ export default function OwnerPaymentsScreen() {
         }
         ListHeaderComponent={
           <View>
-            {/* 汇总卡：待缴总额 / 本月已缴 / 物业费 */}
+            {/* 汇总卡：待支付总额 / 本月已付 / 物业费 */}
             <View style={styles.heroCard}>
-              <Text style={styles.heroLabel}>待缴总额</Text>
+              <Text style={styles.heroLabel}>待支付</Text>
               <Text style={styles.heroAmount}>{money(dueTotal, ccy)}</Text>
               <View style={styles.heroDivider} />
               <View style={styles.heroStats}>
                 <View>
-                  <Text style={styles.heroStatLabel}>本月已缴</Text>
+                  <Text style={styles.heroStatLabel}>本月已付</Text>
                   <Text style={styles.heroStatVal}>{money(monthPaid, ccy)}</Text>
                 </View>
                 <View style={styles.heroStatRight}>

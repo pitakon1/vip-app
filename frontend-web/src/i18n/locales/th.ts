@@ -960,6 +960,20 @@ const th: import('./zh').Translation = {
     sourceLocal: 'ไฟล์ในเครื่อง',
     warnChooseFile: 'กรุณาเลือกไฟล์ที่จะอัปโหลดก่อน',
   },
+  map: {
+    mapLoading: 'กำลังโหลดแผนที่…',
+    searchPlaceholder: 'ค้นหาสถานที่ / โครงการ',
+    searchError: 'ไม่พบสถานที่นั้น กรุณาลองคำค้นอื่น',
+    myLocation: 'ตำแหน่งของฉัน',
+    locUnsupported: 'เบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง',
+    locDenied: 'ระบุตำแหน่งไม่สำเร็จหรือไม่ได้รับอนุญาต',
+    directions: 'เส้นทาง',
+    clearRoute: 'ล้างเส้นทาง',
+    origin: 'ที่อยู่ต้นทาง',
+    destination: 'ที่อยู่ปลายทาง',
+    routeFillBoth: 'กรุณากรอกทั้งต้นทางและปลายทาง',
+    routeError: 'วางเส้นทางไม่สำเร็จหรือไม่พบที่อยู่ กรุณาตรวจสอบต้นทาง/ปลายทางแล้วลองใหม่',
+  },
 }
 
 export default th

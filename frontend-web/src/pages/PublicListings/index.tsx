@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -7,12 +7,11 @@ import {
   Spin,
 } from 'antd'
 import dayjs from 'dayjs'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import GoogleMapView, { type MapMarker } from '@/components/GoogleMap'
 import type { Property } from '@/types'
 import { AREA_GROUPS } from '@/data/locationArea'
 import { METRO_LINES } from '@/data/locationMetro'
@@ -331,11 +330,8 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     return () => { cancelled = true }
   }, [token])
 
-  // ---------- 地图找房（Leaflet + OpenStreetMap 瓦片） ----------
+  // ---------- 地图找房（Google Maps：搜索 / 路线 / 定位） ----------
   // 房源坐标来自所属项目（projects.lat/lng），项目未维护坐标的房源不在地图上出现。
-  const mapRef = useRef<HTMLDivElement | null>(null)
-  const leafletRef = useRef<any>(null)
-  const markerLayerRef = useRef<any>(null)
   const [mapPoints, setMapPoints] = useState<any[]>([])
   const [mapLoading, setMapLoading] = useState(false)
 
@@ -347,6 +343,10 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     })
     return params
   }, [queryParams])
+
+  // 地图点位名称（点位来自 /properties/map-points，带 project_name）
+  const mapPointName = (p: any): string =>
+    p.project_name ? `${p.project_name} · ${p.room_number || ''}` : (p.address || p.room_number || '—')
 
   const fetchMapPoints = useCallback(async () => {
     setMapLoading(true)
@@ -362,27 +362,17 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
 
   useEffect(() => { if (mapOn) fetchMapPoints() }, [mapOn, fetchMapPoints])
 
-  // 首次展开时才创建地图实例：隐藏容器的尺寸为 0，提前初始化会导致瓦片错位
-  useEffect(() => {
-    if (!mapOn || !mapRef.current || leafletRef.current) return
-    const map = L.map(mapRef.current, {
-      center: [13.7563, 100.5018],  // 曼谷默认中心，有点位时会被 fitBounds 覆盖
-      zoom: 12,
-      scrollWheelZoom: true,
-    })
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map)
-    markerLayerRef.current = L.layerGroup().addTo(map)
-    leafletRef.current = map
-  }, [mapOn])
+  // 透传给 GoogleMap 组件的标注点（坐标转数字）
+  const mapMarkers = useMemo<MapMarker[]>(
+    () =>
+      mapPoints
+        .filter((p) => !Number.isNaN(Number(p.lat)) && !Number.isNaN(Number(p.lng)))
+        .map((p) => ({ id: p.id, lat: Number(p.lat), lng: Number(p.lng), title: mapPointName(p) })),
+    [mapPoints],
+  )
 
-  useEffect(() => () => {
-    leafletRef.current?.remove()
-    leafletRef.current = null
-    markerLayerRef.current = null
-  }, [])
+  // 地图视图默认中心（曼谷）
+  const GOOGLE_MAP_CENTER = useMemo(() => ({ lat: 13.7563, lng: 100.5018 }), [])
 
   // 前端筛选 + 排序 + 业务 Tab
   const filteredItems = useMemo(() => {
@@ -492,44 +482,6 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
       navigate('/login')
     }
   }
-
-  // 地图点位名称（点位来自 /properties/map-points，带 project_name）
-  const mapPointName = (p: any): string =>
-    p.project_name ? `${p.project_name} · ${p.room_number || ''}` : (p.address || p.room_number || '—')
-
-  // 点位渲染：项目无坐标的房源不在地图上，故图例单独给出已定位数量
-  useEffect(() => {
-    const map = leafletRef.current
-    const layer = markerLayerRef.current
-    if (!map || !layer || !mapOn) return
-    layer.clearLayers()
-    const latlngs: [number, number][] = []
-    mapPoints.forEach((p) => {
-      const ll: [number, number] = [Number(p.lat), Number(p.lng)]
-      if (Number.isNaN(ll[0]) || Number.isNaN(ll[1])) return
-      latlngs.push(ll)
-      L.circleMarker(ll, {
-        radius: 8,
-        color: '#ffffff',
-        weight: 2,
-        // 有视频看房的点位用蓝色区分，其余用品牌青绿
-        fillColor: p.video_url ? '#0ea5e9' : '#14b8a6',
-        fillOpacity: 1,
-      })
-        .bindPopup(
-          `<div style="font-weight:600;color:#1c2733">${mapPointName(p)}</div>` +
-            `<div style="font-weight:600;color:#14b8a6">${formatMoney(Number(p.monthly_rent || 0))}</div>` +
-            `<div style="font-size:12px;color:#64748b">${p.project_name || ''}</div>`
-        )
-        .on('click', () => handleCardClick(p))
-        .addTo(layer)
-    })
-    if (latlngs.length) {
-      map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: 15 })
-    }
-    // 容器从隐藏切到显示后需要重算尺寸
-    setTimeout(() => map.invalidateSize(), 0)
-  }, [mapPoints, mapOn])
 
   // 区域/地铁面板图标
   const LocIcon = ({ kind }: { kind: 'area' | 'metro' }) => (
@@ -1172,19 +1124,39 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
           </div>
         </div>
 
-        {/* ===== 地图模式（Leaflet 真实地图 + OpenStreetMap 瓦片） ===== */}
+        {/* ===== 地图模式（Google Maps：搜索 / 路线 / 定位） ===== */}
         <section className="rv17-map" data-active={mapOn}>
-          <span className="rv17-map__legend">
-            {t('browse.mapLegend')}
-            {` · ${mapPoints.length} ${t('property.units')}`}
-          </span>
-          <div className="rv17-map__canvas" ref={mapRef} />
+          <div style={{
+            position: 'absolute',
+            bottom: 92,
+            right: 12,
+            zIndex: 5,
+            padding: '4px 12px',
+            borderRadius: 999,
+            background: 'rgba(255,255,255,0.92)',
+            fontSize: 11,
+            color: 'var(--rent-ink-2, #64748b)',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+          }}>
+            {t('browse.mapLegend')} · {mapMarkers.length} {t('property.units')}
+          </div>
+          <div className="rv17-map__canvas">
+            <GoogleMapView
+              center={GOOGLE_MAP_CENTER}
+              zoom={11}
+              markers={mapMarkers}
+              onMarkerClick={(m) => {
+                const item = mapPoints.find((p) => String(p.id) === String(m?.id))
+                if (item) handleCardClick(item)
+              }}
+            />
+          </div>
           {mapLoading && (
             <div className="rv17-map__loading">
               <Spin />
             </div>
           )}
-          {!mapLoading && mapPoints.length === 0 && (
+          {!mapLoading && mapMarkers.length === 0 && (
             <div className="rv17-map__empty">{t('browse.mapNoCoord')}</div>
           )}
           <div className="rv17-map__strip">

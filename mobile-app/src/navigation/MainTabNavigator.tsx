@@ -13,7 +13,7 @@ import TenantListingsScreen from '../screens/tenant/ListingsScreen';
 
 // 业主端页面
 import OwnerHomeScreen from '../screens/owner/HomeScreen';
-import OwnerIncomeScreen from '../screens/owner/IncomeScreen';
+import OwnerPropertiesScreen from '../screens/owner/PropertiesScreen';
 import OwnerServicesScreen from '../screens/owner/ServicesScreen';
 
 // 员工端页面
@@ -68,11 +68,11 @@ const ROLE_TABS: Record<UserRole, TabDef[]> = {
     { name: 'EmployeeChat', component: ChatListScreen, icon: 'chatbubbles', labelKey: 'tab.messages' },
     { name: 'EmployeeProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
   ],
-  // 业主端 首页 / 收益 / 服务 / 我的
+  // 业主端 首页 / 房源 / 服务 / 我的
   owner: [
     { name: 'OwnerHome', component: OwnerHomeScreen, icon: 'home', labelKey: 'tab.home' },
-    { name: 'OwnerIncome', component: OwnerIncomeScreen, icon: 'wallet', labelKey: 'tab.income' },
-    { name: 'OwnerServices', component: OwnerServicesScreen, icon: 'hammer', labelKey: 'tab.services' },
+    { name: 'OwnerProperties', component: OwnerPropertiesScreen, icon: 'business', labelKey: 'tab.properties' },
+    { name: 'OwnerServices', component: OwnerServicesScreen, icon: 'apps', labelKey: 'tab.services' },
     { name: 'OwnerProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
   ],
   // 租客端 首页 / 找房 / 消息 / 我的

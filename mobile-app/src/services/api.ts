@@ -106,9 +106,27 @@ export const documentsApi = {
   list: (params?: any) => api.get('/documents', { params }),
 };
 
+// 服务订单 / 套餐购买请求体类型（对应后端 ServiceOrderCreate 的购买计费字段）
+export interface ServiceOrderCreatePayload {
+  orderer_id?: string;
+  orderer_type?: string;
+  property_id: string;
+  service_type: string;
+  scheduled_at?: string;
+  provider_id?: string;
+  amount?: number;
+  currency?: string;
+  notes?: string;
+  // 三种计费方式：按月/按次/按年（billing_model: monthly | per_use | annual）
+  billing_model?: 'monthly' | 'per_use' | 'annual';
+  billing_interval?: number; // monthly/annual 周期数；per_use 忽略
+  billing_amount?: number; // 本次结算金额（= 单价）
+  service_package_id?: string; // 关联的按次套餐
+}
+
 export const serviceOrdersApi = {
   list: (params?: any) => api.get('/service-orders', { params }),
-  create: (data: any) => api.post('/service-orders', data),
+  create: (data: ServiceOrderCreatePayload) => api.post('/service-orders', data),
 };
 
 export const maintenanceApi = {

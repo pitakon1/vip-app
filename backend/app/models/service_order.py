@@ -60,3 +60,12 @@ class ServiceOrder(TimestampMixin, table=True):
     # reviewed_at 非空即为「已评价」，用于禁止重复评价
     review_comment: Optional[str] = None
     reviewed_at: Optional[datetime] = None
+    # 服务购买计费：记录购买时的计费方式与本次应结算金额
+    # （monthly/annual 为单价，per_use 为单次单价），配合服务套餐做「按次扣次」。
+    billing_model: Optional[str] = Field(default=None, index=True)
+    billing_amount: Optional[float] = Field(default=None)
+    # 按次套餐关联：非空时，该订单完成即对 service_packages.quota_used +1，
+    # 用尽则套餐标记 cancelled（见 service_orders 完成回调）。
+    service_package_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="service_packages.id", index=True
+    )

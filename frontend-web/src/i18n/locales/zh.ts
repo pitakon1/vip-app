@@ -960,6 +960,20 @@ const zh = {
     sourceLocal: '本地文件',
     warnChooseFile: '请先选择要上传的文件',
   },
+  map: {
+    mapLoading: '地图加载中…',
+    searchPlaceholder: '搜索地点 / 楼盘',
+    searchError: '无法定位该地点，请换一个关键词重试',
+    myLocation: '我的位置',
+    locUnsupported: '当前浏览器不支持定位',
+    locDenied: '定位失败或未授予位置权限',
+    directions: '规划路线',
+    clearRoute: '清除路线',
+    origin: '起点地址',
+    destination: '终点地址',
+    routeFillBoth: '请同时填写起点与终点',
+    routeError: '路线规划失败或地址无法解析，请检查起终点后重试',
+  },
 }
 
 export default zh

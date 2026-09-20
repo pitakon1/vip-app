@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
   ScrollView,
@@ -13,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
 import { propertiesApi, leasesApi, paymentsApi, maintenanceApi, saleListingApi } from '@/services/api';
 import { fmtMoney as formatMoney } from '@/utils/format';
 import { useI18n } from '@/i18n';
@@ -88,14 +88,13 @@ const VISITOR_GRID: GridEntry[] = [
   { key: 'office', labelKey: 'home.office', icon: 'business', route: 'TenantListings', params: { filter: 'office' } },
 ];
 
-// 在租态 = 履约服务（对齐原型 6 格：找房源 / 缴费 / 报修 / 服务 / 文档 / 消息）
+// 在租态 = 履约服务（去重后 4 格：缴费 / 报修 / 服务 / 文档。
+// 找房源、消息已并入底部「找房」「消息」Tab，首页不再重复展示）
 const TENANT_GRID: GridEntry[] = [
-  { key: 'listings', label: '找房源', icon: 'search', route: 'TenantListings' },
   { key: 'payments', labelKey: 'home.pay', icon: 'card', route: 'Payments' },
   { key: 'maintenance', label: '报修', icon: 'build', route: 'TenantMaintenance' },
   { key: 'services', labelKey: 'home.services', icon: 'people', route: 'TenantServices' },
   { key: 'documents', label: '文档', icon: 'document-text', route: 'Documents' },
-  { key: 'messages', label: '消息', icon: 'chatbubbles', route: 'ChatList' },
 ];
 
 const statusLabels: Record<string, string> = {
@@ -411,7 +410,7 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingState label="加载首页…" />
       </View>
     );
   }
@@ -552,6 +551,8 @@ export default function HomeScreen() {
             style={[styles.gridItem, { width: activeGrid.length > 4 ? '33.33%' : '25%' }]}
             activeOpacity={0.7}
             onPress={() => handleEntry(entry)}
+            accessibilityRole="button"
+            accessibilityLabel={entry.labelKey ? t(entry.labelKey) : entry.label}
           >
             <View style={styles.gridIconBox}>
               <Ionicons name={entry.icon} size={22} color={colors.primary} />
@@ -660,36 +661,7 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* 9. 快捷入口（在租态） */}
-      {isRenting && (
-        <>
-          <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>快捷入口</Text>
-          </View>
-          <View style={styles.quickGrid}>
-            {[
-              { key: 'listings', icon: 'search' as GridIcon, label: '找房源', route: 'TenantListings' },
-              { key: 'upload', icon: 'card' as GridIcon, label: '上传付款', route: 'Payments' },
-              { key: 'services', icon: 'people' as GridIcon, label: '预约服务', route: 'TenantServices' },
-              { key: 'maintenance', icon: 'build' as GridIcon, label: '提交报修', route: 'TenantMaintenance' },
-            ].map((q) => (
-              <TouchableOpacity
-                key={q.key}
-                style={styles.quickItem}
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate(q.route)}
-              >
-                <View style={styles.quickIconBox}>
-                  <Ionicons name={q.icon} size={20} color={colors.primary} />
-                </View>
-                <Text style={styles.quickLabel}>{q.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </>
-      )}
-
-      {/* 10. 最近动态（有真实数据才渲染） */}
+      {/* 9. 最近动态（有真实数据才渲染，序号随区块精简后顺延） */}
       {activities.length > 0 && (
         <>
           <View style={styles.sectionHead}>
@@ -984,29 +956,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryBtnText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
-
-  /* 快捷入口 */
-  quickGrid: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: colors.spacing.lg,
-    marginBottom: colors.spacing.md,
-    ...colors.shadow.sm,
-  },
-  quickItem: { flex: 1, alignItems: 'center' },
-  quickIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: colors.radius.md,
-    backgroundColor: colors.sidebarActive,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: colors.spacing.sm,
-  },
-  quickLabel: { fontSize: 12, color: colors.ink, fontWeight: '500' },
 
   /* 最近动态 */
   actRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: colors.spacing.md },

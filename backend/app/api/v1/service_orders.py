@@ -15,6 +15,9 @@ from app.models import (
     ServiceOrder,
     ServiceType,
     ServiceOrderStatus,
+    ServicePackage,
+    ServiceBillingModel,
+    ServicePackageStatus,
     User,
     UserRole,
 )
@@ -32,6 +35,10 @@ class ServiceOrderCreate(BaseModel):
     amount: float = 0
     currency: str = "THB"
     notes: Optional[str] = None
+    # 购买计费方式与本次结算金额（配合服务套餐做「按次扣次」）
+    billing_model: Optional[str] = None  # monthly/per_use/annual
+    billing_amount: Optional[float] = None
+    service_package_id: Optional[uuid.UUID] = None  # 关联的按次套餐
 
 
 class ServiceOrderStatusUpdate(BaseModel):
@@ -85,8 +92,17 @@ def create_service_order(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """创建推荐服务订单，发布 service_order.created 事件。"""
-    order = ServiceOrder(**req.model_dump())
+    """创建推荐服务订单，发布 service_order.created 事件。
+
+    记录购买时的计费方式与本次结算金额（billing_model / billing_amount），
+    并可在创建时关联一个按次套餐（service_package_id），完成时用于扣次。
+    """
+    # 计费金额默认取请求的单次金额（= unit_price）；未给 billing_amount 时沿用 amount
+    billing_amount = (
+        req.billing_amount if req.billing_amount is not None else req.amount
+    )
+    order = ServiceOrder(**req.model_dump(exclude_none=True))
+    order.billing_amount = billing_amount
     session.add(order)
     publish_event(
         session,
@@ -130,7 +146,12 @@ def update_service_order_status(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """更新推荐服务订单状态（派单/完成由员工及以上角色操作）。"""
+    """更新推荐服务订单状态（派单/完成由员工及以上角色操作）。
+
+    服务订单完成（status -> completed）且关联了按次套餐（service_package_id）时，
+    对套餐 quota_used +1 完成「扣次」；当 quota_used >= quota_total 时套餐标记为
+    cancelled（次数用尽）。仅当订单确实关联按次套餐才扣次，绝不对无关订单伪造数据。
+    """
     if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
         raise HTTPException(
             status_code=403, detail="Not allowed to update service order status"
@@ -140,13 +161,28 @@ def update_service_order_status(
         raise HTTPException(status_code=404, detail="Service order not found")
 
     update_data = req.model_dump(exclude_unset=True)
+    is_completion = (
+        update_data.get("status") == ServiceOrderStatus.completed
+        and order.status != ServiceOrderStatus.completed
+    )
     # 状态变为 completed 时自动记录完成时间
-    if update_data.get("status") == ServiceOrderStatus.completed and not order.completed_at:
+    if is_completion and not order.completed_at:
         update_data["completed_at"] = datetime.utcnow()
 
     for key, value in update_data.items():
         setattr(order, key, value)
     session.add(order)
+
+    # 完成一次「按次」服务 → 对关联套餐扣次；次数用尽则套餐标记 cancelled
+    if is_completion and order.service_package_id:
+        package = session.get(ServicePackage, order.service_package_id)
+        if package and not package.deleted_at:
+            if package.billing_model == ServiceBillingModel.per_use:
+                package.quota_used = (package.quota_used or 0) + 1
+                if package.quota_total > 0 and package.quota_used >= package.quota_total:
+                    package.status = ServicePackageStatus.cancelled
+                session.add(package)
+
     session.commit()
     session.refresh(order)
     return order

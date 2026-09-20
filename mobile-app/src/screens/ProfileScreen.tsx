@@ -45,13 +45,10 @@ interface FuncEntry {
 
 // 各角色「我的」常用功能（按角色差异化；路由必须已在 RootNavigator 注册）
 const FUNC_BY_ROLE: Record<UserRole, FuncEntry[]> = {
-  // 业主：对齐 owner-mobile-settings.html「常用功能」五项
+  // 业主：物业文档 / 营销中心（服务在底部 Tab，不重复；付款为租客逻辑，业主不留入口）
   owner: [
-    { key: 'income', labelKey: 'profile.income', icon: 'wallet', navigate: 'OwnerIncome' },
-    { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'OwnerServices' },
-    { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'OwnerDocuments' },
-    { key: 'consign', labelKey: 'profile.consign', icon: 'clipboard', navigate: 'OwnerMarketing' },
-    { key: 'myProperties', labelKey: 'profile.myProperties', icon: 'home', navigate: 'OwnerPropertyDetail' },
+    { key: 'documents', labelKey: 'profile.documents', icon: 'document-text', navigate: 'OwnerDocuments' },
+    { key: 'marketing', labelKey: 'profile.marketing', icon: 'megaphone', navigate: 'OwnerMarketing' },
   ],
   // 租客：付费/文档/增值服务（对齐租客端原型「常用功能」三项）
   tenant: [
@@ -109,11 +106,12 @@ const APP_VERSION = 'v2.4.1';
 const DAY_MS = 86400000;
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
 
-// 租客「我的服务」宫格（对齐原型；仅保留已注册路由的入口）
+// 租客「我的服务」宫格（仅保留已注册路由的入口；消息/客服已在底部 Tab，避免重复入口）
 const TENANT_SERVICE_GRID: FuncEntry[] = [
   { key: 'payments', labelKey: 'profile.payments', icon: 'card', navigate: 'Payments' },
   { key: 'maintenance', labelKey: 'profile.maintenance', icon: 'construct', navigate: 'TenantMaintenance' },
-  { key: 'contact', labelKey: 'profile.contact', icon: 'chatbubble-ellipses', navigate: 'ChatList' },
+  { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'TenantServices' },
+  { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'Documents' },
 ];
 
 // 购房订单状态（PropertyDealStatus）
@@ -132,6 +130,9 @@ export default function ProfileScreen() {
   const logout = useAuthStore((state) => state.logout);
   const setUser = useAuthStore((state) => state.setUser);
   const [langVisible, setLangVisible] = useState(false);
+  // 租客「我的资产」入口弹层：我的租约 / 我的购房订单（数据仍来自真实接口，收拢后点击弹出简洁摘要）
+  const [leaseModalVisible, setLeaseModalVisible] = useState(false);
+  const [ordersModalVisible, setOrdersModalVisible] = useState(false);
   const [activeLease, setActiveLease] = useState<any>(null);
   const [deals, setDeals] = useState<any[]>([]);
   // 业主：名下房源 / 本月实收（真实接口，失败静默降级）
@@ -549,6 +550,16 @@ export default function ProfileScreen() {
     ? activeLease.property_name || activeLease.room_number || t('home.myLease')
     : '';
 
+  // 租客「我的资产」入口摘要：租约显示剩余天数 / 生效中 / 暂无；购房订单显示单数
+  const leaseSummary = activeLease
+    ? remainDays > 0
+      ? `${t('profile.remainPrefix')} ${remainDays}${t('profile.dayUnit')}`
+      : t('home.leaseInforce')
+    : t('profile.noLease');
+  const ordersSummary = deals.length
+    ? `${deals.length} ${t('profile.ordersUnit')}`
+    : t('profile.noOrders');
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* 用户卡（管理端对齐 admin-mobile-settings.html：公司名 + 编辑资料按钮） */}
@@ -565,7 +576,10 @@ export default function ProfileScreen() {
               <Text style={styles.roleTagText}>{user ? roleLabels[user.role] : '未登录'}</Text>
             </View>
             {isTenant ? (
-              <Text style={styles.userMeta} numberOfLines={1}>{user?.email ?? '-'}</Text>
+              // 租客：头像下展示掩码手机号（无手机号降级邮箱），居住信息由下方租约卡承载
+              <Text style={styles.userMeta} numberOfLines={1}>
+                {user?.phone ? maskPhone(user.phone) : user?.email ?? '-'}
+              </Text>
             ) : (
               <Text style={styles.companyText}>{APP_COMPANY}</Text>
             )}
@@ -617,78 +631,45 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {/* 我的租约（仅租客；无租约给空态） */}
+      {/* 我的资产（仅租客：租约 / 购房订单收成入口，点击弹出简洁摘要，不再铺大卡） */}
       {isTenant && (
         <>
-          <Text style={styles.sectionTitle}>我的租约</Text>
-          {activeLease ? (
-            <View style={styles.leaseCard}>
-              <View style={styles.leaseHead}>
-                <Text style={styles.leaseTitle} numberOfLines={1}>{leaseName}</Text>
-                <View style={styles.leaseBadge}>
-                  <View style={styles.leaseDot} />
-                  <Text style={styles.leaseBadgeText}>{t('home.leaseInforce')}</Text>
+          <Text style={styles.sectionTitle}>{t('profile.myAssets')}</Text>
+          <Card style={styles.settingListCard}>
+            <TouchableOpacity
+              style={[styles.settingRow, styles.settingRowBorder]}
+              activeOpacity={0.8}
+              onPress={() => setLeaseModalVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('home.myLease')}
+            >
+              <View style={styles.settingLeft}>
+                <View style={[styles.settingIconBox, { backgroundColor: colors.sidebarActive }]}>
+                  <Ionicons name="document-text" size={16} color={colors.primary} />
                 </View>
+                <Text style={styles.settingLabel}>{t('home.myLease')}</Text>
               </View>
-              <Text style={styles.leaseMeta}>
-                月租金 {fmtRent(activeLease.monthly_rent, activeLease.currency)}
-                {totalDays > 0 ? ` · 已过 ${passedDays} 天 / 共 ${totalDays} 天` : ''}
-              </Text>
-              <View style={styles.leaseTrack}>
-                <View style={[styles.leaseBar, { flex: Math.max(leaseProgress, 0.02) }]} />
-                <View style={{ flex: Math.max(1 - leaseProgress, 0) }} />
-              </View>
-              <View style={styles.leaseFoot}>
-                <Text style={styles.leaseFootText}>
-                  {fmtDate(activeLease.start_date)} 至 {fmtDate(activeLease.end_date)}
-                </Text>
-                {remainDays > 0 ? <Text style={styles.leaseRemain}>剩余 {remainDays} 天</Text> : null}
-              </View>
-            </View>
-          ) : (
-            <EmptyState icon="document-text-outline" title="暂无生效租约" sub="签约后在这里查看租期进度与租金" />
-          )}
-        </>
-      )}
+              <Text style={styles.settingValue} numberOfLines={1}>{leaseSummary}</Text>
+              <Text style={styles.arrow}>›</Text>
+            </TouchableOpacity>
 
-      {/* 我的购房订单（仅租客；数据来自真实成交单） */}
-      {isTenant && (
-        <>
-          <Text style={styles.sectionTitle}>{t('profile.myDeals')}</Text>
-          {deals.length ? (
-            <View style={styles.leaseCard}>
-              {deals.map((d, idx) => {
-                const meta = DEAL_STATUS[String(d.status ?? '')] ?? DEAL_STATUS.drafted;
-                return (
-                  <View
-                    key={d.id}
-                    style={[styles.dealRow, idx < deals.length - 1 && styles.dealRowBorder]}
-                  >
-                    <View style={styles.dealLeft}>
-                      <Text style={styles.dealTitle} numberOfLines={1}>
-                        {d.listing_title || `购房订单 ${String(d.id ?? '').slice(0, 8)}`}
-                      </Text>
-                      <Text style={styles.dealMeta} numberOfLines={1}>
-                        {d.sale_price
-                          ? `${fmtRent(d.sale_price, d.currency)} · `
-                          : ''}
-                        {fmtDate(d.created_at)}
-                      </Text>
-                    </View>
-                    <View style={[styles.dealBadge, { backgroundColor: meta.bg }]}>
-                      <Text style={[styles.dealBadgeText, { color: meta.color }]}>{meta.text}</Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <EmptyState
-              icon="pricetag-outline"
-              title="暂无购房订单"
-              sub="提交看房约谈或认购后在这里跟进进度"
-            />
-          )}
+            <TouchableOpacity
+              style={styles.settingRow}
+              activeOpacity={0.8}
+              onPress={() => setOrdersModalVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('profile.myDeals')}
+            >
+              <View style={styles.settingLeft}>
+                <View style={[styles.settingIconBox, { backgroundColor: colors.sidebarActive }]}>
+                  <Ionicons name="pricetag" size={16} color={colors.primary} />
+                </View>
+                <Text style={styles.settingLabel}>{t('profile.myDeals')}</Text>
+              </View>
+              <Text style={styles.settingValue} numberOfLines={1}>{ordersSummary}</Text>
+              <Text style={styles.arrow}>›</Text>
+            </TouchableOpacity>
+          </Card>
         </>
       )}
 
@@ -703,6 +684,8 @@ export default function ProfileScreen() {
                 style={styles.serviceCell}
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate(entry.navigate)}
+                accessibilityRole="button"
+                accessibilityLabel={t(entry.labelKey)}
               >
                 <View style={styles.serviceIcon}>
                   <Ionicons name={entry.icon} size={20} color={colors.primary} />
@@ -986,42 +969,36 @@ export default function ProfileScreen() {
         </>
       ) : (
         <>
-          {/* 常用功能（租客按角色差异化） */}
-          <Card title="常用功能">
-            {entries.map((entry, idx) => (
+          {/* 设置（租客对齐业主端：账号与安全/语言/通知/帮助/关于；增值服务在「我的服务」宫格，消息在底部 Tab，均不重复） */}
+          <Card title={t('profile.settings')}>
+            {ownerSettingItems.map((item, idx) => (
               <TouchableOpacity
-                key={entry.key}
-                style={[styles.settingRow, idx < entries.length - 1 && styles.settingRowBorder]}
-                onPress={() => navigation.navigate(entry.navigate)}
+                key={item.key}
+                style={[
+                  styles.settingRow,
+                  idx < ownerSettingItems.length - 1 && styles.settingRowBorder,
+                ]}
+                onPress={() => handleSettingPress(item)}
               >
                 <View style={styles.settingLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: colors.sidebarActive }]}>
-                    <Ionicons name={entry.icon} size={17} color={colors.primary} />
+                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon} size={16} color={item.color} />
                   </View>
-                  <Text style={styles.settingLabel}>{t(entry.labelKey)}</Text>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
                 </View>
+                {item.value ? (
+                  <Text
+                    style={[
+                      styles.settingValue,
+                      item.valueTone === 'success' && styles.settingValueSuccess,
+                    ]}
+                  >
+                    {item.value}
+                  </Text>
+                ) : null}
                 <Text style={styles.arrow}>›</Text>
               </TouchableOpacity>
             ))}
-          </Card>
-
-          <Card title={t('profile.settings')}>
-            <TouchableOpacity style={styles.settingRow} onPress={() => setLangVisible(true)}>
-              <Text style={styles.settingLabel}>{t('profile.language')}</Text>
-              <View style={styles.settingRight}>
-                <Text style={styles.settingValue}>{currentLang}</Text>
-                <Text style={styles.arrow}>›</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.settingRow}
-              onPress={() => navigation.navigate('Test')}
-            >
-              <Text style={styles.settingLabel}>{t('profile.testPanel')}</Text>
-              <View style={styles.settingRight}>
-                <Text style={styles.arrow}>›</Text>
-              </View>
-            </TouchableOpacity>
           </Card>
         </>
       )}
@@ -1216,6 +1193,119 @@ export default function ProfileScreen() {
                 onPress={savePrefs}
               >
                 <Text style={styles.sheetConfirmText}>{prefSaving ? '保存中...' : '保存'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 租客：我的租约摘要弹层（由「我的资产」入口弹出） */}
+      <Modal
+        visible={leaseModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLeaseModalVisible(false)}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>{t('home.myLease')}</Text>
+            {activeLease ? (
+              <View style={styles.leaseCard}>
+                <View style={styles.leaseHead}>
+                  <Text style={styles.leaseTitle} numberOfLines={1}>{leaseName}</Text>
+                  <View style={styles.leaseBadge}>
+                    <View style={styles.leaseDot} />
+                    <Text style={styles.leaseBadgeText}>{t('home.leaseInforce')}</Text>
+                  </View>
+                </View>
+                <Text style={styles.leaseMeta}>
+                  月租金 {fmtRent(activeLease.monthly_rent, activeLease.currency)}
+                  {totalDays > 0 ? ` · 已过 ${passedDays} ${t('profile.dayUnit')} / 共 ${totalDays} ${t('profile.dayUnit')}` : ''}
+                </Text>
+                <View style={styles.leaseTrack}>
+                  <View style={[styles.leaseBar, { flex: Math.max(leaseProgress, 0.02) }]} />
+                  <View style={{ flex: Math.max(1 - leaseProgress, 0) }} />
+                </View>
+                <View style={styles.leaseFoot}>
+                  <Text style={styles.leaseFootText}>
+                    {fmtDate(activeLease.start_date)} 至 {fmtDate(activeLease.end_date)}
+                  </Text>
+                  {remainDays > 0 ? (
+                    <Text style={styles.leaseRemain}>
+                      {t('profile.remainPrefix')} {remainDays}{t('profile.dayUnit')}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ) : (
+              <EmptyState icon="document-text-outline" title={t('profile.noLease')} sub="签约后在这里查看租期进度与租金" />
+            )}
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                style={styles.sheetCancel}
+                onPress={() => setLeaseModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('profile.close')}
+              >
+                <Text style={styles.sheetCancelText}>{t('profile.close')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 租客：我的购房订单摘要弹层（由「我的资产」入口弹出） */}
+      <Modal
+        visible={ordersModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setOrdersModalVisible(false)}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>{t('profile.myDeals')}</Text>
+            {deals.length ? (
+              <View style={styles.leaseCard}>
+                {deals.map((d, idx) => {
+                  const meta = DEAL_STATUS[String(d.status ?? '')] ?? DEAL_STATUS.drafted;
+                  return (
+                    <View
+                      key={d.id}
+                      style={[styles.dealRow, idx < deals.length - 1 && styles.dealRowBorder]}
+                    >
+                      <View style={styles.dealLeft}>
+                        <Text style={styles.dealTitle} numberOfLines={1}>
+                          {d.listing_title || `购房订单 ${String(d.id ?? '').slice(0, 8)}`}
+                        </Text>
+                        <Text style={styles.dealMeta} numberOfLines={1}>
+                          {d.sale_price
+                            ? `${fmtRent(d.sale_price, d.currency)} · `
+                            : ''}
+                          {fmtDate(d.created_at)}
+                        </Text>
+                      </View>
+                      <View style={[styles.dealBadge, { backgroundColor: meta.bg }]}>
+                        <Text style={[styles.dealBadgeText, { color: meta.color }]}>{meta.text}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <EmptyState
+                icon="pricetag-outline"
+                title={t('profile.noOrders')}
+                sub="提交看房约谈或认购后在这里跟进进度"
+              />
+            )}
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                style={styles.sheetCancel}
+                onPress={() => setOrdersModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('profile.close')}
+              >
+                <Text style={styles.sheetCancelText}>{t('profile.close')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1534,10 +1624,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     flex: 1,
-  },
-  settingRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   settingValue: {
     fontSize: 14,

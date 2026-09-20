@@ -19,6 +19,7 @@ from .notification import Notification, NotificationChannel, NotificationStatus
 from .service_package import (
     ServicePackage,
     ServicePackageType,
+    ServiceBillingModel,
     ServicePackageStatus,
 )
 from .attendance import Attendance, AttendanceStatus
@@ -119,6 +120,7 @@ __all__ = [
     "NotificationStatus",
     "ServicePackage",
     "ServicePackageType",
+    "ServiceBillingModel",
     "ServicePackageStatus",
     "Attendance",
     "AttendanceStatus",
