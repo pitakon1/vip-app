@@ -614,6 +614,7 @@ const CRM = () => {
             <span className="rent-pagination__info">共 {total} 条</span>
             <button
               className="rent-pagination__btn"
+              aria-label="上一页"
               onClick={() => setQueryParams((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
               disabled={queryParams.page <= 1}
             >
@@ -624,6 +625,7 @@ const CRM = () => {
             <button className="rent-pagination__btn" data-active={true}>{queryParams.page}</button>
             <button
               className="rent-pagination__btn"
+              aria-label="下一页"
               onClick={() => setQueryParams((p) => ({ ...p, page: p.page + 1 }))}
               disabled={displayData.length < queryParams.pageSize}
             >
@@ -641,7 +643,7 @@ const CRM = () => {
           <div className="rent-modal crm-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
             <div className="rent-modal__header">
               <h3 className="rent-card__title">{createForm.id ? '编辑线索' : '新增线索'}</h3>
-              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setModalOpen(false)}>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label="关闭" onClick={() => setModalOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -769,7 +771,7 @@ const CRM = () => {
           <div className="rent-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
               <h3 className="rent-card__title">编辑阶段</h3>
-              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setStageModalOpen(false)}>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label="关闭" onClick={() => setStageModalOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />

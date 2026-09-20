@@ -652,6 +652,7 @@ const Properties = () => {
           <span className="rent-pagination__info">共 {total} 条记录</span>
           <button
             className="rent-pagination__btn"
+            aria-label="上一页"
             disabled={page <= 1}
             onClick={() => setPage(Math.max(1, page - 1))}
           >
@@ -673,6 +674,7 @@ const Properties = () => {
           )}
           <button
             className="rent-pagination__btn"
+            aria-label="下一页"
             disabled={page >= totalPages}
             onClick={() => setPage(Math.min(totalPages, page + 1))}
           >

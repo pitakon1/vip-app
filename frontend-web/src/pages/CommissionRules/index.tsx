@@ -473,7 +473,7 @@ const CommissionRules = () => {
           <div className="rent-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
               <h3 className="rent-card__title">{editingId ? t('commissionRules.editTitle') : t('commissionRules.createTitle')}</h3>
-              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setModalOpen(false)} disabled={submitting}>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label="关闭" onClick={() => setModalOpen(false)} disabled={submitting}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />

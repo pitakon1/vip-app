@@ -585,7 +585,7 @@ const Leases = () => {
           <div className="rent-modal leases-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
             <div className="rent-modal__header">
               <h3 className="rent-card__title">新建租约</h3>
-              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setCreateOpen(false)}>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label="关闭" onClick={() => setCreateOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -687,7 +687,7 @@ const Leases = () => {
           <div className="rent-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
               <h3 className="rent-card__title">续约</h3>
-              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setRenewOpen(false)}>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label="关闭" onClick={() => setRenewOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />

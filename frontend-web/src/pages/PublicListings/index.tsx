@@ -1191,7 +1191,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
                 {t('common.total')} {total} {t('property.units')}
               </span>
               <div className="rent-pagination__pages">
-                <button className="rent-page-btn" type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                <button className="rent-page-btn" type="button" aria-label="上一页" disabled={page <= 1} onClick={() => setPage(page - 1)}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                 </button>
                 {pageNumbers.map((p, i) => {
@@ -1204,7 +1204,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
                     </Fragment>
                   )
                 })}
-                <button className="rent-page-btn" type="button" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>
+                <button className="rent-page-btn" type="button" aria-label="下一页" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
                 </button>
               </div>
