@@ -7,60 +7,66 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Linking,
   Alert,
-  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import colors from '@/theme/colors';
-import { documentsApi } from '@/services/api';
-import type { Document } from '@/types';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import { documentsApi } from '@/services/api';
+import { documentFileUrl } from '@/lib/api';
+import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 
-const typeLabels: Record<Document['type'], string> = {
-  contract: '合同',
-  receipt: '收据',
-  inspection: '验房',
-  identity: '证件',
-  other: '其他',
+type IoniconName = keyof typeof Ionicons.glyphMap;
+
+interface DocItem {
+  id: string;
+  title?: string;
+  type?: string;
+  file_size?: number;
+  mime_type?: string;
+  created_at?: string;
+  uploadedAt?: string;
+  fileUrl?: string;
+  size?: number;
+  [key: string]: any;
+}
+
+/**
+ * 文档类型元数据（合并业主 + 租客两类文档类型）。
+ * 统一一套页面结构，仅按用户能力决定上传入口的显隐。
+ */
+const TYPE_META: Record<string, { label: string; color: string; bg: string; icon: IoniconName }> = {
+  contract: { label: '合同', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), icon: 'document-text-outline' },
+  receipt: { label: '收据', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), icon: 'receipt-outline' },
+  inspection_photo: { label: '验房照片', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), icon: 'image-outline' },
+  tax_invoice: { label: '税务发票', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), icon: 'document-outline' },
+  wht_certificate: { label: '代扣税凭证', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1), icon: 'document-outline' },
+  other: { label: '其他', color: colors.ink3, bg: colors.surface2, icon: 'folder-outline' },
 };
 
-// 分类 Tab（对齐原型：全部 / 合同 / 收据 / 其他）
-type CatKey = 'all' | 'contract' | 'receipt' | 'other';
-const CATS: { key: CatKey; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'contract', label: '合同' },
-  { key: 'receipt', label: '收据' },
-  { key: 'other', label: '其他' },
-];
+const metaOf = (type?: string) => TYPE_META[type ?? ''] ?? TYPE_META.other;
 
-// 类型徽标配色
-const typeBadge: Record<string, { color: string; bg: string }> = {
-  contract: { color: colors.primary, bg: colors.sidebarActive },
-  receipt: { color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
-  inspection: { color: colors.warning, bg: colors.warningLight },
-  identity: { color: colors.success, bg: colors.successLight },
-  other: { color: colors.ink2, bg: colors.surface2 },
-};
-
-// 文件大小 → 可读文本
 const formatSize = (bytes?: number) => {
-  if (!bytes || bytes <= 0) return null;
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+  const n = Number(bytes || 0);
+  if (n <= 0) return '—';
+  if (n >= 1024 * 1024 * 1024) return `${(n / 1024 / 1024 / 1024).toFixed(1)} GB`;
+  if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  if (n >= 1024) return `${Math.round(n / 1024)} KB`;
+  return `${n} B`;
 };
 
-const formatDate = (x?: string) => (x ? x.slice(0, 10) : null);
+const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '-');
 
 export default function DocumentsScreen() {
-  const [docs, setDocs] = useState<Document[]>([]);
+  const { isActiveTenant } = useUserCapabilities();
+  const [docs, setDocs] = useState<DocItem[]>([]);
+  const [filter, setFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [cat, setCat] = useState<CatKey>('all');
 
   const loadDocs = useCallback(async () => {
     try {
@@ -69,11 +75,8 @@ export default function DocumentsScreen() {
       const items = Array.isArray(data)
         ? data
         : (data as any)?.items ?? (data as any)?.data ?? [];
-      setDocs(items as Document[]);
-      setLoadError(false);
+      setDocs(Array.isArray(items) ? (items as DocItem[]) : []);
     } catch (err: any) {
-      // 记录错误态，由列表空态展示可重试入口（web 下 Alert 不可见，仅作降级）
-      setLoadError(true);
       Alert.alert('加载失败', err?.response?.data?.message || '无法获取文档');
     } finally {
       setLoading(false);
@@ -90,15 +93,73 @@ export default function DocumentsScreen() {
     loadDocs();
   }, [loadDocs]);
 
-  // 按分类 Tab 过滤（真实文档类型）
-  const catDocs = useMemo(() => {
-    if (cat === 'all') return docs;
-    if (cat === 'other')
-      return docs.filter((d) => d.type !== 'contract' && d.type !== 'receipt');
-    return docs.filter((d) => d.type === cat);
-  }, [docs, cat]);
+  /* ===== 统计口径（真实数据）===== */
+  const stats = useMemo(() => {
+    const now = new Date();
+    const monthAdded = docs.filter((d) => {
+      const ts = d.created_at ?? d.uploadedAt;
+      if (!ts) return false;
+      const dt = new Date(String(ts));
+      return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth();
+    }).length;
 
-  const handleUpload = async (type: 'contract' | 'receipt') => {
+    const usedBytes = docs.reduce((s, d) => s + Number(d.file_size ?? d.size ?? 0), 0);
+
+    const byType = new Map<string, number>();
+    docs.forEach((d) => {
+      const key = d.type ?? 'other';
+      byType.set(key, (byType.get(key) ?? 0) + Number(d.file_size ?? d.size ?? 0));
+    });
+    let topType: string | null = null;
+    let topBytes = 0;
+    byType.forEach((v, k) => {
+      if (v > topBytes) {
+        topBytes = v;
+        topType = k;
+      }
+    });
+
+    return {
+      total: docs.length,
+      monthAdded,
+      usedBytes,
+      topType,
+      topPct: usedBytes > 0 ? Math.round((topBytes / usedBytes) * 100) : 0,
+    };
+  }, [docs]);
+
+  // chips 由真实文档类型动态生成
+  const filters = useMemo(() => {
+    const types = Array.from(new Set(docs.map((d) => d.type ?? 'other')));
+    return [
+      { key: 'all', label: '全部' },
+      ...types.map((t) => ({ key: t, label: metaOf(t).label })),
+    ];
+  }, [docs]);
+
+  const filtered = filter === 'all' ? docs : docs.filter((d) => (d.type ?? 'other') === filter);
+
+  // 打开 / 下载文档：统一走带鉴权的 /documents/{id}/file 取件，避免直接使用前端落库地址
+  const openDoc = async (doc: DocItem, mode: 'file' | 'download' = 'file') => {
+    if (!doc.id) {
+      Alert.alert('无法打开', '该文档缺少文件记录');
+      return;
+    }
+    const url = await documentFileUrl(doc.id, mode);
+    if (!url) {
+      Alert.alert('无法打开', '登录状态已失效，请重新登录');
+      return;
+    }
+    const supported = await Linking.canOpenURL(url).catch(() => false);
+    if (!supported) {
+      Alert.alert('无法打开', '当前设备不支持打开该类型文件');
+      return;
+    }
+    Linking.openURL(url);
+  };
+
+  // 租客上传（仅在有上传能力时显示）
+  const handleUpload = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -106,10 +167,7 @@ export default function DocumentsScreen() {
       });
       if (result.canceled) return;
       setUploading(true);
-      Alert.alert(
-        '已选择文件',
-        `${type === 'contract' ? '租赁合同' : '租金凭证'}已选择，正在上传`,
-      );
+      Alert.alert('已选择文件', '文件已选择，正在上传…');
       await loadDocs();
     } catch (err: any) {
       Alert.alert('上传失败', err?.message || '请稍后重试');
@@ -118,43 +176,32 @@ export default function DocumentsScreen() {
     }
   };
 
-  const renderItem = ({ item }: { item: Document }) => {
-    const badge = typeBadge[item.type] ?? typeBadge.other;
-    const size = formatSize(item.size);
-    const date = formatDate(item.uploadedAt);
-    const metaText = [size, date].filter(Boolean).join(' · ');
+  const renderItem = ({ item }: { item: DocItem }) => {
+    const meta = metaOf(item.type);
     return (
-      <View style={styles.docCard}>
-        <View style={styles.docHead}>
-          <View style={[styles.docIcon, { backgroundColor: badge.bg }]}>
-            <Ionicons name="document-text-outline" size={18} color={badge.color} />
-          </View>
-          <View style={styles.info}>
-            <Text style={styles.title} numberOfLines={2}>
-              {item.title}
-            </Text>
-            <View style={styles.metaRow}>
-              <View style={[styles.typeChip, { backgroundColor: badge.bg }]}>
-                <Text style={[styles.typeChipText, { color: badge.color }]}>
-                  {typeLabels[item.type] ?? '其他'}
-                </Text>
-              </View>
-              {!!metaText && <Text style={styles.meta}>{metaText}</Text>}
+      <View style={styles.card}>
+        <View style={[styles.cardIcon, { backgroundColor: meta.bg }]}>
+          <Ionicons name={meta.icon} size={20} color={meta.color} />
+        </View>
+        <View style={styles.cardBody}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{item.title || '未命名文档'}</Text>
+          <View style={styles.cardMetaRow}>
+            <View style={[styles.badge, { backgroundColor: meta.bg }]}>
+              <Text style={[styles.badgeText, { color: meta.color }]}>{meta.label}</Text>
             </View>
           </View>
+          <Text style={styles.cardSub} numberOfLines={1}>
+            {formatDate(item.created_at ?? item.uploadedAt)} · {formatSize(item.file_size ?? item.size)}
+          </Text>
         </View>
-        <TouchableOpacity
-          style={styles.downloadBtn}
-          activeOpacity={0.8}
-          onPress={() =>
-            item.fileUrl
-              ? Alert.alert('下载', `文件地址：\n${item.fileUrl}`)
-              : Alert.alert('提示', '该文档暂无可下载文件')
-          }
-        >
-          <Ionicons name="download-outline" size={14} color={colors.primary} />
-          <Text style={styles.downloadText}>下载</Text>
-        </TouchableOpacity>
+        <View style={styles.cardActions}>
+          <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7} onPress={() => openDoc(item, 'file')}>
+            <Ionicons name="eye-outline" size={16} color={colors.ink2} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7} onPress={() => openDoc(item, 'download')}>
+            <Ionicons name="download-outline" size={16} color={colors.ink2} />
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -162,105 +209,116 @@ export default function DocumentsScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <LoadingState label="加载文档中…" />
+        <LoadingState label="正在加载文档…" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* 上传入口（现有业务逻辑保留） */}
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.actionBtn, uploading && styles.actionBtnDisabled]}
-          onPress={() => handleUpload('receipt')}
-          disabled={uploading}
-        >
-          {uploading ? (
-            <ActivityIndicator color={colors.primaryForeground} size="small" />
-          ) : (
-            <Text style={styles.actionText}>上传租金凭证</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionBtn, uploading && styles.actionBtnDisabled]}
-          onPress={() => handleUpload('contract')}
-          disabled={uploading}
-        >
-          <Text style={styles.actionText}>上传租赁合同</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 分类 Tabs —— 计数来自真实文档类型 */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.catTabs}
-      >
-        {CATS.map((c) => {
-          const count =
-            c.key === 'all'
-              ? docs.length
-              : c.key === 'other'
-              ? docs.filter((d) => d.type !== 'contract' && d.type !== 'receipt').length
-              : docs.filter((d) => d.type === c.key).length;
-          const active = cat === c.key;
-          return (
-            <TouchableOpacity
-              key={c.key}
-              style={[styles.catTab, active && styles.catTabActive]}
-              onPress={() => setCat(c.key)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.catTabText, active && styles.catTabTextActive]}>
-                {c.label} {count}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* Stat Row（真实份数） */}
-      <View style={styles.statRow}>
-        <View style={styles.stat}>
-          <Text style={styles.statLabel}>合同</Text>
-          <Text style={styles.statValue}>
-            {docs.filter((d) => d.type === 'contract').length} 份
-          </Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statLabel}>收据</Text>
-          <Text style={styles.statValue}>
-            {docs.filter((d) => d.type === 'receipt').length} 份
-          </Text>
-        </View>
-      </View>
-
-      {/* 文档列表 */}
-      <Text style={styles.sectionTitle}>文档列表</Text>
       <FlatList
-        data={catDocs}
+        data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+        ListHeaderComponent={
+          <View>
+            {/* 租客上传入口（按能力显隐） */}
+            {isActiveTenant && (
+              <View style={styles.actions}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, uploading && styles.actionBtnDisabled]}
+                  activeOpacity={0.85}
+                  onPress={handleUpload}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <ActivityIndicator color={colors.primaryForeground} size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="cloud-upload-outline" size={16} color={colors.primaryForeground} />
+                      <Text style={styles.actionText}>上传合同 / 凭证</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* 统计行：文档总数 / 存储已用 */}
+            <View style={styles.statRow}>
+              <View style={styles.statCell}>
+                <Text style={styles.statLabel}>文档总数</Text>
+                <Text style={styles.statValue}>{stats.total}</Text>
+                <View style={[styles.miniBadge, { backgroundColor: colors.alpha(colors.primaryRgb, 0.12) }]}>
+                  <Text style={[styles.miniBadgeText, { color: colors.primary }]}>
+                    {stats.monthAdded} 份本月新增
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.statCell}>
+                <Text style={styles.statLabel}>存储已用</Text>
+                <Text style={styles.statValue}>{formatSize(stats.usedBytes)}</Text>
+                <View style={[styles.miniBadge, { backgroundColor: colors.surface2 }]}>
+                  <Text style={[styles.miniBadgeText, { color: colors.ink3 }]}>
+                    {stats.total} 份文件
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 存储空间使用情况 */}
+            <View style={styles.card2}>
+              <View style={styles.storageHead}>
+                <Text style={styles.storageLabel}>存储空间使用情况</Text>
+                <Text style={styles.storageValue}>{formatSize(stats.usedBytes)}</Text>
+              </View>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressBar, { width: `${stats.topPct}%` }]} />
+              </View>
+              {stats.topType && stats.usedBytes > 0 && (
+                <Text style={styles.storageNote}>
+                  主要来源：{metaOf(stats.topType).label} · 占比 {stats.topPct}%
+                </Text>
+              )}
+            </View>
+
+            {/* 筛选 chips */}
+            <View style={styles.chips}>
+              {filters.map((f) => {
+                const active = filter === f.key;
+                return (
+                  <TouchableOpacity
+                    key={f.key}
+                    style={[styles.chip, active && styles.chipActive]}
+                    activeOpacity={0.8}
+                    onPress={() => setFilter(f.key)}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>全部文档</Text>
+              <Text style={styles.sectionHint}>{filtered.length} 份</Text>
+            </View>
+          </View>
         }
         ListEmptyComponent={
-          loadError ? (
-            <EmptyState
-              icon="cloud-offline-outline"
-              title="加载失败"
-              sub="无法获取文档，请检查网络后重试"
-              actionLabel="重试"
-              onAction={() => {
-                setLoading(true);
-                loadDocs();
-              }}
-            />
-          ) : (
-            <EmptyState icon="document-text-outline" title="暂无文档" sub="上传的租赁合同与凭证会显示在这里" />
-          )
+          <EmptyState
+            icon="folder-open-outline"
+            title="暂无文档"
+            sub="合同、收据、验房与税务文件都会归档在这里"
+          />
         }
       />
     </View>
@@ -270,89 +328,140 @@ export default function DocumentsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  actions: { flexDirection: 'row', padding: 12, gap: 12 },
+  list: { paddingHorizontal: colors.spacing.md, paddingBottom: 24 },
+
+  /* 上传入口 */
+  actions: { flexDirection: 'row', marginTop: colors.spacing.md },
   actionBtn: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: colors.radius.md,
-    alignItems: 'center',
+    minHeight: 44,
   },
   actionBtnDisabled: { opacity: 0.6 },
-  actionText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '500' },
-  // 分类 Tabs
-  catTabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 10 },
-  catTab: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+  actionText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
+
+  /* 统计行 */
+  statRow: { flexDirection: 'row', gap: 10, marginTop: colors.spacing.md },
+  statCell: {
+    flex: 1,
+    padding: 12,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
+  },
+  statLabel: { fontSize: colors.fontSize.sm, color: colors.ink3 },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.ink,
+    marginTop: 4,
+    marginBottom: 6,
+    letterSpacing: -0.3,
+    fontVariant: ['tabular-nums'],
+  },
+  miniBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: colors.radius.full,
+  },
+  miniBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
+
+  /* 存储卡 */
+  card2: {
+    marginTop: colors.spacing.md,
+    padding: colors.spacing.lg,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
+  },
+  storageHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  storageLabel: { fontSize: colors.fontSize.base, color: colors.ink2 },
+  storageValue: {
+    fontSize: colors.fontSize.base,
+    fontWeight: '700',
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  progressTrack: {
+    height: 8,
     borderRadius: colors.radius.full,
     backgroundColor: colors.surface2,
+    overflow: 'hidden',
   },
-  catTabActive: { backgroundColor: colors.primary },
-  catTabText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  catTabTextActive: { color: colors.primaryForeground, fontWeight: '600' },
-  // Stat Row
-  statRow: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  stat: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
+  progressBar: { height: 8, borderRadius: colors.radius.full, backgroundColor: colors.primary },
+  storageNote: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 8 },
+
+  /* chips */
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: colors.spacing.lg },
+  chip: {
     paddingHorizontal: 16,
-  },
-  statLabel: { fontSize: 12, color: colors.ink2 },
-  statValue: { fontSize: 20, fontWeight: '700', color: colors.ink, marginTop: 4 },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-    paddingHorizontal: 12,
-    marginBottom: 8,
-  },
-  list: { paddingHorizontal: 12, paddingBottom: 24 },
-  // 文档卡片（对齐原型：36 图标 + 标题 + 类型徽标 + 大小/日期 + 下载）
-  docCard: {
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
     backgroundColor: colors.surface,
-    borderRadius: colors.radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 14,
-    marginBottom: 12,
   },
-  docHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
-  docIcon: {
-    width: 36,
-    height: 36,
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: colors.fontSize.base, fontWeight: '500', color: colors.ink2 },
+  chipTextActive: { color: colors.primaryForeground, fontWeight: '700' },
+
+  /* 区块标题 */
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: colors.spacing.lg,
+    marginBottom: 10,
+  },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  sectionHint: { fontSize: colors.fontSize.sm, color: colors.ink3, fontWeight: '500' },
+
+  /* 文档卡 */
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: colors.spacing.lg,
+    marginBottom: 10,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
+  },
+  cardIcon: {
+    width: 40,
+    height: 40,
     borderRadius: colors.radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  info: { flex: 1 },
-  title: { fontSize: 15, color: colors.text, fontWeight: '600' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  typeChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.sm },
-  typeChipText: { fontSize: 12, fontWeight: '600' },
-  meta: { fontSize: 13, color: colors.ink2 },
-  downloadBtn: {
-    flexDirection: 'row',
+  cardBody: { flex: 1, minWidth: 0 },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, marginBottom: 4 },
+  cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.full },
+  badgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
+  cardSub: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 3, fontVariant: ['tabular-nums'] },
+  cardActions: { flexDirection: 'row', gap: 6 },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: colors.radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: colors.radius.md,
-    paddingVertical: 8,
-    minHeight: 44,
   },
-  downloadText: { fontSize: 14, color: colors.primary, fontWeight: '600' },
-  empty: { textAlign: 'center', color: colors.ink3, marginTop: 32 },
 });

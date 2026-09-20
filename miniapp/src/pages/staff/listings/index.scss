@@ -1,0 +1,110 @@
+/* 员工/经纪/管理 - 我的上架单 */
+.st-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding-bottom: 40rpx;
+}
+
+.st-tabs {
+  display: flex;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+
+  & .st-tab {
+    flex: 1;
+    height: 88rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+
+    &__text { font-size: 28rpx; color: var(--ink-2); }
+
+    &--active .st-tab__text {
+      color: var(--primary);
+      font-weight: 700;
+    }
+    &--active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 48rpx;
+      height: 6rpx;
+      border-radius: var(--radius-full);
+      background: var(--primary);
+    }
+  }
+}
+
+.st-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+
+  &__title { font-size: 24rpx; color: var(--ink-3); }
+  &__add {
+    padding: 10rpx 24rpx;
+    border-radius: var(--radius-full);
+    background: rgba(var(--primary-rgb), 0.1);
+    &__text { font-size: 26rpx; font-weight: 600; color: var(--primary); }
+  }
+}
+
+.st-list {
+  padding: 0 24rpx;
+}
+
+.st-state {
+  padding: 140rpx 0;
+  text-align: center;
+  &__text { font-size: 28rpx; color: var(--ink-3); }
+}
+
+.st-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+
+  &__top { display: flex; align-items: center; justify-content: space-between; }
+  &__name { font-size: 30rpx; font-weight: 700; color: var(--ink); flex: 1; }
+  &__addr { font-size: 24rpx; color: var(--ink-3); margin-top: 6rpx; }
+  &__price { font-size: 30rpx; font-weight: 800; color: var(--primary); margin-top: 16rpx; }
+  &__tags { display: flex; flex-wrap: wrap; gap: 8rpx 24rpx; margin-top: 16rpx; }
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16rpx;
+    padding-top: 16rpx;
+    border-top: 1px solid var(--line);
+  }
+}
+
+.st-badge {
+  padding: 6rpx 16rpx;
+  border-radius: var(--radius-full);
+  font-size: 22rpx;
+  font-weight: 600;
+  &__text { font-size: 22rpx; font-weight: 600; }
+  &--success { background: rgba(var(--success-rgb), 0.1); color: var(--success); }
+  &--warning { background: rgba(var(--warning-rgb), 0.1); color: var(--warning); }
+  &--error { background: rgba(var(--error-rgb), 0.1); color: var(--error); }
+  &--neutral { background: var(--surface-2); color: var(--ink-2); }
+}
+
+.st-meta {
+  font-size: 24rpx;
+  color: var(--ink-2);
+}
+.st-meta--dedup.st-meta--suspect { color: var(--warning); }
+.st-meta--dedup.st-meta--blocked { color: var(--error); }
+.st-meta--dedup.st-meta--merged { color: var(--ink-3); }

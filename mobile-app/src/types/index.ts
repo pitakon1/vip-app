@@ -113,3 +113,58 @@ export interface Document {
   uploadedAt?: string;
   size?: number;
 }
+
+// —— 房源上架单（发物件/房源上架）——
+export type ListingType = 'rent' | 'sell';
+export type MandateType = 'exclusive' | 'non_exclusive';
+export type NonExclusiveSplit = 'sp_65_35' | 'sp_50_50' | 'sp_30_70' | 'sp_20_80';
+export type DedupeState = 'new' | 'suspect' | 'blocked';
+
+export interface Listing {
+  id: string;
+  property_id?: string;
+  listing_type: ListingType;
+  publisher?: string;
+  publisher_user_id?: string;
+  publisher_broker_id?: string | null;
+  owner_id?: string;
+  status: 'pending' | 'active' | 'rejected' | 'closed' | 'sold' | 'rented';
+  asking_price?: number | null;
+  monthly_rent?: number | null;
+  currency?: string;
+  sale_commission_rate?: number | null;
+  rental_commission_months?: number | null;
+  mandate_type?: MandateType;
+  split_option?: NonExclusiveSplit | null;
+  buyer_side_rate?: number | null;
+  listing_side_rate?: number | null;
+  owner_commission_rate?: number | null;
+  broker_company?: string | null;
+  broker_real_name?: string | null;
+  broker_phone?: string | null;
+  broker_wechat?: string | null;
+  broker_line?: string | null;
+  broker_whatsapp?: string | null;
+  dedupe_state?: DedupeState | null;
+  merged_into_listing_id?: string | null;
+  reject_reason?: string | null;
+  reviewed_at?: string | null;
+  owner_contact_visible?: boolean;
+  owner_contact_name?: string | null;
+  owner_contact_phone?: string | null;
+  owner_contact_channel?: string | null;
+  created_at?: string;
+  // 发布方本地补充展示（发布表单暂存，非后端字段）
+  room_number?: string;
+  address?: string;
+  photos?: string[];
+  property_type?: string;
+  size_sqm?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  description?: string;
+  furnished?: boolean;
+  available_from?: string;
+  // 经纪人协议状态
+  dedupe_merged?: boolean;
+}

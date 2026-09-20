@@ -1,0 +1,60 @@
+/* 员工/经纪/管理 - 电子签合同查看与签署 */
+.ct-page {
+  min-height: 100vh;
+  background: #f2f2f2;
+  display: flex;
+  flex-direction: column;
+}
+
+.ct-state { padding: 160rpx 0; text-align: center; background: var(--bg); }
+.ct-state__text { font-size: 28rpx; color: var(--ink-3); }
+
+.ct-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  &__title { font-size: 32rpx; font-weight: 700; color: var(--ink); flex: 1; }
+}
+
+.ct-badge {
+  padding: 6rpx 18rpx;
+  border-radius: var(--radius-full);
+  font-size: 22rpx;
+  &__text { font-size: 22rpx; font-weight: 600; }
+  &--ok { background: rgba(var(--success-rgb), 0.1); color: var(--success); }
+  &--warn { background: rgba(var(--warning-rgb), 0.1); color: var(--warning); }
+}
+
+.ct-scroll { flex: 1; }
+
+.ct-content {
+  background: var(--card);
+  margin: 24rpx;
+  border-radius: var(--radius-lg);
+  padding: 32rpx;
+  font-size: 26rpx;
+  color: var(--ink);
+  line-height: 1.8;
+}
+
+.ct-footer {
+  padding: 20rpx 24rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+
+.ct-sign {
+  height: 92rpx;
+  border-radius: var(--radius-lg);
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &__text { font-size: 32rpx; font-weight: 600; color: var(--primary-foreground); }
+  &--done { background: var(--surface-2); }
+  &--done .ct-sign__text { color: var(--ink-2); }
+}

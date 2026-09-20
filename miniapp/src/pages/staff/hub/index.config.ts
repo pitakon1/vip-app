@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '房源上架工作台' }

@@ -1,3 +1,9 @@
+/**
+ * 业主资产管理总览（对齐贝壳业主服务心智）
+ * 一屏聚合：资产概览（出租率）→ 收益趋势 → 房源概览 → 我的上架单 → 待办/提醒 → 底部快捷网格。
+ * 原则：聚合总览优先，明细仍由各栈页（OwnerProperties/Payments/Marketing/Services/Documents/MyListings）承担。
+ * 数据一律复用现有真实接口，不编造。
+ */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -14,10 +20,15 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import BarChart from '@/components/charts/BarChart';
+import ProgressStack from '@/components/charts/ProgressStack';
 import colors from '@/theme/colors';
-import { ownerApi, ownersApi } from '@/services/api';
+import { ownerApi, ownersApi, listingApi, paymentsApi } from '@/services/api';
 import { fmtMoney as money } from '@/utils/format';
+import { useAuthStore } from '@/stores/auth';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
+import type { Listing } from '@/types';
+
+type IoniconName = keyof typeof Ionicons.glyphMap;
 
 interface AnnualMonthly {
   month?: string | number;
@@ -49,19 +60,43 @@ interface OwnerProperty {
   tenant_name?: string;
 }
 
+// 底部快捷网格（沿用项目网格样式；明细栈页均已在 RootNavigator 注册）
+const QUICK_GRID: { key: string; label: string; icon: IoniconName; color: string; bg: string; target: string }[] = [
+  { key: 'payments', label: '收益明细', icon: 'card-outline', color: colors.success, bg: `${colors.successRgb}1A`, target: 'OwnerPayments' },
+  { key: 'marketing', label: '委托挂牌与营销', icon: 'megaphone-outline', color: colors.warning, bg: `${colors.warningRgb}1A`, target: 'OwnerMarketing' },
+  { key: 'services', label: '增值服务', icon: 'sparkles-outline', color: colors.primary, bg: `${colors.primaryRgb}1A`, target: 'OwnerServices' },
+  { key: 'documents', label: '物业文档', icon: 'folder-open-outline', color: colors.info, bg: `${colors.infoRgb}1A`, target: 'OwnerDocuments' },
+];
+
+// 上架单状态元数据（仓库 MyListingsScreen 同口径）
+const LIST_STATUS: Record<string, { text: string; color: string; bg: string }> = {
+  pending: { text: '待审核', color: colors.warning, bg: colors.warningLight },
+  active: { text: '已上架', color: colors.success, bg: colors.successLight },
+  rejected: { text: '已驳回', color: colors.error, bg: colors.errorLight },
+  closed: { text: '已下架', color: colors.ink3, bg: colors.surface2 },
+  sold: { text: '已售出', color: colors.primary, bg: colors.sidebarActive },
+  rented: { text: '已出租', color: colors.primary, bg: colors.sidebarActive },
+};
+
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
+  const user = useAuthStore((s) => s.user);
   const [properties, setProperties] = useState<OwnerProperty[]>([]);
   const [annual, setAnnual] = useState<AnnualSummary | null>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [dueTotal, setDueTotal] = useState(0);
+  const [dueCount, setDueCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     const year = new Date().getFullYear();
-    const [propRes, sumRes] = await Promise.allSettled([
+    const [propRes, sumRes, listRes, payRes] = await Promise.allSettled([
       ownerApi.properties(),
       ownersApi.annualSummary(year),
+      listingApi.list({ page: 1, page_size: 100 }),
+      paymentsApi.mine(),
     ]);
 
     const pick = <T,>(res: PromiseSettledResult<any>): T[] => {
@@ -75,9 +110,23 @@ export default function HomeScreen() {
     if (sumRes.status === 'fulfilled') {
       setAnnual((sumRes.value?.data as AnnualSummary) ?? null);
     }
+
+    // 我的上架单：仅展示当前用户发布（对齐 MyListingsScreen 口径；非 staff 后端仅返回 active）
+    const rows = pick<Listing>(listRes);
+    const mine = user?.id
+      ? rows.filter((r) => String(r.publisher_user_id) === String(user.id))
+      : rows;
+    setListings(mine);
+
+    // 待缴账单：payments 中未结清（pending/processing）合计与笔数
+    const pays = pick<any>(payRes);
+    const due = pays.filter((p) => !['succeeded', 'refunded'].includes(String(p.status || '')));
+    setDueCount(due.length);
+    setDueTotal(due.reduce((s, p) => s + Number(p.amount || 0), 0));
+
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     load();
@@ -88,18 +137,21 @@ export default function HomeScreen() {
     load();
   }, [load]);
 
-  const currency = properties[0]?.currency || 'THB';
+  // 币种优先取年度汇总，其次房源
+  const currency = annual?.currency || properties[0]?.currency || 'THB';
 
   const go = (target: string) => navigation.navigate(target as any);
 
-  /* ===== 本月实收收益：取年度汇总最近一个月桶（真实数据）===== */
+  /* ===== 本月实收 / 年累计实收：取年度汇总（真实数据） ===== */
   const monthReceived = useMemo(() => {
     const buckets = annual?.by_month ?? [];
     const bucket = buckets.length ? buckets[buckets.length - 1] : null;
     return Number(bucket?.received ?? 0);
   }, [annual]);
 
-  /* ===== 年度收益趋势：按月绘制实收柱状图 ===== */
+  const yearReceived = useMemo(() => Number(annual?.totals?.received ?? 0), [annual]);
+
+  /* ===== 年度收益趋势 BarChart ===== */
   const chartData = useMemo(() => {
     const buckets = annual?.by_month ?? [];
     return buckets
@@ -113,9 +165,9 @@ export default function HomeScreen() {
       .filter((d) => d.value > 0);
   }, [annual]);
 
-  /* ===== 资产概览统计 ===== */
+  /* ===== 资产概览统计（在管/出租中/空置/在售） ===== */
   const statusCount = useMemo(() => {
-    const count = { vacant: 0, rented: 0, forSale: 0 };
+    const count = { total: properties.length, vacant: 0, rented: 0, forSale: 0 };
     properties.forEach((p) => {
       const s = String(p.status || '').toLowerCase();
       if (s === 'vacant' || s === 'available') count.vacant += 1;
@@ -132,21 +184,37 @@ export default function HomeScreen() {
   const propMeta = (p: OwnerProperty) =>
     `${p.bedrooms ?? 0}室${p.bathrooms ?? 0}厅 ${p.size_sqm ?? 0}㎡`;
 
-  const propStatusText = (p: OwnerProperty) => {
+  const propStatusStyle = (p: OwnerProperty): { text: string; color: string; bg: string } => {
     const s = String(p.status || '').toLowerCase();
-    if (s === 'vacant' || s === 'available') return { text: '空置', color: colors.ink3 };
+    if (s === 'vacant' || s === 'available') return { text: '空置', color: colors.warning, bg: `${colors.warningRgb}1F` };
     if (s === 'for_sale' || s === 'on_sale' || s === 'sale')
-      return { text: '在售', color: colors.warning };
-    return { text: '在租', color: colors.success };
+      return { text: '在售', color: colors.info, bg: `${colors.infoRgb}1F` };
+    return { text: '出租中', color: colors.success, bg: `${colors.successRgb}1F` };
+  };
+
+  const listingTitle = (l: Listing) => l.room_number || l.address || '房源上架单';
+  const listingPrice = (l: Listing) =>
+    l.listing_type === 'sell' && l.asking_price != null
+      ? money(l.asking_price, l.currency)
+      : l.monthly_rent != null
+        ? `${money(l.monthly_rent, l.currency)}/月`
+        : '—';
+  const listingCommission = (l: Listing) => {
+    if (l.owner_commission_rate != null) return `佣金 ${l.owner_commission_rate}% 归业主`;
+    if (l.listing_type === 'sell') return l.sale_commission_rate != null ? `卖佣 ${l.sale_commission_rate}%` : '出售';
+    return l.rental_commission_months != null ? `租佣 ${l.rental_commission_months}个月` : '出租';
   };
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <LoadingState label="正在加载工作台…" />
+        <LoadingState label="正在加载资产总览…" />
       </View>
     );
   }
+
+  // 是否展示待办/提醒（空置房源 或 待缴账单）
+  const hasTodo = statusCount.vacant > 0 || dueCount > 0 || dueTotal > 0;
 
   return (
     <View style={styles.container}>
@@ -161,34 +229,64 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* ===== 收益 Hero 概览：本月实收为主数字 + 名下套数/在租/空置/在售 小列 ===== */}
+        {/* ===== 1. 资产概览卡：本月实收 + 在管/出租中/空置/在售 + 年累计实收 + 出租率条 ===== */}
         <View style={styles.heroCard}>
-          <View style={styles.heroHead}>
-            <Text style={styles.heroLabel}>本月实收</Text>
+          <View style={styles.hPropsHead}>
+            <View>
+              <Text style={styles.heroLabel}>本月租金实收</Text>
+              <Text style={styles.heroTotal}>{money(monthReceived, currency)}</Text>
+            </View>
             <TouchableOpacity activeOpacity={0.7} onPress={() => go('OwnerProperties')}>
-              <Text style={styles.heroPropsLink}>名下 {properties.length} 套 ›</Text>
+              <Text style={styles.heroPropsLink}>在管 {statusCount.total} 套 ›</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.heroTotalRow}>
-            <Text style={styles.heroTotal}>{money(monthReceived, currency)}</Text>
-          </View>
+
           <View style={styles.heroStats}>
             <View style={styles.heroStatSmall}>
               <Text style={[styles.heroStatSmallVal, { color: colors.success }]}>{statusCount.rented}</Text>
-              <Text style={styles.heroStatSmallLabel}>在租</Text>
+              <Text style={styles.heroStatSmallLabel}>出租中</Text>
             </View>
             <View style={styles.heroStatSmall}>
-              <Text style={[styles.heroStatSmallVal, { color: colors.ink3 }]}>{statusCount.vacant}</Text>
+              <Text style={[styles.heroStatSmallVal, { color: colors.warning }]}>{statusCount.vacant}</Text>
               <Text style={styles.heroStatSmallLabel}>空置</Text>
             </View>
             <View style={styles.heroStatSmall}>
-              <Text style={[styles.heroStatSmallVal, { color: colors.warning }]}>{statusCount.forSale}</Text>
+              <Text style={[styles.heroStatSmallVal, { color: colors.info }]}>{statusCount.forSale}</Text>
               <Text style={styles.heroStatSmallLabel}>在售</Text>
             </View>
+            <View style={styles.heroStatSmall}>
+              <Text style={[styles.heroStatSmallVal, { color: colors.primary }]}>
+                {yearReceived ? money(yearReceived, annual?.currency || currency) : '—'}
+              </Text>
+              <Text style={styles.heroStatSmallLabel}>年累计收益</Text>
+            </View>
           </View>
+
+          {statusCount.total > 0 ? (
+            <View style={styles.heroStack}>
+              <ProgressStack
+                totalLabel="资产占用分布"
+                totalValue={`共 ${statusCount.total} 套`}
+                barHeight={10}
+                segments={[
+                  { value: statusCount.rented, color: colors.success, label: '出租中', subLabel: `${statusCount.rented} 套` },
+                  { value: statusCount.vacant, color: colors.warning, label: '空置', subLabel: `${statusCount.vacant} 套` },
+                  { value: statusCount.forSale, color: colors.info, label: '在售', subLabel: `${statusCount.forSale} 套` },
+                ]}
+              />
+            </View>
+          ) : (
+            <EmptyState
+              icon="key-outline"
+              title="名下暂无在管房源"
+              sub="发布或登记你的第一套房后，这里会展示占用分布与收益"
+              actionLabel="去登记房源"
+              onAction={() => go('OwnerProperties')}
+            />
+          )}
         </View>
 
-        {/* ===== 年度收益趋势图（主图表） ===== */}
+        {/* ===== 2. 收益趋势：月度实收 BarChart ===== */}
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>年度收益趋势</Text>
           {annual?.currency || currency ? (
@@ -205,48 +303,24 @@ export default function HomeScreen() {
               sub="名下房源产生租金或售房款后，这里按月展示实收金额"
             />
           )}
-          {/* 唯一跳「服务中心」入口：业主购买/使用增值服务 */}
-          <TouchableOpacity
-            style={styles.chartFoot}
-            activeOpacity={0.8}
-            onPress={() => go('OwnerServices')}
-          >
-            <Text style={styles.chartFootText}>查看增值服务 ›</Text>
-            <Ionicons name="apps-outline" size={14} color={colors.primary} />
-          </TouchableOpacity>
         </View>
 
-        {/* ===== 提醒条：仅空置房源（业主无房租缴费，不提“待收/催缴”） ===== */}
-        {statusCount.vacant > 0 && (
-          <View style={styles.alertCard}>
-            <TouchableOpacity
-              style={styles.alertRow}
-              activeOpacity={0.7}
-              onPress={() => go('OwnerProperties')}
-            >
-              <View style={styles.alertIcon}>
-                <Ionicons name="home-outline" size={17} color={colors.ink3} />
-              </View>
-              <View style={styles.alertBody}>
-                <Text style={styles.alertTitle}>空置房源</Text>
-                <Text style={styles.alertDesc}>有 {statusCount.vacant} 套待出租 / 出售，去发布委托</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ===== 房源简卡：前 3 条 + 全部入口 ===== */}
+        {/* ===== 3. 房源概览：前 3 套 + 发布房源 ===== */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>房源</Text>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => go('OwnerProperties')}>
-            <Text style={styles.moreLink}>全部 {properties.length} 套 ›</Text>
+          <Text style={styles.sectionTitle}>房源概览</Text>
+          <TouchableOpacity
+            style={styles.publishBtn}
+            activeOpacity={0.8}
+            onPress={() => go('ListingPublish')}
+          >
+            <Ionicons name="add" size={15} color={colors.primaryForeground} />
+            <Text style={styles.publishBtnText}>发布房源</Text>
           </TouchableOpacity>
         </View>
         {properties.length > 0 ? (
           <View style={styles.card}>
             {properties.slice(0, 3).map((p, idx) => {
-              const st = propStatusText(p);
+              const st = propStatusStyle(p);
               const last = idx === Math.min(properties.length, 3) - 1;
               return (
                 <TouchableOpacity
@@ -255,18 +329,18 @@ export default function HomeScreen() {
                   activeOpacity={0.7}
                   onPress={() => navigation.navigate('OwnerPropertyDetail', { id: p.id })}
                 >
-                  <View style={[styles.propListIcon, { backgroundColor: `${st.color}14` }]}>
+                  <View style={[styles.propListIcon, { backgroundColor: st.bg }]}>
                     <Ionicons name="home-outline" size={18} color={st.color} />
                   </View>
                   <View style={styles.todoBody}>
                     <View style={styles.propListTop}>
                       <Text style={styles.propListName} numberOfLines={1}>{propTitle(p)}</Text>
-                      <View style={[styles.miniBadge, { backgroundColor: `${st.color}1F` }]}>
+                      <View style={[styles.miniBadge, { backgroundColor: st.bg }]}>
                         <Text style={[styles.miniBadgeText, { color: st.color }]}>{st.text}</Text>
                       </View>
                     </View>
                     <Text style={styles.propListMeta} numberOfLines={1}>
-                      {propMeta(p)}
+                      {p.address || propMeta(p)}
                       {p.tenant_name ? ` · 租客 ${p.tenant_name}` : ''}
                     </Text>
                     <Text style={styles.propListPrice}>
@@ -281,18 +355,150 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               );
             })}
+            <TouchableOpacity style={styles.moreRow} activeOpacity={0.7} onPress={() => go('OwnerProperties')}>
+              <Text style={styles.moreLink}>全部 {statusCount.total} 套 ›</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.card}>
             <EmptyState
               icon="key-outline"
               title="暂无房源"
-              sub="在房源管理页发布委托挂牌，让平台帮你出租或出售"
-              actionLabel="去房源管理"
-              onAction={() => go('OwnerProperties')}
+              sub="点击上方「发布房源」建立你的第一套房档案"
+              actionLabel="去发布房源"
+              onAction={() => go('ListingPublish')}
             />
           </View>
         )}
+
+        {/* ===== 4. 我的上架单：最近若干 + 空态去发布 ===== */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>我的上架单</Text>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => go('MyListings')}>
+            <Text style={styles.moreLink}>全部 {listings.length} 条 ›</Text>
+          </TouchableOpacity>
+        </View>
+        {listings.length > 0 ? (
+          <View style={styles.card}>
+            {listings.slice(0, 3).map((l, idx) => {
+              const st = LIST_STATUS[l.status] ?? LIST_STATUS.pending;
+              const last = idx === Math.min(listings.length, 3) - 1;
+              return (
+                <TouchableOpacity
+                  key={l.id}
+                  style={[styles.propListItem, last && styles.propListLast]}
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate('ListingPublish', { id: l.id })}
+                >
+                  <View style={[styles.propListIcon, { backgroundColor: st.bg }]}>
+                    <Ionicons
+                      name={l.listing_type === 'sell' ? 'storefront-outline' : 'home-outline'}
+                      size={18}
+                      color={st.color}
+                    />
+                  </View>
+                  <View style={styles.todoBody}>
+                    <View style={styles.propListTop}>
+                      <Text style={styles.propListName} numberOfLines={1}>{listingTitle(l)}</Text>
+                      <View style={[styles.miniBadge, { backgroundColor: st.bg }]}>
+                        <Text style={[styles.miniBadgeText, { color: st.color }]}>{st.text}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.propListMeta} numberOfLines={1}>
+                      {l.listing_type === 'sell' ? '出售' : '出租'} · {listingCommission(l)}
+                    </Text>
+                    <Text style={styles.propListPrice}>{listingPrice(l)}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <EmptyState
+              icon="business-outline"
+              title="暂无上架单"
+              sub="把房源发布到平台，让更多租客或买家看到"
+              actionLabel="去发布"
+              onAction={() => go('ListingPublish')}
+            />
+          </View>
+        )}
+
+        {/* ===== 5. 待办/提醒（有数据则展示） ===== */}
+        {hasTodo && (
+          <View style={styles.alertCard}>
+            {statusCount.vacant > 0 && (
+              <TouchableOpacity
+                style={styles.alertRow}
+                activeOpacity={0.7}
+                onPress={() => go('OwnerProperties')}
+              >
+                <View style={styles.alertIcon}>
+                  <Ionicons name="home-outline" size={17} color={colors.warning} />
+                </View>
+                <View style={styles.alertBody}>
+                  <Text style={styles.alertTitle}>空置房源待处理</Text>
+                  <Text style={styles.alertDesc}>有 {statusCount.vacant} 套待出租 / 出售，去发布委托</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
+              </TouchableOpacity>
+            )}
+            {(dueCount > 0 || dueTotal > 0) && (
+              <TouchableOpacity
+                style={styles.alertRow}
+                activeOpacity={0.7}
+                onPress={() => go('OwnerPayments')}
+              >
+                <View style={[styles.alertIconBg, { backgroundColor: `${colors.errorRgb}1A` }]}>
+                  <Ionicons name="receipt-outline" size={17} color={colors.error} />
+                </View>
+                <View style={styles.alertBody}>
+                  <Text style={styles.alertTitle}>待缴账单</Text>
+                  <Text style={styles.alertDesc}>
+                    {dueCount} 笔待缴 · 共 {money(dueTotal, currency)}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.alertRow}
+              activeOpacity={0.7}
+              onPress={() => go('OwnerDocuments')}
+            >
+              <View style={[styles.alertIconBg, { backgroundColor: `${colors.infoRgb}1A` }]}>
+                <Ionicons name="document-text-outline" size={17} color={colors.info} />
+              </View>
+              <View style={styles.alertBody}>
+                <Text style={styles.alertTitle}>到期合同 / 文档</Text>
+                <Text style={styles.alertDesc}>合同到期与档案文件在「物业文档」中查看</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ===== 6. 底部快捷网格 ===== */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>快捷入口</Text>
+        </View>
+        <View style={styles.quickGrid}>
+          {QUICK_GRID.map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              style={styles.quickCell}
+              activeOpacity={0.8}
+              onPress={() => go(item.target)}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: item.bg }]}>
+                <Ionicons name={item.icon} size={20} color={item.color} />
+              </View>
+              <Text style={styles.quickLabel} numberOfLines={1}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
@@ -303,7 +509,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { paddingTop: colors.spacing.md, paddingBottom: 32 },
 
-  /* ===== 收益 Hero 概览：本月实收主数字 + 套数小列 ===== */
+  /* ===== 1. 资产概览卡 ===== */
   heroCard: {
     marginHorizontal: colors.spacing.lg,
     marginBottom: colors.spacing.lg,
@@ -312,25 +518,26 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.xl,
     ...colors.shadow.md,
   },
-  heroHead: {
+  hPropsHead: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
   heroLabel: { fontSize: colors.fontSize.sm, color: colors.ink3, fontWeight: '500' },
   heroPropsLink: { fontSize: colors.fontSize.sm, color: colors.primary, fontWeight: '600' },
-  heroTotalRow: { marginTop: 8 },
   heroTotal: {
     fontSize: colors.fontSize['3xl'],
     fontWeight: '800',
     color: colors.ink,
     letterSpacing: -0.5,
     fontVariant: ['tabular-nums'],
+    marginTop: 6,
   },
   heroStats: { flexDirection: 'row', gap: 10, marginTop: colors.spacing.xl },
   heroStatSmall: { flex: 1 },
-  heroStatSmallVal: { fontSize: colors.fontSize.lg, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  heroStatSmallVal: { fontSize: colors.fontSize.sm, fontWeight: '700', fontVariant: ['tabular-nums'] },
   heroStatSmallLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2 },
+  heroStack: { marginTop: colors.spacing.xl, paddingTop: colors.spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
 
   /* ===== 区块标题 ===== */
   sectionHead: {
@@ -354,18 +561,18 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...colors.shadow.sm,
   },
-  /* ===== 趋势图卡脚注（唯一跳「付款中心」入口）===== */
-  chartFoot: {
+
+  /* ===== 发布房源按钮 ===== */
+  publishBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
-    marginTop: colors.spacing.lg,
-    paddingTop: colors.spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    gap: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.primary,
   },
-  chartFootText: { fontSize: colors.fontSize.sm, color: colors.primary, fontWeight: '600' },
+  publishBtnText: { fontSize: colors.fontSize.sm, fontWeight: '700', color: colors.primaryForeground },
 
   /* ===== 提醒条 ===== */
   alertCard: {
@@ -378,7 +585,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...colors.shadow.sm,
   },
-  alertRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  alertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
   alertIcon: {
     width: 34,
     height: 34,
@@ -387,12 +601,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  alertIconBg: {
+    width: 34,
+    height: 34,
+    borderRadius: colors.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   alertBody: { flex: 1, minWidth: 0 },
   alertTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
   alertDesc: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 2 },
 
-  /* ===== 房源简卡 ===== */
+  /* ===== 列表通用行 ===== */
   moreLink: { fontSize: colors.fontSize.sm, color: colors.primary, fontWeight: '600' },
+  moreRow: { alignItems: 'flex-end', paddingTop: 10, marginTop: 2 },
   propListItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -422,4 +644,26 @@ const styles = StyleSheet.create({
   },
   miniBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: colors.radius.full },
   miniBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
+
+  /* ===== 底部快捷网格 ===== */
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: colors.spacing.lg,
+    paddingVertical: colors.spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
+  },
+  quickCell: { width: '25%', alignItems: 'center', paddingVertical: 12, gap: 7 },
+  quickIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: colors.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickLabel: { fontSize: colors.fontSize.xs, color: colors.ink2 },
 });

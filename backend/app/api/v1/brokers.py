@@ -17,9 +17,16 @@ from app.models import (
     BrokerLevel,
     BrokerStatus,
     BrokerType,
+    BrokerRole,
     Referral,
     SplitDeal,
+    Contract,
+    ContractStatus,
+    ContractKind,
+    ContractParty,
+    SignerRole,
 )
+from app.services import esign_service
 
 router = APIRouter(prefix="/brokers", tags=["brokers"])
 
@@ -52,12 +59,24 @@ class BrokerOut(BaseModel):
     user_id: Optional[str] = None
     partner_name: Optional[str] = None
     broker_type: Optional[str] = None
+    broker_role: Optional[str] = None
     level: Optional[str] = None
     status: Optional[str] = None
     invite_code: Optional[str] = None
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
     contact_email: Optional[str] = None
+    company_name: Optional[str] = None
+    real_name: Optional[str] = None
+    wechat: Optional[str] = None
+    line: Optional[str] = None
+    whatsapp: Optional[str] = None
+    kyc_status: Optional[str] = None
+    kyc_verified_at: Optional[str] = None
+    distributor_active: Optional[bool] = None
+    listing_active: Optional[bool] = None
+    distributor_contract_id: Optional[str] = None
+    listing_contract_id: Optional[str] = None
     country: Optional[str] = None
     base_rate: Optional[float] = None
     upline_partner_id: Optional[str] = None
@@ -108,13 +127,25 @@ def _broker_dict(b: BrokerPartner) -> dict:
         "id": str(b.id),
         "user_id": str(b.user_id) if b.user_id else None,
         "partner_name": b.partner_name,
-        "broker_type": b.broker_type.value,
+        "broker_type": b.broker_type.value if b.broker_type else None,
+        "broker_role": b.broker_role.value if getattr(b, "broker_role", None) else None,
         "level": b.level.value,
         "status": b.status.value,
         "invite_code": b.invite_code,
         "contact_name": b.contact_name,
         "contact_phone": b.contact_phone,
         "contact_email": b.contact_email,
+        "company_name": getattr(b, "company_name", None),
+        "real_name": getattr(b, "real_name", None),
+        "wechat": getattr(b, "wechat", None),
+        "line": getattr(b, "line", None),
+        "whatsapp": getattr(b, "whatsapp", None),
+        "kyc_status": getattr(b, "kyc_status", None).value if getattr(b, "kyc_status", None) else None,
+        "kyc_verified_at": getattr(b, "kyc_verified_at", None).isoformat() if getattr(b, "kyc_verified_at", None) else None,
+        "distributor_active": getattr(b, "distributor_active", False),
+        "listing_active": getattr(b, "listing_active", False),
+        "distributor_contract_id": str(b.distributor_contract_id) if getattr(b, "distributor_contract_id", None) else None,
+        "listing_contract_id": str(b.listing_contract_id) if getattr(b, "listing_contract_id", None) else None,
         "country": b.country,
         "base_rate": b.base_rate,
         "upline_partner_id": str(b.upline_partner_id) if b.upline_partner_id else None,
@@ -323,6 +354,122 @@ def my_referrals(
         .order_by(Referral.created_at.desc())
     ).all()
     return [_referral_dict(r) for r in rows]
+
+
+@router.post("/{broker_id}/agreements")
+def create_broker_agreement(
+    broker_id: uuid.UUID,
+    body: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """为经纪人生成并绑定在线协议。
+
+    body: {role: "listing_agent" | "distributor"}。
+    按 role 生成对应协议合同（kind），追加平台甲方 + 经纪乙方两方，完成后由 /contracts/{id}/sign 激活。
+    """
+    broker = session.get(BrokerPartner, broker_id)
+    if not broker or broker.deleted_at:
+        raise HTTPException(status_code=404, detail="Broker not found")
+    # 仅本人或员工可发起
+    if broker.user_id not in (None, user.id) and user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="No permission")
+
+    role = body.get("role", "listing_agent")
+    if role not in ("listing_agent", "distributor"):
+        raise HTTPException(status_code=400, detail="role must be listing_agent/distributor")
+    if role == "listing_agent":
+        kind = ContractKind.listing_agent
+        contract_field = "listing_contract_id"
+    else:
+        kind = ContractKind.broker_distributor
+        contract_field = "distributor_contract_id"
+
+    # 已在有效签署中 → 直接返回既有协议
+    existing_id = getattr(broker, contract_field)
+    if existing_id:
+        exist = session.get(Contract, existing_id)
+        if exist and not exist.deleted_at:
+            return {
+                "contract_id": str(exist.id),
+                "kind": exist.kind.value,
+                "status": exist.status.value,
+            }
+
+    channels = "/".join(
+        x for x in (broker.wechat, broker.line, broker.whatsapp) if x
+    ) or broker.contact_email or ""
+    counters = {
+        "broker_name": broker.real_name or broker.contact_name or broker.partner_name,
+        "broker_company": broker.company_name or broker.partner_name,
+        "broker_phone": broker.contact_phone or "",
+        "broker_channel": channels,
+        "broker_id_number": "",
+    }
+    meta = esign_service.generate_contract(counters, "zh", kind=kind.value)
+    contract = Contract(
+        title=meta["title"],
+        kind=kind,
+        language="zh",
+        content_html=meta["content_html"],
+        document_hash=meta["document_hash"],
+        file_path=meta["file_path"],
+        counters=counters,
+        status=ContractStatus.draft,
+    )
+    session.add(contract)
+    session.flush()
+
+    # 甲方=平台，乙方=经纪人
+    session.add(ContractParty(
+        contract_id=contract.id,
+        name="好房网平台",
+        email="platform@haofang.local",
+        role=SignerRole.witness,
+    ))
+    session.add(ContractParty(
+        contract_id=contract.id,
+        user_id=broker.user_id,
+        name=broker.real_name or broker.contact_name or broker.partner_name,
+        email=broker.contact_email or "",
+        phone=broker.contact_phone,
+        role=SignerRole.agent,
+    ))
+    setattr(broker, contract_field, contract.id)
+    session.add(broker)
+    session.commit()
+    return {
+        "contract_id": str(contract.id),
+        "kind": kind.value,
+        "status": contract.status.value,
+    }
+
+
+@router.get("/{broker_id}/agreements")
+def get_broker_agreements(
+    broker_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """查询经纪人两份协议的签署状态。"""
+    broker = session.get(BrokerPartner, broker_id)
+    if not broker or broker.deleted_at:
+        raise HTTPException(status_code=404, detail="Broker not found")
+    if broker.user_id not in (None, user.id) and user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="No permission")
+
+    def _state(contract_id):
+        if not contract_id:
+            return {"contract_id": None, "status": "not_signed", "signed": False}
+        c = session.get(Contract, contract_id)
+        if not c:
+            return {"contract_id": None, "status": "not_signed", "signed": False}
+        return {"contract_id": str(c.id), "status": c.status.value, "signed": c.status == ContractStatus.signed}
+
+    return {
+        "distributor": _state(broker.distributor_contract_id),
+        "listing_agent": _state(broker.listing_contract_id),
+    }
 
 
 @router.post("/split-deals")

@@ -74,6 +74,11 @@ const th: import('./zh').Translation = {
     distribution: 'ระบบตัวแทน',
     markets: 'หลายประเทศ',
     marketIntelligence: 'ข้อมูลและตัดสินใจ',
+    publishListing: 'ลงประกาศอสังหา',
+    myListings: 'ประกาศของฉัน',
+    brokerAgreements: 'ข้อตกลงตัวแทน',
+    listingReview: 'ตรวจอนุมัติประกาศ',
+    dedupeReview: 'คิวตรวจสอบซ้ำ',
     section: {
       overview: 'ภาพรวม',
       assetManagement: 'จัดการสินทรัพย์',

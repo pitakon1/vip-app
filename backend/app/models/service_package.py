@@ -4,6 +4,7 @@
 按年计费），也支持三种通用计费方式（billing_model=monthly/per_use/annual）：
 
 - 按月 monthly：billing_interval 个月，amount = unit_price * billing_interval，end_date 按月推进
+- 按日 daily  ：billing_interval 天，amount = unit_price * billing_interval，end_date 按天推进
 - 按次 per_use ：不看日期看次数，quota_total 总次数 / quota_used 已用次数，end_date 可留空
 - 按年 annual ：billing_interval 年（默认 1），amount = unit_price * billing_interval
 
@@ -31,6 +32,7 @@ class ServiceBillingModel(str, Enum):
     """服务套餐计费方式枚举。"""
 
     monthly = "monthly"  # 按月计费
+    daily = "daily"  # 按日计费（看天数，end_date 按天推进）
     per_use = "per_use"  # 按次计费（看次数，不看日期）
     annual = "annual"  # 按年计费（默认，兼容旧数据）
 
@@ -69,10 +71,10 @@ class ServicePackage(TimestampMixin, table=True):
         default=ServiceBillingModel.annual, index=True
     )
     billing_interval: int = Field(
-        default=1, description="monthly/annual 周期数（单位=月/年）；per_use 忽略"
+        default=1, description="monthly/daily/annual 周期数（单位=月/天/年）；per_use 忽略"
     )
     unit_price: float = Field(
-        default=0, description="单价（月度/年度单价，或按次单价）"
+        default=0, description="单价（月度/按日/年度单价，或按次单价）"
     )
     quota_total: int = Field(default=0, description="per_use 总次数")
     quota_used: int = Field(default=0, description="per_use 已用次数")

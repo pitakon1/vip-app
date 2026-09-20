@@ -1,6 +1,6 @@
-"""服务套餐路由：业主订阅 / 查看 / 取消托管套餐（支持按月/按次/按年）。"""
+"""服务套餐路由：业主订阅 / 查看 / 取消托管套餐（支持按月/按日/按次/按年）。"""
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -72,9 +72,10 @@ def create_service_package(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),
 ):
-    """订阅服务套餐（支持按月/按次/按年三种计费）。
+    """订阅服务套餐（支持按月/按日/按次/按年四种计费）。
 
     - monthly：end_date = start + billing_interval 个月，amount = unit_price * billing_interval
+    - daily  ：end_date = start + billing_interval 天，amount = unit_price * billing_interval
     - annual ：end_date = start + billing_interval 年（默认 1 年），amount = unit_price * billing_interval；
               未传 unit_price 时按旧逻辑（佣金 + 托管费）× 月租计算，兼容既有调用
     - per_use：end_date 置空（按次结算），amount = unit_price（单次），quota_used 从 0 起
@@ -104,6 +105,9 @@ def create_service_package(
     # 按计费方式计算金额与到期日
     if req.billing_model == ServiceBillingModel.monthly:
         end_date = _add_months(req.start_date, req.billing_interval)
+        amount = round(req.unit_price * req.billing_interval, 2)
+    elif req.billing_model == ServiceBillingModel.daily:
+        end_date = req.start_date + timedelta(days=req.billing_interval)
         amount = round(req.unit_price * req.billing_interval, 2)
     elif req.billing_model == ServiceBillingModel.per_use:
         end_date = None  # 按次结算，无到期日

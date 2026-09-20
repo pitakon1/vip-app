@@ -50,8 +50,7 @@ VAT_RATE = 0.07  # 泰国 VAT 7%，仅作为展示拆分，不由平台代扣
 class ServiceCode(str, Enum):
     cleaning = "cleaning"  # 清洁
     ac_cleaning = "ac_cleaning"  # 空调清洗
-    tax_payment = "tax_payment"  # 税费代缴
-    utility_payment = "utility_payment"  # 水电代缴（按月）
+    utility_payment = "utility_payment"  # 水电代缴（公共事业接口）
     insurance = "insurance"  # 保险
     wifi_install = "wifi_install"  # 网络安装
 
@@ -72,14 +71,6 @@ SERVICE_PRICE_CATALOG: Dict[str, dict] = {
         "label_th": "ล้างแอร์",
         "unit": "台",
         "base_price": 800.0,
-        "tax_inclusive": False,
-    },
-    ServiceCode.tax_payment.value: {
-        "label_zh": "税费代缴",
-        "label_en": "Tax Payment",
-        "label_th": "ชำระภาษี",
-        "unit": "次",
-        "base_price": 500.0,
         "tax_inclusive": False,
     },
     ServiceCode.utility_payment.value: {

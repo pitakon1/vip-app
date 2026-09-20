@@ -23,6 +23,14 @@ class ContractStatus(str, Enum):
     voided = "voided"
 
 
+class ContractKind(str, Enum):
+    """合同/协议类型。"""
+
+    lease = "lease"  # 房屋租赁合同
+    broker_distributor = "broker_distributor"  # 《平台经纪人分销协议》(客源分销经纪人)
+    listing_agent = "listing_agent"  # 《房源经纪人上架房源协议》(房源上架经纪人)
+
+
 class SignerRole(str, Enum):
     landlord = "landlord"  # 房东/业主
     tenant = "tenant"  # 租客
@@ -55,6 +63,9 @@ class Contract(TimestampMixin, table=True):
     lease_id: Optional[uuid.UUID] = Field(default=None, foreign_key="leases.id")
     property_id: Optional[uuid.UUID] = Field(default=None, foreign_key="properties.id")
     title: str
+    kind: ContractKind = Field(
+        default=ContractKind.lease, index=True, description="合同/协议类型"
+    )
     language: str = "zh"  # 生成语言
     content_html: str = ""  # 渲染后的合同 HTML
     status: ContractStatus = Field(default=ContractStatus.draft, index=True)

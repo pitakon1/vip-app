@@ -7,7 +7,21 @@ from .user import User, UserRole
 from .verification_code import VerificationCode
 from .project import Project
 from .owner import Owner
-from .property import Property, PropertyStatus
+from .property import Property, PropertyStatus, DedupeType
+from .listing import (
+    Listing,
+    ListingType,
+    PublisherType,
+    ListingStatus,
+    MandateType,
+    NonExclusiveSplit,
+    DedupeState,
+)
+from .dedupe_review import (
+    PropertyDedupeReview,
+    DuplicateMatchType,
+    ReviewStatus,
+)
 from .tenant import Tenant
 from .lease import Lease, LeaseStatus
 from .lead import Lead, LeadStage
@@ -43,6 +57,7 @@ from .chat import Conversation, Message, MessageType, ChatParticipant
 from .contract import (
     Contract,
     ContractStatus,
+    ContractKind,
     ContractParty,
     SignerRole,
     SignatureRecord,
@@ -67,6 +82,8 @@ from .broker import (
     BrokerLevel,
     BrokerStatus,
     BrokerType,
+    BrokerRole,
+    KycStatus,
     Referral,
     SplitDeal,
 )
@@ -100,6 +117,17 @@ __all__ = [
     "Owner",
     "Property",
     "PropertyStatus",
+    "DedupeType",
+    "Listing",
+    "ListingType",
+    "PublisherType",
+    "ListingStatus",
+    "MandateType",
+    "NonExclusiveSplit",
+    "DedupeState",
+    "PropertyDedupeReview",
+    "DuplicateMatchType",
+    "ReviewStatus",
     "Tenant",
     "Lease",
     "LeaseStatus",
@@ -144,6 +172,7 @@ __all__ = [
     "ChatParticipant",
     "Contract",
     "ContractStatus",
+    "ContractKind",
     "ContractParty",
     "SignerRole",
     "SignatureRecord",
@@ -173,6 +202,8 @@ __all__ = [
     "BrokerLevel",
     "BrokerStatus",
     "BrokerType",
+    "BrokerRole",
+    "KycStatus",
     "Referral",
     "SplitDeal",
     "MarketConfig",

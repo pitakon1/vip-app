@@ -1,0 +1,7 @@
+/* ===== 经纪人在线签约 (BrokerAgreements) 页面样式 ===== */
+
+.rent-agreement-list .rent-card__header {
+  align-items: flex-start;
+}
+.rent-mb-4 { margin-bottom: 16px; }
+.rent-contract-preview { font-size: 13px; color: var(--rent-ink-2); line-height: 1.6; }

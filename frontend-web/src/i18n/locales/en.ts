@@ -74,6 +74,11 @@ const en: import('./zh').Translation = {
     distribution: 'Distribution',
     markets: 'Markets',
     marketIntelligence: 'Data & Decision',
+    publishListing: 'Publish Listing',
+    myListings: 'My Listings',
+    brokerAgreements: 'Broker Agreements',
+    listingReview: 'Listing Review',
+    dedupeReview: 'Dedupe Review',
     section: {
       overview: 'Overview',
       assetManagement: 'Asset Management',

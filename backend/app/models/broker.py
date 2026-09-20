@@ -36,6 +36,22 @@ class BrokerType(str, Enum):
     affiliate = "affiliate"          # 转介绍影响者
 
 
+class BrokerRole(str, Enum):
+    """经纪人在平台中的业务侧：客源分销 / 房源上架。"""
+
+    distributor = "distributor"  # 客源分销经纪人
+    listing_agent = "listing_agent"  # 房源上架经纪人
+    both = "both"
+
+
+class KycStatus(str, Enum):
+    """KYC 实名认证状态。"""
+
+    none = "none"
+    pending = "pending"
+    verified = "verified"
+
+
 class BrokerPartner(TimestampMixin, table=True):
     """外部经纪人/渠道商身份（开放分销主体）。"""
 
@@ -53,6 +69,24 @@ class BrokerPartner(TimestampMixin, table=True):
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
     contact_email: Optional[str] = None
+    # 展示/联系方式（房源上架经纪人在前端展示）
+    company_name: Optional[str] = None  # 所属公司
+    real_name: Optional[str] = None  # KYC 实名
+    wechat: Optional[str] = None
+    line: Optional[str] = None
+    whatsapp: Optional[str] = None
+    kyc_status: KycStatus = Field(default=KycStatus.none)
+    kyc_verified_at: Optional[datetime] = None
+    # 业务侧与在线协议签约
+    broker_role: BrokerRole = Field(default=BrokerRole.distributor)
+    distributor_active: bool = Field(default=False)  # 客源分销侧激活（签了分销协议）
+    listing_active: bool = Field(default=False)  # 房源上架侧激活（签了上架协议）
+    distributor_contract_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="contracts.id", description="《平台经纪人分销协议》"
+    )
+    listing_contract_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="contracts.id", description="《房源经纪人上架房源协议》"
+    )
     country: str = Field(default="TH", max_length=4)
     base_rate: float = Field(default=0.0)   # 默认分成比例 0-100
     upline_partner_id: Optional[uuid.UUID] = Field(

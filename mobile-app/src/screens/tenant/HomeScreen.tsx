@@ -18,11 +18,11 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
-import { propertiesApi, leasesApi, paymentsApi, maintenanceApi, saleListingApi } from '@/services/api';
+import { propertiesApi, leasesApi, paymentsApi, maintenanceApi, saleListingApi, ownerApi, ownersApi } from '@/services/api';
 import { fmtMoney as formatMoney } from '@/utils/format';
 import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
+import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 
 interface Listing {
   id: string;
@@ -88,15 +88,9 @@ interface GridEntry {
   label?: string;
 }
 
-// 金刚区：按「是否在租」分流。
-// 访客/未签约态 = 找房导向（点击直达分类；总入口在顶部搜索栏与底部「房源」Tab，不重复展示）
-const VISITOR_GRID: GridEntry[] = [
-  { key: 'apartment', labelKey: 'home.apartment', icon: 'key', route: 'TenantListings', params: { filter: 'apartment' } },
-  { key: 'office', labelKey: 'home.office', icon: 'business', route: 'TenantListings', params: { filter: 'office' } },
-];
-
 // 在租态 = 履约服务（去重后 4 格：缴费 / 报修 / 服务 / 文档。
-// 找房源、消息已并入底部「找房」「消息」Tab，首页不再重复展示）
+// 找房源、消息已并入底部「找房」「消息」Tab，首页不再重复展示；
+// 访客态不渲染宫格，找房操作统一走顶部搜索栏与底部「找房」Tab）
 const TENANT_GRID: GridEntry[] = [
   { key: 'payments', labelKey: 'home.pay', icon: 'card', route: 'Payments' },
   { key: 'maintenance', label: '报修', icon: 'build', route: 'TenantMaintenance' },
@@ -333,6 +327,68 @@ export default function HomeScreen() {
     () => user?.name || user?.full_name || user?.username || '',
     [user],
   );
+  // 统一首页按身份动态显示：业主额外提供「我要出租/管理房源」入口（轻管理导向，重工具走 Web 门户）。
+  // 使用能力判断而非单一 role：用户可能「既是业主又是租客」，名下有房即可见业主区块，不因 role 是 tenant 漏显。
+  const { canManageProperty: isOwner } = useUserCapabilities();
+
+  // 业主资产速览数据：在管房源 / 在租 / 本月实收（接口取不到时安全降级为 '—'，不阻塞首屏）
+  const [ownerAssets, setOwnerAssets] = useState<{ props: any[]; ok: boolean }>({
+    props: [],
+    ok: false,
+  });
+  const [ownerReceived, setOwnerReceived] = useState<number | null>(null);
+  const [ownerCurrency, setOwnerCurrency] = useState('');
+  useEffect(() => {
+    if (!isOwner) return;
+    let alive = true;
+    const year = new Date().getFullYear();
+    Promise.allSettled([ownerApi.properties(), ownersApi.annualSummary(year)]).then(
+      ([pRes, aRes]) => {
+        if (!alive) return;
+        const pick = (res: PromiseSettledResult<any>): any[] | null => {
+          if (res.status !== 'fulfilled') return null;
+          const data = res.value?.data;
+          const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
+          return Array.isArray(items) ? items : null;
+        };
+        const props = pick(pRes);
+        if (props) {
+          setOwnerAssets({ props, ok: true });
+          if (props[0]?.currency) setOwnerCurrency(String(props[0].currency));
+        }
+        if (aRes.status === 'fulfilled') {
+          const annual: any = aRes.value?.data;
+          if (annual?.currency) setOwnerCurrency(String(annual.currency));
+          const buckets: any[] = Array.isArray(annual?.by_month) ? annual.by_month : [];
+          if (buckets.length) {
+            const now = new Date();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const bucket =
+              buckets.find((b) => {
+                const m = String(b?.month ?? '');
+                return (
+                  m === `${now.getFullYear()}-${mm}` ||
+                  m === mm ||
+                  Number(b?.month) === now.getMonth() + 1
+                );
+              }) ?? buckets[buckets.length - 1];
+            setOwnerReceived(Number(bucket?.received ?? 0));
+          }
+        }
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [isOwner]);
+
+  // 资产速览派生值：在管房源数 / 在租数
+  const ownerPropCount = ownerAssets.ok ? ownerAssets.props.length : null;
+  const ownerRentedCount = ownerAssets.ok
+    ? ownerAssets.props.filter((p) =>
+        ['rented', 'active'].includes(String(p?.status || '').toLowerCase()),
+      ).length
+    : null;
 
   const loadAll = useCallback(async () => {
     const [pRes, lRes, payRes, mRes, sRes] = await Promise.allSettled([
@@ -382,14 +438,19 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadAll();
+    // 兜底：即使个别请求挂起/PostgreSQL 偶发慢，也强制结束 loading，
+    // 避免首页永久停留在「加载中」白屏/转圈（实测并发下最坏约 11s）。
+    const guard = setTimeout(() => {
+      setLoading(false);
+      setRefreshing(false);
+    }, 12000);
+    return () => clearTimeout(guard);
   }, [loadAll]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadAll();
   }, [loadAll]);
-
-  const activeGrid = useMemo(() => (isRenting ? TENANT_GRID : VISITOR_GRID), [isRenting]);
 
   const handleEntry = useCallback(
     (entry: GridEntry) => {
@@ -398,7 +459,7 @@ export default function HomeScreen() {
     [navigation],
   );
 
-  const goListings = useCallback(() => navigation.navigate('TenantListings'), [navigation]);
+  const goListings = useCallback(() => navigation.navigate('Listings'), [navigation]);
   const openProperty = useCallback(
     (id: string) => navigation.navigate('PropertyDetail', { id }),
     [navigation],
@@ -480,32 +541,54 @@ export default function HomeScreen() {
     return { percent, remainDays: Math.ceil((e - Date.now()) / 86400000) };
   }, [activeLease]);
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <LoadingState label="加载首页…" />
-      </View>
-    );
-  }
-
   // 「买房」上下文：隐藏全部租房履约模块，只保留搜索栏 + 业务 Tab + 购房 rail
   const isRentTab = bizTab === 'rent';
 
   // 外层 FlatList 的数据区块：房源 rail / 租约卡 / 最近动态。
   // 房源卡统一在横向 rail（ScrollView horizontal）里，纵向只按「区块」懒加载，
   // 避免首页一次性渲染并挂载全部内容；按当前状态动态决定是否追加租约卡与动态。
-  type BodySection = { key: 'rail' | 'lease' | 'activity' };
+  // 加载中仅渲染一个「加载」占位区块：顶部的问候/搜索/宫格/Tab 已在 ListHeader 立即展示，
+  // 数据到位后该区块替换为实际内容，避免整页停留在白屏/加载漩涡。
+  type BodySection = { key: 'rail' | 'lease' | 'activity' | 'loading' };
   const bodySections = useMemo<BodySection[]>(() => {
+    if (loading) return [{ key: 'loading' }];
     const secs: BodySection[] = [{ key: 'rail' }];
     if (isRentTab) {
       if (isRenting && activeLease) secs.push({ key: 'lease' });
       if (activities.length > 0) secs.push({ key: 'activity' });
     }
     return secs;
-  }, [isRentTab, isRenting, activeLease, activities]);
+  }, [isRentTab, isRenting, activeLease, activities, loading]);
 
   // 渲染单个数据区块（rail 内部仍是横向 ScrollView，保持横向滚动行为不变）
   const renderBodySection = ({ item }: { item: BodySection }) => {
+    if (loading) {
+      // 骨架屏：占位图块 + 灰条，尺寸对齐真实房源卡（210 宽 rail），
+      // 比转圈更贴合最终内容，避免数据到位后整块跳变。
+      return (
+        <View style={styles.skeletonBlock}>
+          <View style={styles.sectionHead}>
+            <Text style={styles.sectionTitle}>{t('home.featured')}</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            scrollEnabled={false}
+            contentContainerStyle={styles.rail}
+          >
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={styles.skelCard}>
+                <View style={styles.skelImg} />
+                <View style={styles.skelBody}>
+                  <View style={styles.skelLineWide} />
+                  <View style={[styles.skelLine, { width: '55%' }]} />
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      );
+    }
     switch (item.key) {
       case 'rail':
         return isRentTab ? (
@@ -629,6 +712,7 @@ export default function HomeScreen() {
       style={styles.container}
       // 用 insets.top 补顶部安全区（不用 SafeAreaView 包滚动容器，避免横向 rail 被裁切）
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+      aria-busy={loading}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       data={bodySections}
       keyExtractor={(s) => s.key}
@@ -670,6 +754,48 @@ export default function HomeScreen() {
           <Ionicons name="arrow-forward" size={16} color={colors.primaryForeground} />
         </View>
       </TouchableOpacity>
+
+      {/* 2.5 业主资产管理速览：在管房源 / 在租 / 本月实收 + 「去管理」入口。
+         合并原「我要出租/管理房源」入口卡与资数三格为一整条，避免同一资产内容重复出现 */}
+      {isOwner && (
+        <TouchableOpacity
+          style={styles.ownerStrip}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('MyListings')}
+          accessibilityRole="button"
+          accessibilityLabel={t('home.manageAsset')}
+        >
+          <View style={styles.ownerStripStats}>
+            <View style={styles.ownerStripCell}>
+              <Text style={styles.ownerStripValue}>
+                {ownerPropCount === null ? '-' : ownerPropCount}
+              </Text>
+              <Text style={styles.ownerStripLabel}>{t('profile.ownerUnits')}</Text>
+            </View>
+            <View style={styles.ownerStripCell}>
+              <Text style={styles.ownerStripValue}>
+                {ownerRentedCount === null ? '-' : ownerRentedCount}
+              </Text>
+              <Text style={styles.ownerStripLabel}>{t('profile.ownerRented')}</Text>
+            </View>
+            <View style={styles.ownerStripCell}>
+              <Text style={styles.ownerStripValue} numberOfLines={1} adjustsFontSizeToFit>
+                {ownerReceived === null ? '-' : formatMoney(ownerReceived, ownerCurrency)}
+              </Text>
+              <Text style={styles.ownerStripLabel}>{t('profile.ownerReceived')}</Text>
+            </View>
+            <View style={styles.ownerStripGo}>
+              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+            </View>
+          </View>
+          <View style={styles.ownerStripFoot}>
+            <Ionicons name="key-outline" size={14} color={colors.primary} />
+            <Text style={styles.ownerStripFootText} numberOfLines={1}>
+              {t('home.manageAssetSub')}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* 3. 双业务 Tab：租房 / 买房 */}
       <View style={styles.bizTabs}>
@@ -764,13 +890,14 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
 
-      {/* 6. 功能宫格（租房上下文：访客=找房分类，在租=履约服务；宽度按项数自适应） */}
-      {isRentTab && (
+      {/* 6. 在租履约宫格（仅租客且有生效租约时展示：缴费/报修/服务/文档。
+          访客态不渲染——公寓/写字楼等找房分类不再做首页快捷入口，统一走顶部搜索栏与底部「找房」Tab） */}
+      {isRentTab && isRenting && (
         <View style={styles.grid}>
-          {activeGrid.map((entry) => (
+          {TENANT_GRID.map((entry) => (
             <TouchableOpacity
               key={entry.key}
-              style={[styles.gridItem, { width: gridItemWidth(activeGrid.length) }]}
+              style={[styles.gridItem, { width: gridItemWidth(TENANT_GRID.length) }]}
               activeOpacity={0.7}
               onPress={() => handleEntry(entry)}
               accessibilityRole="button"
@@ -850,6 +977,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  /* 业主资产管理速览条（合并原「我要出租/管理房源」入口卡，数据真实接口，取不到降级为 '-'） */
+  ownerStrip: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: colors.radius.lg,
+    marginBottom: colors.spacing.md,
+    overflow: 'hidden',
+    ...colors.shadow.sm,
+  },
+  ownerStripStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: colors.spacing.md,
+    paddingTop: colors.spacing.md,
+  },
+  ownerStripCell: { flex: 1, minWidth: 0, paddingRight: colors.spacing.sm },
+  ownerStripValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.ink,
+    letterSpacing: -0.3,
+    minHeight: 24,
+  },
+  ownerStripLabel: { fontSize: 12, color: colors.ink2, marginTop: 2 },
+  ownerStripGo: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.sidebarActive,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ownerStripFoot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: colors.spacing.xs,
+    marginTop: colors.spacing.sm,
+    marginBottom: colors.spacing.md,
+    paddingHorizontal: colors.spacing.md,
+  },
+  ownerStripFootText: { flex: 1, fontSize: 12, color: colors.primary, fontWeight: '600' },
+
+  /* 数据区骨架屏：尺寸对齐真实房源卡（propCard 宽 210 / 图高 110） */
+  skeletonBlock: { paddingBottom: colors.spacing.sm },
+  skelCard: {
+    width: 210,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  skelImg: { height: 110, backgroundColor: colors.muted },
+  skelBody: { padding: colors.spacing.md, gap: colors.spacing.sm },
+  skelLineWide: { height: 14, borderRadius: 7, backgroundColor: colors.muted },
+  skelLine: { height: 14, borderRadius: 7, backgroundColor: colors.surface2 },
 
   /* 双业务 Tab */
   bizTabs: {

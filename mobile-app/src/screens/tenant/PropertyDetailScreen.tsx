@@ -321,7 +321,7 @@ export default function PropertyDetailScreen() {
           title="房源不存在或已下架"
           sub="该房源可能已被删除，去看看其他房源"
           actionLabel="去找房源"
-          onAction={() => navigation.navigate('TenantListings')}
+          onAction={() => navigation.navigate('Listings')}
         />
       </View>
     );

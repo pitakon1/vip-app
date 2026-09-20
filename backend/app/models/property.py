@@ -22,6 +22,14 @@ class PropertyStatus(str, Enum):
     maintenance = "maintenance"
 
 
+class DedupeType(str, Enum):
+    """去重档案类型：房源唯一档案定位方式。"""
+
+    project = "project"  # 结构化唯一键：楼盘 project_id + 楼栋 + 房号
+    free_address = "free_address"  # 自由地址 + 房号归一化哈希
+    none = "none"  # 未定位（不参与去重）
+
+
 class Property(TimestampMixin, table=True):
     """房源表。"""
 
@@ -35,6 +43,16 @@ class Property(TimestampMixin, table=True):
     floor: Optional[int] = None
     building: Optional[str] = None
     address: str
+    # 去重档案字段：同一套房在平台上一份档案（唯一键约束），多份上架单
+    dedupe_type: DedupeType = Field(default=DedupeType.none)
+    dedupe_key: Optional[str] = Field(
+        default=None, max_length=200, index=True,
+        unique=True, sa_column_kwargs={"nullable": True},
+        description="规范化唯一键（project|building|room 或 地址哈希），唯一索引防重复档案",
+    )
+    address_norm: Optional[str] = Field(
+        default=None, max_length=300, index=True, description="规范化地址（供相似度比对）"
+    )
     property_type: str = Field(default="apartment")  # apartment/house/condo/commercial
     monthly_rent: float = Field(gt=0)
     currency: str = Field(default="THB", max_length=3)

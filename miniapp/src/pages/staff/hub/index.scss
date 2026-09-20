@@ -1,0 +1,54 @@
+/* 员工/经纪/管理 - 房源上架工作台 */
+.hub-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24rpx;
+}
+
+.hub-hero {
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+  padding: 40rpx 32rpx;
+  box-shadow: var(--shadow-primary);
+  margin-bottom: 24rpx;
+
+  &__hi { display: block; font-size: 40rpx; font-weight: 800; color: var(--primary-foreground); letter-spacing: -0.02em; }
+  &__meta { display: block; font-size: 26rpx; color: rgba(var(--primary-foreground-rgb), 0.9); margin-top: 8rpx; }
+}
+
+.hub-gate {
+  margin-bottom: 24rpx;
+  padding: 20rpx 26rpx;
+  border-radius: var(--radius-md);
+  background: var(--state-warning-soft);
+  border: 1px solid var(--state-warning-light);
+  &__text { font-size: 26rpx; font-weight: 600; color: var(--warning); }
+}
+
+.hub-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+
+.hub-card {
+  width: calc((100% - 20rpx) / 2);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 28rpx 24rpx;
+
+  &__icon {
+    width: 64rpx;
+    height: 64rpx;
+    border-radius: var(--radius-md);
+    background: rgba(var(--primary-rgb), 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    &-text { font-size: 32rpx; font-weight: 700; color: var(--primary); }
+  }
+  &__title { display: block; font-size: 30rpx; font-weight: 700; color: var(--ink); margin-top: 18rpx; }
+  &__desc { display: block; font-size: 22rpx; color: var(--ink-3); margin-top: 6rpx; line-height: 1.5; }
+}

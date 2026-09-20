@@ -17,7 +17,8 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.auth import get_current_user
 from app.models import (
-    User, Contract, ContractStatus, ContractParty, SignerRole, SignatureRecord,
+    User, Contract, ContractStatus, ContractKind, ContractParty, SignerRole,
+    SignatureRecord,
 )
 from app.services import esign_service
 
@@ -29,6 +30,7 @@ class ContractSummary(BaseModel):
 
     id: Optional[str] = None
     title: Optional[str] = None
+    kind: Optional[str] = None
     status: Optional[str] = None
     language: Optional[str] = None
     document_hash: Optional[str] = None
@@ -69,14 +71,20 @@ def generate_contract(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """按租约/房源/用户信息自动生成合同。payload: {counters: {...}, language?}"""
+    """按租约/房源/用户信息自动生成合同。payload: {counters: {...}, language?, kind?}"""
     counters = payload.get("counters") or {}
     language = payload.get("language", "zh")
-    meta = esign_service.generate_contract(counters, language)
+    kind = payload.get("kind", "lease")
+    try:
+        contract_kind = ContractKind(kind)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid kind: {kind}")
+    meta = esign_service.generate_contract(counters, language, kind=contract_kind.value)
     contract = Contract(
         lease_id=payload.get("lease_id"),
         property_id=payload.get("property_id"),
         title=meta["title"],
+        kind=contract_kind,
         language=language,
         content_html=meta["content_html"],
         document_hash=meta["document_hash"],
@@ -90,6 +98,7 @@ def generate_contract(
     return {
         "id": str(contract.id),
         "title": contract.title,
+        "kind": contract.kind.value,
         "status": contract.status.value,
         "document_hash": contract.document_hash,
         "file_path": contract.file_path,
@@ -138,7 +147,12 @@ def sign_contract(
     contract = session.get(Contract, contract_id)
     if not contract:
         raise HTTPException(status_code=404, detail="Contract not found")
-    party = session.get(ContractParty, payload["party_id"])
+    party_id_raw = payload["party_id"]
+    try:
+        party_id_u = uuid.UUID(str(party_id_raw))
+    except (ValueError, TypeError, AttributeError):
+        raise HTTPException(status_code=400, detail="Invalid party_id")
+    party = session.get(ContractParty, party_id_u)
     if not party or party.contract_id != contract_id:
         raise HTTPException(status_code=404, detail="Party not found")
 
@@ -167,12 +181,66 @@ def sign_contract(
     parties = session.exec(
         select(ContractParty).where(ContractParty.contract_id == contract_id)
     ).all()
-    if parties and all(p.signed for p in parties):
+    fully_signed = bool(parties and all(p.signed for p in parties))
+    # 经纪人协议（listings_agent / broker_distributor）为「平台单方预签」类：
+    # 经纪乙方签署后，平台甲方（witness）自动同意，使协议达到 signed 并激活对应业务侧。
+    if not fully_signed and contract.kind in (
+        ContractKind.listing_agent,
+        ContractKind.broker_distributor,
+    ):
+        for p in parties:
+            if not p.signed:
+                p.signed = True
+                p.signed_at = datetime.utcnow()
+                session.add(p)
+        session.commit()
+        fully_signed = True
+    if fully_signed:
         contract.status = ContractStatus.signed
         contract.signed_at = datetime.utcnow()
         session.add(contract)
         session.commit()
+        _activate_broker_role_if_agreement(session, contract)
     return {"party_id": str(party.id), "signed": True, "signature_hash": sig_hash}
+
+
+def _activate_broker_role_if_agreement(session: Session, contract: Contract) -> None:
+    """经纪人协议全部签署后，激活对应业务侧。幂等：仅当协议为 signed 且尚未激活。
+
+    在 contracts.py 内联实现，避免循环导入 broker 路由。根据合同 kind 更新
+    BrokerPartner.distributor_active / listing_active。
+    """
+    from app.models import BrokerPartner
+
+    if contract.kind not in (ContractKind.broker_distributor, ContractKind.listing_agent):
+        return
+    if contract.status != ContractStatus.signed:
+        return
+
+    partner = None
+    if contract.kind == ContractKind.broker_distributor:
+        partner = session.exec(
+            select(BrokerPartner).where(
+                BrokerPartner.distributor_contract_id == contract.id,
+                BrokerPartner.deleted_at.is_(None),
+            )
+        ).first()
+        active_field = "distributor_active"
+    else:
+        partner = session.exec(
+            select(BrokerPartner).where(
+                BrokerPartner.listing_contract_id == contract.id,
+                BrokerPartner.deleted_at.is_(None),
+            )
+        ).first()
+        active_field = "listing_active"
+    if partner is None:
+        return
+    if getattr(partner, active_field):
+        return  # 幂等：已激活
+    setattr(partner, active_field, True)
+    session.add(partner)
+    session.commit()
 
 
 @router.get("", response_model=List[ContractSummary])
@@ -185,6 +253,7 @@ def list_contracts(
         {
             "id": str(c.id),
             "title": c.title,
+            "kind": c.kind.value if c.kind else "lease",
             "status": c.status.value,
             "language": c.language,
             "document_hash": c.document_hash,
@@ -210,6 +279,7 @@ def get_contract(
     return {
         "id": str(contract.id),
         "title": contract.title,
+        "kind": contract.kind.value if contract.kind else "lease",
         "status": contract.status.value,
         "language": contract.language,
         "document_hash": contract.document_hash,

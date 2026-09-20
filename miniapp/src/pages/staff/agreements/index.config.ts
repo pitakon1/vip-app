@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '经纪人协议' }

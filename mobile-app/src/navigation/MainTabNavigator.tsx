@@ -7,14 +7,9 @@ import colors from '../theme/colors';
 import ProfileScreen from '../screens/ProfileScreen';
 import { useI18n } from '../i18n';
 
-// 租客端页面
-import TenantHomeScreen from '../screens/tenant/HomeScreen';
+// 公共 C 端页面（业主/租客合并后的统一端：首页/找房/消息/我的）
+import HomeScreen from '../screens/tenant/HomeScreen';
 import TenantListingsScreen from '../screens/tenant/ListingsScreen';
-
-// 业主端页面
-import OwnerHomeScreen from '../screens/owner/HomeScreen';
-import OwnerPropertiesScreen from '../screens/owner/PropertiesScreen';
-import OwnerServicesScreen from '../screens/owner/ServicesScreen';
 
 // 员工端页面
 import EmployeeHomeScreen from '../screens/employee/HomeScreen';
@@ -44,6 +39,15 @@ interface TabDef {
   labelKey: string;
 }
 
+// 公共 C 端 Tab 定义（首页=统一找房/推荐首页；找房=Listings；消息=ChatList；我的=Profile）
+// 单一配置源：owner 与 tenant 共用，差异仅在「我的/首页」内部按角色渲染。
+const C_TABS: TabDef[] = [
+  { name: 'Home', component: HomeScreen, icon: 'home', labelKey: 'tab.home' },
+  { name: 'Listings', component: TenantListingsScreen, icon: 'search', labelKey: 'tab.listings' },
+  { name: 'Messages', component: ChatListScreen, icon: 'chatbubbles', labelKey: 'tab.messages' },
+  { name: 'Profile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
+];
+
 const ROLE_TABS: Record<UserRole, TabDef[]> = {
   // 管理端 首页 / 房源 / 客户 / 收款 / 我的
   admin: [
@@ -68,20 +72,10 @@ const ROLE_TABS: Record<UserRole, TabDef[]> = {
     { name: 'EmployeeChat', component: ChatListScreen, icon: 'chatbubbles', labelKey: 'tab.messages' },
     { name: 'EmployeeProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
   ],
-  // 业主端 首页 / 房源 / 服务 / 我的
-  owner: [
-    { name: 'OwnerHome', component: OwnerHomeScreen, icon: 'home', labelKey: 'tab.home' },
-    { name: 'OwnerProperties', component: OwnerPropertiesScreen, icon: 'business', labelKey: 'tab.properties' },
-    { name: 'OwnerServices', component: OwnerServicesScreen, icon: 'apps', labelKey: 'tab.services' },
-    { name: 'OwnerProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
-  ],
-  // 租客端 首页 / 找房 / 消息 / 我的
-  tenant: [
-    { name: 'TenantHome', component: TenantHomeScreen, icon: 'home', labelKey: 'tab.home' },
-    { name: 'TenantListings', component: TenantListingsScreen, icon: 'search', labelKey: 'tab.listings' },
-    { name: 'TenantChat', component: ChatListScreen, icon: 'chatbubbles', labelKey: 'tab.messages' },
-    { name: 'TenantProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
-  ],
+  // 业主/租客 合并为同一套 C 端（首页/找房/消息/我的），对齐贝壳"一个App按行为/资产动态显示"心智。
+  // 业主经营能力通过「我的-资产」区块与栈页进入，不作独立经营首页。
+  owner: C_TABS,
+  tenant: C_TABS,
 };
 
 const makeTabOptions = (icon: IoniconName, title: string) => ({
@@ -104,6 +98,7 @@ const makeTabOptions = (icon: IoniconName, title: string) => ({
 });
 
 const screenOptions = {
+  headerShown: false, // 底部 Tab 页面不套同名标题栏，顶部由各页面自绘（对齐贝壳：首页是搜索/定位，我的是头像卡片）
   tabBarActiveTintColor: colors.primary,
   tabBarInactiveTintColor: colors.ink3,
   tabBarStyle: {

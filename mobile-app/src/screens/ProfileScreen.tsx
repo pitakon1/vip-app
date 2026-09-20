@@ -6,25 +6,23 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
-  Modal,
   Platform,
-  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '@/stores/auth';
 import Card from '@/components/Card';
-import EmptyState from '@/components/EmptyState';
 import colors from '@/theme/colors';
 import {
-  authApi,
   leasesApi,
   ownerApi,
   ownersApi,
   propertyDealApi,
   saleListingApi,
 } from '@/services/api';
-import { useI18n, LANG_LABELS, LANGS, type AppLang } from '@/i18n';
+import { useI18n, LANG_LABELS } from '@/i18n';
+import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 import { fmtMoney as fmtRent } from '@/utils/format';
 import type { UserRole } from '@/types';
 
@@ -45,10 +43,16 @@ interface FuncEntry {
 
 // 各角色「我的」常用功能（按角色差异化；路由必须已在 RootNavigator 注册）
 const FUNC_BY_ROLE: Record<UserRole, FuncEntry[]> = {
-  // 业主：物业文档 / 营销中心（服务在底部 Tab，不重复；付款为租客逻辑，业主不留入口）
+  // 业主：轻管理聚合（业主重工具走 Web 门户）。资产区块统一集合：
+  // 我的房源（管理）/ 我的上架单 / 发布房源 / 服务（原底部「服务」Tab 移入此处）/ 物业文档 / 营销中心 / 收益概览
   owner: [
+    { key: 'myProperties', labelKey: 'profile.myProperties', icon: 'business', navigate: 'OwnerProperties' },
+    { key: 'myListings', labelKey: 'profile.myListings', icon: 'list', navigate: 'MyListings' },
+    { key: 'publishListing', labelKey: 'profile.publishListing', icon: 'add-circle', navigate: 'ListingPublish' },
+    { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'OwnerServices' },
     { key: 'documents', labelKey: 'profile.documents', icon: 'document-text', navigate: 'OwnerDocuments' },
     { key: 'marketing', labelKey: 'profile.marketing', icon: 'megaphone', navigate: 'OwnerMarketing' },
+    { key: 'overview', labelKey: 'profile.ownerOverview', icon: 'trending-up', navigate: 'OwnerHome' },
   ],
   // 租客：付费/文档/增值服务（对齐租客端原型「常用功能」三项）
   tenant: [
@@ -61,15 +65,19 @@ const FUNC_BY_ROLE: Record<UserRole, FuncEntry[]> = {
     { key: 'contacts', labelKey: 'profile.contacts', icon: 'people', navigate: 'Contacts' },
     { key: 'attendance', labelKey: 'profile.attendance', icon: 'location', navigate: 'Attendance' },
     { key: 'properties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'EmployeeProperties' },
+    { key: 'myListings', labelKey: 'profile.myListings', icon: 'list', navigate: 'MyListings' },
+    { key: 'brokerAgreement', labelKey: 'profile.brokerAgreement', icon: 'document-text', navigate: 'BrokerAgreement' },
   ],
   employee: [
     { key: 'contacts', labelKey: 'profile.contacts', icon: 'people', navigate: 'Contacts' },
     { key: 'attendance', labelKey: 'profile.attendance', icon: 'location', navigate: 'Attendance' },
     { key: 'properties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'EmployeeProperties' },
+    { key: 'myListings', labelKey: 'profile.myListings', icon: 'list', navigate: 'MyListings' },
   ],
   // 管理员：对齐管理端设置原型（员工管理入口；不含考勤与聊天）
   admin: [
     { key: 'employees', labelKey: 'profile.employees', icon: 'people', navigate: 'AdminUsers' },
+    { key: 'myListings', labelKey: 'profile.myListings', icon: 'list', navigate: 'MyListings' },
   ],
 };
 
@@ -104,7 +112,6 @@ const APP_COMPANY = 'HaoFang.World';
 const APP_VERSION = 'v2.4.1';
 
 const DAY_MS = 86400000;
-const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
 
 // 租客「我的服务」宫格（仅保留已注册路由的入口；消息/客服已在底部 Tab，避免重复入口）
 const TENANT_SERVICE_GRID: FuncEntry[] = [
@@ -114,37 +121,25 @@ const TENANT_SERVICE_GRID: FuncEntry[] = [
   { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'Documents' },
 ];
 
-// 购房订单状态（PropertyDealStatus）
-const DEAL_STATUS: Record<string, { text: string; color: string; bg: string }> = {
-  drafted: { text: '洽谈中', color: colors.ink2, bg: colors.surface2 },
-  escrow_pending: { text: '定金托管中', color: colors.warning, bg: colors.warningLight },
-  signed: { text: '已签约', color: colors.primary, bg: colors.sidebarActive },
-  transferring: { text: '过户中', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
-  completed: { text: '已完成', color: colors.success, bg: colors.successLight },
-  failed: { text: '交易失败', color: colors.error, bg: colors.errorLight },
-  cancelled: { text: '已取消', color: colors.ink3, bg: colors.surface2 },
-};
-
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const setUser = useAuthStore((state) => state.setUser);
-  const [langVisible, setLangVisible] = useState(false);
-  // 租客「我的资产」入口弹层：我的租约 / 我的购房订单（数据仍来自真实接口，收拢后点击弹出简洁摘要）
-  const [leaseModalVisible, setLeaseModalVisible] = useState(false);
-  const [ordersModalVisible, setOrdersModalVisible] = useState(false);
+  // 租客「我的资产」入口数据：我的租约 / 我的购房订单（数据来自真实接口，点击进入全屏子页展示）
   const [activeLease, setActiveLease] = useState<any>(null);
   const [deals, setDeals] = useState<any[]>([]);
   // 业主：名下房源 / 本月实收（真实接口，失败静默降级）
   const [ownerProps, setOwnerProps] = useState<any[]>([]);
   const [ownerAnnual, setOwnerAnnual] = useState<any>(null);
   const [ownerPropsOk, setOwnerPropsOk] = useState(false);
-  const { lang, setLang, t } = useI18n();
+  const { lang, t } = useI18n();
   const navigation = useNavigation<any>();
 
-  const isTenant = user?.role === 'tenant';
+  // 身份按「能力」判断而非单一 role：用户可能「既是业主又是租客」，名下房产/生效租约决定区块是否展示，二者可并存。
+  const { canManageProperty, isActiveTenant } = useUserCapabilities();
+  const isTenant = isActiveTenant;
   const isAdmin = user?.role === 'admin';
-  const isOwner = user?.role === 'owner';
+  const isOwner = canManageProperty;
   // 员工端：经纪人 / 员工 / 管理员均提供「我的」账户与设置自助区块
   const isStaff = isAdmin || user?.role === 'agent' || user?.role === 'employee';
 
@@ -164,143 +159,23 @@ export default function ProfileScreen() {
       return;
     }
     if (item.openLang) {
-      setLangVisible(true);
+      navigation.navigate('SettingsLanguage');
       return;
     }
-    // 「我的」账户/设置自助接入对应后端接口
+    // 「我的」账户/设置自接入对应全屏子页
     if (item.key === 'password') {
-      setPwdVisible(true);
+      navigation.navigate('ChangePassword');
       return;
     }
     if (item.key === 'phone' || item.key === 'email' || item.key === 'account') {
-      openEdit();
+      navigation.navigate('EditProfile');
       return;
     }
     if (item.key === 'timezone' || item.key === 'notification' || item.key === 'notify') {
-      openPrefs();
+      navigation.navigate('NotificationPrefs');
       return;
     }
     showNotAvailable(item.label);
-  };
-
-  // ===== 编辑资料 =====
-  const [editVisible, setEditVisible] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editSaving, setEditSaving] = useState(false);
-
-  const openEdit = () => {
-    setEditName(user?.full_name ?? '');
-    setEditPhone(user?.phone ?? '');
-    setEditEmail(user?.email ?? '');
-    setEditVisible(true);
-  };
-
-  const saveEdit = async () => {
-    if (!editName.trim()) {
-      showNotAvailable('请填写姓名');
-      return;
-    }
-    setEditSaving(true);
-    try {
-      const payload: Record<string, string> = { full_name: editName.trim() };
-      if (editPhone !== (user?.phone ?? '')) payload.phone = editPhone.trim();
-      if (editEmail !== (user?.email ?? '')) payload.email = editEmail.trim();
-      const { data } = await authApi.updateMe(payload);
-      setUser({ ...user, ...(data ?? {}) } as any);
-      setEditVisible(false);
-      showToast('已保存');
-    } catch (e: any) {
-      const detail = e?.response?.data?.detail;
-      showNotAvailable(typeof detail === 'string' ? detail : '保存失败');
-    } finally {
-      setEditSaving(false);
-    }
-  };
-
-  // ===== 修改密码 =====
-  const [pwdVisible, setPwdVisible] = useState(false);
-  const [oldPwd, setOldPwd] = useState('');
-  const [newPwd, setNewPwd] = useState('');
-  const [confirmPwd, setConfirmPwd] = useState('');
-  const [pwdSaving, setPwdSaving] = useState(false);
-
-  const savePassword = async () => {
-    if (!oldPwd || !newPwd) {
-      showNotAvailable('请填写完整');
-      return;
-    }
-    if (newPwd.length < 6) {
-      showNotAvailable('新密码至少 6 位');
-      return;
-    }
-    if (newPwd !== confirmPwd) {
-      showNotAvailable('两次输入的新密码不一致');
-      return;
-    }
-    setPwdSaving(true);
-    try {
-      await authApi.changePassword({ old_password: oldPwd, new_password: newPwd });
-      setPwdVisible(false);
-      setOldPwd('');
-      setNewPwd('');
-      setConfirmPwd('');
-      // 改密后所有旧令牌失效，建议重新登录
-      logout();
-      showToast('密码已修改，请重新登录');
-    } catch (e: any) {
-      const detail = e?.response?.data?.detail;
-      showNotAvailable(typeof detail === 'string' ? detail : '修改失败');
-    } finally {
-      setPwdSaving(false);
-    }
-  };
-
-  // ===== 时区 / 通知设置 =====
-  const [prefVisible, setPrefVisible] = useState(false);
-  const [prefTimezone, setPrefTimezone] = useState('Asia/Bangkok');
-  const [prefEmail, setPrefEmail] = useState(true);
-  const [prefPush, setPrefPush] = useState(true);
-  const [prefSaving, setPrefSaving] = useState(false);
-
-  const openPrefs = async () => {
-    setPrefVisible(true);
-    try {
-      const { data } = await authApi.preferences();
-      const p = data ?? {};
-      setPrefTimezone(p.timezone || 'Asia/Bangkok');
-      setPrefEmail(p.notify_email !== false);
-      setPrefPush(p.notify_push !== false);
-    } catch {
-      /* 读取失败用默认值 */
-    }
-  };
-
-  const savePrefs = async () => {
-    setPrefSaving(true);
-    try {
-      await authApi.updatePreferences({
-        timezone: prefTimezone.trim() || undefined,
-        notify_email: prefEmail,
-        notify_push: prefPush,
-      });
-      setPrefVisible(false);
-      showToast('已保存');
-    } catch (e: any) {
-      const detail = e?.response?.data?.detail;
-      showNotAvailable(typeof detail === 'string' ? detail : '保存失败');
-    } finally {
-      setPrefSaving(false);
-    }
-  };
-
-  const showToast = (msg: string) => {
-    if (Platform.OS === 'web') {
-      window.alert(msg);
-    } else {
-      Alert.alert(msg);
-    }
   };
 
   // 常用功能点击：业主「我的房源」进入需带房源 id（OwnerPropertyDetail 依赖 params.id）
@@ -533,18 +408,15 @@ export default function ProfileScreen() {
     },
   ];
 
-  // 当前角色的常用功能；未登录/未知角色给通用兜底
+  // 当前角色的常用功能；未登录/未知角色给通用兜底。业主卡恒用业主入口（与租客卡并存时避免串档）。
   const entries = user ? FUNC_BY_ROLE[user.role] ?? FUNC_BY_ROLE.tenant : FUNC_BY_ROLE.tenant;
+  const ownerEntries = canManageProperty ? FUNC_BY_ROLE.owner : [];
 
-  // 租约进度（已过天数 / 总天数）
-  const startTs = activeLease?.start_date ? new Date(activeLease.start_date).getTime() : 0;
-  const endTs = activeLease?.end_date ? new Date(activeLease.end_date).getTime() : 0;
-  const totalDays = startTs && endTs > startTs ? Math.round((endTs - startTs) / DAY_MS) : 0;
-  const passedDays = startTs
-    ? Math.max(0, Math.min(Math.round((Date.now() - startTs) / DAY_MS), totalDays || 0))
-    : 0;
-  const remainDays = endTs ? Math.max(0, Math.round((endTs - Date.now()) / DAY_MS)) : 0;
-  const leaseProgress = totalDays > 0 ? Math.max(0, Math.min(passedDays / totalDays, 1)) : 0;
+  // 租约剩余天数（「我的资产」入口摘要用）
+  const remainDays = (() => {
+    const end = activeLease?.end_date ? new Date(activeLease.end_date).getTime() : 0;
+    return end ? Math.max(0, Math.round((end - Date.now()) / DAY_MS)) : 0;
+  })();
   const leaseName = activeLease
     ? activeLease.property_name || activeLease.room_number || t('home.myLease')
     : '';
@@ -560,7 +432,7 @@ export default function ProfileScreen() {
     : t('profile.noOrders');
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}>
       {/* 用户卡（管理端对齐 admin-mobile-settings.html：公司名 + 编辑资料按钮） */}
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
@@ -588,7 +460,7 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={styles.editButton}
             activeOpacity={0.8}
-            onPress={openEdit}
+            onPress={() => navigation.navigate('EditProfile')}
           >
             <Ionicons name="create-outline" size={13} color={colors.ink2} />
             <Text style={styles.editButtonText}>编辑资料</Text>
@@ -638,7 +510,7 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={[styles.settingRow, styles.settingRowBorder]}
               activeOpacity={0.8}
-              onPress={() => setLeaseModalVisible(true)}
+              onPress={() => navigation.navigate('MyLease', { activeLease })}
               accessibilityRole="button"
               accessibilityLabel={t('home.myLease')}
             >
@@ -655,7 +527,7 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={styles.settingRow}
               activeOpacity={0.8}
-              onPress={() => setOrdersModalVisible(true)}
+              onPress={() => navigation.navigate('MyOrders', { deals })}
               accessibilityRole="button"
               accessibilityLabel={t('profile.myDeals')}
             >
@@ -820,10 +692,10 @@ export default function ProfileScreen() {
         <>
           {/* 常用功能（业主对齐 owner-mobile-settings.html 五项） */}
           <Card title="常用功能">
-            {entries.map((entry, idx) => (
+            {ownerEntries.map((entry, idx) => (
               <TouchableOpacity
                 key={entry.key}
-                style={[styles.settingRow, idx < entries.length - 1 && styles.settingRowBorder]}
+                style={[styles.settingRow, idx < ownerEntries.length - 1 && styles.settingRowBorder]}
                 onPress={() => handleFuncPress(entry)}
               >
                 <View style={styles.settingLeft}>
@@ -1007,309 +879,6 @@ export default function ProfileScreen() {
       </TouchableOpacity>
 
       {isAdmin && <Text style={styles.footerText}>{`${APP_COMPANY} 管理后台 · ${APP_VERSION}`}</Text>}
-
-      <Modal
-        visible={langVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setLangVisible(false)}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>选择语言</Text>
-            {LANGS.map((id: AppLang) => (
-              <TouchableOpacity
-                key={id}
-                style={styles.langRow}
-                onPress={() => {
-                  setLang(id);
-                  setLangVisible(false);
-                }}
-              >
-                <Text style={styles.langText}>{LANG_LABELS[id]}</Text>
-                {lang === id ? <Text style={styles.check}>✓</Text> : null}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Modal>
-
-      {/* 编辑资料弹层 */}
-      <Modal
-        visible={editVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setEditVisible(false)}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>编辑资料</Text>
-            <Text style={styles.fieldLabel}>姓名</Text>
-            <TextInput
-              style={styles.input}
-              value={editName}
-              onChangeText={setEditName}
-              placeholder="请输入姓名"
-              placeholderTextColor={colors.ink3}
-            />
-            <Text style={styles.fieldLabel}>手机号</Text>
-            <TextInput
-              style={styles.input}
-              value={editPhone}
-              onChangeText={setEditPhone}
-              placeholder="请输入手机号"
-              placeholderTextColor={colors.ink3}
-              keyboardType="phone-pad"
-            />
-            <Text style={styles.fieldLabel}>邮箱</Text>
-            <TextInput
-              style={styles.input}
-              value={editEmail}
-              onChangeText={setEditEmail}
-              placeholder="请输入邮箱"
-              placeholderTextColor={colors.ink3}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <View style={styles.sheetActions}>
-              <TouchableOpacity
-                style={styles.sheetCancel}
-                onPress={() => setEditVisible(false)}
-              >
-                <Text style={styles.sheetCancelText}>取消</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.sheetConfirm}
-                disabled={editSaving}
-                onPress={saveEdit}
-              >
-                <Text style={styles.sheetConfirmText}>{editSaving ? '保存中...' : '保存'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 修改密码弹层 */}
-      <Modal
-        visible={pwdVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPwdVisible(false)}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>修改密码</Text>
-            <Text style={styles.fieldLabel}>当前密码</Text>
-            <TextInput
-              style={styles.input}
-              value={oldPwd}
-              onChangeText={setOldPwd}
-              placeholder="请输入当前密码"
-              placeholderTextColor={colors.ink3}
-              secureTextEntry
-            />
-            <Text style={styles.fieldLabel}>新密码</Text>
-            <TextInput
-              style={styles.input}
-              value={newPwd}
-              onChangeText={setNewPwd}
-              placeholder="至少 6 位"
-              placeholderTextColor={colors.ink3}
-              secureTextEntry
-            />
-            <Text style={styles.fieldLabel}>确认新密码</Text>
-            <TextInput
-              style={styles.input}
-              value={confirmPwd}
-              onChangeText={setConfirmPwd}
-              placeholder="再次输入新密码"
-              placeholderTextColor={colors.ink3}
-              secureTextEntry
-            />
-            <View style={styles.sheetActions}>
-              <TouchableOpacity
-                style={styles.sheetCancel}
-                onPress={() => setPwdVisible(false)}
-              >
-                <Text style={styles.sheetCancelText}>取消</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.sheetConfirm}
-                disabled={pwdSaving}
-                onPress={savePassword}
-              >
-                <Text style={styles.sheetConfirmText}>{pwdSaving ? '提交中...' : '确认修改'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 时区 / 通知设置弹层 */}
-      <Modal
-        visible={prefVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPrefVisible(false)}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>通知设置</Text>
-            <Text style={styles.fieldLabel}>时区</Text>
-            <TextInput
-              style={styles.input}
-              value={prefTimezone}
-              onChangeText={setPrefTimezone}
-              placeholder="如 Asia/Bangkok"
-              placeholderTextColor={colors.ink3}
-              autoCapitalize="none"
-            />
-            <TouchableOpacity
-              style={styles.prefRow}
-              onPress={() => setPrefEmail(!prefEmail)}
-            >
-              <Text style={styles.prefLabel}>邮件通知</Text>
-              <Text style={prefEmail ? styles.check : styles.prefOff}>{prefEmail ? '✓ 开启' : '关闭'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.prefRow}
-              onPress={() => setPrefPush(!prefPush)}
-            >
-              <Text style={styles.prefLabel}>推送通知</Text>
-              <Text style={prefPush ? styles.check : styles.prefOff}>{prefPush ? '✓ 开启' : '关闭'}</Text>
-            </TouchableOpacity>
-            <View style={styles.sheetActions}>
-              <TouchableOpacity
-                style={styles.sheetCancel}
-                onPress={() => setPrefVisible(false)}
-              >
-                <Text style={styles.sheetCancelText}>取消</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.sheetConfirm}
-                disabled={prefSaving}
-                onPress={savePrefs}
-              >
-                <Text style={styles.sheetConfirmText}>{prefSaving ? '保存中...' : '保存'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 租客：我的租约摘要弹层（由「我的资产」入口弹出） */}
-      <Modal
-        visible={leaseModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setLeaseModalVisible(false)}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>{t('home.myLease')}</Text>
-            {activeLease ? (
-              <View style={styles.leaseCard}>
-                <View style={styles.leaseHead}>
-                  <Text style={styles.leaseTitle} numberOfLines={1}>{leaseName}</Text>
-                  <View style={styles.leaseBadge}>
-                    <View style={styles.leaseDot} />
-                    <Text style={styles.leaseBadgeText}>{t('home.leaseInforce')}</Text>
-                  </View>
-                </View>
-                <Text style={styles.leaseMeta}>
-                  月租金 {fmtRent(activeLease.monthly_rent, activeLease.currency)}
-                  {totalDays > 0 ? ` · 已过 ${passedDays} ${t('profile.dayUnit')} / 共 ${totalDays} ${t('profile.dayUnit')}` : ''}
-                </Text>
-                <View style={styles.leaseTrack}>
-                  <View style={[styles.leaseBar, { flex: Math.max(leaseProgress, 0.02) }]} />
-                  <View style={{ flex: Math.max(1 - leaseProgress, 0) }} />
-                </View>
-                <View style={styles.leaseFoot}>
-                  <Text style={styles.leaseFootText}>
-                    {fmtDate(activeLease.start_date)} 至 {fmtDate(activeLease.end_date)}
-                  </Text>
-                  {remainDays > 0 ? (
-                    <Text style={styles.leaseRemain}>
-                      {t('profile.remainPrefix')} {remainDays}{t('profile.dayUnit')}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            ) : (
-              <EmptyState icon="document-text-outline" title={t('profile.noLease')} sub="签约后在这里查看租期进度与租金" />
-            )}
-            <View style={styles.sheetActions}>
-              <TouchableOpacity
-                style={styles.sheetCancel}
-                onPress={() => setLeaseModalVisible(false)}
-                accessibilityRole="button"
-                accessibilityLabel={t('profile.close')}
-              >
-                <Text style={styles.sheetCancelText}>{t('profile.close')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 租客：我的购房订单摘要弹层（由「我的资产」入口弹出） */}
-      <Modal
-        visible={ordersModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setOrdersModalVisible(false)}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>{t('profile.myDeals')}</Text>
-            {deals.length ? (
-              <View style={styles.leaseCard}>
-                {deals.map((d, idx) => {
-                  const meta = DEAL_STATUS[String(d.status ?? '')] ?? DEAL_STATUS.drafted;
-                  return (
-                    <View
-                      key={d.id}
-                      style={[styles.dealRow, idx < deals.length - 1 && styles.dealRowBorder]}
-                    >
-                      <View style={styles.dealLeft}>
-                        <Text style={styles.dealTitle} numberOfLines={1}>
-                          {d.listing_title || `购房订单 ${String(d.id ?? '').slice(0, 8)}`}
-                        </Text>
-                        <Text style={styles.dealMeta} numberOfLines={1}>
-                          {d.sale_price
-                            ? `${fmtRent(d.sale_price, d.currency)} · `
-                            : ''}
-                          {fmtDate(d.created_at)}
-                        </Text>
-                      </View>
-                      <View style={[styles.dealBadge, { backgroundColor: meta.bg }]}>
-                        <Text style={[styles.dealBadgeText, { color: meta.color }]}>{meta.text}</Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : (
-              <EmptyState
-                icon="pricetag-outline"
-                title={t('profile.noOrders')}
-                sub="提交看房约谈或认购后在这里跟进进度"
-              />
-            )}
-            <View style={styles.sheetActions}>
-              <TouchableOpacity
-                style={styles.sheetCancel}
-                onPress={() => setOrdersModalVisible(false)}
-                accessibilityRole="button"
-                accessibilityLabel={t('profile.close')}
-              >
-                <Text style={styles.sheetCancelText}>{t('profile.close')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }
@@ -1506,66 +1075,6 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginBottom: 8,
   },
-  leaseCard: {
-    marginHorizontal: 12,
-    padding: 16,
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    ...colors.shadow.card,
-  },
-  leaseHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  leaseTitle: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.ink },
-  leaseBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  leaseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
-  leaseBadgeText: { fontSize: 12, fontWeight: '600', color: colors.success },
-  leaseMeta: { fontSize: 13, color: colors.ink2, marginTop: 8 },
-  leaseTrack: {
-    flexDirection: 'row',
-    height: 6,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.surface2,
-    overflow: 'hidden',
-    marginTop: 10,
-  },
-  leaseBar: { height: 6, borderRadius: colors.radius.full, backgroundColor: colors.primary },
-  leaseFoot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginTop: 10,
-  },
-  leaseFootText: { fontSize: 12, color: colors.ink3 },
-  leaseRemain: { fontSize: 12, fontWeight: '700', color: colors.primary },
-
-  /* ===== 我的购房订单 ===== */
-  dealRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    paddingVertical: 12,
-  },
-  dealRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  dealLeft: { flex: 1, minWidth: 0 },
-  dealTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  dealMeta: { fontSize: 12, color: colors.ink3, marginTop: 4 },
-  dealBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: colors.radius.full,
-  },
-  dealBadgeText: { fontSize: 11, fontWeight: '600' },
 
   /* ===== 我的服务宫格 ===== */
   serviceGrid: {
@@ -1645,101 +1154,5 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: 16,
     fontWeight: '600',
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: colors.alpha('0,0,0', 0.4),
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: colors.radius.xl,
-    borderTopRightRadius: colors.radius.xl,
-    padding: 20,
-  },
-  sheetTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  langRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  langText: {
-    fontSize: 15,
-    color: colors.text,
-  },
-  check: {
-    fontSize: 18,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-
-  /* ===== 「我的」自助设置弹层 ===== */
-  fieldLabel: {
-    fontSize: 13,
-    color: colors.ink2,
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: colors.radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: colors.text,
-    backgroundColor: colors.surface,
-  },
-  sheetActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 18,
-  },
-  sheetCancel: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: colors.radius.md,
-    backgroundColor: colors.surface2,
-  },
-  sheetCancelText: {
-    fontSize: 15,
-    color: colors.ink2,
-  },
-  sheetConfirm: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: colors.radius.md,
-    backgroundColor: colors.primary,
-  },
-  sheetConfirmText: {
-    fontSize: 15,
-    color: colors.primaryForeground,
-    fontWeight: '600',
-  },
-  prefRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  prefLabel: {
-    fontSize: 15,
-    color: colors.text,
-  },
-  prefOff: {
-    fontSize: 14,
-    color: colors.ink3,
   },
 });

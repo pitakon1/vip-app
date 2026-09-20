@@ -481,3 +481,31 @@
 @keyframes emp-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ===== 房源上架工作台入口 ===== */
+.emp-quick {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 26rpx 28rpx;
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.08) 0%, rgba(var(--primary-rgb), 0.02) 100%);
+  border: 1px solid rgba(var(--primary-rgb), 0.25);
+  border-radius: var(--radius-lg);
+
+  &__icon {
+    width: 64rpx;
+    height: 64rpx;
+    border-radius: var(--radius-md);
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32rpx;
+    font-weight: 700;
+    color: var(--primary-foreground);
+  }
+  &__body { flex: 1; min-width: 0; }
+  &__title { display: block; font-size: 30rpx; font-weight: 700; color: var(--ink); }
+  &__desc { display: block; font-size: 22rpx; color: var(--ink-3); margin-top: 4rpx; }
+  &__arrow { font-size: 32rpx; color: var(--ink-3); }
+}

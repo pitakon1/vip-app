@@ -190,7 +190,7 @@ export default function AdminHomePage() {
     { key: 'crm', label: '客户管理', icon: 'user', url: '/pages/admin/crm/index' },
     { key: 'leases', label: '合同管理', icon: 'doc', url: '/pages/admin/leases/index' },
     { key: 'payments', label: '收款管理', icon: 'money', url: '/pages/admin/payments/index' },
-    { key: 'employees', label: '员工管理', icon: 'clipboard', url: '/pages/admin/accounts/index' }
+    { key: 'listings', label: '上架工作台', icon: 'clipboard', url: '/pages/staff/hub/index' }
   ]
 
   const go = (url: string) => Taro.navigateTo({ url })

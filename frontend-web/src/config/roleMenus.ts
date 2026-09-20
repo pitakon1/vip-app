@@ -55,6 +55,16 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22',
         },
         {
+          key: '/publish-listing',
+          labelKey: 'menu.publishListing',
+          icon: 'M12 5v14M5 12h14',
+        },
+        {
+          key: '/my-listings',
+          labelKey: 'menu.myListings',
+          icon: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
+        },
+        {
           key: '/owner/income',
           labelKey: 'menu.income',
           mobileLabelKey: 'portal.income',
@@ -176,6 +186,21 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           labelKey: 'menu.contracts',
           icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 13l2 2 4-4',
         },
+        {
+          key: '/publish-listing',
+          labelKey: 'menu.publishListing',
+          icon: 'M12 5v14M5 12h14',
+        },
+        {
+          key: '/my-listings',
+          labelKey: 'menu.myListings',
+          icon: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
+        },
+        {
+          key: '/broker-agreements',
+          labelKey: 'menu.brokerAgreements',
+          icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 12l2 2 4-4',
+        },
       ],
     },
     {
@@ -292,6 +317,16 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           key: '/system/review-center',
           labelKey: 'menu.reviewCenter',
           icon: 'M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4L12 14.01l-3-3',
+        },
+        {
+          key: '/operations/listing-review',
+          labelKey: 'menu.listingReview',
+          icon: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+        },
+        {
+          key: '/operations/dedupe-review',
+          labelKey: 'menu.dedupeReview',
+          icon: 'M8 3H5a2 2 0 0 0-2 2v3 M8 21H5a2 2 0 0 1-2-2v-3 M21 8V5a2 2 0 0 0-2-2h-3 M21 16v3a2 2 0 0 1-2 2h-3 M3 12h18',
         },
         {
           key: '/employees',

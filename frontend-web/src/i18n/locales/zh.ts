@@ -74,6 +74,11 @@ const zh = {
     distribution: '分销体系',
     markets: '多国市场',
     marketIntelligence: '数据决策',
+    publishListing: '发布房源',
+    myListings: '我的上架单',
+    brokerAgreements: '经纪人在线签约',
+    listingReview: '平台上架审核',
+    dedupeReview: '去重审核队列',
     section: {
       overview: '概览',
       assetManagement: '资产管理',

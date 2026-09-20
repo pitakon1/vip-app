@@ -35,7 +35,14 @@ export default {
     'pages/profile/index',
     'pages/chat/list/index',
     'pages/chat/detail/index',
-    'pages/attendance/index'
+    'pages/attendance/index',
+    'pages/staff/hub/index',
+    'pages/staff/listing-edit/index',
+    'pages/staff/listings/index',
+    'pages/staff/agreements/index',
+    'pages/staff/contract/index',
+    'pages/staff/dedupe-review/index',
+    'pages/staff/listing-review/index'
   ],
   window: {
     backgroundTextStyle: 'light',

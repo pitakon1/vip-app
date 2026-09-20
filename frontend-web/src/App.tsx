@@ -27,6 +27,14 @@ import Distribution from '@/pages/Distribution'
 import Markets from '@/pages/Markets'
 import MarketIntelligence from '@/pages/MarketIntelligence'
 
+// 房源上架 / 我的上架单 / 经纪人在线签约
+import PublishListing from '@/pages/PublishListing'
+import MyListings from '@/pages/MyListings'
+import BrokerAgreements from '@/pages/BrokerAgreements'
+// 运营管理：平台上架审核 / 去重审核队列
+import ListingReview from '@/pages/ListingReview'
+import DedupeReview from '@/pages/DedupeReview'
+
 // 业主端页面
 import OwnerDashboard from '@/pages/Owner/Dashboard'
 import OwnerProperties from '@/pages/Owner/Properties'
@@ -144,6 +152,15 @@ const App = () => {
           <Route path="/system/permissions" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><SystemPermissions /></ProtectedRoute>} />
           <Route path="/system/review-center" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><SystemReview /></ProtectedRoute>} />
           <Route path="/operations" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><Operations /></ProtectedRoute>} />
+
+          {/* 房源上架 / 我的上架单 / 经纪人在线签约（经纪人/业主/员工） */}
+          <Route path="/publish-listing" element={<ProtectedRoute denyRoles={['tenant']}><PublishListing /></ProtectedRoute>} />
+          <Route path="/my-listings" element={<ProtectedRoute denyRoles={['tenant']}><MyListings /></ProtectedRoute>} />
+          <Route path="/broker-agreements" element={<ProtectedRoute denyRoles={['tenant','owner']}><BrokerAgreements /></ProtectedRoute>} />
+
+          {/* 运营管理：平台上架审核 / 去重审核（仅 staff：admin/employee/agent） */}
+          <Route path="/operations/listing-review" element={<ProtectedRoute denyRoles={['tenant','owner']}><ListingReview /></ProtectedRoute>} />
+          <Route path="/operations/dedupe-review" element={<ProtectedRoute denyRoles={['tenant','owner']}><DedupeReview /></ProtectedRoute>} />
         </Route>
 
         {/* ===== 租客端（C端 · 顶栏门户 PortalLayout，无侧边栏）===== */}

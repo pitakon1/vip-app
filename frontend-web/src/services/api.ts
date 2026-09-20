@@ -181,8 +181,38 @@ export const contractsApi = {
   get: (id: string) => api.get(`/contracts/${id}`),
   generate: (data: RequestBody) => api.post('/contracts/generate', data),
   addParty: (id: string, data: RequestBody) => api.post(`/contracts/${id}/parties`, data),
-  sign: (id: string, partyId: string) =>
-    api.post(`/contracts/${id}/sign`, { party_id: partyId }),
+  sign: (id: string, partyId: string, name?: string) =>
+    api.post(`/contracts/${id}/sign`, { party_id: partyId, ...(name ? { name } : {}) }),
+}
+
+// 房源上架单（发布房源 + 分佣配置 + 审核 / 下架）
+export const listingsApi = {
+  list: (params?: QueryParams) => api.get('/listings', { params }),
+  get: (id: string) => api.get(`/listings/${id}`),
+  create: (data: RequestBody) => api.post('/listings', data),
+  update: (id: string, data: RequestBody) => api.patch(`/listings/${id}`, data),
+  // 平台上架审核：decision = approved | rejected
+  review: (id: string, decision: string, note?: string) =>
+    api.post(`/listings/${id}/review`, { decision, note }),
+  // 下架/成交关闭：sold / rented
+  close: (id: string, opts: { sold?: boolean; rented?: boolean }) =>
+    api.post(`/listings/${id}/close`, opts),
+}
+
+// 房源去重疑似审核（staff）
+export const dedupeApi = {
+  list: (params?: QueryParams) => api.get('/dedupe-reviews', { params }),
+  merge: (id: string, note?: string) => api.post(`/dedupe-reviews/${id}/merge`, { note }),
+  dismiss: (id: string, note?: string) =>
+    api.post(`/dedupe-reviews/${id}/dismiss`, { note }),
+}
+
+// 经纪人协议（在线签约）
+export const brokerAgreementsApi = {
+  // role: listing_agent | distributor
+  create: (brokerId: string, role: 'listing_agent' | 'distributor') =>
+    api.post(`/brokers/${brokerId}/agreements`, { role }),
+  list: (brokerId: string) => api.get(`/brokers/${brokerId}/agreements`),
 }
 
 // 3. AI 应用接口预留

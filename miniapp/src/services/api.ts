@@ -332,6 +332,37 @@ export const marketApi = {
   createCompliance: (data: any) => request({ url: '/markets/compliance', method: 'POST', data })
 }
 
+// ============ 房源上架单（发布 / 我的上架单 / 平台审核 / 关闭） ============
+export const listingApi = {
+  create: (data: any) => request({ url: '/listings', method: 'POST', data }),
+  list: (params?: any) => request({ url: `/listings${qs(params)}`, method: 'GET' }),
+  get: (id: string) => request({ url: `/listings/${id}`, method: 'GET' }),
+  update: (id: string, data: any) => request({ url: `/listings/${id}`, method: 'PATCH', data }),
+  // 平台上架审核：decision=approved|rejected，附 note
+  review: (id: string, data: { decision: string; note?: string }) =>
+    request({ url: `/listings/${id}/review`, method: 'POST', data }),
+  // 下架/成交关闭：{sold?}{rented?}
+  close: (id: string, data: any = {}) =>
+    request({ url: `/listings/${id}/close`, method: 'POST', data })
+}
+
+// ============ 经纪人协议（在线签约：listing_agent / distributor） ============
+export const brokerAgreementApi = {
+  agreements: (brokerId: string) =>
+    request({ url: `/brokers/${brokerId}/agreements`, method: 'GET' }),
+  create: (brokerId: string, role: 'listing_agent' | 'distributor') =>
+    request({ url: `/brokers/${brokerId}/agreements`, method: 'POST', data: { role } })
+}
+
+// ============ 去重审核（staff：疑似重复合并/驳回） ============
+export const dedupeReviewApi = {
+  list: (params?: any) => request({ url: `/dedupe-reviews${qs(params)}`, method: 'GET' }),
+  merge: (id: string, note?: string) =>
+    request({ url: `/dedupe-reviews/${id}/merge`, method: 'POST', data: { note } }),
+  dismiss: (id: string, note?: string) =>
+    request({ url: `/dedupe-reviews/${id}/dismiss`, method: 'POST', data: { note } })
+}
+
 export default {
   authApi,
   propertiesApi,
@@ -363,5 +394,8 @@ export default {
   saleListingApi,
   propertyDealApi,
   brokerApi,
-  marketApi
+  marketApi,
+  listingApi,
+  brokerAgreementApi,
+  dedupeReviewApi
 }

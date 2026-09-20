@@ -229,6 +229,20 @@ export default function EmployeeHomePage() {
       </View>
 
       <View className='emp-content'>
+        {/* 房源上架入口 */}
+        <View className='emp-section'>
+          <View className='emp-quick' onClick={() => Taro.navigateTo({ url: '/pages/staff/hub/index' })}>
+            <View className='emp-quick__icon'>
+              <Text className='emp-quick__icon-text'>上</Text>
+            </View>
+            <View className='emp-quick__body'>
+              <Text className='emp-quick__title'>房源上架工作台</Text>
+              <Text className='emp-quick__desc'>发布房源 · 我的上架单 · 协议签约 · 审核</Text>
+            </View>
+            <Text className='emp-quick__arrow'>›</Text>
+          </View>
+        </View>
+
         {/* 今日工作台：带看时间线 */}
         <View className='emp-section'>
           <View className='emp-section__head'>

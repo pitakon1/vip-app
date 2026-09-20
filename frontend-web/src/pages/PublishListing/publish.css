@@ -1,0 +1,73 @@
+/* ===== 发布房源 (PublishListing) 页面样式 ===== */
+
+.rent-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rent-chip {
+  padding: 7px 16px;
+  border-radius: var(--rent-radius-full, 999px);
+  border: 1px solid var(--rent-border);
+  background: var(--rent-surface, #fff);
+  color: var(--rent-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.rent-chip:hover { background: var(--rent-surface-2); }
+.rent-chip--active {
+  background: var(--rent-primary);
+  color: #fff;
+  border-color: var(--rent-primary);
+  font-weight: 600;
+}
+
+.rent-tab--active {
+  color: var(--rent-primary) !important;
+  font-weight: 600;
+  border-bottom-color: var(--rent-primary) !important;
+}
+
+.rent-split-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.rent-split-card {
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: var(--rent-radius-md, 10px);
+  border: 1px solid var(--rent-border);
+  background: var(--rent-surface, #fff);
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: all 0.15s;
+}
+.rent-split-card:hover { border-color: var(--rent-primary); }
+.rent-split-card--active {
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.15);
+}
+.rent-split-card__ratio {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--rent-primary);
+  margin-bottom: 4px;
+}
+
+.rent-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--rent-ink-2);
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.rent-mb-4 { margin-bottom: 16px; }
+.rent-mt-2 { margin-top: 8px; }

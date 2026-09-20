@@ -130,9 +130,9 @@ export interface ServiceOrderCreatePayload {
   amount?: number;
   currency?: string;
   notes?: string;
-  // 三种计费方式：按月/按次/按年（billing_model: monthly | per_use | annual）
-  billing_model?: 'monthly' | 'per_use' | 'annual';
-  billing_interval?: number; // monthly/annual 周期数；per_use 忽略
+  // 四种计费方式：按月/按日/按次/按年（billing_model: monthly | daily | per_use | annual）
+  billing_model?: 'monthly' | 'daily' | 'per_use' | 'annual';
+  billing_interval?: number; // monthly/daily/annual 周期数（月/天/年）；per_use 忽略
   billing_amount?: number; // 本次结算金额（= 单价）
   service_package_id?: string; // 关联的按次套餐
 }
@@ -276,6 +276,16 @@ export const propertyDealApi = {
     api.patch(`/property-deals/mortgages/${id}/status`, null, { params: { status } }),
 };
 
+// —— 房源上架单（发布/我的上架）——
+export const listingApi = {
+  list: (params?: any) => api.get('/listings', { params }),
+  get: (id: string) => api.get(`/listings/${id}`),
+  create: (data: any) => api.post('/listings', data),
+  update: (id: string, data: any) => api.patch(`/listings/${id}`, data),
+  // 下架/成交关闭：{sold:true}(卖→sold) / {rented:true}(租→rented)，否则 status=closed
+  close: (id: string, body: any = {}) => api.post(`/listings/${id}/close`, body),
+};
+
 // —— 战略：分销体系 ——
 export const brokerApi = {
   list: (params?: any) => api.get('/brokers', { params }),
@@ -284,6 +294,10 @@ export const brokerApi = {
   approve: (id: string, data: any) => api.post(`/brokers/${id}/approve`, data),
   suspend: (id: string) => api.post(`/brokers/${id}/suspend`),
   invite: (code: string) => api.get(`/brokers/invite/${code}`),
+  // 协议在线签约：两份状态查询 / 生成（role: listing_agent | distributor）
+  agreements: (id: string) => api.get(`/brokers/${id}/agreements`),
+  createAgreement: (id: string, role: string) =>
+    api.post(`/brokers/${id}/agreements`, { role }),
   // 转介绍
   createReferral: (params?: any) => api.post('/brokers/referrals', null, { params }),
   myReferrals: () => api.get('/brokers/referrals/mine'),

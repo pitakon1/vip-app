@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '合同签署' }
