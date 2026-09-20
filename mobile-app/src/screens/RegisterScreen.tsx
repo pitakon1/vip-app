@@ -164,6 +164,7 @@ export default function RegisterScreen() {
           {/* 一列整宽白色胶囊：Google / Apple / 手机号 / 邮箱 */}
           <OAuthButtons
             loading={oauthLoading}
+            mode="register"
             onGoogle={loginWithGoogle}
             onApple={loginWithApple}
             onPhone={() => {
@@ -413,7 +414,7 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff' },
+  container: { flex: 1, backgroundColor: colors.background },
   scroll: {
     paddingHorizontal: 28,
     justifyContent: 'center',

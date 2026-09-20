@@ -5,6 +5,7 @@ import colors from '@/theme/colors';
 
 interface Props {
   loading: boolean;
+  mode?: 'login' | 'register';
   onGoogle: () => void;
   onApple: () => void;
   onPhone: () => void;
@@ -76,7 +77,19 @@ function GoogleG({ size = 20 }: { size?: number }) {
  * 统一整宽白色胶囊（白底、浅灰边框、全圆角、约 52px），图标最左、文字居中。
  * 登录/注册页做成 `stage='choose'` 时共用。
  */
-export default function OAuthButtons({ loading, onGoogle, onApple, onPhone, onEmail }: Props) {
+export default function OAuthButtons({
+  loading,
+  mode = 'login',
+  onGoogle,
+  onApple,
+  onPhone,
+  onEmail,
+}: Props) {
+  const goog = mode === 'register' ? '使用 Google 注册' : '使用 Google 登录';
+  const apple = mode === 'register' ? '使用 Apple 注册' : '使用 Apple 登录';
+  const phone = mode === 'register' ? '使用手机号注册' : '使用手机号登录';
+  const email = mode === 'register' ? '使用邮箱注册' : '使用邮箱登录';
+
   return (
     <View style={styles.group}>
       <TouchableOpacity
@@ -85,7 +98,7 @@ export default function OAuthButtons({ loading, onGoogle, onApple, onPhone, onEm
         disabled={loading}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel="使用 Google 登录"
+        accessibilityLabel={goog}
       >
         {loading ? (
           <ActivityIndicator size="small" color={colors.ink2} style={styles.icon} />
@@ -94,7 +107,7 @@ export default function OAuthButtons({ loading, onGoogle, onApple, onPhone, onEm
             <GoogleG size={20} />
           </View>
         )}
-        <Text style={styles.text}>使用 Google 登录</Text>
+        <Text style={styles.text}>{goog}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -103,10 +116,10 @@ export default function OAuthButtons({ loading, onGoogle, onApple, onPhone, onEm
         disabled={loading}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel="使用 Apple 登录"
+        accessibilityLabel={apple}
       >
         <Ionicons name="logo-apple" size={18} color="#000000" style={styles.icon} />
-        <Text style={styles.text}>使用 Apple 登录</Text>
+        <Text style={styles.text}>{apple}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -114,10 +127,10 @@ export default function OAuthButtons({ loading, onGoogle, onApple, onPhone, onEm
         onPress={onPhone}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel="使用手机号登录"
+        accessibilityLabel={phone}
       >
         <Ionicons name="phone-portrait-outline" size={19} color={colors.ink2} style={styles.icon} />
-        <Text style={styles.text}>使用手机号登录</Text>
+        <Text style={styles.text}>{phone}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -125,10 +138,10 @@ export default function OAuthButtons({ loading, onGoogle, onApple, onPhone, onEm
         onPress={onEmail}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel="使用邮箱登录"
+        accessibilityLabel={email}
       >
         <Ionicons name="mail-outline" size={20} color={colors.ink2} style={styles.icon} />
-        <Text style={styles.text}>使用邮箱登录</Text>
+        <Text style={styles.text}>{email}</Text>
       </TouchableOpacity>
     </View>
   );
