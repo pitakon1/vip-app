@@ -1,16 +1,16 @@
 /* =========================================================
-   注册页 — 与登录页一致的分屏布局（对齐原型 login.html）
-   左 40% 品牌渐变栏 + 右 60% 注册表单
+   注册页 — Reddit 官网注册页风格
+   左 40% 沉浸式视觉栏（氛围图 + 深色渐变） + 右 60% 居中窄卡片表单
+   保持品牌主色 --rent-primary，不引入 Reddit 橙
    ========================================================= */
 
 /* ---- Split-screen layout ---- */
-.rent-login-page {
+.rent-register-page {
   display: flex;
   min-height: 100vh;
   background: var(--rent-surface);
 }
 
-/* 语言切换悬浮右上角 */
 .rent-login-lang {
   position: fixed;
   top: 16px;
@@ -18,348 +18,393 @@
   z-index: 50;
 }
 
-/* ---- Left panel (40%) ---- */
-.rent-login-left {
+/* =========================================================
+   左栏 40% — 沉浸式视觉栏
+   text_to_image 氛围图（明亮东南亚社区 + 黄昏暖光）+ 深色渐变遮罩
+   ========================================================= */
+.rent-register-left {
   flex: 0 0 40%;
-  background:
-    radial-gradient(120% 90% at 85% 10%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 45%),
-    radial-gradient(100% 80% at 10% 100%, rgba(13, 148, 136, 0.35) 0%, rgba(13, 148, 136, 0) 55%),
-    linear-gradient(160deg, #14b8a6 0%, #2dd4bf 100%);
-  color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 56px;
   position: relative;
   overflow: hidden;
+  color: #ffffff;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.5)),
+    url('https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=%E6%98%8E%E4%BA%AE%E7%8E%B0%E4%BB%A3%E7%9A%84%E4%B8%9C%E5%8D%97%E4%BA%9A%E4%BD%8F%E5%AE%85%E7%A4%BE%E5%8C%BA%EF%BC%8C%E6%9A%96%E8%89%B2%E9%BB%84%E6%98%8F%E5%85%89%E7%BA%BF%EF%BC%8C%E7%BB%BF%E5%8C%96%E4%B8%8E%E6%B3%B3%E6%B1%A0%EF%BC%8C%E7%9C%9F%E5%AE%9E%E6%91%84%E5%BD%B1%E9%A3%8E%E6%A0%BC&image_size=portrait_4_3');
+  background-size: cover;
+  background-position: center;
 }
 
-.rent-login-left::before {
-  content: '';
+/* 加深色渐变遮罩保证文字可读性 */
+.rent-register-left__scrim {
   position: absolute;
-  top: -120px;
-  right: -120px;
-  width: 360px;
-  height: 360px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0.08) 40%, rgba(0, 0, 0, 0.62) 100%);
+  pointer-events: none;
 }
 
-.rent-login-left::after {
-  content: '';
-  position: absolute;
-  bottom: -80px;
-  left: -80px;
-  width: 240px;
-  height: 240px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.rent-login-left__content {
+.rent-register-left__content {
   position: relative;
   z-index: 1;
-}
-
-.rent-login-brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 48px;
-}
-
-.rent-login-brand__img {
-  width: 200px;
-  height: auto;
-  object-fit: contain;
-  border-radius: 12px;
-  background: #fff;
-  padding: 10px;
-}
-
-.rent-login-tagline {
-  font-family: var(--rent-font-sans);
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1.35;
-  color: #ffffff;
-  margin-bottom: 12px;
-  letter-spacing: -0.01em;
-}
-
-.rent-login-subtagline {
-  font-family: var(--rent-font-sans);
-  font-size: 15px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.75);
-  margin-bottom: 40px;
-}
-
-.rent-login-features {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  justify-content: space-between;
+  padding: 48px 48px 56px;
+  min-height: 100vh;
+  box-sizing: border-box;
 }
 
-.rent-login-feature {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
+/* 左上角品牌 logo */
+.rent-register-brand {
+  align-self: flex-start;
 }
 
-.rent-login-feature__check {
-  width: 24px;
-  height: 24px;
-  border-radius: var(--rent-radius-full);
-  background: rgba(255, 255, 255, 0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 1px;
+.rent-register-brand__img {
+  width: 120px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 8px 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
 }
 
-.rent-login-feature__text {
+/* 底部醒目短标语 */
+.rent-register-left__text {
+  max-width: 420px;
+}
+
+.rent-register-slogan {
   font-family: var(--rent-font-sans);
-  font-size: 15px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.92);
-  font-weight: 500;
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  margin: 0 0 14px;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.4);
 }
 
-.rent-login-feature__text small {
-  display: block;
-  font-size: 13px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.6);
-  margin-top: 2px;
+.rent-register-subslogan {
+  font-family: var(--rent-font-sans);
+  font-size: 17px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.86);
+  margin: 0;
 }
 
-/* ---- Right panel (60%) ---- */
-.rent-login-right {
+/* =========================================================
+   右栏 60% — 居中窄卡片表单（白底、大量留白）
+   ========================================================= */
+.rent-register-page .rent-login-right {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 48px 40px;
-  background: var(--rent-surface);
+  padding: 48px 32px;
+  background: #ffffff;
 }
 
-/* ---- Register form card ---- */
-.rent-login-card {
+.rent-register-page .rent-login-card {
   width: 100%;
-  max-width: 440px;
+  max-width: 400px;
 }
 
-.rent-login-card__header {
-  margin-bottom: 32px;
+.rent-register-page .rent-login-card__header {
+  margin-bottom: 28px;
 }
 
-.rent-login-card__title {
+.rent-register-page .rent-login-card__title {
   font-family: var(--rent-font-sans);
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
-  color: var(--rent-ink);
-  letter-spacing: -0.02em;
-  margin: 0 0 8px;
+  color: #1a1a1b;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
   line-height: 1.2;
 }
 
-.rent-login-card__subtitle {
+.rent-register-page .rent-login-card__subtitle {
   font-family: var(--rent-font-sans);
-  font-size: 15px;
-  color: var(--rent-ink-3);
+  font-size: 14px;
+  color: #878a8c;
   line-height: 1.5;
+  margin: 0;
 }
 
-/* ---- Footer text ---- */
-.rent-login-footer {
-  margin-top: 32px;
-  text-align: center;
-  font-family: var(--rent-font-sans);
+/* =========================================================
+   表单 — 浅灰填充输入框（#F6F7F8）、圆角 8px、高 46px、
+   无重边框，focus 白底 + 深色细边框；placeholder 灰色
+   ========================================================= */
+.rent-register-page .rent-form-group {
+  margin-bottom: 18px;
+}
+
+.rent-register-page .rent-form-label {
+  display: block;
   font-size: 13px;
-  color: var(--rent-ink-3);
-}
-
-.rent-login-footer a {
-  color: var(--rent-primary);
-  text-decoration: none;
   font-weight: 500;
-  cursor: pointer;
-}
-
-/* ---- 角色选择 ---- */
-.rent-register-role-group {
-  margin-bottom: 24px;
-}
-
-.rent-register-role-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.rent-register-role-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: var(--rent-s-4);
-  border: 1.5px solid var(--rent-border);
-  border-radius: var(--rent-radius-lg);
-  background: #fff;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.15s;
-  color: var(--rent-ink-2);
+  color: #1a1a1b;
+  margin-bottom: 6px;
   font-family: var(--rent-font-sans);
 }
 
-.rent-register-role-card__icon {
-  display: flex;
-  color: var(--rent-ink-3);
-}
-
-.rent-register-role-card__name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--rent-ink);
-}
-
-.rent-register-role-card__desc {
-  font-size: var(--rent-fs-xs);
-  color: var(--rent-ink-3);
-  line-height: 1.4;
-}
-
-.rent-register-role-card:hover {
-  border-color: var(--rent-primary);
-}
-
-.rent-register-role-card.is-active {
-  border-color: var(--rent-primary);
-  background: rgba(20, 184, 166, 0.06);
-  box-shadow: 0 0 0 1px var(--rent-primary);
-}
-
-.rent-register-role-card.is-active .rent-register-role-card__icon,
-.rent-register-role-card.is-active .rent-register-role-card__name {
-  color: var(--rent-primary);
-}
-
-/* ---- 手机号 / 邮箱模式切换 ---- */
-.rent-auth-mode {
-  display: flex;
-  gap: 8px;
-  padding: 4px;
-  background: var(--rent-surface-muted, #f1f5f9);
-  border-radius: var(--rent-radius-full);
-  margin-bottom: 24px;
-}
-
-.rent-auth-mode__tab {
-  flex: 1;
-  padding: 9px 12px;
-  border: none;
-  border-radius: var(--rent-radius-full);
-  background: transparent;
-  color: var(--rent-ink-3);
+.rent-register-page .rent-form-input,
+.rent-register-page .rent-form-select {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  background: #f6f7f8;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 15px;
   font-family: var(--rent-font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.15s;
+  color: #1a1a1b;
+  outline: none;
+  box-sizing: border-box;
+  transition: background 0.15s, border-color 0.15s;
 }
 
-.rent-auth-mode__tab:hover {
-  color: var(--rent-ink);
+.rent-register-page .rent-form-input::placeholder {
+  color: #9a9ea3;
 }
 
-.rent-auth-mode__tab.is-active {
-  background: #fff;
-  color: var(--rent-primary);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+.rent-register-page .rent-form-input:focus,
+.rent-register-page .rent-form-select:focus {
+  background: #ffffff;
+  border-color: #1a1a1b;
+  box-shadow: none;
 }
 
-/* ---- 国家码 + 手机号 / 验证码 + 按钮 ---- */
-.rent-phone-row,
-.rent-otp-row {
+.rent-register-page .rent-form-select {
+  appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23878a8c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+/* 国家码 + 手机号 / 验证码 + 按钮 行布局 */
+.rent-register-page .rent-phone-row,
+.rent-register-page .rent-otp-row {
   display: flex;
   gap: 10px;
   align-items: center;
 }
 
-.rent-phone-row .rent-form-select {
-  width: auto;
+.rent-register-page .rent-phone-row .rent-form-select {
   flex: 0 0 96px;
 }
 
-.rent-phone-row .rent-form-input,
-.rent-otp-row .rent-form-input {
+.rent-register-page .rent-phone-row .rent-form-input,
+.rent-register-page .rent-otp-row .rent-form-input {
   flex: 1;
 }
 
-.rent-otp-row .rent-btn {
+/* 获取验证码：无边框加粗文字按钮 */
+.rent-register-page .rent-otp-action {
   flex-shrink: 0;
-}
-
-.rent-btn--nowrap {
+  margin-left: 4px;
+  border: none;
+  background: transparent;
+  color: var(--rent-primary);
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 0;
   white-space: nowrap;
+  transition: opacity 0.15s;
 }
 
-/* ---- Responsive（对齐原型 login.html） ---- */
+.rent-register-page .rent-otp-action:hover:not(:disabled) {
+  opacity: 0.75;
+}
+
+.rent-register-page .rent-otp-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* =========================================================
+   顶部 Tab：胶囊分段控件（浅灰底、选中白底）
+   ========================================================= */
+.rent-register-page .rent-auth-mode {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #f6f7f8;
+  border-radius: 999px;
+  margin-bottom: 26px;
+}
+
+.rent-register-page .rent-auth-mode__tab {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #878a8c;
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.rent-register-page .rent-auth-mode__tab:hover {
+  color: #1a1a1b;
+}
+
+.rent-register-page .rent-auth-mode__tab.is-active {
+  background: #ffffff;
+  color: #1a1a1b;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+}
+
+/* =========================================================
+   角色选择：两个紧凑胶囊卡片
+   ========================================================= */
+.rent-register-page .rent-register-role-group {
+  margin-bottom: 24px;
+}
+
+.rent-register-page .rent-register-role-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.rent-register-page .rent-register-role-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  padding: 12px 14px;
+  border: 1px solid #edeff1;
+  border-radius: 999px;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  color: #2b2b2c;
+  font-family: var(--rent-font-sans);
+}
+
+.rent-register-page .rent-register-role-card__icon {
+  display: inline-flex;
+  color: #9a9ea3;
+}
+
+.rent-register-page .rent-register-role-card__name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.rent-register-page .rent-register-role-card:hover {
+  border-color: var(--rent-primary);
+  color: var(--rent-primary);
+}
+
+.rent-register-page .rent-register-role-card.is-active {
+  border-color: var(--rent-primary);
+  background: rgba(20, 184, 166, 0.08);
+  color: var(--rent-primary);
+}
+
+.rent-register-page .rent-register-role-card.is-active .rent-register-role-card__icon {
+  color: var(--rent-primary);
+}
+
+/* =========================================================
+   提交按钮：全宽、胶囊形、品牌主色、加粗、hover 变深
+   ========================================================= */
+.rent-register-page .rent-btn--primary {
+  border-radius: 999px;
+  height: 48px;
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.rent-register-page .rent-btn--primary:hover {
+  background: var(--rent-primary-hover);
+  transform: none;
+  box-shadow: 0 4px 14px -3px rgba(var(--rent-primary-rgb), 0.5);
+}
+
+.rent-register-page .rent-btn--primary:disabled {
+  opacity: 0.55;
+}
+
+.rent-register-page .rent-btn--block {
+  width: 100%;
+}
+
+/* ---- 底部「已有账号？去登录」：加粗链接 ---- */
+.rent-register-page .rent-login-footer {
+  margin-top: 30px;
+  text-align: center;
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  color: #878a8c;
+}
+
+.rent-register-page .rent-login-footer a {
+  color: var(--rent-primary);
+  text-decoration: none;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.rent-register-page .rent-login-footer a:hover {
+  text-decoration: underline;
+}
+
+/* ---- Responsive ---- */
 @media (max-width: 960px) {
-  .rent-login-page {
+  .rent-register-page {
     flex-direction: column;
   }
 
-  .rent-login-left {
+  .rent-register-left {
     flex: 0 0 auto;
-    padding: 40px 32px;
-    text-align: center;
+    min-height: 260px;
   }
 
-  .rent-login-brand {
-    justify-content: center;
+  .rent-register-left__content {
+    min-height: 260px;
+    padding: 28px 28px 36px;
   }
 
-  .rent-login-features {
-    display: none;
+  .rent-register-brand__img {
+    width: 96px;
   }
 
-  .rent-login-tagline {
-    font-size: 20px;
-    margin-bottom: 8px;
+  .rent-register-slogan {
+    font-size: 32px;
   }
 
-  .rent-login-subtagline {
-    margin-bottom: 0;
-  }
-
-  .rent-login-right {
+  .rent-register-page .rent-login-right {
     padding: 40px 24px;
   }
 }
 
 @media (max-width: 520px) {
-  .rent-login-left {
-    padding: 32px 24px;
+  .rent-register-slogan {
+    font-size: 27px;
   }
 
-  .rent-login-tagline {
-    font-size: 18px;
-  }
-
-  .rent-login-card__title {
+  .rent-register-page .rent-login-card__title {
     font-size: 24px;
   }
 
-  .rent-register-role-grid {
+  .rent-register-page .rent-register-role-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -149,6 +149,8 @@ const en: import('./zh').Translation = {
   register: {
     title: 'Create an account & pick your role',
     subtitle: 'Fill in your details to get started',
+    tagline: 'Make a house a home',
+    subtagline: 'Great communities start here',
     chooseRole: 'Choose registration role',
     owner: 'I am an Owner',
     ownerDesc: 'List properties, manage income & hosting',

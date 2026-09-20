@@ -32,6 +32,9 @@ export const colors = {
   mutedForeground: '#6b7280',
   border: '#ece7df',
   input: '#ece7df',
+  // Reddit 式浅灰输入填充 / 分段控件底
+  fieldFill: '#F6F7F8',
+  fieldFillBorder: '#EDEFF1',
 
   // 兼容别名（历史组件使用 colors.text）
   text: '#1c2733',

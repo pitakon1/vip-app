@@ -149,6 +149,8 @@ const zh = {
   register: {
     title: '创建账号，选择你的角色',
     subtitle: '填写您的详细信息，快速开始',
+    tagline: '把房子变成家',
+    subtagline: '好的社区，从这里开始',
     chooseRole: '选择注册角色',
     owner: '我是业主',
     ownerDesc: '出租房源、管理收益与托管',

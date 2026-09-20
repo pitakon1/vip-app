@@ -23,6 +23,14 @@ import colors from '@/theme/colors';
 
 type Mode = 'phone' | 'email';
 type Role = 'tenant' | 'owner';
+type FocusField =
+  | 'country'
+  | 'phone'
+  | 'code'
+  | 'email'
+  | 'password'
+  | 'confirm'
+  | 'name';
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
@@ -44,6 +52,7 @@ export default function RegisterScreen() {
   const [role, setRole] = useState<Role>('tenant');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState<FocusField | null>(null);
 
   const handleSendCode = async () => {
     if (!phone.trim()) {
@@ -119,10 +128,15 @@ export default function RegisterScreen() {
       accessibilityState={{ selected: mode === m }}
       accessibilityLabel={label}
     >
-      <Ionicons name={icon as any} size={18} color={mode === m ? colors.primary : colors.ink3} />
+      <Ionicons name={icon as any} size={16} color={mode === m ? colors.primary : colors.ink3} />
       <Text style={[styles.tabText, mode === m && styles.tabTextActive]}>{label}</Text>
     </TouchableOpacity>
   );
+
+  const focusedStyle = (f: FocusField) => [
+    styles.input,
+    focused === f ? styles.inputFocused : undefined,
+  ];
 
   return (
     <KeyboardAvoidingView
@@ -132,7 +146,7 @@ export default function RegisterScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: 52 + insets.top, paddingBottom: insets.bottom + 24 },
+          { paddingTop: 32 + insets.top, paddingBottom: insets.bottom + 24 },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -141,163 +155,172 @@ export default function RegisterScreen() {
           <TouchableOpacity
             style={styles.backBtn}
             onPress={() => navigation.goBack()}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
             accessibilityLabel="返回登录"
           >
-            <Ionicons name="arrow-back" size={22} color={colors.ink2} />
+            <Ionicons name="arrow-back" size={22} color={colors.ink} />
           </TouchableOpacity>
           <Text style={styles.brandTitle}>
             <Text style={styles.brandTitleAccent}>VIP</Text> Rental
           </Text>
-          <Text style={styles.brandSubtitle}>注册新账号</Text>
+          <Text style={styles.brandSubtitle}>创建你的账号</Text>
         </View>
 
-        <View style={styles.formCard}>
-          <View style={styles.form}>
-            <View style={styles.tabs}>
-              {modeItem('phone', 'phone-portrait-outline', '手机号')}
-              {modeItem('email', 'mail-outline', '邮箱')}
-            </View>
+        {/* 手机号 / 邮箱 胶囊分段控件 */}
+        <View style={styles.tabs}>
+          {modeItem('phone', 'phone-portrait-outline', '手机号')}
+          {modeItem('email', 'mail-outline', '邮箱')}
+        </View>
 
-            {mode === 'phone' ? (
-              <>
-                <Text style={styles.label}>国家 / 地区</Text>
-                <TouchableOpacity
-                  style={styles.countryField}
-                  onPress={() => setCountryVisible(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel="选择国家码"
-                >
-                  <Text style={styles.countryText}>{country.label}</Text>
-                  <Ionicons name="chevron-down" size={16} color={colors.ink3} />
-                </TouchableOpacity>
+        {mode === 'phone' ? (
+          <>
+            {/* 国家码 + 手机号 */}
+            <TouchableOpacity
+              style={[
+                styles.input,
+                styles.countryField,
+                focused === 'country' ? styles.inputFocused : undefined,
+              ]}
+              onPress={() => setCountryVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="选择国家码"
+            >
+              <Text style={styles.countryText}>{country.label}</Text>
+              <Ionicons name="chevron-down" size={16} color={colors.ink3} />
+            </TouchableOpacity>
 
-                <Text style={styles.label}>手机号</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="请输入手机号"
-                  placeholderTextColor={colors.ink3}
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  textContentType="telephoneNumber"
-                  accessibilityLabel="手机号"
-                />
-
-                <Text style={styles.label}>验证码</Text>
-                <View style={styles.codeRow}>
-                  <TextInput
-                    style={[styles.inputCode, styles.codeInput]}
-                    placeholder="输入验证码"
-                    placeholderTextColor={colors.ink3}
-                    value={code}
-                    onChangeText={setCode}
-                    keyboardType="number-pad"
-                    accessibilityLabel="验证码"
-                  />
-                  <TouchableOpacity
-                    style={[styles.codeBtn, (secondsLeft > 0 || sending) && styles.codeBtnDisabled]}
-                    onPress={handleSendCode}
-                    disabled={secondsLeft > 0 || sending}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    accessibilityLabel={secondsLeft > 0 ? `重新获取，${secondsLeft}秒` : '获取验证码'}
-                  >
-                    {sending ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    ) : (
-                      <Text style={styles.codeBtnText}>
-                        {secondsLeft > 0 ? `${secondsLeft}s` : '获取验证码'}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                <Text style={styles.label}>邮箱</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="请输入邮箱"
-                  placeholderTextColor={colors.ink3}
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  accessibilityLabel="邮箱"
-                />
-                <Text style={styles.label}>密码</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="设置密码"
-                  placeholderTextColor={colors.ink3}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  accessibilityLabel="密码"
-                />
-                <Text style={styles.label}>确认密码</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="再次输入密码"
-                  placeholderTextColor={colors.ink3}
-                  value={confirm}
-                  onChangeText={setConfirm}
-                  secureTextEntry
-                  accessibilityLabel="确认密码"
-                />
-              </>
-            )}
-
-            <Text style={styles.label}>姓名</Text>
             <TextInput
-              style={styles.input}
-              placeholder="请输入姓名"
+              style={focusedStyle('phone')}
+              placeholder="手机号"
               placeholderTextColor={colors.ink3}
-              value={name}
-              onChangeText={setName}
-              accessibilityLabel="姓名"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              textContentType="telephoneNumber"
+              onFocus={() => setFocused('phone')}
+              onBlur={() => setFocused(null)}
+              accessibilityLabel="手机号"
             />
 
-            <Text style={styles.label}>注册身份</Text>
-            <View style={styles.roleRow}>
-              {(
-                [
-                  ['tenant', '租客'],
-                  ['owner', '房东'],
-                ] as [Role, string][]
-              ).map(([r, label]) => (
-                <TouchableOpacity
-                  key={r}
-                  style={[styles.roleItem, role === r && styles.roleItemActive]}
-                  onPress={() => setRole(r)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: role === r }}
-                  accessibilityLabel={`注册为${label}`}
-                >
-                  <Text style={[styles.roleText, role === r && styles.roleTextActive]}>{label}</Text>
-                </TouchableOpacity>
-              ))}
+            {/* 验证码 输入 + 获取验证码文字按钮 */}
+            <View style={styles.codeRow}>
+              <TextInput
+                style={[styles.codeInput, focused === 'code' ? styles.inputFocused : undefined]}
+                placeholder="验证码"
+                placeholderTextColor={colors.ink3}
+                value={code}
+                onChangeText={setCode}
+                keyboardType="number-pad"
+                onFocus={() => setFocused('code')}
+                onBlur={() => setFocused(null)}
+                accessibilityLabel="验证码"
+              />
+              <TouchableOpacity
+                style={styles.codeBtn}
+                onPress={handleSendCode}
+                disabled={secondsLeft > 0 || sending}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={secondsLeft > 0 ? `重新获取，${secondsLeft}秒` : '获取验证码'}
+              >
+                {sending ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={[styles.codeBtnText, secondsLeft > 0 && styles.codeBtnTextMuted]}>
+                    {secondsLeft > 0 ? `${secondsLeft}s` : '获取验证码'}
+                  </Text>
+                )}
+              </TouchableOpacity>
             </View>
+          </>
+        ) : (
+          <>
+            <TextInput
+              style={focusedStyle('email')}
+              placeholder="邮箱"
+              placeholderTextColor={colors.ink3}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              onFocus={() => setFocused('email')}
+              onBlur={() => setFocused(null)}
+              accessibilityLabel="邮箱"
+            />
+            <TextInput
+              style={focusedStyle('password')}
+              placeholder="密码"
+              placeholderTextColor={colors.ink3}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              onFocus={() => setFocused('password')}
+              onBlur={() => setFocused(null)}
+              accessibilityLabel="密码"
+            />
+            <TextInput
+              style={focusedStyle('confirm')}
+              placeholder="确认密码"
+              placeholderTextColor={colors.ink3}
+              value={confirm}
+              onChangeText={setConfirm}
+              secureTextEntry
+              onFocus={() => setFocused('confirm')}
+              onBlur={() => setFocused(null)}
+              accessibilityLabel="确认密码"
+            />
+          </>
+        )}
 
-            {!!error && <Text style={styles.fieldError}>{error}</Text>}
+        <TextInput
+          style={focusedStyle('name')}
+          placeholder="姓名"
+          placeholderTextColor={colors.ink3}
+          value={name}
+          onChangeText={setName}
+          onFocus={() => setFocused('name')}
+          onBlur={() => setFocused(null)}
+          accessibilityLabel="姓名"
+        />
 
+        {/* 角色 两个紧凑胶囊 */}
+        <View style={styles.roleRow}>
+          {(
+            [
+              ['tenant', '租客'],
+              ['owner', '房东'],
+            ] as [Role, string][]
+          ).map(([r, label]) => (
             <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleRegister}
-              disabled={loading}
-              activeOpacity={0.85}
+              key={r}
+              style={[styles.roleItem, role === r && styles.roleItemActive]}
+              onPress={() => setRole(r)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: role === r }}
+              accessibilityLabel={`注册为${label}`}
             >
-              {loading ? (
-                <ActivityIndicator color={colors.primaryForeground} />
-              ) : (
-                <Text style={styles.buttonText}>注册</Text>
-              )}
+              <Text style={[styles.roleText, role === r && styles.roleTextActive]}>{label}</Text>
             </TouchableOpacity>
-          </View>
+          ))}
         </View>
+
+        {!!error && <Text style={styles.fieldError}>{error}</Text>}
+
+        {/* 全宽胶囊主按钮 */}
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleRegister}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          {loading ? (
+            <ActivityIndicator color={colors.primaryForeground} />
+          ) : (
+            <Text style={styles.buttonText}>注册</Text>
+          )}
+        </TouchableOpacity>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>已有账号？</Text>
@@ -345,44 +368,31 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   scroll: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     justifyContent: 'center',
     flexGrow: 1,
   },
   header: { alignItems: 'center', marginBottom: 28 },
   backBtn: {
     position: 'absolute',
-    left: 0,
-    top: 0,
-    width: 36,
-    height: 36,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    left: -8,
+    top: -4,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandTitle: { fontSize: 24, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
+  brandTitle: { fontSize: 28, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
   brandTitleAccent: { color: colors.primary },
-  brandSubtitle: { fontSize: 14, color: colors.ink2, marginTop: 6 },
-  formCard: {
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xxl,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...colors.shadow.sm,
-  },
-  form: { width: '100%' },
+  brandSubtitle: { fontSize: 14, color: colors.ink2, marginTop: 8 },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: colors.surface2,
-    borderRadius: colors.radius.lg,
+    backgroundColor: colors.fieldFill,
+    borderRadius: colors.radius.full,
     padding: 4,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   tabItem: {
     flex: 1,
@@ -391,96 +401,86 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 10,
-    borderRadius: colors.radius.md,
+    borderRadius: colors.radius.full,
   },
-  tabItemActive: { backgroundColor: colors.surface, ...colors.shadow.sm },
+  tabItemActive: { backgroundColor: '#ffffff' },
   tabText: { fontSize: 15, color: colors.ink3, fontWeight: '600' },
-  tabTextActive: { color: colors.primary },
-  label: {
-    fontSize: 14,
-    color: colors.ink,
-    fontWeight: '600',
-    marginBottom: 8,
-    letterSpacing: 0.2,
-  },
+  tabTextActive: { color: colors.ink },
   input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: colors.radius.lg,
+    backgroundColor: colors.fieldFill,
+    borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    height: 52,
     fontSize: 15,
-    marginBottom: 18,
+    marginBottom: 14,
     color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.fieldFill,
+  },
+  inputFocused: {
+    backgroundColor: '#ffffff',
+    borderColor: colors.primary,
   },
   countryField: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: colors.radius.lg,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 18,
   },
   countryText: { fontSize: 15, color: colors.ink },
-  codeRow: { flexDirection: 'row', gap: 10, marginBottom: 18 },
-  codeInput: { flex: 1, marginBottom: 0 },
-  inputCode: {
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: colors.radius.lg,
+  codeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
+  codeInput: {
+    flex: 1,
+    backgroundColor: colors.fieldFill,
+    borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    height: 52,
     fontSize: 15,
     color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.fieldFill,
   },
   codeBtn: {
-    minWidth: 108,
+    minWidth: 92,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    borderRadius: colors.radius.lg,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
-  codeBtnDisabled: { opacity: 0.5 },
   codeBtnText: { fontSize: 14, fontWeight: '700', color: colors.primary },
-  roleRow: { flexDirection: 'row', gap: 10, marginBottom: 18 },
+  codeBtnTextMuted: { opacity: 0.5 },
+  roleRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   roleItem: {
     flex: 1,
-    paddingVertical: 12,
+    height: 44,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: colors.radius.lg,
+    justifyContent: 'center',
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.fieldFill,
   },
-  roleItemActive: { borderColor: colors.primary, backgroundColor: colors.sidebarActive },
+  roleItemActive: { backgroundColor: colors.sidebarActive },
   roleText: { fontSize: 15, color: colors.ink2, fontWeight: '600' },
   roleTextActive: { color: colors.primary },
   fieldError: { fontSize: 12, color: colors.error, marginBottom: 12 },
   button: {
     backgroundColor: colors.primary,
-    borderRadius: colors.radius.lg,
-    paddingVertical: 15,
+    borderRadius: colors.radius.full,
+    height: 52,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginTop: 6,
     ...colors.shadow.primary,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  buttonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 4,
-    marginTop: 20,
+    marginTop: 22,
   },
-  footerText: { fontSize: 13, color: colors.ink3 },
-  footerLink: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  footerText: { fontSize: 14, color: colors.ink3 },
+  footerLink: { fontSize: 14, color: colors.ink, fontWeight: '800' },
   overlay: {
     flex: 1,
     backgroundColor: colors.alpha('0,0,0', 0.45),
