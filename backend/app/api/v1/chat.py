@@ -46,31 +46,52 @@ CHAT_CHANNEL = "chat:broadcast"
 class ConnectionManager:
     def __init__(self) -> None:
         self.active: Dict[str, set] = {}
+        # 每个 WebSocket 归属的用户 id（用于广播时排除发送者，避免自己收到回声）
+        self.ws_user: Dict[int, str] = {}
 
-    async def connect(self, conversation_id: str, ws: WebSocket) -> None:
+    async def connect(self, conversation_id: str, ws: WebSocket, user_id: str) -> None:
         await ws.accept()
         self.active.setdefault(conversation_id, set()).add(ws)
+        self.ws_user[id(ws)] = user_id
 
     def disconnect(self, conversation_id: str, ws: WebSocket) -> None:
         conns = self.active.get(conversation_id)
         if not conns:
             return
         conns.discard(ws)
+        self.ws_user.pop(id(ws), None)
         if not conns:
             self.active.pop(conversation_id, None)
 
-    async def broadcast_local(self, conversation_id: str, payload: dict) -> None:
-        """只推给当前进程内订阅该会话的连接。"""
+    async def broadcast_local(
+        self, conversation_id: str, payload: dict, exclude_user_id: Optional[str] = None
+    ) -> None:
+        """只推给当前进程内订阅该会话的连接（可排除发送者，避免回声）。"""
         for ws in list(self.active.get(conversation_id, set())):
+            if (
+                exclude_user_id is not None
+                and self.ws_user.get(id(ws)) == exclude_user_id
+            ):
+                continue
             try:
                 await ws.send_json(payload)
             except Exception:
                 self.disconnect(conversation_id, ws)
 
-    async def publish(self, conversation_id: str, payload: dict) -> None:
+    async def publish(
+        self,
+        conversation_id: str,
+        payload: dict,
+        sender_user_id: Optional[str] = None,
+    ) -> None:
         """经 Redis 发布以便跨 worker 扇出；Redis 异常时退化为进程内广播。"""
         envelope = json.dumps(
-            {"conversation_id": conversation_id, "payload": payload}, default=str
+            {
+                "conversation_id": conversation_id,
+                "sender_user_id": sender_user_id,
+                "payload": payload,
+            },
+            default=str,
         )
         client = await _get_pub_client()
         if client is not None:
@@ -79,7 +100,7 @@ class ConnectionManager:
                 return
             except Exception as exc:  # noqa: BLE001 - 降级不阻断消息发送
                 logger.warning("chat.publish_redis_failed: %s", exc)
-        await self.broadcast_local(conversation_id, payload)
+        await self.broadcast_local(conversation_id, payload, sender_user_id)
 
 
 manager = ConnectionManager()
@@ -123,7 +144,9 @@ async def _chat_subscriber_loop() -> None:
                 except (TypeError, ValueError):
                     continue
                 await manager.broadcast_local(
-                    envelope.get("conversation_id"), envelope.get("payload") or {}
+                    envelope.get("conversation_id"),
+                    envelope.get("payload") or {},
+                    envelope.get("sender_user_id"),
                 )
         except asyncio.CancelledError:
             raise
@@ -338,24 +361,29 @@ def list_messages(
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageOut)
-def send_message(
+async def send_message(
     conversation_id: uuid.UUID,
     payload: dict,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """发送消息（REST 通道）。"""
+    """发送消息（REST 通道）。落库后广播给会话中已连接 WebSocket 的其他参与者。"""
     conv = _ensure_participant(session.get(Conversation, conversation_id), user)
     body = (payload.get("body") or "").strip()
     if not body:
         raise HTTPException(status_code=400, detail="body required")
-    return _persist_message(
+    stored = await run_in_threadpool(
+        _persist_message,
         conv.id,
         user.id,
         body[:MAX_MESSAGE_LENGTH],
         payload.get("message_type", "text"),
         payload.get("attachments"),
     )
+    await manager.publish(
+        str(conv.id), {"event": "message", **stored}, str(user.id)
+    )
+    return stored
 
 
 # ---------------- WebSocket ----------------
@@ -385,7 +413,7 @@ async def chat_ws(websocket: WebSocket, conversation_id: str):
         await websocket.close(code=WS_FORBIDDEN)
         return
 
-    await manager.connect(conversation_id, websocket)
+    await manager.connect(conversation_id, websocket, str(user_id))
     try:
         while True:
             data = await websocket.receive_json()
@@ -400,7 +428,9 @@ async def chat_ws(websocket: WebSocket, conversation_id: str):
                 data.get("message_type", "text"),
                 data.get("attachments"),
             )
-            await manager.publish(conversation_id, {"event": "message", **stored})
+            await manager.publish(
+                conversation_id, {"event": "message", **stored}, str(user_id)
+            )
     except WebSocketDisconnect:
         manager.disconnect(conversation_id, websocket)
     except Exception as exc:  # noqa: BLE001 - 异常断开也要清理连接
