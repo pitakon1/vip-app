@@ -8,6 +8,12 @@ export const authApi = {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     }),
   register: (data: any) => api.post('/auth/register', data),
+  // 手机号/邮箱验证码：发送 OTP（dev/未配短信凭据时明文码在响应 dev_code 里）
+  requestOtp: (recipient: string, channel: string) =>
+    api.post('/auth/otp/request', { recipient, channel }),
+  // 手机号+验证码登录
+  loginByOtp: (phone: string, code: string) =>
+    api.post('/auth/login/otp', { phone, code }),
   me: () => api.get('/auth/me'),
   // 「我的」账户/设置自助
   updateMe: (data: any) => api.patch('/auth/me', data),

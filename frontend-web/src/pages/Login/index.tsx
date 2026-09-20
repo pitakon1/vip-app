@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -8,6 +8,12 @@ import type { User } from '@/types'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './login.css'
+
+// 国家码下拉（带 + 前缀，如 +86），手机号最终提交为「国家码 + 无前导0手机号」
+const COUNTRY_CODES = ['+86', '+1', '+66', '+55']
+
+const phoneWithCode = (countryCode: string, phone: string): string =>
+  `${countryCode}${phone.replace(/^0/, '')}`
 
 // 根据角色返回对应首页路径
 const roleRedirectPath = (role: string): string => {
@@ -49,36 +55,95 @@ const Login = () => {
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
 
+  // 邮箱密码 / 手机号验证码 两种登录方式切换
+  const [tab, setTab] = useState<'email' | 'phone'>('email')
+  const [countryCode, setCountryCode] = useState('+86')
+  const [phone, setPhone] = useState('')
+  const [smsCode, setSmsCode] = useState('')
+  const [sending, setSending] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const countdownRef = useRef<number | null>(null)
+
+  // 验证码 60 秒倒计时
+  useEffect(() => {
+    if (countdown <= 0) return
+    countdownRef.current = window.setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => {
+      if (countdownRef.current) window.clearTimeout(countdownRef.current)
+    }
+  }, [countdown])
+
+  // 登录成功后：角色决定进哪一端，绝不兜底成 admin（见原注释）
+  const handleAuthSuccess = (res: any) => {
+    const payload = res?.data?.data ?? res?.data
+    const token: string = payload?.access_token ?? payload?.token ?? payload?.accessToken
+    if (!token) {
+      message.error(t('login.tokenMissing'))
+      return false
+    }
+    const user: User | undefined = payload?.user
+    if (!user?.role) {
+      message.error(t('login.loginFailed'))
+      return false
+    }
+    login(token, user, payload?.refresh_token)
+    message.success(t('login.loginSuccess'))
+    navigate(roleRedirectPath(user.role))
+    return true
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const nextErrors: { email?: string; password?: string } = {}
-    if (!email) nextErrors.email = t('login.emailRequired')
-    if (!password) nextErrors.password = t('login.passwordRequired')
-    setErrors(nextErrors)
-    if (nextErrors.email || nextErrors.password) return
+    if (tab === 'email') {
+      const nextErrors: { email?: string; password?: string } = {}
+      if (!email) nextErrors.email = t('login.emailRequired')
+      if (!password) nextErrors.password = t('login.passwordRequired')
+      setErrors(nextErrors)
+      if (nextErrors.email || nextErrors.password) return
+    } else {
+      if (!phone) {
+        message.warning(t('login.phoneRequired'))
+        return
+      }
+      if (!smsCode) {
+        message.warning(t('login.codeRequired'))
+        return
+      }
+    }
     setSubmitting(true)
     try {
-      const res = await authApi.login(email, password)
-      const payload = res.data?.data ?? res.data
-      const token: string = payload?.access_token ?? payload?.token ?? payload?.accessToken
-      if (!token) {
-        message.error(t('login.tokenMissing'))
-        return
-      }
-      // 角色决定登录后进哪一端，绝不能兜底成 admin —— 一旦后端响应缺少 user，
-      // 兜底就等于把管理端入口开放给任意账号。宁可报错让用户重试。
-      const user: User | undefined = payload?.user
-      if (!user?.role) {
-        message.error(t('login.loginFailed'))
-        return
-      }
-      login(token, user, payload?.refresh_token)
-      message.success(t('login.loginSuccess'))
-      navigate(roleRedirectPath(user.role))
+      const res = tab === 'phone'
+        ? await authApi.loginByOtp(phoneWithCode(countryCode, phone), smsCode)
+        : await authApi.login(email, password)
+      if (!handleAuthSuccess(res)) return
     } catch (err: any) {
       message.error(err?.response?.data?.message || t('login.loginFailed'))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // 请求发送短信验证码
+  const handleRequestOtp = async () => {
+    if (!phone) {
+      message.warning(t('login.phoneRequired'))
+      return
+    }
+    setSending(true)
+    try {
+      const res = await authApi.requestOtp(phoneWithCode(countryCode, phone), 'sms')
+      const devCode = res.data?.dev_code
+      if (devCode) {
+        setSmsCode(String(devCode))
+        message.info(t('login.otpDevHint'))
+      } else {
+        message.success(t('login.otpSent'))
+        setCountdown(60)
+      }
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || t('login.otpFailed'))
+    } finally {
+      setSending(false)
     }
   }
 
@@ -129,8 +194,26 @@ const Login = () => {
             <p className="rent-login-card__subtitle">{t('login.subtitle')}</p>
           </div>
 
+          {/* 邮箱密码 / 手机号验证码 切换 */}
+          <div className="rent-auth-mode" role="tablist">
+            <button
+              type="button"
+              className={`rent-auth-mode__tab${tab === 'phone' ? ' is-active' : ''}`}
+              onClick={() => setTab('phone')}
+            >
+              {t('login.phoneLogin')}
+            </button>
+            <button
+              type="button"
+              className={`rent-auth-mode__tab${tab === 'email' ? ' is-active' : ''}`}
+              onClick={() => setTab('email')}
+            >
+              {t('login.emailLogin')}
+            </button>
+          </div>
+
           {/* 测试账号提示：仅开发构建展示，生产构建里这段账号密码不应出现在页面上 */}
-          {import.meta.env.DEV && (
+          {import.meta.env.DEV && tab === 'email' && (
             <div className="rent-login-hint">
               测试账号：<span className="rent-mono">admin@viprental.com / admin123</span>（管理员）
               · agent@viprental.com / agent123（经纪）· owner@viprental.com / owner123（业主）
@@ -139,62 +222,122 @@ const Login = () => {
           )}
 
           <form onSubmit={handleSubmit}>
-            {/* 邮箱 */}
-            <div className="rent-form-group">
-              <label className="rent-form-label" htmlFor="login-email">{t('login.email')}</label>
-              <input
-                type="email"
-                id="login-email"
-                className={`rent-form-input${errors.email ? ' rent-form-input--error' : ''}`}
-                placeholder={t('login.emailPlaceholder')}
-                autoComplete="email"
-                autoFocus
-                aria-invalid={!!errors.email}
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value)
-                  if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }))
-                }}
-              />
-              {errors.email && <div className="rent-form-error" role="alert">{errors.email}</div>}
-            </div>
+            {/* 邮箱密码登录 */}
+            {tab === 'email' && (
+              <>
+                <div className="rent-form-group">
+                  <label className="rent-form-label" htmlFor="login-email">{t('login.email')}</label>
+                  <input
+                    type="email"
+                    id="login-email"
+                    className={`rent-form-input${errors.email ? ' rent-form-input--error' : ''}`}
+                    placeholder={t('login.emailPlaceholder')}
+                    autoComplete="email"
+                    autoFocus
+                    aria-invalid={!!errors.email}
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }))
+                    }}
+                  />
+                  {errors.email && <div className="rent-form-error" role="alert">{errors.email}</div>}
+                </div>
 
-            {/* 密码 */}
-            <div className="rent-form-group">
-              <label className="rent-form-label" htmlFor="login-password">{t('login.password')}</label>
-              <input
-                type="password"
-                id="login-password"
-                className={`rent-form-input${errors.password ? ' rent-form-input--error' : ''}`}
-                placeholder={t('login.passwordPlaceholder')}
-                autoComplete="current-password"
-                aria-invalid={!!errors.password}
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }))
-                }}
-              />
-              {errors.password && <div className="rent-form-error" role="alert">{errors.password}</div>}
-            </div>
+                <div className="rent-form-group">
+                  <label className="rent-form-label" htmlFor="login-password">{t('login.password')}</label>
+                  <input
+                    type="password"
+                    id="login-password"
+                    className={`rent-form-input${errors.password ? ' rent-form-input--error' : ''}`}
+                    placeholder={t('login.passwordPlaceholder')}
+                    autoComplete="current-password"
+                    aria-invalid={!!errors.password}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }))
+                    }}
+                  />
+                  {errors.password && <div className="rent-form-error" role="alert">{errors.password}</div>}
+                </div>
 
-            {/* 记住我 + 忘记密码 */}
-            <div className="rent-login-row">
-              <label className="rent-checkbox">
-                <input type="checkbox" id="remember-me" />
-                <span>{t('login.rememberMe')}</span>
-              </label>
-              <a
-                href="#"
-                className="rent-login-link"
-                onClick={(e) => {
-                  e.preventDefault()
-                  message.info(t('login.forgotPasswordHint'))
-                }}
-              >
-                {t('login.forgotPassword')}
-              </a>
-            </div>
+                {/* 记住我 + 忘记密码 */}
+                <div className="rent-login-row">
+                  <label className="rent-checkbox">
+                    <input type="checkbox" id="remember-me" />
+                    <span>{t('login.rememberMe')}</span>
+                  </label>
+                  <a
+                    href="#"
+                    className="rent-login-link"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      message.info(t('login.forgotPasswordHint'))
+                    }}
+                  >
+                    {t('login.forgotPassword')}
+                  </a>
+                </div>
+              </>
+            )}
+
+            {/* 手机号 + 验证码登录 */}
+            {tab === 'phone' && (
+              <>
+                <div className="rent-form-group">
+                  <label className="rent-form-label" htmlFor="login-phone">{t('login.phone')}</label>
+                  <div className="rent-phone-row">
+                    <select
+                      id="login-country"
+                      className="rent-form-select"
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="tel"
+                      id="login-phone"
+                      className="rent-form-input"
+                      placeholder={t('login.phonePlaceholder')}
+                      autoComplete="tel"
+                      autoFocus
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="rent-form-group">
+                  <label className="rent-form-label" htmlFor="login-code">{t('login.verificationCode')}</label>
+                  <div className="rent-otp-row">
+                    <input
+                      type="text"
+                      id="login-code"
+                      className="rent-form-input"
+                      placeholder={t('login.codePlaceholder')}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={smsCode}
+                      onChange={(e) => setSmsCode(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="rent-btn rent-btn--ghost rent-btn--nowrap"
+                      onClick={handleRequestOtp}
+                      disabled={sending || countdown > 0}
+                    >
+                      {countdown > 0
+                        ? `${t('register.resend')} (${countdown}s)`
+                        : (sending ? t('login.sending') : t('login.getCode'))}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* 登录按钮 */}
             <button type="submit" className="rent-btn rent-btn--primary rent-btn--lg rent-btn--block" disabled={submitting}>

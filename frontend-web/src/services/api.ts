@@ -16,6 +16,12 @@ export const authApi = {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     }),
   register: (data: RequestBody) => api.post('/auth/register', data),
+  // 请求发送邮箱/短信验证码；channel: "sms" | "email"
+  requestOtp: (recipient: string, channel: string) =>
+    api.post('/auth/otp/request', { recipient, channel }),
+  // 手机号 + 验证码登录
+  loginByOtp: (phone: string, code: string) =>
+    api.post('/auth/login/otp', { phone, code }),
   me: () => api.get('/auth/me'),
 }
 

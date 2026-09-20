@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -11,6 +11,12 @@ import './register.css'
 
 // 可自助注册的角色：业主 / 租客（员工、经纪、管理员需由后台开通）
 type RegRole = 'owner' | 'tenant'
+
+// 国家码下拉（带 + 前缀，如 +86），手机号最终提交为「国家码 + 无前导0手机号」
+const COUNTRY_CODES = ['+86', '+1', '+66', '+55']
+
+const phoneWithCode = (countryCode: string, phone: string): string =>
+  `${countryCode}${phone.replace(/^0/, '')}`
 
 const roleRedirectPath = (role: string): string => {
   switch (role) {
@@ -52,45 +58,111 @@ const Register = () => {
   const [phone, setPhone] = useState('')
   const [role, setRole] = useState<RegRole>('tenant')
 
+  // 手机号 / 邮箱模式切换
+  const [mode, setMode] = useState<'phone' | 'email'>('email')
+  const [countryCode, setCountryCode] = useState('+86')
+  const [smsCode, setSmsCode] = useState('')
+  const [sending, setSending] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const countdownRef = useRef<number | null>(null)
+
+  // 验证码 60 秒倒计时
+  useEffect(() => {
+    if (countdown <= 0) return
+    countdownRef.current = window.setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => {
+      if (countdownRef.current) window.clearTimeout(countdownRef.current)
+    }
+  }, [countdown])
+
+  // 处理注册成功后的 token / user / 跳转（手机号与邮箱模式共用）
+  const handleAuthSuccess = (payload: any) => {
+    const token: string = payload?.access_token ?? payload?.token ?? payload?.accessToken
+    const user: User = payload?.user ?? {
+      id: String(payload?.id ?? ''),
+      full_name: payload?.full_name ?? fullName,
+      role: payload?.role ?? role,
+      email: String(payload?.email ?? ''),
+    }
+    if (!token) {
+      message.error(t('register.tokenMissing'))
+      return false
+    }
+    login(token, user)
+    message.success(t('register.success'))
+    navigate(roleRedirectPath(user.role))
+    return true
+  }
+
+  // 请求发送短信验证码
+  const handleRequestOtp = async () => {
+    if (!phone) {
+      message.warning(t('register.phoneRequired'))
+      return
+    }
+    const recipient = phoneWithCode(countryCode, phone)
+    setSending(true)
+    try {
+      const res = await authApi.requestOtp(recipient, 'sms')
+      const devCode = res.data?.dev_code
+      if (devCode) {
+        setSmsCode(String(devCode))
+        message.info(t('register.otpDevHint'))
+      } else {
+        message.success(t('register.otpSent'))
+        setCountdown(60)
+      }
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || t('register.otpFailed'))
+    } finally {
+      setSending(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email) {
-      message.warning(t('register.emailRequired'))
-      return
-    }
-    if (!password) {
-      message.warning(t('register.passwordRequired'))
-      return
-    }
     if (!fullName) {
       message.warning(t('register.nameRequired'))
       return
     }
+    if (mode === 'email') {
+      if (!email) {
+        message.warning(t('register.emailRequired'))
+        return
+      }
+      if (!password) {
+        message.warning(t('register.passwordRequired'))
+        return
+      }
+    } else {
+      if (!phone) {
+        message.warning(t('register.phoneRequired'))
+        return
+      }
+      if (!smsCode) {
+        message.warning(t('register.codeRequired'))
+        return
+      }
+    }
     setSubmitting(true)
     try {
       // 注册即返回 token，注册成功后自动登录并直达对应角色首页
-      const res = await authApi.register({
-        email,
-        password,
-        full_name: fullName,
-        phone: phone || undefined,
-        role,
-      })
-      const payload = res.data?.data ?? res.data
-      const token: string = payload?.access_token ?? payload?.token ?? payload?.accessToken
-      const user: User = payload?.user ?? {
-        id: String(payload?.id ?? ''),
-        full_name: payload?.full_name ?? fullName,
-        role: payload?.role ?? role,
-        email,
-      }
-      if (!token) {
-        message.error(t('register.tokenMissing'))
-        return
-      }
-      login(token, user)
-      message.success(t('register.success'))
-      navigate(roleRedirectPath(user.role))
+      const res: any = mode === 'phone'
+        ? await authApi.register({
+            phone: phoneWithCode(countryCode, phone),
+            code: smsCode,
+            full_name: fullName,
+            role,
+          })
+        : await authApi.register({
+            email,
+            password,
+            full_name: fullName,
+            phone: phone ? phoneWithCode(countryCode, phone) : undefined,
+            role,
+          })
+      const payload = res?.data?.data ?? res?.data
+      if (!handleAuthSuccess(payload)) return
     } catch (err: any) {
       message.error(err?.response?.data?.message || t('register.failed'))
     } finally {
@@ -146,6 +218,24 @@ const Register = () => {
           </div>
 
           <form onSubmit={handleSubmit}>
+            {/* 手机号 / 邮箱模式切换 */}
+            <div className="rent-auth-mode" role="tablist">
+              <button
+                type="button"
+                className={`rent-auth-mode__tab${mode === 'phone' ? ' is-active' : ''}`}
+                onClick={() => setMode('phone')}
+              >
+                {t('register.phoneRegistration')}
+              </button>
+              <button
+                type="button"
+                className={`rent-auth-mode__tab${mode === 'email' ? ' is-active' : ''}`}
+                onClick={() => setMode('email')}
+              >
+                {t('register.emailRegistration')}
+              </button>
+            </div>
+
             {/* 角色选择 */}
             <div className="rent-register-role-group">
               <label className="rent-form-label">{t('register.chooseRole')}</label>
@@ -195,46 +285,120 @@ const Register = () => {
               />
             </div>
 
-            {/* 邮箱 */}
-            <div className="rent-form-group">
-              <label className="rent-form-label" htmlFor="reg-email">{t('login.email')}</label>
-              <input
-                type="email"
-                id="reg-email"
-                className="rent-form-input"
-                placeholder={t('login.emailPlaceholder')}
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
+            {/* 邮箱模式：邮箱 + 密码 */}
+            {mode === 'email' && (
+              <>
+                <div className="rent-form-group">
+                  <label className="rent-form-label" htmlFor="reg-email">{t('login.email')}</label>
+                  <input
+                    type="email"
+                    id="reg-email"
+                    className="rent-form-input"
+                    placeholder={t('login.emailPlaceholder')}
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
 
-            {/* 密码 */}
-            <div className="rent-form-group">
-              <label className="rent-form-label" htmlFor="reg-password">{t('login.password')}</label>
-              <input
-                type="password"
-                id="reg-password"
-                className="rent-form-input"
-                placeholder={t('register.passwordPlaceholder')}
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+                <div className="rent-form-group">
+                  <label className="rent-form-label" htmlFor="reg-password">{t('login.password')}</label>
+                  <input
+                    type="password"
+                    id="reg-password"
+                    className="rent-form-input"
+                    placeholder={t('register.passwordPlaceholder')}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
 
-            {/* 手机号（可选） */}
-            <div className="rent-form-group">
-              <label className="rent-form-label" htmlFor="reg-phone">{t('register.phone')}</label>
-              <input
-                type="tel"
-                id="reg-phone"
-                className="rent-form-input"
-                placeholder={t('register.phonePlaceholder')}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
+            {/* 手机号模式：国家码 + 手机号 + 验证码 */}
+            {mode === 'phone' && (
+              <>
+                <div className="rent-form-group">
+                  <label className="rent-form-label" htmlFor="reg-phone">{t('register.phone')}</label>
+                  <div className="rent-phone-row">
+                    <select
+                      id="reg-country"
+                      className="rent-form-select"
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="tel"
+                      id="reg-phone"
+                      className="rent-form-input"
+                      placeholder={t('register.phonePlaceholder')}
+                      autoComplete="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="rent-form-group">
+                  <label className="rent-form-label" htmlFor="reg-code">{t('register.verificationCode')}</label>
+                  <div className="rent-otp-row">
+                    <input
+                      type="text"
+                      id="reg-code"
+                      className="rent-form-input"
+                      placeholder={t('register.codePlaceholder')}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={smsCode}
+                      onChange={(e) => setSmsCode(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="rent-btn rent-btn--ghost rent-btn--nowrap"
+                      onClick={handleRequestOtp}
+                      disabled={sending || countdown > 0}
+                    >
+                      {countdown > 0
+                        ? `${t('register.resend')} (${countdown}s)`
+                        : (sending ? t('register.sending') : t('register.getCode'))}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* 邮箱模式下可选的手机号（选填） */}
+            {mode === 'email' && (
+              <div className="rent-form-group">
+                <label className="rent-form-label" htmlFor="reg-phone-opt">{t('register.phone')}</label>
+                <div className="rent-phone-row">
+                  <select
+                    id="reg-country-opt"
+                    className="rent-form-select"
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    id="reg-phone-opt"
+                    className="rent-form-input"
+                    placeholder={t('register.phonePlaceholder')}
+                    autoComplete="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* 注册按钮 */}
             <button type="submit" className="rent-btn rent-btn--primary rent-btn--lg rent-btn--block" disabled={submitting}>

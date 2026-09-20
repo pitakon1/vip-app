@@ -1,7 +1,8 @@
-"""JWT 认证 + 密码哈希 + PII 字段加密"""
+"""JWT 认证 + 密码哈希 + PII 字段加密 + 验证码(OTP)"""
 import base64
 import hashlib
 import logging
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -55,6 +56,21 @@ def get_fernet() -> Fernet:
     if _fernet is None:
         _fernet = Fernet(_resolve_pii_key())
     return _fernet
+
+
+def generate_otp(n: int = 6) -> str:
+    """生成 n 位数字验证码（密码学安全随机源）。"""
+    return f"{secrets.randbelow(10 ** n):0{n}d}"
+
+
+def hash_otp(code: str) -> str:
+    """对验证码做 SHA-256 哈希，避免明文落库。"""
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
+def verify_otp(code: str, code_hash: str) -> bool:
+    """常量时间比较验证码与哈希。"""
+    return secrets.compare_digest(hash_otp(code), code_hash)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

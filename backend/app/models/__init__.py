@@ -4,6 +4,7 @@
 """
 from .base import TimestampMixin
 from .user import User, UserRole
+from .verification_code import VerificationCode
 from .project import Project
 from .owner import Owner
 from .property import Property, PropertyStatus
@@ -94,6 +95,7 @@ __all__ = [
     "TimestampMixin",
     "User",
     "UserRole",
+    "VerificationCode",
     "Project",
     "Owner",
     "Property",

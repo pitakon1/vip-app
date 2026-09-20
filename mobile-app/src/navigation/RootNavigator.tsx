@@ -3,6 +3,7 @@ import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../stores/auth';
 import LoginScreen from '../screens/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen';
 import MainTabNavigator from './MainTabNavigator';
 import TestScreen from '../screens/TestScreen';
 import ChatDetailScreen from '../screens/chat/ChatDetailScreen';
@@ -34,6 +35,7 @@ import OwnerMarketingScreen from '../screens/owner/MarketingScreen';
 
 export type RootStackParamList = {
   Login: undefined;
+  Register: undefined;
   Main: undefined;
   Test: undefined;
   ChatDetail: { conversationId: string; title?: string };
@@ -114,6 +116,7 @@ export function RootNavigator() {
       ) : (
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
           <Stack.Screen name="Test" component={TestScreen} options={{ headerShown: true, title: '测试调试面板' }} />
         </>
       )}

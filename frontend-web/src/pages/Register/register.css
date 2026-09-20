@@ -251,6 +251,67 @@
   color: var(--rent-primary);
 }
 
+/* ---- 手机号 / 邮箱模式切换 ---- */
+.rent-auth-mode {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: var(--rent-surface-muted, #f1f5f9);
+  border-radius: var(--rent-radius-full);
+  margin-bottom: 24px;
+}
+
+.rent-auth-mode__tab {
+  flex: 1;
+  padding: 9px 12px;
+  border: none;
+  border-radius: var(--rent-radius-full);
+  background: transparent;
+  color: var(--rent-ink-3);
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.rent-auth-mode__tab:hover {
+  color: var(--rent-ink);
+}
+
+.rent-auth-mode__tab.is-active {
+  background: #fff;
+  color: var(--rent-primary);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+/* ---- 国家码 + 手机号 / 验证码 + 按钮 ---- */
+.rent-phone-row,
+.rent-otp-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.rent-phone-row .rent-form-select {
+  width: auto;
+  flex: 0 0 96px;
+}
+
+.rent-phone-row .rent-form-input,
+.rent-otp-row .rent-form-input {
+  flex: 1;
+}
+
+.rent-otp-row .rent-btn {
+  flex-shrink: 0;
+}
+
+.rent-btn--nowrap {
+  white-space: nowrap;
+}
+
 /* ---- Responsive（对齐原型 login.html） ---- */
 @media (max-width: 960px) {
   .rent-login-page {

@@ -121,6 +121,17 @@ class Settings(BaseSettings):
     LATE_FEE_DAILY_RATE: float = 0.0005  # 日费率 0.05%（每万元每日 5 元）
     LATE_FEE_CAP_RATIO: float = 0.1  # 封顶：不超过本金 10%
 
+    # 9) 验证码（手机号/邮箱注册、登录）。本地未配置短信/邮件 provider 时，
+    #    /auth/otp/request 会把验证码写入响应 dev_code 以闭环联调。
+    OTP_EXPIRE_MINUTES: int = 10  # 验证码有效期
+    OTP_MAX_ATTEMPTS: int = 5  # 单码校验次数上限（超出作废）
+
+    # 10) 小程序微信登录（miniapp 对标国内小程序）。
+    #     code2session / getPhoneNumber 需要真实小程序 AppID 与 AppSecret，
+    #     未配置时 /auth/wx/login、/auth/wx/bind-phone 返回 503。
+    WECHAT_APPID: str = ""
+    WECHAT_SECRET: str = ""
+
     @property
     def cors_origins(self) -> List[str]:
         """解析后的 CORS 源列表。

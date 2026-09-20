@@ -31,6 +31,8 @@ class User(TimestampMixin, table=True):
 
     email: str = Field(unique=True, index=True)
     phone: Optional[str] = Field(default=None, index=True)
+    # 小程序微信登录态：code2session 返回的 openid。占位邮箱 `wx{openid}@wx.local`
+    wechat_openid: Optional[str] = Field(default=None, index=True)
     hashed_password: str
     full_name: str
     role: UserRole = Field(default=UserRole.tenant, index=True)

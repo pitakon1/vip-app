@@ -1,6 +1,9 @@
 import Taro from '@tarojs/taro'
 import { chatWsUrl, request } from '@/lib/api'
 
+// 全局注入的 API 地址（构建期由 Taro 注入，同 lib/api.ts 的 use）
+declare const API_BASE: string
+
 export const authApi = {
   login: (email: string, password: string) =>
     request({
@@ -11,6 +14,38 @@ export const authApi = {
       header: { 'Content-Type': 'application/x-www-form-urlencoded' }
     }),
   register: (data: any) => request({ url: '/auth/register', method: 'POST', data }),
+  // 微信一键登录：Taro.login() 的 code 换 openid，按 openid 找/建用户并返回 token
+  // 本地未配置微信凭据时后端返回 503，此处保留 statusCode 便于页面友好提示
+  wxLogin: async (data: { code: string; nickname?: string }) => {
+    const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
+    const res = await Taro.request({
+      url: `${baseURL}/auth/wx/login`,
+      method: 'POST',
+      data: data as Record<string, unknown>,
+      header: { 'Content-Type': 'application/json' }
+    })
+    if (res.statusCode === 503) {
+      const err = new Error('微信登录暂不可用（服务端未配置微信凭据）') as Error & {
+        statusCode?: number
+      }
+      err.statusCode = 503
+      throw err
+    }
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return res.data as any
+    }
+    const body = res?.data as any
+    const detail = body && typeof body === 'object' ? body.detail : undefined
+    throw new Error(detail ? String(detail) : `微信登录失败，状态码：${res.statusCode}`)
+  },
+  // 微信手机号快捷绑定（需登录态）：code 来自 getPhoneNumber 按钮回调 e.detail.code
+  wxBindPhone: (data: { code: string }) =>
+    request({ url: '/auth/wx/bind-phone', method: 'POST', data }),
+  // 手机号+验证码兜底：验证码获取（channel: sms）
+  requestOtp: (data: { recipient: string; channel?: string }) =>
+    request({ url: '/auth/otp/request', method: 'POST', data }),
+  loginByOtp: (data: { phone: string; code: string }) =>
+    request({ url: '/auth/login/otp', method: 'POST', data }),
   me: () => request({ url: '/auth/me', method: 'GET' }),
   // 「我的」账户/设置自助
   updateMe: (data: any) => request({ url: '/auth/me', method: 'PATCH', data }),

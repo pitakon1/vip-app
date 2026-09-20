@@ -1,12 +1,16 @@
-"""认证路由：登录、注册、刷新令牌、获取当前用户信息。"""
+"""认证路由：登录、注册、刷新令牌、验证码、微信授权、获取当前用户信息。"""
+import logging
+import re
+import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 from pydantic import BaseModel, ConfigDict
 
+from app.config import settings
 from app.db import get_session
 from app.core.rate_limit import AUTH_LIMIT, limiter
 from app.core.security import (
@@ -15,13 +19,34 @@ from app.core.security import (
     create_refresh_token,
     decode_access_token,
     get_password_hash,
+    generate_otp,
+    hash_otp,
+    verify_otp,
 )
 from app.core.auth import get_current_user, is_token_revoked, serialize_user
 from app.models.user import User, UserRole
 from app.models.owner import Owner
 from app.models.tenant import Tenant
+from app.models.verification_code import VerificationCode
+from app.providers.notification.base import NotificationChannel, NotificationMessage
+from app.providers.notification.sms_provider import SMSProvider
+from app.providers.notification.email_provider import EmailProvider
+from app.services import wechat as wechat_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+logger = logging.getLogger(__name__)
+
+_PHONE_RE = re.compile(r"^\+?[0-9\-\s]{6,15}$")
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _is_valid_phone(value: str) -> bool:
+    return bool(value) and bool(_PHONE_RE.match(value.strip()))
+
+
+def _is_valid_email(value: str) -> bool:
+    return bool(value) and bool(_EMAIL_RE.match(value.strip()))
 
 
 # 自助注册仅开放业主/租客；员工/经纪/管理员须由后台开通
@@ -46,11 +71,37 @@ class LogoutResponse(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    email: str
-    password: str
-    full_name: str
-    role: UserRole = UserRole.tenant
+    """注册请求：支持两种方式之一。
+
+    - 邮箱 + 密码：`{email, password, full_name?, role?, phone?}`
+    - 手机号 + 验证码：`{phone, code, full_name?, role?}`
+    """
+
+    email: str | None = None
+    password: str | None = None
     phone: str | None = None
+    code: str | None = None
+    full_name: str = ""
+    role: UserRole = UserRole.tenant
+
+
+class OtpRequest(BaseModel):
+    recipient: str
+    channel: str = "sms"  # sms | email
+
+
+class OtpLoginRequest(BaseModel):
+    phone: str
+    code: str
+
+
+class WxLoginRequest(BaseModel):
+    code: str
+    nickname: str | None = None
+
+
+class WxBindPhoneRequest(BaseModel):
+    code: str
 
 
 class UserMeOut(BaseModel):
@@ -87,6 +138,113 @@ def _build_token_response(user: User) -> TokenResponse:
     )
 
 
+def _resolve_user_by_identifier(session: Session, identifier: str) -> User | None:
+    """按登录标识解析用户：含 @ 按邮箱，否则按手机号。"""
+    if not identifier:
+        return None
+    if "@" in identifier:
+        return session.exec(select(User).where(User.email == identifier)).first()
+    return session.exec(select(User).where(User.phone == identifier)).first()
+
+
+def _finalize_login(session: Session, user: User) -> TokenResponse:
+    """记录登录时间（运营看板 DAU/MAU 数据源）并返回令牌。"""
+    user.last_login_at = datetime.utcnow()
+    session.add(user)
+    session.commit()
+    return _build_token_response(user)
+
+
+def _send_code(recipient: str, channel: str, code: str) -> bool:
+    """通过 provider 发送验证码；返回是否配置成功。发送失败（多为未配凭据）返回 False。"""
+    if channel == "sms":
+        provider = SMSProvider()
+        msg = NotificationMessage(
+            channel=NotificationChannel.SMS,
+            recipient=recipient,
+            title="验证码",
+            content=f"您的验证码是 {code}，{settings.OTP_EXPIRE_MINUTES} 分钟内有效。",
+        )
+    else:
+        provider = EmailProvider()
+        msg = NotificationMessage(
+            channel=NotificationChannel.EMAIL,
+            recipient=recipient,
+            title="验证码",
+            content=f"您的验证码是 {code}，{settings.OTP_EXPIRE_MINUTES} 分钟内有效。",
+        )
+    return bool(provider.send(msg).success)
+
+
+def _issue_otp(session: Session, recipient: str, channel: str) -> str:
+    """生成验证码入库并作废旧码，返回明文（供 dev_code / 日志兜底）。"""
+    now = datetime.utcnow()
+    # 作废该接收方未消费的历史码
+    for old in session.exec(
+        select(VerificationCode).where(
+            VerificationCode.recipient == recipient,
+            VerificationCode.used_at.is_(None),
+        )
+    ).all():
+        old.used_at = now
+        session.add(old)
+    code = generate_otp()
+    session.add(
+        VerificationCode(
+            recipient=recipient,
+            channel=channel,
+            code_hash=hash_otp(code),
+            expires_at=now + timedelta(minutes=settings.OTP_EXPIRE_MINUTES),
+        )
+    )
+    session.commit()
+    return code
+
+
+def _consume_otp(session: Session, recipient: str, code: str) -> None:
+    """校验并消费验证码。任一不满足都抛 4xx。"""
+    now = datetime.utcnow()
+    latest = session.exec(
+        select(VerificationCode)
+        .where(
+            VerificationCode.recipient == recipient,
+            VerificationCode.used_at.is_(None),
+        )
+        .order_by(VerificationCode.created_at.desc())
+    ).first()
+    if not latest:
+        raise HTTPException(status_code=400, detail="No verification code requested")
+    if now > latest.expires_at:
+        raise HTTPException(status_code=400, detail="Verification code expired")
+    latest.attempts = int(latest.attempts or 0) + 1
+    if latest.attempts > settings.OTP_MAX_ATTEMPTS:
+        latest.used_at = now
+        session.add(latest)
+        session.commit()
+        raise HTTPException(
+            status_code=400,
+            detail="Too many attempts, please request a new code",
+        )
+    if not verify_otp(code, latest.code_hash):
+        session.add(latest)
+        session.commit()
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+    latest.used_at = now
+    session.add(latest)
+    session.commit()
+
+
+def _sync_role_profile(session: Session, user: User) -> None:
+    """按角色同步建立业主/租客档案，保证登录后各端页面可正常拉取数据。"""
+    if user.role == UserRole.owner:
+        if not session.exec(select(Owner).where(Owner.user_id == user.id)).first():
+            session.add(Owner(user_id=user.id, owner_type="individual"))
+    elif user.role == UserRole.tenant:
+        if not session.exec(select(Tenant).where(Tenant.user_id == user.id)).first():
+            session.add(Tenant(user_id=user.id))
+    session.commit()
+
+
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit(AUTH_LIMIT)
 def login(
@@ -94,16 +252,12 @@ def login(
     form: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session),
 ):
-    user = session.exec(select(User).where(User.email == form.username)).first()
+    user = _resolve_user_by_identifier(session, (form.username or "").strip())
     if not user or not verify_password(form.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Incorrect email or password")
+        raise HTTPException(status_code=401, detail="Incorrect credentials")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
-    # 记录登录时间（运营看板 DAU/MAU 数据源）
-    user.last_login_at = datetime.utcnow()
-    session.add(user)
-    session.commit()
-    return _build_token_response(user)
+    return _finalize_login(session, user)
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -118,26 +272,161 @@ def register(
             status_code=403,
             detail="Self-registration only supports owner/tenant. Staff roles require admin onboarding.",
         )
-    existing = session.exec(select(User).where(User.email == req.email)).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    user = User(
-        email=req.email,
-        hashed_password=get_password_hash(req.password),
-        full_name=req.full_name,
-        role=req.role,
-        phone=req.phone,
-    )
+    phone = (req.phone or "").strip() or None
+    email = (req.email or "").strip() or None
+
+    if phone and req.code:
+        # 方式一：手机号 + 验证码
+        if not _is_valid_phone(phone):
+            raise HTTPException(status_code=400, detail="Invalid phone number")
+        if session.exec(select(User).where(User.phone == phone)).first():
+            raise HTTPException(status_code=409, detail="Phone already registered")
+        _consume_otp(session, phone, (req.code or "").strip())
+        # 手机号用户无真实密码（占位邮箱满足 email 非空唯一）
+        user = User(
+            email=f"ph{secrets.token_hex(4)}@customer.local",
+            hashed_password=get_password_hash(secrets.token_hex(16)),
+            full_name=req.full_name or "用户",
+            role=req.role,
+            phone=phone,
+        )
+    elif email and req.password:
+        # 方式二：邮箱 + 密码
+        if not _is_valid_email(email):
+            raise HTTPException(status_code=400, detail="Invalid email address")
+        if session.exec(select(User).where(User.email == email)).first():
+            raise HTTPException(status_code=400, detail="Email already registered")
+        user = User(
+            email=email,
+            hashed_password=get_password_hash(req.password),
+            full_name=req.full_name or "用户",
+            role=req.role,
+            phone=phone,
+        )
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either phone+code or email+password to register",
+        )
+
     session.add(user)
     session.commit()
     session.refresh(user)
-    # 同步建立业主/租客档案，保证登录后各端页面可正常拉取数据
-    if req.role == UserRole.owner:
-        session.add(Owner(user_id=user.id, owner_type="individual"))
-    elif req.role == UserRole.tenant:
-        session.add(Tenant(user_id=user.id))
-    session.commit()
+    _sync_role_profile(session, user)
     return _build_token_response(user)
+
+
+@router.post("/otp/request")
+@limiter.limit(AUTH_LIMIT)
+def request_otp(
+    request: Request,
+    req: OtpRequest,
+    session: Session = Depends(get_session),
+):
+    """请求发送验证码。channel=sms 需手机号、email 需邮箱。
+
+    本地未配置短信/邮件凭据时，返回体携带 dev_code（并打印日志）以便闭环联调。
+    """
+    recipient = (req.recipient or "").strip()
+    channel = (req.channel or "sms").lower().strip()
+    if channel == "sms":
+        if not _is_valid_phone(recipient):
+            raise HTTPException(status_code=400, detail="Invalid phone number")
+    elif channel == "email":
+        if not _is_valid_email(recipient):
+            raise HTTPException(status_code=400, detail="Invalid email address")
+    else:
+        raise HTTPException(status_code=400, detail="channel must be sms or email")
+
+    code = _issue_otp(session, recipient, channel)
+    sent = _send_code(recipient, channel, code)
+    dev_code = code if (settings.DEBUG or not sent) else None
+    if dev_code:
+        logger.info("otp.dev_code channel=%s recipient=%s code=%s", channel, recipient, code)
+    return {
+        "ok": True,
+        "message": "Verification code sent",
+        "dev_code": dev_code,
+    }
+
+
+@router.post("/login/otp", response_model=TokenResponse)
+@limiter.limit(AUTH_LIMIT)
+def login_by_otp(
+    request: Request,
+    req: OtpLoginRequest,
+    session: Session = Depends(get_session),
+):
+    """手机号 + 验证码登录（含手机号注册后首次登录）。"""
+    phone = (req.phone or "").strip()
+    if not _is_valid_phone(phone):
+        raise HTTPException(status_code=400, detail="Invalid phone number")
+    user = session.exec(select(User).where(User.phone == phone)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No account found for this phone")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account disabled")
+    _consume_otp(session, phone, (req.code or "").strip())
+    return _finalize_login(session, user)
+
+
+@router.post("/wx/login", response_model=TokenResponse)
+@limiter.limit(AUTH_LIMIT)
+def wx_login(
+    request: Request,
+    req: WxLoginRequest,
+    session: Session = Depends(get_session),
+):
+    """小程序微信一键授权登录（对标国内小程序）。
+
+    用 wx.login 的 code 换 openid → 按 openid 找/建用户（role=tenant）并发 token。
+    未配置 WECHAT_APPID/SECRET 时返回 503。
+    """
+    if not settings.WECHAT_APPID or not settings.WECHAT_SECRET:
+        raise HTTPException(status_code=503, detail="WeChat login not configured")
+    openid = wechat_service.code2session((req.code or "").strip())
+    if not openid:
+        raise HTTPException(status_code=401, detail="WeChat login failed")
+    user = session.exec(select(User).where(User.wechat_openid == openid)).first()
+    if not user:
+        user = User(
+            email=f"wx{openid}@wx.local",
+            hashed_password=get_password_hash(secrets.token_hex(16)),
+            full_name=(req.nickname or "").strip() or "微信用户",
+            role=UserRole.tenant,
+            wechat_openid=openid,
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        _sync_role_profile(session, user)
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account disabled")
+    return _finalize_login(session, user)
+
+
+@router.post("/wx/bind-phone")
+def wx_bind_phone(
+    req: WxBindPhoneRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """登录态下用微信手机号授权 code 绑定手机号（查重 409）。"""
+    if not settings.WECHAT_APPID or not settings.WECHAT_SECRET:
+        raise HTTPException(status_code=503, detail="WeChat binding not configured")
+    phone = wechat_service.get_phone_number((req.code or "").strip())
+    if not phone:
+        raise HTTPException(status_code=400, detail="Failed to get phone number")
+    clash = session.exec(
+        select(User).where(User.phone == phone, User.id != user.id)
+    ).first()
+    if clash:
+        raise HTTPException(status_code=409, detail="Phone already bound to another account")
+    user.phone = phone
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return serialize_user(user)
 
 
 @router.post("/refresh", response_model=TokenResponse)
