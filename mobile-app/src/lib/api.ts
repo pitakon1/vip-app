@@ -4,7 +4,7 @@ import { tokenStorage } from './storage';
 
 // baseURL 从环境变量读取（默认 http://localhost:8000/api/v1）。
 // Expo 在构建时注入 EXPO_PUBLIC_* 变量，通过 globalThis 访问以兼容不同类型环境。
-const API_BASE_URL: string =
+export const API_BASE_URL: string =
   ((globalThis as unknown as { process?: { env?: Record<string, string | undefined> } })
     .process?.env?.EXPO_PUBLIC_API_BASE_URL as string | undefined) ||
   'http://localhost:8000/api/v1';

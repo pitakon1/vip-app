@@ -1,4 +1,5 @@
-import api from '@/lib/api';
+import api, { API_BASE_URL } from '@/lib/api';
+import { tokenStorage } from '@/lib/storage';
 
 export const authApi = {
   // 后端 login 使用 OAuth2PasswordRequestForm（表单格式），与 Web 端保持一致
@@ -194,6 +195,12 @@ export const chatApi = {
   createConversation: (data: any) => api.post('/chat/conversations', data),
   messages: (id: string, params?: any) => api.get(`/chat/conversations/${id}/messages`, { params }),
   sendMessage: (id: string, data: any) => api.post(`/chat/conversations/${id}/messages`, data),
+  /** 即时聊天 WebSocket 地址（含鉴权 token）；发送走 REST，WS 仅用于接收实时消息。 */
+  async wsUrl(id: string): Promise<string> {
+    const token = (await tokenStorage.get()) || '';
+    const base = API_BASE_URL.replace(/^http(s)?:\/\//i, (_m, s) => (s ? 'wss://' : 'ws://'));
+    return `${base}/chat/ws/chat/${id}?token=${encodeURIComponent(token)}`;
+  },
 };
 
 export const contractsApi = {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
-import { chatApi } from '@/services/api';
+import { chatApi, authApi } from '@/services/api';
 import { notifyError } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
@@ -21,10 +21,12 @@ import type { RootStackParamList } from '@/navigation/RootNavigator';
 interface Message {
   id?: string;
   tempKey?: string;
+  body?: string;
   content?: string;
   text?: string;
   role?: string;
   sender?: string;
+  sender_id?: string;
   created_at?: string;
 }
 
@@ -39,6 +41,8 @@ export default function ChatDetailScreen() {
   const [loadError, setLoadError] = useState(false);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [myId, setMyId] = useState('');
+  const wsRef = useRef<WebSocket | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +59,46 @@ export default function ChatDetailScreen() {
     } finally {
       setLoading(false);
     }
+  }, [conversationId]);
+
+  // 建立实时接收通道：发送走 REST，WebSocket 仅接收对端消息（服务端已排除发送者回声）
+  useEffect(() => {
+    let cancelled = false;
+    authApi
+      .me()
+      .then((res) => !cancelled && setMyId(res?.data?.id || ''))
+      .catch(() => undefined);
+    chatApi
+      .wsUrl(conversationId)
+      .then((url) => {
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
+        ws.onmessage = (ev) => {
+          try {
+            const data = JSON.parse(ev.data);
+            if (data.event === 'message') {
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: data.id || `rt-${Date.now()}`,
+                  body: data.body,
+                  sender_id: data.sender_id,
+                  message_type: data.message_type,
+                  created_at: data.created_at,
+                },
+              ]);
+            }
+          } catch {
+            /* ignore */
+          }
+        };
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
   }, [conversationId]);
 
   useEffect(() => {
@@ -82,8 +126,8 @@ export default function ChatDetailScreen() {
   };
 
   const renderItem = ({ item }: { item: Message }) => {
-    const content = item.content ?? item.text ?? '';
-    const isMine = item.role === 'user' || item.sender === 'user';
+    const content = item.body ?? item.content ?? item.text ?? '';
+    const isMine = item.role === 'user' || (!!myId && item.sender_id === myId);
     return (
       <View style={[styles.msgRow, isMine ? styles.mineRow : styles.otherRow]}>
         <View style={[styles.bubble, isMine ? styles.mineBubble : styles.otherBubble]}>
