@@ -115,14 +115,16 @@ export default function ChatDetailScreen() {
     const optimistic: Message = { content: text, role: 'user', tempKey };
     setMessages((prev) => [...prev, optimistic]);
     try {
-      await chatApi.sendMessage(conversationId, { content: text });
+      await chatApi.sendMessage(conversationId, { body: text });
+      // 成功后刷新真实列表（拿到服务端 id，替换乐观消息）
+      await load();
     } catch (err: any) {
       notifyError('发送失败', err);
+      // 失败回滚乐观消息，避免残留未入库的临时气泡
+      setMessages((prev) => prev.filter((m) => m.tempKey !== tempKey));
     } finally {
       setSending(false);
     }
-    // 成功后刷新真实列表；失败时该调用会以服务端列表覆盖，回滚未真正入库的乐观消息
-    await load();
   };
 
   const renderItem = ({ item }: { item: Message }) => {

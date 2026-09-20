@@ -106,7 +106,7 @@ export default function ChatDetailPage() {
     if (sending) return
     setSending(true)
     try {
-      await chatApi.sendMessage(conversationId, { content: text })
+      await chatApi.sendMessage(conversationId, { body: text })
       setInputText('')
       await fetchMessages()
     } catch (error) {
