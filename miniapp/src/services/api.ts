@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { request } from '@/lib/api'
+import { chatWsUrl, request } from '@/lib/api'
 
 export const authApi = {
   login: (email: string, password: string) =>
@@ -191,7 +191,8 @@ export const chatApi = {
   messages: (id: string, params?: any) =>
     request({ url: `/chat/conversations/${id}/messages`, method: 'GET', data: params }),
   sendMessage: (id: string, data: any) =>
-    request({ url: `/chat/conversations/${id}/messages`, method: 'POST', data })
+    request({ url: `/chat/conversations/${id}/messages`, method: 'POST', data }),
+  wsUrl: (id: string | number) => chatWsUrl(id)
 }
 
 export const contractsApi = {

@@ -75,6 +75,16 @@ export function currentToken(): string {
 }
 
 /**
+ * 即时聊天 WebSocket 地址：由 API_BASE 推导 ws/wss，并携带鉴权 token。
+ * 发送仍走 REST，WebSocket 仅用于接收实时消息。
+ */
+export function chatWsUrl(id: string | number): string {
+  const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
+  const ws = baseURL.replace(/^http(s)?:\/\//, (_m, s) => (s ? 'wss://' : 'ws://'))
+  return `${ws}/chat/ws/chat/${id}?token=${encodeURIComponent(currentToken())}`
+}
+
+/**
  * 文档读取绝对地址。
  *
  * `uploads/documents` 已不再由静态服务托管，证件、合同等敏感文件只能经

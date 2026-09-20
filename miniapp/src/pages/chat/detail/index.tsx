@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { View, Text, ScrollView, Input } from '@tarojs/components'
-import Taro, { useDidShow, useRouter } from '@tarojs/taro'
+import Taro, { useDidShow, useUnload, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
-import { chatApi } from '@/services/api'
+import { authApi, chatApi } from '@/services/api'
 import './index.scss'
 
 interface Message {
@@ -10,6 +10,7 @@ interface Message {
   sender_id?: number | string
   mine?: boolean
   is_mine?: boolean
+  body?: string
   content?: string
   text?: string
   created_at?: string
@@ -32,6 +33,9 @@ export default function ChatDetailPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputText, setInputText] = useState('')
   const [sending, setSending] = useState(false)
+  const [myId, setMyId] = useState('')
+  const socketRef = useRef<any>(null)
+  const unloadedRef = useRef(false)
 
   const fetchMessages = async () => {
     if (!conversationId) return
@@ -51,6 +55,49 @@ export default function ChatDetailPage() {
       return
     }
     fetchMessages()
+    // 当前用户 id 用于区分“我发的”
+    authApi.me().then((res: any) => {
+      const me = res?.id ?? res?.user?.id
+      if (me) setMyId(String(me))
+    }).catch(() => undefined)
+    // 建立实时接收通道：发送走 REST，WebSocket 仅接收对端消息
+    if (conversationId) {
+      Taro.connectSocket({ url: chatApi.wsUrl(conversationId) })
+        .then((task: any) => {
+          if (unloadedRef.current) {
+            task?.close?.({})
+            return
+          }
+          socketRef.current = task
+          task.onMessage((res: any) => {
+            try {
+              const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+              if (data.event === 'message') {
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: data.id ?? `rt-${Date.now()}`,
+                    body: data.body,
+                    sender_id: data.sender_id,
+                    created_at: data.created_at
+                  }
+                ])
+              }
+            } catch (error) {
+              console.error('[ChatDetail] WS 消息解析失败', error)
+            }
+          })
+        })
+        .catch(() => undefined)
+    }
+  })
+
+  useUnload(() => {
+    unloadedRef.current = true
+    if (socketRef.current) {
+      socketRef.current.close({ code: 1000, reason: 'page unload' })
+      socketRef.current = null
+    }
   })
 
   const handleSend = async () => {
@@ -79,8 +126,8 @@ export default function ChatDetailPage() {
           </View>
         )}
         {messages.map((m) => {
-          const mine = m.mine || m.is_mine
-          const content = m.content || m.text || ''
+          const mine = m.mine || m.is_mine || (!!myId && String(m.sender_id) === myId)
+          const content = m.body || m.content || m.text || ''
           return (
             <View key={m.id} className={`message-row ${mine ? 'mine' : 'other'}`}>
               <View className='bubble'>
