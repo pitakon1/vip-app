@@ -153,7 +153,7 @@ export default function RegisterScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scroll,
-            { paddingTop: 32 + insets.top, paddingBottom: insets.bottom + 24 },
+            { paddingTop: 80 + insets.top, paddingBottom: insets.bottom + 24 },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
