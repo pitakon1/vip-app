@@ -173,28 +173,11 @@ const Register = () => {
         <LanguageSwitcher compact />
       </div>
 
-      {/* ===== 左栏 40%（Reddit 式沉浸视觉栏：氛围图 + 深色渐变 + 品牌 + 短标语） ===== */}
-      <section className="rent-register-left">
-        <div className="rent-register-left__scrim" aria-hidden="true" />
-        <div className="rent-register-left__content">
-          <div className="rent-register-brand">
-            <img
-              className="rent-register-brand__img"
-              src={brandLogo}
-              alt="HaoFang.World"
-            />
-          </div>
-          <div className="rent-register-left__text">
-            <h1 className="rent-register-slogan">{t('register.tagline')}</h1>
-            <p className="rent-register-subslogan">{t('register.subtagline')}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== 右栏 60%（居中窄卡片表单，白底大量留白） ===== */}
+      {/* ===== 注册表单 ===== */}
       <section className="rent-login-right">
         <div className="rent-login-card">
           <div className="rent-login-card__header">
+            <img className="rent-login-brand" src={brandLogo} alt="HaoFang.World" />
             <h2 className="rent-login-card__title">{t('register.title')}</h2>
             <p className="rent-login-card__subtitle">{t('register.subtitle')}</p>
           </div>

@@ -28,25 +28,6 @@ const roleRedirectPath = (role: string): string => {
   }
 }
 
-const FEATURES = [
-  {
-    title: '智能合同管理与电子签约',
-    desc: '模板化生成租约，在线签署与归档，到期自动提醒',
-  },
-  {
-    title: '自动化租金收取与财务报表',
-    desc: '多币种收款对账，实时生成收支明细与运营分析',
-  },
-  {
-    title: '高效维修工单与租户沟通',
-    desc: '租户一键报修，工单分派追踪，消息实时通知',
-  },
-  {
-    title: '多角色协作与权限管理',
-    desc: '管理员、业主、租客、员工四端协同，精细化权限控制',
-  },
-]
-
 const PhoneIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
@@ -169,42 +150,11 @@ const Login = () => {
         <LanguageSwitcher compact />
       </div>
 
-      {/* ===== 左栏 40%（品牌区） ===== */}
-      <section className="rent-login-left">
-        <div className="rent-login-left__content">
-          <div className="rent-login-brand">
-            <img
-              className="rent-login-brand__img"
-              src={brandLogo}
-              alt="HaoFang.World"
-            />
-          </div>
-          <h1 className="rent-login-tagline">东南亚房地产租赁管理平台</h1>
-          <p className="rent-login-subtagline">
-            一站式管理您的房源、租约、租金与维修工单，让租赁运营更高效。
-          </p>
-          <ul className="rent-login-features">
-            {FEATURES.map((f) => (
-              <li className="rent-login-feature" key={f.title}>
-                <span className="rent-login-feature__check">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </span>
-                <div className="rent-login-feature__text">
-                  {f.title}
-                  <small>{f.desc}</small>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* ===== 右栏 60%（登录表单） ===== */}
+      {/* ===== 登录表单 ===== */}
       <section className="rent-login-right">
         <div className="rent-login-card">
           <div className="rent-login-card__header">
+            <img className="rent-login-brand" src={brandLogo} alt="HaoFang.World" />
             <h2 className="rent-login-card__title">{t('login.welcomeBack')}</h2>
             <p className="rent-login-card__subtitle">{t('login.subtitle')}</p>
           </div>

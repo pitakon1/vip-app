@@ -10,8 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
   Modal,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -26,6 +26,8 @@ import { useOAuth } from '@/hooks/useOAuth';
 import OAuthButtons from '@/components/OAuthButtons';
 import OAuthMockModal from '@/components/OAuthMockModal';
 import colors from '@/theme/colors';
+
+const BRAND_LOGO = require('../../assets/haofang-logo.png');
 
 type Stage = 'choose' | 'form';
 
@@ -145,21 +147,10 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <Image
-              source={require('../../assets/haofang-logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-              accessibilityLabel="logo"
-            />
-            <Text style={styles.brandTitle}>
-              <Text style={styles.brandTitleAccent}>VIP</Text> Rental
-            </Text>
-            <Text style={styles.brandSubtitle}>{t('login.tagline')}</Text>
-            <Text style={styles.brandDesc}>{t('login.taglineSub')}</Text>
-          </View>
+          {/* 品牌 logo（保留图形，不含营销文案） */}
+          <Image source={BRAND_LOGO} style={styles.brandLogo} accessibilityLabel="HaoFang.World" />
 
-          {/* 一列整宽白色胶囊：Google / Apple / 或 / 手机号 / 邮箱 */}
+          {/* 一列整宽白色胶囊：Google / Apple / 手机号 / 邮箱 */}
           <OAuthButtons
             loading={oauthLoading}
             onGoogle={loginWithGoogle}
@@ -173,18 +164,6 @@ export default function LoginScreen() {
               setStage('form');
             }}
           />
-
-          {/* 品牌特性 */}
-          <View style={styles.features}>
-            {(['login.feature1', 'login.feature2', 'login.feature3', 'login.feature4'] as const).map(
-              (key) => (
-                <View key={key} style={styles.featureRow}>
-                  <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-                  <Text style={styles.featureText}>{t(key)}</Text>
-                </View>
-              ),
-            )}
-          </View>
 
           {/* 页脚：去注册 */}
           <View style={styles.footer}>
@@ -465,35 +444,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexGrow: 1,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  logo: {
-    width: 110,
-    height: 110,
-    marginBottom: 16,
-  },
-  brandTitle: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: colors.ink,
-    letterSpacing: -0.5,
-    marginBottom: 6,
-  },
-  brandTitleAccent: {
-    color: colors.primary,
-  },
-  brandSubtitle: {
-    fontSize: 14,
-    color: colors.ink2,
-    textAlign: 'center',
-  },
-  brandDesc: {
-    fontSize: 12,
-    color: colors.ink3,
-    textAlign: 'center',
-    marginTop: 6,
+  brandLogo: {
+    width: 120,
+    height: 48,
+    alignSelf: 'center',
+    resizeMode: 'contain',
+    marginBottom: 8,
   },
   // 表单屏头部：返回 + 标题
   formHeader: {
@@ -552,14 +508,6 @@ const styles = StyleSheet.create({
   },
   codeBtnDisabled: { opacity: 0.5 },
   codeBtnText: { fontSize: 14, fontWeight: '700', color: colors.primary },
-  /* 品牌特性 */
-  features: {
-    marginTop: 24,
-    gap: 10,
-    alignItems: 'flex-start',
-  },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  featureText: { fontSize: 13, color: colors.ink2 },
   /* 页脚 */
   footer: {
     flexDirection: 'row',

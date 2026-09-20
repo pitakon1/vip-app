@@ -19,81 +19,6 @@
 }
 
 /* =========================================================
-   左栏 40% — 沉浸式视觉栏
-   text_to_image 氛围图（明亮东南亚社区 + 黄昏暖光）+ 深色渐变遮罩
-   ========================================================= */
-.rent-register-left {
-  flex: 0 0 40%;
-  position: relative;
-  overflow: hidden;
-  color: #ffffff;
-  background-image: linear-gradient(rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.5)),
-    url('https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=%E6%98%8E%E4%BA%AE%E7%8E%B0%E4%BB%A3%E7%9A%84%E4%B8%9C%E5%8D%97%E4%BA%9A%E4%BD%8F%E5%AE%85%E7%A4%BE%E5%8C%BA%EF%BC%8C%E6%9A%96%E8%89%B2%E9%BB%84%E6%98%8F%E5%85%89%E7%BA%BF%EF%BC%8C%E7%BB%BF%E5%8C%96%E4%B8%8E%E6%B3%B3%E6%B1%A0%EF%BC%8C%E7%9C%9F%E5%AE%9E%E6%91%84%E5%BD%B1%E9%A3%8E%E6%A0%BC&image_size=portrait_4_3');
-  background-size: cover;
-  background-position: center;
-}
-
-/* 加深色渐变遮罩保证文字可读性 */
-.rent-register-left__scrim {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0.08) 40%, rgba(0, 0, 0, 0.62) 100%);
-  pointer-events: none;
-}
-
-.rent-register-left__content {
-  position: relative;
-  z-index: 1;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 48px 48px 56px;
-  min-height: 100vh;
-  box-sizing: border-box;
-}
-
-/* 左上角品牌 logo */
-.rent-register-brand {
-  align-self: flex-start;
-}
-
-.rent-register-brand__img {
-  width: 120px;
-  height: auto;
-  object-fit: contain;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.92);
-  padding: 8px 12px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
-}
-
-/* 底部醒目短标语 */
-.rent-register-left__text {
-  max-width: 420px;
-}
-
-.rent-register-slogan {
-  font-family: var(--rent-font-sans);
-  font-size: 44px;
-  font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: -0.02em;
-  color: #ffffff;
-  margin: 0 0 14px;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.4);
-}
-
-.rent-register-subslogan {
-  font-family: var(--rent-font-sans);
-  font-size: 17px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.86);
-  margin: 0;
-}
-
-/* =========================================================
    右栏 60% — 居中窄卡片表单（白底、大量留白）
    ========================================================= */
 .rent-register-page .rent-login-right {
@@ -112,6 +37,14 @@
 
 .rent-register-page .rent-login-card__header {
   margin-bottom: 28px;
+}
+
+.rent-register-page .rent-login-brand {
+  display: block;
+  width: 120px;
+  height: auto;
+  margin: 0 auto 20px;
+  object-fit: contain;
 }
 
 .rent-register-page .rent-login-card__title {
@@ -374,34 +307,12 @@
     flex-direction: column;
   }
 
-  .rent-register-left {
-    flex: 0 0 auto;
-    min-height: 260px;
-  }
-
-  .rent-register-left__content {
-    min-height: 260px;
-    padding: 28px 28px 36px;
-  }
-
-  .rent-register-brand__img {
-    width: 96px;
-  }
-
-  .rent-register-slogan {
-    font-size: 32px;
-  }
-
   .rent-register-page .rent-login-right {
     padding: 40px 24px;
   }
 }
 
 @media (max-width: 520px) {
-  .rent-register-slogan {
-    font-size: 27px;
-  }
-
   .rent-register-page .rent-login-card__title {
     font-size: 24px;
   }

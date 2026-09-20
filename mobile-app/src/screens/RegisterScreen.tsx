@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   Modal,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -23,6 +24,8 @@ import { useOAuth } from '@/hooks/useOAuth';
 import OAuthButtons from '@/components/OAuthButtons';
 import OAuthMockModal from '@/components/OAuthMockModal';
 import colors from '@/theme/colors';
+
+const BRAND_LOGO = require('../../assets/haofang-logo.png');
 
 type Method = 'phone' | 'email';
 type Stage = 'choose' | 'form';
@@ -155,15 +158,10 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <Text style={styles.brandTitle}>
-              <Text style={styles.brandTitleAccent}>VIP</Text> Rental
-            </Text>
-            <Text style={styles.brandSubtitle}>创建你的账号</Text>
-            <Text style={styles.brandDesc}>选择一种方式继续</Text>
-          </View>
+          {/* 品牌 logo（保留图形，不含营销文案） */}
+          <Image source={BRAND_LOGO} style={styles.brandLogo} accessibilityLabel="HaoFang.World" />
 
-          {/* 一列整宽白色胶囊：Google / Apple / 或 / 手机号 / 邮箱 */}
+          {/* 一列整宽白色胶囊：Google / Apple / 手机号 / 邮箱 */}
           <OAuthButtons
             loading={oauthLoading}
             onGoogle={loginWithGoogle}
@@ -421,11 +419,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexGrow: 1,
   },
-  header: { alignItems: 'center', marginBottom: 28 },
-  brandTitle: { fontSize: 28, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
-  brandTitleAccent: { color: colors.primary },
-  brandSubtitle: { fontSize: 14, color: colors.ink2, marginTop: 8 },
-  brandDesc: { fontSize: 12, color: colors.ink3, marginTop: 6 },
+  brandLogo: {
+    width: 120,
+    height: 48,
+    alignSelf: 'center',
+    resizeMode: 'contain',
+    marginBottom: 8,
+  },
   // 表单屏头部：返回 + 标题
   formHeader: {
     flexDirection: 'row',

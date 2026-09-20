@@ -18,126 +18,6 @@
   z-index: 50;
 }
 
-/* ---- Left panel (40%) ---- */
-.rent-login-left {
-  flex: 0 0 40%;
-  background:
-    radial-gradient(120% 90% at 85% 10%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 45%),
-    radial-gradient(100% 80% at 10% 100%, rgba(13, 148, 136, 0.35) 0%, rgba(13, 148, 136, 0) 55%),
-    linear-gradient(160deg, #14b8a6 0%, #2dd4bf 100%);
-  color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 48px;
-  position: relative;
-  overflow: hidden;
-}
-
-.rent-login-left::before {
-  content: '';
-  position: absolute;
-  top: -120px;
-  right: -120px;
-  width: 360px;
-  height: 360px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.rent-login-left::after {
-  content: '';
-  position: absolute;
-  bottom: -80px;
-  left: -80px;
-  width: 240px;
-  height: 240px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.rent-login-left__content {
-  position: relative;
-  z-index: 1;
-}
-
-.rent-login-brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 48px;
-}
-
-.rent-login-brand__img {
-  width: 200px;
-  height: auto;
-  object-fit: contain;
-  border-radius: 12px;
-  background: #fff;
-  padding: 10px;
-}
-
-.rent-login-tagline {
-  font-family: var(--rent-font-sans);
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1.35;
-  color: #ffffff;
-  margin-bottom: 12px;
-  letter-spacing: -0.01em;
-}
-
-.rent-login-subtagline {
-  font-family: var(--rent-font-sans);
-  font-size: 15px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, var(--rent-text-on-brand));
-  margin-bottom: var(--rent-s-6);
-}
-
-.rent-login-features {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.rent-login-feature {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-.rent-login-feature__check {
-  width: 24px;
-  height: 24px;
-  border-radius: var(--rent-radius-full);
-  background: rgba(255, 255, 255, 0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.rent-login-feature__text {
-  font-family: var(--rent-font-sans);
-  font-size: 15px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.92);
-  font-weight: 500;
-}
-
-.rent-login-feature__text small {
-  display: block;
-  font-size: 13px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.8);
-  margin-top: 2px;
-}
-
 /* ---- Right panel (60%) ---- */
 .rent-login-right {
   flex: 1;
@@ -156,6 +36,14 @@
 
 .rent-login-card__header {
   margin-bottom: 32px;
+}
+
+.rent-login-brand {
+  display: block;
+  width: 120px;
+  height: auto;
+  margin: 0 auto 20px;
+  object-fit: contain;
 }
 
 .rent-login-card__title {
@@ -308,43 +196,12 @@
     flex-direction: column;
   }
 
-  .rent-login-left {
-    flex: 0 0 auto;
-    padding: 40px 32px;
-    text-align: center;
-  }
-
-  .rent-login-brand {
-    justify-content: center;
-  }
-
-  .rent-login-features {
-    display: none;
-  }
-
-  .rent-login-tagline {
-    font-size: 20px;
-    margin-bottom: 8px;
-  }
-
-  .rent-login-subtagline {
-    margin-bottom: 0;
-  }
-
   .rent-login-right {
     padding: 40px 24px;
   }
 }
 
 @media (max-width: 520px) {
-  .rent-login-left {
-    padding: 32px 24px;
-  }
-
-  .rent-login-tagline {
-    font-size: 18px;
-  }
-
   .rent-login-card__title {
     font-size: 24px;
   }
