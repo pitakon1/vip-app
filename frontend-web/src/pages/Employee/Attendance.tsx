@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { message, Spin, Empty } from 'antd'
+import { message, Spin, Empty, Alert, Button } from 'antd'
 import dayjs from 'dayjs'
 import { attendanceApi, geoApi } from '@/services/api'
 import { downloadReport } from '@/lib/download'
@@ -91,6 +91,7 @@ const buildCalendar = (month: dayjs.Dayjs, records: AttendanceRecord[]): Calenda
 
 const Attendance = () => {
   const [loading, setLoading] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [checkInTime, setCheckInTime] = useState<string | null>(null)
   const [checkOutTime, setCheckOutTime] = useState<string | null>(null)
@@ -109,8 +110,14 @@ const Attendance = () => {
     setLoading(true)
     attendanceApi
       .me()
-      .then((res) => setRecords((res.data ?? []).map(toRecord)))
-      .catch(() => message.error('获取考勤记录失败，请稍后重试'))
+      .then((res) => {
+        setRecords((res.data ?? []).map(toRecord))
+        setLoadFailed(false)
+      })
+      .catch(() => {
+        setLoadFailed(true)
+        message.error('获取考勤记录失败，请稍后重试')
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -314,6 +321,16 @@ const Attendance = () => {
           </button>
         </div>
       </div>
+
+      {loadFailed && !loading && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="获取考勤记录失败"
+          action={<Button size="small" onClick={() => loadRecords()}>重试</Button>}
+        />
+      )}
 
       {/* Clock-in Card */}
       <div className="rent-card rent-clock-card rent-mb-5">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Spin, Empty } from 'antd'
+import { message, Spin, Empty, Alert, Button } from 'antd'
 import { employeesApi } from '@/services/api'
 import { downloadReport } from '@/lib/download'
 import './contacts.css'
@@ -77,6 +77,7 @@ const IconLine = ({ size = 16 }: { size?: number }) => (
 
 const Contacts = () => {
   const [loading, setLoading] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [data, setData] = useState<EmployeeContact[]>([])
   const [departments, setDepartments] = useState<string[]>([])
   const [keyword, setKeyword] = useState('')
@@ -90,10 +91,12 @@ const Contacts = () => {
       const payload = res.data ?? {}
       setData(payload.items ?? [])
       setDepartments(payload.departments ?? [])
+      setLoadFailed(false)
     } catch {
       // 取不到真实通讯录时给出明确失败态，不用示例数据冒充
       setData([])
       setDepartments([])
+      setLoadFailed(true)
       message.error('获取员工通讯录失败，请稍后重试')
     } finally {
       setLoading(false)
@@ -214,6 +217,16 @@ const Contacts = () => {
           </button>
         </div>
       </div>
+
+      {loadFailed && !loading && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="获取员工通讯录失败"
+          action={<Button size="small" onClick={() => fetchData()}>重试</Button>}
+        />
+      )}
 
       {/* Filter Bar */}
       <div className="rent-card rent-mb-5">

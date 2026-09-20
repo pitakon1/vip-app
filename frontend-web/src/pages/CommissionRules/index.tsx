@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { message } from 'antd'
+import { message, Alert, Button } from 'antd'
 import { commissionRulesApi, employeesApi } from '@/services/api'
 import api from '@/lib/api'
 import useAuthStore from '@/stores/auth'
@@ -157,12 +157,23 @@ const CommissionRules = () => {
   ]
   const [items, setItems] = useState<CommissionRule[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [brokers, setBrokers] = useState<Broker[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
+  const [page, setPage] = useState(1)
+  // 前端本地分页（规则量小，保持现有接口不变）
+  const pageSize = 10
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
+  const pagedItems = items.slice((page - 1) * pageSize, page * pageSize)
+
+  // 删除/禁用后当前页可能超出范围，自动回退到可用的最后一页
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount)
+  }, [page, pageCount])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -170,7 +181,9 @@ const CommissionRules = () => {
       const res = await commissionRulesApi.list()
       const payload = res.data?.data ?? res.data
       setItems(payload?.items ?? payload ?? [])
+      setLoadFailed(false)
     } catch (err: any) {
+      setLoadFailed(true)
       message.error(err?.response?.data?.message || t('commissionRules.fetchFailed'))
     } finally {
       setLoading(false)
@@ -343,6 +356,16 @@ const CommissionRules = () => {
         </div>
       </div>
 
+      {loadFailed && !loading && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={t('commissionRules.fetchFailed')}
+          action={<Button size="small" onClick={() => fetchData()}>{t('common.retry')}</Button>}
+        />
+      )}
+
       {loading ? (
         <div className="rent-empty"><div className="rent-text-muted">{t('common.loading')}</div></div>
       ) : (
@@ -369,7 +392,7 @@ const CommissionRules = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((r) => {
+                    {pagedItems.map((r) => {
                       const scopeDetail =
                         r.scope === 'by_department'
                           ? r.department || '—'
@@ -427,6 +450,14 @@ const CommissionRules = () => {
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {items.length > 0 && (
+              <div className="rent-pagination" style={{ marginTop: 14, padding: '0 22px 16px' }}>
+                <span className="rent-pagination__info">共 {items.length} 条 · 每页 {pageSize} 条</span>
+                <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>上一页</button>
+                <span className="rent-pagination__info">{page} / {pageCount}</span>
+                <button className="rent-pagination__btn" onClick={() => setPage(Math.min(pageCount, page + 1))} disabled={page >= pageCount}>下一页</button>
               </div>
             )}
           </div>

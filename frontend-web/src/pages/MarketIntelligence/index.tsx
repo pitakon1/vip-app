@@ -102,21 +102,28 @@ const IndicesTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
   const [items, setItems] = useState<Index[]>([])
   const [loading, setLoading] = useState(false)
   const [marketCode, setMarketCode] = useState('')
+  const [debouncedMarketCode, setDebouncedMarketCode] = useState('')
   const [indexType, setIndexType] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ market_code: '', index_type: 'sale', period: '', value: '', delta_pct: '', sample_count: '0', avg_price_sqm: '', avg_rent: '', currency: 'THB' })
 
+  // 市场代码输入 300ms 防抖，仅在停顿后触发后端查询
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedMarketCode(marketCode), 300)
+    return () => clearTimeout(t)
+  }, [marketCode])
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await marketDataApi.indices({ market_code: marketCode || undefined, index_type: indexType || undefined })
+      const res = await marketDataApi.indices({ market_code: debouncedMarketCode || undefined, index_type: indexType || undefined })
       setItems(res.data ?? [])
     } catch (e: any) {
       message.error(e?.response?.data?.message || '获取市场指数失败')
     } finally {
       setLoading(false)
     }
-  }, [marketCode, indexType])
+  }, [debouncedMarketCode, indexType])
 
   useEffect(() => { fetchData() }, [fetchData])
 
