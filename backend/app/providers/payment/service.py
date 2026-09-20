@@ -282,6 +282,16 @@ class PaymentService:
 
         refund_amount = amount if amount is not None else payment.amount
 
+        # 校验退款金额：必须为正，且不能超过已收金额
+        if refund_amount <= 0 or refund_amount > payment.amount:
+            return {
+                "ok": False,
+                "error": (
+                    f"Invalid refund amount {refund_amount}; "
+                    f"must be > 0 and <= {payment.amount}"
+                ),
+            }
+
         if payment.channel and payment.channel_transaction_id:
             try:
                 provider = payment_router.get_provider(PaymentChannel(payment.channel))
@@ -301,7 +311,11 @@ class PaymentService:
                         "error": result.error_message or "refund failed at channel",
                     }
 
-        payment.status = PaymentStatus.refunded
+        # 部分退款：保留 succeeded，仅登记退款原因记录，不清空剩余应缴；
+        # 仅当全额退款时置为 refunded。
+        is_full_refund = refund_amount >= payment.amount
+        if is_full_refund:
+            payment.status = PaymentStatus.refunded
         payment.failure_reason = reason or None
         session.add(payment)
         session.commit()
@@ -320,7 +334,11 @@ class PaymentService:
             },
         )
         logger.info("payment.refunded", payment_id=str(payment.id), amount=refund_amount)
-        return {"ok": True, "payment_id": str(payment.id), "status": PaymentStatus.refunded.value}
+        return {
+            "ok": True,
+            "payment_id": str(payment.id),
+            "status": payment.status.value,
+        }
 
     def handle_webhook(
         self,

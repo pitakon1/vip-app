@@ -159,13 +159,13 @@ def create_deal(
         agent_user_id=user.id,
         notes=req.notes,
     )
+    # 成交创建与挂牌状态联动在同一个事务内一次提交，避免后段失败产生
+    # 「成交已建、挂牌未联动」的不一致。
     session.add(deal)
-    session.commit()
-    session.refresh(deal)
-    # 挂牌状态联动
     listing.status = "contracted"
     session.add(listing)
     session.commit()
+    session.refresh(deal)
     return _deal_dict(deal)
 
 

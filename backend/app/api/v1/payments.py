@@ -26,6 +26,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Reques
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -436,7 +437,17 @@ def create_payment(
 
     payment = Payment(**data, status=PaymentStatus.pending)
     session.add(payment)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # 并发下同一幂等键触发唯一约束冲突：回滚后重查并返回已存在的支付单（幂等）。
+        session.rollback()
+        existing = session.exec(
+            select(Payment).where(Payment.idempotency_key == data["idempotency_key"])
+        ).first()
+        if existing:
+            return existing
+        raise
     session.refresh(payment)
     return payment
 
@@ -825,6 +836,23 @@ def confirm_payment(
     payment.reconciled_by = user.id
     payment.reconciliation_status = "reconciled"
     payment.reconciliation_note = req.note or "管理端确认到账"
+    # 与 webhook 成功路径对齐：回发到账事件并通知租客/员工
+    channel = payment.channel or "bank_transfer"
+    payment_service._notify_succeeded(
+        session, payment, payment.amount, payment.currency or "THB", channel
+    )
+    publish_event(
+        session,
+        "payment.received",
+        "payment",
+        payment.id,
+        {
+            "payment_id": str(payment.id),
+            "amount": float(payment.amount),
+            "currency": payment.currency,
+            "channel": channel,
+        },
+    )
     session.add(payment)
     session.commit()
     session.refresh(payment)

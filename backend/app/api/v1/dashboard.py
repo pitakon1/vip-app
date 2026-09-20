@@ -129,10 +129,18 @@ def get_summary(
         )
     ).one()
 
-    # 月度收入（已成功的付款）
+    # 月度收入（当月已成功的付款），与字段语义一致，仅统计本月
+    _this_month = datetime.utcnow()
+    _month_start = datetime(_this_month.year, _this_month.month, 1)
+    if _month_start.month == 12:
+        _next_month_start = datetime(_month_start.year + 1, 1, 1)
+    else:
+        _next_month_start = datetime(_month_start.year, _month_start.month + 1, 1)
     monthly_revenue = session.exec(
         select(func.coalesce(func.sum(Payment.amount), 0)).where(
             Payment.status == PaymentStatus.succeeded,
+            Payment.paid_at >= _month_start,
+            Payment.paid_at < _next_month_start,
             Payment.deleted_at.is_(None),
         )
     ).one()
