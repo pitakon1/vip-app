@@ -142,11 +142,11 @@ const Leases = () => {
     return counts
   }, [displayData])
 
-  // 顶部统计卡片数值（API返回空时使用设计稿演示数据）
-  const statTotal = total || 186
-  const statActive = data.length > 0 ? statusCounts.active : 152
-  const statExpiring = data.length > 0 ? statusCounts.expiring : 18
-  const statTerminated = data.length > 0 ? statusCounts.terminated : 16
+  // 顶部统计卡片数值（按真实数据口径展示）
+  const statTotal = total
+  const statActive = statusCounts.active
+  const statExpiring = statusCounts.expiring
+  const statTerminated = statusCounts.terminated
 
   // 分页页码（对齐原型 rent-pagination 结构）
   const totalPages = Math.max(1, Math.ceil(total / queryParams.pageSize))

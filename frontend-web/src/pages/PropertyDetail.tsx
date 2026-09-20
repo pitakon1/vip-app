@@ -230,11 +230,11 @@ const PropertyDetail = () => {
   const leaseStatusText = currentLease ? '生效中' : '无生效租约'
   const leaseStatusMapTxt = (st?: string) => (st ? leaseStatusMap[st] || st : '—')
 
-  // 规格数据（设计稿：面积 / 卧室 / 卫浴 / 车位）
-  const specArea = `${Number(detail.size_sqm || 1200).toLocaleString()} sqft`
-  const specBedrooms = `${detail.bedrooms ?? 3} 间`
-  const specBathrooms = `${detail.bathrooms ?? 2} 间`
-  const specParking = '2 个'
+  // 规格数据（缺字段时显示 '—' 占位，面积按平方米展示）
+  const specArea = detail.size_sqm != null ? `${Number(detail.size_sqm).toLocaleString()} ㎡` : '—'
+  const specBedrooms = detail.bedrooms != null ? `${detail.bedrooms} 间` : '—'
+  const specBathrooms = detail.bathrooms != null ? `${detail.bathrooms} 间` : '—'
+  const specParking = detail.parking != null ? `${detail.parking} 个` : '—'
 
   return (
     <div className="rent-main">

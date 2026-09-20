@@ -99,6 +99,7 @@ const Contracts = () => {
         message.success('已追加签署方')
         handleOpen(detail.contract!.id)
       })
+      .catch(() => message.error('追加签署方失败'))
   }
 
   const handleSign = (partyId: string) => {

@@ -188,7 +188,9 @@ const TenantDashboard = () => {
   }, [allItems])
 
   const featuredItems = useMemo(() => {
-    return rentItems.slice(0, 6)
+    return [...rentItems]
+      .sort((a, b) => Number(b.monthly_rent || 0) - Number(a.monthly_rent || 0))
+      .slice(0, 6)
   }, [rentItems])
 
   const newItems = useMemo(() => {

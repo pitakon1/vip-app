@@ -450,7 +450,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     return list
   }, [allItems, saleListings, keyword, activeLocationKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz])
 
-  useEffect(() => { setPage(1) }, [keyword, districtSel, metroSel, activeLocationKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz])
+  useEffect(() => { setPage(1) }, [keyword, districtSel, metroSel, activeLocationKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz, videoOnly, debouncedKw])
 
   const total = filteredItems.length
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
