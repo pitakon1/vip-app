@@ -10,6 +10,7 @@ import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import GoogleMapView, { type MapMarker } from '@/components/GoogleMap'
 import type { Property } from '@/types'
@@ -106,8 +107,6 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   }, [searchParams, setSearchParams])
 
   // 数据
-  const [allItems, setAllItems] = useState<Property[]>([])
-  const [loading, setLoading] = useState(false)
   // 买房业务栏数据源：真实在售挂牌（/sale-listings 需登录，未登录为空）
   const [saleListings, setSaleListings] = useState<any[]>([])
 
@@ -296,22 +295,25 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     return params
   }, [debouncedKw, activeLocationKw, statusSel, sort, videoOnly, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, roomType])
 
-  // 数据获取（公开接口，不需要 auth）
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await api.get('/properties', { params: { ...queryParams } })
-      const payload = res.data?.data ?? res.data
-      const items = payload?.items ?? []
-      setAllItems(Array.isArray(items) ? items : [])
-    } catch {
-      setAllItems([])
-    } finally {
-      setLoading(false)
-    }
-  }, [queryParams])
-
-  useEffect(() => { fetchData() }, [fetchData])
+  // 数据获取（公开接口，不需要 auth）：queryKey 含当前筛选参数，缓存优先渲染 + 后台刷新；
+  // 分页为前端切片，首屏/翻页均来自同一份全量缓存数据。
+  const listQueryKey = useMemo(() => ['public-listings', JSON.stringify(queryParams)], [queryParams])
+  const listQ = useCachedQuery<Property[]>({
+    queryKey: listQueryKey,
+    cacheKey: `public-listings:${JSON.stringify(queryParams)}`,
+    queryFn: async () => {
+      try {
+        const res = await api.get('/properties', { params: { ...queryParams } })
+        const payload = res.data?.data ?? res.data
+        const items = payload?.items ?? []
+        return Array.isArray(items) ? items : []
+      } catch {
+        return []
+      }
+    },
+  })
+  const allItems = listQ.data ?? []
+  const loading = listQ.isPending && !listQ.data
 
   // 在售挂牌（买房业务栏）：仅登录后拉取，失败按空态处理
   useEffect(() => {

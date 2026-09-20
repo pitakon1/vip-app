@@ -1,9 +1,9 @@
-import { useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { request, currentToken, documentFileUrl } from '@/lib/api'
 import { leasesApi, paymentsApi, documentsApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
@@ -171,38 +171,35 @@ export default function OwnerPropertyDetailPage() {
   const propertyId = router.params?.id || ''
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
 
-  const [property, setProperty] = useState<OwnerProperty | null>(null)
-  const [leases, setLeases] = useState<OwnerLease[]>([])
-  const [payments, setPayments] = useState<OwnerPayment[]>([])
-  const [documents, setDocuments] = useState<OwnerDocument[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
+  interface DetailPayload {
+    property: OwnerProperty
+    leases: OwnerLease[]
+    payments: OwnerPayment[]
+    documents: OwnerDocument[]
+  }
 
-  const fetchAll = async () => {
-    if (!propertyId) {
-      setError(true)
-      return
-    }
-    setLoading(true)
-    setError(false)
-    try {
+  const { data: detail, loading, error, refresh } = useSwrCache<DetailPayload>({
+    key: `owner:prop-detail:${propertyId}`,
+    fetcher: async (): Promise<DetailPayload> => {
+      if (!propertyId) throw new Error('missing property id')
       const [propRes, leaseRes, payRes, docRes] = await Promise.all([
         request<any>({ url: `/properties/${propertyId}`, method: 'GET' }),
         leasesApi.list({ property_id: propertyId }).catch(() => null),
         paymentsApi.mine().catch(() => null),
         documentsApi.list({ property_id: propertyId }).catch(() => null)
       ])
-      setProperty(toBody(propRes) as OwnerProperty)
-      setLeases(pickList(leaseRes) as OwnerLease[])
-      setPayments(pickList(payRes) as OwnerPayment[])
-      setDocuments(pickList(docRes) as OwnerDocument[])
-    } catch (e) {
-      console.error('[OwnerPropertyDetail] 加载失败', e)
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }
+      return {
+        property: toBody(propRes) as OwnerProperty,
+        leases: pickList(leaseRes) as OwnerLease[],
+        payments: pickList(payRes) as OwnerPayment[],
+        documents: pickList(docRes) as OwnerDocument[]
+      }
+    },
+  })
+  const property = detail?.property ?? null
+  const leases = detail?.leases ?? []
+  const payments = detail?.payments ?? []
+  const documents = detail?.documents ?? []
 
   useDidShow(() => {
     loadFromStorage()
@@ -210,7 +207,7 @@ export default function OwnerPropertyDetailPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchAll()
+    refresh()
   })
 
   // 当前租约：优先取生效中的，否则取最近一条
@@ -317,7 +314,7 @@ export default function OwnerPropertyDetailPage() {
         {!loading && error && !property && (
           <View className='empty-state'>
             <Text>房源加载失败，请稍后重试</Text>
-            <View className='retry-btn' onClick={fetchAll} hoverClass='retry-btn--hover'>
+            <View className='retry-btn' onClick={() => refresh(true)} hoverClass='retry-btn--hover'>
               <Text>重新加载</Text>
             </View>
           </View>

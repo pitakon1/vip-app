@@ -3,6 +3,7 @@ import { View, Text, Input, Textarea } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { serviceOrdersApi, maintenanceApi, ownerApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
@@ -152,10 +153,6 @@ export default function OwnerServicesPage() {
   const user = useAuthStore((state) => state.user)
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [tab, setTab] = useState<'services' | 'repairs'>('services')
-  const [orders, setOrders] = useState<ServiceOrder[]>([])
-  const [tickets, setTickets] = useState<RepairTicket[]>([])
-  const [properties, setProperties] = useState<OwnerProp[]>([])
-  const [loading, setLoading] = useState(false)
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
 
   // 提交报修弹窗
@@ -172,23 +169,31 @@ export default function OwnerServicesPage() {
   const [buyType, setBuyType] = useState<string | null>(null)
   const [buying, setBuying] = useState(false)
 
-  const fetchAll = async () => {
-    setLoading(true)
-    try {
+  interface ServicesPayload {
+    orders: ServiceOrder[]
+    tickets: RepairTicket[]
+    properties: OwnerProp[]
+  }
+
+  const uid = user?.id ?? 'anon'
+  const { data, loading, refresh } = useSwrCache<ServicesPayload>({
+    key: `owner:services:${uid}`,
+    fetcher: async (): Promise<ServicesPayload> => {
       const [orderRes, ticketRes, propRes]: [any, any, any] = await Promise.all([
         serviceOrdersApi.list({ page: 1, limit: 100 }),
         maintenanceApi.list({ page: 1, limit: 100 }),
         ownerApi.properties().catch(() => null)
       ])
-      setOrders(pickList(orderRes) as ServiceOrder[])
-      setTickets(pickList(ticketRes) as RepairTicket[])
-      setProperties(pickList(propRes) as OwnerProp[])
-    } catch (e) {
-      console.error('[OwnerServices] 获取工单失败', e)
-    } finally {
-      setLoading(false)
-    }
-  }
+      return {
+        orders: pickList(orderRes) as ServiceOrder[],
+        tickets: pickList(ticketRes) as RepairTicket[],
+        properties: pickList(propRes) as OwnerProp[]
+      }
+    },
+  })
+  const orders = data?.orders ?? []
+  const tickets = data?.tickets ?? []
+  const properties = data?.properties ?? []
 
   useDidShow(() => {
     loadFromStorage()
@@ -196,7 +201,7 @@ export default function OwnerServicesPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchAll()
+    refresh()
   })
 
   const propertyName = (id?: string) => {
@@ -272,7 +277,7 @@ export default function OwnerServicesPage() {
         content: '报修工单已提交，工作人员将尽快处理',
         showCancel: false
       })
-      fetchAll()
+      refresh(true)
     } catch (err: any) {
       console.error('[OwnerServices] 提交报修失败', err)
       Taro.hideLoading()
@@ -313,7 +318,7 @@ export default function OwnerServicesPage() {
         content: '服务订单已创建，工作人员将尽快联系您',
         showCancel: false
       })
-      fetchAll()
+      refresh(true)
     } catch (err: any) {
       console.error('[OwnerServices] 购买服务失败', err)
       Taro.hideLoading()

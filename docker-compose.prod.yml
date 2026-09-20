@@ -53,20 +53,21 @@ services:
       start_period: 30s
     logging: *default-logging
 
-  # ---------- Redis 7 ----------
+  # ---------- Valkey 8（开源 KV：Redis 7.4+ 已改为 RSALv2/SSPL 非 OSI 开源，
+  # 故使用 Linux 基金会 BSD-3 的 Valkey —— Redis 7.2 官方分叉，协议/API 完全兼容） ----------
   redis:
-    image: redis:7
+    image: valkey/valkey:8-alpine
     container_name: rental_redis
     restart: always
     # 开启 AOF，重启不丢限流/队列相关数据
-    command: redis-server --appendonly yes
+    command: valkey-server --appendonly yes
     # 生产不对外暴露端口
     # ports:
     #   - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

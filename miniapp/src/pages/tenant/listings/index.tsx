@@ -154,6 +154,7 @@ export default function TenantListingsPage() {
   const { list: listings, loading, loadingMore, hasMore, error: listError, fetch: fetchListings, fetchMore } =
     usePaginatedList<Listing>({
       pageSize: PAGE_SIZE,
+      cacheKey: 'tenant-listings',
       fetcher: async (p, ps, params) => {
         const res: any = await propertiesApi.list({
           page: p,
@@ -869,7 +870,7 @@ export default function TenantListingsPage() {
               <View key={item.id} className='house-card' onClick={() => openDetail(item)}>
                 <View className='house-thumb'>
                   {photo ? (
-                    <Image className='house-img' src={photo} mode='aspectFill' />
+                    <Image className='house-img' src={photo} mode='aspectFill' lazyLoad />
                   ) : (
                     <View className='house-thumb-ph'>
                       <Text>房源</Text>

@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { leasesApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import './index.scss'
 
@@ -38,23 +38,17 @@ const leaseRemainDays = (l: any) => {
 
 export default function TenantLeasesPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [leases, setLeases] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
 
-  const fetchLeases = async () => {
-    setLoading(true)
-    try {
+  const { data, loading, refresh } = useSwrCache<any[]>({
+    key: `tenant:leases:${uid}`,
+    fetcher: async () => {
       const res: any = await leasesApi.mine()
       const payload = res?.data ?? res
-      const list = Array.isArray(payload) ? payload : payload?.items ?? []
-      setLeases(list)
-    } catch (e) {
-      console.warn('[Leases] 获取租约失败', e)
-      setLeases([])
-    } finally {
-      setLoading(false)
-    }
-  }
+      return Array.isArray(payload) ? payload : payload?.items ?? []
+    },
+  })
+  const leases = data ?? []
 
   useDidShow(() => {
     Taro.setNavigationBarTitle({ title: '我的租约' })
@@ -63,7 +57,7 @@ export default function TenantLeasesPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchLeases()
+    void refresh()
   })
 
   return (

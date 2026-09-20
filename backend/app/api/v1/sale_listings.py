@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
+from app.core.cache import delete_cache_pattern, get_cache, set_cache
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     User,
@@ -118,6 +119,17 @@ def list_sale_listings(
     user: User = Depends(get_current_user),
 ):
     """分页查询挂牌（公开数据按需过滤，支持关键词搜索）。"""
+    keyword = (q or "").strip()
+    # 角色影响可见性（非管理员只看对外状态），key 必须带上 role，避免跨角色串缓存
+    cache_key = (
+        f"cache:sale-listings:list:{pagination.page}:{pagination.page_size}:"
+        f"{sale_type.value if sale_type else ''}:{status.value if status else ''}:"
+        f"{user.role.value}:{keyword}"
+    )
+    cached = get_cache(cache_key)
+    if cached is not None:
+        return cached
+
     query = select(SaleListing).where(SaleListing.deleted_at.is_(None))
     if sale_type:
         query = query.where(SaleListing.sale_type == sale_type)
@@ -129,7 +141,6 @@ def list_sale_listings(
             query = query.where(SaleListing.status.in_(
                 [ListingStatus.active, ListingStatus.pending]
             ))
-    keyword = (q or "").strip()
     if keyword:
         pattern = f"%{keyword}%"
         query = query.where(
@@ -143,6 +154,7 @@ def list_sale_listings(
     stmt = query.order_by(SaleListing.created_at.desc())
     page = paginate_query(session, stmt, pagination)
     page.items = [_serialize(i) for i in page.items]
+    set_cache(cache_key, page, ttl=60)
     return page
 
 
@@ -175,6 +187,7 @@ def create_sale_listing(
     session.add(listing)
     session.commit()
     session.refresh(listing)
+    delete_cache_pattern("cache:sale-listings:*")
     return _serialize(listing)
 
 
@@ -214,6 +227,7 @@ def update_sale_listing(
     session.add(listing)
     session.commit()
     session.refresh(listing)
+    delete_cache_pattern("cache:sale-listings:*")
     return _serialize(listing)
 
 
@@ -233,6 +247,7 @@ def change_listing_status(
     session.add(listing)
     session.commit()
     session.refresh(listing)
+    delete_cache_pattern("cache:sale-listings:*")
     return _serialize(listing)
 
 

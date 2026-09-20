@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
@@ -8,6 +8,7 @@ import { useI18n } from '@/i18n';
 import colors from '@/theme/colors';
 import { fmtMoney as fmtRent } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 
 type Route = RouteProp<RootStackParamList, 'MyOrderDetail'>;
 
@@ -32,26 +33,17 @@ export default function MyOrderDetailScreen() {
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const { params } = useRoute<Route>();
-  const [deal, setDeal] = useState<any>(null);
-  const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    propertyDealApi
-      .get(params.deal_id)
-      .then((res: any) => {
-        if (alive) setDeal(res?.data ?? null);
-      })
-      .catch(() => {
-        /* 加载失败保持空态 */
-      })
-      .finally(() => {
-        if (alive) setLoaded(true);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [params.deal_id]);
+  const q = useCachedQuery<any | null>({
+    queryKey: ['deal', 'detail', params.deal_id],
+    cacheKey: `deal:detail:${params.deal_id}`,
+    queryFn: async () => {
+      const res: any = await propertyDealApi.get(params.deal_id);
+      return res?.data ?? null;
+    },
+  });
+  const deal = q.data ?? null;
+  const loaded = q.isSuccess;
 
   if (loaded && !deal) {
     return (

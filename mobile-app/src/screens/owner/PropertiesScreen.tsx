@@ -5,7 +5,7 @@
  * 新增/编辑：RN Modal 表单（字段对齐管理端 PropertyEditScreen），编辑态支持照片上传/删除
  * 操作：编辑（弹窗）/ 委托挂牌（OwnerMarketing）/ 删除
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,9 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
 import { ownerApi } from '@/services/api';
+import { useAuthStore } from '@/stores/auth';
+import { useCachedQuery } from '@/lib/useCachedQuery';
+import { useQueryClient } from '@tanstack/react-query';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 
 const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
@@ -250,9 +253,10 @@ const notify = (title?: string, message?: string) => {
 
 export default function PropertiesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [properties, setProperties] = useState<OwnerProperty[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const uid = user?.id ?? 'anon';
+  const PROPERTIES_KEY: string[] = ['owner-properties', uid];
 
   // 搜索与筛选
   const [keyword, setKeyword] = useState('');
@@ -277,28 +281,23 @@ export default function PropertiesScreen() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [form, setForm] = useState<PropertyForm>(emptyForm);
 
-  const load = useCallback(async () => {
-    try {
+  const q = useCachedQuery<OwnerProperty[]>({
+    queryKey: PROPERTIES_KEY,
+    cacheKey: `owner-properties:${uid}`,
+    queryFn: async () => {
       const res = await ownerApi.properties();
       const data: any = res.data;
       const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-      setProperties(Array.isArray(items) ? (items as OwnerProperty[]) : []);
-    } catch {
-      setProperties([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+      return Array.isArray(items) ? (items as OwnerProperty[]) : [];
+    },
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
+  const properties = q.data ?? [];
+  const loading = q.isPending && !q.data;
+  const refreshing = q.isRefetching;
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    load();
-  }, [load]);
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
 
   // 客户端过滤 + 排序（数据源为全量）
   const filtered = useMemo(() => {
@@ -484,13 +483,13 @@ export default function PropertiesScreen() {
         notify('新增成功');
       }
       closeForm();
-      load();
+      void q.refetch({ cancelRefetch: false });
     } catch (err: any) {
       notify(editingId ? '保存失败' : '新增失败', err?.response?.data?.detail || '请稍后重试');
     } finally {
       setSubmitting(false);
     }
-  }, [form, editingId, load]);
+  }, [form, editingId, q]);
 
   // ===== 照片（仅编辑态）=====
   const pickAndUpload = async () => {
@@ -553,7 +552,9 @@ export default function PropertiesScreen() {
     const doDelete = async () => {
       try {
         await ownerApi.remove(item.id);
-        setProperties((prev) => prev.filter((p) => p.id !== item.id));
+        queryClient.setQueryData<OwnerProperty[]>(PROPERTIES_KEY, (prev) =>
+          (prev ?? []).filter((p) => p.id !== item.id),
+        );
         notify('删除成功', '房源已删除');
       } catch (err: any) {
         notify('删除失败', err?.response?.data?.detail || '请稍后重试');

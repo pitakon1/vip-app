@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
@@ -168,3 +168,35 @@ def get_favorite_status(
         )
     ).first()
     return {"ok": True, "property_id": str(property_id), "favorited": bool(fav)}
+
+
+@router.get("/status")
+def get_favorites_batch_status(
+    property_ids: str = Query(
+        ..., description="逗号分隔的房源 ID 列表（最多 100 个）"
+    ),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """批量查询收藏状态（供列表页一次渲染，替代逐条 N+1 请求）。"""
+    try:
+        ids = [uuid.UUID(pid.strip()) for pid in property_ids.split(",") if pid.strip()]
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid property_ids")
+    ids = ids[:100]
+    if not ids:
+        return {"items": []}
+    favs = session.exec(
+        select(Favorite).where(
+            Favorite.user_id == user.id,
+            Favorite.property_id.in_(ids),
+            Favorite.deleted_at.is_(None),
+        )
+    ).all()
+    fav_set = {str(f.property_id) for f in favs}
+    return {
+        "items": [
+            {"property_id": str(pid), "favorited": str(pid) in fav_set}
+            for pid in ids
+        ]
+    }

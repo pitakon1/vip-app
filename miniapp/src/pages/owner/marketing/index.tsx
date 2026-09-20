@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi, saleListingApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import './index.scss'
 import { iconStyle } from '@/utils/icons'
@@ -113,30 +114,27 @@ const stepMeta = (p: VacantItem) => {
 }
 
 export default function OwnerMarketingPage() {
-  const [loading, setLoading] = useState(false)
-  const [vacants, setVacants] = useState<VacantItem[]>([])
-  const [totalVacant, setTotalVacant] = useState(0)
-  const [totalProperties, setTotalProperties] = useState(0)
-  const [pricing, setPricing] = useState<PricingItem[]>([])
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const [year, setYear] = useState<number>(new Date().getFullYear())
-  const [annual, setAnnual] = useState<AnnualMonth[]>([])
-  const [annualTotals, setAnnualTotals] = useState({
-    received: 0,
-    pending: 0,
-    overdue: 0,
-    count: 0
-  })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // 委托类型：出租 / 出售（对齐原型 rent-tabs）
   const [activeTab, setActiveTab] = useState<'rent' | 'sale'>('rent')
-  // 我的售房挂牌与在线估价记录
-  const [saleListings, setSaleListings] = useState<SaleListingItem[]>([])
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null)
   const [valuations, setValuations] = useState<Valuation[]>([])
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true)
-    try {
+  interface MarketingPayload {
+    vacants: VacantItem[]
+    totalVacant: number
+    totalProperties: number
+    pricing: PricingItem[]
+    annual: AnnualMonth[]
+    annualTotals: { received: number; pending: number; overdue: number; count: number }
+    saleListings: SaleListingItem[]
+  }
+
+  const { data, loading, refresh } = useSwrCache<MarketingPayload>({
+    key: `owner:marketing:${uid}:${year}`,
+    fetcher: async (): Promise<MarketingPayload> => {
       const [mk, pr, ann, sl]: [any, any, any, any] = await Promise.all([
         ownerApi.marketing(),
         ownerApi.pricingSuggestion(),
@@ -144,34 +142,39 @@ export default function OwnerMarketingPage() {
         saleListingApi.list().catch(() => null)
       ])
       const mkD = mk?.data ?? mk
-      setVacants(pick(mkD, 'items'))
-      setTotalVacant(Number(mkD?.total_vacant ?? 0))
-      setTotalProperties(Number(mkD?.total_properties ?? 0))
-      setPricing(pick(pr?.data ?? pr, 'items'))
       const annD = ann?.data ?? ann
-      setAnnual(pick(annD, 'by_month'))
-      setAnnualTotals(annD?.totals ?? { received: 0, pending: 0, overdue: 0, count: 0 })
-      // 售房挂牌：按当前登录用户收窄（非管理员接口仅返回 active/pending）
       const slD = sl?.data ?? sl
-      setSaleListings(pick(slD, 'items'))
-    } catch (error) {
-      Taro.showToast({ title: '加载失败', icon: 'none' })
-    } finally {
-      setLoading(false)
-    }
-  }, [year])
+      return {
+        vacants: pick(mkD, 'items'),
+        totalVacant: Number(mkD?.total_vacant ?? 0),
+        totalProperties: Number(mkD?.total_properties ?? 0),
+        pricing: pick(pr?.data ?? pr, 'items'),
+        annual: pick(annD, 'by_month'),
+        annualTotals: annD?.totals ?? { received: 0, pending: 0, overdue: 0, count: 0 },
+        // 售房挂牌：按当前登录用户收窄（非管理员接口仅返回 active/pending）
+        saleListings: pick(slD, 'items')
+      }
+    },
+  })
+  const vacants = data?.vacants ?? []
+  const totalVacant = data?.totalVacant ?? 0
+  const totalProperties = data?.totalProperties ?? 0
+  const pricing = data?.pricing ?? []
+  const annual = data?.annual ?? []
+  const annualTotals = data?.annualTotals ?? { received: 0, pending: 0, overdue: 0, count: 0 }
+  const saleListings = data?.saleListings ?? []
 
   useDidShow(() => {
     if (!useAuthStore.getState().token) {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchAll()
+    void refresh()
   })
 
-  // 切换年份时重新拉取该年度的财务汇总数据
+  // 切换年份时重新拉取该年度的财务汇总数据（缓存按年份隔离，force 拉取）
   useEffect(() => {
-    fetchAll()
+    void refresh(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year])
 

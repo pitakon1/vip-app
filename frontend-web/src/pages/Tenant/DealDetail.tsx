@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
+import { useAuthStore } from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 
 /**
  * 交易订单详情（/tenant/deals/:id）
@@ -13,10 +14,9 @@ import { formatMoney } from '@/lib/money'
 const fmtDate = (v?: string) => (v ? dayjs(v).format('YYYY-MM-DD') : '—')
 
 const TenantDealDetail = () => {
-  const { id } = useParams()
+  const { id = '' } = useParams()
   const { t } = useTranslation()
-  const [deal, setDeal] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const uid = useAuthStore((s) => s.user)?.id ?? 'anon'
 
   const dealStatus = (status?: string) => {
     const map: Record<string, { text: string; cls: string }> = {
@@ -31,21 +31,20 @@ const TenantDealDetail = () => {
     return map[status || ''] || map.drafted
   }
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res: any = await api.get(`/property-deals/${id}`)
-      setDeal(res.data?.data ?? res.data ?? null)
-    } catch {
-      setDeal(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [id])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const q = useCachedQuery<any>({
+    queryKey: ['tenant-deal', uid, id],
+    cacheKey: `tenant-deal:${uid}:${id}`,
+    queryFn: async () => {
+      try {
+        const res: any = await api.get(`/property-deals/${id}`)
+        return res.data?.data ?? res.data ?? null
+      } catch {
+        return null
+      }
+    },
+  })
+  const deal = q.data ?? null
+  const loading = q.isPending && !q.data
 
   if (loading) {
     return <div className="rent-card"><div className="rent-empty">{t('common.loading')}</div></div>

@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { propertyDealApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import './detail.scss'
 
@@ -24,21 +24,13 @@ export default function TenantDealDetailPage() {
   const router = useRouter()
   const dealId = String(router.params?.deal_id ?? '')
 
-  const [deal, setDeal] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-
-  const fetchDeal = async () => {
-    setLoading(true)
-    try {
+  const { data: deal, loading, refresh } = useSwrCache<any>({
+    key: `tenant:deal-detail:${dealId}`,
+    fetcher: async () => {
       const res: any = await propertyDealApi.get(dealId)
-      setDeal(res?.data ?? res ?? null)
-    } catch (e) {
-      console.warn('[DealDetail] 获取订单详情失败', e)
-      setDeal(null)
-    } finally {
-      setLoading(false)
-    }
-  }
+      return res?.data ?? res ?? null
+    },
+  })
 
   useDidShow(() => {
     Taro.setNavigationBarTitle({ title: '订单详情' })
@@ -47,7 +39,7 @@ export default function TenantDealDetailPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchDeal()
+    void refresh()
   })
 
   if (!loading && !deal) {

@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { propertyDealApi, saleListingApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import './index.scss'
 
@@ -29,12 +29,11 @@ const pickList = (res: any): any[] => {
 
 export default function TenantDealsPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [deals, setDeals] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
 
-  const fetchDeals = async () => {
-    setLoading(true)
-    try {
+  const { data, loading, refresh } = useSwrCache<any[]>({
+    key: `tenant:deals:${uid}`,
+    fetcher: async () => {
       const [dRes, lRes]: [any, any] = await Promise.all([
         propertyDealApi.list({ page: 1, page_size: 50 }),
         saleListingApi.list({ page: 1, page_size: 50 }).catch(() => null)
@@ -43,19 +42,13 @@ export default function TenantDealsPage() {
       pickList(lRes).forEach((r) => {
         if (r?.id) titles[String(r.id)] = r.title ?? ''
       })
-      setDeals(
-        pickList(dRes).map((r) => ({
-          ...r,
-          listing_title: titles[String(r.sale_listing_id ?? '')] ?? ''
-        }))
-      )
-    } catch (e) {
-      console.warn('[Deals] 获取交易订单失败', e)
-      setDeals([])
-    } finally {
-      setLoading(false)
-    }
-  }
+      return pickList(dRes).map((r) => ({
+        ...r,
+        listing_title: titles[String(r.sale_listing_id ?? '')] ?? ''
+      }))
+    },
+  })
+  const deals = data ?? []
 
   useDidShow(() => {
     Taro.setNavigationBarTitle({ title: '我的交易订单' })
@@ -64,7 +57,7 @@ export default function TenantDealsPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchDeals()
+    void refresh()
   })
 
   return (

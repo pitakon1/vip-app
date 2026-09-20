@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import EmptyState from '@/components/EmptyState';
@@ -7,6 +7,8 @@ import { useI18n } from '@/i18n';
 import colors from '@/theme/colors';
 import { fmtMoney as fmtRent } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthStore } from '@/stores/auth';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
 
@@ -29,16 +31,16 @@ export default function MyOrdersScreen() {
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const [deals, setDeals] = useState<any[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const user = useAuthStore((s) => s.user);
 
-  useEffect(() => {
-    let alive = true;
-    Promise.allSettled([
-      propertyDealApi.list({ page: 1, page_size: 50 }),
-      saleListingApi.list({ page: 1, page_size: 50 }),
-    ]).then(([dRes, lRes]) => {
-      if (!alive) return;
+  const q = useCachedQuery<any[]>({
+    queryKey: ['deals', 'mine', user?.id ?? 'anon'],
+    cacheKey: `deals:mine:${user?.id ?? 'anon'}`,
+    queryFn: async () => {
+      const [dRes, lRes] = await Promise.allSettled([
+        propertyDealApi.list({ page: 1, page_size: 50 }),
+        saleListingApi.list({ page: 1, page_size: 50 }),
+      ]);
       const titles: Record<string, string> = {};
       if (lRes.status === 'fulfilled') {
         const d: any = lRes.value?.data;
@@ -50,21 +52,16 @@ export default function MyOrdersScreen() {
       if (dRes.status === 'fulfilled') {
         const d: any = dRes.value?.data;
         const rows = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
-        setDeals(
-          (rows as any[]).map((r) => ({
-            ...r,
-            listing_title: titles[String(r.sale_listing_id ?? '')],
-          })),
-        );
-      } else {
-        setDeals([]);
+        return (rows as any[]).map((r) => ({
+          ...r,
+          listing_title: titles[String(r.sale_listing_id ?? '')],
+        }));
       }
-      if (alive) setLoaded(true);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
+      return [];
+    },
+  });
+  const deals = q.data ?? [];
+  const loaded = q.isSuccess;
 
   if (loaded && deals.length === 0) {
     return (

@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
+import { useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 
 interface MaintenanceTicket {
   id: string
@@ -88,9 +91,10 @@ const TenantMaintenance = () => {
   // 报修位置可选房间（通用房间名，非示例数据；具体房源由真实租约数据拼接）
   const ROOM_OPTIONS = t('tenantMaintenance.roomOptions', { returnObjects: true }) as string[]
 
-  const [loading, setLoading] = useState(false)
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
+  const queryClient = useQueryClient()
   const [submitting, setSubmitting] = useState(false)
-  const [data, setData] = useState<MaintenanceTicket[]>([])
   const [filter, setFilter] = useState<FilterKey>('all')
 
   // 当前租客的真实房源（用于报修位置选项）
@@ -104,33 +108,31 @@ const TenantMaintenance = () => {
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [res, leasesRes] = await Promise.all([
-        api.get('/maintenance-tickets'),
-        api.get('/leases').catch(() => ({ data: { items: [] } })),
-      ])
-      const payload = res.data?.data ?? res.data
-      setData(payload?.items ?? [])
-
-      const lPayload = leasesRes.data?.data ?? leasesRes.data
-      const leases: any[] = lPayload?.items ?? []
-      const lease = leases.find((l) => l.status === 'active') || leases[0]
-      const prop = lease?.property
-      setPropertyLabel(
-        prop?.address || prop?.building || prop?.room_number || lease?.property_name || '',
-      )
-    } catch {
-      setData([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const q = useCachedQuery<MaintenanceTicket[]>({
+    queryKey: ['tenant-maintenance', 'mine', uid],
+    cacheKey: `tenant-maintenance:mine:${uid}`,
+    queryFn: async () => {
+      try {
+        const [res, leasesRes] = await Promise.all([
+          api.get('/maintenance-tickets'),
+          api.get('/leases').catch(() => ({ data: { items: [] } })),
+        ])
+        const payload = res.data?.data ?? res.data
+        const lPayload = leasesRes.data?.data ?? leasesRes.data
+        const leases: any[] = lPayload?.items ?? []
+        const lease = leases.find((l) => l.status === 'active') || leases[0]
+        const prop = lease?.property
+        if (prop?.address || prop?.building || prop?.room_number || lease?.property_name) {
+          setPropertyLabel(prop?.address || prop?.building || prop?.room_number || lease?.property_name)
+        }
+        return payload?.items ?? []
+      } catch {
+        return []
+      }
+    },
+  })
+  const data = q.data ?? []
+  const loading = q.isPending && !q.data
 
   const locationOptions = useMemo(
     () => ROOM_OPTIONS.map((room) => (propertyLabel ? `${propertyLabel} · ${room}` : room)),
@@ -211,7 +213,7 @@ const TenantMaintenance = () => {
           { time: dayjs().format('YYYY-MM-DD HH:mm:ss'), content: t('tenantMaintenance.progressTicket') },
         ],
       }
-      setData((prev) => [newTicket, ...prev])
+      queryClient.setQueryData<MaintenanceTicket[]>(['tenant-maintenance', 'mine', uid], (prev) => [newTicket, ...(prev ?? [])])
       resetForm()
     } catch (err: any) {
       message.error(err?.response?.data?.message || t('tenantMaintenance.submitFailed'))

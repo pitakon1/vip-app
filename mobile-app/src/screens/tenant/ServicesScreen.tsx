@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import api from '@/lib/api';
 import { leasesApi, serviceOrdersApi } from '@/services/api';
 import { fmtMoney as formatMoney, fmtDate } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 import LoadingState from '@/components/LoadingState';
 
 const formatDate = (x?: string) => fmtDate(x, 'minute');
@@ -82,66 +83,61 @@ const MODEL_UNIT_LABEL: Record<BuyModel, string> = {
   monthly: '月',
 };
 
+interface ServicesPayload {
+  catalog: CatalogItem[];
+  orders: ServiceOrderRow[];
+  activeLease: any;
+}
+
 export default function ServicesScreen() {
   const user = useAuthStore((state: any) => state.user);
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [orders, setOrders] = useState<ServiceOrderRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeLease, setActiveLease] = useState<any>(null);
-
-  // 购买 SKU 弹层
+  const uid = user?.id ?? 'anon';
   const [selected, setSelected] = useState<CatalogItem | null>(null);
   const [buyModel, setBuyModel] = useState<BuyModel>('per_use');
   const [buyQty, setBuyQty] = useState<number>(1);
   const [submitting, setSubmitting] = useState(false);
 
-  const load = useCallback(async () => {
-    const [cRes, oRes, lRes] = await Promise.allSettled([
-      api.get('/billing/pricing'),
-      serviceOrdersApi.list({ page: 1, page_size: 20 }),
-      leasesApi.mine(),
-    ]);
+  const q = useCachedQuery<ServicesPayload>({
+    queryKey: ['tenant-services', uid],
+    cacheKey: `tenant-services:${uid}`,
+    queryFn: async () => {
+      const [cRes, oRes, lRes] = await Promise.allSettled([
+        api.get('/billing/pricing'),
+        serviceOrdersApi.list({ page: 1, page_size: 20 }),
+        leasesApi.mine(),
+      ]);
 
-    if (cRes.status === 'fulfilled') {
-      const cat: any = (cRes.value as any)?.data?.service_catalog ?? {};
-      setCatalog(
-        Object.entries(cat).map(([code, v]: [string, any]) => ({ code, ...v })),
-      );
-    } else {
-      setCatalog([]);
-    }
+      let catalog: CatalogItem[] = [];
+      if (cRes.status === 'fulfilled') {
+        const cat: any = (cRes.value as any)?.data?.service_catalog ?? {};
+        catalog = Object.entries(cat).map(([code, v]: [string, any]) => ({ code, ...v }));
+      }
 
-    if (oRes.status === 'fulfilled') {
-      const d: any = (oRes.value as any)?.data;
-      const items = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
-      setOrders(items as ServiceOrderRow[]);
-    } else {
-      setOrders([]);
-    }
+      let orders: ServiceOrderRow[] = [];
+      if (oRes.status === 'fulfilled') {
+        const d: any = (oRes.value as any)?.data;
+        orders = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
+      }
 
-    if (lRes.status === 'fulfilled') {
-      const d: any = (lRes.value as any)?.data;
-      const list = Array.isArray(d) ? d : d?.items ?? [];
-      setActiveLease(
-        (list as any[]).find((l: any) => l?.status === 'active') ?? null,
-      );
-    } else {
-      setActiveLease(null);
-    }
+      let activeLease: any = null;
+      if (lRes.status === 'fulfilled') {
+        const d: any = (lRes.value as any)?.data;
+        const list = Array.isArray(d) ? d : d?.items ?? [];
+        activeLease = (list as any[]).find((l: any) => l?.status === 'active') ?? null;
+      }
 
-    setLoading(false);
-    setRefreshing(false);
-  }, []);
+      return { catalog, orders, activeLease };
+    },
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
+  const catalog = q.data?.catalog ?? [];
+  const orders = q.data?.orders ?? [];
+  const activeLease = q.data?.activeLease ?? null;
+  const loading = q.isPending && !q.data;
+  const refreshing = q.isRefetching;
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    load();
-  }, [load]);
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
 
   const openBuy = (item: CatalogItem) => {
     setSelected(item);
@@ -204,7 +200,7 @@ export default function ServicesScreen() {
         isUtility ? '公共事业代缴已提交，请留意缴费结果' : '服务订单已提交，工作人员将尽快与您联系',
       );
       setSelected(null);
-      load();
+      void q.refetch({ cancelRefetch: false });
     } catch (err: any) {
       Alert.alert(
         '购买失败',

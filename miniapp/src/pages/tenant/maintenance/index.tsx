@@ -3,6 +3,7 @@ import { View, Text, Input, Textarea, Button, ScrollView, Picker } from '@tarojs
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { maintenanceApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { iconStyle } from '@/utils/icons'
 import type { MaintenanceTicket, MaintenanceStatus, MaintenancePriority } from '@/types'
 import './index.scss'
@@ -51,8 +52,7 @@ function pickList(res: any): MaintenanceTicket[] {
 
 export default function TenantMaintenancePage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>([])
-  const [loading, setLoading] = useState(false)
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [title, setTitle] = useState('')
@@ -104,18 +104,13 @@ export default function TenantMaintenancePage() {
     }
   }
 
-  const fetchTickets = async () => {
-    setLoading(true)
-    try {
+  const { data: tickets, setData: setTickets, loading, refresh } = useSwrCache<MaintenanceTicket[]>({
+    key: `tenant:maintenance:${uid}`,
+    fetcher: async () => {
       const res = await maintenanceApi.list()
-      setTickets(pickList(res))
-    } catch (error) {
-      console.error('[Maintenance] 获取报修列表失败', error)
-      Taro.showToast({ title: '加载报修列表失败', icon: 'none' })
-    } finally {
-      setLoading(false)
-    }
-  }
+      return pickList(res)
+    },
+  })
 
   useDidShow(() => {
     loadFromStorage()
@@ -123,7 +118,7 @@ export default function TenantMaintenancePage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchTickets()
+    void refresh()
   })
 
   const resetForm = () => {

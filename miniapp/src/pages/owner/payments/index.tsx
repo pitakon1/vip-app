@@ -3,6 +3,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi, paymentsApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import './index.scss'
 import { iconStyle, type IconKey } from '@/utils/icons'
@@ -87,30 +88,31 @@ const statusOf = (p: Payment): { text: string; cls: string } => {
 
 export default function OwnerPaymentsPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [properties, setProperties] = useState<OwnerProp[]>([])
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const [activeFilter, setActiveFilter] = useState('all')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
   const [paying, setPaying] = useState<string | null>(null)
 
-  const fetch = async () => {
-    setLoading(true)
-    setError(false)
-    try {
+  interface PayPayload {
+    payments: Payment[]
+    properties: OwnerProp[]
+  }
+
+  const { data, loading, refresh } = useSwrCache<PayPayload>({
+    key: `owner:payments:${uid}`,
+    fetcher: async (): Promise<PayPayload> => {
       const [payRes, propRes]: [any, any] = await Promise.all([
         paymentsApi.mine(),
         ownerApi.properties().catch(() => null)
       ])
-      setPayments(pickList(payRes) as Payment[])
-      setProperties(pickList(propRes) as OwnerProp[])
-    } catch (e) {
-      console.error('[OwnerPayments] 获取付款失败', e)
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }
+      return {
+        payments: pickList(payRes) as Payment[],
+        properties: pickList(propRes) as OwnerProp[]
+      }
+    },
+  })
+  const payments = data?.payments ?? []
+  const properties = data?.properties ?? []
 
   useDidShow(() => {
     loadFromStorage()
@@ -118,7 +120,7 @@ export default function OwnerPaymentsPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetch()
+    void refresh()
   })
 
   const propertyName = (id?: string) => {
@@ -164,7 +166,7 @@ export default function OwnerPaymentsPage() {
                 : `${ch.label} 支付已发起，请按渠道提示完成付款。`,
             showCancel: false
           })
-          fetch()
+          void refresh(true)
         } catch (e) {
           console.error('[OwnerPayments] 发起支付失败', e)
           Taro.hideLoading()
@@ -223,7 +225,7 @@ export default function OwnerPaymentsPage() {
         {!loading && error && payments.length === 0 && (
           <View className='empty-tip'>
             <Text>加载失败，请重试</Text>
-            <View className='retry-btn' onClick={fetch} hoverClass='retry-btn--hover'>
+            <View className='retry-btn' onClick={() => void refresh(true)} hoverClass='retry-btn--hover'>
               <Text>重新加载</Text>
             </View>
           </View>

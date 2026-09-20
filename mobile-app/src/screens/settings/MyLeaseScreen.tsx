@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import EmptyState from '@/components/EmptyState';
@@ -7,6 +7,8 @@ import { useI18n } from '@/i18n';
 import colors from '@/theme/colors';
 import { fmtMoney as fmtRent } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthStore } from '@/stores/auth';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 
 const DAY_MS = 86400000;
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
@@ -38,28 +40,19 @@ export default function MyLeaseScreen() {
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const [leases, setLeases] = useState<any[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const user = useAuthStore((s) => s.user);
 
-  useEffect(() => {
-    let alive = true;
-    leasesApi
-      .mine()
-      .then((res: any) => {
-        const payload = res?.data;
-        const list = Array.isArray(payload) ? payload : payload?.items ?? [];
-        if (alive) setLeases(list);
-      })
-      .catch(() => {
-        /* 无租约不阻塞 */
-      })
-      .finally(() => {
-        if (alive) setLoaded(true);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
+  const q = useCachedQuery<any[]>({
+    queryKey: ['leases', 'mine', user?.id ?? 'anon'],
+    cacheKey: `leases:mine:${user?.id ?? 'anon'}`,
+    queryFn: async () => {
+      const res: any = await leasesApi.mine();
+      const payload = res?.data;
+      return Array.isArray(payload) ? payload : payload?.items ?? [];
+    },
+  });
+  const leases = q.data ?? [];
+  const loaded = q.isSuccess;
 
   if (loaded && leases.length === 0) {
     return (

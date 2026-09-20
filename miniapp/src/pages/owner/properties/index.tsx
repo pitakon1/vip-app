@@ -3,6 +3,7 @@ import { View, Text, Input, Textarea, ScrollView, Picker, Switch, Image } from '
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
@@ -211,8 +212,7 @@ const propStatus = (p: OwnerProp) => {
 
 export default function OwnerPropertiesPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [properties, setProperties] = useState<OwnerProp[]>([])
-  const [loading, setLoading] = useState(true)
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
 
   // 筛选（客户端过滤）
   const [keyword, setKeyword] = useState('')
@@ -233,17 +233,14 @@ export default function OwnerPropertiesPage() {
   const [form, setForm] = useState<EditForm>(emptyForm())
   const [submitting, setSubmitting] = useState(false)
 
-  const fetchAll = async () => {
-    setLoading(true)
-    try {
+  const { data, loading, refresh } = useSwrCache<OwnerProp[]>({
+    key: `owner:properties:${uid}`,
+    fetcher: async () => {
       const res = await ownerApi.properties()
-      setProperties(pickList(res) as OwnerProp[])
-    } catch {
-      setProperties([])
-    } finally {
-      setLoading(false)
-    }
-  }
+      return pickList(res) as OwnerProp[]
+    },
+  })
+  const properties = data ?? []
 
   useDidShow(() => {
     loadFromStorage()
@@ -251,7 +248,7 @@ export default function OwnerPropertiesPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchAll()
+    refresh()
   })
 
   const stats = {
@@ -335,7 +332,7 @@ export default function OwnerPropertiesPage() {
         try {
           await ownerApi.remove(String(p.id))
           Taro.showToast({ title: '房源已删除', icon: 'success' })
-          fetchAll()
+          refresh(true)
         } catch (err: any) {
           const detail = err?.data?.detail || err?.message
           Taro.showToast({ title: typeof detail === 'string' ? detail : '删除失败', icon: 'none' })
@@ -419,7 +416,7 @@ export default function OwnerPropertiesPage() {
       Taro.hideLoading()
       resetModal()
       Taro.showToast({ title: editingId ? '房源已更新' : '房源创建成功', icon: 'success' })
-      fetchAll()
+      refresh(true)
     } catch (err: any) {
       console.error('[OwnerProperties] 保存房源失败', err)
       Taro.hideLoading()

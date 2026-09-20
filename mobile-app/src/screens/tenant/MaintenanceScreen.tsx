@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,8 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { useI18n } from '@/i18n';
 import type { MaintenanceTicket } from '@/types';
+import { useAuthStore } from '@/stores/auth';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 
 const PRIORITY_OPTIONS: Array<{ label: string; value: MaintenanceTicket['priority'] }> = [
   { label: '低', value: 'low' },
@@ -81,12 +83,26 @@ export default function MaintenanceScreen() {
   const [descError, setDescError] = useState('');
 
   // 工单列表
-  const [tickets, setTickets] = useState<TicketRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const q = useCachedQuery<TicketRow[]>({
+    queryKey: ['maint', 'list', user?.id ?? 'anon'],
+    cacheKey: `maint:list:${user?.id ?? 'anon'}`,
+    queryFn: async () => {
+      const res: any = await maintenanceApi.list({ page: 1, page_size: 100 });
+      const d = res?.data;
+      return Array.isArray(d) ? d : Array.isArray(d?.items) ? d.items : [];
+    },
+  });
+  const tickets = q.data ?? [];
+  const loading = q.isPending && !q.data;
+  const loadError = q.isError && !q.data;
   const [statusTab, setStatusTab] = useState<StatusTabKey>('all');
   // 历史工单折叠（默认收起，保持「提交报修」表单优先可见）
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  const refreshTickets = useCallback(() => {
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
 
   // 详情弹窗
   const [selected, setSelected] = useState<TicketRow | null>(null);
@@ -110,24 +126,6 @@ export default function MaintenanceScreen() {
       bounciness: 0,
       useNativeDriver: Platform.OS !== 'web',
     }).start();
-
-  const loadTickets = useCallback(async () => {
-    try {
-      const res: any = await maintenanceApi.list({ page: 1, page_size: 100 });
-      const d = res?.data;
-      const items = Array.isArray(d) ? d : Array.isArray(d?.items) ? d.items : [];
-      setTickets(items as TicketRow[]);
-      setLoadError(false);
-    } catch {
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadTickets();
-  }, [loadTickets]);
 
   // 空态点「去报修」：滚动到底部的提交表单
   const scrollToForm = () => {
@@ -163,7 +161,7 @@ export default function MaintenanceScreen() {
       setPriority('medium');
       setTitleError('');
       setDescError('');
-      loadTickets();
+      refreshTickets();
     } catch (err: any) {
       notifyError(t('maint.submitFail'), err, () => handleSubmit());
     } finally {
@@ -187,7 +185,7 @@ export default function MaintenanceScreen() {
       await maintenanceApi.rate(selected.id, { rating, feedback: feedback.trim() || undefined });
       notify(t('maint.rateSuccess'), t('maint.rateSuccessMsg'));
       setSelected(null);
-      loadTickets();
+      refreshTickets();
     } catch (err: any) {
       notifyError(t('maint.rateFail'), err, () => handleRate());
     } finally {
@@ -319,10 +317,7 @@ export default function MaintenanceScreen() {
             title={t('loadFailed')}
             sub={t('loadFailedSub')}
             actionLabel={t('retry')}
-            onAction={() => {
-              setLoading(true);
-              loadTickets();
-            }}
+            onAction={refreshTickets}
           />
         ) : visibleTickets.length === 0 ? (
           <EmptyState

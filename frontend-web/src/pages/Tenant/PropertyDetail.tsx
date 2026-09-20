@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { DatePicker, Input, InputNumber, Modal, message } from 'antd'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
+import { useAuthStore } from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 
 /**
  * 租客门户 · 房源详情（对齐 rental-full-draft/pages/tenant-property-detail.html）
@@ -128,16 +131,92 @@ const TenantPropertyDetail = () => {
     office: t('propertyType.office'),
   }
 
-  const [detail, setDetail] = useState<PropertyItem | null>(null)
-  const [project, setProject] = useState<ProjectItem | null>(null)
-  const [saleListing, setSaleListing] = useState<SaleListingItem | null>(null)
-  const [peers, setPeers] = useState<PropertyItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
+  const queryClient = useQueryClient()
+
+  interface DetailPayload {
+    detail: PropertyItem | null
+    project: ProjectItem | null
+    saleListing: SaleListingItem | null
+    peers: PropertyItem[]
+  }
+
+  // 房源详情 + 同小区横评 + 在售挂牌：缓存优先（localStorage seed），后台刷新
+  const dataQ = useCachedQuery<DetailPayload>({
+    queryKey: ['tenant-property-detail', id ?? 'none'],
+    cacheKey: `tenant-property-detail:${id ?? 'none'}`,
+    queryFn: async (): Promise<DetailPayload> => {
+      if (!id) return { detail: null, project: null, saleListing: null, peers: [] }
+      const res = await api.get(`/properties/${id}`)
+      const data = toBody(res) as PropertyItem | null
+      const projectId = data?.project_id
+
+      const [projRes, saleRes, peerRes] = await Promise.allSettled([
+        projectId ? api.get(`/projects/${projectId}`) : Promise.resolve(null),
+        api.get('/sale-listings', { params: { page: 1, page_size: 100 } }),
+        projectId
+          ? api.get('/properties', { params: { project_id: projectId, page: 1, page_size: 100 } })
+          : Promise.resolve(null),
+      ])
+
+      let project: ProjectItem | null = null
+      if (projRes.status === 'fulfilled' && projRes.value) {
+        project = toBody(projRes.value) as ProjectItem
+      }
+
+      let saleListing: SaleListingItem | null = null
+      if (saleRes.status === 'fulfilled') {
+        const listings = toItems(saleRes.value) as SaleListingItem[]
+        saleListing = listings.find((l) => String(l.property_id) === String(id)) || null
+      }
+
+      let peers: PropertyItem[] = []
+      if (peerRes.status === 'fulfilled' && peerRes.value) {
+        const items = toItems(peerRes.value) as PropertyItem[]
+        peers = items.filter((p) => String(p.id) !== String(id))
+      }
+
+      return { detail: data, project, saleListing, peers }
+    },
+  })
+  const detail = dataQ.data?.detail ?? null
+  const project = dataQ.data?.project ?? null
+  const saleListing = dataQ.data?.saleListing ?? null
+  const peers = dataQ.data?.peers ?? []
+  const loading = dataQ.isPending && !dataQ.data
+
+  // 收藏状态：实时查询不落盘缓存，避免收藏态跨会话陈旧
+  const favQ = useQuery({
+    queryKey: ['tenant-property-fav', id ?? 'none', uid],
+    queryFn: async () => {
+      try {
+        const res = await api.get(`/favorites/status/${id}`)
+        return Boolean(toBody(res)?.favorited)
+      } catch {
+        return false
+      }
+    },
+    enabled: !!id,
+    staleTime: 60 * 1000,
+  })
+  const favorited = favQ.data ?? false
+
+  useEffect(() => {
+    if (dataQ.isError && !dataQ.data) {
+      message.error(t('tenantPropertyDetail.fetchFailed'))
+    }
+  }, [dataQ.isError, dataQ.data, t])
+
+  useEffect(() => {
+    setTranslatedDesc(null)
+    setPhotoIndex(0)
+    setBiz('rent')
+    window.scrollTo?.({ top: 0 })
+  }, [id])
 
   const [biz, setBiz] = useState<'rent' | 'buy'>('rent')
   const [photoIndex, setPhotoIndex] = useState(0)
-
-  const [favorited, setFavorited] = useState(false)
   const [favBusy, setFavBusy] = useState(false)
 
   const [bookingOpen, setBookingOpen] = useState(false)
@@ -153,70 +232,6 @@ const TenantPropertyDetail = () => {
   const [translating, setTranslating] = useState(false)
   const [translatedDesc, setTranslatedDesc] = useState<string | null>(null)
   const [transTarget, setTransTarget] = useState('zh')
-
-  const fetchAll = useCallback(async () => {
-    if (!id) {
-      setDetail(null)
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    setTranslatedDesc(null)
-    setPhotoIndex(0)
-    setBiz('rent')
-    try {
-      const res = await api.get(`/properties/${id}`)
-      const data = toBody(res) as PropertyItem | null
-      setDetail(data || null)
-
-      const projectId = data?.project_id
-
-      const [projRes, saleRes, peerRes, favRes] = await Promise.allSettled([
-        projectId ? api.get(`/projects/${projectId}`) : Promise.resolve(null),
-        api.get('/sale-listings', { params: { page: 1, page_size: 100 } }),
-        projectId
-          ? api.get('/properties', { params: { project_id: projectId, page: 1, page_size: 100 } })
-          : Promise.resolve(null),
-        api.get(`/favorites/status/${id}`),
-      ])
-
-      if (projRes.status === 'fulfilled' && projRes.value) {
-        setProject(toBody(projRes.value) as ProjectItem)
-      } else {
-        setProject(null)
-      }
-
-      if (saleRes.status === 'fulfilled') {
-        const listings = toItems(saleRes.value) as SaleListingItem[]
-        setSaleListing(listings.find((l) => String(l.property_id) === String(id)) || null)
-      } else {
-        setSaleListing(null)
-      }
-
-      if (peerRes.status === 'fulfilled' && peerRes.value) {
-        const items = toItems(peerRes.value) as PropertyItem[]
-        setPeers(items.filter((p) => String(p.id) !== String(id)))
-      } else {
-        setPeers([])
-      }
-
-      if (favRes.status === 'fulfilled') {
-        setFavorited(Boolean(toBody(favRes.value)?.favorited))
-      } else {
-        setFavorited(false)
-      }
-    } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('tenantPropertyDetail.fetchFailed'))
-      setDetail(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [id, t])
-
-  useEffect(() => {
-    fetchAll()
-    window.scrollTo?.({ top: 0 })
-  }, [fetchAll])
 
   const photos = useMemo(() => {
     const raw = Array.isArray(detail?.photos) ? detail!.photos : []
@@ -320,17 +335,18 @@ const TenantPropertyDetail = () => {
   const handleToggleFavorite = async () => {
     if (!id || favBusy) return
     setFavBusy(true)
+    const next = !favorited
+    queryClient.setQueryData(['tenant-property-fav', id, uid], next)
     try {
       if (favorited) {
         await api.delete(`/favorites/${id}`)
-        setFavorited(false)
         message.success(t('tenantPropertyDetail.unFavored'))
       } else {
         await api.post('/favorites', { property_id: id })
-        setFavorited(true)
         message.success(t('tenantPropertyDetail.favored'))
       }
     } catch (err: any) {
+      queryClient.setQueryData(['tenant-property-fav', id, uid], !next)
       message.error(err?.response?.data?.detail || t('tenantPropertyDetail.opFailed'))
     } finally {
       setFavBusy(false)

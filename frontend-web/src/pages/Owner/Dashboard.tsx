@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Spin, Empty } from 'antd'
+import { useMemo } from 'react'
+import { Spin, Empty } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { convertCurrency } from '@/lib/money'
+import { useAuthStore } from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 import './dashboard.css'
 
 interface OwnerProperty {
@@ -39,52 +41,41 @@ const fmtThb = (v: number) => `฿ ${Math.round(Number(v || 0)).toLocaleString()
 const Dashboard = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const [loading, setLoading] = useState(false)
-  const [properties, setProperties] = useState<OwnerProperty[]>([])
-  const [income, setIncome] = useState<IncomeSummary>({
-    total_income: 0,
-    monthly_income: 0,
-    pending_amount: 0,
-  })
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true)
-    try {
+  const q = useCachedQuery<{ properties: OwnerProperty[]; income: IncomeSummary }>({
+    queryKey: ['owner-dashboard', 'me', uid],
+    cacheKey: `owner-dashboard:me:${uid}`,
+    queryFn: async () => {
       const [propertiesRes, incomeRes] = await Promise.all([
         api.get('/owners/me/properties').catch(() => ({ data: { items: [] } })),
         api.get('/owners/me/income').catch(() => ({ data: {} })),
       ])
-
       const pPayload = propertiesRes.data?.data ?? propertiesRes.data
-      setProperties(pPayload?.items ?? [])
-
       const iPayload = incomeRes.data?.data ?? incomeRes.data
+      let income: IncomeSummary = { total_income: 0, monthly_income: 0, pending_amount: 0 }
       if (Array.isArray(iPayload?.items)) {
-        const sum = iPayload.items.reduce(
+        income = iPayload.items.reduce(
           (acc: IncomeSummary, it: any) => {
             acc.total_income = Number(acc.total_income || 0) + Number(it.amount || 0)
             return acc
           },
           { total_income: 0, monthly_income: 0, pending_amount: 0 },
         )
-        setIncome(sum)
       } else {
-        setIncome({
+        income = {
           total_income: Number(iPayload?.total_income ?? 0),
           monthly_income: Number(iPayload?.monthly_income ?? 0),
           pending_amount: Number(iPayload?.pending_amount ?? 0),
-        })
+        }
       }
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取业主面板数据失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchAll()
-  }, [fetchAll])
+      return { properties: pPayload?.items ?? [], income }
+    },
+  })
+  const properties = q.data?.properties ?? []
+  const income = q.data?.income ?? { total_income: 0, monthly_income: 0, pending_amount: 0 }
+  const loading = q.isPending && !q.data
 
   const statusCount = useMemo(() => {
     const count = { vacant: 0, rented: 0, for_sale: 0 }

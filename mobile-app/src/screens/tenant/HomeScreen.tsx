@@ -21,6 +21,9 @@ import { propertiesApi, paymentsApi, maintenanceApi, saleListingApi } from '@/se
 import { fmtMoney as formatMoney } from '@/utils/format';
 import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
+import { getCachedMeta, setCached } from '@/lib/cache';
+import { useQuery } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 
 interface Listing {
   id: string;
@@ -72,6 +75,18 @@ interface Ticket {
   createdAt?: string;
   created_at?: string;
   [key: string]: any;
+}
+
+/** 首页公开数据（全局一份） */
+interface HomePublic {
+  listings: Listing[];
+  saleItems: SaleListing[];
+}
+
+/** 首页私有数据（按用户隔离） */
+interface HomeUser {
+  payments: Payment[];
+  tickets: Ticket[];
 }
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -272,16 +287,94 @@ const SaleCard = React.memo(function SaleCard({
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [saleItems, setSaleItems] = useState<SaleListing[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [bizTab, setBizTab] = useState<'rent' | 'buy'>('rent');
   const { t } = useI18n();
   const navigation = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
+
+  // ---------- TanStack Query：公开数据全局一份；私有数据（账单/工单）按用户隔离 ----------
+  // 跨会话秒开由 MMKV 缓存（cache.ts）承担：mount 时读缓存 seed 进 Query Cache（updatedAt 取缓存
+  // 时间戳，与 staleTime 对齐 → 3 分钟内不发请求，超时才后台刷新）；会话内由 staleTime 去重。
+  const publicKey = 'home:public';
+  const userKey = token ? `home:user:${user?.id ?? 'anon'}` : null;
+
+  const publicQ = useQuery<HomePublic>({
+    queryKey: ['home', 'public'],
+    queryFn: async () => {
+      const [pRes, sRes] = await Promise.allSettled([
+        propertiesApi.list({ page: 1, page_size: 20 }),
+        saleListingApi.list({ page: 1, limit: 10 }),
+      ]);
+      const next: HomePublic = { listings: [], saleItems: [] };
+      if (pRes.status === 'fulfilled') {
+        const data: any = pRes.value?.data;
+        next.listings = (Array.isArray(data) ? data : data?.items ?? data?.data ?? []) as Listing[];
+      }
+      if (sRes.status === 'fulfilled') {
+        const data: any = sRes.value?.data;
+        next.saleItems = (Array.isArray(data) ? data : data?.items ?? data?.data ?? []) as SaleListing[];
+      }
+      void setCached(publicKey, next);
+      return next;
+    },
+    staleTime: 3 * 60 * 1000,
+  });
+
+  const userQ = useQuery<HomeUser>({
+    queryKey: ['home', 'user', userKey ?? 'anon'],
+    queryFn: async () => {
+      const [payRes, mRes] = await Promise.allSettled([
+        paymentsApi.mine(),
+        maintenanceApi.list({ page: 1, page_size: 20 }),
+      ]);
+      const next: HomeUser = { payments: [], tickets: [] };
+      if (payRes.status === 'fulfilled') {
+        const data: any = payRes.value?.data;
+        next.payments = (Array.isArray(data) ? data : data?.items ?? data?.data ?? []) as Payment[];
+      }
+      if (mRes.status === 'fulfilled') {
+        const data: any = mRes.value?.data;
+        next.tickets = (Array.isArray(data) ? data : data?.items ?? data?.data ?? []) as Ticket[];
+      }
+      if (userKey) void setCached(userKey, next);
+      return next;
+    },
+    enabled: !!token,
+    staleTime: 3 * 60 * 1000,
+  });
+
+  const listings = publicQ.data?.listings ?? [];
+  const saleItems = publicQ.data?.saleItems ?? [];
+  const payments = userQ.data?.payments ?? [];
+  const tickets = userQ.data?.tickets ?? [];
+
+  // 冷启动缓存优先：MMKV 命中则立即渲染（秒开），网络刷新在后台进行
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [pub, usr] = await Promise.all([
+        getCachedMeta<HomePublic>(publicKey),
+        userKey ? getCachedMeta<HomeUser>(userKey) : Promise.resolve(null),
+      ]);
+      if (cancelled) return;
+      if (pub) queryClient.setQueryData(['home', 'public'], pub.data, { updatedAt: pub.t });
+      if (usr && userKey) {
+        queryClient.setQueryData(['home', 'user', userKey], usr.data, { updatedAt: usr.t });
+      }
+      if (pub || usr) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [publicKey, userKey, queryClient]);
+
+  // 无缓存冷启动：查询落定后结束 loading（queryFn 内部 allSettled，不会整体抛错）
+  useEffect(() => {
+    if (!publicQ.isPending) setLoading(false);
+  }, [publicQ.isPending]);
 
   // 用户名兜底：后端字段可能是 name / full_name / username，全部缺失则不拼接，避免渲染出 undefined
   const displayName = useMemo(
@@ -289,54 +382,23 @@ export default function HomeScreen() {
     [user],
   );
 
-  const loadAll = useCallback(async () => {
-    const [pRes, payRes, mRes, sRes] = await Promise.allSettled([
-      propertiesApi.list({ page: 1, page_size: 20 }),
-      paymentsApi.mine(),
-      maintenanceApi.list({ page: 1, page_size: 20 }),
-      saleListingApi.list({ page: 1, limit: 10 }),
-    ]);
-
-    if (pRes.status === 'fulfilled') {
-      const data: any = pRes.value?.data;
-      const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-      setListings(items as Listing[]);
-    }
-    if (payRes.status === 'fulfilled') {
-      const data: any = payRes.value?.data;
-      const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-      setPayments(items as Payment[]);
-    }
-    if (mRes.status === 'fulfilled') {
-      const data: any = mRes.value?.data;
-      const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-      setTickets(items as Ticket[]);
-    }
-    if (sRes.status === 'fulfilled') {
-      const data: any = sRes.value?.data;
-      const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-      setSaleItems(items as SaleListing[]);
-    }
-
-    setLoading(false);
-    setRefreshing(false);
-  }, []);
-
+  // 兜底：即使个别请求挂起/PostgreSQL 偶发慢，也强制结束 loading，
+  // 避免首页永久停留在「加载中」白屏/转圈（实测并发下最坏约 11s）。
   useEffect(() => {
-    loadAll();
-    // 兜底：即使个别请求挂起/PostgreSQL 偶发慢，也强制结束 loading，
-    // 避免首页永久停留在「加载中」白屏/转圈（实测并发下最坏约 11s）。
     const guard = setTimeout(() => {
       setLoading(false);
       setRefreshing(false);
     }, 12000);
     return () => clearTimeout(guard);
-  }, [loadAll]);
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadAll();
-  }, [loadAll]);
+    void Promise.allSettled([
+      publicQ.refetch({ cancelRefetch: false }),
+      token ? userQ.refetch({ cancelRefetch: false }) : Promise.resolve(),
+    ]).finally(() => setRefreshing(false));
+  }, [publicQ, userQ, token]);
 
   const goListings = useCallback(() => navigation.navigate('Listings'), [navigation]);
   const openProperty = useCallback(

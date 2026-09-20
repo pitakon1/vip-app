@@ -3,6 +3,7 @@ import { View, Text, Button, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { serviceOrdersApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import type { ServiceItem } from '@/types'
 import { iconStyle } from '@/utils/icons'
 import './index.scss'
@@ -67,21 +68,16 @@ export default function TenantServicesPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   // 服务目录由后端配置驱动；接口未返回前不注入任何占位数据
   const [services] = useState<ServiceItem[]>([])
-  const [orders, setOrders] = useState<ServiceOrderRow[]>([])
-  const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordering, setOrdering] = useState<number | null>(null)
 
-  const fetchOrders = async () => {
-    setOrdersLoading(true)
-    try {
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
+  const { data: orders, loading: ordersLoading, refresh } = useSwrCache<ServiceOrderRow[]>({
+    key: `tenant:services:${uid}`,
+    fetcher: async () => {
       const res = await serviceOrdersApi.list()
-      setOrders(pickList<ServiceOrderRow>(res))
-    } catch (error) {
-      console.error('[TenantServices] 获取服务订单失败', error)
-    } finally {
-      setOrdersLoading(false)
-    }
-  }
+      return pickList<ServiceOrderRow>(res)
+    },
+  })
 
   useDidShow(() => {
     loadFromStorage()
@@ -89,7 +85,7 @@ export default function TenantServicesPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchOrders()
+    refresh()
   })
 
   const handlePay = (service: ServiceItem) => {
@@ -122,6 +118,7 @@ export default function TenantServicesPage() {
         content: `「${service.name}」下单成功，付款方式：${methodLabel}`,
         showCancel: false
       })
+      refresh(true)
     } catch (error) {
       console.error('[TenantServices] 下单失败', error)
       Taro.hideLoading()

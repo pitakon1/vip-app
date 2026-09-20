@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { message, Modal, Spin, Empty } from 'antd'
+import { useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
+import useAuthStore from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 import './documents.css'
 
 interface OwnerDocument {
@@ -216,39 +219,43 @@ const Documents = () => {
   const [activeTab, setActiveTab] = useState<DocCategory>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [timeFilter, setTimeFilter] = useState(TIME_OPTIONS[0])
-  const [loading, setLoading] = useState(false)
-  const [documents, setDocuments] = useState<OwnerDocument[]>([])
   const [uploading, setUploading] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [pendingCategory, setPendingCategory] = useState<Exclude<DocCategory, 'all'>>('other')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const fetchDocuments = useCallback(async () => {
-    setLoading(true)
-    try {
-      // 业主专属接口：返回当前业主的全部文档
-      const res = await api.get('/owners/me/documents')
-      const items: OwnerDocument[] = Array.isArray(res.data)
-        ? res.data
-        : (res.data?.items ?? [])
-      // 后端字段为 type/title，映射到 category/name
-      const mapped = items.map((d) => ({
-        ...d,
-        category: String(d.category || d.type || 'other').toLowerCase(),
-        name: d.title || d.name,
-      }))
-      setDocuments(mapped)
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取文档列表失败')
-      setDocuments([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
+  const docsQueryKey: string[] = ['owner-documents', 'mine', uid]
 
-  useEffect(() => {
-    fetchDocuments()
-  }, [fetchDocuments])
+  const q = useCachedQuery<OwnerDocument[]>({
+    queryKey: docsQueryKey,
+    cacheKey: `owner-documents:mine:${uid}`,
+    queryFn: async () => {
+      try {
+        // 业主专属接口：返回当前业主的全部文档
+        const res = await api.get('/owners/me/documents')
+        const items: OwnerDocument[] = Array.isArray(res.data)
+          ? res.data
+          : (res.data?.items ?? [])
+        // 后端字段为 type/title，映射到 category/name
+        return items.map((d) => ({
+          ...d,
+          category: String(d.category || d.type || 'other').toLowerCase(),
+          name: d.title || d.name,
+        }))
+      } catch (err: any) {
+        message.error(err?.response?.data?.message || '获取文档列表失败')
+        return []
+      }
+    },
+  })
+  const documents = q.data ?? []
+  const loading = q.isPending && !q.data
+  const refresh = useCallback(() => {
+    void q.refetch({ cancelRefetch: false })
+  }, [q])
 
   // 证件、合同等敏感文档已不再由 /uploads 静态服务托管，必须带 Authorization
   // 头走鉴权接口 /documents/{id}/file（预览）或 /download（下载）取件。
@@ -313,7 +320,7 @@ const Documents = () => {
       })
       message.success('文档上传成功')
       setPendingFile(null)
-      await fetchDocuments()
+      refresh()
     } catch (err: any) {
       const detail = err?.response?.data?.detail
       message.error(detail || '上传失败，请稍后重试')
@@ -337,7 +344,9 @@ const Documents = () => {
         try {
           await api.delete(`/documents/${doc.id}`)
           message.success(`文档「${doc.name}」已删除`)
-          await fetchDocuments()
+          queryClient.setQueryData<OwnerDocument[]>(docsQueryKey, (old) =>
+            (old ?? []).filter((d) => String(d.id) !== String(doc.id)),
+          )
         } catch (err: any) {
           const detail = err?.response?.data?.detail
           message.error(detail || '删除失败，请稍后重试')

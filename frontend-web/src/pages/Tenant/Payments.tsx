@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { message } from 'antd'
+import { useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 
 interface PaymentVoucher {
   id: string
@@ -57,9 +60,10 @@ const defaultMethodIcon = (
 
 const TenantPayments = () => {
   const { t } = useTranslation()
-  const [loading, setLoading] = useState(false)
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
+  const queryClient = useQueryClient()
   const [submitting, setSubmitting] = useState(false)
-  const [data, setData] = useState<PaymentVoucher[]>([])
   const [filter, setFilter] = useState<FilterKey>('all')
   const [keyword, setKeyword] = useState('')
 
@@ -92,29 +96,29 @@ const TenantPayments = () => {
     credit_card: t('tenantPayments.methodCreditCard'),
   }
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await api.get('/payments/me')
-      const payload = res.data?.data ?? res.data
-      // 真实字段映射：接口使用 channel / payment_type
-      setData(
-        (payload?.items ?? []).map((p: any) => ({
+  const q = useCachedQuery<PaymentVoucher[]>({
+    queryKey: ['tenant-payments', 'mine', uid],
+    cacheKey: `tenant-payments:mine:${uid}`,
+    queryFn: async () => {
+      try {
+        const res = await api.get('/payments/me')
+        const payload = res.data?.data ?? res.data
+        // 真实字段映射：接口使用 channel / payment_type
+        return (payload?.items ?? []).map((p: any) => ({
           ...p,
           payment_method: p.payment_method ?? p.channel,
           bill_type: p.bill_type ?? p.payment_type,
-        })),
-      )
-    } catch {
-      setData([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+        }))
+      } catch {
+        return []
+      }
+    },
+  })
+  const data = q.data ?? []
+  const loading = q.isPending && !q.data
+  const refresh = useCallback(() => {
+    void q.refetch({ cancelRefetch: false })
+  }, [q])
 
   const filteredData = useMemo(() => {
     if (filter === 'all') return data
@@ -225,7 +229,10 @@ const TenantPayments = () => {
         payment_method: payload.payment_method ?? payload.channel,
         bill_type: payload.bill_type ?? payload.payment_type,
       }
-      setData((prev) => [newItem, ...prev])
+      queryClient.setQueryData(
+        ['tenant-payments', 'mine', uid],
+        (prev: PaymentVoucher[] | undefined) => [newItem, ...(prev ?? [])],
+      )
       setAmount('')
       setPaymentDate(dayjs().format('YYYY-MM-DD'))
       setPaymentMethod('bank_transfer')

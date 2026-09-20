@@ -3,6 +3,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { documentsApi, ownerApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { currentToken, documentFileUrl } from '@/lib/api'
 import './index.scss'
 import { iconStyle, type IconKey } from '@/utils/icons'
@@ -83,29 +84,30 @@ const fileTypeOf = (doc: Doc): OpenableFileType | undefined => {
 
 export default function OwnerDocumentsPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [documents, setDocuments] = useState<Doc[]>([])
-  const [properties, setProperties] = useState<OwnerProp[]>([])
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const [activeType, setActiveType] = useState('all')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
 
-  const fetchDocuments = async () => {
-    setLoading(true)
-    setError(false)
-    try {
+  interface DocPayload {
+    documents: Doc[]
+    properties: OwnerProp[]
+  }
+
+  const { data, loading, refresh } = useSwrCache<DocPayload>({
+    key: `owner:documents:${uid}`,
+    fetcher: async (): Promise<DocPayload> => {
       const [docRes, propRes]: [any, any] = await Promise.all([
         documentsApi.list(),
         ownerApi.properties().catch(() => null)
       ])
-      setDocuments(pickList(docRes) as Doc[])
-      setProperties(pickList(propRes) as OwnerProp[])
-    } catch (e) {
-      console.error('[OwnerDocs] 获取文档失败', e)
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }
+      return {
+        documents: pickList(docRes) as Doc[],
+        properties: pickList(propRes) as OwnerProp[]
+      }
+    },
+  })
+  const documents = data?.documents ?? []
+  const properties = data?.properties ?? []
 
   useDidShow(() => {
     loadFromStorage()
@@ -113,7 +115,7 @@ export default function OwnerDocumentsPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchDocuments()
+    void refresh()
   })
 
   const propertyName = (id?: string) => {
@@ -231,7 +233,7 @@ export default function OwnerDocumentsPage() {
         {!loading && error && documents.length === 0 && (
           <View className='empty-tip'>
             <Text>加载失败，请重试</Text>
-            <View className='retry-btn' onClick={fetchDocuments} hoverClass='retry-btn--hover'>
+            <View className='retry-btn' onClick={() => refresh(true)} hoverClass='retry-btn--hover'>
               <Text>重新加载</Text>
             </View>
           </View>

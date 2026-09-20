@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { documentsApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import type { Document } from '@/types'
 import './index.scss'
 import { iconStyle } from '@/utils/icons'
@@ -55,22 +56,17 @@ function pickList(res: any): Document[] {
 
 export default function TenantDocumentsPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [loading, setLoading] = useState(false)
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const [tab, setTab] = useState('all')
 
-  const fetchDocuments = async () => {
-    setLoading(true)
-    try {
+  const { data, loading, refresh } = useSwrCache<Document[]>({
+    key: `tenant:documents:${uid}`,
+    fetcher: async () => {
       const res = await documentsApi.list()
-      setDocuments(pickList(res))
-    } catch (error) {
-      console.error('[TenantDocs] 获取文档失败', error)
-      Taro.showToast({ title: '加载文档失败', icon: 'none' })
-    } finally {
-      setLoading(false)
-    }
-  }
+      return pickList(res)
+    },
+  })
+  const documents = data ?? []
 
   useDidShow(() => {
     loadFromStorage()
@@ -78,7 +74,7 @@ export default function TenantDocumentsPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchDocuments()
+    void refresh()
   })
 
   const contractCount = documents.filter((d) => CONTRACT_TYPES.includes(d.type)).length

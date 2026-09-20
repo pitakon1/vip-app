@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import type { Property } from '@/types'
@@ -52,24 +53,26 @@ const Home = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { token, user } = useAuthStore()
-  const [props, setProps] = useState<Property[]>([])
   const [searchVal, setSearchVal] = useState('')
 
-  // 从接口获取房源（无数据则显示空态，不使用静态 mock）
-  useEffect(() => {
-    const fetchProps = async () => {
+  // 精选房源（缓存优先渲染 + 后台刷新，秒开）
+  const q = useCachedQuery<Property[]>({
+    queryKey: ['home-featured'],
+    cacheKey: 'home:featured',
+    queryFn: async () => {
       try {
         const res = await api.get('/properties', { params: { page_size: 8 } })
         const items = res.data?.data?.items ?? res.data?.items ?? res.data?.data
         if (Array.isArray(items)) {
-          setProps(items.slice(0, 8))
+          return items.slice(0, 8)
         }
+        return []
       } catch {
-        setProps([])
+        return []
       }
-    }
-    fetchProps()
-  }, [])
+    },
+  })
+  const props = q.data ?? []
 
   const handleSearch = useCallback(() => {
     navigate('/listings')

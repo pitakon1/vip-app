@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
+import { useAuthStore } from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 
 /**
  * 我的租约（/tenant/leases）
@@ -27,8 +29,8 @@ const leaseProgress = (l: any) => {
 const TenantLeases = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const [leases, setLeases] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
 
   const leaseStatus = (status?: string) => {
     const map: Record<string, { text: string; cls: string }> = {
@@ -40,22 +42,21 @@ const TenantLeases = () => {
     return map[status || ''] || map.pending
   }
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res: any = await api.get('/leases')
-      const payload = res.data?.data ?? res.data
-      setLeases(payload?.items ?? [])
-    } catch {
-      setLeases([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const q = useCachedQuery<any[]>({
+    queryKey: ['tenant-leases', 'mine', uid],
+    cacheKey: `tenant-leases:mine:${uid}`,
+    queryFn: async () => {
+      try {
+        const res: any = await api.get('/leases')
+        const payload = res.data?.data ?? res.data
+        return payload?.items ?? []
+      } catch {
+        return []
+      }
+    },
+  })
+  const leases = q.data ?? []
+  const loading = q.isPending && !q.data
 
   return (
     <div className="rent-card">

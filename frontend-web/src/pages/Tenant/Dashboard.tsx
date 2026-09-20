@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import { propertiesApi } from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 
 interface PropertyItem {
   id: string
@@ -72,32 +73,29 @@ const TenantDashboard = () => {
   const [biz, setBiz] = useState<'rent' | 'buy'>('rent')
   const [keyword, setKeyword] = useState('')
 
-  // ===== 数据 =====
-  const [loading, setLoading] = useState(false)
-  const [allItems, setAllItems] = useState<PropertyItem[]>([])
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  // ===== 数据（缓存优先 + 后台刷新） =====
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true)
-    try {
+  const homeQ = useCachedQuery<{ allItems: PropertyItem[]; notifications: Notification[] }>({
+    queryKey: ['tenant-dashboard', 'home', uid],
+    cacheKey: `tenant-dashboard:home:${uid}`,
+    queryFn: async () => {
       const [propsRes, notifRes] = await Promise.all([
         propertiesApi.list({ page: 1, pageSize: 999 } as any).catch(() => ({ data: { items: [] } })),
         api.get('/notifications/me').catch(() => ({ data: { items: [] } })),
       ])
-
       const pPayload = propsRes.data?.data ?? propsRes.data
-      setAllItems(pPayload?.items ?? [])
-
       const nPayload = notifRes.data?.data ?? notifRes.data
-      setNotifications(nPayload?.items ?? [])
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || t('property.fetchFailed'))
-    } finally {
-      setLoading(false)
-    }
-  }, [t])
-
-  useEffect(() => { fetchAll() }, [fetchAll])
+      return {
+        allItems: pPayload?.items ?? [],
+        notifications: nPayload?.items ?? [],
+      }
+    },
+  })
+  const allItems = homeQ.data?.allItems ?? []
+  const notifications = homeQ.data?.notifications ?? []
+  const loading = homeQ.isPending && !homeQ.data
 
   // ===== 主题模块数据 =====
   const rentItems = useMemo(() => {

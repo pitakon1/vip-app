@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
+import { useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 
 type DocType = 'lease_contract' | 'receipt' | 'certificate' | 'report' | 'other'
 type SegmentKey = 'all' | 'lease_contract' | 'receipt' | 'other'
@@ -139,29 +142,29 @@ const TenantDocuments = () => {
     other: { label: t('tenantDocuments.statusLabel.other'), cls: 'rent-doc-status--warning' },
   }
 
-  const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<DocItem[]>([])
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
+  const queryClient = useQueryClient()
   const [, setFile] = useState<File | null>(null)
   const [activeTab, setActiveTab] = useState<SegmentKey>('all')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await api.get('/documents')
-      const payload = res.data?.data ?? res.data
-      const items = payload?.items ?? []
-      setData(items.length ? items : STATIC_DOCS)
-    } catch {
-      setData(STATIC_DOCS)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const q = useCachedQuery<DocItem[]>({
+    queryKey: ['tenant-documents', 'mine', uid],
+    cacheKey: `tenant-documents:mine:${uid}`,
+    queryFn: async () => {
+      try {
+        const res = await api.get('/documents')
+        const payload = res.data?.data ?? res.data
+        const items = payload?.items ?? []
+        return items.length ? items : STATIC_DOCS
+      } catch {
+        return STATIC_DOCS
+      }
+    },
+  })
+  const data = q.data ?? []
+  const loading = q.isPending && !q.data
 
   const filteredData = useMemo(() => {
     if (activeTab === 'all') return data
@@ -194,8 +197,8 @@ const TenantDocuments = () => {
         size: Math.round(f.size / 1024),
         source: t('tenantDocuments.sourceLocal'),
       }
-      setData((prev) => [newItem, ...prev])
       setFile(null)
+      queryClient.setQueryData<DocItem[]>(['tenant-documents', 'mine', uid], (prev) => [newItem, ...(prev ?? [])])
     } catch (err: any) {
       message.error(err?.response?.data?.message || t('tenantDocuments.uploadFailed'))
     }

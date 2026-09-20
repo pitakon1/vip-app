@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Form,
   Input,
@@ -17,6 +18,8 @@ import { ExclamationCircleOutlined, PlusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { propertiesApi } from '@/services/api'
+import useAuthStore from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 import '../Properties/properties.css'
 import './dashboard.css'
 
@@ -82,10 +85,31 @@ const propertyTypeMap: Record<string, string> = {
 
 const Properties = () => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
-  // 数据
-  const [allItems, setAllItems] = useState<OwnerProperty[]>([])
-  const [loading, setLoading] = useState(false)
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
+  const propsQueryKey: string[] = ['owner-properties', 'list', uid]
+
+  const q = useCachedQuery<OwnerProperty[]>({
+    queryKey: propsQueryKey,
+    cacheKey: `owner-properties:list:${uid}`,
+    queryFn: async () => {
+      try {
+        const res = await api.get('/owners/me/properties')
+        const payload = res.data?.data ?? res.data
+        return payload?.items ?? []
+      } catch (err: any) {
+        message.error(err?.response?.data?.message || '获取房源数据失败')
+        return []
+      }
+    },
+  })
+  const allItems = q.data ?? []
+  const loading = q.isPending && !q.data
+  const refresh = useCallback(() => {
+    void q.refetch({ cancelRefetch: false })
+  }, [q])
 
   // 筛选参数
   const [keyword, setKeyword] = useState('')
@@ -114,23 +138,6 @@ const Properties = () => {
   // 打开编辑时的基线照片（取消时回滚会话内新增的照片）
   const [basePhotos, setBasePhotos] = useState<string[]>([])
   const sessionUploadsRef = useRef<string[]>([])
-
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await api.get('/owners/me/properties')
-      const payload = res.data?.data ?? res.data
-      setAllItems(payload?.items ?? [])
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取房源数据失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
 
   // 统计（名下房源 / 在租 / 空置 / 在售）
   const statusCount = useMemo(() => {
@@ -316,7 +323,9 @@ const Properties = () => {
         try {
           await propertiesApi.delete(String(id))
           message.success('房源已删除')
-          fetchData()
+          queryClient.setQueryData<OwnerProperty[]>(propsQueryKey, (old) =>
+            (old ?? []).filter((p) => String(p.id) !== String(id)),
+          )
         } catch (err: any) {
           message.error(err?.response?.data?.detail || '删除失败，请稍后重试')
         }
@@ -338,7 +347,7 @@ const Properties = () => {
         message.success('新增成功')
       }
       setModalOpen(false)
-      fetchData()
+      refresh()
     } catch (err: any) {
       if (err?.errorFields) return
       const detail = err?.response?.data?.detail

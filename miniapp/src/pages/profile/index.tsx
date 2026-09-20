@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import BottomNav from '@/components/BottomNav'
 import useAuthStore from '@/stores/auth'
 import { authApi, companyApi, leasesApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { iconStyle } from '@/utils/icons'
 import type { IconKey } from '@/utils/icons'
 import type { User } from '@/types'
@@ -160,8 +161,17 @@ export default function ProfilePage() {
   const logout = useAuthStore((state) => state.logout)
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
 
-  const [lease, setLease] = useState<any>(null)
   const [appVersion, setAppVersion] = useState('')
+
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
+  const { data: leaseList, refresh } = useSwrCache<any[]>({
+    key: `profile:leases:${uid}`,
+    fetcher: async () => {
+      const res = await leasesApi.mine()
+      return pickList<any>(res)
+    },
+  })
+  const lease = leaseList?.find((l) => l?.status === 'active') || leaseList?.[0] || null
 
   useDidShow(() => {
     loadFromStorage()
@@ -170,7 +180,7 @@ export default function ProfilePage() {
       refreshUser()
       const currentRole = useAuthStore.getState().user?.role
       if (currentRole === 'tenant') {
-        loadTenantData()
+        refresh()
       }
       if (currentRole === 'admin') {
         loadAppInfo()
@@ -180,16 +190,6 @@ export default function ProfilePage() {
       }
     }
   })
-
-  const loadTenantData = async () => {
-    try {
-      const leaseRes = await leasesApi.mine().catch(() => null)
-      const leases = pickList<any>(leaseRes)
-      setLease(leases.find((l) => l?.status === 'active') || leases[0] || null)
-    } catch (error) {
-      console.warn('[Profile] 获取租约失败', error)
-    }
-  }
 
   // 版本号取自后端公开接口，避免写死演示版本
   const loadAppInfo = async () => {

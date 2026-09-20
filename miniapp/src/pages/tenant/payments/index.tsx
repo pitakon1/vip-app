@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { paymentsApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as formatMoney } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import './index.scss'
@@ -71,21 +71,16 @@ const formatDate = (x?: string) => (x ? x.replace('T', ' ').slice(0, 16) : '—'
 
 export default function TenantPaymentsPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [loading, setLoading] = useState(false)
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
 
-  const fetchPayments = async () => {
-    setLoading(true)
-    try {
+  const { data, setData, loading, refresh } = useSwrCache<Payment[]>({
+    key: `tenant:payments:${uid}`,
+    fetcher: async () => {
       const res = await paymentsApi.mine()
-      setPayments(pickList(res))
-    } catch (error) {
-      console.error('[Payments] 获取账单失败', error)
-      Taro.showToast({ title: '加载账单失败', icon: 'none' })
-    } finally {
-      setLoading(false)
-    }
-  }
+      return pickList(res)
+    },
+  })
+  const payments = data ?? []
 
   useDidShow(() => {
     loadFromStorage()
@@ -93,7 +88,7 @@ export default function TenantPaymentsPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchPayments()
+    void refresh()
   })
 
   const pending = payments.filter((p) => p.status === 'pending')
@@ -116,9 +111,7 @@ export default function TenantPaymentsPage() {
       Taro.hideLoading()
       const data = res?.data || res
       const checkoutUrl = data?.checkout_url ?? data?.qr_code ?? data?.qr ?? data?.url
-      setPayments((list) =>
-        list.map((p) => (p.id === pay.id ? { ...p, status: 'processing' } : p))
-      )
+      setData(payments.map((p) => (p.id === pay.id ? { ...p, status: 'processing' } : p)))
       if (checkoutUrl) {
         Taro.showModal({
           title: '发起支付',

@@ -18,6 +18,8 @@ import LoadingState from '@/components/LoadingState';
 import { documentsApi } from '@/services/api';
 import { documentFileUrl } from '@/lib/api';
 import { useUserCapabilities } from '@/hooks/useUserCapabilities';
+import { useAuthStore } from '@/stores/auth';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -62,36 +64,36 @@ const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10)
 
 export default function DocumentsScreen() {
   const { isActiveTenant } = useUserCapabilities();
-  const [docs, setDocs] = useState<DocItem[]>([]);
+  const user = useAuthStore((s) => s.user);
   const [filter, setFilter] = useState<string>('all');
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const loadDocs = useCallback(async () => {
-    try {
+  const q = useCachedQuery<DocItem[]>({
+    queryKey: ['docs', 'list'],
+    cacheKey: `docs:list:${user?.id ?? 'anon'}`,
+    queryFn: async () => {
       const res = await documentsApi.list();
       const data = res.data;
       const items = Array.isArray(data)
         ? data
         : (data as any)?.items ?? (data as any)?.data ?? [];
-      setDocs(Array.isArray(items) ? (items as DocItem[]) : []);
-    } catch (err: any) {
-      Alert.alert('加载失败', err?.response?.data?.message || '无法获取文档');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+      return Array.isArray(items) ? (items as DocItem[]) : [];
+    },
+  });
+  const docs = q.data ?? [];
+  const loading = q.isPending && !q.data;
+  const refreshing = q.isRefetching;
+  const loadDocs = useCallback(() => {
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
+  const onRefresh = loadDocs;
 
+  // 加载失败提示（保留原行为）
   useEffect(() => {
-    loadDocs();
-  }, [loadDocs]);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadDocs();
-  }, [loadDocs]);
+    if (q.isError) {
+      Alert.alert('加载失败', '无法获取文档，请检查网络后重试');
+    }
+  }, [q.isError]);
 
   /* ===== 统计口径（真实数据）===== */
   const stats = useMemo(() => {

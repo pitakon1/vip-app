@@ -3,6 +3,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import './index.scss'
 import { iconStyle } from '@/utils/icons'
@@ -67,40 +68,41 @@ const metaOf = (status: string) => STATUS_META[status] || STATUS_META.pending
 
 export default function OwnerIncomePage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const [income, setIncome] = useState<IncomeData>(EMPTY_INCOME)
-  const [byMonth, setByMonth] = useState<AnnualMonth[]>([])
+  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const [activeFilter, setActiveFilter] = useState('all')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
 
-  const fetchIncome = async () => {
-    setLoading(true)
-    setError(false)
-    try {
+  interface IncomePayload {
+    income: IncomeData
+    byMonth: AnnualMonth[]
+  }
+
+  const { data, loading, refresh } = useSwrCache<IncomePayload>({
+    key: `owner:income:${uid}`,
+    fetcher: async (): Promise<IncomePayload> => {
       const [inc, ann]: [any, any] = await Promise.all([
         ownerApi.income(),
         ownerApi.annualFinancialSummary(new Date().getFullYear()).catch(() => null)
       ])
       const d: any = inc?.data ?? inc ?? {}
-      setIncome({
-        total_income: Number(d.total_income ?? 0),
-        receivable_total: Number(d.receivable_total ?? 0),
-        overdue_total: Number(d.overdue_total ?? 0),
-        currency: d.currency || 'THB',
-        property_count: Number(d.property_count ?? 0),
-        rented_count: Number(d.rented_count ?? 0),
-        vacant_count: Number(d.vacant_count ?? 0),
-        records: Array.isArray(d.records) ? d.records : []
-      })
       const annD: any = ann?.data ?? ann ?? {}
-      setByMonth(Array.isArray(annD.by_month) ? annD.by_month : [])
-    } catch (e) {
-      console.error('[OwnerIncome] 获取收入失败', e)
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }
+      return {
+        income: {
+          total_income: Number(d.total_income ?? 0),
+          receivable_total: Number(d.receivable_total ?? 0),
+          overdue_total: Number(d.overdue_total ?? 0),
+          currency: d.currency || 'THB',
+          property_count: Number(d.property_count ?? 0),
+          rented_count: Number(d.rented_count ?? 0),
+          vacant_count: Number(d.vacant_count ?? 0),
+          records: Array.isArray(d.records) ? d.records : []
+        },
+        byMonth: Array.isArray(annD.by_month) ? annD.by_month : []
+      }
+    },
+  })
+  const income = data?.income ?? EMPTY_INCOME
+  const byMonth = data?.byMonth ?? []
 
   useDidShow(() => {
     loadFromStorage()
@@ -108,7 +110,7 @@ export default function OwnerIncomePage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchIncome()
+    void refresh()
   })
 
   // 本月 / 本年累计收入均由逐笔记录真实汇总

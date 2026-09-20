@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import LoadingState from '@/components/LoadingState';
 import BarChart from '@/components/charts/BarChart';
 import { ownerApi, ownersApi } from '@/services/api';
 import { fmtMoney } from '@/utils/format';
+import { useAuthStore } from '@/stores/auth';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type IncomeStatus = 'received' | 'pending' | 'overdue';
@@ -67,46 +69,49 @@ const FILTERS: { key: 'all' | IncomeStatus; label: string }[] = [
   { key: 'overdue', label: '逾期' },
 ];
 
+interface IncomePayload {
+  summary: IncomeSummary;
+  annual: AnnualSummary | null;
+}
+
 export default function IncomeScreen() {
-  const [summary, setSummary] = useState<IncomeSummary>({});
-  const [annual, setAnnual] = useState<AnnualSummary | null>(null);
+  const user = useAuthStore((s) => s.user);
+  const uid = user?.id ?? 'anon';
+  const year = new Date().getFullYear();
   const [filter, setFilter] = useState<'all' | IncomeStatus>('all');
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
-  const loadIncome = useCallback(async () => {
-    const year = new Date().getFullYear();
-    const [incomeRes, annualRes] = await Promise.allSettled([
-      ownerApi.income(),
-      ownersApi.annualSummary(year),
-    ]);
+  const q = useCachedQuery<IncomePayload>({
+    queryKey: ['owner-income', uid, String(year)],
+    cacheKey: `owner-income:${uid}:${year}`,
+    queryFn: async () => {
+      const [incomeRes, annualRes] = await Promise.allSettled([
+        ownerApi.income(),
+        ownersApi.annualSummary(year),
+      ]);
+      const data = incomeRes.status === 'fulfilled' ? (incomeRes.value?.data as any) : null;
+      return {
+        summary: {
+          total_income: data?.total_income,
+          receivable_total: data?.receivable_total,
+          overdue_total: data?.overdue_total,
+          currency: data?.currency ?? 'THB',
+          records: Array.isArray(data?.records) ? data.records : [],
+        },
+        annual:
+          annualRes.status === 'fulfilled'
+            ? ((annualRes.value?.data as AnnualSummary) ?? null)
+            : null,
+      };
+    },
+  });
 
-    if (incomeRes.status === 'fulfilled') {
-      const data = incomeRes.value?.data as any;
-      setSummary({
-        total_income: data?.total_income,
-        receivable_total: data?.receivable_total,
-        overdue_total: data?.overdue_total,
-        currency: data?.currency ?? 'THB',
-        records: Array.isArray(data?.records) ? data.records : [],
-      });
-    }
-    if (annualRes.status === 'fulfilled') {
-      setAnnual((annualRes.value?.data as AnnualSummary) ?? null);
-    }
-
-    setLoading(false);
-    setRefreshing(false);
-  }, []);
-
-  useEffect(() => {
-    loadIncome();
-  }, [loadIncome]);
-
+  const summary = q.data?.summary ?? {};
+  const annual = q.data?.annual ?? null;
+  const loading = q.isPending && !q.data;
+  const refreshing = q.isRefetching;
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadIncome();
-  }, [loadIncome]);
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
 
   const ccy = summary.currency;
   const fmt = (v?: number) => fmtMoney(v, ccy);

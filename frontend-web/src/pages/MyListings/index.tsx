@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { message, Spin, Empty, Modal } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { listingsApi } from '@/services/api'
 import { formatMoney } from '@/lib/money'
-import './mylistings.css'
+import { useAuthStore } from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 
 interface Listing {
   id: string
@@ -56,34 +57,34 @@ const CURRENCY: Record<string, string> = { THB: '฿', CNY: '¥', USD: '$', RM: 
 
 const MyListings = () => {
   const navigate = useNavigate()
-  const [items, setItems] = useState<Listing[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const uid = useAuthStore((s) => s.user)?.id ?? 'anon'
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const [current, setCurrent] = useState<Listing | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const pageSize = 10
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await listingsApi.list({
-        page,
-        page_size: pageSize,
-        status: status || undefined,
-      })
-      const payload = res.data?.data ?? res.data
-      setItems(payload?.items ?? [])
-      setTotal(payload?.total ?? 0)
-    } catch (err: any) {
-      message.error(err?.response?.data?.detail || '获取上架单失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [page, status])
-
-  useEffect(() => { fetchData() }, [fetchData])
+  // 用户私有数据：key 含 uid，缓存优先渲染 + 后台刷新
+  const q = useCachedQuery<{ items: Listing[]; total: number }>({
+    queryKey: ['my-listings', uid, status || 'all', String(page)],
+    cacheKey: `my-listings:${uid}:${status || 'all'}:${page}`,
+    queryFn: async () => {
+      try {
+        const res = await listingsApi.list({
+          page,
+          page_size: pageSize,
+          status: status || undefined,
+        })
+        const payload = res.data?.data ?? res.data
+        return { items: payload?.items ?? [], total: payload?.total ?? 0 }
+      } catch {
+        return { items: [], total: 0 }
+      }
+    },
+  })
+  const items = q.data?.items ?? []
+  const total = q.data?.total ?? 0
+  const loading = q.isPending && !q.data
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
@@ -116,7 +117,7 @@ const MyListings = () => {
         try {
           await listingsApi.close(li.id, opts)
           message.success('已关闭')
-          fetchData()
+          void q.refetch({ cancelRefetch: false })
         } catch (err: any) {
           message.error(err?.response?.data?.detail || '关闭失败')
         }

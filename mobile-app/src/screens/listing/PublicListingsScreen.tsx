@@ -2,7 +2,7 @@
  * 已上架房源浏览（租客 / 普通用户）。
  * 数据来自 /listings（非 staff 后端仅返回 active）。点击卡片展开查看详情与联系方式。
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -17,33 +17,32 @@ import colors from '@/theme/colors';
 import { listingApi } from '@/services/api';
 import { notifyError } from '@/utils/feedback';
 import { fmtMoney } from '@/utils/format';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 import EmptyState from '@/components/EmptyState';
 import Card from '@/components/Card';
 import type { Listing } from '@/types';
 
 export default function PublicListingsScreen() {
   const insets = useSafeAreaInsets();
-  const [items, setItems] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const LISTINGS_KEY = ['public-listings'];
 
-  const load = useCallback(async () => {
-    try {
+  const q = useCachedQuery<Listing[]>({
+    queryKey: LISTINGS_KEY,
+    cacheKey: 'public-listings',
+    queryFn: async () => {
       const res: any = await listingApi.list({ page: 1, page_size: 100 });
       const d = res?.data;
-      setItems(Array.isArray(d) ? d : d?.items ?? []);
-    } catch (e: any) {
-      notifyError('加载失败', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+      return Array.isArray(d) ? d : d?.items ?? [];
+    },
+  });
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const items = q.data ?? [];
+  const loading = q.isPending && !q.data;
+  const refreshing = q.isRefetching;
+  const onRefresh = useCallback(() => {
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
 
   const renderItem = ({ item }: { item: Listing }) => {
     const open = expanded === item.id;
@@ -113,10 +112,7 @@ export default function PublicListingsScreen() {
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={async () => {
-              setRefreshing(true);
-              await load();
-            }} tintColor={colors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
         />
       )}

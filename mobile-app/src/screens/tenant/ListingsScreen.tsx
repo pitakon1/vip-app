@@ -16,6 +16,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
@@ -27,6 +28,8 @@ import LoadingState from '@/components/LoadingState';
 import { useI18n } from '@/i18n';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
+import { useAuthStore } from '@/stores/auth';
+import { getCached, isFresh, setCached } from '@/lib/cache';
 
 interface Listing {
   id: string;
@@ -322,14 +325,21 @@ export default function ListingsScreen() {
   const [favLoading, setFavLoading] = useState<Record<string, boolean>>({});
 
   const loadListings = useCallback(
-    async (geo?: Record<string, string | undefined>) => {
+    async (opts?: { force?: boolean }) => {
+      // SWR：先渲染磁盘缓存（秒开），再后台请求刷新并回写缓存；公开数据全局一份
+      const cacheKey = 'tenant-listings';
       try {
-        const params: any = { page: 1, page_size: 50 };
-        if (geo) {
-          Object.entries(geo).forEach(([k, v]) => {
-            if (v) params[k] = v;
-          });
+        const cached = await getCached<Listing[]>(cacheKey);
+        if (cached && cached.length) {
+          setListings(cached);
+          setLoadError(false);
+          setLoading(false);
+          if (!opts?.force && (await isFresh(cacheKey))) {
+            setRefreshing(false);
+            return;
+          }
         }
+        const params: any = { page: 1, page_size: 50 };
         const res = await propertiesApi.list(params);
         const data = res.data;
         const items = Array.isArray(data)
@@ -337,6 +347,7 @@ export default function ListingsScreen() {
           : (data as any)?.items ?? (data as any)?.data ?? [];
         setListings(items as Listing[]);
         setLoadError(false);
+        if (items.length) setCached(cacheKey, items);
       } catch (err: any) {
         setLoadError(true);
         // web 下 Alert.alert 是空实现，这里统一走 web 安全反馈（失败可见 + 可重试）
@@ -381,48 +392,54 @@ export default function ListingsScreen() {
     if (biz === 'sale' && !saleLoaded) loadSaleListings();
   }, [biz, saleLoaded, loadSaleListings]);
 
-  // 批量拉取当前列表的收藏状态
-  useEffect(() => {
-    if (!listings.length) return;
-    const ids = listings.map((l) => l.id);
-    Promise.all(
-      ids.map((id) =>
-        favoritesApi
-          .status(id)
-          .then((r: any) => ({ id, ok: !!r?.data?.favorited }))
-          .catch(() => ({ id, ok: false })),
-      ),
-    ).then((results) => {
+  // 收藏状态：TanStack Query 批量查询（同 key 去重 + 60s 新鲜 + 切换后失效）
+  const token = useAuthStore((s) => s.token);
+  const favIds = listings.map((l) => l.id).join(',');
+  const favQ = useQuery({
+    queryKey: ['fav-status', token ? favIds : ''],
+    queryFn: async () => {
       const map: Record<string, boolean> = {};
-      results.forEach((r) => {
-        map[r.id] = r.ok;
+      if (!token || !favIds) return map;
+      const r: any = await favoritesApi.batchStatus(favIds.split(','));
+      (r?.data?.items || []).forEach((item: any) => {
+        map[item.property_id] = !!item.favorited;
       });
-      setFavSet(map);
-    });
-  }, [listings]);
+      return map;
+    },
+    enabled: !!token && favIds.length > 0,
+    staleTime: 60 * 1000,
+  });
+  useEffect(() => {
+    if (favQ.data) setFavSet(favQ.data);
+  }, [favQ.data]);
+  const queryClient = useQueryClient();
 
   // 收藏态镜像：供稳定回调读取，避免依赖 favSet 导致卡片 memo 失效
   const favSetRef = useRef(favSet);
   favSetRef.current = favSet;
 
   // 收藏 / 取消收藏（useCallback：保持引用稳定，配合 ListingCard 的 memo）
-  const handleToggleFav = useCallback(async (item: Listing) => {
-    const current = !!favSetRef.current[item.id];
-    setFavLoading((s) => ({ ...s, [item.id]: true }));
-    try {
-      if (current) {
-        await favoritesApi.remove(item.id);
-        setFavSet((s) => ({ ...s, [item.id]: false }));
-      } else {
-        await favoritesApi.toggle(item.id);
-        setFavSet((s) => ({ ...s, [item.id]: true }));
+  const handleToggleFav = useCallback(
+    async (item: Listing) => {
+      const current = !!favSetRef.current[item.id];
+      setFavLoading((s) => ({ ...s, [item.id]: true }));
+      try {
+        if (current) {
+          await favoritesApi.remove(item.id);
+          setFavSet((s) => ({ ...s, [item.id]: false }));
+        } else {
+          await favoritesApi.toggle(item.id);
+          setFavSet((s) => ({ ...s, [item.id]: true }));
+        }
+        queryClient.invalidateQueries({ queryKey: ['fav-status'] });
+      } catch {
+        notify('操作失败', '请稍后重试');
+      } finally {
+        setFavLoading((s) => ({ ...s, [item.id]: false }));
       }
-    } catch {
-      notify('操作失败', '请稍后重试');
-    } finally {
-      setFavLoading((s) => ({ ...s, [item.id]: false }));
-    }
-  }, []);
+    },
+    [queryClient],
+  );
 
   // 金刚区分类直达：路由参数变化时同步筛选
   useEffect(() => {
@@ -564,7 +581,7 @@ export default function ListingsScreen() {
     if (biz === 'sale') {
       loadSaleListings().finally(() => setRefreshing(false));
     } else {
-      loadListings();
+      loadListings({ force: true });
     }
   }, [loadListings, biz, loadSaleListings]);
 

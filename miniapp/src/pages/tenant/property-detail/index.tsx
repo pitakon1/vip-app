@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { View, Text, ScrollView, Image, Input } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { request } from '@/lib/api'
 import { favoritesApi, saleListingApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as formatMoney } from '@/utils/format'
 import { ICONS, iconStyle } from '@/utils/icons'
 import './index.scss'
@@ -106,71 +107,73 @@ export default function TenantPropertyDetailPage() {
   const router = useRouter()
   const propertyId = router.params?.id
 
-  const [property, setProperty] = useState<PropertyItem | null>(null)
-  const [project, setProject] = useState<ProjectItem | null>(null)
-  const [saleListing, setSaleListing] = useState<SaleListingItem | null>(null)
-  const [peerAvg, setPeerAvg] = useState<number | null>(null)
   const [fav, setFav] = useState(false)
-  const [loading, setLoading] = useState(true)
 
   const [biz, setBiz] = useState<'rent' | 'buy'>('rent')
   const [photoIndex, setPhotoIndex] = useState(0)
   const [rateInput, setRateInput] = useState('')
   const [showLoan, setShowLoan] = useState(false)
 
-  const photos = useMemo(
-    () => (property?.photos || []).map(photoUrl).filter(Boolean),
-    [property]
-  )
+  interface DetailPayload {
+    property: PropertyItem | null
+    project: ProjectItem | null
+    saleListing: SaleListingItem | null
+    peerAvg: number | null
+  }
 
-  const fetchAll = useCallback(async () => {
-    if (!propertyId) {
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    try {
+  // 房源详情 + 在售挂牌 + 同小区均价：缓存优先（同步读 storage 秒开），后台刷新
+  const { data: payload, loading, refresh } = useSwrCache<DetailPayload>({
+    key: `tenant:property-detail:${propertyId ?? 'none'}`,
+    fetcher: async (): Promise<DetailPayload> => {
+      if (!propertyId) {
+        return { property: null, project: null, saleListing: null, peerAvg: null }
+      }
       const raw = await request<any>({ url: `/properties/${propertyId}`, method: 'GET' })
       const data = toBody(raw) as PropertyItem | null
-      setProperty(data)
-
       const projectId = data?.project_id
       const results = await Promise.allSettled([
         projectId ? request<any>({ url: `/projects/${projectId}`, method: 'GET' }) : Promise.resolve(null),
         saleListingApi.list({ page: 1, page_size: 100 }),
         projectId
           ? request<any>({ url: `/properties?project_id=${projectId}&page=1&page_size=100`, method: 'GET' })
-          : Promise.resolve(null),
-        favoritesApi.status(String(propertyId))
+          : Promise.resolve(null)
       ])
 
-      const [projRes, saleRes, peerRes, favRes] = results
+      const [projRes, saleRes, peerRes] = results
 
+      let project: ProjectItem | null = null
       if (projRes.status === 'fulfilled' && projRes.value) {
-        setProject(toBody(projRes.value) as ProjectItem)
+        project = toBody(projRes.value) as ProjectItem
       }
+
+      let saleListing: SaleListingItem | null = null
       if (saleRes.status === 'fulfilled') {
         const list = pickList(toBody(saleRes.value)) as SaleListingItem[]
-        setSaleListing(list.find((s) => String(s.property_id) === String(propertyId)) || null)
+        saleListing = list.find((s) => String(s.property_id) === String(propertyId)) || null
       }
+
+      let peerAvg: number | null = null
       if (peerRes.status === 'fulfilled' && peerRes.value) {
         const peers = pickList(toBody(peerRes.value)) as PropertyItem[]
         const rents = peers
           .filter((p) => String(p.id) !== String(propertyId))
           .map((p) => Number(p.monthly_rent || 0))
           .filter((n) => n > 0)
-        setPeerAvg(rents.length >= 2 ? rents.reduce((a, b) => a + b, 0) / rents.length : null)
+        peerAvg = rents.length >= 2 ? rents.reduce((a, b) => a + b, 0) / rents.length : null
       }
-      if (favRes.status === 'fulfilled') {
-        setFav(!!(toBody(favRes.value) as any)?.favorited)
-      }
-    } catch (error) {
-      console.error('[PropertyDetail] 加载失败', error)
-      Taro.showToast({ title: '加载房源失败', icon: 'none' })
-    } finally {
-      setLoading(false)
-    }
-  }, [propertyId])
+
+      return { property: data, project, saleListing, peerAvg }
+    },
+  })
+  const property = payload?.property ?? null
+  const project = payload?.project ?? null
+  const saleListing = payload?.saleListing ?? null
+  const peerAvg = payload?.peerAvg ?? null
+
+  const photos = useMemo(
+    () => (property?.photos || []).map(photoUrl).filter(Boolean),
+    [property]
+  )
 
   useDidShow(() => {
     loadFromStorage()
@@ -178,7 +181,13 @@ export default function TenantPropertyDetailPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchAll()
+    void refresh()
+    if (propertyId) {
+      favoritesApi.status(String(propertyId)).then((res: any) => {
+        const body = toBody(res)
+        setFav(!!(body as any)?.favorited)
+      }).catch(() => undefined)
+    }
   })
 
   const title = useMemo(() => {

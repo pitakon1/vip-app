@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import type { ReactNode } from 'react'
 import api from '@/lib/api'
 import useAuthStore from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 import './payments.css'
 
 interface PaymentMethod {
@@ -129,60 +130,70 @@ const statusBadgeCls: Record<string, string> = {
 }
 
 const Payments = () => {
-  const [loading, setLoading] = useState(false)
-  const [records, setRecords] = useState<PaymentRecord[]>([])
   const [currentMethod, setCurrentMethod] = useState<PaymentMethod | null>(null)
   const [amount, setAmount] = useState<number>(0)
   const [submitting, setSubmitting] = useState(false)
-  const [properties, setProperties] = useState<{ id: string; label: string }[]>([])
   const [selectedProperty, setSelectedProperty] = useState<string>('')
 
-  const fetchRecords = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await api.get('/payments/me')
-      const payload = res.data?.data ?? res.data
-      const items: PaymentRecord[] = payload?.items ?? []
-      setRecords(items)
-      // 以最近一笔未结清账单金额作为默认缴费金额
-      const due = items.find(
-        (r) => !['succeeded', 'paid', 'refunded'].includes(String(r.status || '').toLowerCase()),
-      )
-      setAmount(Number(due?.amount || 0))
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取付款记录失败')
-      setRecords([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
 
-  const fetchProperties = useCallback(async () => {
-    try {
-      const res = await api.get('/owners/me/properties')
-      const items = Array.isArray(res.data) ? res.data : (res.data?.items ?? [])
-      const mapped = items.map((p: any) => ({
-        id: p.id,
-        label: `${p.address || p.property_name || '房产'} · ${p.room_number || ''}`.replace(' · ', ' · '),
-      }))
-      setProperties(mapped)
-      setSelectedProperty(mapped[0]?.id || '')
-    } catch {
-      setProperties([])
-      setSelectedProperty('')
-    }
-  }, [])
+  const qRecords = useCachedQuery<PaymentRecord[]>({
+    queryKey: ['owner-payments', 'mine', uid],
+    cacheKey: `owner-payments:mine:${uid}`,
+    queryFn: async () => {
+      try {
+        const res = await api.get('/payments/me')
+        const payload = res.data?.data ?? res.data
+        return payload?.items ?? []
+      } catch (err: any) {
+        message.error(err?.response?.data?.message || '获取付款记录失败')
+        return []
+      }
+    },
+  })
+  const records = qRecords.data ?? []
 
+  const qProps = useCachedQuery<{ id: string; label: string }[]>({
+    queryKey: ['owner-payments', 'properties', uid],
+    cacheKey: `owner-payments:properties:${uid}`,
+    queryFn: async () => {
+      try {
+        const res = await api.get('/owners/me/properties')
+        const items = Array.isArray(res.data) ? res.data : (res.data?.items ?? [])
+        return items.map((p: any) => ({
+          id: p.id,
+          label: `${p.address || p.property_name || '房产'} · ${p.room_number || ''}`.replace(' · ', ' · '),
+        }))
+      } catch {
+        return []
+      }
+    },
+  })
+  const properties = qProps.data ?? []
+
+  const loading = (qRecords.isPending && !qRecords.data) || (qProps.isPending && !qProps.data)
+  const refresh = useCallback(() => {
+    void qRecords.refetch({ cancelRefetch: false })
+    void qProps.refetch({ cancelRefetch: false })
+  }, [qRecords, qProps])
+
+  // 以最近一笔未结清账单金额作为默认缴费金额
   useEffect(() => {
-    fetchRecords()
-    fetchProperties()
-  }, [fetchRecords, fetchProperties])
+    const due = records.find(
+      (r) => !['succeeded', 'paid', 'refunded'].includes(String(r.status || '').toLowerCase()),
+    )
+    setAmount(Number(due?.amount || 0))
+  }, [records])
+
+  // 默认选中第一套房产（背景刷新时保留用户已选中的选择）
+  useEffect(() => {
+    setSelectedProperty((prev) => prev || properties[0]?.id || '')
+  }, [properties])
 
   const selectMethod = (method: PaymentMethod) => {
     setCurrentMethod(method)
   }
-
-  const user = useAuthStore((s) => s.user)
 
   const handleConfirmPay = async () => {
     if (amount <= 0) {
@@ -205,7 +216,7 @@ const Payments = () => {
         description: '业主在线缴费',
       })
       message.success('支付单已创建，请按所选方式完成支付')
-      await fetchRecords()
+      refresh()
       setCurrentMethod(null)
     } catch (err: any) {
       message.error(err?.response?.data?.message || '创建支付单失败')

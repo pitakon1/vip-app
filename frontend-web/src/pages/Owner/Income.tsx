@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Spin, Empty } from 'antd'
+import { useMemo, useState } from 'react'
+import { Spin, Empty } from 'antd'
 import dayjs, { Dayjs } from 'dayjs'
 import {
   Chart as ChartJS,
@@ -13,6 +13,8 @@ import {
 import { Bar } from 'react-chartjs-2'
 import api from '@/lib/api'
 import { convertCurrency } from '@/lib/money'
+import useAuthStore from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 import './income.css'
 
 ChartJS.register(
@@ -74,67 +76,75 @@ const statusBadgeMap: Record<string, { label: string; cls: string }> = {
 }
 
 const Income = () => {
-  const [loading, setLoading] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs())
-  const [incomeSummary, setIncomeSummary] = useState<IncomeSummary>({
-    total_income: 0,
-    monthly_income: 0,
-    pending_amount: 0,
-  })
-  const [payments, setPayments] = useState<IncomePayment[]>([])
-  const [propertyCount, setPropertyCount] = useState<number>(0)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const monthStr = selectedMonth.format('YYYY-MM')
-      const [incomeRes, paymentsRes] = await Promise.all([
-        api
-          .get('/owners/me/income', { params: { month: monthStr } })
-          .catch(() => ({ data: {} })),
-        api
-          .get('/payments/me', { params: { payment_type: 'rent' } })
-          .catch(() => ({ data: { items: [] } })),
-      ])
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
+  const monthStr = selectedMonth.format('YYYY-MM')
 
-      const iPayload = incomeRes.data?.data ?? incomeRes.data
-      if (Array.isArray(iPayload?.items)) {
-        const monthTotal = iPayload.items
-          .filter((it: any) => monthKey(it.paid_at || it.due_date) === monthStr)
-          .reduce((s: number, it: any) => s + Number(it.amount || 0), 0)
-        const yearTotal = iPayload.items
-          .filter((it: any) =>
-            String(monthKey(it.paid_at || it.due_date)).startsWith(
-              selectedMonth.format('YYYY'),
-            ),
-          )
-          .reduce((s: number, it: any) => s + Number(it.amount || 0), 0)
-        setIncomeSummary({
-          total_income: yearTotal,
-          monthly_income: monthTotal,
-          pending_amount: 0,
-        })
-      } else {
-        setIncomeSummary({
-          total_income: Number(iPayload?.total_income ?? 0),
-          monthly_income: Number(iPayload?.monthly_income ?? 0),
-          pending_amount: Number(iPayload?.pending_amount ?? 0),
-        })
+  const qIncome = useCachedQuery<{ summary: IncomeSummary; propertyCount: number }>({
+    queryKey: ['owner-income', 'summary', uid, monthStr],
+    cacheKey: `owner-income:summary:${uid}:${monthStr}`,
+    queryFn: async () => {
+      try {
+        const res = await api.get('/owners/me/income', { params: { month: monthStr } })
+        const iPayload = res.data?.data ?? res.data
+        if (Array.isArray(iPayload?.items)) {
+          const monthTotal = iPayload.items
+            .filter((it: any) => monthKey(it.paid_at || it.due_date) === monthStr)
+            .reduce((s: number, it: any) => s + Number(it.amount || 0), 0)
+          const yearTotal = iPayload.items
+            .filter((it: any) =>
+              String(monthKey(it.paid_at || it.due_date)).startsWith(
+                selectedMonth.format('YYYY'),
+              ),
+            )
+            .reduce((s: number, it: any) => s + Number(it.amount || 0), 0)
+          return {
+            summary: {
+              total_income: yearTotal,
+              monthly_income: monthTotal,
+              pending_amount: 0,
+            },
+            propertyCount: Number(iPayload?.property_count ?? 0),
+          }
+        }
+        return {
+          summary: {
+            total_income: Number(iPayload?.total_income ?? 0),
+            monthly_income: Number(iPayload?.monthly_income ?? 0),
+            pending_amount: Number(iPayload?.pending_amount ?? 0),
+          },
+          propertyCount: Number(iPayload?.property_count ?? 0),
+        }
+      } catch {
+        return { summary: { total_income: 0, monthly_income: 0, pending_amount: 0 }, propertyCount: 0 }
       }
+    },
+  })
+  const income = qIncome.data ?? {
+    summary: { total_income: 0, monthly_income: 0, pending_amount: 0 },
+    propertyCount: 0,
+  }
+  const incomeSummary = income.summary
+  const propertyCount = income.propertyCount
 
-      const pPayload = paymentsRes.data?.data ?? paymentsRes.data
-      setPayments(pPayload?.items ?? [])
-      setPropertyCount(Number(iPayload?.property_count ?? 0))
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取收入数据失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [selectedMonth])
+  const qPayments = useCachedQuery<IncomePayment[]>({
+    queryKey: ['owner-income', 'payments', uid],
+    cacheKey: `owner-income:payments:${uid}`,
+    queryFn: async () => {
+      try {
+        const res = await api.get('/payments/me', { params: { payment_type: 'rent' } })
+        const pPayload = res.data?.data ?? res.data
+        return pPayload?.items ?? []
+      } catch {
+        return []
+      }
+    },
+  })
+  const payments = qPayments.data ?? []
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const loading = (qIncome.isPending && !qIncome.data) || (qPayments.isPending && !qPayments.data)
 
   // 平均月租（基于已收租金记录）
   const avgRent = useMemo(() => {

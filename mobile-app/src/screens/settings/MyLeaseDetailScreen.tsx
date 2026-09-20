@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
@@ -8,6 +8,7 @@ import { useI18n } from '@/i18n';
 import colors from '@/theme/colors';
 import { fmtMoney as fmtRent } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 
 type Route = RouteProp<RootStackParamList, 'MyLeaseDetail'>;
 
@@ -38,26 +39,17 @@ export default function MyLeaseDetailScreen() {
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const { params } = useRoute<Route>();
-  const [lease, setLease] = useState<any>(null);
-  const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    leasesApi
-      .get(params.lease_id)
-      .then((res: any) => {
-        if (alive) setLease(res?.data ?? null);
-      })
-      .catch(() => {
-        /* 加载失败保持空态 */
-      })
-      .finally(() => {
-        if (alive) setLoaded(true);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [params.lease_id]);
+  const q = useCachedQuery<any | null>({
+    queryKey: ['lease', 'detail', params.lease_id],
+    cacheKey: `lease:detail:${params.lease_id}`,
+    queryFn: async () => {
+      const res: any = await leasesApi.get(params.lease_id);
+      return res?.data ?? null;
+    },
+  });
+  const lease = q.data ?? null;
+  const loaded = q.isSuccess;
 
   if (loaded && !lease) {
     return (

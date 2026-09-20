@@ -162,6 +162,7 @@
   display: flex;
   align-items: center;
   gap: 0;
+}
 .pl-sortbar__item {
   position: relative;
   padding: var(--rent-s-4) var(--rent-s-5);

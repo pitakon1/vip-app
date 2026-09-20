@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import LoadingState from '@/components/LoadingState';
 import { documentsApi, paymentsApi, propertiesApi } from '@/services/api';
 import { fmtMoney as money } from '@/utils/format';
 import { documentFileUrl } from '@/lib/api';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -139,53 +140,51 @@ export default function OwnerPropertyDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<OwnerDetailParamList>>();
   const propertyId = String(route.params?.id ?? '');
 
-  const [prop, setProp] = useState<PropertyDetail | null>(null);
-  const [leases, setLeases] = useState<PropertyLease[]>([]);
-  const [payments, setPayments] = useState<OwnerPayment[]>([]);
-  const [docs, setDocs] = useState<OwnerDocument[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  interface DetailPayload {
+    prop: PropertyDetail | null;
+    leases: PropertyLease[];
+    payments: OwnerPayment[];
+    docs: OwnerDocument[];
+  }
 
-  const load = useCallback(async () => {
-    if (!propertyId) {
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
-    const [propRes, leaseRes, payRes, docRes] = await Promise.allSettled([
-      propertiesApi.get(propertyId),
-      propertiesApi.leases(propertyId),
-      paymentsApi.mine(),
-      documentsApi.list({ property_id: propertyId }),
-    ]);
+  const q = useCachedQuery<DetailPayload>({
+    queryKey: ['owner-prop-detail', propertyId],
+    cacheKey: `owner-prop-detail:${propertyId}`,
+    enabled: !!propertyId,
+    queryFn: async () => {
+      const [propRes, leaseRes, payRes, docRes] = await Promise.allSettled([
+        propertiesApi.get(propertyId),
+        propertiesApi.leases(propertyId),
+        paymentsApi.mine(),
+        documentsApi.list({ property_id: propertyId }),
+      ]);
 
-    const pickItems = <T,>(res: PromiseSettledResult<any>): T[] => {
-      if (res.status !== 'fulfilled') return [];
-      const data = res.value?.data;
-      const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-      return Array.isArray(items) ? (items as T[]) : [];
-    };
+      const pickItems = <T,>(res: PromiseSettledResult<any>): T[] => {
+        if (res.status !== 'fulfilled') return [];
+        const data = res.value?.data;
+        const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
+        return Array.isArray(items) ? (items as T[]) : [];
+      };
 
-    if (propRes.status === 'fulfilled') {
-      setProp((propRes.value?.data as PropertyDetail) ?? null);
-    } else {
-      setProp(null);
-    }
-    setLeases(pickItems<PropertyLease>(leaseRes));
-    setPayments(pickItems<OwnerPayment>(payRes));
-    setDocs(pickItems<OwnerDocument>(docRes));
-    setLoading(false);
-    setRefreshing(false);
-  }, [propertyId]);
+      return {
+        prop: propRes.status === 'fulfilled' ? ((propRes.value?.data as PropertyDetail) ?? null) : null,
+        leases: pickItems<PropertyLease>(leaseRes),
+        payments: pickItems<OwnerPayment>(payRes),
+        docs: pickItems<OwnerDocument>(docRes),
+      };
+    },
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
+  const payload = q.data;
+  const prop = payload?.prop ?? null;
+  const leases = payload?.leases ?? [];
+  const payments = payload?.payments ?? [];
+  const docs = payload?.docs ?? [];
+  const loading = q.isPending && !q.data;
+  const refreshing = q.isRefetching;
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    load();
-  }, [load]);
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
 
   const go = (target: string) => navigation.navigate(target as any);
 

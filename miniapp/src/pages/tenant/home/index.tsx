@@ -11,6 +11,7 @@ import {
 import { fmtMoney as formatMoney } from '@/utils/format'
 import type { NotificationType } from '@/types'
 import { iconStyle } from '@/utils/icons'
+import { getCacheSync, isFreshSync, setCache } from '@/utils/cache'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
 
@@ -94,15 +95,35 @@ export default function TenantHomePage() {
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
   const [favPending, setFavPending] = useState<Set<string>>(new Set())
 
-  const loadData = async () => {
+  const loadData = async (opts?: { force?: boolean }) => {
+    // SWR：同步读缓存先渲染（秒开），再后台请求刷新并回写缓存。
+    // 房源为公开数据缓存全局一份；通知按用户隔离。
+    const uid = String(useAuthStore.getState().user?.id ?? 'anon')
+    const propsKey = 'tenant-home:props'
+    const notifKey = `tenant-home:notifs:${uid}`
+
+    const cachedProps = getCacheSync<any[]>(propsKey)
+    const cachedNotifs = getCacheSync<NotifRow[]>(notifKey)
+    if (cachedProps && cachedProps.length) setProperties(cachedProps)
+    if (cachedNotifs && cachedNotifs.length) setNotifications(cachedNotifs)
+
+    // 缓存新鲜且非强制刷新：直接展示缓存，不发请求
+    if (!opts?.force && isFreshSync(propsKey) && isFreshSync(notifKey)) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     const [propsRes, notifRes] = await Promise.all([
       propertiesApi.list({ page: 1, pageSize: 100 }).catch(() => null),
       notificationsApi.mine().catch(() => null)
     ])
     const props = pickList<any>(propsRes)
+    const notifs = pickList<NotifRow>(notifRes)
     setProperties(props)
-    setNotifications(pickList<NotifRow>(notifRes))
+    setNotifications(notifs)
+    if (props.length) setCache(propsKey, props)
+    if (notifRes) setCache(notifKey, notifs)
     if (props.length === 0 && !propsRes) {
       // 全部接口失败时给出提示，但不注入任何占位数据
       Taro.showToast({ title: '加载失败，请下拉重试', icon: 'none' })

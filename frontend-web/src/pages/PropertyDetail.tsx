@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { translateApi, documentsApi } from '@/services/api'
+import { useCachedQuery } from '@/lib/queryCache'
 import './PropertyDetail.css'
 
 interface PropertyDetail {
@@ -90,17 +91,67 @@ const DOC_TYPE_BADGE: Record<string, string> = {
 }
 
 const PropertyDetail = () => {
-  const { id } = useParams<{ id: string }>()
+  const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
-  const [detail, setDetail] = useState<PropertyDetail | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [leases, setLeases] = useState<any[]>([])
-  const [docs, setDocs] = useState<any[]>([])
   // v1.8 Google 翻译：房源描述可自行翻译
   const [translatedDesc, setTranslatedDesc] = useState<string | null>(null)
   const [translating, setTranslating] = useState(false)
   const [transTarget, setTransTarget] = useState('zh')
+
+  // 房源详情（公开数据，缓存优先渲染 + 后台刷新）
+  const detailQ = useCachedQuery<PropertyDetail | null>({
+    queryKey: ['property-detail', id],
+    cacheKey: `property-detail:${id}`,
+    queryFn: async () => {
+      if (!id) return null
+      try {
+        const res = await api.get(`/properties/${id}`)
+        const payload = res.data?.data ?? res.data
+        const data = payload?.data ?? payload
+        return (data as PropertyDetail) ?? null
+      } catch {
+        return null
+      }
+    },
+  })
+  const detail = detailQ.data ?? null
+  const loading = detailQ.isPending && !detailQ.data
+
+  // 该房源租约（当前生效 + 历史）
+  const leasesQ = useCachedQuery<any[]>({
+    queryKey: ['property-leases', id],
+    cacheKey: `property-leases:${id}`,
+    queryFn: async () => {
+      if (!id) return []
+      try {
+        const res = await api.get(`/properties/${id}/leases`)
+        const payload = res.data?.data ?? res.data
+        return payload?.items ?? []
+      } catch {
+        return []
+      }
+    },
+  })
+  const leases = leasesQ.data ?? []
+
+  // 该房源相关文档
+  const docsQ = useCachedQuery<any[]>({
+    queryKey: ['property-docs', id],
+    cacheKey: `property-docs:${id}`,
+    queryFn: async () => {
+      if (!id) return []
+      try {
+        const res = await documentsApi.list({ property_id: id, page_size: 50 })
+        const payload = res.data?.data ?? res.data
+        const items = Array.isArray(payload) ? payload : (payload?.items ?? [])
+        return items
+      } catch {
+        return []
+      }
+    },
+  })
+  const docs = docsQ.data ?? []
 
   const handleTranslate = async () => {
     const source = detail?.description || detail?.address || detail?.project_name || ''
@@ -125,45 +176,6 @@ const PropertyDetail = () => {
     }
   }
 
-  const fetchDetail = useCallback(async () => {
-    if (!id) return
-    setLoading(true)
-    try {
-      const res = await api.get(`/properties/${id}`)
-      const payload = res.data?.data ?? res.data
-      const data = payload?.data ?? payload
-      setDetail(data as PropertyDetail)
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取房源详情失败')
-      setDetail(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [id])
-
-  const fetchLeases = useCallback(async () => {
-    if (!id) return
-    try {
-      const res = await api.get(`/properties/${id}/leases`)
-      const payload = res.data?.data ?? res.data
-      setLeases(payload?.items ?? [])
-    } catch {
-      setLeases([])
-    }
-  }, [id])
-
-  const fetchDocs = useCallback(async () => {
-    if (!id) return
-    try {
-      const res = await documentsApi.list({ property_id: id, page_size: 50 })
-      const payload = res.data?.data ?? res.data
-      const items = Array.isArray(payload) ? payload : (payload?.items ?? [])
-      setDocs(items)
-    } catch {
-      setDocs([])
-    }
-  }, [id])
-
   // 打开文档：与业主文档页一致，带鉴权头走 /documents/{id}/file 取 blob 后新窗口预览
   const openDoc = async (doc: any) => {
     if (!doc?.id) {
@@ -181,11 +193,8 @@ const PropertyDetail = () => {
   }
 
   useEffect(() => {
-    fetchDetail()
-    fetchLeases()
-    fetchDocs()
     window.scrollTo?.({ top: 0 })
-  }, [fetchDetail, fetchLeases, fetchDocs, id])
+  }, [id])
 
   if (loading) {
     return <div className="rent-main"><div className="rent-empty">加载中...</div></div>

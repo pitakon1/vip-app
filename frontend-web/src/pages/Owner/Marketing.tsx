@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Empty } from 'antd'
 import { ownersApi } from '@/services/api'
+import useAuthStore from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 import './marketing.css'
 
 interface VacantItem {
@@ -64,19 +66,25 @@ const statusBadge = (status?: string) =>
     : { label: '维护中', cls: 'rent-badge--neutral' }
 
 const Marketing = () => {
-  const [loading, setLoading] = useState(false)
-  const [vacants, setVacants] = useState<VacantItem[]>([])
-  const [totalVacant, setTotalVacant] = useState(0)
-  const [totalProperties, setTotalProperties] = useState(0)
-  const [pricing, setPricing] = useState<PricingItem[]>([])
-  const [annual, setAnnual] = useState<AnnualMonth[]>([])
-  const [annualTotals, setAnnualTotals] = useState({ received: 0, pending: 0, overdue: 0, count: 0 })
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
   const [year, setYear] = useState<number>(new Date().getFullYear())
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true)
-    try {
+  interface MarketingPayload {
+    vacants: VacantItem[]
+    totalVacant: number
+    totalProperties: number
+    pricing: PricingItem[]
+    annual: AnnualMonth[]
+    annualTotals: { received: number; pending: number; overdue: number; count: number }
+  }
+
+  // 缓存优先（localStorage 秒开）+ 后台刷新；年份切换自动换 key 重新拉取
+  const q = useCachedQuery<MarketingPayload>({
+    queryKey: ['owner-marketing', uid, String(year)],
+    cacheKey: `owner-marketing:${uid}:${year}`,
+    queryFn: async (): Promise<MarketingPayload> => {
       const [mkRes, prRes, annRes] = await Promise.all([
         ownersApi.marketing().catch(() => ({ data: {} })),
         ownersApi.pricingSuggestion().catch(() => ({ data: { items: [] } })),
@@ -84,26 +92,25 @@ const Marketing = () => {
       ])
 
       const mkPayload = mkRes.data?.data ?? mkRes.data
-      setVacants(mkPayload?.items ?? [])
-      setTotalVacant(Number(mkPayload?.total_vacant ?? 0))
-      setTotalProperties(Number(mkPayload?.total_properties ?? 0))
-
       const prPayload = prRes.data?.data ?? prRes.data
-      setPricing(prPayload?.items ?? [])
-
       const annPayload = annRes.data?.data ?? annRes.data
-      setAnnual(annPayload?.by_month ?? [])
-      setAnnualTotals(annPayload?.totals ?? { received: 0, pending: 0, overdue: 0, count: 0 })
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取营销数据失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [year])
-
-  useEffect(() => {
-    fetchAll()
-  }, [fetchAll])
+      return {
+        vacants: mkPayload?.items ?? [],
+        totalVacant: Number(mkPayload?.total_vacant ?? 0),
+        totalProperties: Number(mkPayload?.total_properties ?? 0),
+        pricing: prPayload?.items ?? [],
+        annual: annPayload?.by_month ?? [],
+        annualTotals: annPayload?.totals ?? { received: 0, pending: 0, overdue: 0, count: 0 },
+      }
+    },
+  })
+  const vacants = q.data?.vacants ?? []
+  const totalVacant = q.data?.totalVacant ?? 0
+  const totalProperties = q.data?.totalProperties ?? 0
+  const pricing = q.data?.pricing ?? []
+  const annual = q.data?.annual ?? []
+  const annualTotals = q.data?.annualTotals ?? { received: 0, pending: 0, overdue: 0, count: 0 }
+  const loading = q.isPending && !q.data
 
   // 定价建议按 property_id 关联，id 口径不一致时回退按房源标题匹配
   const pricingOf = useCallback(
@@ -206,7 +213,7 @@ const Marketing = () => {
           <p className="rent-page-header__subtitle">空置房源推广、自动定价建议与年度财务导出</p>
         </div>
         <div className="rent-page-header__actions">
-          <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={fetchAll} disabled={loading}>
+          <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => q.refetch({ cancelRefetch: false })} disabled={q.isRefetching}>
             刷新
           </button>
         </div>

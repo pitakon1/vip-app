@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { leasesApi } from '@/services/api'
+import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import './detail.scss'
 
@@ -41,21 +41,13 @@ export default function TenantLeaseDetailPage() {
   const router = useRouter()
   const leaseId = String(router.params?.lease_id ?? '')
 
-  const [lease, setLease] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-
-  const fetchLease = async () => {
-    setLoading(true)
-    try {
+  const { data: lease, loading, refresh } = useSwrCache<any>({
+    key: `tenant:lease-detail:${leaseId}`,
+    fetcher: async () => {
       const res: any = await leasesApi.get(leaseId)
-      setLease(res?.data ?? res ?? null)
-    } catch (e) {
-      console.warn('[LeaseDetail] 获取租约详情失败', e)
-      setLease(null)
-    } finally {
-      setLoading(false)
-    }
-  }
+      return res?.data ?? res ?? null
+    },
+  })
 
   useDidShow(() => {
     Taro.setNavigationBarTitle({ title: '租约详情' })
@@ -64,7 +56,7 @@ export default function TenantLeaseDetailPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchLease()
+    void refresh()
   })
 
   if (!loading && !lease) {

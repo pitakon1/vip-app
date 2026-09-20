@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { message, Modal, Form, Select, DatePicker, InputNumber, Input, Rate, Tag, Empty } from 'antd'
+import { useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { ReactNode } from 'react'
 import api from '@/lib/api'
 import useAuthStore from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 import './services.css'
 
 interface ServiceItem {
@@ -330,9 +332,42 @@ const fmtMoney = (v: number, currency = 'THB') => {
 
 const Services = () => {
   const { user } = useAuthStore()
-  const [orders, setOrders] = useState<ServiceOrderItem[]>([])
-  const [packages, setPackages] = useState<PackageItem[]>([])
-  const [properties, setProperties] = useState<PropertyOption[]>([])
+  const uid = user?.id ?? 'anon'
+  const queryClient = useQueryClient()
+  const servicesQueryKey: string[] = ['owner-services', 'dashboard', uid]
+
+  const q = useCachedQuery<{
+    packages: PackageItem[]
+    orders: ServiceOrderItem[]
+    tickets: MaintenanceTicketItem[]
+    properties: PropertyOption[]
+  }>({
+    queryKey: servicesQueryKey,
+    cacheKey: `owner-services:dashboard:${uid}`,
+    queryFn: async () => {
+      const [pkgRes, ordersRes, ticketsRes, propsRes] = await Promise.all([
+        api.get('/service-packages/me').catch(() => ({ data: [] })),
+        api.get('/service-orders', { params: { page_size: 50 } }).catch(() => ({ data: [] })),
+        api.get('/maintenance-tickets', { params: { page_size: 50 } }).catch(() => ({ data: [] })),
+        api.get('/owners/me/properties').catch(() => ({ data: [] })),
+      ])
+      return {
+        packages: Array.isArray(pkgRes.data) ? pkgRes.data : (pkgRes.data?.items ?? []),
+        orders: Array.isArray(ordersRes.data) ? ordersRes.data : (ordersRes.data?.items ?? []),
+        tickets: Array.isArray(ticketsRes.data) ? ticketsRes.data : (ticketsRes.data?.items ?? []),
+        properties: Array.isArray(propsRes.data) ? propsRes.data : (propsRes.data?.items ?? []),
+      }
+    },
+  })
+  const payload = q.data
+  const packages = payload?.packages ?? []
+  const orders = payload?.orders ?? []
+  const tickets = payload?.tickets ?? []
+  const properties = payload?.properties ?? []
+  const refresh = useCallback(() => {
+    void q.refetch({ cancelRefetch: false })
+  }, [q])
+
   const [modalOpen, setModalOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm()
@@ -353,52 +388,7 @@ const Services = () => {
   const [repairForm] = Form.useForm()
   // 双 Tab：服务商城 | 我的工单
   const [activeTab, setActiveTab] = useState<'mall' | 'tickets'>('mall')
-  const [tickets, setTickets] = useState<MaintenanceTicketItem[]>([])
   const [ticketFilter, setTicketFilter] = useState<'all' | 'processing' | 'completed' | 'pending'>('all')
-
-  const fetchPackages = useCallback(async () => {
-    try {
-      const res = await api.get('/service-packages/me')
-      setPackages(Array.isArray(res.data) ? res.data : (res.data?.items ?? []))
-    } catch {
-      // 接口不可用或未订阅时保持空列表
-    }
-  }, [])
-
-  const fetchOrders = useCallback(async () => {
-    try {
-      const res = await api.get('/service-orders', { params: { page_size: 50 } })
-      setOrders(Array.isArray(res.data) ? res.data : (res.data?.items ?? []))
-    } catch {
-      setOrders([])
-    }
-  }, [])
-
-  const fetchTickets = useCallback(async () => {
-    try {
-      const res = await api.get('/maintenance-tickets', { params: { page_size: 50 } })
-      setTickets(Array.isArray(res.data) ? res.data : (res.data?.items ?? []))
-    } catch {
-      setTickets([])
-    }
-  }, [])
-
-  const fetchProperties = useCallback(async () => {
-    try {
-      const res = await api.get('/owners/me/properties')
-      const items = Array.isArray(res.data) ? res.data : (res.data?.items ?? [])
-      setProperties(items)
-    } catch {
-      setProperties([])
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchPackages()
-    fetchOrders()
-    fetchTickets()
-    fetchProperties()
-  }, [fetchPackages, fetchOrders, fetchTickets, fetchProperties])
 
   const openBooking = (service: ServiceItem) => {
     if (!properties.length) {
@@ -431,7 +421,7 @@ const Services = () => {
       message.success('预约成功，工作人员将尽快联系您')
       setBookingService(null)
       bookingForm.resetFields()
-      fetchOrders()
+      refresh()
     } catch (err: any) {
       if (err?.response) {
         message.error(err?.response?.data?.detail || '预约失败，请稍后重试')
@@ -459,7 +449,7 @@ const Services = () => {
       message.success('感谢您的评价')
       setReviewOrder(null)
       reviewForm.resetFields()
-      fetchOrders()
+      refresh()
     } catch (err: any) {
       if (err?.response) {
         message.error(err?.response?.data?.detail || '评价失败，请稍后重试')
@@ -495,8 +485,16 @@ const Services = () => {
       const res = await api.post('/service-packages', payload)
       message.success('套餐订阅成功')
       setModalOpen(false)
-      setPackages((prev) => [res.data, ...prev])
-      fetchPackages()
+      if (res.data) {
+        queryClient.setQueryData<{
+          packages: PackageItem[]
+          orders: ServiceOrderItem[]
+          tickets: MaintenanceTicketItem[]
+          properties: PropertyOption[]
+        }>(servicesQueryKey, (old) =>
+          old ? { ...old, packages: [res.data, ...old.packages] } : old,
+        )
+      }
     } catch (err: any) {
       if (err?.response) {
         message.error(err?.response?.data?.detail || '订阅失败')
@@ -511,7 +509,21 @@ const Services = () => {
     try {
       await api.patch(`/service-packages/${pkg.id}`, { status: 'cancelled' })
       message.success('已取消订阅')
-      fetchPackages()
+      queryClient.setQueryData<{
+        packages: PackageItem[]
+        orders: ServiceOrderItem[]
+        tickets: MaintenanceTicketItem[]
+        properties: PropertyOption[]
+      }>(servicesQueryKey, (old) =>
+        old
+          ? {
+              ...old,
+              packages: old.packages.map((p) =>
+                String(p.id) === String(pkg.id) ? { ...p, status: 'cancelled' } : p,
+              ),
+            }
+          : old,
+      )
     } catch (err: any) {
       message.error(err?.response?.data?.detail || '取消失败')
     }
@@ -544,6 +556,7 @@ const Services = () => {
       message.success('报修工单已提交，工作人员将尽快处理')
       setRepairOpen(false)
       repairForm.resetFields()
+      refresh()
     } catch (err: any) {
       if (err?.response) {
         message.error(err?.response?.data?.detail || '提交失败，请稍后重试')

@@ -64,7 +64,8 @@
         }
       ],
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "react-native-mmkv"
     ],
     "extra": {},
     "updates": {

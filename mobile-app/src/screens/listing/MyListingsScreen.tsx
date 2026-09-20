@@ -3,7 +3,7 @@
  * 说明：非 staff 后端 list 仅返回 active，故业主端此处能看到的是「已上架/可查」项；
  * staff（经纪人/员工/管理员）可见其发布的全量状态。进入可编辑，可关闭下架。
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import { useNavigation } from '@react-navigation/native';
 import colors from '@/theme/colors';
 import { listingApi } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
+import { useCachedQuery } from '@/lib/useCachedQuery';
+import { useQueryClient } from '@tanstack/react-query';
 import { notify, notifyError } from '@/utils/feedback';
 import { fmtMoney } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
@@ -44,38 +46,38 @@ export default function MyListingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
-  const [items, setItems] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+  const uid = user?.id ?? 'anon';
+  const LISTINGS_KEY: string[] = ['my-listings', uid];
 
-  const load = useCallback(async () => {
-    try {
+  const q = useCachedQuery<Listing[]>({
+    queryKey: LISTINGS_KEY,
+    cacheKey: `my-listings:${uid}`,
+    queryFn: async () => {
       const res: any = await listingApi.list({ page: 1, page_size: 100 });
       const d = res?.data;
       const rows = Array.isArray(d) ? d : d?.items ?? [];
-      const mine = user?.id
-        ? (rows as Listing[]).filter((r) => String(r.publisher_user_id) === String(user.id))
-        : (rows as Listing[]);
-      setItems(mine);
-    } catch (e: any) {
-      notifyError('加载失败', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user?.id]);
+      return rows as Listing[];
+    },
+  });
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const allRows = q.data ?? [];
+  const items = user?.id
+    ? allRows.filter((r) => String(r.publisher_user_id) === String(user.id))
+    : allRows;
+  const loading = q.isPending && !q.data;
+  const refreshing = q.isRefetching;
+  const onRefresh = useCallback(() => {
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
 
   const closeListing = (item: Listing) => {
     const doClose = async () => {
       try {
         await listingApi.close(item.id, {});
         notify('已下架', '该上架单已关闭');
-        setItems((prev) =>
-          prev.map((x) => (x.id === item.id ? { ...x, status: 'closed' as const } : x)),
+        queryClient.setQueryData<Listing[]>(LISTINGS_KEY, (prev) =>
+          (prev ?? []).map((x) => (x.id === item.id ? { ...x, status: 'closed' as const } : x)),
         );
       } catch (e: any) {
         notifyError('操作失败', e);
@@ -176,10 +178,7 @@ export default function MyListingsScreen() {
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={async () => {
-              setRefreshing(true);
-              await load();
-            }} tintColor={colors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
         />
       )}

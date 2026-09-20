@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,11 @@ import PaymentSheet from '@/components/PaymentSheet';
 import { resolvePayment } from '@/utils/payment';
 import { useI18n } from '@/i18n';
 import { useUserCapabilities } from '@/hooks/useUserCapabilities';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/auth';
+import { useCachedQuery } from '@/lib/useCachedQuery';
+
+const PAYMENTS_KEY = (uid: string): string[] => ['payments', 'mine', uid];
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -174,10 +179,9 @@ const tenantStatusMeta: Record<string, { text: string; color: string; bg: string
 
 function TenantPaymentsView() {
   const { t } = useI18n();
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState(false);
+  const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const uid = user?.id ?? 'anon';
   const [seg, setSeg] = useState<PaySeg>('pending');
   const [payingId, setPayingId] = useState<string | null>(null);
   const [invoiceItem, setInvoiceItem] = useState<Payment | null>(null);
@@ -191,22 +195,31 @@ function TenantPaymentsView() {
   const pressOut = (v: Animated.Value) =>
     Animated.spring(v, { toValue: 1, speed: 30, bounciness: 0, useNativeDriver: Platform.OS !== 'web' }).start();
 
-  const load = useCallback(async () => {
-    try {
+  const q = useCachedQuery<Payment[]>({
+    queryKey: PAYMENTS_KEY(uid),
+    cacheKey: `payments:mine:${uid}`,
+    queryFn: async () => {
       const res: any = await paymentsApi.mine();
       const data = res?.data;
-      const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
-      setPayments(items as Payment[]);
-      setLoadError(false);
-    } catch {
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+      return Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+    },
+  });
+  const payments = q.data ?? [];
+  const loading = q.isPending && !q.data;
+  const refreshing = q.isRefetching;
+  const loadError = q.isError && !q.data;
+  const refresh = useCallback(() => {
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
 
-  useEffect(() => { load(); }, [load]);
+  const markProcessing = useCallback(
+    (id: string) => {
+      queryClient.setQueryData<Payment[]>(PAYMENTS_KEY(uid), (old) =>
+        (old ?? []).map((p) => (p.id === id ? { ...p, status: 'processing' } : p)),
+      );
+    },
+    [queryClient, uid],
+  );
 
   const pending = payments.filter((p) => p.status === 'pending');
   const paidCount = payments.filter(isPaid).length;
@@ -242,7 +255,7 @@ function TenantPaymentsView() {
     try {
       const res: any = await paymentsApi.pay(item.id, channelFor(item.currency));
       const data = res?.data ?? res;
-      setPayments((list) => list.map((p) => (p.id === item.id ? { ...p, status: 'processing' } : p)));
+      markProcessing(item.id);
       const resolution = resolvePayment(data);
       if (resolution.kind === 'url') {
         // 托管收银台渠道：直接跳转支付页面
@@ -406,9 +419,9 @@ function TenantPaymentsView() {
           );
         }}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
         ListEmptyComponent={loadError ? (
-          <EmptyState icon="cloud-offline-outline" title={t('loadFailed')} sub={t('loadFailedSub')} actionLabel={t('retry')} onAction={async () => { setLoading(true); await load(); }} />
+          <EmptyState icon="cloud-offline-outline" title={t('loadFailed')} sub={t('loadFailedSub')} actionLabel={t('retry')} onAction={refresh} />
         ) : (
           <EmptyState icon="card-outline" title={seg === 'pending' ? '暂无待支付账单' : seg === 'paid' ? '暂无已支付账单' : t('empty.bills')} sub={t('empty.billsSub')} />
         )}
@@ -440,25 +453,36 @@ function TenantPaymentsView() {
 
 /* ========================= 业主视角：名下房源应收/已缴 ========================= */
 function OwnerPaymentsView() {
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const uid = user?.id ?? 'anon';
   const [filter, setFilter] = useState<'all' | OwnerGroup>('all');
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [payQr, setPayQr] = useState<{ qr: string; amount: number; currency?: string; channelLabel?: string } | null>(null);
 
-  const load = useCallback(async () => {
-    try {
+  const q = useCachedQuery<Payment[]>({
+    queryKey: PAYMENTS_KEY(uid),
+    cacheKey: `payments:mine:${uid}`,
+    queryFn: async () => {
       const res: any = await paymentsApi.mine();
       const data = res?.data;
-      const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
-      setPayments(items as Payment[]);
-    } catch { /* 列表失败不阻断渲染，保留空态 */ } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+      return Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+    },
+  });
+  const payments = q.data ?? [];
+  const loading = q.isPending && !q.data;
+  const refreshing = q.isRefetching;
+  const refresh = useCallback(() => {
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
 
-  useEffect(() => { load(); }, [load]);
+  const markProcessing = useCallback(
+    (id: string) => {
+      queryClient.setQueryData<Payment[]>(PAYMENTS_KEY(uid), (old) =>
+        (old ?? []).map((p) => (p.id === id ? { ...p, status: 'processing' } : p)),
+      );
+    },
+    [queryClient, uid],
+  );
 
   const ccy = payments[0]?.currency || 'THB';
 
@@ -491,7 +515,7 @@ function OwnerPaymentsView() {
     try {
       const res: any = await paymentsApi.pay(item.id, channelFor(item.currency));
       const data = res?.data ?? res;
-      setPayments((list) => list.map((p) => (p.id === item.id ? { ...p, status: 'processing' } : p)));
+      markProcessing(item.id);
       const resolution = resolvePayment(data);
       if (resolution.kind === 'url') {
         await WebBrowser.openBrowserAsync(resolution.url);
@@ -551,7 +575,7 @@ function OwnerPaymentsView() {
           );
         }}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} colors={[colors.primary]} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.primary]} tintColor={colors.primary} />}
         ListHeaderComponent={
           <View>
             <View style={styles.heroCard}>

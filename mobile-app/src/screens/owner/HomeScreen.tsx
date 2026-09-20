@@ -6,7 +6,7 @@
  * 区块标题等视觉参数与统一首页保持一致（sectionTitle 18px / letterSpacing -0.3）。
  * 数据一律复用现有真实接口，不编造。
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import colors from '@/theme/colors';
 import { ownerApi, ownersApi, listingApi, paymentsApi } from '@/services/api';
 import { fmtMoney as money } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 import type { Listing } from '@/types';
 
@@ -70,64 +71,65 @@ const LIST_STATUS: Record<string, { text: string; color: string; bg: string }> =
   rented: { text: '已出租', color: colors.primary, bg: colors.sidebarActive },
 };
 
+interface HomePayload {
+  properties: OwnerProperty[];
+  annual: AnnualSummary | null;
+  listings: Listing[];
+  payments: any[];
+}
+
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const [properties, setProperties] = useState<OwnerProperty[]>([]);
-  const [annual, setAnnual] = useState<AnnualSummary | null>(null);
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [dueTotal, setDueTotal] = useState(0);
-  const [dueCount, setDueCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const uid = user?.id ?? 'anon';
+  const year = new Date().getFullYear();
 
-  const load = useCallback(async () => {
-    const year = new Date().getFullYear();
-    const [propRes, sumRes, listRes, payRes] = await Promise.allSettled([
-      ownerApi.properties(),
-      ownersApi.annualSummary(year),
-      listingApi.list({ page: 1, page_size: 100 }),
-      paymentsApi.mine(),
-    ]);
+  const pick = <T,>(res: PromiseSettledResult<any>): T[] => {
+    if (res.status !== 'fulfilled') return [];
+    const data = res.value?.data;
+    const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
+    return Array.isArray(items) ? (items as T[]) : [];
+  };
 
-    const pick = <T,>(res: PromiseSettledResult<any>): T[] => {
-      if (res.status !== 'fulfilled') return [];
-      const data = res.value?.data;
-      const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-      return Array.isArray(items) ? (items as T[]) : [];
-    };
+  const q = useCachedQuery<HomePayload>({
+    queryKey: ['owner-home', uid, String(year)],
+    cacheKey: `owner-home:${uid}:${year}`,
+    queryFn: async () => {
+      const [propRes, sumRes, listRes, payRes] = await Promise.allSettled([
+        ownerApi.properties(),
+        ownersApi.annualSummary(year),
+        listingApi.list({ page: 1, page_size: 100 }),
+        paymentsApi.mine(),
+      ]);
+      return {
+        properties: pick<OwnerProperty>(propRes),
+        annual: sumRes.status === 'fulfilled' ? ((sumRes.value?.data as AnnualSummary) ?? null) : null,
+        listings: pick<Listing>(listRes),
+        payments: pick<any>(payRes),
+      };
+    },
+  });
 
-    setProperties(pick<OwnerProperty>(propRes));
-    if (sumRes.status === 'fulfilled') {
-      setAnnual((sumRes.value?.data as AnnualSummary) ?? null);
-    }
+  const payload = q.data;
+  const properties = payload?.properties ?? [];
+  const annual = payload?.annual ?? null;
+  // 我的上架单：仅展示当前用户发布（对齐 MyListingsScreen 口径；非 staff 后端仅返回 active）
+  const rows = payload?.listings ?? [];
+  const listings = user?.id
+    ? rows.filter((r) => String(r.publisher_user_id) === String(user.id))
+    : rows;
+  // 待缴账单：payments 中未结清（pending/processing）合计与笔数
+  const pays = payload?.payments ?? [];
+  const due = pays.filter((p) => !['succeeded', 'refunded'].includes(String(p.status || '')));
+  const dueCount = due.length;
+  const dueTotal = due.reduce((s, p) => s + Number(p.amount || 0), 0);
 
-    // 我的上架单：仅展示当前用户发布（对齐 MyListingsScreen 口径；非 staff 后端仅返回 active）
-    const rows = pick<Listing>(listRes);
-    const mine = user?.id
-      ? rows.filter((r) => String(r.publisher_user_id) === String(user.id))
-      : rows;
-    setListings(mine);
-
-    // 待缴账单：payments 中未结清（pending/processing）合计与笔数
-    const pays = pick<any>(payRes);
-    const due = pays.filter((p) => !['succeeded', 'refunded'].includes(String(p.status || '')));
-    setDueCount(due.length);
-    setDueTotal(due.reduce((s, p) => s + Number(p.amount || 0), 0));
-
-    setLoading(false);
-    setRefreshing(false);
-  }, [user?.id]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
+  const loading = q.isPending && !q.data;
+  const refreshing = q.isRefetching;
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    load();
-  }, [load]);
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
 
   // 币种优先取年度汇总，其次房源
   const currency = annual?.currency || properties[0]?.currency || 'THB';

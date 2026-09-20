@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,9 @@ import LoadingState from '@/components/LoadingState';
 import { propertiesApi, translateApi, favoritesApi, viewingsApi, saleListingApi } from '@/services/api';
 import { fmtMoney as formatMoney } from '@/utils/format';
 import { notify } from '@/utils/feedback';
+import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/auth';
+import { useCachedQuery } from '@/lib/useCachedQuery';
 
 interface PropertyDetail {
   id: string;
@@ -90,16 +93,106 @@ export default function PropertyDetailScreen() {
   const insets = useSafeAreaInsets();
   const propertyId: string | undefined = route.params?.id;
 
-  const [property, setProperty] = useState<PropertyDetail | null>(null);
-  const [saleListing, setSaleListing] = useState<SaleListing | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [biz, setBiz] = useState<'rent' | 'buy'>('rent');
+  const user = useAuthStore((s) => s.user);
+  const uid = user?.id ?? 'anon';
   const [photoIndex, setPhotoIndex] = useState(0);
   const galleryRef = useRef<ScrollView>(null);
+  const [biz, setBiz] = useState<'rent' | 'buy'>('rent');
 
-  // 同小区租金均价（由同 project_id 的真实房源聚合，用于均价基准对比）
-  const [projectStats, setProjectStats] = useState<{ avg: number; count: number } | null>(null);
+  interface DetailPayload {
+    property: PropertyDetail | null;
+    saleListing: SaleListing | null;
+    projectStats: { avg: number; count: number } | null;
+  }
+
+  // 房源详情 + 在售挂牌 + 同小区均价：缓存优先（MMKV seed），后台刷新
+  const detailQ = useCachedQuery<DetailPayload>({
+    queryKey: ['prop', 'detail', propertyId ?? 'none'],
+    cacheKey: `prop:detail:${propertyId ?? 'none'}`,
+    queryFn: async (): Promise<DetailPayload> => {
+      if (!propertyId) {
+        return { property: null, saleListing: null, projectStats: null };
+      }
+      const [pRes, sRes] = await Promise.allSettled([
+        propertiesApi.get(propertyId),
+        saleListingApi.list({ property_id: propertyId, limit: 1 }),
+      ]);
+      if (pRes.status === 'rejected') {
+        throw (
+          (pRes.reason as any)?.response?.data?.detail ||
+          '无法获取房源详情，请检查网络后重试'
+        );
+      }
+      const d: any = pRes.value?.data;
+      const item = d?.data ?? d;
+      const property = item && item.id ? (item as PropertyDetail) : null;
+      let projectStats: DetailPayload['projectStats'] = null;
+      if (property?.project_id) {
+        try {
+          const res = await propertiesApi.list({ project_id: property.project_id, page_size: 50 });
+          const dd: any = res?.data;
+          const rows = (Array.isArray(dd) ? dd : dd?.items ?? dd?.data ?? []) as PropertyDetail[];
+          const rents = rows
+            .filter((r) => r.id !== property.id && Number(r.monthly_rent) > 0)
+            .map((r) => Number(r.monthly_rent));
+          projectStats = rents.length
+            ? { avg: Math.round(rents.reduce((a, b) => a + b, 0) / rents.length), count: rents.length }
+            : null;
+        } catch {
+          projectStats = null;
+        }
+      }
+      let saleListing: SaleListing | null = null;
+      if (sRes.status === 'fulfilled') {
+        const sd: any = sRes.value?.data;
+        const items = Array.isArray(sd) ? sd : sd?.items ?? sd?.data ?? [];
+        saleListing = (items as SaleListing[])[0] ?? null;
+      }
+      return { property, saleListing, projectStats };
+    },
+  });
+
+  const property = detailQ.data?.property ?? null;
+  const saleListing = detailQ.data?.saleListing ?? null;
+  const projectStats = detailQ.data?.projectStats ?? null;
+  const loading = detailQ.isPending && !detailQ.data;
+  const loadError = detailQ.isError && !detailQ.data ? String(detailQ.error ?? '') : null;
+
+  // 收藏状态：实时查询不落盘缓存，避免收藏态跨会话陈旧
+  const favQ = useQuery({
+    queryKey: ['prop', 'fav', propertyId ?? 'none', uid],
+    queryFn: async () => {
+      try {
+        const res: any = await favoritesApi.status(propertyId!);
+        return !!(res as any)?.data?.favorited;
+      } catch {
+        return false;
+      }
+    },
+    enabled: !!propertyId,
+    staleTime: 60 * 1000,
+  });
+  const favorited = favQ.data ?? false;
+
+  // 从其他页面返回详情页时后台刷新（首帧不重复请求）
+  const firstFocus = useRef(true);
+  useEffect(() => {
+    if (!isFocused) return;
+    if (firstFocus.current) {
+      firstFocus.current = false;
+      return;
+    }
+    void detailQ.refetch({ cancelRefetch: false });
+  }, [isFocused, detailQ]);
+
+  // biz 初始值跟随房源是否有月租（仅首次，不打断用户手动切换）
+  const bizInit = useRef(false);
+  useEffect(() => {
+    if (property && !bizInit.current) {
+      bizInit.current = true;
+      setBiz(Number(property.monthly_rent) > 0 ? 'rent' : 'buy');
+    }
+  }, [property]);
 
   // 贷款试算：纯本地计算，总价取真实挂牌价，利率/首付/年限由用户输入
   const [calcOpen, setCalcOpen] = useState(false);
@@ -108,8 +201,7 @@ export default function PropertyDetailScreen() {
   const [calcRate, setCalcRate] = useState('');
   const [calcYears, setCalcYears] = useState('30');
 
-  // 收藏
-  const [favorited, setFavorited] = useState(false);
+  // 收藏（favBusy 防连点）
   const [favBusy, setFavBusy] = useState(false);
 
   // 翻译（保留原有能力）
@@ -123,92 +215,16 @@ export default function PropertyDetailScreen() {
   const [bookingNote, setBookingNote] = useState('');
   const [bookingBusy, setBookingBusy] = useState(false);
 
-  // 同小区均价基准：按 project_id 拉取同小区在租房源，本地聚合月租金均值
-  const loadProjectStats = useCallback(async (item: PropertyDetail | null) => {
-    if (!item?.id || !item?.project_id) {
-      setProjectStats(null);
-      return;
-    }
-    try {
-      const res = await propertiesApi.list({ project_id: item.project_id, page_size: 50 });
-      const d: any = res?.data;
-      const rows = (Array.isArray(d) ? d : d?.items ?? d?.data ?? []) as PropertyDetail[];
-      const rents = rows
-        .filter((r) => r.id !== item.id && Number(r.monthly_rent) > 0)
-        .map((r) => Number(r.monthly_rent));
-      setProjectStats(
-        rents.length
-          ? {
-              avg: Math.round(rents.reduce((a, b) => a + b, 0) / rents.length),
-              count: rents.length,
-            }
-          : null,
-      );
-    } catch {
-      setProjectStats(null);
-    }
-  }, []);
-
-  const load = useCallback(async () => {
-    if (!propertyId) {
-      setProperty(null);
-      setSaleListing(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setLoadError(null);
-    const [pRes, sRes, fRes] = await Promise.allSettled([
-      propertiesApi.get(propertyId),
-      saleListingApi.list({ property_id: propertyId, limit: 1 }),
-      favoritesApi.status(propertyId),
-    ]);
-
-    if (pRes.status === 'fulfilled') {
-      const d: any = pRes.value?.data;
-      const item = d?.data ?? d;
-      setProperty(item && item.id ? (item as PropertyDetail) : null);
-      setBiz(item && Number(item.monthly_rent) > 0 ? 'rent' : 'buy');
-      await loadProjectStats(item);
-    } else {
-      setProperty(null);
-      setProjectStats(null);
-      // 记录错误原因，由页面渲染错误三态（web 下 Alert 不可见）
-      setLoadError(
-        (pRes.reason as any)?.response?.data?.detail || '无法获取房源详情，请检查网络后重试',
-      );
-    }
-
-    if (sRes.status === 'fulfilled') {
-      const d: any = sRes.value?.data;
-      const items = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
-      setSaleListing((items as SaleListing[])[0] ?? null);
-    } else {
-      setSaleListing(null);
-    }
-
-    if (fRes.status === 'fulfilled') {
-      setFavorited(!!(fRes.value as any)?.data?.favorited);
-    }
-
-    setLoading(false);
-  }, [propertyId, loadProjectStats]);
-
-  useEffect(() => {
-    if (isFocused) load();
-  }, [isFocused, load]);
-
   const handleToggleFav = async () => {
     if (!propertyId) return;
     setFavBusy(true);
     try {
       if (favorited) {
         await favoritesApi.remove(propertyId);
-        setFavorited(false);
       } else {
         await favoritesApi.toggle(propertyId);
-        setFavorited(true);
       }
+      void favQ.refetch();
     } catch {
       notify('操作失败', '请稍后重试');
     } finally {
@@ -299,7 +315,7 @@ export default function PropertyDetailScreen() {
           title="加载失败"
           sub={loadError}
           actionLabel="重试"
-          onAction={() => load()}
+          onAction={() => void detailQ.refetch()}
         />
       </View>
     );

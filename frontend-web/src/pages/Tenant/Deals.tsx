@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
+import { useAuthStore } from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 
 /**
  * 我的交易订单（/tenant/deals）
@@ -13,8 +15,8 @@ import { formatMoney } from '@/lib/money'
 const TenantDeals = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const [deals, setDeals] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
 
   const dealStatus = (status?: string) => {
     const map: Record<string, { text: string; cls: string }> = {
@@ -29,35 +31,32 @@ const TenantDeals = () => {
     return map[status || ''] || map.drafted
   }
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [dRes, lRes] = await Promise.all([
-        api.get('/property-deals', { params: { page: 1, page_size: 50 } }),
-        api.get('/sale-listings', { params: { page: 1, page_size: 50 } }).catch(() => ({ data: { items: [] } })),
-      ])
-      const titles: Record<string, string> = {}
-      const lPayload = lRes.data?.data ?? lRes.data
-      ;(lPayload?.items ?? []).forEach((r: any) => {
-        if (r?.id) titles[String(r.id)] = r.title ?? ''
-      })
-      const dPayload = dRes.data?.data ?? dRes.data
-      setDeals(
-        (dPayload?.items ?? (Array.isArray(dPayload) ? dPayload : [])).map((r: any) => ({
+  const q = useCachedQuery<any[]>({
+    queryKey: ['tenant-deals', 'mine', uid],
+    cacheKey: `tenant-deals:mine:${uid}`,
+    queryFn: async () => {
+      try {
+        const [dRes, lRes] = await Promise.all([
+          api.get('/property-deals', { params: { page: 1, page_size: 50 } }),
+          api.get('/sale-listings', { params: { page: 1, page_size: 50 } }).catch(() => ({ data: { items: [] } })),
+        ])
+        const titles: Record<string, string> = {}
+        const lPayload = lRes.data?.data ?? lRes.data
+        ;(lPayload?.items ?? []).forEach((r: any) => {
+          if (r?.id) titles[String(r.id)] = r.title ?? ''
+        })
+        const dPayload = dRes.data?.data ?? dRes.data
+        return (dPayload?.items ?? (Array.isArray(dPayload) ? dPayload : [])).map((r: any) => ({
           ...r,
           listing_title: titles[String(r.sale_listing_id ?? '')] ?? '',
-        })),
-      )
-    } catch {
-      setDeals([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+        }))
+      } catch {
+        return []
+      }
+    },
+  })
+  const deals = q.data ?? []
+  const loading = q.isPending && !q.data
 
   return (
     <div className="rent-card">

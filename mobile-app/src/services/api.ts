@@ -104,6 +104,11 @@ export const favoritesApi = {
     api.delete(`/favorites/${propertyId}`),
   status: (propertyId: string) =>
     api.get(`/favorites/status/${propertyId}`),
+  // 批量收藏状态（列表页一次请求，替代逐条 N+1）
+  batchStatus: (propertyIds: string[]) =>
+    api.get('/favorites/status', {
+      params: { property_ids: propertyIds.join(',') },
+    }),
 };
 
 // v1.9 预约看房
