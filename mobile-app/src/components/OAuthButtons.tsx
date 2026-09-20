@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 
@@ -13,61 +14,30 @@ interface Props {
 }
 
 /**
- * Google 官方四色品牌 G（Reddit 式方式选择屏使用）。
- * 无第三方 SVG 依赖，用官方四色 #EA4335/#FBBC05/#34A853/#4285F4 拼出的品牌字形：
- * 蓝色顶部外环 + 黄色对角竖 + 红色短横底 + 绿色长横底。
+ * Google 官方四色品牌 G（Reddit 方式选择屏同款）。
+ * 使用官方 SVG path（viewBox 48），配色 #FBBC05/#EA4335/#34A853/#4285F4 与 Web 端一致。
  */
 function GoogleG({ size = 20 }: { size?: number }) {
   return (
-    <View style={[styles.gBox, { width: size, height: size }]}>
-      <View
-        style={[
-          styles.gBlue,
-          { width: size, height: size, borderRadius: size / 2, borderWidth: size * 0.21 },
-        ]}
-      />
-      <View
-        style={[
-          styles.gMask,
-          { left: 0, top: size * 0.5, width: size, height: size * 0.5 + 1 },
-        ]}
-      >
-        <View
-          style={[
-            styles.gYellow,
-            {
-              left: size * 0.32,
-              top: size * 0.3,
-              width: size * 0.26,
-              height: size * 0.68,
-            },
-          ]}
+    <View style={styles.icon}>
+      <Svg width={size} height={size} viewBox="0 0 48 48">
+        <Path
+          fill="#FBBC05"
+          d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
         />
-        <View
-          style={[
-            styles.gGreen,
-            {
-              left: size * 0.12,
-              top: size * 0.68,
-              width: size * 0.76,
-              height: size * 0.22,
-              borderRadius: size * 0.11,
-            },
-          ]}
+        <Path
+          fill="#EA4335"
+          d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
         />
-        <View
-          style={[
-            styles.gRed,
-            {
-              left: size * 0.12,
-              top: size * 0.68,
-              width: size * 0.32,
-              height: size * 0.22,
-              borderRadius: size * 0.11,
-            },
-          ]}
+        <Path
+          fill="#34A853"
+          d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
         />
-      </View>
+        <Path
+          fill="#4285F4"
+          d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
+        />
+      </Svg>
     </View>
   );
 }
@@ -103,9 +73,7 @@ export default function OAuthButtons({
         {loading ? (
           <ActivityIndicator size="small" color={colors.ink2} style={styles.icon} />
         ) : (
-          <View style={styles.icon}>
-            <GoogleG size={20} />
-          </View>
+          <GoogleG size={20} />
         )}
         <Text style={styles.text}>{goog}</Text>
       </TouchableOpacity>
@@ -166,20 +134,4 @@ const styles = StyleSheet.create({
     color: colors.ink,
     letterSpacing: 0.2,
   },
-  // ---- Google G 四色字形 ----
-  gBox: { position: 'relative', overflow: 'hidden' },
-  gBlue: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    borderColor: '#4285F4',
-  },
-  gMask: { position: 'absolute', backgroundColor: '#ffffff' },
-  gYellow: {
-    position: 'absolute',
-    backgroundColor: '#FBBC05',
-    transform: [{ rotate: '-30deg' }],
-  },
-  gGreen: { position: 'absolute', backgroundColor: '#34A853' },
-  gRed: { position: 'absolute', backgroundColor: '#EA4335' },
 });
