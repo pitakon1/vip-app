@@ -27,8 +27,6 @@ const Chat = () => {
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [draft, setDraft] = useState('')
   const [loading] = useState(false)
-  const [title, setTitle] = useState('')
-  const [peerIds, setPeerIds] = useState('')
   const wsRef = useRef<WebSocket | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const [searchParams] = useSearchParams()
@@ -107,27 +105,6 @@ const Chat = () => {
     })
   }
 
-  const handleCreate = () => {
-    if (!peerIds.trim()) {
-      message.error('请输入参与人用户 ID（逗号分隔）')
-      return
-    }
-    const participant_user_ids = peerIds.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
-    chatApi
-      .createConversation({
-        title: title.trim() || '咨询会话',
-        participant_user_ids,
-      })
-      .then((res) => {
-        message.success('会话已创建')
-        setConvs((prev) => [{ ...res.data, participant_ids: res.data.participant_ids }, ...prev])
-        setTitle('')
-        setPeerIds('')
-        openConv(res.data.id)
-      })
-      .catch(() => message.error('创建会话失败'))
-  }
-
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [msgs])
@@ -165,27 +142,6 @@ const Chat = () => {
                 </div>
               ))
             )}
-          </div>
-          <div className="rent-chat__side-foot">
-            <div className="rent-field rent-mb-2">
-              <input
-                className="rent-input"
-                placeholder="会话标题"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </div>
-            <div className="rent-field rent-mb-2">
-              <input
-                className="rent-input"
-                placeholder="参与人 ID，如：00000000-0000-0000-0000-000000000001"
-                value={peerIds}
-                onChange={(e) => setPeerIds(e.target.value)}
-              />
-            </div>
-            <button className="rent-btn rent-btn--primary rent-btn--block" onClick={handleCreate}>
-              新建会话
-            </button>
           </div>
         </aside>
 

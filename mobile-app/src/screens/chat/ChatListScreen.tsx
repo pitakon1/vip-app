@@ -1,21 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import { chatApi } from '@/services/api';
-import { notify, notifyError } from '@/utils/feedback';
+import { notifyError } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 
@@ -63,11 +54,7 @@ export default function ChatListScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [createError, setCreateError] = useState('');
   const [cat, setCat] = useState<CatKey>('all');
-  const [showCreate, setShowCreate] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -95,27 +82,6 @@ export default function ChatListScreen() {
     setRefreshing(true);
     load();
   }, [load]);
-
-  const handleCreate = async () => {
-    const title = newTitle.trim();
-    if (!title) {
-      setCreateError('请输入会话名称');
-      return;
-    }
-    setCreateError('');
-    setCreating(true);
-    try {
-      await chatApi.createConversation({ title });
-      setNewTitle('');
-      setShowCreate(false);
-      notify('创建成功');
-      await load();
-    } catch (err: any) {
-      notifyError('创建失败', err);
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const catCount = (key: CatKey) =>
     conversations.filter((c) => matchCat(c.entity_type, key)).length;
@@ -195,53 +161,9 @@ export default function ChatListScreen() {
           <Text style={styles.headerTitle}>消息中心</Text>
           <Text style={styles.headerSub}>共 {conversations.length} 条会话</Text>
         </View>
-        <TouchableOpacity
-          style={styles.newBtn}
-          onPress={() => setShowCreate((v) => !v)}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={showCreate ? '收起新建会话' : '新建会话'}
-        >
-          <Ionicons
-            name={showCreate ? 'close' : 'add'}
-            size={16}
-            color={colors.ink2}
-          />
-          <Text style={styles.newBtnText}>{showCreate ? '收起' : '新建会话'}</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* 新建会话（现有业务逻辑保留） */}
-      {showCreate && (
-        <View style={styles.createBox}>
-          <View style={{ flex: 1 }}>
-            <TextInput
-              style={[styles.input, !!createError && styles.inputError]}
-              placeholder="新建会话名称"
-              value={newTitle}
-              onChangeText={(v) => {
-                setNewTitle(v);
-                if (createError) setCreateError('');
-              }}
-              placeholderTextColor={colors.ink3}
-            />
-            {!!createError && <Text style={styles.fieldError}>{createError}</Text>}
-          </View>
-          <TouchableOpacity
-            style={[styles.createBtn, creating && styles.btnDisabled]}
-            onPress={handleCreate}
-            disabled={creating}
-            accessibilityRole="button"
-            accessibilityLabel="新建"
-          >
-            {creating ? (
-              <ActivityIndicator color={colors.primaryForeground} size="small" />
-            ) : (
-              <Text style={styles.createText}>新建</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* 会话由后端按客户/房源上下文自动创建，客户端不做手动新建 */}
 
       {/* 分类 Tabs（计数来自真实会话） */}
       <View style={styles.catTabs}>
@@ -285,7 +207,7 @@ export default function ChatListScreen() {
             contentContainerStyle={{ paddingBottom: insets.bottom + 12 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={
-              <EmptyState icon="chatbubbles-outline" title="暂无会话" sub="点击右上角「新建会话」开始聊天" />
+              <EmptyState icon="chatbubbles-outline" title="暂无会话" sub="从客户/房源发起咨询后会显示在这里" />
             }
           />
         )}
