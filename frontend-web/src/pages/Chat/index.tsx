@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { message } from 'antd'
 import { useSearchParams } from 'react-router-dom'
-import { chatApi } from '@/services/api'
+import { authApi, chatApi } from '@/services/api'
 import './chat.css'
 
 interface Conv {
@@ -33,13 +33,18 @@ const Chat = () => {
   const listRef = useRef<HTMLDivElement>(null)
   const [searchParams] = useSearchParams()
   const urlId = searchParams.get('id')
+  const [myId, setMyId] = useState('')
 
-  // 加载会话列表
+  // 加载会话列表 + 当前用户 id（用于区分“我发的”）
   useEffect(() => {
     chatApi
       .conversations()
       .then((res) => setConvs(res.data || []))
       .catch(() => message.warning('会话列表加载失败'))
+    authApi
+      .me()
+      .then((res) => setMyId(res?.data?.id || res?.data?.user?.id || ''))
+      .catch(() => setMyId(''))
   }, [])
 
   // 打开会话：拉取历史 + 建立 WebSocket
@@ -60,11 +65,11 @@ const Chat = () => {
           setMsgs((prev) => [
             ...prev,
             {
-              id: `local-${Date.now()}`,
-              sender_id: data.sender || 'unknown',
+              id: data.id || `local-${Date.now()}`,
+              sender_id: data.sender_id || 'unknown',
               body: data.body,
-              message_type: 'text',
-              created_at: new Date().toISOString(),
+              message_type: data.message_type || 'text',
+              created_at: data.created_at || new Date().toISOString(),
             },
           ])
         }
@@ -86,12 +91,13 @@ const Chat = () => {
   const handleSend = () => {
     if (!draft.trim() || !activeId) return
     const body = draft.trim()
+    // 发送/接收都走后端：REST 落库并广播，WS 仅用于接收对端消息（避免重复落库）
     chatApi.sendMessage(activeId, { body }).then(() => {
       setMsgs((prev) => [
         ...prev,
         {
           id: `sent-${Date.now()}`,
-          sender_id: 'me',
+          sender_id: myId || 'me',
           body,
           message_type: 'text',
           created_at: new Date().toISOString(),
@@ -99,8 +105,6 @@ const Chat = () => {
       ])
       setDraft('')
     })
-    // 通过 WS 广播给自己线程
-    wsRef.current?.send(JSON.stringify({ sender: 'me', body }))
   }
 
   const handleCreate = () => {
@@ -196,7 +200,7 @@ const Chat = () => {
                   <div className="rent-empty rent-p-6">暂无消息，打个招呼吧</div>
                 ) : (
                   msgs.map((m, i) => {
-                    const mine = m.sender_id === 'me'
+                    const mine = m.sender_id === 'me' || (!!myId && m.sender_id === myId)
                     return (
                       <div key={m.id || i} className={`rent-chat__msg${mine ? ' is-mine' : ''}`}>
                         <div className="rent-chat__bubble">{m.body}</div>
