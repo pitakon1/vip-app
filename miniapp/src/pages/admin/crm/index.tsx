@@ -207,7 +207,7 @@ export default function AdminCrmPage() {
         title: (l.name || '客户咨询').trim(),
         participant_phones: [phone]
       })
-      const conv = res?.data?.data ?? res?.data
+      const conv = res?.data ?? res
       if (!conv?.id) throw new Error('会话创建失败')
       Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
     } catch (error: any) {
