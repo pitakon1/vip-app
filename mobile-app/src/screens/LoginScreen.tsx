@@ -445,8 +445,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   brandLogo: {
-    width: 120,
-    height: 48,
+    width: 200,
+    height: 80,
     alignSelf: 'center',
     resizeMode: 'contain',
     marginBottom: 8,

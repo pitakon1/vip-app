@@ -41,10 +41,13 @@
 
 .rent-register-page .rent-login-brand {
   display: block;
-  width: 120px;
+  width: 200px;
   height: auto;
   margin: 0 auto 20px;
   object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
 }
 
 .rent-register-page .rent-login-card__title {
