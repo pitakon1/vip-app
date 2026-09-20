@@ -117,19 +117,27 @@ export default function RegisterScreen() {
     }
   };
 
-  const modeItem = (m: Mode, icon: string, label: string) => (
+  // 注册方式大按钮（Reddit 式 "Continue with..." 选择器）
+  const methodBtn = (m: Mode, icon: string, label: string) => (
     <TouchableOpacity
-      style={[styles.tabItem, mode === m && styles.tabItemActive]}
+      key={m}
+      style={[styles.methodBtn, mode === m && styles.methodBtnActive]}
       onPress={() => {
         setMode(m);
         setError('');
       }}
-      accessibilityRole="tab"
+      activeOpacity={0.7}
+      accessibilityRole="button"
       accessibilityState={{ selected: mode === m }}
       accessibilityLabel={label}
     >
-      <Ionicons name={icon as any} size={16} color={mode === m ? colors.primary : colors.ink3} />
-      <Text style={[styles.tabText, mode === m && styles.tabTextActive]}>{label}</Text>
+      <Ionicons
+        name={icon as any}
+        size={20}
+        color={mode === m ? colors.primary : colors.ink2}
+        style={styles.methodIcon}
+      />
+      <Text style={[styles.methodText, mode === m && styles.methodTextActive]}>{label}</Text>
     </TouchableOpacity>
   );
 
@@ -167,10 +175,17 @@ export default function RegisterScreen() {
           <Text style={styles.brandSubtitle}>创建你的账号</Text>
         </View>
 
-        {/* 手机号 / 邮箱 胶囊分段控件 */}
-        <View style={styles.tabs}>
-          {modeItem('phone', 'phone-portrait-outline', '手机号')}
-          {modeItem('email', 'mail-outline', '邮箱')}
+        {/* 注册方式大按钮选择器 */}
+        <View style={styles.methods}>
+          {methodBtn('phone', 'phone-portrait-outline', '使用手机号注册')}
+          {methodBtn('email', 'mail-outline', '使用邮箱注册')}
+        </View>
+
+        {/* 或 分隔 */}
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>或</Text>
+          <View style={styles.dividerLine} />
         </View>
 
         {mode === 'phone' ? (
@@ -387,25 +402,43 @@ const styles = StyleSheet.create({
   brandTitle: { fontSize: 28, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
   brandTitleAccent: { color: colors.primary },
   brandSubtitle: { fontSize: 14, color: colors.ink2, marginTop: 8 },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: colors.fieldFill,
-    borderRadius: colors.radius.full,
-    padding: 4,
-    marginBottom: 24,
-  },
-  tabItem: {
-    flex: 1,
+  /* 注册方式大按钮 + 「或」分隔 */
+  methods: { gap: 12, marginBottom: 4 },
+  methodBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
+    height: 52,
     borderRadius: colors.radius.full,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: colors.fieldFillBorder,
   },
-  tabItemActive: { backgroundColor: '#ffffff' },
-  tabText: { fontSize: 15, color: colors.ink3, fontWeight: '600' },
-  tabTextActive: { color: colors.ink },
+  methodBtnActive: {
+    borderColor: colors.primary,
+    borderWidth: 1.5,
+    backgroundColor: colors.sidebarActive,
+  },
+  methodIcon: { position: 'absolute', left: 16 },
+  methodText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.ink,
+    letterSpacing: 0.2,
+  },
+  methodTextActive: { color: colors.primary },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 22,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.fieldFillBorder,
+  },
+  dividerText: { fontSize: 13, color: colors.ink3 },
   input: {
     backgroundColor: colors.fieldFill,
     borderRadius: 14,

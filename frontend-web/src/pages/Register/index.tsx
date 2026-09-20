@@ -185,22 +185,39 @@ const Register = () => {
           </div>
 
           <form onSubmit={handleSubmit}>
-            {/* 手机号 / 邮箱 模式切换（胶囊分段控件） */}
-            <div className="rent-auth-mode" role="tablist">
+            {/* 注册方式选择：堆叠大按钮（Reddit 风格），即模式开关 */}
+            <div className="rent-auth-method">
               <button
                 type="button"
-                className={`rent-auth-mode__tab${mode === 'phone' ? ' is-active' : ''}`}
+                className={`rent-auth-method__btn${mode === 'phone' ? ' is-active' : ''}`}
                 onClick={() => setMode('phone')}
               >
-                {t('register.phoneRegistration')}
+                <span className="rent-auth-method__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="6" y="2" width="12" height="20" rx="3" />
+                    <path d="M11 18h2" />
+                  </svg>
+                </span>
+                {t('register.usePhone')}
               </button>
+
               <button
                 type="button"
-                className={`rent-auth-mode__tab${mode === 'email' ? ' is-active' : ''}`}
+                className={`rent-auth-method__btn${mode === 'email' ? ' is-active' : ''}`}
                 onClick={() => setMode('email')}
               >
-                {t('register.emailRegistration')}
+                <span className="rent-auth-method__icon" aria-hidden="true">
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="m22 7-10 6L2 7" />
+                  </svg>
+                </span>
+                {t('register.useEmail')}
               </button>
+
+              <div className="rent-auth-method__divider">
+                <span className="rent-auth-method__or">{t('register.or')}</span>
+              </div>
             </div>
 
             {/* 手机号模式：国家码 + 手机号 → 验证码 */}
