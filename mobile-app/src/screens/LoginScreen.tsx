@@ -177,14 +177,6 @@ export default function LoginScreen() {
               <Text style={styles.footerLink}>去注册</Text>
             </TouchableOpacity>
           </View>
-
-          {/* 测试面板入口 */}
-          <TouchableOpacity
-            style={styles.testEntry}
-            onPress={() => navigation.navigate('Test')}
-          >
-            <Text style={styles.testEntryText}>测试调试面板</Text>
-          </TouchableOpacity>
         </ScrollView>
       ) : (
         /* ---------------- 对应表单屏 ---------------- */
@@ -567,15 +559,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.5,
-  },
-  testEntry: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 16,
-  },
-  testEntryText: {
-    fontSize: 12,
-    color: colors.ink3,
   },
   langBtn: {
     position: 'absolute',
