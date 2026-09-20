@@ -195,24 +195,26 @@ export default function AdminCrmPage() {
     Taro.makePhoneCall({ phoneNumber: phone }).catch(() => {})
   }
 
-  // 联系客户：App/小程序内发消息（按手机号解析客户账号并创建会话）
+  // 联系客户：小程序内发消息（按手机号/邮箱解析客户账号并创建会话）
   const chatCustomer = async (l: LeadItem) => {
     const phone = (l.phone || '').trim()
-    if (!phone) {
-      Taro.showToast({ title: '客户未留电话，无法发消息', icon: 'none' })
+    const email = (l.email || '').trim()
+    if (!phone && !email) {
+      Taro.showToast({ title: '客户未留电话/邮箱，无法发消息', icon: 'none' })
       return
     }
     try {
       const res: any = await chatApi.createConversation({
         title: (l.name || '客户咨询').trim(),
-        participant_phones: [phone]
+        ...(phone ? { participant_phones: [phone] } : {}),
+        ...(email ? { participant_emails: [email] } : {})
       })
       const conv = res?.data ?? res
       if (!conv?.id) throw new Error('会话创建失败')
       Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
     } catch (error: any) {
       Taro.showToast({
-        title: error?.message || '客户未注册账号，请先通过电话联系',
+        title: error?.message || '客户未注册账号，请先通过电话/邮箱联系',
         icon: 'none'
       })
     }

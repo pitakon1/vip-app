@@ -103,17 +103,19 @@ export default function CRMScreen() {
     });
   };
 
-  // 联系客户：App 内发消息（按手机号解析客户账号并创建/进入会话）
+  // 联系客户：App 内发消息（按手机号/邮箱解析客户账号并创建/进入会话）
   const chatCustomer = async (l: Lead) => {
     const phone = (l.phone || '').trim();
-    if (!phone) {
-      Alert.alert('联系客户', '该客户未留电话，无法发起会话');
+    const email = (l.email || '').trim();
+    if (!phone && !email) {
+      Alert.alert('联系客户', '该客户未留电话/邮箱，无法发起会话');
       return;
     }
     try {
       const res = await chatApi.createConversation({
         title: l.name?.trim() || '客户咨询',
-        participant_phones: [phone],
+        ...(phone ? { participant_phones: [phone] } : {}),
+        ...(email ? { participant_emails: [email] } : {}),
       });
       const conv = res.data?.data ?? res.data;
       navigation.navigate('ChatDetail', {

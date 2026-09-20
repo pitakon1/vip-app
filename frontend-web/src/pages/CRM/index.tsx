@@ -275,22 +275,25 @@ const CRM = () => {
     window.location.href = `tel:${lead.phone.replace(/\s/g, '')}`
   }
 
-  // 联系客户：Web 内发消息（按手机号解析客户账号并创建会话）
+  // 联系客户：Web 内发消息（按手机号/邮箱解析客户账号并创建会话）
   const handleChat = async (lead: Lead) => {
-    if (!lead.phone) {
-      message.warning('该客户未留电话，无法发消息')
+    const phone = (lead.phone || '').trim()
+    const email = (lead.email || '').trim()
+    if (!phone && !email) {
+      message.warning('该客户未留电话/邮箱，无法发消息')
       return
     }
     try {
       const res = await chatApi.createConversation({
         title: lead.name || '客户咨询',
-        participant_phones: [lead.phone],
+        ...(phone ? { participant_phones: [phone] } : {}),
+        ...(email ? { participant_emails: [email] } : {}),
       })
       const conv = res.data?.data ?? res.data
       if (!conv?.id) throw new Error('会话创建失败')
       navigate(`/chat?id=${conv.id}`)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || err?.response?.data?.detail || '客户未注册账号，请先通过电话联系')
+      message.error(err?.response?.data?.message || err?.response?.data?.detail || '客户未注册账号，请先通过电话/邮箱联系')
     }
   }
 

@@ -285,20 +285,28 @@ def create_conversation(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """创建会话。payload: {title?, participant_user_ids: [uuid...], participant_phones: [str], entity_type?, entity_id?}
+    """创建会话。payload: {title?, participant_user_ids: [uuid...], participant_phones: [str],
+    participant_emails: [str], entity_type?, entity_id?}
 
-    participant_phones：CRM「联系客户-发消息」按手机号解析客户账号，
-    命中注册用户则加入参与者；未命中且无其他参与者时报 404（客户未注册）。
+    CRM「联系客户-发消息」解析客户账号：按 participant_user_ids 直接指定，或按
+    participant_phones / participant_emails 命中已注册账号（多端客户可能仅用邮箱
+    或手机号注册）。解析不到的客户不自动建号，若最终除发起者外没有任何参与人则 404。
     """
     raw_ids = payload.get("participant_user_ids") or []
     raw_phones = payload.get("participant_phones") or []
-    if not raw_ids and not raw_phones:
+    raw_emails = payload.get("participant_emails") or []
+    if not raw_ids and not raw_phones and not raw_emails:
         raise HTTPException(
             status_code=400,
-            detail="participant_user_ids or participant_phones required",
+            detail="participant_user_ids / participant_phones / participant_emails required",
         )
 
     normalized: list[str] = []
+
+    def _push(u: Optional[User]) -> None:
+        if u is not None and str(u.id) not in normalized:
+            normalized.append(str(u.id))
+
     for value in raw_ids:
         try:
             uid = str(uuid.UUID(str(value)))
@@ -307,14 +315,15 @@ def create_conversation(
         if uid not in normalized:
             normalized.append(uid)
 
-    # 按手机号解析客户账号（命中注册用户则加入会话）
-    for phone in payload.get("participant_phones") or []:
+    # 按手机号 / 邮箱 / 姓名命中已注册账号（客户可能仅邮箱或仅手机号注册）
+    for phone in raw_phones:
         p = str(phone).strip()
-        if not p:
-            continue
-        found = session.exec(select(User).where(User.phone == p)).first()
-        if found and str(found.id) not in normalized:
-            normalized.append(str(found.id))
+        if p:
+            _push(session.exec(select(User).where(User.phone == p)).first())
+    for email in raw_emails:
+        e = str(email).strip().lower()
+        if e:
+            _push(session.exec(select(User).where(User.email == e)).first())
 
     if str(user.id) not in normalized:
         normalized.append(str(user.id))
