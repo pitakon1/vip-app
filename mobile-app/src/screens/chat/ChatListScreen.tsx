@@ -8,13 +8,15 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import { chatApi } from '@/services/api';
+import { notify, notifyError } from '@/utils/feedback';
+import EmptyState from '@/components/EmptyState';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 
 interface Conversation {
@@ -56,11 +58,14 @@ const formatTime = (x?: string) => (x ? x.replace('T', ' ').slice(0, 16) : '');
 export default function ChatListScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const [createError, setCreateError] = useState('');
   const [cat, setCat] = useState<CatKey>('all');
   const [showCreate, setShowCreate] = useState(false);
 
@@ -72,8 +77,10 @@ export default function ChatListScreen() {
         ? data
         : (data as any)?.items ?? (data as any)?.conversations ?? [];
       setConversations(items as Conversation[]);
+      setLoadError(false);
     } catch (err: any) {
-      Alert.alert('加载失败', err?.response?.data?.message || '无法获取会话列表');
+      setLoadError(true);
+      notifyError('加载失败', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -92,18 +99,19 @@ export default function ChatListScreen() {
   const handleCreate = async () => {
     const title = newTitle.trim();
     if (!title) {
-      Alert.alert('提示', '请输入会话名称');
+      setCreateError('请输入会话名称');
       return;
     }
+    setCreateError('');
     setCreating(true);
     try {
       await chatApi.createConversation({ title });
       setNewTitle('');
       setShowCreate(false);
-      Alert.alert('创建成功', '会话已创建');
+      notify('创建成功');
       await load();
     } catch (err: any) {
-      Alert.alert('创建失败', err?.response?.data?.message || '请稍后重试');
+      notifyError('创建失败', err);
     } finally {
       setCreating(false);
     }
@@ -172,14 +180,15 @@ export default function ChatListScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>加载会话中…</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* 消息页头（未读数与「全部已读」无对应接口，故不展示） */}
       <View style={styles.header}>
         <View style={styles.headerInfo}>
@@ -190,6 +199,8 @@ export default function ChatListScreen() {
           style={styles.newBtn}
           onPress={() => setShowCreate((v) => !v)}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={showCreate ? '收起新建会话' : '新建会话'}
         >
           <Ionicons
             name={showCreate ? 'close' : 'add'}
@@ -203,17 +214,25 @@ export default function ChatListScreen() {
       {/* 新建会话（现有业务逻辑保留） */}
       {showCreate && (
         <View style={styles.createBox}>
-          <TextInput
-            style={styles.input}
-            placeholder="新建会话名称"
-            value={newTitle}
-            onChangeText={setNewTitle}
-            placeholderTextColor={colors.ink3}
-          />
+          <View style={{ flex: 1 }}>
+            <TextInput
+              style={[styles.input, !!createError && styles.inputError]}
+              placeholder="新建会话名称"
+              value={newTitle}
+              onChangeText={(v) => {
+                setNewTitle(v);
+                if (createError) setCreateError('');
+              }}
+              placeholderTextColor={colors.ink3}
+            />
+            {!!createError && <Text style={styles.fieldError}>{createError}</Text>}
+          </View>
           <TouchableOpacity
             style={[styles.createBtn, creating && styles.btnDisabled]}
             onPress={handleCreate}
             disabled={creating}
+            accessibilityRole="button"
+            accessibilityLabel="新建"
           >
             {creating ? (
               <ActivityIndicator color={colors.primaryForeground} size="small" />
@@ -234,6 +253,8 @@ export default function ChatListScreen() {
               style={[styles.catTab, active && styles.catTabActive]}
               onPress={() => setCat(c.key)}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={c.label}
             >
               <Text style={[styles.catTabText, active && styles.catTabTextActive]}>
                 {c.label} {catCount(c.key)}
@@ -245,13 +266,29 @@ export default function ChatListScreen() {
 
       {/* 消息列表 */}
       <View style={styles.msgCard}>
-        <FlatList
-          data={visible}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={<Text style={styles.empty}>暂无会话</Text>}
-        />
+        {loadError && conversations.length === 0 ? (
+          <EmptyState
+            icon="cloud-offline-outline"
+            title="加载失败"
+            sub="无法获取会话列表，请检查网络"
+            actionLabel="重试"
+            onAction={() => {
+              setLoading(true);
+              load();
+            }}
+          />
+        ) : (
+          <FlatList
+            data={visible}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 12 }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            ListEmptyComponent={
+              <EmptyState icon="chatbubbles-outline" title="暂无会话" sub="点击右上角「新建会话」开始聊天" />
+            }
+          />
+        )}
       </View>
     </View>
   );
@@ -260,6 +297,7 @@ export default function ChatListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { fontSize: 13, color: colors.ink3, marginTop: 16, fontWeight: '500' },
   // 页头
   header: {
     flexDirection: 'row',
@@ -296,6 +334,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     color: colors.ink,
   },
+  inputError: { borderColor: colors.error },
+  fieldError: { fontSize: 12, color: colors.error, marginTop: 6 },
   createBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: 18,

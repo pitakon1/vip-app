@@ -15,15 +15,20 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/auth';
 import { authApi } from '@/services/api';
 import { tokenStorage } from '@/lib/storage';
 import { useI18n, LANG_LABELS, LANGS, type AppLang } from '@/i18n';
+import { notifyError } from '@/utils/feedback';
 import colors from '@/theme/colors';
 
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [loading, setLoading] = useState(false);
   const [langVisible, setLangVisible] = useState(false);
   // 记住我：勾选则持久化 token，取消勾选则本次登录仅在内存态生效
@@ -32,10 +37,20 @@ export default function LoginScreen() {
   const navigation = useNavigation<any>();
 
   const handleLogin = async () => {
-    if (!email.trim() || !password) {
-      Alert.alert('提示', '请输入邮箱和密码');
-      return;
+    let ok = true;
+    if (!email.trim()) {
+      setEmailError('请输入邮箱');
+      ok = false;
+    } else {
+      setEmailError('');
     }
+    if (!password) {
+      setPasswordError('请输入密码');
+      ok = false;
+    } else {
+      setPasswordError('');
+    }
+    if (!ok) return;
     setLoading(true);
     try {
       const { data } = await authApi.login(email.trim(), password);
@@ -51,11 +66,8 @@ export default function LoginScreen() {
       }
       useAuthStore.setState({ user, token, isAuthenticated: true });
     } catch (err: any) {
-      const message =
-        err?.response?.data?.message || err?.message || '邮箱或密码错误';
-      Alert.alert('登录失败', message);
-    } finally {
       setLoading(false);
+      notifyError('登录失败', err);
     }
   };
 
@@ -66,16 +78,20 @@ export default function LoginScreen() {
     >
       {/* 右上角语言切换按钮 */}
       <TouchableOpacity
-        style={styles.langBtn}
+        style={[styles.langBtn, { top: insets.top + 10 }]}
         onPress={() => setLangVisible(true)}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="选择语言"
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       >
         <Ionicons name="globe-outline" size={18} color={colors.ink2} />
       </TouchableOpacity>
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingTop: 80 + insets.top, paddingBottom: insets.bottom + 24 }]}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
           <Image
@@ -98,26 +114,33 @@ export default function LoginScreen() {
             <Text style={styles.cardSubtitle}>{t('login.subtitle')}</Text>
             <Text style={styles.label}>{t('login.email')}</Text>
             <TextInput
-              style={[styles.input, email.length > 0 && styles.inputFocused]}
+              style={[styles.input, (email.length > 0 || emailError) && styles.inputFocused, !!emailError && styles.inputError]}
               placeholder="请输入邮箱"
               placeholderTextColor={colors.ink3}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(v) => {
+                setEmail(v);
+                if (emailError) setEmailError('');
+              }}
               autoCapitalize="none"
               keyboardType="email-address"
               textContentType="emailAddress"
-              onFocus={() => {}}
             />
+            {!!emailError && <Text style={styles.fieldError}>{emailError}</Text>}
             <Text style={styles.label}>{t('login.password')}</Text>
             <TextInput
-              style={[styles.input, password.length > 0 && styles.inputFocused]}
+              style={[styles.input, (password.length > 0 || passwordError) && styles.inputFocused, !!passwordError && styles.inputError]}
               placeholder="请输入密码"
               placeholderTextColor={colors.ink3}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(v) => {
+                setPassword(v);
+                if (passwordError) setPasswordError('');
+              }}
               secureTextEntry
               textContentType="password"
             />
+            {!!passwordError && <Text style={styles.fieldError}>{passwordError}</Text>}
             {/* 记住我 / 忘记密码 */}
             <View style={styles.helperRow}>
               <TouchableOpacity
@@ -233,7 +256,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     justifyContent: 'center',
     flexGrow: 1,
-    paddingTop: 80,
   },
   header: {
     alignItems: 'center',
@@ -339,6 +361,15 @@ const styles = StyleSheet.create({
   inputFocused: {
     borderColor: colors.primary,
     backgroundColor: colors.surface,
+  },
+  inputError: {
+    borderColor: colors.error,
+  },
+  fieldError: {
+    fontSize: 12,
+    color: colors.error,
+    marginTop: -10,
+    marginBottom: 12,
   },
   button: {
     backgroundColor: colors.primary,

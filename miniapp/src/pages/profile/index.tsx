@@ -25,11 +25,11 @@ interface RowEntry {
 
 // 租客端「我的服务」宫格：顺序对齐原型 tenant-mini-profile.html
 // url 缺省表示后端无接口或页面不在小程序原型范围内（如「我的收藏」「预约记录」「浏览足迹」），点击提示未开放
+// 交租/付款入口在下方「常用功能」的「付款记录」统一承接，避免同页多入口
 const TENANT_SERVICE_GRID: Array<{ key: string; label: string; url?: string; icon: IconKey }> = [
   { key: 'favorites', label: '我的收藏', icon: 'heart' },
   { key: 'history', label: '浏览足迹', icon: 'trend' },
   { key: 'viewings', label: '预约记录', icon: 'calendar' },
-  { key: 'payments', label: '交租', url: '/pages/tenant/payments/index', icon: 'card' },
   { key: 'maintenance', label: '报修', url: '/pages/tenant/maintenance/index', icon: 'edit' },
   { key: 'chat', label: '联系客服', url: '/pages/chat/list/index', icon: 'megaphone' }
 ]
@@ -82,10 +82,8 @@ const BUSINESS_ROWS: RowEntry[] = [
   { key: 'commission', label: '佣金设置', icon: 'chart', url: '/pages/admin/commission-rules/index' }
 ]
 
-// 业主端「常用功能」：对齐 owner-mini-settings.html（前 4 项；「我的房源」动态跳转单独处理）
+// 业主端「常用功能」：对齐 owner-mini-settings.html（不含底部导航已有的「收益」「服务」两处入口）
 const OWNER_MENU_ROWS: RowEntry[] = [
-  { key: 'income', label: '收益报表', desc: '租金到账 · 年度收益汇总', url: '/pages/owner/income/index', icon: 'money' },
-  { key: 'services', label: '物业服务', desc: '保洁 · 维修 · 代管工单', url: '/pages/owner/services/index', icon: 'clipboard' },
   { key: 'documents', label: '租房文档', desc: '托管合同 · 产权证明', url: '/pages/owner/documents/index', icon: 'doc' },
   { key: 'marketing', label: '委托中心', desc: '委托出租 · 委托出售进度', url: '/pages/owner/marketing/index', icon: 'trend' }
 ]
@@ -321,6 +319,8 @@ export default function ProfilePage() {
   const [editPhone, setEditPhone] = useState('')
   const [editEmail, setEditEmail] = useState('')
   const [editSaving, setEditSaving] = useState(false)
+  // 内联校验错误：靠近对应字段展示，而非仅顶部 toast
+  const [editErr, setEditErr] = useState('')
 
   const openEdit = () => {
     setEditName((user as any)?.full_name || (user as any)?.name || '')
@@ -330,8 +330,9 @@ export default function ProfilePage() {
   }
 
   const saveEdit = async () => {
+    setEditErr('')
     if (!editName.trim()) {
-      showToast('请填写姓名')
+      setEditErr('请填写姓名')
       return
     }
     setEditSaving(true)
@@ -361,6 +362,7 @@ export default function ProfilePage() {
   const [newPwd, setNewPwd] = useState('')
   const [confirmPwd, setConfirmPwd] = useState('')
   const [pwdSaving, setPwdSaving] = useState(false)
+  const [pwdErr, setPwdErr] = useState('')
 
   const openPwd = () => {
     setOldPwd('')
@@ -370,16 +372,17 @@ export default function ProfilePage() {
   }
 
   const savePwd = async () => {
+    setPwdErr('')
     if (!oldPwd || !newPwd) {
-      showToast('请填写完整')
+      setPwdErr('请填写完整')
       return
     }
     if (newPwd.length < 6) {
-      showToast('新密码至少 6 位')
+      setPwdErr('新密码至少 6 位')
       return
     }
     if (newPwd !== confirmPwd) {
-      showToast('两次输入的新密码不一致')
+      setPwdErr('两次输入的新密码不一致')
       return
     }
     setPwdSaving(true)
@@ -916,11 +919,12 @@ export default function ProfilePage() {
             <View className='form-field'>
               <Text className='form-field__label'>姓名</Text>
               <Input
-                className='form-field__input'
+                className={`form-field__input${editErr ? ' form-field__input--error' : ''}`}
                 value={editName}
                 onInput={(e) => setEditName(e.detail.value)}
                 placeholder='请输入姓名'
               />
+              {editErr && <Text className='form-field__error'>{editErr}</Text>}
             </View>
             <View className='form-field'>
               <Text className='form-field__label'>手机号</Text>
@@ -980,12 +984,13 @@ export default function ProfilePage() {
             <View className='form-field'>
               <Text className='form-field__label'>确认新密码</Text>
               <Input
-                className='form-field__input'
+                className={`form-field__input${pwdErr ? ' form-field__input--error' : ''}`}
                 password
                 value={confirmPwd}
                 onInput={(e) => setConfirmPwd(e.detail.value)}
                 placeholder='再次输入新密码'
               />
+              {pwdErr && <Text className='form-field__error'>{pwdErr}</Text>}
             </View>
             <View className='modal-actions'>
               <Button className='modal-btn modal-btn--ghost' onClick={() => setPwdVisible(false)}>

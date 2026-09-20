@@ -16,9 +16,11 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import { notifyError } from '@/utils/feedback';
 import { leasesApi, propertiesApi } from '@/services/api';
 
 const PAGE_SIZE = 100;
@@ -66,6 +68,7 @@ const fmtDate = (v?: string | null) => (v ? String(v).slice(0, 10) : '-');
 const leaseNoOf = (id: string) => `LC-${id.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
 
 export default function AdminLeasesScreen() {
+  const insets = useSafeAreaInsets();
   const [leases, setLeases] = useState<LeaseRow[]>([]);
   const [total, setTotal] = useState(0);
   const [propMap, setPropMap] = useState<Record<string, PropertyRow>>({});
@@ -163,7 +166,7 @@ export default function AdminLeasesScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -189,8 +192,14 @@ export default function AdminLeasesScreen() {
           returnKeyType="search"
         />
         {keyword ? (
-          <TouchableOpacity onPress={() => setKeyword('')} activeOpacity={0.7}>
-            <Ionicons name="close-circle" size={16} color={colors.ink3} />
+          <TouchableOpacity
+            onPress={() => setKeyword('')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="清除搜索"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="close-circle" size={18} color={colors.ink3} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -328,8 +337,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: 12,
     alignItems: 'center',
     ...colors.shadow.sm,
@@ -352,8 +359,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 14,
     ...colors.shadow.card,
   },

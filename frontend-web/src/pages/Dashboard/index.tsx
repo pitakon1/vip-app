@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
-import { message, Empty, Spin } from 'antd'
+import { message, Empty, Spin, Alert, Button } from 'antd'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -116,6 +116,7 @@ const Dashboard = () => {
   const [expiring, setExpiring] = useState<ExpiringLease[]>([])
   const [payments, setPayments] = useState<RecentPayment[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const kpiMeta: KpiMeta[] = [
     {
@@ -256,11 +257,22 @@ const Dashboard = () => {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
+      let anyFailed = false
+      const markFailed = () => {
+        anyFailed = true
+        return { data: {} }
+      }
       const [sumRes, expRes, payRes, empRes] = await Promise.all([
-        api.get('/dashboard/summary').catch(() => ({ data: {} })),
-        api.get('/dashboard/expiring-leases').catch(() => ({ data: { items: [] } })),
-        api.get('/dashboard/recent-payments').catch(() => ({ data: { items: [] } })),
-        api.get('/employees', { params: { page: 1, page_size: 100 } }).catch(() => ({ data: {} })),
+        api.get('/dashboard/summary').catch(markFailed),
+        api.get('/dashboard/expiring-leases').catch(() => {
+          anyFailed = true
+          return { data: { items: [] } }
+        }),
+        api.get('/dashboard/recent-payments').catch(() => {
+          anyFailed = true
+          return { data: { items: [] } }
+        }),
+        api.get('/employees', { params: { page: 1, page_size: 100 } }).catch(markFailed),
       ])
       setSummary(sumRes.data?.data ?? sumRes.data ?? {})
       const expPayload = expRes.data?.data ?? expRes.data
@@ -280,7 +292,9 @@ const Dashboard = () => {
         employee_count: empPayload?.total ?? empItems.length ?? 0,
         new_employees: empItems.filter((e) => e.created_at && dayjs(e.created_at).isSame(now, 'month')).length,
       }))
+      setLoadFailed(anyFailed)
     } catch (err: any) {
+      setLoadFailed(true)
       message.error(err?.response?.data?.detail || err?.response?.data?.message || t('dashboardOps.fetchFailed'))
     } finally {
       setLoading(false)
@@ -408,6 +422,20 @@ const Dashboard = () => {
           <Spin size="small" style={{ marginRight: 8 }} />
           {t('dashboardOps.loadingData')}
         </div>
+      )}
+      {loadFailed && !loading && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={t('dashboardOps.fetchFailed')}
+          description={t('dashboardOps.partialFailDesc')}
+          action={
+            <Button size="small" onClick={() => fetchAll()}>
+              {t('common.retry')}
+            </Button>
+          }
+        />
       )}
       <div className="rent-risk-grid rent-mb-5">
         {riskMeta.map((card) => (

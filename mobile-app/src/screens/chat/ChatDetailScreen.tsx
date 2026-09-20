@@ -8,12 +8,14 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   ActivityIndicator,
-  Alert,
   Platform,
 } from 'react-native';
 import { RouteProp, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { chatApi } from '@/services/api';
+import { notifyError } from '@/utils/feedback';
+import EmptyState from '@/components/EmptyState';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 
 interface Message {
@@ -29,9 +31,11 @@ type Route = RouteProp<RootStackParamList, 'ChatDetail'>;
 
 export default function ChatDetailScreen() {
   const route = useRoute<Route>();
+  const insets = useSafeAreaInsets();
   const { conversationId, title } = route.params;
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -43,8 +47,10 @@ export default function ChatDetailScreen() {
         ? data
         : (data as any)?.items ?? (data as any)?.messages ?? [];
       setMessages(items as Message[]);
+      setLoadError(false);
     } catch (err: any) {
-      Alert.alert('加载失败', err?.response?.data?.message || '无法获取消息记录');
+      setLoadError(true);
+      notifyError('加载失败', err);
     } finally {
       setLoading(false);
     }
@@ -66,7 +72,7 @@ export default function ChatDetailScreen() {
       await chatApi.sendMessage(conversationId, { content: text });
       await load();
     } catch (err: any) {
-      Alert.alert('发送失败', err?.response?.data?.message || '请稍后重试');
+      notifyError('发送失败', err);
     } finally {
       setSending(false);
     }
@@ -89,7 +95,7 @@ export default function ChatDetailScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -101,14 +107,31 @@ export default function ChatDetailScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <FlatList
-        data={messages}
-        keyExtractor={(item, index) => item.id ?? String(index)}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>暂无消息，开始第一个话题吧</Text>}
-      />
-      <View style={styles.inputBar}>
+      {loadError && messages.length === 0 ? (
+        <View style={[styles.center, { paddingTop: insets.top }]}>
+          <EmptyState
+            icon="cloud-offline-outline"
+            title="加载失败"
+            sub="无法获取消息记录，请检查网络"
+            actionLabel="重试"
+            onAction={() => {
+              setLoading(true);
+              load();
+            }}
+          />
+        </View>
+      ) : (
+        <FlatList
+          data={messages}
+          keyExtractor={(item, index) => item.id ?? String(index)}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <EmptyState icon="chatbubble-ellipses-outline" title="暂无消息" sub="开始第一个话题吧" />
+          }
+        />
+      )}
+      <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <TextInput
           style={styles.input}
           placeholder={title ? `回复「${title}」` : '输入消息...'}
@@ -121,6 +144,8 @@ export default function ChatDetailScreen() {
           style={[styles.sendBtn, sending && styles.btnDisabled]}
           onPress={handleSend}
           disabled={sending}
+          accessibilityRole="button"
+          accessibilityLabel="发送消息"
         >
           {sending ? (
             <ActivityIndicator color={colors.primaryForeground} size="small" />

@@ -419,6 +419,24 @@
 
     /* 空状态统一使用 app.scss 的 .empty-state */
 
+    /* 错误态重试按钮：可达热区 ≥ 88rpx */
+    .error-retry {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 88rpx;
+      margin-top: 20rpx;
+      padding: 0 44rpx;
+      border-radius: 8px;
+      background-color: var(--primary);
+
+      &__text {
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--primary-foreground);
+      }
+    }
+
     .house-card {
       display: flex;
       background-color: var(--card);

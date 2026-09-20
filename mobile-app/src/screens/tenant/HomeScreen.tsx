@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   View,
   Text,
   StyleSheet,
@@ -7,15 +8,21 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Platform,
+  Pressable,
+  FlatList,
+  type DimensionValue,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { propertiesApi, leasesApi, paymentsApi, maintenanceApi, saleListingApi } from '@/services/api';
 import { fmtMoney as formatMoney } from '@/utils/format';
 import { useI18n } from '@/i18n';
+import { useAuthStore } from '@/stores/auth';
 
 interface Listing {
   id: string;
@@ -97,6 +104,13 @@ const TENANT_GRID: GridEntry[] = [
   { key: 'documents', label: '文档', icon: 'document-text', route: 'Documents' },
 ];
 
+/** 宫格项宽度：按实际项数自适应，避免 2 项时右侧空出一半造成观感残缺 */
+const gridItemWidth = (count: number): DimensionValue => {
+  if (count <= 2) return '50%';
+  if (count === 3 || count > 4) return '33.33%';
+  return '25%';
+};
+
 const statusLabels: Record<string, string> = {
   vacant: '空置',
   rented: '已出租',
@@ -155,7 +169,152 @@ const daysSince = (x?: string) => {
   return Math.max(0, Math.floor((Date.now() - t) / 86400000));
 };
 
+/**
+ * 租房房源卡片。
+ * memo 化：回调保持稳定引用，父级（搜索/切换 Tab 等）状态变化不会重建整条横向 rail。
+ * Pressable 包裹：按下缩放 0.97、松开归 1（Animated.spring 原生驱动）。
+ */
+const PropertyCard = React.memo(function PropertyCard({
+  item,
+  onPress,
+}: {
+  item: Listing;
+  onPress: (id: string) => void;
+}) {
+  // 按压缩放动画值
+  const scale = useRef(new Animated.Value(1)).current;
+  const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
+  return (
+    <Pressable
+      onPress={() => onPress(item.id)}
+      onPressIn={() =>
+        Animated.spring(scale, {
+          toValue: 0.97,
+          speed: 40,
+          bounciness: 0,
+          useNativeDriver: Platform.OS !== 'web',
+        }).start()
+      }
+      onPressOut={() =>
+        Animated.spring(scale, {
+          toValue: 1,
+          speed: 40,
+          bounciness: 0,
+          useNativeDriver: Platform.OS !== 'web',
+        }).start()
+      }
+      accessibilityRole="button"
+      accessibilityLabel={`${item.title || item.room_number || '房源'}，${item.address || '暂无地址'}`}
+    >
+      <Animated.View style={[styles.propCard, { transform: [{ scale }] }]}>
+        <View style={styles.propImgWrap}>
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.propImg} resizeMode="cover" />
+          ) : (
+            <View style={[styles.propImg, styles.propImgPlaceholder]}>
+              <Ionicons name="business-outline" size={26} color={colors.ink3} />
+            </View>
+          )}
+          <View style={styles.propBadge}>
+            <Text style={styles.propBadgeText}>
+              {typeLabels[String(item.property_type ?? '')] ?? '房源'}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.propBody}>
+          <Text style={styles.propName} numberOfLines={1}>
+            {item.title || item.room_number || '未命名房源'}
+          </Text>
+          <Text style={styles.propAddr} numberOfLines={1}>
+            {item.address || '暂无地址'}
+          </Text>
+          <View style={styles.propTags}>
+            <Text style={styles.propTag}>
+              {item.bedrooms ?? 0}室 · {item.size_sqm ?? 0}㎡
+            </Text>
+            <Text style={styles.propTag}>
+              {statusLabels[String(item.status ?? '')] ?? '在租'}
+            </Text>
+          </View>
+          <Text style={styles.propPrice}>
+            {formatMoney(item.monthly_rent, item.currency)}
+            <Text style={styles.propPriceUnit}>/月</Text>
+          </Text>
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+});
+
+/** 二手房卡片（同样 memo 化，避免购房 rail 随其它状态重建） */
+const SaleCard = React.memo(function SaleCard({
+  item,
+  onPress,
+}: {
+  item: SaleListing;
+  onPress: (id: string) => void;
+}) {
+  // 按压缩放动画值
+  const scale = useRef(new Animated.Value(1)).current;
+  const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
+  const canOpen = !!item.property_id;
+  return (
+    <Pressable
+      onPress={() => canOpen && onPress(String(item.property_id))}
+      disabled={!canOpen}
+      onPressIn={() =>
+        Animated.spring(scale, {
+          toValue: 0.97,
+          speed: 40,
+          bounciness: 0,
+          useNativeDriver: Platform.OS !== 'web',
+        }).start()
+      }
+      onPressOut={() =>
+        Animated.spring(scale, {
+          toValue: 1,
+          speed: 40,
+          bounciness: 0,
+          useNativeDriver: Platform.OS !== 'web',
+        }).start()
+      }
+      accessibilityRole="button"
+      accessibilityLabel={`${item.title || '在售房源'}，${item.address || '暂无地址'}`}
+    >
+      <Animated.View style={[styles.propCard, { transform: [{ scale }] }]}>
+        <View style={styles.propImgWrap}>
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.propImg} resizeMode="cover" />
+          ) : (
+            <View style={[styles.propImg, styles.propImgPlaceholder]}>
+              <Ionicons name="pricetag-outline" size={26} color={colors.ink3} />
+            </View>
+          )}
+          <View style={styles.propBadge}>
+            <Text style={styles.propBadgeText}>二手房</Text>
+          </View>
+        </View>
+        <View style={styles.propBody}>
+          <Text style={styles.propName} numberOfLines={1}>
+            {item.title || '在售房源'}
+          </Text>
+          <Text style={styles.propAddr} numberOfLines={1}>
+            {item.address || '暂无地址'}
+          </Text>
+          <View style={styles.propTags}>
+            <Text style={styles.propTag}>
+              {item.bedrooms ?? 0}室 · {item.size_sqm ?? 0}㎡
+            </Text>
+          </View>
+          <Text style={styles.propPrice}>{formatMoney(item.asking_price, item.currency)}</Text>
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+});
+
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const [listings, setListings] = useState<Listing[]>([]);
   const [saleItems, setSaleItems] = useState<SaleListing[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -167,6 +326,13 @@ export default function HomeScreen() {
   const [bizTab, setBizTab] = useState<'rent' | 'buy'>('rent');
   const { t } = useI18n();
   const navigation = useNavigation<any>();
+  const user = useAuthStore((s) => s.user);
+
+  // 用户名兜底：后端字段可能是 name / full_name / username，全部缺失则不拼接，避免渲染出 undefined
+  const displayName = useMemo(
+    () => user?.name || user?.full_name || user?.username || '',
+    [user],
+  );
 
   const loadAll = useCallback(async () => {
     const [pRes, lRes, payRes, mRes, sRes] = await Promise.allSettled([
@@ -223,13 +389,20 @@ export default function HomeScreen() {
     loadAll();
   }, [loadAll]);
 
-  const activeGrid = isRenting ? TENANT_GRID : VISITOR_GRID;
+  const activeGrid = useMemo(() => (isRenting ? TENANT_GRID : VISITOR_GRID), [isRenting]);
 
-  const handleEntry = (entry: GridEntry) => {
-    navigation.navigate(entry.route, entry.params);
-  };
+  const handleEntry = useCallback(
+    (entry: GridEntry) => {
+      navigation.navigate(entry.route, entry.params);
+    },
+    [navigation],
+  );
 
-  const goListings = () => navigation.navigate('TenantListings');
+  const goListings = useCallback(() => navigation.navigate('TenantListings'), [navigation]);
+  const openProperty = useCallback(
+    (id: string) => navigation.navigate('PropertyDetail', { id }),
+    [navigation],
+  );
 
   // ---------- 数据驱动区块 ----------
   // 待办：最近一笔待支付账单
@@ -243,30 +416,20 @@ export default function HomeScreen() {
     [tickets],
   );
 
-  const featured = useMemo(() => listings.slice(0, 5), [listings]);
-  // 新上房源：除精选外的其余房源，按创建时间倒序
-  const fresh = useMemo(() => {
-    const ids = new Set(featured.map((i) => i.id));
-    return listings
-      .filter((i) => !ids.has(i.id))
-      .sort(
-        (a, b) =>
-          (Date.parse(String(b.created_at ?? '')) || 0) -
-          (Date.parse(String(a.created_at ?? '')) || 0),
-      )
-      .slice(0, 5);
-  }, [listings, featured]);
+  // 推荐房源：合并原「精选」与「新上房源」两条 rail（同一批数据被切成两条会被误读为两类房源）
+  const recommended = useMemo(() => listings.slice(0, 10), [listings]);
 
-  // 定位行：取真实房源/租约数据中出现的城市（无真实数据则不展示该行）
+  // 城市标签：取真实房源/租约数据中出现的城市（仅作静态展示，不代表 GPS 定位）
   const cityLabel = useMemo(() => {
-    const rows: any[] = [...featured, ...fresh, ...saleItems];
+    const rows: any[] = [...recommended, ...saleItems];
     const city = rows.map((i) => i?.city).find((c: any) => !!c);
     if (city) return String(city);
     const leaseCity = activeLease?.property_city ?? activeLease?.city;
     return leaseCity ? String(leaseCity) : '';
-  }, [featured, fresh, saleItems, activeLease]);
+  }, [recommended, saleItems, activeLease]);
 
-  // 最近动态：账单 + 报修按时间倒序合并
+  // 最近动态：账单 + 报修按时间倒序合并。
+  // title 只保留类型/事项名，状态一律交给右侧徽标表达，避免同一状态出现两次
   const activities = useMemo(() => {
     const rows: {
       id: string;
@@ -280,12 +443,13 @@ export default function HomeScreen() {
     }[] = [];
     payments.forEach((p) => {
       const metaText = paymentStatusLabels[String(p.status ?? '')] ?? String(p.status ?? '');
+      const typeLabel = paymentTypeLabels[String(p.payment_type ?? '')];
       rows.push({
         id: `pay-${p.id}`,
         icon: 'card-outline',
         color: colors.success,
         bg: colors.successLight,
-        title: `${paymentTypeLabels[String(p.payment_type ?? '')] ?? '账单'}${metaText}`,
+        title: typeLabel ? `${typeLabel}账单` : '账单',
         sub: p.description || `截止 ${formatDay(p.due_date)}`,
         badge: metaText,
         at: Date.parse(String(p.paid_at ?? p.due_date ?? '')) || 0,
@@ -298,7 +462,7 @@ export default function HomeScreen() {
         icon: 'build-outline',
         color: meta.color,
         bg: meta.bg,
-        title: `报修工单${meta.text}`,
+        title: '报修工单',
         sub: `${tk.title || '报修'} · ${formatDay(tk.createdAt ?? tk.created_at)}`,
         badge: meta.text,
         at: Date.parse(String(tk.createdAt ?? tk.created_at ?? '')) || 0,
@@ -316,97 +480,6 @@ export default function HomeScreen() {
     return { percent, remainDays: Math.ceil((e - Date.now()) / 86400000) };
   }, [activeLease]);
 
-  const openProperty = (id: string) => navigation.navigate('PropertyDetail', { id });
-
-  const renderPropertyCard = (item: Listing) => {
-    const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
-    return (
-      <TouchableOpacity
-        key={item.id}
-        style={styles.propCard}
-        activeOpacity={0.85}
-        onPress={() => openProperty(item.id)}
-      >
-        <View style={styles.propImgWrap}>
-          {photo ? (
-            <Image source={{ uri: photo }} style={styles.propImg} resizeMode="cover" />
-          ) : (
-            <View style={[styles.propImg, styles.propImgPlaceholder]}>
-              <Ionicons name="business-outline" size={26} color={colors.ink3} />
-            </View>
-          )}
-          <View style={styles.propBadge}>
-            <Text style={styles.propBadgeText}>
-              {typeLabels[String(item.property_type ?? '')] ?? '房源'}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.propBody}>
-          <Text style={styles.propName} numberOfLines={1}>
-            {item.title || item.room_number || '未命名房源'}
-          </Text>
-          <Text style={styles.propAddr} numberOfLines={1}>
-            {item.address || '暂无地址'}
-          </Text>
-          <View style={styles.propTags}>
-            <Text style={styles.propTag}>
-              {item.bedrooms ?? 0}室 · {item.size_sqm ?? 0}㎡
-            </Text>
-            <Text style={styles.propTag}>
-              {statusLabels[String(item.status ?? '')] ?? '在租'}
-            </Text>
-          </View>
-          <Text style={styles.propPrice}>
-            {formatMoney(item.monthly_rent, item.currency)}
-            <Text style={styles.propPriceUnit}>/月</Text>
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderSaleCard = (item: SaleListing) => {
-    const photo =
-      Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
-    const canOpen = !!item.property_id;
-    return (
-      <TouchableOpacity
-        key={item.id}
-        style={styles.propCard}
-        activeOpacity={canOpen ? 0.85 : 1}
-        disabled={!canOpen}
-        onPress={() => canOpen && openProperty(String(item.property_id))}
-      >
-        <View style={styles.propImgWrap}>
-          {photo ? (
-            <Image source={{ uri: photo }} style={styles.propImg} resizeMode="cover" />
-          ) : (
-            <View style={[styles.propImg, styles.propImgPlaceholder]}>
-              <Ionicons name="pricetag-outline" size={26} color={colors.ink3} />
-            </View>
-          )}
-          <View style={styles.propBadge}>
-            <Text style={styles.propBadgeText}>二手房</Text>
-          </View>
-        </View>
-        <View style={styles.propBody}>
-          <Text style={styles.propName} numberOfLines={1}>
-            {item.title || '在售房源'}
-          </Text>
-          <Text style={styles.propAddr} numberOfLines={1}>
-            {item.address || '暂无地址'}
-          </Text>
-          <View style={styles.propTags}>
-            <Text style={styles.propTag}>
-              {item.bedrooms ?? 0}室 · {item.size_sqm ?? 0}㎡
-            </Text>
-          </View>
-          <Text style={styles.propPrice}>{formatMoney(item.asking_price, item.currency)}</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   if (loading) {
     return (
       <View style={styles.center}>
@@ -415,21 +488,181 @@ export default function HomeScreen() {
     );
   }
 
+  // 「买房」上下文：隐藏全部租房履约模块，只保留搜索栏 + 业务 Tab + 购房 rail
+  const isRentTab = bizTab === 'rent';
+
+  // 外层 FlatList 的数据区块：房源 rail / 租约卡 / 最近动态。
+  // 房源卡统一在横向 rail（ScrollView horizontal）里，纵向只按「区块」懒加载，
+  // 避免首页一次性渲染并挂载全部内容；按当前状态动态决定是否追加租约卡与动态。
+  type BodySection = { key: 'rail' | 'lease' | 'activity' };
+  const bodySections = useMemo<BodySection[]>(() => {
+    const secs: BodySection[] = [{ key: 'rail' }];
+    if (isRentTab) {
+      if (isRenting && activeLease) secs.push({ key: 'lease' });
+      if (activities.length > 0) secs.push({ key: 'activity' });
+    }
+    return secs;
+  }, [isRentTab, isRenting, activeLease, activities]);
+
+  // 渲染单个数据区块（rail 内部仍是横向 ScrollView，保持横向滚动行为不变）
+  const renderBodySection = ({ item }: { item: BodySection }) => {
+    switch (item.key) {
+      case 'rail':
+        return isRentTab ? (
+          <>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>{t('home.featured')}</Text>
+              <TouchableOpacity onPress={goListings} activeOpacity={0.7}>
+                <Text style={styles.linkText}>更多</Text>
+              </TouchableOpacity>
+            </View>
+            {recommended.length === 0 ? (
+              <EmptyState
+                icon="home-outline"
+                title={t('home.noListings')}
+                sub="稍后再来看看新的房源"
+                actionLabel="去搜索"
+                onAction={goListings}
+              />
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.rail}
+              >
+                {recommended.map((it) => (
+                  <PropertyCard key={it.id} item={it} onPress={openProperty} />
+                ))}
+              </ScrollView>
+            )}
+          </>
+        ) : (
+          <>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>热门二手房</Text>
+            </View>
+            {saleItems.length === 0 ? (
+              <EmptyState
+                icon="pricetag-outline"
+                title="暂无在售房源"
+                sub="当前没有可浏览的在售挂牌"
+              />
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.rail}
+              >
+                {saleItems.map((it) => (
+                  <SaleCard key={it.id} item={it} onPress={openProperty} />
+                ))}
+              </ScrollView>
+            )}
+          </>
+        );
+      case 'lease':
+        return (
+          <View style={styles.card}>
+            <View style={styles.cardHead}>
+              <Text style={styles.cardTitle}>租约状态</Text>
+              <View style={styles.badgeSuccess}>
+                <Text style={styles.badgeSuccessText}>{t('home.leaseInforce')}</Text>
+              </View>
+            </View>
+            <Text style={styles.leaseName} numberOfLines={1}>
+              {activeLease.property_name || activeLease.room_number || t('home.myLease')}
+            </Text>
+            <Text style={styles.leaseMeta}>
+              {formatMoney(activeLease.monthly_rent ?? activeLease.rent, activeLease.currency)}/月
+            </Text>
+            <View style={styles.progress}>
+              <View style={[styles.progressBar, { width: `${leaseProgress.percent}%` }]} />
+            </View>
+            <View style={styles.cardFoot}>
+              <Text style={styles.cardFootText}>
+                {formatDay(activeLease.start_date)} 至 {formatDay(activeLease.end_date)}
+              </Text>
+              {leaseProgress.remainDays !== null && (
+                <Text style={styles.linkText}>剩余 {leaseProgress.remainDays} 天</Text>
+              )}
+            </View>
+          </View>
+        );
+      case 'activity':
+        return (
+          <>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>最近动态</Text>
+            </View>
+            <View style={styles.card}>
+              {activities.map((a, idx) => (
+                <View
+                  key={a.id}
+                  style={[styles.actRow, idx < activities.length - 1 && styles.actRowDivider]}
+                >
+                  <View style={[styles.actIcon, { backgroundColor: a.bg }]}>
+                    <Ionicons name={a.icon} size={16} color={a.color} />
+                  </View>
+                  <View style={styles.actBody}>
+                    <Text style={styles.actTitle} numberOfLines={1}>
+                      {a.title}
+                    </Text>
+                    <Text style={styles.actSub} numberOfLines={1}>
+                      {a.sub}
+                    </Text>
+                  </View>
+                  <View style={[styles.actBadge, { backgroundColor: a.bg }]}>
+                    <Text style={[styles.actBadgeText, { color: a.color }]}>{a.badge}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
-    <ScrollView
+    <FlatList
       style={styles.container}
-      contentContainerStyle={styles.content}
+      // 用 insets.top 补顶部安全区（不用 SafeAreaView 包滚动容器，避免横向 rail 被裁切）
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      {/* 1. 定位 + 搜索 hero */}
-      {!!cityLabel && (
-        <View style={styles.locationRow}>
-          <Ionicons name="location" size={14} color={colors.primary} />
-          <Text style={styles.locationText} numberOfLines={1}>
-            {cityLabel}
-          </Text>
-        </View>
-      )}
+      data={bodySections}
+      keyExtractor={(s) => s.key}
+      renderItem={renderBodySection}
+      initialNumToRender={3}
+      windowSize={7}
+      removeClippedSubviews={Platform.OS === 'android'}
+      ListHeaderComponent={
+        <>
+      {/* 1. 问候（情感锚点；用户名缺失时退化为通用问候） */}
+      <View style={styles.greeting}>
+        <Text style={styles.greetingTitle} numberOfLines={1}>
+          {displayName
+            ? t('home.greeting').replace('{name}', displayName)
+            : t('home.greetingGeneric')}
+        </Text>
+        <Text style={styles.greetingSub} numberOfLines={1}>
+          {t('home.greetingSub')}
+        </Text>
+      </View>
+
+      {/* 2. 城市标签 + 搜索 hero
+          - 城市来自房源/租约数据，非 GPS 定位，故用空心图标 +「当前城市」前缀，不暗示已定位
+          - 固定行高占位，数据回来时不会让整行突然出现/消失造成跳动 */}
+      <View style={styles.locationRow}>
+        {!!cityLabel && (
+          <>
+            <Ionicons name="location-outline" size={14} color={colors.ink2} />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {t('home.currentCity')} · {cityLabel}
+            </Text>
+          </>
+        )}
+      </View>
       <TouchableOpacity style={styles.searchBar} activeOpacity={0.8} onPress={goListings}>
         <Ionicons name="search" size={16} color={colors.ink3} />
         <Text style={styles.searchPlaceholder}>{t('home.searchPlaceholder')}</Text>
@@ -438,7 +671,7 @@ export default function HomeScreen() {
         </View>
       </TouchableOpacity>
 
-      {/* 2. 双业务 Tab：租房 / 买房 */}
+      {/* 3. 双业务 Tab：租房 / 买房 */}
       <View style={styles.bizTabs}>
         {(['rent', 'buy'] as const).map((b) => (
           <TouchableOpacity
@@ -454,8 +687,8 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* 3. 待办：本月租金未付（有真实待支付账单才渲染） */}
-      {pendingPayment && (
+      {/* 4. 待办：本月租金未付（仅租房上下文 + 有真实待支付账单才渲染） */}
+      {isRentTab && pendingPayment && (
         <TouchableOpacity
           style={[styles.card, styles.todoPay]}
           activeOpacity={0.85}
@@ -482,8 +715,8 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
 
-      {/* 4. 报修进行中：进度卡（有未完结工单才渲染） */}
-      {activeTicket && (
+      {/* 5. 报修进行中：进度卡（仅租房上下文 + 有未完结工单才渲染） */}
+      {isRentTab && activeTicket && (
         <TouchableOpacity
           style={[styles.card, styles.todoMaint]}
           activeOpacity={0.85}
@@ -531,168 +764,33 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
 
-      {/* 5. 找房源 Banner */}
-      <TouchableOpacity style={styles.banner} activeOpacity={0.85} onPress={goListings}>
-        <View style={styles.bannerIcon}>
-          <Ionicons name="home" size={22} color={colors.primaryForeground} />
-        </View>
-        <View style={styles.bannerBody}>
-          <Text style={styles.bannerTitle}>找房源</Text>
-          <Text style={styles.bannerSub}>搜索房源 · 查看详情 · 预约看房</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={colors.primaryForeground} />
-      </TouchableOpacity>
-
-      {/* 6. 功能宫格 */}
-      <View style={styles.grid}>
-        {activeGrid.map((entry) => (
-          <TouchableOpacity
-            key={entry.key}
-            style={[styles.gridItem, { width: activeGrid.length > 4 ? '33.33%' : '25%' }]}
-            activeOpacity={0.7}
-            onPress={() => handleEntry(entry)}
-            accessibilityRole="button"
-            accessibilityLabel={entry.labelKey ? t(entry.labelKey) : entry.label}
-          >
-            <View style={styles.gridIconBox}>
-              <Ionicons name={entry.icon} size={22} color={colors.primary} />
-            </View>
-            <Text style={styles.gridLabel}>
-              {entry.labelKey ? t(entry.labelKey) : entry.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* 7. 房源 rails（受双业务 Tab 控制） */}
-      {bizTab === 'rent' ? (
-        <>
-          <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>{t('home.featured')}</Text>
-            <TouchableOpacity onPress={goListings} activeOpacity={0.7}>
-              <Text style={styles.linkText}>更多</Text>
+      {/* 6. 功能宫格（租房上下文：访客=找房分类，在租=履约服务；宽度按项数自适应） */}
+      {isRentTab && (
+        <View style={styles.grid}>
+          {activeGrid.map((entry) => (
+            <TouchableOpacity
+              key={entry.key}
+              style={[styles.gridItem, { width: gridItemWidth(activeGrid.length) }]}
+              activeOpacity={0.7}
+              onPress={() => handleEntry(entry)}
+              accessibilityRole="button"
+              accessibilityLabel={entry.labelKey ? t(entry.labelKey) : entry.label}
+            >
+              <View style={styles.gridIconBox}>
+                <Ionicons name={entry.icon} size={22} color={colors.primary} />
+              </View>
+              <Text style={styles.gridLabel}>
+                {entry.labelKey ? t(entry.labelKey) : entry.label}
+              </Text>
             </TouchableOpacity>
-          </View>
-          {featured.length === 0 ? (
-            <EmptyState
-              icon="home-outline"
-              title={t('home.noListings')}
-              sub="稍后再来看看新的房源"
-              actionLabel="去搜索"
-              onAction={goListings}
-            />
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.rail}
-            >
-              {featured.map(renderPropertyCard)}
-            </ScrollView>
-          )}
-
-          {fresh.length > 0 && (
-            <>
-              <View style={styles.sectionHead}>
-                <Text style={styles.sectionTitle}>新上房源</Text>
-                <TouchableOpacity onPress={goListings} activeOpacity={0.7}>
-                  <Text style={styles.linkText}>更多</Text>
-                </TouchableOpacity>
-              </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.rail}
-              >
-                {fresh.map(renderPropertyCard)}
-              </ScrollView>
-            </>
-          )}
-        </>
-      ) : (
-        <>
-          <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>热门二手房</Text>
-          </View>
-          {saleItems.length === 0 ? (
-            <EmptyState
-              icon="pricetag-outline"
-              title="暂无在售房源"
-              sub="当前没有可浏览的在售挂牌"
-            />
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.rail}
-            >
-              {saleItems.map(renderSaleCard)}
-            </ScrollView>
-          )}
-        </>
-      )}
-
-      {/* 8. 租约状态卡（在租态） */}
-      {isRenting && activeLease && (
-        <View style={styles.card}>
-          <View style={styles.cardHead}>
-            <Text style={styles.cardTitle}>租约状态</Text>
-            <View style={styles.badgeSuccess}>
-              <Text style={styles.badgeSuccessText}>{t('home.leaseInforce')}</Text>
-            </View>
-          </View>
-          <Text style={styles.leaseName} numberOfLines={1}>
-            {activeLease.property_name || activeLease.room_number || t('home.myLease')}
-          </Text>
-          <Text style={styles.leaseMeta}>
-            {formatMoney(activeLease.monthly_rent ?? activeLease.rent, activeLease.currency)}/月
-          </Text>
-          <View style={styles.progress}>
-            <View style={[styles.progressBar, { width: `${leaseProgress.percent}%` }]} />
-          </View>
-          <View style={styles.cardFoot}>
-            <Text style={styles.cardFootText}>
-              {formatDay(activeLease.start_date)} 至 {formatDay(activeLease.end_date)}
-            </Text>
-            {leaseProgress.remainDays !== null && (
-              <Text style={styles.linkText}>剩余 {leaseProgress.remainDays} 天</Text>
-            )}
-          </View>
+          ))}
         </View>
       )}
 
-      {/* 9. 最近动态（有真实数据才渲染，序号随区块精简后顺延） */}
-      {activities.length > 0 && (
-        <>
-          <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>最近动态</Text>
-          </View>
-          <View style={styles.card}>
-            {activities.map((a, idx) => (
-              <View
-                key={a.id}
-                style={[styles.actRow, idx < activities.length - 1 && styles.actRowDivider]}
-              >
-                <View style={[styles.actIcon, { backgroundColor: a.bg }]}>
-                  <Ionicons name={a.icon} size={16} color={a.color} />
-                </View>
-                <View style={styles.actBody}>
-                  <Text style={styles.actTitle} numberOfLines={1}>
-                    {a.title}
-                  </Text>
-                  <Text style={styles.actSub} numberOfLines={1}>
-                    {a.sub}
-                  </Text>
-                </View>
-                <View style={[styles.actBadge, { backgroundColor: a.bg }]}>
-                  <Text style={[styles.actBadgeText, { color: a.color }]}>{a.badge}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
+      {/* 7-9. 房源 rail / 租约卡 / 最近动态，已移入外层 FlatList 的 data（renderBodySection 按区块懒加载渲染） */}
         </>
-      )}
-    </ScrollView>
+      }
+    />
   );
 }
 
@@ -700,11 +798,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: colors.spacing.md, paddingBottom: colors.spacing.xxl },
+  // 边框与阴影二选一：保留柔和阴影，去掉 1px 描边，避免「边 + 影」双重描边显得层级平
   card: {
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: colors.spacing.lg,
     marginBottom: colors.spacing.md,
     ...colors.shadow.card,
@@ -722,7 +819,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: colors.spacing.sm,
   },
-  cardFootText: { fontSize: 12, color: colors.ink3 },
+  cardFootText: { fontSize: 12, color: colors.ink2 },
+
+  /* 问候 */
+  greeting: { marginBottom: colors.spacing.md },
+  greetingTitle: { fontSize: 18, fontWeight: '700', color: colors.ink, letterSpacing: -0.3 },
+  greetingSub: { fontSize: 13, color: colors.ink2, marginTop: 2 },
 
   /* 搜索 hero */
   searchBar: {
@@ -765,27 +867,29 @@ const styles = StyleSheet.create({
   bizTabText: { fontSize: 14, color: colors.ink2, fontWeight: '600' },
   bizTabTextActive: { color: colors.primaryForeground, fontWeight: '700' },
 
-  /* 定位行 */
+  /* 城市标签（固定高度占位，避免数据到达时整行跳变） */
   locationRow: {
+    height: 22,
     flexDirection: 'row',
     alignItems: 'center',
     gap: colors.spacing.xs,
     marginBottom: colors.spacing.sm,
   },
-  locationText: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.ink },
+  locationText: { flex: 1, fontSize: 13, fontWeight: '500', color: colors.ink2 },
 
   /* 待办卡 */
   todoPay: { borderLeftWidth: 3, borderLeftColor: colors.warning },
-  todoDue: { fontSize: 12, color: colors.ink3 },
+  todoDue: { fontSize: 12, color: colors.ink2 },
   todoLabel: { fontSize: 13, color: colors.ink2 },
+  // 待缴金额用 warning 语义色（原先误用品牌青绿，会把「欠款」渲染成正面信号）
   todoAmount: {
     fontSize: 28,
     fontWeight: '800',
-    color: colors.primary,
+    color: colors.warning,
     marginTop: colors.spacing.xs,
     letterSpacing: -0.5,
   },
-  todoSub: { fontSize: 12, color: colors.ink3, marginTop: colors.spacing.xs, lineHeight: 18 },
+  todoSub: { fontSize: 12, color: colors.ink2, marginTop: colors.spacing.xs, lineHeight: 18 },
   primaryBtn: {
     marginTop: colors.spacing.md,
     backgroundColor: colors.primary,
@@ -798,8 +902,8 @@ const styles = StyleSheet.create({
   /* 报修卡 */
   todoMaint: { borderLeftWidth: 3, borderLeftColor: colors.info },
   todoMaintTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  todoMaintDesc: { fontSize: 13, color: colors.ink3, marginTop: colors.spacing.xs, lineHeight: 18 },
-  ticketNo: { fontSize: 12, color: colors.ink3 },
+  todoMaintDesc: { fontSize: 13, color: colors.ink2, marginTop: colors.spacing.xs, lineHeight: 18 },
+  ticketNo: { fontSize: 12, color: colors.ink2 },
 
   /* 进度条 */
   progress: {
@@ -818,57 +922,28 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.sm,
   },
-  badgeWarningText: { fontSize: 11, fontWeight: '700', color: colors.warning },
+  badgeWarningText: { fontSize: 12, fontWeight: '700', color: colors.warning },
   badgeInfo: {
     backgroundColor: colors.alpha(colors.infoRgb, 0.1),
     paddingHorizontal: colors.spacing.sm,
     paddingVertical: 3,
     borderRadius: colors.radius.sm,
   },
-  badgeInfoText: { fontSize: 11, fontWeight: '700', color: colors.info },
+  badgeInfoText: { fontSize: 12, fontWeight: '700', color: colors.info },
   badgeSuccess: {
     backgroundColor: colors.successLight,
     paddingHorizontal: colors.spacing.sm,
     paddingVertical: 3,
     borderRadius: colors.radius.sm,
   },
-  badgeSuccessText: { fontSize: 11, fontWeight: '700', color: colors.success },
+  badgeSuccessText: { fontSize: 12, fontWeight: '700', color: colors.success },
 
-  /* 找房源 Banner */
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: colors.spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: colors.radius.xl,
-    paddingHorizontal: colors.spacing.lg,
-    paddingVertical: colors.spacing.lg,
-    marginBottom: colors.spacing.md,
-    ...colors.shadow.primary,
-  },
-  bannerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: colors.radius.md,
-    backgroundColor: colors.alpha('255,255,255', 0.2),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerBody: { flex: 1 },
-  bannerTitle: { fontSize: 15, fontWeight: '700', color: colors.primaryForeground },
-  bannerSub: { fontSize: 13, color: colors.alpha('255,255,255', 0.85), marginTop: 2 },
-
-  /* 功能宫格 */
+  /* 功能宫格：去掉白色卡片外壳，让宫格直接落在背景色上、靠区块标题分组 */
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: colors.spacing.lg,
     marginBottom: colors.spacing.md,
-    ...colors.shadow.sm,
   },
   gridItem: { alignItems: 'center', paddingVertical: colors.spacing.sm },
   gridIconBox: {
@@ -921,13 +996,13 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: colors.radius.sm,
   },
-  propBadgeText: { fontSize: 11, color: colors.primaryForeground, fontWeight: '600' },
+  propBadgeText: { fontSize: 12, color: colors.primaryForeground, fontWeight: '600' },
   propBody: { padding: colors.spacing.md },
   propName: { fontSize: 15, fontWeight: '700', color: colors.ink },
   propAddr: { fontSize: 12, color: colors.ink2, marginTop: 3 },
   propTags: { flexDirection: 'row', gap: colors.spacing.xs, marginTop: colors.spacing.sm },
   propTag: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.ink2,
     backgroundColor: colors.surface2,
     paddingHorizontal: 7,
@@ -942,20 +1017,11 @@ const styles = StyleSheet.create({
     marginTop: colors.spacing.sm,
     letterSpacing: -0.2,
   },
-  propPriceUnit: { fontSize: 11, fontWeight: '400', color: colors.ink2 },
+  propPriceUnit: { fontSize: 12, fontWeight: '400', color: colors.ink2 },
 
   /* 租约状态卡 */
   leaseName: { fontSize: 16, fontWeight: '700', color: colors.ink },
   leaseMeta: { fontSize: 13, color: colors.ink2, marginTop: colors.spacing.xs },
-  secondaryBtn: {
-    marginTop: colors.spacing.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: colors.radius.full,
-    paddingVertical: colors.spacing.sm,
-    alignItems: 'center',
-  },
-  secondaryBtnText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
 
   /* 最近动态 */
   actRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: colors.spacing.md },
@@ -969,11 +1035,11 @@ const styles = StyleSheet.create({
   },
   actBody: { flex: 1, marginLeft: colors.spacing.md },
   actTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  actSub: { fontSize: 13, color: colors.ink3, marginTop: 2 },
+  actSub: { fontSize: 13, color: colors.ink2, marginTop: 2 },
   actBadge: {
     paddingHorizontal: colors.spacing.sm,
     paddingVertical: 3,
     borderRadius: colors.radius.sm,
   },
-  actBadgeText: { fontSize: 11, fontWeight: '600' },
+  actBadgeText: { fontSize: 12, fontWeight: '600' },
 });

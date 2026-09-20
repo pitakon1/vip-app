@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
@@ -99,6 +100,7 @@ const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'M
 export default function AdminPropertyDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const insets = useSafeAreaInsets();
   const propertyId: string | undefined = route?.params?.id;
 
   const [property, setProperty] = useState<PropertyDetail | null>(null);
@@ -206,7 +208,7 @@ export default function AdminPropertyDetailScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -419,8 +421,6 @@ const styles = StyleSheet.create({
     marginTop: -18,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 16,
     ...colors.shadow.card,
   },
@@ -446,8 +446,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: 12,
     alignItems: 'center',
     ...colors.shadow.sm,
@@ -477,8 +475,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 6,
     ...colors.shadow.sm,
   },
@@ -492,8 +488,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: 14,
     alignItems: 'center',
     gap: 8,
@@ -512,8 +506,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 16,
     ...colors.shadow.sm,
   },
@@ -550,8 +542,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 14,
     ...colors.shadow.sm,
   },

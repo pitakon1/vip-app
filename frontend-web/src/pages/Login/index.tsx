@@ -47,17 +47,15 @@ const Login = () => {
   const [submitting, setSubmitting] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email) {
-      message.warning(t('login.emailRequired'))
-      return
-    }
-    if (!password) {
-      message.warning(t('login.passwordRequired'))
-      return
-    }
+    const nextErrors: { email?: string; password?: string } = {}
+    if (!email) nextErrors.email = t('login.emailRequired')
+    if (!password) nextErrors.password = t('login.passwordRequired')
+    setErrors(nextErrors)
+    if (nextErrors.email || nextErrors.password) return
     setSubmitting(true)
     try {
       const res = await authApi.login(email, password)
@@ -147,12 +145,18 @@ const Login = () => {
               <input
                 type="email"
                 id="login-email"
-                className="rent-form-input"
+                className={`rent-form-input${errors.email ? ' rent-form-input--error' : ''}`}
                 placeholder={t('login.emailPlaceholder')}
                 autoComplete="email"
+                autoFocus
+                aria-invalid={!!errors.email}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }))
+                }}
               />
+              {errors.email && <div className="rent-form-error" role="alert">{errors.email}</div>}
             </div>
 
             {/* 密码 */}
@@ -161,12 +165,17 @@ const Login = () => {
               <input
                 type="password"
                 id="login-password"
-                className="rent-form-input"
+                className={`rent-form-input${errors.password ? ' rent-form-input--error' : ''}`}
                 placeholder={t('login.passwordPlaceholder')}
                 autoComplete="current-password"
+                aria-invalid={!!errors.password}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }))
+                }}
               />
+              {errors.password && <div className="rent-form-error" role="alert">{errors.password}</div>}
             </div>
 
             {/* 记住我 + 忘记密码 */}

@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   barValue: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.ink2,
     marginBottom: 4,

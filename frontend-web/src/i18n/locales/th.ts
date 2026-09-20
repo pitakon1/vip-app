@@ -2,6 +2,7 @@ const th: import('./zh').Translation = {
   common: {
     appName: 'ระบบจัดการเช่าอสังหาริมทรัพย์ VIP',
     loading: 'กำลังโหลด...',
+    retry: 'ลองใหม่',
     save: 'บันทึก',
     cancel: 'ยกเลิก',
     confirm: 'ยืนยัน',
@@ -637,6 +638,7 @@ const th: import('./zh').Translation = {
     daysLater: 'หมดอายุใน {{days}} วัน',
     dueSoon: 'ใกล้หมดอายุ',
     fetchFailed: 'โหลดข้อมูลไม่สำเร็จ',
+    partialFailDesc: 'โหลดข้อมูลบางส่วนไม่สำเร็จ แต่ส่วนอื่นแสดงตามปกติ กรุณาลองใหม่ภายหลัง',
     payType: {
       rent: 'ค่าเช่า',
       deposit: 'เงินมัดจำ',

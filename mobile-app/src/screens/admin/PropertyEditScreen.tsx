@@ -17,13 +17,14 @@ import {
   TouchableOpacity,
   Switch,
   ActivityIndicator,
-  Alert,
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import LoadingState from '@/components/LoadingState';
+import { notify, notifyError } from '@/utils/feedback';
 import { propertiesApi } from '@/services/api';
 
 interface PropertyForm {
@@ -86,6 +87,7 @@ const normalizePhotos = (raw: unknown): string[] => {
 export default function PropertyEditScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const insets = useSafeAreaInsets();
   const paramId: string | undefined = route?.params?.id;
   const initialData: any = route?.params?.initial;
   const currentId: string | undefined = paramId ?? initialData?.id;
@@ -153,8 +155,8 @@ export default function PropertyEditScreen() {
         const res = await propertiesApi.get(paramId);
         if (cancelled) return;
         applyInitial((res as any)?.data ?? null);
-      } catch {
-        if (!cancelled) Alert.alert('加载失败', '无法获取房源信息，请返回重试');
+      } catch (e: any) {
+        if (!cancelled) notifyError('加载失败', e);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -169,7 +171,7 @@ export default function PropertyEditScreen() {
 
   const onSave = async () => {
     if (!currentId) {
-      Alert.alert('无法保存', '缺少房源 ID');
+      notifyError('无法保存', { message: '缺少房源 ID' });
       return;
     }
     const payload = {
@@ -196,7 +198,7 @@ export default function PropertyEditScreen() {
       await propertiesApi.update(currentId, payload);
       navigation.goBack();
     } catch (e: any) {
-      Alert.alert('保存失败', e?.response?.data?.detail || '请稍后重试');
+      notifyError('保存失败', e);
     } finally {
       setSaving(false);
     }
@@ -204,7 +206,7 @@ export default function PropertyEditScreen() {
 
   const pickAndUpload = async () => {
     if (!currentId) {
-      Alert.alert('无法上传', '缺少房源 ID，请先保存房源');
+      notifyError('无法上传', { message: '缺少房源 ID，请先保存房源' });
       return;
     }
     if (photoBusy) return;
@@ -216,7 +218,7 @@ export default function PropertyEditScreen() {
         quality: 0.8,
       });
     } catch {
-      Alert.alert('无法打开相册', '请检查相册权限后重试');
+      notifyError('无法打开相册', { message: '请检查相册权限后重试' });
       return;
     }
     if (result.canceled || !result.assets?.length) return;
@@ -233,9 +235,9 @@ export default function PropertyEditScreen() {
       const d = up?.data ?? {};
       if (Array.isArray(d.photos)) setPhotos(d.photos as string[]);
       else setPhotos((prev) => [...prev, ...picked.map((a) => a.uri)]);
-      Alert.alert('上传成功', '照片已添加到房源');
+      notify('上传成功', '照片已添加到房源');
     } catch (e: any) {
-      Alert.alert('上传失败', e?.response?.data?.detail || '请稍后重试');
+      notifyError('上传失败', e);
     } finally {
       setPhotoBusy(false);
     }
@@ -250,7 +252,7 @@ export default function PropertyEditScreen() {
       if (Array.isArray(d.photos)) setPhotos(d.photos as string[]);
       else setPhotos((prev) => prev.filter((p) => p !== url));
     } catch (e: any) {
-      Alert.alert('删除失败', e?.response?.data?.detail || '请稍后重试');
+      notifyError('删除失败', e);
     } finally {
       setPhotoBusy(false);
     }
@@ -287,7 +289,7 @@ export default function PropertyEditScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top, paddingBottom: insets.bottom + 40 }]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
@@ -417,6 +419,9 @@ export default function PropertyEditScreen() {
                   style={styles.photoDel}
                   activeOpacity={0.8}
                   onPress={() => removePhoto(url)}
+                  accessibilityRole="button"
+                  accessibilityLabel="删除本张照片"
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
                   <Text style={styles.photoDelText}>×</Text>
                 </TouchableOpacity>
@@ -469,8 +474,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 14,
     gap: 12,
     ...colors.shadow.card,
@@ -525,9 +528,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',

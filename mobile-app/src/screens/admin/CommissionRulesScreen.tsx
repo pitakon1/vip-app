@@ -14,13 +14,14 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import { notify, notifyError } from '@/utils/feedback';
 import { commissionRulesApi, brokerApi, employeesApi } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import { useI18n } from '@/i18n';
@@ -140,6 +141,7 @@ function SelectDropdown({
 
 export default function CommissionRulesScreen() {
   const { t } = useI18n();
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
 
@@ -160,6 +162,7 @@ export default function CommissionRulesScreen() {
   const [department, setDepartment] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [brokerEmployeeId, setBrokerEmployeeId] = useState('');
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     const results = await Promise.allSettled([
@@ -192,32 +195,24 @@ export default function CommissionRulesScreen() {
   }, [isAdmin]);
 
   const addRule = async () => {
+    const errs: Record<string, string> = {};
     if (!name || !rate) {
-      Alert.alert(t('comm.title'), t('comm.ruleNameRateRequired'));
-      return;
+      const msg = t('comm.ruleNameRateRequired');
+      if (!name) errs.name = msg;
+      if (!rate) errs.rate = msg;
     }
-    if (scope === 'by_broker' && isAdmin && !brokerId) {
-      Alert.alert(t('comm.title'), t('comm.selBroker'));
-      return;
-    }
-    if (scope === 'by_employee' && isAdmin && !employeeId) {
-      Alert.alert(t('comm.title'), t('comm.selEmployee'));
-      return;
-    }
+    if (scope === 'by_broker' && isAdmin && !brokerId) errs.brokerId = t('comm.selBroker');
+    if (scope === 'by_employee' && isAdmin && !employeeId) errs.employeeId = t('comm.selEmployee');
     if (scope === 'broker_employee') {
-      if (!brokerId) {
-        Alert.alert(t('comm.title'), t('comm.selBrokerFirst'));
-        return;
-      }
-      if (!brokerEmployeeId) {
-        Alert.alert(t('comm.title'), t('comm.selBrokerEmployee'));
-        return;
-      }
+      if (!brokerId) errs.brokerId = t('comm.selBrokerFirst');
+      if (!brokerEmployeeId) errs.brokerEmployeeId = t('comm.selBrokerEmployee');
     }
-    if (scope === 'by_department' && !department) {
-      Alert.alert(t('comm.title'), t('comm.enterDept'));
+    if (scope === 'by_department' && !department) errs.department = t('comm.enterDept');
+    if (Object.keys(errs).length) {
+      setFormErrors(errs);
       return;
     }
+    setFormErrors({});
     const ruleName = name;
     try {
       const payload: any = {
@@ -242,9 +237,9 @@ export default function CommissionRulesScreen() {
       setEmployeeId('');
       setBrokerEmployeeId('');
       await load();
-      Alert.alert(t('comm.addSuccess'), t('comm.addSuccessMsg').replace('{name}', ruleName));
+      notify(t('comm.addSuccess'), t('comm.addSuccessMsg').replace('{name}', ruleName));
     } catch (e: any) {
-      Alert.alert(t('comm.addFail'), e?.response?.data?.message || t('comm.retry'));
+      notifyError(t('comm.addFail'), e);
     }
   };
 
@@ -264,7 +259,7 @@ export default function CommissionRulesScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.bodyContent}
+      contentContainerStyle={[styles.bodyContent, { paddingTop: insets.top + 8 }]}
       showsVerticalScrollIndicator={false}
     >
       {loading ? (
@@ -279,12 +274,16 @@ export default function CommissionRulesScreen() {
           <View style={styles.formCard}>
             <Text style={styles.formLabel}>{t('comm.ruleName')}</Text>
             <TextInput
-              style={styles.formInput}
+              style={[styles.formInput, formErrors.name ? styles.inputError : null]}
               placeholder={t('comm.ruleNamePlaceholder')}
               placeholderTextColor={colors.ink3}
               value={name}
-              onChangeText={setName}
+              onChangeText={(v) => {
+                setName(v);
+                if (formErrors.name) setFormErrors((e) => ({ ...e, name: '' }));
+              }}
             />
+            {!!formErrors.name && <Text style={styles.errorText}>{formErrors.name}</Text>}
             <Text style={styles.formLabel}>{t('comm.dealType')}</Text>
             <View style={styles.chipRow}>
               {DEAL_TYPE_KEYS.map((k) => (
@@ -384,23 +383,31 @@ export default function CommissionRulesScreen() {
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>{t('comm.departmentLabel')}</Text>
                 <TextInput
-                  style={styles.formInput}
+                  style={[styles.formInput, formErrors.department ? styles.inputError : null]}
                   placeholder={t('comm.deptPlaceholder')}
                   placeholderTextColor={colors.ink3}
                   value={department}
-                  onChangeText={setDepartment}
+                  onChangeText={(v) => {
+                    setDepartment(v);
+                    if (formErrors.department) setFormErrors((e) => ({ ...e, department: '' }));
+                  }}
                 />
+                {!!formErrors.department && <Text style={styles.errorText}>{formErrors.department}</Text>}
               </View>
             )}
             <Text style={styles.formLabel}>{t('comm.rateLabel')}</Text>
             <TextInput
-              style={styles.formInput}
+              style={[styles.formInput, formErrors.rate ? styles.inputError : null]}
               placeholder={t('comm.ratePlaceholder')}
               placeholderTextColor={colors.ink3}
               keyboardType="numeric"
               value={rate}
-              onChangeText={setRate}
+              onChangeText={(v) => {
+                setRate(v);
+                if (formErrors.rate) setFormErrors((e) => ({ ...e, rate: '' }));
+              }}
             />
+            {!!formErrors.rate && <Text style={styles.errorText}>{formErrors.rate}</Text>}
             <TouchableOpacity style={styles.submitBtn} onPress={addRule} activeOpacity={0.7}>
               <Text style={styles.submitBtnText}>{t('comm.addNew')}</Text>
             </TouchableOpacity>
@@ -467,13 +474,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
     padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
     ...colors.shadow.sm,
   },
   formLabel: { fontSize: 13, fontWeight: '600', color: colors.ink, marginBottom: 8, marginTop: 4 },
   formGroup: { marginBottom: 4 },
   formHint: { fontSize: 11, color: colors.ink3, marginTop: 2, marginBottom: 4 },
+  inputError: { borderColor: colors.error },
+  errorText: { fontSize: 11, color: colors.error, marginTop: 2 },
   selectBox: {
     height: 44,
     flexDirection: 'row',
@@ -558,8 +565,6 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.xl,
     padding: 16,
     marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
     ...colors.shadow.sm,
   },
   ruleHead: {

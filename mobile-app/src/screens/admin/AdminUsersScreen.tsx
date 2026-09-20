@@ -17,10 +17,12 @@ import {
   TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import { notify, notifyError } from '@/utils/feedback';
 import api from '@/lib/api';
 import { authApi, employeesApi, usersAdminApi } from '@/services/api';
 
@@ -66,13 +68,16 @@ const STATUS_META: Record<string, { label: string; color: string; rgb: string }>
 };
 
 export default function AdminUsersScreen() {
+  const insets = useSafeAreaInsets();
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [total, setTotal] = useState(0);
   const [perfMap, setPerfMap] = useState<Record<string, LeaderRow>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [pwdTarget, setPwdTarget] = useState<EmployeeRow | null>(null);
   const [newPwd, setNewPwd] = useState('');
+  const [pwdError, setPwdError] = useState('');
   const [kw, setKw] = useState('');
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [meId, setMeId] = useState<string | null>(null);
@@ -80,6 +85,7 @@ export default function AdminUsersScreen() {
   // 新建员工账号
   const [showCreate, setShowCreate] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
+  const [formErr, setFormErr] = useState<{ full_name?: string; email?: string; password?: string }>({});
   const [form, setForm] = useState({
     full_name: '',
     email: '',
@@ -89,37 +95,31 @@ export default function AdminUsersScreen() {
   });
   const openCreate = () => {
     setForm({ full_name: '', email: '', department: '', position: '', password: '123456' });
+    setFormErr({});
     setShowCreate(true);
   };
   const doCreate = async () => {
-    if (!form.full_name.trim()) {
-      Alert.alert('提示', '请填写姓名');
-      return;
-    }
-    const email = form.email.trim();
-    if (!email) {
-      Alert.alert('提示', '请填写邮箱');
-      return;
-    }
-    if (!form.password || form.password.length < 6) {
-      Alert.alert('提示', '初始密码至少 6 位');
-      return;
-    }
+    const err: typeof formErr = {};
+    if (!form.full_name.trim()) err.full_name = '请填写姓名';
+    if (!form.email.trim()) err.email = '请填写邮箱';
+    if (!form.password || form.password.length < 6) err.password = '初始密码至少 6 位';
+    setFormErr(err);
+    if (Object.keys(err).length > 0) return;
     setCreateSaving(true);
     try {
       await usersAdminApi.create({
         role: 'employee',
         full_name: form.full_name.trim(),
-        email,
+        email: form.email.trim(),
         department: form.department.trim() || undefined,
         position: form.position.trim() || undefined,
         password: form.password,
       });
-      Alert.alert('成功', '员工账号已创建');
+      notify('成功', '员工账号已创建');
       setShowCreate(false);
       fetchData();
     } catch (e: any) {
-      Alert.alert('失败', e?.response?.data?.detail || '创建失败');
+      notifyError('创建失败', e);
     } finally {
       setCreateSaving(false);
     }
@@ -134,6 +134,12 @@ export default function AdminUsersScreen() {
     if (meRes.status === 'fulfilled') {
       const me = (meRes.value as any)?.data;
       if (me?.id) setMeId(me.id);
+    }
+    if (empRes.status === 'rejected') {
+      setLoadError(true);
+      notifyError('加载失败', (empRes as any).reason);
+    } else {
+      setLoadError(false);
     }
     try {
       if (empRes.status === 'fulfilled') {
@@ -168,15 +174,15 @@ export default function AdminUsersScreen() {
 
   const toggleActive = async (emp: EmployeeRow) => {
     if (!emp.user_id) {
-      Alert.alert('无法操作', '该员工未绑定登录账号');
+      notifyError('无法操作', { message: '该员工未绑定登录账号' });
       return;
     }
     try {
       await api.post(`/admin/users/${emp.user_id}/${emp.is_active ? 'deactivate' : 'activate'}`);
-      Alert.alert('成功', emp.is_active ? '账号已停用' : '账号已启用');
+      notify('成功', emp.is_active ? '账号已停用' : '账号已启用');
       fetchData();
     } catch (e: any) {
-      Alert.alert('失败', e?.response?.data?.detail || '操作失败');
+      notifyError('操作失败', e);
     }
   };
 
@@ -196,10 +202,10 @@ export default function AdminUsersScreen() {
           onPress: async () => {
             try {
               await usersAdminApi.deleteUser(emp.user_id as string);
-              Alert.alert('成功', '账号已删除');
+              notify('成功', '账号已删除');
               fetchData();
             } catch (e: any) {
-              Alert.alert('失败', e?.response?.data?.detail || '删除失败');
+              notifyError('删除失败', e);
             }
           },
         },
@@ -209,20 +215,22 @@ export default function AdminUsersScreen() {
 
   const doResetPwd = async () => {
     if (!newPwd || newPwd.length < 6) {
-      Alert.alert('提示', '新密码至少 6 位');
+      setPwdError('新密码至少 6 位');
       return;
     }
+    setPwdError('');
     if (!pwdTarget?.user_id) {
-      Alert.alert('无法操作', '该员工未绑定登录账号');
+      notifyError('无法操作', { message: '该员工未绑定登录账号' });
       return;
     }
     try {
       await api.post(`/admin/users/${pwdTarget.user_id}/reset-password`, { new_password: newPwd });
-      Alert.alert('成功', '密码已重置');
+      notify('成功', '密码已重置');
       setPwdTarget(null);
       setNewPwd('');
+      setPwdError('');
     } catch (e: any) {
-      Alert.alert('失败', e?.response?.data?.detail || '重置失败');
+      notifyError('重置失败', e);
     }
   };
 
@@ -287,7 +295,7 @@ export default function AdminUsersScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top, paddingBottom: insets.bottom + 16 }]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -375,7 +383,18 @@ export default function AdminUsersScreen() {
         </View>
       </View>
 
-      {visible.length === 0 ? (
+      {loadError && employees.length === 0 ? (
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="加载失败"
+          sub="无法获取员工列表，下拉刷新重试"
+          actionLabel="重试"
+          onAction={() => {
+            setRefreshing(true);
+            fetchData();
+          }}
+        />
+      ) : visible.length === 0 ? (
         <EmptyState
           icon="people-outline"
           title={employees.length === 0 ? '暂无员工' : '无匹配员工'}
@@ -461,24 +480,29 @@ export default function AdminUsersScreen() {
         })
       )}
 
-      <Modal visible={!!pwdTarget} transparent animationType="fade" onRequestClose={() => setPwdTarget(null)}>
+      <Modal visible={!!pwdTarget} transparent animationType="fade" onRequestClose={() => { setPwdTarget(null); setPwdError(''); }}>
         <View style={styles.modalMask}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>重置密码 · {pwdTarget?.full_name}</Text>
+            <Text style={styles.modalLabel}>新密码</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, !!pwdError && styles.modalInputError]}
               value={newPwd}
-              onChangeText={setNewPwd}
+              onChangeText={(t) => {
+                setNewPwd(t);
+                if (pwdError) setPwdError('');
+              }}
               placeholder="输入新密码（至少 6 位）"
               placeholderTextColor={colors.ink3}
               secureTextEntry
               autoFocus
             />
+            {!!pwdError && <Text style={styles.fieldError}>{pwdError}</Text>}
             <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setPwdTarget(null)}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => { setPwdTarget(null); setPwdError(''); }} accessibilityRole="button">
                 <Text style={styles.modalCancelText}>取消</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} onPress={doResetPwd}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} onPress={doResetPwd} accessibilityRole="button">
                 <Text style={styles.modalOkText}>确认重置</Text>
               </TouchableOpacity>
             </View>
@@ -491,47 +515,64 @@ export default function AdminUsersScreen() {
         <View style={styles.modalMask}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>新建员工账号</Text>
+            <Text style={styles.modalLabel}>姓名 *</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, !!formErr.full_name && styles.modalInputError]}
               value={form.full_name}
-              onChangeText={(t) => setForm((f) => ({ ...f, full_name: t }))}
-              placeholder="姓名 *"
+              onChangeText={(t) => {
+                setForm((f) => ({ ...f, full_name: t }));
+                if (formErr.full_name) setFormErr((e) => ({ ...e, full_name: undefined }));
+              }}
+              placeholder="请输入姓名"
               placeholderTextColor={colors.ink3}
               autoFocus
             />
+            {!!formErr.full_name && <Text style={styles.fieldError}>{formErr.full_name}</Text>}
+            <Text style={styles.modalLabel}>邮箱 *</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, !!formErr.email && styles.modalInputError]}
               value={form.email}
-              onChangeText={(t) => setForm((f) => ({ ...f, email: t }))}
-              placeholder="邮箱 *"
+              onChangeText={(t) => {
+                setForm((f) => ({ ...f, email: t }));
+                if (formErr.email) setFormErr((e) => ({ ...e, email: undefined }));
+              }}
+              placeholder="请输入邮箱"
               placeholderTextColor={colors.ink3}
               autoCapitalize="none"
               keyboardType="email-address"
             />
+            {!!formErr.email && <Text style={styles.fieldError}>{formErr.email}</Text>}
+            <Text style={styles.modalLabel}>部门（选填）</Text>
             <TextInput
               style={styles.modalInput}
               value={form.department}
               onChangeText={(t) => setForm((f) => ({ ...f, department: t }))}
-              placeholder="部门（选填）"
+              placeholder="请输入部门"
               placeholderTextColor={colors.ink3}
             />
+            <Text style={styles.modalLabel}>职位（选填）</Text>
             <TextInput
               style={styles.modalInput}
               value={form.position}
               onChangeText={(t) => setForm((f) => ({ ...f, position: t }))}
-              placeholder="职位（选填）"
+              placeholder="请输入职位"
               placeholderTextColor={colors.ink3}
             />
+            <Text style={styles.modalLabel}>初始密码 *</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, !!formErr.password && styles.modalInputError]}
               value={form.password}
-              onChangeText={(t) => setForm((f) => ({ ...f, password: t }))}
-              placeholder="初始密码（至少 6 位）"
+              onChangeText={(t) => {
+                setForm((f) => ({ ...f, password: t }));
+                if (formErr.password) setFormErr((e) => ({ ...e, password: undefined }));
+              }}
+              placeholder="至少要 6 位"
               placeholderTextColor={colors.ink3}
               secureTextEntry
             />
+            {!!formErr.password && <Text style={styles.fieldError}>{formErr.password}</Text>}
             <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setShowCreate(false)}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setShowCreate(false)} accessibilityRole="button">
                 <Text style={styles.modalCancelText}>取消</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -539,6 +580,7 @@ export default function AdminUsersScreen() {
                 activeOpacity={0.7}
                 disabled={createSaving}
                 onPress={doCreate}
+                accessibilityRole="button"
               >
                 <Text style={styles.modalOkText}>{createSaving ? '创建中…' : '创建'}</Text>
               </TouchableOpacity>
@@ -561,8 +603,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: 14,
     paddingHorizontal: 14,
     ...colors.shadow.sm,
@@ -629,8 +669,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 14,
     ...colors.shadow.sm,
   },
@@ -677,9 +715,12 @@ const styles = StyleSheet.create({
   modalMask: { flex: 1, backgroundColor: 'rgba(15,23,42,0.4)', justifyContent: 'center', padding: 32 },
   modalCard: { backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 20 },
   modalTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, marginBottom: 14 },
+  modalLabel: { fontSize: 12, color: colors.ink2, marginBottom: 6 },
   modalInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.ink, marginBottom: 16 },
+  modalInputError: { borderColor: colors.error },
+  fieldError: { fontSize: 12, color: colors.error, marginTop: -10, marginBottom: 12 },
   modalActions: { flexDirection: 'row', gap: 10 },
-  modalBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12 },
+  modalBtn: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 12 },
   modalCancel: { backgroundColor: colors.surface2 },
   modalCancelText: { color: colors.ink2, fontWeight: '600' },
   modalOk: { backgroundColor: colors.primary },

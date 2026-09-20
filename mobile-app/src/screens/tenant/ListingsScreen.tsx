@@ -2,7 +2,7 @@
  * 租客找工作台（链家风格）
  * 顶部搜索 + 筛选条 + 房源卡片列表（图片 / 标题 / 租金 / 户型面积）
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,19 +10,20 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   Alert,
   Image,
   ScrollView,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import { propertiesApi, translateApi, favoritesApi, saleListingApi } from '@/services/api';
 import { fmtMoney as formatRent } from '@/utils/format';
 import { notify, notifyError } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
 import { useI18n } from '@/i18n';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
@@ -153,8 +154,134 @@ const matchLocation = (item: any, kws: string[]): boolean =>
       .some((v) => v.includes(k))
   );
 
+// ==================== 语言判定（决定是否展示翻译入口） ====================
+// 中日韩表意文字 / 泰文区间
+const CJK_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/;
+const THAI_RE = /[\u0e00-\u0e7f]/;
+
+// 文本语言是否与界面语言一致（无文本视为一致 → 不展示翻译按钮）
+const isSameLang = (text: string, uiLang: string): boolean => {
+  const s = (text || '').trim();
+  if (!s) return true;
+  if (uiLang === 'zh') return CJK_RE.test(s);
+  if (uiLang === 'th') return THAI_RE.test(s);
+  return !CJK_RE.test(s) && !THAI_RE.test(s);
+};
+
+// 用于语言判定与翻译的源文本
+const translateSource = (item: Listing): string => (item.description || item.address || '').trim();
+
+// 房源状态徽标底色
+const statusColors = (s?: string) => {
+  switch (s) {
+    case 'vacant':
+      return colors.success;
+    case 'rented':
+    case 'reserved':
+      return colors.primary;
+    case 'maintenance':
+      return colors.warning;
+    default:
+      return colors.ink3;
+  }
+};
+
+// 房源卡片（React.memo：滚动/筛选面板开合时避免无关卡片重渲染）
+interface ListingCardProps {
+  item: Listing;
+  favorited: boolean;
+  favBusy: boolean;
+  translating: boolean;
+  showTranslate: boolean;
+  onPress: (item: Listing) => void;
+  onToggleFav: (item: Listing) => void;
+  onTranslate: (item: Listing) => void;
+}
+
+const ListingCard = React.memo(function ListingCard({
+  item,
+  favorited,
+  favBusy,
+  translating,
+  showTranslate,
+  onPress,
+  onToggleFav,
+  onTranslate,
+}: ListingCardProps) {
+  const photo = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : null;
+  return (
+    <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={() => onPress(item)}>
+      <View style={styles.thumbWrap}>
+        {photo ? (
+          <Image source={{ uri: photo }} style={styles.thumb} resizeMode="cover" />
+        ) : (
+          // 无图占位分支（保证图片区不塌陷）
+          <View style={[styles.thumb, styles.thumbPlaceholder]}>
+            <Ionicons name="home-outline" size={28} color={colors.ink3} />
+          </View>
+        )}
+        <View style={[styles.statusBadge, { backgroundColor: statusColors(item.status) }]}>
+          <Text style={styles.statusText}>{statusLabels[item.status ?? 'vacant'] ?? '—'}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.favBtn}
+          onPress={() => onToggleFav(item)}
+          disabled={favBusy}
+          activeOpacity={0.8}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel={favorited ? '取消收藏' : '收藏房源'}
+          accessibilityState={{ disabled: favBusy }}
+        >
+          <Ionicons
+            name={favorited ? 'heart' : 'heart-outline'}
+            size={18}
+            color={favorited ? colors.error : colors.primaryForeground}
+          />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.info}>
+        <Text style={styles.title} numberOfLines={1}>
+          {item.title || item.room_number || '未命名房源'}
+        </Text>
+        <Text style={styles.address} numberOfLines={1}>
+          {item.address || '暂无地址'}
+        </Text>
+        <View style={styles.tagRow}>
+          <Text style={styles.tag}>{typeLabels[item.property_type ?? ''] ?? '房源'}</Text>
+          <Text style={styles.tag}>
+            {item.bedrooms ?? 0}室·{item.size_sqm ?? 0}㎡
+          </Text>
+        </View>
+        <View style={styles.bottomRow}>
+          <Text style={styles.rent}>
+            {formatRent(item.monthly_rent, item.currency)}
+            <Text style={styles.rentUnit}>/月</Text>
+          </Text>
+          {/* 仅当房源文本语言与界面语言不一致时才展示翻译入口 */}
+          {showTranslate ? (
+            <TouchableOpacity
+              style={styles.translateBtn}
+              onPress={() => onTranslate(item)}
+              disabled={translating}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Google 翻译"
+              accessibilityState={{ disabled: translating }}
+            >
+              <Text style={styles.translateText}>
+                {translating ? '翻译中...' : 'Google 翻译'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 export default function ListingsScreen() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -177,6 +304,7 @@ export default function ListingsScreen() {
   const [saleListings, setSaleListings] = useState<SaleListing[]>([]);
   const [saleLoading, setSaleLoading] = useState(false);
   const [saleLoaded, setSaleLoaded] = useState(false);
+  const [saleError, setSaleError] = useState(false);
   // 按区域/按地铁（对齐贝壳「区域 | 地铁」双Tab）
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area');
   const [districtSel, setDistrictSel] = useState<string | null>(null); // 已选城区 key
@@ -185,6 +313,8 @@ export default function ListingsScreen() {
   const [metroLine, setMetroLine] = useState<string>(METRO_LINES[0].key);
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  // 顶部安全区：本页同时作为底部 Tab（无 header）与堆栈页使用，补 insets.top 避免内容顶到状态栏
+  const insets = useSafeAreaInsets();
   // 支持金刚区分类直达：路由参数 filter 预设房源类型
   const [filter, setFilter] = useState(route.params?.filter || '');
   // 收藏集合：propertyId -> 是否已收藏
@@ -229,6 +359,7 @@ export default function ListingsScreen() {
   // 买房 Tab：懒加载真实在售挂牌（GET /sale-listings）
   const loadSaleListings = useCallback(async () => {
     setSaleLoading(true);
+    setSaleError(false);
     try {
       const res = await saleListingApi.list({ page: 1, page_size: 50 });
       const data = res.data;
@@ -237,7 +368,9 @@ export default function ListingsScreen() {
         : (data as any)?.items ?? (data as any)?.data ?? [];
       setSaleListings(items as SaleListing[]);
     } catch {
+      // 挂牌加载失败：置错误态（列表内提供重试），不再静默为空
       setSaleListings([]);
+      setSaleError(true);
     } finally {
       setSaleLoading(false);
       setSaleLoaded(true);
@@ -268,9 +401,13 @@ export default function ListingsScreen() {
     });
   }, [listings]);
 
-  // 收藏 / 取消收藏
-  const handleToggleFav = async (item: Listing) => {
-    const current = !!favSet[item.id];
+  // 收藏态镜像：供稳定回调读取，避免依赖 favSet 导致卡片 memo 失效
+  const favSetRef = useRef(favSet);
+  favSetRef.current = favSet;
+
+  // 收藏 / 取消收藏（useCallback：保持引用稳定，配合 ListingCard 的 memo）
+  const handleToggleFav = useCallback(async (item: Listing) => {
+    const current = !!favSetRef.current[item.id];
     setFavLoading((s) => ({ ...s, [item.id]: true }));
     try {
       if (current) {
@@ -285,7 +422,7 @@ export default function ListingsScreen() {
     } finally {
       setFavLoading((s) => ({ ...s, [item.id]: false }));
     }
-  };
+  }, []);
 
   // 金刚区分类直达：路由参数变化时同步筛选
   useEffect(() => {
@@ -431,10 +568,11 @@ export default function ListingsScreen() {
     }
   }, [loadListings, biz, loadSaleListings]);
 
-  const handleTranslate = async (item: Listing) => {
-    const source = item.description || item.address || '';
+  // 翻译（useCallback：引用稳定，配合 ListingCard 的 memo）
+  const handleTranslate = useCallback(async (item: Listing) => {
+    const source = translateSource(item);
     if (!source) {
-      Alert.alert('提示', '该房源暂无描述文本');
+      notify('提示', '该房源暂无描述文本');
       return;
     }
     setTranslatingId(item.id);
@@ -448,7 +586,13 @@ export default function ListingsScreen() {
     } finally {
       setTranslatingId(null);
     }
-  };
+  }, []);
+
+  // 进入房源详情（useCallback：引用稳定）
+  const goDetail = useCallback(
+    (item: Listing) => navigation.navigate('PropertyDetail', { id: item.id }),
+    [navigation],
+  );
 
   const filtered = listings.filter((it) => {
     if (filter && it.property_type !== filter) return false;
@@ -526,78 +670,22 @@ export default function ListingsScreen() {
     );
   }, [saleListings, keyword]);
 
-  const renderItem = ({ item }: { item: Listing }) => {
-    const photo = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : null;
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        activeOpacity={0.85}
-        onPress={() => navigation.navigate('PropertyDetail', { id: item.id })}
-      >
-        <View style={styles.thumbWrap}>
-          {photo ? (
-            <Image source={{ uri: photo }} style={styles.thumb} resizeMode="cover" />
-          ) : (
-            <View style={[styles.thumb, styles.thumbPlaceholder]}>
-              <Ionicons name="home-outline" size={28} color={colors.ink3} />
-            </View>
-          )}
-          <View style={[styles.statusBadge, { backgroundColor: statusColors(item.status) }]}>
-            <Text style={styles.statusText}>{statusLabels[item.status ?? 'vacant'] ?? '—'}</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.favBtn}
-            onPress={() => handleToggleFav(item)}
-            disabled={favLoading[item.id]}
-            activeOpacity={0.8}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel={favSet[item.id] ? '取消收藏' : '收藏房源'}
-            accessibilityState={{ disabled: !!favLoading[item.id] }}
-          >
-            <Ionicons
-              name={favSet[item.id] ? 'heart' : 'heart-outline'}
-              size={18}
-              color={favSet[item.id] ? colors.error : colors.primaryForeground}
-            />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.info}>
-          <Text style={styles.title} numberOfLines={1}>
-            {item.title || item.room_number || '未命名房源'}
-          </Text>
-          <Text style={styles.address} numberOfLines={1}>
-            {item.address || '暂无地址'}
-          </Text>
-          <View style={styles.tagRow}>
-            <Text style={styles.tag}>{typeLabels[item.property_type ?? ''] ?? '房源'}</Text>
-            <Text style={styles.tag}>
-              {item.bedrooms ?? 0}室·{item.size_sqm ?? 0}㎡
-            </Text>
-          </View>
-          <View style={styles.bottomRow}>
-            <Text style={styles.rent}>
-              {formatRent(item.monthly_rent, item.currency)}
-              <Text style={styles.rentUnit}>/月</Text>
-            </Text>
-            <TouchableOpacity
-              style={styles.translateBtn}
-              onPress={() => handleTranslate(item)}
-              disabled={translatingId === item.id}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Google 翻译"
-              accessibilityState={{ disabled: translatingId === item.id }}
-            >
-              <Text style={styles.translateText}>
-                {translatingId === item.id ? '翻译中...' : 'Google 翻译'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  // 房源卡片渲染（抽成 memo 组件，仅传必要 props）
+  const renderItem = useCallback(
+    ({ item }: { item: Listing }) => (
+      <ListingCard
+        item={item}
+        favorited={!!favSet[item.id]}
+        favBusy={!!favLoading[item.id]}
+        translating={translatingId === item.id}
+        showTranslate={!isSameLang(translateSource(item), lang)}
+        onPress={goDetail}
+        onToggleFav={handleToggleFav}
+        onTranslate={handleTranslate}
+      />
+    ),
+    [favSet, favLoading, translatingId, lang, goDetail, handleToggleFav, handleTranslate],
+  );
 
   // 买房挂牌卡片（真实数据：挂牌价 / 面积 / 户型）
   const renderSaleItem = ({ item }: { item: SaleListing }) => (
@@ -642,30 +730,17 @@ export default function ListingsScreen() {
     </TouchableOpacity>
   );
 
-  const statusColors = (s?: string) => {
-    switch (s) {
-      case 'vacant':
-        return colors.success;
-      case 'rented':
-      case 'reserved':
-        return colors.primary;
-      case 'maintenance':
-        return colors.warning;
-      default:
-        return colors.ink3;
-    }
-  };
-
+  // 加载态（统一 LoadingState，含文案说明）
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.container}>
+        <LoadingState label="加载房源中…" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* 搜索栏 */}
       <View style={styles.searchRow}>
         <View style={styles.searchBar}>
@@ -777,7 +852,9 @@ export default function ListingsScreen() {
                   ))}
                 </View>
                 {locTab === 'area' ? (
-                  <ScrollView style={styles.dropBody} nestedScrollEnabled>
+                  // 区域数据约 30 个城市组 / 370 个城区 chip，面板高度受限（dropBody 限高 260），
+                  // 必须保留纵向滚动容器，改为 View+map 会被裁切且无法触达下方城区
+                  <ScrollView style={styles.dropBody}>
                     {AREA_GROUPS.map((g) => (
                       <View key={g.cityKey} style={styles.locGroup}>
                         <Text style={styles.dropGroupTitle}>{g.country} · {g.cityLabel}</Text>
@@ -815,7 +892,8 @@ export default function ListingsScreen() {
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
-                    <ScrollView style={styles.dropBody} nestedScrollEnabled>
+                    {/* 单条线路最多 44 站，同样需要纵向滚动容器才能触达全部站点 */}
+                    <ScrollView style={styles.dropBody}>
                       <Text style={styles.dropGroupTitle}>
                         站点{metroDraft.length ? ` · 已选 ${metroDraft.length}` : ''}
                       </Text>
@@ -1034,41 +1112,56 @@ export default function ListingsScreen() {
         renderItem={(biz === 'sale' ? renderSaleItem : renderItem) as any}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        /* 长列表性能：控制首屏/批次渲染数量与视窗外回收 */
+        initialNumToRender={6}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews
         ListEmptyComponent={
-          <View style={styles.emptyBox}>
-            {biz === 'sale' && saleLoading ? (
-              <ActivityIndicator size="large" color={colors.primary} />
-            ) : loadError && biz !== 'sale' ? (
-              <EmptyState
-                icon="cloud-offline-outline"
-                title={t('loadFailed')}
-                sub={t('loadFailedSub')}
-                actionLabel={t('retry')}
-                onAction={() => {
-                  setLoading(true);
-                  loadListings();
-                }}
-              />
-            ) : (
-              <>
-                <Ionicons
-                  name={biz === 'share' ? 'people-outline' : 'home-outline'}
-                  size={44}
-                  color={colors.ink3}
+          biz === 'sale' && saleLoading ? (
+            <LoadingState label="加载在售挂牌中…" />
+          ) : (
+            <View style={styles.emptyBox}>
+              {loadError && biz !== 'sale' ? (
+                <EmptyState
+                  icon="cloud-offline-outline"
+                  title={t('loadFailed')}
+                  sub={t('loadFailedSub')}
+                  actionLabel={t('retry')}
+                  onAction={() => {
+                    setLoading(true);
+                    loadListings();
+                  }}
                 />
-                <Text style={styles.empty}>
-                  {biz === 'share' ? '暂无合租房源' : '没有找到合适的房源'}
-                </Text>
-                <Text style={styles.emptySub}>
-                  {biz === 'share'
-                    ? '当前房源数据未区分合租/整租'
-                    : biz === 'sale'
-                    ? '暂无在售挂牌'
-                    : '试试调整关键字或筛选条件'}
-                </Text>
-              </>
-            )}
-          </View>
+              ) : biz === 'sale' && saleError ? (
+                <EmptyState
+                  icon="cloud-offline-outline"
+                  title={t('loadFailed')}
+                  sub={t('loadFailedSub')}
+                  actionLabel={t('retry')}
+                  onAction={() => loadSaleListings()}
+                />
+              ) : (
+                <>
+                  <Ionicons
+                    name={biz === 'share' ? 'people-outline' : 'home-outline'}
+                    size={44}
+                    color={colors.ink3}
+                  />
+                  <Text style={styles.empty}>
+                    {biz === 'share' ? '暂无合租房源' : '没有找到合适的房源'}
+                  </Text>
+                  <Text style={styles.emptySub}>
+                    {biz === 'share'
+                      ? '当前房源数据未区分合租/整租'
+                      : biz === 'sale'
+                      ? '暂无在售挂牌'
+                      : '试试调整关键字或筛选条件'}
+                  </Text>
+                </>
+              )}
+            </View>
+          )
         }
       />
     </View>
@@ -1099,6 +1192,8 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   bizItem: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
@@ -1125,6 +1220,7 @@ const styles = StyleSheet.create({
   resultCountNum: { color: colors.primary, fontWeight: '700', fontSize: 14 },
   searchInput: {
     flex: 1,
+    minHeight: 44,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1172,6 +1268,7 @@ const styles = StyleSheet.create({
   },
   filterTab: {
     flex: 1,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1201,8 +1298,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  filterTabBadgeText: { color: colors.primaryForeground, fontSize: 10, fontWeight: '600' },
+  filterTabBadgeText: { color: colors.primaryForeground, fontSize: 11, fontWeight: '600' },
   dropPanel: {
+    // 不使用 maxHeight 裁切：内层 dropBody 已限高（260），
+    // 否则区域面板的「重置 / 确定」操作行在小屏上会被裁掉
     marginHorizontal: 12,
     marginTop: 6,
     backgroundColor: colors.surface,
@@ -1218,12 +1317,11 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
-    maxHeight: '62%',
   },
   dropBody: { flexGrow: 0, maxHeight: 260 },
   dropGroupTitle: {
     fontSize: 12,
-    color: colors.ink3,
+    color: colors.ink2,
     marginBottom: 8,
     marginTop: 4,
   },
@@ -1255,8 +1353,8 @@ const styles = StyleSheet.create({
   },
   priceCustomPrefix: { fontSize: 13, color: colors.ink2, marginRight: 4 },
   priceCustomField: { flex: 1, fontSize: 14, color: colors.text, padding: 4 },
-  priceCustomUnit: { fontSize: 11, color: colors.ink3 },
-  priceCustomDivider: { fontSize: 13, color: colors.ink3 },
+  priceCustomUnit: { fontSize: 12, color: colors.ink2 },
+  priceCustomDivider: { fontSize: 13, color: colors.ink2 },
   // 底部筛选弹层（对齐贝壳）
   sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
   sheetBackdrop: {
@@ -1302,6 +1400,8 @@ const styles = StyleSheet.create({
   },
   resetBtn: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 10,
     borderRadius: colors.radius.md,
@@ -1312,6 +1412,8 @@ const styles = StyleSheet.create({
   resetText: { fontSize: 14, color: colors.ink2 },
   confirmBtn: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 10,
     borderRadius: colors.radius.md,
@@ -1325,8 +1427,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   locTab: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     paddingHorizontal: 16,
     paddingVertical: 7,
@@ -1348,6 +1452,8 @@ const styles = StyleSheet.create({
   locMetro: { marginBottom: 4 },
   locLineRow: { flexGrow: 0, marginBottom: 4 },
   locLineChip: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
@@ -1369,6 +1475,8 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   filterChip: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: colors.radius.full,
@@ -1404,10 +1512,10 @@ const styles = StyleSheet.create({
     top: 8,
     left: 8,
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
   },
-  statusText: { color: colors.primaryForeground, fontSize: 10, fontWeight: '600' },
+  statusText: { color: colors.primaryForeground, fontSize: 12, fontWeight: '600' },
   favBtn: {
     position: 'absolute',
     top: 8,
@@ -1424,7 +1532,7 @@ const styles = StyleSheet.create({
   address: { fontSize: 12, color: colors.ink2, marginTop: 3 },
   tagRow: { flexDirection: 'row', gap: 6, marginTop: 5 },
   tag: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.ink2,
     backgroundColor: colors.surface2,
     paddingHorizontal: 6,
@@ -1438,17 +1546,19 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   rent: { color: colors.primary, fontSize: 16, fontWeight: '700' },
-  rentUnit: { fontSize: 11, fontWeight: '400', color: colors.ink2 },
+  rentUnit: { fontSize: 12, fontWeight: '400', color: colors.ink2 },
+  // 翻译入口：次要操作，弱化为中性描边（仅在语言不一致时出现）
   translateBtn: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.border,
+    backgroundColor: colors.surface2,
   },
-  translateText: { fontSize: 11, color: colors.primary, fontWeight: '500' },
+  translateText: { fontSize: 12, color: colors.ink2, fontWeight: '500' },
   emptyBox: { alignItems: 'center', paddingTop: 48 },
   emptyIcon: { fontSize: 40, marginBottom: 8, opacity: 0.6 },
   empty: { fontSize: 15, color: colors.ink2 },
-  emptySub: { fontSize: 12, color: colors.ink3, marginTop: 4 },
+  emptySub: { fontSize: 12, color: colors.ink2, marginTop: 4 },
 });

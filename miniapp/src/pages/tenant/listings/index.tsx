@@ -151,7 +151,7 @@ type OpenTab = null | 'region' | 'price' | 'layout' | 'more' | 'sort'
 export default function TenantListingsPage() {
   const router = useRouter()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const { list: listings, loading, loadingMore, hasMore, fetch: fetchListings, fetchMore } =
+  const { list: listings, loading, loadingMore, hasMore, error: listError, fetch: fetchListings, fetchMore } =
     usePaginatedList<Listing>({
       pageSize: PAGE_SIZE,
       fetcher: async (p, ps, params) => {
@@ -840,7 +840,15 @@ export default function TenantListingsPage() {
               <Text>加载中...</Text>
             </View>
           )}
-          {!loading && visibleList.length === 0 && (
+          {!loading && listError && visibleList.length === 0 && (
+            <View className='empty-state'>
+              <Text className='text-danger'>加载失败，请检查网络后重试</Text>
+              <View className='error-retry' onClick={() => fetchListings(1, { q: query })}>
+                <Text className='error-retry__text'>点击重试</Text>
+              </View>
+            </View>
+          )}
+          {!loading && !listError && visibleList.length === 0 && (
             <View className='empty-state'>
               <View className='empty-state__icon icon-svg' style={iconStyle('home', 80)} />
               <Text>{activeLocationKw.length ? '该区域/地铁暂无房源' : '暂无房源'}</Text>
@@ -868,7 +876,7 @@ export default function TenantListingsPage() {
                     </View>
                   )}
                   <Text className='house-type'>{TYPE_LABELS[item.property_type || ''] || '房源'}</Text>
-                  <View className='house-fav' onClick={(e) => toggleFavorite(e, item)}>
+                  <View className='house-fav' aria-label={isFaved ? '取消收藏' : '收藏'} onClick={(e) => toggleFavorite(e, item)}>
                     <View className='icon-svg' style={iconStyle(isFaved ? 'heartFill' : 'heart', 34)} />
                   </View>
                 </View>

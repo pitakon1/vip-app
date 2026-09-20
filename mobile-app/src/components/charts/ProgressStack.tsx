@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   legendSub: {
     fontSize: 11,
-    color: colors.ink3,
+    color: colors.ink2,
     marginTop: 1,
   },
   legendPct: {

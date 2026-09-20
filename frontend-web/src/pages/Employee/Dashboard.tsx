@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Spin, Empty } from 'antd'
+import { message, Spin, Empty, Alert, Button } from 'antd'
 import { Link } from 'react-router-dom'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
@@ -106,20 +106,28 @@ const Dashboard = () => {
   const [followUpLeases, setFollowUpLeases] = useState<FollowUpLease[]>([])
   const [viewings, setViewings] = useState<any[]>([])
   const [pendingReceivable, setPendingReceivable] = useState(0)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
+      let anyFailed = false
+      const markFailed = () => {
+        anyFailed = true
+        return { data: {} }
+      }
       const [sumRes, leadsRes, wbRes, vwRes, pfRes] = await Promise.all([
-        api.get('/dashboard/summary').catch(() => ({ data: {} })),
-        api.get('/leads', { params: { pageSize: 50 } }).catch(() => ({
-          data: { items: [] },
-        })),
-        api.get('/employees/workbench').catch(() => ({ data: {} })),
-        api.get('/viewings', { params: { pageSize: 100 } }).catch(() => ({
-          data: { items: [] },
-        })),
-        api.get('/performance/mine').catch(() => ({ data: {} })),
+        api.get('/dashboard/summary').catch(markFailed),
+        api.get('/leads', { params: { pageSize: 50 } }).catch(() => {
+          anyFailed = true
+          return { data: { items: [] } }
+        }),
+        api.get('/employees/workbench').catch(markFailed),
+        api.get('/viewings', { params: { pageSize: 100 } }).catch(() => {
+          anyFailed = true
+          return { data: { items: [] } }
+        }),
+        api.get('/performance/mine').catch(markFailed),
       ])
 
       const sumPayload = sumRes.data?.data ?? sumRes.data
@@ -137,7 +145,9 @@ const Dashboard = () => {
 
       const vwPayload = vwRes.data?.data ?? vwRes.data
       setViewings(vwPayload?.items ?? [])
+      setLoadFailed(anyFailed)
     } catch (err: any) {
+      setLoadFailed(true)
       message.error(err?.response?.data?.message || '获取数据失败')
     } finally {
       setLoading(false)
@@ -177,6 +187,21 @@ const Dashboard = () => {
   return (
     <div className="rent-main">
       {loading && <div className="rent-loading-row"><Spin size="small" style={{ marginRight: 8 }} />加载中...</div>}
+
+      {loadFailed && !loading && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="部分数据加载失败"
+          description="工作台部分接口暂时不可用，已显示其他可用栏目，请稍后重试。"
+          action={
+            <Button size="small" onClick={() => fetchAll()}>
+              重试
+            </Button>
+          }
+        />
+      )}
 
       {/* 问候行 */} 
       <div className="rent-page-header">

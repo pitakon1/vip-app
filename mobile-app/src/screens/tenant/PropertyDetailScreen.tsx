@@ -6,21 +6,24 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   TextInput,
   Dimensions,
+  Animated,
+  Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
 import { useIsFocused, useRoute, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { propertiesApi, translateApi, favoritesApi, viewingsApi, saleListingApi } from '@/services/api';
 import { fmtMoney as formatMoney } from '@/utils/format';
+import { notify } from '@/utils/feedback';
 
 interface PropertyDetail {
   id: string;
@@ -83,11 +86,14 @@ export default function PropertyDetailScreen() {
   const isFocused = useIsFocused();
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
+  // 底部安全区：吸底操作栏需要避开手势条
+  const insets = useSafeAreaInsets();
   const propertyId: string | undefined = route.params?.id;
 
   const [property, setProperty] = useState<PropertyDetail | null>(null);
   const [saleListing, setSaleListing] = useState<SaleListing | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [biz, setBiz] = useState<'rent' | 'buy'>('rent');
   const [photoIndex, setPhotoIndex] = useState(0);
   const galleryRef = useRef<ScrollView>(null);
@@ -151,6 +157,7 @@ export default function PropertyDetailScreen() {
       return;
     }
     setLoading(true);
+    setLoadError(null);
     const [pRes, sRes, fRes] = await Promise.allSettled([
       propertiesApi.get(propertyId),
       saleListingApi.list({ property_id: propertyId, limit: 1 }),
@@ -166,7 +173,10 @@ export default function PropertyDetailScreen() {
     } else {
       setProperty(null);
       setProjectStats(null);
-      Alert.alert('加载失败', (pRes.reason as any)?.response?.data?.detail || '无法获取房源详情');
+      // 记录错误原因，由页面渲染错误三态（web 下 Alert 不可见）
+      setLoadError(
+        (pRes.reason as any)?.response?.data?.detail || '无法获取房源详情，请检查网络后重试',
+      );
     }
 
     if (sRes.status === 'fulfilled') {
@@ -200,7 +210,7 @@ export default function PropertyDetailScreen() {
         setFavorited(true);
       }
     } catch {
-      Alert.alert('操作失败', '请稍后重试');
+      notify('操作失败', '请稍后重试');
     } finally {
       setFavBusy(false);
     }
@@ -209,7 +219,7 @@ export default function PropertyDetailScreen() {
   const handleBooking = async () => {
     if (!propertyId) return;
     if (!bookingTime.trim()) {
-      Alert.alert('提示', '请填写看房时间，如 2026-09-20 10:00');
+      notify('提示', '请填写看房时间，如 2026-09-20 10:00');
       return;
     }
     setBookingBusy(true);
@@ -219,12 +229,12 @@ export default function PropertyDetailScreen() {
         scheduled_at: bookingTime.trim().replace(' ', 'T'),
         notes: bookingNote.trim() || undefined,
       });
-      Alert.alert('提交成功', '预约已提交，工作人员将尽快与您确认');
+      notify('提交成功', '预约已提交，工作人员将尽快与您确认');
       setBookingOpen(false);
       setBookingTime('');
       setBookingNote('');
     } catch (err: any) {
-      Alert.alert('提交失败', err?.response?.data?.detail || '请稍后重试');
+      notify('提交失败', err?.response?.data?.detail || '请稍后重试');
     } finally {
       setBookingBusy(false);
     }
@@ -232,7 +242,7 @@ export default function PropertyDetailScreen() {
 
   const handleTranslate = async () => {
     if (!property?.description) {
-      Alert.alert('提示', '该房源暂无描述');
+      notify('提示', '该房源暂无描述');
       return;
     }
     setTranslating(true);
@@ -244,7 +254,7 @@ export default function PropertyDetailScreen() {
         String(d?.translated_text ?? d?.translation ?? d?.text ?? JSON.stringify(d)),
       );
     } catch (err: any) {
-      Alert.alert('翻译失败', err?.response?.data?.message || '请稍后重试');
+      notify('翻译失败', err?.response?.data?.message || '请稍后重试');
     } finally {
       setTranslating(false);
     }
@@ -257,8 +267,42 @@ export default function PropertyDetailScreen() {
     { key: 'ko', label: '韩' },
   ];
 
+  // 主 CTA 按压反馈：按下缩至 0.97、松手 spring 回弹（原生驱动；web 退化默认）
+  const favScale = useRef(new Animated.Value(1)).current;
+  const contactScale = useRef(new Animated.Value(1)).current;
+  const bookScale = useRef(new Animated.Value(1)).current;
+  const pressIn = (v: Animated.Value) =>
+    Animated.spring(v, {
+      toValue: 0.97,
+      speed: 30,
+      bounciness: 0,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  const pressOut = (v: Animated.Value) =>
+    Animated.spring(v, {
+      toValue: 1,
+      speed: 30,
+      bounciness: 0,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+
   if (loading) {
     return <LoadingState label="加载房源详情…" />;
+  }
+
+  // 错误态：加载失败时给出原因与重试入口（原实现仅 Alert，web 下不可见）
+  if (loadError) {
+    return (
+      <View style={styles.container}>
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="加载失败"
+          sub={loadError}
+          actionLabel="重试"
+          onAction={() => load()}
+        />
+      </View>
+    );
   }
 
   if (!propertyId) {
@@ -364,7 +408,13 @@ export default function PropertyDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      {/* 滚动内容底部预留安全区，避免最后一张卡片贴住吸底栏 */}
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: colors.spacing.xxxl + insets.bottom },
+        ]}
+      >
         {/* 1. 图片轮播 */}
         <View style={styles.gallery}>
           {photos.length ? (
@@ -623,29 +673,46 @@ export default function PropertyDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* 底部固定操作栏 */}
-      <View style={styles.actionBar}>
-        <TouchableOpacity
-          style={styles.favBtn}
-          activeOpacity={0.8}
-          onPress={handleToggleFav}
-          disabled={favBusy}
-        >
-          <Ionicons
-            name={favorited ? 'heart' : 'heart-outline'}
-            size={20}
-            color={favorited ? colors.error : colors.ink2}
-          />
-          <Text style={styles.favText}>{favorited ? '已收藏' : '收藏'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.contactBtn}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('ChatList')}
-        >
-          <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.ink2} />
-          <Text style={styles.contactText}>联系经纪</Text>
-        </TouchableOpacity>
+      {/* 底部固定操作栏（主 CTA：立即预约看房；已避开底部安全区） */}
+      <View
+        style={[
+          styles.actionBar,
+          { paddingBottom: Math.max(insets.bottom, colors.spacing.sm) },
+        ]}
+      >
+        <Animated.View style={{ transform: [{ scale: favScale }] }}>
+          <TouchableOpacity
+            style={styles.favBtn}
+            activeOpacity={0.8}
+            onPress={handleToggleFav}
+            disabled={favBusy}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPressIn={() => pressIn(favScale)}
+            onPressOut={() => pressOut(favScale)}
+            accessibilityRole="button"
+            accessibilityLabel={favorited ? '取消收藏' : '收藏房源'}
+            accessibilityState={{ disabled: favBusy }}
+          >
+            <Ionicons
+              name={favorited ? 'heart' : 'heart-outline'}
+              size={20}
+              color={favorited ? colors.error : colors.ink2}
+            />
+            <Text style={styles.favText}>{favorited ? '已收藏' : '收藏'}</Text>
+          </TouchableOpacity>
+        </Animated.View>
+        <Animated.View style={{ transform: [{ scale: contactScale }] }}>
+          <TouchableOpacity
+            style={styles.contactBtn}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('ChatList')}
+            onPressIn={() => pressIn(contactScale)}
+            onPressOut={() => pressOut(contactScale)}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.ink2} />
+            <Text style={styles.contactText}>联系经纪</Text>
+          </TouchableOpacity>
+        </Animated.View>
         {/* 算贷款：仅买房业务下展示（对齐原型） */}
         {biz === 'buy' && saleListing ? (
           <TouchableOpacity
@@ -657,13 +724,17 @@ export default function PropertyDetailScreen() {
             <Text style={styles.contactText}>算贷款</Text>
           </TouchableOpacity>
         ) : null}
-        <TouchableOpacity
-          style={styles.bookBtn}
-          activeOpacity={0.85}
-          onPress={() => setBookingOpen(true)}
-        >
-          <Text style={styles.bookText}>立即预约看房</Text>
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: bookScale }] }}>
+          <TouchableOpacity
+            style={styles.bookBtn}
+            activeOpacity={0.85}
+            onPress={() => setBookingOpen(true)}
+            onPressIn={() => pressIn(bookScale)}
+            onPressOut={() => pressOut(bookScale)}
+          >
+            <Text style={styles.bookText}>立即预约看房</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
 
       {/* 预约看房弹层 */}
@@ -674,10 +745,16 @@ export default function PropertyDetailScreen() {
         onRequestClose={() => setBookingOpen(false)}
       >
         <View style={styles.modalWrap}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { paddingBottom: colors.spacing.xxl + insets.bottom }]}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>预约看房</Text>
-              <TouchableOpacity onPress={() => setBookingOpen(false)} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => setBookingOpen(false)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="关闭"
+              >
                 <Ionicons name="close" size={22} color={colors.ink2} />
               </TouchableOpacity>
             </View>
@@ -725,10 +802,16 @@ export default function PropertyDetailScreen() {
         onRequestClose={() => setCalcOpen(false)}
       >
         <View style={styles.modalWrap}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { paddingBottom: colors.spacing.xxl + insets.bottom }]}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>算贷款</Text>
-              <TouchableOpacity onPress={() => setCalcOpen(false)} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => setCalcOpen(false)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="关闭"
+              >
                 <Ionicons name="close" size={22} color={colors.ink2} />
               </TouchableOpacity>
             </View>
@@ -813,16 +896,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: colors.spacing.md, paddingBottom: colors.spacing.xxxl },
   card: {
+    // 阴影与描边二选一：统一使用柔和阴影，避免叠加产生"重边框"观感
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: colors.spacing.lg,
     marginBottom: colors.spacing.md,
     ...colors.shadow.card,
   },
   cardTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, marginBottom: colors.spacing.md },
-  cardMeta: { fontSize: 12, color: colors.ink3, marginTop: colors.spacing.md },
+  cardMeta: { fontSize: 12, color: colors.ink2, marginTop: colors.spacing.md },
   subTitle: { fontSize: 15, fontWeight: '600', color: colors.ink, marginTop: colors.spacing.lg, marginBottom: colors.spacing.sm },
 
   /* 图集 */
@@ -864,7 +946,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.sm,
   },
-  galleryVideoText: { fontSize: 11, color: colors.primaryForeground, fontWeight: '600' },
+  galleryVideoText: { fontSize: 12, color: colors.primaryForeground, fontWeight: '600' },
   /* 缩略图条 */
   thumbRow: { gap: colors.spacing.sm, padding: colors.spacing.sm },
   thumb: {
@@ -893,6 +975,7 @@ const styles = StyleSheet.create({
 
   /* 买房：首付 / 贷款试算入口 */
   loanHint: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -908,6 +991,8 @@ const styles = StyleSheet.create({
   /* 双业务 Tab */
   bizTabs: { flexDirection: 'row', gap: colors.spacing.sm, marginBottom: colors.spacing.md },
   bizTab: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: colors.spacing.lg,
     paddingVertical: colors.spacing.sm,
     borderRadius: colors.radius.full,
@@ -924,7 +1009,7 @@ const styles = StyleSheet.create({
   priceUnit: { fontSize: 12, fontWeight: '400', color: colors.ink2 },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: colors.spacing.xs, marginTop: colors.spacing.sm },
   tag: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.ink2,
     backgroundColor: colors.surface2,
     paddingHorizontal: 7,
@@ -938,7 +1023,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.sm,
   },
-  badgeSuccessText: { fontSize: 11, fontWeight: '700', color: colors.success },
+  badgeSuccessText: { fontSize: 12, fontWeight: '700', color: colors.success },
   propName: { fontSize: 17, fontWeight: '700', color: colors.ink, marginTop: colors.spacing.md },
   propAddr: { fontSize: 13, color: colors.ink2, marginTop: colors.spacing.xs },
 
@@ -946,7 +1031,7 @@ const styles = StyleSheet.create({
   factGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   fact: { width: '33.33%', alignItems: 'center', paddingVertical: colors.spacing.sm },
   factValue: { fontSize: 14, fontWeight: '700', color: colors.ink, marginTop: colors.spacing.xs },
-  factLabel: { fontSize: 11, color: colors.ink3, marginTop: 2 },
+  factLabel: { fontSize: 12, color: colors.ink2, marginTop: 2 },
 
   /* 卖点 chips */
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: colors.spacing.sm },
@@ -976,6 +1061,8 @@ const styles = StyleSheet.create({
   desc: { fontSize: 14, color: colors.ink, lineHeight: 22 },
   langRow: { flexDirection: 'row', gap: colors.spacing.sm, marginBottom: colors.spacing.md },
   langBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: colors.spacing.lg,
     paddingVertical: colors.spacing.sm,
     borderRadius: colors.radius.md,
@@ -1014,11 +1101,12 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   favBtn: {
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: colors.spacing.sm,
+    paddingHorizontal: colors.spacing.md,
   },
-  favText: { fontSize: 11, color: colors.ink2, marginTop: 2 },
+  favText: { fontSize: 12, color: colors.ink2, marginTop: 2 },
   contactBtn: {
     flex: 1,
     flexDirection: 'row',

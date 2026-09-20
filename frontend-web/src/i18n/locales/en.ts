@@ -2,6 +2,7 @@ const en: import('./zh').Translation = {
   common: {
     appName: 'VIP Rental Management System',
     loading: 'Loading...',
+    retry: 'Retry',
     save: 'Save',
     cancel: 'Cancel',
     confirm: 'Confirm',
@@ -637,6 +638,7 @@ const en: import('./zh').Translation = {
     daysLater: 'expires in {{days}}d',
     dueSoon: 'Expiring soon',
     fetchFailed: 'Failed to load data',
+    partialFailDesc: 'Some data failed to load; the rest is displayed. Please try again.',
     payType: {
       rent: 'Rent',
       deposit: 'Deposit',

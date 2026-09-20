@@ -19,11 +19,13 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import colors from '../../theme/colors';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
 import api from '../../lib/api';
+import { notify, notifyError } from '../../utils/feedback';
 import { leadsApi } from '../../services/api';
 import { useI18n } from '../../i18n';
 import { useRefreshList } from '../../hooks/useRefreshList';
@@ -61,6 +63,7 @@ const symOf = (c?: string | null) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c
 
 export default function AdminCRMScreen() {
   const { t } = useI18n();
+  const insets = useSafeAreaInsets();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stageTotals, setStageTotals] = useState<Record<string, number>>({});
   const [totalCustomers, setTotalCustomers] = useState(0);
@@ -81,10 +84,12 @@ export default function AdminCRMScreen() {
     notes: '',
   });
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState('');
 
   const openNew = () => {
     setEditingId(null);
     setForm({ name: '', phone: '', source: '', property: '', stage: STAGES[0].key, notes: '' });
+    setNameError('');
     setFormOpen(true);
   };
   const openEdit = (l: Lead) => {
@@ -97,13 +102,15 @@ export default function AdminCRMScreen() {
       stage: l.stage || STAGES[0].key,
       notes: l.notes || '',
     });
+    setNameError('');
     setFormOpen(true);
   };
   const submitForm = async () => {
     if (!form.name.trim()) {
-      Alert.alert(t('crm.new'), t('crm.nameRequired'));
+      setNameError(t('crm.nameRequired'));
       return;
     }
+    setNameError('');
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
@@ -120,11 +127,11 @@ export default function AdminCRMScreen() {
       } else {
         await leadsApi.create(payload);
       }
-      Alert.alert(t('crm.new'), editingId ? t('crm.saved') : t('crm.created'));
+      notify(t('crm.new'), editingId ? t('crm.saved') : t('crm.created'));
       setFormOpen(false);
       load();
     } catch (e: any) {
-      Alert.alert(t('crm.new'), e?.response?.data?.detail || t('crm.saveFail'));
+      notifyError(t('crm.new'), e);
     } finally {
       setSaving(false);
     }
@@ -138,10 +145,10 @@ export default function AdminCRMScreen() {
         onPress: async () => {
           try {
             await leadsApi.delete(l.id);
-            Alert.alert(t('crm.delete'), t('crm.deleted'));
+            notify(t('crm.delete'), t('crm.deleted'));
             load();
           } catch (e: any) {
-            Alert.alert(t('crm.delete'), e?.response?.data?.detail || t('crm.deleteFail'));
+            notifyError(t('crm.delete'), e);
           }
         },
       },
@@ -399,7 +406,7 @@ export default function AdminCRMScreen() {
     <>
       <FlatList
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
         data={visibleLeads}
         keyExtractor={(l) => l.id}
         renderItem={renderItem}
@@ -417,7 +424,16 @@ export default function AdminCRMScreen() {
               <Text style={styles.modalTitle}>{editingId ? t('crm.edit') : t('crm.new')}</Text>
 
               <Text style={styles.fieldLabel}>{t('crm.formName')} *</Text>
-              <TextInput style={styles.fieldInput} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} placeholderTextColor={colors.ink3} />
+              <TextInput
+                style={[styles.fieldInput, nameError ? styles.fieldInputError : null]}
+                value={form.name}
+                onChangeText={(v) => {
+                  setForm((f) => ({ ...f, name: v }));
+                  if (nameError) setNameError('');
+                }}
+                placeholderTextColor={colors.ink3}
+              />
+              {!!nameError && <Text style={styles.fieldErrorText}>{nameError}</Text>}
 
               <Text style={styles.fieldLabel}>{t('crm.formPhone')}</Text>
               <TextInput style={styles.fieldInput} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} placeholderTextColor={colors.ink3} />
@@ -561,6 +577,8 @@ const styles = StyleSheet.create({
   modalCard: { backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 20 },
   modalTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, marginBottom: 6 },
   fieldLabel: { fontSize: 12, color: colors.ink3, fontWeight: '600', marginTop: 12, marginBottom: 6 },
+  fieldInputError: { borderColor: colors.error, borderWidth: 1 },
+  fieldErrorText: { fontSize: 11, color: colors.error, marginTop: 5 },
   fieldInput: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -593,8 +611,6 @@ const styles = StyleSheet.create({
   leadCard: {
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
     padding: colors.spacing.lg,
     marginHorizontal: colors.spacing.md,
     marginBottom: colors.spacing.md,

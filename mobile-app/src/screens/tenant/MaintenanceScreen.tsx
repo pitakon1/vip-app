@@ -8,6 +8,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Modal,
+  Animated,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '@/components/Card';
@@ -83,6 +85,8 @@ export default function MaintenanceScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [statusTab, setStatusTab] = useState<StatusTabKey>('all');
+  // 历史工单折叠（默认收起，保持「提交报修」表单优先可见）
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // 详情弹窗
   const [selected, setSelected] = useState<TicketRow | null>(null);
@@ -90,6 +94,22 @@ export default function MaintenanceScreen() {
   const [rating, setRating] = useState(5);
   const [feedback, setFeedback] = useState('');
   const [ratingLoading, setRatingLoading] = useState(false);
+  // 主 CTA 按压反馈：按下缩至 0.97、松手 spring 回弹（原生驱动；web 退化默认）
+  const submitScale = useRef(new Animated.Value(1)).current;
+  const pressIn = () =>
+    Animated.spring(submitScale, {
+      toValue: 0.97,
+      speed: 30,
+      bounciness: 0,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  const pressOut = () =>
+    Animated.spring(submitScale, {
+      toValue: 1,
+      speed: 30,
+      bounciness: 0,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
 
   const loadTickets = useCallback(async () => {
     try {
@@ -271,36 +291,50 @@ export default function MaintenanceScreen() {
         })}
       </ScrollView>
 
-      {/* 工单列表 */}
-      <View style={styles.sectionHeader}>
+      {/* 历史工单（可折叠：默认收起，避免历史挤占，保持表单区优先可见） */}
+      <View style={styles.historyHeader}>
         <Text style={styles.sectionTitle}>工单列表</Text>
+        {!loading && (
+          <TouchableOpacity
+            onPress={() => setHistoryOpen((v) => !v)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={historyOpen ? '收起工单列表' : '展开全部工单列表'}
+          >
+            <Text style={styles.historyToggleText}>
+              {historyOpen ? '收起' : `展开全部(${visibleTickets.length})`}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
-      {loading ? (
-        <View style={styles.center}>
-          <LoadingState label="加载工单中…" />
-        </View>
-      ) : loadError && visibleTickets.length === 0 ? (
-        <EmptyState
-          icon="cloud-offline-outline"
-          title={t('loadFailed')}
-          sub={t('loadFailedSub')}
-          actionLabel={t('retry')}
-          onAction={() => {
-            setLoading(true);
-            loadTickets();
-          }}
-        />
-      ) : visibleTickets.length === 0 ? (
-        <EmptyState
-          icon="construct-outline"
-          title={t('empty.maintenance')}
-          sub={t('empty.maintenanceSub')}
-          actionLabel={t('maint.goSubmit')}
-          onAction={scrollToForm}
-        />
-      ) : (
-        visibleTickets.map((t) => renderTicket({ item: t }))
-      )}
+      {historyOpen &&
+        (loading ? (
+          <View style={styles.center}>
+            <LoadingState label="加载工单中…" />
+          </View>
+        ) : loadError && visibleTickets.length === 0 ? (
+          <EmptyState
+            icon="cloud-offline-outline"
+            title={t('loadFailed')}
+            sub={t('loadFailedSub')}
+            actionLabel={t('retry')}
+            onAction={() => {
+              setLoading(true);
+              loadTickets();
+            }}
+          />
+        ) : visibleTickets.length === 0 ? (
+          <EmptyState
+            icon="construct-outline"
+            title={t('empty.maintenance')}
+            sub={t('empty.maintenanceSub')}
+            actionLabel={t('maint.goSubmit')}
+            onAction={scrollToForm}
+          />
+        ) : (
+          visibleTickets.map((t) => renderTicket({ item: t }))
+        ))}
 
       {/* 提交报修（现有业务逻辑保留，按原型置于列表之后） */}
       <View style={styles.sectionHeader}>
@@ -352,20 +386,25 @@ export default function MaintenanceScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        <TouchableOpacity
-          style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
-          onPress={handleSubmit}
-          disabled={submitting}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={t('maint.submit')}
-        >
-          {submitting ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <Text style={styles.submitText}>{t('maint.submit')}</Text>
-          )}
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: submitScale }] }}>
+          <TouchableOpacity
+            style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+            onPress={handleSubmit}
+            disabled={submitting}
+            activeOpacity={0.8}
+            onPressIn={pressIn}
+            onPressOut={pressOut}
+            accessibilityRole="button"
+            accessibilityLabel={t('maint.submit')}
+            accessibilityState={{ disabled: submitting }}
+          >
+            {submitting ? (
+              <ActivityIndicator color={colors.primaryForeground} />
+            ) : (
+              <Text style={styles.submitText}>{t('maint.submit')}</Text>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
       </Card>
 
       {/* 工单详情 + 评价弹窗 */}
@@ -500,6 +539,16 @@ const styles = StyleSheet.create({
 
   sectionHeader: { paddingHorizontal: 12, marginTop: 12, marginBottom: 4 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+  // 历史工单折叠头：标题 + 展开/收起按钮
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  historyToggleText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
   // Stat Row
   statRow: {
     flexDirection: 'row',
@@ -517,11 +566,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
-  statLabel: { fontSize: 12, color: colors.ink3 },
+  statLabel: { fontSize: 12, color: colors.ink2 },
   statValue: { fontSize: 20, fontWeight: '700', color: colors.ink, marginTop: 4 },
   // 状态 Tabs
   statusTabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 4 },
   statusTab: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
@@ -541,18 +592,18 @@ const styles = StyleSheet.create({
     marginVertical: 6,
   },
   ticketTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  ticketCode: { fontSize: 13, color: colors.ink3 },
+  ticketCode: { fontSize: 13, color: colors.ink2 },
   ticketTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.text },
   chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: colors.radius.sm },
-  chipText: { fontSize: 11, fontWeight: '600' },
-  ticketDesc: { fontSize: 13, color: colors.ink3, marginBottom: 8 },
+  chipText: { fontSize: 12, fontWeight: '600' },
+  ticketDesc: { fontSize: 13, color: colors.ink2, marginBottom: 8 },
   ticketBottom: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   ticketBadges: { flexDirection: 'row', gap: 6 },
-  ticketDate: { fontSize: 13, color: colors.ink3 },
+  ticketDate: { fontSize: 13, color: colors.ink2 },
 
   modalWrap: {
     flex: 1,
@@ -574,7 +625,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
   modalProp: { fontSize: 15, fontWeight: '600', color: colors.text },
-  modalLabel: { fontSize: 12, color: colors.ink3, marginTop: 12, marginBottom: 4 },
+  modalLabel: { fontSize: 12, color: colors.ink2, marginTop: 12, marginBottom: 4 },
   modalText: { fontSize: 14, color: colors.ink2, lineHeight: 20 },
   rateArea: { marginTop: 16, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 },
   starRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },

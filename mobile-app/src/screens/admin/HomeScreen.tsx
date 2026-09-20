@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
@@ -57,6 +58,7 @@ const QUICK_ACTIONS: { key: string; label: string; icon: IoniconName; route: str
 
 export default function AdminHomeScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('overview');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -96,7 +98,8 @@ export default function AdminHomeScreen() {
         setStaff(((staffD.items ?? staffD ?? []) as any[]).slice(0, 100));
       }
     } catch (e) {
-      /* 加载失败不阻塞 */
+      setLoading(false);
+      setRefreshing(false);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -212,7 +215,7 @@ export default function AdminHomeScreen() {
   return (
     <View style={styles.container}>
       {/* 顶部欢迎区 */}
-      <View style={styles.hero}>
+      <View style={[styles.hero, { paddingTop: insets.top + 16 }]}>
         <View style={styles.heroLeft}>
           <Text style={styles.heroTitle}>管理员首页</Text>
           <Text style={styles.heroSub}>系统管理权限 · 全局数据概览</Text>
@@ -572,8 +575,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 14,
     ...colors.shadow.sm,
   },
@@ -602,8 +603,6 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 14,
     marginBottom: 8,
     ...colors.shadow.sm,
@@ -695,8 +694,6 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 14,
     ...colors.shadow.sm,
   },
@@ -734,8 +731,6 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: 12,
     paddingHorizontal: 14,
     ...colors.shadow.sm,

@@ -15,6 +15,8 @@ import * as ImagePicker from 'expo-image-picker';
 import colors from '@/theme/colors';
 import { documentsApi } from '@/services/api';
 import type { Document } from '@/types';
+import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
 
 const typeLabels: Record<Document['type'], string> = {
   contract: '合同',
@@ -56,6 +58,7 @@ export default function DocumentsScreen() {
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [cat, setCat] = useState<CatKey>('all');
 
@@ -67,7 +70,10 @@ export default function DocumentsScreen() {
         ? data
         : (data as any)?.items ?? (data as any)?.data ?? [];
       setDocs(items as Document[]);
+      setLoadError(false);
     } catch (err: any) {
+      // 记录错误态，由列表空态展示可重试入口（web 下 Alert 不可见，仅作降级）
+      setLoadError(true);
       Alert.alert('加载失败', err?.response?.data?.message || '无法获取文档');
     } finally {
       setLoading(false);
@@ -156,7 +162,7 @@ export default function DocumentsScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingState label="加载文档中…" />
       </View>
     );
   }
@@ -240,7 +246,22 @@ export default function DocumentsScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        ListEmptyComponent={<Text style={styles.empty}>暂无文档</Text>}
+        ListEmptyComponent={
+          loadError ? (
+            <EmptyState
+              icon="cloud-offline-outline"
+              title="加载失败"
+              sub="无法获取文档，请检查网络后重试"
+              actionLabel="重试"
+              onAction={() => {
+                setLoading(true);
+                loadDocs();
+              }}
+            />
+          ) : (
+            <EmptyState icon="document-text-outline" title="暂无文档" sub="上传的租赁合同与凭证会显示在这里" />
+          )
+        }
       />
     </View>
   );
@@ -262,6 +283,8 @@ const styles = StyleSheet.create({
   // 分类 Tabs
   catTabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 10 },
   catTab: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
@@ -286,7 +309,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
-  statLabel: { fontSize: 12, color: colors.ink3 },
+  statLabel: { fontSize: 12, color: colors.ink2 },
   statValue: { fontSize: 20, fontWeight: '700', color: colors.ink, marginTop: 4 },
   sectionTitle: {
     fontSize: 15,
@@ -317,8 +340,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, color: colors.text, fontWeight: '600' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   typeChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.sm },
-  typeChipText: { fontSize: 11, fontWeight: '600' },
-  meta: { fontSize: 13, color: colors.ink3 },
+  typeChipText: { fontSize: 12, fontWeight: '600' },
+  meta: { fontSize: 13, color: colors.ink2 },
   downloadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -328,6 +351,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderRadius: colors.radius.md,
     paddingVertical: 8,
+    minHeight: 44,
   },
   downloadText: { fontSize: 14, color: colors.primary, fontWeight: '600' },
   empty: { textAlign: 'center', color: colors.ink3, marginTop: 32 },

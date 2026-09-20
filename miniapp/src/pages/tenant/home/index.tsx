@@ -58,28 +58,19 @@ const notifTime = (n: NotifRow) => n?.created_at || n?.createdAt || ''
 type GridEntry = { key: string; label: string; url: string; icon: IconKey }
 
 // 功能宫格：按「是否在租」分流。访客态仅保留找房与服务入口；在租态展示履约服务。
+// 底部导航已含「找房」「消息」，此处不重复放置这两项入口。
 const VISITOR_GRID: GridEntry[] = [
-  { key: 'listings', label: '找房源', url: '/pages/tenant/listings/index', icon: 'home' },
-  { key: 'services', label: '服务', url: '/pages/tenant/services/index', icon: 'clipboard' },
-  { key: 'messages', label: '消息', url: '/pages/chat/list/index', icon: 'megaphone' }
+  { key: 'services', label: '服务', url: '/pages/tenant/services/index', icon: 'clipboard' }
 ]
 
 const TENANT_GRID: GridEntry[] = [
-  { key: 'listings', label: '找房源', url: '/pages/tenant/listings/index', icon: 'home' },
   { key: 'payments', label: '缴费', url: '/pages/tenant/payments/index', icon: 'card' },
   { key: 'maintenance', label: '报修', url: '/pages/tenant/maintenance/index', icon: 'edit' },
   { key: 'services', label: '服务', url: '/pages/tenant/services/index', icon: 'clipboard' },
-  { key: 'documents', label: '文档', url: '/pages/tenant/documents/index', icon: 'doc' },
-  { key: 'messages', label: '消息', url: '/pages/chat/list/index', icon: 'megaphone' }
+  { key: 'documents', label: '文档', url: '/pages/tenant/documents/index', icon: 'doc' }
 ]
 
-// 快捷入口金刚区
-const QUICK_ENTRIES: GridEntry[] = [
-  { key: 'listings', label: '找房源', url: '/pages/tenant/listings/index', icon: 'home' },
-  { key: 'payments', label: '上传付款', url: '/pages/tenant/payments/index', icon: 'card' },
-  { key: 'services', label: '预约服务', url: '/pages/tenant/services/index', icon: 'clipboard' },
-  { key: 'maintenance', label: '提交报修', url: '/pages/tenant/maintenance/index', icon: 'edit' }
-]
+// 快捷入口金刚区与功能宫格重复，已并入上方宫格，入口统一收敛（底部导航含「找房/消息」）
 
 const MAINT_PROGRESS: Record<string, number> = {
   pending: 20,
@@ -351,6 +342,7 @@ export default function TenantHomePage() {
                   )}
                   <View
                     className='rv-prop__fav'
+                    aria-label={favSet.has(String(item?.id)) ? '取消收藏' : '收藏'}
                     onClick={(e) => {
                       e.stopPropagation()
                       toggleFavorite(String(item?.id))
@@ -531,23 +523,6 @@ export default function TenantHomePage() {
             </View>
           </View>
         )}
-
-        <Text className='rv-block-title'>快捷入口</Text>
-        <View className='rv-quick-grid'>
-          {QUICK_ENTRIES.map((entry) => (
-            <View
-              key={entry.key}
-              className='rv-quick-item'
-              onClick={() => goQuick(entry.url)}
-            >
-              <View
-                className={`rv-quick-icon rv-quick-icon--${entry.key} icon-svg`}
-                style={iconStyle(entry.icon, 40)}
-              />
-              <Text className='rv-quick-label'>{entry.label}</Text>
-            </View>
-          ))}
-        </View>
 
         <View className='rv-block-head'>
           <Text className='rv-block-title rv-block-title--inline'>最近动态</Text>

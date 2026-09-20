@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
@@ -50,6 +51,7 @@ interface OwnerProperty {
 
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
   const [properties, setProperties] = useState<OwnerProperty[]>([]);
   const [annual, setAnnual] = useState<AnnualSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -149,7 +151,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + colors.spacing.md }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -308,8 +310,6 @@ const styles = StyleSheet.create({
     padding: colors.spacing.xl,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     ...colors.shadow.md,
   },
   heroHead: {

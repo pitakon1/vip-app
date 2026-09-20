@@ -2,6 +2,7 @@ const zh = {
   common: {
     appName: 'VIP 租赁管理系统',
     loading: '加载中...',
+    retry: '重试',
     save: '保存',
     cancel: '取消',
     confirm: '确认',
@@ -637,6 +638,7 @@ const zh = {
     daysLater: '{{days}}天后到期',
     dueSoon: '即将到期',
     fetchFailed: '获取数据失败',
+    partialFailDesc: '部分数据加载失败，其余栏目已正常显示，请稍后重试。',
     payType: {
       rent: '租金',
       deposit: '押金',

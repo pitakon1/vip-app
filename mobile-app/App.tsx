@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { initI18n } from './src/i18n';
+import { ToastProvider } from './src/components/Toast';
 
 function AppShell() {
   useEffect(() => {
@@ -12,10 +13,13 @@ function AppShell() {
   }, []);
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <StatusBar style="auto" />
-        <RootNavigator />
-      </NavigationContainer>
+      {/* ToastProvider 需位于 SafeAreaProvider 内部（依赖顶部安全区）且覆盖全局导航 */}
+      <ToastProvider>
+        <NavigationContainer>
+          <StatusBar style="auto" />
+          <RootNavigator />
+        </NavigationContainer>
+      </ToastProvider>
     </SafeAreaProvider>
   );
 }

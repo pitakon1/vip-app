@@ -68,7 +68,7 @@
   margin: 0;
 }
 .rent-sidebar__section-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--rent-ink-3);
   text-transform: uppercase;
@@ -224,7 +224,6 @@
 /* ===== Card ===== */
 .rent-card {
   background: var(--rent-card);
-  border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-lg);
   overflow: hidden;
   box-shadow: var(--rent-shadow-1);
@@ -345,7 +344,6 @@
 /* ===== KPI / Stat Card ===== */
 .rent-stat-card {
   background: var(--rent-card);
-  border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-lg);
   padding: 22px;
   box-shadow: var(--rent-shadow-1);
@@ -442,7 +440,7 @@
 .rent-risk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .rent-risk-card {
   display: flex; align-items: center; gap: 12px;
-  background: var(--rent-card); border: 1px solid var(--rent-border);
+  background: var(--rent-card);
   border-radius: var(--rent-radius-lg); padding: 16px;
   box-shadow: var(--rent-shadow-1);
 }

@@ -17,6 +17,7 @@ import api from '@/lib/api';
 import { leasesApi, serviceOrdersApi } from '@/services/api';
 import { fmtMoney as formatMoney, fmtDate } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
+import LoadingState from '@/components/LoadingState';
 
 const formatDate = (x?: string) => fmtDate(x, 'minute');
 
@@ -166,7 +167,7 @@ export default function ServicesScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingState label="加载服务中…" />
       </View>
     );
   }
@@ -369,7 +370,7 @@ const styles = StyleSheet.create({
   },
   cardInfo: { flex: 1 },
   cardTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  cardDesc: { fontSize: 13, color: colors.ink3, marginTop: 4 },
+  cardDesc: { fontSize: 13, color: colors.ink2, marginTop: 4 },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -379,6 +380,8 @@ const styles = StyleSheet.create({
   price: { fontSize: 20, fontWeight: '700', color: colors.ink },
   priceUnit: { fontSize: 13, color: colors.ink3, marginLeft: 2 },
   bookBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: colors.primary,
     paddingHorizontal: 18,
     paddingVertical: 8,
@@ -413,9 +416,9 @@ const styles = StyleSheet.create({
   },
   orderInfo: { flex: 1 },
   orderTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  orderMeta: { fontSize: 13, color: colors.ink3, marginTop: 4 },
+  orderMeta: { fontSize: 13, color: colors.ink2, marginTop: 4 },
   chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: colors.radius.sm },
-  chipText: { fontSize: 11, fontWeight: '600' },
+  chipText: { fontSize: 12, fontWeight: '600' },
   emptyBox: { alignItems: 'center', paddingVertical: 32 },
   empty: { textAlign: 'center', color: colors.ink3, marginTop: 12, marginBottom: 12 },
   // 预约弹窗

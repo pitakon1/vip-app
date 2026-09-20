@@ -18,10 +18,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import api from '@/lib/api';
+import { notifyError } from '@/utils/feedback';
 import { propertiesApi } from '@/services/api';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
@@ -123,6 +125,7 @@ const allDistricts = AREA_GROUPS.flatMap((g) => g.children);
 
 export default function AdminPropertiesScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<PropertyItem[]>([]);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -238,12 +241,13 @@ export default function AdminPropertiesScreen() {
         setTotal(typeof d.total === 'number' ? d.total : list.length);
         setTotalPages(typeof d.total_pages === 'number' ? d.total_pages : 1);
         setPage(targetPage);
-      } catch {
+      } catch (e: any) {
         if (targetPage === 1) {
           setItems([]);
           setTotal(0);
           setTotalPages(1);
         }
+        notifyError('加载房源失败', e);
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -330,7 +334,7 @@ export default function AdminPropertiesScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
       showsVerticalScrollIndicator={false}
       onScroll={({ nativeEvent }) => {
         const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
@@ -353,8 +357,14 @@ export default function AdminPropertiesScreen() {
           returnKeyType="search"
         />
         {keyword ? (
-          <TouchableOpacity onPress={() => setKeyword('')} activeOpacity={0.7}>
-            <Ionicons name="close-circle" size={16} color={colors.ink3} />
+          <TouchableOpacity
+            onPress={() => setKeyword('')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="清除搜索"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="close-circle" size={18} color={colors.ink3} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -723,8 +733,14 @@ export default function AdminPropertiesScreen() {
                 >
                   <Text style={styles.manageText}>管理</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.deleteBtn} activeOpacity={0.7} onPress={() => doDelete(p)}>
-                  <Ionicons name="trash-outline" size={16} color={colors.error} />
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  activeOpacity={0.7}
+                  onPress={() => doDelete(p)}
+                  accessibilityRole="button"
+                  accessibilityLabel="删除房源"
+                >
+                  <Ionicons name="trash-outline" size={18} color={colors.error} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -868,8 +884,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: 12,
     alignItems: 'center',
     ...colors.shadow.sm,
@@ -892,8 +906,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     overflow: 'hidden',
     ...colors.shadow.card,
   },
@@ -950,8 +962,8 @@ const styles = StyleSheet.create({
   },
   manageText: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
   deleteBtn: {
-    width: 40,
-    height: 36,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: colors.radius.lg,

@@ -1,21 +1,30 @@
-import { Platform, Alert } from 'react-native';
+import { toast, type ToastType } from '@/components/Toast';
 
 /**
- * 租客端统一反馈工具。
+ * 租客端统一反馈工具（非阻塞 Toast 版）。
  *
- * react-native-web 下 `Alert.alert`/`Alert.confirm` 是空实现（什么都不显示），会把提交/加载的
- * 结果与失败原因静默吞掉，导致用户点击后「没有任何反应」。这里统一在 web 下降级到浏览器原生
- * `window.alert`/`window.confirm`，让真实结果（成功 / 具体错误）对用户可见。
+ * 旧实现走 `Alert.alert` / `window.alert`：原生是阻塞弹窗、观感重；react-native-web 下
+ * `Alert.alert` 更是空实现，会把提交结果与失败原因静默吞掉。现在统一走全局 Toast 单例
+ * （`@/components/Toast`），web 与 native 表现一致，且不阻塞用户操作。
  */
 
-/** 通用提示（成功或信息性通知） */
+/** 依据标题文案粗判语义：命中失败/错误关键词走错误样式，其余按成功提示 */
+const inferType = (text: string): ToastType =>
+  /失败|错误|异常|出错|failed|error|ไม่สำเร็จ|ผิดพลาด/i.test(text) ? 'error' : 'success';
+
+/**
+ * 通用提示（成功或信息性通知）。
+ * 长内容（如缴费凭证、翻译结果）延长展示时间，避免来不及阅读。
+ */
 export const notify = (title?: string, message?: string) => {
-  const text = message ? `${title ?? ''}\n${message}` : (title ?? '');
-  if (Platform.OS === 'web') {
-    window.alert(text);
-  } else {
-    Alert.alert(title ?? '', message ?? '');
-  }
+  const head = (title ?? '').trim();
+  const body = (message ?? '').trim();
+  toast.show({
+    type: inferType(head || body),
+    title: head || body || '操作完成',
+    message: head ? body || undefined : undefined,
+    duration: body.length > 60 ? 6000 : undefined,
+  });
 };
 
 /** 从 API/axios 错误里提取后端 detail / message，未命中时回退文案 */
@@ -27,9 +36,8 @@ export const getErrorMessage = (err: any, fallback = '请稍后重试') =>
 
 /**
  * 失败反馈 + 重试动作。
- * - web：用浏览器原生 confirm，用户点「确定」即重试（choice 为 true 时触发 onRetry）
- * - native：用带「重试 / 取消」按钮的 Alert
- * 返回用户是否「确认重试」，便于调用方按需再执行。
+ * 通过 Toast 的 action 按钮承载「重试」，用户点击后触发 onRetry（带 action 的 Toast 展示 5s）。
+ * 注意：非阻塞 Toast 无法同步得知用户是否点击，故固定返回 false，重试一律经 action 回调执行。
  */
 export const notifyError = (
   title: string,
@@ -38,18 +46,12 @@ export const notifyError = (
   retryLabel = '重试',
 ): boolean => {
   const message = getErrorMessage(err);
-  if (Platform.OS === 'web') {
-    const choice = window.confirm(`${title}\n${message}\n\n点击「确定」重试`);
-    if (choice) onRetry?.();
-    return choice;
-  }
-  if (onRetry) {
-    Alert.alert(title, message, [
-      { text: '取消', style: 'cancel' },
-      { text: retryLabel, onPress: onRetry },
-    ]);
-  } else {
-    Alert.alert(title, message, [{ text: '知道了' }]);
-  }
+  toast.show({
+    type: 'error',
+    title: title || '操作失败',
+    message,
+    actionLabel: onRetry ? retryLabel : undefined,
+    onAction: onRetry,
+  });
   return false;
 };

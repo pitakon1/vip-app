@@ -12,14 +12,15 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   Modal,
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import { notify, notifyError } from '@/utils/feedback';
 import { dashboardApi, paymentsApi, propertiesApi, usersAdminApi } from '@/services/api';
 
 const PAGE_SIZE = 50;
@@ -90,6 +91,7 @@ const fmtMoney = (v?: number, c?: string) => `${symOf(c)}${Number(v ?? 0).toLoca
 const fmtDate = (v?: string | null) => (v ? String(v).slice(0, 10) : '-');
 
 export default function AdminPaymentsScreen() {
+  const insets = useSafeAreaInsets();
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<any>({});
@@ -114,6 +116,7 @@ export default function AdminPaymentsScreen() {
     due_date: '',
     description: '',
   });
+  const [formErrors, setFormErrors] = useState<{ payer_id?: string; amount?: string }>({});
   const [showUserPicker, setShowUserPicker] = useState(false);
 
   // 确认到账弹窗
@@ -198,20 +201,21 @@ export default function AdminPaymentsScreen() {
   /* ===== 手动记账 ===== */
   const openForm = () => {
     setForm({ payer_id: '', payer_name: '', payee_id: '', amount: '', currency: 'THB', payment_type: 'rent', channel: '', due_date: '', description: '' });
+    setFormErrors({});
     setShowForm(true);
   };
   const pickUser = (id: string, name?: string) => {
     setForm((f) => ({ ...f, payer_id: id, payer_name: name || f.payer_name }));
+    setFormErrors((e) => ({ ...e, payer_id: undefined }));
     setShowUserPicker(false);
   };
   const submitForm = async () => {
     const amount = Number(form.amount);
-    if (!form.payer_id) {
-      Alert.alert('提示', '请选择付款方');
-      return;
-    }
-    if (!Number.isFinite(amount) || amount <= 0) {
-      Alert.alert('提示', '请输入有效金额');
+    const errs: { payer_id?: string; amount?: string } = {};
+    if (!form.payer_id) errs.payer_id = '请选择付款方';
+    if (!Number.isFinite(amount) || amount <= 0) errs.amount = '请输入有效金额';
+    if (Object.keys(errs).length) {
+      setFormErrors(errs);
       return;
     }
     try {
@@ -226,11 +230,11 @@ export default function AdminPaymentsScreen() {
       if (form.due_date.trim()) payload.due_date = form.due_date.trim();
       if (form.description.trim()) payload.description = form.description.trim();
       await paymentsApi.create(payload);
-      Alert.alert('成功', '交易已手动入账');
+      notify('成功', '交易已手动入账');
       setShowForm(false);
       load(chip);
     } catch (e: any) {
-      Alert.alert('失败', e?.response?.data?.detail || '入账失败');
+      notifyError('入账失败', e);
     }
   };
 
@@ -239,12 +243,12 @@ export default function AdminPaymentsScreen() {
     if (!confirmItem) return;
     try {
       await paymentsApi.confirm(confirmItem.id, { note: confirmNote.trim() || undefined });
-      Alert.alert('成功', '已确认到账');
+      notify('成功', '已确认到账');
       setConfirmItem(null);
       setConfirmNote('');
       load(chip);
     } catch (e: any) {
-      Alert.alert('失败', e?.response?.data?.detail || '确认失败');
+      notifyError('确认到账失败', e);
     }
   };
 
@@ -260,7 +264,7 @@ export default function AdminPaymentsScreen() {
       const d = (res as any)?.data ?? {};
       setDetailDoc({ title: type === 'receipt' ? '收款凭证' : '税务发票', body: JSON.stringify(d, null, 2) });
     } catch (e: any) {
-      Alert.alert('失败', e?.response?.data?.detail || '获取失败');
+      notifyError('获取凭证失败', e);
     }
   };
 
@@ -275,7 +279,7 @@ export default function AdminPaymentsScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -423,12 +427,17 @@ export default function AdminPaymentsScreen() {
 
               {/* 付款方 */}
               <Text style={styles.fieldLabel}>付款方 *</Text>
-              <TouchableOpacity style={styles.pickerField} activeOpacity={0.7} onPress={() => setShowUserPicker(true)}>
+              <TouchableOpacity
+                style={[styles.pickerField, formErrors.payer_id ? styles.fieldError : null]}
+                activeOpacity={0.7}
+                onPress={() => setShowUserPicker(true)}
+              >
                 <Text style={form.payer_id ? styles.pickerValue : styles.pickerPlaceholder}>
                   {form.payer_name || (form.payer_id ? form.payer_id : '选择账户')}
                 </Text>
                 <Ionicons name="chevron-down" size={16} color={colors.ink3} />
               </TouchableOpacity>
+              {!!formErrors.payer_id && <Text style={styles.fieldErrorText}>{formErrors.payer_id}</Text>}
 
               <Text style={styles.fieldLabel}>收款方（选填，默认当前租户/收款方）</Text>
               <TextInput
@@ -441,13 +450,17 @@ export default function AdminPaymentsScreen() {
 
               <Text style={styles.fieldLabel}>金额 *</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, formErrors.amount ? styles.fieldError : null]}
                 value={form.amount}
-                onChangeText={(v) => setForm((f) => ({ ...f, amount: v }))}
+                onChangeText={(v) => {
+                  setForm((f) => ({ ...f, amount: v }));
+                  setFormErrors((e) => ({ ...e, amount: undefined }));
+                }}
                 placeholder="0.00"
                 keyboardType="numeric"
                 placeholderTextColor={colors.ink3}
               />
+              {!!formErrors.amount && <Text style={styles.fieldErrorText}>{formErrors.amount}</Text>}
 
               <Text style={styles.fieldLabel}>币种</Text>
               <View style={styles.chipRow2}>
@@ -730,8 +743,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 14,
     ...colors.shadow.sm,
   },
@@ -768,6 +779,8 @@ const styles = StyleSheet.create({
   modalCard: { backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 20 },
   modalTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, marginBottom: 6 },
   fieldLabel: { fontSize: 12, color: colors.ink3, fontWeight: '600', marginTop: 12, marginBottom: 6 },
+  fieldError: { borderColor: colors.error, borderWidth: 1 },
+  fieldErrorText: { fontSize: 11, color: colors.error, marginTop: 5 },
   textInput: {
     borderWidth: 1,
     borderColor: colors.border,

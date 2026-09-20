@@ -1,4 +1,4 @@
-﻿/* =========================================================
+/* =========================================================
    Prototype Design System — 从产品原型提取的权威组件层
    (rental-full-draft/pages/admin-dashboard.html Block2-5)
    覆盖 app.css 中同名组件类，保证与原型零差异
@@ -446,6 +446,21 @@
 }
 .rent-form-textarea { resize: vertical; min-height: 80px; }
 .rent-form-hint { font-size: 12px; color: var(--rent-ink-3); margin-top: 4px; }
+.rent-form-input--error,
+.rent-form-select--error {
+  border-color: var(--state-error);
+}
+.rent-form-input--error:focus,
+.rent-form-select--error:focus {
+  border-color: var(--state-error);
+  box-shadow: 0 0 0 3px rgba(var(--state-error-rgb), 0.12);
+}
+.rent-form-error {
+  font-size: 12px;
+  color: var(--state-error);
+  margin-top: 6px;
+  line-height: 1.5;
+}
 .rent-form-row { display: flex; gap: 16px; }
 .rent-form-row > * { flex: 1; }
 
