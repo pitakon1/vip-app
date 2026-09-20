@@ -416,7 +416,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: {
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     justifyContent: 'center',
     flexGrow: 1,
   },
