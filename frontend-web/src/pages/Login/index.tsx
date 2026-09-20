@@ -195,25 +195,12 @@ const Login = () => {
             <p className="rent-login-card__subtitle">{t('login.subtitle')}</p>
           </div>
 
-          {/* 一键登录（Google / Apple）——放表单上方，真实授权或开发 mock */}
-          <OAuthButtons onSuccess={handleAuthSuccess} />
-
-          {/* 邮箱密码 / 手机号验证码 切换 */}
-          <div className="rent-auth-mode" role="tablist">
-            <button
-              type="button"
-              className={`rent-auth-mode__tab${tab === 'phone' ? ' is-active' : ''}`}
-              onClick={() => setTab('phone')}
-            >
-              {t('login.phoneLogin')}
-            </button>
-            <button
-              type="button"
-              className={`rent-auth-mode__tab${tab === 'email' ? ' is-active' : ''}`}
-              onClick={() => setTab('email')}
-            >
-              {t('login.emailLogin')}
-            </button>
+          {/* 快速登录区：社交按钮 + 「或」分隔 */}
+          <div className="rent-auth-social">
+            <OAuthButtons onSuccess={handleAuthSuccess} />
+            <div className="rent-auth-divider" aria-hidden="true">
+              <span>{t('register.or')}</span>
+            </div>
           </div>
 
           {/* 测试账号提示：仅开发构建展示，生产构建里这段账号密码不应出现在页面上 */}
@@ -226,6 +213,24 @@ const Login = () => {
           )}
 
           <form onSubmit={handleSubmit}>
+            {/* 邮箱密码 / 手机号验证码 切换：胶囊分段 Tab */}
+            <div className="rent-auth-seg" role="tablist">
+              <button
+                type="button"
+                className={`rent-auth-seg__tab${tab === 'phone' ? ' is-active' : ''}`}
+                onClick={() => setTab('phone')}
+              >
+                {t('login.phoneLogin')}
+              </button>
+              <button
+                type="button"
+                className={`rent-auth-seg__tab${tab === 'email' ? ' is-active' : ''}`}
+                onClick={() => setTab('email')}
+              >
+                {t('login.emailLogin')}
+              </button>
+            </div>
+
             {/* 邮箱密码登录 */}
             {tab === 'email' && (
               <>

@@ -132,30 +132,6 @@ export default function RegisterScreen() {
     }
   };
 
-  // 注册方式大按钮（Reddit 式 "Continue with..." 选择器）
-  const methodBtn = (m: Mode, icon: string, label: string) => (
-    <TouchableOpacity
-      key={m}
-      style={[styles.methodBtn, mode === m && styles.methodBtnActive]}
-      onPress={() => {
-        setMode(m);
-        setError('');
-      }}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityState={{ selected: mode === m }}
-      accessibilityLabel={label}
-    >
-      <Ionicons
-        name={icon as any}
-        size={20}
-        color={mode === m ? colors.primary : colors.ink2}
-        style={styles.methodIcon}
-      />
-      <Text style={[styles.methodText, mode === m && styles.methodTextActive]}>{label}</Text>
-    </TouchableOpacity>
-  );
-
   const focusedStyle = (f: FocusField) => [
     styles.input,
     focused === f ? styles.inputFocused : undefined,
@@ -190,20 +166,33 @@ export default function RegisterScreen() {
           <Text style={styles.brandSubtitle}>创建你的账号</Text>
         </View>
 
-        {/* Google / Apple 一键登录 */}
+        {/* Google / Apple 一键登录（独立社交区，含「或」分隔线） */}
         <OAuthButtons loading={oauthLoading} onGoogle={loginWithGoogle} onApple={loginWithApple} />
 
-        {/* 注册方式大按钮选择器 */}
-        <View style={styles.methods}>
-          {methodBtn('phone', 'phone-portrait-outline', '使用手机号注册')}
-          {methodBtn('email', 'mail-outline', '使用邮箱注册')}
-        </View>
-
-        {/* 或 分隔 */}
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>或</Text>
-          <View style={styles.dividerLine} />
+        {/* 胶囊分段 Tab：手机号注册 / 邮箱注册 */}
+        <View style={styles.segContainer}>
+          {(
+            [
+              ['phone', 'phone-portrait-outline', '手机号注册'],
+              ['email', 'mail-outline', '邮箱注册'],
+            ] as const
+          ).map(([m, icon, label]) => (
+            <TouchableOpacity
+              key={m}
+              style={[styles.segItem, mode === m && styles.segItemActive]}
+              onPress={() => {
+                setMode(m);
+                setError('');
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: mode === m }}
+              accessibilityLabel={label}
+            >
+              <Ionicons name={icon} size={18} color={mode === m ? colors.primary : colors.ink3} />
+              <Text style={[styles.segText, mode === m && styles.segTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {mode === 'phone' ? (
@@ -431,43 +420,28 @@ const styles = StyleSheet.create({
   brandTitle: { fontSize: 28, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
   brandTitleAccent: { color: colors.primary },
   brandSubtitle: { fontSize: 14, color: colors.ink2, marginTop: 8 },
-  /* 注册方式大按钮 + 「或」分隔 */
-  methods: { gap: 12, marginBottom: 4 },
-  methodBtn: {
+  /* 胶囊分段控件（手机号 / 邮箱切换） */
+  segContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.fieldFill,
+    borderRadius: colors.radius.full,
+    padding: 4,
+    gap: 4,
+    marginTop: 22,
+    marginBottom: 22,
+  },
+  segItem: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
+    gap: 6,
+    paddingVertical: 12,
     borderRadius: colors.radius.full,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: colors.fieldFillBorder,
   },
-  methodBtnActive: {
-    borderColor: colors.primary,
-    borderWidth: 1.5,
-    backgroundColor: colors.sidebarActive,
-  },
-  methodIcon: { position: 'absolute', left: 16 },
-  methodText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.ink,
-    letterSpacing: 0.2,
-  },
-  methodTextActive: { color: colors.primary },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 22,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.fieldFillBorder,
-  },
-  dividerText: { fontSize: 13, color: colors.ink3 },
+  segItemActive: { backgroundColor: colors.surface, ...colors.shadow.sm },
+  segText: { fontSize: 14, color: colors.ink3, fontWeight: '600' },
+  segTextActive: { color: colors.primary, fontWeight: '700' },
   input: {
     backgroundColor: colors.fieldFill,
     borderRadius: 14,

@@ -227,78 +227,70 @@
 }
 
 /* =========================================================
-   注册方式选择：堆叠大按钮（Reddit 官网风格）
-   白底、1px 浅灰边框、胶囊形、高 48px、图标在最左文字居中
+   快速登录区：社交按钮 + 「或」分隔 + seamless 胶囊分段 Tab
    ========================================================= */
-.rent-register-page .rent-auth-method {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 26px;
+.rent-register-page .rent-auth-social {
+  margin-bottom: 4px;
 }
 
-.rent-register-page .rent-auth-method__btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 48px;
-  padding: 0 16px;
-  border: 1px solid #edeff1;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #1a1a1b;
-  font-family: var(--rent-font-sans);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.15s;
-}
-
-.rent-register-page .rent-auth-method__icon {
-  position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: inline-flex;
-  color: #9a9ea3;
-}
-
-.rent-register-page .rent-auth-method__btn:hover {
-  background: #f6f7f8;
-}
-
-.rent-register-page .rent-auth-method__btn.is-active {
-  border-color: var(--rent-primary);
-  background: rgba(20, 184, 166, 0.08);
-}
-
-.rent-register-page .rent-auth-method__btn.is-active .rent-auth-method__icon {
-  color: var(--rent-primary);
-}
-
-/* 「或」分隔线：左右细线 + 居中灰色小字 */
-.rent-register-page .rent-auth-method__divider {
+/* 「或」分隔线：左线-灰字-右线 */
+.rent-register-page .rent-auth-divider {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin: 2px 0 2px;
+  margin: 4px 0 24px;
   color: #878a8c;
 }
 
-.rent-register-page .rent-auth-method__divider::before,
-.rent-register-page .rent-auth-method__divider::after {
+.rent-register-page .rent-auth-divider::before,
+.rent-register-page .rent-auth-divider::after {
   content: '';
   flex: 1;
   height: 1px;
   background: #edeff1;
 }
 
-.rent-register-page .rent-auth-method__or {
+.rent-register-page .rent-auth-divider span {
   font-family: var(--rent-font-sans);
   font-size: 13px;
   font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 注册方式：seamless 胶囊分段 Tab（手机号 / 邮箱） */
+.rent-register-page .rent-auth-seg {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #f1f3f5;
+  border-radius: 999px;
+  margin-bottom: 22px;
+}
+
+.rent-register-page .rent-auth-seg__tab {
+  flex: 1;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #878a8c;
+  font-family: var(--rent-font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.rent-register-page .rent-auth-seg__tab:hover {
+  color: #1a1a1b;
+}
+
+.rent-register-page .rent-auth-seg__tab.is-active {
+  background: #ffffff;
+  color: var(--rent-primary);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.14);
 }
 
 /* =========================================================

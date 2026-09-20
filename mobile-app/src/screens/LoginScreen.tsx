@@ -159,11 +159,11 @@ export default function LoginScreen() {
             <Text style={styles.cardTitle}>{t('login.welcome')}</Text>
             <Text style={styles.cardSubtitle}>{t('login.subtitle')}</Text>
 
-            {/* Google / Apple 一键登录 + 或 分隔 */}
+            {/* Google / Apple 一键登录（独立社交区，含「或」分隔线） */}
             <OAuthButtons loading={oauthLoading} onGoogle={loginWithGoogle} onApple={loginWithApple} />
 
-            {/* 登录方式切换：邮箱 / 手机号 */}
-            <View style={styles.modeTabs}>
+            {/* 胶囊分段 Tab：邮箱登录 / 手机号登录 */}
+            <View style={styles.segContainer}>
               {(
                 [
                   ['email', 'mail-outline', '邮箱登录'],
@@ -172,14 +172,14 @@ export default function LoginScreen() {
               ).map(([m, icon, label]) => (
                 <TouchableOpacity
                   key={m}
-                  style={[styles.modeTab, mode === m && styles.modeTabActive]}
+                  style={[styles.segItem, mode === m && styles.segItemActive]}
                   onPress={() => setMode(m)}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: mode === m }}
                   accessibilityLabel={label}
                 >
                   <Ionicons name={icon} size={17} color={mode === m ? colors.primary : colors.ink3} />
-                  <Text style={[styles.modeTabText, mode === m && styles.modeTabTextActive]}>{label}</Text>
+                  <Text style={[styles.segText, mode === m && styles.segTextActive]}>{label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -507,26 +507,28 @@ const styles = StyleSheet.create({
   rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
   rememberText: { fontSize: 13, color: colors.ink2 },
   forgotText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
-  /* 登录方式切换 */
-  modeTabs: {
+  /* 胶囊分段控件（邮箱登录 / 手机号登录） */
+  segContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.surface2,
-    borderRadius: colors.radius.lg,
+    backgroundColor: colors.fieldFill,
+    borderRadius: colors.radius.full,
     padding: 4,
+    gap: 4,
+    marginTop: 4,
     marginBottom: 20,
   },
-  modeTab: {
+  segItem: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    borderRadius: colors.radius.md,
+    paddingVertical: 12,
+    borderRadius: colors.radius.full,
   },
-  modeTabActive: { backgroundColor: colors.surface, ...colors.shadow.sm },
-  modeTabText: { fontSize: 14, color: colors.ink3, fontWeight: '600' },
-  modeTabTextActive: { color: colors.primary },
+  segItemActive: { backgroundColor: colors.surface, ...colors.shadow.sm },
+  segText: { fontSize: 14, color: colors.ink3, fontWeight: '600' },
+  segTextActive: { color: colors.primary, fontWeight: '700' },
   /* 手机号登录 */
   countryField: {
     flexDirection: 'row',
