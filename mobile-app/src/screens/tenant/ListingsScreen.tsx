@@ -594,7 +594,9 @@ export default function ListingsScreen() {
     [navigation],
   );
 
-  const filtered = listings.filter((it) => {
+  const filtered = useMemo(
+    () =>
+      listings.filter((it) => {
     if (filter && it.property_type !== filter) return false;
     if (statusFilter && it.status !== statusFilter) return false;
     // 户型（3室+ 覆盖 >=3）
@@ -640,7 +642,9 @@ export default function ListingsScreen() {
       return false;
     }
     return true;
-  });
+      }),
+    [listings, filter, statusFilter, bedFilter, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, keyword, activeLocationKw],
+  );
 
   // 排序（贝壳式 Tab）
   const sortedData = useMemo(() => {

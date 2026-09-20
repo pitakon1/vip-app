@@ -15,6 +15,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { ownerApi, ownersApi, saleListingApi } from '@/services/api';
+import { notify, notifyError } from '@/utils/feedback';
 import { fmtMoney as money } from '@/utils/format';
 
 const propertyTypeText = (t?: string) =>
@@ -262,11 +263,11 @@ export default function OwnerMarketingScreen() {
         currency: formCcy || 'THB',
         address: formAddress.trim() || undefined,
       });
-      Alert.alert('已提交', '挂牌已提交，经纪人将尽快与你联系确认');
+      notify('已提交', '挂牌已提交，经纪人将尽快与你联系确认');
       setShowForm(false);
       load();
     } catch (err: any) {
-      Alert.alert('提交失败', err?.response?.data?.message || '请稍后重试');
+      notifyError('提交失败', err);
     } finally {
       setSubmitting(false);
     }

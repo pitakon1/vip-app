@@ -206,7 +206,7 @@ export default function CalendarScreen() {
     load();
   }, [load]);
 
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
 
   const leaseName = useCallback(
     (l: LeaseItem) => {

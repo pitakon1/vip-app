@@ -9,6 +9,7 @@ import {
   View,
   Text,
   ScrollView,
+  FlatList,
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
@@ -101,7 +102,11 @@ export default function AdminUsersScreen() {
   const doCreate = async () => {
     const err: typeof formErr = {};
     if (!form.full_name.trim()) err.full_name = '请填写姓名';
-    if (!form.email.trim()) err.email = '请填写邮箱';
+    if (!form.email.trim()) {
+      err.email = '请填写邮箱';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      err.email = '邮箱格式不正确';
+    }
     if (!form.password || form.password.length < 6) err.password = '初始密码至少 6 位';
     setFormErr(err);
     if (Object.keys(err).length > 0) return;
@@ -284,6 +289,87 @@ export default function AdminUsersScreen() {
   const statusOf = (e: EmployeeRow) =>
     !e.is_active ? STATUS_META.inactive : isProbation(e) ? STATUS_META.probation : STATUS_META.active;
 
+  const renderEmployee = useCallback(
+    ({ item }: { item: EmployeeRow }) => {
+      const meta = statusOf(item);
+      const perf = perfMap[item.id];
+      const performance = Number(perf?.performance ?? 0);
+      const bar = maxPerf > 0 ? Math.max(0, Math.min(performance / maxPerf, 1)) : 0;
+      const shareRate = maxPerf > 0 ? Math.round(bar * 100) : 0;
+      return (
+        <View style={styles.card}>
+          <View style={styles.cardTop}>
+            <View style={[styles.avatar, { backgroundColor: colors.alpha(meta.rgb, 0.12) }]}>
+              <Text style={[styles.avatarText, { color: meta.color }]}>
+                {(item.full_name || '?').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <View style={styles.cardBody}>
+              <View style={styles.nameRow}>
+                <Text style={styles.name} numberOfLines={1}>{item.full_name || '未命名员工'}</Text>
+                <View style={[styles.roleTag, { backgroundColor: colors.alpha(meta.rgb, 0.12) }]}>
+                  <Text style={[styles.roleText, { color: meta.color }]}>{meta.label}</Text>
+                </View>
+              </View>
+              <Text style={styles.empCode}>{item.employee_no || item.employee_code || '无工号'}</Text>
+              <Text style={styles.deptLine} numberOfLines={1}>
+                {[item.position, item.department].filter(Boolean).join(' · ') || '未分配部门'}
+              </Text>
+              {!!item.phone && (
+                <View style={styles.contactRow}>
+                  <Ionicons name="call-outline" size={13} color={colors.ink3} />
+                  <Text style={styles.contactText}>{item.phone}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* 业绩（系统按佣金结算自动核算） */}
+          <View style={styles.perfRow}>
+            <Text style={styles.perfLabel}>累计业绩</Text>
+            <Text style={styles.perfValue}>
+              {symOf(undefined)}
+              {performance.toLocaleString()}
+            </Text>
+            <Text style={styles.perfDeals}>{perf?.deals ?? 0} 单</Text>
+          </View>
+          <View style={styles.perfTrack}>
+            <View style={[styles.perfBar, { flex: Math.max(bar, 0.02) }]} />
+            <View style={{ flex: Math.max(1 - bar, 0) }} />
+          </View>
+          <Text style={styles.perfHint}>团队占比 {shareRate}%</Text>
+
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.actionLink}
+              activeOpacity={0.7}
+              onPress={() => {
+                setPwdTarget(item);
+                setNewPwd('');
+              }}
+            >
+              <Ionicons name="key-outline" size={14} color={colors.primary} />
+              <Text style={styles.actionText}>重置密码</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionLink} activeOpacity={0.7} onPress={() => toggleActive(item)}>
+              <Ionicons name="power-outline" size={14} color={colors.ink2} />
+              <Text style={[styles.actionText, { color: colors.ink2 }]}>
+                {item.is_active ? '停用账号' : '启用账号'}
+              </Text>
+            </TouchableOpacity>
+            {item.user_id && item.user_id !== meId ? (
+              <TouchableOpacity style={styles.actionLink} activeOpacity={0.7} onPress={() => deleteUser(item)}>
+                <Ionicons name="trash-outline" size={14} color={colors.error} />
+                <Text style={[styles.actionText, { color: colors.error }]}>删除账号</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      );
+    },
+    [perfMap, maxPerf],
+  );
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -401,83 +487,14 @@ export default function AdminUsersScreen() {
           sub={employees.length === 0 ? '下拉刷新重试' : '换个关键词或筛选条件试试'}
         />
       ) : (
-        visible.map((emp) => {
-          const meta = statusOf(emp);
-          const perf = perfMap[emp.id];
-          const performance = Number(perf?.performance ?? 0);
-          const bar = maxPerf > 0 ? Math.max(0, Math.min(performance / maxPerf, 1)) : 0;
-          const shareRate = maxPerf > 0 ? Math.round(bar * 100) : 0;
-          return (
-            <View key={emp.id} style={styles.card}>
-              <View style={styles.cardTop}>
-                <View style={[styles.avatar, { backgroundColor: colors.alpha(meta.rgb, 0.12) }]}>
-                  <Text style={[styles.avatarText, { color: meta.color }]}>
-                    {(emp.full_name || '?').charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.cardBody}>
-                  <View style={styles.nameRow}>
-                    <Text style={styles.name} numberOfLines={1}>{emp.full_name || '未命名员工'}</Text>
-                    <View style={[styles.roleTag, { backgroundColor: colors.alpha(meta.rgb, 0.12) }]}>
-                      <Text style={[styles.roleText, { color: meta.color }]}>{meta.label}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.empCode}>{emp.employee_no || emp.employee_code || '无工号'}</Text>
-                  <Text style={styles.deptLine} numberOfLines={1}>
-                    {[emp.position, emp.department].filter(Boolean).join(' · ') || '未分配部门'}
-                  </Text>
-                  {!!emp.phone && (
-                    <View style={styles.contactRow}>
-                      <Ionicons name="call-outline" size={13} color={colors.ink3} />
-                      <Text style={styles.contactText}>{emp.phone}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              {/* 业绩（系统按佣金结算自动核算） */}
-              <View style={styles.perfRow}>
-                <Text style={styles.perfLabel}>累计业绩</Text>
-                <Text style={styles.perfValue}>
-                  {symOf(undefined)}
-                  {performance.toLocaleString()}
-                </Text>
-                <Text style={styles.perfDeals}>{perf?.deals ?? 0} 单</Text>
-              </View>
-              <View style={styles.perfTrack}>
-                <View style={[styles.perfBar, { flex: Math.max(bar, 0.02) }]} />
-                <View style={{ flex: Math.max(1 - bar, 0) }} />
-              </View>
-              <Text style={styles.perfHint}>团队占比 {shareRate}%</Text>
-
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={styles.actionLink}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setPwdTarget(emp);
-                    setNewPwd('');
-                  }}
-                >
-                  <Ionicons name="key-outline" size={14} color={colors.primary} />
-                  <Text style={styles.actionText}>重置密码</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionLink} activeOpacity={0.7} onPress={() => toggleActive(emp)}>
-                  <Ionicons name="power-outline" size={14} color={colors.ink2} />
-                  <Text style={[styles.actionText, { color: colors.ink2 }]}>
-                    {emp.is_active ? '停用账号' : '启用账号'}
-                  </Text>
-                </TouchableOpacity>
-                {emp.user_id && emp.user_id !== meId ? (
-                  <TouchableOpacity style={styles.actionLink} activeOpacity={0.7} onPress={() => deleteUser(emp)}>
-                    <Ionicons name="trash-outline" size={14} color={colors.error} />
-                    <Text style={[styles.actionText, { color: colors.error }]}>删除账号</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            </View>
-          );
-        })
+        <FlatList
+          data={visible}
+          keyExtractor={(e) => e.id}
+          renderItem={renderEmployee}
+          initialNumToRender={10}
+          windowSize={7}
+          scrollEnabled={false}
+        />
       )}
 
       <Modal visible={!!pwdTarget} transparent animationType="fade" onRequestClose={() => { setPwdTarget(null); setPwdError(''); }}>

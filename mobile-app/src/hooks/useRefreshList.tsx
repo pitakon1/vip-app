@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshControl } from 'react-native';
 import colors from '@/theme/colors';
 
@@ -10,25 +10,35 @@ import colors from '@/theme/colors';
 export function useRefreshList<T>(fetcher: () => Promise<T>) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const mountedRef = useRef(true);
+  const seqRef = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++seqRef.current;
     try {
       await fetcher();
     } finally {
-      setLoading(false);
+      // 卸载/失焦后不再 setState；旧代次响应丢弃，防止慢响应覆盖新阶段列表
+      if (mountedRef.current && seq === seqRef.current) setLoading(false);
     }
   }, [fetcher]);
 
   useEffect(() => {
+    mountedRef.current = true;
     load();
+    return () => {
+      mountedRef.current = false;
+      seqRef.current++; // 使进行中的请求代次失效
+    };
   }, [load]);
 
   const onRefresh = useCallback(async () => {
+    const seq = ++seqRef.current;
     setRefreshing(true);
     try {
       await fetcher();
     } finally {
-      setRefreshing(false);
+      if (mountedRef.current && seq === seqRef.current) setRefreshing(false);
     }
   }, [fetcher]);
 

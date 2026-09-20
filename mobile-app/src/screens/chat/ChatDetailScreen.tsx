@@ -20,6 +20,7 @@ import type { RootStackParamList } from '@/navigation/RootNavigator';
 
 interface Message {
   id?: string;
+  tempKey?: string;
   content?: string;
   text?: string;
   role?: string;
@@ -65,17 +66,19 @@ export default function ChatDetailScreen() {
     if (!text || sending) return;
     setSending(true);
     setInput('');
-    // 乐观更新
-    const optimistic: Message = { content: text, role: 'user' };
+    // 乐观更新（临时唯一 key，避免刷新首插时 index 漂移导致 key 不稳）
+    const tempKey = `temp-${Date.now()}`;
+    const optimistic: Message = { content: text, role: 'user', tempKey };
     setMessages((prev) => [...prev, optimistic]);
     try {
       await chatApi.sendMessage(conversationId, { content: text });
-      await load();
     } catch (err: any) {
       notifyError('发送失败', err);
     } finally {
       setSending(false);
     }
+    // 成功后刷新真实列表；失败时该调用会以服务端列表覆盖，回滚未真正入库的乐观消息
+    await load();
   };
 
   const renderItem = ({ item }: { item: Message }) => {
@@ -123,7 +126,7 @@ export default function ChatDetailScreen() {
       ) : (
         <FlatList
           data={messages}
-          keyExtractor={(item, index) => item.id ?? String(index)}
+          keyExtractor={(item, index) => item.id ?? item.tempKey ?? String(index)}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           ListEmptyComponent={

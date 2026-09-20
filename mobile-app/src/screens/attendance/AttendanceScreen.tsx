@@ -17,6 +17,7 @@ import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
 import api from '@/lib/api';
 import { geoApi, attendanceApi } from '@/services/api';
+import { notify, notifyError } from '@/utils/feedback';
 
 // 打卡半径（业务确认 C6：考勤地图定位；500 米）
 const RADIUS_KM = 0.5;
@@ -200,11 +201,11 @@ export default function AttendanceScreen() {
         } else {
           await attendanceApi.checkOut({ lat: coord.latitude, lng: coord.longitude });
         }
-        Alert.alert('打卡成功', type === 'checkin' ? '已签到' : '已签退');
+        notify('打卡成功', type === 'checkin' ? '已签到' : '已签退');
         await load();
       } else {
         // 不在半径内，引导填写外勤申请
-        Alert.alert(
+        notify(
           '不在打卡半径内',
           `您距离打卡点超过 ${RADIUS_KM * 1000} 米，请填写外勤申请。`,
         );
@@ -220,7 +221,7 @@ export default function AttendanceScreen() {
         }
       }
     } catch (err: any) {
-      Alert.alert('打卡失败', err?.response?.data?.detail || '请稍后重试');
+      notifyError('打卡失败', err);
     } finally {
       setChecking(null);
     }
@@ -265,6 +266,8 @@ export default function AttendanceScreen() {
               onPress={handleCheckIn}
               disabled={checking !== null || !!today?.checked_in}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={today?.checked_in ? '已签到' : '上班打卡'}
             >
               {checking === 'checkin' ? (
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -287,6 +290,8 @@ export default function AttendanceScreen() {
               onPress={handleCheckOut}
               disabled={checking !== null || !today?.checked_in || !!today?.checked_out}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={today?.checked_out ? '已签退' : '下班打卡'}
             >
               {checking === 'checkout' ? (
                 <ActivityIndicator size="small" color={colors.primaryForeground} />
