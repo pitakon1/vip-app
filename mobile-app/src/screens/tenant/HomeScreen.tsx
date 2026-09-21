@@ -17,11 +17,12 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
-import { propertiesApi, paymentsApi, maintenanceApi, saleListingApi } from '@/services/api';
+import { paymentsApi, maintenanceApi } from '@/services/api';
 import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
 import { fmtMoney as formatMoney } from '@/utils/format';
 import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
+import { useLocationStore } from '@/stores/location';
 import { getCachedMeta, setCached } from '@/lib/cache';
 import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
@@ -254,10 +255,10 @@ const SaleCard = React.memo(function SaleCard({
   // 按压缩放动画值
   const scale = useRef(new Animated.Value(1)).current;
   const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
-  const canOpen = !!item.property_id;
+  const canOpen = !!item.id;
   return (
     <Pressable
-      onPress={() => canOpen && onPress(String(item.property_id))}
+      onPress={() => canOpen && onPress(String(item.id))}
       disabled={!canOpen}
       onPressIn={() =>
         Animated.spring(scale, {
@@ -392,6 +393,7 @@ export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
+  const locationSel = useLocationStore((s) => s.selection);
 
   // ---------- TanStack Query：公开数据全局一份；私有数据（账单/工单）按用户隔离 ----------
   // 跨会话秒开由 MMKV 缓存（cache.ts）承担：mount 时读缓存 seed 进 Query Cache（updatedAt 取缓存
@@ -405,8 +407,9 @@ export default function HomeScreen() {
     queryKey: ['home', 'public'],
     queryFn: async () => {
       const [pRes, sRes, scRes] = await Promise.allSettled([
-        propertiesApi.list({ page: 1, page_size: 20 }),
-        saleListingApi.list({ page: 1, limit: 10 }),
+        // 登录/未登录统一走匿名公开层（对齐贝壳：浏览无需注册），保证内容对所有访客一致
+        publicApi.listings({ page: 1, page_size: 20, listing_type: 'rent' }),
+        publicApi.listings({ page: 1, page_size: 10, listing_type: 'sell' }),
         // 首页学校区块只做入口，取前 8 条即可，列表页才需要全量
         publicApi.schools({ page_size: 8 }),
       ]);
@@ -508,7 +511,8 @@ export default function HomeScreen() {
 
   const goListings = useCallback(() => navigation.navigate('Listings'), [navigation]);
   const openProperty = useCallback(
-    (id: string) => navigation.navigate('PropertyDetail', { id }),
+    // 卡片 id 为公开层挂牌 id：进公开房源详情（匿名可看，含小区/周边学校/经纪人留资）
+    (id: string) => navigation.navigate('PublicListingDetail', { id }),
     [navigation],
   );
   // 学校卡片不是进学校详情，而是带着这所学校跳到「找房」并预选学校筛选（默认 3km）。
@@ -528,12 +532,8 @@ export default function HomeScreen() {
   // 推荐房源：合并原「精选」与「新上房源」两条 rail（同一批数据被切成两条会被误读为两类房源）
   const recommended = useMemo(() => listings.slice(0, 10), [listings]);
 
-  // 城市标签：取真实房源数据中出现的城市（仅作静态展示，不代表 GPS 定位）
-  const cityLabel = useMemo(() => {
-    const rows: any[] = [...recommended, ...saleItems];
-    const city = rows.map((i) => i?.city).find((c: any) => !!c);
-    return city ? String(city) : '';
-  }, [recommended, saleItems]);
+  // 定位城市：来自全局定位 Store（主页左上角选择的国家/城市），当作全局上下文
+  const cityLabel = locationSel?.cityLabel || '';
 
   // 最近动态：账单 + 报修按时间倒序合并。
   // title 只保留类型/事项名，状态一律交给右侧徽标表达，避免同一状态出现两次
@@ -751,6 +751,7 @@ export default function HomeScreen() {
   };
 
   return (
+    <>
     <FlatList
       style={styles.container}
       // 用 insets.top 补顶部安全区（不用 SafeAreaView 包滚动容器，避免横向 rail 被裁切）
@@ -777,19 +778,24 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {/* 2. 城市标签 + 搜索 hero
-          - 城市来自房源/租约数据，非 GPS 定位，故用空心图标 +「当前城市」前缀，不暗示已定位
-          - 固定行高占位，数据回来时不会让整行突然出现/消失造成跳动 */}
-      <View style={styles.locationRow}>
-        {!!cityLabel && (
-          <>
-            <Ionicons name="location-outline" size={14} color={colors.ink2} />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {t('home.currentCity')} · {cityLabel}
-            </Text>
-          </>
-        )}
-      </View>
+      {/* 2. 城市定位（左上角）+ 搜索 hero
+          - 国家/城市定位在主页左上角：点击弹出 定位选择器（链家式），写入全局 Store
+          - 城市来自全局定位 Store；未定位时回退到 hi 占位 */}
+      <TouchableOpacity
+        style={styles.locationRow}
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate('LocationPicker')}
+        accessibilityRole="button"
+        accessibilityLabel="选择城市"
+      >
+        <>
+          <Ionicons name="location-outline" size={14} color={colors.ink2} />
+          <Text style={styles.locationText} numberOfLines={1}>
+            {cityLabel ? `${t('home.currentCity')} · ${cityLabel}` : t('home.currentCity')}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color={colors.ink3} />
+        </>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.searchBar} activeOpacity={0.8} onPress={goListings}>
         <Ionicons name="search" size={16} color={colors.ink3} />
         <Text style={styles.searchPlaceholder}>{t('home.searchPlaceholder')}</Text>
@@ -819,6 +825,7 @@ export default function HomeScreen() {
         </>
       }
     />
+    </>
   );
 }
 

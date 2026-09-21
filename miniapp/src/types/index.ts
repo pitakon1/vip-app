@@ -9,6 +9,7 @@ export interface User {
   phone?: string
   email?: string
   avatar?: string
+  avatar_url?: string
 }
 
 // ============ 房产相关 ============

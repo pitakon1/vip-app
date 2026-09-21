@@ -40,6 +40,7 @@ export default {
     'pages/tenant/maintenance/index',
     'pages/tenant/payments/index',
     'pages/tenant/listings/index',
+    'pages/location/index',
     'pages/tenant/property-detail/index',
     'pages/tenant/leases/index',
     'pages/tenant/leases/detail',

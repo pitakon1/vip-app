@@ -57,6 +57,9 @@ class PropertyCreate(BaseModel):
     description: Optional[str] = None
     photos: Optional[List[str]] = None
     furnished: bool = False
+    orientation: Optional[str] = None
+    decoration: Optional[str] = None
+    amenities: Optional[List[str]] = None
     available_from: Optional[datetime] = None
     video_url: Optional[str] = None
 
@@ -80,6 +83,9 @@ class PropertyUpdate(BaseModel):
     description: Optional[str] = None
     photos: Optional[List[str]] = None
     furnished: Optional[bool] = None
+    orientation: Optional[str] = None
+    decoration: Optional[str] = None
+    amenities: Optional[List[str]] = None
     available_from: Optional[datetime] = None
     video_url: Optional[str] = None
     # 可选乐观锁：客户端传回读到的 version，服务端不一致则 409 拒绝覆盖
@@ -115,6 +121,9 @@ class PropertyDetail(BaseModel):
     description: Optional[str] = None
     photos: Optional[list] = None
     furnished: Optional[bool] = None
+    orientation: Optional[str] = None
+    decoration: Optional[str] = None
+    amenities: Optional[list] = None
     available_from: Optional[datetime] = None
     video_url: Optional[str] = None
     project_name: Optional[str] = None
@@ -229,6 +238,19 @@ def list_properties(
     area_max: Optional[float] = Query(None, ge=0),
     bedrooms_min: Optional[int] = Query(None, ge=0, le=20),
     bedrooms_max: Optional[int] = Query(None, ge=0, le=20),
+    orientation: Optional[str] = Query(
+        None, description="朝向（north/south/east/west/northeast/northwest/southeast/southwest）"
+    ),
+    decoration: Optional[str] = Query(
+        None, description="装修（bare/simple/standard/luxury/fully_furnished）"
+    ),
+    floor_level: Optional[str] = Query(
+        None, pattern="^(low|mid|high)$",
+        description="楼层段：low=1-5层 / mid=6-15层 / high=16层及以上",
+    ),
+    amenity: Optional[List[str]] = Query(
+        None, description="配套设施（多选任一命中，如 aircon/pool/gym/parking/elevator/balcony）"
+    ),
     has_video: Optional[bool] = Query(None, description="只看有视频看房的房源"),
     sort: str = Query("latest", pattern="^(latest|price_asc|price_desc|area_desc)$"),
     session: Session = Depends(get_session),
@@ -246,7 +268,8 @@ def list_properties(
         f"{school_id or ''}:{school_radius_km}:"
         f"{country or ''}:{province or ''}:{city or ''}:{district or ''}:{subway or ''}:"
         f"{'|'.join(terms)}:{price_min}:{price_max}:{area_min}:{area_max}:"
-        f"{bedrooms_min}:{bedrooms_max}:{has_video}:{sort}"
+        f"{bedrooms_min}:{bedrooms_max}:{orientation or ''}:{decoration or ''}:{floor_level or ''}:"
+        f"{'|'.join(amenity or [])}:{has_video}:{sort}"
     )
     cached = get_cache(cache_key)
     if cached is not None:
@@ -305,6 +328,29 @@ def list_properties(
         conditions.append(Property.bedrooms >= bedrooms_min)
     if bedrooms_max is not None:
         conditions.append(Property.bedrooms <= bedrooms_max)
+    if orientation:
+        conditions.append(Property.orientation == orientation)
+    if decoration:
+        conditions.append(Property.decoration == decoration)
+    if floor_level == "low":
+        conditions.append(Property.floor.between(1, 5))
+    elif floor_level == "mid":
+        conditions.append(Property.floor.between(6, 15))
+    elif floor_level == "high":
+        conditions.append(Property.floor >= 16)
+    # 配套多选：任一命中即算（与区域同义词一致的口径）
+    if amenity:
+        amenity_terms = [a.strip() for a in amenity if a and a.strip()]
+        if amenity_terms:
+            from sqlalchemy import cast, String
+            conditions.append(
+                or_(
+                    *[
+                        Property.amenities.cast(String).ilike(f"%{a}%")
+                        for a in amenity_terms
+                    ]
+                )
+            )
     if has_video:
         conditions.append(Property.video_url.is_not(None))
         conditions.append(Property.video_url != "")

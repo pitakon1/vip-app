@@ -20,7 +20,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
-import { propertiesApi, translateApi, favoritesApi, saleListingApi } from '@/services/api';
+import { translateApi, favoritesApi } from '@/services/api';
 import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { fmtMoney as formatRent } from '@/utils/format';
@@ -31,6 +31,7 @@ import { useI18n } from '@/i18n';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
 import { useAuthStore } from '@/stores/auth';
+import { useLocationStore, findCityByKey } from '@/stores/location';
 import { getCached, isFresh, setCached } from '@/lib/cache';
 
 interface Listing {
@@ -94,12 +95,14 @@ const PRICE_RANGES: PricePreset[] = [
   { key: 'g8', label: '≥8万', min: 80000, max: Infinity },
 ];
 
-// 户型筛选
+// 户型筛选（贝壳式：1-5 室+）
 const BEDROOM_OPTIONS = [
   { key: '', label: '不限' },
   { key: '1', label: '1室' },
   { key: '2', label: '2室' },
-  { key: '3', label: '3室+' },
+  { key: '3', label: '3室' },
+  { key: '4', label: '4室' },
+  { key: '5', label: '5室+' },
 ];
 
 // 状态筛选（贝壳式，与 Web / 小程序一致）
@@ -109,6 +112,48 @@ const STATUS_FILTERS = [
   { key: 'rented', label: '已出租' },
   { key: 'reserved', label: '已预订' },
   { key: 'maintenance', label: '维护中' },
+];
+
+// 朝向筛选（贝壳式 8 向；东南亚西晒极强，朝向是硬决策因素）
+const ORIENTATION_OPTIONS = [
+  { key: '', label: '不限' },
+  { key: 'north', label: '北' },
+  { key: 'south', label: '南' },
+  { key: 'east', label: '东' },
+  { key: 'west', label: '西' },
+  { key: 'northeast', label: '东北' },
+  { key: 'northwest', label: '西北' },
+  { key: 'southeast', label: '东南' },
+  { key: 'southwest', label: '西南' },
+];
+
+// 楼层筛选（贝壳式低/中/高；低层 1-5 / 中层 6-15 / 高层 16+）
+const FLOOR_LEVEL_OPTIONS = [
+  { key: '', label: '不限' },
+  { key: 'low', label: '低楼层(1-5层)' },
+  { key: 'mid', label: '中楼层(6-15层)' },
+  { key: 'high', label: '高楼层(16层+)' },
+];
+
+// 装修筛选（东南亚口径：带家具家电是最常见出租形态）
+const DECORATION_OPTIONS = [
+  { key: '', label: '不限' },
+  { key: 'bare', label: '毛坯' },
+  { key: 'simple', label: '简装' },
+  { key: 'standard', label: '精装' },
+  { key: 'luxury', label: '豪装' },
+  { key: 'fully_furnished', label: '带家具家电' },
+];
+
+// 配套设施筛选（东南亚口径，多选任一命中；无供暖/暖气/天然气——东南亚无冬季）
+const AMENITY_OPTIONS = [
+  { key: 'aircon', label: '空调' },
+  { key: 'pool', label: '泳池' },
+  { key: 'gym', label: '健身房' },
+  { key: 'parking', label: '停车位' },
+  { key: 'elevator', label: '电梯' },
+  { key: 'balcony', label: '阳台' },
+  { key: 'garden', label: '花园/庭院' },
 ];
 
 // 面积筛选（贝壳式：预设快捷区间 + 自定义最低/最高 ㎡）
@@ -300,6 +345,10 @@ export default function ListingsScreen() {
   const [customMax, setCustomMax] = useState(''); // 自定义最高价（万）
   const [bedFilter, setBedFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [orientationSel, setOrientationSel] = useState('');   // 朝向
+  const [floorSel, setFloorSel] = useState('');               // 楼层段
+  const [decorSel, setDecorSel] = useState('');               // 装修
+  const [amenitySel, setAmenitySel] = useState<string[]>([]); // 配套多选
   const [areaRange, setAreaRange] = useState(''); // 面积预设 key
   const [areaCustomMin, setAreaCustomMin] = useState(''); // 自定义最低面积（㎡）
   const [areaCustomMax, setAreaCustomMax] = useState(''); // 自定义最高面积（㎡）
@@ -314,15 +363,16 @@ export default function ListingsScreen() {
   const [saleLoaded, setSaleLoaded] = useState(false);
   const [saleError, setSaleError] = useState(false);
   // 按区域/按地铁（对齐贝壳「区域 | 地铁」双Tab）
+  // 城市由全局定位 Store 决定（主页左上角选择国家/城市），找房页只做「区/街道」与地铁（链家式：
+  // 区街道颗粒度留在找房页，国家/省市切换回到主页左上角）。
+  const locSel = useLocationStore((s) => s.selection);
+  const locCity = useMemo(() => findCityByKey(locSel.cityKey), [locSel.cityKey]);
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area');
-  const [districtSel, setDistrictSel] = useState<string | null>(null); // 已选城区 key
+  const [districtSel, setDistrictSel] = useState<string | null>(null); // 已选城区（区/街道）key
   const [metroSel, setMetroSel] = useState<string[]>([]);              // 已选站点 name（已确认）
   const [metroDraft, setMetroDraft] = useState<string[]>([]);          // 站点多选草稿（确定后提交）
+  // 地铁线路：仅列当前定位城市的线路（链家式——定位城市后，地铁只看该市）
   const [metroLine, setMetroLine] = useState<string>(METRO_LINES[0].key);
-  // 区域面板：国家 → 省市 → 城区 三级下钻（左栏只列国家，右栏先是省市列表，
-  // 点省市后右栏换成它的城区）。此前国家/省市平铺在一列，混杂难找。
-  const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country);
-  const [areaDrill, setAreaDrill] = useState<string>(''); // 已下钻的省市 cityKey，空 = 停在省市列表
   // 学校筛选（空间）：后端按学校坐标 + 半径反查覆盖的小区，必须走服务端
   const [schoolId, setSchoolId] = useState('');
   const [schoolName, setSchoolName] = useState('');
@@ -368,12 +418,13 @@ export default function ListingsScreen() {
             }
           }
         }
-        const params: any = { page: 1, page_size: 50 };
+        const params: any = { page: 1, page_size: 50, listing_type: 'rent' };
         if (schoolFilter) {
           params.school_id = schoolFilter.id;
           params.school_radius_km = schoolFilter.km;
         }
-        const res = await propertiesApi.list(params);
+        // 登录/未登录统一走匿名公开层（对齐贝壳：浏览/搜索无需注册），内容对所有访客一致
+        const res = await publicApi.listings(params);
         // 过期响应直接丢弃：连续切换学校等筛选时，先发的请求可能后到
         if (seq !== listReqSeq.current) return;
         const data = res.data;
@@ -428,7 +479,7 @@ export default function ListingsScreen() {
     setSaleLoading(true);
     setSaleError(false);
     try {
-      const res = await saleListingApi.list({ page: 1, page_size: 50 });
+      const res = await publicApi.listings({ page: 1, page_size: 50, listing_type: 'sell' });
       const data = res.data;
       const items = Array.isArray(data)
         ? data
@@ -450,7 +501,8 @@ export default function ListingsScreen() {
 
   // 收藏状态：TanStack Query 批量查询（同 key 去重 + 60s 新鲜 + 切换后失效）
   const token = useAuthStore((s) => s.token);
-  const favIds = listings.map((l) => l.id).join(',');
+  // 收藏按 property_id 记账（公开层卡片带 property_id），列表按公开层挂牌 id 渲染
+  const favIds = listings.map((l) => l.property_id ?? l.id).join(',');
   const favQ = useQuery({
     queryKey: ['fav-status', token ? favIds : ''],
     queryFn: async () => {
@@ -477,24 +529,30 @@ export default function ListingsScreen() {
   // 收藏 / 取消收藏（useCallback：保持引用稳定，配合 ListingCard 的 memo）
   const handleToggleFav = useCallback(
     async (item: Listing) => {
-      const current = !!favSetRef.current[item.id];
-      setFavLoading((s) => ({ ...s, [item.id]: true }));
+      // 收藏是需登录的动作：未登录先弹登录，登录成功后回到本页继续（对齐贝壳）
+      if (!token) {
+        navigation.navigate('Login');
+        return;
+      }
+      const pid = item.property_id ?? item.id;
+      const current = !!favSetRef.current[pid];
+      setFavLoading((s) => ({ ...s, [pid]: true }));
       try {
         if (current) {
-          await favoritesApi.remove(item.id);
-          setFavSet((s) => ({ ...s, [item.id]: false }));
+          await favoritesApi.remove(pid);
+          setFavSet((s) => ({ ...s, [pid]: false }));
         } else {
-          await favoritesApi.toggle(item.id);
-          setFavSet((s) => ({ ...s, [item.id]: true }));
+          await favoritesApi.toggle(pid);
+          setFavSet((s) => ({ ...s, [pid]: true }));
         }
         queryClient.invalidateQueries({ queryKey: ['fav-status'] });
       } catch {
         notify('操作失败', '请稍后重试');
       } finally {
-        setFavLoading((s) => ({ ...s, [item.id]: false }));
+        setFavLoading((s) => ({ ...s, [pid]: false }));
       }
     },
-    [queryClient],
+    [queryClient, token, navigation],
   );
 
   // 金刚区分类直达：路由参数变化时同步筛选
@@ -514,32 +572,22 @@ export default function ListingsScreen() {
   }, [route.params?.schoolTs]);
 
   // ---------- 按区域 / 按地铁（对齐贝壳「区域 | 地铁」） ----------
-  const allDistricts = AREA_GROUPS.flatMap((g) => g.children);
+  // 当前定位城市的城区（区/街道）平铺列表：找房页不出现国家/省市，只留 区/街道 颗粒度
+  const cityDistricts = locCity?.children ?? [];
+  // 地铁仅列当前定位城市的线路
+  const cityMetroLines = useMemo(
+    () => METRO_LINES.filter((l) => l.cityKey === locSel.cityKey),
+    [locSel.cityKey],
+  );
   const activeLine = useMemo(
-    () => METRO_LINES.find((l) => l.key === metroLine),
-    [metroLine],
+    () => cityMetroLines.find((l) => l.key === metroLine),
+    [cityMetroLines, metroLine],
   );
-  // 区域面板左栏：国家清单（按 AREA_GROUPS 出现顺序去重，保持业务顺序）
-  const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), []);
-  // 左栏宽度按最长国家名动态推导（避免留白）：最长字幕数×字号13 + 条目横向padding 8×2 + 左边框3 + 边框hairline + 2缓冲
-  const areaLeftWidth = useMemo(() => {
-    const maxChars = Math.max(...countryList.map((c) => [...c].length));
-    return maxChars * 13 + 8 * 2 + 3 + 2;
-  }, [countryList]);
-  // 右栏未下钻时的数据源：当前国家下的省市
-  const countryGroups = useMemo(
-    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
-    [areaCountry],
-  );
-  // 右栏已下钻时的数据源：该省市的城区
-  const activeAreaGroup = useMemo(
-    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
-    [areaDrill],
-  );
-  // 已选区域/地铁的关键词，用于匹配房源地址/标题
+  // 已选区域/地铁的关键词，用于匹配房源地址/标题；
+  // 「城市」不再参与（全局定位决定城市，找房页只做区/街道与地铁）
   const activeLocationKw = useMemo(() => {
     if (districtSel) {
-      const node = allDistricts.find((d) => d.key === districtSel);
+      const node = locCity?.children.find((d) => d.key === districtSel);
       return node ? node.kws : [];
     }
     if (metroSel.length) {
@@ -547,11 +595,11 @@ export default function ListingsScreen() {
       return stations.filter((s) => metroSel.includes(s.name)).flatMap((s) => s.kws);
     }
     return [];
-  }, [districtSel, metroSel]);
+  }, [districtSel, metroSel, locCity]);
 
   const regionLabel = useMemo(() => {
     if (districtSel) {
-      const node = allDistricts.find((d) => d.key === districtSel);
+      const node = locCity?.children.find((d) => d.key === districtSel);
       return node ? node.label : '区域';
     }
     if (metroSel.length) {
@@ -559,7 +607,13 @@ export default function ListingsScreen() {
       return metroSel.length > 1 ? `${first} +${metroSel.length - 1}` : first;
     }
     return '区域';
-  }, [districtSel, metroSel]);
+  }, [districtSel, metroSel, locCity]);
+
+  // 全局城市作用域：当前定位城市下，房源必须命中该城任一城区关键词（整体过滤，链家式「定位城市看房」）
+  const globalCityKw = useMemo(
+    () => (locCity ? locCity.children.flatMap((d) => d.kws) : []),
+    [locCity],
+  );
 
   // 区域=实时单选；城区与地铁互斥
   const applyDistrict = (key: string | null) => {
@@ -587,7 +641,6 @@ export default function ListingsScreen() {
     setDistrictSel(null);
     setMetroSel([]);
     setMetroDraft([]);
-    setAreaDrill('');
   };
 
   // ---------- 贝壳式 Tab 下拉面板：开合 / 重置 / 确定 ----------
@@ -600,8 +653,15 @@ export default function ListingsScreen() {
     : '价格';
   const bedLabel = bedFilter ? BEDROOM_OPTIONS.find((b) => b.key === bedFilter)?.label ?? '户型' : '户型';
   const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label ?? '排序';
-  // 「更多」收纳了房源类型 / 面积 / 房源状态三组条件，角标按已生效组数计
-  const moreBadge = (filter ? 1 : 0) + (hasAreaFilter ? 1 : 0) + (statusFilter ? 1 : 0);
+  // 「更多」收纳了房源类型 / 居室外的朝向 / 楼层 / 面积 / 装修 / 配套 / 状态，角标按已生效组数计
+  const moreBadge =
+    (filter ? 1 : 0) +
+    (hasAreaFilter ? 1 : 0) +
+    (statusFilter ? 1 : 0) +
+    (orientationSel ? 1 : 0) +
+    (floorSel ? 1 : 0) +
+    (decorSel ? 1 : 0) +
+    (amenitySel.length ? 1 : 0);
 
   const toggleTab = (key: OpenTab) => {
     if (openTab === key) {
@@ -612,14 +672,6 @@ export default function ListingsScreen() {
     if (key === 'region') {
       setMetroDraft(metroSel);
       if (!districtSel && metroSel.length) setLocTab('metro');
-      // 回显：已选城区时直接下钻到它所在的省市，否则停在省市列表
-      if (districtSel) {
-        const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtSel));
-        if (g) {
-          setAreaCountry(g.country);
-          setAreaDrill(g.cityKey);
-        }
-      }
     }
   };
 
@@ -639,6 +691,10 @@ export default function ListingsScreen() {
       setAreaCustomMin('');
       setAreaCustomMax('');
       setStatusFilter('');
+      setOrientationSel('');
+      setFloorSel('');
+      setDecorSel('');
+      setAmenitySel([]);
     } else if (key === 'sort') {
       setSortKey('default');
     }
@@ -692,9 +748,9 @@ export default function ListingsScreen() {
     }
   }, []);
 
-  // 进入房源详情（useCallback：引用稳定）
+  // 进入房源详情（useCallback：引用稳定）；公开层卡片 id 为挂牌 id → 公开详情页（匿名可看）
   const goDetail = useCallback(
-    (item: Listing) => navigation.navigate('PropertyDetail', { id: item.id }),
+    (item: Listing) => navigation.navigate('PublicListingDetail', { id: item.id }),
     [navigation],
   );
 
@@ -703,11 +759,29 @@ export default function ListingsScreen() {
       listings.filter((it) => {
     if (filter && it.property_type !== filter) return false;
     if (statusFilter && it.status !== statusFilter) return false;
-    // 户型（3室+ 覆盖 >=3）
+    // 朝向
+    if (orientationSel && it.orientation !== orientationSel) return false;
+    // 楼层段（低层 1-5 / 中层 6-15 / 高层 16+）
+    if (floorSel) {
+      const fl = Number(it.floor ?? 0);
+      if (floorSel === 'low' && (fl < 1 || fl > 5)) return false;
+      if (floorSel === 'mid' && (fl < 6 || fl > 15)) return false;
+      if (floorSel === 'high' && fl < 16) return false;
+    }
+    // 装修
+    if (decorSel && it.decoration !== decorSel) return false;
+    // 配套设施（多选任一命中）
+    if (amenitySel.length) {
+      const tags = Array.isArray(it.amenities)
+        ? it.amenities.map((a: any) => String(a))
+        : [];
+      if (!amenitySel.some((a) => tags.includes(a))) return false;
+    }
+    // 户型（1-4 室精确匹配；5室+ 覆盖 >=5）
     if (bedFilter) {
       const beds = Number(it.bedrooms ?? 0);
-      if (bedFilter === '3') {
-        if (beds < 3) return false;
+      if (bedFilter === '5') {
+        if (beds < 5) return false;
       } else if (beds !== Number(bedFilter)) {
         return false;
       }
@@ -745,9 +819,13 @@ export default function ListingsScreen() {
     if (activeLocationKw.length && !matchLocation(it, activeLocationKw)) {
       return false;
     }
+    // 全局城市作用域（链家式：定位城市后只看该市房源）
+    if (globalCityKw.length && !matchLocation(it, globalCityKw)) {
+      return false;
+    }
     return true;
       }),
-    [listings, filter, statusFilter, bedFilter, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, keyword, activeLocationKw],
+    [listings, filter, statusFilter, bedFilter, orientationSel, floorSel, decorSel, amenitySel, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, keyword, activeLocationKw, globalCityKw],
   );
 
   // 排序（贝壳式 Tab）
@@ -783,8 +861,8 @@ export default function ListingsScreen() {
     ({ item }: { item: Listing }) => (
       <ListingCard
         item={item}
-        favorited={!!favSet[item.id]}
-        favBusy={!!favLoading[item.id]}
+        favorited={!!favSet[item.property_id ?? item.id]}
+        favBusy={!!favLoading[item.property_id ?? item.id]}
         translating={translatingId === item.id}
         showTranslate={!isSameLang(translateSource(item), lang)}
         onPress={goDetail}
@@ -801,8 +879,8 @@ export default function ListingsScreen() {
       style={styles.card}
       activeOpacity={0.85}
       onPress={() => {
-        if (item.property_id) {
-          navigation.navigate('PropertyDetail', { id: item.property_id });
+        if (item.id) {
+          navigation.navigate('PublicListingDetail', { id: item.id });
         } else {
           Alert.alert('提示', '该挂牌暂未关联房源详情');
         }
@@ -937,130 +1015,116 @@ export default function ListingsScreen() {
           <View style={styles.dropPanel}>
             {openTab === 'region' && (
               <>
-                <View style={styles.locTabs}>
-                  {(['area', 'metro'] as const).map((tab) => (
-                    <TouchableOpacity
-                      key={tab}
-                      style={[styles.locTab, locTab === tab && styles.locTabActive]}
-                      onPress={() => setLocTab(tab)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.locTabText, locTab === tab && styles.locTabTextActive]}>
-                        {tab === 'area' ? '区域' : '地铁'}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                {/* 链家式两栏 + 国家→省市→城区 三级下钻：左栏只列国家，
-                    右栏先是该国家的省市列表，点省市后右栏换成它的城区 chips。
-                    此前国家/省市平铺在一列，混杂难找；两栏各自独立纵向滚动 */}
-                {locTab === 'area' ? (
-                  <View style={styles.locTwoCol}>
-                    <ScrollView style={[styles.locColLeft, { width: areaLeftWidth }]} contentContainerStyle={styles.locColLeftContent}>
-                      {countryList.map((c) => (
-                        <TouchableOpacity
-                          key={c}
-                          style={[styles.locColItem, areaCountry === c && styles.locColItemActive]}
-                          onPress={() => {
-                            setAreaCountry(c);
-                            setAreaDrill('');
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <Text
-                            numberOfLines={2}
-                            style={[styles.locColText, areaCountry === c && styles.locColTextActive]}
-                          >
-                            {c}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                    <ScrollView style={styles.locColRight} contentContainerStyle={styles.locColRightContent}>
-                      {activeAreaGroup ? (
-                        <>
-                          <View style={styles.locDrillHead}>
-                            <TouchableOpacity onPress={() => setAreaDrill('')} activeOpacity={0.7}>
-                              <Text style={styles.locDrillBack}>← {areaCountry}</Text>
-                            </TouchableOpacity>
-                            <Text style={styles.dropGroupTitle}>{activeAreaGroup.cityLabel}</Text>
-                          </View>
-                          <View style={styles.filterGroup}>
-                            <TouchableOpacity
-                              style={[styles.filterChip, districtSel === null && styles.filterChipActive]}
-                              onPress={() => applyDistrict(null)}
-                            >
-                              <Text style={[styles.filterText, districtSel === null && styles.filterTextActive]}>不限</Text>
-                            </TouchableOpacity>
-                            {activeAreaGroup.children.map((d) => (
-                              <TouchableOpacity
-                                key={d.key}
-                                style={[styles.filterChip, districtSel === d.key && styles.filterChipActive]}
-                                onPress={() => applyDistrict(d.key)}
-                              >
-                                <Text style={[styles.filterText, districtSel === d.key && styles.filterTextActive]}>{d.label}</Text>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        </>
-                      ) : (
-                        <>
-                          <Text style={styles.dropGroupTitle}>{areaCountry}</Text>
-                          <View style={styles.filterGroup}>
-                            {countryGroups.map((g) => (
-                              <TouchableOpacity
-                                key={g.cityKey}
-                                style={[styles.filterChip, areaDrill === g.cityKey && styles.filterChipActive]}
-                                onPress={() => setAreaDrill(g.cityKey)}
-                              >
-                                <Text style={[styles.filterText, areaDrill === g.cityKey && styles.filterTextActive]}>
-                                  {g.cityLabel}
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        </>
-                      )}
-                    </ScrollView>
+                {/* 贝壳式三栏面板（照搬贝壳找房 App 筛选）：
+                    ① 类目栏(浅灰，选中白底主色字) ② 一级列表(不限+国家/线路) ③ 选项列表(城市→城区 / 站点，行尾单选圈) */}
+                <View style={styles.keSheet}>
+                  {/* ① 类目导航 */}
+                  <View style={styles.keRail}>
+                    {(['area', 'metro'] as const).map((tab) => (
+                      <TouchableOpacity
+                        key={tab}
+                        style={[styles.keRailItem, locTab === tab && styles.keRailItemActive]}
+                        onPress={() => setLocTab(tab)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.keRailText, locTab === tab && styles.keRailTextActive]}>
+                          {tab === 'area' ? '区域' : '地铁'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                ) : (
-                  <View style={styles.locTwoCol}>
-                    <ScrollView style={styles.locColLeft} contentContainerStyle={styles.locColLeftContent}>
-                      {METRO_LINES.map((l) => (
+                  {locTab === 'area' ? (
+                    <>
+                      {/* 当前定位城市下的 区/街道 平铺列表：找房页不做国家/省市，只留 区/街道 颗粒度（链家样式） */}
+                      <ScrollView style={styles.keCol3} showsVerticalScrollIndicator={false}>
+                        <Text style={styles.keSection}>{locSel.cityLabel} · 区/街道</Text>
                         <TouchableOpacity
-                          key={l.key}
-                          style={[styles.locColItem, metroLine === l.key && styles.locColItemActive]}
-                          onPress={() => setMetroLine(l.key)}
+                          style={styles.keOption}
+                          onPress={() => applyDistrict(null)}
                           activeOpacity={0.7}
                         >
-                          <Text
-                            numberOfLines={2}
-                            style={[styles.locColText, metroLine === l.key && styles.locColTextActive]}
-                          >
-                            {l.name}
-                          </Text>
+                          <View style={styles.keOptionMain}>
+                            <Text style={[styles.keOptionText, districtSel === null && styles.keOptionTextActive]}>
+                              不限
+                            </Text>
+                          </View>
+                          <View style={[styles.keRadio, districtSel === null && styles.keRadioOn]}>
+                            {districtSel === null && <View style={styles.keRadioDot} />}
+                          </View>
                         </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                    <ScrollView style={styles.locColRight} contentContainerStyle={styles.locColRightContent}>
-                      <Text style={styles.dropGroupTitle}>
-                        {activeLine ? `${activeLine.cityLabel} · ${activeLine.name}` : ''}
-                        {metroDraft.length ? ` · 已选 ${metroDraft.length}` : ''}
-                      </Text>
-                      <View style={styles.filterGroup}>
+                        {cityDistricts.map((d) => (
+                          <TouchableOpacity
+                            key={d.key}
+                            style={styles.keOption}
+                            onPress={() => applyDistrict(d.key)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.keOptionMain}>
+                              <Text style={[styles.keOptionText, districtSel === d.key && styles.keOptionTextActive]}>
+                                {d.label}
+                              </Text>
+                            </View>
+                            <View style={[styles.keRadio, districtSel === d.key && styles.keRadioOn]}>
+                              {districtSel === d.key && <View style={styles.keRadioDot} />}
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </>
+                  ) : (
+                    <>
+                      {/* ② 线路列表（不限 + 线路） */}
+                      <ScrollView style={[styles.keCol2, { flexGrow: 0, flexShrink: 0 }]} showsVerticalScrollIndicator={false}>
+                        <TouchableOpacity
+                          style={styles.keRow}
+                          onPress={clearMetroDraft}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.keRowText, !metroDraft.length && styles.keRowTextActive]}>不限</Text>
+                        </TouchableOpacity>
+                        {cityMetroLines.map((l) => (
+                          <TouchableOpacity
+                            key={l.key}
+                            style={[styles.keRow, metroLine === l.key && styles.keRowActive]}
+                            onPress={() => setMetroLine(l.key)}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.keRowText, metroLine === l.key && styles.keRowTextActive]}
+                            >
+                              {l.name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                      {/* ③ 站点（多选，行尾勾选圈） */}
+                      <ScrollView style={styles.keCol3} showsVerticalScrollIndicator={false}>
+                        <Text style={styles.keSection}>
+                          {activeLine ? `${activeLine.cityLabel} · ${activeLine.name}` : ''}
+                          {metroDraft.length ? ` · 已选 ${metroDraft.length}` : ''}
+                        </Text>
                         {activeLine?.stations.map((s) => (
                           <TouchableOpacity
                             key={s.name}
-                            style={[styles.filterChip, metroDraft.includes(s.name) && styles.filterChipActive]}
+                            style={styles.keOption}
                             onPress={() => toggleStation(s.name)}
+                            activeOpacity={0.7}
                           >
-                            <Text style={[styles.filterText, metroDraft.includes(s.name) && styles.filterTextActive]}>{s.name}</Text>
+                            <View style={styles.keOptionMain}>
+                              <Text style={[styles.keOptionText, metroDraft.includes(s.name) && styles.keOptionTextActive]}>
+                                {s.name}
+                              </Text>
+                            </View>
+                            <View style={[styles.keRadio, metroDraft.includes(s.name) && styles.keRadioOn]}>
+                              {metroDraft.includes(s.name) && <View style={styles.keRadioDot} />}
+                            </View>
                           </TouchableOpacity>
                         ))}
-                      </View>
-                    </ScrollView>
-                  </View>
-                )}
+                      </ScrollView>
+                    </>
+                  )}
+                </View>
                 <View style={styles.panelActions}>
                   <TouchableOpacity style={styles.resetBtn} onPress={() => resetCurrent('region')} activeOpacity={0.7}>
                     <Text style={styles.resetText}>重置</Text>
@@ -1228,6 +1292,30 @@ export default function ListingsScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
+                  <Text style={styles.dropGroupTitle}>朝向</Text>
+                  <View style={styles.filterGroup}>
+                    {ORIENTATION_OPTIONS.map((o) => (
+                      <TouchableOpacity
+                        key={o.key || 'all'}
+                        style={[styles.filterChip, orientationSel === o.key && styles.filterChipActive]}
+                        onPress={() => setOrientationSel(o.key)}
+                      >
+                        <Text style={[styles.filterText, orientationSel === o.key && styles.filterTextActive]}>{o.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={styles.dropGroupTitle}>楼层</Text>
+                  <View style={styles.filterGroup}>
+                    {FLOOR_LEVEL_OPTIONS.map((fl) => (
+                      <TouchableOpacity
+                        key={fl.key || 'all'}
+                        style={[styles.filterChip, floorSel === fl.key && styles.filterChipActive]}
+                        onPress={() => setFloorSel(fl.key)}
+                      >
+                        <Text style={[styles.filterText, floorSel === fl.key && styles.filterTextActive]}>{fl.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                   <Text style={styles.dropGroupTitle}>面积</Text>
                   <View style={styles.filterGroup}>
                     {AREA_PRESETS.map((a) => (
@@ -1267,6 +1355,37 @@ export default function ListingsScreen() {
                       />
                       <Text style={styles.priceCustomUnit}>㎡</Text>
                     </View>
+                  </View>
+                  <Text style={styles.dropGroupTitle}>装修</Text>
+                  <View style={styles.filterGroup}>
+                    {DECORATION_OPTIONS.map((d) => (
+                      <TouchableOpacity
+                        key={d.key || 'all'}
+                        style={[styles.filterChip, decorSel === d.key && styles.filterChipActive]}
+                        onPress={() => setDecorSel(d.key)}
+                      >
+                        <Text style={[styles.filterText, decorSel === d.key && styles.filterTextActive]}>{d.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={styles.dropGroupTitle}>配套设施</Text>
+                  <View style={styles.filterGroup}>
+                    {AMENITY_OPTIONS.map((a) => {
+                      const on = amenitySel.includes(a.key);
+                      return (
+                        <TouchableOpacity
+                          key={a.key}
+                          style={[styles.filterChip, on && styles.filterChipActive]}
+                          onPress={() =>
+                            setAmenitySel((cur) =>
+                              on ? cur.filter((k) => k !== a.key) : [...cur, a.key],
+                            )
+                          }
+                        >
+                          <Text style={[styles.filterText, on && styles.filterTextActive]}>{a.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                   <Text style={styles.dropGroupTitle}>房源状态</Text>
                   <View style={styles.filterGroup}>
@@ -1618,93 +1737,109 @@ const styles = StyleSheet.create({
   sheetBodyContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   panelActions: {
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 18,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
+  // 贝壳式底部操作条：重置=浅灰块、确定=主色块，等宽、直角小圆角、无边框
   resetBtn: {
     flex: 1,
-    minHeight: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: colors.radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 6,
+    backgroundColor: colors.surface2,
   },
-  resetText: { fontSize: 14, color: colors.ink2 },
+  resetText: { fontSize: 15, color: colors.ink, fontWeight: '500' },
   confirmBtn: {
     flex: 1,
-    minHeight: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: colors.radius.md,
+    borderRadius: 6,
     backgroundColor: colors.primary,
   },
-  confirmText: { fontSize: 14, color: colors.primaryForeground, fontWeight: '600' },
-  // 区域 / 地铁（对齐贝壳）
-  locTabs: {
+  confirmText: { fontSize: 15, color: colors.primaryForeground, fontWeight: '600' },
+  // ---------- 贝壳式三栏筛选面板（结构照抄贝壳找房 App） ----------
+  // ① keRail 类目栏：浅灰底，选中项白底 + 主色字（宽 84 ≈ 屏宽 21%，与贝壳一致）
+  // ② keCol2 一级列表：白底，不限 + 国家/线路（宽 104 ≈ 屏宽 26%）
+  // ③ keCol3 选项列表：城市（行尾 › 下钻）/ 城区·站点（行尾单选圈），占余下全部宽度
+  keSheet: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-  },
-  locTab: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.surface2,
-  },
-  locTabActive: {
-    backgroundColor: colors.sidebarActive,
-  },
-  locTabText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  locTabTextActive: { color: colors.primary, fontWeight: '600' },
-  // 链家式两栏（区域 / 地铁 / 小区共用）：左栏一级、右栏二级
-  locTwoCol: {
-    flexDirection: 'row',
-    height: 300,
-    // 抵消 dropPanel 的 paddingHorizontal，让左栏贴面板边缘（链家观感）
+    height: 400,
+    // 通栏：抵消 dropPanel 的水平内距与顶部内距（贝壳面板无留白、直角）
     marginHorizontal: -16,
+    marginTop: -12,
     overflow: 'hidden',
   },
-  locColLeft: {
-    width: 96,
+  keRail: {
+    width: 84,
+    flexShrink: 0,
     backgroundColor: colors.surface2,
+  },
+  keRailItem: {
+    height: 48,
+    justifyContent: 'center',
+    paddingLeft: 16,
+  },
+  keRailItemActive: {
+    backgroundColor: colors.surface,
+  },
+  keRailText: { fontSize: 14, color: colors.ink2 },
+  keRailTextActive: { color: colors.primary, fontWeight: '600' },
+  keCol2: {
+    width: 104,
+    flexShrink: 0,
+    backgroundColor: colors.surface,
     borderRightWidth: StyleSheet.hairlineWidth,
     borderRightColor: colors.border,
   },
-  // 区域面板左栏宽度由 areaLeftWidth（按最长国家名动态推导，见渲染处）内联注入；
-  // 此处 base 96 仅用于地铁左栏放线路名，面积模式会被内联 width 覆盖
-  locColLeftContent: { paddingVertical: 4 },
-  locColItem: {
-    minHeight: 44,
+  // ⚠️ keCol2/keCol3 都是 ScrollView：react-native-web 给 ScrollView 基准样式带 flexGrow:1，
+  // 渲染处必须内联 flexGrow:0 / flexShrink:0（keCol2）压过它，否则 ② 栏会被撑宽、③ 栏被挤窄。
+  // keCol3 用 flex:1（basis 0）吃掉剩余宽度，行为正确，无需处理。
+  keCol3: { flex: 1, backgroundColor: colors.surface },
+  keRow: {
+    height: 44,
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
+  },
+  keRowActive: { backgroundColor: colors.surface },
+  keRowText: { fontSize: 14, color: colors.ink },
+  keRowTextActive: { color: colors.primary, fontWeight: '600' },
+  keSection: {
+    fontSize: 12,
+    color: colors.ink3,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  keOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 52,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
   },
-  locColItemActive: {
+  keOptionMain: { flex: 1, paddingRight: 8 },
+  keOptionText: { fontSize: 14, color: colors.ink },
+  keOptionTextActive: { color: colors.primary, fontWeight: '600' },
+  keRowSub: { fontSize: 11, color: colors.ink3, marginTop: 2 },
+  keChevron: { fontSize: 18, color: colors.ink3, marginLeft: 4 },
+  keRadio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: colors.ink3,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.surface,
-    borderLeftColor: colors.primary,
   },
-  locColText: { fontSize: 13, color: colors.ink2 },
-  locColTextActive: { color: colors.primary, fontWeight: '600' },
-  locColRight: { flex: 1 },
-  locColRightContent: { padding: 12, paddingBottom: 4 },
-  // 下钻到省市后，右栏顶部「← 国家」返回行
-  locDrillHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  locDrillBack: { fontSize: 13, color: colors.ink3 },
+  keRadioOn: { borderColor: colors.primary, backgroundColor: colors.primary },
+  keRadioDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#ffffff' },
+  keBack: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 2 },
+  keBackText: { fontSize: 12, color: colors.ink3 },
   filterChip: {
     minHeight: 44,
     justifyContent: 'center',

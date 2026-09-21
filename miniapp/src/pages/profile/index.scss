@@ -11,6 +11,21 @@
   }
 }
 
+/* ===== 顶部操作条：右上角客服入口（对齐贝壳导航栏右上角客服，未登录引导登录） ===== */
+.profile-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 20rpx 24rpx 8rpx;
+
+  &__support {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12rpx;
+  }
+}
+
 /* ===== 通用卡片容器 ===== */
 .panel {
   margin: 0 24rpx 8rpx;
@@ -107,6 +122,7 @@
   &__top {
     display: flex;
     align-items: center;
+    justify-content: space-between;
   }
 
   /* 实底卡内头像用白色半透明底 + 白字 */
@@ -116,6 +132,41 @@
 
     .avatar-text {
       color: var(--primary-foreground);
+    }
+  }
+
+  /* 未登录态头像居右（贝壳式：文字左 + 头像右） */
+  &__top .avatar--guest {
+    margin-right: 0;
+    margin-left: 28rpx;
+  }
+
+  /* 右上角客服入口：实底卡上白描耳机，深色半透明底保证对比 */
+  &__support {
+    width: 64rpx;
+    height: 64rpx;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.18);
+    margin-left: 24rpx;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 未登录平铺变体：去掉实底卡外壳，登录/注册直接平铺在页面背景上（对齐贝壳/App） */
+  &--flat {
+    background-color: transparent;
+    box-shadow: none;
+    padding: 32rpx 28rpx 8rpx;
+    color: var(--ink);
+
+    .owner-hero__name {
+      color: var(--ink);
+    }
+
+    .avatar--guest {
+      background-color: #f2f3f5;
     }
   }
 
@@ -217,11 +268,33 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  position: relative;
 
   .avatar-text {
     font-size: 44rpx;
     font-weight: 600;
     color: var(--primary);
+  }
+
+  .avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: #f2f3f5;
+  }
+
+  /* 更换头像角标：登录后点击头像即可更换 */
+  .avatar__badge {
+    position: absolute;
+    right: -4rpx;
+    bottom: -4rpx;
+    width: 40rpx;
+    height: 40rpx;
+    border-radius: 50%;
+    background-color: var(--ink3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 

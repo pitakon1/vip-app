@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { View, Text, Button, Input } from '@tarojs/components'
+import { View, Text, Button, Input, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import BottomNav from '@/components/BottomNav'
 import useAuthStore from '@/stores/auth'
-import { authApi, companyApi, leasesApi } from '@/services/api'
+import { authApi, chatApi, companyApi, leasesApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { iconStyle } from '@/utils/icons'
 import type { IconKey } from '@/utils/icons'
@@ -239,9 +239,56 @@ export default function ProfilePage() {
     Taro.navigateTo({ url })
   }
 
+  /** 右上角客服入口：未登录引导登录，已登录进入「与平台客服」的 IM 会话 */
+  const openSupport = async () => {
+    if (!user) {
+      Taro.navigateTo({ url: '/pages/login/index' })
+      return
+    }
+    try {
+      const res: any = await chatApi.support()
+      const conv = Array.isArray(res) ? res[0] : res?.data
+      if (!conv?.id) {
+        Taro.showToast({ title: '客服暂未开通', icon: 'none' })
+        return
+      }
+      Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
+    } catch {
+      Taro.showToast({ title: '客服暂未开通', icon: 'none' })
+    }
+  }
+
   /** 无后端接口的入口：只做结构对齐，点击明确提示未开放，不伪造成功 */
   const handleTodo = (label: string) => {
     Taro.showToast({ title: `「${label}」暂未开放`, icon: 'none' })
+  }
+
+  /** 已登录头像：点击选图并上传；未登录引导登录 */
+  const pickAndUploadAvatar = () => {
+    if (!user) {
+      Taro.navigateTo({ url: '/pages/login/index' })
+      return
+    }
+    Taro.chooseImage({
+      count: 1,
+      sizeType: ['compressed'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const filePath = res.tempFilePaths?.[0]
+        if (!filePath) return
+        try {
+          const up: any = await authApi.uploadAvatar(filePath)
+          const latest = up?.data ?? up
+          const token = useAuthStore.getState().token
+          if (latest && token) useAuthStore.getState().login(token, latest)
+          Taro.setStorageSync('user', latest)
+          loadFromStorage()
+          showToast('头像已更新')
+        } catch (e: any) {
+          showToast(e?.message || '头像上传失败')
+        }
+      },
+    })
   }
 
   const showToast = (msg: string) => {
@@ -516,25 +563,54 @@ export default function ProfilePage() {
 
   return (
     <View className={`profile-page${hasBottomNav ? ' profile-page--nav' : ''}`}>
+      {/* 顶部操作条：右上角客服入口（对齐贝壳导航栏右上角客服，未登录引导登录） */}
+      <View className='profile-topbar'>
+        <View className='profile-topbar__support' onClick={openSupport}>
+          <View className='icon-svg' style={iconStyle('headset', 22)} />
+        </View>
+      </View>
+
       {/* ===== C 端（业主/租客）统一「我的」：实底用户卡 + 资产 + 统一宫格 + 统一设置 ===== */}
       {isC && (
         <>
-          {/* 统一用户卡：底部按能力挂当前租约条（业主资产信息已并入「房源管理」） */}
-          <View className='owner-hero'>
-            <View className='owner-hero__top'>
-              <View className='avatar'>
-                <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
+          {/* 统一用户卡：未登录去掉实底卡外壳，登录/注册直接平铺在页面背景上（对齐贝壳/App） */}
+          <View className={`owner-hero${!user ? ' owner-hero--flat' : ''}`}>
+            {!user ? (
+              /* 贝壳式未登录卡：左侧「登录/注册」大字 + 右侧灰色默认头像，整卡点击进登录页 */
+              <View
+                className='owner-hero__top'
+                onClick={() => Taro.navigateTo({ url: '/pages/login/index' })}
+              >
+                <View className='owner-hero__info'>
+                  <Text className='owner-hero__name'>登录/注册</Text>
+                </View>
+                <View className='avatar avatar--guest'>
+                  <View className='icon-svg' style={iconStyle('user', 28)} />
+                </View>
               </View>
-              <View className='owner-hero__info'>
-                <View className='owner-hero__name-row'>
-                  <Text className='owner-hero__name'>{user?.name || '用户'}</Text>
-                  <View className='owner-hero__badge'>
-                    <Text>{ROLE_TEXT[role || ''] || '用户'}</Text>
+            ) : (
+              <View className='owner-hero__top'>
+                <View className='avatar' onClick={pickAndUploadAvatar}>
+                  {user?.avatar_url ? (
+                    <Image className='avatar-img' src={user.avatar_url} mode='aspectFill' />
+                  ) : (
+                    <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
+                  )}
+                  <View className='avatar__badge'>
+                    <View className='icon-svg' style={iconStyle('edit', 16)} />
                   </View>
                 </View>
-                {user?.email && <Text className='owner-hero__email'>{user.email}</Text>}
+                <View className='owner-hero__info'>
+                  <View className='owner-hero__name-row'>
+                    <Text className='owner-hero__name'>{user?.name || '用户'}</Text>
+                    <View className='owner-hero__badge'>
+                      <Text>{ROLE_TEXT[role || ''] || '用户'}</Text>
+                    </View>
+                  </View>
+                  {user?.email && <Text className='owner-hero__email'>{user.email}</Text>}
+                </View>
               </View>
-            </View>
+            )}
 
             {/* 租客能力：当前租约条（点击进入「我的租约」列表） */}
             {isTenant && lease && (
@@ -553,7 +629,7 @@ export default function ProfilePage() {
             )}
           </View>
 
-          {/* 常用功能：统一宫格（业主入口 + 租客入口按能力过滤，可并存） */}
+          {/* 常用功能：统一宫格保留胶囊卡片外壳（业主入口 + 租客入口按能力过滤，可并存） */}
           {cGrid.length > 0 && (
             <>
               <View className='section-title'>
@@ -612,8 +688,12 @@ export default function ProfilePage() {
         <>
           {/* 资料卡 */}
           <View className='profile-card'>
-            <View className='avatar avatar--lg'>
-              <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
+            <View className='avatar avatar--lg' onClick={pickAndUploadAvatar}>
+              {user?.avatar_url ? (
+                <Image className='avatar-img' src={user.avatar_url} mode='aspectFill' />
+              ) : (
+                <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
+              )}
             </View>
             <View className='profile-card__body'>
               <Text className='profile-card__name'>{user?.name || '管理员'}</Text>
@@ -655,8 +735,12 @@ export default function ProfilePage() {
         <>
           {/* 员工 / 经纪端个人卡（对齐管理员端：编辑资料入口） */}
           <View className='profile-card'>
-            <View className='avatar avatar--lg'>
-              <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
+            <View className='avatar avatar--lg' onClick={pickAndUploadAvatar}>
+              {user?.avatar_url ? (
+                <Image className='avatar-img' src={user.avatar_url} mode='aspectFill' />
+              ) : (
+                <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
+              )}
             </View>
             <View className='profile-card__body'>
               <Text className='profile-card__name'>{user?.name || '用户'}</Text>

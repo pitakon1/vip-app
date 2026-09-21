@@ -1,0 +1,238 @@
+.loc-page {
+  min-height: 100vh;
+  background: var(--surface, #ffffff);
+}
+
+/* 顶部搜索 */
+.loc-search {
+  padding: 12px 16px 8px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface, #ffffff);
+}
+
+.loc-search__box {
+  display: flex;
+  align-items: center;
+  background: var(--field-fill, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--field-fill-border, rgba(0, 0, 0, 0.06));
+  border-radius: 18px;
+  height: 40px;
+  padding: 0 14px;
+}
+
+.loc-search__icon {
+  font-size: 16px;
+  color: var(--ink-3, #98a1ab);
+  margin-right: 8px;
+}
+
+.loc-search__input {
+  flex: 1;
+  font-size: 14px;
+  color: var(--ink, #1c2733);
+}
+
+.loc-search__ph {
+  color: var(--ink-3, #98a1ab);
+}
+
+.loc-search__clear {
+  font-size: 14px;
+  color: var(--ink-3, #98a1ab);
+  padding: 2px 4px;
+}
+
+/* 当前定位 */
+.loc-current {
+  display: flex;
+  align-items: center;
+  margin: 8px 16px 0;
+  background: var(--surface, #ffffff);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.loc-current__icon-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  background: var(--primary, #14b8a6);
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  display: flex;
+}
+
+.loc-current__icon {
+  font-size: 14px;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.loc-current__main {
+  flex: 1;
+}
+
+.loc-current__label {
+  font-size: 11px;
+  color: var(--ink-3, #98a1ab);
+}
+
+.loc-current__city {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink, #1c2733);
+  margin-top: 2px;
+}
+
+.loc-current__tag {
+  background: rgba(20, 184, 166, 0.12);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.loc-current__tag-text {
+  font-size: 12px;
+  color: var(--primary, #14b8a6);
+  font-weight: 600;
+}
+
+/* 热门城市 */
+.loc-hot {
+  margin: 12px 16px 0;
+}
+
+.loc-sec-title {
+  font-size: 12px;
+  color: var(--ink-3, #98a1ab);
+  margin-bottom: 10px;
+}
+
+.loc-hot__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.loc-chip {
+  background: var(--field-fill, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--field-fill-border, rgba(0, 0, 0, 0.06));
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 14px;
+  color: var(--ink-2, #55606c);
+}
+
+.loc-chip--active {
+  background: rgba(20, 184, 166, 0.12);
+  border-color: rgba(20, 184, 166, 0.12);
+}
+
+.loc-chip__text--active {
+  color: var(--primary, #14b8a6);
+  font-weight: 700;
+}
+
+/* 国家胶囊 Tab：flex wrap 自动换行，不滑屏不截断 */
+.loc-countries {
+  margin: 12px 16px 0;
+}
+
+.loc-countries__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.loc-country-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--field-fill, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--field-fill-border, rgba(0, 0, 0, 0.06));
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 14px;
+  color: var(--ink-2, #55606c);
+  box-sizing: border-box;
+}
+
+.loc-country-chip--active {
+  background: var(--primary, #14b8a6);
+  border-color: var(--primary, #14b8a6);
+}
+
+.loc-country-chip__text--active {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* 城市列表 */
+.loc-city-list {
+  margin-top: 12px;
+}
+
+.loc-result-title {
+  font-size: 12px;
+  color: var(--ink-3, #98a1ab);
+  padding: 0 16px;
+  margin-bottom: 4px;
+}
+
+.loc-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.loc-row--active {
+  background: rgba(20, 184, 166, 0.04);
+}
+
+.loc-row__main {
+  flex: 1;
+}
+
+.loc-row__name {
+  font-size: 15px;
+  color: var(--ink, #1c2733);
+}
+
+.loc-row__name--active {
+  color: var(--primary, #14b8a6);
+  font-weight: 700;
+}
+
+.loc-row__sub {
+  font-size: 11px;
+  color: var(--ink-3, #98a1ab);
+  margin-top: 2px;
+}
+
+.loc-row__check {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--primary, #14b8a6);
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 22px;
+  text-align: center;
+}
+
+/* 搜索结果 */
+.loc-results {
+  padding: 0 0 16px;
+  height: calc(100vh - 60px);
+  box-sizing: border-box;
+}
+
+.loc-empty {
+  padding: 60px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--ink-3, #98a1ab);
+}

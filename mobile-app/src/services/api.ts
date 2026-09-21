@@ -23,6 +23,12 @@ export const authApi = {
   me: () => api.get('/auth/me'),
   // 「我的」账户/设置自助
   updateMe: (data: any) => api.patch('/auth/me', data),
+  // 头像上传（multipart）：后端校验、落盘到 /uploads/avatars 并回写 avatar_url，返回最新用户
+  uploadAvatar: (file: any) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post('/auth/me/avatar', fd);
+  },
   changePassword: (data: { old_password: string; new_password: string }) =>
     api.post('/auth/me/password', data),
   preferences: () => api.get('/auth/me/preferences'),
@@ -210,6 +216,8 @@ export const performanceApi = {
 export const chatApi = {
   conversations: (params?: any) => api.get('/chat/conversations', { params }),
   createConversation: (data: any) => api.post('/chat/conversations', data),
+  /** 当前用户与「平台客服」的会话（无则创建），IM 客服入口使用 */
+  support: () => api.get('/chat/support'),
   messages: (id: string, params?: any) => api.get(`/chat/conversations/${id}/messages`, { params }),
   sendMessage: (id: string, data: any) => api.post(`/chat/conversations/${id}/messages`, data),
   /** 即时聊天 WebSocket 地址（含鉴权 token）；发送走 REST，WS 仅用于接收实时消息。 */

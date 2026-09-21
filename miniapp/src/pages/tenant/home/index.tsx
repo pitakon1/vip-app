@@ -13,6 +13,7 @@ import type { NotificationType } from '@/types'
 import { iconStyle } from '@/utils/icons'
 import { getCacheSync, isFreshSync, setCache } from '@/utils/cache'
 import BottomNav from '@/components/BottomNav'
+import { useLocationStore } from '@/stores/location'
 import './index.scss'
 
 const TYPE_MAP: Record<NotificationType, { text: string; color: string; bg: string }> = {
@@ -87,10 +88,11 @@ export default function TenantHomePage() {
   const [loading, setLoading] = useState(false)
   const [biz, setBiz] = useState<'rent' | 'buy'>('rent')
   const [keyword, setKeyword] = useState('')
-  const [city, setCity] = useState('')
   const [translateText, setTranslateText] = useState('')
   const [translated, setTranslated] = useState('')
   const [translating, setTranslating] = useState(false)
+  // 全局定位（国家 → 城市，主页左上角）
+  const locationSel = useLocationStore((s) => s.selection)
   // 已收藏房源集合 + 请求中的房源（避免连点重复提交）
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
   const [favPending, setFavPending] = useState<Set<string>>(new Set())
@@ -233,10 +235,7 @@ export default function TenantHomePage() {
   const newItems = rentItems.slice(0, 6)
   const commItems = saleItems.slice(0, 3)
 
-  const cities = Array.from(
-    new Set(properties.map((p) => p?.city).filter(Boolean))
-  ) as string[]
-  const cityLabel = city || cities[0] || '选择城市'
+  const cityLabel = locationSel?.cityLabel || '选择城市'
 
   const feedItems = notifications.slice(0, 4)
 
@@ -248,14 +247,7 @@ export default function TenantHomePage() {
   }
 
   const handlePickCity = () => {
-    if (cities.length === 0) {
-      Taro.showToast({ title: '暂无可选城市', icon: 'none' })
-      return
-    }
-    Taro.showActionSheet({
-      itemList: ['全部城市', ...cities],
-      success: (res) => setCity(res.tapIndex === 0 ? '' : cities[res.tapIndex - 1])
-    })
+    Taro.navigateTo({ url: '/pages/location/index' })
   }
 
   const renderRail = (title: string, items: any[]) => (

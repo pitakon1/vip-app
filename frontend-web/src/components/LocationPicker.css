@@ -1,0 +1,143 @@
+.lp-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.lp-panel {
+  width: 100%;
+  max-width: 560px;
+  height: 58%;
+  min-height: 320px;
+  background: #ffffff;
+  border-radius: 18px 18px 0 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -10px 30px rgba(28, 39, 51, 0.12);
+}
+
+.lp-head {
+  padding: 16px 16px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #ece7df;
+}
+
+.lp-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1c2733;
+}
+
+.lp-close {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  color: #98a1ab;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.lp-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.lp-left {
+  width: 96px;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.025);
+  overflow: auto;
+}
+
+.lp-left-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 14px 12px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  box-sizing: border-box;
+}
+
+.lp-left-item--active {
+  background: #ffffff;
+  border-left-color: #14b8a6;
+}
+
+.lp-left-text {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  color: #55606c;
+}
+
+.lp-left-text--active {
+  color: #14b8a6;
+  font-weight: 700;
+}
+
+.lp-left-sub {
+  display: block;
+  font-size: 11px;
+  color: #98a1ab;
+  margin-top: 2px;
+}
+
+.lp-left-sub--active {
+  color: #14b8a6;
+}
+
+.lp-right {
+  flex: 1;
+  padding: 0 12px;
+  overflow-y: auto;
+}
+
+.lp-right-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 14px 0;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.lp-right-text {
+  flex: 1;
+  font-size: 15px;
+  color: #55606c;
+  text-align: left;
+}
+
+.lp-right-text--active {
+  color: #14b8a6;
+  font-weight: 700;
+}
+
+.lp-right-sub {
+  font-size: 11px;
+  color: #98a1ab;
+  margin: 0 8px;
+}
+
+.lp-right-check {
+  font-size: 16px;
+  color: #98a1ab;
+  line-height: 1;
+}
+
+.lp-right-check--active {
+  color: #14b8a6;
+}

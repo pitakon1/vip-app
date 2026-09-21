@@ -26,6 +26,7 @@ from app.db import engine, get_session
 from app.core.auth import get_current_user
 from app.core.security import decode_access_token
 from app.models import ChatParticipant, Conversation, Message, MessageType, User
+from app.models.user import UserRole
 from app.schemas.chat import ConversationOut, MessageOut
 from app.services.chat_participants import is_participant, participant_ids, sync_participants
 
@@ -252,6 +253,49 @@ def _persist_message(
 
 
 # ---------------- REST ----------------
+@router.get("/support", response_model=ConversationOut)
+def support_conversation(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """返回当前用户与「平台客服」间的会话（无则创建）。
+
+    IM 客服复用既有会话体系：客服账号取最早创建的 admin（管理员登录三端聊天
+    列表即为该会话回复）。按 entity_type='support' 幂等，同一用户只保留一个客服会话。
+    """
+    cs = session.exec(
+        select(User)
+        .where(User.role == UserRole.admin, User.deleted_at.is_(None))
+        .order_by(User.created_at)
+    ).first()
+    if cs is None or str(cs.id) == str(user.id):
+        raise HTTPException(status_code=404, detail="客服暂未开通")
+
+    existing = session.exec(
+        select(Conversation).where(
+            Conversation.entity_type == "support",
+            Conversation.deleted_at.is_(None),
+        )
+    ).all()
+    for conv in existing:
+        ids = participant_ids(conv)
+        if str(user.id) in ids and str(cs.id) in ids:
+            return _conversation_payload(conv)
+
+    conv = Conversation(
+        title="平台客服",
+        entity_type="support",
+        participant_ids=[str(user.id), str(cs.id)],
+        created_by=user.id,
+    )
+    session.add(conv)
+    session.flush()
+    sync_participants(session, conv)
+    session.commit()
+    session.refresh(conv)
+    return _conversation_payload(conv)
+
+
 @router.get("/conversations", response_model=list[ConversationOut])
 def my_conversations(
     limit: int = Query(50, ge=1, le=200),

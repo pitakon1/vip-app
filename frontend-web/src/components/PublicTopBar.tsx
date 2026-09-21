@@ -7,12 +7,17 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import LocationPicker from '@/components/LocationPicker'
+import { useLocationStore } from '@/stores/location'
+import { useState } from 'react'
 import brandLogo from '@/assets/haofang-logo.jpg'
 
 const PublicTopBar = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
+  const cityLabel = useLocationStore((s) => s.selection.cityLabel)
+  const [locOpen, setLocOpen] = useState(false)
   // 只读 localStorage：顶栏是纯展示件，不必订阅 auth store 而触发整页重渲染
   const token = typeof window === 'undefined' ? null : localStorage.getItem('token')
 
@@ -56,6 +61,18 @@ const PublicTopBar = () => {
           />
         </button>
 
+        {/* 左上角全局定位：国家 → 城市（链家式位置） */}
+        <button
+          type="button"
+          className="pub-loc"
+          onClick={() => setLocOpen(true)}
+          aria-label="选择城市"
+        >
+          <span className="pub-loc__pin">📍</span>
+          <span className="pub-loc__text">{cityLabel || '选择城市'}</span>
+          <span className="pub-loc__arrow">▾</span>
+        </button>
+
         <nav className="pub-nav">
           {navItems.map((item) => (
             <button
@@ -96,6 +113,7 @@ const PublicTopBar = () => {
           )}
         </div>
       </div>
+      <LocationPicker visible={locOpen} onClose={() => setLocOpen(false)} />
     </header>
   )
 }

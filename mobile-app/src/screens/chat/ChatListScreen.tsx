@@ -8,6 +8,8 @@ import colors from '@/theme/colors';
 import { chatApi } from '@/services/api';
 import { notifyError } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
+import { useI18n } from '@/i18n';
+import { useAuthStore } from '@/stores/auth';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 
 interface Conversation {
@@ -23,6 +25,8 @@ export default function ChatListScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
+  const user = useAuthStore((s) => s.user);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -47,13 +51,41 @@ export default function ChatListScreen() {
   }, []);
 
   useEffect(() => {
-    if (isFocused) load();
-  }, [isFocused, load]);
+    // 未登录不请求会话列表（匿名必 401），只展示访客引导
+    if (isFocused && user) load();
+  }, [isFocused, load, user]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     load();
   }, [load]);
+
+  // 访客态：浏览无需注册；消息是需登录的动作 → 引导登录（对齐贝壳）
+  if (!user) {
+    return (
+      <View style={[styles.guest, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <View style={styles.guestIcon}>
+          <Ionicons name="chatbubble-ellipses-outline" size={30} color={colors.primary} />
+        </View>
+        <Text style={styles.guestTitle}>登录后查看消息</Text>
+        <Text style={styles.guestSub}>{t('pub.guestHint')}</Text>
+        <TouchableOpacity
+          style={styles.guestPrimaryBtn}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('Login')}
+        >
+          <Text style={styles.guestPrimaryText}>{t('pub.login')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.guestGhostBtn}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('Register')}
+        >
+          <Text style={styles.guestGhostText}>{t('pub.register')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const renderItem = ({ item }: { item: Conversation }) => (
     <TouchableOpacity
@@ -116,6 +148,44 @@ export default function ChatListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  guest: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  guestIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.sidebarActive,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  guestTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, marginBottom: 6 },
+  guestSub: { fontSize: 13, color: colors.ink3, textAlign: 'center', marginBottom: 24 },
+  guestPrimaryBtn: {
+    width: '100%',
+    height: 46,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  guestPrimaryText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' },
+  guestGhostBtn: {
+    width: '100%',
+    height: 46,
+    borderRadius: colors.radius.full,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestGhostText: { color: colors.primary, fontSize: 15, fontWeight: '700' },
   msgItem: {
     flexDirection: 'row',
     alignItems: 'center',

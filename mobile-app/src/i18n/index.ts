@@ -280,6 +280,7 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'pub.noMore': '没有更多了',
     'pub.retry': '重试',
     'pub.guestHint': '浏览房源、学校、小区无需注册',
+    'pub.loginRegister': '登录/注册',
 
     // ---------- 房源列表 ----------
     'pub.listingsTitle': '房源',
@@ -682,6 +683,7 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'pub.noMore': 'No more results',
     'pub.retry': 'Retry',
     'pub.guestHint': 'Browse homes, schools and projects without signing up',
+    'pub.loginRegister': 'Login / Register',
 
     'pub.listingsTitle': 'Homes',
     'pub.listingsHint': 'All listings are public — sign in only when you want to contact the owner or agent.',
@@ -1077,6 +1079,7 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'pub.noMore': 'ไม่มีข้อมูลเพิ่มเติม',
     'pub.retry': 'ลองใหม่',
     'pub.guestHint': 'ดูบ้าน โรงเรียน และโครงการได้โดยไม่ต้องสมัคร',
+    'pub.loginRegister': 'เข้าสู่ระบบ / สมัคร',
 
     'pub.listingsTitle': 'ประกาศ',
     'pub.listingsHint': 'ประกาศทั้งหมดเปิดให้ดูสาธารณะ เข้าสู่ระบบเฉพาะเมื่อต้องการติดต่อเจ้าของหรือนายหน้า',

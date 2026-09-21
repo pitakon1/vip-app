@@ -441,7 +441,7 @@ export default function PropertyBrowseScreen() {
                   点省市后右栏换成它的城区 chips（顶部「返回」回到省市列表）。
                   此前把国家/省市平铺在同一列，用户要在混杂的长列表里找城市。 */}
               <View style={styles.panelArea}>
-                <ScrollView style={[styles.areaCol, { width: areaLeftWidth }]} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                <ScrollView style={[styles.areaCol, { width: areaLeftWidth, flexGrow: 0, flexShrink: 0 }]} nestedScrollEnabled showsVerticalScrollIndicator={false}>
                   {countryList.map((c) => (
                     <TouchableOpacity
                       key={c}

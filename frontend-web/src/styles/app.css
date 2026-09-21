@@ -179,6 +179,19 @@
 }
 .rent-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
 .rent-avatar--lg { width: 48px; height: 48px; font-size: 18px; }
+/* 头像可点击上传：去掉按钮默认边框/内边距，图片铺满裁圆 */
+.rent-avatar--upload {
+  border: none;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+.rent-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--rent-radius-full);
+}
 
 /* 移动端汉堡按钮 */
 .rent-menu-toggle {
@@ -595,6 +608,26 @@
   display: flex; align-items: center; gap: 14px; padding: 20px;
   background: rgba(var(--rent-primary-rgb), 0.06);
 }
+/* 未登录态：贝壳式整卡可点（左侧「登录/注册」大字 + 右侧默认头像） */
+.rent-my__guest {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%;
+  text-decoration: none; color: inherit;
+}
+.rent-my__guest-info { flex: 1; min-width: 0; }
+.rent-avatar--guest {
+  background: var(--rent-surface-2);
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+}
+/* 用户卡右上角客服入口 */
+.rent-my__support {
+  width: 38px; height: 38px; border: none; border-radius: 50%;
+  background: var(--rent-surface-2); color: var(--rent-ink-2);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; margin-left: auto;
+  transition: background 0.15s, color 0.15s;
+}
+.rent-my__support:hover { background: var(--rent-surface-3); color: var(--rent-primary); }
 .rent-my__settings { padding: 8px 16px; display: flex; flex-direction: column; }
 .rent-my__row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;

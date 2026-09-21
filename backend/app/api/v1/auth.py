@@ -1,11 +1,14 @@
 """认证路由：登录、注册、刷新令牌、验证码、微信授权、获取当前用户信息。"""
+import hashlib
 import logging
+import os
 import re
 import secrets
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 from pydantic import BaseModel, ConfigDict
@@ -24,6 +27,7 @@ from app.core.security import (
     verify_otp,
 )
 from app.core.auth import get_current_user, is_token_revoked, serialize_user
+from app.core.uploads import detect_image_mime, save_upload
 from app.models.user import User, UserRole
 from app.models.owner import Owner
 from app.models.tenant import Tenant
@@ -40,6 +44,19 @@ logger = logging.getLogger(__name__)
 
 _PHONE_RE = re.compile(r"^\+?[0-9\-\s]{6,15}$")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+# 头像上传：落盘目录 / 静态 URL 前缀 / 体积上限 / 允许的扩展名与魔数。
+# backend/uploads/avatars 由 main.py 以 /uploads/avatars 静态托管（同 properties）。
+AVATAR_UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "avatars"
+AVATAR_URL_PREFIX = "/uploads/avatars/"
+MAX_AVATAR_SIZE = 2 * 1024 * 1024  # 2MB
+ALLOWED_AVATAR_TYPES: dict[str, tuple[str, object]] = {
+    ".jpg": ("image/jpeg", None),
+    ".jpeg": ("image/jpeg", None),
+    ".png": ("image/png", None),
+    ".webp": ("image/webp", None),
+    ".gif": ("image/gif", None),
+}
 
 
 def _is_valid_phone(value: str) -> bool:
@@ -644,6 +661,40 @@ def update_me(
     if data.get("avatar_url") is not None:
         user.avatar_url = data["avatar_url"]
 
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return serialize_user(user)
+
+
+@router.post("/me/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """上传当前用户头像（multipart）。
+
+    图片落到本地 `uploads/avatars`，该目录由 /uploads/avatars 静态托管，前端
+    可直接以返回的站内 URL 作为 img/Image 的 src。校验：扩展名白名单 +
+    文件头魔数确认（挡改名伪装）+ 体积上限（2MB）+ 服务端生成文件名。
+    上传成功后直接回写 user.avatar_url 并返回最新用户。
+    """
+    digest = hashlib.sha256()
+    avatar_url = save_upload(
+        file,
+        AVATAR_UPLOAD_DIR,
+        MAX_AVATAR_SIZE,
+        set(ALLOWED_AVATAR_TYPES),
+        {ext: {mime} for ext, (mime, _) in ALLOWED_AVATAR_TYPES.items()},
+        detector=detect_image_mime,
+        name_prefix="avatar",
+        url_prefix=AVATAR_URL_PREFIX,
+        label="avatar",
+        supported_text="（支持 JPG / PNG / WEBP / GIF）",
+        digest=digest,
+    )
+    user.avatar_url = avatar_url
     session.add(user)
     session.commit()
     session.refresh(user)

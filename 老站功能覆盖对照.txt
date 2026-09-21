@@ -1,0 +1,143 @@
+老站(ithaihome.com) vs 新代码 功能覆盖度对照
+======================================================================
+老站功能项: 39  |  已覆盖: 19  部分: 8  缺失: 10  超集: 2
+新系统独有(老站没有的): 16 项
+
+【一】老站功能 → 新系统映射
+----------------------------------------------------------------------
+✅ 已覆盖  房源 · 出租列表+多维筛选
+      老站: Fang/index/cid/3，字段 cid/type_id/price/city/district/symianji/wuye/chuzhufs/zjfrom/zjto/mjfrom/mjto
+      新码: 租客·房源浏览 + admin properties（筛选在位）
+✅ 已覆盖  房源 · 出售列表+筛选
+      老站: Fang/index/cid/2，价格 50万-2000万档 12 档
+      新码: 买卖交易闭环 sale_listings / SaleDeals 三端
+⚠️ 部分  房源 · 新楼盘列表
+      老站: Fang/index/cid/1
+      新码: 项目 Project 模型 + admin 房源；有 projects 表
+⚠️ 部分  房源 · 分类维度
+      老站: 物业类型 wuye(住宅/商铺/写字楼/别墅/酒店土地) × 出租方式 chuzhufs(长租/短租/转租/合租)
+      新码: properties.attributes JSONB（不结构化，缺专用筛选）
+⚠️ 部分  房源 · 详情页
+      老站: fanginfo_27530，含周边出租/同价位推荐
+      新码: 租客·房源详情（三端齐）；同类推荐未见
+❌ 缺失  房源 · 动态属性 arrt_N 系统
+      老站: arrt_6~arrt_30 自定义字段（不同类别不同字段集）
+      新码: ❌ 新系统用固定 attributes JSONB，无后台可配动态字段
+✅ 已覆盖  房源 · 地图找房
+      老站: Home/Map/index
+      新码: 移动端 Map/search + 前端地图弹窗
+✅ 已覆盖  小区 · 楼盘库
+      老站: Home/Xiaoqu/index（xiaoqu/38.html 等 2000+ 条）
+      新码: projects 表（name/address/district/amenities）
+⚠️ 部分  开发商 · 品牌库
+      老站: Home/Kaifashang/index（90+ 开发商）
+      新码: projects.developer 字段（无独立开发商档案/页面）
+❌ 缺失  学区房
+      老站: Home/School/index
+      新码: ❌ 无
+⚠️ 部分  经纪人 · 经纪人列表
+      老站: Home/Broker/index，字段 xingming 搜索
+      新码: 员工 Employee 档案；面向公众的经纪人列表页未见
+❌ 缺失  新闻资讯 · 文章列表+分类
+      老站: Home/Article/index，catid 分类，article_id_*
+      新码: ❌ 新系统无 CMS/资讯模块
+❌ 缺失  置业指南（文章分类10）
+      老站: Home/Article/index/catid/10
+      新码: ❌ 无
+✅ 已覆盖  关于我们/平台优势/入驻/联系（单页）
+      老站: Home/Index/aboutus/aid/{12,13,14,16,488}
+      新码: 公司信息端（DESIGN §2.5）
+✅ 已覆盖  用户注册（手机/邮箱双通道+区号）
+      老站: Home/user/reg，areaCode，Api/issetMobileOrEmail
+      新码: auth/register + 多端注册
+✅ 已覆盖  用户登录+验证码
+      老站: Home/user/login，username/password/verify_code
+      新码: auth/login（新系统无图形验证码）
+✅ 已覆盖  用户协议
+      老站: aid/488
+      新码: 注册流程同意勾选 + PDPA consents 表
+✅ 已覆盖  委托出租（业主放租）
+      老站: Home/User/chuzhu（需登录）
+      新码: owner 委托挂牌 consign（owner/marketing）
+✅ 已覆盖  委托出售（业主放盘）
+      老站: Home/User/chushou（需登录）
+      新码: owner 委托 + sale_listings
+✅ 已覆盖  房源留言/咨询（留电话）
+      老站: 详情页 fmdata[uname]/fmdata[utel] + __hash__
+      新码: leads 线索（name/phone/line_id/budget）
+⚠️ 部分  免费发布放租/放盘（公众入口）
+      老站: 列表页按钮「免费发布放租 / 免费发布放盘」
+      新码: 需注册后走 owner 流程；无游客直接发布
+✅ 已覆盖  收藏
+      老站: 前台房源卡含收藏
+      新码: favorites 三端（P1）
+✅ 已覆盖  后台 · 管理员登录
+      老站: Admin/Admin/login（4位验证码）
+      新码: auth/login + RBAC 5 角色
+✅ 已覆盖  后台 · 房源管理
+      老站: Admin/Goods（探测命中）
+      新码: admin properties 三端
+✅ 已覆盖  后台 · 用户/会员管理
+      老站: Admin/User（探测命中）
+      新码: admin users + employee 管理
+✅ 已覆盖  后台 · 订单管理
+      老站: Admin/Order（探测命中）
+      新码: 订单/合同 leases + payments
+❌ 缺失  后台 · 文章/CMS 管理
+      老站: Admin/Article（探测命中）
+      新码: ❌ 无
+⚠️ 部分  后台 · 广告位管理
+      老站: Admin/Ad（探测命中）
+      新码: ❌ 无（运营位 operations 部分覆盖）
+✅ 已覆盖  后台 · 报表统计
+      老站: Admin/Report（探测命中）
+      新码: admin dashboard/trend/reconciliation
+✅ 已覆盖  后台 · 系统设置
+      老站: Admin/System（探测命中）
+      新码: admin settings（含数据备份 tab）
+❌ 缺失  后台 · 模板管理
+      老站: Admin/Template（探测命中）
+      新码: ❌ 无（新系统前端为编译产物）
+⚠️ 部分  后台 · 微信集成
+      老站: Admin/Wechat（探测命中）
+      新码: 小程序登录/通知（WeChat）
+❌ 缺失  后台 · 优惠券
+      老站: Admin/Coupon（探测命中）
+      新码: ❌ 无
+❌ 缺失  后台 · 插件系统
+      老站: Admin/Plugin（探测命中）
+      新码: ❌ 无（新系统无插件机制）
+❌ 缺失  后台 · 评论管理
+      老站: Admin/Comment（探测命中）
+      新码: ❌ 无
+✅ 已覆盖  后台 · Api 接口层
+      老站: Admin/Api（探测命中）
+      新码: REST /api/v1 248 端点
+❌ 缺失  SEO · 伪静态 URL
+      老站: /Home/Fang/index/cid/3.html 等 .html 伪静态
+      新码: ❌ SPA 前端，无 SEO 伪静态
+🔼 超集  多语言
+      老站: 前台中文为主（含少量英文标签）
+      新码: zh/en/th 三语完整
+🔼 超集  移动端
+      老站: ❌ 仅 PC Web（响应式有限）
+      新码: App + 小程序 + 平板
+
+【二】新系统独有能力（老站完全没有）
+----------------------------------------------------------------------
+ 1. 泰国税务子系统（RD API + PKI 签名 + WHT 引擎）   [老站: ❌ 老站无]
+ 2. PDPA 合规（consents/audit_logs/DSR/PII 加密）   [老站: ❌ 老站无]
+ 3. 合同管理 + SHA-256 存证 + 到期预警   [老站: 老站仅文章/房源，无合同体系]
+ 4. 佣金结算 + 业绩自动核算   [老站: 老站无]
+ 5. 考勤 GPS 打卡   [老站: 老站无]
+ 6. 工单报修（状态机 open→closed）   [老站: 老站无]
+ 7. 增值服务订单（清洁/空调/WiFi/税费代缴）   [老站: 老站无]
+ 8. 支付渠道 30+（PromptPay/Stripe/Wise 等）   [老站: 老站无线支付]
+ 9. 通知多通道（Line/WhatsApp/FB/企微/短信/邮件）   [老站: 老站无]
+10. 事件流 events + Outbox + Redis Streams   [老站: 老站无]
+11. 分销体系（broker_partners/referrals/split_deals）   [老站: 老站无]
+12. 多国市场底座（market_configs/本地支付渠道）   [老站: 老站仅泰国单市场]
+13. 数据决策（market_indices/lead_matches/churn 预警）   [老站: 老站无]
+14. 买卖交易闭环（escrow 托管/按揭/AVM 估价）   [老站: 老站仅出售列表，无交易流程]
+15. RBAC 5 角色 + feature_flags 灰度   [老站: 老站为单一后台管理员]
+16. 文档中心（PDF 预览 + 版本 + 哈希）   [老站: 老站无]

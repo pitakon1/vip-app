@@ -2,6 +2,7 @@ import React from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   Alert,
@@ -9,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '@/stores/auth';
@@ -16,7 +18,14 @@ import Card from '@/components/Card';
 import colors from '@/theme/colors';
 import { useI18n, LANG_LABELS } from '@/i18n';
 import { useUserCapabilities } from '@/hooks/useUserCapabilities';
+import { authApi, chatApi } from '@/services/api';
 import type { UserRole } from '@/types';
+
+// 从本地 uri 推断图片扩展名（expo image-picker 未必给 fileName）
+const _extFromUri = (uri: string) => {
+  const m = /\.(jpe?g|png|webp|gif)(\?|#|$)/i.exec(uri);
+  return m ? `.${m[1].toLowerCase()}` : '.jpg';
+};
 
 const roleLabels: Record<UserRole, string> = {
   owner: '业主',
@@ -113,8 +122,12 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const setUser = useAuthStore((state) => state.setUser);
   const { lang, t } = useI18n();
   const navigation = useNavigation<any>();
+
+  // 访客态：浏览无需注册；「我的」只做引导（对齐贝壳）
+  const isGuest = !user;
 
   // 身份按「能力」判断而非单一 role：用户可能「既是业主又是租客」，名下房产/生效租约决定区块是否展示，二者可并存。
   const { canManageProperty, isActiveTenant } = useUserCapabilities();
@@ -264,36 +277,145 @@ export default function ProfileScreen() {
   // C 端统一宫格：所有人显示全部入口（不按角色隐藏）；点开无能力的项进「功能暂未开放」空态页
   const cFuncs = C_FUNC_VISIBLE();
 
+  // 右上角客服入口：未登录点击登录，已登录进入「与平台客服」的 IM 会话
+  const openSupport = async () => {
+    if (!user) {
+      navigation.navigate('Login');
+      return;
+    }
+    try {
+      const res = await chatApi.support();
+      const conv = Array.isArray(res?.data) ? res.data[0] : res?.data;
+      if (!conv?.id) {
+        Alert.alert('提示', '客服暂未开通');
+        return;
+      }
+      navigation.navigate('ChatDetail', {
+        conversationId: conv.id,
+        title: conv.title ?? '平台客服',
+      });
+    } catch {
+      Alert.alert('提示', '客服暂未开通');
+    }
+  };
+
+  // 点击头像选图并上传：仅已登录可操作，未登录引导登录
+  const pickAndUploadAvatar = async () => {
+    if (!user) {
+      navigation.navigate('Login');
+      return;
+    }
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const file = {
+        uri: asset.uri,
+        name: asset.fileName ?? `avatar${_extFromUri(asset.uri)}`,
+        type: asset.mimeType ?? 'image/jpeg',
+      } as any;
+      const res = await authApi.uploadAvatar(file);
+      const updated = res?.data ?? res;
+      if (updated && updated.id) {
+        setUser(updated);
+      } else {
+        Alert.alert('提示', '头像上传成功，请稍后刷新查看');
+      }
+    } catch {
+      Alert.alert('提示', '头像上传失败，请重试');
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}>
-      {/* 用户卡（管理端对齐 admin-mobile-settings.html：公司名 + 编辑资料按钮） */}
-      <View style={styles.profileCard}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {(user?.name ?? user?.full_name ?? '?').slice(0, 1).toUpperCase()}
-          </Text>
-        </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{user?.name ?? user?.full_name ?? '未知用户'}</Text>
-          <View style={styles.userMetaRow}>
-            <View style={styles.roleTag}>
-              <Text style={styles.roleTagText}>{user ? roleLabels[user.role] : '未登录'}</Text>
-            </View>
-            {/* 用户卡统一展示掩码手机号（无手机号降级邮箱），与 Web/小程序「我的」用户卡一致 */}
-            <Text style={styles.userMeta} numberOfLines={1}>
-              {user?.phone ? maskPhone(user.phone) : user?.email ?? '-'}
-            </Text>
-          </View>
-        </View>
-        {isStaff && (
+      {/* 顶部浅色目录条：删除「我的」标题，仅保留右上角客服入口（与贝壳一致位于导航栏右上角） */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          style={styles.supportBtn}
+          activeOpacity={0.7}
+          onPress={openSupport}
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.help')}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="headset-outline" size={22} color={colors.ink2} />
+        </TouchableOpacity>
+      </View>
+
+      {/* 用户区：未登录去掉胶囊外壳，登录/注册直接平铺在页面背景上（对齐贝壳） */}
+      <View style={isGuest ? styles.guestArea : styles.profileCard}>
+        {isGuest ? (
+          /* 贝壳式未登录卡：左侧「登录/注册」大字 + 右侧灰色默认头像，整卡点击进登录页 */
           <TouchableOpacity
-            style={styles.editButton}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('EditProfile')}
+            style={styles.guestCard}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('Login')}
+            accessibilityRole="button"
+            accessibilityLabel={t('pub.loginRegister')}
           >
-            <Ionicons name="create-outline" size={13} color={colors.ink2} />
-            <Text style={styles.editButtonText}>编辑资料</Text>
+            <View style={styles.guestInfo}>
+              <Text style={styles.guestTitle}>{t('pub.loginRegister')}</Text>
+            </View>
+            <View style={styles.guestAvatar}>
+              <Ionicons name="person-outline" size={28} color={colors.ink3} />
+            </View>
           </TouchableOpacity>
+        ) : (
+          <>
+            {/* 已登录头像：点击选图上传；有 avatar_url 显示图片，否则显示首字母 */}
+            <TouchableOpacity
+              style={styles.avatar}
+              activeOpacity={0.8}
+              onPress={pickAndUploadAvatar}
+              accessibilityRole="button"
+              accessibilityLabel={t('profile.editAvatar')}
+            >
+              {user?.avatar_url ? (
+                <Image
+                  source={{ uri: user.avatar_url }}
+                  style={styles.avatarImg}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {(user?.name ?? user?.full_name ?? '?').slice(0, 1).toUpperCase()}
+                </Text>
+              )}
+              {/* 更换头像角标：拍照/更换入口提示（登录后点击头像即可更换） */}
+              <View style={styles.avatarBadge}>
+                <Ionicons name="camera" size={10} color="#fff" />
+              </View>
+            </TouchableOpacity>
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>
+                {user?.name ?? user?.full_name ?? '未知用户'}
+              </Text>
+              <View style={styles.userMetaRow}>
+                <View style={styles.roleTag}>
+                  <Text style={styles.roleTagText}>{user ? roleLabels[user.role] : '未登录'}</Text>
+                </View>
+                {/* 用户卡统一展示掩码手机号（无手机号降级邮箱），与 Web/小程序「我的」用户卡一致 */}
+                <Text style={styles.userMeta} numberOfLines={1}>
+                  {user?.phone ? maskPhone(user.phone) : user?.email ?? '-'}
+                </Text>
+              </View>
+            </View>
+            {isStaff ? (
+              <TouchableOpacity
+                style={styles.editButton}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('EditProfile')}
+              >
+                <Ionicons name="create-outline" size={13} color={colors.ink2} />
+                <Text style={styles.editButtonText}>编辑资料</Text>
+              </TouchableOpacity>
+            ) : null}
+          </>
         )}
       </View>
 
@@ -308,6 +430,11 @@ export default function ProfileScreen() {
                 style={styles.serviceCell}
                 activeOpacity={0.8}
                 onPress={() => {
+                  // 未登录：宫格项是需登录的动作 → 先登录，登录成功后回到本页继续（对齐贝壳）
+                  if (isGuest) {
+                    navigation.navigate('Login');
+                    return;
+                  }
                   const ok = hasFuncCap(isOwner, isTenant, entry.cap);
                   navigation.navigate(
                     ok ? entry.navigate : 'FeatureNotAvailable',
@@ -546,7 +673,7 @@ export default function ProfileScreen() {
             ))}
           </Card>
         </>
-      ) : (
+      ) : isGuest ? null : (
         <>
           {/* 设置（租客对齐业主端：账号与安全/语言/通知/帮助/关于；增值服务在「我的服务」宫格，消息在底部 Tab，均不重复） */}
           <Card title={t('profile.settings')}>
@@ -582,9 +709,11 @@ export default function ProfileScreen() {
         </>
       )}
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
-        <Text style={styles.logoutText}>退出登录</Text>
-      </TouchableOpacity>
+      {!isGuest && (
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
+          <Text style={styles.logoutText}>退出登录</Text>
+        </TouchableOpacity>
+      )}
 
       {isAdmin && <Text style={styles.footerText}>{`${APP_COMPANY} 管理后台 · ${APP_VERSION}`}</Text>}
     </ScrollView>
@@ -601,7 +730,31 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
 
-  /* ===== 用户卡 ===== */
+  /* ===== 顶部浅色顶栏（标题 + 右上角客服，对齐贝壳导航栏右上角客服入口） ===== */
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  topBarTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: -0.02,
+  },
+
+  /* ===== 用户区（未登录：直接平铺在页面背景上，无胶囊外壳 —— 对齐贝壳） ===== */
+  guestArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+
+  /* ===== 用户卡（已登录） ===== */
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -620,16 +773,41 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  avatarBadge: {
+    position: 'absolute',
+    right: -3,
+    bottom: -3,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.ink3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.surface,
   },
   avatarText: {
     color: colors.primaryForeground,
     fontSize: 24,
     fontWeight: '700',
   },
+  avatarImg: {
+    width: 56,
+    height: 56,
+    borderRadius: colors.radius.full,
+  },
   userInfo: {
     marginLeft: 14,
     flex: 1,
     minWidth: 0,
+  },
+  /* 客服入口：平铺图标（去掉胶囊背景，对齐贝壳顶部图标） */
+  supportBtn: {
+    padding: 8,
+    marginLeft: 'auto',
+    flexShrink: 0,
   },
   userName: {
     fontSize: 17,
@@ -667,6 +845,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.ink2,
+  },
+
+  /* ===== 访客态（贝壳式：左侧「登录/注册」大字 + 右侧默认头像，整卡可点） ===== */
+  guestCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flex: 1,
+    paddingVertical: 4,
+  },
+  guestAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  guestInfo: {
+    flex: 1,
+  },
+  guestTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.ink,
+    letterSpacing: -0.2,
   },
 
   /* ===== 管理端设置区块（对齐 admin-mobile-settings.html） ===== */
@@ -737,7 +942,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  /* ===== 我的服务宫格 ===== */
+  /* ===== 我的服务宫格（保留胶囊卡片外壳） ===== */
   serviceGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

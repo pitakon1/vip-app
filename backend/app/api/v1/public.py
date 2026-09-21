@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
 from app.core.events import publish_event
@@ -63,6 +63,7 @@ class PublicListingCard(BaseModel):
     id: Optional[uuid.UUID] = None  # Listing.id
     property_id: Optional[uuid.UUID] = None
     listing_type: Optional[str] = None
+    property_type: Optional[str] = None  # 房源类型（公寓/别墅/写字楼…），C 端「更多」筛选消费
     room_number: Optional[str] = None
     address: Optional[str] = None
     district: Optional[str] = None
@@ -78,6 +79,7 @@ class PublicListingCard(BaseModel):
     building: Optional[str] = None
     orientation: Optional[str] = None
     decoration: Optional[str] = None
+    amenities: Optional[List[Any]] = None
     furnished: bool = False
     cover: Optional[str] = None
     video_url: Optional[str] = None
@@ -315,6 +317,7 @@ def _build_card(
         id=listing.id,
         property_id=listing.property_id,
         listing_type=_enum_value(listing.listing_type),
+        property_type=_enum_value(prop.property_type) if prop else None,
         room_number=prop.room_number if prop else None,
         address=(prop.address if prop else None) or (project.address if project else None),
         district=project.district if project else None,
@@ -330,6 +333,7 @@ def _build_card(
         building=prop.building if prop else None,
         orientation=_enum_value(prop.orientation) if prop else None,
         decoration=_enum_value(prop.decoration) if prop else None,
+        amenities=prop.amenities if prop else None,
         furnished=bool(prop.furnished) if prop else False,
         cover=_cover(prop.photos) if prop else None,
         video_url=prop.video_url if prop else None,
@@ -528,6 +532,13 @@ def list_public_listings(
     bedrooms_max: Optional[int] = Query(None, ge=0, le=20),
     orientation: Optional[str] = None,
     decoration: Optional[str] = None,
+    floor_level: Optional[str] = Query(
+        None, pattern="^(low|mid|high)$",
+        description="楼层段：low=1-5层 / mid=6-15层 / high=16层及以上",
+    ),
+    amenity: Optional[List[str]] = Query(
+        None, description="配套设施（多选任一命中，如 aircon/pool/gym/parking/elevator/balcony）"
+    ),
     status: Optional[str] = Query(
         None, description="房源状态（vacant/rented/renewing/maintenance）。卡片上本就展示，非敏感字段"
     ),
@@ -562,6 +573,25 @@ def list_public_listings(
         conditions.append(Property.orientation == orientation)
     if decoration:
         conditions.append(Property.decoration == decoration)
+    if floor_level == "low":
+        conditions.append(Property.floor.between(1, 5))
+    elif floor_level == "mid":
+        conditions.append(Property.floor.between(6, 15))
+    elif floor_level == "high":
+        conditions.append(Property.floor >= 16)
+    # 配套多选：任一命中即算（JSON 数组按文本模糊匹配，与「区域同义词」口径一致）
+    if amenity:
+        amenity_terms = [a.strip() for a in amenity if a and a.strip()]
+        if amenity_terms:
+            from sqlalchemy import cast, String
+            conditions.append(
+                or_(
+                    *[
+                        Property.amenities.cast(String).ilike(f"%{a}%")
+                        for a in amenity_terms
+                    ]
+                )
+            )
     if status:
         # 用枚举比对而非原样透传字符串：SQLAlchemy 的 Enum 列不接受非法取值，
         # 直接比较会抛 500；这里转成明确的 422。

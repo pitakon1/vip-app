@@ -136,7 +136,7 @@ const App = () => {
           <Route path="/crm" element={<ProtectedRoute denyRoles={['tenant']}><CRM /></ProtectedRoute>} />
           <Route path="/leases" element={<ProtectedRoute denyRoles={['tenant']}><Leases /></ProtectedRoute>} />
           <Route path="/payments" element={<ProtectedRoute denyRoles={['tenant']}><Payments /></ProtectedRoute>} />
-          <Route path="/chat" element={<ProtectedRoute denyRoles={['tenant']}><Chat /></ProtectedRoute>} />
+          <Route path="/chat" element={<Chat />} />
           <Route path="/contracts" element={<ProtectedRoute denyRoles={['tenant']}><Contracts /></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute denyRoles={['tenant']}><Employees /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute denyRoles={['tenant']}><Settings /></ProtectedRoute>} />

@@ -49,6 +49,16 @@ export const authApi = {
   me: () => request({ url: '/auth/me', method: 'GET' }),
   // 「我的」账户/设置自助
   updateMe: (data: any) => request({ url: '/auth/me', method: 'PATCH', data }),
+  // 头像上传（multipart）：后端校验、落盘到 /uploads/avatars 并回写 avatar_url，返回最新用户
+  uploadAvatar: (filePath: string) => {
+    const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
+    return Taro.uploadFile({
+      url: `${baseURL}/auth/me/avatar`,
+      filePath,
+      name: 'file',
+      header: { Authorization: `Bearer ${Taro.getStorageSync('token')}` }
+    })
+  },
   changePassword: (data: { old_password: string; new_password: string }) =>
     request({ url: '/auth/me/password', method: 'POST', data }),
   preferences: () => request({ url: '/auth/me/preferences', method: 'GET' }),
@@ -224,6 +234,7 @@ export const attendanceApi = {
 export const chatApi = {
   conversations: (params?: any) => request({ url: '/chat/conversations', method: 'GET', data: params }),
   createConversation: (data: any) => request({ url: '/chat/conversations', method: 'POST', data }),
+  support: () => request({ url: '/chat/support', method: 'GET' }),
   messages: (id: string, params?: any) =>
     request({ url: `/chat/conversations/${id}/messages`, method: 'GET', data: params }),
   sendMessage: (id: string, data: any) =>

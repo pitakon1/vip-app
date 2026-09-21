@@ -4,8 +4,8 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { propertiesApi, favoritesApi } from '@/services/api'
 import { fmtMoney as formatRent } from '@/utils/format'
-import { AREA_GROUPS } from '@/data/locationArea'
 import { METRO_LINES } from '@/data/locationMetro'
+import { useLocationStore, findCityByKey } from '@/stores/location'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import { usePaginatedList } from '@/hooks/usePaginatedList'
@@ -100,7 +100,50 @@ const BEDROOM_OPTIONS = [
   { key: '1', label: '1室' },
   { key: '2', label: '2室' },
   { key: '3', label: '3室' },
-  { key: '4', label: '4室+' }
+  { key: '4', label: '4室' },
+  { key: '5', label: '5室+' }
+]
+
+// 朝向筛选（贝壳式 8 向；东南亚西晒极强，朝向是硬决策因素）
+const ORIENTATION_OPTIONS = [
+  { key: '', label: '不限' },
+  { key: 'north', label: '北' },
+  { key: 'south', label: '南' },
+  { key: 'east', label: '东' },
+  { key: 'west', label: '西' },
+  { key: 'northeast', label: '东北' },
+  { key: 'northwest', label: '西北' },
+  { key: 'southeast', label: '东南' },
+  { key: 'southwest', label: '西南' }
+]
+
+// 楼层筛选（贝壳式低/中/高；低层 1-5 / 中层 6-15 / 高层 16+）
+const FLOOR_LEVEL_OPTIONS = [
+  { key: '', label: '不限' },
+  { key: 'low', label: '低楼层(1-5层)' },
+  { key: 'mid', label: '中楼层(6-15层)' },
+  { key: 'high', label: '高楼层(16层+)' }
+]
+
+// 装修筛选（东南亚口径：带家具家电是最常见出租形态）
+const DECORATION_OPTIONS = [
+  { key: '', label: '不限' },
+  { key: 'bare', label: '毛坯' },
+  { key: 'simple', label: '简装' },
+  { key: 'standard', label: '精装' },
+  { key: 'luxury', label: '豪装' },
+  { key: 'fully_furnished', label: '带家具家电' }
+]
+
+// 配套设施筛选（东南亚口径，多选任一命中；无供暖/暖气/天然气——东南亚无冬季）
+const AMENITY_OPTIONS = [
+  { key: 'aircon', label: '空调' },
+  { key: 'pool', label: '泳池' },
+  { key: 'gym', label: '健身房' },
+  { key: 'parking', label: '停车位' },
+  { key: 'elevator', label: '电梯' },
+  { key: 'balcony', label: '阳台' },
+  { key: 'garden', label: '花园/庭院' }
 ]
 const AREA_PRESETS = [
   { key: '', label: '不限', min: 0, max: Infinity },
@@ -176,10 +219,10 @@ export default function TenantListingsPage() {
 
   // 按区域 / 按地铁（对齐贝壳「区域 | 地铁」下拉面板）
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area')
-  // 区域面板：国家 → 省市 → 城区 三级下钻（左栏只列国家，右栏先是省市列表，
-  // 点省市后右栏换成它的城区）。此前所有城市纵向堆叠、国家与省市混在一起。
-  const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country)
-  const [areaDrill, setAreaDrill] = useState<string>('') // 已下钻的省市 cityKey，空 = 停在省市列表
+  // 区域面板：定位城市见主页左上角「国家 → 城市」；找房页只列当前城市的 区/街道（链家样式），无国家/省市下钻
+  const locSel = useLocationStore((s) => s.selection)
+  const locCity = useMemo(() => findCityByKey(locSel.cityKey), [locSel.cityKey])
+  const cityDistricts = locCity?.children ?? []
   const [districtSel, setDistrictSel] = useState<string | null>(null)
   const [metroSel, setMetroSel] = useState<string[]>([])
   const [metroDraft, setMetroDraft] = useState<string[]>([])
@@ -202,6 +245,15 @@ export default function TenantListingsPage() {
   const [areaDraftMax, setAreaDraftMax] = useState('')
   const [statusSel, setStatusSel] = useState('')
   const [statusDraft, setStatusDraft] = useState('')
+  // 更多面板新增维度：朝向 / 楼层 / 装修 / 配套（草稿 → 确认 模式，与面积/状态一致）
+  const [orientationSel, setOrientationSel] = useState('')
+  const [orientationDraft, setOrientationDraft] = useState('')
+  const [floorSel, setFloorSel] = useState('')
+  const [floorDraft, setFloorDraft] = useState('')
+  const [decorSel, setDecorSel] = useState('')
+  const [decorDraft, setDecorDraft] = useState('')
+  const [amenitySel, setAmenitySel] = useState<string[]>([])
+  const [amenityDraft, setAmenityDraft] = useState<string[]>([])
   const [sortKey, setSortKey] = useState('default')
 
   // 当前展开的面板
@@ -277,46 +329,33 @@ export default function TenantListingsPage() {
     }
   }
 
-  const allDistricts = useMemo(() => AREA_GROUPS.flatMap((g) => g.children), [])
-  // 左栏国家清单（按 AREA_GROUPS 出现顺序去重，保持业务顺序）
-  const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), [])
-  // 区域面板左栏宽度按最长国家名倒推（当前最长「马来西亚」4 字）：
-  // 最长字幕数 × 字号 26 + 条目水平 padding 16×2 + 左边框 6 + 2 缓冲，避免留白
-  const areaLeftWidth = useMemo(() => {
-    const maxChars = Math.max(...countryList.map((c) => [...c].length))
-    return maxChars * 26 + 16 * 2 + 6 + 2
-  }, [countryList])
-  // 右栏未下钻时的数据源：当前国家下的省市
-  const countryGroups = useMemo(
-    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
-    [areaCountry]
-  )
-  // 右栏已下钻时的数据源：该省市的城区
-  const activeAreaGroup = useMemo(
-    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
-    [areaDrill]
+  // 地铁仅列当前定位城市的线路
+  const cityMetroLines = useMemo(
+    () => METRO_LINES.filter((l) => l.cityKey === locSel.cityKey),
+    [locSel.cityKey]
   )
   const activeLine = useMemo(
-    () => METRO_LINES.find((l) => l.key === metroLine),
-    [metroLine]
+    () => cityMetroLines.find((l) => l.key === metroLine),
+    [cityMetroLines, metroLine]
   )
+  const distNode = (key: string) => cityDistricts.find((d) => d.key === key)
 
-  // 已选区域/地铁的关键词与展示文案
+  // 已选区域/地铁的关键词与展示文案（城市不参与：全局定位决定城市，找房页只做区/街道与地铁）
   const activeLocationKw = useMemo(() => {
     if (districtSel) {
-      const node = allDistricts.find((d) => d.key === districtSel)
+      const node = distNode(districtSel)
       return node ? node.kws : []
     }
     if (metroSel.length) {
-      const stations = METRO_LINES.flatMap((l) => l.stations)
+      const stations = cityMetroLines.flatMap((l) => l.stations)
       return stations.filter((s) => metroSel.includes(s.name)).flatMap((s) => s.kws)
     }
     return []
-  }, [districtSel, metroSel, allDistricts])
+  }, [districtSel, metroSel, cityMetroLines, cityDistricts])
 
   const regionLabel = useMemo(() => {
     if (districtSel) {
-      const node = allDistricts.find((d) => d.key === districtSel)
+      const node = distNode(districtSel)
       return node ? node.label : '区域'
     }
     if (metroSel.length) {
@@ -324,7 +363,13 @@ export default function TenantListingsPage() {
       return metroSel.length > 1 ? `${first} +${metroSel.length - 1}` : first
     }
     return '区域'
-  }, [districtSel, metroSel, allDistricts])
+  }, [districtSel, metroSel, cityDistricts])
+
+  // 全局城市作用域：当前定位城市下，房源必须命中该城任一城区关键词（链家式「定位城市看房」）
+  const globalCityKw = useMemo(
+    () => (locCity ? locCity.children.flatMap((d) => d.kws) : []),
+    [locCity]
+  )
 
   // 区域=实时单选；城区与地铁互斥
   const applyDistrict = (key: string | null) => {
@@ -445,6 +490,10 @@ export default function TenantListingsPage() {
       setAreaCustomMax('')
     }
     setStatusSel(statusDraft)
+    setOrientationSel(orientationDraft)
+    setFloorSel(floorDraft)
+    setDecorSel(decorDraft)
+    setAmenitySel(amenityDraft)
     setOpenTab(null)
   }
 
@@ -458,14 +507,6 @@ export default function TenantListingsPage() {
     if (key === 'region') {
       setMetroDraft(metroSel)
       if (!districtSel && metroSel.length) setLocTab('metro')
-      // 回显：已选城区时直接下钻到它所在的省市，否则停在省市列表
-      if (districtSel) {
-        const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtSel))
-        if (g) {
-          setAreaCountry(g.country)
-          setAreaDrill(g.cityKey)
-        }
-      }
     }
     if (key === 'price') {
       setPriceDraftMin(customMin)
@@ -476,6 +517,10 @@ export default function TenantListingsPage() {
       setAreaDraftMin(areaCustomMin)
       setAreaDraftMax(areaCustomMax)
       setStatusDraft(statusSel)
+      setOrientationDraft(orientationSel)
+      setFloorDraft(floorSel)
+      setDecorDraft(decorSel)
+      setAmenityDraft(amenitySel)
     }
   }
 
@@ -488,7 +533,6 @@ export default function TenantListingsPage() {
         setDistrictSel(null)
         setMetroSel([])
         setMetroDraft([])
-        setAreaDrill('')
       }
     } else if (key === 'price') {
       setPriceDraftMin('')
@@ -507,6 +551,14 @@ export default function TenantListingsPage() {
       setAreaCustomMax('')
       setStatusDraft('')
       setStatusSel('')
+      setOrientationDraft('')
+      setOrientationSel('')
+      setFloorDraft('')
+      setFloorSel('')
+      setDecorDraft('')
+      setDecorSel('')
+      setAmenityDraft([])
+      setAmenitySel([])
     }
   }
 
@@ -522,11 +574,25 @@ export default function TenantListingsPage() {
   const visibleList = useMemo(() => {
     const list = listings.filter((it) =>
       matchBiz(it, biz) &&
+      matchLocation(it, globalCityKw) &&
       matchLocation(it, activeLocationKw) &&
       matchPrice(Number(it.monthly_rent || 0), activePrice.min, activePrice.max) &&
       matchArea(Number(it.size_sqm || 0), activeArea.min, activeArea.max) &&
-      (!bedroomSel || Number(it.bedrooms) >= Number(bedroomSel === '4' ? 4 : bedroomSel)) &&
-      (!statusSel || it.status === statusSel)
+      (!bedroomSel ||
+        (bedroomSel === '5'
+          ? Number(it.bedrooms) >= 5
+          : Number(it.bedrooms) === Number(bedroomSel))) &&
+      (!statusSel || it.status === statusSel) &&
+      (!orientationSel || it.orientation === orientationSel) &&
+      (!floorSel ||
+        (floorSel === 'low'
+          ? Number(it.floor || 0) >= 1 && Number(it.floor || 0) <= 5
+          : floorSel === 'mid'
+          ? Number(it.floor || 0) >= 6 && Number(it.floor || 0) <= 15
+          : Number(it.floor || 0) >= 16)) &&
+      (!decorSel || it.decoration === decorSel) &&
+      (!amenitySel.length ||
+        amenitySel.some((a) => (Array.isArray(it.amenities) ? it.amenities : []).includes(a)))
     )
     switch (sortKey) {
       case 'latest': return list.slice().sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
@@ -535,10 +601,16 @@ export default function TenantListingsPage() {
       case 'area_desc': return list.slice().sort((a, b) => b.size_sqm - a.size_sqm)
       default: return list
     }
-  }, [listings, biz, activeLocationKw, activePrice, activeArea, bedroomSel, statusSel, sortKey])
+  }, [listings, globalCityKw, biz, activeLocationKw, activePrice, activeArea, bedroomSel, statusSel, orientationSel, floorSel, decorSel, amenitySel, sortKey])
 
   const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label || '排序'
-  const moreBadge = (hasAreaFilter ? 1 : 0) + (statusSel ? 1 : 0)
+  const moreBadge =
+    (hasAreaFilter ? 1 : 0) +
+    (statusSel ? 1 : 0) +
+    (orientationSel ? 1 : 0) +
+    (floorSel ? 1 : 0) +
+    (decorSel ? 1 : 0) +
+    (amenitySel.length ? 1 : 0)
 
   const filterTabs = [
     { key: 'region', label: activeLocationKw.length ? regionLabel : '区域', active: activeLocationKw.length > 0, badge: 0 },
@@ -569,72 +641,31 @@ export default function TenantListingsPage() {
 
       <View className='filter-drop__body'>
         {locTab === 'area' ? (
-          // 链家式两栏 + 国家→省市→城区 三级下钻：左栏只列国家，
-          // 右栏先是该国家的省市列表，点省市后右栏换成它的城区 chips
-          <View className='filter-region-twocol'>
-            <ScrollView scrollY style={{ width: areaLeftWidth }} className='filter-region-twocol__left'>
-              {countryList.map((c) => (
+          // 链家样式：只列当前定位城市的 区/街道 chips（国家·城市在主页左上角定位器选择）
+          <View className='filter-region-scroll'>
+            <Text className='loc-group__title'>{locSel.cityLabel} · 区/街道</Text>
+            <View className='filter-chips'>
+              <View
+                className={`filter-chip ${districtSel === null ? 'filter-chip--active' : ''}`}
+                onClick={() => applyDistrict(null)}
+              >
+                <Text>不限</Text>
+              </View>
+              {cityDistricts.map((d) => (
                 <View
-                  key={c}
-                  className={`loc-col-item ${areaCountry === c ? 'loc-col-item--active' : ''}`}
-                  onClick={() => {
-                    setAreaCountry(c)
-                    setAreaDrill('')
-                  }}
+                  key={d.key}
+                  className={`filter-chip ${districtSel === d.key ? 'filter-chip--active' : ''}`}
+                  onClick={() => applyDistrict(d.key)}
                 >
-                  <Text>{c}</Text>
+                  <Text>{d.label}</Text>
                 </View>
               ))}
-            </ScrollView>
-            <ScrollView scrollY className='filter-region-twocol__right'>
-              {activeAreaGroup ? (
-                <>
-                  <View className='filter-region-drill-head' onClick={() => setAreaDrill('')}>
-                    <Text className='filter-region-drill-head__back'>← {areaCountry}</Text>
-                    <Text className='loc-group__title loc-group__title--flat'>
-                      {activeAreaGroup.cityLabel}
-                    </Text>
-                  </View>
-                  <View className='filter-chips'>
-                    <View
-                      className={`filter-chip ${districtSel === null ? 'filter-chip--active' : ''}`}
-                      onClick={() => applyDistrict(null)}
-                    >
-                      <Text>不限</Text>
-                    </View>
-                    {activeAreaGroup.children.map((d) => (
-                      <View
-                        key={d.key}
-                        className={`filter-chip ${districtSel === d.key ? 'filter-chip--active' : ''}`}
-                        onClick={() => applyDistrict(d.key)}
-                      >
-                        <Text>{d.label}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </>
-              ) : (
-                <>
-                  <Text className='loc-group__title loc-group__title--flat'>{areaCountry}</Text>
-                  <View className='filter-chips'>
-                    {countryGroups.map((g) => (
-                      <View
-                        key={g.cityKey}
-                        className={`filter-chip ${areaDrill === g.cityKey ? 'filter-chip--active' : ''}`}
-                        onClick={() => setAreaDrill(g.cityKey)}
-                      >
-                        <Text>{g.cityLabel}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </>
-              )}
-            </ScrollView>
+            </View>
           </View>
         ) : (
           <View className='filter-metro'>
             <ScrollView scrollX className='filter-metro__lines'>
-              {METRO_LINES.map((l) => (
+              {cityMetroLines.map((l) => (
                 <View
                   key={l.key}
                   className={`loc-line ${metroLine === l.key ? 'loc-line--active' : ''}`}
@@ -757,6 +788,32 @@ export default function TenantListingsPage() {
 
   const renderMorePanel = () => (
     <>
+      <Text className='filter-group__title'>朝向</Text>
+      <View className='filter-chips'>
+        {ORIENTATION_OPTIONS.map((o) => (
+          <View
+            key={o.key}
+            className={`filter-chip ${orientationDraft === o.key ? 'filter-chip--active' : ''}`}
+            onClick={() => setOrientationDraft(o.key)}
+          >
+            <Text>{o.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Text className='filter-group__title'>楼层</Text>
+      <View className='filter-chips'>
+        {FLOOR_LEVEL_OPTIONS.map((fl) => (
+          <View
+            key={fl.key}
+            className={`filter-chip ${floorDraft === fl.key ? 'filter-chip--active' : ''}`}
+            onClick={() => setFloorDraft(fl.key)}
+          >
+            <Text>{fl.label}</Text>
+          </View>
+        ))}
+      </View>
+
       <Text className='filter-group__title'>面积</Text>
       <View className='filter-chips'>
         {AREA_PRESETS.map((p) => (
@@ -795,6 +852,36 @@ export default function TenantListingsPage() {
           />
           <Text className='price-input__unit'>㎡</Text>
         </View>
+      </View>
+
+      <Text className='filter-group__title'>装修</Text>
+      <View className='filter-chips'>
+        {DECORATION_OPTIONS.map((d) => (
+          <View
+            key={d.key}
+            className={`filter-chip ${decorDraft === d.key ? 'filter-chip--active' : ''}`}
+            onClick={() => setDecorDraft(d.key)}
+          >
+            <Text>{d.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Text className='filter-group__title'>配套设施</Text>
+      <View className='filter-chips'>
+        {AMENITY_OPTIONS.map((a) => (
+          <View
+            key={a.key}
+            className={`filter-chip ${amenityDraft.includes(a.key) ? 'filter-chip--active' : ''}`}
+            onClick={() =>
+              setAmenityDraft((cur) =>
+                cur.includes(a.key) ? cur.filter((k) => k !== a.key) : [...cur, a.key]
+              )
+            }
+          >
+            <Text>{a.label}</Text>
+          </View>
+        ))}
       </View>
 
       <Text className='filter-group__title'>房源状态</Text>

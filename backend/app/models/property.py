@@ -101,6 +101,11 @@ class Property(TimestampMixin, table=True):
     # 以下三项为 C 端决策必需字段（对标贝壳 / 补齐老站口径）
     orientation: Optional[Orientation] = Field(default=None, index=True)
     decoration: Optional[Decoration] = Field(default=None, index=True)
+    amenities: Optional[List[str]] = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True, comment="配套设施标签（东南亚口径，如空调/泳池/健身房/停车位/电梯/阳台）"),
+        description="配套设施多选标签，前端筛选与详情展示共用",
+    )
     listing_no: Optional[str] = Field(
         default=None, max_length=32, index=True,
         description="对外房源编号（如 FY0027536），客服与经纪人对外沟通的引用号",

@@ -251,6 +251,12 @@ app.mount(
     "/uploads/properties", StaticFiles(directory=PUBLIC_MEDIA_DIR), name="uploads"
 )
 
+# 头像静态托管（backend/uploads/avatars）：头像本身需在「我的」页跨端展示，
+# 属于半公开内容，直接以静态 URL 访问，供 <img>/<Image> 作为 src。
+AVATAR_MEDIA_DIR = UPLOAD_DIR / "avatars"
+AVATAR_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads/avatars", StaticFiles(directory=AVATAR_MEDIA_DIR), name="avatars")
+
 
 @app.get("/", response_model=RootInfoOut, tags=["root"])
 async def root():

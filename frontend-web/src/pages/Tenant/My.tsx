@@ -1,6 +1,10 @@
 import { useNavigate } from 'react-router-dom'
+import { useRef } from 'react'
+import { message } from 'antd'
 import { useTranslation } from 'react-i18next'
+import dayjs from 'dayjs'
 import useAuthStore from '@/stores/auth'
+import { authApi, chatApi } from '@/services/api'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 
 /**
@@ -17,14 +21,56 @@ const maskPhone = (p?: string) =>
 const TenantMy = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const { user, logout } = useAuthStore()
+  const { user, token, login, logout } = useAuthStore()
 
   const displayName = user?.full_name || user?.name || '—'
   const avatarChar = (displayName || '租').charAt(0).toUpperCase()
 
+  // 点击头像选图并上传：仅已登录可操作，未登录引导登录
+  const fileRef = useRef<HTMLInputElement>(null)
+  const pickAvatar = () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    fileRef.current?.click()
+  }
+  const onAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const res: any = await authApi.uploadAvatar(file)
+      const updated = res?.data ?? res
+      if (updated && updated.id && token) login(token, updated)
+      message.success('头像已更新')
+    } catch {
+      message.error('头像上传失败，请重试')
+    }
+  }
+
   const handleLogout = () => {
     logout()
     navigate('/login')
+  }
+
+  // 右上角客服入口：未登录引导登录，已登录进入「与平台客服」的 IM 会话
+  const openSupport = async () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    try {
+      const res = await chatApi.support()
+      const conv = Array.isArray(res?.data) ? res.data[0] : res?.data
+      if (!conv?.id) {
+        message.warning('客服暂未开通')
+        return
+      }
+      navigate(`/chat?id=${conv.id}`)
+    } catch {
+      message.warning('客服暂未开通')
+    }
   }
 
   // ===== 常用功能宫格（租客可用能力：租约/交易订单/付款/报修/服务/文档，对齐三端统一结构） =====
@@ -87,15 +133,80 @@ const TenantMy = () => {
 
   return (
     <div className="rent-my">
+      {/* ===== 顶部页头：右上角客服入口（与贝壳一致位于导航栏右上角，未登录引导登录） ===== */}
+      <div className="rent-page-header">
+        <div>
+          <h2 className="rent-page-header__title">{t('menu.profile')}</h2>
+          <p className="rent-page-header__subtitle">
+            {dayjs().format('YYYY年M月D日')}
+          </p>
+        </div>
+        <div className="rent-page-header__actions">
+          <button
+            type="button"
+            className="rent-my__support"
+            onClick={openSupport}
+            aria-label={t('tenantMy.help')}
+            title={t('tenantMy.help')}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Z" />
+              <path d="M21 11h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-5Z" />
+              <path d="M3 11v-1a9 9 0 0 1 18 0v1" />
+              <path d="M21 16v2a4 4 0 0 1-4 4h-5" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       {/* ===== 用户信息卡 ===== */}
       <div className="rent-card rent-my__user">
-        <div className="rent-avatar rent-avatar--lg">{avatarChar}</div>
-        <div>
-          <div className="rent-text-bold" style={{ fontSize: 18 }}>{displayName}</div>
-          <div className="rent-text-sm rent-text-muted" style={{ marginTop: 2 }}>
-            {user?.phone || user?.email || t('role.tenant')}
-          </div>
-        </div>
+        {user ? (
+          <>
+            <button
+              type="button"
+              className="rent-avatar rent-avatar--lg rent-avatar--upload"
+              onClick={pickAvatar}
+              title="点击更换头像"
+              aria-label="点击更换头像"
+            >
+              {user?.avatar_url ? (
+                <img className="rent-avatar__img" src={user.avatar_url} alt="avatar" />
+              ) : (
+                avatarChar
+              )}
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={onAvatarChange}
+            />
+            <div>
+              <div className="rent-text-bold" style={{ fontSize: 18 }}>{displayName}</div>
+              <div className="rent-text-sm rent-text-muted" style={{ marginTop: 2 }}>
+                {user?.phone || user?.email || t('role.tenant')}
+              </div>
+            </div>
+          </>
+        ) : (
+          <a
+            className="rent-my__guest"
+            href="/login"
+            onClick={(e) => { e.preventDefault(); navigate('/login') }}
+          >
+            <div className="rent-my__guest-info">
+              <div className="rent-text-bold" style={{ fontSize: 20 }}>登录/注册</div>
+            </div>
+            <div className="rent-avatar rent-avatar--lg rent-avatar--guest">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
+              </svg>
+            </div>
+          </a>
+        )}
       </div>
 
       {/* ===== 常用功能 ===== */}

@@ -46,6 +46,44 @@
   color: var(--rent-ink);
 }
 
+/* 左上角全局定位：国家 → 城市（链家式） */
+.pub-loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--rent-line);
+  border-radius: 999px;
+  background: var(--rent-card);
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--rent-ink);
+}
+
+.pub-loc:hover {
+  border-color: var(--rent-primary);
+  color: var(--rent-primary);
+}
+
+.pub-loc__pin {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.pub-loc__text {
+  font-size: 13px;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pub-loc__arrow {
+  font-size: 10px;
+  color: var(--rent-ink-3);
+}
+
 .pub-nav {
   display: flex;
   gap: 20px;

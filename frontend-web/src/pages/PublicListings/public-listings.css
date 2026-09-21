@@ -569,6 +569,12 @@
   grid-template-columns: 98px 1fr;
 }
 
+/* 链家式单列区/街道：无国家左栏，仅标题 + 当前城市区/街道 chips */
+.rent-loc-panel__area--flat {
+  grid-template-columns: 1fr;
+  padding: 0 var(--rent-s-3) var(--rent-s-3);
+}
+
 .rent-loc-panel__lines {
   display: flex;
   flex-direction: column;

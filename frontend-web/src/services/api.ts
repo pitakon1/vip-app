@@ -23,6 +23,12 @@ export const authApi = {
   loginByOtp: (phone: string, code: string) =>
     api.post('/auth/login/otp', { phone, code }),
   me: () => api.get('/auth/me'),
+  // 头像上传（multipart）：后端校验、落盘到 /uploads/avatars 并回写 avatar_url
+  uploadAvatar: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/auth/me/avatar', fd)
+  },
   // 第三方 OAuth 登录（Google / Apple）；status 用于判断走真实授权还是开发 mock
   oauthStatus: () => api.get('/auth/oauth/status'),
   // id_token 为真实授权凭证；mock_email 为开发 mock 模式指定邮箱
@@ -164,6 +170,7 @@ export const notificationsApi = {
 export const chatApi = {
   conversations: (params?: QueryParams) => api.get('/chat/conversations', { params }),
   createConversation: (data: RequestBody) => api.post('/chat/conversations', data),
+  support: () => api.get('/chat/support'),
   messages: (id: string, params?: QueryParams) =>
     api.get(`/chat/conversations/${id}/messages`, { params }),
   sendMessage: (id: string, data: RequestBody) =>

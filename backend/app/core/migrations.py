@@ -44,10 +44,11 @@ def _dialect_types(engine: Engine) -> Dict[str, str]:
 
 # 表 -> {列名: 类型键（见 _dialect_types）或直接 DDL 类型}
 _ADDITIVE_COLUMNS: Dict[str, Dict[str, str]] = {
-    # C 端决策必需字段：朝向 / 装修状况 / 对外编号
+    # C 端决策必需字段：朝向 / 装修状况 / 配套设施 / 对外编号
     "properties": {
         "orientation": "varchar(20)",
         "decoration": "varchar(20)",
+        "amenities": "json",
         "listing_no": "varchar(32)",
     },
     # 小区 C 端详情页参数 + 开发商实体外键 + 泰国产权合规字段

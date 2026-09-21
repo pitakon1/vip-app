@@ -12,8 +12,8 @@ import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import GoogleMapView, { type MapMarker } from '@/components/GoogleMap'
-import { AREA_GROUPS } from '@/data/locationArea'
 import { METRO_LINES } from '@/data/locationMetro'
+import { useLocationStore, findCityByKey } from '@/stores/location'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './public-listings.css'
 
@@ -74,7 +74,7 @@ const formatTotal = (v: any, currency?: string) => formatMoney(Number(v || 0), c
 
 // 按区域 / 按地铁找房（对齐贝壳「区域 | 地铁」下拉面板）
 
-// 区域数据集中在 src/data/locationArea.ts（AREA_GROUPS），上方已 import
+// 区域数据集中于 src/data/locationArea.ts 与 locationMetro.ts
 // 接口 DistrictNode / CityGroup 亦在数据文件中定义
 
 // 轨交数据集中在 src/data/locationMetro.ts（METRO_LINES），上方已 import
@@ -114,6 +114,11 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   const [areaCustomMax, setAreaCustomMax] = useState('') // 自定义最高面积（㎡）
   const [statusSel, setStatusSel] = useState('')
   const [areaRange, setAreaRange] = useState('')
+  // 「更多」面板新增维度：朝向 / 楼层 / 装修 / 配套（服务端筛选）
+  const [orientationSel, setOrientationSel] = useState('')
+  const [floorLevelSel, setFloorLevelSel] = useState('')
+  const [decorSel, setDecorSel] = useState('')
+  const [amenitySel, setAmenitySel] = useState<string[]>([])
   const [sort, setSort] = useState('default')
   const [biz, setBiz] = useState('rent')
 
@@ -124,11 +129,15 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   const [metroSel, setMetroSel] = useState<string[]>([])              // 已选站点 name（已确认）
   const [metroDraft, setMetroDraft] = useState<string[]>([])          // 站点多选草稿（确定后提交）
   const [metroLine, setMetroLine] = useState<string>(METRO_LINES[0].key)
-  // 区域面板：国家 → 省市 → 城区 三级下钻。左栏只列国家，右栏默认是该国家的省市列表，
-  // 点某个省市后右栏才换成它的城区 chips（顶部「返回」回到省市列表）。
-  // 此前把国家/省市平铺成一个列表，用户要在混杂的长列表里找城市。
-  const [areaCountry, setAreaCountry] = useState<string>(() => AREA_GROUPS[0].country)
-  const [areaDrill, setAreaDrill] = useState<string>('') // 已下钻的省市 cityKey，空 = 停在省市列表
+  // 区域面板：定位城市在顶栏左上角「国家→城市」选择；找房页只列当前城市的 区/街道（链家样式），无国家/省市下钻
+  const citySel = useLocationStore((s) => s.selection)
+  const city = useMemo(() => findCityByKey(citySel.cityKey), [citySel.cityKey])
+  const cityDistricts = city?.children ?? []
+  // 地铁仅列当前定位城市的线路
+  const cityMetroLines = useMemo(
+    () => METRO_LINES.filter((l) => l.cityKey === citySel.cityKey),
+    [citySel.cityKey],
+  )
   const [view, setView] = useState('grid')
   const [mapOn, setMapOn] = useState(false)
   const [page, setPage] = useState(1)
@@ -165,21 +174,22 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   }), [t])
 
   // 已选区域/地铁的展示文案（chip 标题，对齐贝壳：未选=「区域」，已选=具体城区/站点）
+  const distNode = (key: string) => cityDistricts.find((d) => d.key === key)
   const activeLocationKw = useMemo<string[]>(() => {
     if (districtSel) {
-      const node = AREA_GROUPS.flatMap((g) => g.children).find((d) => d.key === districtSel)
+      const node = distNode(districtSel)
       return node ? node.kws : []
     }
     if (metroSel.length) {
-      const lines = METRO_LINES.flatMap((l) => l.stations)
+      const lines = cityMetroLines.flatMap((l) => l.stations)
       return lines.filter((s) => metroSel.includes(s.name)).flatMap((s) => s.kws)
     }
     return []
-  }, [districtSel, metroSel])
+  }, [districtSel, metroSel, cityDistricts, cityMetroLines])
 
   const regionLabel = useMemo(() => {
     if (districtSel) {
-      const node = AREA_GROUPS.flatMap((g) => g.children).find((d) => d.key === districtSel)
+      const node = distNode(districtSel)
       return node ? node.label : t('locate.area')
     }
     if (metroSel.length) {
@@ -187,27 +197,18 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
       return metroSel.length > 1 ? `${first} +${metroSel.length - 1}` : first
     }
     return t('locate.area')
-  }, [districtSel, metroSel, t])
+  }, [districtSel, metroSel, cityDistricts, t])
 
-  const activeLine = useMemo(() => METRO_LINES.find((l) => l.key === metroLine), [metroLine])
-
-  // 区域面板左栏：国家清单（按 AREA_GROUPS 出现顺序去重，保持「泰国 → 越南 → …」的业务顺序）
-  const countryList = useMemo(
-    () => Array.from(new Set(AREA_GROUPS.map((g) => g.country))),
-    [],
-  )
-  // 右栏未下钻时的数据源：当前国家下的省市
-  const countryGroups = useMemo(
-    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
-    [areaCountry],
-  )
-  // 右栏已下钻时的数据源：该省市的城区
-  const activeAreaGroup = useMemo(
-    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
-    [areaDrill],
+  const activeLine = useMemo(
+    () => cityMetroLines.find((l) => l.key === metroLine),
+    [cityMetroLines, metroLine],
   )
 
-  // 城市标题改用数据文件 locationArea.ts 的 country + cityLabel（覆盖新增城市，不再依赖 i18n region.*）
+  // 全局城市作用域：当前定位城市下，房源必须命中该城任一城区关键词（链家式「定位城市看房」）
+  const globalCityKw = useMemo(
+    () => (city ? city.children.flatMap((d) => d.kws) : []),
+    [city],
+  )
 
   // ---------- 区域 / 地铁面板交互（对齐贝壳） ----------
   // 区域=实时单选：点击城区立即生效，城区与地铁互斥
@@ -217,24 +218,11 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     setMetroSel([])
     setMetroDraft([])
   }
-  const resetLoc = () => { setDistrictSel(null); setMetroSel([]); setMetroDraft([]); setAreaDrill('') }
-
-  // 切换国家：右栏回到该国家的省市列表（否则会停在上一个国家已下钻的省市上）
-  const pickCountry = (country: string) => {
-    setAreaCountry(country)
-    setAreaDrill('')
-  }
+  const resetLoc = () => { setDistrictSel(null); setMetroSel([]); setMetroDraft([]) }
 
   // 地铁=草稿多选：跨线路累计，确定后提交；打开面板时以已选初始化草稿
   const onLocOpenChange = (open: boolean) => {
-    if (open) {
-      setMetroDraft(metroSel)
-      // 回显：已选城区时直接下钻到它所在的省市，否则停在省市列表
-      if (districtSel) {
-        const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtSel))
-        if (g) { setAreaCountry(g.country); setAreaDrill(g.cityKey) }
-      }
-    }
+    if (open) setMetroDraft(metroSel)
     setLocOpen(open)
   }
   const toggleStation = (name: string) => {
@@ -342,8 +330,10 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     }
     const kw = debouncedKw.trim()
     if (kw) params.q = kw
-    // 区域/地铁是多关键词同义词，命中任一即算
-    if (activeLocationKw.length) params.keywords = activeLocationKw
+    // 区域/地铁是多关键词同义词，命中任一即算；
+    // 城市作用域：已选区/街道→用该区关键词（已属当前城市）；「不限」→用当前城市全部城区关键词，实现链家式「定位城市看房」
+    const locScopedKw = activeLocationKw.length ? activeLocationKw : globalCityKw
+    if (locScopedKw.length) params.keywords = locScopedKw
     if (statusSel && BACKEND_STATUS.has(statusSel)) params.status = statusSel
     // 按学校找房：空间筛选（学校半径内的房源），不是标签筛选
     if (schoolId) {
@@ -379,8 +369,13 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
       params.bedrooms_min = n
       if (n < 4) params.bedrooms_max = n
     }
+    // 更多面板：朝向 / 装修（精确匹配）、楼层段、配套设施（多选任一命中）
+    if (orientationSel) params.orientation = orientationSel
+    if (decorSel) params.decoration = decorSel
+    if (floorLevelSel) params.floor_level = floorLevelSel
+    if (amenitySel.length) params.amenity = amenitySel
     return params
-  }, [page, biz, debouncedKw, activeLocationKw, statusSel, sort, videoOnly, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, roomType, schoolId, schoolKm])
+  }, [page, biz, debouncedKw, activeLocationKw, statusSel, sort, videoOnly, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, roomType, schoolId, schoolKm, orientationSel, floorLevelSel, decorSel, amenitySel])
 
   // 数据获取（公开接口，不需要 auth）：queryKey 含当前页与筛选参数，
   // 缓存优先渲染 + 后台刷新；总数以服务端返回的 total 为准。
@@ -461,7 +456,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   // 与分页叠加后结果必然错位（第 2 页筛出 3 条，总数却是全量）。
 
   // 筛选变化 → 回到第 1 页（否则会停在一个不存在的页码上，白屏）
-  useEffect(() => { setPage(1) }, [keyword, districtSel, metroSel, activeLocationKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz, videoOnly, debouncedKw, schoolId, schoolKm])
+  useEffect(() => { setPage(1) }, [keyword, districtSel, metroSel, activeLocationKw, globalCityKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz, videoOnly, debouncedKw, schoolId, schoolKm])
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -508,79 +503,36 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
       </div>
 
       {locTab === 'area' ? (
-        // 国家 → 省市 → 城区 三级下钻：左栏只列国家，右栏先是该国家的省市列表，
-        // 点省市后右栏换成它的城区 chips（顶部「返回」回到省市列表）。
-        // 此前把国家/省市平铺在同一列里，用户要在混杂的长列表里找城市。
-        <div className="rent-loc-panel__area">
-          <div className="rent-loc-panel__lines">
-            {countryList.map((c) => (
+        // 链家样式：只列当前定位城市的 区/街道 chips（国家·城市在顶栏左上角定位器选择）
+        <div className="rent-loc-panel__area rent-loc-panel__area--flat">
+          <div className="rent-loc-panel__stations-title">{citySel.cityLabel} · 区/街道</div>
+          <div className="rent-loc-panel__chips">
+            <button
+              type="button"
+              className={`rent-loc-panel__chip ${districtSel === null ? 'rent-loc-panel__chip--active' : ''}`}
+              onClick={() => applyDistrict(null)}
+            >
+              {t('locate.all')}
+            </button>
+            {cityDistricts.map((d) => (
               <button
-                key={c}
+                key={d.key}
                 type="button"
-                className={`rent-loc-panel__line ${areaCountry === c ? 'rent-loc-panel__line--active' : ''}`}
-                onClick={() => pickCountry(c)}
+                className={`rent-loc-panel__chip ${districtSel === d.key ? 'rent-loc-panel__chip--active' : ''}`}
+                onClick={() => applyDistrict(d.key)}
               >
-                {c}
+                {d.label}
               </button>
             ))}
-          </div>
-          <div className="rent-loc-panel__stations">
-            {activeAreaGroup ? (
-              <>
-                <div className="rent-loc-panel__stations-head">
-                  <button type="button" className="rent-loc-panel__back" onClick={() => setAreaDrill('')}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-                    {areaCountry}
-                  </button>
-                  <span className="rent-loc-panel__stations-title">{activeAreaGroup.cityLabel}</span>
-                </div>
-                <div className="rent-loc-panel__chips">
-                  <button
-                    type="button"
-                    className={`rent-loc-panel__chip ${districtSel === null ? 'rent-loc-panel__chip--active' : ''}`}
-                    onClick={() => applyDistrict(null)}
-                  >
-                    {t('locate.all')}
-                  </button>
-                  {activeAreaGroup.children.map((d) => (
-                    <button
-                      key={d.key}
-                      type="button"
-                      className={`rent-loc-panel__chip ${districtSel === d.key ? 'rent-loc-panel__chip--active' : ''}`}
-                      onClick={() => applyDistrict(d.key)}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
-                  {!activeAreaGroup.children.length && (
-                    <span className="rent-loc-panel__empty">{t('common.noData')}</span>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="rent-loc-panel__stations-title">{areaCountry}</div>
-                <div className="rent-loc-panel__chips">
-                  {countryGroups.map((g) => (
-                    <button
-                      key={g.cityKey}
-                      type="button"
-                      className={`rent-loc-panel__chip ${areaDrill === g.cityKey ? 'rent-loc-panel__chip--active' : ''}`}
-                      onClick={() => setAreaDrill(g.cityKey)}
-                    >
-                      {g.cityLabel}
-                    </button>
-                  ))}
-                  {!countryGroups.length && <span className="rent-loc-panel__empty">{t('common.noData')}</span>}
-                </div>
-              </>
+            {!cityDistricts.length && (
+              <span className="rent-loc-panel__empty">{t('common.noData')}</span>
             )}
           </div>
         </div>
       ) : (
         <div className="rent-loc-panel__metro">
           <div className="rent-loc-panel__lines">
-            {METRO_LINES.map((l) => (
+            {cityMetroLines.map((l) => (
               <button
                 key={l.key}
                 type="button"
@@ -759,6 +711,41 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     { value: 'reserved', label: statusLabelMap.reserved },
     { value: 'maintenance', label: statusLabelMap.maintenance },
   ]
+  // 更多面板新增维度（东南亚口径，与 App / 小程序一致；无供暖——东南亚无冬季）
+  const orientationOptions = [
+    { value: '', label: '不限' },
+    { value: 'north', label: '北' },
+    { value: 'south', label: '南' },
+    { value: 'east', label: '东' },
+    { value: 'west', label: '西' },
+    { value: 'northeast', label: '东北' },
+    { value: 'northwest', label: '西北' },
+    { value: 'southeast', label: '东南' },
+    { value: 'southwest', label: '西南' },
+  ]
+  const floorLevelOptions = [
+    { value: '', label: '不限' },
+    { value: 'low', label: '低楼层(1-5层)' },
+    { value: 'mid', label: '中楼层(6-15层)' },
+    { value: 'high', label: '高楼层(16层+)' },
+  ]
+  const decorationOptions = [
+    { value: '', label: '不限' },
+    { value: 'bare', label: '毛坯' },
+    { value: 'simple', label: '简装' },
+    { value: 'standard', label: '精装' },
+    { value: 'luxury', label: '豪装' },
+    { value: 'fully_furnished', label: '带家具家电' },
+  ]
+  const amenityOptions = [
+    { value: 'aircon', label: '空调' },
+    { value: 'pool', label: '泳池' },
+    { value: 'gym', label: '健身房' },
+    { value: 'parking', label: '停车位' },
+    { value: 'elevator', label: '电梯' },
+    { value: 'balcony', label: '阳台' },
+    { value: 'garden', label: '花园/庭院' },
+  ]
   const applyAreaPreset = (key: string) => {
     if (key === 'all') { setAreaRange(''); setAreaCustomMin(''); setAreaCustomMax(''); return }
     setAreaRange(key)
@@ -766,21 +753,51 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     setAreaCustomMax('')
   }
 
-  // 「更多」合并面板（对齐贝壳：面积 快捷区间+自定义 + 房源状态 + 重置/确定）
-  const moreActive = !!(areaRange || areaCustomMin || areaCustomMax || statusSel)
+  // 「更多」合并面板（对齐贝壳：面积 快捷区间+自定义 + 朝向/楼层/装修/配套 + 房源状态 + 重置/确定）
+  const moreActive = !!(areaRange || areaCustomMin || areaCustomMax || statusSel || orientationSel || floorLevelSel || decorSel || amenitySel.length)
   const moreLabel = (() => {
     const parts: string[] = []
     if (areaRange || areaCustomMin || areaCustomMax) {
       parts.push(areaRange ? (areaOptions.find((o) => o.value === areaRange)?.label || t('priceRange.custom')) : t('priceRange.custom'))
     }
     if (statusSel) parts.push(statusLabelMap[statusSel] || statusSel)
+    if (orientationSel) parts.push(orientationOptions.find((o) => o.value === orientationSel)?.label || orientationSel)
+    if (floorLevelSel) parts.push(floorLevelOptions.find((o) => o.value === floorLevelSel)?.label || floorLevelSel)
+    if (decorSel) parts.push(decorationOptions.find((o) => o.value === decorSel)?.label || decorSel)
+    if (amenitySel.length) parts.push(amenitySel.map((a) => amenityOptions.find((o) => o.value === a)?.label || a).join('/'))
     return parts.length ? parts.join(' · ') : t('browse.filterMore')
   })()
-  const resetMore = () => { setAreaRange(''); setAreaCustomMin(''); setAreaCustomMax(''); setStatusSel('') }
+  const resetMore = () => { setAreaRange(''); setAreaCustomMin(''); setAreaCustomMax(''); setStatusSel(''); setOrientationSel(''); setFloorLevelSel(''); setDecorSel(''); setAmenitySel([]) }
 
   const morePanelContent = (
     <div className="rent-loc-panel rent-price-panel">
       <div className="rent-loc-panel__body">
+        <div className="rent-loc-panel__group-title">朝向</div>
+        <div className="rent-loc-panel__chips">
+          {orientationOptions.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              className={`rent-loc-panel__chip ${orientationSel === o.value ? 'rent-loc-panel__chip--active' : ''}`}
+              onClick={() => setOrientationSel(o.value)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <div className="rent-loc-panel__group-title">楼层</div>
+        <div className="rent-loc-panel__chips">
+          {floorLevelOptions.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              className={`rent-loc-panel__chip ${floorLevelSel === o.value ? 'rent-loc-panel__chip--active' : ''}`}
+              onClick={() => setFloorLevelSel(o.value)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
         <div className="rent-loc-panel__group-title">{t('browse.filterArea')}</div>
         <div className="rent-loc-panel__chips">
           {areaOptions.map((o) => (
@@ -814,6 +831,36 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
             onChange={(e) => { const v = e.target.value; if (v) setAreaRange(''); setAreaCustomMax(v.replace(/[^\d]/g, '')) }}
           />
           <span className="rent-price-custom__unit">{t('areaRange.unit')}</span>
+        </div>
+        <div className="rent-loc-panel__group-title">装修</div>
+        <div className="rent-loc-panel__chips">
+          {decorationOptions.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              className={`rent-loc-panel__chip ${decorSel === o.value ? 'rent-loc-panel__chip--active' : ''}`}
+              onClick={() => setDecorSel(o.value)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <div className="rent-loc-panel__group-title">配套设施</div>
+        <div className="rent-loc-panel__chips">
+          {amenityOptions.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              className={`rent-loc-panel__chip ${amenitySel.includes(o.value) ? 'rent-loc-panel__chip--active' : ''}`}
+              onClick={() =>
+                setAmenitySel((cur) =>
+                  cur.includes(o.value) ? cur.filter((k) => k !== o.value) : [...cur, o.value],
+                )
+              }
+            >
+              {o.label}
+            </button>
+          ))}
         </div>
         <div className="rent-loc-panel__group-title">{t('browse.filterStatus')}</div>
         <div className="rent-loc-panel__chips">
