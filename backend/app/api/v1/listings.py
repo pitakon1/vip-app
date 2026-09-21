@@ -53,6 +53,18 @@ NON_EXCLUSIVE_MAP = {
 # 非管理员/非发布人对外可读状态
 _PUBLIC_STATUSES = (ListingStatus.active,)
 
+# 分佣配置字段：平台与业主/经纪人的议价条款，对无关登录用户（典型是租客）必须置空。
+# 见 `_serialize` 的 include_commission 说明。
+_COMMISSION_FIELDS = (
+    "sale_commission_rate",
+    "rental_commission_months",
+    "mandate_type",
+    "split_option",
+    "buyer_side_rate",
+    "listing_side_rate",
+    "owner_commission_rate",
+)
+
 
 class ListingCreate(BaseModel):
     # 房源档案信息
@@ -169,7 +181,25 @@ def _validate_commission(req, payload: dict) -> dict:
     return payload
 
 
-def _serialize(li: Listing, *, include_owner_contact: bool) -> dict:
+def _serialize(
+    li: Listing,
+    *,
+    include_owner_contact: bool,
+    include_commission: bool = True,
+) -> dict:
+    """上架单 → 响应体。
+
+    两个按角色收敛的口径，调用方必须自己想清楚再传：
+
+    - `include_owner_contact`：业主联系方式，只有 staff / 发布人本人可见。
+    - `include_commission`：**分佣配置**（卖房佣金比例、租房佣金月数、独家与否、
+      分成档位、客源/房源分成比例、业主佣金比例）。这些是平台与业主/经纪人之间的
+      议价条款，不是给终端用户看的信息。
+
+      为什么必须裁：租客在同一份列表里就能读到「客源 65% / 房源 35%」，
+      等于把自己的议价底牌摊给对手方。发布人本人与所属业主是协议当事方，应当可见；
+      staff 全量可见；其余登录用户一律不下发。
+    """
     data = {
         "id": str(li.id),
         "property_id": str(li.property_id),
@@ -211,6 +241,11 @@ def _serialize(li: Listing, *, include_owner_contact: bool) -> dict:
         data["owner_contact_name"] = None
         data["owner_contact_phone"] = None
         data["owner_contact_channel"] = None
+    # 分佣配置：置 None 而不是删 key——前端有既有的字段读取与类型定义，
+    # 删 key 会让它们读到 undefined，置 None 语义更明确
+    if not include_commission:
+        for field in _COMMISSION_FIELDS:
+            data[field] = None
     return data
 
 
@@ -221,6 +256,32 @@ def _can_view_owner_contact(user: User, li: Listing) -> bool:
     if li.owner_contact_visible and li.publisher_user_id == user.id:
         return True
     return False
+
+
+def _can_view_commission(user: User, li: Listing, owner_id: Optional[uuid.UUID] = None) -> bool:
+    """分佣配置可见：staff / 该上架单的发布人本人 / 该上架单所属业主本人。
+
+    `owner_id` 是调用方一次性查出的「当前用户的 Owner.id」，传进来是为了
+    避免在列表里逐条回查 owners 表（N+1）。
+    """
+    if user.role in STAFF_ROLES:
+        return True
+    if li.publisher_user_id == user.id:
+        return True
+    if owner_id is not None and li.owner_id == owner_id:
+        return True
+    return False
+
+
+def _get_owner_id_for_user(session: Session, user: User) -> Optional[uuid.UUID]:
+    """当前用户对应的 Owner.id（仅 owner 角色有）。列表接口调用一次即可。"""
+    if user.role != UserRole.owner:
+        return None
+    owner = session.exec(
+        select(Owner).where(Owner.user_id == user.id, Owner.deleted_at.is_(None))
+    ).first()
+    return owner.id if owner else None
+
 
 
 def _get_broker_for_user(session: Session, user: User) -> Optional[BrokerPartner]:
@@ -270,8 +331,14 @@ def list_listings(
         )
     stmt = query.order_by(Listing.created_at.desc())
     page = paginate_query(session, stmt, pagination)
+    # 业主的 Owner.id 只查一次，避免逐条回查 owners（N+1）
+    owner_id_for_user = _get_owner_id_for_user(session, user)
     page.items = [
-        _serialize(li, include_owner_contact=(is_staff or _can_view_owner_contact(user, li)))
+        _serialize(
+            li,
+            include_owner_contact=(is_staff or _can_view_owner_contact(user, li)),
+            include_commission=_can_view_commission(user, li, owner_id_for_user),
+        )
         for li in page.items
     ]
     return page
@@ -443,7 +510,12 @@ def get_listing(
         raise HTTPException(status_code=404, detail="Listing not found")
     if user.role not in STAFF_ROLES and li.status not in _PUBLIC_STATUSES and li.publisher_user_id != user.id:
         raise HTTPException(status_code=403, detail="No permission")
-    return _serialize(li, include_owner_contact=_can_view_owner_contact(user, li))
+    return _serialize(
+        li,
+        include_owner_contact=_can_view_owner_contact(user, li),
+        # 非 staff 也可能合法读到已上架单（租客看房源），分佣一并按角色收敛
+        include_commission=_can_view_commission(user, li, _get_owner_id_for_user(session, user)),
+    )
 
 
 @router.patch("/{listing_id}")

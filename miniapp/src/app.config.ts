@@ -2,6 +2,15 @@ export default {
   pages: [
     'pages/index/index',
     'pages/login/index',
+    // ===== C 端公开页（匿名可进，不需要 token）=====
+    // 放在登录页之后、业务页之前：这是访客的第一落点。
+    'pages/public/listings/index',
+    'pages/public/schools/index',
+    'pages/public/school-detail/index',
+    'pages/public/communities/index',
+    'pages/public/community-detail/index',
+    'pages/public/listing-detail/index',
+    'pages/public/me/index',
     'pages/owner/home/index',
     'pages/owner/properties/index',
     'pages/owner/documents/index',

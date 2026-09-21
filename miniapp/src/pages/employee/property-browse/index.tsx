@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { View, Text, Input, Image, Picker } from '@tarojs/components'
+import { View, Text, Input, Image, Picker, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { propertiesApi, favoritesApi, viewingsApi } from '@/services/api'
@@ -125,6 +125,10 @@ export default function EmployeePropertyBrowsePage() {
 
   const [openTab, setOpenTab] = useState<FilterTab>(null)
   const [districtKey, setDistrictKey] = useState('')
+  // 区域面板：国家 → 省市 → 城区 三级下钻（左栏只列国家，右栏先是该国家的省市列表，
+  // 点省市后右栏换成它的城区）。此前所有国家的城区平铺在一列，混杂难找。
+  const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country)
+  const [areaDrill, setAreaDrill] = useState<string>('') // 已下钻的省市 cityKey，空 = 停在省市列表
   const [priceKey, setPriceKey] = useState('')
   const [bedroomKey, setBedroomKey] = useState('')
   const [sortKey, setSortKey] = useState('default')
@@ -226,6 +230,18 @@ export default function EmployeePropertyBrowsePage() {
   }
 
   const allDistricts = useMemo(() => AREA_GROUPS.flatMap((g) => g.children), [])
+  // 左栏国家清单（按 AREA_GROUPS 出现顺序去重，保持业务顺序）
+  const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), [])
+  // 右栏未下钻时的数据源：当前国家下的省市
+  const countryGroups = useMemo(
+    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
+    [areaCountry]
+  )
+  // 右栏已下钻时的数据源：该省市的城区
+  const activeAreaGroup = useMemo(
+    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
+    [areaDrill]
+  )
   const activeKws = useMemo(() => {
     const node = allDistricts.find((d) => d.key === districtKey)
     return node ? node.kws : []
@@ -257,6 +273,28 @@ export default function EmployeePropertyBrowsePage() {
         return filtered
     }
   }, [list, activeKws, priceKey, bedroomKey, sortKey])
+
+  // 筛选面板开合：打开区域面板时按已选城区回显下钻层级（否则停在省市列表）
+  const toggleTab = (key: Exclude<FilterTab, null>) => {
+    if (openTab === key) {
+      setOpenTab(null)
+      return
+    }
+    setOpenTab(key)
+    if (key === 'region' && districtKey) {
+      const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtKey))
+      if (g) {
+        setAreaCountry(g.country)
+        setAreaDrill(g.cityKey)
+      }
+    }
+  }
+  // 选择城区：实时单选并收起面板；选「不限」时一并清掉下钻状态
+  const pickDistrict = (key: string) => {
+    setDistrictKey(key)
+    if (!key) setAreaDrill('')
+    setOpenTab(null)
+  }
 
   const tabs: { key: Exclude<FilterTab, null>; label: string; active: boolean }[] = [
     { key: 'region', label: districtKey ? regionLabel : '区域', active: !!districtKey },
@@ -300,7 +338,7 @@ export default function EmployeePropertyBrowsePage() {
               className={`pb-chip ${openTab === t.key ? 'pb-chip--open' : ''} ${
                 t.active ? 'pb-chip--active' : ''
               }`}
-              onClick={() => setOpenTab(openTab === t.key ? null : t.key)}
+              onClick={() => toggleTab(t.key)}
             >
               <Text className='pb-chip__text'>{t.label}</Text>
               <Text className='pb-chip__arrow'>{openTab === t.key ? '▲' : '▼'}</Text>
@@ -312,28 +350,67 @@ export default function EmployeePropertyBrowsePage() {
         {openTab !== null && (
           <View className='pb-panel'>
             {openTab === 'region' && (
-              <View className='pb-panel__chips'>
-                <View
-                  className={`pb-opt ${!districtKey ? 'pb-opt--active' : ''}`}
-                  onClick={() => {
-                    setDistrictKey('')
-                    setOpenTab(null)
-                  }}
-                >
-                  <Text>不限</Text>
-                </View>
-                {allDistricts.map((d) => (
-                  <View
-                    key={d.key}
-                    className={`pb-opt ${districtKey === d.key ? 'pb-opt--active' : ''}`}
-                    onClick={() => {
-                      setDistrictKey(d.key)
-                      setOpenTab(null)
-                    }}
-                  >
-                    <Text>{d.label}</Text>
-                  </View>
-                ))}
+              // 链家式两栏 + 国家→省市→城区三级下钻：左栏只列国家，
+              // 右栏先是该国家的省市列表，点省市后右栏换成它的城区 chips
+              <View className='filter-region-twocol'>
+                <ScrollView scrollY className='filter-region-twocol__left'>
+                  {countryList.map((c) => (
+                    <View
+                      key={c}
+                      className={`loc-col-item ${areaCountry === c ? 'loc-col-item--active' : ''}`}
+                      onClick={() => {
+                        setAreaCountry(c)
+                        setAreaDrill('')
+                      }}
+                    >
+                      <Text>{c}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+                <ScrollView scrollY className='filter-region-twocol__right'>
+                  {activeAreaGroup ? (
+                    <>
+                      <View className='filter-region-drill-head' onClick={() => setAreaDrill('')}>
+                        <Text className='filter-region-drill-head__back'>← {areaCountry}</Text>
+                        <Text className='loc-group__title loc-group__title--flat'>
+                          {activeAreaGroup.cityLabel}
+                        </Text>
+                      </View>
+                      <View className='pb-panel__chips'>
+                        <View
+                          className={`pb-opt ${!districtKey ? 'pb-opt--active' : ''}`}
+                          onClick={() => pickDistrict('')}
+                        >
+                          <Text>不限</Text>
+                        </View>
+                        {activeAreaGroup.children.map((d) => (
+                          <View
+                            key={d.key}
+                            className={`pb-opt ${districtKey === d.key ? 'pb-opt--active' : ''}`}
+                            onClick={() => pickDistrict(d.key)}
+                          >
+                            <Text>{d.label}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <Text className='loc-group__title loc-group__title--flat'>{areaCountry}</Text>
+                      <View className='pb-panel__chips'>
+                        {countryGroups.map((g) => (
+                          <View
+                            key={g.cityKey}
+                            className={`pb-opt ${areaDrill === g.cityKey ? 'pb-opt--active' : ''}`}
+                            onClick={() => setAreaDrill(g.cityKey)}
+                          >
+                            <Text>{g.cityLabel}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </>
+                  )}
+                </ScrollView>
               </View>
             )}
 

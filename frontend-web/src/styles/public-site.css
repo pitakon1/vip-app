@@ -1,0 +1,532 @@
+/* C 端公开站点（免登录浏览）样式。
+ *
+ * 令牌来源：src/styles/tokens.css（--rent-*），按 UI-设计原则.md 规范：
+ * 禁止硬编码色值、圆角只用 sm/md/lg/full 四档、间距走 8pt 网格、正文不小于 14px。
+ * 本文件由各公开页面直接 import，不改动全局样式入口。
+ */
+
+.pub-page {
+  min-height: 100vh;
+  background: var(--rent-background);
+  color: var(--rent-ink);
+}
+
+.pub-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* ---------- 顶栏 ---------- */
+.pub-topbar {
+  background: var(--rent-card);
+  border-bottom: 1px solid var(--rent-line);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.pub-topbar__inner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 64px;
+}
+
+.pub-brand {
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  color: var(--rent-ink);
+}
+
+.pub-nav {
+  display: flex;
+  gap: 20px;
+}
+
+.pub-nav__item {
+  font-size: 14px;
+  color: var(--rent-ink-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 2px;
+  border-radius: var(--rent-radius-sm);
+}
+
+.pub-nav__item:hover {
+  color: var(--rent-primary);
+}
+
+.pub-nav__item[data-active='true'] {
+  color: var(--rent-primary);
+  font-weight: 500;
+}
+
+.pub-topbar__actions {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+}
+
+/* ---------- 按钮 ---------- */
+.pub-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-family: inherit;
+  border-radius: var(--rent-radius-md);
+  border: 1px solid var(--rent-line);
+  background: var(--rent-card);
+  color: var(--rent-ink);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.pub-btn:hover {
+  border-color: var(--rent-ink-3);
+}
+
+.pub-btn--primary {
+  background: var(--rent-primary);
+  border-color: var(--rent-primary);
+  color: var(--rent-primary-foreground);
+}
+
+.pub-btn--primary:hover {
+  background: var(--rent-primary-hover);
+  border-color: var(--rent-primary-hover);
+}
+
+.pub-btn--lg {
+  height: 48px;
+  padding: 0 28px;
+  font-size: 15px;
+}
+
+.pub-btn--block {
+  width: 100%;
+}
+
+.pub-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---------- 卡片 ---------- */
+.pub-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-line);
+  border-radius: var(--rent-radius-lg);
+  padding: 20px;
+}
+
+.pub-section {
+  margin: 32px 0;
+}
+
+.pub-section__title {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0 0 4px;
+}
+
+.pub-section__hint {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  margin: 0 0 16px;
+}
+
+/* ---------- 房源卡片 ---------- */
+.pub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.pub-listing {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-line);
+  border-radius: var(--rent-radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s;
+}
+
+.pub-listing:hover {
+  box-shadow: var(--rent-shadow-2);
+}
+
+.pub-listing__media {
+  position: relative;
+  height: 168px;
+  background: var(--rent-surface-2);
+}
+
+.pub-listing__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pub-listing__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rent-ink-3);
+  font-size: 13px;
+}
+
+.pub-listing__body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.pub-listing__title {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pub-listing__meta {
+  font-size: 13px;
+  color: var(--rent-ink-2);
+}
+
+.pub-listing__price {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--rent-primary);
+}
+
+.pub-listing__price-sub {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  margin-left: 6px;
+}
+
+.pub-listing__school {
+  font-size: 12px;
+  color: var(--rent-ink-2);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---------- Badge ---------- */
+.pub-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  font-size: 12px;
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-surface-2);
+  color: var(--rent-ink-2);
+  white-space: nowrap;
+}
+
+.pub-badge--primary {
+  background: rgba(var(--rent-primary-rgb), 0.1);
+  color: var(--rent-primary-hover);
+}
+
+.pub-badge--row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---------- 筛选条 ---------- */
+.pub-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 16px;
+  background: var(--rent-card);
+  border: 1px solid var(--rent-line);
+  border-radius: var(--rent-radius-lg);
+  margin-bottom: 20px;
+}
+
+.pub-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pub-field__label {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+}
+
+.pub-select,
+.pub-input {
+  height: 38px;
+  padding: 0 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--rent-ink);
+  background: var(--rent-card);
+  border: 1px solid var(--rent-line);
+  border-radius: var(--rent-radius-md);
+  outline: none;
+}
+
+.pub-select:focus,
+.pub-input:focus {
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 3px rgba(var(--rent-primary-rgb), 0.1);
+}
+
+/* ---------- 列表行（学校 / 小区） ---------- */
+.pub-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pub-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--rent-card);
+  border: 1px solid var(--rent-line);
+  border-radius: var(--rent-radius-lg);
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+
+.pub-row:hover {
+  box-shadow: var(--rent-shadow-2);
+}
+
+.pub-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pub-row__title {
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.pub-row__sub {
+  font-size: 13px;
+  color: var(--rent-ink-2);
+}
+
+.pub-row__distance {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rent-primary-hover);
+  white-space: nowrap;
+}
+
+/* ---------- 详情页 ---------- */
+.pub-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+  align-items: start;
+  padding: 24px 0 48px;
+}
+
+@media (max-width: 900px) {
+  .pub-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.pub-gallery {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+  height: 380px;
+  border-radius: var(--rent-radius-lg);
+  overflow: hidden;
+  background: var(--rent-surface-2);
+}
+
+.pub-gallery__main {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pub-gallery__side {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+}
+
+.pub-gallery__side img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pub-gallery__empty {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rent-ink-3);
+  font-size: 13px;
+}
+
+.pub-kv {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px 20px;
+}
+
+.pub-kv__item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pub-kv__k {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+}
+
+.pub-kv__v {
+  font-size: 14px;
+  color: var(--rent-ink);
+  word-break: break-word;
+}
+
+/* ---------- 留资表单 ---------- */
+.pub-inquiry {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pub-inquiry__title {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.pub-inquiry__note {
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  line-height: 1.5;
+}
+
+.pub-form-msg {
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface-2);
+}
+
+.pub-form-msg--ok {
+  color: var(--rent-primary-hover);
+  background: rgba(var(--rent-primary-rgb), 0.1);
+}
+
+.pub-form-msg--error {
+  color: var(--rent-error, #dc2626);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+/* ---------- 价格块 ---------- */
+.pub-price-block {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pub-price-block__main {
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--rent-primary);
+}
+
+.pub-price-block__alt {
+  font-size: 15px;
+  color: var(--rent-ink-2);
+}
+
+/* ---------- 空态 / 加载 ---------- */
+.pub-empty {
+  padding: 56px 16px;
+  text-align: center;
+  color: var(--rent-ink-3);
+  font-size: 14px;
+}
+
+.pub-loading {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--rent-ink-3);
+  font-size: 14px;
+}
+
+.pub-breadcrumb {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  padding: 20px 0 0;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.pub-breadcrumb__link {
+  color: var(--rent-ink-2);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-size: 13px;
+  padding: 0;
+  font-family: inherit;
+}
+
+.pub-breadcrumb__link:hover {
+  color: var(--rent-primary);
+}
+
+.pub-footer {
+  border-top: 1px solid var(--rent-line);
+  background: var(--rent-card);
+  padding: 28px 0;
+  margin-top: 48px;
+  font-size: 13px;
+  color: var(--rent-ink-3);
+}

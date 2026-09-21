@@ -30,6 +30,37 @@ class DedupeType(str, Enum):
     none = "none"  # 未定位（不参与去重）
 
 
+class Orientation(str, Enum):
+    """朝向。
+
+    泰国西晒极强（下午西向房间温度显著高于其他朝向），朝向是租客与买家的
+    硬决策因素，老站把它做成房源列表的筛选项，原模型缺失。
+    """
+
+    north = "north"
+    south = "south"
+    east = "east"
+    west = "west"
+    northeast = "northeast"
+    northwest = "northwest"
+    southeast = "southeast"
+    southwest = "southwest"
+
+
+class Decoration(str, Enum):
+    """装修状况。
+
+    替代原来 `furnished: bool` 的表达力不足：一个布尔无法区分
+    「毛坯 / 简装 / 精装 / 豪装 / 带家具家电」，而这几档直接影响租金定价。
+    """
+
+    bare = "bare"  # 毛坯
+    simple = "simple"  # 简装
+    standard = "standard"  # 精装
+    luxury = "luxury"  # 豪装
+    fully_furnished = "fully_furnished"  # 带家具家电
+
+
 class Property(TimestampMixin, table=True):
     """房源表。"""
 
@@ -67,6 +98,13 @@ class Property(TimestampMixin, table=True):
         default=None, sa_column=Column(JSON, nullable=True, comment="照片 URL 列表")
     )
     furnished: bool = Field(default=False)
+    # 以下三项为 C 端决策必需字段（对标贝壳 / 补齐老站口径）
+    orientation: Optional[Orientation] = Field(default=None, index=True)
+    decoration: Optional[Decoration] = Field(default=None, index=True)
+    listing_no: Optional[str] = Field(
+        default=None, max_length=32, index=True,
+        description="对外房源编号（如 FY0027536），客服与经纪人对外沟通的引用号",
+    )
     available_from: Optional[datetime] = None
     video_url: Optional[str] = Field(
         default=None, max_length=500, description="视频看房地址（可为站内 /uploads 或外部链接）"

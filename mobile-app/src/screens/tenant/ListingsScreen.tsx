@@ -18,9 +18,11 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
 import { propertiesApi, translateApi, favoritesApi, saleListingApi } from '@/services/api';
+import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
+import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { fmtMoney as formatRent } from '@/utils/format';
 import { notify, notifyError } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
@@ -56,12 +58,15 @@ const BIZ_TABS: { key: BizKey; label: string }[] = [
   { key: 'sale', label: '买房' },
 ];
 
-const FILTERS = [
-  { key: '', label: '全部' },
+// 房源类型：链家式单行筛选栏容不下，收进「更多」面板
+const PROPERTY_TYPE_FILTERS = [
+  { key: '', label: '不限' },
   { key: 'apartment', label: '公寓' },
+  { key: 'condo', label: '公寓式' },
   { key: 'villa', label: '别墅' },
-  { key: 'condo', label: '公寓' },
+  { key: 'house', label: '独栋' },
   { key: 'office', label: '写字楼' },
+  { key: 'shop', label: '商铺' },
 ];
 
 // 买卖挂牌（真实数据源：GET /sale-listings）
@@ -299,7 +304,7 @@ export default function ListingsScreen() {
   const [areaCustomMin, setAreaCustomMin] = useState(''); // 自定义最低面积（㎡）
   const [areaCustomMax, setAreaCustomMax] = useState(''); // 自定义最高面积（㎡）
   const [sortKey, setSortKey] = useState('default');
-  type OpenTab = null | 'region' | 'price' | 'layout' | 'area' | 'more' | 'sort';
+  type OpenTab = null | 'region' | 'school' | 'price' | 'layout' | 'more' | 'sort';
   const [openTab, setOpenTab] = useState<OpenTab>(null);
   const [translatingId, setTranslatingId] = useState<string | null>(null);
   // 业务归属 Tab（整租 / 合租 / 买房）
@@ -314,6 +319,19 @@ export default function ListingsScreen() {
   const [metroSel, setMetroSel] = useState<string[]>([]);              // 已选站点 name（已确认）
   const [metroDraft, setMetroDraft] = useState<string[]>([]);          // 站点多选草稿（确定后提交）
   const [metroLine, setMetroLine] = useState<string>(METRO_LINES[0].key);
+  // 区域面板：国家 → 省市 → 城区 三级下钻（左栏只列国家，右栏先是省市列表，
+  // 点省市后右栏换成它的城区）。此前国家/省市平铺在一列，混杂难找。
+  const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country);
+  const [areaDrill, setAreaDrill] = useState<string>(''); // 已下钻的省市 cityKey，空 = 停在省市列表
+  // 学校筛选（空间）：后端按学校坐标 + 半径反查覆盖的小区，必须走服务端
+  const [schoolId, setSchoolId] = useState('');
+  const [schoolName, setSchoolName] = useState('');
+  const [schoolKm, setSchoolKm] = useState(3);
+  const [schools, setSchools] = useState<PublicSchool[]>([]);
+  const [schoolsLoaded, setSchoolsLoaded] = useState(false);
+  const [schoolKw, setSchoolKw] = useState('');
+  // 请求序号：连续切换筛选时丢弃先发后到的过期响应
+  const listReqSeq = useRef(0);
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   // 顶部安全区：本页同时作为底部 Tab（无 header）与堆栈页使用，补 insets.top 避免内容顶到状态栏
@@ -324,31 +342,49 @@ export default function ListingsScreen() {
   const [favSet, setFavSet] = useState<Record<string, boolean>>({});
   const [favLoading, setFavLoading] = useState<Record<string, boolean>>({});
 
+  // 学校筛选参数：未选学校时恒为 null（引用不变），避免只调半径也触发重新拉取
+  const schoolFilter = useMemo(
+    () => (schoolId ? { id: schoolId, km: schoolKm } : null),
+    [schoolId, schoolKm],
+  );
+
   const loadListings = useCallback(
     async (opts?: { force?: boolean }) => {
-      // SWR：先渲染磁盘缓存（秒开），再后台请求刷新并回写缓存；公开数据全局一份
+      // SWR：先渲染磁盘缓存（秒开），再后台请求刷新并回写缓存；公开数据全局一份。
+      // 学校筛选下结果集不同，不进这份全局缓存，避免把筛选结果当首屏数据回灌。
       const cacheKey = 'tenant-listings';
+      const scoped = !!schoolFilter;
+      const seq = ++listReqSeq.current;
       try {
-        const cached = await getCached<Listing[]>(cacheKey);
-        if (cached && cached.length) {
-          setListings(cached);
-          setLoadError(false);
-          setLoading(false);
-          if (!opts?.force && (await isFresh(cacheKey))) {
-            setRefreshing(false);
-            return;
+        if (!scoped) {
+          const cached = await getCached<Listing[]>(cacheKey);
+          if (cached && cached.length) {
+            setListings(cached);
+            setLoadError(false);
+            setLoading(false);
+            if (!opts?.force && (await isFresh(cacheKey))) {
+              setRefreshing(false);
+              return;
+            }
           }
         }
         const params: any = { page: 1, page_size: 50 };
+        if (schoolFilter) {
+          params.school_id = schoolFilter.id;
+          params.school_radius_km = schoolFilter.km;
+        }
         const res = await propertiesApi.list(params);
+        // 过期响应直接丢弃：连续切换学校等筛选时，先发的请求可能后到
+        if (seq !== listReqSeq.current) return;
         const data = res.data;
         const items = Array.isArray(data)
           ? data
           : (data as any)?.items ?? (data as any)?.data ?? [];
         setListings(items as Listing[]);
         setLoadError(false);
-        if (items.length) setCached(cacheKey, items);
+        if (items.length && !scoped) setCached(cacheKey, items);
       } catch (err: any) {
+        if (seq !== listReqSeq.current) return;
         setLoadError(true);
         // web 下 Alert.alert 是空实现，这里统一走 web 安全反馈（失败可见 + 可重试）
         notifyError('加载失败', err, () => {
@@ -356,16 +392,36 @@ export default function ListingsScreen() {
           loadListings();
         });
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (seq === listReqSeq.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
-    [],
+    [schoolFilter],
   );
 
   useEffect(() => {
     loadListings();
   }, [loadListings]);
+
+  // 学校候选：首次展开面板时懒加载一次
+  useEffect(() => {
+    if (openTab !== 'school' || schoolsLoaded) return;
+    setSchoolsLoaded(true);
+    publicApi
+      .schools({ page_size: 100 })
+      .then((res: any) => setSchools(unwrapPage<PublicSchool>(res?.data).items))
+      .catch(() => setSchools([]));
+  }, [openTab, schoolsLoaded]);
+
+  const filteredSchools = useMemo(() => {
+    const kw = schoolKw.trim().toLowerCase();
+    if (!kw) return schools;
+    return schools.filter((s) =>
+      `${s.name ?? ''} ${s.name_en ?? ''} ${s.district ?? ''}`.toLowerCase().includes(kw),
+    );
+  }, [schools, schoolKw]);
 
   // 买房 Tab：懒加载真实在售挂牌（GET /sale-listings）
   const loadSaleListings = useCallback(async () => {
@@ -448,11 +504,37 @@ export default function ListingsScreen() {
     }
   }, [route.params?.filter]);
 
+  // 首页学校卡片直达：带着学校跳到本页并预选学校筛选。
+  // 依赖用 schoolTs（时间戳）而非 schoolId —— 连续点同一所学校也要重新生效。
+  useEffect(() => {
+    if (!route.params?.schoolTs) return;
+    setSchoolId(route.params.schoolId ?? '');
+    setSchoolName(route.params.schoolName ?? '');
+    setSchoolKm(route.params.schoolKm ?? 3);
+  }, [route.params?.schoolTs]);
+
   // ---------- 按区域 / 按地铁（对齐贝壳「区域 | 地铁」） ----------
   const allDistricts = AREA_GROUPS.flatMap((g) => g.children);
   const activeLine = useMemo(
     () => METRO_LINES.find((l) => l.key === metroLine),
     [metroLine],
+  );
+  // 区域面板左栏：国家清单（按 AREA_GROUPS 出现顺序去重，保持业务顺序）
+  const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), []);
+  // 左栏宽度按最长国家名动态推导（避免留白）：最长字幕数×字号13 + 条目横向padding 8×2 + 左边框3 + 边框hairline + 2缓冲
+  const areaLeftWidth = useMemo(() => {
+    const maxChars = Math.max(...countryList.map((c) => [...c].length));
+    return maxChars * 13 + 8 * 2 + 3 + 2;
+  }, [countryList]);
+  // 右栏未下钻时的数据源：当前国家下的省市
+  const countryGroups = useMemo(
+    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
+    [areaCountry],
+  );
+  // 右栏已下钻时的数据源：该省市的城区
+  const activeAreaGroup = useMemo(
+    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
+    [areaDrill],
   );
   // 已选区域/地铁的关键词，用于匹配房源地址/标题
   const activeLocationKw = useMemo(() => {
@@ -505,6 +587,7 @@ export default function ListingsScreen() {
     setDistrictSel(null);
     setMetroSel([]);
     setMetroDraft([]);
+    setAreaDrill('');
   };
 
   // ---------- 贝壳式 Tab 下拉面板：开合 / 重置 / 确定 ----------
@@ -516,13 +599,9 @@ export default function ListingsScreen() {
     ? '自定义'
     : '价格';
   const bedLabel = bedFilter ? BEDROOM_OPTIONS.find((b) => b.key === bedFilter)?.label ?? '户型' : '户型';
-  const areaLabel = areaRange
-    ? AREA_PRESETS.find((a) => a.key === areaRange)?.label ?? '面积'
-    : areaCustomMin || areaCustomMax
-    ? '自定义'
-    : '面积';
   const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label ?? '排序';
-  const moreBadge = statusFilter ? 1 : 0;
+  // 「更多」收纳了房源类型 / 面积 / 房源状态三组条件，角标按已生效组数计
+  const moreBadge = (filter ? 1 : 0) + (hasAreaFilter ? 1 : 0) + (statusFilter ? 1 : 0);
 
   const toggleTab = (key: OpenTab) => {
     if (openTab === key) {
@@ -533,6 +612,14 @@ export default function ListingsScreen() {
     if (key === 'region') {
       setMetroDraft(metroSel);
       if (!districtSel && metroSel.length) setLocTab('metro');
+      // 回显：已选城区时直接下钻到它所在的省市，否则停在省市列表
+      if (districtSel) {
+        const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtSel));
+        if (g) {
+          setAreaCountry(g.country);
+          setAreaDrill(g.cityKey);
+        }
+      }
     }
   };
 
@@ -546,11 +633,11 @@ export default function ListingsScreen() {
       setCustomMax('');
     } else if (key === 'layout') {
       setBedFilter('');
-    } else if (key === 'area') {
+    } else if (key === 'more') {
+      setFilter('');
       setAreaRange('');
       setAreaCustomMin('');
       setAreaCustomMax('');
-    } else if (key === 'more') {
       setStatusFilter('');
     } else if (key === 'sort') {
       setSortKey('default');
@@ -569,9 +656,9 @@ export default function ListingsScreen() {
   // 贝壳式 Tab 栏展示数据
   const filterTabs = [
     { key: 'region', label: districtSel || metroSel.length ? regionLabel : '区域', active: !!activeLocationKw.length, badge: 0 },
+    { key: 'school', label: schoolId ? `${schoolName} · ${schoolKm}km` : '学校', active: !!schoolId, badge: 0 },
     { key: 'price', label: hasPriceFilter ? priceLabel : '价格', active: hasPriceFilter, badge: 0 },
     { key: 'layout', label: bedFilter ? bedLabel : '户型', active: !!bedFilter, badge: 0 },
-    { key: 'area', label: areaLabel, active: hasAreaFilter, badge: 0 },
     { key: 'more', label: '更多', active: moreBadge > 0, badge: moreBadge },
     { key: 'sort', label: sortKey !== 'default' ? sortLabel : '排序', active: sortKey !== 'default', badge: 0 },
   ] as { key: OpenTab; label: string; active: boolean; badge: number }[];
@@ -801,25 +888,17 @@ export default function ListingsScreen() {
           </Text> 套房源
         </Text>
       </View>
-      {/* 类型筛选条（金刚区直达） —— 买卖挂牌不适用租赁筛选维度 */}
+      {/* 链家式单行筛选栏（点击后从顶部下拉面板，非底部弹层）—— 买卖挂牌不适用租赁筛选维度 */}
       {biz !== 'sale' && (
         <>
-      <View style={styles.filterBar}>
-        {FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f.key}
-            style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
-            onPress={() => setFilter(f.key)}
-          >
-            <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      {/* 贝壳式 Tab 筛选栏（点击后从顶部下拉面板，非底部弹层） */}
       <View style={styles.filterZone}>
-        <View style={styles.filterTabsRow}>
+        {/* 7 个筛选维度：宽度够时等分铺满，不够时按内容撑开并横向滚动 */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterTabsRow}
+          contentContainerStyle={styles.filterTabsContent}
+        >
           {filterTabs.map((tb) => (
             <TouchableOpacity
               key={tb.key}
@@ -852,7 +931,7 @@ export default function ListingsScreen() {
               />
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         {openTab !== null && (
           <View style={styles.dropPanel}>
@@ -872,51 +951,101 @@ export default function ListingsScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
+                {/* 链家式两栏 + 国家→省市→城区 三级下钻：左栏只列国家，
+                    右栏先是该国家的省市列表，点省市后右栏换成它的城区 chips。
+                    此前国家/省市平铺在一列，混杂难找；两栏各自独立纵向滚动 */}
                 {locTab === 'area' ? (
-                  // 区域数据约 30 个城市组 / 370 个城区 chip，面板高度受限（dropBody 限高 260），
-                  // 必须保留纵向滚动容器，改为 View+map 会被裁切且无法触达下方城区
-                  <ScrollView style={styles.dropBody}>
-                    {AREA_GROUPS.map((g) => (
-                      <View key={g.cityKey} style={styles.locGroup}>
-                        <Text style={styles.dropGroupTitle}>{g.country} · {g.cityLabel}</Text>
-                        <View style={styles.filterGroup}>
-                          <TouchableOpacity
-                            style={[styles.filterChip, districtSel === null && styles.filterChipActive]}
-                            onPress={() => applyDistrict(null)}
-                          >
-                            <Text style={[styles.filterText, districtSel === null && styles.filterTextActive]}>不限</Text>
-                          </TouchableOpacity>
-                          {g.children.map((d) => (
-                            <TouchableOpacity
-                              key={d.key}
-                              style={[styles.filterChip, districtSel === d.key && styles.filterChipActive]}
-                              onPress={() => applyDistrict(d.key)}
-                            >
-                              <Text style={[styles.filterText, districtSel === d.key && styles.filterTextActive]}>{d.label}</Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      </View>
-                    ))}
-                  </ScrollView>
-                ) : (
-                  <View style={styles.locMetro}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locLineRow}>
-                      {METRO_LINES.map((l) => (
+                  <View style={styles.locTwoCol}>
+                    <ScrollView style={[styles.locColLeft, { width: areaLeftWidth }]} contentContainerStyle={styles.locColLeftContent}>
+                      {countryList.map((c) => (
                         <TouchableOpacity
-                          key={l.key}
-                          style={[styles.locLineChip, metroLine === l.key && styles.locLineChipActive]}
-                          onPress={() => setMetroLine(l.key)}
+                          key={c}
+                          style={[styles.locColItem, areaCountry === c && styles.locColItemActive]}
+                          onPress={() => {
+                            setAreaCountry(c);
+                            setAreaDrill('');
+                          }}
                           activeOpacity={0.7}
                         >
-                          <Text style={[styles.locLineText, metroLine === l.key && styles.locLineTextActive]}>{l.cityLabel} · {l.name}</Text>
+                          <Text
+                            numberOfLines={2}
+                            style={[styles.locColText, areaCountry === c && styles.locColTextActive]}
+                          >
+                            {c}
+                          </Text>
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
-                    {/* 单条线路最多 44 站，同样需要纵向滚动容器才能触达全部站点 */}
-                    <ScrollView style={styles.dropBody}>
+                    <ScrollView style={styles.locColRight} contentContainerStyle={styles.locColRightContent}>
+                      {activeAreaGroup ? (
+                        <>
+                          <View style={styles.locDrillHead}>
+                            <TouchableOpacity onPress={() => setAreaDrill('')} activeOpacity={0.7}>
+                              <Text style={styles.locDrillBack}>← {areaCountry}</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.dropGroupTitle}>{activeAreaGroup.cityLabel}</Text>
+                          </View>
+                          <View style={styles.filterGroup}>
+                            <TouchableOpacity
+                              style={[styles.filterChip, districtSel === null && styles.filterChipActive]}
+                              onPress={() => applyDistrict(null)}
+                            >
+                              <Text style={[styles.filterText, districtSel === null && styles.filterTextActive]}>不限</Text>
+                            </TouchableOpacity>
+                            {activeAreaGroup.children.map((d) => (
+                              <TouchableOpacity
+                                key={d.key}
+                                style={[styles.filterChip, districtSel === d.key && styles.filterChipActive]}
+                                onPress={() => applyDistrict(d.key)}
+                              >
+                                <Text style={[styles.filterText, districtSel === d.key && styles.filterTextActive]}>{d.label}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={styles.dropGroupTitle}>{areaCountry}</Text>
+                          <View style={styles.filterGroup}>
+                            {countryGroups.map((g) => (
+                              <TouchableOpacity
+                                key={g.cityKey}
+                                style={[styles.filterChip, areaDrill === g.cityKey && styles.filterChipActive]}
+                                onPress={() => setAreaDrill(g.cityKey)}
+                              >
+                                <Text style={[styles.filterText, areaDrill === g.cityKey && styles.filterTextActive]}>
+                                  {g.cityLabel}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </>
+                      )}
+                    </ScrollView>
+                  </View>
+                ) : (
+                  <View style={styles.locTwoCol}>
+                    <ScrollView style={styles.locColLeft} contentContainerStyle={styles.locColLeftContent}>
+                      {METRO_LINES.map((l) => (
+                        <TouchableOpacity
+                          key={l.key}
+                          style={[styles.locColItem, metroLine === l.key && styles.locColItemActive]}
+                          onPress={() => setMetroLine(l.key)}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            numberOfLines={2}
+                            style={[styles.locColText, metroLine === l.key && styles.locColTextActive]}
+                          >
+                            {l.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                    <ScrollView style={styles.locColRight} contentContainerStyle={styles.locColRightContent}>
                       <Text style={styles.dropGroupTitle}>
-                        站点{metroDraft.length ? ` · 已选 ${metroDraft.length}` : ''}
+                        {activeLine ? `${activeLine.cityLabel} · ${activeLine.name}` : ''}
+                        {metroDraft.length ? ` · 已选 ${metroDraft.length}` : ''}
                       </Text>
                       <View style={styles.filterGroup}>
                         {activeLine?.stations.map((s) => (
@@ -940,6 +1069,65 @@ export default function ListingsScreen() {
                     <Text style={styles.confirmText}>确定</Text>
                   </TouchableOpacity>
                 </View>
+              </>
+            )}
+
+            {openTab === 'school' && (
+              <>
+                <Text style={styles.dropGroupTitle}>距离范围</Text>
+                <View style={styles.filterGroup}>
+                  {SCHOOL_RADIUS_OPTIONS.map((km) => (
+                    <TouchableOpacity
+                      key={km}
+                      style={[styles.filterChip, schoolKm === km && styles.filterChipActive]}
+                      onPress={() => setSchoolKm(km)}
+                    >
+                      <Text style={[styles.filterText, schoolKm === km && styles.filterTextActive]}>
+                        {km}km
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TextInput
+                  style={styles.dropSearch}
+                  value={schoolKw}
+                  onChangeText={setSchoolKw}
+                  placeholder="搜索学校名称"
+                  placeholderTextColor={colors.ink3}
+                  returnKeyType="search"
+                />
+                <ScrollView style={styles.dropBody}>
+                  <View style={styles.filterGroup}>
+                    <TouchableOpacity
+                      style={[styles.filterChip, !schoolId && styles.filterChipActive]}
+                      onPress={() => {
+                        setSchoolId('');
+                        setSchoolName('');
+                        setOpenTab(null);
+                      }}
+                    >
+                      <Text style={[styles.filterText, !schoolId && styles.filterTextActive]}>不限</Text>
+                    </TouchableOpacity>
+                    {filteredSchools.map((s) => (
+                      <TouchableOpacity
+                        key={s.id}
+                        style={[styles.filterChip, schoolId === s.id && styles.filterChipActive]}
+                        onPress={() => {
+                          setSchoolId(s.id);
+                          setSchoolName(s.name ?? '学校');
+                          setOpenTab(null);
+                        }}
+                      >
+                        <Text style={[styles.filterText, schoolId === s.id && styles.filterTextActive]}>
+                          {s.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  {schoolsLoaded && !filteredSchools.length && (
+                    <Text style={styles.dropEmpty}>暂无匹配学校</Text>
+                  )}
+                </ScrollView>
               </>
             )}
 
@@ -1024,74 +1212,75 @@ export default function ListingsScreen() {
               </>
             )}
 
-            {openTab === 'area' && (
-              <>
-                <Text style={styles.dropGroupTitle}>面积</Text>
-                <View style={styles.filterGroup}>
-                  {AREA_PRESETS.map((a) => (
-                    <TouchableOpacity
-                      key={a.key}
-                      style={[styles.filterChip, areaRange === a.key && styles.filterChipActive]}
-                      onPress={() => {
-                        setAreaRange(a.key);
-                        if (a.key) { setAreaCustomMin(''); setAreaCustomMax(''); }
-                      }}
-                    >
-                      <Text style={[styles.filterText, areaRange === a.key && styles.filterTextActive]}>{a.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <Text style={styles.dropGroupTitle}>自定义面积</Text>
-                <View style={styles.priceCustomRow}>
-                  <View style={styles.priceCustomInput}>
-                    <TextInput
-                      style={styles.priceCustomField}
-                      value={areaCustomMin}
-                      onChangeText={(v) => { setAreaCustomMin(v.replace(/[^\d]/g, '')); if (v) setAreaRange(''); }}
-                      placeholder="最低㎡"
-                      placeholderTextColor={colors.ink3}
-                      keyboardType="number-pad"
-                    />
-                    <Text style={styles.priceCustomUnit}>㎡</Text>
-                  </View>
-                  <Text style={styles.priceCustomDivider}>至</Text>
-                  <View style={styles.priceCustomInput}>
-                    <TextInput
-                      style={styles.priceCustomField}
-                      value={areaCustomMax}
-                      onChangeText={(v) => { setAreaCustomMax(v.replace(/[^\d]/g, '')); if (v) setAreaRange(''); }}
-                      placeholder="最高㎡"
-                      placeholderTextColor={colors.ink3}
-                      keyboardType="number-pad"
-                    />
-                    <Text style={styles.priceCustomUnit}>㎡</Text>
-                  </View>
-                </View>
-                <View style={styles.panelActions}>
-                  <TouchableOpacity style={styles.resetBtn} onPress={() => resetCurrent('area')} activeOpacity={0.7}>
-                    <Text style={styles.resetText}>重置</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmCurrent('area')} activeOpacity={0.7}>
-                    <Text style={styles.confirmText}>确定</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-
             {openTab === 'more' && (
               <>
-                <Text style={styles.dropGroupTitle}>房源状态</Text>
-                <View style={styles.filterGroup}>
-                  {STATUS_FILTERS.map((s) => (
-                    <TouchableOpacity
-                      key={s.key}
-                      style={[styles.filterChip, statusFilter === s.key && styles.filterChipActive]}
-                      onPress={() => setStatusFilter(s.key)}
-                    >
-                      <Text style={[styles.filterText, statusFilter === s.key && styles.filterTextActive]}>{s.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                {/* 三组条件叠加后超出面板高度，内容区独立滚动，操作行常驻可见 */}
+                <ScrollView style={styles.dropBodyTall}>
+                  <Text style={styles.dropGroupTitle}>房源类型</Text>
+                  <View style={styles.filterGroup}>
+                    {PROPERTY_TYPE_FILTERS.map((f) => (
+                      <TouchableOpacity
+                        key={f.key || 'all'}
+                        style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
+                        onPress={() => setFilter(f.key)}
+                      >
+                        <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={styles.dropGroupTitle}>面积</Text>
+                  <View style={styles.filterGroup}>
+                    {AREA_PRESETS.map((a) => (
+                      <TouchableOpacity
+                        key={a.key || 'all'}
+                        style={[styles.filterChip, areaRange === a.key && styles.filterChipActive]}
+                        onPress={() => {
+                          setAreaRange(a.key);
+                          if (a.key) { setAreaCustomMin(''); setAreaCustomMax(''); }
+                        }}
+                      >
+                        <Text style={[styles.filterText, areaRange === a.key && styles.filterTextActive]}>{a.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <View style={styles.priceCustomRow}>
+                    <View style={styles.priceCustomInput}>
+                      <TextInput
+                        style={styles.priceCustomField}
+                        value={areaCustomMin}
+                        onChangeText={(v) => { setAreaCustomMin(v.replace(/[^\d]/g, '')); if (v) setAreaRange(''); }}
+                        placeholder="最低㎡"
+                        placeholderTextColor={colors.ink3}
+                        keyboardType="number-pad"
+                      />
+                      <Text style={styles.priceCustomUnit}>㎡</Text>
+                    </View>
+                    <Text style={styles.priceCustomDivider}>至</Text>
+                    <View style={styles.priceCustomInput}>
+                      <TextInput
+                        style={styles.priceCustomField}
+                        value={areaCustomMax}
+                        onChangeText={(v) => { setAreaCustomMax(v.replace(/[^\d]/g, '')); if (v) setAreaRange(''); }}
+                        placeholder="最高㎡"
+                        placeholderTextColor={colors.ink3}
+                        keyboardType="number-pad"
+                      />
+                      <Text style={styles.priceCustomUnit}>㎡</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.dropGroupTitle}>房源状态</Text>
+                  <View style={styles.filterGroup}>
+                    {STATUS_FILTERS.map((s) => (
+                      <TouchableOpacity
+                        key={s.key || 'all'}
+                        style={[styles.filterChip, statusFilter === s.key && styles.filterChipActive]}
+                        onPress={() => setStatusFilter(s.key)}
+                      >
+                        <Text style={[styles.filterText, statusFilter === s.key && styles.filterTextActive]}>{s.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
                 <View style={styles.panelActions}>
                   <TouchableOpacity style={styles.resetBtn} onPress={() => resetCurrent('more')} activeOpacity={0.7}>
                     <Text style={styles.resetText}>重置</Text>
@@ -1281,19 +1470,23 @@ const styles = StyleSheet.create({
   // 贝壳式 Tab 筛选栏 + 顶部下拉面板
   filterZone: { position: 'relative' },
   filterTabsRow: {
-    flexDirection: 'row',
+    flexGrow: 0,
     marginHorizontal: 12,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.md,
     overflow: 'hidden',
   },
+  filterTabsContent: { flexGrow: 1 },
   filterTab: {
-    flex: 1,
+    // flexGrow + flexShrink:0：宽度够时等分铺满，不够时按内容撑开并触发横向滚动
+    flexGrow: 1,
+    flexShrink: 0,
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
+    paddingHorizontal: 10,
     paddingVertical: 12,
     position: 'relative',
     backgroundColor: colors.surface,
@@ -1307,7 +1500,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.ink2,
     fontWeight: '500',
-    maxWidth: 64,
+    maxWidth: 92,
   },
   filterTabLabelActive: { color: colors.primary, fontWeight: '600' },
   filterTabBadge: {
@@ -1340,6 +1533,19 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   dropBody: { flexGrow: 0, maxHeight: 260 },
+  // 「更多」面板三组条件：内容区限高滚动，操作行常驻在面板底部
+  dropBodyTall: { flexGrow: 0, maxHeight: 300 },
+  dropSearch: {
+    minHeight: 44,
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 10,
+  },
+  dropEmpty: { fontSize: 13, color: colors.ink3, paddingVertical: 12 },
   dropGroupTitle: {
     fontSize: 12,
     color: colors.ink2,
@@ -1463,38 +1669,42 @@ const styles = StyleSheet.create({
   },
   locTabText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
   locTabTextActive: { color: colors.primary, fontWeight: '600' },
-  locDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
+  // 链家式两栏（区域 / 地铁 / 小区共用）：左栏一级、右栏二级
+  locTwoCol: {
+    flexDirection: 'row',
+    height: 300,
+    // 抵消 dropPanel 的 paddingHorizontal，让左栏贴面板边缘（链家观感）
+    marginHorizontal: -16,
+    overflow: 'hidden',
   },
-  locGroup: { marginBottom: 2 },
-  locMetro: { marginBottom: 4 },
-  locLineRow: { flexGrow: 0, marginBottom: 4 },
-  locLineChip: {
+  locColLeft: {
+    width: 96,
+    backgroundColor: colors.surface2,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: colors.border,
+  },
+  // 区域面板左栏宽度由 areaLeftWidth（按最长国家名动态推导，见渲染处）内联注入；
+  // 此处 base 96 仅用于地铁左栏放线路名，面积模式会被内联 width 覆盖
+  locColLeftContent: { paddingVertical: 4 },
+  locColItem: {
     minHeight: 44,
     justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: colors.radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
+  },
+  locColItemActive: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginRight: 8,
+    borderLeftColor: colors.primary,
   },
-  locLineChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  locLineText: { fontSize: 13, color: colors.ink2 },
-  locLineTextActive: { color: colors.primaryForeground, fontWeight: '600' },
-  filterBar: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-  },
+  locColText: { fontSize: 13, color: colors.ink2 },
+  locColTextActive: { color: colors.primary, fontWeight: '600' },
+  locColRight: { flex: 1 },
+  locColRightContent: { padding: 12, paddingBottom: 4 },
+  // 下钻到省市后，右栏顶部「← 国家」返回行
+  locDrillHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  locDrillBack: { fontSize: 13, color: colors.ink3 },
   filterChip: {
     minHeight: 44,
     justifyContent: 'center',

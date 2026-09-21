@@ -4,6 +4,9 @@ import { REFRESH_TOKEN_KEY, useAuthStore } from '@/stores/auth'
 const api = axios.create({
   baseURL: '/api/v1',
   timeout: 10000,
+  // axios 默认把数组序列化成 `keywords[]=a&keywords[]=b`，FastAPI 的 `List[str]` 只认
+  // 重复键 `keywords=a&keywords=b`，不改的话区域/地铁的关键词筛选会被后端静默忽略。
+  paramsSerializer: { indexes: null },
 })
 
 api.interceptors.request.use(
@@ -62,13 +65,18 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      // 公共页面（首页、房源浏览、登录、注册）不因 401 重定向，让组件自行降级处理
+      // 公共页面（首页、房源浏览、学校、小区、登录、注册）不因 401 重定向，让组件自行降级处理
       const pathname = window.location.pathname
       const isPublicRoute =
         pathname === '/' ||
         pathname === '/login' ||
         pathname === '/register' ||
-        pathname === '/listings' ||
+        pathname.startsWith('/listings') ||
+        pathname.startsWith('/listing/') ||
+        pathname.startsWith('/schools') ||
+        pathname.startsWith('/school/') ||
+        pathname.startsWith('/communities') ||
+        pathname.startsWith('/community/') ||
         pathname.startsWith('/properties/detail')
       if (!isPublicRoute) {
         useAuthStore.getState().logout()

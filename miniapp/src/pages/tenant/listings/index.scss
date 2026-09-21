@@ -267,6 +267,62 @@
       padding: 4px 4px 4px 0;
     }
 
+    /* 区域面板：国家→省市→城区 三级下钻（左栏国家 / 右栏省市或城区） */
+    .filter-region-twocol {
+      display: flex;
+      max-height: 42vh;
+      border: 2px solid var(--surface-2);
+      border-radius: 12px;
+      overflow: hidden;
+
+      &__left {
+        /* 宽度由 JS 按最长国家名倒推（见 areaLeftWidth）后内联注入；
+           border-box + 条目 nowrap 保证 padding/边框计入列宽、文本不折行、无留白 */
+        flex: none;
+        box-sizing: border-box;
+        max-height: 42vh;
+        background-color: var(--surface-2);
+      }
+
+      &__right {
+        flex: 1;
+        max-height: 42vh;
+        padding: 16px;
+      }
+
+      .loc-col-item {
+        padding: 22px 16px;
+        font-size: 26px;
+        color: var(--ink-2);
+        border-left: 6px solid transparent;
+        box-sizing: border-box;
+        white-space: nowrap;
+
+        &--active {
+          background-color: var(--surface);
+          color: var(--primary);
+          border-left-color: var(--primary);
+          font-weight: 600;
+        }
+      }
+    }
+
+    .filter-region-drill-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 4px;
+
+      &__back {
+        font-size: 24px;
+        color: var(--ink-3);
+      }
+    }
+
+    .loc-group__title--flat {
+      margin-bottom: 12px;
+    }
+
     .filter-metro {
       display: flex;
       flex-direction: column;

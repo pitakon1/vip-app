@@ -12,12 +12,13 @@ import {
   Pressable,
   FlatList,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import { propertiesApi, paymentsApi, maintenanceApi, saleListingApi } from '@/services/api';
+import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
 import { fmtMoney as formatMoney } from '@/utils/format';
 import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
@@ -81,6 +82,8 @@ interface Ticket {
 interface HomePublic {
   listings: Listing[];
   saleItems: SaleListing[];
+  /** 国际学校：首页只做「按学校找房」的入口，卡片点击即带着学校去「找房」筛选 */
+  schools: PublicSchool[];
 }
 
 /** 首页私有数据（按用户隔离） */
@@ -106,6 +109,28 @@ const typeLabels: Record<string, string> = {
   shop: '商铺',
   commercial: '商铺',
   office: '写字楼',
+};
+
+// 学校：学段 / 课程体系（与 Web、小程序的取值保持一致）
+const stageLabels: Record<string, string> = {
+  kindergarten: '幼儿园',
+  primary: '小学',
+  secondary: '中学',
+  high_school: '高中',
+  university: '大学',
+  k12: '一贯制',
+};
+
+const curriculumLabels: Record<string, string> = {
+  ib: 'IB',
+  american: '美制',
+  british: '英制',
+  french: '法式',
+  german: '德式',
+  japanese: '日式',
+  thai: '泰制',
+  bilingual: '双语',
+  other: '其他',
 };
 
 const paymentTypeLabels: Record<string, string> = {
@@ -285,6 +310,79 @@ const SaleCard = React.memo(function SaleCard({
   );
 });
 
+/**
+ * 学校卡片。与 PropertyCard 同尺寸同结构（图 / 徽标 / 标题 / 副标题 / 标签 / 底部数值），
+ * 让「学校」区块和「推荐房源」区块在首页视觉上属于同一层级。
+ * 点击不是进学校详情，而是带着这所学校去「找房」——学校在泰国是找房的第一决策因子。
+ */
+const SchoolCard = React.memo(function SchoolCard({
+  item,
+  onPress,
+}: {
+  item: PublicSchool;
+  onPress: (item: PublicSchool) => void;
+}) {
+  // 按压缩放动画值
+  const scale = useRef(new Animated.Value(1)).current;
+  const photo = item.cover_url ? String(item.cover_url) : null;
+  const stage = stageLabels[String(item.stage ?? '')] ?? '国际学校';
+  const curriculum = curriculumLabels[String(item.curriculum ?? '')];
+  const sub = [item.name_en, item.district].filter(Boolean).join(' · ');
+  return (
+    <Pressable
+      onPress={() => onPress(item)}
+      onPressIn={() =>
+        Animated.spring(scale, {
+          toValue: 0.97,
+          speed: 40,
+          bounciness: 0,
+          useNativeDriver: Platform.OS !== 'web',
+        }).start()
+      }
+      onPressOut={() =>
+        Animated.spring(scale, {
+          toValue: 1,
+          speed: 40,
+          bounciness: 0,
+          useNativeDriver: Platform.OS !== 'web',
+        }).start()
+      }
+      accessibilityRole="button"
+      accessibilityLabel={`${item.name || '学校'}，${sub || '暂无地址'}，查看周边房源`}
+    >
+      <Animated.View style={[styles.propCard, { transform: [{ scale }] }]}>
+        <View style={styles.propImgWrap}>
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.propImg} resizeMode="cover" />
+          ) : (
+            <View style={[styles.propImg, styles.propImgPlaceholder]}>
+              <Ionicons name="school-outline" size={26} color={colors.ink3} />
+            </View>
+          )}
+          <View style={styles.propBadge}>
+            <Text style={styles.propBadgeText}>{stage}</Text>
+          </View>
+        </View>
+        <View style={styles.propBody}>
+          <Text style={styles.propName} numberOfLines={1}>
+            {item.name || '未命名学校'}
+          </Text>
+          <Text style={styles.propAddr} numberOfLines={1}>
+            {sub || '暂无地址'}
+          </Text>
+          <View style={styles.propTags}>
+            {curriculum ? <Text style={styles.propTag}>{curriculum}</Text> : null}
+            {item.age_range ? <Text style={styles.propTag}>{item.age_range}</Text> : null}
+          </View>
+          <Text style={styles.propPrice} numberOfLines={1}>
+            {item.tuition_range || '学费面议'}
+          </Text>
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+});
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
@@ -298,17 +396,21 @@ export default function HomeScreen() {
   // ---------- TanStack Query：公开数据全局一份；私有数据（账单/工单）按用户隔离 ----------
   // 跨会话秒开由 MMKV 缓存（cache.ts）承担：mount 时读缓存 seed 进 Query Cache（updatedAt 取缓存
   // 时间戳，与 staleTime 对齐 → 3 分钟内不发请求，超时才后台刷新）；会话内由 staleTime 去重。
-  const publicKey = 'home:public';
+  // 缓存键带版本：HomePublic 新增 schools 字段后，旧缓存不含该字段，
+  // 若继续复用会在 staleTime 内渲染出空的学校区块
+  const publicKey = 'home:public:v2';
   const userKey = token ? `home:user:${user?.id ?? 'anon'}` : null;
 
   const publicQ = useQuery<HomePublic>({
     queryKey: ['home', 'public'],
     queryFn: async () => {
-      const [pRes, sRes] = await Promise.allSettled([
+      const [pRes, sRes, scRes] = await Promise.allSettled([
         propertiesApi.list({ page: 1, page_size: 20 }),
         saleListingApi.list({ page: 1, limit: 10 }),
+        // 首页学校区块只做入口，取前 8 条即可，列表页才需要全量
+        publicApi.schools({ page_size: 8 }),
       ]);
-      const next: HomePublic = { listings: [], saleItems: [] };
+      const next: HomePublic = { listings: [], saleItems: [], schools: [] };
       if (pRes.status === 'fulfilled') {
         const data: any = pRes.value?.data;
         next.listings = (Array.isArray(data) ? data : data?.items ?? data?.data ?? []) as Listing[];
@@ -316,6 +418,9 @@ export default function HomeScreen() {
       if (sRes.status === 'fulfilled') {
         const data: any = sRes.value?.data;
         next.saleItems = (Array.isArray(data) ? data : data?.items ?? data?.data ?? []) as SaleListing[];
+      }
+      if (scRes.status === 'fulfilled') {
+        next.schools = unwrapPage<PublicSchool>(scRes.value?.data).items;
       }
       void setCached(publicKey, next);
       return next;
@@ -348,6 +453,7 @@ export default function HomeScreen() {
 
   const listings = publicQ.data?.listings ?? [];
   const saleItems = publicQ.data?.saleItems ?? [];
+  const schools = publicQ.data?.schools ?? [];
   const payments = userQ.data?.payments ?? [];
   const tickets = userQ.data?.tickets ?? [];
 
@@ -403,6 +509,18 @@ export default function HomeScreen() {
   const goListings = useCallback(() => navigation.navigate('Listings'), [navigation]);
   const openProperty = useCallback(
     (id: string) => navigation.navigate('PropertyDetail', { id }),
+    [navigation],
+  );
+  // 学校卡片不是进学校详情，而是带着这所学校跳到「找房」并预选学校筛选（默认 3km）。
+  // schoolTs 用时间戳而非学校 id：连续点同一所学校也要重新触发筛选重置。
+  const openSchoolListings = useCallback(
+    (s: PublicSchool) =>
+      navigation.navigate('Listings', {
+        schoolId: s.id,
+        schoolName: s.name ?? '',
+        schoolKm: 3,
+        schoolTs: Date.now(),
+      }),
     [navigation],
   );
 
@@ -469,10 +587,10 @@ export default function HomeScreen() {
   // 保证不同身份/状态用户看到一致的页面排版。
   // 加载中仅渲染一个「加载」占位区块：顶部的问候/搜索/Tab 已在 ListHeader 立即展示，
   // 数据到位后该区块替换为实际内容，避免整页停留在白屏/加载漩涡。
-  type BodySection = { key: 'rail' | 'activity' | 'loading' };
+  type BodySection = { key: 'rail' | 'school' | 'activity' | 'loading' };
   const bodySections = useMemo<BodySection[]>(() => {
     if (loading) return [{ key: 'loading' }];
-    return [{ key: 'rail' }, { key: 'activity' }];
+    return [{ key: 'rail' }, { key: 'school' }, { key: 'activity' }];
   }, [loading]);
 
   // 渲染单个数据区块（rail 内部仍是横向 ScrollView，保持横向滚动行为不变）
@@ -553,6 +671,36 @@ export default function HomeScreen() {
               >
                 {saleItems.map((it) => (
                   <SaleCard key={it.id} item={it} onPress={openProperty} />
+                ))}
+              </ScrollView>
+            )}
+          </>
+        );
+      case 'school':
+        // 与「推荐房源」同构：区块标题 + 更多 + 横向卡片 rail。
+        // 学校是泰国找房的第一决策因子，卡片点击直接带着学校去「找房」做空间筛选。
+        return (
+          <>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>{t('pub.tabSchools')}</Text>
+              <TouchableOpacity onPress={goListings} activeOpacity={0.7}>
+                <Text style={styles.linkText}>更多</Text>
+              </TouchableOpacity>
+            </View>
+            {schools.length === 0 ? (
+              <EmptyState
+                icon="school-outline"
+                title="暂无学校"
+                sub="学校数据完善后会显示在这里"
+              />
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.rail}
+              >
+                {schools.map((it) => (
+                  <SchoolCard key={it.id} item={it} onPress={openSchoolListings} />
                 ))}
               </ScrollView>
             )}
@@ -666,7 +814,8 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* 4. 房源 rail / 最近动态，已移入外层 FlatList 的 data（renderBodySection 按区块懒加载渲染） */}
+      {/* 4. 学校 / 房源 rail / 最近动态，已移入外层 FlatList 的 data（renderBodySection 按区块懒加载渲染）。
+          学校不再是通栏按钮入口，而是与「推荐房源」同构的区块，收在下方。 */}
         </>
       }
     />

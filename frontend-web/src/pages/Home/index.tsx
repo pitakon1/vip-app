@@ -83,11 +83,10 @@ const Home = () => {
     navigate('/listings?video=1')
   }, [navigate])
 
-  // 房源详情入口：租客走 C 端门户详情页，其余角色走后台详情页
-  const detailPath = useCallback(
-    (id: string) => (user?.role === 'tenant' ? `/tenant/properties/${id}` : `/properties/detail/${id}`),
-    [user]
-  )
+  // 房源详情入口：统一走 C 端公开详情页。
+  // 此前按角色分流，且未登录时直接弹回列表——等于把内容资产的出口关掉了
+  // （学校库 / 小区页做得再厚也没人能点进来）。浏览全开放是产品原则。
+  const detailPath = useCallback((id: string) => `/listing/${id}`, [])
 
   const enterSystem = useCallback(() => {
     if (!token) {
@@ -202,7 +201,7 @@ const Home = () => {
                 <div
                   className="rent-prop-search-card"
                   key={p.id}
-                  onClick={() => token ? navigate(detailPath(p.id)) : handleSearch()}
+                  onClick={() => navigate(detailPath(p.id))}
                 >
                   <div className="rent-prop-search-card__banner" style={{ background: bannerColorFor(p.id) }}>
                     <button
@@ -267,7 +266,7 @@ const Home = () => {
                       </div>
                       <button
                         className="rent-prop-search-card__cta"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); token ? navigate(detailPath(p.id)) : handleSearch() }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(detailPath(p.id)) }}
                       >
                         {t('property.viewDetail')}
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -513,3 +513,38 @@
 }
 
 /* 空状态统一使用 app.scss 的 .empty-state */
+
+/* ===== C 端内容入口（国际学校 / 小区）=====
+   与找房 Banner 形成「一级入口 + 二级入口」层级：Banner 是主路径（找房源），
+   这两个是内容型入口（按学校 / 按小区反查房源）。 */
+.pub-entry-row {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 24rpx;
+}
+
+.pub-entry {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  height: 92rpx;
+  padding: 0 24rpx;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.pub-entry__text {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pub-entry__arrow {
+  font-size: 32rpx;
+  color: var(--ink-3);
+  line-height: 1;
+}

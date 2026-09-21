@@ -5,9 +5,11 @@
 from .base import TimestampMixin
 from .user import User, UserRole
 from .verification_code import VerificationCode
-from .project import Project
+from .project import Project, Tenure
+from .school import School, SchoolStage, SchoolCurriculum
+from .developer import Developer
 from .owner import Owner
-from .property import Property, PropertyStatus, DedupeType
+from .property import Property, PropertyStatus, DedupeType, Orientation, Decoration
 from .listing import (
     Listing,
     ListingType,
@@ -114,10 +116,17 @@ __all__ = [
     "UserRole",
     "VerificationCode",
     "Project",
+    "Tenure",
+    "School",
+    "SchoolStage",
+    "SchoolCurriculum",
+    "Developer",
     "Owner",
     "Property",
     "PropertyStatus",
     "DedupeType",
+    "Orientation",
+    "Decoration",
     "Listing",
     "ListingType",
     "PublisherType",

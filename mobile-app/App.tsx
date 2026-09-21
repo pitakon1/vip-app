@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { useAuthStore } from './src/stores/auth';
 import { initI18n } from './src/i18n';
 import { ToastProvider } from './src/components/Toast';
 import { queryClient } from './src/lib/queryClient';
@@ -12,6 +13,8 @@ import { queryClient } from './src/lib/queryClient';
 function AppShell() {
   useEffect(() => {
     void initI18n();
+    // 冷启动时恢复登录态：读取本地 token 并向 /auth/me 校验
+    void useAuthStore.getState().restore();
   }, []);
   return (
     <QueryClientProvider client={queryClient}>

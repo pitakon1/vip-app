@@ -47,6 +47,7 @@ from .operations import router as operations_router
 from .exports import router as exports_router
 from .listings import router as listings_router
 from .dedupe_reviews import router as dedupe_reviews_router
+from .public import router as public_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -93,5 +94,6 @@ api_router.include_router(operations_router)
 api_router.include_router(exports_router)
 api_router.include_router(listings_router)
 api_router.include_router(dedupe_reviews_router)
+api_router.include_router(public_router)
 
 __all__ = ["api_router"]

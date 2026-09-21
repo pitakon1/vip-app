@@ -1,0 +1,802 @@
+/* =========================================================
+   C 端公开站（小程序端）共用样式
+   用于 pages/public/* 全部页面：找房 / 学校 / 小区 / 我的
+   所有色值走 app.scss 的设计令牌，不硬编码。
+   ========================================================= */
+
+.pub-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+  /* 预留固定底部导航 */
+  padding-bottom: 152rpx;
+}
+
+.pub-inner {
+  padding: 24rpx;
+}
+
+/* ===== 顶部标题区 ===== */
+.pub-head {
+  padding: 8rpx 0 20rpx;
+}
+
+.pub-head__title {
+  font-size: 44rpx;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.pub-head__hint {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+/* ===== 搜索框 ===== */
+.pub-search {
+  margin-top: 20rpx;
+  height: 80rpx;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  padding: 0 32rpx;
+  font-size: 28rpx;
+  color: var(--ink);
+}
+
+/* ===== 分段控件（租 / 售）===== */
+.pub-segment {
+  display: flex;
+  margin-top: 20rpx;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: 6rpx;
+}
+
+.pub-segment__item {
+  flex: 1;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: 27rpx;
+  color: var(--ink-2);
+}
+
+.pub-segment__item--on {
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===== 横滑筛选 chip ===== */
+.pub-chips {
+  white-space: nowrap;
+  margin-top: 20rpx;
+}
+
+.pub-chips__label {
+  display: block;
+  margin-top: 20rpx;
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+  color: var(--ink-2);
+}
+
+.pub-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 60rpx;
+  padding: 0 26rpx;
+  margin-right: 14rpx;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--line);
+  font-size: 25rpx;
+  color: var(--ink-2);
+}
+
+/* 选中态统一为「浅底 + 主色边框 + 主色文字」，与 Web / App 三端一致 */
+.pub-chip--on {
+  background: var(--sidebar-active);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* 两栏面板的右栏里 chip 需要换行排布 */
+.pub-chips--wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+  white-space: normal;
+  margin-top: 0;
+}
+
+.pub-chips--wrap .pub-chip {
+  margin-right: 0;
+}
+
+/* ===== 链家式单行筛选栏 + 顶部下拉面板 ===== */
+.pub-filter {
+  margin-top: 20rpx;
+}
+
+.pub-filter__tabs {
+  display: flex;
+  background: var(--card);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.pub-filter__tab {
+  flex: 0 0 auto;
+  min-width: 132rpx;
+  height: 76rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  padding: 0 16rpx;
+  font-size: 26rpx;
+  color: var(--ink-2);
+}
+
+.pub-filter__tab--on {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.pub-filter__tab--open {
+  background: var(--surface-2);
+}
+
+.pub-filter__badge {
+  min-width: 28rpx;
+  height: 28rpx;
+  line-height: 28rpx;
+  text-align: center;
+  padding: 0 6rpx;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  color: #fff;
+  font-size: 20rpx;
+}
+
+.pub-filter__caret {
+  font-size: 18rpx;
+  color: var(--ink-3);
+}
+
+.pub-filter__panel {
+  margin-top: 12rpx;
+  background: var(--card);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.pub-filter__pad {
+  padding: 20rpx 24rpx 0;
+}
+
+.pub-filter__scroll {
+  max-height: 520rpx;
+  padding: 20rpx 24rpx 0;
+  box-sizing: border-box;
+}
+
+.pub-filter__actions {
+  display: flex;
+  gap: 24rpx;
+  padding: 20rpx 24rpx 24rpx;
+  border-top: 1px solid var(--line);
+}
+
+.pub-filter__actions .btn {
+  flex: 1;
+}
+
+/* 面板内的搜索框 / 分组标题不需要外边距，由容器统一控制 */
+.pub-search--flat {
+  margin-top: 0;
+}
+
+.pub-chips__label--flat {
+  margin-top: 0;
+}
+
+/* 区域 / 地铁 二级切换 */
+.pub-loc-tabs {
+  display: flex;
+  gap: 16rpx;
+  padding: 20rpx 24rpx 0;
+}
+
+.pub-loc-tab {
+  height: 60rpx;
+  padding: 0 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  font-size: 26rpx;
+  color: var(--ink-2);
+}
+
+.pub-loc-tab--on {
+  background: var(--sidebar-active);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* 链家式两栏：左一级、右二级 */
+.pub-twocol {
+  display: flex;
+  height: 600rpx;
+  margin-top: 16rpx;
+  overflow: hidden;
+}
+
+.pub-twocol__left {
+  flex: 0 0 200rpx;
+  width: 200rpx;
+  height: 100%;
+  background: var(--surface-2);
+  border-right: 1px solid var(--line);
+}
+
+/* 区域面板左栏按最长国家名「马来西亚」倒推：条目 padding 16×2 + 左边框 6 + 4×26 = 142rpx；
+   地铁面板左栏仍用 200rpx 放线路名 */
+.pub-twocol--area .pub-twocol__left {
+  flex: 0 0 144rpx;
+  width: 144rpx;
+}
+
+.pub-twocol--area .pub-twocol__item {
+  padding: 12rpx 16rpx;
+}
+
+.pub-twocol__item {
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  padding: 12rpx 20rpx;
+  border-left: 6rpx solid transparent;
+  font-size: 26rpx;
+  color: var(--ink-2);
+  box-sizing: border-box;
+}
+
+.pub-twocol__item--on {
+  background: var(--card);
+  border-left-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.pub-twocol__right {
+  flex: 1;
+  height: 100%;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+/* 下钻到省市后，右栏顶部「← 国家」返回行 */
+.pub-drill-head {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 8rpx;
+}
+
+.pub-drill-head__back {
+  font-size: 24rpx;
+  color: #94a3b8;
+}
+
+/* 自定义价格 / 面积 输入行 */
+.pub-range {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.pub-range__input {
+  flex: 1;
+  height: 72rpx;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0 20rpx;
+  font-size: 26rpx;
+  color: var(--ink);
+}
+
+.pub-range__to {
+  font-size: 25rpx;
+  color: var(--ink-3);
+}
+
+.pub-range__unit {
+  font-size: 25rpx;
+  color: var(--ink-2);
+}
+
+/* ===== 结果计数 ===== */
+.pub-count {
+  display: block;
+  margin: 24rpx 0 16rpx;
+  font-size: 24rpx;
+  color: var(--ink-3);
+}
+
+/* ===== 房源卡片 ===== */
+.pub-listing {
+  display: flex;
+  gap: 22rpx;
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.pub-listing__media {
+  position: relative;
+  width: 200rpx;
+  height: 176rpx;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-2);
+}
+
+.pub-listing__img {
+  width: 100%;
+  height: 100%;
+}
+
+.pub-listing__noimg {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+.pub-listing__type {
+  position: absolute;
+  left: 10rpx;
+  top: 10rpx;
+  padding: 4rpx 14rpx;
+  border-radius: var(--radius-full);
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+}
+
+.pub-listing__type--sell {
+  background: var(--ink-2);
+}
+
+.pub-listing__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.pub-listing__title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pub-listing__unit,
+.pub-listing__addr {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 23rpx;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pub-listing__facts {
+  display: flex;
+  gap: 18rpx;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+.pub-listing__price {
+  margin-top: 10rpx;
+  font-size: 34rpx;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.pub-listing__price-sub {
+  margin-left: 8rpx;
+  font-size: 22rpx;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+.pub-listing__school {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--primary-hover);
+}
+
+/* ===== 通用行卡片（学校 / 小区）===== */
+.pub-row {
+  display: flex;
+  align-items: center;
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.pub-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.pub-row__title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.pub-row__sub {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pub-row__action {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  font-size: 24rpx;
+  color: var(--primary);
+}
+
+.pub-row__distance {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--primary-hover);
+}
+
+.pub-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 14rpx;
+}
+
+/* ===== 小区卡片（大图）===== */
+.pub-project {
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  margin-bottom: 20rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.pub-project__cover {
+  width: 100%;
+  height: 280rpx;
+  background: var(--surface-2);
+}
+
+.pub-project__nophoto {
+  width: 100%;
+  height: 280rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  font-size: 24rpx;
+  color: var(--ink-3);
+}
+
+.pub-project__body {
+  padding: 28rpx;
+}
+
+.pub-project__name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.pub-project__sub {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  color: var(--ink-2);
+}
+
+.pub-project__price {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 27rpx;
+  color: var(--ink);
+}
+
+/* ===== 详情页区块 ===== */
+.pub-card {
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.pub-card__title {
+  font-size: 36rpx;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.pub-card__sub {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 25rpx;
+  color: var(--ink-2);
+}
+
+.pub-section__title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 10rpx;
+}
+
+.pub-section__hint {
+  display: block;
+  margin-bottom: 20rpx;
+  font-size: 23rpx;
+  color: var(--ink-3);
+}
+
+.pub-cover {
+  width: 100%;
+  height: 420rpx;
+  background: var(--surface-2);
+}
+
+.pub-gallery {
+  white-space: nowrap;
+}
+
+.pub-gallery__img {
+  width: 100%;
+  height: 420rpx;
+}
+
+/* 键值对 */
+.pub-kv {
+  margin-top: 16rpx;
+}
+
+.pub-kv__item {
+  display: flex;
+  align-items: flex-start;
+  padding: 12rpx 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.pub-kv__item:last-child {
+  border-bottom: none;
+}
+
+.pub-kv__k {
+  width: 190rpx;
+  flex-shrink: 0;
+  font-size: 25rpx;
+  color: var(--ink-3);
+}
+
+.pub-kv__v {
+  flex: 1;
+  font-size: 27rpx;
+  color: var(--ink);
+  word-break: break-all;
+}
+
+.pub-link {
+  display: block;
+  margin-top: 18rpx;
+  font-size: 27rpx;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.pub-desc {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  line-height: 1.75;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+}
+
+.pub-empty {
+  padding: 100rpx 24rpx;
+  text-align: center;
+  font-size: 27rpx;
+  color: var(--ink-3);
+}
+
+/* 提交中态：按住不响应，视觉上压暗，避免重复提交留资 */
+.btn--disabled {
+  opacity: 0.6;
+}
+
+.pub-loading {
+  padding: 80rpx 24rpx;
+  text-align: center;
+  font-size: 27rpx;
+  color: var(--ink-3);
+}
+
+.pub-footer-note {
+  padding: 32rpx 24rpx 24rpx;
+  text-align: center;
+  font-size: 23rpx;
+  color: var(--ink-3);
+}
+
+/* ===== 留资表单 ===== */
+.pub-inquiry__label {
+  display: block;
+  margin-top: 22rpx;
+  margin-bottom: 10rpx;
+  font-size: 25rpx;
+  color: var(--ink-2);
+}
+
+.pub-inquiry__input {
+  width: 100%;
+  height: 84rpx;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0 26rpx;
+  font-size: 28rpx;
+  color: var(--ink);
+  box-sizing: border-box;
+}
+
+.pub-inquiry__textarea {
+  width: 100%;
+  min-height: 150rpx;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 20rpx 26rpx;
+  font-size: 28rpx;
+  color: var(--ink);
+  box-sizing: border-box;
+}
+
+.pub-inquiry__msg {
+  display: block;
+  margin-top: 20rpx;
+  font-size: 25rpx;
+}
+
+.pub-inquiry__msg--ok {
+  color: var(--success);
+}
+
+.pub-inquiry__msg--err {
+  color: var(--error);
+}
+
+.pub-inquiry__submit {
+  margin-top: 28rpx;
+}
+
+/* ===== 可选行（学校 / 排序候选；房源详情页的学校行也复用）===== */
+.pub-sheet__row {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 12rpx;
+  border-bottom: 1px solid var(--line);
+}
+
+.pub-sheet__row--on {
+  background: var(--sidebar-active);
+}
+
+/* ===== 访客「我的」 ===== */
+.pub-guest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 0 30rpx;
+}
+
+.pub-guest__avatar {
+  width: 144rpx;
+  height: 144rpx;
+  border-radius: 50%;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56rpx;
+  color: var(--primary);
+}
+
+.pub-guest__title {
+  margin-top: 26rpx;
+  font-size: 40rpx;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.pub-guest__sub {
+  margin-top: 14rpx;
+  font-size: 25rpx;
+  color: var(--ink-3);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.pub-guest__caps {
+  margin-top: 36rpx;
+}
+
+.pub-guest__cap {
+  display: flex;
+  align-items: center;
+  padding: 22rpx 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 27rpx;
+  color: var(--ink-2);
+}
+
+.pub-guest__cap:last-child {
+  border-bottom: none;
+}
+
+.pub-guest__cap-mark {
+  margin-left: auto;
+  color: var(--success);
+}
+
+.pub-guest__actions {
+  margin-top: 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 22rpx;
+}

@@ -11,7 +11,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import Card from '@/components/Card';
 import colors from '@/theme/colors';
 import { maintenanceApi } from '@/services/api';

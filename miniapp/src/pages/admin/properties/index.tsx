@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView, Picker } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { propertiesApi, dashboardApi } from '@/services/api'
@@ -91,14 +91,6 @@ const SORT_OPTIONS = [
   { key: 'area_desc', label: '面积从大到小' }
 ]
 
-// 区域/位置选项：扁平化 AREA_GROUPS（语义与租客端同数据源，key 选中后以 kws 走后端 keywords）
-const REGION_OPTIONS: { key: string; label: string; kws: string[] }[] = [
-  { key: '', label: '不限区域', kws: [] },
-  ...AREA_GROUPS.flatMap((g) =>
-    g.children.map((d) => ({ key: `${g.cityKey}:${d.key}`, label: `${g.cityLabel}·${d.label}`, kws: d.kws }))
-  )
-]
-
 // 统一解析列表响应（Page[Property] / 直接数组 两种形态）
 function pickList(res: any): PropertyItem[] {
   const d = res?.data ?? res
@@ -121,9 +113,37 @@ export default function AdminPropertiesPage() {
   const [areaRange, setAreaRange] = useState('')
   const [areaCustomMin, setAreaCustomMin] = useState('')
   const [areaCustomMax, setAreaCustomMax] = useState('')
-  const [region, setRegion] = useState('')
+  const [region, setRegion] = useState('') // 选中的城区，存「省市:城区」复合键
   const [hasVideo, setHasVideo] = useState(false)
   const [sort, setSort] = useState('latest')
+  // 区域面板：国家 → 省市 → 城区 三级下钻（左栏只列国家，右栏先是该国家的省市列表，
+  // 点省市后右栏换成它的城区）。此前把国家/省市/城区拍平成一条 Picker 选项，混杂难找。
+  const [regionOpen, setRegionOpen] = useState(false)
+  const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country)
+  const [areaDrill, setAreaDrill] = useState<string>('') // 已下钻的省市 cityKey，空 = 停在省市列表
+
+  // 城区扁平表：key 沿用「省市:城区」复合键（不同省市下存在同名城区，如 laguna），
+  // 仅用于按选中项反查关键词与展示文案。
+  const allDistricts = useMemo(
+    () => AREA_GROUPS.flatMap((g) => g.children.map((d) => ({ ...d, key: `${g.cityKey}:${d.key}` }))),
+    []
+  )
+  // 左栏国家清单（按 AREA_GROUPS 出现顺序去重，保持业务顺序）
+  const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), [])
+  // 右栏未下钻时的数据源：当前国家下的省市
+  const countryGroups = useMemo(
+    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
+    [areaCountry]
+  )
+  // 右栏已下钻时的数据源：该省市的城区
+  const activeAreaGroup = useMemo(
+    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
+    [areaDrill]
+  )
+  const regionLabel = useMemo(
+    () => allDistricts.find((d) => d.key === region)?.label || '不限区域',
+    [region, allDistricts]
+  )
 
   const fetchSummary = async () => {
     try {
@@ -193,7 +213,7 @@ export default function AdminPropertiesPage() {
     }
     // 区域/位置：选中的城区关键词走后端 keywords（与租客端同语义）
     if (rg) {
-      const node = REGION_OPTIONS.find((o) => o.key === rg)
+      const node = allDistricts.find((d) => d.key === rg)
       if (node && node.kws.length) p.keywords = node.kws
     }
     // 只看带视频
@@ -257,8 +277,24 @@ export default function AdminPropertiesPage() {
     setSort(key)
     fetchList({ sort: key })
   }
-  const changeRegion = (key: string) => {
+  // 区域面板开合：打开时按已选城区回显下钻层级（否则停在省市列表）
+  const toggleRegionPanel = () => {
+    if (regionOpen) {
+      setRegionOpen(false)
+      return
+    }
+    setRegionOpen(true)
+    const g = AREA_GROUPS.find((x) => x.children.some((d) => `${x.cityKey}:${d.key}` === region))
+    if (g) {
+      setAreaCountry(g.country)
+      setAreaDrill(g.cityKey)
+    }
+  }
+  const pickRegion = (key: string) => {
     setRegion(key)
+    setRegionOpen(false)
+    // 清空区域时一并清掉下钻状态，下次打开回到省市列表
+    if (!key) setAreaDrill('')
     fetchList({ region: key })
   }
   const toggleHasVideo = () => {
@@ -329,8 +365,12 @@ export default function AdminPropertiesPage() {
 
       {/* 高级筛选：区域 / 房型 / 价格 / 面积 / 排序 */}
       <ScrollView scrollX className='ap-chips ap-filter'>
+        {/* 区域：改成国家→省市→城区下钻面板（原生 Picker 塞不下近百个选项） */}
+        <View className={`ap-chip ${region ? 'ap-chip--active' : ''}`} onClick={toggleRegionPanel}>
+          <Text className='ap-chip__text'>{regionLabel}</Text>
+          <Text className='ap-chip__caret'>{regionOpen ? '▴' : '▾'}</Text>
+        </View>
         {[
-          { opts: REGION_OPTIONS, value: region, onChange: changeRegion },
           { opts: BEDROOM_OPTIONS, value: bedrooms, onChange: changeBedrooms },
           { opts: PRICE_OPTIONS, value: priceRange, onChange: changePriceRange },
           { opts: AREA_OPTIONS, value: areaRange, onChange: changeAreaRange },
@@ -361,6 +401,75 @@ export default function AdminPropertiesPage() {
           <Text className='ap-chip__caret'>{hasVideo ? '✓' : ''}</Text>
         </View>
       </ScrollView>
+
+      {/* 区域下钻面板：左栏国家 / 右栏省市或城区（链家式两栏） */}
+      {regionOpen && (
+        <View className='ap-region'>
+          <View className='filter-region-twocol'>
+            <ScrollView scrollY className='filter-region-twocol__left'>
+              {countryList.map((c) => (
+                <View
+                  key={c}
+                  className={`loc-col-item ${areaCountry === c ? 'loc-col-item--active' : ''}`}
+                  onClick={() => {
+                    setAreaCountry(c)
+                    setAreaDrill('')
+                  }}
+                >
+                  <Text>{c}</Text>
+                </View>
+              ))}
+            </ScrollView>
+            <ScrollView scrollY className='filter-region-twocol__right'>
+              {activeAreaGroup ? (
+                <>
+                  <View className='filter-region-drill-head' onClick={() => setAreaDrill('')}>
+                    <Text className='filter-region-drill-head__back'>← {areaCountry}</Text>
+                    <Text className='loc-group__title loc-group__title--flat'>
+                      {activeAreaGroup.cityLabel}
+                    </Text>
+                  </View>
+                  <View className='ap-region__chips'>
+                    <View
+                      className={`ap-chip ${!region ? 'ap-chip--active' : ''}`}
+                      onClick={() => pickRegion('')}
+                    >
+                      <Text className='ap-chip__text'>不限</Text>
+                    </View>
+                    {activeAreaGroup.children.map((d) => {
+                      const key = `${activeAreaGroup.cityKey}:${d.key}`
+                      return (
+                        <View
+                          key={d.key}
+                          className={`ap-chip ${region === key ? 'ap-chip--active' : ''}`}
+                          onClick={() => pickRegion(key)}
+                        >
+                          <Text className='ap-chip__text'>{d.label}</Text>
+                        </View>
+                      )
+                    })}
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text className='loc-group__title loc-group__title--flat'>{areaCountry}</Text>
+                  <View className='ap-region__chips'>
+                    {countryGroups.map((g) => (
+                      <View
+                        key={g.cityKey}
+                        className={`ap-chip ${areaDrill === g.cityKey ? 'ap-chip--active' : ''}`}
+                        onClick={() => setAreaDrill(g.cityKey)}
+                      >
+                        <Text className='ap-chip__text'>{g.cityLabel}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      )}
 
       {/* 自定义输入：仅在对应区间选择「自定义」时显示 */}
       {(priceRange === 'custom' || areaRange === 'custom') && (

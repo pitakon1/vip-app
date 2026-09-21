@@ -8,6 +8,12 @@ import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import PublicListings from '@/pages/PublicListings'
+// C 端公开页面（免登录可浏览）：房源详情 / 学校 / 小区
+import ListingDetail from '@/pages/ListingDetail'
+import Schools from '@/pages/Schools'
+import SchoolDetail from '@/pages/SchoolDetail'
+import Communities from '@/pages/Communities'
+import CommunityDetail from '@/pages/CommunityDetail'
 
 // 管理端页面
 import Dashboard from '@/pages/Dashboard'
@@ -99,9 +105,16 @@ const App = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* ===== 公共路由（无需登录）===== */}
+        {/* ===== 公共路由（无需登录，浏览全开放）=====
+            产品原则：浏览不需要注册，只在收藏 / 发布 / 进入作业系统这类
+            需要「身份」的动作上才要求登录。内容资产必须先能被匿名看到。 */}
         <Route path="/" element={<Home />} />
         <Route path="/listings" element={<PublicListings />} />
+        <Route path="/listing/:id" element={<ListingDetail />} />
+        <Route path="/schools" element={<Schools />} />
+        <Route path="/school/:id" element={<SchoolDetail />} />
+        <Route path="/communities" element={<Communities />} />
+        <Route path="/community/:id" element={<CommunityDetail />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 

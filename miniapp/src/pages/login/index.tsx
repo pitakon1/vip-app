@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { View, Text, Input, Button } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { authApi } from '@/services/api'
 import type { User, UserRole } from '@/types'
@@ -16,6 +16,7 @@ const REGISTER_ROLES: { key: UserRole; label: string }[] = [
 ]
 
 export default function LoginPage() {
+  const router = useRouter()
   const login = useAuthStore((state) => state.login)
   const token = useAuthStore((state) => state.token)
 
@@ -23,8 +24,12 @@ export default function LoginPage() {
   const [wxLoading, setWxLoading] = useState(false)
   const [bindLoading, setBindLoading] = useState(false)
 
-  // 手机号 + 验证码 兜底
-  const [mode, setMode] = useState<OtpMode>('login')
+  // 手机号 + 验证码 兜底。
+  // `?mode=register` 可让外部入口直接落在注册 Tab（访客「我的」页的「注册新账号」），
+  // 不带参数时行为与之前完全一致（默认登录）。
+  const [mode, setMode] = useState<OtpMode>(
+    router.params?.mode === 'register' ? 'register' : 'login'
+  )
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [fullName, setFullName] = useState('')

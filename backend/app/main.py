@@ -23,6 +23,7 @@ from app.config import settings
 from app.core.auth import require_role
 from app.core.error_handlers import rate_limited_response, register_exception_handlers
 from app.core.logging import configure_logging, get_logger
+from app.core.migrations import ensure_schema
 from app.core.metrics import observe
 from app.core.rate_limit import apply_default_limit, limiter
 from app.core.rbac import seed_permissions
@@ -145,6 +146,9 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理。"""
     logger.info("application.starting", app=settings.APP_NAME, version=settings.APP_VERSION)
     _run_startup_selfcheck()
+    # 幂等迁移：建缺失的表 + 给已有表补缺失的列与索引
+    # （create_all 只建表不补列，模型加字段后必须在这里补齐，否则查询 500）
+    ensure_schema(engine)
     # 幂等补种权限点与角色默认权限（不覆盖已有配置）
     with Session(engine) as session:
         seed_permissions(session)

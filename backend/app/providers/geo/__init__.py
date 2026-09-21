@@ -3,6 +3,7 @@
 职责：
 - geocode / reverse_geocode：地址 ↔ 经纬度（Google Geocoding API）
 - haversine 距离计算
+- lat_lng_bounds：由圆心 + 半径算经纬度包围盒（供 SQL 粗筛，再由 haversine 精算）
 - is_within_radius：判断打卡点是否在考勤半径内
 
 未配置 GOOGLE_MAPS_API_KEY 时自动降级为站内 mock（确定性 geocode），
@@ -28,6 +29,20 @@ def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
         + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     )
     return 2 * R * math.asin(math.sqrt(a))
+
+
+def lat_lng_bounds(
+    lat: float, lng: float, radius_km: float
+) -> Tuple[float, float, float, float]:
+    """由圆心与半径算经纬度包围盒，用于 SQL 粗筛。
+
+    1 纬度 ≈ 111.32km；经度随纬度收缩，需除以 cos(lat)。高纬度时 cos 趋近 0，
+    故做下限保护，避免除零导致包围盒发散成整表扫描。
+    """
+    lat_delta = radius_km / 111.32
+    cos_lat = max(math.cos(math.radians(lat)), 0.01)
+    lng_delta = radius_km / (111.32 * cos_lat)
+    return lat - lat_delta, lat + lat_delta, lng - lng_delta, lng + lng_delta
 
 
 def is_within_radius(

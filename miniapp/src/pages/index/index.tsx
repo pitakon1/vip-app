@@ -15,8 +15,10 @@ export default function IndexPage() {
     const currentToken = useAuthStore.getState().token
     const currentUser = useAuthStore.getState().user
 
+    // 未登录不再跳登录页——直接进 C 端公开站（找房 / 学校 / 小区）。
+    // 内容全部来自匿名接口 `/public/*`，只有办自己的事时才会被要求登录。
     if (!currentToken) {
-      Taro.redirectTo({ url: '/pages/login/index' })
+      Taro.redirectTo({ url: '/pages/public/listings/index' })
       return
     }
 

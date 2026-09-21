@@ -92,6 +92,86 @@
   margin-top: -8rpx;
 }
 
+/* ===== 区域下钻面板（国家 → 省市 → 城区，链家式两栏） ===== */
+.ap-region {
+  margin-bottom: 20rpx;
+
+  /* 面板内 chip 由 flex gap 控制间距，去掉横向滚动时的 margin */
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
+
+    .ap-chip {
+      margin-right: 0;
+    }
+  }
+}
+
+/* 两栏容器：左栏国家（可滚动），右栏省市或城区 */
+.filter-region-twocol {
+  display: flex;
+  max-height: 480rpx;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+
+  &__left {
+    /* 按最长国家名「马来西亚」倒推：条目 padding 16×2 + 左边框 6 + 4×26 = 142rpx */
+    width: 144rpx;
+    flex: none;
+    max-height: 480rpx;
+    background: var(--surface-2);
+  }
+
+  &__right {
+    flex: 1;
+    max-height: 480rpx;
+    padding: 20rpx;
+    box-sizing: border-box;
+  }
+
+  .loc-col-item {
+    padding: 22rpx 16rpx;
+    font-size: 26rpx;
+    color: var(--ink-2);
+    border-left: 6rpx solid transparent;
+    box-sizing: border-box;
+
+    &--active {
+      background: var(--card);
+      color: var(--primary);
+      border-left-color: var(--primary);
+      font-weight: 600;
+    }
+  }
+}
+
+/* 下钻到省市后，右栏顶部「← 国家」返回行 */
+.filter-region-drill-head {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+
+  &__back {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* 右栏标题（国家名 / 省市名） */
+.loc-group__title {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--ink-2);
+
+  &--flat {
+    margin-bottom: 12rpx;
+  }
+}
+
 /* 自定义区间输入 */
 .ap-custom {
   display: flex;

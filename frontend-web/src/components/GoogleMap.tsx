@@ -8,7 +8,7 @@ import {
   Marker,
   LoadScript,
 } from '@react-google-maps/api'
-import { GOOGLE_MAPS_API_KEY } from '@/config/maps'
+import { isGoogleMapsConfigured, GOOGLE_MAPS_API_KEY } from '@/config/maps'
 
 /** 通用透传点位（房源标注等，props 驱动，不写死业务） */
 export interface MapMarker {
@@ -57,6 +57,10 @@ function GoogleMapView({
   const [mapCenter, setMapCenter] = useState<Pos>(center)
   const mapRef = useRef<google.maps.Map | null>(null)
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
+
+  // 脚本加载状态：`window.google` 只有在脚本真正 load 成功后才存在。
+  const [scriptLoaded, setScriptLoaded] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   // 搜索/定位命中的居中区域点，GUI 上展示其地址
   const [focus, setFocus] = useState<{ pos: Pos; label: string } | null>(null)
@@ -251,11 +255,39 @@ function GoogleMapView({
     border: '1px solid #fecaca',
   }
 
+  // 未配置可用 Key 时直接给明确占位，**不挂载任何 Google 组件**。
+  // 否则 <Autocomplete> mount 时会读 window.google.places → 抛 ReferenceError，
+  // 未被 ErrorBoundary 接住的话 React 卸载整棵组件树，整页白屏。
+  if (!isGoogleMapsConfigured()) {
+    return (
+      <div
+        style={{
+          ...mapStyle,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          minHeight: DEFAULT_HEIGHT,
+          background: 'var(--rent-surface-2, #f4f1ec)',
+          border: '1px dashed var(--rent-line, #ece7df)',
+          color: 'var(--rent-ink-2, #55606c)',
+          fontSize: 13,
+        }}
+      >
+        <span style={{ fontSize: 22 }}>🗺️</span>
+        <span>{t('map.notConfigured')}</span>
+      </div>
+    )
+  }
+
   return (
     <div style={{ position: 'relative', height: '100%', minHeight: DEFAULT_HEIGHT }}>
       <LoadScript
         googleMapsApiKey={GOOGLE_MAPS_API_KEY}
         libraries={['places']}
+        onLoad={() => setScriptLoaded(true)}
+        onError={() => setLoadError(true)}
         loadingElement={
           <div style={mapStyle}>{t('map.mapLoading')}</div>
         }
@@ -299,10 +331,12 @@ function GoogleMapView({
             />
           )}
         </GoogleMap>
-      </LoadScript>
 
-      {/* 覆盖控件：搜索 + 定位 + 路线 */}
-      <div style={overlayStyle}>
+        {/* 覆盖控件：搜索 + 定位 + 路线。
+            必须留在 LoadScript 内部——<Autocomplete> 的 componentDidMount 直接读
+            window.google.maps.places，放在 LoadScript 外面会在脚本就绪前 mount 并抛错。 */}
+        {scriptLoaded && (
+        <div style={overlayStyle}>
         <div style={rowStyle}>
           <Autocomplete
             onLoad={onAutocompleteLoad}
@@ -346,7 +380,15 @@ function GoogleMapView({
 
         {routeError && <div style={errorStyle}>⚠️ {routeError}</div>}
         {statusMsg && <div style={errorStyle}>⚠️ {statusMsg}</div>}
-      </div>
+        </div>
+        )}
+      </LoadScript>
+
+      {loadError && (
+        <div style={{ ...errorStyle, position: 'absolute', top: 12, left: 12, zIndex: 10 }}>
+          ⚠️ {t('map.loadFailed')}
+        </div>
+      )}
     </div>
   )
 }

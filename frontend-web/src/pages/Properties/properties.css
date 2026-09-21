@@ -647,22 +647,54 @@
 .prop-loc-panel__tab--active svg {
   color: var(--rent-primary);
 }
-.prop-loc-panel__body {
-  padding: 12px;
-  max-height: 320px;
+/* 区域面板：左侧国家·城市 + 右侧城区（链家式两栏） */
+.prop-loc-panel__area {
+  display: grid;
+  /* 左栏宽度按最长国家名倒推：容器 padding 8×2 + 条目 padding 10×2 + 条目边框 2 + 「马来西亚」4×12px + 右边框 1 = 87px */
+  grid-template-columns: 88px 1fr;
+  max-height: 340px;
+}
+.prop-loc-panel__area .prop-loc-panel__lines {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 8px;
+  border-bottom: none;
+  border-right: 1px solid var(--rent-border);
   overflow-y: auto;
+  background: var(--rent-surface-2);
 }
-.prop-loc-panel__group {
-  margin-bottom: 12px;
+.prop-loc-panel__area .prop-loc-panel__line {
+  text-align: left;
 }
-.prop-loc-panel__group:last-child {
-  margin-bottom: 0;
-}
-.prop-loc-panel__group-title,
 .prop-loc-panel__stations-title {
   margin-bottom: 8px;
   font-size: 12px;
   color: var(--rent-ink-3);
+}
+/* 下钻到省市后，右栏顶部「← 国家」返回行 */
+.prop-loc-panel__stations-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.prop-loc-panel__stations-head .prop-loc-panel__stations-title {
+  margin-bottom: 0;
+}
+.prop-loc-panel__back {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--rent-ink-3);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.prop-loc-panel__back:hover {
+  background: var(--rent-surface-2);
+  color: var(--rent-accent);
 }
 .prop-loc-panel__chips {
   display: flex;

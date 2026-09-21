@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import exists, or_
+from sqlalchemy import exists, false, or_
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
 
@@ -22,10 +22,12 @@ from app.models import (
     Lease,
     Owner,
     Project,
+    School,
     Tenant,
     User,
     UserRole,
 )
+from app.providers.geo import haversine_km, lat_lng_bounds
 
 router = APIRouter(prefix="/properties", tags=["properties"])
 
@@ -202,6 +204,12 @@ def list_properties(
     pagination: PaginationParams = Depends(),
     status: Optional[PropertyStatus] = None,
     project_id: Optional[uuid.UUID] = None,
+    school_id: Optional[uuid.UUID] = Query(
+        None, description="按学校找房：学校 ID（按半径反查其覆盖的小区）"
+    ),
+    school_radius_km: float = Query(
+        3.0, gt=0, le=50, description="按学校找房：以学校为圆心的半径（km）"
+    ),
     owner_id: Optional[uuid.UUID] = None,
     country: Optional[str] = None,
     province: Optional[str] = None,
@@ -226,7 +234,7 @@ def list_properties(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """房源列表（分页；支持关键词 / 区域同义词 / 价格区间 / 面积 / 房型 / 排序）。"""
+    """房源列表（分页；支持关键词 / 区域同义词 / 价格区间 / 面积 / 房型 / 排序 / 小区 / 学校半径）。"""
     keyword = (q or "").strip()
     # 区域/地铁这类「一组同义词命中任一即可」的搜索走 keywords，并与 q 合并去重
     terms = [keyword] if keyword else []
@@ -235,6 +243,7 @@ def list_properties(
     cache_key = (
         f"cache:properties:list:{pagination.page}:{pagination.page_size}:"
         f"{status.value if status else ''}:{project_id or ''}:{owner_id or ''}:"
+        f"{school_id or ''}:{school_radius_km}:"
         f"{country or ''}:{province or ''}:{city or ''}:{district or ''}:{subway or ''}:"
         f"{'|'.join(terms)}:{price_min}:{price_max}:{area_min}:{area_max}:"
         f"{bedrooms_min}:{bedrooms_max}:{has_video}:{sort}"
@@ -251,6 +260,37 @@ def list_properties(
         conditions.append(Property.status == status)
     if project_id:
         conditions.append(Property.project_id == project_id)
+    # 按学校找房：先用经纬度包围盒粗筛小区，再在应用层用 haversine 精算半径，
+    # 最后收敛成「半径内的小区 ID 集合」——比 public.py 的 Listing 三表 join 轻得多，
+    # 且返回结构仍是 Property，不改变前端已有的数据形状。
+    if school_id:
+        school = session.get(School, school_id)
+        if not school or school.deleted_at:
+            raise HTTPException(status_code=404, detail="School not found")
+        if school.lat is None or school.lng is None:
+            # 没有坐标就算不出距离，不能拿全量冒充满足条件的结果
+            raise HTTPException(status_code=400, detail="该学校缺少经纬度，无法按距离筛选")
+        lat_min, lat_max, lng_min, lng_max = lat_lng_bounds(
+            school.lat, school.lng, school_radius_km
+        )
+        candidates = session.exec(
+            select(Project.id, Project.lat, Project.lng).where(
+                Project.deleted_at.is_(None),
+                Project.lat.is_not(None),
+                Project.lng.is_not(None),
+                Project.lat >= lat_min,
+                Project.lat <= lat_max,
+                Project.lng >= lng_min,
+                Project.lng <= lng_max,
+            )
+        ).all()
+        near_ids = [
+            pid
+            for pid, plat, plng in candidates
+            if haversine_km(school.lat, school.lng, plat, plng) <= school_radius_km
+        ]
+        # 半径内无小区时必须显式置空，否则该条件会被整个跳过而返回全量
+        conditions.append(Property.project_id.in_(near_ids) if near_ids else false())
     if owner_id:
         conditions.append(Property.owner_id == owner_id)
     if price_min is not None:

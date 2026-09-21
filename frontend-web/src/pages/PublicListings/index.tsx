@@ -6,18 +6,17 @@ import {
   Popover,
   Spin,
 } from 'antd'
-import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import GoogleMapView, { type MapMarker } from '@/components/GoogleMap'
-import type { Property } from '@/types'
 import { AREA_GROUPS } from '@/data/locationArea'
 import { METRO_LINES } from '@/data/locationMetro'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './public-listings.css'
+
 
 // ==================== 常量（对齐原型 tenant-property-browse.html）====================
 
@@ -81,14 +80,6 @@ const formatTotal = (v: any, currency?: string) => formatMoney(Number(v || 0), c
 // 轨交数据集中在 src/data/locationMetro.ts（METRO_LINES），上方已 import
 // 接口 MetroStation / MetroLine 亦在数据文件中定义
 
-// 命中关键词：房源地址/城市/项目名任一包含即可
-const matchLocation = (item: any, kws: string[]): boolean =>
-  kws.some((k) =>
-    [item.address, item.city, item.project_id, item.district, item.area]
-      .filter(Boolean)
-      .some((v) => String(v).toLowerCase().includes(k))
-  )
-
 // ==================== 组件 ====================
 
 const PublicListings = ({ compact }: { compact?: boolean }) => {
@@ -106,9 +97,9 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     setSearchParams(next, { replace: true })
   }, [searchParams, setSearchParams])
 
-  // 数据
-  // 买房业务栏数据源：真实在售挂牌（/sale-listings 需登录，未登录为空）
-  const [saleListings, setSaleListings] = useState<any[]>([])
+  // 数据：统一走 /public/listings（匿名可访问），租/售由 listing_type 区分。
+  // 不再单独拉一份「在售挂牌」再与房源做前端 join——那是本地拼接，
+  // 一旦分页下推就必然算错。
 
   // 筛选
   const [keyword, setKeyword] = useState('')
@@ -133,9 +124,27 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   const [metroSel, setMetroSel] = useState<string[]>([])              // 已选站点 name（已确认）
   const [metroDraft, setMetroDraft] = useState<string[]>([])          // 站点多选草稿（确定后提交）
   const [metroLine, setMetroLine] = useState<string>(METRO_LINES[0].key)
+  // 区域面板：国家 → 省市 → 城区 三级下钻。左栏只列国家，右栏默认是该国家的省市列表，
+  // 点某个省市后右栏才换成它的城区 chips（顶部「返回」回到省市列表）。
+  // 此前把国家/省市平铺成一个列表，用户要在混杂的长列表里找城市。
+  const [areaCountry, setAreaCountry] = useState<string>(() => AREA_GROUPS[0].country)
+  const [areaDrill, setAreaDrill] = useState<string>('') // 已下钻的省市 cityKey，空 = 停在省市列表
   const [view, setView] = useState('grid')
   const [mapOn, setMapOn] = useState(false)
   const [page, setPage] = useState(1)
+
+  // 「按学校找房」筛选：选一所学校 + 半径，看它周边有哪些房源。
+  // 这是空间筛选（后端算 haversine 距离），不是「学区房」布尔标签——
+  // 泰国没有划片入学，国际学校是「付费 + 距离」逻辑，做标签无据可依。
+  const schoolRadiusOptions = useMemo(() => [1, 3, 5, 10], [])
+  const [schoolId, setSchoolId] = useState('')
+  const [schoolKm, setSchoolKm] = useState(3)
+  const [schoolOpen, setSchoolOpen] = useState(false)
+  const [schoolKw, setSchoolKw] = useState('')
+  const [schools, setSchools] = useState<any[]>([])
+
+  // 「小区」筛选已移除：小区维度改由顶部搜索框承接（后端 q 已 OR 匹配小区名），
+  // 少一个筛选入口，也避免与「区域」两个空间维度互相打架。
 
   // 选项
   const statusLabelMap = useMemo<Record<string, string>>(() => ({
@@ -182,6 +191,22 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
 
   const activeLine = useMemo(() => METRO_LINES.find((l) => l.key === metroLine), [metroLine])
 
+  // 区域面板左栏：国家清单（按 AREA_GROUPS 出现顺序去重，保持「泰国 → 越南 → …」的业务顺序）
+  const countryList = useMemo(
+    () => Array.from(new Set(AREA_GROUPS.map((g) => g.country))),
+    [],
+  )
+  // 右栏未下钻时的数据源：当前国家下的省市
+  const countryGroups = useMemo(
+    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
+    [areaCountry],
+  )
+  // 右栏已下钻时的数据源：该省市的城区
+  const activeAreaGroup = useMemo(
+    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
+    [areaDrill],
+  )
+
   // 城市标题改用数据文件 locationArea.ts 的 country + cityLabel（覆盖新增城市，不再依赖 i18n region.*）
 
   // ---------- 区域 / 地铁面板交互（对齐贝壳） ----------
@@ -192,11 +217,24 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     setMetroSel([])
     setMetroDraft([])
   }
-  const resetLoc = () => { setDistrictSel(null); setMetroSel([]); setMetroDraft([]) }
+  const resetLoc = () => { setDistrictSel(null); setMetroSel([]); setMetroDraft([]); setAreaDrill('') }
+
+  // 切换国家：右栏回到该国家的省市列表（否则会停在上一个国家已下钻的省市上）
+  const pickCountry = (country: string) => {
+    setAreaCountry(country)
+    setAreaDrill('')
+  }
 
   // 地铁=草稿多选：跨线路累计，确定后提交；打开面板时以已选初始化草稿
   const onLocOpenChange = (open: boolean) => {
-    if (open) setMetroDraft(metroSel)
+    if (open) {
+      setMetroDraft(metroSel)
+      // 回显：已选城区时直接下钻到它所在的省市，否则停在省市列表
+      if (districtSel) {
+        const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtSel))
+        if (g) { setAreaCountry(g.country); setAreaDrill(g.cityKey) }
+      }
+    }
     setLocOpen(open)
   }
   const toggleStation = (name: string) => {
@@ -256,16 +294,65 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     return () => clearTimeout(timer)
   }, [keyword])
 
-  // 服务端查询参数：关键词 / 区域同义词 / 价格 / 面积 / 户型 / 状态 / 排序都下推到后端，
-  // 不再靠「拉 999 条再前端过滤」的假搜索（数据量大时既慢又搜不全）。
+  // 学校候选集：给「按学校找房」筛选器用。走公开接口，匿名可读。
+  // 拉不到就没有这个筛选项——宁可少一个筛选，也不给一个点了没结果的空壳。
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get('/public/schools', { params: { page_size: 100 } })
+      .then((res) => {
+        const payload = res.data?.data ?? res.data
+        const items = payload?.items ?? []
+        if (!cancelled) setSchools(Array.isArray(items) ? items : [])
+      })
+      .catch(() => { if (!cancelled) setSchools([]) })
+    return () => { cancelled = true }
+  }, [])
+
+  // 小区候选集已不再需要：小区筛选已移除，小区名走顶部搜索框（后端 q 参数）匹配。
+
+  const selectedSchool = useMemo(
+    () => schools.find((s) => String(s.id) === schoolId),
+    [schools, schoolId],
+  )
+
+  // 学校多了以后，列表里直接找太费劲，面板内给一个即时过滤（纯本地，不发请求）
+  const filteredSchools = useMemo(() => {
+    const kw = schoolKw.trim().toLowerCase()
+    if (!kw) return schools
+    return schools.filter((s) =>
+      [s.name, s.name_en, s.district, s.city]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(kw)),
+    )
+  }, [schools, schoolKw])
+
+  // 服务端查询参数：关键词 / 区域同义词 / 价格 / 面积 / 户型 / 状态 / 学校 / 排序
+  // 一律下推到后端，并且**分页也下推**。
+  //
+  // 为什么必须下推：后端 PaginationParams 把 page_size 顶在 100，
+  // 前端再传 999 也只回 100 条——「本地切片 + 本地算总数」在这种约束下
+  // 会给出一个假的总数，且第 100 条之后的房源永远翻不到。
   const queryParams = useMemo(() => {
-    const params: Record<string, unknown> = { page_size: 999 }
+    const params: Record<string, unknown> = {
+      page,
+      page_size: PAGE_SIZE,
+      // 买房看真实在售挂牌、租房看在租房源；合租无对应字段，走空态不走接口
+      listing_type: biz === 'sale' ? 'sell' : 'rent',
+    }
     const kw = debouncedKw.trim()
     if (kw) params.q = kw
     // 区域/地铁是多关键词同义词，命中任一即算
     if (activeLocationKw.length) params.keywords = activeLocationKw
     if (statusSel && BACKEND_STATUS.has(statusSel)) params.status = statusSel
+    // 按学校找房：空间筛选（学校半径内的房源），不是标签筛选
+    if (schoolId) {
+      params.school_id = schoolId
+      params.school_radius_km = schoolKm
+    }
+    // 未显式排序时，按学校找房天然应按距离由近到远
     if (sort !== 'default') params.sort = sort
+    else if (schoolId) params.sort = 'distance'
     // 视频看房入口：只返回有 video_url 的房源
     if (videoOnly) params.has_video = true
     // 价格：预设快捷区间优先，其次自定义最低/最高（上限取「无上限」哨兵值时不下发）
@@ -293,44 +380,35 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
       if (n < 4) params.bedrooms_max = n
     }
     return params
-  }, [debouncedKw, activeLocationKw, statusSel, sort, videoOnly, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, roomType])
+  }, [page, biz, debouncedKw, activeLocationKw, statusSel, sort, videoOnly, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, roomType, schoolId, schoolKm])
 
-  // 数据获取（公开接口，不需要 auth）：queryKey 含当前筛选参数，缓存优先渲染 + 后台刷新；
-  // 分页为前端切片，首屏/翻页均来自同一份全量缓存数据。
+  // 数据获取（公开接口，不需要 auth）：queryKey 含当前页与筛选参数，
+  // 缓存优先渲染 + 后台刷新；总数以服务端返回的 total 为准。
   const listQueryKey = useMemo(() => ['public-listings', JSON.stringify(queryParams)], [queryParams])
-  const listQ = useCachedQuery<Property[]>({
+  const listQ = useCachedQuery<{ items: any[]; total: number }>({
     queryKey: listQueryKey,
     cacheKey: `public-listings:${JSON.stringify(queryParams)}`,
     queryFn: async () => {
+      // 合租：房源表没有整租/合租字段，无法真实区分 → 诚实空态，不发请求伪造成果
+      if (biz === 'share') return { items: [], total: 0 }
       try {
-        const res = await api.get('/properties', { params: { ...queryParams } })
+        // 走公开接口：原来打 /properties（强制鉴权），匿名访问必然 401，
+        // 于是列表页对未登录访客始终是空的——等于墙建在接口层。
+        const res = await api.get('/public/listings', { params: { ...queryParams } })
         const payload = res.data?.data ?? res.data
         const items = payload?.items ?? []
-        return Array.isArray(items) ? items : []
+        return {
+          items: Array.isArray(items) ? items : [],
+          total: Number(payload?.total ?? 0),
+        }
       } catch {
-        return []
+        return { items: [], total: 0 }
       }
     },
   })
-  const allItems = listQ.data ?? []
+  const pagedItems = listQ.data?.items ?? []
+  const total = listQ.data?.total ?? 0
   const loading = listQ.isPending && !listQ.data
-
-  // 在售挂牌（买房业务栏）：仅登录后拉取，失败按空态处理
-  useEffect(() => {
-    if (!token) {
-      setSaleListings([])
-      return
-    }
-    let cancelled = false
-    api.get('/sale-listings', { params: { page: 1, page_size: 100 } })
-      .then((res) => {
-        const payload = res.data?.data ?? res.data
-        const items = payload?.items ?? []
-        if (!cancelled) setSaleListings(Array.isArray(items) ? items : [])
-      })
-      .catch(() => { if (!cancelled) setSaleListings([]) })
-    return () => { cancelled = true }
-  }, [token])
 
   // ---------- 地图找房（Google Maps：搜索 / 路线 / 定位） ----------
   // 房源坐标来自所属项目（projects.lat/lng），项目未维护坐标的房源不在地图上出现。
@@ -340,7 +418,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   // 地图与列表共用同一套筛选（仅取地图接口支持的参数）
   const mapParams = useMemo(() => {
     const params: Record<string, unknown> = { limit: 300 }
-    ;(['q', 'keywords', 'status', 'price_min', 'price_max', 'has_video'] as const).forEach((k) => {
+    ;(['q', 'keywords', 'price_min', 'price_max', 'has_video'] as const).forEach((k) => {
       if (queryParams[k] !== undefined) params[k] = queryParams[k]
     })
     return params
@@ -353,7 +431,9 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   const fetchMapPoints = useCallback(async () => {
     setMapLoading(true)
     try {
-      const res = await api.get('/properties/map-points', { params: mapParams })
+      // /properties/map-points 强制鉴权，匿名点「地图找房」必然 401，
+      // 这是「浏览不需注册」在接口层漏掉的一处，改走公开点位接口。
+      const res = await api.get('/public/map-points', { params: mapParams })
       setMapPoints(Array.isArray(res.data) ? res.data : [])
     } catch {
       setMapPoints([])
@@ -376,90 +456,14 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   // 地图视图默认中心（曼谷）
   const GOOGLE_MAP_CENTER = useMemo(() => ({ lat: 13.7563, lng: 100.5018 }), [])
 
-  // 前端筛选 + 排序 + 业务 Tab
-  const filteredItems = useMemo(() => {
-    let list = [...allItems]
+  // 排序与业务 Tab 都已在 queryParams 里下推给后端。
+  // 这里不再做第二遍本地过滤——本地过滤只会作用于「当前这一页」，
+  // 与分页叠加后结果必然错位（第 2 页筛出 3 条，总数却是全量）。
 
-    // 业务 Tab：合租无对应字段 → 诚实空态；买房改挂真实在售挂牌总价
-    if (biz === 'share') return []
-    if (biz === 'sale') {
-      const saleMap = new Map(saleListings.map((s: any) => [String(s.property_id || ''), s]))
-      list = list
-        .filter((it: any) => saleMap.has(String(it.id)))
-        .map((it: any) => {
-          const s: any = saleMap.get(String(it.id))
-          return { ...it, sale_price: s?.asking_price, currency: s?.currency || it.currency }
-        })
-    }
-    // 价格口径：买房看总价，租房看月租
-    const priceOf = (it: any) => Number(biz === 'sale' ? it.sale_price : it.monthly_rent || 0)
+  // 筛选变化 → 回到第 1 页（否则会停在一个不存在的页码上，白屏）
+  useEffect(() => { setPage(1) }, [keyword, districtSel, metroSel, activeLocationKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz, videoOnly, debouncedKw, schoolId, schoolKm])
 
-    const kw = keyword.trim().toLowerCase()
-    if (kw) {
-      list = list.filter((it: any) =>
-        [it.room_number, it.address, it.project_id, it.building, it.city]
-          .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(kw))
-      )
-    }
-    // 按区域 / 按地铁：命中已选城区/站点关键词
-    if (activeLocationKw.length) {
-      list = list.filter((it: any) => matchLocation(it, activeLocationKw))
-    }
-    if (roomType) {
-      const n = Number(roomType)
-      list = list.filter((it: any) => n >= 4 ? Number(it.bedrooms) >= 4 : Number(it.bedrooms) === n)
-    }
-    // 价格筛选（贝壳式：预设快捷区间 或 自定义最低/最高，THB）
-    let pMin = 0, pMax = Infinity
-    if (priceRange) {
-      const [mn, mx] = priceRange.split('-').map(Number)
-      if (!Number.isNaN(mn)) pMin = mn
-      if (!Number.isNaN(mx) && isFinite(mx)) pMax = mx
-    } else if (customMin || customMax) {
-      const mn = Number(customMin), mx = Number(customMax)
-      if (customMin && !Number.isNaN(mn)) pMin = mn
-      if (customMax && !Number.isNaN(mx)) pMax = mx
-    }
-    list = list.filter((it: any) => {
-      const r = priceOf(it)
-      return r >= pMin && r <= pMax
-    })
-    if (areaRange) {
-      const [min, max] = areaRange.split('-').map(Number)
-      list = list.filter((it: any) => { const s = Number(it.size_sqm); return s >= min && s <= max })
-    } else if (areaCustomMin || areaCustomMax) {
-      const aMin = Number(areaCustomMin) || 0
-      const aMax = Number(areaCustomMax) || 0
-      list = list.filter((it: any) => {
-        const s = Number(it.size_sqm)
-        if (aMin > 0 && s < aMin) return false
-        if (aMax > 0 && s > aMax) return false
-        return true
-      })
-    }
-    // 状态筛选（贝壳式）
-    if (statusSel) {
-      list = list.filter((it: any) => (it.status || 'vacant').toLowerCase() === statusSel)
-    }
-    // 业务 Tab 已在开头处理（合租空态 / 买房挂真实总价）
-    switch (sort) {
-      case 'price_asc': list.sort((a: any, b: any) => priceOf(a) - priceOf(b)); break
-      case 'price_desc': list.sort((a: any, b: any) => priceOf(b) - priceOf(a)); break
-      case 'area_desc': list.sort((a: any, b: any) => b.size_sqm - a.size_sqm); break
-      case 'latest': list.sort((a: any, b: any) => dayjs(b.created_at || 0).valueOf() - dayjs(a.created_at || 0).valueOf()); break
-    }
-    return list
-  }, [allItems, saleListings, keyword, activeLocationKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz])
-
-  useEffect(() => { setPage(1) }, [keyword, districtSel, metroSel, activeLocationKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz, videoOnly, debouncedKw])
-
-  const total = filteredItems.length
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const pagedItems = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE
-    return filteredItems.slice(start, start + PAGE_SIZE)
-  }, [filteredItems, page])
 
   // 分页页码（首尾 + 当前 ±1，中间省略号）
   const pageNumbers = useMemo(() => {
@@ -473,16 +477,10 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     options.map((o) => ({ key: o.value || 'all', label: o.label }))
 
   const handleCardClick = (item: any) => {
-    if (token) {
-      // 租客走 C 端门户详情页（对齐 tenant-property-detail.html），其余角色走后台详情页
-      navigate(
-        user?.role === 'tenant'
-          ? `/tenant/properties/${item.id}`
-          : `/properties/detail/${item.id}`,
-      )
-    } else {
-      navigate('/login')
-    }
+    // 浏览全开放：匿名与登录用户统一进 C 端公开详情页。
+    // 此前未登录会直接被弹到登录页，等于把列表页的出口堵死；
+    // 登录用户要看自己的租约 / 账单走门户菜单，不在这里按角色分流。
+    navigate(`/listing/${item.id}`)
   }
 
   // 区域/地铁面板图标
@@ -510,31 +508,74 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
       </div>
 
       {locTab === 'area' ? (
-        <div className="rent-loc-panel__body">
-          {AREA_GROUPS.map((g) => (
-            <div className="rent-loc-panel__group" key={g.cityKey}>
-              <div className="rent-loc-panel__group-title">{g.country} · {g.cityLabel}</div>
-              <div className="rent-loc-panel__chips">
-                <button
-                  type="button"
-                  className={`rent-loc-panel__chip ${districtSel === null ? 'rent-loc-panel__chip--active' : ''}`}
-                  onClick={() => applyDistrict(null)}
-                >
-                  {t('locate.all')}
-                </button>
-                {g.children.map((d) => (
-                  <button
-                    key={d.key}
-                    type="button"
-                    className={`rent-loc-panel__chip ${districtSel === d.key ? 'rent-loc-panel__chip--active' : ''}`}
-                    onClick={() => applyDistrict(d.key)}
-                  >
-                    {d.label}
+        // 国家 → 省市 → 城区 三级下钻：左栏只列国家，右栏先是该国家的省市列表，
+        // 点省市后右栏换成它的城区 chips（顶部「返回」回到省市列表）。
+        // 此前把国家/省市平铺在同一列里，用户要在混杂的长列表里找城市。
+        <div className="rent-loc-panel__area">
+          <div className="rent-loc-panel__lines">
+            {countryList.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className={`rent-loc-panel__line ${areaCountry === c ? 'rent-loc-panel__line--active' : ''}`}
+                onClick={() => pickCountry(c)}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <div className="rent-loc-panel__stations">
+            {activeAreaGroup ? (
+              <>
+                <div className="rent-loc-panel__stations-head">
+                  <button type="button" className="rent-loc-panel__back" onClick={() => setAreaDrill('')}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                    {areaCountry}
                   </button>
-                ))}
-              </div>
-            </div>
-          ))}
+                  <span className="rent-loc-panel__stations-title">{activeAreaGroup.cityLabel}</span>
+                </div>
+                <div className="rent-loc-panel__chips">
+                  <button
+                    type="button"
+                    className={`rent-loc-panel__chip ${districtSel === null ? 'rent-loc-panel__chip--active' : ''}`}
+                    onClick={() => applyDistrict(null)}
+                  >
+                    {t('locate.all')}
+                  </button>
+                  {activeAreaGroup.children.map((d) => (
+                    <button
+                      key={d.key}
+                      type="button"
+                      className={`rent-loc-panel__chip ${districtSel === d.key ? 'rent-loc-panel__chip--active' : ''}`}
+                      onClick={() => applyDistrict(d.key)}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                  {!activeAreaGroup.children.length && (
+                    <span className="rent-loc-panel__empty">{t('common.noData')}</span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rent-loc-panel__stations-title">{areaCountry}</div>
+                <div className="rent-loc-panel__chips">
+                  {countryGroups.map((g) => (
+                    <button
+                      key={g.cityKey}
+                      type="button"
+                      className={`rent-loc-panel__chip ${areaDrill === g.cityKey ? 'rent-loc-panel__chip--active' : ''}`}
+                      onClick={() => setAreaDrill(g.cityKey)}
+                    >
+                      {g.cityLabel}
+                    </button>
+                  ))}
+                  {!countryGroups.length && <span className="rent-loc-panel__empty">{t('common.noData')}</span>}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       ) : (
         <div className="rent-loc-panel__metro">
@@ -801,6 +842,83 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     </div>
   )
 
+  // 「学校」弹层：选一所学校 + 半径，只看它周边的房源。
+  // 这是空间筛选（后端按 haversine 算真实距离），不是「学区房」布尔标签——
+  // 泰国没有划片入学，国际学校是「付费 + 距离」逻辑，硬贴标签无据可依。
+  const schoolActive = !!schoolId
+  const schoolPanelContent = (
+    <div className="rent-loc-panel rent-school-panel">
+      <div className="rent-loc-panel__body">
+        <div className="rent-loc-panel__group-title">{t('publicSite.schoolFilterHint')}</div>
+        <input
+          className="rent-price-custom__input"
+          style={{ width: '100%', marginBottom: 10 }}
+          value={schoolKw}
+          onChange={(e) => setSchoolKw(e.target.value)}
+          placeholder={t('publicSite.schoolSearchPlaceholder')}
+        />
+        <div className="rent-loc-panel__schools">
+          <button
+            type="button"
+            className={`rent-loc-panel__chip ${!schoolId ? 'rent-loc-panel__chip--active' : ''}`}
+            onClick={() => setSchoolId('')}
+          >
+            {t('publicSite.schoolFilterAny')}
+          </button>
+          {filteredSchools.map((s: any) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`rent-loc-panel__chip ${String(s.id) === schoolId ? 'rent-loc-panel__chip--active' : ''}`}
+              onClick={() => setSchoolId(String(s.id))}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+        {!filteredSchools.length && <div className="rent-loc-panel__empty">{t('publicSite.schoolFilterEmpty')}</div>}
+
+        {schoolId && (
+          <>
+            <div className="rent-loc-panel__group-title" style={{ marginTop: 16 }}>
+              {t('publicSite.schoolFilterRadius')}
+            </div>
+            <div className="rent-loc-panel__chips">
+              {schoolRadiusOptions.map((km) => (
+                <button
+                  key={km}
+                  type="button"
+                  className={`rent-loc-panel__chip ${schoolKm === km ? 'rent-loc-panel__chip--active' : ''}`}
+                  onClick={() => setSchoolKm(km)}
+                >
+                  {km} {t('publicSite.km')}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="rent-loc-panel__footer">
+        <div className="rent-loc-panel__actions">
+          <button
+            type="button"
+            className="rent-loc-panel__btn rent-loc-panel__btn--ghost"
+            onClick={() => { setSchoolId(''); setSchoolKm(3); setSchoolKw('') }}
+          >
+            {t('common.reset')}
+          </button>
+          <button
+            type="button"
+            className="rent-loc-panel__btn rent-loc-panel__btn--primary"
+            onClick={() => setSchoolOpen(false)}
+          >
+            {t('common.confirm')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   const enterSystem = useCallback(() => {
     if (!token) { navigate('/login'); return }
     const role = user?.role
@@ -816,7 +934,9 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
 
   // 房源卡片（对齐原型 rent-prop-search-card）
   const renderCard = (item: any) => {
-    const projectName = item.project_id || item.building || ''
+    // 公开接口的字段口径：项目名在 project_name，价格为统一后的 price
+    // （租=月租、售=挂牌总价），不再需要前端按业务类型拼字段。
+    const projectName = item.project_name || item.building || ''
     const title = projectName ? `${projectName} · ${item.room_number || ''}` : (item.address || item.room_number || '—')
     const ptype = propertyTypeMap[item.property_type] || item.property_type || t('propertyType.apartment')
     const ptypeKey = (propertyTypeMap[item.property_type] ? item.property_type : 'apartment') as string
@@ -824,8 +944,9 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     const beds = Number(item.bedrooms || 0)
     const baths = Number(item.bathrooms || 0)
     const size = Number(item.size_sqm || 0)
-    const rent = Number(item.monthly_rent || 0)
+    const price = Number(item.price || item.monthly_rent || 0)
     const seed = String(item.id || item.room_number || '')
+    const cover = typeof item.cover === 'string' ? item.cover : ''
 
     const tags: { label: string; type: string }[] = []
     if (item.furnished) tags.push({ label: t('browse.furnished'), type: 'primary' })
@@ -833,7 +954,13 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
 
     return (
       <div className="rent-prop-search-card" key={item.id} onClick={() => handleCardClick(item)}>
-        <div className="rent-prop-search-card__banner" style={{ background: bannerColorFor(seed) }}>
+        <div
+          className="rent-prop-search-card__banner"
+          data-photo={cover ? 'true' : 'false'}
+          style={{ background: cover ? undefined : bannerColorFor(seed) }}
+        >
+          {/* 有实拍图就用图（贝壳式「图在前」），没有才回退到色块 + 户型图标 */}
+          {cover ? <img className="rent-prop-search-card__cover" src={cover} alt={title} loading="lazy" /> : null}
           <button
             className="rent-fav-btn"
             aria-label={t('property.followProperty')}
@@ -843,9 +970,11 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
           </button>
-          <svg className="rent-prop-search-card__banner-icon" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d={TYPE_ICON_PATH(ptypeKey)} />
-          </svg>
+          {!cover && (
+            <svg className="rent-prop-search-card__banner-icon" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d={TYPE_ICON_PATH(ptypeKey)} />
+            </svg>
+          )}
           <span className={`rent-prop-search-card__status-tag ${STATUS_CLASS[statusKey] || 'rent-status-tag--rented'}`}>
             {statusLabelMap[statusKey] || item.status}
           </span>
@@ -871,6 +1000,16 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
             </svg>
             {item.address || '—'}
           </p>
+          {/* 按学校找房时，卡片必须回显「离这所学校多远」——
+              否则用户选了学校却看不出筛选生效在哪，等于白筛 */}
+          {schoolId && item.nearest_school_name ? (
+            <p className="rent-prop-search-card__school">
+              {t('publicSite.distanceToSchool', {
+                name: item.nearest_school_name,
+                km: item.nearest_school_km ?? '-',
+              })}
+            </p>
+          ) : null}
           <div className="rent-prop-search-card__tags">
             {tags.map((tag, i) => (
               <span key={i} className={`rent-badge rent-badge--${tag.type}`}>{tag.label}</span>
@@ -899,7 +1038,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
           <div className="rent-prop-search-card__foot">
             <div className="rent-prop-search-card__price">
               <span className="rent-prop-search-card__price-value">
-                {biz === 'sale' ? formatTotal(item.sale_price, item.currency) : formatMoney(rent)}
+                {biz === 'sale' ? formatTotal(price, item.currency) : formatMoney(price, item.currency)}
               </span>
               <span className="rent-prop-search-card__price-unit">
                 {biz === 'sale' ? t('browse.saleUnit') : t('property.perMonth')}
@@ -928,10 +1067,12 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
           <span className="rent-portal__name">HaoFang.World</span>
         </div>
         <nav className="rent-portal__nav">
-          <button className="rent-portal__nav-item" onClick={() => navigate('/')}>{t('browse.rent')}</button>
-          <button className="rent-portal__nav-item" data-active="true" onClick={() => navigate('/listings')}>{t('browse.buy')}</button>
-          <button className="rent-portal__nav-item" onClick={() => navigate('/listings')}>{t('browse.mapFind')}</button>
-          <button className="rent-portal__nav-item" onClick={() => navigate('/listings?video=1')}>{t('browse.video')}</button>
+          {/* data-active 必须跟着真实状态走：此前「买房」被写死为高亮，
+              即使用户停在「整租」页，顶栏也显示在买房——导航说谎比没有高亮更糟 */}
+          <button className="rent-portal__nav-item" data-active={biz === 'rent'} onClick={() => navigate('/')}>{t('browse.rent')}</button>
+          <button className="rent-portal__nav-item" data-active={biz === 'sale'} onClick={() => navigate('/listings')}>{t('browse.buy')}</button>
+          <button className="rent-portal__nav-item" data-active={mapOn} onClick={() => navigate('/listings')}>{t('browse.mapFind')}</button>
+          <button className="rent-portal__nav-item" data-active={videoOnly} onClick={() => navigate('/listings?video=1')}>{t('browse.video')}</button>
         </nav>
         <div className="rent-portal__actions">
           <LanguageSwitcher compact />
@@ -1024,6 +1165,25 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
                 </span>
               </button>
             </Popover>
+            {/* 小区筛选已移除：小区名走顶部搜索框（后端 q 参数已 OR 匹配小区名） */}
+            {/* 按学校找房：学校库有数据才出现这个筛选项 */}
+            {schools.length > 0 && (
+              <Popover
+                trigger="click"
+                open={schoolOpen}
+                onOpenChange={setSchoolOpen}
+                placement="bottomLeft"
+                overlayClassName="rent-loc-popover"
+                content={schoolPanelContent}
+              >
+                <button className={`rent-filter-chip ${schoolActive ? 'rent-filter-chip--active' : ''}`} type="button">
+                  {selectedSchool ? selectedSchool.name : t('publicSite.filterSchool')}
+                  <span className="rent-filter-chip__chevron">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                  </span>
+                </button>
+              </Popover>
+            )}
             <Popover
               trigger="click"
               open={priceOpen}
@@ -1143,15 +1303,21 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
             {t('browse.mapLegend')} · {mapMarkers.length} {t('property.units')}
           </div>
           <div className="rv17-map__canvas">
-            <GoogleMapView
-              center={GOOGLE_MAP_CENTER}
-              zoom={11}
-              markers={mapMarkers}
-              onMarkerClick={(m) => {
-                const item = mapPoints.find((p) => String(p.id) === String(m?.id))
-                if (item) handleCardClick(item)
-              }}
-            />
+            {/* 地图按需挂载：`mapOn` 为真才创建 GoogleMapView。
+                此前无条件挂载（只靠 CSS data-active 隐藏），意味着每次打开列表页
+                都会初始化 Google Maps——没有可用 Key 时会在 mount 阶段抛错并把
+                整页拖白。浏览入口不该由一个「可选的」功能决定能不能打开。 */}
+            {mapOn && (
+              <GoogleMapView
+                center={GOOGLE_MAP_CENTER}
+                zoom={11}
+                markers={mapMarkers}
+                onMarkerClick={(m) => {
+                  const item = mapPoints.find((p) => String(p.id) === String(m?.id))
+                  if (item) handleCardClick(item)
+                }}
+              />
+            )}
           </div>
           {mapLoading && (
             <div className="rv17-map__loading">

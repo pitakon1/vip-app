@@ -1,4 +1,5 @@
 /** 多币种展示工具（A7：泰铢为主，人民币/美元/欧元/马币展示）。 */
+import api from '@/lib/api'
 
 export type Currency = 'THB' | 'CNY' | 'USD' | 'EUR' | 'RM'
 
@@ -39,6 +40,28 @@ export function convertCurrency(
 export function toThb(amount: number, from: string = 'THB'): number {
   const rate = RATES[from.toUpperCase()] || 1
   return Number((Number(amount || 0) * rate).toFixed(2))
+}
+
+/**
+ * 从服务端拉取最新汇率，覆盖文件内的兜底值。
+ *
+ * 为什么改成拉取而不是硬编码：内置 `CNY = 5.2` 与市场实际（约 4.97）偏离 4.6%，
+ * 双币并排展示时会直接把人民币报价算错。汇率交给服务端统一管理后（`GET
+ * /public/exchange-rates`），将来接实时汇率源只需要改后端一处。
+ *
+ * 拉取失败时保持兜底值——汇率是展示增强，不该因它让页面挂掉。
+ */
+export async function loadRates(): Promise<void> {
+  try {
+    const res = await api.get('/public/exchange-rates')
+    const rates = res.data?.rates_to_thb
+    if (rates && typeof rates === 'object') {
+      Object.assign(RATES, rates)
+      RATES.THB = 1
+    }
+  } catch {
+    // 静默降级
+  }
 }
 
 export { RATES }

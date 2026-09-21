@@ -446,3 +446,340 @@
   font-size: 11px;
   font-weight: 600;
 }
+
+/* =========================================================
+   筛选下拉面板（区域/地铁 · 价格 · 户型 · 更多 · 学校）
+
+   说明：`.rent-loc-panel*` 这一族类名此前只出现在 JSX 里，
+   CSS 中没有任何定义——四个弹层一直是「裸按钮」渲染
+   （无边框、无分组层级、无确定/重置按钮形态）。
+   这里按设计令牌补齐，不引入硬编码颜色。
+   ========================================================= */
+
+/* antd Popover 外壳：去掉默认内边距与箭头，交由面板自绘 */
+.rent-loc-popover .ant-popover-inner {
+  padding: 0;
+  border-radius: var(--rent-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--rent-shadow-3);
+}
+.rent-loc-popover .ant-popover-arrow {
+  display: none;
+}
+
+.rent-loc-panel {
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  background: var(--rent-popover);
+  color: var(--rent-popover-foreground);
+  font-family: var(--rent-font-sans);
+}
+
+/* 顶部 Tab（区域 | 地铁） */
+.rent-loc-panel__tabs {
+  display: flex;
+  gap: var(--rent-s-2);
+  padding: var(--rent-s-3) var(--rent-s-4) 0;
+  border-bottom: 1px solid var(--rent-line);
+}
+.rent-loc-panel__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--rent-ink-2);
+  font-size: var(--rent-fs-sm);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.rent-loc-panel__tab:hover {
+  color: var(--rent-primary);
+}
+.rent-loc-panel__tab--active {
+  color: var(--rent-primary);
+  border-bottom-color: var(--rent-primary);
+  font-weight: 600;
+}
+
+.rent-loc-panel__body {
+  padding: var(--rent-s-4);
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.rent-loc-panel__group + .rent-loc-panel__group {
+  margin-top: var(--rent-s-4);
+}
+.rent-loc-panel__group-title {
+  font-size: var(--rent-fs-sm);
+  font-weight: 600;
+  color: var(--rent-ink-2);
+  margin-bottom: var(--rent-s-2);
+}
+/* 面板正文里连续出现的分组标题（价格/更多面板）之间留白 */
+.rent-loc-panel__body > .rent-loc-panel__group-title:not(:first-child) {
+  margin-top: var(--rent-s-4);
+}
+
+.rent-loc-panel__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rent-s-2);
+}
+.rent-loc-panel__chip {
+  padding: 7px 14px;
+  border-radius: var(--rent-radius-full);
+  border: 1px solid var(--rent-border);
+  background: var(--rent-surface);
+  color: var(--rent-ink-2);
+  font-size: var(--rent-fs-sm);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.rent-loc-panel__chip:hover {
+  border-color: var(--rent-primary);
+  color: var(--rent-primary);
+}
+.rent-loc-panel__chip--active {
+  background: var(--rent-sidebar-active);
+  border-color: var(--rent-primary);
+  color: var(--rent-primary);
+  font-weight: 600;
+}
+
+/* 地铁面板：左侧线路 + 右侧站点 */
+.rent-loc-panel__metro {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+}
+
+/* 区域面板：左侧国家 + 右侧省市/城区（链家式两栏 + 国家→省市→城区 下钻）
+   此前是所有城市组纵向堆叠、国家与省市混在一起，要滚很久才能找到自己的城市 */
+.rent-loc-panel__area {
+  display: grid;
+  /* 左栏宽度按最长国家名倒推：容器 padding 12×2 + 条目 padding 10×2 + 「马来西亚」4×13px + 右边框 1 = 97px */
+  grid-template-columns: 98px 1fr;
+}
+
+.rent-loc-panel__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--rent-s-3);
+  border-right: 1px solid var(--rent-line);
+  max-height: 340px;
+  overflow-y: auto;
+}
+.rent-loc-panel__line {
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--rent-radius-sm);
+  background: transparent;
+  color: var(--rent-ink-2);
+  font-size: var(--rent-fs-sm);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.rent-loc-panel__line:hover {
+  background: var(--rent-surface-2);
+}
+.rent-loc-panel__line--active {
+  background: var(--rent-accent-soft);
+  color: var(--rent-accent);
+  font-weight: 600;
+}
+.rent-loc-panel__stations {
+  padding: var(--rent-s-3);
+  max-height: 340px;
+  overflow-y: auto;
+}
+.rent-loc-panel__stations-title {
+  font-size: var(--rent-fs-sm);
+  font-weight: 600;
+  color: var(--rent-ink-2);
+  margin-bottom: var(--rent-s-2);
+}
+/* 下钻到省市后，右栏顶部「← 国家」返回行 */
+.rent-loc-panel__stations-head {
+  display: flex;
+  align-items: center;
+  gap: var(--rent-s-2);
+  margin-bottom: var(--rent-s-2);
+}
+.rent-loc-panel__stations-head .rent-loc-panel__stations-title {
+  margin-bottom: 0;
+}
+.rent-loc-panel__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--rent-radius-sm);
+  background: transparent;
+  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  font-family: inherit;
+  cursor: pointer;
+}
+.rent-loc-panel__back:hover {
+  background: var(--rent-surface-2);
+  color: var(--rent-accent);
+}
+
+.rent-loc-panel__empty {
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-3);
+  padding: var(--rent-s-2) 0;
+}
+
+/* 底部操作区（重置 / 确定） */
+.rent-loc-panel__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--rent-s-3);
+  padding: var(--rent-s-3) var(--rent-s-4);
+  border-top: 1px solid var(--rent-line);
+  background: var(--rent-surface);
+}
+.rent-loc-panel__count {
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-muted-foreground);
+}
+.rent-loc-panel__count strong {
+  color: var(--rent-primary);
+}
+.rent-loc-panel__actions {
+  display: flex;
+  gap: var(--rent-s-2);
+  margin-left: auto;
+}
+.rent-loc-panel__btn {
+  padding: 8px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--rent-radius-full);
+  font-size: var(--rent-fs-sm);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.rent-loc-panel__btn--ghost {
+  background: var(--rent-surface);
+  border-color: var(--rent-border);
+  color: var(--rent-ink-2);
+}
+.rent-loc-panel__btn--ghost:hover {
+  border-color: var(--rent-primary);
+  color: var(--rent-primary);
+}
+.rent-loc-panel__btn--primary {
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
+}
+.rent-loc-panel__btn--primary:hover {
+  background: var(--rent-primary-hover);
+}
+
+/* ---- 价格面板：快捷区间 + 自定义最低/最高 ---- */
+.rent-price-panel {
+  width: 440px;
+}
+.rent-price-custom {
+  display: flex;
+  align-items: center;
+  gap: var(--rent-s-2);
+}
+.rent-price-custom__cur,
+.rent-price-custom__divider,
+.rent-price-custom__unit {
+  flex-shrink: 0;
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-3);
+}
+.rent-price-custom__input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--rent-input);
+  border-radius: var(--rent-radius-sm);
+  background: var(--rent-surface);
+  color: var(--rent-foreground);
+  font-size: var(--rent-fs-sm);
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.rent-price-custom__input:focus {
+  outline: none;
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 3px var(--rent-accent-soft);
+}
+
+/* ---- 户型/状态单选面板 ---- */
+.rent-quick-panel {
+  width: 380px;
+}
+
+/* ---- 学校筛选面板（按学校找房的一级入口）---- */
+.rent-school-panel {
+  width: 460px;
+}
+.rent-loc-panel__schools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rent-s-2);
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: var(--rent-s-1);
+}
+
+/* 卡片上的「距学校 X 公里」——仅在该筛选生效时出现 */
+.rent-prop-search-card__school {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 0;
+  font-size: var(--rent-fs-xs);
+  font-weight: 500;
+  color: var(--rent-primary);
+}
+
+/* =========================================================
+   房源卡片封面：有实拍图就用图，没有才回退色块 + 户型图标
+   ========================================================= */
+.rent-prop-search-card__cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* 叠一层压暗渐变，保证白色角标在浅色照片上仍可读
+   （原型自带的 5% 遮罩只够应付纯色块） */
+.rent-prop-search-card__banner[data-photo='true']::after {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.04) 42%,
+    rgba(0, 0, 0, 0.38) 100%
+  );
+}
+
+/* 状态标签原来是 top:14/right:14，而收藏按钮是 top:10/right:10 且 z-index 更高
+   ——状态被完全盖住。状态是决策信息，挪到左上，两者不再打架。 */
+.rent-prop-search-card__status-tag {
+  left: 14px;
+  right: auto;
+}
+

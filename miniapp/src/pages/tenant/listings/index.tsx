@@ -176,6 +176,10 @@ export default function TenantListingsPage() {
 
   // 按区域 / 按地铁（对齐贝壳「区域 | 地铁」下拉面板）
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area')
+  // 区域面板：国家 → 省市 → 城区 三级下钻（左栏只列国家，右栏先是省市列表，
+  // 点省市后右栏换成它的城区）。此前所有城市纵向堆叠、国家与省市混在一起。
+  const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country)
+  const [areaDrill, setAreaDrill] = useState<string>('') // 已下钻的省市 cityKey，空 = 停在省市列表
   const [districtSel, setDistrictSel] = useState<string | null>(null)
   const [metroSel, setMetroSel] = useState<string[]>([])
   const [metroDraft, setMetroDraft] = useState<string[]>([])
@@ -274,6 +278,24 @@ export default function TenantListingsPage() {
   }
 
   const allDistricts = useMemo(() => AREA_GROUPS.flatMap((g) => g.children), [])
+  // 左栏国家清单（按 AREA_GROUPS 出现顺序去重，保持业务顺序）
+  const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), [])
+  // 区域面板左栏宽度按最长国家名倒推（当前最长「马来西亚」4 字）：
+  // 最长字幕数 × 字号 26 + 条目水平 padding 16×2 + 左边框 6 + 2 缓冲，避免留白
+  const areaLeftWidth = useMemo(() => {
+    const maxChars = Math.max(...countryList.map((c) => [...c].length))
+    return maxChars * 26 + 16 * 2 + 6 + 2
+  }, [countryList])
+  // 右栏未下钻时的数据源：当前国家下的省市
+  const countryGroups = useMemo(
+    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
+    [areaCountry]
+  )
+  // 右栏已下钻时的数据源：该省市的城区
+  const activeAreaGroup = useMemo(
+    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
+    [areaDrill]
+  )
   const activeLine = useMemo(
     () => METRO_LINES.find((l) => l.key === metroLine),
     [metroLine]
@@ -436,6 +458,14 @@ export default function TenantListingsPage() {
     if (key === 'region') {
       setMetroDraft(metroSel)
       if (!districtSel && metroSel.length) setLocTab('metro')
+      // 回显：已选城区时直接下钻到它所在的省市，否则停在省市列表
+      if (districtSel) {
+        const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtSel))
+        if (g) {
+          setAreaCountry(g.country)
+          setAreaDrill(g.cityKey)
+        }
+      }
     }
     if (key === 'price') {
       setPriceDraftMin(customMin)
@@ -458,6 +488,7 @@ export default function TenantListingsPage() {
         setDistrictSel(null)
         setMetroSel([])
         setMetroDraft([])
+        setAreaDrill('')
       }
     } else if (key === 'price') {
       setPriceDraftMin('')
@@ -538,30 +569,68 @@ export default function TenantListingsPage() {
 
       <View className='filter-drop__body'>
         {locTab === 'area' ? (
-          <ScrollView scrollY className='filter-region-scroll'>
-            {AREA_GROUPS.map((g) => (
-              <View key={g.cityKey} className='loc-group'>
-                <Text className='loc-group__title'>{g.cityLabel}</Text>
-                <View className='filter-chips'>
-                  <View
-                    className={`filter-chip ${districtSel === null ? 'filter-chip--active' : ''}`}
-                    onClick={() => applyDistrict(null)}
-                  >
-                    <Text>不限</Text>
-                  </View>
-                  {g.children.map((d) => (
-                    <View
-                      key={d.key}
-                      className={`filter-chip ${districtSel === d.key ? 'filter-chip--active' : ''}`}
-                      onClick={() => applyDistrict(d.key)}
-                    >
-                      <Text>{d.label}</Text>
-                    </View>
-                  ))}
+          // 链家式两栏 + 国家→省市→城区 三级下钻：左栏只列国家，
+          // 右栏先是该国家的省市列表，点省市后右栏换成它的城区 chips
+          <View className='filter-region-twocol'>
+            <ScrollView scrollY style={{ width: areaLeftWidth }} className='filter-region-twocol__left'>
+              {countryList.map((c) => (
+                <View
+                  key={c}
+                  className={`loc-col-item ${areaCountry === c ? 'loc-col-item--active' : ''}`}
+                  onClick={() => {
+                    setAreaCountry(c)
+                    setAreaDrill('')
+                  }}
+                >
+                  <Text>{c}</Text>
                 </View>
-              </View>
-            ))}
-          </ScrollView>
+              ))}
+            </ScrollView>
+            <ScrollView scrollY className='filter-region-twocol__right'>
+              {activeAreaGroup ? (
+                <>
+                  <View className='filter-region-drill-head' onClick={() => setAreaDrill('')}>
+                    <Text className='filter-region-drill-head__back'>← {areaCountry}</Text>
+                    <Text className='loc-group__title loc-group__title--flat'>
+                      {activeAreaGroup.cityLabel}
+                    </Text>
+                  </View>
+                  <View className='filter-chips'>
+                    <View
+                      className={`filter-chip ${districtSel === null ? 'filter-chip--active' : ''}`}
+                      onClick={() => applyDistrict(null)}
+                    >
+                      <Text>不限</Text>
+                    </View>
+                    {activeAreaGroup.children.map((d) => (
+                      <View
+                        key={d.key}
+                        className={`filter-chip ${districtSel === d.key ? 'filter-chip--active' : ''}`}
+                        onClick={() => applyDistrict(d.key)}
+                      >
+                        <Text>{d.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text className='loc-group__title loc-group__title--flat'>{areaCountry}</Text>
+                  <View className='filter-chips'>
+                    {countryGroups.map((g) => (
+                      <View
+                        key={g.cityKey}
+                        className={`filter-chip ${areaDrill === g.cityKey ? 'filter-chip--active' : ''}`}
+                        onClick={() => setAreaDrill(g.cityKey)}
+                      >
+                        <Text>{g.cityLabel}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </View>
         ) : (
           <View className='filter-metro'>
             <ScrollView scrollX className='filter-metro__lines'>

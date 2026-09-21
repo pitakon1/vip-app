@@ -3,8 +3,8 @@ import Taro from '@tarojs/taro'
 import { NAV_ICONS, type NavIconKey } from './icons'
 import './index.scss'
 
-/** 角色化底部导航的角色键 */
-export type NavRole = 'admin' | 'employee' | 'owner' | 'tenant'
+/** 角色化底部导航的角色键。`guest` 是未登录访客的 C 端导航。 */
+export type NavRole = 'admin' | 'employee' | 'owner' | 'tenant' | 'guest'
 
 interface NavItem {
   /** 与 prototype `data-nav-key` 对应的标识，页面用它标记当前选中项 */
@@ -48,6 +48,14 @@ const NAV_MAP: Record<NavRole, NavItem[]> = {
     { key: 'browse', label: '找房', icon: 'search', path: '/pages/tenant/listings/index' },
     { key: 'messages', label: '消息', icon: 'message', path: '/pages/chat/list/index' },
     { key: 'profile', label: '我的', icon: 'user', path: '/pages/profile/index' },
+  ],
+  // 未登录访客：内容全部来自匿名接口 `/public/*`，四个 Tab 都不需要 token。
+  // 「我的」落到 public/me（登录/注册入口），而不是站内 profile（那个一进去就跳登录）。
+  guest: [
+    { key: 'browse', label: '找房', icon: 'search', path: '/pages/public/listings/index' },
+    { key: 'schools', label: '学校', icon: 'school', path: '/pages/public/schools/index' },
+    { key: 'communities', label: '小区', icon: 'building', path: '/pages/public/communities/index' },
+    { key: 'me', label: '我的', icon: 'user', path: '/pages/public/me/index' },
   ],
 }
 

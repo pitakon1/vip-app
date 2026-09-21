@@ -97,6 +97,10 @@ const Properties = () => {
   const [metroSel, setMetroSel] = useState<string[]>([])              // 已选站点 name（已确认）
   const [metroDraft, setMetroDraft] = useState<string[]>([])          // 站点多选草稿（确定后提交）
   const [metroLine, setMetroLine] = useState<string>(METRO_LINES[0].key)
+  // 区域面板：国家 → 省市 → 城区 三级下钻（左栏只列国家，右栏先是省市列表，
+  // 点省市后右栏换成它的城区）。此前国家/省市平铺在一列，混杂难找。
+  const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country)
+  const [areaDrill, setAreaDrill] = useState<string>('') // 已下钻的省市 cityKey，空 = 停在省市列表
   // 只看带视频
   const [onlyVideo, setOnlyVideo] = useState(false)
 
@@ -120,9 +124,16 @@ const Properties = () => {
     setMetroSel([])
     setMetroDraft([])
   }
-  const resetLoc = () => { setDistrictSel(null); setMetroSel([]); setMetroDraft([]) }
+  const resetLoc = () => { setDistrictSel(null); setMetroSel([]); setMetroDraft([]); setAreaDrill('') }
   const onLocOpenChange = (open: boolean) => {
-    if (open) setMetroDraft(metroSel)
+    if (open) {
+      setMetroDraft(metroSel)
+      // 回显：已选城区时直接下钻到它所在的省市，否则停在省市列表
+      if (districtSel) {
+        const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtSel))
+        if (g) { setAreaCountry(g.country); setAreaDrill(g.cityKey) }
+      }
+    }
     setLocOpen(open)
   }
   const toggleStation = (name: string) => {
@@ -135,6 +146,18 @@ const Properties = () => {
   }
   const clearMetroDraft = () => { setMetroDraft([]); setMetroSel([]) }
   const activeLine = useMemo(() => METRO_LINES.find((l) => l.key === metroLine), [metroLine])
+  // 左栏国家清单（按 AREA_GROUPS 出现顺序去重，保持业务顺序）
+  const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), [])
+  // 右栏未下钻时的数据源：当前国家下的省市
+  const countryGroups = useMemo(
+    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
+    [areaCountry],
+  )
+  // 右栏已下钻时的数据源：该省市的城区
+  const activeAreaGroup = useMemo(
+    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
+    [areaDrill],
+  )
 
   // 弹窗
   const [modalOpen, setModalOpen] = useState(false)
@@ -594,31 +617,70 @@ const Properties = () => {
       </div>
 
       {locTab === 'area' ? (
-        <div className="prop-loc-panel__body">
-          {AREA_GROUPS.map((g) => (
-            <div className="prop-loc-panel__group" key={g.cityKey}>
-              <div className="prop-loc-panel__group-title">{g.country} · {g.cityLabel}</div>
-              <div className="prop-loc-panel__chips">
-                <button
-                  type="button"
-                  className={`prop-loc-panel__chip ${districtSel === null ? 'prop-loc-panel__chip--active' : ''}`}
-                  onClick={() => applyDistrict(null)}
-                >
-                  不限
-                </button>
-                {g.children.map((d) => (
+        <div className="prop-loc-panel__area">
+          <div className="prop-loc-panel__lines">
+            {countryList.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className={`prop-loc-panel__line ${areaCountry === c ? 'prop-loc-panel__line--active' : ''}`}
+                onClick={() => { setAreaCountry(c); setAreaDrill('') }}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <div className="prop-loc-panel__stations">
+            {activeAreaGroup ? (
+              <>
+                <div className="prop-loc-panel__stations-head">
                   <button
-                    key={d.key}
                     type="button"
-                    className={`prop-loc-panel__chip ${districtSel === d.key ? 'prop-loc-panel__chip--active' : ''}`}
-                    onClick={() => applyDistrict(d.key)}
+                    className="prop-loc-panel__back"
+                    onClick={() => setAreaDrill('')}
                   >
-                    {d.label}
+                    ← {areaCountry}
                   </button>
-                ))}
-              </div>
-            </div>
-          ))}
+                  <span className="prop-loc-panel__stations-title">{activeAreaGroup.cityLabel}</span>
+                </div>
+                <div className="prop-loc-panel__chips">
+                  <button
+                    type="button"
+                    className={`prop-loc-panel__chip ${districtSel === null ? 'prop-loc-panel__chip--active' : ''}`}
+                    onClick={() => applyDistrict(null)}
+                  >
+                    不限
+                  </button>
+                  {activeAreaGroup.children.map((d) => (
+                    <button
+                      key={d.key}
+                      type="button"
+                      className={`prop-loc-panel__chip ${districtSel === d.key ? 'prop-loc-panel__chip--active' : ''}`}
+                      onClick={() => applyDistrict(d.key)}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="prop-loc-panel__stations-title">{areaCountry}</div>
+                <div className="prop-loc-panel__chips">
+                  {countryGroups.map((g) => (
+                    <button
+                      key={g.cityKey}
+                      type="button"
+                      className={`prop-loc-panel__chip ${areaDrill === g.cityKey ? 'prop-loc-panel__chip--active' : ''}`}
+                      onClick={() => setAreaDrill(g.cityKey)}
+                    >
+                      {g.cityLabel}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       ) : (
         <div className="prop-loc-panel__metro">

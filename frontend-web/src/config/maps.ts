@@ -9,3 +9,18 @@
  */
 export const GOOGLE_MAPS_API_KEY =
   'AIzaSyPlaceholderGoogleMapsKey_ChangeMe'
+
+/**
+ * 是否配置了**可用的** Google Maps Key。
+ *
+ * 占位 Key 会让脚本拒绝加载，`window.google` 永远不存在。此时任何
+ * `<Autocomplete>` / `<GoogleMap>` 一旦 mount 就会抛 `google is not defined`，
+ * 未捕获的话 React 会卸载整棵树——整页白屏。
+ *
+ * 所以调用方必须先用这个标记决定「要不要挂载地图」，而不是无脑渲染。
+ */
+export const isGoogleMapsConfigured = (): boolean => {
+  const key = (GOOGLE_MAPS_API_KEY || '').trim()
+  if (!key) return false
+  return !/placeholder|changeme|your[_-]?key|xxx/i.test(key)
+}

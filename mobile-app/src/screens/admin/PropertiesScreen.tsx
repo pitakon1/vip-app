@@ -16,7 +16,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
@@ -145,6 +145,11 @@ export default function AdminPropertiesScreen() {
   // 位置筛选（对齐租客端「区域 | 地铁」）
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area');
   const [districtSel, setDistrictSel] = useState<string | null>(null);
+  // 区域面板：国家 → 省市 → 城区 三级下钻。左栏只列国家，右栏默认是该国家的省市列表，
+  // 点某个省市后右栏才换成它的城区 chips（顶部「返回」回到省市列表）。
+  // 此前国家与省市平铺在同一列里，用户要在混杂的长列表中找城市。
+  const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country);
+  const [areaDrill, setAreaDrill] = useState<string>(''); // 已下钻的省市 cityKey，空 = 停在省市列表
   const [metroLine, setMetroLine] = useState<string>(METRO_LINES[0].key);
   const [metroSel, setMetroSel] = useState<string[]>([]);
   const [metroDraft, setMetroDraft] = useState<string[]>([]);
@@ -305,6 +310,41 @@ export default function AdminPropertiesScreen() {
     ]);
   };
 
+  // 区域面板左栏：国家清单（按 AREA_GROUPS 出现顺序去重，保持「泰国 → 越南 → …」的业务顺序）
+  const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), []);
+  // 左栏宽度按最长国家名动态推导（避免留白）：最长字幕数×字号13 + 条目横向padding 6×2 + 边框hairline + 2缓冲
+  const areaLeftWidth = useMemo(() => {
+    const maxChars = Math.max(...countryList.map((c) => [...c].length));
+    return maxChars * 13 + 6 * 2 + 2;
+  }, [countryList]);
+  // 右栏未下钻时的数据源：当前国家下的省市
+  const countryGroups = useMemo(
+    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
+    [areaCountry],
+  );
+  // 右栏已下钻时的数据源：该省市的城区；未下钻时为 undefined，右栏才走省市列表分支
+  const activeAreaGroup = useMemo(
+    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
+    [areaDrill],
+  );
+
+  // 切换国家：右栏回到该国家的省市列表（否则会停在上一个国家已下钻的省市上）
+  const pickAreaCountry = (country: string) => {
+    setAreaCountry(country);
+    setAreaDrill('');
+  };
+
+  // 打开区域面板时回显：已选城区则直接下钻到它所在的省市，否则停在省市列表，
+  // 用户不必再从长列表里找回已选城市
+  const echoAreaDrill = () => {
+    if (!districtSel) return;
+    const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtSel));
+    if (g) {
+      setAreaCountry(g.country);
+      setAreaDrill(g.cityKey);
+    }
+  };
+
   // 位置筛选（客户端关键词过滤，对齐租客端：只作用于已加载 items）
   const activeLocationKw = useMemo(() => {
     if (districtSel) {
@@ -421,7 +461,15 @@ export default function AdminPropertiesScreen() {
         <TouchableOpacity
           style={[styles.filterChip, activeFilter === 'location' && styles.filterChipActive]}
           activeOpacity={0.7}
-          onPress={() => setActiveFilter(activeFilter === 'location' ? '' : 'location')}
+          onPress={() => {
+            if (activeFilter === 'location') {
+              setActiveFilter('');
+              return;
+            }
+            // 打开区域面板时回显已选城区所在的省市
+            echoAreaDrill();
+            setActiveFilter('location');
+          }}
         >
           <Text style={[styles.filterChipText, activeFilter === 'location' && styles.filterChipTextActive]}>
             区域：{districtSel || metroSel.length ? '已选' : '不限'}
@@ -560,6 +608,7 @@ export default function AdminPropertiesScreen() {
                 activeOpacity={0.7}
                 onPress={() => {
                   if (t === 'metro') setMetroDraft(metroSel);
+                  else echoAreaDrill();
                   setLocTab(t);
                 }}
               >
@@ -571,34 +620,79 @@ export default function AdminPropertiesScreen() {
           </View>
 
           {locTab === 'area' ? (
-            <>
-              <View style={styles.optRow}>
-                <TouchableOpacity
-                  style={[styles.optChip, districtSel === null && styles.optChipActive]}
-                  activeOpacity={0.7}
-                  onPress={() => setDistrictSel(null)}
-                >
-                  <Text style={[styles.optChipText, districtSel === null && styles.optChipTextActive]}>不限</Text>
-                </TouchableOpacity>
-              </View>
-              {AREA_GROUPS.map((g) => (
-                <View key={g.cityKey}>
-                  <Text style={styles.locGroupLabel}>{g.country} · {g.cityLabel}</Text>
-                  <View style={styles.optRow}>
-                    {g.children.map((d) => (
+            // 国家 → 省市 → 城区 三级下钻：左栏只列国家，右栏先是该国家的省市列表，
+            // 点省市后右栏换成它的城区 chips（顶部「返回」回到省市列表）。
+            // 此前把国家/省市平铺在同一列，用户要在混杂的长列表里找城市。
+            <View style={styles.locArea}>
+              <ScrollView style={[styles.locAreaCol, { width: areaLeftWidth }]} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                {countryList.map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[styles.locAreaColItem, areaCountry === c && styles.locAreaColItemActive]}
+                    activeOpacity={0.7}
+                    onPress={() => pickAreaCountry(c)}
+                  >
+                    <Text style={[styles.locAreaColText, areaCountry === c && styles.locAreaColTextActive]}>
+                      {c}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <ScrollView style={styles.locAreaBody} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                {activeAreaGroup ? (
+                  <>
+                    <View style={styles.locAreaHead}>
                       <TouchableOpacity
-                        key={d.key}
-                        style={[styles.optChip, districtSel === d.key && styles.optChipActive]}
+                        style={styles.locAreaBack}
                         activeOpacity={0.7}
-                        onPress={() => setDistrictSel(d.key)}
+                        onPress={() => setAreaDrill('')}
                       >
-                        <Text style={[styles.optChipText, districtSel === d.key && styles.optChipTextActive]}>{d.label}</Text>
+                        <Ionicons name="chevron-back" size={12} color={colors.ink3} />
+                        <Text style={styles.locAreaBackText}>{areaCountry}</Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              ))}
-            </>
+                      <Text style={styles.locAreaHeadTitle}>{activeAreaGroup.cityLabel}</Text>
+                    </View>
+                    <View style={styles.locAreaChips}>
+                      <TouchableOpacity
+                        style={[styles.optChip, districtSel === null && styles.optChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() => setDistrictSel(null)}
+                      >
+                        <Text style={[styles.optChipText, districtSel === null && styles.optChipTextActive]}>不限</Text>
+                      </TouchableOpacity>
+                      {activeAreaGroup.children.map((d) => (
+                        <TouchableOpacity
+                          key={d.key}
+                          style={[styles.optChip, districtSel === d.key && styles.optChipActive]}
+                          activeOpacity={0.7}
+                          onPress={() => setDistrictSel(d.key)}
+                        >
+                          <Text style={[styles.optChipText, districtSel === d.key && styles.optChipTextActive]}>{d.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.locAreaHeadTitle}>{areaCountry}</Text>
+                    <View style={styles.locAreaChips}>
+                      {countryGroups.map((g) => (
+                        <TouchableOpacity
+                          key={g.cityKey}
+                          style={[styles.optChip, areaDrill === g.cityKey && styles.optChipActive]}
+                          activeOpacity={0.7}
+                          onPress={() => setAreaDrill(g.cityKey)}
+                        >
+                          <Text style={[styles.optChipText, areaDrill === g.cityKey && styles.optChipTextActive]}>
+                            {g.cityLabel}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
+              </ScrollView>
+            </View>
           ) : (
             <>
               <Text style={styles.locGroupLabel}>线路</Text>
@@ -878,6 +972,29 @@ const styles = StyleSheet.create({
   },
   locLineRow: { flexWrap: 'wrap' },
   locConfirmBtn: { backgroundColor: colors.primary },
+  // 区域筛选两栏：左栏固定宽度只放国家，右栏放省市 / 城区（链家式两栏观感）
+  locArea: {
+    flexDirection: 'row',
+    maxHeight: 260,
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  locAreaCol: {
+    // 按最长国家名「马来西亚」倒推：条目 padding 6×2 + 4×13 = 64px
+    width: 66,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: colors.border,
+  },
+  locAreaColItem: { paddingVertical: 9, paddingHorizontal: 6 },
+  locAreaColItemActive: { backgroundColor: colors.alpha(colors.primaryRgb, 0.08) },
+  locAreaColText: { fontSize: 13, color: colors.ink2 },
+  locAreaColTextActive: { color: colors.primary, fontWeight: '600' },
+  locAreaBody: { flex: 1, paddingLeft: 12 },
+  locAreaHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  locAreaBack: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  locAreaBackText: { fontSize: 12, color: colors.ink3 },
+  locAreaHeadTitle: { fontSize: 12, color: colors.ink2, fontWeight: '600' },
+  locAreaChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 
   statRow: { flexDirection: 'row', gap: 8, marginHorizontal: 20 },
   statCell: {

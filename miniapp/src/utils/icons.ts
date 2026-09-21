@@ -5,7 +5,9 @@
  * 颜色取自项目令牌：primary #14b8a6 / ink-2 #55606c / success #16a34a / info #0ea5e9。
  * 用法：配合 app.scss 的 `.icon-svg` 工具类
  *   <View className='icon-svg' style={{ backgroundImage: `url("${ICONS.card}")` }} />
- * 由 _gen_miniapp_icons.js 生成，勿手改。
+ *
+ * 注：原先标注「由 _gen_miniapp_icons.js 生成，勿手改」，但该脚本已不在仓库中
+ * （`find` 全库无此文件），所以这里就是唯一图标表，新增图标直接在此维护即可。
  */
 export const ICONS = {
   card: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMTRiOGE2IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMiIgeT0iNSIgd2lkdGg9IjIwIiBoZWlnaHQ9IjE0IiByeD0iMiIvPjxsaW5lIHgxPSIyIiB5MT0iMTAiIHgyPSIyMiIgeTI9IjEwIi8+PC9zdmc+',
@@ -29,6 +31,10 @@ export const ICONS = {
   star: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMTRiOGE2IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlnb24gcG9pbnRzPSIxMiAyIDE1LjEgOC42IDIyIDkuNSAxNyAxNC40IDE4LjIgMjEuNSAxMiAxOC4yIDUuOCAyMS41IDcgMTQuNCAyIDkuNSA4LjkgOC42Ii8+PC9zdmc+',
   heartFill: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2RjMjYyNiIgc3Ryb2tlPSIjZGMyNjI2IiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMjAuOCA0LjZhNS41IDUuNSAwIDAgMC03LjggMEwxMiA1LjdsLTEtMS4xYTUuNSA1LjUgMCAwIDAtNy44IDcuOGwxIDFMMTIgMjFsNy44LTcuNiAxLTFhNS41IDUuNSAwIDAgMCAwLTcuOHoiLz48L3N2Zz4=',
   starFill: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2Q5NzcwNiIgc3Ryb2tlPSIjZDk3NzA2IiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWdvbiBwb2ludHM9IjEyIDIgMTUuMSA4LjYgMjIgOS41IDE3IDE0LjQgMTguMiAyMS41IDEyIDE4LjIgNS44IDIxLjUgNyAxNC40IDIgOS41IDguOSA4LjYiLz48L3N2Zz4=',
+  // C 端内容入口用：学校（学士帽）/ 小区（楼宇）。
+  // 原图标表没有这两个语义的图标，用 home/doc 代替会与「首页」「文档」混淆。
+  school: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMTRiOGE2IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIyIDEwdjYiLz48cGF0aCBkPSJNMiAxMGwxMC01IDEwIDUtMTAgNXoiLz48cGF0aCBkPSJNNiAxMnY1YzMgMyA5IDMgMTIgMHYtNSIvPjwvc3ZnPg==',
+  building: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMTRiOGE2IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTMgMjFoMTgiLz48cGF0aCBkPSJNNiAyMVY1YTIgMiAwIDAgMSAyLTJoOGEyIDIgMCAwIDEgMiAydjE2Ii8+PHBhdGggZD0iTTEwIDhoMSIvPjxwYXRoIGQ9Ik0xMyA4aDEiLz48cGF0aCBkPSJNMTAgMTJoMSIvPjxwYXRoIGQ9Ik0xMyAxMmgxIi8+PHBhdGggZD0iTTkgMjF2LTRoNnY0Ii8+PC9zdmc+',
 } as const;
 
 export type IconKey = keyof typeof ICONS;

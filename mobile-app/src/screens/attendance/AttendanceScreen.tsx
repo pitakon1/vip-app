@@ -10,7 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import * as Location from 'expo-location';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import dayjs from 'dayjs';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';

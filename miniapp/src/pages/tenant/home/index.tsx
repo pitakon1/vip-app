@@ -375,6 +375,22 @@ export default function TenantHomePage() {
           <Text className='browse-banner__arrow'>›</Text>
         </View>
 
+        {/* C 端内容入口：国际学校 / 小区。
+            泰国买房租房的第一决策因子是国际学校（按距离反查房源），楼盘字典则是
+            判断一个小区"有没有货"的最快方式——两者都不该只有未登录访客能进。 */}
+        <View className='pub-entry-row'>
+          <View className='pub-entry' onClick={() => goQuick('/pages/public/schools/index')}>
+            <View className='icon-svg' style={iconStyle('school', 40)} />
+            <Text className='pub-entry__text'>国际学校</Text>
+            <Text className='pub-entry__arrow'>›</Text>
+          </View>
+          <View className='pub-entry' onClick={() => goQuick('/pages/public/communities/index')}>
+            <View className='icon-svg' style={iconStyle('building', 40)} />
+            <Text className='pub-entry__text'>小区</Text>
+            <Text className='pub-entry__arrow'>›</Text>
+          </View>
+        </View>
+
         {renderRail('精选房源', featuredItems)}
         {renderRail('新上房源', newItems)}
         {renderRail('热门二手房', commItems)}

@@ -1,0 +1,380 @@
+/**
+ * C 端房源详情（匿名可看）。
+ *
+ * 展示内容严格限定在公开口径：价格、房号地址、面积户型、朝向装修、房源描述、
+ * 所属小区参数、周边学校距离、经纪人对外联络方式。
+ *
+ * **不要渲染分佣配置**（`sale_commission_rate` / `rental_commission_months` /
+ * `mandate_type` / `split_option` / `buyer_side_rate` / `listing_side_rate`）。
+ * 后端 `/public/listings/{id}` 的响应体里本来就没有这些字段——但如果哪天有人
+ * 改成调站内 `/listings/{id}`，那些字段会带着 `None` 或真实值一起回来。
+ * 详见上一轮修掉的分佣泄露缺陷。
+ */
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Linking,
+  useWindowDimensions,
+} from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
+import { publicApi, type PublicListingDetail } from '@/services/publicApi';
+import {
+  decorationLabel,
+  listingTypeLabel,
+  loadRates,
+  orientationLabel,
+  photoUrls,
+  convertFromThb,
+  type TFunction,
+} from '@/lib/publicSite';
+import { fmtMoney } from '@/utils/format';
+import PublicInquiryForm from './PublicInquiryForm';
+
+export default function PublicListingDetailScreen() {
+  const { t } = useI18n();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+
+  const id: string = route.params?.id;
+  const [data, setData] = useState<PublicListingDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    void loadRates();
+  }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setLoading(true);
+    publicApi
+      .listing(id)
+      .then((res: any) => {
+        if (!cancelled) setData(res?.data ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  const call = useCallback((phone?: string | null) => {
+    if (!phone) return;
+    void Linking.openURL(`tel:${phone}`);
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={[styles.center, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!data) {
+    return (
+      <View style={[styles.center, { paddingTop: insets.top }]}>
+        <Text style={styles.emptyText}>{t('pub.listingNotFound')}</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>{t('pub.backToList')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const photos = photoUrls(data.photos);
+  const isSell = data.listing_type === 'sell';
+  const price = data.price ?? (isSell ? data.asking_price : data.monthly_rent);
+
+  return (
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+        {/* ---- 相册 ---- */}
+        {photos.length > 0 ? (
+          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
+            {photos.map((url) => (
+              <Image key={url} source={{ uri: url }} style={{ width, height: 260 }} resizeMode="cover" />
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={{ width, height: 200, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={styles.emptyText}>{t('pub.noPhoto')}</Text>
+          </View>
+        )}
+
+        <View style={styles.block}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>
+              {data.project_name || data.room_number || t('pub.listingsTitle')}
+            </Text>
+            {data.listing_type ? (
+              <View style={[styles.typeTag, isSell ? styles.typeTagSell : styles.typeTagRent]}>
+                <Text style={styles.typeTagText}>{listingTypeLabel(data.listing_type, t)}</Text>
+              </View>
+            ) : null}
+          </View>
+          {data.address ? <Text style={styles.addr}>{data.address}</Text> : null}
+
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>{fmtMoney(price, data.currency || 'THB')}</Text>
+            {isSell ? null : <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>}
+          </View>
+          {price ? (
+            <Text style={styles.priceSub}>
+              ≈ {fmtMoney(convertFromThb(price), 'CNY')}
+              {isSell ? '' : t('pub.perMonth')}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* ---- 关键参数 ---- */}
+        <View style={styles.block}>
+          <Text style={styles.sectionTitle}>{t('pub.keyFacts')}</Text>
+          <View style={styles.kvGrid}>
+            <KV label={t('pub.roomNumber')} value={data.room_number ?? ''} />
+            <KV label={t('pub.building')} value={data.building ?? ''} />
+            <KV label={t('pub.floor')} value={data.floor != null ? String(data.floor) : ''} />
+            <KV
+              label={t('pub.size')}
+              value={data.size_sqm != null ? `${data.size_sqm} ${t('pub.sqm')}` : ''}
+            />
+            <KV
+              label={t('pub.layout')}
+              value={
+                data.bedrooms != null || data.bathrooms != null
+                  ? `${data.bedrooms ?? '-'} BED · ${data.bathrooms ?? '-'} BATH`
+                  : ''
+              }
+            />
+            <KV label={t('pub.orientationLabel')} value={orientationLabel(data.orientation, t)} />
+            <KV label={t('pub.decorationLabel')} value={decorationLabel(data.decoration, t)} />
+            <KV
+              label={t('pub.deposit')}
+              value={
+                data.deposit_amount
+                  ? fmtMoney(data.deposit_amount, data.currency || 'THB')
+                  : data.deposit_months
+                    ? `${data.deposit_months}${t('pub.months')}`
+                    : ''
+              }
+            />
+            <KV label={t('pub.listingNo')} value={data.listing_no ?? ''} />
+          </View>
+        </View>
+
+        {/* ---- 所属小区 ---- */}
+        {data.project ? (
+          <View style={styles.block}>
+            <Text style={styles.sectionTitle}>{t('pub.communityInfo')}</Text>
+            <Text style={styles.projectName}>{data.project.name}</Text>
+            {data.project.developer_name ? (
+              <Text style={styles.projectLine}>
+                {t('pub.developer')}：{data.project.developer_name}
+              </Text>
+            ) : null}
+            {data.project.total_units ? (
+              <Text style={styles.projectLine}>
+                {t('pub.totalUnits')}：{data.project.total_units}
+              </Text>
+            ) : null}
+            {data.project.completion_year ? (
+              <Text style={styles.projectLine}>
+                {t('pub.completionYear')}：{data.project.completion_year}
+              </Text>
+            ) : null}
+            {data.project.id ? (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('PublicCommunityDetail', { id: data.project?.id })}
+              >
+                <Text style={styles.link}>{t('pub.viewCommunity')} →</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* ---- 周边学校 ---- */}
+        {(data.nearby_schools ?? []).length > 0 ? (
+          <View style={styles.block}>
+            <Text style={styles.sectionTitle}>{t('pub.nearbySchools')}</Text>
+            <Text style={styles.sectionHint}>{t('pub.nearbySchoolsHint')}</Text>
+            {(data.nearby_schools ?? []).map((school) => (
+              <TouchableOpacity
+                key={school.id ?? school.name ?? ''}
+                style={styles.schoolRow}
+                onPress={() => school.id && navigation.navigate('PublicSchoolDetail', { id: school.id })}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.schoolName}>{school.name}</Text>
+                  {school.name_en ? (
+                    <Text style={styles.schoolSub} numberOfLines={1}>{school.name_en}</Text>
+                  ) : null}
+                </View>
+                {school.distance_km != null ? (
+                  <Text style={styles.schoolDistance}>
+                    {school.distance_km} {t('pub.km')}
+                  </Text>
+                ) : null}
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+
+        {/* ---- 描述 ---- */}
+        {data.description ? (
+          <View style={styles.block}>
+            <Text style={styles.sectionTitle}>{t('pub.description')}</Text>
+            <Text style={styles.description}>{data.description}</Text>
+          </View>
+        ) : null}
+
+        {/* ---- 经纪人 ---- */}
+        <View style={styles.block}>
+          <Text style={styles.sectionTitle}>{t('pub.broker')}</Text>
+          {data.broker ? (
+            <>
+              {data.broker.company ? (
+                <Text style={styles.projectLine}>{data.broker.company}</Text>
+              ) : null}
+              <KV label={t('pub.broker')} value={data.broker.real_name ?? ''} />
+              {data.broker.phone ? (
+                <TouchableOpacity style={styles.callRow} onPress={() => call(data.broker?.phone)}>
+                  <Ionicons name="call-outline" size={16} color={colors.primary} />
+                  <Text style={styles.callText}>
+                    {data.broker.phone} · {t('pub.call')}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+              {data.broker.wechat ? (
+                <Text style={styles.projectLine}>WeChat：{data.broker.wechat}</Text>
+              ) : null}
+              {data.broker.line ? (
+                <Text style={styles.projectLine}>LINE：{data.broker.line}</Text>
+              ) : null}
+              {data.broker.whatsapp ? (
+                <Text style={styles.projectLine}>WhatsApp：{data.broker.whatsapp}</Text>
+              ) : null}
+            </>
+          ) : (
+            <Text style={styles.projectLine}>{t('pub.brokerEmpty')}</Text>
+          )}
+        </View>
+
+        {/* ---- 留资 ---- */}
+        <View style={{ paddingHorizontal: 16 }}>
+          <PublicInquiryForm
+            t={t as TFunction}
+            title={t('pub.inquireTitle')}
+            note={t('pub.inquireNote')}
+            context={{ listing_id: data.id, property_id: data.property_id ?? undefined }}
+            source="listing_detail"
+            defaultMessage={`Inquiry: ${data.project_name ?? ''} ${data.room_number ?? ''}`.trim()}
+          />
+        </View>
+      </ScrollView>
+
+      {/* ---- 悬浮返回 ---- */}
+      <TouchableOpacity
+        style={[styles.floatBack, { top: insets.top + 8 }]}
+        onPress={() => navigation.goBack()}
+        accessibilityLabel={t('pub.back')}
+      >
+        <Ionicons name="chevron-back" size={22} color={colors.ink} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function KV({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <View style={styles.kvItem}>
+      <Text style={styles.kvLabel}>{label}</Text>
+      <Text style={styles.kvValue}>{value}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
+  emptyText: { fontSize: colors.fontSize.base, color: colors.ink3 },
+  backButton: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    height: 42,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonText: { color: colors.primaryForeground, fontWeight: '600' },
+  block: {
+    backgroundColor: colors.card,
+    borderRadius: colors.radius.lg,
+    padding: colors.spacing.lg,
+    marginHorizontal: 16,
+    marginTop: 12,
+    ...colors.shadow.card,
+  },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { flex: 1, fontSize: colors.fontSize['2xl'], fontWeight: '800', color: colors.ink },
+  typeTag: { borderRadius: colors.radius.full, paddingHorizontal: 10, paddingVertical: 3 },
+  typeTagRent: { backgroundColor: colors.primary },
+  typeTagSell: { backgroundColor: colors.ink2 },
+  typeTagText: { fontSize: colors.fontSize.xs, color: '#fff', fontWeight: '600' },
+  addr: { fontSize: colors.fontSize.base, color: colors.ink2, marginTop: 6 },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 12 },
+  price: { fontSize: 26, fontWeight: '800', color: colors.primary },
+  priceUnit: { fontSize: colors.fontSize.base, color: colors.ink3 },
+  priceSub: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 4 },
+  sectionTitle: { fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.ink },
+  sectionHint: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 4, marginBottom: 8 },
+  kvGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
+  kvItem: { width: '50%', paddingVertical: 7 },
+  kvLabel: { fontSize: colors.fontSize.sm, color: colors.ink3 },
+  kvValue: { fontSize: colors.fontSize.base, color: colors.ink, marginTop: 2 },
+  projectName: { fontSize: colors.fontSize.lg, fontWeight: '600', color: colors.ink, marginTop: 8 },
+  projectLine: { fontSize: colors.fontSize.base, color: colors.ink2, marginTop: 6 },
+  link: { fontSize: colors.fontSize.base, color: colors.primary, fontWeight: '600', marginTop: 10 },
+  schoolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  schoolName: { fontSize: colors.fontSize.base, color: colors.ink, fontWeight: '600' },
+  schoolSub: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
+  schoolDistance: { fontSize: colors.fontSize.base, color: colors.accent, fontWeight: '600' },
+  description: { fontSize: colors.fontSize.base, color: colors.ink2, lineHeight: 22, marginTop: 8 },
+  callRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
+  callText: { fontSize: colors.fontSize.base, color: colors.primary, fontWeight: '600' },
+  floatBack: {
+    position: 'absolute',
+    left: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...colors.shadow.sm,
+  },
+});
