@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
+from app.core.auth import user_from_token
 from app.core.events import publish_event
 from app.core.logging import get_logger
 from app.core.pagination import Page, PaginationParams, paginate
@@ -239,11 +240,26 @@ class PublicProjectDetail(PublicProjectCard):
     listings: List[PublicListingCard] = []
 
 
+def _mask_contact(value: Optional[str]) -> Optional[str]:
+    """联系方式打码：仅保留结尾 4 位，中段用星号占位。
+
+    留资 / 登录后才能看完整联系方式（贝壳口径）。未登录访客在详情页只能看到
+    打码版，防止爬虫与匿名访客直接拿到经纪人真实电话去骚扰。
+    """
+    if not value:
+        return value
+    v = str(value).strip()
+    if len(v) <= 4:
+        # 过短就全打码，不泄露真实长度以外信息
+        return "***"
+    return f"{'*' * 3} {v[-4:]}"
+
+
 class InquiryCreate(BaseModel):
     """匿名留资请求。"""
 
     name: str
-    phone: Optional[str] = None
+    phone: str  # 匿名留资必须留手机号（贝壳口径），前端已做校验
     wechat_id: Optional[str] = None
     line_id: Optional[str] = None
     email: Optional[str] = None
@@ -716,9 +732,29 @@ def list_public_listings(
 
 @router.get("/listings/{listing_id}", response_model=PublicListingDetail)
 def get_public_listing(
-    listing_id: uuid.UUID, session: Session = Depends(get_session)
+    listing_id: uuid.UUID,
+    request: Request,
+    session: Session = Depends(get_session),
 ):
-    """公开房源详情：含楼盘信息块、周边学校距离、经纪人卡片、留资所需的编号。"""
+    """公开房源详情：含楼盘信息块、周边学校距离、经纪人卡片、留资所需的编号。
+
+    **联系方式脱敏（贝壳口径）**：浏览可免登录，但经纪人电话 / WeChat / LINE /
+    WhatsApp 属敏感联系方式，未登录（无有效 Authorization 头）时返回打码版——
+    只有留资或登录后才能看到完整号码。接口本身不强制鉴权，真正做到「浏览免费、
+    显联系需留资」。
+    """
+    # permissive auth：读 Authorization 头，有有效 token 才算已登录；缺失/无效都不报错
+    is_authenticated = False
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+        if token:
+            try:
+                user_from_token(token, session)
+                is_authenticated = True
+            except HTTPException:
+                is_authenticated = False
+
     row = session.exec(
         _listings_base_stmt().where(Listing.id == listing_id)
     ).first()
@@ -731,6 +767,10 @@ def get_public_listing(
 
     lat = project.lat if project else None
     lng = project.lng if project else None
+
+    # 未登录取打码版联系方式，登录后给完整版
+    def _mask(v):
+        return v if is_authenticated else _mask_contact(v)
 
     broker = None
     if any(
@@ -746,10 +786,10 @@ def get_public_listing(
         broker = PublicBrokerCard(
             company=listing.broker_company,
             real_name=listing.broker_real_name,
-            phone=listing.broker_phone,
-            wechat=listing.broker_wechat,
-            line=listing.broker_line,
-            whatsapp=listing.broker_whatsapp,
+            phone=_mask(listing.broker_phone),
+            wechat=_mask(listing.broker_wechat),
+            line=_mask(listing.broker_line),
+            whatsapp=_mask(listing.broker_whatsapp),
         )
 
     # 注意：card 里已经有 photos（列表页的封面口径），详情页要的是完整相册。

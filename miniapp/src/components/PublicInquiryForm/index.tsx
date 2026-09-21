@@ -34,8 +34,8 @@ export default function PublicInquiryForm({ title, note, context, source, defaul
       setFeedback({ tone: 'err', text: '请填写称呼' })
       return
     }
-    if (!phone.trim() && !wechat.trim()) {
-      setFeedback({ tone: 'err', text: '请至少留下电话或微信中的一项' })
+    if (!phone.trim()) {
+      setFeedback({ tone: 'err', text: '请填写手机号，方便经纪人联系你' })
       return
     }
     setSubmitting(true)
@@ -43,7 +43,7 @@ export default function PublicInquiryForm({ title, note, context, source, defaul
     try {
       await publicApi.inquiry({
         name: name.trim(),
-        phone: phone.trim() || undefined,
+        phone: phone.trim(),
         wechat_id: wechat.trim() || undefined,
         message: message.trim() || defaultMessage || undefined,
         source,

@@ -1147,6 +1147,20 @@ const en: import('./zh').Translation = {
     inquireError: 'Submission failed, please try again later',
     inquireNameRequired: 'Please enter your name',
     inquireContactRequired: 'Please leave at least a phone number or WeChat ID',
+    inquirePhoneRequired: 'Please enter your phone number so the agent can contact you',
+
+    contactLocked: 'Phone / WeChat / LINE / WhatsApp are masked. Leave your contact or log in to reach the agent.',
+    lockedSuffix: '(log in to view)',
+
+    bookViewing: 'Book a viewing',
+    bookViewingLogin: 'Book a viewing (log in required)',
+    bookTime: 'Preferred time',
+    bookTimePlaceholder: 'e.g. 2026-09-20 10:00',
+    bookNote: 'Note (optional)',
+    bookNotePlaceholder: 'e.g. prefer daytime',
+    bookSubmit: 'Submit booking',
+    bookOk: 'Booking submitted — the agent will contact you shortly',
+    bookError: 'Failed to submit booking, please try again later',
 
     // ---------- School filter on the listing page ----------
     filterSchool: 'School',

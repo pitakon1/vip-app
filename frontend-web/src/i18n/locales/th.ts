@@ -1147,6 +1147,20 @@ const th: import('./zh').Translation = {
     inquireError: 'ส่งไม่สำเร็จ กรุณาลองใหม่ภายหลัง',
     inquireNameRequired: 'กรุณากรอกชื่อ',
     inquireContactRequired: 'กรุณาฝากเบอร์โทรหรือ WeChat อย่างน้อยหนึ่งอย่าง',
+    inquirePhoneRequired: 'กรุณากรอกเบอร์โทร เพื่อให้เอเจนต์ติดต่อกลับได้',
+
+    contactLocked: 'เบอร์โทร / WeChat / LINE / WhatsApp ถูกปกปิด ฝากช่องทางติดต่อหรือเข้าสู่ระบบเพื่อติดต่อเอเจนต์',
+    lockedSuffix: '(เข้าสู่ระบบเพื่อดู)',
+
+    bookViewing: 'จองชมห้อง',
+    bookViewingLogin: 'จองชมห้อง (ต้องเข้าสู่ระบบ)',
+    bookTime: 'เวลาที่ต้องการชม',
+    bookTimePlaceholder: 'เช่น 2026-09-20 10:00',
+    bookNote: 'หมายเหตุ (ไม่บังคับ)',
+    bookNotePlaceholder: 'เช่น ต้องการช่วงกลางวัน',
+    bookSubmit: 'ส่งการจอง',
+    bookOk: 'ส่งการจองแล้ว เอเจนต์จะติดต่อกลับโดยเร็ว',
+    bookError: 'ส่งการจองไม่สำเร็จ กรุณาลองใหม่ภายหลัง',
 
     // ---------- ตัวกรองโรงเรียนในหน้ารายการ ----------
     filterSchool: 'โรงเรียน',

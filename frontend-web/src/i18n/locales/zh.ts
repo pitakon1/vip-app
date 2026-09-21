@@ -1149,6 +1149,20 @@ const zh = {
     inquireError: '提交失败，请稍后重试',
     inquireNameRequired: '请填写称呼',
     inquireContactRequired: '请至少留下电话或微信中的一项',
+    inquirePhoneRequired: '请填写手机号，方便经纪人联系你',
+
+    contactLocked: '电话 / WeChat / LINE / WhatsApp 已打码，留资或登录后联系经纪人',
+    lockedSuffix: '登录后查看',
+
+    bookViewing: '预约看房',
+    bookViewingLogin: '预约看房（需登录）',
+    bookTime: '希望看房时间',
+    bookTimePlaceholder: '如 2026-09-20 10:00',
+    bookNote: '备注（可选）',
+    bookNotePlaceholder: '如：希望看白天时段',
+    bookSubmit: '提交预约',
+    bookOk: '预约已提交，经纪人会尽快联系你',
+    bookError: '预约提交失败，请稍后重试',
 
     // ---------- 房源页「学校」筛选 ----------
     filterSchool: '学校',

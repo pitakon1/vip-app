@@ -47,8 +47,9 @@ export default function PublicInquiryForm({
       setFeedback({ tone: 'error', text: t('pub.inquireNameRequired') });
       return;
     }
-    if (!phone.trim() && !wechat.trim()) {
-      setFeedback({ tone: 'error', text: t('pub.inquireContactRequired') });
+    // 贝壳口径：匿名留资手机号必填——否则线索无法回访，这条 lead 是废的。
+    if (!phone.trim()) {
+      setFeedback({ tone: 'error', text: t('pub.inquirePhoneRequired') });
       return;
     }
     setSubmitting(true);
@@ -56,7 +57,7 @@ export default function PublicInquiryForm({
     try {
       await publicApi.inquiry({
         name: name.trim(),
-        phone: phone.trim() || undefined,
+        phone: phone.trim(),
         wechat_id: wechat.trim() || undefined,
         message: defaultMessage || undefined,
         source,

@@ -264,6 +264,7 @@ export const viewingsApi = {
   list: (params?: QueryParams) => api.get('/viewings', { params }),
   updateStatus: (id: string, status: string) =>
     api.patch(`/viewings/${id}`, { status }),
+  create: (data: RequestBody) => api.post('/viewings', data),
 }
 
 // 运营趋势

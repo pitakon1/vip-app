@@ -10,9 +10,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Input, Modal, DatePicker, message as antdMessage } from 'antd'
+import type { Dayjs } from 'dayjs'
 import api from '@/lib/api'
 import { convertCurrency, formatMoney, loadRates } from '@/lib/money'
 import PublicTopBar from '@/components/PublicTopBar'
+import useAuthStore from '@/stores/auth'
+import { viewingsApi } from '@/services/api'
 import {
   curriculumLabel,
   decorationLabel,
@@ -64,6 +68,7 @@ type Broker = {
 
 type ListingDetail = {
   id: string
+  property_id?: string
   listing_type?: string
   room_number?: string
   address?: string
@@ -98,6 +103,8 @@ const ListingDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const token = useAuthStore((s) => s.token)
+  const isLoggedIn = !!token
 
   const [detail, setDetail] = useState<ListingDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -113,6 +120,21 @@ const ListingDetailPage = () => {
   const [feedback, setFeedback] = useState<{ tone: 'ok' | 'error'; text: string } | null>(
     null,
   )
+
+  // 预约看房弹窗
+  const [viewingOpen, setViewingOpen] = useState(false)
+  const [viewingTime, setViewingTime] = useState<Dayjs | null>(null)
+  const [viewingNote, setViewingNote] = useState('')
+  const [viewingSubmitting, setViewingSubmitting] = useState(false)
+
+  const openBooking = () => {
+    if (!isLoggedIn) {
+      antdMessage.info(t('publicSite.bookViewingLogin'))
+      window.location.href = '/login'
+      return
+    }
+    setViewingOpen(true)
+  }
 
   // 汇率是双币展示的依赖，进页面先刷新一次（失败静默降级到内置兜底值）
   useEffect(() => {
@@ -151,8 +173,8 @@ const ListingDetailPage = () => {
       setFeedback({ tone: 'error', text: t('publicSite.inquireNameRequired') })
       return
     }
-    if (!form.phone.trim() && !form.wechat_id.trim() && !form.email.trim()) {
-      setFeedback({ tone: 'error', text: t('publicSite.inquireContactRequired') })
+    if (!form.phone.trim()) {
+      setFeedback({ tone: 'error', text: t('publicSite.inquirePhoneRequired') })
       return
     }
     setSubmitting(true)
@@ -170,6 +192,29 @@ const ListingDetailPage = () => {
       setFeedback({ tone: 'error', text: t('publicSite.inquireError') })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const submitBooking = async () => {
+    if (!viewingTime) {
+      antdMessage.warning(t('publicSite.bookTime'))
+      return
+    }
+    setViewingSubmitting(true)
+    try {
+      await viewingsApi.create({
+        property_id: detail?.property_id,
+        scheduled_at: viewingTime.toISOString(),
+        notes: viewingNote,
+      })
+      setViewingOpen(false)
+      setViewingTime(null)
+      setViewingNote('')
+      antdMessage.success(t('publicSite.bookOk'))
+    } catch (err: any) {
+      antdMessage.error(err?.response?.data?.detail || t('publicSite.bookError'))
+    } finally {
+      setViewingSubmitting(false)
     }
   }
 
@@ -484,6 +529,23 @@ const ListingDetailPage = () => {
             {detail.broker ? (
               <div className="pub-card">
                 <h2 className="pub-inquiry__title">{t('publicSite.broker')}</h2>
+                {!isLoggedIn ? (
+                  <div
+                    className="pub-form-msg"
+                    style={{
+                      marginTop: 10,
+                      background: 'var(--rent-bg-2, #f5f6f7)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span role="img" aria-label="lock" style={{ fontSize: 13 }}>
+                      🔒
+                    </span>
+                    <span>{t('publicSite.contactLocked')}</span>
+                  </div>
+                ) : null}
                 <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {detail.broker.real_name ? (
                     <span style={{ fontSize: 15, fontWeight: 500 }}>
@@ -496,7 +558,20 @@ const ListingDetailPage = () => {
                     </span>
                   ) : null}
                   {detail.broker.phone ? (
-                    <span style={{ fontSize: 14 }}>{detail.broker.phone}</span>
+                    <span style={{ fontSize: 14 }}>
+                      {detail.broker.phone}
+                      {!isLoggedIn ? (
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: 'var(--rent-ink-3)',
+                            marginLeft: 6,
+                          }}
+                        >
+                          {t('publicSite.lockedSuffix')}
+                        </span>
+                      ) : null}
+                    </span>
                   ) : null}
                   {detail.broker.wechat ? (
                     <span style={{ fontSize: 13, color: 'var(--rent-ink-2)' }}>
@@ -516,6 +591,17 @@ const ListingDetailPage = () => {
                 </div>
               </div>
             ) : null}
+
+            {/* 预约看房：登录后可提交希望看房时间 */}
+            <div className="pub-card">
+              <button
+                type="button"
+                className="pub-btn pub-btn--primary pub-btn--block pub-btn--lg"
+                onClick={openBooking}
+              >
+                {t('publicSite.bookViewing')}
+              </button>
+            </div>
 
             {/* 留资：匿名可提交。强制登录才能留资会显著降低转化——
                 用户还没建立信任就先被要求注册，这是老站都不做的事。 */}
@@ -603,6 +689,39 @@ const ListingDetailPage = () => {
           </aside>
         </div>
       </div>
+
+      <Modal
+        title={t('publicSite.bookViewing')}
+        open={viewingOpen}
+        onCancel={() => setViewingOpen(false)}
+        okText={t('publicSite.bookSubmit')}
+        cancelText={t('common.cancel')}
+        confirmLoading={viewingSubmitting}
+        onOk={submitBooking}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
+          <div className="pub-field" style={{ marginBottom: 0 }}>
+            <label className="pub-field__label">{t('publicSite.bookTime')}</label>
+            <DatePicker
+              showTime
+              style={{ width: '100%' }}
+              value={viewingTime}
+              onChange={(value) => setViewingTime(value)}
+              placeholder={t('publicSite.bookTimePlaceholder')}
+              format="YYYY-MM-DD HH:mm"
+            />
+          </div>
+          <div className="pub-field" style={{ marginBottom: 0 }}>
+            <label className="pub-field__label">{t('publicSite.bookNote')}</label>
+            <Input.TextArea
+              rows={3}
+              value={viewingNote}
+              onChange={(event) => setViewingNote(event.target.value)}
+              placeholder={t('publicSite.bookNotePlaceholder')}
+            />
+          </div>
+        </div>
+      </Modal>
 
       <footer className="pub-footer">
         <div className="pub-wrap">

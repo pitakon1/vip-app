@@ -20,6 +20,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Linking,
+  Modal,
+  TextInput,
   useWindowDimensions,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -28,6 +30,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import { publicApi, type PublicListingDetail } from '@/services/publicApi';
+import { viewingsApi } from '@/services/api';
+import { useAuthStore } from '@/stores/auth';
 import {
   decorationLabel,
   listingTypeLabel,
@@ -50,6 +54,43 @@ export default function PublicListingDetailScreen() {
   const id: string = route.params?.id;
   const [data, setData] = useState<PublicListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // 登录态决定经纪人联系方式是否已由后端脱下马甲：请求自动带 token，
+  // 登录时后端返回完整号码、未登录返回打码版。这里只需知道「是否登录」。
+  const isLoggedIn = !!useAuthStore((s) => s.token);
+
+  // 预约看房（贝壳口径：预约需要登录）
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingTime, setBookingTime] = useState('');
+  const [bookingNote, setBookingNote] = useState('');
+  const [bookingBusy, setBookingBusy] = useState(false);
+
+  const openBooking = useCallback(() => {
+    if (!isLoggedIn) {
+      navigation.navigate('Login');
+      return;
+    }
+    setBookingOpen(true);
+  }, [isLoggedIn, navigation]);
+
+  const submitBooking = useCallback(async () => {
+    if (!data?.property_id || !bookingTime.trim()) return;
+    setBookingBusy(true);
+    try {
+      await viewingsApi.create({
+        property_id: data.property_id,
+        scheduled_at: bookingTime.trim().replace(' ', 'T'),
+        notes: bookingNote.trim() || undefined,
+      });
+      setBookingOpen(false);
+      setBookingTime('');
+      setBookingNote('');
+    } catch (err: any) {
+      console.warn('submit booking failed', err);
+    } finally {
+      setBookingBusy(false);
+    }
+  }, [data?.property_id, bookingTime, bookingNote]);
 
   useEffect(() => {
     void loadRates();
@@ -253,28 +294,114 @@ export default function PublicListingDetailScreen() {
                 <Text style={styles.projectLine}>{data.broker.company}</Text>
               ) : null}
               <KV label={t('pub.broker')} value={data.broker.real_name ?? ''} />
+
+              {!isLoggedIn ? (
+                <View style={styles.lockBanner}>
+                  <Ionicons name="lock-closed-outline" size={14} color={colors.ink3} />
+                  <Text style={styles.lockText}>{t('pub.contactLocked')}</Text>
+                </View>
+              ) : null}
+
               {data.broker.phone ? (
-                <TouchableOpacity style={styles.callRow} onPress={() => call(data.broker?.phone)}>
+                <TouchableOpacity
+                  style={styles.callRow}
+                  onPress={() => isLoggedIn && call(data.broker?.phone)}
+                  disabled={!isLoggedIn}
+                >
                   <Ionicons name="call-outline" size={16} color={colors.primary} />
-                  <Text style={styles.callText}>
-                    {data.broker.phone} · {t('pub.call')}
+                  <Text style={[styles.callText, !isLoggedIn && styles.callTextLocked]}>
+                    {data.broker.phone} · {isLoggedIn ? t('pub.call') : t('pub.callLocked')}
                   </Text>
                 </TouchableOpacity>
               ) : null}
               {data.broker.wechat ? (
-                <Text style={styles.projectLine}>WeChat：{data.broker.wechat}</Text>
+                <Text style={styles.projectLine}>
+                  WeChat：{data.broker.wechat}
+                  {!isLoggedIn ? <Text style={styles.lockedValue}>{t('pub.lockedSuffix')}</Text> : null}
+                </Text>
               ) : null}
               {data.broker.line ? (
-                <Text style={styles.projectLine}>LINE：{data.broker.line}</Text>
+                <Text style={styles.projectLine}>
+                  LINE：{data.broker.line}
+                  {!isLoggedIn ? <Text style={styles.lockedValue}>{t('pub.lockedSuffix')}</Text> : null}
+                </Text>
               ) : null}
               {data.broker.whatsapp ? (
-                <Text style={styles.projectLine}>WhatsApp：{data.broker.whatsapp}</Text>
+                <Text style={styles.projectLine}>
+                  WhatsApp：{data.broker.whatsapp}
+                  {!isLoggedIn ? <Text style={styles.lockedValue}>{t('pub.lockedSuffix')}</Text> : null}
+                </Text>
               ) : null}
             </>
           ) : (
             <Text style={styles.projectLine}>{t('pub.brokerEmpty')}</Text>
           )}
         </View>
+
+        {/* ---- 预约看房 CTA（贝壳口径：预约需登录） ---- */}
+        <View style={{ paddingHorizontal: 16 }}>
+          <TouchableOpacity style={styles.bookBtn} onPress={openBooking}>
+            <Ionicons name="calendar-outline" size={18} color={colors.primaryForeground} />
+            <Text style={styles.bookText}>
+              {isLoggedIn ? t('pub.bookViewing') : t('pub.bookViewingLogin')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 预约看房弹层（复用鉴权版房源详情的交互） */}
+        <Modal
+          visible={bookingOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setBookingOpen(false)}
+        >
+          <View style={styles.modalWrap}>
+            <View style={[styles.modalCard, { paddingBottom: insets.bottom + 24 }]}>
+              <View style={styles.modalHead}>
+                <Text style={styles.modalTitle}>{t('pub.bookViewing')}</Text>
+                <TouchableOpacity
+                  onPress={() => setBookingOpen(false)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <Ionicons name="close" size={22} color={colors.ink2} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.modalProp} numberOfLines={1}>
+                {data.project_name || data.room_number || ''}
+              </Text>
+              <Text style={styles.label}>{t('pub.bookTime')}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t('pub.bookTimePlaceholder')}
+                placeholderTextColor={colors.ink3}
+                value={bookingTime}
+                onChangeText={setBookingTime}
+              />
+              <Text style={styles.label}>{t('pub.bookNote')}</Text>
+              <TextInput
+                style={[styles.input, styles.textarea]}
+                placeholder={t('pub.bookNotePlaceholder')}
+                placeholderTextColor={colors.ink3}
+                value={bookingNote}
+                onChangeText={setBookingNote}
+                multiline
+                numberOfLines={2}
+              />
+              <TouchableOpacity
+                style={[styles.bookBtn, bookingBusy && styles.bookBtnDisabled]}
+                onPress={submitBooking}
+                disabled={bookingBusy}
+              >
+                {bookingBusy ? (
+                  <ActivityIndicator color={colors.primaryForeground} size="small" />
+                ) : (
+                  <Text style={styles.bookText}>{t('pub.bookSubmit')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {/* ---- 留资 ---- */}
         <View style={{ paddingHorizontal: 16 }}>
@@ -366,6 +493,62 @@ const styles = StyleSheet.create({
   description: { fontSize: colors.fontSize.base, color: colors.ink2, lineHeight: 22, marginTop: 8 },
   callRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
   callText: { fontSize: colors.fontSize.base, color: colors.primary, fontWeight: '600' },
+  callTextLocked: { color: colors.ink3 },
+  lockBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface2,
+  },
+  lockText: { flex: 1, fontSize: colors.fontSize.sm, color: colors.ink3, lineHeight: 18 },
+  lockedValue: { color: colors.ink3 },
+  bookBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 50,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.primary,
+    marginTop: 14,
+  },
+  bookBtnDisabled: { opacity: 0.6 },
+  bookText: { fontSize: colors.fontSize.base, fontWeight: '700', color: colors.primaryForeground },
+  modalWrap: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: colors.radius.lg,
+    borderTopRightRadius: colors.radius.lg,
+    padding: colors.spacing.lg,
+  },
+  modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  modalTitle: { fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.ink },
+  modalProp: { fontSize: colors.fontSize.base, color: colors.ink2, marginTop: 8 },
+  label: {
+    fontSize: colors.fontSize.sm,
+    color: colors.ink2,
+    marginTop: colors.spacing.md,
+    marginBottom: 6,
+  },
+  input: {
+    height: 44,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: colors.spacing.md,
+    fontSize: colors.fontSize.base,
+    color: colors.ink,
+    backgroundColor: colors.fieldFill,
+  },
+  textarea: { height: 72, textAlignVertical: 'top' },
   floatBack: {
     position: 'absolute',
     left: 16,
