@@ -25,7 +25,7 @@ interface RowEntry {
 
 // C 端（业主+租客）统一「常用功能」宫格：全部入口放进同一个宫格，对所有用户完全一致；
 // 业主 = 在平台上添加了房源，租客 = 在平台上租了房子；委托挂牌并入房源管理；点开无该能力的项时给出简洁解锁提示。
-const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey; cap: 'owner' | 'tenant' | 'both'; need: string }> = [
+const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey; cap: 'owner' | 'tenant' | 'both' | 'any'; need: string }> = [
   // 业主能力项（业主 = 在平台上添加了房源；委托挂牌并入房源管理内）
   { key: 'manageProperties', label: '房源管理', url: '/pages/owner/properties/index', icon: 'home', cap: 'owner', need: '添加房源后即可使用' },
   { key: 'incomeDetail', label: '收益明细', url: '/pages/owner/income/index', icon: 'chart', cap: 'owner', need: '房源出租产生收益后即可查看' },
@@ -38,10 +38,9 @@ const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey; ca
   // 通用能力项（文档中心：租房文档 + 我的文档 合并）
   { key: 'documents', label: '文档中心', url: '/pages/tenant/documents/index', icon: 'doc', cap: 'both', need: '租入房源或添加房源后即可查看' },
   // C 端关注/浏览历史/降价提醒：登录即可用，不按业主/租客能力门槛（未登录先进登录；对齐 App）
-  // 注：小程序暂无这三个的独立落地页，登录后点击暂提示未开放，待后续补充页面。
-  { key: 'favorites', label: '我的关注', url: '', icon: 'heart', cap: 'both', need: '「我的关注」功能建设中，敬请期待' },
-  { key: 'history', label: '浏览历史', url: '', icon: 'calendar', cap: 'both', need: '「浏览历史」功能建设中，敬请期待' },
-  { key: 'priceAlerts', label: '降价提醒', url: '', icon: 'megaphone', cap: 'both', need: '「降价提醒」功能建设中，敬请期待' }
+  { key: 'favorites', label: '我的关注', url: '/pages/tenant/favorites/index', icon: 'heart', cap: 'any', need: '' },
+  { key: 'history', label: '浏览历史', url: '/pages/tenant/history/index', icon: 'calendar', cap: 'any', need: '' },
+  { key: 'priceAlerts', label: '降价提醒', url: '/pages/tenant/price-alerts/index', icon: 'megaphone', cap: 'any', need: '' }
 ]
 
 // 管理端 / 业主端「账户设置」：后端无修改密码、绑定手机、绑定邮箱接口
@@ -653,11 +652,13 @@ export default function ProfilePage() {
                           return
                         }
                         const ok =
-                          entry.cap === 'owner'
-                            ? isOwner
-                            : entry.cap === 'tenant'
-                              ? isTenant
-                              : isOwner || isTenant
+                          entry.cap === 'any'
+                            ? true
+                            : entry.cap === 'owner'
+                              ? isOwner
+                              : entry.cap === 'tenant'
+                                ? isTenant
+                                : isOwner || isTenant
                         if (ok && entry.url) {
                           handleNavigate(entry.url)
                           return

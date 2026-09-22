@@ -131,12 +131,18 @@ export const documentsApi = {
 
 export const serviceOrdersApi = {
   list: (params?: any) => request({ url: '/service-orders', method: 'GET', data: params }),
-  create: (data: any) => request({ url: '/service-orders', method: 'POST', data })
+  create: (data: any) => request({ url: '/service-orders', method: 'POST', data }),
+  // 管理端「工单审核中心」受理服务订单
+  updateStatus: (id: string, data: { status: string }) =>
+    request({ url: `/service-orders/${id}/status`, method: 'PATCH', data })
 }
 
 export const maintenanceApi = {
   list: (params?: any) => request({ url: '/maintenance-tickets', method: 'GET', data: params }),
   create: (data: any) => request({ url: '/maintenance-tickets', method: 'POST', data }),
+  // 管理端「工单审核中心」受理/完结报修工单
+  update: (id: string, data: { status: string }) =>
+    request({ url: `/maintenance-tickets/${id}`, method: 'PATCH', data }),
   rate: (id: string, data: { rating: number; feedback?: string }) =>
     request({ url: `/maintenance-tickets/${id}/rate`, method: 'POST', data })
 }
@@ -150,6 +156,19 @@ export const favoritesApi = {
     request({ url: '/favorites', method: 'POST', data: { property_id: propertyId } }),
   remove: (propertyId: string) =>
     request({ url: `/favorites/${propertyId}`, method: 'DELETE' })
+}
+
+// ============ 降价提醒 ============
+// 「我的 - 常用功能 - 降价提醒」入口需要，后端 /price-alerts 早已提供（App 端在用），
+// 小程序此前缺这一层封装导致该入口只能提示「建设中」。
+export const priceAlertsApi = {
+  list: (params?: any) => request({ url: '/price-alerts', method: 'GET', data: params }),
+  status: (propertyId: string) =>
+    request({ url: `/price-alerts/status/${propertyId}`, method: 'GET' }),
+  subscribe: (data: { property_id: string; listing_id?: string }) =>
+    request({ url: '/price-alerts', method: 'POST', data }),
+  unsubscribe: (propertyId: string) =>
+    request({ url: `/price-alerts/${propertyId}`, method: 'DELETE' })
 }
 
 export const notificationsApi = {
@@ -227,7 +246,9 @@ export const attendanceApi = {
   // 500KM 外需填外勤申请
   externalTrips: (params?: any) => request({ url: '/attendance/external-trips', method: 'GET', data: params }),
   createExternalTrip: (data: any) => request({ url: '/attendance/external-trips', method: 'POST', data }),
-  approveExternalTrip: (id: string) => request({ url: `/attendance/external-trips/${id}/approve`, method: 'POST' })
+  // 审批外勤申请：后端 payload {action: approved|rejected, reply_note?}
+  approveExternalTrip: (id: string, data?: { action?: 'approved' | 'rejected'; reply_note?: string }) =>
+    request({ url: `/attendance/external-trips/${id}/approve`, method: 'POST', data: data ?? {} })
 }
 
 export const chatApi = {

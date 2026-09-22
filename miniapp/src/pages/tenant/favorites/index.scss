@@ -1,0 +1,106 @@
+/* 我的关注 —— 收藏列表页 */
+
+.fav-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+  padding-bottom: 48rpx;
+
+  .page-container {
+    padding: 24rpx;
+  }
+
+  .empty-tip {
+    text-align: center;
+    padding: 72rpx 24rpx;
+    color: var(--ink-3);
+    font-size: 26rpx;
+  }
+
+  .fav-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 24rpx;
+    background-color: var(--card);
+    border-radius: var(--radius-xl);
+    padding: 24rpx;
+    margin-bottom: 24rpx;
+    box-shadow: var(--shadow-sm);
+
+    &__cover {
+      width: 160rpx;
+      height: 160rpx;
+      flex-shrink: 0;
+      border-radius: var(--radius-lg);
+      background-color: var(--surface-2);
+
+      &--empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ink-3);
+        font-size: 22rpx;
+      }
+    }
+
+    &__body {
+      flex: 1;
+      min-width: 0;
+      padding-right: 48rpx;
+    }
+
+    &__title {
+      display: block;
+      font-size: 30rpx;
+      font-weight: 600;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__sub {
+      display: block;
+      font-size: 24rpx;
+      color: var(--ink-3);
+      margin-top: 10rpx;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__price {
+      display: block;
+      font-size: 30rpx;
+      font-weight: 700;
+      color: var(--error);
+      margin-top: 14rpx;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &__unit {
+      font-size: 22rpx;
+      font-weight: 400;
+      color: var(--ink-3);
+    }
+
+    &__heart {
+      position: absolute;
+      right: 24rpx;
+      top: 24rpx;
+      width: 56rpx;
+      height: 56rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-full);
+      background-color: rgba(var(--error-rgb), 0.1);
+    }
+
+    &__heart-text {
+      color: var(--error);
+      font-size: 30rpx;
+      line-height: 1;
+    }
+  }
+}

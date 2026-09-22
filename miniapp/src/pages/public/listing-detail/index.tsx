@@ -23,6 +23,7 @@ import {
   photoUrls
 } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
+import { recordHistory } from '@/utils/browseHistory'
 import { useI18n } from '@/i18n'
 import useAuthStore from '@/stores/auth'
 import PublicInquiryForm from '@/components/PublicInquiryForm'
@@ -52,7 +53,21 @@ export default function PublicListingDetailPage() {
     publicApi
       .listing(id)
       .then((res) => {
-        if (!cancelled) setData(res ?? null)
+        if (cancelled) return
+        setData(res ?? null)
+        // 记录浏览历史（本地存储，异常不影响页面展示）——「我的 - 浏览历史」读的就是它
+        const d: any = res ?? null
+        if (d?.id) {
+          recordHistory({
+            id: String(d.id),
+            title: d.room_number ?? d.project_name ?? undefined,
+            address: d.address ?? undefined,
+            price: d.price ?? undefined,
+            currency: d.currency ?? undefined,
+            cover: d.cover ?? undefined,
+            listing_type: d.listing_type ?? undefined
+          })
+        }
       })
       .catch((err) => {
         console.error('[public listing detail] 加载失败', err)

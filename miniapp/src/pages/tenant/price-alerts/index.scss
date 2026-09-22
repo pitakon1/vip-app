@@ -1,0 +1,126 @@
+/* 降价提醒 —— 订阅列表页 */
+
+.alert-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+  padding-bottom: 48rpx;
+
+  .page-container {
+    padding: 24rpx;
+  }
+
+  .empty-tip {
+    text-align: center;
+    padding: 72rpx 24rpx;
+    color: var(--ink-3);
+    font-size: 26rpx;
+  }
+
+  .alert-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 24rpx;
+    background-color: var(--card);
+    border-radius: var(--radius-xl);
+    padding: 24rpx;
+    margin-bottom: 24rpx;
+    box-shadow: var(--shadow-sm);
+
+    &__cover {
+      width: 160rpx;
+      height: 160rpx;
+      flex-shrink: 0;
+      border-radius: var(--radius-lg);
+      background-color: var(--surface-2);
+
+      &--empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ink-3);
+        font-size: 22rpx;
+      }
+    }
+
+    &__body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &__title {
+      display: block;
+      font-size: 30rpx;
+      font-weight: 600;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__sub {
+      display: block;
+      font-size: 24rpx;
+      color: var(--ink-3);
+      margin-top: 10rpx;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__prices {
+      display: flex;
+      align-items: baseline;
+      gap: 12rpx;
+      margin-top: 12rpx;
+    }
+
+    &__price {
+      font-size: 30rpx;
+      font-weight: 700;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    &__was {
+      font-size: 22rpx;
+      color: var(--ink-3);
+      text-decoration: line-through;
+    }
+
+    &__badge {
+      display: inline-block;
+      margin-top: 12rpx;
+      padding: 4rpx 14rpx;
+      border-radius: var(--radius-full);
+      font-size: 22rpx;
+      font-weight: 600;
+      background: rgba(var(--error-rgb), 0.1);
+      color: var(--error);
+    }
+
+    &__hint {
+      display: inline-block;
+      margin-top: 12rpx;
+      padding: 4rpx 14rpx;
+      border-radius: var(--radius-full);
+      font-size: 22rpx;
+      background: var(--surface-2);
+      color: var(--ink-3);
+    }
+
+    &__cancel {
+      position: absolute;
+      right: 24rpx;
+      bottom: 24rpx;
+      padding: 8rpx 20rpx;
+      border-radius: var(--radius-full);
+      border: 1rpx solid var(--line);
+    }
+
+    &__cancel-text {
+      font-size: 24rpx;
+      color: var(--ink-3);
+    }
+  }
+}

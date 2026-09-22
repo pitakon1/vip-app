@@ -31,12 +31,18 @@ export default {
     'pages/admin/leases/index',
     'pages/admin/accounts/index',
     'pages/admin/commission-rules/index',
+    // 管理端「待审核」→ 工单审核中心（对齐 Web /system/review-center）
+    'pages/admin/review-center/index',
     'pages/tenant/home/index',
     'pages/tenant/documents/index',
     'pages/tenant/services/index',
     'pages/tenant/maintenance/index',
     'pages/tenant/payments/index',
     'pages/tenant/listings/index',
+    // C 端「我的 - 常用功能」里的关注 / 浏览历史 / 降价提醒（登录即可用，不按业主租客门槛）
+    'pages/tenant/favorites/index',
+    'pages/tenant/history/index',
+    'pages/tenant/price-alerts/index',
     'pages/location/index',
     'pages/tenant/property-detail/index',
     'pages/tenant/leases/index',

@@ -179,17 +179,19 @@ export default function AdminHomePage() {
   ]
 
   // 待办汇总（与风险预警口径区分：这里只放「待处理动作」）
-  // 「待审核」「对账待核」对应的独立页面不在小程序原型范围内，此处仅保留真实数量展示，不做跳转
   const todos: Array<{ key: string; label: string; value: number; url?: string }> = [
     {
       key: 'review',
       label: '待审核',
-      value: counts.todos
+      value: counts.todos,
+      url: '/pages/admin/review-center/index'
     },
     {
       key: 'recon',
       label: '对账待核',
-      value: counts.reconDiff
+      value: counts.reconDiff,
+      // 与 App 管理端一致：对账差异去收款管理页逐笔核对
+      url: '/pages/admin/payments/index'
     },
     {
       key: 'upcoming',
