@@ -95,7 +95,8 @@ interface SettingItem {
 }
 
 const APP_COMPANY = 'HaoFang.World';
-const APP_VERSION = 'v2.4.1';
+// 兜底版本号：真实版本从公开接口 GET /company/info 读取（避免改了后端这里还是旧值）
+const APP_VERSION_FALLBACK = 'v2.4.1';
 
 // C 端（业主+租客）统一「常用功能」宫格：把业主与租客的全部入口放进同一个宫格。
 // 宫格对所有人完全一致，不按角色隐藏；点开无该能力的项时进入「功能暂未开放」空态页。
@@ -150,11 +151,23 @@ export default function ProfileScreen() {
     lease_reminder_days: number;
     auto_dunning: boolean;
   } | null>(null);
+  // 公司名称/版本（公开接口）：此前页脚与「关于」写死 'HaoFang.World v2.4.1'
+  const [appInfo, setAppInfo] = React.useState<{ name?: string; version?: string }>({});
 
   // 回到「我的」时重新拉取（业务设置子页保存后返回能立即看到新值）
   useFocusEffect(
     React.useCallback(() => {
       let alive = true;
+      companyApi
+        .info()
+        .then(({ data }) => {
+          const info = data?.data ?? data;
+          if (!alive || !info) return;
+          setAppInfo({ name: info.name, version: info.version });
+        })
+        .catch(() => {
+          /* 读取失败保留兜底文案 */
+        });
       if (user) {
         authApi
           .preferences()
@@ -228,6 +241,16 @@ export default function ProfileScreen() {
     showNotAvailable(item.label);
   };
 
+  const currentLang = LANG_LABELS[lang];
+  // 公司名/版本走公开接口的实时值，取不到才用兜底常量
+  const versionLabel = appInfo.version ? `v${appInfo.version}` : APP_VERSION_FALLBACK;
+  const companyLabel = appInfo.name || APP_COMPANY;
+  // 个人通知偏好摘要（真实值：邮件/推送；原写死的「邮件 · 短信 · 推送」并无短信项）
+  const notifySummary =
+    [userPrefs.email !== false ? '邮件' : '', userPrefs.push !== false ? '推送' : '']
+      .filter(Boolean)
+      .join(' · ') || '全部关闭';
+
   // 管理端「我的」区块数据（对齐 admin-mobile-settings.html）
   const adminAccountItems: SettingItem[] = [
     { key: 'password', icon: 'lock-closed', label: '修改密码', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
@@ -268,7 +291,7 @@ export default function ProfileScreen() {
     { key: 'auto-dunning', icon: 'refresh', label: '自动催缴', value: business?.auto_dunning === false ? '已关闭' : '已开启', valueTone: business?.auto_dunning === false ? undefined : 'success', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), route: 'AdminBusinessSettings' },
   ];
   const adminAboutItems: SettingItem[] = [
-    { key: 'version', icon: 'information-circle', label: '版本信息', value: APP_VERSION, color: colors.ink2, bg: colors.surface2 },
+    { key: 'version', icon: 'information-circle', label: '版本信息', value: versionLabel, color: colors.ink2, bg: colors.surface2 },
     { key: 'terms', icon: 'document-text', label: '用户协议', color: colors.ink2, bg: colors.surface2 },
     { key: 'privacy', icon: 'shield-checkmark', label: '隐私政策', color: colors.ink2, bg: colors.surface2 },
   ];
@@ -287,8 +310,6 @@ export default function ProfileScreen() {
       { text: '确定', style: 'destructive', onPress: doLogout },
     ]);
   };
-
-  const currentLang = LANG_LABELS[lang];
 
   // 业主「设置」五项（对齐 owner-mobile-settings.html；无接口的项点击提示暂未开放）
   const ownerSettingItems: SettingItem[] = [
@@ -313,8 +334,8 @@ export default function ProfileScreen() {
       key: 'notify',
       icon: 'notifications',
       label: t('profile.notify'),
-      value: t('profile.notifyOn'),
-      valueTone: 'success',
+      value: notifySummary,
+      valueTone: userPrefs.email !== false || userPrefs.push !== false ? 'success' : undefined,
       color: colors.ink2,
       bg: colors.surface2,
     },
@@ -329,7 +350,7 @@ export default function ProfileScreen() {
       key: 'about',
       icon: 'information-circle',
       label: t('profile.about'),
-      value: `${APP_COMPANY} ${APP_VERSION}`,
+      value: `${companyLabel} ${versionLabel}`,
       color: colors.ink2,
       bg: colors.surface2,
     },
@@ -800,7 +821,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       )}
 
-      {isAdmin && <Text style={styles.footerText}>{`${APP_COMPANY} 管理后台 · ${APP_VERSION}`}</Text>}
+      {isAdmin && <Text style={styles.footerText}>{`${companyLabel} 管理后台 · ${versionLabel}`}</Text>}
     </ScrollView>
   );
 }
