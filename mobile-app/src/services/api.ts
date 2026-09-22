@@ -180,6 +180,8 @@ export const ownerApi = {
 
 // v1.9 房东工作台
 export const ownersApi = {
+  // 业主检索（员工侧）：代业主发布上架单时选择「归属业主」用，返回 Owner.id
+  list: (params?: any) => api.get('/owners', { params }),
   marketing: () => api.get('/owners/me/marketing', { params: { page: 1, limit: 100 } }),
   pricingSuggestion: () => api.get('/owners/me/pricing-suggestion'),
   annualSummary: (year?: number) =>

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { View, Text, Input, Textarea, Picker, Switch, Button, ScrollView } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
-import { listingApi, brokerApi } from '@/services/api'
+import { listingApi, brokerApi, ownerApi } from '@/services/api'
 import './index.scss'
 
 // 房源类型（后端 Property.property_type）
@@ -137,8 +137,54 @@ export default function StaffListingEditPage() {
   const [saving, setSaving] = useState(false)
   // 经纪人上架协议签约态（未激活 → 提示先签约）
   const [listingActive, setListingActive] = useState<boolean | null>(null)
+  // 归属业主选择器（员工代业主发布时必选）：后端 POST /listings 对非 owner 角色强制要求
+  // owner_id，且该值是 Owner 表主键——此前做成自由文本让用户手填 UUID，实际不可能填对。
+  const [ownerPickerOpen, setOwnerPickerOpen] = useState(false)
+  const [ownerKeyword, setOwnerKeyword] = useState('')
+  const [ownerList, setOwnerList] = useState<any[]>([])
+  const [ownerLoading, setOwnerLoading] = useState(false)
+  const [ownerLabel, setOwnerLabel] = useState('')
+  const ownerTimer = useRef<any>(null)
+
+  const isStaff = ['admin', 'agent', 'employee'].includes(user?.role || '')
 
   const set = (key: string, value: any) => setForm((f: any) => ({ ...f, [key]: value }))
+
+  const loadOwners = async (kw: string) => {
+    setOwnerLoading(true)
+    try {
+      const res: any = await ownerApi.list({ keyword: kw || undefined, page_size: 50 })
+      const payload = obj(res)
+      setOwnerList(Array.isArray(payload.items) ? payload.items : [])
+    } catch (err) {
+      console.error('[ListingEdit] 业主检索失败', err)
+      setOwnerList([])
+    } finally {
+      setOwnerLoading(false)
+    }
+  }
+
+  // 首次进入（新建且为员工身份）先拉一批业主，避免用户点开是空面板
+  useEffect(() => {
+    if (!id && isStaff) loadOwners('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isStaff])
+
+  useEffect(() => () => {
+    if (ownerTimer.current) clearTimeout(ownerTimer.current)
+  }, [])
+
+  const onOwnerKeyword = (value: string) => {
+    setOwnerKeyword(value)
+    if (ownerTimer.current) clearTimeout(ownerTimer.current)
+    ownerTimer.current = setTimeout(() => loadOwners(value), 300)
+  }
+
+  const pickOwner = (o: any) => {
+    set('owner_id', o.id)
+    setOwnerLabel(`${o.name || o.email || o.id}${o.phone ? ` · ${o.phone}` : ''}`)
+    setOwnerPickerOpen(false)
+  }
 
   // 编辑模式：拉取上架单详情
   useEffect(() => {
@@ -231,6 +277,8 @@ export default function StaffListingEditPage() {
   const validate = () => {
     if (!form.room_number.trim()) return '请填写房源编号（房号）'
     if (!form.address.trim()) return '请填写详细地址'
+    // 后端对非 owner 角色强制要求 owner_id，前端先拦，避免一定失败的提交
+    if (!id && isStaff && !form.owner_id) return '请选择归属业主'
     if (isSell) {
       if (num(form.asking_price) === undefined) return '出售须填写售价'
       const r = num(form.sale_commission_rate)
@@ -504,15 +552,45 @@ export default function StaffListingEditPage() {
           ))}
         </View>
 
-        {!id && (
+        {!id && isStaff && (
           <View className='le-card'>
-            <Text className='le-card__title'>业主归属（内部/渠道发布）</Text>
-            {row('owner_id', (
-              <Input className='le-input' value={form.owner_id}
-                placeholder='业主发布/经纪发布需填业主归属 UUID'
-                placeholderStyle='color:#98a1ab' onInput={(e: any) => set('owner_id', e.detail.value)} />
-            ))}
-            <View className='le-hint'>仅内部员工/经纪视角，业主自主发布由系统自动绑定。</View>
+            <Text className='le-card__title'>归属业主 *</Text>
+            <View className='le-owner__trig'
+              onClick={() => {
+                const next = !ownerPickerOpen
+                setOwnerPickerOpen(next)
+                if (next && !ownerList.length) loadOwners(ownerKeyword)
+              }}>
+              <Text className={`le-owner__trig__text${form.owner_id ? '' : ' le-owner__trig__text--placeholder'}`}>
+                {ownerLabel || (form.owner_id ? form.owner_id : '请选择业主（可搜索姓名/手机/邮箱）')}
+              </Text>
+              <Text className='le-owner__trig__arrow'>{ownerPickerOpen ? '▲' : '▼'}</Text>
+            </View>
+            {ownerPickerOpen && (
+              <View className='le-owner__panel'>
+                <View className='le-owner__search'>
+                  <Input className='le-owner__input' value={ownerKeyword} placeholder='搜索业主姓名 / 手机 / 邮箱'
+                    placeholderStyle='color:#98a1ab' onInput={(e: any) => onOwnerKeyword(e.detail.value)} />
+                </View>
+                <ScrollView scrollY className='le-owner__list'>
+                  {ownerLoading && !ownerList.length ? (
+                    <View className='le-owner__empty'><Text className='le-owner__empty__text'>加载中...</Text></View>
+                  ) : ownerList.length === 0 ? (
+                    <View className='le-owner__empty'><Text className='le-owner__empty__text'>未找到匹配的业主</Text></View>
+                  ) : ownerList.map((o: any) => (
+                    <View key={o.id}
+                      className={`le-owner__item${form.owner_id === o.id ? ' le-owner__item--active' : ''}`}
+                      onClick={() => pickOwner(o)}>
+                      <Text className='le-owner__name'>{o.name || o.email || o.id}</Text>
+                      <Text className='le-owner__meta'>
+                        {[o.phone, o.email, `在管 ${o.property_count ?? 0} 套`].filter(Boolean).join(' · ')}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+            <View className='le-hint'>员工代业主发布时必须指定归属业主，房源将挂在该业主名下；业主自主发布由系统自动绑定。</View>
           </View>
         )}
 

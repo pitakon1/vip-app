@@ -181,6 +181,8 @@ export const notificationsApi = {
 
 export const ownerApi = {
   properties: () => request({ url: '/owners/me/properties', method: 'GET' }),
+  // 业主检索（员工侧）：代业主发布上架单时选择「归属业主」用，返回 Owner.id
+  list: (params?: any) => request({ url: '/owners', method: 'GET', data: params }),
   // 业主自建房源：owner_id 由后端按当前用户自动绑定，客户端不传
   create: (data: any) => request({ url: '/properties', method: 'POST', data }),
   // 编辑名下房源（后端已放开 owner 对 PATCH /properties/{id} 的权限）

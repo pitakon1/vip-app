@@ -4,13 +4,14 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import false
+from sqlalchemy import false, func, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import require_owner
+from app.core.auth import require_employee, require_owner
+from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.payments import is_past_due
 from app.models import (
     Document,
@@ -510,3 +511,89 @@ def get_annual_financial_summary(
         "count": sum(v["count"] for v in monthly.values()),
     }
     return {"year": year, "by_month": by_month, "totals": totals}
+
+
+class OwnerListItem(BaseModel):
+    """`GET /owners` 中的单条业主档案。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: uuid.UUID
+    user_id: Optional[uuid.UUID] = None
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    property_count: int = 0
+
+
+@router.get("", response_model=Page[OwnerListItem])
+def list_owners(
+    keyword: Optional[str] = Query(
+        None, max_length=100, description="姓名 / 手机 / 邮箱"
+    ),
+    pagination: PaginationParams = Depends(),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """业主检索（员工侧）。
+
+    经纪人/员工代业主发布上架单时必须指定归属业主，而后端此前只有 `/owners/me*`
+    这一组「自己看自己」的接口，三端都拿不到可选的业主列表：Web 端页面上干脆没有
+    归属业主输入框（提交必 400），小程序让用户手填 UUID（不可能填对），App 直接
+    用硬门槛文案挡掉代发。这里补上供三端做「归属业主」选择器的检索接口。
+
+    返回的是 `Owner.id`（房源归属用的外键），不是 `User.id`——两者分属不同表，
+    用 `User.id` 传回 `POST /listings` 会 404，这正是此前最容易被误用的点。
+
+    权限收敛为内部员工：业主档案虽非高敏，但全量业主名单属于客户资源，
+    不该对任意登录用户开放。`keyword` 支持姓名/手机/邮箱模糊匹配。
+    """
+    conditions = [Owner.deleted_at.is_(None)]
+    if keyword and keyword.strip():
+        kw = f"%{keyword.strip()}%"
+        conditions.append(
+            Owner.user_id.in_(
+                select(User.id).where(
+                    or_(
+                        User.full_name.ilike(kw),
+                        User.phone.ilike(kw),
+                        User.email.ilike(kw),
+                    )
+                )
+            )
+        )
+
+    stmt = select(Owner).where(*conditions).order_by(Owner.created_at.desc())
+    page = paginate_query(session, stmt, pagination)
+
+    owner_ids = [o.id for o in page.items]
+    users = {
+        u.id: u
+        for u in session.exec(
+            select(User).where(User.id.in_([o.user_id for o in page.items]))
+        ).all()
+    } if page.items else {}
+    # 在管房源数一次分组查出，避免逐行 count 造成 N+1
+    counts = dict(
+        session.exec(
+            select(Property.owner_id, func.count(Property.id))
+            .where(
+                Property.owner_id.in_(owner_ids),
+                Property.deleted_at.is_(None),
+            )
+            .group_by(Property.owner_id)
+        ).all()
+    ) if owner_ids else {}
+
+    page.items = [
+        {
+            "id": o.id,
+            "user_id": o.user_id,
+            "name": users[o.user_id].full_name if users.get(o.user_id) else None,
+            "phone": users[o.user_id].phone if users.get(o.user_id) else None,
+            "email": users[o.user_id].email if users.get(o.user_id) else None,
+            "property_count": counts.get(o.id, 0),
+        }
+        for o in page.items
+    ]
+    return page

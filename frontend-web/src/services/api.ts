@@ -145,6 +145,8 @@ export const employeesApi = {
 
 // 业主端：房源营销 / 定价建议 / 年度财务导出
 export const ownersApi = {
+  // 业主检索（员工侧）：代业主发布上架单时选择「归属业主」用，返回 Owner.id
+  list: (params?: QueryParams) => api.get('/owners', { params }),
   marketing: () => api.get('/owners/me/marketing'),
   pricingSuggestion: () => api.get('/owners/me/pricing-suggestion'),
   annualFinancialSummary: (year?: number) =>

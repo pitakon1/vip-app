@@ -136,3 +136,58 @@
   font-weight: 600;
   &::after { border: none; }
 }
+
+/* 归属业主选择器（员工代业主发布） */
+.le-owner {
+  &__trig {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 72rpx;
+
+    &__text {
+      flex: 1;
+      font-size: 30rpx;
+      color: var(--ink);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+
+      &--placeholder { color: var(--ink-3); }
+    }
+    &__arrow { font-size: 20rpx; color: var(--ink-3); margin-left: 16rpx; }
+  }
+
+  &__panel {
+    margin-top: 12rpx;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+
+  &__search {
+    padding: 12rpx 20rpx;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+  }
+  &__input { width: 100%; font-size: 28rpx; color: var(--ink); }
+
+  &__list { max-height: 480rpx; }
+
+  &__item {
+    padding: 20rpx 24rpx;
+    border-bottom: 1px solid var(--line);
+    &:last-child { border-bottom: none; }
+    &--active { background: rgba(var(--primary-rgb), 0.1); }
+  }
+
+  &__name { display: block; font-size: 28rpx; font-weight: 600; color: var(--ink); }
+  &__meta { display: block; font-size: 22rpx; color: var(--ink-3); margin-top: 4rpx; }
+
+  &__empty {
+    padding: 32rpx 0;
+    text-align: center;
+    &__text { font-size: 24rpx; color: var(--ink-3); }
+  }
+}

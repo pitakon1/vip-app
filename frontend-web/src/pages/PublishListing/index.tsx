@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
-import { message, Modal } from 'antd'
-import { listingsApi } from '@/services/api'
+import { useEffect, useMemo, useState } from 'react'
+import { message, Modal, Select } from 'antd'
+import { listingsApi, ownersApi } from '@/services/api'
 import useAuthStore from '@/stores/auth'
 import './publish.css'
 
@@ -77,8 +77,37 @@ const PublishListing = () => {
     status?: string
   } | null>(null)
   const [resultOpen, setResultOpen] = useState(false)
+  // 归属业主（员工代业主发布时必选）：后端 POST /listings 对非 owner 角色强制要求 owner_id
+  const [ownerOptions, setOwnerOptions] = useState<{ value: string; label: string }[]>([])
+  const [ownerLoading, setOwnerLoading] = useState(false)
 
   const set = (patch: Partial<typeof initialForm>) => setForm((f) => ({ ...f, ...patch }))
+
+  // 员工侧业主检索：远端搜索（业主量大，一次性拉全量不现实）
+  const loadOwners = async (kw?: string) => {
+    try {
+      setOwnerLoading(true)
+      const res = await ownersApi.list({ keyword: kw || undefined, page_size: 50 })
+      const payload = res.data?.data ?? res.data
+      const items: any[] = payload?.items ?? []
+      setOwnerOptions(
+        items.map((o) => ({
+          value: o.id,
+          label: `${o.name || o.email || o.id}${o.phone ? ` · ${o.phone}` : ''}（在管 ${o.property_count ?? 0} 套）`,
+        })),
+      )
+    } catch {
+      // 接口不可用时给出空列表，由「未选归属业主」的前端拦截提示，避免静默提交失败
+      setOwnerOptions([])
+    } finally {
+      setOwnerLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (isStaff) loadOwners()
+    // 仅在角色确定/切换时拉一次，搜索走 onSearch
+  }, [isStaff])
 
   // 分佣展示：独家→客源方=输入值，房源方=100-客源方；非独家→按档位
   const splitDisplay = useMemo(() => {
@@ -100,6 +129,11 @@ const PublishListing = () => {
   const handleSubmit = async () => {
     if (!form.room_number.trim() || !form.address.trim()) {
       message.warning('请填写房号与地址')
+      return
+    }
+    // 后端对非 owner 角色强制要求 owner_id，前端先拦，避免一定失败的提交
+    if (isStaff && !form.owner_id) {
+      message.warning('请选择归属业主')
       return
     }
     const payload: Record<string, unknown> = {
@@ -170,6 +204,26 @@ const PublishListing = () => {
           <h3 className="rent-card__title">房源档案信息</h3>
         </div>
         <div className="rent-card__body">
+          {isStaff && (
+            <div className="rent-form-group">
+              <label className="rent-form-label">归属业主 *</label>
+              <Select
+                showSearch
+                allowClear
+                style={{ maxWidth: 420 }}
+                placeholder="搜索业主姓名 / 手机 / 邮箱"
+                value={form.owner_id || undefined}
+                loading={ownerLoading}
+                filterOption={false}
+                onSearch={(v) => loadOwners(v)}
+                onChange={(v) => set({ owner_id: v || '' })}
+                options={ownerOptions}
+              />
+              <div className="rent-text-sm rent-text-muted rent-mt-2">
+                员工代业主发布时必须指定归属业主，房源将挂在该业主名下
+              </div>
+            </div>
+          )}
           <div className="rent-form-row">
             <div className="rent-form-group">
               <label className="rent-form-label">楼盘</label>

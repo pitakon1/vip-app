@@ -1895,5 +1895,61 @@
     ],
     "path": "/metrics",
     "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/maintenance-tickets/{ticket_id}/cancel",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/maintenance-tickets/{ticket_id}/contact",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/owners",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/company/info/logo",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/company/info/logo",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/company/settings",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PUT"
+    ],
+    "path": "/api/v1/company/settings",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/exports/leases",
+    "type": "APIRoute"
   }
 ]

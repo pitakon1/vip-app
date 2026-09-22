@@ -1,11 +1,11 @@
 /**
  * 发布房源（上架单）表单。
  * 业主自主发布 → publisher=owner（owner_id 由后端按当前用户绑定，佣金默认 100%）。
- * 经纪人/员工/管理员代发需要「归属业主」owner_id，移动端暂无业主选择接口，
- * 故本端仅支持业主本号发布；考试/代发请到 Web 管理端。
+ * 经纪人/员工/管理员代发必须指定「归属业主」owner_id：本页内置业主检索选择器
+ * （GET /owners，员工权限），不再把代发挡在门外。
  * 支持两种模式：创建（listingApi.create）与编辑（listingApi.update）。
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,13 @@ import {
   TouchableOpacity,
   Switch,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { notify, notifyError } from '@/utils/feedback';
-import { listingApi } from '@/services/api';
+import { listingApi, ownersApi } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 
 const RENTAL_MONTHS = [
@@ -118,11 +119,58 @@ export default function ListingPublishScreen() {
   const editId: string | undefined = route?.params?.id;
 
   const isOwner = user?.role === 'owner';
-  const creatingByBroker = !isOwner && !editId;
+  // 非业主本号发布（经纪人/员工/管理员代发）必须选「归属业主」，后端强制 owner_id
+  const needsOwnerPick = !isOwner;
 
   const [loading, setLoading] = useState(!!editId);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
+  // 归属业主选择器（代发用）
+  const [ownerId, setOwnerId] = useState('');
+  const [ownerLabel, setOwnerLabel] = useState('');
+  const [ownerModal, setOwnerModal] = useState(false);
+  const [ownerKeyword, setOwnerKeyword] = useState('');
+  const [ownerList, setOwnerList] = useState<any[]>([]);
+  const [ownerLoading, setOwnerLoading] = useState(false);
+  const ownerTimer = useRef<any>(null);
+
+  const loadOwners = async (kw: string) => {
+    setOwnerLoading(true);
+    try {
+      const res: any = await ownersApi.list({
+        keyword: kw || undefined,
+        page_size: 50,
+      });
+      const payload = res?.data ?? {};
+      setOwnerList(Array.isArray(payload.items) ? payload.items : []);
+    } catch (e: any) {
+      console.error('[ListingPublish] 业主检索失败', e);
+      setOwnerList([]);
+    } finally {
+      setOwnerLoading(false);
+    }
+  };
+
+  useEffect(() => () => {
+    if (ownerTimer.current) clearTimeout(ownerTimer.current);
+  }, []);
+
+  const onOwnerKeyword = (v: string) => {
+    setOwnerKeyword(v);
+    if (ownerTimer.current) clearTimeout(ownerTimer.current);
+    ownerTimer.current = setTimeout(() => loadOwners(v), 300);
+  };
+
+  const openOwnerModal = () => {
+    setOwnerModal(true);
+    if (!ownerList.length) loadOwners(ownerKeyword);
+  };
+
+  const pickOwner = (o: any) => {
+    setOwnerId(o.id);
+    setOwnerLabel(`${o.name || o.email || o.id}${o.phone ? ` · ${o.phone}` : ''}`);
+    setOwnerModal(false);
+  };
 
   useEffect(() => {
     if (!editId) return;
@@ -169,7 +217,10 @@ export default function ListingPublishScreen() {
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const submit = async () => {
-    if (creatingByBroker) return; // 非业主代发明文提示（见渲染分支）
+    if (!editId && needsOwnerPick && !ownerId) {
+      notify('请选择归属业主', '员工/经纪人代业主发布时必须指定业主归属');
+      return;
+    }
     if (!form.address.trim() || !form.room_number.trim()) {
       notify('请完善信息', '地址与房号/名称为必填');
       return;
@@ -222,6 +273,8 @@ export default function ListingPublishScreen() {
       owner_contact_phone: form.owner_contact_phone.trim() || undefined,
       owner_contact_channel: form.owner_contact_channel.trim() || undefined,
       owner_contact_visible: form.owner_contact_visible,
+      // 代发时必须带上归属业主（后端返回 Owner.id，非 User.id）
+      owner_id: !editId && needsOwnerPick && ownerId ? ownerId : undefined,
     };
 
     setSaving(true);
@@ -249,21 +302,7 @@ export default function ListingPublishScreen() {
     );
   }
 
-  // 非业主本号、且非编辑 → 无归属业主可选，明示无法在此端代发
-  if (creatingByBroker) {
-    return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.gateContent}>
-        <Text style={styles.gateTitle}>经纪人 / 员工代发</Text>
-        <Text style={styles.gateBody}>
-          发布房源需指定「归属业主」，移动端暂未开放业主选择。
-          请使用 Web 管理端「房源上架」完成代发；或先完成《房源经纪人上架房源协议》在线签署。
-        </Text>
-        <TouchableOpacity style={styles.saveBtn} activeOpacity={0.8} onPress={() => navigation.goBack()}>
-          <Text style={styles.saveText}>返回</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    );
-  }
+  // 非业主本号、且非编辑 → 需要先选归属业主（见页内选择器），不再直接挡住整页
 
   const isRent = form.listing_type === 'rent';
   const isSell = !isRent;
@@ -309,7 +348,29 @@ export default function ListingPublishScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.headTitle}>{editId ? '编辑上架单' : '发布房源'}</Text>
-      <Text style={styles.headSub}>{isOwner ? '业主本号发布，佣金 100% 归您' : '编辑上架单信息'}</Text>
+      <Text style={styles.headSub}>
+        {editId
+          ? '编辑上架单信息'
+          : isOwner
+            ? '业主本号发布，佣金 100% 归您'
+            : '员工代业主发布，需指定归属业主'}
+      </Text>
+
+      {/* 归属业主（代发必选） */}
+      {!editId && needsOwnerPick && (
+        <>
+          <Text style={styles.sectionTitle}>归属业主 *</Text>
+          <View style={styles.card}>
+            <TouchableOpacity style={styles.ownerTrig} activeOpacity={0.7} onPress={openOwnerModal}>
+              <Text style={[styles.ownerTrigText, !ownerId && styles.ownerTrigPlaceholder]} numberOfLines={1}>
+                {ownerLabel || '搜索并选择业主（姓名 / 手机 / 邮箱）'}
+              </Text>
+              <Text style={styles.ownerTrigArrow}>选择</Text>
+            </TouchableOpacity>
+            <Text style={styles.hint}>房源将挂在该业主名下；业主自主发布由系统自动绑定</Text>
+          </View>
+        </>
+      )}
 
       {/* 上架类型 */}
       <Text style={styles.sectionTitle}>上架类型</Text>
@@ -451,6 +512,48 @@ export default function ListingPublishScreen() {
           <Text style={styles.saveText}>{editId ? '保存修改' : '提交上架'}</Text>
         )}
       </TouchableOpacity>
+
+      {/* 归属业主选择弹层 */}
+      <Modal visible={ownerModal} animationType="slide" transparent onRequestClose={() => setOwnerModal(false)}>
+        <View style={styles.modalMask}>
+          <View style={[styles.modalBox, { paddingBottom: insets.bottom + 12 }]}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>选择归属业主</Text>
+              <TouchableOpacity onPress={() => setOwnerModal(false)}>
+                <Text style={styles.modalClose}>关闭</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.modalSearch}
+              value={ownerKeyword}
+              onChangeText={onOwnerKeyword}
+              placeholder="搜索业主姓名 / 手机 / 邮箱"
+              placeholderTextColor={colors.ink3}
+            />
+            {ownerLoading && !ownerList.length ? (
+              <ActivityIndicator style={styles.modalLoading} color={colors.primary} />
+            ) : ownerList.length === 0 ? (
+              <Text style={styles.modalEmpty}>未找到匹配的业主</Text>
+            ) : (
+              <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
+                {ownerList.map((o: any) => (
+                  <TouchableOpacity
+                    key={o.id}
+                    style={[styles.ownerItem, ownerId === o.id && styles.ownerItemActive]}
+                    activeOpacity={0.7}
+                    onPress={() => pickOwner(o)}
+                  >
+                    <Text style={styles.ownerItemName}>{o.name || o.email || o.id}</Text>
+                    <Text style={styles.ownerItemMeta}>
+                      {[o.phone, o.email, `在管 ${o.property_count ?? 0} 套`].filter(Boolean).join(' · ')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -459,9 +562,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { paddingBottom: 40 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  gateContent: { padding: 24, paddingTop: 40 },
-  gateTitle: { fontSize: 20, fontWeight: '800', color: colors.ink },
-  gateBody: { fontSize: 14, color: colors.ink2, lineHeight: 22, marginTop: 10 },
 
   headTitle: { fontSize: 22, fontWeight: '800', color: colors.ink, marginTop: 18, marginHorizontal: 20, letterSpacing: -0.4 },
   headSub: { fontSize: 13, color: colors.ink3, marginHorizontal: 20, marginTop: 4 },
@@ -501,4 +601,24 @@ const styles = StyleSheet.create({
 
   saveBtn: { marginTop: 28, marginHorizontal: 20, height: 50, borderRadius: colors.radius.lg, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...colors.shadow.primary },
   saveText: { fontSize: 16, fontWeight: '700', color: colors.primaryForeground },
+
+  // 归属业主（代发）选择器
+  ownerTrig: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius.md, backgroundColor: colors.surface },
+  ownerTrigText: { flex: 1, fontSize: 14, color: colors.ink, marginRight: 10 },
+  ownerTrigPlaceholder: { color: colors.ink3 },
+  ownerTrigArrow: { fontSize: 13, fontWeight: '700', color: colors.primary },
+
+  modalMask: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  modalBox: { backgroundColor: colors.surface, borderTopLeftRadius: colors.radius.xl, borderTopRightRadius: colors.radius.xl, padding: 16, maxHeight: '78%' },
+  modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: colors.ink },
+  modalClose: { fontSize: 14, color: colors.ink3 },
+  modalSearch: { height: 42, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius.md, backgroundColor: colors.surface2, fontSize: 14, color: colors.ink },
+  modalLoading: { marginTop: 28, marginBottom: 16 },
+  modalEmpty: { textAlign: 'center', fontSize: 13, color: colors.ink3, paddingVertical: 36 },
+  modalList: { marginTop: 10 },
+  ownerItem: { paddingVertical: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  ownerItemActive: { backgroundColor: colors.surface2, borderRadius: colors.radius.md },
+  ownerItemName: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  ownerItemMeta: { fontSize: 12, color: colors.ink3, marginTop: 3 },
 });
