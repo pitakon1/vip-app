@@ -22,6 +22,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import colors from '../../theme/colors';
+import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
 import api from '../../lib/api';
@@ -67,6 +68,7 @@ const stageMeta = (key?: string | null) =>
 const symOf = (c?: string | null) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
 export default function CRMScreen() {
+  const respContainer = useResponsiveContainerStyle();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stageTotals, setStageTotals] = useState<Record<string, number>>({});
   const [totalCustomers, setTotalCustomers] = useState(0);
@@ -335,7 +337,7 @@ export default function CRMScreen() {
     <>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, respContainer]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >

@@ -4,6 +4,7 @@
  * 结构：左栏国家，右栏该国家下的城市，选中即写入全局 Store。
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   useLocationStore,
   LOCATION_GROUPS,
@@ -17,6 +18,7 @@ interface Props {
 }
 
 const LocationPicker = ({ visible, onClose }: Props) => {
+  const { t } = useTranslation()
   const selection = useLocationStore((s) => s.selection)
   const select = useLocationStore((s) => s.select)
 
@@ -37,8 +39,8 @@ const LocationPicker = ({ visible, onClose }: Props) => {
     <div className="lp-mask" onClick={onClose}>
       <div className="lp-panel" onClick={(e) => e.stopPropagation()}>
         <div className="lp-head">
-          <span className="lp-title">选择城市</span>
-          <button type="button" className="lp-close" onClick={onClose} aria-label="关闭">
+          <span className="lp-title">{t('locate.selectCity')}</span>
+          <button type="button" className="lp-close" onClick={onClose} aria-label={t('common.close')}>
             ✕
           </button>
         </div>
@@ -58,7 +60,7 @@ const LocationPicker = ({ visible, onClose }: Props) => {
                     {g.country}
                   </span>
                   <span className={`lp-left-sub${active ? ' lp-left-sub--active' : ''}`}>
-                    {g.cities.length} 城
+                    {t('locate.cityCount', { count: g.cities.length })}
                   </span>
                 </button>
               )
@@ -84,7 +86,7 @@ const LocationPicker = ({ visible, onClose }: Props) => {
                   <span className={`lp-right-text${active ? ' lp-right-text--active' : ''}`}>
                     {c.cityLabel}
                   </span>
-                  <span className="lp-right-sub">{c.children.length} 个区</span>
+                  <span className="lp-right-sub">{t('locate.districtCount', { count: c.children.length })}</span>
                   <span className={`lp-right-check${active ? ' lp-right-check--active' : ''}`}>
                     {active ? '✓' : '○'}
                   </span>

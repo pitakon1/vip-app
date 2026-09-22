@@ -1,7 +1,8 @@
 /**
- * 员工端房源浏览：搜索 + 区域/租金/户型/排序筛选 + 房源卡片（收藏 / 分享客户 / 预约带看）+ 加载更多
+ * 员工端房源浏览：搜索 + 筛选（区域/价格/更多/排序；学校/户型/面积/朝向/楼层/装修/配套/状态/类型 收进「更多」）
+ * + 房源卡片（收藏 / 分享客户 / 预约带看）+ 加载更多
  * 原型：employee-mobile-property-browse.html（底部导航「房源」Tab）
- * 数据源：/properties（分页 + 关键词/区域同义词/租金区间/户型/排序）、/favorites
+ * 数据源：/properties（分页 + 关键词/区域同义词/学校半径/价格/面积/房型/朝向/装修/配套/状态/排序）、/favorites
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -22,6 +23,8 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import api from '@/lib/api';
 import { favoritesApi } from '@/services/api';
+import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
+import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { AREA_GROUPS } from '@/data/locationArea';
 
 const PAGE_SIZE = 10;
@@ -53,27 +56,104 @@ const TYPE_META: Record<string, { label: string; icon: keyof typeof Ionicons.gly
   office: { label: '写字楼', icon: 'business-outline', color: colors.ink2 },
 };
 
-// 租金区间（与原型「租金」下拉对应，走接口 price_min / price_max）
-const PRICE_RANGES: { key: string; label: string; min?: number; max?: number }[] = [
-  { key: '', label: '不限' },
-  { key: 'u3', label: '3000 以下', min: 0, max: 3000 },
-  { key: '3-6', label: '3000-6000', min: 3000, max: 6000 },
-  { key: '6-10', label: '6000-10000', min: 6000, max: 10000 },
-  { key: 'g10', label: '10000 以上', min: 10000 },
+// ---------- 与 C 端找房页对齐的筛选口径 ----------
+
+// 价格快捷区间（月租 THB；3 万 = 30000，走接口 price_min/price_max）
+const PRICE_RANGES: { key: string; label: string; min: number; max: number }[] = [
+  { key: '', label: '不限', min: 0, max: Infinity },
+  { key: 'u3', label: '≤3万', min: 0, max: 30000 },
+  { key: '3-5', label: '3-5万', min: 30000, max: 50000 },
+  { key: '5-8', label: '5-8万', min: 50000, max: 80000 },
+  { key: 'g8', label: '≥8万', min: 80000, max: Infinity },
 ];
 
 // 户型（走接口 bedrooms_min / bedrooms_max）
 const BEDROOM_OPTIONS: { key: string; label: string; min?: number; max?: number }[] = [
   { key: '', label: '不限' },
-  { key: '1', label: '1 室', min: 1, max: 1 },
-  { key: '2', label: '2 室', min: 2, max: 2 },
-  { key: '3', label: '3 室及以上', min: 3 },
+  { key: '1', label: '1室', min: 1, max: 1 },
+  { key: '2', label: '2室', min: 2, max: 2 },
+  { key: '3', label: '3室', min: 3, max: 3 },
+  { key: '4', label: '4室', min: 4, max: 4 },
+  { key: '5', label: '5室+', min: 5 },
+];
+
+// 房源类型（后端 /properties 无该参数，前端本地过滤）
+const PROPERTY_TYPE_FILTERS = [
+  { key: '', label: '不限' },
+  { key: 'apartment', label: '公寓' },
+  { key: 'condo', label: '公寓式' },
+  { key: 'villa', label: '别墅' },
+  { key: 'house', label: '独栋' },
+  { key: 'office', label: '写字楼' },
+  { key: 'shop', label: '商铺' },
+];
+
+// 朝向（后端 orientation 参数）
+const ORIENTATION_OPTIONS = [
+  { key: '', label: '不限' },
+  { key: 'north', label: '北' },
+  { key: 'south', label: '南' },
+  { key: 'east', label: '东' },
+  { key: 'west', label: '西' },
+  { key: 'northeast', label: '东北' },
+  { key: 'northwest', label: '西北' },
+  { key: 'southeast', label: '东南' },
+  { key: 'southwest', label: '西南' },
+];
+
+// 楼层段（后端 floor_level 参数 low/mid/high）
+const FLOOR_LEVEL_OPTIONS = [
+  { key: '', label: '不限' },
+  { key: 'low', label: '低楼层(1-5层)' },
+  { key: 'mid', label: '中楼层(6-15层)' },
+  { key: 'high', label: '高楼层(16层+)' },
+];
+
+// 装修（后端 decoration 参数）
+const DECORATION_OPTIONS = [
+  { key: '', label: '不限' },
+  { key: 'bare', label: '毛坯' },
+  { key: 'simple', label: '简装' },
+  { key: 'standard', label: '精装' },
+  { key: 'luxury', label: '豪装' },
+  { key: 'fully_furnished', label: '带家具家电' },
+];
+
+// 配套设施（后端 amenity 多选任一命中）
+const AMENITY_OPTIONS = [
+  { key: 'aircon', label: '空调' },
+  { key: 'pool', label: '泳池' },
+  { key: 'gym', label: '健身房' },
+  { key: 'parking', label: '停车位' },
+  { key: 'elevator', label: '电梯' },
+  { key: 'balcony', label: '阳台' },
+  { key: 'garden', label: '花园/庭院' },
+];
+
+// 面积快捷区间（㎡，走接口 area_min/area_max）
+const AREA_PRESETS: { key: string; label: string; min: number; max: number }[] = [
+  { key: '', label: '不限', min: 0, max: Infinity },
+  { key: 'u50', label: '≤50㎡', min: 0, max: 50 },
+  { key: '50-100', label: '50-100㎡', min: 50, max: 100 },
+  { key: '100-150', label: '100-150㎡', min: 100, max: 150 },
+  { key: '150-200', label: '150-200㎡', min: 150, max: 200 },
+  { key: 'g200', label: '≥200㎡', min: 200, max: Infinity },
+];
+
+// 房源状态（后端 status 参数）
+const STATUS_FILTERS = [
+  { key: '', label: '不限' },
+  { key: 'vacant', label: '空置' },
+  { key: 'rented', label: '已出租' },
+  { key: 'reserved', label: '已预订' },
+  { key: 'maintenance', label: '维护中' },
 ];
 
 const SORT_OPTIONS: { key: string; label: string }[] = [
+  { key: 'default', label: '默认排序' },
   { key: 'latest', label: '最新发布' },
-  { key: 'price_asc', label: '租金从低到高' },
-  { key: 'price_desc', label: '租金从高到低' },
+  { key: 'price_asc', label: '价格从低到高' },
+  { key: 'price_desc', label: '价格从高到低' },
   { key: 'area_desc', label: '面积从大到小' },
 ];
 
@@ -81,7 +161,7 @@ const ALL_DISTRICTS = AREA_GROUPS.flatMap((g) => g.children);
 
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
-type OpenTab = null | 'region' | 'price' | 'layout' | 'sort';
+type OpenTab = null | 'region' | 'price' | 'more' | 'sort';
 
 export default function PropertyBrowseScreen() {
   const [items, setItems] = useState<PropertyItem[]>([]);
@@ -92,12 +172,32 @@ export default function PropertyBrowseScreen() {
   const [districtKey, setDistrictKey] = useState('');
   // 区域面板：国家 → 省市 → 城区 三级下钻。左栏只列国家，右栏默认是该国家的省市列表，
   // 点某个省市后右栏才换成它的城区 chips（顶部「返回」回到省市列表）。
-  // 此前国家与省市平铺在同一列里，用户要在混杂的长列表中找城市。
   const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country);
   const [areaDrill, setAreaDrill] = useState<string>(''); // 已下钻的省市 cityKey，空 = 停在省市列表
+  // 学校筛选（收进「更多」）：后端按学校坐标 + 半径反查覆盖的小区
+  const [schoolId, setSchoolId] = useState('');
+  const [schoolName, setSchoolName] = useState('');
+  const [schoolKm, setSchoolKm] = useState(3);
+  const [schools, setSchools] = useState<PublicSchool[]>([]);
+  const [schoolsLoaded, setSchoolsLoaded] = useState(false);
+  const [schoolKw, setSchoolKw] = useState('');
+  // 价格筛选（快捷区间 + 自定义最低/最高，单位 万/月 → THB）
   const [priceKey, setPriceKey] = useState('');
+  const [customMin, setCustomMin] = useState('');
+  const [customMax, setCustomMax] = useState('');
+  // 户型筛选（收进「更多」）
   const [bedKey, setBedKey] = useState('');
-  const [sortKey, setSortKey] = useState('latest');
+  // 「更多」面板收纳：房源类型 / 户型 / 学校 / 朝向 / 楼层 / 面积 / 装修 / 配套 / 状态
+  const [propType, setPropType] = useState('');
+  const [orientationSel, setOrientationSel] = useState('');
+  const [floorSel, setFloorSel] = useState('');
+  const [areaRange, setAreaRange] = useState('');
+  const [areaCustomMin, setAreaCustomMin] = useState('');
+  const [areaCustomMax, setAreaCustomMax] = useState('');
+  const [decorSel, setDecorSel] = useState('');
+  const [amenitySel, setAmenitySel] = useState<string[]>([]);
+  const [statusSel, setStatusSel] = useState('');
+  const [sortKey, setSortKey] = useState('default');
   const [openTab, setOpenTab] = useState<OpenTab>(null);
   const [favSet, setFavSet] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -105,23 +205,55 @@ export default function PropertyBrowseScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const firstLoad = useRef(true);
 
-  // 组装查询参数：区域走关键词同义词（keywords 需重复参数，故指定 paramsSerializer）
+  // 组装查询参数：除「房源类型」为本地产过滤外，其余均走服务端 /properties
   const buildParams = useCallback(
     (targetPage: number) => {
-      const params: Record<string, unknown> = { page: targetPage, page_size: PAGE_SIZE, sort: sortKey };
+      const params: Record<string, unknown> = { page: targetPage, page_size: PAGE_SIZE };
+      // 后端 sort 无「默认排序」取值：default 不传，由后端落回最新/相关性
+      if (sortKey !== 'default') params.sort = sortKey;
       const kw = keyword.trim();
       if (kw) params.q = kw;
       const district = ALL_DISTRICTS.find((d) => d.key === districtKey);
       if (district) params.keywords = district.kws;
-      const price = PRICE_RANGES.find((p) => p.key === priceKey);
-      if (price?.min !== undefined) params.price_min = price.min;
-      if (price?.max !== undefined) params.price_max = price.max;
+      if (schoolId) {
+        params.school_id = schoolId;
+        params.school_radius_km = schoolKm;
+      }
+      let pMin = 0;
+      let pMax = Infinity;
+      const preset = PRICE_RANGES.find((p) => p.key === priceKey);
+      if (preset && preset.key) {
+        pMin = preset.min;
+        pMax = preset.max;
+      } else if (customMin || customMax) {
+        pMin = (Number(customMin) || 0) * 10000;
+        pMax = (Number(customMax) || 0) * 10000;
+      }
+      if (isFinite(pMin) && pMin > 0) params.price_min = pMin;
+      if (isFinite(pMax) && pMax !== Infinity) params.price_max = pMax;
       const bed = BEDROOM_OPTIONS.find((b) => b.key === bedKey);
       if (bed?.min !== undefined) params.bedrooms_min = bed.min;
       if (bed?.max !== undefined) params.bedrooms_max = bed.max;
+      if (orientationSel) params.orientation = orientationSel;
+      if (floorSel) params.floor_level = floorSel;
+      if (decorSel) params.decoration = decorSel;
+      if (amenitySel.length) params.amenity = amenitySel;
+      if (statusSel) params.status = statusSel;
+      let aMin = 0;
+      let aMax = Infinity;
+      const areaPreset = AREA_PRESETS.find((a) => a.key === areaRange);
+      if (areaPreset && areaPreset.key) {
+        aMin = areaPreset.min;
+        aMax = areaPreset.max;
+      } else if (areaCustomMin || areaCustomMax) {
+        aMin = Number(areaCustomMin) || 0;
+        aMax = Number(areaCustomMax) || 0;
+      }
+      if (aMin > 0) params.area_min = aMin;
+      if (isFinite(aMax) && aMax !== Infinity) params.area_max = aMax;
       return params;
     },
-    [keyword, districtKey, priceKey, bedKey, sortKey],
+    [keyword, districtKey, schoolId, schoolKm, priceKey, customMin, customMax, bedKey, orientationSel, floorSel, decorSel, amenitySel, statusSel, areaRange, areaCustomMin, areaCustomMax, sortKey],
   );
 
   const load = useCallback(
@@ -163,7 +295,25 @@ export default function PropertyBrowseScreen() {
     const timer = setTimeout(() => load({ nextPage: 1 }), 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keyword, districtKey, priceKey, bedKey, sortKey]);
+  }, [keyword, districtKey, schoolId, schoolKm, priceKey, customMin, customMax, bedKey, orientationSel, floorSel, decorSel, amenitySel, statusSel, areaRange, areaCustomMin, areaCustomMax, sortKey]);
+
+  // 学校候选：首次展开「更多」面板时懒加载一次
+  useEffect(() => {
+    if (openTab !== 'more' || schoolsLoaded) return;
+    setSchoolsLoaded(true);
+    publicApi
+      .schools({ page_size: 100 })
+      .then((res: any) => setSchools(unwrapPage<PublicSchool>(res?.data).items))
+      .catch(() => setSchools([]));
+  }, [openTab, schoolsLoaded]);
+
+  const filteredSchools = useMemo(() => {
+    const kw = schoolKw.trim().toLowerCase();
+    if (!kw) return schools;
+    return schools.filter((s) =>
+      `${s.name ?? ''} ${s.name_en ?? ''} ${s.district ?? ''}`.toLowerCase().includes(kw),
+    );
+  }, [schools, schoolKw]);
 
   // 批量取收藏状态
   useEffect(() => {
@@ -238,7 +388,7 @@ export default function PropertyBrowseScreen() {
 
   // 区域面板左栏：国家清单（按 AREA_GROUPS 出现顺序去重，保持「泰国 → 越南 → …」的业务顺序）
   const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), []);
-  // 左栏宽度按最长国家名动态推导（避免留白）：最长字幕数×字号13 + 条目横向padding 6×2 + 边框hairline + 2缓冲
+  // 左栏宽度按最长国家名动态推导（避免留白）：最长字幕数×字号13 + 条目横向padding 6×2 + 2缓冲
   const areaLeftWidth = useMemo(() => {
     const maxChars = Math.max(...countryList.map((c) => [...c].length));
     return maxChars * 13 + 6 * 2 + 2;
@@ -260,20 +410,36 @@ export default function PropertyBrowseScreen() {
     setAreaDrill('');
   };
 
+  // ---------- 贝壳式 Tab 下拉面板：开合 / 重置 / 确定 ----------
+  const hasPriceFilter = !!(priceKey || customMin || customMax);
+  const hasAreaFilter = !!(areaRange || areaCustomMin || areaCustomMax);
+  // 「更多」收纳了学校 / 户型 / 面积 / 朝向 / 楼层 / 装修 / 配套 / 状态 / 房源类型，角标按已生效组数计
+  const moreBadge =
+    (propType ? 1 : 0) +
+    (schoolId ? 1 : 0) +
+    (bedKey ? 1 : 0) +
+    (hasAreaFilter ? 1 : 0) +
+    (statusSel ? 1 : 0) +
+    (orientationSel ? 1 : 0) +
+    (floorSel ? 1 : 0) +
+    (decorSel ? 1 : 0) +
+    (amenitySel.length ? 1 : 0);
+
   // 筛选 chip 当前展示文案
   const regionLabel = districtKey
     ? ALL_DISTRICTS.find((d) => d.key === districtKey)?.label ?? '区域'
     : '区域';
   const priceLabel = priceKey
-    ? PRICE_RANGES.find((p) => p.key === priceKey)?.label ?? '租金'
-    : '租金';
-  const bedLabel = bedKey ? BEDROOM_OPTIONS.find((b) => b.key === bedKey)?.label ?? '户型' : '户型';
+    ? PRICE_RANGES.find((p) => p.key === priceKey)?.label ?? '价格'
+    : customMin || customMax
+    ? '自定义'
+    : '价格';
   const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label ?? '排序';
-  const chips: { key: Exclude<OpenTab, null>; label: string; active: boolean }[] = [
+  const chips: { key: Exclude<OpenTab, null>; label: string; active: boolean; badge?: number }[] = [
     { key: 'region', label: regionLabel, active: !!districtKey },
-    { key: 'price', label: priceLabel, active: !!priceKey },
-    { key: 'layout', label: bedLabel, active: !!bedKey },
-    { key: 'sort', label: sortLabel, active: sortKey !== 'latest' },
+    { key: 'price', label: hasPriceFilter ? priceLabel : '价格', active: hasPriceFilter },
+    { key: 'more', label: '更多', active: moreBadge > 0, badge: moreBadge },
+    { key: 'sort', label: sortKey !== 'default' ? sortLabel : '排序', active: sortKey !== 'default' },
   ];
 
   // 面板开合：打开区域面板时回显——已选城区则直接下钻到它所在的省市，
@@ -292,6 +458,39 @@ export default function PropertyBrowseScreen() {
     }
     setOpenTab(key);
   };
+
+  const resetCurrent = (key: Exclude<OpenTab, null>) => {
+    if (key === 'region') {
+      setDistrictKey('');
+    } else if (key === 'price') {
+      setPriceKey('');
+      setCustomMin('');
+      setCustomMax('');
+    } else if (key === 'more') {
+      setSchoolId('');
+      setSchoolName('');
+      setSchoolKm(3);
+      setBedKey('');
+      setPropType('');
+      setAreaRange('');
+      setAreaCustomMin('');
+      setAreaCustomMax('');
+      setStatusSel('');
+      setOrientationSel('');
+      setFloorSel('');
+      setDecorSel('');
+      setAmenitySel([]);
+    } else if (key === 'sort') {
+      setSortKey('default');
+    }
+  };
+
+  // 「房源类型」后端无参数，前端本地过滤（其余维度均已在服务端收敛）
+  const visibleItems = useMemo(
+    () => (propType ? items.filter((it) => it.property_type === propType) : items),
+    [items, propType],
+  );
+  const shownTotal = propType ? visibleItems.length : total;
 
   const renderCard = (p: PropertyItem) => {
     const type = TYPE_META[p.property_type ?? 'apartment'] ?? TYPE_META.apartment;
@@ -377,7 +576,13 @@ export default function PropertyBrowseScreen() {
     );
   }
 
-  const hasFilter = !!(keyword || districtKey || priceKey || bedKey || sortKey !== 'latest');
+  const hasFilter = !!(
+    keyword ||
+    districtKey ||
+    hasPriceFilter ||
+    moreBadge ||
+    sortKey !== 'default'
+  );
 
   return (
     <ScrollView
@@ -407,7 +612,7 @@ export default function PropertyBrowseScreen() {
         ) : null}
       </View>
 
-      {/* 筛选 chips（区域 / 租金 / 户型 / 排序） */}
+      {/* 筛选 chips（区域/价格/更多/排序，精简顶栏避免拥挤截断） */}
       <View style={styles.chipRow}>
         {chips.map((c) => (
           <TouchableOpacity
@@ -422,6 +627,11 @@ export default function PropertyBrowseScreen() {
             >
               {c.label}
             </Text>
+            {!!c.badge && (
+              <View style={styles.chipBadge}>
+                <Text style={styles.chipBadgeText}>{c.badge}</Text>
+              </View>
+            )}
             <Ionicons
               name={openTab === c.key ? 'chevron-up' : 'chevron-down'}
               size={12}
@@ -437,9 +647,6 @@ export default function PropertyBrowseScreen() {
           {openTab === 'region' ? (
             <>
               <Text style={styles.panelTitle}>按区域筛选</Text>
-              {/* 国家 → 省市 → 城区 三级下钻：左栏只列国家，右栏先是该国家的省市列表，
-                  点省市后右栏换成它的城区 chips（顶部「返回」回到省市列表）。
-                  此前把国家/省市平铺在同一列，用户要在混杂的长列表里找城市。 */}
               <View style={styles.panelArea}>
                 <ScrollView style={[styles.areaCol, { width: areaLeftWidth, flexGrow: 0, flexShrink: 0 }]} nestedScrollEnabled showsVerticalScrollIndicator={false}>
                   {countryList.map((c) => (
@@ -532,15 +739,20 @@ export default function PropertyBrowseScreen() {
 
           {openTab === 'price' ? (
             <>
-              <Text style={styles.panelTitle}>按租金筛选</Text>
+              <Text style={styles.panelTitle}>按价格筛选</Text>
+              <Text style={styles.panelGroupTitle}>快捷选择</Text>
               <View style={styles.panelChips}>
                 {PRICE_RANGES.map((p) => (
                   <TouchableOpacity
                     key={p.key || 'all'}
                     style={[styles.optionChip, priceKey === p.key && styles.optionChipActive]}
+                    activeOpacity={0.7}
                     onPress={() => {
                       setPriceKey(p.key);
-                      setOpenTab(null);
+                      if (p.key) {
+                        setCustomMin('');
+                        setCustomMax('');
+                      }
                     }}
                   >
                     <Text style={[styles.optionText, priceKey === p.key && styles.optionTextActive]}>
@@ -549,27 +761,287 @@ export default function PropertyBrowseScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+              <Text style={styles.panelGroupTitle}>自定义价格</Text>
+              <View style={styles.priceCustomRow}>
+                <View style={styles.priceCustomInput}>
+                  <Text style={styles.priceCustomPrefix}>฿</Text>
+                  <TextInput
+                    style={styles.priceCustomField}
+                    value={customMin}
+                    onChangeText={(v) => {
+                      setCustomMin(v.replace(/[^\d]/g, ''));
+                      if (v) setPriceKey('');
+                    }}
+                    placeholder="最低价"
+                    placeholderTextColor={colors.ink3}
+                    keyboardType="number-pad"
+                  />
+                  <Text style={styles.priceCustomUnit}>万/月</Text>
+                </View>
+                <Text style={styles.priceCustomDivider}>至</Text>
+                <View style={styles.priceCustomInput}>
+                  <Text style={styles.priceCustomPrefix}>฿</Text>
+                  <TextInput
+                    style={styles.priceCustomField}
+                    value={customMax}
+                    onChangeText={(v) => {
+                      setCustomMax(v.replace(/[^\d]/g, ''));
+                      if (v) setPriceKey('');
+                    }}
+                    placeholder="最高价"
+                    placeholderTextColor={colors.ink3}
+                    keyboardType="number-pad"
+                  />
+                  <Text style={styles.priceCustomUnit}>万/月</Text>
+                </View>
+              </View>
+              <View style={styles.panelActions}>
+                <TouchableOpacity style={styles.resetBtn} activeOpacity={0.7} onPress={() => resetCurrent('price')}>
+                  <Text style={styles.resetText}>重置</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.confirmBtn} activeOpacity={0.7} onPress={() => setOpenTab(null)}>
+                  <Text style={styles.confirmText}>确定</Text>
+                </TouchableOpacity>
+              </View>
             </>
           ) : null}
 
-          {openTab === 'layout' ? (
+          {openTab === 'more' ? (
             <>
-              <Text style={styles.panelTitle}>按户型筛选</Text>
-              <View style={styles.panelChips}>
-                {BEDROOM_OPTIONS.map((b) => (
+              <Text style={styles.panelTitle}>更多筛选</Text>
+              <ScrollView style={styles.dropBodyTall} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                {/* 户型 */}
+                <Text style={styles.panelGroupTitle}>户型</Text>
+                <View style={styles.panelChips}>
+                  {BEDROOM_OPTIONS.map((b) => (
+                    <TouchableOpacity
+                      key={b.key || 'all'}
+                      style={[styles.optionChip, bedKey === b.key && styles.optionChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => setBedKey(b.key)}
+                    >
+                      <Text style={[styles.optionText, bedKey === b.key && styles.optionTextActive]}>
+                        {b.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {/* 学校：距离范围 + 搜索 + 学校列表 */}
+                <Text style={styles.panelGroupTitle}>学校 · 距离</Text>
+                <View style={styles.panelChips}>
+                  {SCHOOL_RADIUS_OPTIONS.map((km) => (
+                    <TouchableOpacity
+                      key={km}
+                      style={[styles.optionChip, schoolKm === km && styles.optionChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => setSchoolKm(km)}
+                    >
+                      <Text style={[styles.optionText, schoolKm === km && styles.optionTextActive]}>
+                        {km}km
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TextInput
+                  style={styles.dropSearch}
+                  value={schoolKw}
+                  onChangeText={setSchoolKw}
+                  placeholder="搜索学校名称"
+                  placeholderTextColor={colors.ink3}
+                  returnKeyType="search"
+                />
+                <View style={styles.panelChips}>
                   <TouchableOpacity
-                    key={b.key || 'all'}
-                    style={[styles.optionChip, bedKey === b.key && styles.optionChipActive]}
+                    style={[styles.optionChip, !schoolId && styles.optionChipActive]}
+                    activeOpacity={0.7}
                     onPress={() => {
-                      setBedKey(b.key);
-                      setOpenTab(null);
+                      setSchoolId('');
+                      setSchoolName('');
                     }}
                   >
-                    <Text style={[styles.optionText, bedKey === b.key && styles.optionTextActive]}>
-                      {b.label}
-                    </Text>
+                    <Text style={[styles.optionText, !schoolId && styles.optionTextActive]}>不限</Text>
                   </TouchableOpacity>
-                ))}
+                  {filteredSchools.map((s) => (
+                    <TouchableOpacity
+                      key={s.id}
+                      style={[styles.optionChip, schoolId === s.id && styles.optionChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setSchoolId(s.id);
+                        setSchoolName(s.name ?? '学校');
+                      }}
+                    >
+                      <Text style={[styles.optionText, schoolId === s.id && styles.optionTextActive]}>
+                        {s.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {schoolsLoaded && !filteredSchools.length && (
+                  <Text style={styles.dropEmpty}>暂无匹配学校</Text>
+                )}
+                {/* 房源类型 */}
+                <Text style={styles.panelGroupTitle}>房源类型</Text>
+                <View style={styles.panelChips}>
+                  {PROPERTY_TYPE_FILTERS.map((f) => (
+                    <TouchableOpacity
+                      key={f.key || 'all'}
+                      style={[styles.optionChip, propType === f.key && styles.optionChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => setPropType(f.key)}
+                    >
+                      <Text style={[styles.optionText, propType === f.key && styles.optionTextActive]}>
+                        {f.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {/* 面积 */}
+                <Text style={styles.panelGroupTitle}>面积</Text>
+                <View style={styles.panelChips}>
+                  {AREA_PRESETS.map((a) => (
+                    <TouchableOpacity
+                      key={a.key || 'all'}
+                      style={[styles.optionChip, areaRange === a.key && styles.optionChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setAreaRange(a.key);
+                        if (a.key) {
+                          setAreaCustomMin('');
+                          setAreaCustomMax('');
+                        }
+                      }}
+                    >
+                      <Text style={[styles.optionText, areaRange === a.key && styles.optionTextActive]}>
+                        {a.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.priceCustomRow}>
+                  <View style={styles.priceCustomInput}>
+                    <TextInput
+                      style={styles.priceCustomField}
+                      value={areaCustomMin}
+                      onChangeText={(v) => {
+                        setAreaCustomMin(v.replace(/[^\d]/g, ''));
+                        if (v) setAreaRange('');
+                      }}
+                      placeholder="最低㎡"
+                      placeholderTextColor={colors.ink3}
+                      keyboardType="number-pad"
+                    />
+                    <Text style={styles.priceCustomUnit}>㎡</Text>
+                  </View>
+                  <Text style={styles.priceCustomDivider}>至</Text>
+                  <View style={styles.priceCustomInput}>
+                    <TextInput
+                      style={styles.priceCustomField}
+                      value={areaCustomMax}
+                      onChangeText={(v) => {
+                        setAreaCustomMax(v.replace(/[^\d]/g, ''));
+                        if (v) setAreaRange('');
+                      }}
+                      placeholder="最高㎡"
+                      placeholderTextColor={colors.ink3}
+                      keyboardType="number-pad"
+                    />
+                    <Text style={styles.priceCustomUnit}>㎡</Text>
+                  </View>
+                </View>
+                {/* 朝向 */}
+                <Text style={styles.panelGroupTitle}>朝向</Text>
+                <View style={styles.panelChips}>
+                  {ORIENTATION_OPTIONS.map((o) => (
+                    <TouchableOpacity
+                      key={o.key || 'all'}
+                      style={[styles.optionChip, orientationSel === o.key && styles.optionChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => setOrientationSel(o.key)}
+                    >
+                      <Text style={[styles.optionText, orientationSel === o.key && styles.optionTextActive]}>
+                        {o.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {/* 楼层 */}
+                <Text style={styles.panelGroupTitle}>楼层</Text>
+                <View style={styles.panelChips}>
+                  {FLOOR_LEVEL_OPTIONS.map((fl) => (
+                    <TouchableOpacity
+                      key={fl.key || 'all'}
+                      style={[styles.optionChip, floorSel === fl.key && styles.optionChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => setFloorSel(fl.key)}
+                    >
+                      <Text style={[styles.optionText, floorSel === fl.key && styles.optionTextActive]}>
+                        {fl.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {/* 装修 */}
+                <Text style={styles.panelGroupTitle}>装修</Text>
+                <View style={styles.panelChips}>
+                  {DECORATION_OPTIONS.map((d) => (
+                    <TouchableOpacity
+                      key={d.key || 'all'}
+                      style={[styles.optionChip, decorSel === d.key && styles.optionChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => setDecorSel(d.key)}
+                    >
+                      <Text style={[styles.optionText, decorSel === d.key && styles.optionTextActive]}>
+                        {d.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {/* 配套设施 */}
+                <Text style={styles.panelGroupTitle}>配套设施</Text>
+                <View style={styles.panelChips}>
+                  {AMENITY_OPTIONS.map((a) => {
+                    const on = amenitySel.includes(a.key);
+                    return (
+                      <TouchableOpacity
+                        key={a.key}
+                        style={[styles.optionChip, on && styles.optionChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() =>
+                          setAmenitySel((cur) =>
+                            on ? cur.filter((k) => k !== a.key) : [...cur, a.key],
+                          )
+                        }
+                      >
+                        <Text style={[styles.optionText, on && styles.optionTextActive]}>{a.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {/* 房源状态 */}
+                <Text style={styles.panelGroupTitle}>房源状态</Text>
+                <View style={styles.panelChips}>
+                  {STATUS_FILTERS.map((s) => (
+                    <TouchableOpacity
+                      key={s.key || 'all'}
+                      style={[styles.optionChip, statusSel === s.key && styles.optionChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => setStatusSel(s.key)}
+                    >
+                      <Text style={[styles.optionText, statusSel === s.key && styles.optionTextActive]}>
+                        {s.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+              <View style={styles.panelActions}>
+                <TouchableOpacity style={styles.resetBtn} activeOpacity={0.7} onPress={() => resetCurrent('more')}>
+                  <Text style={styles.resetText}>重置</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.confirmBtn} activeOpacity={0.7} onPress={() => setOpenTab(null)}>
+                  <Text style={styles.confirmText}>确定</Text>
+                </TouchableOpacity>
               </View>
             </>
           ) : null}
@@ -602,10 +1074,10 @@ export default function PropertyBrowseScreen() {
 
       {/* 结果统计 */}
       <Text style={styles.countRow}>
-        共 <Text style={styles.countStrong}>{total}</Text> 套房源
+        共 <Text style={styles.countStrong}>{shownTotal}</Text> 套房源
       </Text>
 
-      {items.length === 0 ? (
+      {visibleItems.length === 0 ? (
         <EmptyState
           icon="home-outline"
           title="暂无房源"
@@ -613,7 +1085,7 @@ export default function PropertyBrowseScreen() {
         />
       ) : (
         <View style={styles.list}>
-          {items.map((p) => renderCard(p))}
+          {visibleItems.map((p) => renderCard(p))}
 
           {page < totalPages ? (
             <TouchableOpacity
@@ -659,42 +1131,49 @@ const styles = StyleSheet.create({
     gap: colors.spacing.sm,
     paddingHorizontal: colors.spacing.lg,
     marginTop: colors.spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.md,
   },
+  // 4 个筛选按钮等分铺满整行（flex:1），避免右侧留白；选中态浅底高亮
   chip: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 3,
-    flexShrink: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    minHeight: 40,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
   },
-  chipActive: { borderColor: colors.primary, backgroundColor: colors.alpha(colors.primaryRgb, 0.08) },
-  chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500', maxWidth: 84 },
+  chipActive: { backgroundColor: colors.alpha(colors.primaryRgb, 0.08) },
+  chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500', maxWidth: 96 },
   chipTextActive: { color: colors.primary, fontWeight: '600' },
+  chipBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+  },
+  chipBadgeText: { fontSize: 10, fontWeight: '700', color: colors.primaryForeground },
 
   panel: {
-    marginHorizontal: colors.spacing.md,
-    marginTop: colors.spacing.md,
+    marginHorizontal: 0,
+    marginTop: 6,
     padding: colors.spacing.lg,
     backgroundColor: colors.surface,
-    borderRadius: colors.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderRadius: 0,
+    borderWidth: 0,
     ...colors.shadow.card,
   },
   panelTitle: { fontSize: 12, color: colors.ink3, marginBottom: colors.spacing.sm },
-  panelScroll: { maxHeight: 240 },
-  panelGroup: { marginBottom: colors.spacing.sm },
-  panelGroupTitle: { fontSize: 12, color: colors.ink2, fontWeight: '600', marginBottom: 6 },
+  panelGroupTitle: { fontSize: 12, color: colors.ink2, fontWeight: '600', marginBottom: 6, marginTop: colors.spacing.sm },
   panelChips: { flexDirection: 'row', flexWrap: 'wrap', gap: colors.spacing.sm },
   // 区域面板两栏：左栏固定宽度只放国家，右栏放省市 / 城区（链家式两栏观感）
   panelArea: { flexDirection: 'row', maxHeight: 240 },
   areaCol: {
-    // 按最长国家名「马来西亚」倒推：条目 padding 6×2 + 4×13 = 64px
     width: 66,
     borderRightWidth: StyleSheet.hairlineWidth,
     borderRightColor: colors.line,
@@ -717,6 +1196,61 @@ const styles = StyleSheet.create({
   optionChipActive: { backgroundColor: colors.primary },
   optionText: { fontSize: 13, color: colors.ink2 },
   optionTextActive: { color: colors.primaryForeground, fontWeight: '600' },
+
+  dropSearch: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: colors.ink,
+    marginTop: colors.spacing.sm,
+    marginBottom: colors.spacing.sm,
+  },
+  dropBodyTall: { maxHeight: 380 },
+  dropEmpty: { fontSize: 12, color: colors.ink3, textAlign: 'center', marginTop: colors.spacing.sm },
+
+  priceCustomRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: colors.spacing.sm },
+  priceCustomInput: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: 8,
+  },
+  priceCustomPrefix: { fontSize: 12, color: colors.ink3 },
+  priceCustomField: { flex: 1, paddingVertical: 8, fontSize: 13, color: colors.ink },
+  priceCustomUnit: { fontSize: 12, color: colors.ink3 },
+  priceCustomDivider: { fontSize: 12, color: colors.ink3 },
+
+  panelActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: colors.spacing.sm,
+    marginTop: colors.spacing.md,
+    paddingTop: colors.spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+  },
+  resetBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: colors.radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primary,
+  },
+  resetText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  confirmBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.primary,
+  },
+  confirmText: { fontSize: 13, fontWeight: '600', color: colors.primaryForeground },
+
   sortItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -812,13 +1346,6 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   ghostBtnText: { fontSize: 12, fontWeight: '600', color: colors.primary },
-  primaryBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.primary,
-  },
-  primaryBtnText: { fontSize: 12, fontWeight: '600', color: colors.primaryForeground },
 
   loadMore: {
     alignItems: 'center',

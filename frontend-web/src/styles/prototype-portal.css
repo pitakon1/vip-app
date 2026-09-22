@@ -28,7 +28,7 @@
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(230, 234, 240, 0.6);
+  border-bottom: 1px solid var(--rent-border);
   height: 64px;
   display: flex;
   align-items: center;
@@ -37,8 +37,36 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 10px 30px -18px rgba(15, 23, 42, 0.18);
+  box-shadow: var(--rent-shadow-1);
 }
+/* 左区：品牌 + 全局定位（对齐贝壳「logo 旁即城市」的首屏心智） */
+.rent-portal__left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+.rent-portal__loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-card);
+  color: var(--rent-ink);
+  font-size: var(--rent-fs-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.rent-portal__loc:hover {
+  border-color: var(--rent-primary);
+  background: var(--rent-accent-soft);
+}
+.rent-portal__loc-icon { color: var(--rent-primary); flex-shrink: 0; }
+.rent-portal__loc-arrow { color: var(--rent-ink-3); font-size: 10px; }
 .rent-portal__brand {
   display: flex;
   align-items: center;
@@ -1514,6 +1542,25 @@ body {
   inset: 0;
   background: rgba(0, 0, 0, 0.05);
   pointer-events: none;
+}
+/* 房源卡片封面：有实拍图就用图（贝壳式「图在前」），没有才回退色块 + 户型图标。
+   放在这里而非页面级 CSS —— 该卡片由首页与找房页共用。 */
+.rent-prop-search-card__cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* 叠一层压暗渐变，保证白色角标在浅色照片上仍可读
+   （默认的 5% 遮罩只够应付纯色块） */
+.rent-prop-search-card__banner[data-photo='true']::after {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.04) 42%,
+    rgba(0, 0, 0, 0.38) 100%
+  );
 }
 .rent-prop-search-card__banner-icon {
   position: absolute;

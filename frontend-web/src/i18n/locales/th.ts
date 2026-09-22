@@ -21,6 +21,7 @@ const th: import('./zh').Translation = {
     submit: 'ส่ง',
     logout: 'ออกจากระบบ',
     welcome: 'ยินดีต้อนรับ',
+    close: 'ปิด',
     noData: 'ไม่มีข้อมูล',
     total: 'รวม',
     items: 'รายการ',
@@ -422,6 +423,13 @@ const th: import('./zh').Translation = {
     pattaya: 'พัทยา',
     huaHin: 'หัวหิน',
   },
+  regionFilter: {
+    title: 'เขต',
+    allRegions: 'ทุกเขต',
+    country: 'ประเทศ',
+    city: 'เมือง',
+    district: 'ย่าน',
+  },
   language: {
     zh: '中文',
     en: 'English',
@@ -558,6 +566,9 @@ const th: import('./zh').Translation = {
     billPending: 'บิลที่ต้องชำระ',
   },
   locate: {
+    selectCity: 'เลือกเมือง',
+    cityCount: '{{count}} เมือง',
+    districtCount: '{{count}} ย่าน',
     area: 'พื้นที่',
     metro: 'รถไฟฟ้า',
     all: 'ทั้งหมด',
@@ -1068,6 +1079,8 @@ const th: import('./zh').Translation = {
     km: 'กม.',
     up: 'ขึ้นไป',
     distanceToSchool: 'ห่างจาก {{name}} ประมาณ {{km}} กม.',
+    similarListings: 'คุณอาจสนใจ',
+    similarListingsHint: 'คอนโด/บ้านที่คล้ายกันในโครงการ แบบและเขตเดียวกัน',
 
     // ---------- โรงเรียน ----------
     schoolsTitle: 'โรงเรียนนานาชาติ',
@@ -1121,6 +1134,7 @@ const th: import('./zh').Translation = {
     backToList: '← กลับไปหน้ารายการ',
     deposit: 'เงินมัดจำ',
     months: 'เดือน',
+    unitPrice: 'ราคาต่อตารางเมตร',
     keyFacts: 'ข้อมูลห้อง',
     roomNumber: 'เลขที่ห้อง',
     building: 'อาคาร',

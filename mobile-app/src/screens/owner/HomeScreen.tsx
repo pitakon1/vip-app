@@ -24,6 +24,7 @@ import LoadingState from '@/components/LoadingState';
 import BarChart from '@/components/charts/BarChart';
 import ProgressStack from '@/components/charts/ProgressStack';
 import colors from '@/theme/colors';
+import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { ownerApi, ownersApi, listingApi, paymentsApi } from '@/services/api';
 import { fmtMoney as money } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
@@ -81,6 +82,7 @@ interface HomePayload {
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
+  const respContainer = useResponsiveContainerStyle();
   const user = useAuthStore((s) => s.user);
   const uid = user?.id ?? 'anon';
   const year = new Date().getFullYear();
@@ -213,7 +215,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + colors.spacing.md }]}
+        contentContainerStyle={[styles.content, respContainer, { paddingTop: insets.top + colors.spacing.md }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

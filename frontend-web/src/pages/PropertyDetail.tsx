@@ -64,6 +64,17 @@ const statusLabelMap: Record<string, string> = {
   maintenance: '维护中',
 }
 
+// 朝向/装修枚举 → 展示文案（与 C 端公开口径一致，见 publicSite.orientation / decoration）
+const propertyOrientationMap: Record<string, string> = {
+  north: '朝北', south: '朝南', east: '朝东', west: '朝西',
+  northeast: '朝东北', northwest: '朝西北', southeast: '朝东南', southwest: '朝西南',
+}
+const propertyDecorationMap: Record<string, string> = {
+  bare: '毛坯', simple: '简装', standard: '精装', luxury: '豪装', fully_furnished: '带家具家电',
+}
+const propertyOrientationLabel = (v: string) => propertyOrientationMap[v] || v
+const propertyDecorationLabel = (v: string) => propertyDecorationMap[v] || v
+
 // 租约状态文案
 const leaseStatusMap: Record<string, string> = {
   active: '生效中',
@@ -244,6 +255,12 @@ const PropertyDetail = () => {
   const specBedrooms = detail.bedrooms != null ? `${detail.bedrooms} 间` : '—'
   const specBathrooms = detail.bathrooms != null ? `${detail.bathrooms} 间` : '—'
   const specParking = detail.parking != null ? `${detail.parking} 个` : '—'
+  const specOrientation = detail.orientation ? propertyOrientationLabel(detail.orientation) : '—'
+  const specDecoration = detail.decoration ? propertyDecorationLabel(detail.decoration) : '—'
+  const specUnitPrice =
+    detail.monthly_rent && detail.size_sqm
+      ? formatRent(Number(detail.monthly_rent) / Number(detail.size_sqm))
+      : '—'
 
   return (
     <div className="rent-main">
@@ -309,6 +326,18 @@ const PropertyDetail = () => {
                 <div className="rent-spec-item">
                   <div className="rent-spec-item__label">车位</div>
                   <div className="rent-spec-item__value">{specParking}</div>
+                </div>
+                <div className="rent-spec-item">
+                  <div className="rent-spec-item__label">朝向</div>
+                  <div className="rent-spec-item__value">{specOrientation}</div>
+                </div>
+                <div className="rent-spec-item">
+                  <div className="rent-spec-item__label">装修</div>
+                  <div className="rent-spec-item__value">{specDecoration}</div>
+                </div>
+                <div className="rent-spec-item">
+                  <div className="rent-spec-item__label">单价</div>
+                  <div className="rent-spec-item__value">{specUnitPrice}{detail.monthly_rent && detail.size_sqm ? '/㎡·月' : ''}</div>
                 </div>
               </div>
 

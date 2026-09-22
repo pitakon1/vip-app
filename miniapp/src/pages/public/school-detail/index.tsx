@@ -17,9 +17,11 @@ import {
 } from '@/lib/publicSite'
 import PublicListingItem from '@/components/PublicListingItem'
 import PublicInquiryForm from '@/components/PublicInquiryForm'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 export default function PublicSchoolDetailPage() {
+  const { t } = useI18n()
   const router = useRouter()
   const id = router.params?.id ?? ''
   const [school, setSchool] = useState<PublicSchoolDetail | null>(null)
@@ -53,7 +55,7 @@ export default function PublicSchoolDetailPage() {
   if (loading) {
     return (
       <View className='pub-page'>
-        <View className='pub-loading'>加载中...</View>
+        <View className='pub-loading'>{t('pub.loading')}</View>
       </View>
     )
   }
@@ -61,7 +63,7 @@ export default function PublicSchoolDetailPage() {
   if (!school) {
     return (
       <View className='pub-page'>
-        <View className='pub-empty'>学校不存在或已下架</View>
+        <View className='pub-empty'>{t('pub.schoolNotFound')}</View>
       </View>
     )
   }
@@ -106,13 +108,13 @@ export default function PublicSchoolDetailPage() {
           <View className='pub-kv'>
             {school.address ? (
               <View className='pub-kv__item'>
-                <Text className='pub-kv__k'>地址</Text>
+                <Text className='pub-kv__k'>{t('pub.address')}</Text>
                 <Text className='pub-kv__v'>{school.address}</Text>
               </View>
             ) : null}
             {school.district || school.city ? (
               <View className='pub-kv__item'>
-                <Text className='pub-kv__k'>区域</Text>
+                <Text className='pub-kv__k'>{t('pub.district')}</Text>
                 <Text className='pub-kv__v'>
                   {[school.district, school.city].filter(Boolean).join(' · ')}
                 </Text>
@@ -120,19 +122,19 @@ export default function PublicSchoolDetailPage() {
             ) : null}
             {school.student_count ? (
               <View className='pub-kv__item'>
-                <Text className='pub-kv__k'>在校人数</Text>
+                <Text className='pub-kv__k'>{t('pub.studentCount')}</Text>
                 <Text className='pub-kv__v'>{school.student_count}</Text>
               </View>
             ) : null}
             {school.phone ? (
               <View className='pub-kv__item'>
-                <Text className='pub-kv__k'>电话</Text>
+                <Text className='pub-kv__k'>{t('pub.phone')}</Text>
                 <Text className='pub-kv__v'>{school.phone}</Text>
               </View>
             ) : null}
             {school.website ? (
               <View className='pub-kv__item'>
-                <Text className='pub-kv__k'>官网</Text>
+                <Text className='pub-kv__k'>{t('pub.website')}</Text>
                 <Text className='pub-kv__v'>{school.website}</Text>
               </View>
             ) : null}
@@ -144,20 +146,20 @@ export default function PublicSchoolDetailPage() {
         </View>
 
         {/* 周边房源：学区找房的落地点 */}
-        <Text className='pub-section__title'>周边房源</Text>
-        <Text className='pub-section__hint'>按直线距离由近到远排列。</Text>
+        <Text className='pub-section__title'>{t('pub.nearbyListings')}</Text>
+        <Text className='pub-section__hint'>{t('pub.nearbyListingsHint')}</Text>
         {listings.length === 0 ? (
-          <View className='pub-empty'>该学校周边暂无可租房源</View>
+          <View className='pub-empty'>{t('pub.nearbyListingsEmpty')}</View>
         ) : (
           listings.map((item) => <PublicListingItem key={item.id} item={item} />)
         )}
 
         <PublicInquiryForm
-          title='想读这所学校？先看住哪儿'
-          note='留下联系方式，我们会尽快与你联系。浏览全部房源无需注册。'
+          title={t('pub.schoolInquireTitle')}
+          note={t('pub.inquireNote')}
           context={{ school_id: school.id }}
           source='school_detail'
-          defaultMessage={`我想了解 ${school.name ?? ''} 附近的房源`}
+          defaultMessage={t('pub.schoolInquiryMessage', { name: school.name ?? '' })}
         />
       </View>
     </View>

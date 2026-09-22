@@ -9,7 +9,12 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, require_agent
+from app.core.auth import (
+    can_view_lease,
+    get_current_user,
+    lease_visibility_conditions,
+    require_agent,
+)
 from app.core.concurrency import ensure_version
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate_query
@@ -147,8 +152,15 @@ def list_leases(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """租约列表（分页，可按 status/property_id/tenant_id 筛选）。"""
+    """租约列表（分页，可按 status/property_id/tenant_id 筛选）。
+
+    **可见范围由 token 决定**：员工全量、业主仅本人房源、租客仅本人。
+    调用方传的 `tenant_id` / `property_id` 只是「可见范围内的进一步筛选」，
+    不参与权限判定——此前没有这层收敛，任何登录用户传别人的 tenant_id
+    就能读到他人租约（含月租、押金、合同链接）。
+    """
     conditions = [Lease.deleted_at.is_(None)]
+    conditions.extend(lease_visibility_conditions(session, user))
     if status:
         conditions.append(Lease.status == status)
     if property_id:
@@ -234,9 +246,13 @@ def get_lease(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """获取租约详情。"""
+    """获取租约详情（仅本人/本人房源可见；员工不受限）。
+
+    不可见时返回 404 而非 403：403 会暴露「这条租约确实存在」，
+    等于给出可枚举的 id 探测面。
+    """
     lease = session.get(Lease, lease_id)
-    if not lease or lease.deleted_at:
+    if not lease or lease.deleted_at or not can_view_lease(session, user, lease):
         raise HTTPException(status_code=404, detail="Lease not found")
     return lease
 

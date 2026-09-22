@@ -20,6 +20,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { translateApi, favoritesApi } from '@/services/api';
 import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
@@ -334,6 +335,7 @@ const ListingCard = React.memo(function ListingCard({
 });
 
 export default function ListingsScreen() {
+  const respContainer = useResponsiveContainerStyle();
   const { t, lang } = useI18n();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -353,7 +355,7 @@ export default function ListingsScreen() {
   const [areaCustomMin, setAreaCustomMin] = useState(''); // 自定义最低面积（㎡）
   const [areaCustomMax, setAreaCustomMax] = useState(''); // 自定义最高面积（㎡）
   const [sortKey, setSortKey] = useState('default');
-  type OpenTab = null | 'region' | 'school' | 'price' | 'layout' | 'more' | 'sort';
+  type OpenTab = null | 'region' | 'price' | 'more' | 'sort';
   const [openTab, setOpenTab] = useState<OpenTab>(null);
   const [translatingId, setTranslatingId] = useState<string | null>(null);
   // 业务归属 Tab（整租 / 合租 / 买房）
@@ -458,7 +460,7 @@ export default function ListingsScreen() {
 
   // 学校候选：首次展开面板时懒加载一次
   useEffect(() => {
-    if (openTab !== 'school' || schoolsLoaded) return;
+    if (openTab !== 'more' || schoolsLoaded) return;
     setSchoolsLoaded(true);
     publicApi
       .schools({ page_size: 100 })
@@ -651,10 +653,11 @@ export default function ListingsScreen() {
     : customMin || customMax
     ? '自定义'
     : '价格';
-  const bedLabel = bedFilter ? BEDROOM_OPTIONS.find((b) => b.key === bedFilter)?.label ?? '户型' : '户型';
   const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label ?? '排序';
-  // 「更多」收纳了房源类型 / 居室外的朝向 / 楼层 / 面积 / 装修 / 配套 / 状态，角标按已生效组数计
+  // 「更多」收纳了学校 / 户型 / 房源类型 / 朝向 / 楼层 / 面积 / 装修 / 配套 / 状态，角标按已生效组数计
   const moreBadge =
+    (schoolId ? 1 : 0) +
+    (bedFilter ? 1 : 0) +
     (filter ? 1 : 0) +
     (hasAreaFilter ? 1 : 0) +
     (statusFilter ? 1 : 0) +
@@ -683,9 +686,10 @@ export default function ListingsScreen() {
       setPriceRange('');
       setCustomMin('');
       setCustomMax('');
-    } else if (key === 'layout') {
-      setBedFilter('');
     } else if (key === 'more') {
+      setSchoolId('');
+      setSchoolName('');
+      setBedFilter('');
       setFilter('');
       setAreaRange('');
       setAreaCustomMin('');
@@ -712,9 +716,7 @@ export default function ListingsScreen() {
   // 贝壳式 Tab 栏展示数据
   const filterTabs = [
     { key: 'region', label: districtSel || metroSel.length ? regionLabel : '区域', active: !!activeLocationKw.length, badge: 0 },
-    { key: 'school', label: schoolId ? `${schoolName} · ${schoolKm}km` : '学校', active: !!schoolId, badge: 0 },
     { key: 'price', label: hasPriceFilter ? priceLabel : '价格', active: hasPriceFilter, badge: 0 },
-    { key: 'layout', label: bedFilter ? bedLabel : '户型', active: !!bedFilter, badge: 0 },
     { key: 'more', label: '更多', active: moreBadge > 0, badge: moreBadge },
     { key: 'sort', label: sortKey !== 'default' ? sortLabel : '排序', active: sortKey !== 'default', badge: 0 },
   ] as { key: OpenTab; label: string; active: boolean; badge: number }[];
@@ -1136,65 +1138,6 @@ export default function ListingsScreen() {
               </>
             )}
 
-            {openTab === 'school' && (
-              <>
-                <Text style={styles.dropGroupTitle}>距离范围</Text>
-                <View style={styles.filterGroup}>
-                  {SCHOOL_RADIUS_OPTIONS.map((km) => (
-                    <TouchableOpacity
-                      key={km}
-                      style={[styles.filterChip, schoolKm === km && styles.filterChipActive]}
-                      onPress={() => setSchoolKm(km)}
-                    >
-                      <Text style={[styles.filterText, schoolKm === km && styles.filterTextActive]}>
-                        {km}km
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <TextInput
-                  style={styles.dropSearch}
-                  value={schoolKw}
-                  onChangeText={setSchoolKw}
-                  placeholder="搜索学校名称"
-                  placeholderTextColor={colors.ink3}
-                  returnKeyType="search"
-                />
-                <ScrollView style={styles.dropBody}>
-                  <View style={styles.filterGroup}>
-                    <TouchableOpacity
-                      style={[styles.filterChip, !schoolId && styles.filterChipActive]}
-                      onPress={() => {
-                        setSchoolId('');
-                        setSchoolName('');
-                        setOpenTab(null);
-                      }}
-                    >
-                      <Text style={[styles.filterText, !schoolId && styles.filterTextActive]}>不限</Text>
-                    </TouchableOpacity>
-                    {filteredSchools.map((s) => (
-                      <TouchableOpacity
-                        key={s.id}
-                        style={[styles.filterChip, schoolId === s.id && styles.filterChipActive]}
-                        onPress={() => {
-                          setSchoolId(s.id);
-                          setSchoolName(s.name ?? '学校');
-                          setOpenTab(null);
-                        }}
-                      >
-                        <Text style={[styles.filterText, schoolId === s.id && styles.filterTextActive]}>
-                          {s.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  {schoolsLoaded && !filteredSchools.length && (
-                    <Text style={styles.dropEmpty}>暂无匹配学校</Text>
-                  )}
-                </ScrollView>
-              </>
-            )}
-
             {openTab === 'price' && (
               <>
                 <Text style={styles.dropGroupTitle}>快捷选择</Text>
@@ -1251,35 +1194,72 @@ export default function ListingsScreen() {
               </>
             )}
 
-            {openTab === 'layout' && (
-              <>
-                <Text style={styles.dropGroupTitle}>户型</Text>
-                <View style={styles.filterGroup}>
-                  {BEDROOM_OPTIONS.map((b) => (
-                    <TouchableOpacity
-                      key={b.key}
-                      style={[styles.filterChip, bedFilter === b.key && styles.filterChipActive]}
-                      onPress={() => setBedFilter(b.key)}
-                    >
-                      <Text style={[styles.filterText, bedFilter === b.key && styles.filterTextActive]}>{b.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <View style={styles.panelActions}>
-                  <TouchableOpacity style={styles.resetBtn} onPress={() => resetCurrent('layout')} activeOpacity={0.7}>
-                    <Text style={styles.resetText}>重置</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmCurrent('layout')} activeOpacity={0.7}>
-                    <Text style={styles.confirmText}>确定</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-
             {openTab === 'more' && (
               <>
-                {/* 三组条件叠加后超出面板高度，内容区独立滚动，操作行常驻可见 */}
+                {/* 多组条件叠加后超出面板高度，内容区独立滚动，操作行常驻可见 */}
                 <ScrollView style={styles.dropBodyTall}>
+                  <Text style={styles.dropGroupTitle}>户型</Text>
+                  <View style={styles.filterGroup}>
+                    {BEDROOM_OPTIONS.map((b) => (
+                      <TouchableOpacity
+                        key={b.key}
+                        style={[styles.filterChip, bedFilter === b.key && styles.filterChipActive]}
+                        onPress={() => setBedFilter(b.key)}
+                      >
+                        <Text style={[styles.filterText, bedFilter === b.key && styles.filterTextActive]}>{b.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={styles.dropGroupTitle}>学校 · 距离</Text>
+                  <View style={styles.filterGroup}>
+                    {SCHOOL_RADIUS_OPTIONS.map((km) => (
+                      <TouchableOpacity
+                        key={km}
+                        style={[styles.filterChip, schoolKm === km && styles.filterChipActive]}
+                        onPress={() => setSchoolKm(km)}
+                      >
+                        <Text style={[styles.filterText, schoolKm === km && styles.filterTextActive]}>
+                          {km}km
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TextInput
+                    style={styles.dropSearch}
+                    value={schoolKw}
+                    onChangeText={setSchoolKw}
+                    placeholder="搜索学校名称"
+                    placeholderTextColor={colors.ink3}
+                    returnKeyType="search"
+                  />
+                  <View style={styles.filterGroup}>
+                    <TouchableOpacity
+                      style={[styles.filterChip, !schoolId && styles.filterChipActive]}
+                      onPress={() => {
+                        setSchoolId('');
+                        setSchoolName('');
+                      }}
+                    >
+                      <Text style={[styles.filterText, !schoolId && styles.filterTextActive]}>不限</Text>
+                    </TouchableOpacity>
+                    {filteredSchools.map((s) => (
+                      <TouchableOpacity
+                        key={s.id}
+                        style={[styles.filterChip, schoolId === s.id && styles.filterChipActive]}
+                        onPress={() => {
+                          setSchoolId(s.id);
+                          setSchoolName(s.name ?? '学校');
+                        }}
+                      >
+                        <Text style={[styles.filterText, schoolId === s.id && styles.filterTextActive]}>
+                          {s.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  {schoolsLoaded && !filteredSchools.length && (
+                    <Text style={styles.dropEmpty}>暂无匹配学校</Text>
+                  )}
                   <Text style={styles.dropGroupTitle}>房源类型</Text>
                   <View style={styles.filterGroup}>
                     {PROPERTY_TYPE_FILTERS.map((f) => (
@@ -1439,7 +1419,7 @@ export default function ListingsScreen() {
         data={(biz === 'sale' ? saleFiltered : biz === 'share' ? [] : sortedData) as any[]}
         keyExtractor={(item) => item.id}
         renderItem={(biz === 'sale' ? renderSaleItem : renderItem) as any}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, respContainer]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         /* 长列表性能：控制首屏/批次渲染数量与视窗外回收 */
         initialNumToRender={6}
@@ -1635,13 +1615,13 @@ const styles = StyleSheet.create({
   dropPanel: {
     // 不使用 maxHeight 裁切：内层 dropBody 已限高（260），
     // 否则区域面板的「重置 / 确定」操作行在小屏上会被裁掉
-    marginHorizontal: 12,
+    marginHorizontal: 0,
     marginTop: 6,
     backgroundColor: colors.surface,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
-    borderBottomLeftRadius: colors.radius.lg,
-    borderBottomRightRadius: colors.radius.lg,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,

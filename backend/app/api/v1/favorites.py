@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.auth import get_current_user
 from app.core.pagination import Page, PaginationParams, paginate_query
-from app.models import Favorite, Property, User
+from app.models import Favorite, Listing, ListingStatus, ListingType, Property, User
 
 router = APIRouter(prefix="/favorites", tags=["favorites"])
 
@@ -31,6 +31,7 @@ class FavoriteItemOut(BaseModel):
 
     id: Optional[str] = None
     property_id: Optional[str] = None
+    listing_id: Optional[str] = None
     title: Optional[str] = None
     room_number: Optional[str] = None
     address: Optional[str] = None
@@ -133,10 +134,28 @@ def list_favorites(
             )
         ).all()
     }
+    # 每套房源对应的公开上架单（优先租单）：供 App 收藏列表跳转公开详情页。
+    prop_ids = list(props.keys())
+    listing_map: dict = {}
+    for li in session.exec(
+        select(Listing).where(
+            Listing.property_id.in_(prop_ids) if prop_ids else Listing.id.is_(None),
+            Listing.deleted_at.is_(None),
+            Listing.status == ListingStatus.active,
+        )
+    ).all():
+        cur = listing_map.get(li.property_id)
+        if cur is None or (
+            li.listing_type == ListingType.rent and cur.listing_type != ListingType.rent
+        ):
+            listing_map[li.property_id] = li
     page.items = [
         {
             "id": str(f.id),
             "property_id": str(f.property_id),
+            "listing_id": str(listing_map[f.property_id].id)
+            if f.property_id in listing_map
+            else None,
             "title": p.room_number if (p := props.get(f.property_id)) else None,
             "room_number": p.room_number if (p := props.get(f.property_id)) else None,
             "address": p.address if (p := props.get(f.property_id)) else None,

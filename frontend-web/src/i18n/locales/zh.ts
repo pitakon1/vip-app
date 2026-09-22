@@ -21,6 +21,7 @@ const zh = {
     submit: '提交',
     logout: '退出登录',
     welcome: '欢迎',
+    close: '关闭',
     noData: '暂无数据',
     total: '共',
     items: '条',
@@ -422,6 +423,13 @@ const zh = {
     pattaya: '芭提雅',
     huaHin: '华欣',
   },
+  regionFilter: {
+    title: '区域',
+    allRegions: '全部区域',
+    country: '国家',
+    city: '城市',
+    district: '区',
+  },
   language: {
     zh: '中文',
     en: 'English',
@@ -558,6 +566,9 @@ const zh = {
     billPending: '待缴账单',
   },
   locate: {
+    selectCity: '选择城市',
+    cityCount: '{{count}} 城',
+    districtCount: '{{count}} 个区',
     area: '区域',
     metro: '地铁',
     all: '不限',
@@ -1070,6 +1081,8 @@ const zh = {
     km: '公里',
     up: '起',
     distanceToSchool: '距 {{name}} 约 {{km}} 公里',
+    similarListings: '猜你喜欢',
+    similarListingsHint: '同楼盘 / 同户型 / 同区域的相似房源，更多选择看这里。',
 
     // ---------- 学校库 ----------
     schoolsTitle: '国际学校',
@@ -1123,6 +1136,7 @@ const zh = {
     backToList: '← 返回房源列表',
     deposit: '押金',
     months: '个月',
+    unitPrice: '单价',
     keyFacts: '房源信息',
     roomNumber: '房间号',
     building: '楼栋',

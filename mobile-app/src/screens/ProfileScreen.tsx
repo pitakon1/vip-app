@@ -111,6 +111,10 @@ const C_FUNC_GRID: Array<FuncEntry & { cap: 'owner' | 'tenant' | 'both' }> = [
   { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'TenantServices', cap: 'tenant', needKey: 'profile.needServices' },
   // 通用能力项（文档中心：租客与业主的租房文档/我的文档合并）
   { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'Documents', cap: 'both', needKey: 'profile.needDocuments' },
+  // C 端关注/浏览历史：登录即可用，不按业主/租客能力门槛（需登录 → 未登录先进 Login）
+  { key: 'favorites', labelKey: 'pub.myFollow', icon: 'heart', navigate: 'Favorites', cap: 'both' },
+  { key: 'history', labelKey: 'pub.myHistory', icon: 'time', navigate: 'History', cap: 'both' },
+  { key: 'priceAlerts', labelKey: 'pub.priceAlerts', icon: 'notifications', navigate: 'PriceAlerts', cap: 'both' },
 ];
 // 统一：所有人显示全部入口（不按能力过滤）；能否进入由 useUserCapabilities 判断
 const C_FUNC_VISIBLE = () => C_FUNC_GRID;
@@ -435,6 +439,11 @@ export default function ProfileScreen() {
                     navigation.navigate('Login');
                     return;
                   }
+                  // 关注 / 浏览历史 / 降价提醒：登录即可用，不受业主/租客能力门槛限制
+                  if (entry.key === 'favorites' || entry.key === 'history' || entry.key === 'priceAlerts') {
+                    navigation.navigate(entry.navigate);
+                    return;
+                  }
                   const ok = hasFuncCap(isOwner, isTenant, entry.cap);
                   navigation.navigate(
                     ok ? entry.navigate : 'FeatureNotAvailable',
@@ -549,6 +558,22 @@ export default function ProfileScreen() {
             <View style={styles.employeeInfo}>
               <Text style={styles.employeeTitle}>员工管理</Text>
               <Text style={styles.employeeDesc}>管理员工账号、角色与权限</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+
+          {/* 合同管理入口 */}
+          <TouchableOpacity
+            style={styles.employeeEntry}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('AdminLeases')}
+          >
+            <View style={styles.employeeIcon}>
+              <Ionicons name="document-text" size={18} color={colors.primary} />
+            </View>
+            <View style={styles.employeeInfo}>
+              <Text style={styles.employeeTitle}>合同管理</Text>
+              <Text style={styles.employeeDesc}>管理租约合同、续约与到期</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>

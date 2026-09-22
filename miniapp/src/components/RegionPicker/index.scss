@@ -1,0 +1,142 @@
+.rp-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 0 20rpx;
+  height: 60rpx;
+  border-radius: var(--radius-full);
+  border: 1rpx solid var(--border);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 26rpx;
+  font-weight: 500;
+  max-width: 380rpx;
+
+  &--active {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.08);
+    color: var(--primary);
+  }
+
+  &__text {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  &__caret {
+    font-size: 22rpx;
+    color: var(--ink-3);
+  }
+}
+
+.rp-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-end;
+}
+
+.rp-sheet {
+  width: 100%;
+  background: var(--surface);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 0 24rpx 24rpx;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24rpx 0;
+    border-bottom: 1rpx solid var(--border);
+  }
+
+  &__title {
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  &__head-right {
+    display: flex;
+    align-items: center;
+    gap: 20rpx;
+  }
+
+  &__reset {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary);
+  }
+}
+
+.rp-cols {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.rp-col {
+  flex: 1;
+  min-width: 0;
+  padding-top: 16rpx;
+
+  &__title {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-3);
+    padding-bottom: 8rpx;
+    border-bottom: 1rpx solid var(--border);
+    margin-bottom: 8rpx;
+  }
+
+  &__scroll {
+    max-height: 600rpx;
+  }
+
+  &__empty {
+    height: 180rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__empty-text {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}
+
+.rp-opt {
+  padding: 14rpx 12rpx;
+  border-radius: var(--radius-md);
+  margin-bottom: 8rpx;
+
+  &--all {
+    border: 1rpx solid var(--border);
+  }
+
+  &--active {
+    background: rgba(var(--primary-rgb), 0.12);
+  }
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--ink-2);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    &--active {
+      color: var(--primary);
+      font-weight: 700;
+    }
+  }
+}

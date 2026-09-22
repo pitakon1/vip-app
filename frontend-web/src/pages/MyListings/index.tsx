@@ -5,6 +5,7 @@ import { listingsApi } from '@/services/api'
 import { formatMoney } from '@/lib/money'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import RegionPicker, { type RegionSelection } from '@/components/RegionPicker'
 
 interface Listing {
   id: string
@@ -29,6 +30,21 @@ interface Listing {
   created_at?: string | null
   broker_company?: string | null
   broker_real_name?: string | null
+  // C 端口径的房源展示字段（后端 /listings 已对齐 /public/listings）
+  property_type?: string | null
+  room_number?: string | null
+  property_address?: string | null
+  district?: string | null
+  city?: string | null
+  project_name?: string | null
+  size_sqm?: number | null
+  bedrooms?: number | null
+  bathrooms?: number | null
+  floor?: number | null
+  building?: string | null
+  orientation?: string | null
+  decoration?: string | null
+  cover?: string | null
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -60,20 +76,24 @@ const MyListings = () => {
   const uid = useAuthStore((s) => s.user)?.id ?? 'anon'
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
+  const [region, setRegion] = useState<RegionSelection | null>(null)
   const [current, setCurrent] = useState<Listing | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const pageSize = 10
 
   // 用户私有数据：key 含 uid，缓存优先渲染 + 后台刷新
   const q = useCachedQuery<{ items: Listing[]; total: number }>({
-    queryKey: ['my-listings', uid, status || 'all', String(page)],
-    cacheKey: `my-listings:${uid}:${status || 'all'}:${page}`,
+    queryKey: ['my-listings', uid, status || 'all', String(page), region?.region || '', region?.city || '', region?.district || ''],
+    cacheKey: `my-listings:${uid}:${status || 'all'}:${page}:${region?.region ?? ''}:${region?.city ?? ''}:${region?.district ?? ''}`,
     queryFn: async () => {
       try {
         const res = await listingsApi.list({
           page,
           page_size: pageSize,
           status: status || undefined,
+          region: region?.region || undefined,
+          city: region?.city || undefined,
+          district: region?.district || undefined,
         })
         const payload = res.data?.data ?? res.data
         return { items: payload?.items ?? [], total: payload?.total ?? 0 }
@@ -102,6 +122,37 @@ const MyListings = () => {
     if (li.buyer_side_rate == null && li.listing_side_rate == null) return '-'
     return `客源方 ${li.buyer_side_rate ?? 0}% / 房源方 ${li.listing_side_rate ?? 0}%`
   }
+
+  const propTitle = (li: Listing) =>
+    li.project_name || [li.room_number, li.building].filter(Boolean).join(' · ') || '房源'
+
+  const propAddress = (li: Listing) =>
+    li.property_address || [li.district, li.city].filter(Boolean).join(' ') || '—'
+
+  const propSpec = (li: Listing) => {
+    const parts: string[] = []
+    if (li.size_sqm != null) parts.push(`${li.size_sqm}㎡`)
+    if (li.bedrooms != null) parts.push(`${li.bedrooms}室`)
+    if (li.bathrooms != null) parts.push(`${li.bathrooms}卫`)
+    if (li.orientation) parts.push(li.orientation)
+    if (li.decoration) parts.push(li.decoration)
+    return parts.join(' · ') || '—'
+  }
+
+  const renderProperty = (li: Listing) => (
+    <div className="rent-flex rent-gap-2" style={{ alignItems: 'center', minWidth: 240 }}>
+      {li.cover ? (
+        <img src={li.cover} alt="" style={{ width: 56, height: 42, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+      ) : (
+        <div className="rent-badge" style={{ minWidth: 56, textAlign: 'center', flexShrink: 0 }}>无图</div>
+      )}
+      <div style={{ minWidth: 0 }}>
+        <div className="rent-text-bold" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{propTitle(li)}</div>
+        <div className="rent-text-sm rent-text-muted" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{propAddress(li)}</div>
+        <div className="rent-text-sm" style={{ color: 'var(--state-success)' }}>{propSpec(li)}</div>
+      </div>
+    </div>
+  )
 
   const openDetail = (li: Listing) => {
     setCurrent(li)
@@ -144,6 +195,7 @@ const MyListings = () => {
           <option value="">全部状态</option>
           {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
+        <RegionPicker value={region} onChange={(sel) => { setRegion(sel); setPage(1) }} />
       </div>
 
       {loading ? (
@@ -153,7 +205,7 @@ const MyListings = () => {
           <table className="rent-table">
             <thead>
               <tr>
-                <th>地址</th>
+                <th>房源</th>
                 <th>类型</th>
                 <th>价格</th>
                 <th>佣金</th>
@@ -169,10 +221,7 @@ const MyListings = () => {
               )}
               {items.map((li) => (
                 <tr key={li.id}>
-                  <td>
-                    <div className="rent-text-bold">房源 {li.property_id.slice(0, 8)}</div>
-                    <div className="rent-text-sm rent-text-muted">{li.broker_company || li.broker_real_name || '—'}</div>
-                  </td>
+                  <td>{renderProperty(li)}</td>
                   <td><span className="rent-badge rent-badge--info">{li.listing_type === 'sell' ? '出售' : '出租'}</span></td>
                   <td>{priceOf(li)}</td>
                   <td>{commissionOf(li)}</td>
@@ -215,6 +264,8 @@ const MyListings = () => {
       <Modal open={detailOpen} onCancel={() => setDetailOpen(false)} footer={null} title="上架单详情">
         {current && (
           <div className="rent-form-group">
+            <p>房源：<b>{propTitle(current)}</b> · {propSpec(current)}</p>
+            <p>地址：{propAddress(current)}</p>
             <p>状态：<b>{STATUS_LABEL[current.status] || current.status}</b></p>
             <p>类型：{current.listing_type === 'sell' ? '出售' : '出租'} · 价格：{priceOf(current)}</p>
             <p>委托方式：{current.mandate_type === 'exclusive' ? '独家/快速成交' : '非独家委托'}</p>

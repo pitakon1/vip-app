@@ -7,7 +7,7 @@
 """
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,6 +22,7 @@ from app.models import (
     UserRole,
     Owner,
     Property,
+    Project,
     BrokerPartner,
     Listing,
     ListingType,
@@ -249,6 +250,50 @@ def _serialize(
     return data
 
 
+def _pick_cover(photos: Any) -> Optional[str]:
+    """取 photos 首图作为封面（兼容字符串 / {url,path} 字典两种形态）。"""
+    if isinstance(photos, list) and photos:
+        first = photos[0]
+        if isinstance(first, str):
+            return first
+        if isinstance(first, dict):
+            return first.get("url") or first.get("path")
+    return None
+
+
+def _enum_value(value: Any) -> Optional[str]:
+    """枚举取 .value，非枚举原样返回。"""
+    if value is None:
+        return None
+    return value.value if hasattr(value, "value") else value
+
+
+def _property_view(prop: Optional[Property], project: Optional[Project]) -> dict:
+    """房源档案 + 楼盘 → C 端找房口径的展示字段。
+
+    让 B 端「房源管理/我的上架单」列表的房源列与 C 端找房卡片对齐，
+    提供封面、项目名、地址分区、朝向、装修等 C 端决策字段。
+    """
+    return {
+        "property_type": _enum_value(prop.property_type) if prop else None,
+        "room_number": prop.room_number if prop else None,
+        "property_address": prop.address if prop else None,
+        "district": project.district if project else None,
+        "city": project.city if project else None,
+        "project_id": str(project.id) if project else None,
+        "project_name": project.name if project else None,
+        "size_sqm": prop.size_sqm if prop else None,
+        "bedrooms": prop.bedrooms if prop else None,
+        "bathrooms": prop.bathrooms if prop else None,
+        "floor": prop.floor if prop else None,
+        "building": prop.building if prop else None,
+        "orientation": _enum_value(prop.orientation) if prop else None,
+        "decoration": _enum_value(prop.decoration) if prop else None,
+        "furnished": bool(prop.furnished) if prop else False,
+        "cover": _pick_cover(prop.photos) if prop else None,
+    }
+
+
 def _can_view_owner_contact(user: User, li: Listing) -> bool:
     """业主联系方式可见：发布人本人 或 staff。"""
     if user.role in STAFF_ROLES:
@@ -333,14 +378,31 @@ def list_listings(
     page = paginate_query(session, stmt, pagination)
     # 业主的 Owner.id 只查一次，避免逐条回查 owners（N+1）
     owner_id_for_user = _get_owner_id_for_user(session, user)
-    page.items = [
-        _serialize(
+    # 批量取房源档案与楼盘，构建 C 端口径展示字段（同样只查两次，避免 N+1）
+    listings = page.items
+    prop_ids = [li.property_id for li in listings if li.property_id]
+    props = session.exec(
+        select(Property).where(Property.id.in_(prop_ids), Property.deleted_at.is_(None))
+    ).all() if prop_ids else []
+    prop_map = {p.id: p for p in props}
+    project_ids = [p.project_id for p in props if p.project_id]
+    projects = session.exec(
+        select(Project).where(Project.id.in_(project_ids))
+    ).all() if project_ids else []
+    project_map = {pr.id: pr for pr in projects}
+
+    rows = []
+    for li in listings:
+        prop = prop_map.get(li.property_id)
+        project = project_map.get(prop.project_id) if prop else None
+        item = _serialize(
             li,
             include_owner_contact=(is_staff or _can_view_owner_contact(user, li)),
             include_commission=_can_view_commission(user, li, owner_id_for_user),
         )
-        for li in page.items
-    ]
+        item.update(_property_view(prop, project))
+        rows.append(item)
+    page.items = rows
     return page
 
 

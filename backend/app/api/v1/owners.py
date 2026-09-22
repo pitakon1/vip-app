@@ -1,10 +1,12 @@
 """业主路由：业主个人信息、房源与租金收入。"""
+import uuid
 from collections import defaultdict
 from datetime import datetime
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import false
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -13,13 +15,16 @@ from app.core.payments import is_past_due
 from app.models import (
     Document,
     Owner,
+    Project,
     Property,
     PropertyStatus,
     Payment,
     PaymentType,
     PaymentStatus,
+    School,
     User,
 )
+from app.providers.geo import haversine_km, lat_lng_bounds
 from app.schemas.owners import AnnualFinancialSummaryOut, OwnerIncomeOut
 
 router = APIRouter(prefix="/owners", tags=["owners"])
@@ -148,22 +153,53 @@ def update_my_owner_info(
 def get_my_properties(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),
+    school_id: Optional[uuid.UUID] = None,
+    school_radius_km: float = 3.0,
 ):
-    """业主的房源列表（admin 无业主档案时返回全部房源）。"""
+    """业主的房源列表（admin 无业主档案时返回全部房源）。
+
+    `school_id + school_radius_km`：按学校找房（空间筛选），口径与 `/properties` 一致——
+    先用经纬度包围盒粗筛小区，再用 haversine 精算半径，收敛成「半径内的小区 ID 集合」。
+    """
     owner = session.exec(
         select(Owner).where(
             Owner.user_id == user.id,
             Owner.deleted_at.is_(None),
         )
     ).first()
+    conditions = [Property.deleted_at.is_(None)]
     if owner:
-        stmt = select(Property).where(
-            Property.owner_id == owner.id,
-            Property.deleted_at.is_(None),
+        conditions.append(Property.owner_id == owner.id)
+    # 按学校找房（复用 /properties 的空间筛选逻辑，与 C 端口径对齐）
+    if school_id:
+        school = session.get(School, school_id)
+        if not school or school.deleted_at:
+            raise HTTPException(status_code=404, detail="School not found")
+        if school.lat is None or school.lng is None:
+            # 没有坐标就算不出距离，不能拿全量冒充满足条件的结果
+            raise HTTPException(status_code=400, detail="该学校缺少经纬度，无法按距离筛选")
+        lat_min, lat_max, lng_min, lng_max = lat_lng_bounds(
+            school.lat, school.lng, school_radius_km
         )
-    else:
-        # admin 未建档：查看全部房源
-        stmt = select(Property).where(Property.deleted_at.is_(None))
+        candidates = session.exec(
+            select(Project.id, Project.lat, Project.lng).where(
+                Project.deleted_at.is_(None),
+                Project.lat.is_not(None),
+                Project.lng.is_not(None),
+                Project.lat >= lat_min,
+                Project.lat <= lat_max,
+                Project.lng >= lng_min,
+                Project.lng <= lng_max,
+            )
+        ).all()
+        near_ids = [
+            pid
+            for pid, plat, plng in candidates
+            if haversine_km(school.lat, school.lng, plat, plng) <= school_radius_km
+        ]
+        # 半径内无小区时必须显式置空，否则该条件会被整个跳过而返回全量
+        conditions.append(Property.project_id.in_(near_ids) if near_ids else false())
+    stmt = select(Property).where(*conditions)
     properties = session.exec(
         stmt.order_by(Property.created_at.desc())
     ).all()

@@ -75,6 +75,7 @@ export interface PublicProjectBrief {
   tenure?: string | null;
   foreign_quota_pct?: number | null;
   developer_name?: string | null;
+  nearest_subway?: string | null;
 }
 
 export interface PublicNearbySchool {
@@ -211,6 +212,8 @@ export const publicApi = {
   listings: (params?: PublicListingQuery) => api.get('/public/listings', { params }),
   /** 公开房源详情 */
   listing: (id: string) => api.get(`/public/listings/${id}`),
+  /** 相似房源推荐（详情页「猜你喜欢」） */
+  similar: (id: string) => api.get(`/public/listings/${id}/similar`),
   /** 学校列表 */
   schools: (params?: { page?: number; page_size?: number; q?: string; stage?: string; curriculum?: string }) =>
     api.get('/public/schools', { params }),

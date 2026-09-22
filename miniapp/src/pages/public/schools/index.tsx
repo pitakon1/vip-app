@@ -15,12 +15,14 @@ import {
   schoolStageLabel,
   curriculumLabel
 } from '@/lib/publicSite'
+import { useI18n } from '@/i18n'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
 
 const PAGE_SIZE = 30
 
 export default function PublicSchoolsPage() {
+  const { t } = useI18n()
   const [keyword, setKeyword] = useState('')
   const [debounced, setDebounced] = useState('')
   const [stage, setStage] = useState('')
@@ -74,20 +76,20 @@ export default function PublicSchoolsPage() {
     <View className='pub-page'>
       <View className='pub-inner'>
         <View className='pub-head'>
-          <Text className='pub-head__title'>国际学校</Text>
+          <Text className='pub-head__title'>{t('pub.schoolsTitle')}</Text>
           <Text className='pub-head__hint'>
-            按办学阶段与课程体系筛选，点进任一所即可看到周边在租房源与在售房源。
+            {t('pub.schoolsHint')}
           </Text>
           <Input
             className='pub-search'
             value={keyword}
             onInput={(e) => setKeyword(e.detail.value)}
-            placeholder='学校名称 / 英文名'
+            placeholder={t('pub.schoolSearchPlaceholder')}
             confirmType='search'
           />
         </View>
 
-        <Text className='pub-chips__label'>办学阶段</Text>
+        <Text className='pub-chips__label'>{t('pub.stageLabel')}</Text>
         <ScrollView className='pub-chips' scrollX>
           {STAGE_OPTIONS.map(([value, label]) => (
             <View
@@ -95,12 +97,12 @@ export default function PublicSchoolsPage() {
               className={`pub-chip${stage === value ? ' pub-chip--on' : ''}`}
               onClick={() => setStage(value)}
             >
-              <Text>{label}</Text>
+              <Text>{t(label)}</Text>
             </View>
           ))}
         </ScrollView>
 
-        <Text className='pub-chips__label'>课程体系</Text>
+        <Text className='pub-chips__label'>{t('pub.curriculumLabel')}</Text>
         <ScrollView className='pub-chips' scrollX>
           {CURRICULUM_OPTIONS.map(([value, label]) => (
             <View
@@ -108,17 +110,17 @@ export default function PublicSchoolsPage() {
               className={`pub-chip${curriculum === value ? ' pub-chip--on' : ''}`}
               onClick={() => setCurriculum(value)}
             >
-              <Text>{label}</Text>
+              <Text>{t(label)}</Text>
             </View>
           ))}
         </ScrollView>
 
-        <Text className='pub-count'>共 {total} 所学校</Text>
+        <Text className='pub-count'>{t('pub.schoolCount', { n: total })}</Text>
 
         {loading ? (
-          <View className='pub-loading'>加载中...</View>
+          <View className='pub-loading'>{t('pub.loading')}</View>
         ) : items.length === 0 ? (
-          <View className='pub-empty'>没有匹配的学校，换个条件试试</View>
+          <View className='pub-empty'>{t('pub.schoolsEmpty')}</View>
         ) : (
           <>
             {items.map((school) => (
@@ -161,12 +163,12 @@ export default function PublicSchoolsPage() {
                     ) : null}
                   </View>
                 </View>
-                <Text className='pub-row__action'>查看周边房源 ›</Text>
+                <Text className='pub-row__action'>{t('pub.viewNearby')}</Text>
               </View>
             ))}
 
             {loadingMore ? (
-              <View className='pub-loading'>加载中...</View>
+              <View className='pub-loading'>{t('pub.loading')}</View>
             ) : items.length < total ? (
               <View
                 className='btn btn--secondary'
@@ -175,10 +177,10 @@ export default function PublicSchoolsPage() {
                   fetchPage(page + 1)
                 }}
               >
-                <Text>加载更多</Text>
+                <Text>{t('pub.loadMore')}</Text>
               </View>
             ) : (
-              <View className='pub-footer-note'>没有更多了</View>
+              <View className='pub-footer-note'>{t('pub.noMore')}</View>
             )}
           </>
         )}

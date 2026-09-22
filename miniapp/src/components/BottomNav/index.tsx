@@ -1,6 +1,7 @@
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { NAV_ICONS, type NavIconKey } from './icons'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 /** 角色化底部导航的角色键。`guest` 是未登录访客的 C 端导航。 */
@@ -16,46 +17,42 @@ interface NavItem {
 
 /**
  * 各角色底部导航项。
- * 顺序与标签严格取自原型底部导航（`rent-mobile__tab` 的 `data-nav-key` 序列）：
- *   管理端 = 首页 / 房源 / 客户 / 收款 / 我的
- *   员工端 = 首页 / 房源 / 客户 / 消息 / 我的（业绩已并入首页图表，通讯录已移入「我的」）
- *   业主端 = 首页 / 收益 / 服务 / 我的
- *   租客端 = 首页 / 找房 / 消息 / 我的
+ * `label` 为 i18n key（guest 用 pub.*，其余角色用 tab.*，均为三语字典已收录）。
  */
 const NAV_MAP: Record<NavRole, NavItem[]> = {
   admin: [
-    { key: 'dashboard', label: '首页', icon: 'home', path: '/pages/admin/home/index' },
-    { key: 'properties', label: '房源', icon: 'building', path: '/pages/admin/properties/index' },
-    { key: 'crm', label: '客户', icon: 'users', path: '/pages/admin/crm/index' },
-    { key: 'payments', label: '收款', icon: 'card', path: '/pages/admin/payments/index' },
-    { key: 'settings', label: '我的', icon: 'gear', path: '/pages/profile/index' },
+    { key: 'dashboard', label: 'tab.home', icon: 'home', path: '/pages/admin/home/index' },
+    { key: 'properties', label: 'tab.properties', icon: 'building', path: '/pages/admin/properties/index' },
+    { key: 'crm', label: 'tab.customers', icon: 'users', path: '/pages/admin/crm/index' },
+    { key: 'payments', label: 'tab.payments', icon: 'card', path: '/pages/admin/payments/index' },
+    { key: 'settings', label: 'tab.profile', icon: 'gear', path: '/pages/profile/index' },
   ],
   employee: [
-    { key: 'dashboard', label: '首页', icon: 'home', path: '/pages/employee/home/index' },
-    { key: 'properties', label: '房源', icon: 'building', path: '/pages/employee/property-browse/index' },
-    { key: 'crm', label: '客户', icon: 'users', path: '/pages/employee/crm/index' },
-    { key: 'messages', label: '消息', icon: 'message', path: '/pages/chat/list/index' },
-    { key: 'settings', label: '我的', icon: 'user', path: '/pages/profile/index' },
+    { key: 'dashboard', label: 'tab.home', icon: 'home', path: '/pages/employee/home/index' },
+    { key: 'properties', label: 'tab.properties', icon: 'building', path: '/pages/employee/property-browse/index' },
+    { key: 'crm', label: 'tab.customers', icon: 'users', path: '/pages/employee/crm/index' },
+    { key: 'messages', label: 'tab.messages', icon: 'message', path: '/pages/chat/list/index' },
+    { key: 'settings', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
   ],
   owner: [
-    { key: 'dashboard', label: '首页', icon: 'home', path: '/pages/owner/home/index' },
-    { key: 'income', label: '收益', icon: 'money', path: '/pages/owner/income/index' },
-    { key: 'services', label: '服务', icon: 'briefcase', path: '/pages/owner/services/index' },
-    { key: 'settings', label: '我的', icon: 'user', path: '/pages/profile/index' },
+    { key: 'dashboard', label: 'tab.home', icon: 'home', path: '/pages/owner/home/index' },
+    { key: 'income', label: 'tab.income', icon: 'money', path: '/pages/owner/income/index' },
+    { key: 'services', label: 'tab.services', icon: 'briefcase', path: '/pages/owner/services/index' },
+    { key: 'settings', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
   ],
   tenant: [
-    { key: 'dashboard', label: '首页', icon: 'home', path: '/pages/tenant/home/index' },
-    { key: 'browse', label: '找房', icon: 'search', path: '/pages/tenant/listings/index' },
-    { key: 'messages', label: '消息', icon: 'message', path: '/pages/chat/list/index' },
-    { key: 'profile', label: '我的', icon: 'user', path: '/pages/profile/index' },
+    { key: 'dashboard', label: 'tab.home', icon: 'home', path: '/pages/tenant/home/index' },
+    { key: 'browse', label: 'tab.listings', icon: 'search', path: '/pages/tenant/listings/index' },
+    { key: 'messages', label: 'tab.messages', icon: 'message', path: '/pages/chat/list/index' },
+    { key: 'profile', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
   ],
   // 未登录访客：内容全部来自匿名接口 `/public/*`，四个 Tab 都不需要 token。
   // 「我的」落到 public/me（登录/注册入口），而不是站内 profile（那个一进去就跳登录）。
   guest: [
-    { key: 'browse', label: '找房', icon: 'search', path: '/pages/public/listings/index' },
-    { key: 'schools', label: '学校', icon: 'school', path: '/pages/public/schools/index' },
-    { key: 'communities', label: '小区', icon: 'building', path: '/pages/public/communities/index' },
-    { key: 'me', label: '我的', icon: 'user', path: '/pages/public/me/index' },
+    { key: 'browse', label: 'pub.tabListings', icon: 'search', path: '/pages/public/listings/index' },
+    { key: 'schools', label: 'pub.tabSchools', icon: 'school', path: '/pages/public/schools/index' },
+    { key: 'communities', label: 'pub.tabCommunities', icon: 'building', path: '/pages/public/communities/index' },
+    { key: 'me', label: 'pub.tabMe', icon: 'user', path: '/pages/public/me/index' },
   ],
 }
 
@@ -74,6 +71,7 @@ interface BottomNavProps {
  */
 export default function BottomNav({ role, active }: BottomNavProps) {
   const items = NAV_MAP[role]
+  const { t } = useI18n()
 
   return (
     <View className='bottom-nav'>
@@ -96,7 +94,7 @@ export default function BottomNav({ role, active }: BottomNavProps) {
                 }")`,
               }}
             />
-            <Text className='bottom-nav__label'>{item.label}</Text>
+            <Text className='bottom-nav__label'>{t(item.label)}</Text>
           </View>
         )
       })}

@@ -21,6 +21,7 @@ const en: import('./zh').Translation = {
     submit: 'Submit',
     logout: 'Logout',
     welcome: 'Welcome',
+    close: 'Close',
     noData: 'No data',
     total: 'Total',
     items: 'items',
@@ -422,6 +423,13 @@ const en: import('./zh').Translation = {
     pattaya: 'Pattaya',
     huaHin: 'Hua Hin',
   },
+  regionFilter: {
+    title: 'Region',
+    allRegions: 'All Regions',
+    country: 'Country',
+    city: 'City',
+    district: 'District',
+  },
   language: {
     zh: '中文',
     en: 'English',
@@ -558,6 +566,9 @@ const en: import('./zh').Translation = {
     billPending: 'Pending Bill',
   },
   locate: {
+    selectCity: 'Select city',
+    cityCount: '{{count}} cities',
+    districtCount: '{{count}} districts',
     area: 'Area',
     metro: 'Metro',
     all: 'All',
@@ -1068,6 +1079,8 @@ const en: import('./zh').Translation = {
     km: 'km',
     up: 'up',
     distanceToSchool: 'About {{km}} km from {{name}}',
+    similarListings: 'You May Also Like',
+    similarListingsHint: 'Similar homes in the same project, layout, or district.',
 
     // ---------- School directory ----------
     schoolsTitle: 'International Schools',
@@ -1121,6 +1134,7 @@ const en: import('./zh').Translation = {
     backToList: '← Back to listings',
     deposit: 'Deposit',
     months: 'months',
+    unitPrice: 'Unit price',
     keyFacts: 'Listing details',
     roomNumber: 'Unit no.',
     building: 'Building',

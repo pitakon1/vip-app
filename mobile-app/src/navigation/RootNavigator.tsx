@@ -60,6 +60,9 @@ export type RootStackParamList = {
   MyLeaseDetail: { lease_id: string };
   MyOrders: undefined;
   MyOrderDetail: { deal_id: string };
+  Favorites: undefined;
+  History: undefined;
+  PriceAlerts: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -143,6 +146,9 @@ const MyLeaseScreen = lazyScreen(() => import('../screens/settings/MyLeaseScreen
 const MyLeaseDetailScreen = lazyScreen(() => import('../screens/settings/MyLeaseDetailScreen'));
 const MyOrdersScreen = lazyScreen(() => import('../screens/settings/MyOrdersScreen'));
 const MyOrderDetailScreen = lazyScreen(() => import('../screens/settings/MyOrderDetailScreen'));
+const FavoritesScreen = lazyScreen(() => import('../screens/tenant/FavoritesScreen'));
+const HistoryScreen = lazyScreen(() => import('../screens/tenant/HistoryScreen'));
+const PriceAlertsScreen = lazyScreen(() => import('../screens/tenant/PriceAlertsScreen'));
 
 export function RootNavigator() {
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -212,6 +218,9 @@ export function RootNavigator() {
       <Stack.Screen name="MyLeaseDetail" component={MyLeaseDetailScreen} options={{ headerShown: true, title: '租约详情' }} />
       <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ headerShown: true, title: '我的交易订单' }} />
       <Stack.Screen name="MyOrderDetail" component={MyOrderDetailScreen} options={{ headerShown: true, title: '订单详情' }} />
+      <Stack.Screen name="Favorites" component={FavoritesScreen} options={{ headerShown: true, title: '我的关注' }} />
+      <Stack.Screen name="History" component={HistoryScreen} options={{ headerShown: true, title: '浏览历史' }} />
+      <Stack.Screen name="PriceAlerts" component={PriceAlertsScreen} options={{ headerShown: true, title: '降价提醒' }} />
     </Stack.Navigator>
   );
 }

@@ -10,6 +10,7 @@ import Taro from '@tarojs/taro'
 import { publicApi, unwrapPage, type PublicProject } from '@/services/publicApi'
 import { convertFromThb, loadRates, tenureLabel } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
+import { useI18n } from '@/i18n'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
 
@@ -26,6 +27,7 @@ const priceRange = (min?: number | null, max?: number | null): string => {
 }
 
 export default function PublicCommunitiesPage() {
+  const { t } = useI18n()
   const [keyword, setKeyword] = useState('')
   const [debounced, setDebounced] = useState('')
   const [items, setItems] = useState<PublicProject[]>([])
@@ -79,25 +81,25 @@ export default function PublicCommunitiesPage() {
     <View className='pub-page'>
       <View className='pub-inner'>
         <View className='pub-head'>
-          <Text className='pub-head__title'>小区</Text>
+          <Text className='pub-head__title'>{t('pub.communitiesTitle')}</Text>
           <Text className='pub-head__hint'>
-            一个小区的在租、在售数量与价格区间一目了然。
+            {t('pub.communitiesHint')}
           </Text>
           <Input
             className='pub-search'
             value={keyword}
             onInput={(e) => setKeyword(e.detail.value)}
-            placeholder='小区 / 楼盘名称'
+            placeholder={t('pub.communitySearchPlaceholder')}
             confirmType='search'
           />
         </View>
 
-        <Text className='pub-count'>共 {total} 个小区</Text>
+        <Text className='pub-count'>{t('pub.communityCount', { n: total })}</Text>
 
         {loading ? (
-          <View className='pub-loading'>加载中...</View>
+          <View className='pub-loading'>{t('pub.loading')}</View>
         ) : items.length === 0 ? (
-          <View className='pub-empty'>没有匹配的小区</View>
+          <View className='pub-empty'>{t('pub.communitiesEmpty')}</View>
         ) : (
           <>
             {items.map((project) => {
@@ -117,7 +119,7 @@ export default function PublicCommunitiesPage() {
                     <Image className='pub-project__cover' src={project.cover} mode='aspectFill' />
                   ) : (
                     <View className='pub-project__nophoto'>
-                      <Text>暂无图片</Text>
+                      <Text>{t('pub.noPhoto')}</Text>
                     </View>
                   )}
 
@@ -131,10 +133,10 @@ export default function PublicCommunitiesPage() {
 
                     <View className='pub-badges'>
                       <View className='badge badge--primary'>
-                        <Text>在售 {project.sale_count ?? 0} 套</Text>
+                        <Text>{t('pub.saleCount', { n: project.sale_count ?? 0 })}</Text>
                       </View>
                       <View className='badge badge--neutral'>
-                        <Text>在租 {project.rent_count ?? 0} 套</Text>
+                        <Text>{t('pub.rentCount', { n: project.rent_count ?? 0 })}</Text>
                       </View>
                       {project.tenure ? (
                         <View className='badge badge--neutral'>
@@ -145,18 +147,18 @@ export default function PublicCommunitiesPage() {
 
                     {saleRange ? (
                       <Text className='pub-project__price'>
-                        售价：{saleRange}
+                        {t('pub.salePrice')}：{saleRange}
                         {project.sale_price_min ? (
                           <Text className='pub-listing__price-sub'>
-                            {'  '}≈ {fmtMoney(convertFromThb(project.sale_price_min), 'CNY')}起
+                            {'  '}≈ {fmtMoney(convertFromThb(project.sale_price_min), 'CNY')}{t('pub.upto')}
                           </Text>
                         ) : null}
                       </Text>
                     ) : null}
                     {rentRange ? (
                       <Text className='pub-project__price'>
-                        租金：{rentRange}
-                        <Text className='pub-listing__price-sub'>/月</Text>
+                        {t('pub.rentPrice')}：{rentRange}
+                        <Text className='pub-listing__price-sub'>{t('pub.perMonth')}</Text>
                       </Text>
                     ) : null}
                   </View>
@@ -165,7 +167,7 @@ export default function PublicCommunitiesPage() {
             })}
 
             {loadingMore ? (
-              <View className='pub-loading'>加载中...</View>
+              <View className='pub-loading'>{t('pub.loading')}</View>
             ) : items.length < total ? (
               <View
                 className='btn btn--secondary'
@@ -174,10 +176,10 @@ export default function PublicCommunitiesPage() {
                   fetchPage(page + 1)
                 }}
               >
-                <Text>加载更多</Text>
+                <Text>{t('pub.loadMore')}</Text>
               </View>
             ) : (
-              <View className='pub-footer-note'>没有更多了</View>
+              <View className='pub-footer-note'>{t('pub.noMore')}</View>
             )}
           </>
         )}

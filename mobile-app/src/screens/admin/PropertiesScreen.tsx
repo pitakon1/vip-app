@@ -15,16 +15,20 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Image,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
+import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import api from '@/lib/api';
 import { notifyError } from '@/utils/feedback';
 import { propertiesApi } from '@/services/api';
+import { publicApi, type PublicSchool } from '@/services/publicApi';
+import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
 
@@ -44,6 +48,7 @@ interface PropertyItem {
   bathrooms?: number | null;
   furnished?: boolean;
   photos?: unknown[] | null;
+  project_name?: string | null;
 }
 
 const TYPE_META: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
@@ -112,6 +117,22 @@ const optionLabel = (opts: { key: string; label: string }[], key: string, fallba
 
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
+// 取房源照片首图 URL（兼容字符串与 {url|path} 对象两种形态），无则返回空
+const photoUrlOf = (photos?: unknown[] | null): string => {
+  if (!Array.isArray(photos) || photos.length === 0) return '';
+  const first = photos[0];
+  if (typeof first === 'string') return first;
+  if (first && typeof first === 'object') {
+    const o = first as { url?: unknown; path?: unknown };
+    return typeof o.url === 'string' ? o.url : typeof o.path === 'string' ? o.path : '';
+  }
+  return '';
+};
+
+// 房源标题：优先「小区名 · 房号」（与 C 端一致），缺小区名时回退房号·楼栋
+const adminTitle = (p: PropertyItem) =>
+  p.project_name ? `${p.project_name} · ${p.room_number ?? ''}`.trim() : ([p.room_number, p.building].filter(Boolean).join(' · ') || p.address || '未命名房源');
+
 // 命中区域/地铁关键词：房源地址/标题/房号/城市/区域任一包含即匹配（对齐租客端 matchLocation）
 const matchLocation = (item: any, kws: string[]): boolean =>
   kws.some((k) =>
@@ -124,6 +145,7 @@ const matchLocation = (item: any, kws: string[]): boolean =>
 const allDistricts = AREA_GROUPS.flatMap((g) => g.children);
 
 export default function AdminPropertiesScreen() {
+  const respContainer = useResponsiveContainerStyle();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<PropertyItem[]>([]);
@@ -154,6 +176,11 @@ export default function AdminPropertiesScreen() {
   const [metroSel, setMetroSel] = useState<string[]>([]);
   const [metroDraft, setMetroDraft] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState('');
+  // C 端维度：学校（空间筛选，与 C 端找房口径一致）
+  const [schoolId, setSchoolId] = useState('');
+  const [schoolKm, setSchoolKm] = useState<number>(3);
+  const [schools, setSchools] = useState<PublicSchool[]>([]);
+  const [schoolKw, setSchoolKw] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -191,6 +218,12 @@ export default function AdminPropertiesScreen() {
         if (sort === 'latest') params.sort = 'latest';
         if (kw.trim()) params.q = kw.trim();
         if (status) params.status = status;
+
+        // C 端维度：学校 + 半径（空间筛选，与 C 端找房口径一致）
+        if (schoolId) {
+          params.school_id = schoolId;
+          params.school_radius_km = schoolKm;
+        }
 
         // 房型：单间=0,0；1/2 精确；3+ 则 bedrooms_min=3
         if (bedrooms !== '') {
@@ -260,7 +293,7 @@ export default function AdminPropertiesScreen() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort],
+    [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm],
   );
 
   useEffect(() => {
@@ -276,7 +309,7 @@ export default function AdminPropertiesScreen() {
     }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort]);
+  }, [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -363,6 +396,24 @@ export default function AdminPropertiesScreen() {
     return items.filter((it) => matchLocation(it, activeLocationKw));
   }, [items, activeLocationKw]);
 
+  // 学校清单只为筛选器备选（公开接口，匿名可读）
+  useEffect(() => {
+    publicApi
+      .schools({ page_size: 100 })
+      .then((res: any) => setSchools(res?.data?.items ?? []))
+      .catch(() => setSchools([]));
+  }, []);
+
+  const filteredSchools = useMemo(() => {
+    const kw = schoolKw.trim().toLowerCase();
+    if (!kw) return schools;
+    return schools.filter(
+      (s) =>
+        (s.name ?? '').toLowerCase().includes(kw) ||
+        (s.name_en ?? '').toLowerCase().includes(kw),
+    );
+  }, [schools, schoolKw]);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -374,7 +425,7 @@ export default function AdminPropertiesScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top }, respContainer]}
       showsVerticalScrollIndicator={false}
       onScroll={({ nativeEvent }) => {
         const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
@@ -486,6 +537,17 @@ export default function AdminPropertiesScreen() {
             排序：{optionLabel(SORT_OPTIONS, sort, '默认排序')}
           </Text>
           <Ionicons name="chevron-down" size={13} color={activeFilter === 'sort' ? colors.primary : colors.ink3} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'school' && styles.filterChipActive]}
+          activeOpacity={0.7}
+          onPress={() => setActiveFilter(activeFilter === 'school' ? '' : 'school')}
+        >
+          <Text style={[styles.filterChipText, activeFilter === 'school' && styles.filterChipTextActive]}>
+            学校{schoolId ? ' · 已选' : ''}
+          </Text>
+          <Ionicons name="chevron-down" size={13} color={activeFilter === 'school' ? colors.primary : colors.ink3} />
         </TouchableOpacity>
       </View>
 
@@ -740,6 +802,72 @@ export default function AdminPropertiesScreen() {
         </View>
       )}
 
+      {/* 学校（C 端维度：按学校 + 半径找房） */}
+      {activeFilter === 'school' && (
+        <View style={styles.schoolPanel}>
+          <Text style={styles.locGroupLabel}>距离</Text>
+          <View style={styles.optRow}>
+            {SCHOOL_RADIUS_OPTIONS.map((kmv) => (
+              <TouchableOpacity
+                key={kmv}
+                style={[styles.optChip, schoolKm === kmv && styles.optChipActive]}
+                activeOpacity={0.7}
+                onPress={() => setSchoolKm(kmv)}
+              >
+                <Text style={[styles.optChipText, schoolKm === kmv && styles.optChipTextActive]}>
+                  {kmv}km
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.schoolSearch}>
+            <Ionicons name="search" size={14} color={colors.ink3} />
+            <TextInput
+              style={styles.schoolSearchInput}
+              value={schoolKw}
+              onChangeText={setSchoolKw}
+              placeholder="搜索学校名称"
+              placeholderTextColor={colors.ink3}
+            />
+          </View>
+          <ScrollView style={styles.schoolList} keyboardShouldPersistTaps="handled">
+            {filteredSchools.length === 0 ? (
+              <Text style={styles.schoolEmpty}>未找到相关学校</Text>
+            ) : (
+              filteredSchools.map((s) => {
+                const active = schoolId === s.id;
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setSchoolId(s.id);
+                      setActiveFilter('');
+                    }}
+                    style={styles.schoolRow}
+                  >
+                    <Text style={[styles.schoolRowName, active && styles.schoolRowActive]} numberOfLines={1}>
+                      {s.name || s.name_en}
+                    </Text>
+                    {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              setSchoolId('');
+              setActiveFilter('');
+            }}
+            style={styles.schoolReset}
+          >
+            <Text style={styles.schoolResetText}>不限（清除学校）</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* 统计行 */}
       <View style={styles.statRow}>
         <View style={styles.statCell}>
@@ -786,9 +914,13 @@ export default function AdminPropertiesScreen() {
           return (
             <View key={p.id} style={styles.card}>
               <View style={styles.banner}>
-                <View style={styles.bannerIcon}>
-                  <Ionicons name={type.icon} size={26} color={colors.primaryForeground} />
-                </View>
+                {photoUrlOf(p.photos) ? (
+                  <Image source={{ uri: photoUrlOf(p.photos) }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                ) : (
+                  <View style={styles.bannerIcon}>
+                    <Ionicons name={type.icon} size={26} color={colors.primaryForeground} />
+                  </View>
+                )}
                 <View style={[styles.typeBadge, { backgroundColor: colors.surface }]}>
                   <Text style={[styles.typeBadgeText, { color: type.color }]}>{type.label}</Text>
                 </View>
@@ -803,7 +935,7 @@ export default function AdminPropertiesScreen() {
                 onPress={() => navigation.navigate('PropertyEdit', { id: p.id })}
               >
                 <Text style={styles.name} numberOfLines={1}>
-                  {[p.room_number, p.building].filter(Boolean).join(' · ') || '未命名房源'}
+                  {adminTitle(p)}
                 </Text>
                 <View style={styles.addrRow}>
                   <Ionicons name="location-outline" size={13} color={colors.ink3} />
@@ -910,6 +1042,44 @@ const styles = StyleSheet.create({
   },
   filterChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
   filterChipTextActive: { color: colors.primary, fontWeight: '600' },
+
+  /* 学校筛选项（C 端维度） */
+  schoolPanel: { marginHorizontal: 20, marginBottom: 12 },
+  schoolSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: colors.radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  schoolSearchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
+  schoolList: { maxHeight: 220 },
+  schoolEmpty: { fontSize: 13, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
+  schoolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  schoolRowName: { flex: 1, fontSize: 14, color: colors.ink, paddingRight: 12 },
+  schoolRowActive: { color: colors.primary, fontWeight: '600' },
+  schoolReset: {
+    marginTop: 8,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: colors.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  schoolResetText: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
 
   optRow: {
     flexDirection: 'row',

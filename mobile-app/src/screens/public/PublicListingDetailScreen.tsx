@@ -29,8 +29,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
-import { publicApi, type PublicListingDetail } from '@/services/publicApi';
-import { viewingsApi } from '@/services/api';
+import { publicApi, type PublicListing, type PublicListingDetail } from '@/services/publicApi';
+import { priceAlertsApi, viewingsApi } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import {
   decorationLabel,
@@ -42,7 +42,9 @@ import {
   type TFunction,
 } from '@/lib/publicSite';
 import { fmtMoney } from '@/utils/format';
+import { recordHistory } from '@/lib/browseHistory';
 import PublicInquiryForm from './PublicInquiryForm';
+import PublicListingRow from './PublicListingRow';
 
 export default function PublicListingDetailScreen() {
   const { t } = useI18n();
@@ -55,6 +57,9 @@ export default function PublicListingDetailScreen() {
   const [data, setData] = useState<PublicListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // 猜你喜欢：相似房源列表，接口失败时静默隐藏
+  const [similar, setSimilar] = useState<PublicListing[]>([]);
+
   // 登录态决定经纪人联系方式是否已由后端脱下马甲：请求自动带 token，
   // 登录时后端返回完整号码、未登录返回打码版。这里只需知道「是否登录」。
   const isLoggedIn = !!useAuthStore((s) => s.token);
@@ -64,6 +69,53 @@ export default function PublicListingDetailScreen() {
   const [bookingTime, setBookingTime] = useState('');
   const [bookingNote, setBookingNote] = useState('');
   const [bookingBusy, setBookingBusy] = useState(false);
+
+  // 降价提醒（贝壳口径：关注/降价通知需登录）
+  const [priceAlertOn, setPriceAlertOn] = useState(false);
+  const [priceAlertBusy, setPriceAlertBusy] = useState(false);
+  const [priceAlertLoaded, setPriceAlertLoaded] = useState(false);
+
+  const togglePriceAlert = useCallback(async () => {
+    if (!isLoggedIn) {
+      navigation.navigate('Login');
+      return;
+    }
+    if (priceAlertBusy || !data?.property_id) return;
+    setPriceAlertBusy(true);
+    try {
+      if (priceAlertOn) {
+        await priceAlertsApi.unsubscribe(data.property_id);
+        setPriceAlertOn(false);
+      } else {
+        await priceAlertsApi.subscribe({
+          property_id: data.property_id,
+          listing_id: data.id,
+        });
+        setPriceAlertOn(true);
+      }
+    } catch (err: any) {
+      console.warn('toggle price alert failed', err);
+    } finally {
+      setPriceAlertBusy(false);
+    }
+  }, [isLoggedIn, navigation, priceAlertBusy, priceAlertOn, data?.property_id, data?.id]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !data?.property_id || priceAlertLoaded) return;
+    let cancelled = false;
+    priceAlertsApi
+      .status(data.property_id)
+      .then((res: any) => {
+        if (!cancelled) setPriceAlertOn(!!res?.data?.subscribed);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setPriceAlertLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, data?.property_id, priceAlertLoaded]);
 
   const openBooking = useCallback(() => {
     if (!isLoggedIn) {
@@ -103,13 +155,45 @@ export default function PublicListingDetailScreen() {
     publicApi
       .listing(id)
       .then((res: any) => {
-        if (!cancelled) setData(res?.data ?? null);
+        if (!cancelled) {
+          const d = res?.data ?? null;
+          setData(d);
+          // 记录浏览历史（本地 KV，异常不影响页面展示）
+          if (d?.id) {
+            void recordHistory({
+              id: String(d.id),
+              title: d.room_number ?? undefined,
+              address: d.address ?? undefined,
+              price: d.price ?? undefined,
+              currency: d.currency ?? undefined,
+              cover: d.cover ?? undefined,
+              listing_type: d.listing_type ?? undefined,
+            }).catch(() => {});
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) setData(null);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // 猜你喜欢：相似房源（失败静默，不阻塞详情页）
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    publicApi
+      .similar(id)
+      .then((res: any) => {
+        if (!cancelled) setSimilar((res?.data ?? []) as PublicListing[]);
+      })
+      .catch(() => {
+        if (!cancelled) setSimilar([]);
       });
     return () => {
       cancelled = true;
@@ -183,6 +267,40 @@ export default function PublicListingDetailScreen() {
               {isSell ? '' : t('pub.perMonth')}
             </Text>
           ) : null}
+          {price && data.size_sqm ? (
+            <Text style={styles.priceSub}>
+              ≈ {t('pub.unitPrice')} {fmtMoney(price / data.size_sqm, data.currency || 'THB')} {t('pub.perSqm')}
+              {' · '}≈ {fmtMoney(convertFromThb(price / data.size_sqm), 'CNY')}/㎡
+            </Text>
+          ) : null}
+
+          {/* 降价提醒：贝壳式关注/降价通知，未登录引导登录 */}
+          <TouchableOpacity
+            style={[styles.priceAlert, priceAlertOn && styles.priceAlertOn]}
+            onPress={togglePriceAlert}
+            disabled={priceAlertBusy}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={priceAlertOn ? 'notifications' : 'notifications-outline'}
+              size={16}
+              color={priceAlertOn ? colors.primary : colors.ink2}
+            />
+            <Text style={[styles.priceAlertText, priceAlertOn && styles.priceAlertTextOn]}>
+              {isLoggedIn
+                ? priceAlertOn
+                  ? t('pub.priceAlertOn')
+                  : t('pub.priceAlertOff')
+                : t('pub.priceAlertGuest')}
+            </Text>
+          </TouchableOpacity>
+          {/* 降价历史只读提示：已订阅显示开提醒，否则提示收藏后可接收降价通知 */}
+          <View style={styles.priceHistoryRow}>
+            <Ionicons name="trending-down-outline" size={13} color={colors.ink3} />
+            <Text style={styles.priceHistoryText}>
+              {priceAlertOn ? t('pub.priceAlertOn') : t('pub.priceHistoryHint')}
+            </Text>
+          </View>
         </View>
 
         {/* ---- 关键参数 ---- */}
@@ -239,6 +357,53 @@ export default function PublicListingDetailScreen() {
               <Text style={styles.projectLine}>
                 {t('pub.completionYear')}：{data.project.completion_year}
               </Text>
+            ) : null}
+            {data.project.nearest_subway ? (
+              <Text style={styles.projectLine}>
+                {t('pub.transport')}：{data.project.nearest_subway}
+              </Text>
+            ) : null}
+            {/* 楼盘核心指标网格（楼层数/车位/产权/外配/物业费/均价，字段为 null 不渲染） */}
+            {data.project.tenure ||
+            data.project.foreign_quota_pct != null ||
+            data.project.management_fee_per_sqm != null ||
+            data.project.avg_price != null ||
+            data.project.parking_spaces != null ||
+            data.project.total_buildings != null ||
+            data.project.total_floors != null ? (
+              <View style={styles.kvGrid}>
+                {data.project.tenure ? (
+                  <KV label={t('pub.tenure')} value={data.project.tenure} />
+                ) : null}
+                {data.project.foreign_quota_pct != null ? (
+                  <KV
+                    label={t('pub.foreignQuota')}
+                    value={`${data.project.foreign_quota_pct}%`}
+                  />
+                ) : null}
+                {data.project.management_fee_per_sqm != null ? (
+                  <KV
+                    label={t('pub.mgmtFee')}
+                    value={`${data.project.management_fee_per_sqm} THB/㎡${t('pub.perMonth')}`
+                      + ` · ≈ ${fmtMoney(convertFromThb(data.project.management_fee_per_sqm), 'CNY')}/㎡`}
+                  />
+                ) : null}
+                {data.project.avg_price != null ? (
+                  <KV
+                    label={t('pub.avgPrice')}
+                    value={`≈ ${fmtMoney(data.project.avg_price, 'THB')}/㎡`}
+                  />
+                ) : null}
+                {data.project.parking_spaces != null ? (
+                  <KV label={t('pub.parking')} value={String(data.project.parking_spaces)} />
+                ) : null}
+                {data.project.total_buildings != null ? (
+                  <KV label={t('pub.buildings')} value={String(data.project.total_buildings)} />
+                ) : null}
+                {data.project.total_floors != null ? (
+                  <KV label={t('pub.floors')} value={String(data.project.total_floors)} />
+                ) : null}
+              </View>
             ) : null}
             {data.project.id ? (
               <TouchableOpacity
@@ -414,6 +579,23 @@ export default function PublicListingDetailScreen() {
             defaultMessage={`Inquiry: ${data.project_name ?? ''} ${data.room_number ?? ''}`.trim()}
           />
         </View>
+
+        {/* ---- 猜你喜欢（相似房源，接口失败静默隐藏） ---- */}
+        {similar.length > 0 ? (
+          <View style={styles.block}>
+            <Text style={styles.sectionTitle}>{t('pub.youMayLike')}</Text>
+            <View style={{ marginTop: 10 }}>
+              {similar.map((row) => (
+                <PublicListingRow
+                  key={row.id}
+                  item={row}
+                  t={t}
+                  onPress={(item) => navigation.navigate('PublicListingDetail', { id: item.id })}
+                />
+              ))}
+            </View>
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* ---- 悬浮返回 ---- */}
@@ -471,6 +653,23 @@ const styles = StyleSheet.create({
   price: { fontSize: 26, fontWeight: '800', color: colors.primary },
   priceUnit: { fontSize: colors.fontSize.base, color: colors.ink3 },
   priceSub: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 4 },
+  priceAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+    height: 40,
+    borderRadius: colors.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface2,
+  },
+  priceAlertOn: { borderColor: colors.primary, backgroundColor: 'rgba(40,120,255,0.06)' },
+  priceAlertText: { fontSize: colors.fontSize.sm, color: colors.ink2, fontWeight: '600' },
+  priceAlertTextOn: { color: colors.primary },
+  priceHistoryRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  priceHistoryText: { fontSize: colors.fontSize.xs, color: colors.ink3 },
   sectionTitle: { fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.ink },
   sectionHint: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 4, marginBottom: 8 },
   kvGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },

@@ -34,6 +34,7 @@ from .viewings import router as viewings_router
 from .audit import router as audit_router
 from .commission_rules import router as commission_rules_router
 from .favorites import router as favorites_router
+from .price_alerts import router as price_alerts_router
 from .sale_listings import router as sale_listings_router
 from .property_deals import router as property_deals_router
 from .brokers import router as brokers_router
@@ -81,6 +82,7 @@ api_router.include_router(viewings_router)
 api_router.include_router(audit_router)
 api_router.include_router(commission_rules_router)
 api_router.include_router(favorites_router)
+api_router.include_router(price_alerts_router)
 api_router.include_router(sale_listings_router)
 api_router.include_router(property_deals_router)
 api_router.include_router(brokers_router)

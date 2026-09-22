@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
+import { useResponsiveContainerStyle } from '@/theme/responsive';
 import {
   employeesApi,
   viewingsApi,
@@ -107,19 +108,12 @@ interface LeaderRow {
 const symOf = (c?: string | null) =>
   c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿';
 
-const greetingOf = (hour: number) => {
-  if (hour < 6) return '夜深了';
-  if (hour < 12) return '早上好';
-  if (hour < 14) return '中午好';
-  if (hour < 18) return '下午好';
-  return '晚上好';
-};
-
 const isSameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+  const respContainer = useResponsiveContainerStyle();
   const [viewings, setViewings] = useState<ViewingItem[]>([]);
   const [perf, setPerf] = useState<PerfSummary | null>(null);
   const [monthly, setMonthly] = useState<MonthlyRow[]>([]);
@@ -279,7 +273,7 @@ export default function HomeScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, respContainer]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -290,13 +284,9 @@ export default function HomeScreen() {
         />
       }
     >
-      {/* 问候行（品牌色底 + 白字 + 今日概览） */}
+      {/* 今日概览卡（品牌色底 + 白字） */}
       <View style={styles.greeting}>
         <View style={styles.greetingLeft}>
-          <Text style={styles.greetingHi}>
-            {greetingOf(today.getHours())}
-            {userName ? `，${userName}` : ''}
-          </Text>
           <Text style={styles.greetingSub}>
             今日 {todaySchedule.length} 场带看 · 本月成交 {perf?.month_deals ?? 0} 单 · 佣金{' '}
             {money(perf?.month_commission)}
@@ -506,7 +496,6 @@ const styles = StyleSheet.create({
     ...colors.shadow.primary,
   },
   greetingLeft: { flex: 1, minWidth: 0 },
-  greetingHi: { fontSize: 20, fontWeight: '700', color: colors.primaryForeground, letterSpacing: -0.2 },
   greetingSub: { fontSize: 13, color: colors.alpha('255, 255, 255', 0.85), marginTop: 2 },
   greetingAvatar: {
     width: 36,

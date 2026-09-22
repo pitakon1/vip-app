@@ -21,12 +21,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import { propertiesApi, translateApi, favoritesApi, viewingsApi, saleListingApi } from '@/services/api';
+import { propertiesApi, translateApi, favoritesApi, viewingsApi, saleListingApi, priceAlertsApi } from '@/services/api';
 import { fmtMoney as formatMoney } from '@/utils/format';
 import { notify } from '@/utils/feedback';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
+import { useI18n } from '@/i18n';
 
 interface PropertyDetail {
   id: string;
@@ -87,6 +88,7 @@ const GALLERY_WIDTH = screenWidth - 32;
 
 export default function PropertyDetailScreen() {
   const isFocused = useIsFocused();
+  const { t } = useI18n();
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   // 底部安全区：吸底操作栏需要避开手势条
@@ -174,6 +176,22 @@ export default function PropertyDetailScreen() {
   });
   const favorited = favQ.data ?? false;
 
+  // 降价提醒订阅状态：不落盘缓存，避免订阅态跨会话陈旧
+  const priceQ = useQuery({
+    queryKey: ['prop', 'price-alert', propertyId ?? 'none', uid],
+    queryFn: async () => {
+      try {
+        const res: any = await priceAlertsApi.status(propertyId!);
+        return !!(res as any)?.data?.subscribed;
+      } catch {
+        return false;
+      }
+    },
+    enabled: !!propertyId,
+    staleTime: 60 * 1000,
+  });
+  const subscribed = priceQ.data ?? false;
+
   // 从其他页面返回详情页时后台刷新（首帧不重复请求）
   const firstFocus = useRef(true);
   useEffect(() => {
@@ -203,6 +221,8 @@ export default function PropertyDetailScreen() {
 
   // 收藏（favBusy 防连点）
   const [favBusy, setFavBusy] = useState(false);
+  // 降价提醒订阅（priceBusy 防连点）
+  const [priceBusy, setPriceBusy] = useState(false);
 
   // 翻译（保留原有能力）
   const [translating, setTranslating] = useState(false);
@@ -229,6 +249,23 @@ export default function PropertyDetailScreen() {
       notify('操作失败', '请稍后重试');
     } finally {
       setFavBusy(false);
+    }
+  };
+
+  const handleTogglePriceAlert = async () => {
+    if (!propertyId) return;
+    setPriceBusy(true);
+    try {
+      if (subscribed) {
+        await priceAlertsApi.unsubscribe(propertyId);
+      } else {
+        await priceAlertsApi.subscribe({ property_id: propertyId });
+      }
+      void priceQ.refetch();
+    } catch {
+      notify('操作失败', '请稍后重试');
+    } finally {
+      setPriceBusy(false);
     }
   };
 
@@ -285,6 +322,7 @@ export default function PropertyDetailScreen() {
 
   // 主 CTA 按压反馈：按下缩至 0.97、松手 spring 回弹（原生驱动；web 退化默认）
   const favScale = useRef(new Animated.Value(1)).current;
+  const bellScale = useRef(new Animated.Value(1)).current;
   const contactScale = useRef(new Animated.Value(1)).current;
   const bookScale = useRef(new Animated.Value(1)).current;
   const pressIn = (v: Animated.Value) =>
@@ -717,6 +755,29 @@ export default function PropertyDetailScreen() {
             <Text style={styles.favText}>{favorited ? '已收藏' : '收藏'}</Text>
           </TouchableOpacity>
         </Animated.View>
+        <Animated.View style={{ transform: [{ scale: bellScale }] }}>
+          <TouchableOpacity
+            style={styles.favBtn}
+            activeOpacity={0.8}
+            onPress={handleTogglePriceAlert}
+            disabled={priceBusy}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPressIn={() => pressIn(bellScale)}
+            onPressOut={() => pressOut(bellScale)}
+            accessibilityRole="button"
+            accessibilityLabel={subscribed ? t('pub.priceAlertOn') : t('pub.priceAlertOff')}
+            accessibilityState={{ disabled: priceBusy }}
+          >
+            <Ionicons
+              name={subscribed ? 'notifications' : 'notifications-outline'}
+              size={20}
+              color={subscribed ? colors.primary : colors.ink2}
+            />
+            <Text style={[styles.favText, subscribed && styles.bellTextActive]}>
+              {subscribed ? t('pub.priceAlertOn') : t('pub.priceAlertOff')}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
         <Animated.View style={{ transform: [{ scale: contactScale }] }}>
           <TouchableOpacity
             style={styles.contactBtn}
@@ -1123,6 +1184,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: colors.spacing.md,
   },
   favText: { fontSize: 12, color: colors.ink2, marginTop: 2 },
+  bellTextActive: { color: colors.primary },
   contactBtn: {
     flex: 1,
     flexDirection: 'row',

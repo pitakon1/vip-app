@@ -117,6 +117,17 @@ export const favoritesApi = {
     }),
 };
 
+// 降价提醒
+export const priceAlertsApi = {
+  subscribe: (data: { property_id: string; listing_id?: string }) =>
+    api.post('/price-alerts', data),
+  unsubscribe: (propertyId: string) =>
+    api.delete(`/price-alerts/${propertyId}`),
+  mine: (params?: any) => api.get('/price-alerts', { params }),
+  status: (propertyId: string) =>
+    api.get(`/price-alerts/status/${propertyId}`),
+};
+
 // v1.9 预约看房
 export const viewingsApi = {
   create: (data: any) => api.post('/viewings', data),
@@ -166,7 +177,7 @@ export const notificationsApi = {
 };
 
 export const ownerApi = {
-  properties: () => api.get('/owners/me/properties'),
+  properties: (params?: any) => api.get('/owners/me/properties', { params }),
   income: () => api.get('/owners/me/income'),
   // 业主新增/编辑房源：owner_id 由后端按当前用户自动绑定
   create: (data: any) => api.post('/properties', data),

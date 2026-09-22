@@ -11,7 +11,7 @@ from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, lease_visibility_conditions
 from app.core.cache import delete_cache_pattern, get_cache, set_cache
 from app.core.concurrency import ensure_version
 from app.core.pagination import Page, PaginationParams, paginate_query
@@ -28,8 +28,13 @@ from app.models import (
     UserRole,
 )
 from app.providers.geo import haversine_km, lat_lng_bounds
+from app.services.search import relevance_score, resolve_sort
 
 router = APIRouter(prefix="/properties", tags=["properties"])
+
+# 支持的排序取值。relevance 仅在后端生效（关键词搜索时的默认口径），
+# 前端筛选栏不展示它，但仍允许显式传入。
+_PROPERTY_SORTS = ["latest", "price_asc", "price_desc", "area_desc", "relevance"]
 
 # 照片上传目录（backend/uploads/properties），由 /uploads 静态服务暴露
 UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "properties"
@@ -158,6 +163,14 @@ def _role_value(user: User) -> str:
     return user.role.value if hasattr(user.role, "value") else str(user.role)
 
 
+def _tenant_name(tenant: Optional[Tenant], users: dict) -> Optional[str]:
+    """租客档案 → 展示名（档案或账号缺失时返回 None，不抛异常）。"""
+    if not tenant or not tenant.user_id:
+        return None
+    account = users.get(tenant.user_id)
+    return account.full_name if account else None
+
+
 def _ensure_owner_access(user: User, prop: Property, session: Session) -> None:
     """权限：管理员/经纪人可操作任意房源；业主仅可操作名下房源。"""
     role = _role_value(user)
@@ -208,7 +221,7 @@ def _keyword_conditions(terms: List[str]) -> list:
     return conditions
 
 
-@router.get("", response_model=Page[Property])
+@router.get("", response_model=Page[PropertyDetail])
 def list_properties(
     pagination: PaginationParams = Depends(),
     status: Optional[PropertyStatus] = None,
@@ -252,7 +265,11 @@ def list_properties(
         None, description="配套设施（多选任一命中，如 aircon/pool/gym/parking/elevator/balcony）"
     ),
     has_video: Optional[bool] = Query(None, description="只看有视频看房的房源"),
-    sort: str = Query("latest", pattern="^(latest|price_asc|price_desc|area_desc)$"),
+    sort: Optional[str] = Query(
+        None,
+        pattern="^(latest|price_asc|price_desc|area_desc|relevance)$",
+        description="排序。不传时：有关键词按相关性，否则按最新",
+    ),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -262,6 +279,9 @@ def list_properties(
     terms = [keyword] if keyword else []
     terms += [k.strip() for k in (keywords or []) if k and k.strip()]
     terms = list(dict.fromkeys(terms))[:20]
+    # 先定下「实际生效的排序」再拼缓存键，否则 sort 缺省与 sort=relevance
+    # 会各自缓存一份完全相同的结果
+    sort = resolve_sort(sort, terms, allowed=_PROPERTY_SORTS)
     cache_key = (
         f"cache:properties:list:{pagination.page}:{pagination.page_size}:"
         f"{status.value if status else ''}:{project_id or ''}:{owner_id or ''}:"
@@ -371,20 +391,41 @@ def list_properties(
             conditions.append(Project.nearest_subway == subway)
 
     # 排序：默认最新；价格/面积排序时把空值排到最后，避免 NULL 干扰浏览
+    score = relevance_score(terms) if sort == "relevance" else None
     if sort == "price_asc":
         order_by = [Property.monthly_rent.asc()]
     elif sort == "price_desc":
         order_by = [Property.monthly_rent.desc()]
     elif sort == "area_desc":
         order_by = [Property.size_sqm.desc()]
+    elif score is not None:
+        order_by = [score.desc(), Property.created_at.desc()]
     else:
         order_by = [Property.created_at.desc()]
     order_by.append(Property.id)  # 兜底稳定排序，避免同值分页时记录漂移
     stmt = select(Property)
     if geo_join is not None:
         stmt = stmt.join(Project, geo_join)
+    elif score is not None:
+        # 这里 join 只为让楼盘名参与打分，必须用 LEFT JOIN：
+        # 内连接会把没有关联楼盘的房源整行丢掉，等于「一搜索就少了一批房源」。
+        stmt = stmt.outerjoin(Project, Property.project_id == Project.id)
     stmt = stmt.where(*conditions).order_by(*order_by)
     result = paginate_query(session, stmt, pagination)
+    # 给本页每条房源补上项目名（小区名 + 房号 的展示对齐 C 端口径）。
+    # 一次批量取项目映射，避免逐条 session.get 造成 N+1；保持 Page 结构不变，
+    # 只是把 items 从 SQLModel 换成带 project_name 的 dict。
+    items = result.items
+    project_ids = list({p.project_id for p in items if p.project_id})
+    project_names = (
+        {pr.id: pr.name for pr in session.exec(select(Project).where(Project.id.in_(project_ids))).all()}
+        if project_ids
+        else {}
+    )
+    result.items = [
+        {**p.model_dump(), "project_name": project_names.get(p.project_id)}
+        for p in result.items
+    ]
     set_cache(cache_key, result, ttl=60)
     return result
 
@@ -520,19 +561,31 @@ def get_property(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """获取房源详情（附带项目名称与业主名称）。"""
+    """获取房源详情（附带项目名称与业主名称）。
+
+    一次联表查询取齐 房源 / 楼盘 / 业主账号 三份数据：此前是 4 次
+    `session.get` 串行往返（房源→楼盘→业主→账号），详情页首屏被数据库
+    往返次数拖住；这里合并成一条带 outer join 的语句，缺关联时字段为 None。
+    """
     cache_key = f"cache:properties:detail:{property_id}"
     cached = get_cache(cache_key)
     if cached is not None:
         return cached
 
-    prop = session.get(Property, property_id)
-    if not prop or prop.deleted_at:
+    row = session.exec(
+        select(Property, Project, User)
+        .outerjoin(Project, Property.project_id == Project.id)
+        .outerjoin(Owner, Property.owner_id == Owner.id)
+        .outerjoin(User, Owner.user_id == User.id)
+        .where(Property.id == property_id)
+    ).first()
+    if not row:
         raise HTTPException(status_code=404, detail="Property not found")
+    prop, project, owner_user = row
+    if prop.deleted_at:
+        raise HTTPException(status_code=404, detail="Property not found")
+
     data = prop.model_dump()
-    project = session.get(Project, prop.project_id) if prop.project_id else None
-    owner = session.get(Owner, prop.owner_id) if prop.owner_id else None
-    owner_user = session.get(User, owner.user_id) if owner else None
     data["project_name"] = project.name if project else None
     data["owner_name"] = owner_user.full_name if owner_user else None
     set_cache(cache_key, data, ttl=60)
@@ -590,17 +643,44 @@ def list_property_leases(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """获取该房源的租约列表（附带租客名称）。"""
+    """获取该房源的租约列表（附带租客名称）。
+
+    可见范围与 `/leases` 同一口径（员工全量 / 业主限本人名下 / 租客限本人），
+    此前任何登录用户都能按房源 id 读到他人租约与租客姓名。
+
+    租客姓名按需批量取：原来是 `select(Tenant).all()` + `select(User).all()`
+    两次全表拉取，租户表一涨就是每请求一次全表扫描。
+    """
+    prop = session.get(Property, property_id)
+    if not prop or prop.deleted_at:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    conditions = [Lease.property_id == property_id, Lease.deleted_at.is_(None)]
+    conditions.extend(lease_visibility_conditions(session, user))
     leases = session.exec(
-        select(Lease)
-        .where(
-            Lease.property_id == property_id,
-            Lease.deleted_at.is_(None),
-        )
-        .order_by(Lease.created_at.desc())
+        select(Lease).where(*conditions).order_by(Lease.created_at.desc())
     ).all()
-    tenants = {t.id: t for t in session.exec(select(Tenant)).all()}
-    users = {u.id: u for u in session.exec(select(User)).all()}
+
+    tenant_ids = {lease.tenant_id for lease in leases if lease.tenant_id}
+    tenants = (
+        {
+            tenant.id: tenant
+            for tenant in session.exec(
+                select(Tenant).where(Tenant.id.in_(tenant_ids))
+            ).all()
+        }
+        if tenant_ids
+        else {}
+    )
+    user_ids = {tenant.user_id for tenant in tenants.values() if tenant.user_id}
+    users = (
+        {
+            u.id: u
+            for u in session.exec(select(User).where(User.id.in_(user_ids))).all()
+        }
+        if user_ids
+        else {}
+    )
     return {
         "items": [
             {
@@ -611,10 +691,7 @@ def list_property_leases(
                 "monthly_rent": lease.monthly_rent,
                 "currency": lease.currency,
                 "tenant_id": str(lease.tenant_id),
-                "tenant_name": users.get(tenants[lease.tenant_id].user_id).full_name
-                if tenants.get(lease.tenant_id)
-                and users.get(tenants[lease.tenant_id].user_id)
-                else None,
+                "tenant_name": _tenant_name(tenants.get(lease.tenant_id), users),
             }
             for lease in leases
         ]

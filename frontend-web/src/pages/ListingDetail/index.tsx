@@ -15,6 +15,9 @@ import type { Dayjs } from 'dayjs'
 import api from '@/lib/api'
 import { convertCurrency, formatMoney, loadRates } from '@/lib/money'
 import PublicTopBar from '@/components/PublicTopBar'
+import PublicListingCard, {
+  type PublicListingCardData,
+} from '@/components/PublicListingCard'
 import useAuthStore from '@/stores/auth'
 import { viewingsApi } from '@/services/api'
 import {
@@ -66,6 +69,9 @@ type Broker = {
   whatsapp?: string
 }
 
+// 相似房源复用列表卡片类型（后端 /listings/{id}/similar 返回 PublicListingCard）
+type SimilarListing = PublicListingCardData
+
 type ListingDetail = {
   id: string
   property_id?: string
@@ -107,6 +113,7 @@ const ListingDetailPage = () => {
   const isLoggedIn = !!token
 
   const [detail, setDetail] = useState<ListingDetail | null>(null)
+  const [similar, setSimilar] = useState<SimilarListing[]>([])
   const [loading, setLoading] = useState(true)
 
   const [form, setForm] = useState({
@@ -155,6 +162,23 @@ const ListingDetailPage = () => {
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [id])
+
+  // 相似房源推荐：进详情页顺带取一次（失败静默置空，不阻塞主内容）
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+    api
+      .get(`/public/listings/${id}/similar`)
+      .then((res) => {
+        if (!cancelled) setSimilar(res.data ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setSimilar([])
       })
     return () => {
       cancelled = true
@@ -261,7 +285,7 @@ const ListingDetailPage = () => {
 
         <div className="pub-detail">
           {/* ---------------- 主栏 ---------------- */}
-          <main style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <main className="pub-detail__main">
             <div className="pub-gallery">
               {photos.length === 0 ? (
                 <div className="pub-gallery__empty">{t('publicSite.noPhoto')}</div>
@@ -278,8 +302,8 @@ const ListingDetailPage = () => {
             </div>
 
             <div className="pub-card">
-              <h1 style={{ fontSize: 22, fontWeight: 500, margin: '0 0 8px' }}>{title}</h1>
-              <p style={{ fontSize: 14, color: 'var(--rent-ink-2)', margin: '0 0 14px' }}>
+              <h1 className="pub-detail__title">{title}</h1>
+              <p className="pub-detail__addr">
                 {[detail.address, detail.district, detail.city].filter(Boolean).join(' · ')}
               </p>
 
@@ -315,7 +339,7 @@ const ListingDetailPage = () => {
                   {formatMoney(price, detail.currency || 'THB')}
                 </span>
                 {isRent ? (
-                  <span style={{ fontSize: 13, color: 'var(--rent-ink-3)' }}>
+                  <span className="pub-detail__unit">
                     {t('property.perMonth')}
                   </span>
                 ) : null}
@@ -325,12 +349,21 @@ const ListingDetailPage = () => {
               </div>
 
               {detail.deposit_months ? (
-                <p style={{ fontSize: 13, color: 'var(--rent-ink-2)', marginTop: 10 }}>
+                <p className="pub-detail__note">
                   {t('publicSite.deposit')}: {detail.deposit_months}
                   {t('publicSite.months')}
                   {detail.deposit_amount
                     ? ` · ${formatMoney(detail.deposit_amount, detail.currency || 'THB')}`
                     : ''}
+                </p>
+              ) : null}
+
+              {detail.size_sqm ? (
+                <p className="pub-detail__unit-price">
+                  {t('publicSite.unitPrice')}: ≈{' '}
+                  {formatMoney(price / detail.size_sqm, detail.currency || 'THB')}
+                  {t('publicSite.sqm')}
+                  {' · '}≈ {formatMoney(convertCurrency(price / detail.size_sqm, 'CNY'), 'CNY')}/㎡
                 </p>
               ) : null}
             </div>
@@ -522,69 +555,68 @@ const ListingDetailPage = () => {
                 </p>
               </div>
             ) : null}
+
+            {/* 相似房源推荐：同楼盘/同户型/同区优先，点击跳转详情 */}
+            {similar.length > 0 ? (
+              <section className="pub-section">
+                <h2 className="pub-section__title">{t('publicSite.similarListings')}</h2>
+                <p className="pub-section__hint">{t('publicSite.similarListingsHint')}</p>
+                <div className="pub-grid">
+                  {similar.map((item) => (
+                    <PublicListingCard key={item.id} item={item} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </main>
 
           {/* ---------------- 侧栏 ---------------- */}
-          <aside style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <aside className="pub-detail__aside">
             {detail.broker ? (
               <div className="pub-card">
                 <h2 className="pub-inquiry__title">{t('publicSite.broker')}</h2>
                 {!isLoggedIn ? (
-                  <div
-                    className="pub-form-msg"
-                    style={{
-                      marginTop: 10,
-                      background: 'var(--rent-bg-2, #f5f6f7)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <span role="img" aria-label="lock" style={{ fontSize: 13 }}>
-                      🔒
-                    </span>
+                  <div className="pub-form-msg pub-detail__lock">
+                    <svg className="pub-detail__lock-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
                     <span>{t('publicSite.contactLocked')}</span>
                   </div>
                 ) : null}
-                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div className="pub-detail__broker">
                   {detail.broker.real_name ? (
-                    <span style={{ fontSize: 15, fontWeight: 500 }}>
+                    <span className="pub-detail__broker-name">
                       {detail.broker.real_name}
                     </span>
                   ) : null}
                   {detail.broker.company ? (
-                    <span style={{ fontSize: 13, color: 'var(--rent-ink-2)' }}>
+                    <span className="pub-detail__broker-meta">
                       {detail.broker.company}
                     </span>
                   ) : null}
                   {detail.broker.phone ? (
-                    <span style={{ fontSize: 14 }}>
+                    <span className="pub-detail__broker-phone">
                       {detail.broker.phone}
                       {!isLoggedIn ? (
-                        <span
-                          style={{
-                            fontSize: 12,
-                            color: 'var(--rent-ink-3)',
-                            marginLeft: 6,
-                          }}
-                        >
+                        <span className="pub-detail__locked-suffix">
                           {t('publicSite.lockedSuffix')}
                         </span>
                       ) : null}
                     </span>
                   ) : null}
                   {detail.broker.wechat ? (
-                    <span style={{ fontSize: 13, color: 'var(--rent-ink-2)' }}>
+                    <span className="pub-detail__broker-meta">
                       WeChat: {detail.broker.wechat}
                     </span>
                   ) : null}
                   {detail.broker.line ? (
-                    <span style={{ fontSize: 13, color: 'var(--rent-ink-2)' }}>
+                    <span className="pub-detail__broker-meta">
                       LINE: {detail.broker.line}
                     </span>
                   ) : null}
                   {detail.broker.whatsapp ? (
-                    <span style={{ fontSize: 13, color: 'var(--rent-ink-2)' }}>
+                    <span className="pub-detail__broker-meta">
                       WhatsApp: {detail.broker.whatsapp}
                     </span>
                   ) : null}

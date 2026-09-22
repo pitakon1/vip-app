@@ -258,10 +258,12 @@
   color: #fff;
   backdrop-filter: blur(4px);
 }
-.pl-item__badge--vacant { background: rgba(22, 163, 74, 0.85); }
-.pl-item__badge--rented { background: rgba(59, 130, 246, 0.85); }
-.pl-item__badge--reserved { background: rgba(147, 51, 234, 0.85); }
-.pl-item__badge--maintenance { background: rgba(217, 119, 6, 0.85); }
+/* 状态徽标压在照片上，需 0.85 不透明保证白字可读；色值仍走 -rgb 令牌
+   （原 #3b82f6 / #9333ea 为 Tailwind 蓝与表外紫，违反 UI-设计原则.md §4） */
+.pl-item__badge--vacant { background: rgba(var(--state-success-rgb), 0.85); }
+.pl-item__badge--rented { background: rgba(var(--state-info-rgb), 0.85); }
+.pl-item__badge--reserved { background: rgba(var(--state-purple-rgb), 0.85); }
+.pl-item__badge--maintenance { background: rgba(var(--state-warning-rgb), 0.85); }
 
 /* 右侧内容 */
 .pl-item__body {
@@ -344,11 +346,12 @@
   line-height: 1.6;
   white-space: nowrap;
 }
-.pl-chip--vacant { color: var(--state-success); background: rgba(22, 163, 74, 0.08); }
-.pl-chip--rented { color: var(--state-info); background: rgba(14, 165, 233, 0.08); }
+/* 状态浅底统一走 -rgb 通道令牌（UI-设计原则.md §1.3 / §4：禁自造浅底十六进制） */
+.pl-chip--vacant { color: var(--state-success); background: rgba(var(--state-success-rgb), 0.08); }
+.pl-chip--rented { color: var(--state-info); background: rgba(var(--state-info-rgb), 0.08); }
 .pl-chip--reserved { color: var(--state-purple); background: rgba(var(--state-purple-rgb), 0.08); }
-.pl-chip--maintenance { color: var(--state-warning); background: rgba(217, 119, 6, 0.08); }
-.pl-chip--feature { color: var(--rent-primary); background: rgba(20, 184, 166, 0.06); }
+.pl-chip--maintenance { color: var(--state-warning); background: rgba(var(--state-warning-rgb), 0.08); }
+.pl-chip--feature { color: var(--rent-primary); background: rgba(var(--rent-primary-rgb), 0.08); }
 
 /* 底部价格 */
 .pl-item__bottom {
@@ -761,26 +764,9 @@
   color: var(--rent-primary);
 }
 
-/* =========================================================
-   房源卡片封面：有实拍图就用图，没有才回退色块 + 户型图标
-   ========================================================= */
-.rent-prop-search-card__cover {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-/* 叠一层压暗渐变，保证白色角标在浅色照片上仍可读
-   （原型自带的 5% 遮罩只够应付纯色块） */
-.rent-prop-search-card__banner[data-photo='true']::after {
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.3) 0%,
-    rgba(0, 0, 0, 0.04) 42%,
-    rgba(0, 0, 0, 0.38) 100%
-  );
-}
+/* 房源卡片封面（.rent-prop-search-card__cover / [data-photo]）的样式已上移到
+   styles/prototype-portal.css —— 该卡片组件由首页与找房页共用，样式放在页面级
+   文件里会导致首页拿不到规则。 */
 
 /* 状态标签原来是 top:14/right:14，而收藏按钮是 top:10/right:10 且 z-index 更高
    ——状态被完全盖住。状态是决策信息，挪到左上，两者不再打架。 */

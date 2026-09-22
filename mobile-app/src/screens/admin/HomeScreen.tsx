@@ -14,6 +14,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import { useResponsive, useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import BarChart from '@/components/charts/BarChart';
@@ -47,18 +48,11 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] 
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-// 快捷入口：对齐管理端原型首页的 5 项（房源/客户/合同/收款/员工）
-const QUICK_ACTIONS: { key: string; label: string; icon: IoniconName; route: string }[] = [
-  { key: 'props', label: '房源管理', icon: 'home-outline', route: 'AdminProperties' },
-  { key: 'crm', label: '客户管理', icon: 'people-outline', route: 'AdminCRM' },
-  { key: 'lease', label: '合同管理', icon: 'document-text-outline', route: 'AdminLeases' },
-  { key: 'payment', label: '收款管理', icon: 'card-outline', route: 'AdminPayments' },
-  { key: 'staff', label: '员工管理', icon: 'person-add-outline', route: 'AdminUsers' },
-];
-
 export default function AdminHomeScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { isTablet } = useResponsive();
+  const respContainer = useResponsiveContainerStyle();
   const [tab, setTab] = useState<Tab>('overview');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -247,7 +241,7 @@ export default function AdminHomeScreen() {
 
       <ScrollView
         style={styles.body}
-        contentContainerStyle={styles.bodyContent}
+        contentContainerStyle={[styles.bodyContent, respContainer]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -306,21 +300,8 @@ export default function AdminHomeScreen() {
               <Text style={styles.sectionHint}>实时汇总</Text>
             </View>
             <View style={styles.statRow}>
-              {statCards.slice(0, 2).map((s) => (
-                <View key={s.key} style={styles.statCard}>
-                  <Text style={styles.statLabel}>{s.label}</Text>
-                  <Text style={styles.statNum} numberOfLines={1}>{s.value}</Text>
-                  {!!s.badge && (
-                    <View style={[styles.statBadge, { backgroundColor: colors.alpha(s.tone === colors.error ? colors.errorRgb : s.tone === colors.warning ? colors.warningRgb : colors.successRgb, 0.12) }]}>
-                      <Text style={[styles.statBadgeText, { color: s.tone }]}>{s.badge}</Text>
-                    </View>
-                  )}
-                </View>
-              ))}
-            </View>
-            <View style={styles.statRow}>
-              {statCards.slice(2).map((s) => (
-                <View key={s.key} style={styles.statCard}>
+              {statCards.map((s) => (
+                <View key={s.key} style={[styles.statCard, isTablet && styles.statCardWide]}>
                   <Text style={styles.statLabel}>{s.label}</Text>
                   <Text style={styles.statNum} numberOfLines={1}>{s.value}</Text>
                   {!!s.badge && (
@@ -368,26 +349,6 @@ export default function AdminHomeScreen() {
                 <Text style={styles.todoLabel}>对账差异</Text>
                 <Text style={[styles.todoNum, { color: colors.error }]}>{reconDiff}</Text>
               </TouchableOpacity>
-            </View>
-
-            {/* 快捷入口（5 项，与底部导航/其他入口不重复） */}
-            <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>快捷入口</Text>
-            </View>
-            <View style={styles.actionGrid}>
-              {QUICK_ACTIONS.map((item) => (
-                <TouchableOpacity
-                  key={item.key}
-                  style={styles.actionCell}
-                  activeOpacity={0.7}
-                  onPress={() => navigation.navigate(item.route)}
-                >
-                  <View style={styles.actionCellIcon}>
-                    <Ionicons name={item.icon} size={22} color={colors.primary} />
-                  </View>
-                  <Text style={styles.actionCellLabel}>{item.label}</Text>
-                </TouchableOpacity>
-              ))}
             </View>
 
             {/* 最近动态（取最近付款记录，无数据给空态） */}
@@ -462,28 +423,6 @@ const styles = StyleSheet.create({
     color: colors.primaryForeground,
     letterSpacing: 0.5,
   },
-
-  /* ===== 快捷入口宫格 ===== */
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 8,
-  },
-  actionCell: {
-    width: '20%',
-    alignItems: 'center',
-    paddingVertical: 10,
-    gap: 6,
-  },
-  actionCellIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: `rgba(${colors.primaryRgb}, 0.1)`,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionCellLabel: { fontSize: 12, color: colors.ink2, fontWeight: '600' },
 
   /* ===== Tab 导航 ===== */
   tabScroll: {
@@ -569,15 +508,17 @@ const styles = StyleSheet.create({
   miniNum: { fontSize: 18, fontWeight: '800', marginBottom: 3, fontVariant: ['tabular-nums'] },
   miniLabel: { fontSize: 10, color: colors.ink3, fontWeight: '500' },
 
-  /* ===== 经营指标（2×2） ===== */
-  statRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  /* ===== 经营指标（手机 2×2 / 平板 4 列一行） ===== */
+  statRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 },
   statCard: {
-    flex: 1,
+    flexBasis: '45%',
+    flexGrow: 1,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.lg,
     padding: 14,
     ...colors.shadow.sm,
   },
+  statCardWide: { flexBasis: '23%' },
   statLabel: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
   statNum: {
     fontSize: 20,

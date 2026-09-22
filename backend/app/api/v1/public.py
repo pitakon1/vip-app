@@ -42,10 +42,15 @@ from app.models import (
     School,
 )
 from app.providers.geo import haversine_km, lat_lng_bounds
+from app.services.search import relevance_score, resolve_sort
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/public", tags=["public"])
+
+# /public/listings 支持的排序取值。relevance 不在前端筛选栏里也允许传：
+# 关键词搜索时它是「不显式指定排序」的默认口径。
+_LISTING_SORTS = ["latest", "price_asc", "price_desc", "area_desc", "distance", "relevance"]
 
 # 学区找房：候选集上限。距离要精确算（haversine）而 SQL 里没法算，
 # 因此先按 bounding box 粗筛、再在 Python 里精算与排序。
@@ -139,6 +144,7 @@ class PublicProjectBrief(BaseModel):
     developer_name: Optional[str] = None
     amenities: Optional[Dict[str, Any]] = None
     payment_plan: Optional[Dict[str, Any]] = None
+    nearest_subway: Optional[str] = None
 
 
 class PublicNearbySchool(BaseModel):
@@ -392,6 +398,7 @@ def _project_brief(
         developer_name=(developer.name if developer else None) or project.developer,
         amenities=project.amenities,
         payment_plan=project.payment_plan,
+        nearest_subway=project.nearest_subway,
     )
 
 
@@ -563,7 +570,11 @@ def list_public_listings(
         None, description="按学校找房：该校半径内房源（空间筛选，非标签筛选）"
     ),
     school_radius_km: float = Query(3.0, gt=0, le=20, description="学校半径，默认 3km"),
-    sort: str = Query("latest", pattern="^(latest|price_asc|price_desc|area_desc|distance)$"),
+    sort: Optional[str] = Query(
+        None,
+        pattern="^(latest|price_asc|price_desc|area_desc|distance|relevance)$",
+        description="排序。不传时：有关键词按相关性，否则按最新",
+    ),
     session: Session = Depends(get_session),
 ):
     """公开房源列表。
@@ -573,6 +584,10 @@ def list_public_listings(
     「按学校找房」走的是**空间筛选**：选一所学校 + 半径，返回该半径内的房源并附
     最近学校与距离。不做「学区房」布尔标签——泰国没有划片入学，国际学校是
     「付费 + 距离」逻辑，硬做一个标签无据可依。
+
+    排序：显式传 `sort` 时按传入值；不传时，有关键词按**相关性**（命中房号/楼盘名
+    权重更高，见 `services.search`），无关键词按最新。前端筛选栏默认会显式传
+    `latest`，因此不会被这条默认口径意外改变行为。
     """
     base = _listings_base_stmt()
     conditions = []
@@ -655,12 +670,18 @@ def list_public_listings(
         )
 
     # 排序
+    sort = resolve_sort(sort, terms, allowed=_LISTING_SORTS)
     if sort == "price_asc":
         order_by = [price_column.asc()]
     elif sort == "price_desc":
         order_by = [price_column.desc()]
     elif sort == "area_desc":
         order_by = [Property.size_sqm.desc()]
+    elif sort == "relevance":
+        # 相关性只在「有关键词」时才有意义；terms 为空时退化为最新
+        score = relevance_score(terms)
+        order_by = [score.desc()] if score is not None else []
+        order_by.append(Listing.created_at.desc())
     else:
         order_by = [Listing.created_at.desc()]
     order_by.append(Listing.id)
@@ -700,6 +721,8 @@ def list_public_listings(
             if distance <= school_radius_km:
                 within.append((distance, listing, prop, project))
 
+        # 学区场景下「相关性」无意义（用户的心智是「离学校多近」），
+        # 因此 relevance 与 distance 一并走距离升序。
         if sort == "distance" or sort not in {"price_asc", "price_desc", "area_desc"}:
             within.sort(key=lambda row: row[0])
         elif sort == "area_desc":
@@ -811,6 +834,98 @@ def get_public_listing(
         broker=broker,
         mandate_type=_enum_value(listing.mandate_type),
     )
+
+
+# ==================== 相似房源推荐 ====================
+
+
+def _similar_score(
+    base: Tuple[Listing, Property, Project],
+    cand: Tuple[Listing, Property, Project],
+) -> float:
+    """相似度打分（仅用于排序，无业务含义）。
+
+    权重取「同源不同量级」的加分：同楼盘最像，其次是同楼盘形态 / 同区 /
+    户型一致 / 面积与租金贴近。不加分项一律 0——不做惩罚，避免负分干扰排序。
+    """
+    _, base_prop, base_proj = base
+    _, cand_prop, cand_proj = cand
+
+    score = 0.0
+    # 同楼盘：最优先（同一栋、同一个物业标准，租客常整栋对比）
+    if base_proj and cand_proj and base_proj.id == cand_proj.id:
+        score += 5
+    if base_prop and cand_prop:
+        # 户型一致 +4
+        if base_prop.property_type == cand_prop.property_type:
+            score += 4
+        # 卧室数一致 +2，差 1 间 +1
+        if base_prop.bedrooms is not None and cand_prop.bedrooms is not None:
+            diff = abs(base_prop.bedrooms - cand_prop.bedrooms)
+            score += 2 if diff == 0 else (1 if diff == 1 else 0)
+        # 面积贴近：误差 ≤20% +1.5，≤40% +0.75
+        if base_prop.size_sqm and cand_prop.size_sqm:
+            ratio = abs(base_prop.size_sqm - cand_prop.size_sqm) / base_prop.size_sqm
+            if ratio <= 0.2:
+                score += 1.5
+            elif ratio <= 0.4:
+                score += 0.75
+    # 同区（楼盘层级不同：退到区 +1.5，再退到城市 +0.5）
+    if base_proj and cand_proj:
+        if base_proj.district and base_proj.district == cand_proj.district:
+            score += 1.5
+        elif base_proj.city and base_proj.city == cand_proj.city:
+            score += 0.5
+    return score
+
+
+@router.get("/listings/{listing_id}/similar", response_model=List[PublicListingCard])
+def get_similar_listings(
+    listing_id: uuid.UUID,
+    limit: int = Query(6, ge=1, le=20),
+    session: Session = Depends(get_session),
+):
+    """相似房源推荐（详情页「猜你喜欢 / 相似房源」）。
+
+    **为什么做同源同区**：对「看过这套房」的用户，最自然的下一跳是在同一楼盘
+    或同区里找「差不多」的替代（户型/面积/租金贴近）。跨城市、跨公寓 vs 别墅
+    的推荐在找房场景没有体感，所以这里**不**做。
+
+    打分逻辑见 `_similar_score`：同楼盘 / 同户型 / 卧室数贴近 / 面积贴近 /
+    同区同城，几项累加后取前 N。为控制候选规模，先用 SQL 把候选收敛到
+    「同楼盘 或 同区 或 同户型」三选一，再在应用层打分——房子多起来后，
+    「全区全户型全楼盘」的无差别遍历每进一次详情页就来一次，扛不住。
+    """
+    row = session.exec(_listings_base_stmt().where(Listing.id == listing_id)).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    _, base_prop, base_proj = row
+
+    # 候选收敛：至少与当前房源「同楼盘 / 同区 / 同户型」沾边，并排除自身
+    prefilters = [Listing.id != listing_id]
+    if base_prop and base_prop.property_type:
+        prefilters.append(Property.property_type == base_prop.property_type)
+    if base_proj and base_proj.district:
+        prefilters.append(Project.district == base_proj.district)
+    elif base_proj and base_proj.city:
+        prefilters.append(Project.city == base_proj.city)
+    if base_prop and base_prop.project_id:
+        prefilters.append(Property.project_id == base_prop.project_id)
+
+    rows = session.exec(
+        _listings_base_stmt()
+        .where(*prefilters)
+        .order_by(Listing.created_at.desc())
+        .limit(300)
+    ).all()
+
+    scored = [
+        (_similar_score(row, cand), cand)
+        for cand in rows
+        if cand[1].id != row[1].id
+    ]
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [_build_card(cand[0], cand[1], cand[2]) for score, cand in scored[:limit]]
 
 
 # ==================== 学校（学区找房）====================

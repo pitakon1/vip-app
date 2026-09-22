@@ -11,6 +11,7 @@
 import { useState } from 'react'
 import { View, Text, Input, Textarea } from '@tarojs/components'
 import { publicApi, type PublicInquiryPayload } from '@/services/publicApi'
+import { useI18n } from '@/i18n'
 
 interface Props {
   title: string
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function PublicInquiryForm({ title, note, context, source, defaultMessage = '' }: Props) {
+  const { t } = useI18n()
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [wechat, setWechat] = useState('')
@@ -31,11 +33,11 @@ export default function PublicInquiryForm({ title, note, context, source, defaul
 
   const submit = async () => {
     if (!name.trim()) {
-      setFeedback({ tone: 'err', text: '请填写称呼' })
+      setFeedback({ tone: 'err', text: t('pub.inquireNameRequired') })
       return
     }
     if (!phone.trim()) {
-      setFeedback({ tone: 'err', text: '请填写手机号，方便经纪人联系你' })
+      setFeedback({ tone: 'err', text: t('pub.inquirePhoneRequired') })
       return
     }
     setSubmitting(true)
@@ -49,14 +51,14 @@ export default function PublicInquiryForm({ title, note, context, source, defaul
         source,
         ...context
       })
-      setFeedback({ tone: 'ok', text: '已收到，我们会尽快联系你' })
+      setFeedback({ tone: 'ok', text: t('pub.inquireOk') })
       setName('')
       setPhone('')
       setWechat('')
       setMessage('')
     } catch (err) {
       console.error('[public inquiry] 提交失败', err)
-      setFeedback({ tone: 'err', text: '提交失败，请稍后重试' })
+      setFeedback({ tone: 'err', text: t('pub.inquireError') })
     } finally {
       setSubmitting(false)
     }
@@ -67,37 +69,37 @@ export default function PublicInquiryForm({ title, note, context, source, defaul
       <Text className='pub-section__title'>{title}</Text>
       {note ? <Text className='pub-section__hint'>{note}</Text> : null}
 
-      <Text className='pub-inquiry__label'>称呼</Text>
+      <Text className='pub-inquiry__label'>{t('pub.inquireName')}</Text>
       <Input
         className='pub-inquiry__input'
         value={name}
         onInput={(e) => setName(e.detail.value)}
-        placeholder='怎么称呼你'
+        placeholder={t('pub.inquireNamePlaceholder')}
       />
 
-      <Text className='pub-inquiry__label'>电话 / WhatsApp</Text>
+      <Text className='pub-inquiry__label'>{t('pub.inquirePhone')}</Text>
       <Input
         className='pub-inquiry__input'
         type='number'
         value={phone}
         onInput={(e) => setPhone(e.detail.value)}
-        placeholder='方便回电的号码'
+        placeholder={t('pub.inquirePhonePlaceholder')}
       />
 
-      <Text className='pub-inquiry__label'>微信</Text>
+      <Text className='pub-inquiry__label'>{t('pub.inquireWechat')}</Text>
       <Input
         className='pub-inquiry__input'
         value={wechat}
         onInput={(e) => setWechat(e.detail.value)}
-        placeholder='微信号（与电话二选一即可）'
+        placeholder={t('pub.inquireWechatPlaceholder')}
       />
 
-      <Text className='pub-inquiry__label'>留言</Text>
+      <Text className='pub-inquiry__label'>{t('pub.inquireMessage')}</Text>
       <Textarea
         className='pub-inquiry__textarea'
         value={message}
         onInput={(e) => setMessage(e.detail.value)}
-        placeholder={defaultMessage || '想了解什么？'}
+        placeholder={defaultMessage || t('pub.inquireMessagePlaceholder')}
         maxlength={300}
       />
 
@@ -120,7 +122,7 @@ export default function PublicInquiryForm({ title, note, context, source, defaul
           submit()
         }}
       >
-        <Text>{submitting ? '提交中...' : '提交咨询'}</Text>
+        <Text>{submitting ? t('pub.inquireSubmitting') : t('pub.inquireSubmit')}</Text>
       </View>
     </View>
   )

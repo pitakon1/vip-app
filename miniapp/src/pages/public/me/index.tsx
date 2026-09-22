@@ -7,33 +7,31 @@
  */
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { useI18n, LANGS, LANG_LABELS } from '@/i18n'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
 
-const CAPABILITIES = ['房源（租房 / 买房）', '国际学校与周边房源', '小区（楼盘）与在租在售']
+const CAPABILITIES = ['pub.meCap1', 'pub.meCap2', 'pub.meCap3']
 
 export default function PublicMePage() {
+  const { t, lang, setLang } = useI18n()
   return (
     <View className='pub-page'>
       <View className='pub-inner'>
         <View className='pub-guest'>
           <View className='pub-guest__avatar'>
-            <Text>我</Text>
+            <Text>{t('pub.meAvatar')}</Text>
           </View>
-          <Text className='pub-guest__title'>浏览无需注册</Text>
-          <Text className='pub-guest__sub'>
-            内容全部公开。只有查看租约、缴费、收藏、消息这些
-            {'\n'}
-            与你本人相关的功能时才需要登录。
-          </Text>
+          <Text className='pub-guest__title'>{t('pub.meTitle')}</Text>
+          <Text className='pub-guest__sub'>{t('pub.meSub')}</Text>
         </View>
 
         <View className='pub-card'>
-          <Text className='pub-section__title'>现在可以看</Text>
+          <Text className='pub-section__title'>{t('pub.nowAvailable')}</Text>
           <View className='pub-guest__caps'>
             {CAPABILITIES.map((cap) => (
               <View className='pub-guest__cap' key={cap}>
-                <Text>{cap}</Text>
+                <Text>{t(cap)}</Text>
                 <Text className='pub-guest__cap-mark'>✓</Text>
               </View>
             ))}
@@ -45,18 +43,33 @@ export default function PublicMePage() {
             className='btn btn--primary btn--block'
             onClick={() => Taro.navigateTo({ url: '/pages/login/index' })}
           >
-            <Text>登录</Text>
+            <Text>{t('pub.login')}</Text>
           </View>
           <View
             className='btn btn--secondary btn--block'
             onClick={() => Taro.navigateTo({ url: '/pages/login/index?mode=register' })}
           >
-            <Text>注册新账号</Text>
+            <Text>{t('pub.registerAccount')}</Text>
+          </View>
+        </View>
+
+        <View className='pub-card'>
+          <Text className='pub-section__title'>{t('pub.language')}</Text>
+          <View className='pub-chips pub-chips--wrap'>
+            {LANGS.map((l) => (
+              <View
+                key={l}
+                className={`pub-chip${lang === l ? ' pub-chip--on' : ''}`}
+                onClick={() => setLang(l)}
+              >
+                <Text>{LANG_LABELS[l]}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
         <View className='pub-footer-note'>
-          浏览房源、学校、小区无需注册
+          {t('pub.guestHint')}
         </View>
       </View>
 

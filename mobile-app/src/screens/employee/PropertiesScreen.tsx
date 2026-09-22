@@ -13,13 +13,19 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  Image,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import colors from '@/theme/colors';
+import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { propertiesApi } from '@/services/api';
+import { publicApi, type PublicSchool } from '@/services/publicApi';
+import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
+import RegionPicker, { type RegionSelection } from '@/components/RegionPicker';
 
 const PAGE_SIZE = 10;
 
@@ -38,6 +44,7 @@ interface PropertyItem {
   furnished?: boolean;
   photos?: unknown[] | null;
   video_url?: string | null;
+  project_name?: string | null;
 }
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -82,7 +89,20 @@ const SORTS: { key: string; label: string }[] = [
 
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
+// 取房源照片首图 URL（兼容字符串与 {url|path} 对象两种形态），无则返回空
+const photoUrlOf = (photos?: unknown[] | null): string => {
+  if (!Array.isArray(photos) || photos.length === 0) return '';
+  const first = photos[0];
+  if (typeof first === 'string') return first;
+  if (first && typeof first === 'object') {
+    const o = first as { url?: unknown; path?: unknown };
+    return typeof o.url === 'string' ? o.url : typeof o.path === 'string' ? o.path : '';
+  }
+  return '';
+};
+
 export default function PropertiesScreen() {
+  const respContainer = useResponsiveContainerStyle();
   const navigation = useNavigation<any>();
   const [items, setItems] = useState<PropertyItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -93,16 +113,54 @@ export default function PropertiesScreen() {
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('');
   const [sort, setSort] = useState('latest');
+  const [region, setRegion] = useState<RegionSelection | null>(null);
+  // ---- C 端维度：学校 + 更多（价格/面积/卧室），与 C 端找房口径一致 ----
+  const [schoolId, setSchoolId] = useState('');
+  const [schoolKm, setSchoolKm] = useState<number>(3);
+  const [schools, setSchools] = useState<PublicSchool[]>([]);
+  const [schoolKw, setSchoolKw] = useState('');
+  const [schoolOpen, setSchoolOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [areaMin, setAreaMin] = useState('');
+  const [areaMax, setAreaMax] = useState('');
+  const [bedsMin, setBedsMin] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const firstLoad = useRef(true);
 
   const fetchProperties = useCallback(
-    async (targetPage: number, kw: string, st: string, so: string) => {
-      const params: Record<string, unknown> = { page: targetPage, page_size: PAGE_SIZE, sort: so };
-      if (kw.trim()) params.q = kw.trim();
-      if (st) params.status = st;
+    async (targetPage: number, base: {
+      kw: string;
+      st: string;
+      so: string;
+      rg: RegionSelection | null;
+      schoolId: string;
+      schoolKm: number;
+      priceMin: string;
+      priceMax: string;
+      areaMin: string;
+      areaMax: string;
+      bedsMin: string;
+    }) => {
+      const params: Record<string, unknown> = { page: targetPage, page_size: PAGE_SIZE, sort: base.so };
+      if (base.kw.trim()) params.q = base.kw.trim();
+      if (base.st) params.status = base.st;
+      if (base.rg?.region) params.region = base.rg.region;
+      if (base.rg?.city) params.city = base.rg.city;
+      if (base.rg?.district) params.district = base.rg.district;
+      // C 端维度：学校（空间筛选）/ 价格 / 面积 / 卧室
+      if (base.schoolId) {
+        params.school_id = base.schoolId;
+        params.school_radius_km = base.schoolKm;
+      }
+      if (base.priceMin) params.price_min = Number(base.priceMin);
+      if (base.priceMax) params.price_max = Number(base.priceMax);
+      if (base.areaMin) params.area_min = Number(base.areaMin);
+      if (base.areaMax) params.area_max = Number(base.areaMax);
+      if (base.bedsMin) params.bedrooms_min = Number(base.bedsMin);
       const res = await propertiesApi.list(params);
       const data = res.data as {
         items?: PropertyItem[];
@@ -127,7 +185,19 @@ export default function PropertiesScreen() {
       const targetPage = options?.nextPage ?? 1;
       try {
         const [propRes, vacantRes] = await Promise.allSettled([
-          fetchProperties(targetPage, kw, status, sort),
+          fetchProperties(targetPage, {
+            kw,
+            st: status,
+            so: sort,
+            rg: region,
+            schoolId,
+            schoolKm,
+            priceMin,
+            priceMax,
+            areaMin,
+            areaMax,
+            bedsMin,
+          }),
           propertiesApi.list({ status: 'vacant', page: 1, page_size: 1 }),
         ]);
 
@@ -174,8 +244,16 @@ export default function PropertiesScreen() {
         setRefreshing(false);
       }
     },
-    [fetchProperties, keyword, status, sort],
+    [fetchProperties, keyword, status, sort, region, schoolId, schoolKm, priceMin, priceMax, areaMin, areaMax, bedsMin],
   );
+
+  // 学校清单只为筛选器备选（公开接口，匿名可读）
+  useEffect(() => {
+    publicApi
+      .schools({ page_size: 100 })
+      .then((res: any) => setSchools(res?.data?.items ?? []))
+      .catch(() => setSchools([]));
+  }, []);
 
   // 关键词 / 筛选变化后重新查询（关键词做 400ms 防抖）
   useEffect(() => {
@@ -187,7 +265,7 @@ export default function PropertiesScreen() {
     const timer = setTimeout(() => load({ nextPage: 1 }), 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keyword, status, sort]);
+  }, [keyword, status, sort, region, schoolId, schoolKm, priceMin, priceMax, areaMin, areaMax, bedsMin]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -208,11 +286,38 @@ export default function PropertiesScreen() {
     };
   }, [tenantMap]);
 
+  // ---- C 端维度辅助 ----
+  const moreCount = useMemo(
+    () =>
+      (priceMin ? 1 : 0) + (priceMax ? 1 : 0) + (areaMin ? 1 : 0) + (areaMax ? 1 : 0) + (bedsMin ? 1 : 0),
+    [priceMin, priceMax, areaMin, areaMax, bedsMin],
+  );
+  const filteredSchools = useMemo(() => {
+    const kw = schoolKw.trim().toLowerCase();
+    if (!kw) return schools;
+    return schools.filter(
+      (s) =>
+        (s.name ?? '').toLowerCase().includes(kw) ||
+        (s.name_en ?? '').toLowerCase().includes(kw),
+    );
+  }, [schools, schoolKw]);
+  const resetCEFilters = useCallback(() => {
+    setSchoolId('');
+    setPriceMin('');
+    setPriceMax('');
+    setAreaMin('');
+    setAreaMax('');
+    setBedsMin('');
+  }, []);
+
   const renderCard = (p: PropertyItem) => {
     const st = p.status ?? 'vacant';
     const meta = STATUS_META[st] ?? { label: st, color: colors.ink2, bg: colors.surface2 };
     const type = TYPE_META[p.property_type ?? 'apartment'] ?? TYPE_META.apartment;
-    const title = [p.room_number, p.building].filter(Boolean).join(' · ') || p.address || '房源';
+    const cover = photoUrlOf(p.photos);
+    const title = p.project_name
+      ? `${p.project_name} · ${p.room_number ?? ''}`.trim()
+      : ([p.room_number, p.building].filter(Boolean).join(' · ') || p.address || '房源');
     const spec = [
       p.size_sqm ? `${p.size_sqm}㎡` : null,
       p.bedrooms ? `${p.bedrooms}卧${p.bathrooms ?? 0}浴` : null,
@@ -233,7 +338,11 @@ export default function PropertiesScreen() {
         onPress={() => navigation.navigate('PropertyEdit', { id: p.id })}
       >
         <View style={[styles.thumb, { backgroundColor: type.color }]}>
-          <Ionicons name={type.icon} size={26} color={colors.primaryForeground} />
+          {cover ? (
+            <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          ) : (
+            <Ionicons name={type.icon} size={26} color={colors.primaryForeground} />
+          )}
           <View style={styles.typeBadge}>
             <Text style={[styles.typeBadgeText, { color: type.color }]}>{type.label}</Text>
           </View>
@@ -287,9 +396,10 @@ export default function PropertiesScreen() {
   }
 
   return (
+    <>
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, respContainer]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
@@ -334,7 +444,10 @@ export default function PropertiesScreen() {
         ))}
       </ScrollView>
 
-      {/* 排序 */}
+      {/* 区域 + 排序 */}
+      <View style={styles.filterBar}>
+        <RegionPicker value={region} onChange={setRegion} />
+      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -357,6 +470,35 @@ export default function PropertiesScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* C 端维度：学校 / 更多（与 C 端找房口径一致） */}
+      <View style={styles.ceFilterRow}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setSchoolOpen(true)}
+          style={[styles.ceChip, schoolId ? styles.ceChipActive : null]}
+        >
+          <Text style={[styles.ceChipText, schoolId ? styles.ceChipTextActive : null]}>
+            学校{schoolId ? ' · 已选' : ''}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color={schoolId ? colors.primary : colors.ink2} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setMoreOpen(true)}
+          style={[styles.ceChip, moreCount > 0 ? styles.ceChipActive : null]}
+        >
+          <Text style={[styles.ceChipText, moreCount > 0 ? styles.ceChipTextActive : null]}>
+            更多{moreCount > 0 ? ` · ${moreCount}` : ''}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color={moreCount > 0 ? colors.primary : colors.ink2} />
+        </TouchableOpacity>
+        {(schoolId || moreCount > 0) ? (
+          <TouchableOpacity activeOpacity={0.7} onPress={resetCEFilters} style={styles.ceReset}>
+            <Text style={styles.ceResetText}>重置</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
 
       {/* 结果统计 */}
       <Text style={styles.countRow}>
@@ -396,6 +538,175 @@ export default function PropertiesScreen() {
         </View>
       )}
     </ScrollView>
+
+      {/* 按学校找房（C 端维度下拉面板） */}
+      <Modal visible={schoolOpen} transparent animationType="fade" onRequestClose={() => setSchoolOpen(false)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setSchoolOpen(false)}>
+          <TouchableOpacity style={styles.panel} activeOpacity={1} onPress={() => {}}>
+            <View style={styles.panelHead}>
+              <Text style={styles.panelTitle}>按学校找房</Text>
+              <TouchableOpacity onPress={() => setSchoolOpen(false)} hitSlop={8}>
+                <Ionicons name="close" size={20} color={colors.ink2} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.ceGroup}>
+              <Text style={styles.ceGroupLabel}>距离</Text>
+              <View style={styles.ceChips}>
+                {SCHOOL_RADIUS_OPTIONS.map((km) => (
+                  <TouchableOpacity
+                    key={km}
+                    activeOpacity={0.7}
+                    onPress={() => setSchoolKm(km)}
+                    style={[styles.ceChipSmall, schoolKm === km ? styles.ceChipSmallActive : null]}
+                  >
+                    <Text style={[styles.ceChipSmallText, schoolKm === km ? styles.ceChipSmallTextActive : null]}>
+                      {km}km
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            <View style={styles.panelSearch}>
+              <Ionicons name="search" size={14} color={colors.ink3} />
+              <TextInput
+                style={styles.panelSearchInput}
+                value={schoolKw}
+                onChangeText={setSchoolKw}
+                placeholder="搜索学校名称"
+                placeholderTextColor={colors.ink3}
+              />
+            </View>
+            <ScrollView style={styles.schoolList} keyboardShouldPersistTaps="handled">
+              {filteredSchools.length === 0 ? (
+                <Text style={styles.schoolEmpty}>未找到相关学校</Text>
+              ) : (
+                filteredSchools.map((s) => {
+                  const active = schoolId === s.id;
+                  return (
+                    <TouchableOpacity
+                      key={s.id}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setSchoolId(active ? '' : s.id);
+                        setSchoolOpen(false);
+                      }}
+                      style={styles.schoolRow}
+                    >
+                      <Text style={[styles.schoolRowName, active && styles.schoolRowActive]} numberOfLines={1}>
+                        {s.name || s.name_en}
+                      </Text>
+                      {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+            <View style={styles.panelFooter}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  setSchoolId('');
+                  setSchoolOpen(false);
+                }}
+                style={styles.ceGhost}
+              >
+                <Text style={styles.ceGhostText}>重置</Text>
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => setSchoolOpen(false)} style={styles.ceApply}>
+                <Text style={styles.ceApplyText}>完成</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* 更多筛选：价格 / 面积 / 卧室（C 端维度） */}
+      <Modal visible={moreOpen} transparent animationType="fade" onRequestClose={() => setMoreOpen(false)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setMoreOpen(false)}>
+          <TouchableOpacity style={styles.panel} activeOpacity={1} onPress={() => {}}>
+            <View style={styles.panelHead}>
+              <Text style={styles.panelTitle}>更多筛选</Text>
+              <TouchableOpacity onPress={() => setMoreOpen(false)} hitSlop={8}>
+                <Ionicons name="close" size={20} color={colors.ink2} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.ceGroup}>
+              <Text style={styles.ceGroupLabel}>租金（THB/月）</Text>
+              <View style={styles.ceRangeRow}>
+                <TextInput
+                  style={styles.ceInput}
+                  value={priceMin}
+                  onChangeText={setPriceMin}
+                  placeholder="最低"
+                  placeholderTextColor={colors.ink3}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.ceRangeSep}>—</Text>
+                <TextInput
+                  style={styles.ceInput}
+                  value={priceMax}
+                  onChangeText={setPriceMax}
+                  placeholder="最高"
+                  placeholderTextColor={colors.ink3}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            <View style={styles.ceGroup}>
+              <Text style={styles.ceGroupLabel}>面积（㎡）</Text>
+              <View style={styles.ceRangeRow}>
+                <TextInput
+                  style={styles.ceInput}
+                  value={areaMin}
+                  onChangeText={setAreaMin}
+                  placeholder="最小"
+                  placeholderTextColor={colors.ink3}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.ceRangeSep}>—</Text>
+                <TextInput
+                  style={styles.ceInput}
+                  value={areaMax}
+                  onChangeText={setAreaMax}
+                  placeholder="最大"
+                  placeholderTextColor={colors.ink3}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            <View style={styles.ceGroup}>
+              <Text style={styles.ceGroupLabel}>卧室</Text>
+              <TextInput
+                style={styles.ceInputSingle}
+                value={bedsMin}
+                onChangeText={setBedsMin}
+                placeholder="至少 N 间"
+                placeholderTextColor={colors.ink3}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={styles.panelFooter}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  setPriceMin('');
+                  setPriceMax('');
+                  setAreaMin('');
+                  setAreaMax('');
+                  setBedsMin('');
+                }}
+                style={styles.ceGhost}
+              >
+                <Text style={styles.ceGhostText}>重置</Text>
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => setMoreOpen(false)} style={styles.ceApply}>
+                <Text style={styles.ceApplyText}>应用</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </>
   );
 }
 
@@ -420,6 +731,7 @@ const styles = StyleSheet.create({
 
   chipScroll: { marginTop: colors.spacing.md },
   chipRow: { gap: colors.spacing.sm, paddingHorizontal: colors.spacing.lg },
+  filterBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: colors.spacing.lg, marginTop: colors.spacing.md },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -525,4 +837,127 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   loadMoreText: { fontSize: 14, fontWeight: '600', color: colors.primary },
+
+  /* ---- C 端维度筛选行（学校 / 更多）---- */
+  ceFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: colors.spacing.sm,
+    paddingHorizontal: colors.spacing.lg,
+    marginTop: colors.spacing.md,
+  },
+  ceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  ceChipActive: { borderColor: colors.primary, backgroundColor: colors.alpha(colors.primaryRgb, 0.08) },
+  ceChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  ceChipTextActive: { color: colors.primary, fontWeight: '600' },
+  ceReset: { marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 6 },
+  ceResetText: { fontSize: 13, color: colors.ink3 },
+
+  /* ---- 下拉面板 ---- */
+  overlay: { flex: 1, backgroundColor: colors.alpha('0, 0, 0', 0.35), justifyContent: 'flex-end' },
+  panel: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
+    paddingHorizontal: colors.spacing.lg,
+    paddingTop: colors.spacing.lg,
+    paddingBottom: colors.spacing.xl,
+    maxHeight: '78%',
+  },
+  panelHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: colors.spacing.md,
+  },
+  panelTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  panelSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: colors.spacing.sm,
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.full,
+    paddingHorizontal: colors.spacing.lg,
+    paddingVertical: 8,
+    marginBottom: colors.spacing.md,
+  },
+  panelSearchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
+  schoolList: { maxHeight: 240 },
+  schoolEmpty: { fontSize: 13, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
+  schoolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
+  schoolRowName: { flex: 1, fontSize: 14, color: colors.ink, paddingRight: 12 },
+  schoolRowActive: { color: colors.primary, fontWeight: '600' },
+
+  /* ---- 面板内分组 ---- */
+  ceGroup: { marginBottom: colors.spacing.md },
+  ceGroupLabel: { fontSize: 13, color: colors.ink2, fontWeight: '600', marginBottom: 8 },
+  ceChips: { flexDirection: 'row', gap: colors.spacing.sm },
+  ceChipSmall: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface2,
+  },
+  ceChipSmallActive: { backgroundColor: colors.primary },
+  ceChipSmallText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  ceChipSmallTextActive: { color: colors.primaryForeground, fontWeight: '600' },
+  ceRangeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ceRangeSep: { fontSize: 14, color: colors.ink3 },
+  ceInput: {
+    flex: 1,
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  ceInputSingle: {
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+    color: colors.ink,
+  },
+
+  /* ---- 面板底部按钮 ---- */
+  panelFooter: {
+    flexDirection: 'row',
+    gap: colors.spacing.md,
+    marginTop: colors.spacing.md,
+  },
+  ceGhost: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.surface2,
+  },
+  ceGhostText: { fontSize: 14, fontWeight: '600', color: colors.ink2 },
+  ceApply: {
+    flex: 2,
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.primary,
+  },
+  ceApplyText: { fontSize: 14, fontWeight: '700', color: colors.primaryForeground },
 });

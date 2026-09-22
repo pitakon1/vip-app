@@ -67,8 +67,9 @@
 }
 
 .pub-loc__pin {
-  font-size: 14px;
-  line-height: 1;
+  display: inline-flex;
+  color: var(--rent-primary);
+  flex-shrink: 0;
 }
 
 .pub-loc__text {
@@ -406,6 +407,76 @@
   }
 }
 
+/* ---------- 详情页文本层级 ----------
+   原先这些样式内联在 ListingDetail/index.tsx 的 JSX 里，字号出现 22/15 等
+   表外值。收口到这里后一律走 --rent-fs-* 阶梯。 */
+.pub-detail__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rent-s-5);
+}
+.pub-detail__aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rent-s-4);
+}
+.pub-detail__title {
+  font-size: var(--rent-fs-2xl);
+  font-weight: 600;
+  color: var(--rent-ink);
+  margin: 0 0 var(--rent-s-2);
+}
+.pub-detail__addr {
+  font-size: var(--rent-fs-base);
+  color: var(--rent-ink-2);
+  margin: 0 0 14px;
+}
+.pub-detail__note {
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
+  margin-top: 10px;
+}
+.pub-detail__unit {
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-3);
+}
+/* 未登录时的联系方式锁定提示：底色沿用 .pub-form-msg 的 surface-2
+   （原内联样式写了 --rent-bg-2 这个不存在的变量，一直落到被 §4 禁用的冷灰 #f5f6f7 上） */
+.pub-detail__lock {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pub-detail__lock-icon {
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+}
+.pub-detail__broker {
+  margin-top: var(--rent-s-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rent-s-2);
+}
+.pub-detail__broker-name {
+  font-size: var(--rent-fs-lg);
+  font-weight: 500;
+  color: var(--rent-ink);
+}
+.pub-detail__broker-meta {
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
+}
+.pub-detail__broker-phone {
+  font-size: var(--rent-fs-base);
+  color: var(--rent-ink);
+}
+.pub-detail__locked-suffix {
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-3);
+  margin-left: 6px;
+}
+
 .pub-gallery {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -499,8 +570,8 @@
 }
 
 .pub-form-msg--error {
-  color: var(--rent-error, #dc2626);
-  background: rgba(220, 38, 38, 0.08);
+  color: var(--state-error);
+  background: rgba(var(--state-error-rgb), 0.08);
 }
 
 /* ---------- 价格块 ---------- */
@@ -519,6 +590,12 @@
 
 .pub-price-block__alt {
   font-size: 15px;
+  color: var(--rent-ink-2);
+}
+
+.pub-detail__unit-price {
+  margin-top: 8px;
+  font-size: 13px;
   color: var(--rent-ink-2);
 }
 

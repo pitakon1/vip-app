@@ -55,10 +55,11 @@
   --rent-accent-soft: rgba(20, 184, 166, 0.09);
   --rent-tint: rgba(20, 184, 166, 0.045);
 
-  /* ---- 圆角（高端质感：温和阶梯，上限 20px） ---- */
+  /* ---- 圆角（五档基准，与 UI-设计原则.md §1.4 对齐） ---- */
   --rent-radius-sm: 6px;
   --rent-radius-md: 10px;
   --rent-radius-lg: 18px;
+  --rent-radius-xl: 24px;
   --rent-radius-full: 9999px;
 
   /* ---- 阴影（更柔和、空气感；深阴影仅浮层） ---- */

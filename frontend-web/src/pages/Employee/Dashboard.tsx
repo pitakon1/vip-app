@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
-import useAuthStore from '@/stores/auth'
 import './dashboard.css'
 
 interface SummaryData {
@@ -98,7 +97,6 @@ const formatRelativeTime = (iso?: string, today?: dayjs.Dayjs) => {
 }
 
 const Dashboard = () => {
-  const user = useAuthStore((s) => s.user)
   const [loading, setLoading] = useState(false)
   const [summary, setSummary] = useState<SummaryData>({})
   const [monthly, setMonthly] = useState<MonthPerf[]>([])
@@ -203,10 +201,9 @@ const Dashboard = () => {
         />
       )}
 
-      {/* 问候行 */} 
+      {/* 今日概览行 */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title" style={{ margin: '0 0 4px' }}>早上好，{user?.full_name || '同事'}</h2>
           <p className="rent-page-header__subtitle" style={{ margin: 0 }}>
             {today.format('M月D日')} 星期{WEEKDAYS[today.day()]} · 今日 {todayViewings.length} 场带看 · 高意向客户 {hotLeads.length} 位 · 待收款 {pendingReceivable} 笔
           </p>

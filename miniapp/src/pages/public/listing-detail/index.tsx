@@ -23,10 +23,12 @@ import {
   photoUrls
 } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
+import { useI18n } from '@/i18n'
 import PublicInquiryForm from '@/components/PublicInquiryForm'
 import './index.scss'
 
 export default function PublicListingDetailPage() {
+  const { t } = useI18n()
   const router = useRouter()
   const id = router.params?.id ?? ''
   const [data, setData] = useState<PublicListingDetail | null>(null)
@@ -60,7 +62,7 @@ export default function PublicListingDetailPage() {
   if (loading) {
     return (
       <View className='pub-page'>
-        <View className='pub-loading'>加载中...</View>
+        <View className='pub-loading'>{t('pub.loading')}</View>
       </View>
     )
   }
@@ -68,7 +70,7 @@ export default function PublicListingDetailPage() {
   if (!data) {
     return (
       <View className='pub-page'>
-        <View className='pub-empty'>房源不存在或已下架</View>
+        <View className='pub-empty'>{t('pub.listingNotFound')}</View>
       </View>
     )
   }
@@ -78,36 +80,36 @@ export default function PublicListingDetailPage() {
   const price = data.price ?? (isSell ? data.asking_price : data.monthly_rent)
 
   const facts: Array<[string, string]> = [
-    ['房间号', data.room_number ?? ''],
-    ['楼栋', data.building ?? ''],
-    ['楼层', data.floor != null ? String(data.floor) : ''],
-    ['面积', data.size_sqm != null ? `${data.size_sqm} ㎡` : ''],
+    [t('pub.roomNumber'), data.room_number ?? ''],
+    [t('pub.building'), data.building ?? ''],
+    [t('pub.floor'), data.floor != null ? String(data.floor) : ''],
+    [t('pub.size'), data.size_sqm != null ? `${data.size_sqm} ${t('pub.sqm')}` : ''],
     [
-      '户型',
+      t('pub.layout'),
       data.bedrooms != null || data.bathrooms != null
         ? `${data.bedrooms ?? '-'} BED · ${data.bathrooms ?? '-'} BATH`
         : ''
     ],
-    ['朝向', orientationLabel(data.orientation)],
-    ['装修', decorationLabel(data.decoration)],
+    [t('pub.orientationLabel'), orientationLabel(data.orientation)],
+    [t('pub.decorationLabel'), decorationLabel(data.decoration)],
     [
-      '押金',
+      t('pub.deposit'),
       data.deposit_amount
         ? fmtMoney(data.deposit_amount, data.currency || 'THB')
         : data.deposit_months
-          ? `${data.deposit_months}个月`
+          ? `${data.deposit_months}${t('pub.months')}`
           : ''
     ],
-    ['房源编号', data.listing_no ?? '']
+    [t('pub.listingNo'), data.listing_no ?? '']
   ]
 
   const broker = data.broker
   const brokerLines: Array<[string, string]> = broker
     ? [
-        ['机构', broker.company ?? ''],
-        ['经纪人', broker.real_name ?? ''],
-        ['电话', broker.phone ?? ''],
-        ['微信', broker.wechat ?? ''],
+        [t('pub.brokerOrg'), broker.company ?? ''],
+        [t('pub.brokerName'), broker.real_name ?? ''],
+        [t('pub.phone'), broker.phone ?? ''],
+        [t('pub.wechat'), broker.wechat ?? ''],
         ['LINE', broker.line ?? ''],
         ['WhatsApp', broker.whatsapp ?? '']
       ]
@@ -124,14 +126,14 @@ export default function PublicListingDetailPage() {
         </ScrollView>
       ) : (
         <View className='pub-project__nophoto'>
-          <Text>暂无图片</Text>
+          <Text>{t('pub.noPhoto')}</Text>
         </View>
       )}
 
       <View className='pub-inner'>
         <View className='pub-card'>
           <View style={{ display: 'flex', alignItems: 'center' }}>
-            <Text className='pub-card__title'>{data.project_name || data.room_number || '房源'}</Text>
+            <Text className='pub-card__title'>{data.project_name || data.room_number || t('pub.listingItem')}</Text>
             {data.listing_type ? (
               <View
                 className={`badge ${
@@ -147,19 +149,19 @@ export default function PublicListingDetailPage() {
 
           <Text className='pub-listing__price'>
             {fmtMoney(price, data.currency || 'THB')}
-            {isSell ? null : <Text className='pub-listing__price-sub'>/月</Text>}
+            {isSell ? null : <Text className='pub-listing__price-sub'>{t('pub.perMonth')}</Text>}
           </Text>
           {price ? (
             <Text className='pub-project__sub'>
               ≈ {fmtMoney(convertFromThb(price), 'CNY')}
-              {isSell ? '' : '/月'}
+              {isSell ? '' : t('pub.perMonth')}
             </Text>
           ) : null}
         </View>
 
         {/* 关键参数 */}
         <View className='pub-card'>
-          <Text className='pub-section__title'>房源信息</Text>
+          <Text className='pub-section__title'>{t('pub.keyFacts')}</Text>
           <View className='pub-kv'>
             {facts
               .filter(([, value]) => !!value)
@@ -175,24 +177,24 @@ export default function PublicListingDetailPage() {
         {/* 所属小区 */}
         {data.project ? (
           <View className='pub-card'>
-            <Text className='pub-section__title'>所属小区</Text>
+            <Text className='pub-section__title'>{t('pub.communityInfo')}</Text>
             <Text className='pub-project__name'>{data.project.name}</Text>
             <View className='pub-kv'>
               {data.project.developer_name ? (
                 <View className='pub-kv__item'>
-                  <Text className='pub-kv__k'>开发商</Text>
+                  <Text className='pub-kv__k'>{t('pub.developer')}</Text>
                   <Text className='pub-kv__v'>{data.project.developer_name}</Text>
                 </View>
               ) : null}
               {data.project.total_units ? (
                 <View className='pub-kv__item'>
-                  <Text className='pub-kv__k'>总户数</Text>
+                  <Text className='pub-kv__k'>{t('pub.totalUnits')}</Text>
                   <Text className='pub-kv__v'>{data.project.total_units}</Text>
                 </View>
               ) : null}
               {data.project.completion_year ? (
                 <View className='pub-kv__item'>
-                  <Text className='pub-kv__k'>建成年份</Text>
+                  <Text className='pub-kv__k'>{t('pub.completionYear')}</Text>
                   <Text className='pub-kv__v'>{data.project.completion_year}</Text>
                 </View>
               ) : null}
@@ -206,7 +208,7 @@ export default function PublicListingDetailPage() {
                   })
                 }
               >
-                查看小区详情 ›
+                {t('pub.viewCommunity')}
               </Text>
             ) : null}
           </View>
@@ -215,9 +217,9 @@ export default function PublicListingDetailPage() {
         {/* 周边学校 */}
         {(data.nearby_schools ?? []).length > 0 ? (
           <View className='pub-card'>
-            <Text className='pub-section__title'>周边学校</Text>
+            <Text className='pub-section__title'>{t('pub.nearbySchools')}</Text>
             <Text className='pub-section__hint'>
-              按直线距离排序，供有学龄子女的家庭参考。
+              {t('pub.nearbySchoolsHint')}
             </Text>
             {(data.nearby_schools ?? []).map((school) => (
               <View
@@ -236,7 +238,7 @@ export default function PublicListingDetailPage() {
                   ) : null}
                 </View>
                 {school.distance_km != null ? (
-                  <Text className='pub-row__distance'>{school.distance_km} 公里</Text>
+                  <Text className='pub-row__distance'>{t('pub.kmValue', { km: school.distance_km })}</Text>
                 ) : null}
               </View>
             ))}
@@ -246,14 +248,14 @@ export default function PublicListingDetailPage() {
         {/* 描述 */}
         {data.description ? (
           <View className='pub-card'>
-            <Text className='pub-section__title'>房源描述</Text>
+            <Text className='pub-section__title'>{t('pub.description')}</Text>
             <Text className='pub-desc'>{data.description}</Text>
           </View>
         ) : null}
 
         {/* 经纪人 */}
         <View className='pub-card'>
-          <Text className='pub-section__title'>服务经纪人</Text>
+          <Text className='pub-section__title'>{t('pub.broker')}</Text>
           {broker ? (
             <View className='pub-kv'>
               {brokerLines
@@ -266,17 +268,20 @@ export default function PublicListingDetailPage() {
                 ))}
             </View>
           ) : (
-            <Text className='pub-section__hint'>暂无经纪人信息</Text>
+            <Text className='pub-section__hint'>{t('pub.brokerEmpty')}</Text>
           )}
         </View>
 
         {/* 留资 */}
         <PublicInquiryForm
-          title='对这套房有兴趣？'
-          note='留下联系方式，我们会尽快与你联系。浏览全部房源无需注册。'
+          title={t('pub.inquireTitle')}
+          note={t('pub.inquireNote')}
           context={{ listing_id: data.id, property_id: data.property_id ?? undefined }}
           source='listing_detail'
-          defaultMessage={`咨询房源：${data.project_name ?? ''} ${data.room_number ?? ''}`.trim()}
+          defaultMessage={t('pub.listingInquiryMessage', {
+            project: data.project_name ?? '',
+            room: data.room_number ?? ''
+          })}
         />
       </View>
     </View>

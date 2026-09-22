@@ -4,9 +4,13 @@ from typing import Optional
 
 from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlmodel import Session
+from sqlalchemy import false
+from sqlmodel import Session, select
 from .security import decode_access_token
 from ..db import get_session
+from ..models.lease import Lease
+from ..models.owner import Owner
+from ..models.tenant import Tenant
 from ..models.user import User, UserRole
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -112,6 +116,56 @@ require_tenant = require_role(UserRole.admin, UserRole.tenant)
 
 # 内部员工角色元组（可看全量数据）；多个路由各自复制过一份，统一从这里取
 STAFF_ROLES = (UserRole.admin, UserRole.agent, UserRole.employee)
+
+
+def owner_id_of(session: Session, user: User) -> Optional[uuid.UUID]:
+    """当前账号对应的业主档案 id（未建档返回 None）。"""
+    owner = session.exec(
+        select(Owner).where(Owner.user_id == user.id, Owner.deleted_at.is_(None))
+    ).first()
+    return owner.id if owner else None
+
+
+def tenant_id_of(session: Session, user: User) -> Optional[uuid.UUID]:
+    """当前账号对应的租客档案 id（未建档返回 None）。"""
+    tenant = session.exec(
+        select(Tenant).where(Tenant.user_id == user.id, Tenant.deleted_at.is_(None))
+    ).first()
+    return tenant.id if tenant else None
+
+
+def lease_visibility_conditions(session: Session, user: User) -> list:
+    """租约可见性 → 查询条件（数据隔离必须由 token 决定，不能由调用方传参决定）。
+
+    - 员工（admin/agent/employee）：全量，内部作业需要跨业主查阅；
+    - 业主：仅本人名下房源的租约；
+    - 租客：仅本人租约；
+    - 其余角色：不可见。
+
+    返回 `[false()]` 表示「一条都看不到」。这里**必须**显式置空而不是返回空列表
+    （空列表 = 不加条件 = 全量泄露），这是租约接口此前最严重的一处越权：
+    任何登录用户都能读到全部租约，租客端页面甚至一直依赖这个错误行为。
+    """
+    if user.role in STAFF_ROLES:
+        return []
+    if user.role == UserRole.owner:
+        owner_id = owner_id_of(session, user)
+        return [Lease.owner_id == owner_id] if owner_id else [false()]
+    if user.role == UserRole.tenant:
+        tenant_id = tenant_id_of(session, user)
+        return [Lease.tenant_id == tenant_id] if tenant_id else [false()]
+    return [false()]
+
+
+def can_view_lease(session: Session, user: User, lease: Lease) -> bool:
+    """单条租约的可见性判定（与 `lease_visibility_conditions` 同一口径）。"""
+    if user.role in STAFF_ROLES:
+        return True
+    if user.role == UserRole.owner:
+        return lease.owner_id is not None and lease.owner_id == owner_id_of(session, user)
+    if user.role == UserRole.tenant:
+        return lease.tenant_id is not None and lease.tenant_id == tenant_id_of(session, user)
+    return False
 
 
 def serialize_user(user: User) -> dict:

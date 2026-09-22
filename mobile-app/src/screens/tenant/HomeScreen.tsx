@@ -16,6 +16,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
+import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import { paymentsApi, maintenanceApi } from '@/services/api';
 import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
@@ -386,6 +387,7 @@ const SchoolCard = React.memo(function SchoolCard({
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const respContainer = useResponsiveContainerStyle();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [bizTab, setBizTab] = useState<'rent' | 'buy'>('rent');
@@ -484,12 +486,6 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!publicQ.isPending) setLoading(false);
   }, [publicQ.isPending]);
-
-  // 用户名兜底：后端字段可能是 name / full_name / username，全部缺失则不拼接，避免渲染出 undefined
-  const displayName = useMemo(
-    () => user?.name || user?.full_name || user?.username || '',
-    [user],
-  );
 
   // 兜底：即使个别请求挂起/PostgreSQL 偶发慢，也强制结束 loading，
   // 避免首页永久停留在「加载中」白屏/转圈（实测并发下最坏约 11s）。
@@ -755,7 +751,7 @@ export default function HomeScreen() {
     <FlatList
       style={styles.container}
       // 用 insets.top 补顶部安全区（不用 SafeAreaView 包滚动容器，避免横向 rail 被裁切）
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+      contentContainerStyle={[styles.content, respContainer, { paddingTop: insets.top + 8 }]}
       aria-busy={loading}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       data={bodySections}
@@ -766,19 +762,7 @@ export default function HomeScreen() {
       removeClippedSubviews={Platform.OS === 'android'}
       ListHeaderComponent={
         <>
-      {/* 1. 问候（情感锚点；用户名缺失时退化为通用问候） */}
-      <View style={styles.greeting}>
-        <Text style={styles.greetingTitle} numberOfLines={1}>
-          {displayName
-            ? t('home.greeting').replace('{name}', displayName)
-            : t('home.greetingGeneric')}
-        </Text>
-        <Text style={styles.greetingSub} numberOfLines={1}>
-          {t('home.greetingSub')}
-        </Text>
-      </View>
-
-      {/* 2. 城市定位（左上角）+ 搜索 hero
+      {/* 城市定位（左上角）+ 搜索 hero
           - 国家/城市定位在主页左上角：点击弹出 定位选择器（链家式），写入全局 Store
           - 城市来自全局定位 Store；未定位时回退到 hi 占位 */}
       <TouchableOpacity
@@ -841,11 +825,6 @@ const styles = StyleSheet.create({
     marginBottom: colors.spacing.md,
     ...colors.shadow.card,
   },
-
-  /* 问候 */
-  greeting: { marginBottom: colors.spacing.md },
-  greetingTitle: { fontSize: 18, fontWeight: '700', color: colors.ink, letterSpacing: -0.3 },
-  greetingSub: { fontSize: 13, color: colors.ink2, marginTop: 2 },
 
   /* 搜索 hero */
   searchBar: {

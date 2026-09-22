@@ -6,7 +6,9 @@ import { ownerApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
+import { AREA_GROUPS } from '@/data/locationArea'
 import BottomNav from '@/components/BottomNav'
+import RegionPicker, { type RegionSelection } from '@/components/RegionPicker'
 import './index.scss'
 
 // ============ 接口字段（后端 snake_case）============
@@ -226,6 +228,8 @@ export default function OwnerPropertiesPage() {
   const [areaCustomMin, setAreaCustomMin] = useState('')
   const [areaCustomMax, setAreaCustomMax] = useState('')
   const [sort, setSort] = useState('latest')
+  // 列表级区域筛选（国家→城市→区），未选=全部区域
+  const [region, setRegion] = useState<RegionSelection | null>(null)
 
   // 新增/编辑弹窗
   const [modalOpen, setModalOpen] = useState(false)
@@ -258,6 +262,22 @@ export default function OwnerPropertiesPage() {
     forSale: properties.filter((p) => ['for_sale', 'on_sale', 'sale'].includes(String(p.status || ''))).length
   }
 
+  // 区域匹配关键词：城市 label + 选中区/国家的 kws（转小写）
+  const regionKeywords = useMemo(() => {
+    if (!region) return []
+    const kw: string[] = []
+    if (region.city) kw.push(region.city)
+    if (region.district) {
+      const grp = AREA_GROUPS.find((g) => g.country === region.region && g.cityLabel === region.city)
+      const d = grp?.children.find((x) => x.label === region.district)
+      if (d?.kws?.length) kw.push(...d.kws)
+      else kw.push(region.district)
+    } else if (region.region) {
+      kw.push(region.region)
+    }
+    return kw.filter(Boolean).map((k) => String(k).toLowerCase())
+  }, [region])
+
   // ===== 客户端过滤 + 排序 =====
   const filtered = useMemo(() => {
     let arr = [...properties]
@@ -268,6 +288,15 @@ export default function OwnerPropertiesPage() {
       )
     }
     if (status) arr = arr.filter((p) => String(p.status || '') === status)
+    if (regionKeywords.length) {
+      arr = arr.filter((p) => {
+        const hay = [p.address, p.project_name, p.projectName, p.building, p.room_number]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return regionKeywords.some((k) => hay.includes(k))
+      })
+    }
 
     if (bedrooms !== '') {
       arr = arr.filter((p) => {
@@ -316,7 +345,7 @@ export default function OwnerPropertiesPage() {
     else if (sort === 'area_desc') arr.sort((a, b) => Number((b.size_sqm ?? b.area) || 0) - Number((a.size_sqm ?? a.area) || 0))
 
     return arr
-  }, [properties, query, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
+  }, [properties, query, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, regionKeywords])
 
   const goMarketing = () => Taro.navigateTo({ url: '/pages/owner/marketing/index' })
 
@@ -524,6 +553,11 @@ export default function OwnerPropertiesPage() {
             </View>
           ))}
         </ScrollView>
+
+        {/* 区域筛选（国家→城市→区） */}
+        <View className='op-region'>
+          <RegionPicker value={region} onChange={setRegion} />
+        </View>
 
         {/* 筛选行：房型 / 价格 / 面积 / 排序 */}
         <ScrollView scrollX className='op-chips op-filter'>

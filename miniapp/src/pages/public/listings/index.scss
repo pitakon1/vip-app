@@ -1,2 +1,21 @@
 /* C 端房源列表：全部样式取自共用样式表 */
 @import '../public-site.scss';
+
+/* ===== 顶部单行筛选行（学校 / 更多）===== */
+.pub-filter__chips {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 4rpx;
+}
+
+.pub-filter__chips .pub-chip {
+  margin-right: 0;
+}
+
+/* 幽灵 chip：已选学校时出现的「不限学校」清除项 */
+.pub-chip--ghost {
+  background: transparent;
+  border-color: var(--primary);
+  color: var(--primary);
+}

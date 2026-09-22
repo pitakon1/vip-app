@@ -5,7 +5,7 @@
  * 新增/编辑：RN Modal 表单（字段对齐管理端 PropertyEditScreen），编辑态支持照片上传/删除
  * 操作：编辑（弹窗）/ 委托挂牌（OwnerMarketing）/ 删除
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -28,7 +28,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
+import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { ownerApi } from '@/services/api';
+import { publicApi, type PublicSchool } from '@/services/publicApi';
+import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 import { useQueryClient } from '@tanstack/react-query';
@@ -252,6 +255,7 @@ const notify = (title?: string, message?: string) => {
 };
 
 export default function PropertiesScreen() {
+  const respContainer = useResponsiveContainerStyle();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
@@ -270,6 +274,11 @@ export default function PropertiesScreen() {
   const [areaCustomMax, setAreaCustomMax] = useState('');
   const [sort, setSort] = useState('default');
   const [activeFilter, setActiveFilter] = useState('');
+  // C 端维度：学校（空间筛选，与 C 端找房口径一致）
+  const [schoolId, setSchoolId] = useState('');
+  const [schoolKm, setSchoolKm] = useState<number>(3);
+  const [schools, setSchools] = useState<PublicSchool[]>([]);
+  const [schoolKw, setSchoolKw] = useState('');
   // 列表 / 宫格 切换（默认列表）
   const [view, setView] = useState<'list' | 'grid'>('list');
 
@@ -282,15 +291,37 @@ export default function PropertiesScreen() {
   const [form, setForm] = useState<PropertyForm>(emptyForm);
 
   const q = useCachedQuery<OwnerProperty[]>({
-    queryKey: PROPERTIES_KEY,
+    queryKey: schoolId
+      ? [...PROPERTIES_KEY, 'school', schoolId, String(schoolKm)]
+      : PROPERTIES_KEY,
     cacheKey: `owner-properties:${uid}`,
     queryFn: async () => {
-      const res = await ownerApi.properties();
+      const res = schoolId
+        ? await ownerApi.properties({ school_id: schoolId, school_radius_km: schoolKm })
+        : await ownerApi.properties();
       const data: any = res.data;
       const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
       return Array.isArray(items) ? (items as OwnerProperty[]) : [];
     },
   });
+
+  // 学校清单只为筛选器备选（公开接口，匿名可读）
+  useEffect(() => {
+    publicApi
+      .schools({ page_size: 100 })
+      .then((res: any) => setSchools(res?.data?.items ?? []))
+      .catch(() => setSchools([]));
+  }, []);
+
+  const filteredSchools = useMemo(() => {
+    const kw = schoolKw.trim().toLowerCase();
+    if (!kw) return schools;
+    return schools.filter(
+      (s) =>
+        (s.name ?? '').toLowerCase().includes(kw) ||
+        (s.name_en ?? '').toLowerCase().includes(kw),
+    );
+  }, [schools, schoolKw]);
 
   const properties = q.data ?? [];
   const loading = q.isPending && !q.data;
@@ -390,7 +421,7 @@ export default function PropertiesScreen() {
   }, [properties]);
 
   const hasFilter =
-    !!keyword.trim() || !!status || bedrooms !== '' || !!priceRange || !!areaRange || sort !== 'default';
+    !!keyword.trim() || !!status || bedrooms !== '' || !!priceRange || !!areaRange || sort !== 'default' || !!schoolId;
 
   // ===== 新增 / 编辑 =====
   const openCreate = () => {
@@ -630,7 +661,7 @@ export default function PropertiesScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, respContainer]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -718,6 +749,17 @@ export default function PropertiesScreen() {
               排序：{optionLabel(SORT_OPTIONS, sort, '默认排序')}
             </Text>
             <Ionicons name="chevron-down" size={13} color={activeFilter === 'sort' ? colors.primary : colors.ink3} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterChip, activeFilter === 'school' && styles.filterChipActive]}
+            activeOpacity={0.7}
+            onPress={() => setActiveFilter(activeFilter === 'school' ? '' : 'school')}
+          >
+            <Text style={[styles.filterChipText, activeFilter === 'school' && styles.filterChipTextActive]}>
+              学校{schoolId ? ' · 已选' : ''}
+            </Text>
+            <Ionicons name="chevron-down" size={13} color={activeFilter === 'school' ? colors.primary : colors.ink3} />
           </TouchableOpacity>
         </View>
 
@@ -829,6 +871,74 @@ export default function PropertiesScreen() {
           </View>
         )}
 
+        {/* 学校（C 端维度：按学校 + 半径找房） */}
+        {activeFilter === 'school' && (
+          <View style={styles.schoolPanel}>
+            <View style={styles.locGroupLabelWrap}>
+              <Text style={styles.locGroupLabelTxt}>距离</Text>
+            </View>
+            <View style={styles.optRow}>
+              {SCHOOL_RADIUS_OPTIONS.map((kmv) => (
+                <TouchableOpacity
+                  key={kmv}
+                  style={[styles.optChip, schoolKm === kmv && styles.optChipActive]}
+                  activeOpacity={0.7}
+                  onPress={() => setSchoolKm(kmv)}
+                >
+                  <Text style={[styles.optChipText, schoolKm === kmv && styles.optChipTextActive]}>
+                    {kmv}km
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.schoolSearch}>
+              <Ionicons name="search" size={14} color={colors.ink3} />
+              <TextInput
+                style={styles.schoolSearchInput}
+                value={schoolKw}
+                onChangeText={setSchoolKw}
+                placeholder="搜索学校名称"
+                placeholderTextColor={colors.ink3}
+              />
+            </View>
+            <ScrollView style={styles.schoolList} keyboardShouldPersistTaps="handled">
+              {filteredSchools.length === 0 ? (
+                <Text style={styles.schoolEmpty}>未找到相关学校</Text>
+              ) : (
+                filteredSchools.map((s) => {
+                  const active = schoolId === s.id;
+                  return (
+                    <TouchableOpacity
+                      key={s.id}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setSchoolId(s.id);
+                        setActiveFilter('');
+                      }}
+                      style={styles.schoolRow}
+                    >
+                      <Text style={[styles.schoolRowName, active && styles.schoolRowActive]} numberOfLines={1}>
+                        {s.name || s.name_en}
+                      </Text>
+                      {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                setSchoolId('');
+                setActiveFilter('');
+              }}
+              style={styles.schoolReset}
+            >
+              <Text style={styles.schoolResetText}>不限（清除学校）</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* 统计行 */}
         <View style={styles.statRow}>
           <View style={styles.statCell}>
@@ -895,6 +1005,9 @@ export default function PropertiesScreen() {
                   onPress={() => navigation.navigate('OwnerPropertyDetail', { id: p.id })}
                 >
                   <View style={[styles.gridBanner, { backgroundColor: `${sc}1A` }]}>
+                    {normalizePhotos(p.photos)[0] ? (
+                      <Image source={{ uri: normalizePhotos(p.photos)[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                    ) : null}
                     <View style={[styles.gridBadge, { backgroundColor: `${sc}2E` }]}>
                       <Text style={[styles.gridBadgeText, { color: sc }]}>{propStatusMeta(p).label}</Text>
                     </View>
@@ -925,9 +1038,13 @@ export default function PropertiesScreen() {
             return (
               <View key={p.id} style={styles.card}>
                 <View style={styles.banner}>
-                  <View style={styles.bannerIcon}>
-                    <Ionicons name={type.icon} size={26} color={colors.primaryForeground} />
-                  </View>
+                  {normalizePhotos(p.photos)[0] ? (
+                    <Image source={{ uri: normalizePhotos(p.photos)[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  ) : (
+                    <View style={styles.bannerIcon}>
+                      <Ionicons name={type.icon} size={26} color={colors.primaryForeground} />
+                    </View>
+                  )}
                   <View style={[styles.typeBadge, { backgroundColor: colors.surface }]}>
                     <Text style={[styles.typeBadgeText, { color: type.color }]}>{type.label}</Text>
                   </View>
@@ -1167,6 +1284,46 @@ const styles = StyleSheet.create({
   },
   filterChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
   filterChipTextActive: { color: colors.primary, fontWeight: '600' },
+
+  /* 学校筛选项（C 端维度） */
+  schoolPanel: { marginHorizontal: 20, marginBottom: 12 },
+  locGroupLabelWrap: { marginBottom: 4 },
+  locGroupLabelTxt: { fontSize: 12, color: colors.ink3, fontWeight: '600' },
+  schoolSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: colors.radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  schoolSearchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
+  schoolList: { maxHeight: 220 },
+  schoolEmpty: { fontSize: 13, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
+  schoolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  schoolRowName: { flex: 1, fontSize: 14, color: colors.ink, paddingRight: 12 },
+  schoolRowActive: { color: colors.primary, fontWeight: '600' },
+  schoolReset: {
+    marginTop: 8,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: colors.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  schoolResetText: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
 
   /* 展开选项 */
   optRow: {

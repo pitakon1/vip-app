@@ -6,9 +6,31 @@ import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import LocationPicker from '@/components/LocationPicker'
+import { useLocationStore } from '@/stores/location'
 import brandLogo from '@/assets/haofang-logo.jpg'
-import type { Property } from '@/types'
 import './home.css'
+
+/**
+ * 首页精选房源条目（来自匿名可访问的 /public/listings）。
+ * 不直接用 B 端 Property 类型：两者字段同名但归属不同接口，
+ * 首页只消费展示所需字段，避免耦合内部模型。
+ */
+type FeaturedListing = {
+  id: string
+  property_type?: string
+  status?: string
+  room_number?: string
+  address?: string
+  size_sqm?: number
+  bedrooms?: number
+  bathrooms?: number
+  furnished?: boolean
+  cover?: string | null
+  monthly_rent?: number
+  price?: number
+  currency?: string
+}
 
 // 房源卡片 banner 主题色（使用设计令牌 CSS 变量，确保主题一致性）
 const BANNER_COLORS = [
@@ -54,19 +76,22 @@ const Home = () => {
   const { t } = useTranslation()
   const { token, user } = useAuthStore()
   const [searchVal, setSearchVal] = useState('')
+  // 全局定位（国家 → 城市）：与找房页顶栏共用同一个 Store
+  const [locOpen, setLocOpen] = useState(false)
+  const cityLabel = useLocationStore((s) => s.selection.cityLabel)
 
   // 精选房源（缓存优先渲染 + 后台刷新，秒开）
-  const q = useCachedQuery<Property[]>({
+  // 必须走匿名可访问的 /public/listings：/properties 是 B 端鉴权接口，
+  // 匿名访客会拿到 401，catch 后静默返回空数组 —— 首页首屏会整块空白。
+  const q = useCachedQuery<FeaturedListing[]>({
     queryKey: ['home-featured'],
     cacheKey: 'home:featured',
     queryFn: async () => {
       try {
-        const res = await api.get('/properties', { params: { page_size: 8 } })
-        const items = res.data?.data?.items ?? res.data?.items ?? res.data?.data
-        if (Array.isArray(items)) {
-          return items.slice(0, 8)
-        }
-        return []
+        const res = await api.get('/public/listings', { params: { page_size: 8 } })
+        const payload = res.data?.data ?? res.data
+        const items = payload?.items
+        return Array.isArray(items) ? items.slice(0, 8) : []
       } catch {
         return []
       }
@@ -108,9 +133,25 @@ const Home = () => {
     <div className="rent-portal">
       {/* ===== 顶栏（对齐原型 rent-portal__header） ===== */}
       <header className="rent-portal__header">
-        <div className="rent-portal__brand" onClick={() => navigate('/')}>
-          <img className="rent-portal__logo" src={brandLogo} alt="HaoFang.World" />
-          <span className="rent-portal__name">HaoFang.World</span>
+        <div className="rent-portal__left">
+          <div className="rent-portal__brand" onClick={() => navigate('/')}>
+            <img className="rent-portal__logo" src={brandLogo} alt="HaoFang.World" />
+            <span className="rent-portal__name">HaoFang.World</span>
+          </div>
+          {/* 左上角全局定位：国家 → 城市（对齐贝壳「logo 旁即城市」的首屏心智） */}
+          <button
+            type="button"
+            className="rent-portal__loc"
+            onClick={() => setLocOpen(true)}
+            aria-label={t('locate.selectCity')}
+          >
+            <svg className="rent-portal__loc-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span>{cityLabel || t('locate.selectCity')}</span>
+            <span className="rent-portal__loc-arrow">▾</span>
+          </button>
         </div>
         <nav className="rent-portal__nav">
           <button className="rent-portal__nav-item" data-active="true" onClick={handleSearch}>{t('browse.rent')}</button>
@@ -136,6 +177,7 @@ const Home = () => {
           )}
         </div>
       </header>
+      <LocationPicker visible={locOpen} onClose={() => setLocOpen(false)} />
 
       <main className="rent-portal__main">
         {/* ===== 搜索 Hero（对齐原型 rent-search-hero） ===== */}
@@ -197,13 +239,20 @@ const Home = () => {
               const beds = Number(p.bedrooms || 0)
               const baths = Number(p.bathrooms || 0)
               const size = Number(p.size_sqm || 0)
+              const cover = typeof p.cover === 'string' ? p.cover : ''
+              const title = p.address || p.room_number || t('publicSite.untitledListing')
               return (
                 <div
                   className="rent-prop-search-card"
                   key={p.id}
                   onClick={() => navigate(detailPath(p.id))}
                 >
-                  <div className="rent-prop-search-card__banner" style={{ background: bannerColorFor(p.id) }}>
+                  {/* 有实拍图就用图（贝壳式「图在前」），没有才回退色块 + 户型图标 */}
+                  <div
+                    className="rent-prop-search-card__banner"
+                    data-photo={cover ? 'true' : 'false'}
+                    style={{ background: cover ? undefined : bannerColorFor(p.id) }}
+                  >
                     <button
                       className="rent-fav-btn"
                       aria-label={t('property.followProperty')}
@@ -213,9 +262,13 @@ const Home = () => {
                         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                       </svg>
                     </button>
-                    <svg className="rent-prop-search-card__banner-icon" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d={TYPE_ICON_PATH(ptype)} />
-                    </svg>
+                    {cover ? (
+                      <img className="rent-prop-search-card__cover" src={cover} alt={title} loading="lazy" />
+                    ) : (
+                      <svg className="rent-prop-search-card__banner-icon" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d={TYPE_ICON_PATH(ptype)} />
+                      </svg>
+                    )}
                     <span className={`rent-prop-search-card__status-tag ${STATUS_CLASS[statusKey] || 'rent-status-tag--rented'}`}>
                       {t(`propertyStatus.${statusKey}`)}
                     </span>
@@ -261,7 +314,7 @@ const Home = () => {
                     </div>
                     <div className="rent-prop-search-card__foot">
                       <div className="rent-prop-search-card__price">
-                        <span className="rent-prop-search-card__price-value">{formatMoney(p.monthly_rent)}</span>
+                        <span className="rent-prop-search-card__price-value">{formatMoney(p.monthly_rent ?? p.price ?? 0, p.currency || 'THB')}</span>
                         <span className="rent-prop-search-card__price-unit">{t('property.perMonth')}</span>
                       </div>
                       <button

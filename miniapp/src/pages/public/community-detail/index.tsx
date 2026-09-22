@@ -13,6 +13,7 @@ import { useRouter } from '@tarojs/taro'
 import { publicApi, type PublicProjectDetail } from '@/services/publicApi'
 import { convertFromThb, loadRates, tenureLabel } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
+import { useI18n } from '@/i18n'
 import PublicListingItem from '@/components/PublicListingItem'
 import './index.scss'
 
@@ -20,6 +21,7 @@ import './index.scss'
 const num = (value?: number | null) => (value != null ? String(value) : '')
 
 export default function PublicCommunityDetailPage() {
+  const { t } = useI18n()
   const router = useRouter()
   const id = router.params?.id ?? ''
   const [project, setProject] = useState<PublicProjectDetail | null>(null)
@@ -53,7 +55,7 @@ export default function PublicCommunityDetailPage() {
   if (loading) {
     return (
       <View className='pub-page'>
-        <View className='pub-loading'>加载中...</View>
+        <View className='pub-loading'>{t('pub.loading')}</View>
       </View>
     )
   }
@@ -61,33 +63,33 @@ export default function PublicCommunityDetailPage() {
   if (!project) {
     return (
       <View className='pub-page'>
-        <View className='pub-empty'>小区不存在或已下架</View>
+        <View className='pub-empty'>{t('pub.communityNotFound')}</View>
       </View>
     )
   }
 
   const listings = project.listings ?? []
   const rows: Array<[string, string]> = [
-    ['开发商', project.developer_name ?? ''],
-    ['总户数', num(project.total_units)],
-    ['楼栋数', num(project.total_buildings)],
-    ['总层数', num(project.total_floors)],
-    ['车位数', num(project.parking_spaces)],
-    ['建成年份', num(project.completion_year)],
+    [t('pub.developer'), project.developer_name ?? ''],
+    [t('pub.totalUnits'), num(project.total_units)],
+    [t('pub.totalBuildings'), num(project.total_buildings)],
+    [t('pub.totalFloors'), num(project.total_floors)],
+    [t('pub.parkingSpaces'), num(project.parking_spaces)],
+    [t('pub.completionYear'), num(project.completion_year)],
     [
-      '物业费',
-      project.management_fee_per_sqm ? `${project.management_fee_per_sqm} THB/㎡` : ''
+      t('pub.managementFee'),
+      project.management_fee_per_sqm ? `${project.management_fee_per_sqm} THB/${t('pub.sqm')}` : ''
     ],
     [
-      '均价',
+      t('pub.avgPrice'),
       project.avg_price
-        ? `${fmtMoney(project.avg_price, 'THB')}/㎡ ≈ ${fmtMoney(
+        ? `${fmtMoney(project.avg_price, 'THB')}/${t('pub.sqm')} ≈ ${fmtMoney(
             convertFromThb(project.avg_price),
             'CNY'
           )}`
         : ''
     ],
-    ['外国人配额', project.foreign_quota_pct != null ? `${project.foreign_quota_pct}%` : '']
+    [t('pub.foreignQuota'), project.foreign_quota_pct != null ? `${project.foreign_quota_pct}%` : '']
   ]
 
   return (
@@ -105,10 +107,10 @@ export default function PublicCommunityDetailPage() {
 
           <View className='pub-badges'>
             <View className='badge badge--primary'>
-              <Text>在售 {project.sale_count ?? 0} 套</Text>
+              <Text>{t('pub.saleCount', { n: project.sale_count ?? 0 })}</Text>
             </View>
             <View className='badge badge--neutral'>
-              <Text>在租 {project.rent_count ?? 0} 套</Text>
+              <Text>{t('pub.rentCount', { n: project.rent_count ?? 0 })}</Text>
             </View>
             {project.tenure ? (
               <View className='badge badge--neutral'>
@@ -129,10 +131,10 @@ export default function PublicCommunityDetailPage() {
           </View>
         </View>
 
-        <Text className='pub-section__title'>本小区房源</Text>
-        <Text className='pub-section__hint'>该小区当前在租与在售的全部房源。</Text>
+        <Text className='pub-section__title'>{t('pub.communityListings')}</Text>
+        <Text className='pub-section__hint'>{t('pub.communityListingsHint')}</Text>
         {listings.length === 0 ? (
-          <View className='pub-empty'>该小区暂无可租房源</View>
+          <View className='pub-empty'>{t('pub.communityListingsEmpty')}</View>
         ) : (
           listings.map((item) => <PublicListingItem key={item.id} item={item} />)
         )}

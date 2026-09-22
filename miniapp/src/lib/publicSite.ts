@@ -4,64 +4,66 @@
  * 与 Web 端 `lib/publicLabels.ts` + `lib/money.ts`、以及 RN 端
  * `mobile-app/src/lib/publicSite.ts` 保持同一口径。
  *
- * 小程序端没有 i18n（全站中文硬编码），因此这里直接返回中文字面量，不接 t()。
+ * 枚举文案按 i18n key 映射（见 `src/i18n/index.ts` 的 pub.* 字典），运行时通过
+ * `useI18n.getState().t(...)` 取当前语言的文案；未知取值原样返回，比显示空白更可读。
  */
 import { request } from '@/lib/api'
+import { useI18n } from '@/i18n'
 
 const ORIENTATION: Record<string, string> = {
-  north: '朝北',
-  south: '朝南',
-  east: '朝东',
-  west: '朝西',
-  northeast: '朝东北',
-  northwest: '朝西北',
-  southeast: '朝东南',
-  southwest: '朝西南'
+  north: 'pub.orientation.north',
+  south: 'pub.orientation.south',
+  east: 'pub.orientation.east',
+  west: 'pub.orientation.west',
+  northeast: 'pub.orientation.northeast',
+  northwest: 'pub.orientation.northwest',
+  southeast: 'pub.orientation.southeast',
+  southwest: 'pub.orientation.southwest'
 }
 
 const DECORATION: Record<string, string> = {
-  bare: '毛坯',
-  simple: '简装',
-  standard: '精装',
-  luxury: '豪装',
-  fully_furnished: '带家具家电'
+  bare: 'pub.decoration.bare',
+  simple: 'pub.decoration.simple',
+  standard: 'pub.decoration.standard',
+  luxury: 'pub.decoration.luxury',
+  fully_furnished: 'pub.decoration.fully_furnished'
 }
 
 const STAGE: Record<string, string> = {
-  kindergarten: '幼儿园',
-  primary: '小学',
-  secondary: '中学',
-  high_school: '高中',
-  university: '大学',
-  k12: '一贯制（K12）'
+  kindergarten: 'pub.stage.kindergarten',
+  primary: 'pub.stage.primary',
+  secondary: 'pub.stage.secondary',
+  high_school: 'pub.stage.high_school',
+  university: 'pub.stage.university',
+  k12: 'pub.stage.k12'
 }
 
 const CURRICULUM: Record<string, string> = {
-  ib: 'IB 国际文凭',
-  american: '美制',
-  british: '英制',
-  french: '法式',
-  german: '德式',
-  japanese: '日式',
-  thai: '泰制',
-  bilingual: '双语',
-  other: '其他'
+  ib: 'pub.curriculum.ib',
+  american: 'pub.curriculum.american',
+  british: 'pub.curriculum.british',
+  french: 'pub.curriculum.french',
+  german: 'pub.curriculum.german',
+  japanese: 'pub.curriculum.japanese',
+  thai: 'pub.curriculum.thai',
+  bilingual: 'pub.curriculum.bilingual',
+  other: 'pub.curriculum.other'
 }
 
 const TENURE: Record<string, string> = {
-  freehold: '永久产权',
-  leasehold: '租赁产权',
-  mixed: '混合产权'
+  freehold: 'pub.tenure.freehold',
+  leasehold: 'pub.tenure.leasehold',
+  mixed: 'pub.tenure.mixed'
 }
 
-const LISTING_TYPE: Record<string, string> = {
-  rent: '出租',
-  sell: '出售'
+export const LISTING_TYPE: Record<string, string> = {
+  rent: 'pub.listingType.rent',
+  sell: 'pub.listingType.sell'
 }
 
-/** 未知取值原样返回，比显示空白更可读（后端新增枚举时不至于丢信息）。 */
+/** 未知取值原样返回（后端新增枚举时不至于丢信息）。 */
 const pick = (map: Record<string, string>, value?: string | null): string =>
-  value ? map[value] ?? value : ''
+  value ? useI18n.getState().t(map[value] ?? value) : ''
 
 export const orientationLabel = (value?: string | null) => pick(ORIENTATION, value)
 export const decorationLabel = (value?: string | null) => pick(DECORATION, value)
@@ -70,28 +72,28 @@ export const curriculumLabel = (value?: string | null) => pick(CURRICULUM, value
 export const tenureLabel = (value?: string | null) => pick(TENURE, value)
 export const listingTypeLabel = (value?: string | null) => pick(LISTING_TYPE, value)
 
-/** 供筛选器渲染的枚举取值表（顺序即展示顺序，与后端枚举一致）。 */
+/** 供筛选器渲染的枚举 key 表（顺序即展示顺序，与后端枚举一致）；渲染时自行 t() 翻译。 */
 export const STAGE_OPTIONS = [
-  ['', '全部'],
-  ['kindergarten', STAGE.kindergarten],
-  ['primary', STAGE.primary],
-  ['secondary', STAGE.secondary],
-  ['high_school', STAGE.high_school],
-  ['university', STAGE.university],
-  ['k12', STAGE.k12]
+  ['', 'pub.all'],
+  ['kindergarten', 'pub.stage.kindergarten'],
+  ['primary', 'pub.stage.primary'],
+  ['secondary', 'pub.stage.secondary'],
+  ['high_school', 'pub.stage.high_school'],
+  ['university', 'pub.stage.university'],
+  ['k12', 'pub.stage.k12']
 ] as const
 
 export const CURRICULUM_OPTIONS = [
-  ['', '全部'],
-  ['ib', CURRICULUM.ib],
-  ['american', CURRICULUM.american],
-  ['british', CURRICULUM.british],
-  ['french', CURRICULUM.french],
-  ['german', CURRICULUM.german],
-  ['japanese', CURRICULUM.japanese],
-  ['thai', CURRICULUM.thai],
-  ['bilingual', CURRICULUM.bilingual],
-  ['other', CURRICULUM.other]
+  ['', 'pub.all'],
+  ['ib', 'pub.curriculum.ib'],
+  ['american', 'pub.curriculum.american'],
+  ['british', 'pub.curriculum.british'],
+  ['french', 'pub.curriculum.french'],
+  ['german', 'pub.curriculum.german'],
+  ['japanese', 'pub.curriculum.japanese'],
+  ['thai', 'pub.curriculum.thai'],
+  ['bilingual', 'pub.curriculum.bilingual'],
+  ['other', 'pub.curriculum.other']
 ] as const
 
 export const SCHOOL_RADIUS_OPTIONS = [1, 3, 5, 10] as const

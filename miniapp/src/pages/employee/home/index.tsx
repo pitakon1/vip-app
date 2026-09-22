@@ -124,14 +124,6 @@ const relTime = (iso?: string) => {
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-// 按当前时刻生成问候语
-const greeting = () => {
-  const h = new Date().getHours()
-  if (h < 12) return '早上好'
-  if (h < 18) return '下午好'
-  return '晚上好'
-}
-
 export default function EmployeeHomePage() {
   const user = useAuthStore((state) => state.user)
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
@@ -210,12 +202,9 @@ export default function EmployeeHomePage() {
 
   return (
     <View className='emp-home'>
-      {/* 渐变问候卡 */}
+      {/* 今日概览卡 */}
       <View className='emp-hero'>
         <View className='emp-hero__main'>
-          <Text className='emp-hero__hi'>
-            {greeting()}，{user?.name || '同事'}
-          </Text>
           <Text className='emp-hero__meta'>
             今日 {todayList.length} 场带看 · 本月成交 {monthDeals ?? 0} 单 · 佣金{' '}
             {fmtMoney(monthCommission)}

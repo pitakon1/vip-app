@@ -15,12 +15,14 @@ import Taro from '@tarojs/taro'
 import type { PublicListing } from '@/services/publicApi'
 import { coverOf, listingTypeLabel } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
+import { useI18n } from '@/i18n'
 
 interface Props {
   item: PublicListing
 }
 
 export default function PublicListingItem({ item }: Props) {
+  const { t } = useI18n()
   const cover = coverOf(item)
   const isSell = item.listing_type === 'sell'
   const price = item.price ?? (isSell ? item.asking_price : item.monthly_rent)
@@ -35,7 +37,7 @@ export default function PublicListingItem({ item }: Props) {
           <Image className='pub-listing__img' src={cover} mode='aspectFill' />
         ) : (
           <View className='pub-listing__noimg'>
-            <Text>暂无图片</Text>
+            <Text>{t('pub.noPhoto')}</Text>
           </View>
         )}
         {item.listing_type ? (
@@ -47,7 +49,7 @@ export default function PublicListingItem({ item }: Props) {
 
       <View className='pub-listing__body'>
         <Text className='pub-listing__title'>
-          {item.project_name || item.room_number || '房源'}
+          {item.project_name || item.room_number || t('pub.listingItem')}
         </Text>
         {item.room_number && item.project_name ? (
           <Text className='pub-listing__unit'>{item.room_number}</Text>
@@ -57,17 +59,20 @@ export default function PublicListingItem({ item }: Props) {
         <View className='pub-listing__facts'>
           {item.bedrooms != null ? <Text>{item.bedrooms} BED</Text> : null}
           {item.bathrooms != null ? <Text>{item.bathrooms} BATH</Text> : null}
-          {item.size_sqm != null ? <Text>{item.size_sqm} ㎡</Text> : null}
+          {item.size_sqm != null ? <Text>{item.size_sqm} {t('pub.sqm')}</Text> : null}
         </View>
 
         <Text className='pub-listing__price'>
           {fmtMoney(price, item.currency || 'THB')}
-          {isSell ? null : <Text className='pub-listing__price-sub'>/月</Text>}
+          {isSell ? null : <Text className='pub-listing__price-sub'>{t('pub.perMonth')}</Text>}
         </Text>
 
         {item.nearest_school_km != null && item.nearest_school_name ? (
           <Text className='pub-listing__school'>
-            距 {item.nearest_school_name} 约 {item.nearest_school_km} 公里
+            {t('pub.distanceToSchool', {
+              name: item.nearest_school_name,
+              km: item.nearest_school_km
+            })}
           </Text>
         ) : null}
       </View>

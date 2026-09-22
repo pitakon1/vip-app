@@ -66,10 +66,13 @@ const PublicTopBar = () => {
           type="button"
           className="pub-loc"
           onClick={() => setLocOpen(true)}
-          aria-label="选择城市"
+          aria-label={t('locate.selectCity')}
         >
-          <span className="pub-loc__pin">📍</span>
-          <span className="pub-loc__text">{cityLabel || '选择城市'}</span>
+          <svg className="pub-loc__pin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          <span className="pub-loc__text">{cityLabel || t('locate.selectCity')}</span>
           <span className="pub-loc__arrow">▾</span>
         </button>
 

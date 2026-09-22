@@ -69,6 +69,7 @@ from .external_trip import ExternalTripApplication, TripStatus
 from .viewing_appointment import ViewingAppointment, ViewingStatus
 from .commission_rule import CommissionRule, CommissionRuleScope
 from .favorite import Favorite
+from .price_alert import PriceAlert
 from .sale_listing import SaleListing, SaleType, ListingStatus, Valuation, AVMMethod
 from .property_deal import (
     PropertyDeal,
@@ -195,6 +196,7 @@ __all__ = [
     "CommissionRule",
     "CommissionRuleScope",
     "Favorite",
+    "PriceAlert",
     "SaleListing",
     "SaleType",
     "ListingStatus",

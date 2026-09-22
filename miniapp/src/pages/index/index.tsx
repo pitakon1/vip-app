@@ -2,9 +2,11 @@ import { useEffect } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 export default function IndexPage() {
+  const { t } = useI18n()
   const token = useAuthStore((state) => state.token)
   const user = useAuthStore((state) => state.user)
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
@@ -40,7 +42,7 @@ export default function IndexPage() {
   return (
     <View className='index-page'>
       <View className='loading-wrapper'>
-        <Text className='loading-text'>加载中...</Text>
+        <Text className='loading-text'>{t('pub.loading')}</Text>
       </View>
     </View>
   )
