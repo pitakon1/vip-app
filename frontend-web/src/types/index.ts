@@ -152,6 +152,11 @@ export interface CompanyInfo {
   whatsapp?: string
   facebook?: string
   instagram?: string
+  reg_no?: string
+  currency?: string
+  timezone?: string
+  logo_url?: string
+  updated_at?: string
   [key: string]: any
 }
 

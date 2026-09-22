@@ -321,3 +321,11 @@ export const usersAdminApi = {
   create: (data: any) => api.post('/admin/users', data),
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
 };
+
+// 公司资料与系统配置（管理端「我的 - 业务设置」读写：租金/合同提醒天数、自动催缴）
+export const companyApi = {
+  info: () => api.get('/company/info'),
+  update: (data: any) => api.put('/company/info', data),
+  settings: () => api.get('/company/settings'),
+  updateSettings: (data: any) => api.put('/company/settings', data),
+};

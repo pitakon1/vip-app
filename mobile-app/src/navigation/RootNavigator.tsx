@@ -56,6 +56,7 @@ export type RootStackParamList = {
   EditProfile: undefined;
   ChangePassword: undefined;
   NotificationPrefs: undefined;
+  AdminBusinessSettings: undefined;
   MyLease: undefined;
   MyLeaseDetail: { lease_id: string };
   MyOrders: undefined;
@@ -142,6 +143,7 @@ const SettingsLanguageScreen = lazyScreen(() => import('../screens/settings/Sett
 const EditProfileScreen = lazyScreen(() => import('../screens/settings/EditProfileScreen'));
 const ChangePasswordScreen = lazyScreen(() => import('../screens/settings/ChangePasswordScreen'));
 const NotificationPrefsScreen = lazyScreen(() => import('../screens/settings/NotificationPrefsScreen'));
+const AdminBusinessSettingsScreen = lazyScreen(() => import('../screens/settings/AdminBusinessSettingsScreen'));
 const MyLeaseScreen = lazyScreen(() => import('../screens/settings/MyLeaseScreen'));
 const MyLeaseDetailScreen = lazyScreen(() => import('../screens/settings/MyLeaseDetailScreen'));
 const MyOrdersScreen = lazyScreen(() => import('../screens/settings/MyOrdersScreen'));
@@ -214,6 +216,7 @@ export function RootNavigator() {
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: true, title: '编辑资料' }} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: true, title: '修改密码' }} />
       <Stack.Screen name="NotificationPrefs" component={NotificationPrefsScreen} options={{ headerShown: true, title: '通知设置' }} />
+      <Stack.Screen name="AdminBusinessSettings" component={AdminBusinessSettingsScreen} options={{ headerShown: true, title: '业务设置' }} />
       <Stack.Screen name="MyLease" component={MyLeaseScreen} options={{ headerShown: true, title: '我的租约' }} />
       <Stack.Screen name="MyLeaseDetail" component={MyLeaseDetailScreen} options={{ headerShown: true, title: '租约详情' }} />
       <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ headerShown: true, title: '我的交易订单' }} />

@@ -57,6 +57,9 @@ interface PaymentChannel {
   fields: PaymentField[]
   cards?: { name: string; checked: boolean }[]
 }
+// 支付渠道「兜底初始值」：仅结构与字段名，**不放示例账号/密钥**。
+// 这些值会真正落库并展示给租客，写死示例号等于把伪造数据当真实配置。
+// 页面加载时以 GET /company/settings 的真实配置覆盖。
 const PAYMENT_CHANNELS: PaymentChannel[] = [
   {
     key: 'bank',
@@ -65,10 +68,10 @@ const PAYMENT_CHANNELS: PaymentChannel[] = [
     enabled: true,
     icon: '<path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v3"/><path d="M12 14v3"/><path d="M16 14v3"/>',
     fields: [
-      { label: 'Bangkok Bank 账号', value: '012-345-6789', mono: true },
-      { label: 'Kasikorn 账号', value: '123-4-56789-0', mono: true },
-      { label: 'PromptPay 账号', value: '0123456789012', mono: true },
-      { label: '账户持有人姓名', value: 'HaoFang Property Management (Thailand) Co., Ltd.', mono: false },
+      { label: 'Bangkok Bank 账号', value: '', mono: true },
+      { label: 'Kasikorn 账号', value: '', mono: true },
+      { label: 'PromptPay 账号', value: '', mono: true },
+      { label: '账户持有人姓名', value: '', mono: false },
     ],
   },
   {
@@ -78,7 +81,7 @@ const PAYMENT_CHANNELS: PaymentChannel[] = [
     enabled: true,
     icon: '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
     fields: [
-      { label: '商户 ID (Merchant ID)', value: 'MID-8801234567', mono: true },
+      { label: '商户 ID (Merchant ID)', value: '', mono: true },
     ],
     cards: [
       { name: 'Visa', checked: true },
@@ -93,8 +96,8 @@ const PAYMENT_CHANNELS: PaymentChannel[] = [
     enabled: false,
     icon: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>',
     fields: [
-      { label: '商户 ID (Partner ID)', value: '2088123456789012', mono: true },
-      { label: 'API Key', value: 'alipay_live_key_2024', mono: true, password: true, hint: '出于安全考虑，密钥已加密保存' },
+      { label: '商户 ID (Partner ID)', value: '', mono: true },
+      { label: 'API Key', value: '', mono: true, password: true, hint: '出于安全考虑，密钥已加密保存' },
     ],
   },
   {
@@ -104,8 +107,8 @@ const PAYMENT_CHANNELS: PaymentChannel[] = [
     enabled: false,
     icon: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
     fields: [
-      { label: '商户 ID (MCH ID)', value: '1900000109', mono: true },
-      { label: 'API Key', value: 'wechat_live_key_2024', mono: true, password: true, hint: '出于安全考虑，密钥已加密保存' },
+      { label: '商户 ID (MCH ID)', value: '', mono: true },
+      { label: 'API Key', value: '', mono: true, password: true, hint: '出于安全考虑，密钥已加密保存' },
     ],
   },
   {
@@ -115,37 +118,44 @@ const PAYMENT_CHANNELS: PaymentChannel[] = [
     enabled: false,
     icon: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
     fields: [
-      { label: 'Wise Business ID', value: 'WBUS-MY-998877', mono: true },
+      { label: 'Wise Business ID', value: '', mono: true },
     ],
   },
 ]
+
+// 结算货币 / 时区可选项（与后端存储的字符串一致，直接读写）
+const CURRENCY_OPTIONS = ['THB (฿) — 泰铢', 'USD — 美元', 'CNY — 人民币', 'SGD — 新加坡元']
+const TIMEZONE_OPTIONS = ['Asia/Bangkok (UTC+7)', 'Asia/Singapore (UTC+8)', 'Asia/Shanghai (UTC+8)', 'UTC — 协调世界时']
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('company')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // 公司信息表单 state（原生 input）
+  // 公司信息表单 state（原生 input）：初始留空，页面加载时从 GET /company/info 取真实值。
+  // 此前这里写死了示例公司名/注册号/地址等，请求失败时会被当成真实信息展示甚至保存进库。
   const [companyForm, setCompanyForm] = useState<CompanyFormState>({
-    name: 'HaoFang Property Management (Thailand) Co., Ltd.',
-    regNo: '0105566012345',
-    address: '12th Fl., Park Venture, Sukhumvit 55, Bangkok 10110',
-    phone: '+66 2-123 4567',
-    email: 'info@rentflow.co.th',
+    name: '',
+    regNo: '',
+    address: '',
+    phone: '',
+    email: '',
     website: '',
     wechat: '',
     whatsapp: '',
     facebook: '',
     instagram: '',
-    currency: 'THB (฿) — 泰铢',
-    timezone: 'Asia/Bangkok (UTC+7)',
+    currency: '',
+    timezone: '',
   })
+  // 公司资料真实更新时间（页面右上角「最后更新」）
+  const [updatedAt, setUpdatedAt] = useState('')
 
-  // 通知行状态
+  // 通知行状态（加载时以 GET /company/settings 的真实配置覆盖）
   const [notifyRows, setNotifyRows] = useState(NOTIFICATION_ROWS)
 
   // 支付渠道状态
-  const [channels, setChannels] = useState(PAYMENT_CHANNELS)
+  const [channels, setChannels] = useState<PaymentChannel[]>(PAYMENT_CHANNELS)
 
   // 公司 Logo（真实落库：/company/info 的 logo_url；为空表示未设置）
   const [logoUrl, setLogoUrl] = useState('')
@@ -212,7 +222,12 @@ const Settings = () => {
         whatsapp: soc?.whatsapp || '',
         facebook: soc?.facebook || '',
         instagram: soc?.instagram || '',
+        // 注册号/结算货币/时区此前是前端写死示例值，改为读后端真实配置
+        regNo: payload?.reg_no || '',
+        currency: payload?.currency || '',
+        timezone: payload?.timezone || '',
       }))
+      setUpdatedAt(payload?.updated_at || '')
     } catch (err: any) {
       message.error(err?.response?.data?.message || '获取公司信息失败')
     } finally {
@@ -220,8 +235,25 @@ const Settings = () => {
     }
   }
 
+  // 系统配置（通知规则 / 支付渠道）：读后端真实配置，缺省由后端给默认值
+  const fetchSettings = async () => {
+    try {
+      const res = await companyApi.settings()
+      const payload = res.data?.data ?? res.data
+      if (Array.isArray(payload?.notify_rows) && payload.notify_rows.length) {
+        setNotifyRows(payload.notify_rows)
+      }
+      if (Array.isArray(payload?.payment_channels) && payload.payment_channels.length) {
+        setChannels(payload.payment_channels)
+      }
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || '获取系统配置失败')
+    }
+  }
+
   useEffect(() => {
     fetchCompanyInfo()
+    fetchSettings()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -242,8 +274,15 @@ const Settings = () => {
           facebook: companyForm.facebook,
           instagram: companyForm.instagram,
         },
+        // 注册号/结算货币/时区此前没提交（后端也没字段），改完保存不上，现一并写库
+        reg_no: companyForm.regNo,
+        currency: companyForm.currency,
+        timezone: companyForm.timezone,
       }
-      await companyApi.update(values)
+      const res = await companyApi.update(values)
+      // 用后端返回值回填，顺便刷新「最后更新」时间
+      const payload = res.data?.data ?? res.data
+      if (payload?.updated_at) setUpdatedAt(payload.updated_at)
       message.success('公司信息已保存')
     } catch (err: any) {
       message.error(err?.response?.data?.message || '保存失败')
@@ -286,45 +325,69 @@ const Settings = () => {
     }
   }
 
-  const handleNotifySave = () => {
+  // 保存通知规则（此前只是 setTimeout 假成功，改了不落库、刷新即回退）
+  const handleNotifySave = async () => {
     setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
+    try {
+      await companyApi.updateSettings({ notify_rows: notifyRows })
       message.success('通知设置已保存')
-    }, 200)
-  }
-
-  // 通知设置重置为默认规则（丢弃本次改动，与「保存」同一份 form state）
-  const handleNotifyReset = () => {
-    setNotifyRows(
-      NOTIFICATION_ROWS.map((r) => ({ ...r, channels: { ...r.channels } })),
-    )
-    message.success('通知设置已恢复默认')
-  }
-
-  const handleChannelSave = () => {
-    setSaving(true)
-    setTimeout(() => {
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || '保存失败')
+    } finally {
       setSaving(false)
-      message.success('渠道配置已保存')
-    }, 200)
+    }
   }
 
-  // 渠道配置恢复默认（丢弃本次改动，与「保存」同一份 form state）
-  const handleChannelReset = () => {
-    setChannels(
-      PAYMENT_CHANNELS.map((c) => ({
-        ...c,
-        fields: c.fields.map((f) => ({ ...f })),
-        cards: c.cards?.map((card) => ({ ...card })),
-      })),
-    )
-    message.success('渠道配置已恢复默认')
+  // 通知设置重置：丢弃本次改动，重新拉取后端已保存的配置
+  const handleNotifyReset = async () => {
+    await fetchSettings()
+    message.success('通知设置已恢复为已保存配置')
+  }
+
+  // 保存支付渠道（同上，改为落库）
+  const handleChannelSave = async () => {
+    setSaving(true)
+    try {
+      await companyApi.updateSettings({ payment_channels: channels })
+      message.success('渠道配置已保存')
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || '保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // 渠道配置重置：丢弃本次改动，重新拉取后端已保存的配置
+  const handleChannelReset = async () => {
+    await fetchSettings()
+    message.success('渠道配置已恢复为已保存配置')
   }
 
   const toggleChannel = (key: string) => {
     setChannels((cs) =>
       cs.map((c) => (c.key === key ? { ...c, enabled: !c.enabled } : c)),
+    )
+  }
+
+  // 渠道字段输入：此前用 defaultValue（非受控），输入根本不会进 state，
+  // 保存时提交的是旧值——改成受控
+  const updateChannelField = (chKey: string, index: number, value: string) => {
+    setChannels((cs) =>
+      cs.map((c) =>
+        c.key === chKey
+          ? { ...c, fields: c.fields.map((f, i) => (i === index ? { ...f, value } : f)) }
+          : c,
+      ),
+    )
+  }
+
+  const toggleChannelCard = (chKey: string, name: string) => {
+    setChannels((cs) =>
+      cs.map((c) =>
+        c.key === chKey && c.cards
+          ? { ...c, cards: c.cards.map((card) => (card.name === name ? { ...card, checked: !card.checked } : card)) }
+          : c,
+      ),
     )
   }
 
@@ -358,7 +421,9 @@ const Settings = () => {
           <p className="rent-page-header__subtitle">管理公司信息、支付渠道、通知规则与角色权限</p>
         </div>
         <div className="rent-page-header__actions">
-          <span className="rent-badge rent-badge--neutral">最后更新：2026-07-28</span>
+          <span className="rent-badge rent-badge--neutral">
+            最后更新：{updatedAt ? updatedAt.slice(0, 10) : '—'}
+          </span>
         </div>
       </div>
 
@@ -444,12 +509,15 @@ const Settings = () => {
                 <select
                   className="rent-form-select"
                   value={companyForm.currency}
+                  disabled={loading}
                   onChange={(e) => setCompanyForm((p) => ({ ...p, currency: e.target.value }))}
                 >
-                  <option>THB (฿) — 泰铢</option>
-                  <option>USD — 美元</option>
-                  <option>CNY — 人民币</option>
-                  <option>SGD — 新加坡元</option>
+                  {!CURRENCY_OPTIONS.includes(companyForm.currency) && (
+                    <option value="">未设置</option>
+                  )}
+                  {CURRENCY_OPTIONS.map((opt) => (
+                    <option key={opt}>{opt}</option>
+                  ))}
                 </select>
               </div>
               <div className="rent-form-group">
@@ -457,12 +525,15 @@ const Settings = () => {
                 <select
                   className="rent-form-select"
                   value={companyForm.timezone}
+                  disabled={loading}
                   onChange={(e) => setCompanyForm((p) => ({ ...p, timezone: e.target.value }))}
                 >
-                  <option>Asia/Bangkok (UTC+7)</option>
-                  <option>Asia/Singapore (UTC+8)</option>
-                  <option>Asia/Shanghai (UTC+8)</option>
-                  <option>UTC — 协调世界时</option>
+                  {!TIMEZONE_OPTIONS.includes(companyForm.timezone) && (
+                    <option value="">未设置</option>
+                  )}
+                  {TIMEZONE_OPTIONS.map((opt) => (
+                    <option key={opt}>{opt}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -565,7 +636,8 @@ const Settings = () => {
                       <input
                         className={`rent-form-input${f.mono ? ' rent-table__mono' : ''}`}
                         type={f.password ? 'password' : 'text'}
-                        defaultValue={f.value}
+                        value={f.value}
+                        onChange={(e) => updateChannelField(ch.key, i, e.target.value)}
                       />
                       {f.hint && <div className="rent-form-hint">{f.hint}</div>}
                     </div>
@@ -576,7 +648,11 @@ const Settings = () => {
                       <div className="rent-flex rent-gap-4" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
                         {ch.cards.map((card) => (
                           <label key={card.name} className="rent-check">
-                            <input type="checkbox" defaultChecked={card.checked} /> {card.name}
+                            <input
+                              type="checkbox"
+                              checked={card.checked}
+                              onChange={() => toggleChannelCard(ch.key, card.name)}
+                            /> {card.name}
                           </label>
                         ))}
                       </div>

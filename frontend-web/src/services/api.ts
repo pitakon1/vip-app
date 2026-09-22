@@ -162,6 +162,10 @@ export const companyApi = {
     return api.post('/company/info/logo', fd)
   },
   removeLogo: () => api.delete('/company/info/logo'),
+  // 系统配置（通知规则 / 支付渠道 / 业务提醒参数）：设置页两个 tab 的保存此前是
+  // 前端 setTimeout 假成功，改为真实读写
+  settings: () => api.get('/company/settings'),
+  updateSettings: (data: RequestBody) => api.put('/company/settings', data),
 }
 
 // Notifications

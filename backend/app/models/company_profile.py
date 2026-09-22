@@ -30,6 +30,13 @@ class CompanyProfile(SQLModel, table=True):
     # 否则前端移除后刷新即「复活」，等于假操作。
     logo_url: Optional[str] = Field(default=None, max_length=500)
     social_media: Optional[dict] = Field(default=None, sa_type=JSON)
+    # 设置页「公司信息」的注册号 / 结算币种 / 时区：此前只在前端源码里写死示例值，
+    # 输入后保存不上、刷新即回退，故一并落库。
+    reg_no: Optional[str] = Field(default=None, max_length=100)
+    currency: Optional[str] = Field(default=None, max_length=20)
+    timezone: Optional[str] = Field(default=None, max_length=50)
+    # 通知规则 / 支付渠道 / 业务提醒参数：JSON 列集中存放，避免为配置项反复加宽表。
+    settings: Optional[dict] = Field(default=None, sa_type=JSON)
     updated_at: datetime = Field(
         default_factory=datetime.utcnow,
         sa_column_kwargs={"onupdate": datetime.utcnow},
@@ -60,6 +67,10 @@ def upsert_company_profile(session: Session, data: dict) -> "CompanyProfile":
             "website",
             "logo_url",
             "social_media",
+            "reg_no",
+            "currency",
+            "timezone",
+            "settings",
         }:
             setattr(row, field, value)
     row.updated_at = datetime.utcnow()

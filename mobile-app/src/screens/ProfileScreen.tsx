@@ -12,13 +12,13 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '@/stores/auth';
 import Card from '@/components/Card';
 import colors from '@/theme/colors';
 import { useI18n, LANG_LABELS } from '@/i18n';
 import { useUserCapabilities } from '@/hooks/useUserCapabilities';
-import { authApi, chatApi } from '@/services/api';
+import { authApi, chatApi, companyApi } from '@/services/api';
 import type { UserRole } from '@/types';
 
 // 从本地 uri 推断图片扩展名（expo image-picker 未必给 fileName）
@@ -141,6 +141,58 @@ export default function ProfileScreen() {
   // 员工端：经纪人 / 员工 / 管理员均提供「我的」账户与设置自助区块
   const isStaff = isAdmin || user?.role === 'agent' || user?.role === 'employee';
 
+  // 管理端「系统设置 / 业务设置」两区块的真实值。
+  // 此前时区写死 'UTC+8'、通知写死 '邮件 · 短信 · 推送'、提醒天数写死 '7/30 天前'，
+  // 与后台实际配置完全脱钩（在 Web 改了设置这里也不会变）。
+  const [userPrefs, setUserPrefs] = React.useState<{ timezone?: string; email?: boolean; push?: boolean }>({});
+  const [business, setBusiness] = React.useState<{
+    rent_reminder_days: number;
+    lease_reminder_days: number;
+    auto_dunning: boolean;
+  } | null>(null);
+
+  // 回到「我的」时重新拉取（业务设置子页保存后返回能立即看到新值）
+  useFocusEffect(
+    React.useCallback(() => {
+      let alive = true;
+      if (user) {
+        authApi
+          .preferences()
+          .then(({ data }) => {
+            const p = data ?? {};
+            if (!alive) return;
+            setUserPrefs({
+              timezone: p.timezone || '',
+              email: p.notify_email !== false,
+              push: p.notify_push !== false,
+            });
+          })
+          .catch(() => {
+            /* 读取失败保持上一份值 */
+          });
+      }
+      if (isAdmin) {
+        companyApi
+          .settings()
+          .then(({ data }) => {
+            const biz = (data?.data ?? data)?.business;
+            if (!alive || !biz) return;
+            setBusiness({
+              rent_reminder_days: Number(biz.rent_reminder_days ?? 7),
+              lease_reminder_days: Number(biz.lease_reminder_days ?? 30),
+              auto_dunning: biz.auto_dunning !== false,
+            });
+          })
+          .catch(() => {
+            /* 读取失败保持上一份值 */
+          });
+      }
+      return () => {
+        alive = false;
+      };
+    }, [user, isAdmin]),
+  );
+
   // 后端无对应编辑接口的功能，点击统一提示「暂未开放」（不伪造假数据）
   const showNotAvailable = (name: string) => {
     const msg = `「${name}」功能暂未开放`;
@@ -198,14 +250,22 @@ export default function ProfileScreen() {
   ];
   const adminSystemItems: SettingItem[] = [
     { key: 'language', icon: 'globe', label: '语言', value: lang === 'en' ? 'English' : lang === 'th' ? 'ไทย' : '中文', openLang: true, color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
-    { key: 'timezone', icon: 'time', label: '时区', value: 'UTC+8', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
-    { key: 'notification', icon: 'notifications', label: '通知设置', value: '邮件 · 短信 · 推送', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
+    { key: 'timezone', icon: 'time', label: '时区', value: userPrefs.timezone || undefined, color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
+    {
+      key: 'notification',
+      icon: 'notifications',
+      label: '通知设置',
+      // 实际只有「邮件 / 推送」两项个人通知偏好（原写死的「邮件 · 短信 · 推送」并不存在短信）
+      value: [userPrefs.email !== false ? '邮件' : '', userPrefs.push !== false ? '推送' : ''].filter(Boolean).join(' · ') || '全部关闭',
+      color: colors.error,
+      bg: colors.alpha(colors.errorRgb, 0.1),
+    },
   ];
   const adminBusinessItems: SettingItem[] = [
     { key: 'commission', icon: 'settings', label: '佣金设置', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), route: 'CommissionRules' },
-    { key: 'rent-reminder', icon: 'calendar', label: '租金提醒天数', value: '7 天前', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1) },
-    { key: 'lease-reminder', icon: 'document-text', label: '合同到期提醒', value: '30 天前', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
-    { key: 'auto-dunning', icon: 'refresh', label: '自动催缴', value: '已开启', valueTone: 'success', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1) },
+    { key: 'rent-reminder', icon: 'calendar', label: '租金提醒天数', value: `${business?.rent_reminder_days ?? 7} 天前`, color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), route: 'AdminBusinessSettings' },
+    { key: 'lease-reminder', icon: 'document-text', label: '合同到期提醒', value: `${business?.lease_reminder_days ?? 30} 天前`, color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), route: 'AdminBusinessSettings' },
+    { key: 'auto-dunning', icon: 'refresh', label: '自动催缴', value: business?.auto_dunning === false ? '已关闭' : '已开启', valueTone: business?.auto_dunning === false ? undefined : 'success', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), route: 'AdminBusinessSettings' },
   ];
   const adminAboutItems: SettingItem[] = [
     { key: 'version', icon: 'information-circle', label: '版本信息', value: APP_VERSION, color: colors.ink2, bg: colors.surface2 },
