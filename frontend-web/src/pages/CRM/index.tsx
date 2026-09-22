@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { message, Spin } from 'antd'
 import { useNavigate } from 'react-router-dom'
-import { chatApi, leadsApi } from '@/services/api'
+import { chatApi, employeesApi, leadsApi } from '@/services/api'
 import type { Lead, LeadStatus } from '@/types'
 import './crm.css'
 
@@ -42,6 +42,18 @@ const stageLabelMap: Record<LeadStatus, string> = {
 
 const AGENT_COLORS = ['#14b8a6', '#16a34a', '#d97706', '#14b8a6', '#0ea5e9']
 
+/** 后端 LeadStage 枚举的真实取值；stageLabelMap 中的 new/following/converted/lost
+ *  后端不认（提交即 422），故下拉选项只列这 5 个可写值 */
+const LEAD_STAGE_VALUES: LeadStatus[] = [
+  'inquiring',
+  'viewing_scheduled',
+  'negotiating',
+  'pending_contract',
+  'closed',
+]
+
+const STAGE_OPTIONS = LEAD_STAGE_VALUES.map((value) => ({ value, label: stageLabelMap[value] }))
+
 const getAgentColor = (name?: string) => {
   if (!name) return AGENT_COLORS[0]
   return AGENT_COLORS[name.charCodeAt(0) % AGENT_COLORS.length]
@@ -69,19 +81,115 @@ const formatBudget = (lead: Lead): string => {
   return '未设定'
 }
 
-const propertyTypeBadge = (type?: string): string => {
-  if (!type) return 'rent-badge--info'
-  const t = type.toLowerCase()
-  if (type.includes('别墅') || t.includes('villa')) return 'rent-badge--primary'
-  if (type.includes('商铺') || t.includes('shop')) return 'rent-badge--warning'
+/** 卡片右上角徽标配色：后端线索没有 property_type，这里按真实「来源」渠道着色 */
+const sourceBadge = (source?: string): string => {
+  if (!source) return 'rent-badge--info'
+  const s = source.toLowerCase()
+  if (source.includes('别墅') || s.includes('villa')) return 'rent-badge--primary'
+  if (source.includes('商铺') || s.includes('shop')) return 'rent-badge--warning'
   return 'rent-badge--info'
 }
 
 interface QueryParams {
   page: number
   pageSize: number
-  status?: LeadStatus
+  /** 后端筛选参数名为 stage（不是 status），此前传错字段导致筛选静默失效 */
+  stage?: LeadStatus
   keyword?: string
+}
+
+/* ===== CSV 批量导入 ===== */
+interface ImportRow {
+  name: string
+  nationality?: string
+  phone?: string
+  email?: string
+  budget_max?: number
+  source?: string
+  notes?: string
+}
+
+/** 表头别名（中英文均可）→ 目标字段 */
+const CSV_HEADER_ALIASES: Record<keyof ImportRow, string[]> = {
+  name: ['name', '姓名', '客户姓名', '名称'],
+  nationality: ['nationality', '国籍'],
+  phone: ['phone', 'tel', '电话', '手机号', '手机'],
+  email: ['email', '邮箱', '电子邮箱'],
+  budget_max: ['budget_max', 'budget', '预算', '预算上限'],
+  source: ['source', '来源', '渠道'],
+  notes: ['notes', 'note', '备注', '说明'],
+}
+
+/** 无表头时的列顺序约定 */
+const CSV_DEFAULT_ORDER: (keyof ImportRow)[] = ['name', 'nationality', 'phone', 'email', 'budget_max', 'source', 'notes']
+
+/** 解析单行 CSV（支持双引号包裹字段，含逗号与转义引号） */
+const parseCsvLine = (line: string): string[] => {
+  const cells: string[] = []
+  let cur = ''
+  let quoted = false
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i]
+    if (quoted) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') {
+          cur += '"'
+          i += 1
+        } else {
+          quoted = false
+        }
+      } else {
+        cur += ch
+      }
+    } else if (ch === '"') {
+      quoted = true
+    } else if (ch === ',') {
+      cells.push(cur)
+      cur = ''
+    } else {
+      cur += ch
+    }
+  }
+  cells.push(cur)
+  return cells.map((c) => c.trim())
+}
+
+/** CSV 文本 → 线索创建入参（无姓名的行跳过） */
+const buildImportPayloads = (text: string): ImportRow[] => {
+  const rows = text
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .map(parseCsvLine)
+  if (rows.length === 0) return []
+
+  const aliasLookup: Record<string, keyof ImportRow> = {}
+  ;(Object.keys(CSV_HEADER_ALIASES) as (keyof ImportRow)[]).forEach((field) => {
+    CSV_HEADER_ALIASES[field].forEach((alias) => {
+      aliasLookup[alias.toLowerCase()] = field
+    })
+  })
+
+  const head = rows[0].map((c) => c.toLowerCase())
+  const hasHeader = head.some((c) => !!aliasLookup[c])
+  const body = hasHeader ? rows.slice(1) : rows
+  const order: (keyof ImportRow | undefined)[] = hasHeader ? head.map((c) => aliasLookup[c]) : CSV_DEFAULT_ORDER
+
+  const payloads: ImportRow[] = []
+  for (const cells of body) {
+    const record: Partial<Record<keyof ImportRow, string | number>> = {}
+    order.forEach((field, idx) => {
+      if (!field) return
+      const value = (cells[idx] ?? '').trim()
+      if (!value) return
+      record[field] = field === 'budget_max' ? Number(value.replace(/[^\d.]/g, '')) || undefined : value
+    })
+    const name = String(record.name ?? '').trim()
+    if (!name) continue
+    payloads.push({ ...record, name } as ImportRow)
+  }
+  return payloads
 }
 
 interface CreateFormValues {
@@ -128,6 +236,36 @@ const CRM = () => {
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
   const [createForm, setCreateForm] = useState<CreateFormValues>(emptyCreateForm)
   const [stageValue, setStageValue] = useState<LeadStatus | ''>('')
+  const [importing, setImporting] = useState(false)
+  const importRef = useRef<HTMLInputElement>(null)
+  // 员工目录：assigned_to 存的是 employees.id，表单与列表都需要展示真实姓名
+  const [employeeOptions, setEmployeeOptions] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    employeesApi
+      .directory()
+      .then((res) => {
+        const payload = res.data?.data ?? res.data
+        const items: any[] = payload?.items ?? []
+        setEmployeeOptions(
+          items.map((e) => ({
+            id: String(e.id),
+            name: e.full_name || e.employee_no || String(e.id),
+          })),
+        )
+      })
+      .catch(() => {
+        // 目录不可用时保持空列表，表单退化为「未分配」
+      })
+  }, [])
+
+  const employeeNameMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    employeeOptions.forEach((e) => {
+      map[e.id] = e.name
+    })
+    return map
+  }, [employeeOptions])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -135,7 +273,7 @@ const CRM = () => {
       const res = await leadsApi.list({
         page: queryParams.page,
         pageSize: queryParams.pageSize,
-        status: queryParams.status,
+        stage: queryParams.stage,
         keyword: queryParams.keyword,
       })
       const payload = res.data?.data ?? res.data
@@ -185,7 +323,7 @@ const CRM = () => {
   }
 
   const handleStageChange = (value: LeadStatus | undefined) => {
-    setQueryParams((p) => ({ ...p, status: value, page: 1 }))
+    setQueryParams((p) => ({ ...p, stage: value, page: 1 }))
   }
 
   const openCreate = () => {
@@ -233,7 +371,8 @@ const CRM = () => {
         phone: createForm.phone,
         email: createForm.email,
         budget_max: createForm.budget_max ? Number(createForm.budget_max) : undefined,
-        assigned_to: createForm.assigned_to,
+        // assigned_to 是 employees.id（UUID），空值必须省略，否则空串会被 422 拒绝
+        assigned_to: createForm.assigned_to || undefined,
         source: createForm.source,
         stage: createForm.stage || undefined,
         requirement: createForm.requirement,
@@ -297,6 +436,35 @@ const CRM = () => {
     }
   }
 
+  // 批量导入客户线索：解析 CSV 后逐条调用 POST /leads，统计成功/失败
+  const handleImportFile = async (file?: File | null) => {
+    if (!file) return
+    setImporting(true)
+    try {
+      const payloads = buildImportPayloads(await file.text())
+      if (payloads.length === 0) {
+        message.warning('未解析到有效数据行，请确认 CSV 含「姓名」列')
+        return
+      }
+      const results = await Promise.allSettled(payloads.map((row) => leadsApi.create(row)))
+      const ok = results.filter((r) => r.status === 'fulfilled').length
+      const failed = results.length - ok
+      if (ok === 0) {
+        const first = results.find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined
+        const reason = first?.reason?.response?.data?.detail || first?.reason?.response?.data?.message
+        message.error(reason ? `导入失败：${reason}` : '导入失败，请检查文件内容')
+        return
+      }
+      message.success(`导入成功 ${ok} 条${failed > 0 ? `，失败 ${failed} 条` : ''}`)
+      fetchData()
+    } catch {
+      message.error('CSV 读取失败，请确认文件为 UTF-8 编码的 .csv')
+    } finally {
+      setImporting(false)
+      if (importRef.current) importRef.current.value = ''
+    }
+  }
+
   const handleUpdateStage = async () => {
     if (!currentLead) return
     if (!stageValue) {
@@ -317,16 +485,16 @@ const CRM = () => {
   }
 
   const renderKanbanCard = (lead: Lead) => {
-    const pType = (lead as any).property_type || '公寓'
     const isClosed = statusToColumn[lead.stage as LeadStatus] === 'closed'
     const dealPrice = (lead as any).deal_price
-    const followUp = (lead as any).follow_up || ''
-    const agent = lead.assigned_to
+    // 卡片上的「跟进」用最后更新时间（后端无 follow_up 字段），负责人展示员工姓名而非 UUID
+    const lastFollow = String((lead as any).updated_at || (lead as any).created_at || '').slice(0, 10)
+    const agent = lead.assigned_to ? employeeNameMap[String(lead.assigned_to)] : undefined
     return (
       <div className="rent-kanban__card" key={lead.id} onClick={() => openEditStage(lead)}>
         <div className="rent-flex rent-flex--between rent-gap-2 rent-mb-2" style={{ alignItems: 'center' }}>
           <span className="rent-text-bold rent-text-sm">{lead.name}</span>
-          <span className={`rent-badge ${propertyTypeBadge(pType)}`}>{pType}</span>
+          {lead.source ? <span className={`rent-badge ${sourceBadge(lead.source)}`}>{lead.source}</span> : null}
         </div>
         <div className="rent-flex rent-gap-2 rent-mb-3" style={{ alignItems: 'center' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -346,8 +514,8 @@ const CRM = () => {
         </div>
         <hr className="rent-divider" style={{ margin: '10px 0' }} />
         <div className="rent-flex rent-flex--between" style={{ alignItems: 'center' }}>
-          <span className="rent-caption rent-text-muted">跟进: {followUp}</span>
-          <div className="rent-avatar rent-avatar--sm" style={{ background: getAgentColor(agent) }}>
+          <span className="rent-caption rent-text-muted">跟进: {lastFollow || '未跟进'}</span>
+          <div className="rent-avatar rent-avatar--sm" style={{ background: getAgentColor(agent) }} title={agent || '未分配'}>
             {getAgentInitial(agent)}
           </div>
         </div>
@@ -364,13 +532,24 @@ const CRM = () => {
           <p className="rent-page-header__subtitle">管理客户线索与跟进状态</p>
         </div>
         <div className="rent-page-header__actions">
-          <button className="rent-btn rent-btn--secondary">
+          <input
+            ref={importRef}
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: 'none' }}
+            onChange={(e) => handleImportFile(e.target.files?.[0])}
+          />
+          <button
+            className="rent-btn rent-btn--secondary"
+            disabled={importing}
+            onClick={() => importRef.current?.click()}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            导入
+            {importing ? '导入中...' : '导入'}
           </button>
           <button className="rent-btn rent-btn--primary" onClick={openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -528,12 +707,12 @@ const CRM = () => {
             <select
               className="rent-form-select"
               style={{ width: 'auto', minWidth: 140 }}
-              value={queryParams.status || ''}
+              value={queryParams.stage || ''}
               onChange={(e) => handleStageChange((e.target.value || undefined) as LeadStatus | undefined)}
             >
               <option value="">全部阶段</option>
-              {Object.entries(stageLabelMap).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+              {STAGE_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
             <div className="rent-filter-bar__search">
@@ -582,7 +761,7 @@ const CRM = () => {
                         {stageLabelMap[lead.stage as LeadStatus] || lead.stage}
                       </span>
                     </td>
-                    <td>{lead.assigned_to || '-'}</td>
+                    <td>{lead.assigned_to ? (employeeNameMap[String(lead.assigned_to)] || '—') : '-'}</td>
                     <td>
                       <div className="rent-flex rent-gap-2">
                         <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => handleCall(lead)}>
@@ -708,12 +887,16 @@ const CRM = () => {
                 </div>
                 <div className="rent-form-group">
                   <label className="rent-form-label">分配给</label>
-                  <input
-                    className="rent-form-input"
+                  <select
+                    className="rent-form-select"
                     value={createForm.assigned_to}
                     onChange={(e) => setCreateForm((f) => ({ ...f, assigned_to: e.target.value }))}
-                    placeholder="请输入负责人"
-                  />
+                  >
+                    <option value="">未分配</option>
+                    {employeeOptions.map((e) => (
+                      <option key={e.id} value={e.id}>{e.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="rent-form-group">
@@ -732,8 +915,8 @@ const CRM = () => {
                   value={createForm.stage}
                   onChange={(e) => setCreateForm((f) => ({ ...f, stage: e.target.value as LeadStatus }))}
                 >
-                  {Object.entries(stageLabelMap).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
+                  {STAGE_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
               </div>
@@ -790,8 +973,8 @@ const CRM = () => {
                   onChange={(e) => setStageValue(e.target.value as LeadStatus)}
                 >
                   <option value="">请选择阶段</option>
-                  {Object.entries(stageLabelMap).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
+                  {STAGE_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
               </div>

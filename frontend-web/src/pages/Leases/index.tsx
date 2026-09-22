@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Modal, Spin } from 'antd'
 import dayjs from 'dayjs'
 import { leasesApi, propertiesApi } from '@/services/api'
+import { downloadReport } from '@/lib/download'
 import type { Lease, LeaseStatus, Property } from '@/types'
 import './leases.css'
 
@@ -34,6 +35,24 @@ interface QueryParams {
   pageSize: number
   status?: LeaseStatus
   keyword?: string
+  propertyType?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
+// 房源类型取值与后端 Property.property_type 对齐（apartment/house/condo/commercial）
+const PROPERTY_TYPE_OPTIONS = [
+  { value: 'apartment', label: '公寓' },
+  { value: 'house', label: '独栋住宅' },
+  { value: 'condo', label: '公寓住宅' },
+  { value: 'commercial', label: '商铺 / 写字楼' },
+]
+
+// 押金状态取值（后端 deposit_status：held/refunded/forfeited）
+const depositStatusLabel: Record<string, string> = {
+  held: '已收押金',
+  refunded: '已退还',
+  forfeited: '已扣除',
 }
 
 interface CreateFormValues {
@@ -85,6 +104,8 @@ const Leases = () => {
   const [filterType, setFilterType] = useState<string>('')
   const [filterStart, setFilterStart] = useState<string>('')
   const [filterEnd, setFilterEnd] = useState<string>('')
+  const [detailLease, setDetailLease] = useState<Lease | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   const fetchProperties = useCallback(async () => {
     try {
@@ -104,6 +125,9 @@ const Leases = () => {
         pageSize: queryParams.pageSize,
         status: queryParams.status,
         keyword: queryParams.keyword,
+        property_type: queryParams.propertyType,
+        date_from: queryParams.dateFrom,
+        date_to: queryParams.dateTo,
       })
       const payload = res.data?.data ?? res.data
       setData(payload?.items ?? [])
@@ -180,6 +204,56 @@ const Leases = () => {
     setQueryParams((p) => ({ ...p, status: (value || undefined) as LeaseStatus | undefined, page: 1 }))
   }
 
+  // 房源 / 租客显示名：列表接口已返回 property_name / tenant_name，缺失时用已加载房源兜底
+  const propertyNameMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const p of properties) {
+      map[String(p.id)] = p.room_number || p.address || String(p.id)
+    }
+    return map
+  }, [properties])
+
+  const resolvePropertyName = (lease: Lease) =>
+    (lease as any).property_name || propertyNameMap[String(lease.property_id)] || '-'
+  const resolveTenantName = (lease: Lease) => (lease as any).tenant_name || '-'
+
+  // 筛选：把「合同类型 / 起始日区间」草稿条件提交给服务端（状态下拉为即时筛选）
+  const handleApplyFilters = () => {
+    if (filterStart && filterEnd && filterStart > filterEnd) {
+      message.warning('起始日期不能晚于结束日期')
+      return
+    }
+    setQueryParams((p) => ({
+      ...p,
+      propertyType: filterType || undefined,
+      dateFrom: filterStart || undefined,
+      dateTo: filterEnd || undefined,
+      page: 1,
+    }))
+  }
+
+  const handleExport = async () => {
+    try {
+      setExporting(true)
+      // 导出沿用当前筛选条件，避免「页面筛过、导出却是全量」
+      await downloadReport(
+        '/exports/leases',
+        {
+          status: queryParams.status,
+          property_type: queryParams.propertyType,
+          keyword: queryParams.keyword,
+          date_from: queryParams.dateFrom,
+          date_to: queryParams.dateTo,
+        },
+        `leases_${dayjs().format('YYYYMMDD')}.csv`,
+      )
+    } catch {
+      message.error('导出失败，请稍后重试')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const openCreate = () => {
     setCreateForm(emptyCreateForm)
     setCreateOpen(true)
@@ -225,13 +299,13 @@ const Leases = () => {
     try {
       setSubmitting(true)
       await leasesApi.create({
-        propertyId: Number(createForm.propertyId),
-        tenantName: createForm.tenantName,
-        tenantPhone: createForm.tenantPhone,
-        startDate: createForm.startDate,
-        endDate: createForm.endDate,
-        monthlyRent: Number(createForm.monthlyRent),
-        deposit: Number(createForm.deposit),
+        property_id: createForm.propertyId,
+        tenant_name: createForm.tenantName,
+        tenant_phone: createForm.tenantPhone,
+        start_date: createForm.startDate,
+        end_date: createForm.endDate,
+        monthly_rent: Number(createForm.monthlyRent),
+        deposit_amount: Number(createForm.deposit),
       })
       message.success('创建租约成功')
       setCreateOpen(false)
@@ -291,6 +365,11 @@ const Leases = () => {
     })
   }
 
+  // 详情弹窗的展示态：与列表徽章同一口径
+  const detailMeta = detailLease
+    ? displayStatusMeta[getDisplayStatus(detailLease)]
+    : null
+
   return (
     <div className="rent-main">
       {/* Page Header */}
@@ -300,15 +379,20 @@ const Leases = () => {
           <p className="rent-page-header__subtitle">管理所有租赁合同</p>
         </div>
         <div className="rent-page-header__actions">
-          <button className="rent-btn rent-btn--secondary">
+          <button
+            className="rent-btn rent-btn--secondary"
+            type="button"
+            onClick={handleExport}
+            disabled={exporting}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            导出报表
+            {exporting ? '导出中...' : '导出报表'}
           </button>
-          <button className="rent-btn rent-btn--primary" onClick={openCreate}>
+          <button className="rent-btn rent-btn--primary" type="button" onClick={openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
@@ -391,7 +475,7 @@ const Leases = () => {
             </svg>
             <input
               type="text"
-              placeholder="搜索合同编号 / 租客名"
+              placeholder="搜索房源 / 租客"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSearch((e.target as HTMLInputElement).value)
               }}
@@ -422,9 +506,9 @@ const Leases = () => {
           onChange={(e) => setFilterType(e.target.value)}
         >
           <option value="">全部类型</option>
-          <option value="住宅">住宅</option>
-          <option value="商铺">商铺</option>
-          <option value="写字楼">写字楼</option>
+          {PROPERTY_TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </select>
         <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
           <input
@@ -445,7 +529,11 @@ const Leases = () => {
             onChange={(e) => setFilterEnd(e.target.value)}
           />
         </div>
-        <button className="rent-btn rent-btn--secondary rent-btn--sm">
+        <button
+          className="rent-btn rent-btn--secondary rent-btn--sm"
+          type="button"
+          onClick={handleApplyFilters}
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="20 6 9 17 4 12" />
           </svg>
@@ -453,6 +541,7 @@ const Leases = () => {
         </button>
         <button
           className="rent-btn rent-btn--ghost rent-btn--sm"
+          type="button"
           onClick={() => {
             setFilterStatus('')
             setFilterType('')
@@ -460,6 +549,13 @@ const Leases = () => {
             setFilterEnd('')
             handleStatusChange(undefined)
             handleSearch('')
+            setQueryParams((p) => ({
+              ...p,
+              propertyType: undefined,
+              dateFrom: undefined,
+              dateTo: undefined,
+              page: 1,
+            }))
           }}
         >
           重置
@@ -494,8 +590,8 @@ const Leases = () => {
                     const ds = getDisplayStatus(lease)
                     const meta = displayStatusMeta[ds]
                     const code = (lease as any).code || `LC-${lease.id}`
-                    const propName = (lease as any).property_name || lease.property_id || '-'
-                    const tenantName = (lease as any).tenant_name || lease.tenant_id || '-'
+                    const propName = resolvePropertyName(lease)
+                    const tenantName = resolveTenantName(lease)
                     return (
                       <tr key={lease.id}>
                         <td><span className="rent-mono">{code}</span></td>
@@ -512,15 +608,23 @@ const Leases = () => {
                         </td>
                         <td>
                           <div className="rent-flex rent-gap-2">
-                            <button className="rent-btn rent-btn--ghost rent-btn--sm">查看</button>
                             <button
                               className="rent-btn rent-btn--ghost rent-btn--sm"
+                              type="button"
+                              onClick={() => setDetailLease(lease)}
+                            >
+                              查看
+                            </button>
+                            <button
+                              className="rent-btn rent-btn--ghost rent-btn--sm"
+                              type="button"
                               onClick={() => openRenew(lease)}
                             >
                               编辑
                             </button>
                             <button
                               className="rent-btn rent-btn--ghost rent-btn--sm"
+                              type="button"
                               style={{ color: 'var(--state-error)' }}
                               disabled={lease.status === 'terminated'}
                               onClick={() => handleTerminate(lease)}
@@ -729,6 +833,113 @@ const Leases = () => {
               <button className="rent-btn rent-btn--secondary" onClick={() => setRenewOpen(false)}>取消</button>
               <button className="rent-btn rent-btn--primary" onClick={handleRenew} disabled={submitting}>
                 {submitting ? '提交中...' : '确定'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal：只读展示合同全量信息 */}
+      {detailLease && detailMeta && (
+        <div className="rent-modal-backdrop" onClick={() => setDetailLease(null)}>
+          <div
+            className="rent-modal leases-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 600 }}
+          >
+            <div className="rent-modal__header">
+              <h3 className="rent-card__title">合同详情</h3>
+              <button
+                className="rent-btn rent-btn--ghost rent-btn--sm"
+                type="button"
+                aria-label="关闭"
+                onClick={() => setDetailLease(null)}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="rent-modal__body">
+              <div className="rent-form-row">
+                <div className="rent-form-group">
+                  <label className="rent-form-label">合同编号</label>
+                  <div className="rent-mono">
+                    {(detailLease as any).code || `LC-${detailLease.id}`}
+                  </div>
+                </div>
+                <div className="rent-form-group">
+                  <label className="rent-form-label">合同状态</label>
+                  <div>
+                    <span className={`rent-badge ${detailMeta.badge}`}>
+                      <span className="rent-badge--dot" style={{ background: detailMeta.dot }} />
+                      {detailMeta.label}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="rent-form-row">
+                <div className="rent-form-group">
+                  <label className="rent-form-label">房源</label>
+                  <div>{resolvePropertyName(detailLease)}</div>
+                </div>
+                <div className="rent-form-group">
+                  <label className="rent-form-label">租客</label>
+                  <div>{resolveTenantName(detailLease)}</div>
+                </div>
+              </div>
+              <div className="rent-form-row">
+                <div className="rent-form-group">
+                  <label className="rent-form-label">起始日</label>
+                  <div>{dayjs(detailLease.start_date).format('YYYY-MM-DD')}</div>
+                </div>
+                <div className="rent-form-group">
+                  <label className="rent-form-label">到期日</label>
+                  <div>{dayjs(detailLease.end_date).format('YYYY-MM-DD')}</div>
+                </div>
+              </div>
+              <div className="rent-form-row">
+                <div className="rent-form-group">
+                  <label className="rent-form-label">月租</label>
+                  <div className="rent-num">
+                    {detailLease.currency || '฿'} {Number(detailLease.monthly_rent || 0).toLocaleString()}
+                  </div>
+                </div>
+                <div className="rent-form-group">
+                  <label className="rent-form-label">押金</label>
+                  <div className="rent-num">
+                    {detailLease.currency || '฿'} {Number(detailLease.deposit_amount || 0).toLocaleString()}
+                    <span className="rent-text-muted rent-text-sm" style={{ marginLeft: 8 }}>
+                      {depositStatusLabel[detailLease.deposit_status] || detailLease.deposit_status || '-'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="rent-form-group">
+                <label className="rent-form-label">合同文件</label>
+                <div>
+                  {detailLease.contract_url ? (
+                    <a href={detailLease.contract_url} target="_blank" rel="noreferrer">
+                      {detailLease.contract_url}
+                    </a>
+                  ) : (
+                    <span className="rent-text-muted">未上传</span>
+                  )}
+                </div>
+              </div>
+              <div className="rent-form-group" style={{ marginBottom: 0 }}>
+                <label className="rent-form-label">特殊条款</label>
+                <div>{detailLease.special_terms || <span className="rent-text-muted">无</span>}</div>
+              </div>
+            </div>
+            <div className="rent-modal__footer">
+              <button
+                className="rent-btn rent-btn--secondary"
+                type="button"
+                onClick={() => setDetailLease(null)}
+              >
+                关闭
               </button>
             </div>
           </div>

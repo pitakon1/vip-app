@@ -125,7 +125,7 @@ const Dashboard = () => {
           anyFailed = true
           return { data: { items: [] } }
         }),
-        api.get('/performance/mine').catch(markFailed),
+        api.get('/performance/me').catch(markFailed),
       ])
 
       const sumPayload = sumRes.data?.data ?? sumRes.data

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Spin, Empty } from 'antd'
+import { message, Spin, Empty, Modal } from 'antd'
+import api from '@/lib/api'
 import { employeesApi } from '@/services/api'
+import { downloadReport } from '@/lib/download'
 import { formatMoney } from '@/lib/money'
 import type { Employee, EmployeeStatus } from '@/types'
 import './employees.css'
@@ -10,6 +12,7 @@ interface QueryParams {
   pageSize: number
   status?: EmployeeStatus
   keyword?: string
+  department?: string
 }
 
 interface DemoEmployee extends Employee {
@@ -21,6 +24,27 @@ interface DemoEmployee extends Employee {
 
 // 与设计稿一致：6 色循环（默认主色 → info → success → warning → 默认 → neutral）
 const AVATAR_COLORS = ['', 'rent-avatar--info', 'rent-avatar--success', 'rent-avatar--warning', '', 'rent-avatar--neutral']
+
+// 员工表单（新增 / 编辑共用）
+interface EmployeeFormValues {
+  fullName: string
+  email: string
+  phone: string
+  department: string
+  position: string
+  password: string
+  isActive: boolean
+}
+
+const emptyEmployeeForm: EmployeeFormValues = {
+  fullName: '',
+  email: '',
+  phone: '',
+  department: '',
+  position: '',
+  password: '',
+  isActive: true,
+}
 
 // 将 API 状态映射到设计稿显示状态
 const getStatusBadge = (status: string): { cls: string; text: string } => {
@@ -50,6 +74,7 @@ const Employees = () => {
         pageSize: queryParams.pageSize,
         status: queryParams.status,
         keyword: queryParams.keyword,
+        department: queryParams.department,
       })
       const payload = res.data?.data ?? res.data
       setData(payload?.items ?? [])
@@ -83,25 +108,174 @@ const Employees = () => {
     fetchLeaderboard()
   }, [fetchLeaderboard])
 
-  const handleSearch = (value: string) => {
-    setQueryParams((p) => ({ ...p, keyword: value || undefined, page: 1 }))
-  }
-
   const handleStatusChange = (value: EmployeeStatus | undefined) => {
     setQueryParams((p) => ({ ...p, status: value, page: 1 }))
   }
 
   const handleDepartmentChange = (value: string) => {
-    // 部门筛选仅本地过滤（API 未支持），同时清空对应状态由 select 自身维护
-    setDeptFilter(value)
+    // 部门清单来自真实数据（见 departments），过滤下推到服务端
+    setQueryParams((p) => ({ ...p, department: value || undefined, page: 1 }))
   }
 
   const handleSortChange = (value: string) => {
     setSortBy(value)
   }
 
-  const [deptFilter, setDeptFilter] = useState('')
+  const [keywordInput, setKeywordInput] = useState('')
   const [sortBy, setSortBy] = useState('perf-desc')
+  const [departments, setDepartments] = useState<string[]>([])
+  const [detailEmp, setDetailEmp] = useState<DemoEmployee | null>(null)
+  const [editEmp, setEditEmp] = useState<DemoEmployee | null>(null)
+  const [editForm, setEditForm] = useState<EmployeeFormValues>(emptyEmployeeForm)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createForm, setCreateForm] = useState<EmployeeFormValues>(emptyEmployeeForm)
+  const [perfEmp, setPerfEmp] = useState<DemoEmployee | null>(null)
+  const [perfRows, setPerfRows] = useState<any[]>([])
+  const [perfLoading, setPerfLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  // 搜索框防抖：此前每次按键都会发一次请求
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setQueryParams((p) => {
+        const next = keywordInput.trim() || undefined
+        if (p.keyword === next) return p
+        return { ...p, keyword: next, page: 1 }
+      })
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [keywordInput])
+
+  // 部门下拉用真实部门值（此前用「sales→销售部」的硬编码映射，与后端存的英文值对不上，永远筛不出数据）
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const res = await employeesApi.directory()
+      const payload = res.data?.data ?? res.data
+      setDepartments(payload?.departments ?? [])
+    } catch {
+      setDepartments([])
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchDepartments()
+  }, [fetchDepartments])
+
+  const handleExport = async () => {
+    try {
+      setExporting(true)
+      await downloadReport(
+        '/exports/employees',
+        { department: queryParams.department },
+        'employees.csv',
+      )
+    } catch {
+      message.error('导出失败，请稍后重试')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const openCreate = () => {
+    setCreateForm(emptyEmployeeForm)
+    setCreateOpen(true)
+  }
+
+  const openEdit = (emp: DemoEmployee) => {
+    setEditForm({
+      fullName: emp.full_name || '',
+      email: emp.email || '',
+      phone: emp.phone || '',
+      department: emp.department || '',
+      position: emp.position || '',
+      password: '',
+      isActive: (emp.status || 'active') === 'active',
+    })
+    setEditEmp(emp)
+  }
+
+  // 查看 / 编辑共用「员工档案 + 账号」两表数据，缺少 user_id 时只能只读
+  const handleCreate = async () => {
+    if (!createForm.fullName.trim()) {
+      message.error('请输入姓名')
+      return
+    }
+    if (!createForm.email.trim()) {
+      message.error('请输入登录邮箱')
+      return
+    }
+    if (!createForm.password || createForm.password.length < 6) {
+      message.error('初始密码至少 6 位')
+      return
+    }
+    try {
+      setSubmitting(true)
+      await api.post('/admin/users', {
+        email: createForm.email.trim(),
+        full_name: createForm.fullName.trim(),
+        password: createForm.password,
+        role: 'employee',
+        phone: createForm.phone || undefined,
+        department: createForm.department || undefined,
+        position: createForm.position || undefined,
+      })
+      message.success('员工已开通')
+      setCreateOpen(false)
+      fetchData()
+      fetchDepartments()
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || '开通失败')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editEmp?.user_id) {
+      message.error('该员工缺少账号信息，无法编辑')
+      return
+    }
+    if (!editForm.fullName.trim() || !editForm.email.trim()) {
+      message.error('姓名与邮箱不能为空')
+      return
+    }
+    try {
+      setSubmitting(true)
+      await api.patch(`/admin/users/${editEmp.user_id}`, {
+        full_name: editForm.fullName.trim(),
+        email: editForm.email.trim(),
+        phone: editForm.phone || undefined,
+        department: editForm.department || undefined,
+        position: editForm.position || undefined,
+        is_active: editForm.isActive,
+      })
+      message.success('已保存')
+      setEditEmp(null)
+      fetchData()
+      fetchDepartments()
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || '保存失败')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const openPerf = async (emp: DemoEmployee) => {
+    setPerfEmp(emp)
+    setPerfRows([])
+    if (!emp.id) return
+    try {
+      setPerfLoading(true)
+      const res = await api.get(`/employees/${emp.id}/performance`)
+      const payload = res.data?.data ?? res.data
+      setPerfRows(Array.isArray(payload) ? payload : [])
+    } catch {
+      message.error('获取绩效明细失败')
+    } finally {
+      setPerfLoading(false)
+    }
+  }
 
   // 业绩按员工 id 合并（系统自动核算的佣金数据）
   const perfMap = useMemo(() => {
@@ -118,7 +292,7 @@ const Employees = () => {
   }, [leaderboard])
 
   const listData = useMemo<DemoEmployee[]>(() => {
-    let source: DemoEmployee[] = (data || []).map((e: any) => {
+    const source: DemoEmployee[] = (data || []).map((e: any) => {
       const perf = perfMap[String(e.id)]
       return {
         ...e,
@@ -126,16 +300,6 @@ const Employees = () => {
         deals: perf?.deals ?? 0,
       }
     })
-    if (deptFilter) {
-      const deptMap: Record<string, string> = {
-        sales: '销售部',
-        ops: '运营部',
-        finance: '财务部',
-        cs: '客服部',
-      }
-      const target = deptMap[deptFilter] || deptFilter
-      source = source.filter((e) => e.department === target)
-    }
     const sorted = [...source]
     switch (sortBy) {
       case 'perf-desc':
@@ -154,7 +318,7 @@ const Employees = () => {
         break
     }
     return sorted
-  }, [data, deptFilter, sortBy, perfMap])
+  }, [data, sortBy, perfMap])
 
   const totalDisplay = total
 
@@ -218,11 +382,16 @@ const Employees = () => {
           <p className="rent-page-header__subtitle">管理员工信息与绩效</p>
         </div>
         <div className="rent-page-header__actions">
-          <button className="rent-btn rent-btn--secondary" type="button">
+          <button
+            className="rent-btn rent-btn--secondary"
+            type="button"
+            onClick={handleExport}
+            disabled={exporting}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-            导出
+            {exporting ? '导出中...' : '导出'}
           </button>
-          <button className="rent-btn rent-btn--primary" type="button">
+          <button className="rent-btn rent-btn--primary" type="button" onClick={openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
             新增员工
           </button>
@@ -301,23 +470,22 @@ const Employees = () => {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
             <input
               type="text"
-              placeholder="搜索姓名 / 工号"
-              value={queryParams.keyword || ''}
-              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="搜索姓名 / 工号 / 邮箱"
+              value={keywordInput}
+              onChange={(e) => setKeywordInput(e.target.value)}
             />
           </div>
         </div>
         <select
           className="rent-filter-select"
           aria-label="部门筛选"
-          value={deptFilter}
+          value={queryParams.department || ''}
           onChange={(e) => handleDepartmentChange(e.target.value)}
         >
           <option value="">全部部门</option>
-          <option value="sales">销售部</option>
-          <option value="ops">运营部</option>
-          <option value="finance">财务部</option>
-          <option value="cs">客服部</option>
+          {departments.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
         </select>
         <select
           className="rent-filter-select"
@@ -413,9 +581,9 @@ const Employees = () => {
                       <td><span className={`rent-badge ${status.cls}`}>{status.text}</span></td>
                       <td>
                         <div className="rent-actions">
-                          <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button">查看</button>
-                          <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button">编辑</button>
-                          <button className="rent-btn rent-btn--primary-ghost rent-btn--sm" type="button">绩效</button>
+                          <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button" onClick={() => setDetailEmp(emp)}>查看</button>
+                          <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button" onClick={() => openEdit(emp)}>编辑</button>
+                          <button className="rent-btn rent-btn--primary-ghost rent-btn--sm" type="button" onClick={() => openPerf(emp)}>绩效</button>
                         </div>
                       </td>
                     </tr>
@@ -466,6 +634,251 @@ const Employees = () => {
           </div>
         </div>
       </div>
+
+      {/* 新增员工：开通 employee 账号并同步建档（POST /admin/users） */}
+      <Modal
+        open={createOpen}
+        title="新增员工"
+        onCancel={() => setCreateOpen(false)}
+        onOk={handleCreate}
+        confirmLoading={submitting}
+        okText="开通"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <div className="rent-form-group">
+          <label className="rent-form-label">姓名 *</label>
+          <input
+            className="rent-form-input"
+            value={createForm.fullName}
+            onChange={(e) => setCreateForm((f) => ({ ...f, fullName: e.target.value }))}
+            placeholder="请输入姓名"
+          />
+        </div>
+        <div className="rent-form-group">
+          <label className="rent-form-label">登录邮箱 *</label>
+          <input
+            className="rent-form-input"
+            type="email"
+            value={createForm.email}
+            onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+            placeholder="用于登录后台"
+          />
+        </div>
+        <div className="rent-form-group">
+          <label className="rent-form-label">初始密码 *</label>
+          <input
+            className="rent-form-input"
+            value={createForm.password}
+            onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
+            placeholder="至少 6 位"
+          />
+        </div>
+        <div className="rent-form-group">
+          <label className="rent-form-label">手机号</label>
+          <input
+            className="rent-form-input"
+            value={createForm.phone}
+            onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
+            placeholder="选填"
+          />
+        </div>
+        <div className="rent-form-group">
+          <label className="rent-form-label">部门</label>
+          <input
+            className="rent-form-input"
+            value={createForm.department}
+            onChange={(e) => setCreateForm((f) => ({ ...f, department: e.target.value }))}
+            placeholder="如 Sales"
+          />
+        </div>
+        <div className="rent-form-group">
+          <label className="rent-form-label">职位</label>
+          <input
+            className="rent-form-input"
+            value={createForm.position}
+            onChange={(e) => setCreateForm((f) => ({ ...f, position: e.target.value }))}
+            placeholder="如 Property Agent"
+          />
+        </div>
+      </Modal>
+
+      {/* 编辑员工：账号资料 + 员工档案（PATCH /admin/users/{user_id}） */}
+      <Modal
+        open={!!editEmp}
+        title="编辑员工"
+        onCancel={() => setEditEmp(null)}
+        onOk={handleUpdate}
+        confirmLoading={submitting}
+        okText="保存"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <div className="rent-form-group">
+          <label className="rent-form-label">工号</label>
+          <input className="rent-form-input" value={editEmp?.employee_no || '-'} readOnly />
+        </div>
+        <div className="rent-form-group">
+          <label className="rent-form-label">姓名 *</label>
+          <input
+            className="rent-form-input"
+            value={editForm.fullName}
+            onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))}
+          />
+        </div>
+        <div className="rent-form-group">
+          <label className="rent-form-label">邮箱 *</label>
+          <input
+            className="rent-form-input"
+            value={editForm.email}
+            onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+          />
+        </div>
+        <div className="rent-form-group">
+          <label className="rent-form-label">手机号</label>
+          <input
+            className="rent-form-input"
+            value={editForm.phone}
+            onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+          />
+        </div>
+        <div className="rent-form-group">
+          <label className="rent-form-label">部门</label>
+          <input
+            className="rent-form-input"
+            value={editForm.department}
+            onChange={(e) => setEditForm((f) => ({ ...f, department: e.target.value }))}
+          />
+        </div>
+        <div className="rent-form-group">
+          <label className="rent-form-label">职位</label>
+          <input
+            className="rent-form-input"
+            value={editForm.position}
+            onChange={(e) => setEditForm((f) => ({ ...f, position: e.target.value }))}
+          />
+        </div>
+        <div className="rent-form-group" style={{ marginBottom: 0 }}>
+          <label className="rent-form-label">在职状态</label>
+          <select
+            className="rent-form-select"
+            value={editForm.isActive ? 'active' : 'inactive'}
+            onChange={(e) => setEditForm((f) => ({ ...f, isActive: e.target.value === 'active' }))}
+          >
+            <option value="active">在职</option>
+            <option value="inactive">离职</option>
+          </select>
+        </div>
+      </Modal>
+
+      {/* 查看员工：只读档案 */}
+      <Modal
+        open={!!detailEmp}
+        title="员工详情"
+        onCancel={() => setDetailEmp(null)}
+        footer={
+          <button className="rent-btn rent-btn--secondary" type="button" onClick={() => setDetailEmp(null)}>
+            关闭
+          </button>
+        }
+        destroyOnClose
+      >
+        {detailEmp && (
+          <>
+            <div className="rent-form-group">
+              <label className="rent-form-label">工号</label>
+              <div className="rent-table__mono">{detailEmp.employee_no || '-'}</div>
+            </div>
+            <div className="rent-form-group">
+              <label className="rent-form-label">姓名</label>
+              <div>{detailEmp.full_name || '-'}</div>
+            </div>
+            <div className="rent-form-group">
+              <label className="rent-form-label">部门 / 职位</label>
+              <div>
+                {detailEmp.department || '-'} · {detailEmp.position || '-'}
+              </div>
+            </div>
+            <div className="rent-form-group">
+              <label className="rent-form-label">联系方式</label>
+              <div>
+                {detailEmp.phone || '-'}
+                <span className="rent-text-muted" style={{ marginLeft: 8 }}>
+                  {detailEmp.email || '-'}
+                </span>
+              </div>
+            </div>
+            <div className="rent-form-group">
+              <label className="rent-form-label">入职日期</label>
+              <div>{detailEmp.hire_date || '-'}</div>
+            </div>
+            <div className="rent-form-group">
+              <label className="rent-form-label">本月业绩</label>
+              <div className="rent-num">{formatMoney(Number(detailEmp.performance || 0))}</div>
+            </div>
+            <div className="rent-form-group" style={{ marginBottom: 0 }}>
+              <label className="rent-form-label">状态</label>
+              <div>
+                <span className={`rent-badge ${getStatusBadge(detailEmp.status || '').cls}`}>
+                  {getStatusBadge(detailEmp.status || '').text}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      {/* 绩效明细：系统按佣金结算自动核算（GET /employees/{id}/performance） */}
+      <Modal
+        open={!!perfEmp}
+        title={`绩效明细 · ${perfEmp?.full_name || ''}`}
+        onCancel={() => setPerfEmp(null)}
+        footer={
+          <button className="rent-btn rent-btn--secondary" type="button" onClick={() => setPerfEmp(null)}>
+            关闭
+          </button>
+        }
+        width={720}
+        destroyOnClose
+      >
+        {perfLoading ? (
+          <div className="rent-empty">
+            <Spin size="small" style={{ marginRight: 8 }} />
+            <span className="rent-text-muted">加载中...</span>
+          </div>
+        ) : perfRows.length === 0 ? (
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无佣金结算记录" />
+        ) : (
+          <table className="rent-table">
+            <thead>
+              <tr>
+                <th>成交类型</th>
+                <th>佣金基数</th>
+                <th>比例</th>
+                <th>佣金金额</th>
+                <th>结算状态</th>
+                <th>创建时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              {perfRows.map((row, idx) => (
+                <tr key={row.id || idx}>
+                  <td>{row.deal_type || '-'}</td>
+                  <td className="rent-money">{Number(row.commission_base || 0).toLocaleString()}</td>
+                  <td>{row.commission_rate ?? '-'}</td>
+                  <td className="rent-money">
+                    {row.currency || ''} {Number(row.commission_amount || 0).toLocaleString()}
+                  </td>
+                  <td>{row.status || '-'}</td>
+                  <td className="rent-table__mono">
+                    {row.created_at ? String(row.created_at).slice(0, 10) : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Modal>
     </div>
   )
 }

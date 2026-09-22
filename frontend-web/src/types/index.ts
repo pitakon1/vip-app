@@ -119,7 +119,7 @@ export interface Lead {
   [key: string]: any
 }
 
-export type EmployeeStatus = 'active' | 'inactive'
+export type EmployeeStatus = 'active' | 'inactive' | 'probation'
 
 export interface Employee {
   id: string

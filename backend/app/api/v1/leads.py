@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -32,6 +33,7 @@ class LeadCreate(BaseModel):
     assigned_to: Optional[uuid.UUID] = None
     notes: Optional[str] = None
     source: Optional[str] = None
+    requirement: Optional[str] = None
 
 
 class LeadUpdate(BaseModel):
@@ -50,6 +52,7 @@ class LeadUpdate(BaseModel):
     assigned_to: Optional[uuid.UUID] = None
     notes: Optional[str] = None
     source: Optional[str] = None
+    requirement: Optional[str] = None
 
 
 @router.get("", response_model=Page[Lead])
@@ -57,15 +60,27 @@ def list_leads(
     pagination: PaginationParams = Depends(),
     stage: Optional[LeadStage] = None,
     assigned_to: Optional[uuid.UUID] = None,
+    keyword: Optional[str] = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """线索列表（分页，可按 stage 筛选）。"""
+    """线索列表（分页，可按 stage 筛选、按关键词搜索姓名/电话/邮箱/社交账号）。"""
     conditions = [Lead.deleted_at.is_(None)]
     if stage:
         conditions.append(Lead.stage == stage)
     if assigned_to:
         conditions.append(Lead.assigned_to == assigned_to)
+    if keyword and keyword.strip():
+        kw = f"%{keyword.strip()}%"
+        conditions.append(
+            or_(
+                Lead.name.ilike(kw),
+                Lead.phone.ilike(kw),
+                Lead.email.ilike(kw),
+                Lead.line_id.ilike(kw),
+                Lead.wechat_id.ilike(kw),
+            )
+        )
 
     stmt = select(Lead).where(*conditions).order_by(Lead.created_at.desc())
     return paginate_query(session, stmt, pagination)

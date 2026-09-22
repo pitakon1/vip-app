@@ -1,11 +1,12 @@
 """租约路由：签约、续约、退房及租约管理。"""
 
 import uuid
-from datetime import datetime
+from datetime import date as date_type, datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import false, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -17,7 +18,7 @@ from app.core.auth import (
 )
 from app.core.concurrency import ensure_version
 from app.core.events import publish_event
-from app.core.pagination import Page, PaginationParams, paginate_query
+from app.core.pagination import Page, PaginationParams, paginate, paginate_query
 from app.models import (
     CommissionSettlement,
     DealType,
@@ -35,6 +36,7 @@ from app.models import (
     User,
     UserRole,
 )
+from app.core.security import get_password_hash
 from app.services.pricing import compute_deposit_amount
 
 router = APIRouter(prefix="/leases", tags=["leases"])
@@ -95,8 +97,12 @@ def _create_commission_settlement(
 
 class LeaseCreate(BaseModel):
     property_id: uuid.UUID
-    tenant_id: uuid.UUID
-    owner_id: uuid.UUID
+    # 租客：传已有 tenant_id；或只传姓名/电话，由后端查档/自动建档
+    tenant_id: Optional[uuid.UUID] = None
+    tenant_name: Optional[str] = None
+    tenant_phone: Optional[str] = None
+    # 业主：缺省时按房源归属自动带出
+    owner_id: Optional[uuid.UUID] = None
     agent_id: Optional[uuid.UUID] = None
     start_date: datetime
     end_date: datetime
@@ -143,23 +149,105 @@ class DepositSettlement(BaseModel):
     notes: Optional[str] = None
 
 
-@router.get("", response_model=Page[Lease])
-def list_leases(
-    pagination: PaginationParams = Depends(),
+class LeaseRead(BaseModel):
+    """租约返回结构：在租约全量字段基础上补房源 / 租客显示名。
+
+    列表页此前只能拿到 `property_id` / `tenant_id` 两个 UUID，三端都只能把
+    裸 UUID 渲染到「房源」「租客」列上。这里在返回结构里补齐可读名称。
+
+    不能直接继承 `Lease`：SQLModel 会把继承来的字段当表字段解析（JSON 字段会
+    直接报错），所以按字段显式声明，序列化键与原 `Lease` 保持一一对应。
+    """
+
+    id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+    metadata_: Optional[dict] = None
+    version: int = 1
+    property_id: uuid.UUID
+    tenant_id: uuid.UUID
+    owner_id: uuid.UUID
+    agent_id: Optional[uuid.UUID] = None
+    start_date: datetime
+    end_date: datetime
+    monthly_rent: float
+    currency: str
+    deposit_amount: float
+    deposit_status: str
+    status: LeaseStatus
+    contract_url: Optional[str] = None
+    contract_hash: Optional[str] = None
+    special_terms: Optional[str] = None
+    renewed_from_lease_id: Optional[uuid.UUID] = None
+    # 展示用：前端列表 / 详情直接渲染，无需再回表
+    property_name: Optional[str] = None
+    tenant_name: Optional[str] = None
+
+
+def _with_display_names(session: Session, leases: List[Lease]) -> List[LeaseRead]:
+    """批量补齐房源名与租客名（批量查询，避免逐行 N+1）。"""
+    if not leases:
+        return []
+    prop_ids = {lease.property_id for lease in leases}
+    tenant_ids = {lease.tenant_id for lease in leases}
+    properties = {
+        p.id: p
+        for p in session.exec(select(Property).where(Property.id.in_(prop_ids))).all()
+    }
+    tenants = {
+        t.id: t
+        for t in session.exec(select(Tenant).where(Tenant.id.in_(tenant_ids))).all()
+    }
+    users = (
+        {
+            u.id: u
+            for u in session.exec(
+                select(User).where(User.id.in_([t.user_id for t in tenants.values()]))
+            ).all()
+        }
+        if tenants
+        else {}
+    )
+    items: List[LeaseRead] = []
+    for lease in leases:
+        prop = properties.get(lease.property_id)
+        tenant = tenants.get(lease.tenant_id)
+        tenant_user = users.get(tenant.user_id) if tenant else None
+        items.append(
+            LeaseRead(
+                **lease.model_dump(),
+                property_name=(
+                    (prop.room_number or prop.address) if prop else None
+                ),
+                tenant_name=(
+                    (tenant_user.full_name or tenant_user.phone)
+                    if tenant_user
+                    else None
+                ),
+            )
+        )
+    return items
+
+
+def lease_filter_conditions(
+    session: Session,
+    user: User,
     status: Optional[LeaseStatus] = None,
     property_id: Optional[uuid.UUID] = None,
     tenant_id: Optional[uuid.UUID] = None,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
-):
-    """租约列表（分页，可按 status/property_id/tenant_id 筛选）。
+    property_type: Optional[str] = None,
+    keyword: Optional[str] = None,
+    date_from: Optional[date_type] = None,
+    date_to: Optional[date_type] = None,
+) -> list:
+    """租约筛选条件（列表与导出共用，两处口径必须完全一致）。
 
-    **可见范围由 token 决定**：员工全量、业主仅本人房源、租客仅本人。
-    调用方传的 `tenant_id` / `property_id` 只是「可见范围内的进一步筛选」，
-    不参与权限判定——此前没有这层收敛，任何登录用户传别人的 tenant_id
-    就能读到他人租约（含月租、押金、合同链接）。
+    导出报表如果漏掉某个筛选条件，就会出现「页面上筛了，导出的还是全量」
+    这类很难发现的静默错误，所以把条件构造收敛到这一处。
     """
     conditions = [Lease.deleted_at.is_(None)]
+    # 可见范围只能由 token 决定，不能由调用方传参决定
     conditions.extend(lease_visibility_conditions(session, user))
     if status:
         conditions.append(Lease.status == status)
@@ -167,9 +255,130 @@ def list_leases(
         conditions.append(Lease.property_id == property_id)
     if tenant_id:
         conditions.append(Lease.tenant_id == tenant_id)
+    if property_type:
+        conditions.append(
+            Lease.property_id.in_(
+                select(Property.id).where(Property.property_type == property_type)
+            )
+        )
+    if keyword and keyword.strip():
+        pattern = f"%{keyword.strip()}%"
+        prop_hits = session.exec(
+            select(Property.id).where(
+                or_(
+                    Property.room_number.ilike(pattern),
+                    Property.address.ilike(pattern),
+                    Property.building.ilike(pattern),
+                )
+            )
+        ).all()
+        tenant_hits = session.exec(
+            select(Tenant.id)
+            .join(User, Tenant.user_id == User.id)
+            .where(or_(User.full_name.ilike(pattern), User.phone.ilike(pattern)))
+        ).all()
+        # 两边都没命中时必须显式置空，否则条件被忽略 = 搜索框形同虚设
+        hits = []
+        if prop_hits:
+            hits.append(Lease.property_id.in_(prop_hits))
+        if tenant_hits:
+            hits.append(Lease.tenant_id.in_(tenant_hits))
+        conditions.append(or_(*hits) if hits else false())
+    if date_from:
+        conditions.append(
+            Lease.start_date >= datetime.combine(date_from, datetime.min.time())
+        )
+    if date_to:
+        conditions.append(
+            Lease.start_date <= datetime.combine(date_to, datetime.max.time())
+        )
+    return conditions
 
-    stmt = select(Lease).where(*conditions).order_by(Lease.created_at.desc())
-    return paginate_query(session, stmt, pagination)
+
+@router.get("", response_model=Page[LeaseRead])
+def list_leases(
+    pagination: PaginationParams = Depends(),
+    status: Optional[LeaseStatus] = None,
+    property_id: Optional[uuid.UUID] = None,
+    tenant_id: Optional[uuid.UUID] = None,
+    property_type: Optional[str] = Query(
+        None, max_length=50, description="按房源类型筛选：apartment/house/condo/commercial"
+    ),
+    keyword: Optional[str] = Query(
+        None, max_length=100, description="房源房号/地址/楼栋，或租客姓名/手机号"
+    ),
+    date_from: Optional[date_type] = Query(None, description="合同起始日 ≥ date_from"),
+    date_to: Optional[date_type] = Query(None, description="合同起始日 ≤ date_to"),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """租约列表（分页，可按 status/property_id/tenant_id/类型/起始日区间/关键词筛选）。
+
+    **可见范围由 token 决定**：员工全量、业主仅本人房源、租客仅本人。
+    调用方传的 `tenant_id` / `property_id` 只是「可见范围内的进一步筛选」，
+    不参与权限判定——此前没有这层收敛，任何登录用户传别人的 tenant_id
+    就能读到他人租约（含月租、押金、合同链接）。
+    """
+    conditions = lease_filter_conditions(
+        session,
+        user,
+        status=status,
+        property_id=property_id,
+        tenant_id=tenant_id,
+        property_type=property_type,
+        keyword=keyword,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    stmt = (
+        select(Lease).where(*conditions).order_by(Lease.created_at.desc())
+    )
+    page = paginate_query(session, stmt, pagination)
+    return paginate(_with_display_names(session, page.items), page.total, pagination)
+
+
+def _resolve_tenant(session: Session, req: LeaseCreate) -> uuid.UUID:
+    """解析租客档案 id。
+
+    优先使用显式 `tenant_id`；否则按 `tenant_phone` 查档，查不到就建档
+    （含租客登录账号）——经纪人签约的现场租客通常还没注册系统账号，
+    此前前端只收集姓名/电话却必传 tenant_id，导致「新建租约」必 422。
+    """
+    if req.tenant_id:
+        tenant = session.get(Tenant, req.tenant_id)
+        if tenant is None or tenant.deleted_at is not None:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        return tenant.id
+
+    phone = (req.tenant_phone or "").strip()
+    if not phone:
+        raise HTTPException(
+            status_code=400, detail="tenant_id or tenant_phone required"
+        )
+
+    existing = session.exec(
+        select(Tenant)
+        .join(User, User.id == Tenant.user_id)
+        .where(User.phone == phone, Tenant.deleted_at.is_(None))
+    ).first()
+    if existing:
+        return existing.id
+
+    account = session.exec(select(User).where(User.phone == phone)).first()
+    if account is None:
+        account = User(
+            email=f"{phone}@tenant.local",
+            phone=phone,
+            full_name=(req.tenant_name or "").strip() or phone,
+            hashed_password=get_password_hash(uuid.uuid4().hex),
+            role=UserRole.tenant,
+        )
+        session.add(account)
+        session.flush()
+    tenant = Tenant(user_id=account.id)
+    session.add(tenant)
+    session.flush()
+    return tenant.id
 
 
 @router.post("")
@@ -179,13 +388,24 @@ def create_lease(
     user: User = Depends(require_agent),
 ):
     """创建租约（签约），发布 lease.signed 事件。"""
+    prop = session.get(Property, req.property_id)
+    if prop is None or prop.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    # 业主缺省时按房源归属带出，避免客户端必须自己查 owner_id
+    owner_id = req.owner_id or prop.owner_id
+    if owner_id is None:
+        raise HTTPException(status_code=400, detail="owner_id required")
+
     # 系统自动核算：确定成交归属员工并生成佣金结算
     agent_id = _resolve_agent(session, user, req.agent_id)
-    data = req.model_dump()
+    data = req.model_dump(exclude={"tenant_name", "tenant_phone"})
     data["agent_id"] = agent_id
+    data["owner_id"] = owner_id
+    data["tenant_id"] = _resolve_tenant(session, req)
 
     # 押金规则（E6/E7）：未显式给定时按业主类型自动核算并默认归业主持有
-    owner = session.get(Owner, req.owner_id)
+    owner = session.get(Owner, owner_id)
     owner_type = owner.owner_type.value if owner else "individual"
     if data.get("deposit_amount") is None:
         data["deposit_amount"] = compute_deposit_amount(req.monthly_rent, owner_type)
@@ -195,8 +415,7 @@ def create_lease(
     session.add(lease)
 
     # 同步更新房源状态为已出租
-    prop = session.get(Property, req.property_id)
-    if prop and not prop.deleted_at:
+    if not prop.deleted_at:
         prop.status = PropertyStatus.rented
         session.add(prop)
 

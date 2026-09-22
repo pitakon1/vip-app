@@ -1,11 +1,12 @@
-"""数据导出：房源 / 收付款 / 佣金 / 考勤 / 员工通讯录 CSV。
+"""数据导出：房源 / 租约 / 收付款 / 佣金 / 考勤 / 员工通讯录 CSV。
 
 三端列表页都放了「导出」入口，但后端此前没有任何导出能力，按钮要么是死按钮、
-要么只弹一句「开发中」。这里集中提供 5 张常用报表，零新依赖（标准库 csv），
+要么只弹一句「开发中」。这里集中提供 6 张常用报表，零新依赖（标准库 csv），
 统一返回带 UTF-8 BOM 的 CSV，Excel 双击不乱码。
 
 可见范围与对应列表接口保持一致，避免「导出」成为越权取数的后门：
 - 房源：员工（admin / agent / employee）
+- 租约：员工全量；业主 / 租客只能导出与自己相关的租约
 - 收付款：员工导出全部；租客 / 业主只能导出与自己相关的收付款
 - 佣金：admin 导出全部（可按员工过滤）；其他员工只能导出自己的
 - 考勤：admin 导出全部（按日期区间，可筛部门）；其他员工只能导出自己的
@@ -19,7 +20,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
-from app.core.auth import STAFF_ROLES, get_current_user, require_employee
+from app.core.auth import (
+    STAFF_ROLES,
+    get_current_user,
+    require_employee,
+)
+from app.api.v1.leases import lease_filter_conditions
 from app.core.csv_export import csv_response
 from app.db import get_session
 from app.models import (
@@ -27,6 +33,8 @@ from app.models import (
     CommissionSettlement,
     DealType,
     Employee,
+    Lease,
+    LeaseStatus,
     Owner,
     Payment,
     PaymentStatus,
@@ -35,6 +43,7 @@ from app.models import (
     Property,
     PropertyStatus,
     SettlementStatus,
+    Tenant,
     User,
     UserRole,
 )
@@ -175,6 +184,110 @@ def export_properties(
         ],
         rows,
         f"properties_{_stamp()}.csv",
+    )
+
+
+# ------------------------------------------------------------ 租约
+@router.get("/leases")
+def export_leases(
+    status: Optional[LeaseStatus] = None,
+    property_type: Optional[str] = Query(
+        None, max_length=50, description="按房源类型筛选：apartment/house/condo/commercial"
+    ),
+    keyword: Optional[str] = Query(
+        None, max_length=100, description="房源房号/地址/楼栋，或租客姓名/手机号"
+    ),
+    date_from: Optional[date_type] = Query(None, description="合同起始日 ≥ date_from"),
+    date_to: Optional[date_type] = Query(None, description="合同起始日 ≤ date_to"),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """导出租赁合同清单（可见范围与筛选口径和 /leases 列表完全一致）。
+
+    合同管理页的「导出报表」此前没有对应接口，点了没有任何反应。这里直接复用
+    列表的 `lease_filter_conditions`：员工全量、业主仅本人房源、租客仅本人，
+    避免导出成为越权取数入口，也避免「页面筛了、导出还是全量」。
+    """
+    conditions = lease_filter_conditions(
+        session,
+        user,
+        status=status,
+        property_type=property_type,
+        keyword=keyword,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    leases = session.exec(
+        select(Lease)
+        .where(*conditions)
+        .order_by(Lease.created_at.desc())
+        .limit(MAX_ROWS)
+    ).all()
+
+    properties = (
+        {
+            p.id: p
+            for p in session.exec(
+                select(Property).where(
+                    Property.id.in_([l.property_id for l in leases])
+                )
+            ).all()
+        }
+        if leases
+        else {}
+    )
+    tenants = (
+        {
+            t.id: t
+            for t in session.exec(
+                select(Tenant).where(Tenant.id.in_([l.tenant_id for l in leases]))
+            ).all()
+        }
+        if leases
+        else {}
+    )
+    tenant_names = _user_names(session, [t.user_id for t in tenants.values()])
+
+    rows = []
+    for lease in leases:
+        prop = properties.get(lease.property_id)
+        tenant = tenants.get(lease.tenant_id)
+        rows.append(
+            [
+                str(lease.id),
+                (prop.room_number or prop.address) if prop else "",
+                prop.address if prop else "",
+                tenant_names.get(tenant.user_id, "") if tenant else "",
+                lease.start_date.strftime("%Y-%m-%d"),
+                lease.end_date.strftime("%Y-%m-%d"),
+                lease.monthly_rent,
+                lease.deposit_amount,
+                lease.currency,
+                lease.deposit_status,
+                lease.status.value,
+                lease.contract_url or "",
+                _dt(lease.created_at),
+            ]
+        )
+    return csv_response(
+        [
+            "合同编号",
+            "房源",
+            "地址",
+            "租客",
+            "起始日",
+            "到期日",
+            "月租",
+            "押金",
+            "币种",
+            "押金状态",
+            "合同状态",
+            "合同文件",
+            "创建时间",
+        ],
+        rows,
+        f"leases_{_stamp()}.csv",
     )
 
 

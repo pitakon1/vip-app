@@ -29,9 +29,28 @@ export interface ApiResponse<T = unknown> {
 }
 
 /** 并发 401 时共用一个刷新 Promise，避免打出刷新风暴。 */
-let refreshing: Promise<string> | null = null
+let refreshing: Promise<string> | null = null;
 /** 避免并发 401 触发多次 redirectTo（多次跳转会打乱页面栈）。 */
-let redirecting = false
+let redirecting = false;
+
+/**
+ * 查询参数键统一转成 snake_case。
+ *
+ * 后端是 FastAPI，查询参数一律 snake_case（`page_size`）；小程序侧习惯写 `pageSize`，
+ * 键名不匹配时后端**静默忽略**该参数（不报错），只按默认 20 条返回，
+ * 表现为「分页条数不对 / 选择器选项缺失」。GET 请求的 data 会被 Taro 拼进查询串，
+ * 所以在这里统一收敛。
+ */
+const toSnakeKey = (key: string) => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
+
+const normalizeQuery = (data: unknown) => {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return data
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
+    out[toSnakeKey(k)] = v
+  }
+  return out
+}
 
 /** 用刷新令牌换新的访问令牌；后端每次刷新会轮换 refresh_token，两个都要写回。 */
 async function refreshAccessToken(): Promise<string> {
@@ -75,6 +94,8 @@ export async function request<T = unknown>(options: RequestOptions<T>): Promise<
   const { url, method = 'GET', data, header = {} } = options
   const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
   const fullUrl = url.startsWith('http') ? url : `${baseURL}${url}`
+  // GET 的 data 会被拼进查询串（后端查询参数是 snake_case）→ 统一键名；写请求的 body 原样透传
+  const payload = method === 'GET' ? normalizeQuery(data) : data
 
   // 请求拦截：注入 token
   const token = Taro.getStorageSync('token')
@@ -90,7 +111,7 @@ export async function request<T = unknown>(options: RequestOptions<T>): Promise<
     let res = await Taro.request({
       url: fullUrl,
       method,
-      data: data as Record<string, unknown>,
+      data: payload as Record<string, unknown>,
       header: finalHeader
     })
 
@@ -102,7 +123,7 @@ export async function request<T = unknown>(options: RequestOptions<T>): Promise<
         res = await Taro.request({
           url: fullUrl,
           method,
-          data: data as Record<string, unknown>,
+          data: payload as Record<string, unknown>,
           header: { ...finalHeader, Authorization: `Bearer ${freshToken}` }
         })
       } catch {

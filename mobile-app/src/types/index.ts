@@ -92,8 +92,8 @@ export interface ServiceOrder {
 
 export interface MaintenanceTicket {
   id: string;
-  tenantId: string;
-  propertyId: string;
+  tenant_id: string;
+  property_id: string;
   title: string;
   description: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
@@ -101,10 +101,13 @@ export interface MaintenanceTicket {
   // 此前这里写的是 submitted/accepted，后端根本没有这两个值——后端建单默认
   // 落 `open`，而 `open` 在旧口径下匹配不到任何 Tab（见 MaintenanceScreen.matchTab）。
   status: 'open' | 'assigned' | 'in_progress' | 'resolved' | 'closed';
-  images?: string[];
-  assigneeId?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  // 字段名与后端 JSON 逐字一致（后端全量 schema 的 camelCase 字段数为 0）。
+  // 此前声明成 createdAt/propertyId/photos:images，实际读到 undefined：
+  // 工单卡与详情弹层的「时间」永远显示占位符，且无任何报错。
+  photos?: string[];
+  assigned_to?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Document {

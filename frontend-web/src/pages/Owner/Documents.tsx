@@ -124,6 +124,19 @@ const CATEGORY_TO_TYPE: Record<Exclude<DocCategory, 'all'>, BackendDocType> = {
 // 上传白名单（与后端 ALLOWED_DOCUMENT_TYPES 保持一致）
 const UPLOAD_ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx'
 
+// 表格每页条数（/owners/me/documents 一次性返回全部，分页在前端做）
+const PAGE_SIZE = 10
+
+// 存储配额：原型固定 5 GB，用量按文档真实 file_size 汇总
+const STORAGE_QUOTA_BYTES = 5 * 1024 ** 3
+
+const formatBytes = (bytes: number): string => {
+  if (!bytes) return '0 KB'
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
 // 按文件扩展名选择图标类型
 const docIconType = (name: string): 'pdf' | 'img' | 'xls' | 'doc' => {
   const n = String(name || '').toLowerCase()
@@ -219,6 +232,7 @@ const Documents = () => {
   const [activeTab, setActiveTab] = useState<DocCategory>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [timeFilter, setTimeFilter] = useState(TIME_OPTIONS[0])
+  const [page, setPage] = useState(1)
   const [uploading, setUploading] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [pendingCategory, setPendingCategory] = useState<Exclude<DocCategory, 'all'>>('other')
@@ -420,6 +434,18 @@ const Documents = () => {
     return list
   }, [displayDocs, activeTab, searchTerm, timeFilter])
 
+  // 存储用量（真实 file_size 汇总；演示兜底数据不计入）
+  const usedBytes = useMemo(
+    () => documents.reduce((sum, d) => sum + Number(d.file_size || 0), 0),
+    [documents],
+  )
+  const usedPercent = Math.min(100, (usedBytes / STORAGE_QUOTA_BYTES) * 100)
+
+  // 分页（筛选条件变化时回到第 1 页，见各筛选控件的 onChange）
+  const pageCount = Math.max(1, Math.ceil(visibleDocs.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const pagedDocs = visibleDocs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
   return (
     <div className="rent-main">
       {loading && (
@@ -466,11 +492,11 @@ const Documents = () => {
           <div className="rent-storage__text">
             <span>存储空间使用情况</span>
             <span>
-              <strong>1.2 GB</strong> / 5 GB
+              <strong>{formatBytes(usedBytes)}</strong> / 5 GB
             </span>
           </div>
           <div className="rent-progress rent-storage__bar">
-            <div className="rent-progress__bar" style={{ width: '24%' }} />
+            <div className="rent-progress__bar" style={{ width: `${usedPercent}%` }} />
           </div>
         </div>
       </div>
@@ -483,13 +509,19 @@ const Documents = () => {
             type="text"
             placeholder="搜索文档名称..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value)
+              setPage(1)
+            }}
           />
         </div>
         <select
           className="rent-form-select"
           value={activeTab}
-          onChange={(e) => setActiveTab(e.target.value as DocCategory)}
+          onChange={(e) => {
+            setActiveTab(e.target.value as DocCategory)
+            setPage(1)
+          }}
         >
           {TYPE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -498,7 +530,10 @@ const Documents = () => {
         <select
           className="rent-form-select"
           value={timeFilter}
-          onChange={(e) => setTimeFilter(e.target.value)}
+          onChange={(e) => {
+            setTimeFilter(e.target.value)
+            setPage(1)
+          }}
         >
           {TIME_OPTIONS.map((t) => (
             <option key={t} value={t}>{t}</option>
@@ -528,7 +563,7 @@ const Documents = () => {
                 </td>
               </tr>
             ) : (
-              visibleDocs.map((doc) => (
+              pagedDocs.map((doc) => (
                 <tr key={doc.id}>
                   <td className="rent-cell-name">
                     <div className="rent-doc-name">
@@ -583,12 +618,30 @@ const Documents = () => {
 
       {/* Pagination */}
       <div className="rent-pagination">
-        <span className="rent-pagination__info">共 {visibleDocs.length} 条记录</span>
-        <button type="button" className="rent-pagination__btn" aria-label="上一页">{chevronLeft}</button>
-        <button type="button" className="rent-pagination__btn" data-active="true">1</button>
-        <button type="button" className="rent-pagination__btn">2</button>
-        <button type="button" className="rent-pagination__btn">3</button>
-        <button type="button" className="rent-pagination__btn" aria-label="下一页">{chevronRight}</button>
+        <span className="rent-pagination__info">
+          共 {visibleDocs.length} 条记录 · 每页 {PAGE_SIZE} 条
+        </span>
+        <button
+          type="button"
+          className="rent-pagination__btn"
+          aria-label="上一页"
+          disabled={safePage <= 1}
+          onClick={() => setPage(Math.max(1, safePage - 1))}
+        >
+          {chevronLeft}
+        </button>
+        <span className="rent-pagination__info">
+          {safePage} / {pageCount}
+        </span>
+        <button
+          type="button"
+          className="rent-pagination__btn"
+          aria-label="下一页"
+          disabled={safePage >= pageCount}
+          onClick={() => setPage(Math.min(pageCount, safePage + 1))}
+        >
+          {chevronRight}
+        </button>
       </div>
 
       {/* 上传确认：确认文件与分类后再提交 */}

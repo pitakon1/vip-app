@@ -236,7 +236,8 @@ export const contractsApi = {
 export const geoApi = {
   geocode: (address: string) => api.post('/geo/geocode', { address }),
   reverse: (lat: number, lng: number) => api.post('/geo/reverse', { lat, lng }),
-  distance: (from: any, to: any) => api.post('/geo/distance', { from, to }),
+  distance: (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+    api.post('/geo/distance', { a, b }),
   attendance: (lat: number, lng: number) => api.post('/geo/attendance', { lat, lng }),
 };
 

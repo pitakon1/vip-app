@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { message } from 'antd'
+import { message, Modal } from 'antd'
 import { useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
@@ -66,6 +66,8 @@ const TenantPayments = () => {
   const [submitting, setSubmitting] = useState(false)
   const [filter, setFilter] = useState<FilterKey>('all')
   const [keyword, setKeyword] = useState('')
+  /** 查看凭证详情弹窗（数据来自 /payments/me 返回的支付单实体） */
+  const [detailBill, setDetailBill] = useState<PaymentVoucher | null>(null)
 
   // form state (replaces antd Form)
   const [amount, setAmount] = useState('')
@@ -187,6 +189,12 @@ const TenantPayments = () => {
   const scrollToUpload = () => {
     const el = document.getElementById('pay-upload')
     if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  // 凭证原件走鉴权端点（receipts 目录不对外静态托管），用 query token 兜底预览
+  const openReceipt = (bill: PaymentVoucher) => {
+    const token = localStorage.getItem('token') || ''
+    window.open(`/api/v1/payments/${bill.id}/proof-file?token=${encodeURIComponent(token)}`, '_blank')
   }
 
   const handleSubmit = async () => {
@@ -435,7 +443,12 @@ const TenantPayments = () => {
                       {statusKey === 'rejected' ? (
                         <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={scrollToUpload}>{t('tenantPayments.reupload')}</button>
                       ) : (
-                        <button className="rent-btn rent-btn--secondary rent-btn--sm">{t('tenantPayments.view')}</button>
+                        <button
+                          className="rent-btn rent-btn--secondary rent-btn--sm"
+                          onClick={() => setDetailBill(bill)}
+                        >
+                          {t('tenantPayments.view')}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -447,6 +460,104 @@ const TenantPayments = () => {
           <div className="rent-empty">{t('tenantPayments.empty')}</div>
         )}
       </div>
+
+      {/* 凭证详情（字段全部来自支付单实体，不做臆造） */}
+      <Modal
+        title={t('tenantPayments.detailTitle')}
+        open={!!detailBill}
+        onCancel={() => setDetailBill(null)}
+        footer={
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            {detailBill?.receipt_url && (
+              <button
+                type="button"
+                className="rent-btn rent-btn--secondary"
+                onClick={() => detailBill && openReceipt(detailBill)}
+              >
+                {t('tenantPayments.detailReceipt')}
+              </button>
+            )}
+            <button
+              type="button"
+              className="rent-btn rent-btn--primary"
+              onClick={() => setDetailBill(null)}
+            >
+              {t('tenantPayments.close')}
+            </button>
+          </div>
+        }
+      >
+        {detailBill && (
+          <div className="mt-detail">
+            <div className="mt-detail__rows">
+              <div className="mt-detail__row">
+                <span className="mt-detail__label">{t('tenantPayments.detailNo')}</span>
+                <span className="mt-detail__value">{detailBill.id}</span>
+              </div>
+              <div className="mt-detail__row">
+                <span className="mt-detail__label">{t('tenantPayments.detailAmount')}</span>
+                <span className="mt-detail__value">
+                  ฿{Number(detailBill.amount || 0).toLocaleString()} {detailBill.currency || ''}
+                </span>
+              </div>
+              <div className="mt-detail__row">
+                <span className="mt-detail__label">{t('tenantPayments.detailDate')}</span>
+                <span className="mt-detail__value">
+                  {detailBill.payment_date
+                    ? dayjs(detailBill.payment_date).format(t('tenantPayments.dateDisplayFormat'))
+                    : '—'}
+                </span>
+              </div>
+              <div className="mt-detail__row">
+                <span className="mt-detail__label">{t('tenantPayments.detailMethod')}</span>
+                <span className="mt-detail__value">
+                  {methodLabelMap[detailBill.payment_method] || detailBill.payment_method || t('tenantPayments.otherMethod')}
+                </span>
+              </div>
+              <div className="mt-detail__row">
+                <span className="mt-detail__label">{t('tenantPayments.detailStatusCol')}</span>
+                <span className="mt-detail__value">
+                  {recordStatusMap[normalizeStatus(detailBill.status)].label}
+                </span>
+              </div>
+              <div className="mt-detail__row">
+                <span className="mt-detail__label">{t('tenantPayments.detailUploadedAt')}</span>
+                <span className="mt-detail__value">
+                  {detailBill.created_at
+                    ? dayjs(detailBill.created_at).format('YYYY-MM-DD HH:mm')
+                    : '—'}
+                </span>
+              </div>
+              {detailBill.bill_type && (
+                <div className="mt-detail__row">
+                  <span className="mt-detail__label">{t('tenantPayments.detailBillType')}</span>
+                  <span className="mt-detail__value">{detailBill.bill_type}</span>
+                </div>
+              )}
+              {detailBill.property_name && (
+                <div className="mt-detail__row">
+                  <span className="mt-detail__label">{t('tenantPayments.detailProperty')}</span>
+                  <span className="mt-detail__value">{detailBill.property_name}</span>
+                </div>
+              )}
+              {detailBill.due_date && (
+                <div className="mt-detail__row">
+                  <span className="mt-detail__label">{t('tenantPayments.detailDue')}</span>
+                  <span className="mt-detail__value">
+                    {dayjs(detailBill.due_date).format(t('tenantPayments.dateDisplayFormat'))}
+                  </span>
+                </div>
+              )}
+              {detailBill.description && (
+                <div className="mt-detail__row">
+                  <span className="mt-detail__label">{t('tenantPayments.detailDesc')}</span>
+                  <span className="mt-detail__value">{detailBill.description}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </>
   )
 }

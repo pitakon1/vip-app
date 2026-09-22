@@ -26,6 +26,9 @@ class CompanyProfile(SQLModel, table=True):
     phone: Optional[str] = Field(default=None, max_length=50)
     email: Optional[str] = Field(default=None, max_length=200)
     website: Optional[str] = Field(default=None, max_length=500)
+    # 公司 Logo（站内 /uploads/company 路径）：设置页的「移除 / 上传」需要有落库位置，
+    # 否则前端移除后刷新即「复活」，等于假操作。
+    logo_url: Optional[str] = Field(default=None, max_length=500)
     social_media: Optional[dict] = Field(default=None, sa_type=JSON)
     updated_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -55,6 +58,7 @@ def upsert_company_profile(session: Session, data: dict) -> "CompanyProfile":
             "phone",
             "email",
             "website",
+            "logo_url",
             "social_media",
         }:
             setattr(row, field, value)

@@ -22,12 +22,32 @@ const api = axios.create({
   paramsSerializer: { indexes: null },
 })
 
+/**
+ * 查询参数键统一转成 snake_case。
+ *
+ * 后端是 FastAPI，查询参数一律 snake_case（`page_size`），而前端习惯写 `pageSize`。
+ * axios 不做键名转换，多余的键会被后端**静默忽略**：`pageSize=100` 实际只拿回默认
+ * 20 条，表现为「分页每页条数不对 / 下拉选项少 / 总数偏小」这类无报错的错数据。
+ * 在请求层收敛比在几十个页面里逐处改名可靠。
+ */
+const toSnakeKey = (key: string) => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
+
+const normalizeParams = (params: unknown) => {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) return params
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(params as Record<string, unknown>)) {
+    out[toSnakeKey(k)] = v
+  }
+  return out
+}
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    config.params = normalizeParams(config.params)
     return config
   },
   (error) => Promise.reject(error),

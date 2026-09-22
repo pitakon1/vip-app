@@ -5,6 +5,7 @@ import { Dropdown } from 'antd'
 import type { MenuProps } from 'antd'
 import useAuthStore from '@/stores/auth'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import NotificationsBell from '@/components/NotificationsBell'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './PortalLayout.css'
 
@@ -130,13 +131,7 @@ const PortalLayout = () => {
         </nav>
 
         <div className="rent-portal__actions">
-          <button className="rent-icon-btn" aria-label={t('topbar.notifications')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            <span className="rent-icon-btn__badge">1</span>
-          </button>
+          <NotificationsBell />
           <LanguageSwitcher compact />
           <Dropdown menu={{ items: userMenu }} placement="bottomRight">
             <div className="rent-portal__user">

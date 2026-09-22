@@ -132,17 +132,21 @@ export default function AdminPaymentsPage() {
   const submitCreate = async () => {
     if (!form.amount || Number(form.amount) <= 0)
       return Taro.showToast({ title: '请输入正确的金额', icon: 'none' })
+    // 后端 PaymentCreate.payer_id 必填；此前表单标「选填」且空值不发送，
+    // 提交后只拿到 422，toast 笼统显示「记账失败」，用户无法定位字段。
+    if (!form.payer_id.trim())
+      return Taro.showToast({ title: '请填写付款人 ID', icon: 'none' })
     setCreateBusy(true)
     try {
       const payload: Record<string, unknown> = {
         amount: Number(form.amount),
         currency: form.currency,
-        payment_type: form.payment_type
+        payment_type: form.payment_type,
+        payer_id: form.payer_id.trim()
       }
       if (form.channel) payload.channel = form.channel
       if (form.due_date) payload.due_date = `${form.due_date}T00:00:00`
       if (form.description) payload.description = form.description
-      if (form.payer_id) payload.payer_id = form.payer_id
       await paymentsApi.create(payload)
       Taro.showToast({ title: '已记账', icon: 'success' })
       closeCreate()
@@ -442,12 +446,12 @@ export default function AdminPaymentsPage() {
             </View>
 
             <View className='apay-field'>
-              <Text className='apay-field__label'>付款人ID（选填）</Text>
+              <Text className='apay-field__label'>付款人ID（必填）</Text>
               <Input
                 className='apay-field__input'
                 type='text'
                 value={form.payer_id}
-                placeholder='后端要求，用于指定 payer'
+                placeholder='请填写付款人（租客）ID'
                 onInput={(e) => setFormField('payer_id', e.detail.value)}
               />
             </View>

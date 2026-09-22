@@ -4,10 +4,10 @@
 不再读取手动填报的 performances 表。
 """
 import uuid
-from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import or_
 from sqlmodel import Session, select
@@ -31,6 +31,9 @@ from app.models import (
 )
 
 router = APIRouter(prefix="/employees", tags=["employees"])
+
+# 后端没有「试用期」字段：App / 小程序统一按「入职 90 天内」派生，Web 端沿用同一口径
+PROBATION_DAYS = 90
 
 
 # ---------------- 响应模型（OpenAPI 契约） ----------------
@@ -180,13 +183,48 @@ class EmployeeWorkbenchOut(BaseModel):
 def list_employees(
     pagination: PaginationParams = Depends(),
     department: str | None = None,
+    status: Optional[Literal["active", "inactive", "probation"]] = Query(
+        None,
+        description=(
+            "在职状态：active 在职 / inactive 离职 / probation 试用期"
+            f"（入职 {PROBATION_DAYS} 天内派生，后端无该字段）"
+        ),
+    ),
+    keyword: Optional[str] = Query(
+        None, max_length=100, description="姓名 / 邮箱 / 手机 / 工号"
+    ),
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ):
-    """员工列表（admin 权限，附带用户姓名/邮箱）。"""
+    """员工列表（admin 权限，附带用户姓名/邮箱）。
+
+    `status` / `keyword` 此前没有实现，前端筛选框和搜索框传了参数也被静默忽略，
+    表现为「输入关键词后列表没变化」；这里补上下推到 SQL 的过滤。
+    """
     conditions = [Employee.deleted_at.is_(None)]
     if department:
         conditions.append(Employee.department == department)
+    if status == "active":
+        conditions.append(Employee.is_active.is_(True))
+    elif status == "inactive":
+        conditions.append(Employee.is_active.is_(False))
+    elif status == "probation":
+        conditions.append(Employee.is_active.is_(True))
+        conditions.append(Employee.hire_date.is_not(None))
+        conditions.append(
+            Employee.hire_date >= date.today() - timedelta(days=PROBATION_DAYS)
+        )
+    if keyword and keyword.strip():
+        kw = f"%{keyword.strip()}%"
+        conditions.append(
+            Employee.employee_code.ilike(kw)
+            | Employee.phone.ilike(kw)
+            | Employee.user_id.in_(
+                select(User.id).where(
+                    or_(User.full_name.ilike(kw), User.email.ilike(kw))
+                )
+            )
+        )
 
     stmt = select(Employee).where(*conditions).order_by(Employee.created_at.desc())
     page = paginate_query(session, stmt, pagination)

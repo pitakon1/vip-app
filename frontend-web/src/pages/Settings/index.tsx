@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { message, Empty } from 'antd'
 import { companyApi, backupApi } from '@/services/api'
 import type { CompanyInfo } from '@/types'
@@ -147,6 +147,13 @@ const Settings = () => {
   // 支付渠道状态
   const [channels, setChannels] = useState(PAYMENT_CHANNELS)
 
+  // 公司 Logo（真实落库：/company/info 的 logo_url；为空表示未设置）
+  const [logoUrl, setLogoUrl] = useState('')
+  const [logoUploading, setLogoUploading] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  // 社媒字典原样保留（backend 侧 line 等键不在表单里，保存时需合并回去，避免被覆盖丢失）
+  const [socialRaw, setSocialRaw] = useState<Record<string, string>>({})
+
   // v1.8 数据备份状态
   const [backupJobs, setBackupJobs] = useState<any[]>([])
   const [backupLoading] = useState(false)
@@ -191,6 +198,9 @@ const Settings = () => {
     try {
       const res = await companyApi.info()
       const payload = res.data?.data ?? res.data
+      setLogoUrl(payload?.logo_url || '')
+      const soc = payload?.social_media
+      if (soc && typeof soc === 'object') setSocialRaw(soc)
       setCompanyForm((prev) => ({
         ...prev,
         name: payload?.name || prev.name,
@@ -198,10 +208,10 @@ const Settings = () => {
         phone: payload?.phone || prev.phone,
         email: payload?.email || prev.email,
         website: payload?.website || '',
-        wechat: payload?.wechat || '',
-        whatsapp: payload?.whatsapp || '',
-        facebook: payload?.facebook || '',
-        instagram: payload?.instagram || '',
+        wechat: soc?.wechat || '',
+        whatsapp: soc?.whatsapp || '',
+        facebook: soc?.facebook || '',
+        instagram: soc?.instagram || '',
       }))
     } catch (err: any) {
       message.error(err?.response?.data?.message || '获取公司信息失败')
@@ -224,10 +234,14 @@ const Settings = () => {
         phone: companyForm.phone,
         email: companyForm.email,
         website: companyForm.website,
-        wechat: companyForm.wechat,
-        whatsapp: companyForm.whatsapp,
-        facebook: companyForm.facebook,
-        instagram: companyForm.instagram,
+        // 社媒统一走 social_media（后端 PUT 只认这个字段），并合并表单未覆盖的键
+        social_media: {
+          ...socialRaw,
+          wechat: companyForm.wechat,
+          whatsapp: companyForm.whatsapp,
+          facebook: companyForm.facebook,
+          instagram: companyForm.instagram,
+        },
       }
       await companyApi.update(values)
       message.success('公司信息已保存')
@@ -242,6 +256,36 @@ const Settings = () => {
     fetchCompanyInfo()
   }
 
+  // 上传公司 Logo（真实落盘 /uploads/company 并写入 companyprofile.logo_url）
+  const handleLogoUpload = async (file?: File | null) => {
+    if (!file) return
+    setLogoUploading(true)
+    try {
+      const res = await companyApi.uploadLogo(file)
+      const payload = res.data?.data ?? res.data
+      setLogoUrl(payload?.logo_url || '')
+      message.success('公司 Logo 已上传')
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || 'Logo 上传失败')
+    } finally {
+      setLogoUploading(false)
+      if (logoInputRef.current) logoInputRef.current.value = ''
+    }
+  }
+
+  const handleLogoRemove = async () => {
+    setLogoUploading(true)
+    try {
+      await companyApi.removeLogo()
+      setLogoUrl('')
+      message.success('公司 Logo 已移除')
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || 'Logo 移除失败')
+    } finally {
+      setLogoUploading(false)
+    }
+  }
+
   const handleNotifySave = () => {
     setSaving(true)
     setTimeout(() => {
@@ -250,12 +294,32 @@ const Settings = () => {
     }, 200)
   }
 
+  // 通知设置重置为默认规则（丢弃本次改动，与「保存」同一份 form state）
+  const handleNotifyReset = () => {
+    setNotifyRows(
+      NOTIFICATION_ROWS.map((r) => ({ ...r, channels: { ...r.channels } })),
+    )
+    message.success('通知设置已恢复默认')
+  }
+
   const handleChannelSave = () => {
     setSaving(true)
     setTimeout(() => {
       setSaving(false)
       message.success('渠道配置已保存')
     }, 200)
+  }
+
+  // 渠道配置恢复默认（丢弃本次改动，与「保存」同一份 form state）
+  const handleChannelReset = () => {
+    setChannels(
+      PAYMENT_CHANNELS.map((c) => ({
+        ...c,
+        fields: c.fields.map((f) => ({ ...f })),
+        cards: c.cards?.map((card) => ({ ...card })),
+      })),
+    )
+    message.success('渠道配置已恢复默认')
   }
 
   const toggleChannel = (key: string) => {
@@ -405,20 +469,56 @@ const Settings = () => {
             <div className="rent-form-group" style={{ marginBottom: 0 }}>
               <label className="rent-form-label">公司 Logo</label>
               <div className="rent-logo-preview">
-                <img className="rent-logo-preview__box" src={brandLogo} alt="logo" />
-                <div>
-                  <div className="rent-text-sm rent-text-bold">rentflow-logo.png</div>
-                  <div className="rent-caption">256 × 256px · 18.4 KB</div>
-                </div>
-                <button className="rent-btn rent-btn--ghost rent-btn--sm" style={{ marginLeft: 8 }} type="button">移除</button>
+                {logoUrl ? (
+                  <>
+                    <img className="rent-logo-preview__box" src={logoUrl} alt="logo" />
+                    <div>
+                      <div className="rent-text-sm rent-text-bold">{logoUrl.split('/').pop()}</div>
+                      <div className="rent-caption">公司标识 · 已保存</div>
+                    </div>
+                    <button
+                      className="rent-btn rent-btn--ghost rent-btn--sm"
+                      style={{ marginLeft: 8 }}
+                      type="button"
+                      onClick={handleLogoRemove}
+                      disabled={logoUploading}
+                    >
+                      移除
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <img className="rent-logo-preview__box" src={brandLogo} alt="logo" />
+                    <div>
+                      <div className="rent-text-sm rent-text-bold">未设置 Logo</div>
+                      <div className="rent-caption">当前展示平台默认标识</div>
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="rent-upload">
+              <label
+                className="rent-upload"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  handleLogoUpload(e.dataTransfer.files?.[0])
+                }}
+              >
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  style={{ display: 'none' }}
+                  onChange={(e) => handleLogoUpload(e.target.files?.[0])}
+                />
                 <div className="rent-upload__icon">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                 </div>
-                <div className="rent-text-sm rent-text-bold" style={{ color: 'var(--rent-ink)' }}>点击上传或拖拽文件到此处</div>
-                <div className="rent-caption" style={{ marginTop: 4 }}>建议尺寸 256×256px，支持 PNG / SVG，最大 2MB</div>
-              </div>
+                <div className="rent-text-sm rent-text-bold" style={{ color: 'var(--rent-ink)' }}>
+                  {logoUploading ? '上传中…' : '点击上传或拖拽文件到此处'}
+                </div>
+                <div className="rent-caption" style={{ marginTop: 4 }}>建议尺寸 256×256px，支持 PNG / JPG / WEBP / GIF，最大 2MB</div>
+              </label>
             </div>
           </div>
           <div className="rent-card__footer rent-flex" style={{ justifyContent: 'flex-end', gap: 8 }}>
@@ -487,7 +587,7 @@ const Settings = () => {
             ))}
           </div>
           <div className="rent-settings-savebar">
-            <button className="rent-btn rent-btn--secondary" type="button">恢复默认</button>
+            <button className="rent-btn rent-btn--secondary" type="button" onClick={handleChannelReset}>恢复默认</button>
             <button className="rent-btn rent-btn--primary" type="button" onClick={handleChannelSave} disabled={saving}>
               {saving ? '保存中...' : '保存渠道配置'}
             </button>
@@ -541,7 +641,7 @@ const Settings = () => {
             ))}
           </div>
           <div className="rent-card__footer rent-flex" style={{ justifyContent: 'flex-end', gap: 8 }}>
-            <button className="rent-btn rent-btn--secondary" type="button">重置</button>
+            <button className="rent-btn rent-btn--secondary" type="button" onClick={handleNotifyReset}>重置</button>
             <button className="rent-btn rent-btn--primary" type="button" onClick={handleNotifySave} disabled={saving}>
               {saving ? '保存中...' : '保存通知设置'}
             </button>

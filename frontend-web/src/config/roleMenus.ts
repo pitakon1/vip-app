@@ -65,6 +65,12 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           icon: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
         },
         {
+          key: '/owner/marketing',
+          labelKey: 'menu.marketing',
+          mobileLabelKey: 'portal.marketing',
+          icon: 'M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1z M14 8a4 4 0 0 1 0 8',
+        },
+        {
           key: '/owner/income',
           labelKey: 'menu.income',
           mobileLabelKey: 'portal.income',

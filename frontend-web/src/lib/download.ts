@@ -19,6 +19,19 @@ function filenameFrom(disposition?: string, fallback = 'export.csv') {
 }
 
 /**
+ * 保存前端本地生成的文本报表（如按当前筛选汇总出的账单）。
+ *
+ * 与 `downloadReport` 的区别：数据来自页面已取回的明细，不需要再打后端接口。
+ */
+export function saveTextFile(
+  content: string,
+  filename: string,
+  mime = 'text/csv;charset=utf-8',
+) {
+  saveBlob(new Blob([content], { type: mime }), filename)
+}
+
+/**
  * 下载后端报表（CSV）。
  *
  * 用 axios 取 blob 而不是 `window.open`：导出接口同样需要 Authorization 头，

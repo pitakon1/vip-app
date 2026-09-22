@@ -3471,6 +3471,68 @@ body {
   border: 1px solid var(--rent-border);
 }
 
+/* ===== 详情弹窗键值行（报修工单详情 / 付款凭证详情共用，React 端增强） ===== */
+.mt-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 4px;
+}
+.mt-detail__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+.mt-detail__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mt-detail__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.mt-detail__label {
+  font-size: 13px;
+  color: var(--rent-ink-3);
+  flex-shrink: 0;
+}
+.mt-detail__value {
+  font-size: 14px;
+  color: var(--rent-ink);
+  text-align: right;
+  word-break: break-word;
+}
+.mt-detail__block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mt-detail__desc {
+  margin: 0;
+  font-size: 14px;
+  color: var(--rent-ink-2);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.mt-detail__textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--rent-border);
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--rent-ink);
+  resize: vertical;
+}
+.mt-detail__textarea:focus {
+  outline: none;
+  border-color: var(--rent-primary);
+}
+
 /* ===== 付款上传表单 / 筛选胶囊（React 端增强，非原型内置；自 payments.css 迁入，避免与 rent-pay-summary 原型规则冲突） ===== */
 .rent-chips {
   display: flex;

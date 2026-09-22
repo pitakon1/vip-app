@@ -49,4 +49,7 @@ class Lead(TimestampMixin, table=True):
     )
     notes: Optional[str] = None
     source: Optional[str] = None  # 来源渠道
+    # 客户需求描述：Web CRM 表单有该字段并在编辑时回填，此前后端无此列，
+    # 提交的内容被 Pydantic 静默丢弃（写不进、读不回），故补列。
+    requirement: Optional[str] = None
     closed_at: Optional[datetime] = None

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { message } from 'antd'
+import { message, Modal, Rate } from 'antd'
 import dayjs from 'dayjs'
+import { useNavigate } from 'react-router-dom'
 import api from '@/lib/api'
-import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 
@@ -19,6 +19,18 @@ interface MaintenanceTicket {
   created_at: string
   updated_at?: string
   photos?: string[]
+  /** 展示字段由后端 /maintenance-tickets 一并返回，不再由前端猜 */
+  property_label?: string
+  property_address?: string
+  assignee_name?: string
+  assigned_to?: string
+  resolved_at?: string
+  resolution_notes?: string
+  resolution_photos?: string[]
+  cost?: number
+  rating?: number
+  feedback?: string
+  rated_at?: string
   location?: string
   assignee?: string
   category?: string
@@ -56,11 +68,16 @@ const statusDotColorMap: Record<StatusKey, string> = {
   completed: 'var(--state-success)',
 }
 
-const statusProgressMap: Record<StatusKey, number> = {
-  pending: 20,
-  in_progress: 60,
-  completed: 100,
+// 进度按工单在「待受理 → 已派单 → 处理中 → 已解决」链路上的真实位置推导，
+// 不再用写死的魔法百分比假装进度。
+const STATUS_PROGRESS: Record<string, number> = {
+  open: 25,
+  assigned: 50,
+  in_progress: 75,
+  resolved: 100,
+  closed: 100,
 }
+const progressOf = (status?: string) => STATUS_PROGRESS[String(status || '').toLowerCase()] ?? 25
 
 const TenantMaintenance = () => {
   const { t } = useTranslation()
@@ -93,12 +110,22 @@ const TenantMaintenance = () => {
 
   const user = useAuthStore((s) => s.user)
   const uid = user?.id ?? 'anon'
-  const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [submitting, setSubmitting] = useState(false)
   const [filter, setFilter] = useState<FilterKey>('all')
 
-  // 当前租客的真实房源（用于报修位置选项）
+  // 当前租客的真实房源（报修必须落到具体 property_id，后端必填）
   const [propertyLabel, setPropertyLabel] = useState('')
+  const [leasePropertyId, setLeasePropertyId] = useState('')
+
+  // 工单详情 / 评价弹窗
+  const [detailTicket, setDetailTicket] = useState<MaintenanceTicket | null>(null)
+  const [reviewTicket, setReviewTicket] = useState<MaintenanceTicket | null>(null)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewFeedback, setReviewFeedback] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  /** 正在执行撤单/联系师傅的工单 id（防重复点击） */
+  const [busyId, setBusyId] = useState('')
 
   // form state (replaces antd Form)
   const [title, setTitle] = useState('')
@@ -122,6 +149,8 @@ const TenantMaintenance = () => {
         const leases: any[] = lPayload?.items ?? []
         const lease = leases.find((l) => l.status === 'active') || leases[0]
         const prop = lease?.property
+        const pid = lease?.property_id || prop?.id || ''
+        if (pid) setLeasePropertyId(pid)
         if (prop?.address || prop?.building || prop?.room_number || lease?.property_name) {
           setPropertyLabel(prop?.address || prop?.building || prop?.room_number || lease?.property_name)
         }
@@ -133,6 +162,9 @@ const TenantMaintenance = () => {
   })
   const data = q.data ?? []
   const loading = q.isPending && !q.data
+  const refresh = () => {
+    void q.refetch({ cancelRefetch: false })
+  }
 
   const locationOptions = useMemo(
     () => ROOM_OPTIONS.map((room) => (propertyLabel ? `${propertyLabel} · ${room}` : room)),
@@ -177,48 +209,98 @@ const TenantMaintenance = () => {
       message.warning(t('tenantMaintenance.warnDesc'))
       return
     }
+    if (!leasePropertyId) {
+      message.warning(t('tenantMaintenance.noLeaseWarn'))
+      return
+    }
     setSubmitting(true)
-    const formData = new FormData()
-    formData.append('type', 'other')
-    formData.append('description', description)
-    const apiUrgency = priority === 'urgent' ? 'high' : priority
-    formData.append('urgency', apiUrgency)
-    photoFiles.forEach((f) => {
-      formData.append('photos', f)
-    })
-
+    // 后端工单表没有「房间」列，用户选的报修位置不能丢，随描述一并落库。
+    const descWithLocation = location
+      ? `${t('tenantMaintenance.labelLocation')}: ${location}\n${description.trim()}`
+      : description.trim()
     try {
-      try {
-        await api.post('/maintenance-tickets', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
-      } catch {
-        // API 不可用时本地展示
-      }
-
+      // 工单必须真正落库：POST 失败就是失败，不再伪造本地记录骗用户「已提交」。
+      await api.post('/maintenance-tickets', {
+        property_id: leasePropertyId,
+        title: title.trim(),
+        description: descWithLocation,
+        priority,
+      })
       message.success(t('tenantMaintenance.submitSuccess'))
-      const localId = `local-${Date.now()}`
-      const newTicket: MaintenanceTicket = {
-        id: localId,
-        type: 'other',
-        title,
-        description,
-        urgency: priority,
-        status: 'pending',
-        created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-        location: location || propertyLabel || undefined,
-        category: t('tenantMaintenance.categoryOther'),
-        assignee: t('tenantMaintenance.waitingAssign'),
-        progress: [
-          { time: dayjs().format('YYYY-MM-DD HH:mm:ss'), content: t('tenantMaintenance.progressTicket') },
-        ],
-      }
-      queryClient.setQueryData<MaintenanceTicket[]>(['tenant-maintenance', 'mine', uid], (prev) => [newTicket, ...(prev ?? [])])
       resetForm()
+      refresh()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('tenantMaintenance.submitFailed'))
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('tenantMaintenance.submitFailed'))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // 查看详情：直接展示后端返回的工单实体（含房源与受理师傅）
+  const openDetail = (ticket: MaintenanceTicket) => setDetailTicket(ticket)
+
+  // 取消申请：走租客自助撤销接口（员工侧 PATCH 需 agent 权限，租客调用必 403）
+  const handleCancel = (ticket: MaintenanceTicket) => {
+    Modal.confirm({
+      title: t('tenantMaintenance.cancelApply'),
+      content: t('tenantMaintenance.cancelConfirm'),
+      okText: t('common.confirm'),
+      cancelText: t('common.cancel'),
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        setBusyId(ticket.id)
+        try {
+          await api.post(`/maintenance-tickets/${ticket.id}/cancel`)
+          message.success(t('tenantMaintenance.cancelSuccess'))
+          refresh()
+        } catch (err: any) {
+          message.error(err?.response?.data?.detail || t('tenantMaintenance.cancelFailed'))
+        } finally {
+          setBusyId('')
+        }
+      },
+    })
+  }
+
+  // 联系师傅：后端按「员工 → 账号」解析并幂等建会话，拿到会话 id 直接进聊天页
+  const handleContactWorker = async (ticket: MaintenanceTicket) => {
+    setBusyId(ticket.id)
+    try {
+      const res = await api.post(`/maintenance-tickets/${ticket.id}/contact`)
+      const conv = res.data?.data ?? res.data
+      if (!conv?.id) throw new Error('contact response missing conversation id')
+      navigate(`/chat?id=${conv.id}`)
+    } catch (err: any) {
+      message.warning(
+        err?.response?.data?.detail ||
+          (ticket.assigned_to ? t('tenantMaintenance.contactFailed') : t('tenantMaintenance.contactNoWorker')),
+      )
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const openReview = (ticket: MaintenanceTicket) => {
+    setReviewRating(5)
+    setReviewFeedback('')
+    setReviewTicket(ticket)
+  }
+
+  const handleReviewSubmit = async () => {
+    if (!reviewTicket) return
+    setReviewSubmitting(true)
+    try {
+      await api.post(`/maintenance-tickets/${reviewTicket.id}/rate`, {
+        rating: reviewRating,
+        feedback: reviewFeedback.trim() || undefined,
+      })
+      message.success(t('tenantMaintenance.reviewSuccess'))
+      setReviewTicket(null)
+      refresh()
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || t('tenantMaintenance.reviewFailed'))
+    } finally {
+      setReviewSubmitting(false)
     }
   }
 
@@ -303,10 +385,12 @@ const TenantMaintenance = () => {
             const stDot = statusDotColorMap[statusKey]
             const uLabel = urgencyLabelMap[urgencyKey] || ''
             const category = ticket.category || typeLabelMap[ticket.type || ''] || t('tenantMaintenance.categoryOther')
-            const loc = ticket.location || propertyLabel || '—'
-            const assignee = ticket.assignee || t('tenantMaintenance.waitingAssign')
+            // 房源/师傅一律用后端返回的本单信息，不再拿「当前租约房源」「待分配」兜底
+            const loc = ticket.property_label || ticket.property_address || propertyLabel || '—'
+            const assignee = ticket.assignee_name || t('tenantMaintenance.waitingAssign')
+            const busy = busyId === ticket.id
             const createdDate = ticket.created_at ? dayjs(ticket.created_at).format('YYYY-MM-DD') : '-'
-            const progress = statusProgressMap[statusKey] ?? 0
+            const progress = progressOf(ticket.status)
             return (
               <div key={ticket.id} className="mt-ticket">
                 <div className={`mt-ticket__bar ${barClass}`}></div>
@@ -355,16 +439,43 @@ const TenantMaintenance = () => {
                       </span>
                     </div>
                     <div className="mt-ticket__actions">
-                      <button className="rent-btn rent-btn--secondary rent-btn--sm">{t('tenantMaintenance.viewDetail')}</button>
+                      <button
+                        className="rent-btn rent-btn--secondary rent-btn--sm"
+                        onClick={() => openDetail(ticket)}
+                      >
+                        {t('tenantMaintenance.viewDetail')}
+                      </button>
                       {statusKey === 'pending' && (
-                        <button className="rent-btn rent-btn--ghost rent-btn--sm">{t('tenantMaintenance.cancelApply')}</button>
+                        <button
+                          className="rent-btn rent-btn--ghost rent-btn--sm"
+                          disabled={busy}
+                          onClick={() => handleCancel(ticket)}
+                        >
+                          {t('tenantMaintenance.cancelApply')}
+                        </button>
                       )}
                       {statusKey === 'in_progress' && (
-                        <button className="rent-btn rent-btn--ghost rent-btn--sm">{t('tenantMaintenance.contactWorker')}</button>
+                        <button
+                          className="rent-btn rent-btn--ghost rent-btn--sm"
+                          disabled={busy}
+                          onClick={() => handleContactWorker(ticket)}
+                        >
+                          {t('tenantMaintenance.contactWorker')}
+                        </button>
                       )}
-                      {statusKey === 'completed' && (
-                        <button className="rent-btn rent-btn--primary rent-btn--sm">{t('tenantMaintenance.review')}</button>
-                      )}
+                      {statusKey === 'completed' &&
+                        (ticket.rating ? (
+                          <span className="rent-text-sm rent-text-muted">
+                            {t('tenantMaintenance.reviewDone')} · {ticket.rating}★
+                          </span>
+                        ) : (
+                          <button
+                            className="rent-btn rent-btn--primary rent-btn--sm"
+                            onClick={() => openReview(ticket)}
+                          >
+                            {t('tenantMaintenance.review')}
+                          </button>
+                        ))}
                     </div>
                   </div>
                 </div>
@@ -473,6 +584,169 @@ const TenantMaintenance = () => {
           </form>
         </div>
       </div>
+
+      {/* 工单详情（全部字段来自后端工单实体） */}
+      <Modal
+        title={t('tenantMaintenance.detailTitle')}
+        open={!!detailTicket}
+        onCancel={() => setDetailTicket(null)}
+        footer={
+          <button
+            type="button"
+            className="rent-btn rent-btn--secondary"
+            onClick={() => setDetailTicket(null)}
+          >
+            {t('tenantMaintenance.detailClose')}
+          </button>
+        }
+      >
+        {detailTicket && (
+          <div className="mt-detail">
+            <h3 className="mt-detail__title">{detailTicket.title || detailTicket.description}</h3>
+            <div className="mt-detail__rows">
+              <div className="mt-detail__row">
+                <span className="mt-detail__label">{t('tenantMaintenance.detailNo')}</span>
+                <span className="mt-detail__value">
+                  #{detailTicket.ticket_no || (detailTicket.id || '').slice(-6)}
+                </span>
+              </div>
+              <div className="mt-detail__row">
+                <span className="mt-detail__label">{t('common.status')}</span>
+                <span className="mt-detail__value">
+                  {statusLabelMap[normalizeStatus(detailTicket.status)]} ·{' '}
+                  {urgencyLabelMap[detailTicket.urgency || detailTicket.priority || 'medium'] || ''}
+                </span>
+              </div>
+              <div className="mt-detail__row">
+                <span className="mt-detail__label">{t('tenantMaintenance.detailProperty')}</span>
+                <span className="mt-detail__value">
+                  {detailTicket.property_label || detailTicket.property_address || propertyLabel || '—'}
+                </span>
+              </div>
+              <div className="mt-detail__row">
+                <span className="mt-detail__label">{t('tenantMaintenance.detailWorker')}</span>
+                <span className="mt-detail__value">
+                  {detailTicket.assignee_name || t('tenantMaintenance.waitingAssign')}
+                </span>
+              </div>
+              <div className="mt-detail__row">
+                <span className="mt-detail__label">{t('tenantMaintenance.detailCreated')}</span>
+                <span className="mt-detail__value">
+                  {detailTicket.created_at ? dayjs(detailTicket.created_at).format('YYYY-MM-DD HH:mm') : '—'}
+                </span>
+              </div>
+              {detailTicket.updated_at && (
+                <div className="mt-detail__row">
+                  <span className="mt-detail__label">{t('tenantMaintenance.detailUpdated')}</span>
+                  <span className="mt-detail__value">
+                    {dayjs(detailTicket.updated_at).format('YYYY-MM-DD HH:mm')}
+                  </span>
+                </div>
+              )}
+              {detailTicket.resolved_at && (
+                <div className="mt-detail__row">
+                  <span className="mt-detail__label">{t('tenantMaintenance.detailResolved')}</span>
+                  <span className="mt-detail__value">
+                    {dayjs(detailTicket.resolved_at).format('YYYY-MM-DD HH:mm')}
+                  </span>
+                </div>
+              )}
+              {!!detailTicket.cost && (
+                <div className="mt-detail__row">
+                  <span className="mt-detail__label">{t('tenantMaintenance.detailCost')}</span>
+                  <span className="mt-detail__value">฿{Number(detailTicket.cost).toLocaleString()}</span>
+                </div>
+              )}
+              {detailTicket.rating && (
+                <div className="mt-detail__row">
+                  <span className="mt-detail__label">{t('tenantMaintenance.detailRating')}</span>
+                  <span className="mt-detail__value">
+                    <Rate disabled value={detailTicket.rating} style={{ fontSize: 14 }} />
+                  </span>
+                </div>
+              )}
+              {detailTicket.feedback && (
+                <div className="mt-detail__row">
+                  <span className="mt-detail__label">{t('tenantMaintenance.detailFeedback')}</span>
+                  <span className="mt-detail__value">{detailTicket.feedback}</span>
+                </div>
+              )}
+              {detailTicket.resolution_notes && (
+                <div className="mt-detail__row">
+                  <span className="mt-detail__label">{t('tenantMaintenance.detailResult')}</span>
+                  <span className="mt-detail__value">{detailTicket.resolution_notes}</span>
+                </div>
+              )}
+            </div>
+            <div className="mt-detail__block">
+              <span className="mt-detail__label">{t('tenantMaintenance.labelDesc')}</span>
+              <p className="mt-detail__desc">{detailTicket.description}</p>
+            </div>
+            {!!detailTicket.photos?.length && (
+              <div className="mt-detail__block">
+                <span className="mt-detail__label">{t('tenantMaintenance.detailPhotos')}</span>
+                <div className="mt-form__photos">
+                  {detailTicket.photos.map((src, i) => (
+                    <img
+                      key={i}
+                      className="mt-form__photo-thumb"
+                      src={typeof src === 'string' ? src : (src as any)?.url}
+                      alt={t('tenantMaintenance.photoAltComplete', { index: i + 1 })}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* 服务评价 */}
+      <Modal
+        title={t('tenantMaintenance.reviewTitle')}
+        open={!!reviewTicket}
+        onCancel={() => setReviewTicket(null)}
+        footer={
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              className="rent-btn rent-btn--secondary"
+              onClick={() => setReviewTicket(null)}
+            >
+              {t('tenantMaintenance.cancel')}
+            </button>
+            <button
+              type="button"
+              className="rent-btn rent-btn--primary"
+              disabled={reviewSubmitting}
+              onClick={handleReviewSubmit}
+            >
+              {reviewSubmitting ? t('tenantMaintenance.submitting') : t('tenantMaintenance.reviewSubmit')}
+            </button>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 8 }}>
+          <div>
+            <div className="mt-detail__label" style={{ marginBottom: 8 }}>
+              {t('tenantMaintenance.reviewRating')}
+            </div>
+            <Rate value={reviewRating} onChange={setReviewRating} />
+          </div>
+          <div>
+            <div className="mt-detail__label" style={{ marginBottom: 8 }}>
+              {t('tenantMaintenance.reviewFeedback')}
+            </div>
+            <textarea
+              rows={3}
+              className="mt-form__textarea"
+              placeholder={t('tenantMaintenance.reviewFeedbackPlaceholder')}
+              value={reviewFeedback}
+              onChange={(e) => setReviewFeedback(e.target.value)}
+            />
+          </div>
+        </div>
+      </Modal>
     </>
   )
 }

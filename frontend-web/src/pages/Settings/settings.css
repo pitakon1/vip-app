@@ -99,6 +99,10 @@
   border-color: var(--rent-primary);
   background: var(--rent-sidebar-active);
 }
+/* Logo 上传区现为 label（点击即触发隐藏的 file input），补齐 label 的块级布局 */
+label.rent-upload {
+  display: block;
+}
 .rent-upload__icon {
   display: flex;
   justify-content: center;

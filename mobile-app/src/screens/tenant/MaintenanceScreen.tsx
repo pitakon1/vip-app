@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Card from '@/components/Card';
 import colors from '@/theme/colors';
-import { maintenanceApi } from '@/services/api';
+import { maintenanceApi, leasesApi } from '@/services/api';
 import { notify, notifyError } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
@@ -108,6 +108,28 @@ export default function MaintenanceScreen() {
     void q.refetch({ cancelRefetch: false });
   }, [q]);
 
+  // 报修必须落到具体房源（后端 property_id 必填）。
+  // 租客身份下的房源来自其生效中的租约，与「增值服务」页取法一致。
+  const [activeLease, setActiveLease] = useState<{ property_id?: string } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    leasesApi
+      .mine()
+      .then((res: any) => {
+        const d = res?.data;
+        const list = Array.isArray(d) ? d : d?.items ?? [];
+        if (alive) {
+          setActiveLease(list.find((l: any) => l?.status === 'active') ?? null);
+        }
+      })
+      .catch(() => {
+        if (alive) setActiveLease(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user?.id]);
+
   // 详情弹窗
   const [selected, setSelected] = useState<TicketRow | null>(null);
   // 评价
@@ -152,9 +174,14 @@ export default function MaintenanceScreen() {
       setDescError('');
     }
     if (!ok) return;
+    if (!activeLease?.property_id) {
+      notify('提示', '当前没有生效中的租约，无法提交报修');
+      return;
+    }
     setSubmitting(true);
     try {
       await maintenanceApi.create({
+        property_id: activeLease.property_id,
         title: title.trim(),
         description: description.trim(),
         priority,
@@ -228,7 +255,7 @@ export default function MaintenanceScreen() {
               <Text style={[styles.chipText, { color: meta.color }]}>{meta.text}</Text>
             </View>
           </View>
-          <Text style={styles.ticketDate}>{formatDate(item.createdAt)}</Text>
+          <Text style={styles.ticketDate}>{formatDate(item.created_at)}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -438,7 +465,7 @@ export default function MaintenanceScreen() {
                   {PRIORITY_OPTIONS.find((p) => p.value === selected.priority)?.label ?? '—'}优先级
                 </Text>
                 <Text style={styles.modalLabel}>提交时间</Text>
-                <Text style={styles.modalText}>{formatDate(selected.createdAt)}</Text>
+                <Text style={styles.modalText}>{formatDate(selected.created_at)}</Text>
 
                 {canRate(selected) && (
                   <View style={styles.rateArea}>

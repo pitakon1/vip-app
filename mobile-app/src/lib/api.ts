@@ -19,6 +19,24 @@ export const apiClient = axios.create({
   },
 });
 
+/**
+ * 查询参数键统一转成 snake_case。
+ *
+ * 后端是 FastAPI，查询参数一律 snake_case（`page_size`），前端习惯写 `pageSize`；
+ * axios 不转换键名，多余的键会被后端静默忽略——`viewingsApi.list({ pageSize: 100 })`
+ * 实际只拿回默认 20 条，页面表现为「列表条数不对」且无任何报错。
+ */
+const toSnakeKey = (key: string) => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+
+const normalizeParams = (params: unknown) => {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) return params;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(params as Record<string, unknown>)) {
+    out[toSnakeKey(k)] = v;
+  }
+  return out;
+};
+
 // 请求拦截器：读取 token 并添加到 Authorization header（Web 端走 localStorage）
 apiClient.interceptors.request.use(
   async (config) => {
@@ -26,6 +44,7 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    config.params = normalizeParams(config.params);
     return config;
   },
   (error) => Promise.reject(error),

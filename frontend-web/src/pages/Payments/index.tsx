@@ -292,11 +292,17 @@ const Payments = () => {
       message.error('请输入有效的金额')
       return
     }
+    // 后端 PaymentCreate.payer_id 是必填（UUID）。此前表单标注「可留空」并把空值发成
+    // undefined，提交后只会收到 422，页面笼统提示「登记失败」，用户看不出是哪个字段的问题。
+    if (!manualForm.payer_id.trim()) {
+      message.error('请填写付款人 / 租客 ID')
+      return
+    }
     try {
       setSubmitting(true)
       await paymentsApi.create({
         ...manualForm,
-        payer_id: manualForm.payer_id || undefined,
+        payer_id: manualForm.payer_id.trim(),
         payee_id: manualForm.payee_id || undefined,
         amount: Number(manualForm.amount),
         due_date: manualForm.due_date || undefined,
@@ -763,7 +769,7 @@ const Payments = () => {
             <div className="rent-modal__body">
               <div className="rent-form-group">
                 <label className="rent-form-label">付款人 / 租客 ID</label>
-                <input className="rent-form-input" placeholder="租客 ID（可留空）" value={manualForm.payer_id} onChange={setManual('payer_id')} />
+                <input className="rent-form-input" placeholder="租客 ID（必填）" value={manualForm.payer_id} onChange={setManual('payer_id')} />
               </div>
               <div className="rent-form-group">
                 <label className="rent-form-label">收款人 / 收款方 ID</label>

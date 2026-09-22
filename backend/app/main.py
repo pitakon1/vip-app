@@ -257,6 +257,12 @@ AVATAR_MEDIA_DIR = UPLOAD_DIR / "avatars"
 AVATAR_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads/avatars", StaticFiles(directory=AVATAR_MEDIA_DIR), name="avatars")
 
+# 公司 Logo 静态托管（backend/uploads/company）：对外展示的公司标识，
+# 由设置页上传（POST /company/info/logo），前端直接以该 URL 作为 img 的 src。
+COMPANY_MEDIA_DIR = UPLOAD_DIR / "company"
+COMPANY_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads/company", StaticFiles(directory=COMPANY_MEDIA_DIR), name="company-media")
+
 
 @app.get("/", response_model=RootInfoOut, tags=["root"])
 async def root():

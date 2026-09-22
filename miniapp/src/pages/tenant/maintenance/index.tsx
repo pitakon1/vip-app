@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { View, Text, Input, Textarea, Button, ScrollView, Picker } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
-import { maintenanceApi } from '@/services/api'
+import { maintenanceApi, leasesApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { iconStyle } from '@/utils/icons'
 import type { MaintenanceTicket, MaintenanceStatus, MaintenancePriority } from '@/types'
@@ -130,6 +130,9 @@ export default function TenantMaintenancePage() {
     },
   })
 
+  // 报修要落到具体房源（后端 property_id 必填）：取生效中的租约
+  const [activeLease, setActiveLease] = useState<{ property_id?: string } | null>(null)
+
   useDidShow(() => {
     loadFromStorage()
     if (!useAuthStore.getState().token) {
@@ -137,6 +140,14 @@ export default function TenantMaintenancePage() {
       return
     }
     void refresh()
+    leasesApi
+      .mine()
+      .then((res: any) => {
+        const d = res?.data
+        const list: any[] = Array.isArray(d) ? d : d?.items ?? []
+        setActiveLease(list.find((l) => l?.status === 'active') ?? null)
+      })
+      .catch(() => setActiveLease(null))
   })
 
   const resetForm = () => {
@@ -150,11 +161,20 @@ export default function TenantMaintenancePage() {
       Taro.showToast({ title: '请填写标题', icon: 'none' })
       return
     }
+    if (!activeLease?.property_id) {
+      Taro.showToast({ title: '当前没有生效中的租约，无法提交报修', icon: 'none' })
+      return
+    }
 
     setSubmitting(true)
     Taro.showLoading({ title: '提交中...', mask: true })
     try {
-      const res = await maintenanceApi.create({ title: title.trim(), description, priority })
+      const res = await maintenanceApi.create({
+        property_id: activeLease.property_id,
+        title: title.trim(),
+        description,
+        priority
+      })
       // 乐观更新：把新工单插到列表头部
       const created = (res as any)?.data || res
       const newTicket: MaintenanceTicket = {

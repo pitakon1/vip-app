@@ -235,6 +235,18 @@
 .pay-link:hover {
   text-decoration: underline;
 }
+/* 「最近缴费记录」入口为 button，补齐按钮复位样式（保留原链接外观） */
+button.pay-link {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rent-primary);
+}
 
 /* 最近缴费记录表格（去除多余边框，卡片内嵌） */
 .pay-table-wrap {

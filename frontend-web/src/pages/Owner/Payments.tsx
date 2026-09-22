@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { message, Spin, Empty } from 'antd'
+import { message, Modal, Spin, Empty } from 'antd'
 import dayjs from 'dayjs'
 import type { ReactNode } from 'react'
 import api from '@/lib/api'
@@ -129,11 +129,79 @@ const statusBadgeCls: Record<string, string> = {
   overdue: 'rent-badge--error',
 }
 
+/** 缴费记录行（卡片「最近」与「全部记录」弹窗共用一份，避免两处表格走样） */
+interface RecordRow {
+  id: string
+  date: string
+  item: string
+  amount: number
+  channel: string
+  status: string
+}
+
+const RecordsTable = ({ rows }: { rows: RecordRow[] }) => (
+  <div className="rent-table-wrap pay-table-wrap">
+    <table className="rent-table">
+      <thead>
+        <tr>
+          <th>缴费日期</th>
+          <th>缴费项目</th>
+          <th>金额</th>
+          <th>支付方式</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.length === 0 ? (
+          <tr>
+            <td colSpan={5}>
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无缴费记录" />
+            </td>
+          </tr>
+        ) : (
+          rows.map((r) => {
+            const status = r.status || 'paid'
+            const badgeCls = statusBadgeCls[status] || 'rent-badge--neutral'
+            const label =
+              statusLabelMap[status] ||
+              (status === 'paid' ? '已支付' : status === 'pending' ? '处理中' : status)
+            const dotColor =
+              status === 'paid' || status === 'succeeded'
+                ? 'var(--state-success)'
+                : status === 'pending'
+                  ? 'var(--state-warning)'
+                  : 'var(--state-error)'
+            return (
+              <tr key={r.id}>
+                <td className="rent-mono">{r.date}</td>
+                <td>{r.item}</td>
+                <td className="rent-mono rent-num">{fmtMoney(r.amount)}</td>
+                <td>{r.channel}</td>
+                <td>
+                  <span className={`rent-badge ${badgeCls}`}>
+                    <span className="rent-badge--dot" style={{ background: dotColor }} />
+                    {label}
+                  </span>
+                </td>
+              </tr>
+            )
+          })
+        )}
+      </tbody>
+    </table>
+  </div>
+)
+
+/** 卡片内「最近」预览条数，其余走「查看全部」弹窗 */
+const RECENT_RECORD_LIMIT = 5
+
 const Payments = () => {
   const [currentMethod, setCurrentMethod] = useState<PaymentMethod | null>(null)
   const [amount, setAmount] = useState<number>(0)
   const [submitting, setSubmitting] = useState(false)
   const [selectedProperty, setSelectedProperty] = useState<string>('')
+  // 全部缴费记录弹窗（卡片只预览最近若干条）
+  const [recordsOpen, setRecordsOpen] = useState(false)
 
   const user = useAuthStore((s) => s.user)
   const uid = user?.id ?? 'anon'
@@ -230,7 +298,7 @@ const Payments = () => {
   const displayAmount = amount > 0 ? amount : 0
 
   // 缴费记录（真实接口数据，无兜底）
-  const renderRecords = records.map((r) => ({
+  const renderRecords: RecordRow[] = records.map((r) => ({
     id: r.id,
     date: r.paid_at || r.due_date ? dayjs(r.paid_at || r.due_date).format('YYYY-MM-DD') : '-',
     item: typeLabelMap[r.payment_type || ''] || r.payment_type || '管理费',
@@ -255,7 +323,7 @@ const Payments = () => {
           <p className="rent-page-header__subtitle">安全便捷的在线缴费，支持扫码、银行卡、支付宝、微信及跨境转账</p>
         </div>
         <div className="rent-page-header__actions">
-          <button type="button" className="rent-btn rent-btn--secondary">
+          <button type="button" className="rent-btn rent-btn--secondary" onClick={() => setRecordsOpen(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
@@ -471,12 +539,12 @@ const Payments = () => {
             </div>
           </div>
           <div className="rent-card__footer">
-            <a href="#" className="pay-link">
+            <button type="button" className="pay-link" onClick={() => setRecordsOpen(true)}>
               <span>最近缴费记录</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -485,62 +553,30 @@ const Payments = () => {
       <div className="rent-card">
         <div className="rent-card__header">
           <h3 className="rent-card__title">最近缴费记录</h3>
-          <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">
+          <button
+            type="button"
+            className="rent-btn rent-btn--ghost rent-btn--sm"
+            onClick={() => setRecordsOpen(true)}
+          >
             查看全部
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="9 18 15 12 9 6" />
             </svg>
-          </a>
+          </button>
         </div>
-        <div className="rent-table-wrap pay-table-wrap">
-          <table className="rent-table">
-            <thead>
-              <tr>
-                <th>缴费日期</th>
-                <th>缴费项目</th>
-                <th>金额</th>
-                <th>支付方式</th>
-                <th>状态</th>
-              </tr>
-            </thead>
-            <tbody>
-              {renderRecords.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>
-                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无缴费记录" />
-                  </td>
-                </tr>
-              ) : (
-                renderRecords.map((r: any) => {
-                const status = r.status || 'paid'
-                const badgeCls = statusBadgeCls[status] || 'rent-badge--neutral'
-                const label = statusLabelMap[status] || (status === 'paid' ? '已支付' : status === 'pending' ? '处理中' : status)
-                const dotColor =
-                  status === 'paid' || status === 'succeeded'
-                    ? 'var(--state-success)'
-                    : status === 'pending'
-                      ? 'var(--state-warning)'
-                      : 'var(--state-error)'
-                return (
-                  <tr key={r.id}>
-                    <td className="rent-mono">{r.date}</td>
-                    <td>{r.item}</td>
-                    <td className="rent-mono rent-num">{fmtMoney(r.amount)}</td>
-                    <td>{r.channel}</td>
-                    <td>
-                      <span className={`rent-badge ${badgeCls}`}>
-                        <span className="rent-badge--dot" style={{ background: dotColor }} />
-                        {label}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })
-              )}
-            </tbody>
-          </table>
-        </div>
+        <RecordsTable rows={renderRecords.slice(0, RECENT_RECORD_LIMIT)} />
       </div>
+
+      {/* 全部缴费记录（真实 /payments/me 数据） */}
+      <Modal
+        title="缴费记录"
+        open={recordsOpen}
+        onCancel={() => setRecordsOpen(false)}
+        footer={null}
+        width={760}
+      >
+        <RecordsTable rows={renderRecords} />
+      </Modal>
     </div>
   )
 }

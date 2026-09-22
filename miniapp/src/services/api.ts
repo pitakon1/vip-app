@@ -256,11 +256,13 @@ export const translateApi = {
 }
 
 // 查询参数拼接（FastAPI Query 接口需拼进 URL）
+// 键名统一转 snake_case：后端查询参数是 snake_case，传 `pageSize` 会被静默忽略
+const toSnakeKey = (key: string) => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 const qs = (params?: any) => {
   if (!params) return ''
   const parts = Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+    .map(([k, v]) => `${encodeURIComponent(toSnakeKey(k))}=${encodeURIComponent(String(v))}`)
   return parts.length ? `?${parts.join('&')}` : ''
 }
 

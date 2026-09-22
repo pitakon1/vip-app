@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Spin, Empty } from 'antd'
+import { Spin, Empty, Modal, message } from 'antd'
 import dayjs, { Dayjs } from 'dayjs'
 import {
   Chart as ChartJS,
@@ -12,6 +12,7 @@ import {
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import api from '@/lib/api'
+import { downloadReport, saveTextFile } from '@/lib/download'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import './income.css'
@@ -54,8 +55,11 @@ interface IncomeRow {
   tenant: string
   receivable: number
   received: number
-  status: 'paid' | 'partial' | 'unpaid'
+  status: 'paid' | 'partial' | 'unpaid' | 'refunded'
 }
+
+// 表格每页条数（/payments/me 一次取回明细，分页在前端做）
+const PAGE_SIZE = 10
 
 const fmtMoney = (v: number) => `฿ ${Math.round(Number(v || 0)).toLocaleString()}`
 
@@ -64,18 +68,48 @@ const monthKey = (d: string | undefined) => {
   return dayjs(d).format('YYYY-MM')
 }
 
+// 后端 PaymentStatus：pending/processing/succeeded/failed/refunded/disputed/expired
 const statusBadgeMap: Record<string, { label: string; cls: string }> = {
   paid: { label: '已收齐', cls: 'rent-badge--success' },
   succeeded: { label: '已收齐', cls: 'rent-badge--success' },
   partial: { label: '部分收取', cls: 'rent-badge--warning' },
-  pending: { label: '部分收取', cls: 'rent-badge--warning' },
+  pending: { label: '待收', cls: 'rent-badge--warning' },
+  processing: { label: '处理中', cls: 'rent-badge--info' },
   unpaid: { label: '未收', cls: 'rent-badge--error' },
   failed: { label: '未收', cls: 'rent-badge--error' },
-  overdue: { label: '未收', cls: 'rent-badge--error' },
+  expired: { label: '已逾期', cls: 'rent-badge--error' },
+  overdue: { label: '已逾期', cls: 'rent-badge--error' },
+  refunded: { label: '已退款', cls: 'rent-badge--neutral' },
+  disputed: { label: '争议中', cls: 'rent-badge--warning' },
+}
+
+// 筛选面板的状态选项（与明细行状态一致）
+const STATUS_FILTER_OPTIONS: { value: IncomeRow['status'] | 'all'; label: string }[] = [
+  { value: 'all', label: '全部状态' },
+  { value: 'paid', label: '已收齐' },
+  { value: 'partial', label: '部分收取' },
+  { value: 'unpaid', label: '未收' },
+  { value: 'refunded', label: '已退款' },
+]
+
+// 付款状态 -> 明细行状态
+const rowStatusOf = (status: string): IncomeRow['status'] => {
+  const s = String(status || '').toLowerCase()
+  if (s === 'paid' || s === 'succeeded') return 'paid'
+  if (s === 'pending' || s === 'processing' || s === 'partial') return 'partial'
+  if (s === 'refunded') return 'refunded'
+  return 'unpaid'
 }
 
 const Income = () => {
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs())
+  const [page, setPage] = useState(1)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [draftStatus, setDraftStatus] = useState<IncomeRow['status'] | 'all'>('all')
+  const [draftProperty, setDraftProperty] = useState('all')
+  const [statusFilter, setStatusFilter] = useState<IncomeRow['status'] | 'all'>('all')
+  const [propertyFilter, setPropertyFilter] = useState('all')
+  const [exporting, setExporting] = useState(false)
 
   const user = useAuthStore((s) => s.user)
   const uid = user?.id ?? 'anon'
@@ -191,26 +225,110 @@ const Income = () => {
     return buckets
   }, [payments, selectedMonth])
 
-  // 表格展示数据（无数据时为空，由空状态组件兜底展示）
+  // 表格展示数据：按所选月份 + 状态/房产筛选（月份选择器此前只影响汇总卡片，表格不受控）
   const tableRows: IncomeRow[] = useMemo(() => {
-    return payments.map((p) => {
-      const received = p.status === 'paid' || p.status === 'succeeded' ? Number(p.amount || 0) : 0
-      const status: IncomeRow['status'] =
-        p.status === 'paid' || p.status === 'succeeded'
-          ? 'paid'
-          : p.status === 'pending'
-            ? 'partial'
-            : 'unpaid'
-      return {
-        month: monthKey(p.paid_at || p.due_date) || selectedMonth.format('YYYY-MM'),
-        property: p.property_name || (p.property_id ? String(p.property_id).slice(0, 8) + '...' : '-'),
-        tenant: p.tenant_name || p.tenant_id || '-',
-        receivable: Number(p.amount || 0),
-        received,
-        status,
-      }
+    return payments
+      .filter((p) => monthKey(p.paid_at || p.due_date) === monthStr)
+      .map((p) => {
+        const status = rowStatusOf(p.status)
+        const received = status === 'paid' ? Number(p.amount || 0) : 0
+        return {
+          month: monthKey(p.paid_at || p.due_date) || monthStr,
+          property: p.property_name || (p.property_id ? String(p.property_id).slice(0, 8) + '...' : '-'),
+          tenant: p.tenant_name || p.tenant_id || '-',
+          receivable: Number(p.amount || 0),
+          received,
+          status,
+        }
+      })
+      .filter((r) => statusFilter === 'all' || r.status === statusFilter)
+      .filter((r) => propertyFilter === 'all' || r.property === propertyFilter)
+  }, [payments, monthStr, statusFilter, propertyFilter])
+
+  // 筛选面板用的房产下拉（来自真实明细）
+  const propertyOptions = useMemo(() => {
+    const set = new Set<string>()
+    payments.forEach((p) => {
+      const name = p.property_name || (p.property_id ? String(p.property_id).slice(0, 8) + '...' : '-')
+      if (name) set.add(name)
     })
-  }, [payments, selectedMonth])
+    return Array.from(set)
+  }, [payments])
+
+  // 分页（筛选/月份变化时回到第 1 页，见各控件的 onChange）
+  const pageCount = Math.max(1, Math.ceil(tableRows.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const pagedRows = tableRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+  // 导出报表：年度租金流水（CSV）
+  const handleExportReport = async () => {
+    try {
+      setExporting(true)
+      const year = selectedMonth.format('YYYY')
+      await downloadReport(
+        '/exports/payments',
+        {
+          payment_type: 'rent',
+          date_from: `${year}-01-01`,
+          date_to: `${year}-12-31`,
+        },
+        `rent-income-${year}.csv`,
+      )
+    } catch {
+      message.error('导出失败，请稍后重试')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // 下载账单：所选月份明细生成 CSV。
+  // 不走 /exports/payments：该接口按 Payment.created_at 过滤，
+  // 而账单口径是「收入归属月份」（paid_at / due_date），两者对不上。
+  const handleDownloadBill = () => {
+    if (!tableRows.length) {
+      message.warning('所选月份暂无可下载的账单记录')
+      return
+    }
+    const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const lines = [
+      ['月份', '房产', '租客', '应收', '实收', '差额', '状态'].map(escape).join(','),
+      ...tableRows.map((r) =>
+        [
+          r.month,
+          r.property,
+          r.tenant,
+          r.receivable,
+          r.received,
+          r.receivable - r.received,
+          statusBadgeMap[r.status]?.label || r.status,
+        ]
+          .map(escape)
+          .join(','),
+      ),
+    ]
+    saveTextFile(`\ufeff${lines.join('\n')}`, `rent-bill-${monthStr}.csv`)
+  }
+
+  const openFilter = () => {
+    setDraftStatus(statusFilter)
+    setDraftProperty(propertyFilter)
+    setFilterOpen(true)
+  }
+
+  const applyFilter = () => {
+    setStatusFilter(draftStatus)
+    setPropertyFilter(draftProperty)
+    setPage(1)
+    setFilterOpen(false)
+  }
+
+  const resetFilter = () => {
+    setDraftStatus('all')
+    setDraftProperty('all')
+    setStatusFilter('all')
+    setPropertyFilter('all')
+    setPage(1)
+  }
 
   // 趋势图表数据（仅使用真实已收租金，无兜底）
   const trendData = useMemo(() => {
@@ -347,15 +465,24 @@ const Income = () => {
           <p className="rent-page-header__subtitle">查看您的房产租金收入、收缴情况与趋势分析</p>
         </div>
         <div className="rent-page-header__actions">
-          <button type="button" className="rent-btn rent-btn--secondary">
+          <button
+            type="button"
+            className="rent-btn rent-btn--secondary"
+            onClick={handleExportReport}
+            disabled={exporting}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            导出报表
+            {exporting ? '导出中...' : '导出报表'}
           </button>
-          <button type="button" className="rent-btn rent-btn--primary">
+          <button
+            type="button"
+            className="rent-btn rent-btn--primary"
+            onClick={handleDownloadBill}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
@@ -399,7 +526,7 @@ const Income = () => {
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
-            <span>共 {propertyCount || 8} 套房产</span>
+            <span>共 {propertyCount} 套房产</span>
           </div>
         </div>
         <div className="rent-stat-card">
@@ -443,13 +570,17 @@ const Income = () => {
             <select
               className="rent-form-select income-month-select"
               value={selectedMonth.format('YYYY-MM')}
-              onChange={(e) => e.target.value && setSelectedMonth(dayjs(e.target.value))}
+              onChange={(e) => {
+                if (!e.target.value) return
+                setSelectedMonth(dayjs(e.target.value))
+                setPage(1)
+              }}
             >
               {[selectedMonth.format('YYYY-MM'), selectedMonth.subtract(1, 'month').format('YYYY-MM')].map((m) => (
                 <option key={m} value={m}>{dayjs(m).format('YYYY 年 M 月')}</option>
               ))}
             </select>
-            <button type="button" className="rent-btn rent-btn--secondary rent-btn--sm">
+            <button type="button" className="rent-btn rent-btn--secondary rent-btn--sm" onClick={openFilter}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
               筛选
             </button>
@@ -477,7 +608,7 @@ const Income = () => {
                   </td>
                 </tr>
               ) : (
-                tableRows.map((r, i) => {
+                pagedRows.map((r, i) => {
                 const diff = r.receivable - r.received
                 const rate = r.receivable > 0 ? ((r.received / r.receivable) * 100).toFixed(1) : '0.0'
                 const badge = statusBadgeMap[r.status] || statusBadgeMap.unpaid
@@ -508,17 +639,31 @@ const Income = () => {
         </div>
         <div className="rent-card__footer">
           <div className="rent-flex rent-flex--between">
-            <span className="rent-text-sm rent-text-muted">共 {tableRows.length} 条记录</span>
+            <span className="rent-text-sm rent-text-muted">
+              共 {tableRows.length} 条记录 · 每页 {PAGE_SIZE} 条
+            </span>
             <div className="rent-pagination income-pagination">
-              <button type="button" className="rent-pagination__btn">
+              <button
+                type="button"
+                className="rent-pagination__btn"
+                aria-label="上一页"
+                disabled={safePage <= 1}
+                onClick={() => setPage(Math.max(1, safePage - 1))}
+              >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="15 18 9 12 15 6" />
                 </svg>
               </button>
-              <button type="button" className="rent-pagination__btn" data-active="true">1</button>
-              <button type="button" className="rent-pagination__btn">2</button>
-              <button type="button" className="rent-pagination__btn">3</button>
-              <button type="button" className="rent-pagination__btn">
+              <span className="rent-pagination__info">
+                {safePage} / {pageCount}
+              </span>
+              <button
+                type="button"
+                className="rent-pagination__btn"
+                aria-label="下一页"
+                disabled={safePage >= pageCount}
+                onClick={() => setPage(Math.min(pageCount, safePage + 1))}
+              >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
@@ -540,6 +685,55 @@ const Income = () => {
           </div>
         </div>
       </div>
+
+      {/* 筛选：状态 / 房产（月份由明细表头的选择器控制） */}
+      <Modal
+        open={filterOpen}
+        title="筛选收入明细"
+        okText="应用"
+        cancelText="取消"
+        onOk={applyFilter}
+        onCancel={() => setFilterOpen(false)}
+        footer={[
+          <button key="reset" type="button" className="rent-btn rent-btn--ghost" onClick={resetFilter}>
+            重置
+          </button>,
+          <button key="cancel" type="button" className="rent-btn rent-btn--secondary" onClick={() => setFilterOpen(false)}>
+            取消
+          </button>,
+          <button key="ok" type="button" className="rent-btn rent-btn--primary" onClick={applyFilter}>
+            应用
+          </button>,
+        ]}
+      >
+        <div className="rent-form-group">
+          <label className="rent-form-label" htmlFor="income-filter-status">收款状态</label>
+          <select
+            id="income-filter-status"
+            className="rent-form-select"
+            value={draftStatus}
+            onChange={(e) => setDraftStatus(e.target.value as IncomeRow['status'] | 'all')}
+          >
+            {STATUS_FILTER_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="rent-form-group">
+          <label className="rent-form-label" htmlFor="income-filter-property">房产</label>
+          <select
+            id="income-filter-property"
+            className="rent-form-select"
+            value={draftProperty}
+            onChange={(e) => setDraftProperty(e.target.value)}
+          >
+            <option value="all">全部房产</option>
+            {propertyOptions.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </div>
+      </Modal>
     </div>
   )
 }

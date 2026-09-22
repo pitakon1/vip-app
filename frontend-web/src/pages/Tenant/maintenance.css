@@ -439,3 +439,5 @@
   .mt-summary { flex-wrap: wrap; }
   .mt-summary__item { flex: 1 1 40%; border-right: none; }
 }
+
+/* 工单/凭证详情弹窗（.mt-detail 系列已并入全局 prototype-portal.css，避免重复定义） */

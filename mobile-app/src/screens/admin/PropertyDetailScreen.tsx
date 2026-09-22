@@ -118,7 +118,7 @@ export default function AdminPropertyDetailScreen() {
     const [propRes, leaseRes, ticketRes] = await Promise.allSettled([
       propertiesApi.get(propertyId),
       propertiesApi.leases(propertyId),
-      api.get('/maintenance', { params: { property_id: propertyId, page_size: 20 } }),
+      api.get('/maintenance-tickets', { params: { property_id: propertyId, page_size: 20 } }),
     ]);
 
     if (propRes.status === 'fulfilled') {

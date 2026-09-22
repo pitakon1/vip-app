@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import api, { MAX_PAGE_SIZE } from '@/lib/api'
+import LocationPicker from '@/components/LocationPicker'
+import { useLocationStore } from '@/stores/location'
 import { formatMoney } from '@/lib/money'
 import { propertiesApi } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
@@ -72,6 +74,21 @@ const TenantDashboard = () => {
   // ===== 双业务状态 =====
   const [biz, setBiz] = useState<'rent' | 'buy'>('rent')
   const [keyword, setKeyword] = useState('')
+  // 首页搜索：输入即实时筛选，箭头按钮负责「跳转到结果区 / 聚焦输入框」
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchResultRef = useRef<HTMLDivElement>(null)
+
+  const handleHeroSearch = () => {
+    if (keyword.trim()) {
+      searchResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else {
+      searchInputRef.current?.focus()
+    }
+  }
+
+  // 左上角定位：读取全局 Store 的真实城市，点击打开定位选择器
+  const cityLabel = useLocationStore((s) => s.selection.cityLabel)
+  const [locOpen, setLocOpen] = useState(false)
 
   // ===== 数据（缓存优先 + 后台刷新） =====
   const user = useAuthStore((s) => s.user)
@@ -235,20 +252,28 @@ const TenantDashboard = () => {
     <>
       {/* ===== 城市定位 + 搜索 ===== */}
       <div className="rv17-hero">
-        <div className="rv17-hero__loc">
+        <div className="rv17-hero__loc" onClick={() => setLocOpen(true)} role="button" tabIndex={0} style={{ cursor: 'pointer' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
-          <span>{t('browse.city')}</span>
+          <span>{cityLabel || t('browse.city')}</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
         </div>
         <div className="rv17-hero__search">
           <svg className="rv17-hero__search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
           <input
+            ref={searchInputRef}
             type="search"
             placeholder={t('browse.searchPlaceholder')}
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleHeroSearch()
+            }}
           />
-          <button className="rv17-hero__search-btn" aria-label={t('common.search')}>
+          <button
+            className="rv17-hero__search-btn"
+            aria-label={t('common.search')}
+            onClick={handleHeroSearch}
+          >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
           </button>
         </div>
@@ -262,7 +287,7 @@ const TenantDashboard = () => {
 
       {/* ===== 搜索结果显示 ===== */}
       {keyword.trim() && (
-        <div className="rv17-sec">
+        <div className="rv17-sec" ref={searchResultRef}>
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('common.search')}（{searchResults.length}）</h2>
             <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
@@ -359,6 +384,8 @@ const TenantDashboard = () => {
           </div>
         </div>
       </section>
+
+      <LocationPicker visible={locOpen} onClose={() => setLocOpen(false)} />
     </>
   )
 }

@@ -155,6 +155,13 @@ export const ownersApi = {
 export const companyApi = {
   info: () => api.get('/company/info'),
   update: (data: RequestBody) => api.put('/company/info', data),
+  // 公司 Logo 上传/移除（multipart 落 /uploads/company，移除会同时清库与删盘）
+  uploadLogo: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/company/info/logo', fd)
+  },
+  removeLogo: () => api.delete('/company/info/logo'),
 }
 
 // Notifications
@@ -238,7 +245,8 @@ export const backupApi = {
 export const geoApi = {
   geocode: (address: string) => api.post('/geo/geocode', { address }),
   reverse: (lat: number, lng: number) => api.post('/geo/reverse', { lat, lng }),
-  distance: (from: unknown, to: unknown) => api.post('/geo/distance', { from, to }),
+  distance: (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+    api.post('/geo/distance', { a, b }),
   attendance: (lat: number, lng: number) => api.post('/geo/attendance', { lat, lng }),
 }
 
