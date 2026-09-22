@@ -84,6 +84,15 @@ tmp/
 .swc/
 *.tsbuildinfo
 
+# ===== Taro 小程序构建产物 =====
+miniapp/lib/
+
+# ===== 本地临时脚本与归档（一次性审计/改色/生成工具，不属于项目源码） =====
+/_*.py
+/.tmp_old/
+_tmp_old/
+backend/*.bak
+
 # ===== 外来技能库（不属于项目源码） =====
 anthropics-skills/
 ui-ux-pro-max-skill/

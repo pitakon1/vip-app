@@ -491,29 +491,6 @@ export default function OwnerPropertyDetailPage() {
                 })
               )}
             </View>
-
-            {/* 快捷操作 */}
-            <View className='section-title'>
-              <Text>快捷操作</Text>
-            </View>
-            <View className='action-row'>
-              <View
-                className='action-row__item'
-                hoverClass='action-row__item--hover'
-                onClick={() => Taro.navigateTo({ url: '/pages/owner/documents/index' })}
-              >
-                <View className='action-row__icon icon-svg' style={iconStyle('doc', 40)} />
-                <Text className='action-row__label'>查看合同</Text>
-              </View>
-              <View
-                className='action-row__item'
-                hoverClass='action-row__item--hover'
-                onClick={() => Taro.navigateTo({ url: '/pages/owner/payments/index' })}
-              >
-                <View className='action-row__icon icon-svg' style={iconStyle('card', 40)} />
-                <Text className='action-row__label'>发起收款</Text>
-              </View>
-            </View>
           </View>
         )}
       </View>

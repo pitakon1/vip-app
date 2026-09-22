@@ -218,15 +218,27 @@ export default function EmployeeHomePage() {
       </View>
 
       <View className='emp-content'>
-        {/* 房源上架入口 */}
+        {/* 房源上架入口（对齐 App：移除独立 workbench，直达发布房源） */}
         <View className='emp-section'>
-          <View className='emp-quick' onClick={() => Taro.navigateTo({ url: '/pages/staff/hub/index' })}>
+          <View className='emp-quick' onClick={() => Taro.navigateTo({ url: '/pages/staff/listing-edit/index' })}>
             <View className='emp-quick__icon'>
               <Text className='emp-quick__icon-text'>上</Text>
             </View>
             <View className='emp-quick__body'>
-              <Text className='emp-quick__title'>房源上架工作台</Text>
-              <Text className='emp-quick__desc'>发布房源 · 我的上架单 · 协议签约 · 审核</Text>
+              <Text className='emp-quick__title'>发布房源</Text>
+              <Text className='emp-quick__desc'>完整信息 + 分佣配置</Text>
+            </View>
+            <Text className='emp-quick__arrow'>›</Text>
+          </View>
+
+          {/* 日历/日程排期入口 */}
+          <View className='emp-quick' onClick={() => Taro.navigateTo({ url: '/pages/employee/calendar/index' })}>
+            <View className='emp-quick__icon emp-quick__icon--calendar'>
+              <Text className='emp-quick__icon-text'>历</Text>
+            </View>
+            <View className='emp-quick__body'>
+              <Text className='emp-quick__title'>日程排期</Text>
+              <Text className='emp-quick__desc'>月历 · 带看/租金/合同到期提醒</Text>
             </View>
             <Text className='emp-quick__arrow'>›</Text>
           </View>

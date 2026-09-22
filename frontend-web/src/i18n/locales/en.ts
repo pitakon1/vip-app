@@ -31,6 +31,14 @@ const en: import('./zh').Translation = {
       backHome: 'Back to Home',
       back: 'Go Back',
     },
+    // Global ErrorBoundary copy — keeps a render crash from blanking the page
+    errorBoundary: {
+      title: 'Something went wrong',
+      desc: 'A rendering error was caught to prevent a blank page. Try reloading; contact an administrator if it keeps happening.',
+      reload: 'Reload',
+      backHome: 'Back to Home',
+      detail: 'Error detail',
+    },
   },
   menu: {
     dashboard: 'Dashboard',
@@ -405,6 +413,13 @@ const en: import('./zh').Translation = {
     rented: 'Rented',
     reserved: 'Reserved',
     maintenance: 'Maintenance',
+  },
+  // Lease status (backend leases table / history table on property detail)
+  leaseStatus: {
+    active: 'Active',
+    pending: 'Pending',
+    expired: 'Expired',
+    terminated: 'Terminated',
   },
   propertyType: {
     apartment: 'Apartment',
@@ -1228,6 +1243,20 @@ const en: import('./zh').Translation = {
     listingType: {
       rent: 'For rent',
       sell: 'For sale',
+    },
+    floorLevel: {
+      low: 'Low floor (1-5)',
+      mid: 'Mid floor (6-15)',
+      high: 'High floor (16+)',
+    },
+    amenity: {
+      aircon: 'Air conditioning',
+      pool: 'Pool',
+      gym: 'Gym',
+      parking: 'Parking',
+      elevator: 'Elevator',
+      balcony: 'Balcony',
+      garden: 'Garden / yard',
     },
   },
 }

@@ -259,7 +259,5 @@ export const publicApi = {
     request<any>({ url: `${PUBLIC}/projects/${id}`, method: 'GET', data: params }),
   /** 匿名留资（后端限流；至少留一种联系方式） */
   inquiry: (data: PublicInquiryPayload) =>
-    request<any>({ url: `${PUBLIC}/inquiries`, method: 'POST', data }),
-  /** 公开汇率（双币展示的数据源，避免前端各自硬编码） */
-  exchangeRates: () => request<any>({ url: `${PUBLIC}/exchange-rates` })
+    request<any>({ url: `${PUBLIC}/inquiries`, method: 'POST', data })
 }

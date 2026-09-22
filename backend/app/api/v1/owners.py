@@ -128,7 +128,11 @@ def get_my_owner_info(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),
 ):
-    """业主个人信息。"""
+    """业主个人信息。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：业主档案在业主角色
+    首次访问时自动建档（_get_owner），三端都没有「我的资料」页；下面 PATCH 同因。
+    """
     return _get_owner(session, user)
 
 
@@ -138,7 +142,10 @@ def update_my_owner_info(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),
 ):
-    """更新业主个人信息。"""
+    """更新业主个人信息。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：同 GET /owners/me。
+    """
     owner = _get_owner(session, user)
     update_data = req.model_dump(exclude_unset=True)
     for key, value in update_data.items():

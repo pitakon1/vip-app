@@ -374,7 +374,11 @@ def admin_attendance_records(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ):
-    """考勤核对：按日期区间（默认最近 7 天）返回全员考勤明细与汇总。"""
+    """考勤核对：按日期区间（默认最近 7 天）返回全员考勤明细与汇总。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：管理端「考勤核对」
+    报表页尚未做；员工自助考勤走 /attendance/me。
+    """
     today = date.today()
     start = start_date or today
     end = end_date or today

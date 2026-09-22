@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { tokenStorage } from '../lib/storage';
 
 export type AppLang = 'zh' | 'en' | 'th';
 
@@ -234,6 +233,13 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'cancel': '取消',
     'loadFailed': '加载失败',
     'loadFailedSub': '网络异常或服务暂不可用',
+    // 通用交互失败提示（替代散落在各页面的硬编码中文）
+    'actionFailed': '操作失败，请稍后重试',
+    // 无标题房源卡片的兜底名（后面拼房源 ID）
+    'listingFallback': '房源',
+    'clearAll': '清空',
+    // 降价提醒条目的「已通知」角标
+    'priceDroppedTag': '已降价通知',
     'empty.bills': '暂无账单',
     'empty.billsSub': '签约生效后，账单会展示在这里',
     'empty.maintenance': '暂无报修记录',
@@ -678,6 +684,10 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'cancel': 'Cancel',
     'loadFailed': 'Failed to load',
     'loadFailedSub': 'Network error or service unavailable',
+    'actionFailed': 'Action failed, please try again later',
+    'listingFallback': 'Listing',
+    'clearAll': 'Clear',
+    'priceDroppedTag': 'Price-drop alert sent',
     'empty.bills': 'No bills yet',
     'empty.billsSub': 'Bills will appear here after your lease starts',
     'empty.maintenance': 'No maintenance records',
@@ -1112,6 +1122,10 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'cancel': 'ยกเลิก',
     'loadFailed': 'โหลดไม่สำเร็จ',
     'loadFailedSub': 'เครือข่ายผิดพลาดหรือบริการไม่พร้อมใช้งาน',
+    'actionFailed': 'ดำเนินการไม่สำเร็จ กรุณาลองใหม่ภายหลัง',
+    'listingFallback': 'ประกาศ',
+    'clearAll': 'ล้างทั้งหมด',
+    'priceDroppedTag': 'แจ้งเตือนราคาลดแล้ว',
     'empty.bills': 'ยังไม่มีบิล',
     'empty.billsSub': 'บิลจะแสดงที่นี่หลังสัญญาเริ่มต้น',
     'empty.maintenance': 'ยังไม่มีงานซ่อม',
@@ -1340,8 +1354,10 @@ export const messages: Record<AppLang, Record<string, string>> = {
 
 const loadLang = async (): Promise<AppLang> => {
   try {
-    await tokenStorage.get();
-    // lang 单独存储于 localStorage 的 app_lang
+    // 注意：这里原本有一行 `await tokenStorage.get();`——返回值被丢弃，纯属死代码；
+    // 更麻烦的是它会先读一次安全存储，一旦抛错就把整个语言加载流程带崩
+    // （catch 里只会回落到默认语言，用户的语言偏好会被无声重置）。
+    // lang 单独存储于 localStorage 的 app_lang，与 token 无关，直接读即可。
     if (typeof globalThis.localStorage !== 'undefined') {
       const v = globalThis.localStorage.getItem(LANG_STORAGE_KEY);
       if (v === 'en' || v === 'th' || v === 'zh') return v as AppLang;

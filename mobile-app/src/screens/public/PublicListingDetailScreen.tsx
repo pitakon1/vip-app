@@ -15,7 +15,6 @@ import {
   View,
   Text,
   ScrollView,
-  Image,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
@@ -27,6 +26,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import RemoteImage from '@/components/RemoteImage';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import { publicApi, type PublicListing, type PublicListingDetail } from '@/services/publicApi';
@@ -181,7 +181,11 @@ export default function PublicListingDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+    // 依赖必须带上 isLoggedIn：后端对未登录访客会把经纪人电话打码返回
+    // （见 /public/listings/{id} 的 permissive auth）。游客点「登录后拨打」
+    // 登录回来时，若不重新拉取，按钮会因为 isLoggedIn 变 true 而解锁，
+    // 但数据里仍是打码号码 —— 用户会拨出一个废号。
+  }, [id, isLoggedIn]);
 
   // 猜你喜欢：相似房源（失败静默，不阻塞详情页）
   useEffect(() => {
@@ -235,7 +239,7 @@ export default function PublicListingDetailScreen() {
         {photos.length > 0 ? (
           <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
             {photos.map((url) => (
-              <Image key={url} source={{ uri: url }} style={{ width, height: 260 }} resizeMode="cover" />
+              <RemoteImage key={url} uri={url} style={{ width, height: 260 }} resizeMode="cover" />
             ))}
           </ScrollView>
         ) : (

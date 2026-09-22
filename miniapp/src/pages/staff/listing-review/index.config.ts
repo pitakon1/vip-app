@@ -1,1 +1,0 @@
-export default { navigationBarTitleText: '上架审核' }

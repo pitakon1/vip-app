@@ -209,7 +209,7 @@ const Payments = () => {
       await api.post('/payments', {
         payer_id: user.id,
         amount,
-        currency: 'RM',
+        currency: 'THB',
         payment_type: 'service',
         channel: currentMethod?.id || 'qr',
         idempotency_key: `owner-pay-${user.id}-${Date.now()}`,

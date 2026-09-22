@@ -404,7 +404,9 @@ const Dashboard = () => {
                 <div className="rent-wb-strip__label">本月成交</div>
               </div>
               <div className="rent-wb-strip__cell">
-                <div className="rent-wb-strip__value rent-wb-strip__value--md">{summary.monthly_commission === undefined ? '-' : formatMoney(monthlyCommission, 'RM')}</div>
+                {/* 币种跟随接口返回：此前写死 'RM'，而 /dashboard/summary 的佣金本就是泰铢口径，
+                    且同文件 line 370 的租约金额用的是 `fl.currency || 'THB'`——同一页两种币种。 */}
+                <div className="rent-wb-strip__value rent-wb-strip__value--md">{summary.monthly_commission === undefined ? '-' : formatMoney(monthlyCommission, summary.currency || 'THB')}</div>
                 <div className="rent-wb-strip__label">佣金收入</div>
               </div>
               <div className="rent-wb-strip__cell">

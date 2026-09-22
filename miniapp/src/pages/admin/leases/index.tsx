@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { leasesApi, propertiesApi, dashboardApi } from '@/services/api'
+import { MAX_PAGE_SIZE } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
@@ -79,9 +80,12 @@ export default function AdminLeasesPage() {
   }
 
   // 房源名称映射（列表接口不含房源名，用房源列表补齐）
+  // ⚠️ 技术债：同上，贴住后端硬顶（100）。房源超过 100 套时，
+  // 超出部分租约的房源名会回退成「未命名房源」。正确解法是让租约列表
+  // 直接带上房源名，或后端提供轻量的 id→房源名 映射接口。
   const fetchProps = async () => {
     try {
-      const res: any = await propertiesApi.list({ page: 1, page_size: 200 })
+      const res: any = await propertiesApi.list({ page: 1, page_size: MAX_PAGE_SIZE })
       const d = res?.data ?? res
       const items: any[] = Array.isArray(d) ? d : d?.items || []
       const map: Record<string, string> = {}

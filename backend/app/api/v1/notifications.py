@@ -59,7 +59,11 @@ def dispatch_notification(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ):
-    """通知派发：通过通知路由器发送到指定渠道（系统/Celery 内部接口）。"""
+    """通知派发：通过通知路由器发送到指定渠道（系统/Celery 内部接口）。
+
+    [刻意保留] 无前端调用方：这是服务端内部广播入口（Celery 任务 / 运维手工触发），
+    设计上就不该由 UI 直连；已在契约工具的 INTENTIONAL_ORPHANS 登记，不再报警。
+    """
     try:
         channel = ProviderChannel(req.channel)
     except ValueError:

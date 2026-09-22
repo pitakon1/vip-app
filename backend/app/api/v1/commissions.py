@@ -58,7 +58,11 @@ def list_commissions(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ):
-    """全部佣金列表（admin 权限）。"""
+    """全部佣金列表（admin 权限）。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：管理端佣金结算页
+    未做；员工侧看自己的走 /commissions/me。
+    """
     conditions = [CommissionSettlement.deleted_at.is_(None)]
     if status:
         conditions.append(CommissionSettlement.status == status)
@@ -79,7 +83,11 @@ def approve_commission(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ):
-    """审核佣金（admin 权限）。"""
+    """审核佣金（admin 权限）。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：与列表接口同因，
+    管理端审批入口未做。注意这是**分佣资金闭环的关键节点**，接管理端时要优先接。
+    """
     commission = session.get(CommissionSettlement, commission_id)
     if not commission or commission.deleted_at:
         raise HTTPException(status_code=404, detail="Commission not found")

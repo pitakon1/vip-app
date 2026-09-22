@@ -31,6 +31,14 @@ const th: import('./zh').Translation = {
       backHome: 'กลับหน้าหลัก',
       back: 'ย้อนกลับ',
     },
+    // ข้อความ ErrorBoundary ระดับ global
+    errorBoundary: {
+      title: 'เกิดข้อผิดพลาด',
+      desc: 'ระบบตรวจพบข้อผิดพลาดขณะแสดงผลและได้สกัดกั้นไว้เพื่อไม่ให้หน้าจอว่างเปล่า กรุณารีเฟรชอีกครั้ง',
+      reload: 'รีเฟรชหน้า',
+      backHome: 'กลับหน้าหลัก',
+      detail: 'รายละเอียดข้อผิดพลาด',
+    },
   },
   menu: {
     dashboard: 'แดชบอร์ด',
@@ -405,6 +413,13 @@ const th: import('./zh').Translation = {
     rented: 'ให้เช่าแล้ว',
     reserved: 'จองแล้ว',
     maintenance: 'ซ่อมบำรุง',
+  },
+  // สถานะสัญญาเช่า
+  leaseStatus: {
+    active: 'มีผลบังคับใช้',
+    pending: 'รอมีผล',
+    expired: 'หมดอายุ',
+    terminated: 'ยกเลิกสัญญา',
   },
   propertyType: {
     apartment: 'อพาร์ตเมนต์',
@@ -1228,6 +1243,20 @@ const th: import('./zh').Translation = {
     listingType: {
       rent: 'ให้เช่า',
       sell: 'ขาย',
+    },
+    floorLevel: {
+      low: 'ชั้นล่าง (1-5)',
+      mid: 'ชั้นกลาง (6-15)',
+      high: 'ชั้นสูง (16+)',
+    },
+    amenity: {
+      aircon: 'เครื่องปรับอากาศ',
+      pool: 'สระว่ายน้ำ',
+      gym: 'ฟิตเนส',
+      parking: 'ที่จอดรถ',
+      elevator: 'ลิฟต์',
+      balcony: 'ระเบียง',
+      garden: 'สวน / ลาน',
     },
   },
 }

@@ -49,7 +49,10 @@ interface MonthPerf {
   deals: number
 }
 
-const fmtMoney = (v: number) => formatMoney(v, 'RM')
+// 业绩/佣金一律泰铢口径（后端 base currency 为 THB）。
+// 此前写死 'RM'：`formatMoney` 只加币种符号、不做汇率换算，所以显示出来的
+// "RM 28,400" 其实是 28,400 泰铢——符号错了、数字也没换。
+const fmtMoney = (v: number) => formatMoney(v, 'THB')
 
 // 柱图值紧凑展示：28400 -> 28.4k
 const fmtCompact = (v: number) => {

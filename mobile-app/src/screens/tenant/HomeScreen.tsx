@@ -159,8 +159,10 @@ const ticketStatusMeta: Record<
   string,
   { text: string; color: string; bg: string; progress: number }
 > = {
-  submitted: { text: '待处理', color: colors.warning, bg: colors.warningLight, progress: 25 },
-  accepted: { text: '已受理', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), progress: 50 },
+  // 键名与后端 TicketStatus 对齐（open/assigned/in_progress/resolved/closed），
+  // 展示文案保持业务语义：open=待处理、assigned=已受理。
+  open: { text: '待处理', color: colors.warning, bg: colors.warningLight, progress: 25 },
+  assigned: { text: '已受理', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), progress: 50 },
   in_progress: { text: '处理中', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), progress: 70 },
   resolved: { text: '已解决', color: colors.success, bg: colors.successLight, progress: 100 },
   closed: { text: '已关闭', color: colors.ink3, bg: colors.surface2, progress: 100 },
@@ -559,7 +561,7 @@ export default function HomeScreen() {
       });
     });
     tickets.forEach((tk) => {
-      const meta = ticketStatusMeta[String(tk.status ?? '')] ?? ticketStatusMeta.submitted;
+      const meta = ticketStatusMeta[String(tk.status ?? '')] ?? ticketStatusMeta.open;
       rows.push({
         id: `maint-${tk.id}`,
         icon: 'build-outline',

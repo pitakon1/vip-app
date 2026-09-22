@@ -23,7 +23,11 @@ def get_my_tenant_info(
     session: Session = Depends(get_session),
     user: User = Depends(require_tenant),
 ):
-    """租客个人信息。"""
+    """租客个人信息。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：租客档案由租约/签约
+    流程自动建档，三端都没有「我的资料」页；下面 PATCH 同因。
+    """
     tenant = session.exec(
         select(Tenant).where(
             Tenant.user_id == user.id,
@@ -41,7 +45,10 @@ def update_my_tenant_info(
     session: Session = Depends(get_session),
     user: User = Depends(require_tenant),
 ):
-    """更新租客个人信息。"""
+    """更新租客个人信息。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：同 GET /tenants/me。
+    """
     tenant = session.exec(
         select(Tenant).where(
             Tenant.user_id == user.id,

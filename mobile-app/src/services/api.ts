@@ -53,10 +53,6 @@ export const propertiesApi = {
   leases: (id: string) => api.get(`/properties/${id}/leases`),
 };
 
-export const projectsApi = {
-  list: (params?: any) => api.get('/projects', { params }),
-};
-
 export const leasesApi = {
   list: (params?: any) => api.get('/leases', { params }),
   mine: () => api.get('/leases/me'),
@@ -85,12 +81,6 @@ export const dashboardApi = {
   expiringLeases: () => api.get('/dashboard/expiring-leases'),
   financialReconciliation: () => api.get('/dashboard/financial-reconciliation'),
   trend: (params?: any) => api.get('/dashboard/trend', { params }),
-};
-
-// 管理端：审计日志
-export const auditApi = {
-  list: (params?: any) => api.get('/audit-logs', { params }),
-  summary: () => api.get('/audit-logs/summary'),
 };
 
 // 管理端：佣金规则配置
@@ -198,10 +188,6 @@ export const ownersApi = {
     }),
 };
 
-export const tenantApi = {
-  me: () => api.get('/tenants/me'),
-};
-
 export const attendanceApi = {
   checkIn: (data: any) => api.post('/attendance/check-in', data),
   checkOut: (data: any) => api.post('/attendance/check-out', data),
@@ -245,16 +231,6 @@ export const contractsApi = {
   generate: (data: any) => api.post('/contracts/generate', data),
   addParty: (id: string, data: any) => api.post(`/contracts/${id}/parties`, data),
   sign: (id: string, partyId: string) => api.post(`/contracts/${id}/sign`, { party_id: partyId }),
-};
-
-export const aiApi = {
-  health: () => api.get('/ai/health'),
-  chat: (messages: any[]) => api.post('/ai/chat', { messages }),
-};
-
-export const backupApi = {
-  run: () => api.post('/backup/run'),
-  jobs: (params?: any) => api.get('/backup/jobs', { params }),
 };
 
 export const geoApi = {
@@ -328,18 +304,6 @@ export const brokerApi = {
   myReferrals: () => api.get('/brokers/referrals/mine'),
   // 联合单分成
   createSplitDeal: (data: any) => api.post('/brokers/split-deals', data),
-};
-
-// —— 战略：多国市场 ——
-export const marketApi = {
-  list: (params?: any) => api.get('/markets', { params }),
-  create: (data: any) => api.post('/markets', data),
-  channels: (marketCode?: string) =>
-    api.get('/markets/channels', { params: marketCode ? { market_code: marketCode } : {} }),
-  createChannel: (data: any) => api.post('/markets/channels', data),
-  compliance: (marketCode?: string) =>
-    api.get('/markets/compliance', { params: marketCode ? { market_code: marketCode } : {} }),
-  createCompliance: (data: any) => api.post('/markets/compliance', data),
 };
 
 // 客户线索（用于撮合与跟进）

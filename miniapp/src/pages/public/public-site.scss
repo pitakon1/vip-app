@@ -631,6 +631,11 @@
   word-break: break-all;
 }
 
+.pub-kv__link {
+  color: var(--primary);
+  font-weight: 600;
+}
+
 .pub-link {
   display: block;
   margin-top: 18rpx;
@@ -794,9 +799,26 @@
   color: var(--success);
 }
 
-.pub-guest__actions {
-  margin-top: 32rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 22rpx;
-}
+  .pub-guest__actions {
+    margin-top: 32rpx;
+    display: flex;
+    flex-direction: column;
+    gap: 22rpx;
+  }
+
+  /* ===== 联系方式脱敏（未登录访客）===== */
+  /* 后端对未登录访客返回打码后的经纪人联系方式，这里给出「登录后可查看」的
+     明确入口，避免用户把打码值当成真实号码。与 mobile / Web 两端一致。 */
+  .pub-lock-cta {
+    margin-top: 24rpx;
+    padding: 22rpx 0;
+    border-radius: var(--radius-lg);
+    background: var(--primary-soft, rgba(0, 0, 0, 0.04));
+    text-align: center;
+  }
+
+  .pub-lock-cta__text {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: var(--primary);
+  }

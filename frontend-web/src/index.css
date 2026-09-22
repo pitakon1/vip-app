@@ -43,3 +43,86 @@ body {
   border-radius: var(--rent-radius-full);
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--rent-ink-3); }
+
+/* ------------------------------------------------------------------
+ * 全局错误边界（ErrorBoundary）兜底页
+ * 目标：渲染异常时给出可读提示 + 出口，而不是整页白屏。
+ * 颜色走 tokens.css 变量并带兜底值，避免变量未加载时样式失效。
+ * ------------------------------------------------------------------ */
+.app-error {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--rent-surface-2, #f4f1ec);
+}
+
+.app-error__card {
+  width: 100%;
+  max-width: 520px;
+  background: var(--rent-surface, #fff);
+  border: 1px solid var(--rent-border, #e6e0d8);
+  border-radius: var(--rent-radius-lg, 16px);
+  padding: 32px 28px;
+  text-align: center;
+  box-shadow: 0 8px 28px rgba(28, 39, 51, 0.08);
+}
+
+.app-error__icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--rent-warning, #f59e0b);
+}
+
+.app-error__title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--rent-ink, #1c2733);
+}
+
+.app-error__desc {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--rent-ink-2, #5b6672);
+}
+
+.app-error__detail {
+  margin-bottom: 20px;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--rent-surface-2, #f4f1ec);
+  border-radius: var(--rent-radius-sm, 8px);
+  overflow-x: auto;
+}
+
+.app-error__detail-label {
+  font-size: 12px;
+  color: var(--rent-ink-3, #8a949e);
+  margin-bottom: 4px;
+}
+
+.app-error__detail code {
+  font-size: 12px;
+  color: var(--rent-danger, #dc2626);
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.app-error__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+

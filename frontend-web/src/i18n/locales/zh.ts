@@ -31,6 +31,14 @@ const zh = {
       backHome: '返回首页',
       back: '返回上一页',
     },
+    // 全局错误边界（ErrorBoundary）兜底文案——防止渲染异常导致整页白屏
+    errorBoundary: {
+      title: '页面出错了',
+      desc: '页面渲染时发生异常，已被拦截以免整页空白。可刷新重试，若反复出现请联系管理员。',
+      reload: '刷新页面',
+      backHome: '返回首页',
+      detail: '错误详情',
+    },
   },
   menu: {
     dashboard: '数据总览',
@@ -405,6 +413,13 @@ const zh = {
     rented: '已出租',
     reserved: '已预订',
     maintenance: '维护中',
+  },
+  // 租约状态（后台租约表 / 房源详情的历史租约表）
+  leaseStatus: {
+    active: '生效中',
+    pending: '待生效',
+    expired: '已到期',
+    terminated: '已退租',
   },
   propertyType: {
     apartment: '公寓',
@@ -1230,6 +1245,22 @@ const zh = {
     listingType: {
       rent: '出租',
       sell: '出售',
+    },
+    // 「更多」筛选面板用：楼层段与配套标签。
+    // 此前这几个选项硬编码中文写在 PublicListings 里，EN/TH 环境下会漏翻。
+    floorLevel: {
+      low: '低楼层(1-5层)',
+      mid: '中楼层(6-15层)',
+      high: '高楼层(16层+)',
+    },
+    amenity: {
+      aircon: '空调',
+      pool: '泳池',
+      gym: '健身房',
+      parking: '停车位',
+      elevator: '电梯',
+      balcony: '阳台',
+      garden: '花园/庭院',
     },
   },
 }

@@ -12,7 +12,12 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, lease_visibility_conditions
-from app.core.cache import delete_cache_pattern, get_cache, set_cache
+from app.core.cache import (
+    delete_cache_pattern,
+    get_cache,
+    invalidate_aggregate_caches,
+    set_cache,
+)
 from app.core.concurrency import ensure_version
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.uploads import detect_image_mime, save_upload
@@ -27,10 +32,14 @@ from app.models import (
     User,
     UserRole,
 )
+from app.core.logging import get_logger
 from app.providers.geo import haversine_km, lat_lng_bounds
+from app.services.price_alert import notify_if_price_dropped
 from app.services.search import relevance_score, resolve_sort
 
 router = APIRouter(prefix="/properties", tags=["properties"])
+
+logger = get_logger(__name__)
 
 # 支持的排序取值。relevance 仅在后端生效（关键词搜索时的默认口径），
 # 前端筛选栏不展示它，但仍允许显式传入。
@@ -41,6 +50,33 @@ UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "properties"
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 MAX_PHOTO_SIZE = 10 * 1024 * 1024  # 单张 10MB
 MAX_PHOTOS = 20
+
+
+def _notify_price_drop(
+    session: Session, prop: Property, old_rent: Optional[float]
+) -> None:
+    """房源月租下调后，触发该房源订阅者的降价通知。
+
+    调用方必须在覆盖 `monthly_rent` **之前**把旧值传进来，否则改完就比不出来了。
+
+    通知失败不能影响房源更新本身（价格已经落库），所以这里吞异常——
+    但**必须记日志**：静默会让「降价提醒不工作」变成查不出来的问题。
+    """
+    new_rent = prop.monthly_rent
+    if old_rent is None or new_rent is None or float(new_rent) >= float(old_rent):
+        return
+    try:
+        notify_if_price_dropped(session, float(new_rent), property_id=prop.id)
+        session.commit()
+    except Exception:
+        session.rollback()
+        logger.warning(
+            "price_alert.notify_failed",
+            property_id=str(prop.id),
+            old_rent=old_rent,
+            new_rent=new_rent,
+            exc_info=True,
+        )
 
 
 class PropertyCreate(BaseModel):
@@ -458,11 +494,24 @@ def create_property(
             raise HTTPException(status_code=403, detail="Access denied")
         if not payload.get("owner_id"):
             raise HTTPException(status_code=400, detail="owner_id is required")
+        # 内部角色可以代客录房，但 owner_id 必须是**真实存在且未软删除**的业主。
+        # 此前只校验了「非空」，客户端塞一个任意 UUID（或一个已删除业主的 id）就能落库：
+        # 这条房源在业主端永远不会出现（join 不到 owner），却照常出现在列表、地图和
+        # 统计聚合里——是纯粹制造脏数据的入口。
+        owner_ok = session.exec(
+            select(Owner.id).where(
+                Owner.id == payload["owner_id"],
+                Owner.deleted_at.is_(None),
+            )
+        ).first()
+        if not owner_ok:
+            raise HTTPException(status_code=400, detail="owner_id 指向的业主不存在或已删除")
     prop = Property(**payload)
     session.add(prop)
     session.commit()
     session.refresh(prop)
     delete_cache_pattern("cache:properties:*")
+    invalidate_aggregate_caches()  # 新建房源会改变总数/空置数
     return prop
 
 
@@ -501,6 +550,9 @@ def list_property_map_points(
 
     房源表本身没有坐标，坐标一律取所属项目（projects.lat/lng）；
     项目未维护坐标的房源不会出现在地图上，前端据此提示「未定位房源数」。
+
+    [刻意保留] 三端暂无调用方：C 端匿名地图已改走 /public/map-points（浏览免登录），
+    这个鉴权版本留给后台/内部场景，不删。已在契约工具 INTENTIONAL_ORPHANS 登记。
     """
     keyword = (q or "").strip()
     terms = [keyword] if keyword else []
@@ -610,12 +662,16 @@ def update_property(
         # 业主不可通过 PATCH 转移房源归属
         update_data.pop("owner_id", None)
     ensure_version(prop, update_data.pop("version", None), "房源")
+    # 必须在覆盖之前抓旧月租：改完就再也拿不到「原价」，降价判定依赖它
+    old_rent = prop.monthly_rent
     for key, value in update_data.items():
         setattr(prop, key, value)
     session.add(prop)
     session.commit()
     session.refresh(prop)
     delete_cache_pattern("cache:properties:*")
+    invalidate_aggregate_caches()
+    _notify_price_drop(session, prop, old_rent)
     return prop
 
 
@@ -634,6 +690,7 @@ def delete_property(
     session.add(prop)
     session.commit()
     delete_cache_pattern("cache:properties:*")
+    invalidate_aggregate_caches()  # 删除会改变总数/空置数
     return {"detail": "Property deleted"}
 
 
@@ -747,6 +804,7 @@ def upload_property_photos(
     session.commit()
     session.refresh(prop)
     delete_cache_pattern("cache:properties:*")
+    invalidate_aggregate_caches()  # 照片变更会影响看板里的「待补图」口径
     return {"photos": prop.photos, "added": saved_urls}
 
 
@@ -772,6 +830,7 @@ def delete_property_photo(
     session.commit()
     session.refresh(prop)
     delete_cache_pattern("cache:properties:*")
+    invalidate_aggregate_caches()  # 照片变更会影响看板里的「待补图」口径
 
     # 仅删除本站点 uploads 目录下的文件（防止误删外部 URL）
     if url.startswith("/uploads/properties/"):

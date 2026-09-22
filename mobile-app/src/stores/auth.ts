@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import apiClient from '../lib/api';
-import { tokenStorage } from '../lib/storage';
+import { clearHistory } from '../lib/browseHistory';
+import { refreshTokenStorage, tokenStorage } from '../lib/storage';
 import type { User, UserRole } from '../types';
 
 /**
@@ -66,6 +67,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
       );
       await tokenStorage.set(data.access_token);
+      // 刷新令牌必须落盘：否则访问令牌一过期就只能把用户踢回登录页，
+      // 哪怕他只是在浏览不需要登录的公开页面。
+      if (data.refresh_token) {
+        await refreshTokenStorage.set(data.refresh_token);
+      }
       set({
         user: toUser(data.user),
         token: data.access_token,
@@ -104,6 +110,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     void tokenStorage.remove();
+    void refreshTokenStorage.remove();
+    // 浏览历史是**设备级全局键**（不像其他缓存已按 user.id 命名空间），
+    // 不清理的话同设备换账号能看到上一个用户浏览过的房源标题与地址。
+    void clearHistory();
     // isLoading 必须一并复位，否则在 restore() 期间被登出会卡在启动占位页
     set({ user: null, token: null, isAuthenticated: false, isLoading: false });
   },

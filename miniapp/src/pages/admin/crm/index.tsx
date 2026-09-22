@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { leadsApi, employeesApi, chatApi } from '@/services/api'
+import { MAX_PAGE_SIZE } from '@/lib/api'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
@@ -144,9 +145,12 @@ export default function AdminCrmPage() {
   }
 
   // 员工列表（admin）→ 建 用户id→姓名 映射，补齐线索「负责人」
+  // ⚠️ 技术债：这里拿分页接口当全量接口用，只能贴住后端硬顶（100）。
+  // 员工超过 100 人时，超出部分线索的负责人姓名会映射不到而显示为空。
+  // 正确解法是后端提供一个轻量的 id→姓名 映射接口（只返回 user_id + full_name）。
   const fetchAgents = async () => {
     try {
-      const res: any = await employeesApi.list({ page: 1, page_size: 200 })
+      const res: any = await employeesApi.list({ page: 1, page_size: MAX_PAGE_SIZE })
       const d = res?.data ?? res
       const items: any[] = Array.isArray(d) ? d : d?.items || []
       const map: Record<string, string> = {}

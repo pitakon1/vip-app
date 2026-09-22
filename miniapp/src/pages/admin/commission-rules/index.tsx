@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { commissionRulesApi, brokerApi, employeesApi } from '@/services/api'
+import { MAX_PAGE_SIZE } from '@/lib/api'
 import useAuthStore from '@/stores/auth'
 import type { User } from '@/types'
 import './index.scss'
@@ -98,9 +99,11 @@ export default function CommissionRulesPage() {
     setLoading(true)
     try {
       const tmpl = await Promise.allSettled([
-        commissionRulesApi.list({ page: 1, page_size: 100 }), // 返回 {items}|[]
-        brokerApi.list({ page: 1, page_size: 200 }),
-        employeesApi.list({ page: 1, page_size: 200 })
+        commissionRulesApi.list({ page: 1, page_size: MAX_PAGE_SIZE }), // 返回 {items}|[]
+        // 下拉数据源贴住后端硬顶；经纪人或员工超过 100 时选项会缺，
+        // 届时应改成带关键词搜索的可搜索选择器，而不是继续调大 page_size。
+        brokerApi.list({ page: 1, page_size: MAX_PAGE_SIZE }),
+        employeesApi.list({ page: 1, page_size: MAX_PAGE_SIZE })
       ])
       const rulesRes = tmpl[0].status === 'fulfilled' ? (tmpl[0].value as any) : null
       const brokerRes = tmpl[1].status === 'fulfilled' ? (tmpl[1].value as any) : null

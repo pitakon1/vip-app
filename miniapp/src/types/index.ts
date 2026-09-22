@@ -83,8 +83,12 @@ export interface Document {
 }
 
 // ============ 维修工单相关 ============
-export type MaintenanceStatus = 'pending' | 'processing' | 'completed' | 'cancelled'
-export type MaintenancePriority = 'low' | 'medium' | 'high'
+// MaintenanceStatus 必须与后端 `app/models/maintenance_ticket.py::TicketStatus` 逐字一致：
+// open / assigned / in_progress / resolved / closed。
+// 此前这里是 submitted/accepted（后端不存在这两个值），导致新建工单（后端默认 open）
+// 在小程序里匹配不到任何状态 Tab，且 Tab 计数恒为 0。
+export type MaintenanceStatus = 'open' | 'assigned' | 'in_progress' | 'resolved' | 'closed'
+export type MaintenancePriority = 'low' | 'medium' | 'high' | 'urgent'
 
 export interface MaintenanceTicket {
   id: number

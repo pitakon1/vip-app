@@ -357,6 +357,10 @@ def operations_activity_trend(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ):
-    """近 N 日活跃趋势（按日）。"""
+    """近 N 日活跃趋势（按日）。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：Web 运营页当前取
+    /operations/overview，趋势图未接。
+    """
     days = max(7, min(90, days))
     return {"days": days, "daily": _daily_active(session, days)}

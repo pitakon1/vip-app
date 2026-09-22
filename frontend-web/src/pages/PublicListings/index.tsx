@@ -712,39 +712,42 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     { value: 'maintenance', label: statusLabelMap.maintenance },
   ]
   // 更多面板新增维度（东南亚口径，与 App / 小程序一致；无供暖——东南亚无冬季）
+  // 文案一律走 i18n：此前这里的选项 label 硬编码中文，EN/TH 环境下整个
+  // 「更多」面板与已选 chip 都还是中文（同文件其他筛选早已接了 t()）。
+  const ANY = t('priceRange.all')
   const orientationOptions = [
-    { value: '', label: '不限' },
-    { value: 'north', label: '北' },
-    { value: 'south', label: '南' },
-    { value: 'east', label: '东' },
-    { value: 'west', label: '西' },
-    { value: 'northeast', label: '东北' },
-    { value: 'northwest', label: '西北' },
-    { value: 'southeast', label: '东南' },
-    { value: 'southwest', label: '西南' },
+    { value: '', label: ANY },
+    { value: 'north', label: t('publicSite.orientation.north') },
+    { value: 'south', label: t('publicSite.orientation.south') },
+    { value: 'east', label: t('publicSite.orientation.east') },
+    { value: 'west', label: t('publicSite.orientation.west') },
+    { value: 'northeast', label: t('publicSite.orientation.northeast') },
+    { value: 'northwest', label: t('publicSite.orientation.northwest') },
+    { value: 'southeast', label: t('publicSite.orientation.southeast') },
+    { value: 'southwest', label: t('publicSite.orientation.southwest') },
   ]
   const floorLevelOptions = [
-    { value: '', label: '不限' },
-    { value: 'low', label: '低楼层(1-5层)' },
-    { value: 'mid', label: '中楼层(6-15层)' },
-    { value: 'high', label: '高楼层(16层+)' },
+    { value: '', label: ANY },
+    { value: 'low', label: t('publicSite.floorLevel.low') },
+    { value: 'mid', label: t('publicSite.floorLevel.mid') },
+    { value: 'high', label: t('publicSite.floorLevel.high') },
   ]
   const decorationOptions = [
-    { value: '', label: '不限' },
-    { value: 'bare', label: '毛坯' },
-    { value: 'simple', label: '简装' },
-    { value: 'standard', label: '精装' },
-    { value: 'luxury', label: '豪装' },
-    { value: 'fully_furnished', label: '带家具家电' },
+    { value: '', label: ANY },
+    { value: 'bare', label: t('publicSite.decoration.bare') },
+    { value: 'simple', label: t('publicSite.decoration.simple') },
+    { value: 'standard', label: t('publicSite.decoration.standard') },
+    { value: 'luxury', label: t('publicSite.decoration.luxury') },
+    { value: 'fully_furnished', label: t('publicSite.decoration.fully_furnished') },
   ]
   const amenityOptions = [
-    { value: 'aircon', label: '空调' },
-    { value: 'pool', label: '泳池' },
-    { value: 'gym', label: '健身房' },
-    { value: 'parking', label: '停车位' },
-    { value: 'elevator', label: '电梯' },
-    { value: 'balcony', label: '阳台' },
-    { value: 'garden', label: '花园/庭院' },
+    { value: 'aircon', label: t('publicSite.amenity.aircon') },
+    { value: 'pool', label: t('publicSite.amenity.pool') },
+    { value: 'gym', label: t('publicSite.amenity.gym') },
+    { value: 'parking', label: t('publicSite.amenity.parking') },
+    { value: 'elevator', label: t('publicSite.amenity.elevator') },
+    { value: 'balcony', label: t('publicSite.amenity.balcony') },
+    { value: 'garden', label: t('publicSite.amenity.garden') },
   ]
   const applyAreaPreset = (key: string) => {
     if (key === 'all') { setAreaRange(''); setAreaCustomMin(''); setAreaCustomMax(''); return }
@@ -1378,7 +1381,8 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
             {mapPoints.slice(0, 6).map((p: any) => (
               <div key={p.id} className="rv17-map__mini" onClick={() => handleCardClick(p)}>
                 <div className="rv17-map__mini-name">{mapPointName(p)}</div>
-                <div className="rv17-map__mini-price">{formatMoney(Number(p.monthly_rent || 0))}</div>
+                {/* 传 p.currency：漏传会一律按 THB 渲染，马币/美元房源会显示成 ฿ */}
+                <div className="rv17-map__mini-price">{formatMoney(Number(p.monthly_rent || 0), p.currency || undefined)}</div>
                 <span className="rv17-map__mini-tag">{p.video_url ? t('browse.video') : (p.project_name || '')}</span>
               </div>
             ))}

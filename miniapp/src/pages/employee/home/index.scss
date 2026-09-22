@@ -508,4 +508,13 @@
   &__title { display: block; font-size: 30rpx; font-weight: 700; color: var(--ink); }
   &__desc { display: block; font-size: 22rpx; color: var(--ink-3); margin-top: 4rpx; }
   &__arrow { font-size: 32rpx; color: var(--ink-3); }
+
+  /* 日历入口图标使用不同色调以区分 */
+  & + & {
+    margin-top: 20rpx;
+  }
+
+  &__icon--calendar {
+    background: var(--info, #0ea5e9);
+  }
 }

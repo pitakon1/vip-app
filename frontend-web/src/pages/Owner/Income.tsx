@@ -12,7 +12,6 @@ import {
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import api from '@/lib/api'
-import { convertCurrency } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import './income.css'
@@ -58,7 +57,7 @@ interface IncomeRow {
   status: 'paid' | 'partial' | 'unpaid'
 }
 
-const fmtMoney = (v: number) => `RM ${Math.round(convertCurrency(v, 'RM')).toLocaleString()}`
+const fmtMoney = (v: number) => `฿ ${Math.round(Number(v || 0)).toLocaleString()}`
 
 const monthKey = (d: string | undefined) => {
   if (!d) return ''
@@ -221,7 +220,7 @@ const Income = () => {
       labels,
       datasets: [
         {
-          label: '月度收入 (RM)',
+          label: '月度收入 (฿)',
           data,
           backgroundColor: 'rgba(20, 184, 166, 0.85)',
           hoverBackgroundColor: 'rgba(20, 184, 166, 1)',
@@ -243,7 +242,7 @@ const Income = () => {
           padding: 12,
           cornerRadius: 8,
           callbacks: {
-            label: (c: any) => `RM ${Math.round(convertCurrency(c.parsed.y, 'RM')).toLocaleString()}`,
+            label: (c: any) => `฿ ${Math.round(Number(c.parsed.y || 0)).toLocaleString()}`,
           },
         },
       },
@@ -255,7 +254,7 @@ const Income = () => {
           ticks: {
             color: '#98a1ab',
             font: { size: 12 },
-            callback: (v: any) => `RM ${Math.round(convertCurrency(v, 'RM') / 1000)}k`,
+            callback: (v: any) => `฿ ${Math.round(Number(v || 0) / 1000)}k`,
           },
         },
       },
@@ -277,7 +276,7 @@ const Income = () => {
       labels: entries.map((e) => e[0]),
       datasets: [
         {
-          label: '年度收入 (RM)',
+          label: '年度收入 (฿)',
           data: entries.map((e) => e[1]),
           backgroundColor: 'rgba(20, 184, 166, 0.85)',
           hoverBackgroundColor: 'rgba(20, 184, 166, 1)',
@@ -300,7 +299,7 @@ const Income = () => {
           padding: 12,
           cornerRadius: 8,
           callbacks: {
-            label: (c: any) => `RM ${Math.round(convertCurrency(c.parsed.x, 'RM')).toLocaleString()}`,
+            label: (c: any) => `฿ ${Math.round(Number(c.parsed.x || 0)).toLocaleString()}`,
           },
         },
       },
@@ -311,7 +310,7 @@ const Income = () => {
           ticks: {
             color: '#98a1ab',
             font: { size: 12 },
-            callback: (v: any) => `RM ${Math.round(convertCurrency(v, 'RM') / 1000)}k`,
+            callback: (v: any) => `฿ ${Math.round(Number(v || 0) / 1000)}k`,
           },
         },
         y: { grid: { display: false }, ticks: { color: '#55606c', font: { size: 12 } } },
@@ -463,9 +462,9 @@ const Income = () => {
                 <th>月份</th>
                 <th>房产</th>
                 <th>租客</th>
-                <th>应收 (RM)</th>
-                <th>实收 (RM)</th>
-                <th>差额 (RM)</th>
+                <th>应收 (฿)</th>
+                <th>实收 (฿)</th>
+                <th>差额 (฿)</th>
                 <th>收缴率</th>
                 <th>状态</th>
               </tr>

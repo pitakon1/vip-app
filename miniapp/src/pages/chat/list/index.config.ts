@@ -1,1 +1,1 @@
-export default { navigationBarTitleText: '即时聊天' }
+export default { navigationBarTitleText: '即时聊天', enablePullDownRefresh: true }

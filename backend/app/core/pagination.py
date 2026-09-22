@@ -4,7 +4,15 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlmodel import Session, select
 
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 T = TypeVar("T")
+
+# 单页条数硬顶。无上限时客户端传 `page_size=100000` 就能让服务端一次拉全表，
+# 既是内存风险也是慢查询入口，所以必须有闸。
+MAX_PAGE_SIZE = 100
 
 class Page(BaseModel, Generic[T]):
     items: List[T]
@@ -14,14 +22,32 @@ class Page(BaseModel, Generic[T]):
     total_pages: int
 
 class PaginationParams:
+    """分页参数，`page_size` 硬顶 `MAX_PAGE_SIZE`。
+
+    截断本身**必须留痕**：调用方（尤其前端那些把分页接口当「取全量」用的地方）
+    传了超限值却只拿回 100 条时不会报错，表现为「下拉少选项 / 总数偏小 / 筛选不全」
+    这类静默错误，是排查成本最高的一类问题。这里记 warning 让问题自己浮出来，
+    而不是安静地把请求改小。
+    """
+
     def __init__(self, page: int = 1, page_size: int = 20):
         self.page = max(1, page)
-        self.page_size = min(100, max(1, page_size))
-    
+        self.page_size = min(MAX_PAGE_SIZE, max(1, page_size))
+        if page_size > MAX_PAGE_SIZE or page_size < 1:
+            logger.warning(
+                "pagination.page_size_clamped",
+                requested=page_size,
+                clamped_to=self.page_size,
+                hint=(
+                    "调用方要求的分页大小超出 [1, 100] 区间，已强制收敛。"
+                    "若本意是取全量，请改用真·分页或按条件缩小范围。"
+                ),
+            )
+
     @property
     def offset(self) -> int:
         return (self.page - 1) * self.page_size
-    
+
     @property
     def limit(self) -> int:
         return self.page_size

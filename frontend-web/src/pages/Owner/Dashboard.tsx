@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
-import { convertCurrency } from '@/lib/money'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import './dashboard.css'
@@ -35,7 +34,9 @@ interface IncomeSummary {
   [key: string]: any
 }
 
-const fmtRM = (v: number) => `RM ${Math.round(convertCurrency(v, 'RM')).toLocaleString()}`
+// 业主端金额一律泰铢（后端 base currency = THB，且同页 sale_price 已用 ฿）。
+// 此前租金/收益走 `fmtRM`（把泰铢按汇率折成马币），售价走 `fmtThb`，
+// 同一页两个币种——淘汰 `fmtRM` 统一成泰铢。
 const fmtThb = (v: number) => `฿ ${Math.round(Number(v || 0)).toLocaleString()}`
 
 const Dashboard = () => {
@@ -154,19 +155,19 @@ const Dashboard = () => {
               <div>
                 <div className="rent-text-sm rent-text-muted">本月应收</div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--rent-ink)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-                  {fmtRM(monthlyIncome)}
+                  {fmtThb(monthlyIncome)}
                 </div>
               </div>
               <div>
                 <div className="rent-text-sm rent-text-muted">已收</div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--state-success)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-                  {fmtRM(collectedIncome)}
+                  {fmtThb(collectedIncome)}
                 </div>
               </div>
               <div>
                 <div className="rent-text-sm rent-text-muted">待收</div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--state-warning)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-                  {fmtRM(pendingAmount)}
+                  {fmtThb(pendingAmount)}
                 </div>
               </div>
             </div>
@@ -227,7 +228,7 @@ const Dashboard = () => {
                     </div>
                     <div className="rent-v17-prop__meta">{propMeta(rentedProp)}</div>
                     <div className="rent-v17-prop__price">
-                      {fmtRM(rentedProp.monthly_rent || 0)}
+                      {fmtThb(rentedProp.monthly_rent || 0)}
                       <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--rent-ink-3)' }}>{t('browse.rentUnit')}</span>
                     </div>
                   </div>

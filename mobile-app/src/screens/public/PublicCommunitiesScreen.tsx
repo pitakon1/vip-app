@@ -10,7 +10,6 @@ import {
   Text,
   TextInput,
   FlatList,
-  Image,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
@@ -18,6 +17,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import RemoteImage from '@/components/RemoteImage';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import { publicApi, unwrapPage, type PublicProject } from '@/services/publicApi';
@@ -161,7 +161,16 @@ function ProjectCard({
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
       {item.cover ? (
-        <Image source={{ uri: item.cover }} style={styles.cover} resizeMode="cover" />
+        <RemoteImage
+          uri={item.cover}
+          style={styles.cover}
+          resizeMode="cover"
+          fallback={
+            <View style={[styles.cover, styles.coverPlaceholder]}>
+              <Text style={styles.coverPlaceholderText}>{t('pub.noPhoto')}</Text>
+            </View>
+          }
+        />
       ) : (
         <View style={[styles.cover, styles.coverPlaceholder]}>
           <Text style={styles.coverPlaceholderText}>{t('pub.noPhoto')}</Text>

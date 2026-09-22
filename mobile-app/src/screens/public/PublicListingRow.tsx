@@ -8,7 +8,8 @@
  * 那是平台与业主/经纪人的议价条款，后端公开接口已裁剪，前端也不要再拼。
  */
 import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import RemoteImage from '@/components/RemoteImage';
 import colors from '@/theme/colors';
 import { fmtMoney } from '@/utils/format';
 import { coverOf, listingTypeLabel, type TFunction } from '@/lib/publicSite';
@@ -36,7 +37,16 @@ export default function PublicListingRow({ item, t, onPress }: Props) {
     >
       <View style={styles.media}>
         {cover ? (
-          <Image source={{ uri: cover }} style={styles.img} resizeMode="cover" />
+          <RemoteImage
+            uri={cover}
+            style={styles.img}
+            resizeMode="cover"
+            fallback={
+              <View style={styles.imgPlaceholder}>
+                <Text style={styles.imgPlaceholderText}>{t('pub.noPhoto')}</Text>
+              </View>
+            }
+          />
         ) : (
           <View style={styles.imgPlaceholder}>
             <Text style={styles.imgPlaceholderText}>{t('pub.noPhoto')}</Text>

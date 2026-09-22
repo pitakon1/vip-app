@@ -2,6 +2,18 @@ import Taro from '@tarojs/taro'
 
 declare const API_BASE: string
 
+/**
+ * 单次请求能取回的最大条数，与后端 `app/core/pagination.py` 的 `MAX_PAGE_SIZE` 一致。
+ *
+ * 后端对 `page_size` 是**硬截断**而非报错：传 200 只会安静地拿回 100 条。
+ * 小程序端有几处下拉/选择器把这个上限当「取全量」用，数据过百后选项会静默缺失。
+ * 一律用此常量，不要再手写大数字。
+ */
+export const MAX_PAGE_SIZE = 100
+
+/** 刷新令牌存储键。登录成功时必须写入，否则 401 只能强登出。 */
+export const REFRESH_TOKEN_KEY = 'refresh_token'
+
 export interface RequestOptions<T = unknown> {
   url: string
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
@@ -16,10 +28,48 @@ export interface ApiResponse<T = unknown> {
   header: Record<string, string>
 }
 
+/** 并发 401 时共用一个刷新 Promise，避免打出刷新风暴。 */
+let refreshing: Promise<string> | null = null
+/** 避免并发 401 触发多次 redirectTo（多次跳转会打乱页面栈）。 */
+let redirecting = false
+
+/** 用刷新令牌换新的访问令牌；后端每次刷新会轮换 refresh_token，两个都要写回。 */
+async function refreshAccessToken(): Promise<string> {
+  const refreshToken = Taro.getStorageSync(REFRESH_TOKEN_KEY) as string
+  if (!refreshToken) throw new Error('no refresh token')
+  const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
+  const res = await Taro.request({
+    url: `${baseURL}/auth/refresh`,
+    method: 'POST',
+    data: { refresh_token: refreshToken },
+    header: { 'Content-Type': 'application/json' }
+  })
+  const body = res.data as any
+  const payload = body?.data ?? body
+  const token: string | undefined = payload?.access_token
+  if (!token) throw new Error('refresh response has no access_token')
+  Taro.setStorageSync('token', token)
+  if (payload?.refresh_token) {
+    Taro.setStorageSync(REFRESH_TOKEN_KEY, payload.refresh_token)
+  }
+  return token
+}
+
+function goLoginOnce(): void {
+  if (redirecting) return
+  redirecting = true
+  Taro.redirectTo({ url: '/pages/login/index' }).finally(() => {
+    redirecting = false
+  })
+}
+
 /**
  * 统一请求封装
  * - 请求拦截：从本地存储读取 token，注入 Authorization 头
- * - 响应拦截：401 清除登录态并跳转登录页
+ * - 响应拦截：401 先尝试静默续期并重放；续期也失败才清态跳登录
+ *
+ * 此前 401 会直接清态跳登录，导致「token 一到期就把用户踢出去」——
+ * 哪怕用户只是在看不需要登录的公开页面。
  */
 export async function request<T = unknown>(options: RequestOptions<T>): Promise<T> {
   const { url, method = 'GET', data, header = {} } = options
@@ -37,18 +87,35 @@ export async function request<T = unknown>(options: RequestOptions<T>): Promise<
   }
 
   try {
-    const res = await Taro.request({
+    let res = await Taro.request({
       url: fullUrl,
       method,
       data: data as Record<string, unknown>,
       header: finalHeader
     })
 
-    // 响应拦截：401 跳转登录页
+    // 401：先静默续期再重放原请求
+    if (res.statusCode === 401) {
+      try {
+        refreshing = refreshing ?? refreshAccessToken().finally(() => { refreshing = null })
+        const freshToken = await refreshing
+        res = await Taro.request({
+          url: fullUrl,
+          method,
+          data: data as Record<string, unknown>,
+          header: { ...finalHeader, Authorization: `Bearer ${freshToken}` }
+        })
+      } catch {
+        // 刷新令牌也失效（真过期 / 已登出）：继续走下面的清态跳登录
+      }
+    }
+
+    // 响应拦截：仍为 401 说明续期无望，清登录态
     if (res.statusCode === 401) {
       Taro.removeStorageSync('token')
       Taro.removeStorageSync('user')
-      Taro.redirectTo({ url: '/pages/login/index' })
+      Taro.removeStorageSync(REFRESH_TOKEN_KEY)
+      goLoginOnce()
       return Promise.reject(new Error('未授权，请重新登录'))
     }
 
@@ -90,10 +157,16 @@ export function chatWsUrl(id: string | number): string {
  * `uploads/documents` 已不再由静态服务托管，证件、合同等敏感文件只能经
  * `/documents/{id}/file`（内联）或 `/download`（附件）带鉴权取件，
  * 因此必须用绝对地址配合 Authorization 头请求，不能再直接用落库的 file_url。
+ *
+ * 这里额外拼 `?token=`：小程序的 `<Image>` / `previewImage` **无法自定义请求头**，
+ * 只靠 Authorization 头的话文档图会 401。后端为文件类接口专门开放了 query token。
+ * （mobile 端 `lib/api.ts` 一直是这么做的，此前小程序漏了。）
  */
 export function documentFileUrl(id: string, mode: 'file' | 'download' = 'download') {
   const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
-  return `${baseURL}/documents/${id}/${mode}`
+  const token = currentToken()
+  const query = token ? `?token=${encodeURIComponent(token)}` : ''
+  return `${baseURL}/documents/${id}/${mode}${query}`
 }
 
 export default {

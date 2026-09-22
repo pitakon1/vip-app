@@ -252,9 +252,6 @@ export default function StaffListingEditPage() {
   const handleSave = async () => {
     const tip = validate()
     if (tip) return Taro.showToast({ title: tip, icon: 'none' })
-    if (listingActive === false) {
-      return Taro.showToast({ title: '请先签署《房源经纪人上架房源协议》', icon: 'none' })
-    }
     setSaving(true)
     try {
       if (id) {
@@ -291,19 +288,6 @@ export default function StaffListingEditPage() {
   return (
     <View className='le-page'>
       <ScrollView scrollY className='le-scroll'>
-        {listingActive === false && (
-          <View className='le-gate'>
-            <Text className='le-gate__title'>尚未签署《房源经纪人上架房源协议》</Text>
-            <Text className='le-gate__desc'>签署并激活后方可发布房源作为房源上架经纪人。</Text>
-            <View
-              className='le-gate__btn'
-              onClick={() => Taro.navigateTo({ url: '/pages/staff/agreements/index' })}
-            >
-              <Text className='le-gate__btn-text'>去签约</Text>
-            </View>
-          </View>
-        )}
-
         {/* 房源信息 */}
         <View className='le-card'>
           <Text className='le-card__title'>房源信息</Text>

@@ -8,6 +8,7 @@ import { I18nextProvider, useTranslation } from 'react-i18next'
 import { QueryClientProvider } from '@tanstack/react-query'
 import i18n from './i18n'
 import App from './App'
+import ErrorBoundary from './components/ErrorBoundary'
 import { rentTheme } from './theme'
 import { queryClient } from './lib/queryCache'
 import './index.css'
@@ -30,7 +31,10 @@ const Root = () => {
     <QueryClientProvider client={queryClient}>
       <ConfigProvider theme={rentTheme} locale={antdLocaleMap[currentLang]}>
         <AntApp>
-          <App />
+          {/* 全局错误边界：兜住渲染期异常，避免整页白屏（详见组件内注释） */}
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </AntApp>
       </ConfigProvider>
     </QueryClientProvider>

@@ -24,6 +24,7 @@ import {
 } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
 import { useI18n } from '@/i18n'
+import useAuthStore from '@/stores/auth'
 import PublicInquiryForm from '@/components/PublicInquiryForm'
 import './index.scss'
 
@@ -33,6 +34,12 @@ export default function PublicListingDetailPage() {
   const id = router.params?.id ?? ''
   const [data, setData] = useState<PublicListingDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  // 登录态必须在**所有早退之前**取：zustand 的 useAuthStore 底层是
+  // useSyncExternalStore，属于 React Hook。挂在 `if (loading) return` 之后，
+  // 首屏 loading=true 时不执行、数据到位后 loading=false 才执行，
+  // 两次渲染的 Hook 数量不一致 → React 直接抛
+  // "Rendered more hooks than during the previous render"，整页白屏。
+  const isLoggedIn = !!useAuthStore((s) => s.token)
 
   useEffect(() => {
     loadRates()
@@ -57,7 +64,10 @@ export default function PublicListingDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [id])
+    // 依赖里带上 isLoggedIn：后端对未登录访客返回**打码**联系方式，
+    // 登录成功后必须重拉一次，否则用户登录了看到的还是打码号码，
+    // 照着打码值去拨号只会失败。
+  }, [id, isLoggedIn])
 
   if (loading) {
     return (
@@ -104,6 +114,11 @@ export default function PublicListingDetailPage() {
   ]
 
   const broker = data.broker
+  // 后端对未登录访客只返回**打码**后的联系方式（/public/listings/{id} 的
+  // permissive auth），登录后才给完整号码。前端必须把这件事讲清楚：
+  // 直接把打码值当正常值渲染，用户会以为号码本身有问题。
+  // 与 mobile / Web 两端保持一致的脱敏提示。（isLoggedIn 已在上方提前声明，
+  // 见那里的注释——Hook 不能放在早退之后。）
   const brokerLines: Array<[string, string]> = broker
     ? [
         [t('pub.brokerOrg'), broker.company ?? ''],
@@ -114,6 +129,7 @@ export default function PublicListingDetailPage() {
         ['WhatsApp', broker.whatsapp ?? '']
       ]
     : []
+  const goLogin = () => Taro.navigateTo({ url: '/pages/login/index' })
 
   return (
     <View className='pub-page'>
@@ -257,16 +273,29 @@ export default function PublicListingDetailPage() {
         <View className='pub-card'>
           <Text className='pub-section__title'>{t('pub.broker')}</Text>
           {broker ? (
-            <View className='pub-kv'>
-              {brokerLines
-                .filter(([, value]) => !!value)
-                .map(([label, value]) => (
-                  <View className='pub-kv__item' key={label}>
-                    <Text className='pub-kv__k'>{label}</Text>
-                    <Text className='pub-kv__v'>{value}</Text>
-                  </View>
-                ))}
-            </View>
+            <>
+              {!isLoggedIn ? (
+                <Text className='pub-section__hint'>{t('pub.contactLocked')}</Text>
+              ) : null}
+              <View className='pub-kv'>
+                {brokerLines
+                  .filter(([, value]) => !!value)
+                  .map(([label, value]) => (
+                    <View className='pub-kv__item' key={label}>
+                      <Text className='pub-kv__k'>{label}</Text>
+                      <Text className='pub-kv__v'>
+                        {value}
+                        {!isLoggedIn ? ` ${t('pub.lockedSuffix')}` : ''}
+                      </Text>
+                    </View>
+                  ))}
+              </View>
+              {!isLoggedIn ? (
+                <View className='pub-lock-cta' onClick={goLogin}>
+                  <Text className='pub-lock-cta__text'>{t('pub.callLocked')}</Text>
+                </View>
+              ) : null}
+            </>
           ) : (
             <Text className='pub-section__hint'>{t('pub.brokerEmpty')}</Text>
           )}

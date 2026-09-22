@@ -163,17 +163,36 @@ export default function EmployeePerformancePage() {
   const periodLabel = `${now.getFullYear()}年${now.getMonth() + 1}月`
   const subline = [periodLabel, employee?.position || employee?.department].filter(Boolean).join(' · ')
 
-  // 本月佣金合计：按结算状态真实汇总
+  // 本月佣金明细：口径对齐 App——仅统计本月（created_at 当月）佣金，
+  // 本月无记录时回落到最近记录，避免空白（对齐 App 的 monthSettlements/detailRows）
+  const monthCommissions = useMemo(
+    () =>
+      commissions.filter((c) => {
+        const d = new Date(String(c.created_at || ''))
+        return (
+          !Number.isNaN(d.getTime()) &&
+          d.getFullYear() === now.getFullYear() &&
+          d.getMonth() === now.getMonth()
+        )
+      }),
+    [commissions]
+  )
+  const detailRows = useMemo(
+    () => (monthCommissions.length > 0 ? monthCommissions : commissions).slice(0, 10),
+    [monthCommissions, commissions]
+  )
+
+  // 本月佣金合计：对齐 App 的 settled/pending 口径，按结算状态在本月范围内真实汇总
   const totals = useMemo(() => {
     let paid = 0
     let pending = 0
-    commissions.forEach((c) => {
+    monthCommissions.forEach((c) => {
       const amt = Number(c.commission_amount || 0)
       if (c.status === 'paid') paid += amt
       else pending += amt
     })
     return { paid, pending, total: paid + pending }
-  }, [commissions])
+  }, [monthCommissions])
 
   // 房源名：佣金 → 租约 → 房源
   const propNameOf = (c: Commission) => {
@@ -228,21 +247,21 @@ export default function EmployeePerformancePage() {
         <View className='perf-section'>
           <View className='perf-section__head'>
             <Text className='perf-section__title'>佣金明细</Text>
-            <Text className='perf-section__sub'>{commissions.length} 笔</Text>
+            <Text className='perf-section__sub'>{detailRows.length} 笔</Text>
           </View>
 
-          {loading && commissions.length === 0 ? (
+          {loading && detailRows.length === 0 ? (
             <View className='perf-state perf-state--loading'>
               <View className='perf-state__spinner' />
               <Text className='perf-state__title'>正在加载</Text>
             </View>
-          ) : commissions.length === 0 ? (
+          ) : detailRows.length === 0 ? (
             <View className='perf-state'>
               <Text className='perf-state__title'>暂无佣金记录</Text>
               <Text className='perf-state__desc'>签约后系统会自动核算佣金</Text>
             </View>
           ) : (
-            commissions.map((c) => {
+            detailRows.map((c) => {
               const st = SETTLE_META[c.status || ''] || {
                 label: c.status || '-',
                 cls: 'perf-tag--muted'
@@ -275,7 +294,7 @@ export default function EmployeePerformancePage() {
         </View>
 
         {/* 本月佣金合计 */}
-        {commissions.length > 0 && (
+        {monthCommissions.length > 0 && (
           <View className='perf-total'>
             <View className='perf-total__cells'>
               <View className='perf-total__cell'>

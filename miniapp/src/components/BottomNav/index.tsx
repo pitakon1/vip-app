@@ -37,7 +37,6 @@ const NAV_MAP: Record<NavRole, NavItem[]> = {
   owner: [
     { key: 'dashboard', label: 'tab.home', icon: 'home', path: '/pages/owner/home/index' },
     { key: 'income', label: 'tab.income', icon: 'money', path: '/pages/owner/income/index' },
-    { key: 'services', label: 'tab.services', icon: 'briefcase', path: '/pages/owner/services/index' },
     { key: 'settings', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
   ],
   tenant: [
@@ -47,12 +46,12 @@ const NAV_MAP: Record<NavRole, NavItem[]> = {
     { key: 'profile', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
   ],
   // 未登录访客：内容全部来自匿名接口 `/public/*`，四个 Tab 都不需要 token。
-  // 「我的」落到 public/me（登录/注册入口），而不是站内 profile（那个一进去就跳登录）。
+  // 「我的」与站内 profile 统一为同一访客态（对齐 App ProfileScreen 访客分支）。
   guest: [
     { key: 'browse', label: 'pub.tabListings', icon: 'search', path: '/pages/public/listings/index' },
     { key: 'schools', label: 'pub.tabSchools', icon: 'school', path: '/pages/public/schools/index' },
     { key: 'communities', label: 'pub.tabCommunities', icon: 'building', path: '/pages/public/communities/index' },
-    { key: 'me', label: 'pub.tabMe', icon: 'user', path: '/pages/public/me/index' },
+    { key: 'me', label: 'pub.tabMe', icon: 'user', path: '/pages/profile/index' },
   ],
 }
 

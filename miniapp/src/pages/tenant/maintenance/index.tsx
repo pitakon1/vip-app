@@ -8,37 +8,55 @@ import { iconStyle } from '@/utils/icons'
 import type { MaintenanceTicket, MaintenanceStatus, MaintenancePriority } from '@/types'
 import './index.scss'
 
+// 键名与后端 TicketStatus 对齐（open/assigned/in_progress/resolved/closed）。
+// 展示文案保持业务语义：后端 open=已提交待受理 →「待处理」，assigned=已派单 →「已受理」。
 const STATUS_MAP: Record<MaintenanceStatus, { text: string; color: string }> = {
-  pending: { text: '待处理', color: 'var(--warning)' },
-  processing: { text: '处理中', color: 'var(--primary)' },
-  completed: { text: '已完成', color: 'var(--success)' },
-  cancelled: { text: '已取消', color: 'var(--ink-3)' }
+  open: { text: '待处理', color: 'var(--warning)' },
+  assigned: { text: '已受理', color: 'var(--info)' },
+  in_progress: { text: '处理中', color: 'var(--primary)' },
+  resolved: { text: '已完成', color: 'var(--success)' },
+  closed: { text: '已关闭', color: 'var(--ink-3)' }
 }
 
-const PRIORITY_OPTIONS: MaintenancePriority[] = ['low', 'medium', 'high']
-const PRIORITY_LABELS = ['低', '中', '高']
+const PRIORITY_OPTIONS: MaintenancePriority[] = ['low', 'medium', 'high', 'urgent']
+const PRIORITY_LABELS = ['低', '中', '高', '紧急']
 
-/** 优先级徽标配色（高=error / 中=warning / 低=info） */
+/** 优先级徽标配色（紧急=error / 高=warning / 中=info / 低=neutral） */
 const PRIORITY_BADGE: Record<MaintenancePriority, string> = {
-  high: 'badge--error',
-  medium: 'badge--warning',
-  low: 'badge--info'
+  urgent: 'badge--error',
+  high: 'badge--warning',
+  medium: 'badge--info',
+  low: 'badge--neutral'
 }
 
 /** 状态徽标配色 */
 const STATUS_BADGE: Record<MaintenanceStatus, string> = {
-  pending: 'badge--warning',
-  processing: 'badge--info',
-  completed: 'badge--success',
-  cancelled: 'badge--neutral'
+  open: 'badge--warning',
+  assigned: 'badge--info',
+  in_progress: 'badge--primary',
+  resolved: 'badge--success',
+  closed: 'badge--neutral'
 }
 
 const TABS = [
   { key: 'all', label: '全部' },
   { key: 'pending', label: '待处理' },
   { key: 'processing', label: '处理中' },
-  { key: 'completed', label: '已完成' }
+  { key: 'done', label: '已完成' }
 ]
+
+/**
+ * Tab 与状态匹配。
+ * 后端建单默认 `open`，必须归入「待处理」——旧口径（待处理=submitted）
+ * 会让每一条新建工单在三个状态 Tab 里都消失，只剩「全部」能看到。
+ * 对齐 Web：`pages/Tenant/Maintenance.tsx::normalizeStatus`。
+ */
+const matchTab = (status: MaintenanceStatus, tab: string) => {
+  if (tab === 'all') return true
+  if (tab === 'pending') return status === 'open'
+  if (tab === 'processing') return status === 'assigned' || status === 'in_progress'
+  return status === 'resolved' || status === 'closed'
+}
 
 function pickList(res: any): MaintenanceTicket[] {
   if (Array.isArray(res)) return res
@@ -128,15 +146,15 @@ export default function TenantMaintenancePage() {
   }
 
   const handleSubmit = async () => {
-    if (!title || !description) {
-      Taro.showToast({ title: '请填写标题和描述', icon: 'none' })
+    if (!title.trim()) {
+      Taro.showToast({ title: '请填写标题', icon: 'none' })
       return
     }
 
     setSubmitting(true)
     Taro.showLoading({ title: '提交中...', mask: true })
     try {
-      const res = await maintenanceApi.create({ title, description, priority })
+      const res = await maintenanceApi.create({ title: title.trim(), description, priority })
       // 乐观更新：把新工单插到列表头部
       const created = (res as any)?.data || res
       const newTicket: MaintenanceTicket = {
@@ -145,7 +163,9 @@ export default function TenantMaintenancePage() {
         tenantId: created?.tenantId ?? 0,
         title,
         description,
-        status: created?.status ?? 'pending',
+        // 回落值必须是后端建单的真实默认态 `open`（旧代码写 'submitted'，
+        // 一旦接口没回 status，就会往本地塞一个后端永远不会返回的值）。
+        status: created?.status ?? 'open',
         priority,
         createdAt:
           created?.createdAt ?? new Date().toISOString().split('T')[0]
@@ -168,13 +188,12 @@ export default function TenantMaintenancePage() {
 
   const counts = {
     all: tickets.length,
-    pending: tickets.filter((t) => t.status === 'pending').length,
-    processing: tickets.filter((t) => t.status === 'processing').length,
-    completed: tickets.filter((t) => t.status === 'completed').length
+    pending: tickets.filter((t) => t.status === 'open').length,
+    processing: tickets.filter((t) => t.status === 'assigned' || t.status === 'in_progress').length,
+    done: tickets.filter((t) => t.status === 'resolved' || t.status === 'closed').length
   }
 
-  const visibleTickets =
-    tab === 'all' ? tickets : tickets.filter((t) => t.status === tab)
+  const visibleTickets = tickets.filter((t) => matchTab(t.status, tab))
 
   return (
     <View className='tenant-maintenance-page'>
@@ -223,7 +242,7 @@ export default function TenantMaintenancePage() {
             </View>
           )}
           {visibleTickets.map((ticket) => {
-            const statusInfo = STATUS_MAP[ticket.status] || STATUS_MAP.pending
+            const statusInfo = STATUS_MAP[ticket.status] || STATUS_MAP.open
             const priorityLabel =
               PRIORITY_LABELS[PRIORITY_OPTIONS.indexOf(ticket.priority)] ?? '中'
             return (
@@ -315,7 +334,7 @@ export default function TenantMaintenancePage() {
                 />
               </View>
               <Text className='rate-panel-status'>
-                状态：{(STATUS_MAP[activeTicket.status] || STATUS_MAP.pending).text}
+                状态：{(STATUS_MAP[activeTicket.status] || STATUS_MAP.open).text}
               </Text>
               <Text className='rate-panel-desc'>{activeTicket.description}</Text>
               <Text className='rate-panel-meta'>
@@ -324,7 +343,7 @@ export default function TenantMaintenancePage() {
                 {activeTicket.createdAt}
               </Text>
 
-              {activeTicket.status === 'completed' ? (
+              {activeTicket.status === 'resolved' || activeTicket.status === 'closed' ? (
                 <View className='rate-body'>
                   <Text className='rate-label'>服务评价</Text>
                   <View className='rate-stars'>

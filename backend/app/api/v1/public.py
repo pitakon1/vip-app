@@ -901,22 +901,27 @@ def get_similar_listings(
         raise HTTPException(status_code=404, detail="Listing not found")
     _, base_prop, base_proj = row
 
-    # 候选收敛：至少与当前房源「同楼盘 / 同区 / 同户型」沾边，并排除自身
-    prefilters = [Listing.id != listing_id]
-    if base_prop and base_prop.property_type:
-        prefilters.append(Property.property_type == base_prop.property_type)
-    if base_proj and base_proj.district:
-        prefilters.append(Project.district == base_proj.district)
-    elif base_proj and base_proj.city:
-        prefilters.append(Project.city == base_proj.city)
+    # 候选收敛：至少与当前房源「同楼盘 / 同区 / 同户型」沾边，并排除自身。
+    #
+    # 这三个条件是**或**关系（见上方 docstring）：现实里「同户型但不同楼盘」
+    # 「同区但不同户型」都算可选替代。此前写成 `where(*prefilters)`（SQLAlchemy
+    # 的 where(*args) 是 AND 语义），候选被压成「同楼盘 且 同户型」，
+    # 绝大多数房源因此返回空列表，相似推荐形同失效。
+    affinity = []
     if base_prop and base_prop.project_id:
-        prefilters.append(Property.project_id == base_prop.project_id)
+        affinity.append(Property.project_id == base_prop.project_id)
+    if base_prop and base_prop.property_type:
+        affinity.append(Property.property_type == base_prop.property_type)
+    if base_proj and base_proj.district:
+        affinity.append(Project.district == base_proj.district)
+    elif base_proj and base_proj.city:
+        affinity.append(Project.city == base_proj.city)
 
+    stmt = _listings_base_stmt().where(Listing.id != listing_id)
+    if affinity:
+        stmt = stmt.where(or_(*affinity))
     rows = session.exec(
-        _listings_base_stmt()
-        .where(*prefilters)
-        .order_by(Listing.created_at.desc())
-        .limit(300)
+        stmt.order_by(Listing.created_at.desc()).limit(300)
     ).all()
 
     scored = [
@@ -1333,7 +1338,11 @@ def list_public_developers(
 def get_public_developer(
     developer_id: uuid.UUID, session: Session = Depends(get_session)
 ):
-    """开发商详情 + 旗下项目列表。"""
+    """开发商详情 + 旗下项目列表。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：同 /public/developers，
+    接口已就绪、C 端页面待建。
+    """
     developer = session.get(Developer, developer_id)
     if not developer or developer.deleted_at:
         raise HTTPException(status_code=404, detail="Developer not found")

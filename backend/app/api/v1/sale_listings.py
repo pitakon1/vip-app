@@ -9,7 +9,12 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
-from app.core.cache import delete_cache_pattern, get_cache, set_cache
+from app.core.cache import (
+    delete_cache_pattern,
+    get_cache,
+    invalidate_aggregate_caches,
+    set_cache,
+)
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     User,
@@ -188,6 +193,7 @@ def create_sale_listing(
     session.commit()
     session.refresh(listing)
     delete_cache_pattern("cache:sale-listings:*")
+    invalidate_aggregate_caches()
     return _serialize(listing)
 
 
@@ -228,6 +234,7 @@ def update_sale_listing(
     session.commit()
     session.refresh(listing)
     delete_cache_pattern("cache:sale-listings:*")
+    invalidate_aggregate_caches()
     return _serialize(listing)
 
 
@@ -248,6 +255,7 @@ def change_listing_status(
     session.commit()
     session.refresh(listing)
     delete_cache_pattern("cache:sale-listings:*")
+    invalidate_aggregate_caches()
     return _serialize(listing)
 
 

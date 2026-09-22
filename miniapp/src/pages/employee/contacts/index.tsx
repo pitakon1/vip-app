@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
@@ -45,11 +45,17 @@ export default function EmployeeContactsPage() {
   const [colleagues, setColleagues] = useState<Colleague[]>([])
   const [loading, setLoading] = useState(false)
   const [keyword, setKeyword] = useState('')
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const fetchAll = async () => {
+  // 通讯录必须走 `/employees/directory`：员工角色可访问，且只返回协作所需的
+  // 联系方式（不含佣金/薪资）。此前调的是 admin-only 的 `/employees`，
+  // 员工角色会 403，页面只能落成「暂无同事信息」的空态。
+  // 另外原本传 `page_size: 500` 拉全量，后端硬顶 100 会静默截断；
+  // 现在改成关键词下推服务端搜索，不再依赖单次拉全量。
+  const fetchDirectory = async (kw = '') => {
     setLoading(true)
     try {
-      const res = await employeesApi.list({ page: 1, page_size: 500 })
+      const res = await employeesApi.directory(kw.trim() ? { keyword: kw.trim() } : undefined)
       setColleagues(pickList(res))
     } catch {
       setColleagues([])
@@ -63,8 +69,22 @@ export default function EmployeeContactsPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchAll()
+    fetchDirectory()
   })
+
+  useEffect(() => () => {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+  }, [])
+
+  // 输入时前端先即时过滤（下面 visible），同时防抖触发服务端搜索，
+  // 避免同事数超过一页时搜不到本页之外的同事。
+  const onKeywordChange = (value: string) => {
+    setKeyword(value)
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => {
+      fetchDirectory(value)
+    }, 300)
+  }
 
   const visible = colleagues.filter((e) => {
     const kw = keyword.trim().toLowerCase()
@@ -139,7 +159,7 @@ export default function EmployeeContactsPage() {
             value={keyword}
             placeholder='搜索姓名/部门/电话'
             placeholderClass='c-search__placeholder'
-            onInput={(e: any) => setKeyword(e.detail.value)}
+            onInput={(e: any) => onKeywordChange(e.detail.value)}
           />
         </View>
 

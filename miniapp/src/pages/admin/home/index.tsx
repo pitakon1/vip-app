@@ -29,6 +29,8 @@ export default function AdminHomePage() {
   const [trend, setTrend] = useState<any[]>([])
   const [recent, setRecent] = useState<any[]>([])
   const [counts, setCounts] = useState({ leases: 0, employees: 0, todos: 0, reconDiff: 0, overdue: 0 })
+  // 对账合计（received/receivable/overdue），用于欠租占比条（对齐 App 口径）
+  const [reconTotals, setReconTotals] = useState<any>({})
   const [loading, setLoading] = useState(true)
 
   const fetchAll = async () => {
@@ -74,6 +76,8 @@ export default function AdminHomePage() {
         .financialReconciliation()
         .then((r: any) => {
           const d = r?.data ?? r
+          // 对账合计（对齐 App：totals.received/receivable/overdue），用于欠租占比可视化条
+          setReconTotals(d?.totals || {})
           // 后端无「差异条数」口径，取逐笔对账记录总数（records_total）
           const count = d?.records_total ?? (d?.records || []).length
           setCounts((c) => ({ ...c, reconDiff: Number(count || 0) }))
@@ -99,11 +103,19 @@ export default function AdminHomePage() {
     fetchAll()
   })
 
-  // 风险预警（原型三条 + 后端真实口径）
+  // 风险预警（对齐 App：给每个风险项补彩色占比可视化条；欠租/空置口径与 App 一致，
+  // 「合同到期」为小程序保留项，占比用到期份数 / 房源总数近似，说明见 report）
+  const ratio = (n: number, d: number) => (d > 0 ? Math.max(0, Math.min(n / d, 1)) : 0)
+  const num = (v: any) => Number(v ?? 0)
   const risks = useMemo(() => {
     const total = Number(summary?.total_properties || 0)
     const vacant = Number(summary?.vacant || 0)
     const vacancyRate = total > 0 ? Math.round((vacant / total) * 100) : 0
+
+    // 欠租：对齐 App 按对账金额口径（totals.overdue）计算逾期占比
+    const overdueAmt = num(reconTotals?.overdue)
+    const totalBilling = num(reconTotals?.received) + num(reconTotals?.receivable) + overdueAmt
+
     return [
       {
         key: 'expiring',
@@ -111,29 +123,32 @@ export default function AdminHomePage() {
         icon: 'calendar' as IconKey,
         title: '合同 30 天内到期',
         desc: '需提前联系租客确认续约',
-        value: `${Number(summary?.expiring_leases || 0)} 份`,
-        url: '/pages/admin/leases/index'
+        value: `${num(summary?.expiring_leases ?? 0)} 份`,
+        url: '/pages/admin/leases/index',
+        bar: ratio(num(summary?.expiring_leases ?? 0), total)
       },
       {
         key: 'overdue',
         tone: 'danger',
         icon: 'money' as IconKey,
-        title: '欠租房源',
-        desc: '已过缴费截止日仍未收款',
-        value: `${counts.overdue} 笔`,
-        url: '/pages/admin/payments/index'
+        title: '欠租与逾期',
+        desc: `逾期占比 ${Math.round(ratio(overdueAmt, totalBilling) * 100)}% · 待收款 ${num(summary?.upcoming_payments)} 笔`,
+        value: fmtMoney(overdueAmt),
+        url: '/pages/admin/payments/index',
+        bar: ratio(overdueAmt, totalBilling)
       },
       {
         key: 'vacancy',
         tone: 'info',
         icon: 'home' as IconKey,
         title: '空置率',
-        desc: '空置房源占比，建议加强带看',
+        desc: `空置 ${vacant} 套 / 共 ${total} 套 · 警戒线 10%`,
         value: `${vacancyRate}%`,
-        url: '/pages/admin/properties/index'
+        url: '/pages/admin/properties/index',
+        bar: ratio(vacant, total)
       }
     ]
-  }, [summary, counts.overdue])
+  }, [summary, reconTotals])
 
   // 经营指标（原型四卡）
   const metrics = [
@@ -190,7 +205,7 @@ export default function AdminHomePage() {
     { key: 'crm', label: '客户管理', icon: 'user', url: '/pages/admin/crm/index' },
     { key: 'leases', label: '合同管理', icon: 'doc', url: '/pages/admin/leases/index' },
     { key: 'payments', label: '收款管理', icon: 'money', url: '/pages/admin/payments/index' },
-    { key: 'listings', label: '上架工作台', icon: 'clipboard', url: '/pages/staff/hub/index' }
+    { key: 'listings', label: '上架房源', icon: 'clipboard', url: '/pages/staff/listing-edit/index' }
   ]
 
   const go = (url: string) => Taro.navigateTo({ url })
@@ -210,6 +225,12 @@ export default function AdminHomePage() {
               <View className='adm-risk__body'>
                 <Text className='adm-risk__title'>{r.title}</Text>
                 <Text className='adm-risk__desc'>{r.desc}</Text>
+                <View className='adm-risk__track'>
+                  <View
+                    className='adm-risk__bar'
+                    style={{ width: `${Math.max(Math.round((r.bar ?? 0) * 100), 2)}%` }}
+                  />
+                </View>
               </View>
               <View className='adm-risk__right'>
                 <Text className='adm-risk__value'>{r.value}</Text>

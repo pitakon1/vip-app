@@ -180,6 +180,10 @@ export const employeesApi = {
   me: () => request({ url: '/employees/me', method: 'GET' }),
   leaderboard: () => request({ url: '/employees/leaderboard', method: 'GET' }),
   workbench: () => request({ url: '/employees/workbench', method: 'GET' }),
+  // 同事通讯录：全体员工可见，且只返回协作所需的联系方式（无佣金/薪资）。
+  // 注意不要用下面的 `list`：那个是 admin-only 的员工管理列表，
+  // 员工角色调用会 403，且字段里带管理端信息。
+  directory: (params?: any) => request({ url: '/employees/directory', method: 'GET', data: params }),
   list: (params?: any) => request({ url: '/employees', method: 'GET', data: params })
 }
 
@@ -194,11 +198,6 @@ export const dashboardApi = {
 }
 
 // 管理端：审计日志
-export const auditApi = {
-  list: (params?: any) => request({ url: '/audit-logs', method: 'GET', data: params }),
-  summary: () => request({ url: '/audit-logs/summary', method: 'GET' })
-}
-
 // 管理端：账号管理（列表 / 开通 / 编辑 / 启停 / 删除）
 export const adminUsersApi = {
   list: (params?: any) => request({ url: '/admin/users', method: 'GET', data: params }),
@@ -249,23 +248,6 @@ export const contractsApi = {
   addParty: (id: string, data: any) => request({ url: `/contracts/${id}/parties`, method: 'POST', data }),
   sign: (id: string, partyId: string) =>
     request({ url: `/contracts/${id}/sign`, method: 'POST', data: { party_id: partyId } })
-}
-
-export const aiApi = {
-  health: () => request({ url: '/ai/health', method: 'GET' }),
-  chat: (messages: any[]) => request({ url: '/ai/chat', method: 'POST', data: { messages } })
-}
-
-export const backupApi = {
-  run: () => request({ url: '/backup/run', method: 'POST' }),
-  jobs: (params?: any) => request({ url: '/backup/jobs', method: 'GET', data: params })
-}
-
-export const geoApi = {
-  geocode: (address: string) => request({ url: '/geo/geocode', method: 'POST', data: { address } }),
-  reverse: (lat: number, lng: number) => request({ url: '/geo/reverse', method: 'POST', data: { lat, lng } }),
-  distance: (from: any, to: any) => request({ url: '/geo/distance', method: 'POST', data: { from, to } }),
-  attendance: (lat: number, lng: number) => request({ url: '/geo/attendance', method: 'POST', data: { lat, lng } })
 }
 
 export const translateApi = {
@@ -334,17 +316,6 @@ export const brokerApi = {
 }
 
 // ============ 多国市场配置 ============
-export const marketApi = {
-  list: (params?: any) => request({ url: `/markets${qs(params)}`, method: 'GET' }),
-  create: (data: any) => request({ url: '/markets', method: 'POST', data }),
-  channels: (market_code?: string) =>
-    request({ url: `/markets/channels${qs({ market_code })}`, method: 'GET' }),
-  createChannel: (data: any) => request({ url: '/markets/channels', method: 'POST', data }),
-  compliance: (market_code?: string) =>
-    request({ url: `/markets/compliance${qs({ market_code })}`, method: 'GET' }),
-  createCompliance: (data: any) => request({ url: '/markets/compliance', method: 'POST', data })
-}
-
 // ============ 房源上架单（发布 / 我的上架单 / 平台审核 / 关闭） ============
 export const listingApi = {
   create: (data: any) => request({ url: '/listings', method: 'POST', data }),
@@ -357,23 +328,6 @@ export const listingApi = {
   // 下架/成交关闭：{sold?}{rented?}
   close: (id: string, data: any = {}) =>
     request({ url: `/listings/${id}/close`, method: 'POST', data })
-}
-
-// ============ 经纪人协议（在线签约：listing_agent / distributor） ============
-export const brokerAgreementApi = {
-  agreements: (brokerId: string) =>
-    request({ url: `/brokers/${brokerId}/agreements`, method: 'GET' }),
-  create: (brokerId: string, role: 'listing_agent' | 'distributor') =>
-    request({ url: `/brokers/${brokerId}/agreements`, method: 'POST', data: { role } })
-}
-
-// ============ 去重审核（staff：疑似重复合并/驳回） ============
-export const dedupeReviewApi = {
-  list: (params?: any) => request({ url: `/dedupe-reviews${qs(params)}`, method: 'GET' }),
-  merge: (id: string, note?: string) =>
-    request({ url: `/dedupe-reviews/${id}/merge`, method: 'POST', data: { note } }),
-  dismiss: (id: string, note?: string) =>
-    request({ url: `/dedupe-reviews/${id}/dismiss`, method: 'POST', data: { note } })
 }
 
 export default {
@@ -394,21 +348,14 @@ export default {
   commissionsApi,
   chatApi,
   contractsApi,
-  aiApi,
-  backupApi,
-  geoApi,
   translateApi,
   viewingsApi,
   employeesApi,
   dashboardApi,
-  auditApi,
   adminUsersApi,
   commissionRulesApi,
   saleListingApi,
   propertyDealApi,
   brokerApi,
-  marketApi,
   listingApi,
-  brokerAgreementApi,
-  dedupeReviewApi
 }

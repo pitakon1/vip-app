@@ -2,12 +2,16 @@
  * VIP Rental 统一设计令牌 — 高端版（Refined Premium）
  * 温暖米白基底 · 品牌青绿 · 柔和阴影 · 圆角层级
  * 唯一配色来源：UI-设计原则.md。组件内禁止硬编码色值，一律引用本对象。
+ *
+ * 令牌按需保留：已删除从 shadcn/ui 抄来但 RN 端无意义的 `popover` /
+ * `popoverForeground` / `cardForeground` / `ring`，以及移动端不存在「hover」态的
+ * `primaryHover`——它们在全仓 0 引用，留着只会误导后来者以为有对应组件。
+ * 需要时再按 `colors.xxx` 补回即可。
  */
 export const colors = {
   // ---- 主色 ----
   primary: '#14b8a6',
   primaryRgb: '20, 184, 166',
-  primaryHover: '#0d9488',
   primaryForeground: '#ffffff',
   sidebarActive: '#d9f2ee',
   accent: '#0d9488',
@@ -16,10 +20,6 @@ export const colors = {
   background: '#fbf9f6',
   foreground: '#1c2733',
   card: '#ffffff',
-  cardForeground: '#1c2733',
-  popover: '#ffffff',
-  popoverForeground: '#1c2733',
-  ring: '#14b8a6',
 
   // ---- 中性阶梯（暖调墨色）----
   ink: '#1c2733',
@@ -116,6 +116,7 @@ export const colors = {
   },
 
   // ---- 字号 ----
+  // 用方括号访问：colors.fontSize['2xl']（键名不是合法标识符）
   fontSize: {
     xs: 11,
     sm: 12,
@@ -124,7 +125,6 @@ export const colors = {
     xl: 18,
     '2xl': 20,
     '3xl': 24,
-    '4xl': 30,
   },
 };
 

@@ -36,7 +36,12 @@ const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey; ca
   { key: 'maintenance', label: '服务工单', url: '/pages/tenant/maintenance/index', icon: 'edit', cap: 'tenant', need: '购买增值服务后即可发起' },
   { key: 'services', label: '增值服务', url: '/pages/tenant/services/index', icon: 'clipboard', cap: 'tenant', need: '租入房源或添加房源后即可购买' },
   // 通用能力项（文档中心：租房文档 + 我的文档 合并）
-  { key: 'documents', label: '文档中心', url: '/pages/tenant/documents/index', icon: 'doc', cap: 'both', need: '租入房源或添加房源后即可查看' }
+  { key: 'documents', label: '文档中心', url: '/pages/tenant/documents/index', icon: 'doc', cap: 'both', need: '租入房源或添加房源后即可查看' },
+  // C 端关注/浏览历史/降价提醒：登录即可用，不按业主/租客能力门槛（未登录先进登录；对齐 App）
+  // 注：小程序暂无这三个的独立落地页，登录后点击暂提示未开放，待后续补充页面。
+  { key: 'favorites', label: '我的关注', url: '', icon: 'heart', cap: 'both', need: '「我的关注」功能建设中，敬请期待' },
+  { key: 'history', label: '浏览历史', url: '', icon: 'calendar', cap: 'both', need: '「浏览历史」功能建设中，敬请期待' },
+  { key: 'priceAlerts', label: '降价提醒', url: '', icon: 'megaphone', cap: 'both', need: '「降价提醒」功能建设中，敬请期待' }
 ]
 
 // 管理端 / 业主端「账户设置」：后端无修改密码、绑定手机、绑定邮箱接口
@@ -479,8 +484,8 @@ export default function ProfilePage() {
   const isC = !isAdmin && !isStaff
   /** 统一常用功能宫格：对所有人完全一致，不按角色隐藏；点开无能力的项给提示 */
   const cGrid = C_GRID
-  /** 租客 / 管理端 / 业主端 / 员工端皆有「我的」页，底部导航对齐原型 */
-  const hasBottomNav = isTenant || isAdmin || isOwner || isStaff
+  /** 租客 / 管理端 / 业主端 / 员工端 / 访客皆有「我的」页，底部导航对齐原型 */
+  const hasBottomNav = !user || isTenant || isAdmin || isOwner || isStaff
 
   const phoneValue = user?.phone ? maskPhone(user.phone) : '未绑定'
   const emailValue = user?.email ? maskEmail(user.email) : '未绑定'
@@ -642,15 +647,22 @@ export default function ProfilePage() {
                       key={entry.key}
                       className='service-grid__item'
                       onClick={() => {
+                        // 访客：宫格任一入口都导向登录（对齐 App：未登录点击先登录，而非 toast）
+                        if (!user) {
+                          Taro.navigateTo({ url: '/pages/login/index' })
+                          return
+                        }
                         const ok =
                           entry.cap === 'owner'
                             ? isOwner
                             : entry.cap === 'tenant'
                               ? isTenant
                               : isOwner || isTenant
-                        ok
-                          ? handleNavigate(entry.url)
-                          : Taro.showToast({ title: entry.need, icon: 'none' })
+                        if (ok && entry.url) {
+                          handleNavigate(entry.url)
+                          return
+                        }
+                        Taro.showToast({ title: entry.need || '功能暂未开放', icon: 'none' })
                       }}
                     >
                       <View className='service-grid__icon icon-svg' style={iconStyle(entry.icon, 36)} />
@@ -662,25 +674,29 @@ export default function ProfilePage() {
             </>
           )}
 
-          {/* 设置（业主/租客统一） */}
-          <View className='section-title'>
-            <Text>设置</Text>
-          </View>
-          <View className='panel panel--list'>
-            {OWNER_SETTING_ROWS.map((entry) => {
-              const value =
-                entry.key === 'account'
-                  ? user?.phone
-                    ? maskPhone(user.phone)
-                    : ''
-                  : entry.key === 'about'
-                    ? appVersion
-                      ? `HaoFang.World v${appVersion}`
-                      : ''
-                    : entry.value
-              return renderSettingRow({ ...entry, value })
-            })}
-          </View>
+          {/* 设置（业主/租客统一）；访客态不显示设置/语言/退出登录，对齐 App */}
+          {user && (
+            <>
+              <View className='section-title'>
+                <Text>设置</Text>
+              </View>
+              <View className='panel panel--list'>
+                {OWNER_SETTING_ROWS.map((entry) => {
+                  const value =
+                    entry.key === 'account'
+                      ? user?.phone
+                        ? maskPhone(user.phone)
+                        : ''
+                      : entry.key === 'about'
+                        ? appVersion
+                          ? `HaoFang.World v${appVersion}`
+                          : ''
+                        : entry.value
+                  return renderSettingRow({ ...entry, value })
+                })}
+              </View>
+            </>
+          )}
         </>
       )}
 
@@ -764,13 +780,18 @@ export default function ProfilePage() {
         </>
       )}
 
-      <View className='logout-wrapper'>
-        <Button className='logout-btn' onClick={handleLogout}>
-          退出登录
-        </Button>
-      </View>
+      {user && (
+        <View className='logout-wrapper'>
+          <Button className='logout-btn' onClick={handleLogout}>
+            退出登录
+          </Button>
+        </View>
+      )}
 
-      {isC && <BottomNav role={isOwner ? 'owner' : 'tenant'} active='profile' />}
+      {isC && (user
+        ? <BottomNav role={isOwner ? 'owner' : 'tenant'} active='profile' />
+        : <BottomNav role='guest' active='me' />
+      )}
       {isAdmin && <BottomNav role='admin' active='settings' />}
       {isStaff && <BottomNav role='employee' active='settings' />}
 

@@ -392,7 +392,11 @@ def list_channels(
     currency: str = "THB",
     user: User = Depends(get_current_user),
 ):
-    """可用支付渠道列表，并按币种给出推荐排序。"""
+    """可用支付渠道列表，并按币种给出推荐排序。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：移动端收银台把渠道
+    写死在本地，未回服务端取排序。
+    """
     order = {
         "THB": ["promptpay", "stripe", "bank_transfer", "wechat", "alipay"],
         "CNY": ["wechat", "alipay", "stripe", "bank_transfer"],
@@ -527,6 +531,9 @@ def payment_webhook(
 
     流程：验签 → 幂等检查 → 解析 → 落库 → 触发业务事件。
     签名校验所需请求头（如 Stripe-Signature）由渠道 provider 负责读取。
+
+    [刻意保留] 无前端调用方：由支付网关（Stripe/Omise 等）服务端回调，不属于 UI 调用；
+    已在契约工具 INTENTIONAL_ORPHANS 登记，不再报警。
     """
     try:
         result = payment_service.handle_webhook(
@@ -544,7 +551,11 @@ def payment_reconciliations(
     session: Session = Depends(get_session),
     user: User = Depends(require_admin),
 ):
-    """对账统计（Admin）：按状态 / 渠道聚合支付单。"""
+    """对账统计（Admin）：按状态 / 渠道聚合支付单。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：Web 财务对账页取的是
+    /dashboard/financial-reconciliation，本接口与下面导 CSV 同因未接。
+    """
     by_status = session.exec(
         select(Payment.status, func.count(Payment.id), func.sum(Payment.amount))
         .where(Payment.deleted_at.is_(None))
@@ -571,6 +582,8 @@ def export_reconciliation_csv(
     user: User = Depends(require_admin),
 ):
     """导出对账单明细 CSV（Admin）：与财务对账列表同口径。
+
+    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：同 GET /payments/reconciliations。
 
     复用财务对账的分桶口径（received / pending / overdue，见 core.payments），
     导出逐笔明细，供线下对账归档。

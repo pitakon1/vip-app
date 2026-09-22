@@ -12,7 +12,6 @@ import {
   View,
   Text,
   ScrollView,
-  Image,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
@@ -20,6 +19,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import RemoteImage from '@/components/RemoteImage';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import { publicApi, type PublicProjectDetail } from '@/services/publicApi';
@@ -87,7 +87,7 @@ export default function PublicCommunityDetailScreen() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
         {project.cover ? (
-          <Image source={{ uri: project.cover }} style={styles.cover} resizeMode="cover" />
+          <RemoteImage uri={project.cover} style={styles.cover} resizeMode="cover" />
         ) : null}
 
         <View style={styles.block}>

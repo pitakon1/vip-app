@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -14,6 +13,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import EmptyState from '@/components/EmptyState';
 import { priceAlertsApi } from '@/services/api';
 import { useI18n } from '@/i18n';
+import RemoteImage from '@/components/RemoteImage';
 import colors from '@/theme/colors';
 import { fmtMoney } from '@/utils/format';
 import { notify } from '@/utils/feedback';
@@ -34,15 +34,20 @@ export default function PriceAlertsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  // 请求失败与「确实没有订阅」分开：否则接口挂了会显示「还没有降价提醒」，
+  // 用户会以为订阅丢了。
+  const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
     try {
+      setFailed(false);
       const res = await priceAlertsApi.mine({ page: 1, page_size: 50 });
       const d: any = res?.data;
       const rows = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
       setItems(rows);
     } catch (e) {
       console.warn('load price alerts failed', e);
+      setFailed(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -81,7 +86,7 @@ export default function PriceAlertsScreen() {
         notify(t('pub.priceAlerts'), t('pub.unsubscribeAlert'));
       } catch (e) {
         console.warn('unsubscribe price alert failed', e);
-        notify(t('pub.priceAlerts'), '操作失败，请稍后重试');
+        notify(t('pub.priceAlerts'), t('actionFailed'));
       } finally {
         setRemovingId(null);
       }
@@ -93,6 +98,23 @@ export default function PriceAlertsScreen() {
     return (
       <View style={[styles.center, { paddingTop: insets.top + 24 }]}>
         <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!loading && failed) {
+    return (
+      <View style={[styles.emptyWrap, { paddingTop: insets.top + 24 }]}>
+        <EmptyState
+          icon="cloud-offline-outline"
+          title={t('loadFailed')}
+          sub={t('loadFailedSub')}
+          actionLabel={t('retry')}
+          onAction={() => {
+            setLoading(true);
+            load();
+          }}
+        />
       </View>
     );
   }
@@ -112,7 +134,10 @@ export default function PriceAlertsScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       {items.map((it, idx) => {
-        const title = it.title || `${it.room_number ?? ''}` || `房源 ${String(it.property_id ?? '').slice(0, 8)}`;
+        const title =
+          it.title ||
+          `${it.room_number ?? ''}` ||
+          `${t('listingFallback')} ${String(it.property_id ?? '').slice(0, 8)}`;
         const img = it.photo;
         const price = it.current_price ?? it.subscribed_price;
         return (
@@ -123,7 +148,7 @@ export default function PriceAlertsScreen() {
             onPress={() => openDetail(it)}
           >
             {img ? (
-              <Image source={{ uri: String(img) }} style={styles.thumb} />
+              <RemoteImage uri={String(img)} style={styles.thumb} />
             ) : (
               <View style={styles.thumbPlaceholder}>
                 <Ionicons name="image-outline" size={22} color={colors.ink3} />
@@ -141,7 +166,7 @@ export default function PriceAlertsScreen() {
               {price ? (
                 <Text style={styles.price}>
                   {fmtMoney(price, it.currency)}
-                  {it.notified_at ? <Text style={styles.notifiedTag}> · 已降价通知</Text> : null}
+                  {it.notified_at ? <Text style={styles.notifiedTag}> · {t('priceDroppedTag')}</Text> : null}
                 </Text>
               ) : null}
             </View>

@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { View, Text, Input, Image } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { publicApi, unwrapPage, type PublicProject } from '@/services/publicApi'
 import { convertFromThb, loadRates, tenureLabel } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
@@ -77,6 +77,18 @@ export default function PublicCommunitiesPage() {
     fetchPage(1)
   }, [fetchPage])
 
+  // 下拉刷新（对齐 App 的 RefreshControl）
+  usePullDownRefresh(async () => {
+    await fetchPage(1)
+    Taro.stopPullDownRefresh()
+  })
+
+  // 滚动到底自动加载下一页（对齐 App 的 FlatList onEndReached）
+  useReachBottom(() => {
+    if (loading || loadingMore || items.length >= total) return
+    fetchPage(page + 1)
+  })
+
   return (
     <View className='pub-page'>
       <View className='pub-inner'>
@@ -94,7 +106,7 @@ export default function PublicCommunitiesPage() {
           />
         </View>
 
-        <Text className='pub-count'>{t('pub.communityCount', { n: total })}</Text>
+        <Text className='pub-count'>{t('pub.totalCount', { n: total })}</Text>
 
         {loading ? (
           <View className='pub-loading'>{t('pub.loading')}</View>
@@ -168,19 +180,7 @@ export default function PublicCommunitiesPage() {
 
             {loadingMore ? (
               <View className='pub-loading'>{t('pub.loading')}</View>
-            ) : items.length < total ? (
-              <View
-                className='btn btn--secondary'
-                onClick={() => {
-                  if (loading || loadingMore) return
-                  fetchPage(page + 1)
-                }}
-              >
-                <Text>{t('pub.loadMore')}</Text>
-              </View>
-            ) : (
-              <View className='pub-footer-note'>{t('pub.noMore')}</View>
-            )}
+            ) : null}
           </>
         )}
       </View>

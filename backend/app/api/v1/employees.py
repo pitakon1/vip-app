@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -215,10 +216,26 @@ def employee_directory(
 
     只返回协作所需的联系方式，不含佣金/薪资/上下级等敏感字段；
     前端「同事通讯录」页据此渲染，无需再准备静态示例数据。
+
+    `keyword` 可按姓名/职位/部门/电话/工号模糊搜索。过滤下推到 SQL，
+    避免「先全表查出来再在 Python 里筛」——员工数一涨就是每次请求一次全量加载。
+    字段口径与原实现严格对齐，避免出现「以前搜得到、现在搜不到」：
+    姓名在 `User` 表，其余在 `Employee` 表。
     """
     conditions = [Employee.deleted_at.is_(None), Employee.is_active.is_(True)]
     if department:
         conditions.append(Employee.department == department)
+    if keyword and keyword.strip():
+        kw = f"%{keyword.strip()}%"
+        conditions.append(
+            Employee.position.ilike(kw)
+            | Employee.department.ilike(kw)
+            | Employee.phone.ilike(kw)
+            | Employee.employee_code.ilike(kw)
+            | Employee.user_id.in_(
+                select(User.id).where(User.full_name.ilike(kw))
+            )
+        )
 
     employees = session.exec(
         select(Employee).where(*conditions).order_by(Employee.employee_code)
@@ -252,18 +269,6 @@ def employee_directory(
                 "line": e.line_id,
             }
         )
-
-    if keyword:
-        kw = keyword.strip().lower()
-        items = [
-            i
-            for i in items
-            if kw
-            in " ".join(
-                str(i.get(k) or "")
-                for k in ("full_name", "position", "department", "phone", "employee_no")
-            ).lower()
-        ]
 
     return {
         "items": items,

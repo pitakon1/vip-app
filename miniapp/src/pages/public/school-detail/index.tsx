@@ -120,22 +120,38 @@ export default function PublicSchoolDetailPage() {
                 </Text>
               </View>
             ) : null}
-            {school.student_count ? (
+            {school.student_count != null ? (
               <View className='pub-kv__item'>
                 <Text className='pub-kv__k'>{t('pub.studentCount')}</Text>
                 <Text className='pub-kv__v'>{school.student_count}</Text>
               </View>
             ) : null}
             {school.phone ? (
-              <View className='pub-kv__item'>
+              <View
+                className='pub-kv__item'
+                onClick={() =>
+                  Taro.makePhoneCall({
+                    phoneNumber: String(school.phone)
+                  })
+                }
+              >
                 <Text className='pub-kv__k'>{t('pub.phone')}</Text>
-                <Text className='pub-kv__v'>{school.phone}</Text>
+                <Text className='pub-kv__v pub-kv__link'>
+                  {school.phone} · {t('pub.call')}
+                </Text>
               </View>
             ) : null}
             {school.website ? (
-              <View className='pub-kv__item'>
+              <View
+                className='pub-kv__item'
+                onClick={() =>
+                  Taro.setClipboardData({
+                    data: school.website as string
+                  })
+                }
+              >
                 <Text className='pub-kv__k'>{t('pub.website')}</Text>
-                <Text className='pub-kv__v'>{school.website}</Text>
+                <Text className='pub-kv__v pub-kv__link'>{school.website}</Text>
               </View>
             ) : null}
           </View>

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -14,6 +13,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import EmptyState from '@/components/EmptyState';
 import { getHistory, clearHistory, type BrowseHistoryItem } from '@/lib/browseHistory';
 import { useI18n } from '@/i18n';
+import RemoteImage from '@/components/RemoteImage';
 import colors from '@/theme/colors';
 import { fmtMoney } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,12 +30,16 @@ export default function HistoryScreen() {
   const [items, setItems] = useState<BrowseHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // 读本地历史失败时不能再显示「还没有浏览记录」——那是把读取异常说成了业务事实
+  const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
     try {
+      setFailed(false);
       setItems(await getHistory());
     } catch (e) {
       console.warn('load history failed', e);
+      setFailed(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -78,10 +82,23 @@ export default function HistoryScreen() {
       {items.length > 0 ? (
         <TouchableOpacity style={styles.clearBar} onPress={onClear} activeOpacity={0.7}>
           <Ionicons name="trash-outline" size={15} color={colors.ink3} />
-          <Text style={styles.clearText}>清空</Text>
+          <Text style={styles.clearText}>{t('clearAll')}</Text>
         </TouchableOpacity>
       ) : null}
-      {!loading && items.length === 0 ? (
+      {!loading && failed ? (
+        <View style={[styles.emptyWrap, { paddingTop: insets.top + 24 }]}>
+          <EmptyState
+            icon="cloud-offline-outline"
+            title={t('loadFailed')}
+            sub={t('loadFailedSub')}
+            actionLabel={t('retry')}
+            onAction={() => {
+              setLoading(true);
+              load();
+            }}
+          />
+        </View>
+      ) : !loading && items.length === 0 ? (
         <View style={[styles.emptyWrap, { paddingTop: insets.top + 24 }]}>
           <EmptyState icon="time-outline" title={t('pub.historyEmpty')} sub={t('pub.historyEmptySub')} />
         </View>
@@ -91,7 +108,7 @@ export default function HistoryScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
           {items.map((it, idx) => {
-            const title = it.title || `房源 ${String(it.id).slice(0, 8)}`;
+            const title = it.title || `${t('listingFallback')} ${String(it.id).slice(0, 8)}`;
             return (
               <TouchableOpacity
                 key={it.id}
@@ -100,7 +117,7 @@ export default function HistoryScreen() {
                 onPress={() => openDetail(it)}
               >
                 {it.cover ? (
-                  <Image source={{ uri: String(it.cover) }} style={styles.thumb} />
+                  <RemoteImage uri={String(it.cover)} style={styles.thumb} />
                 ) : (
                   <View style={styles.thumbPlaceholder}>
                     <Ionicons name="image-outline" size={22} color={colors.ink3} />
@@ -118,7 +135,7 @@ export default function HistoryScreen() {
                   {it.price ? (
                     <Text style={styles.price}>
                       {fmtMoney(it.price, it.currency)}
-                      <Text style={styles.priceUnit}>/月</Text>
+                      <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>
                     </Text>
                   ) : null}
                 </View>

@@ -97,7 +97,10 @@ export interface MaintenanceTicket {
   title: string;
   description: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'submitted' | 'accepted' | 'in_progress' | 'resolved' | 'closed';
+  // 必须与后端 `models/maintenance_ticket.py::TicketStatus` 逐字一致。
+  // 此前这里写的是 submitted/accepted，后端根本没有这两个值——后端建单默认
+  // 落 `open`，而 `open` 在旧口径下匹配不到任何 Tab（见 MaintenanceScreen.matchTab）。
+  status: 'open' | 'assigned' | 'in_progress' | 'resolved' | 'closed';
   images?: string[];
   assigneeId?: string;
   createdAt?: string;

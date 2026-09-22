@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '日程排期' }

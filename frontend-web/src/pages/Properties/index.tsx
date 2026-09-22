@@ -21,6 +21,7 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { propertiesApi, projectsApi } from '@/services/api'
+import { MAX_PAGE_SIZE } from '@/lib/api'
 import { downloadReport } from '@/lib/download'
 import useAuthStore from '@/stores/auth'
 import type { Project, Property } from '@/types'
@@ -218,7 +219,10 @@ const Properties = () => {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await propertiesApi.list({ page: 1, pageSize: 999 } as any)
+      // ⚠️ 技术债：这里是「拉全量 → 前端筛选 → 前端切片」的假分页，
+      // 20+ 个筛选条件都还在前端跑。取值只能贴到后端硬顶（100），
+      // 房源数超过 100 时列表会少数据且不报错。正确解法是把筛选下推后端做真分页。
+      const res = await propertiesApi.list({ page: 1, pageSize: MAX_PAGE_SIZE })
       const payload = res.data?.data ?? res.data
       setAllItems(payload?.items ?? [])
     } catch {

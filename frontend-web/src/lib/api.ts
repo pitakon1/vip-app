@@ -1,6 +1,19 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { REFRESH_TOKEN_KEY, useAuthStore } from '@/stores/auth'
 
+/**
+ * 单次请求能取回的最大条数，与后端 `app/core/pagination.py` 的 `MAX_PAGE_SIZE` 保持一致。
+ *
+ * 后端对 `page_size` 是**硬截断**（不是报错）。传超过这个值的请求不会失败，
+ * 只会安静地少拿数据，表现为「下拉少选项 / 总数偏小 / 筛选不全」——
+ * 这类静默错误排查成本极高，所以前端侧一律用这个常量，不要再手写大数字。
+ *
+ * ⚠️ 已知技术债：`pages/Properties` 与 `pages/Tenant/Dashboard` 目前是
+ * 「拉全量 → 前端筛选 → 前端切片」的假分页。改成真·服务端分页需要把
+ * 20+ 个筛选条件一起下推后端，属独立一轮的改造，此处仅先把取值收敛到上限内。
+ */
+export const MAX_PAGE_SIZE = 100
+
 const api = axios.create({
   baseURL: '/api/v1',
   timeout: 10000,
@@ -46,6 +59,24 @@ const refreshAccessToken = async (): Promise<string> => {
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean }
 
+/**
+ * 匿名可访问的路由。401 时不对这些路径做重定向，交给页面自行降级。
+ *
+ * 拆成「精确匹配 / 前缀匹配」两张表：原先是一长串 `||` 手写条件，
+ * 新增公开路由极易漏配，而漏配的后果是**匿名用户访问公开页时被误踢回登录页**，
+ * 且只在未登录态复现，最容易漏测。改成数组后新增路由只需加一行。
+ */
+const PUBLIC_EXACT_ROUTES = ['/', '/login', '/register']
+const PUBLIC_PREFIX_ROUTES = [
+  '/listings',
+  '/listing/',
+  '/schools',
+  '/school/',
+  '/communities',
+  '/community/',
+  '/properties/detail',
+]
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -65,19 +96,10 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      // 公共页面（首页、房源浏览、学校、小区、登录、注册）不因 401 重定向，让组件自行降级处理
       const pathname = window.location.pathname
       const isPublicRoute =
-        pathname === '/' ||
-        pathname === '/login' ||
-        pathname === '/register' ||
-        pathname.startsWith('/listings') ||
-        pathname.startsWith('/listing/') ||
-        pathname.startsWith('/schools') ||
-        pathname.startsWith('/school/') ||
-        pathname.startsWith('/communities') ||
-        pathname.startsWith('/community/') ||
-        pathname.startsWith('/properties/detail')
+        PUBLIC_EXACT_ROUTES.includes(pathname) ||
+        PUBLIC_PREFIX_ROUTES.some((prefix) => pathname.startsWith(prefix))
       if (!isPublicRoute) {
         useAuthStore.getState().logout()
         // 避免已在 /login 时重复跳转

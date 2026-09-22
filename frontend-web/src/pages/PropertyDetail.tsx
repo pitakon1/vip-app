@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { translateApi, documentsApi } from '@/services/api'
 import { useCachedQuery } from '@/lib/queryCache'
+import { formatMoney } from '@/lib/money'
 import './PropertyDetail.css'
 
 interface PropertyDetail {
@@ -40,50 +42,24 @@ interface PropertyDetail {
   [key: string]: any
 }
 
-const formatRent = (v: any) => `฿${Number(v || 0).toLocaleString()}`
+/**
+ * 金额格式化：**跟随房源自身币种**，不再无条件写死 ฿。
+ *
+ * 此前是 `฿${...}`，而 `PropertyDetail` 接口是带 `currency` 字段的；
+ * 一条 MYR 或 USD 计价的房源会被渲染成泰铢金额，是"数字对、币种错"的静默错误，
+ * 比直接报错更难被用户发现。
+ */
+const formatRent = (v: any, currency?: string) =>
+  formatMoney(Number(v || 0), currency || 'THB')
+
 const formatDate = (v?: string) => {
   if (!v) return '-'
   const d = dayjs(v)
   return d.isValid() ? d.format('YYYY-MM-DD') : '-'
 }
 
-const propertyTypeMap: Record<string, string> = {
-  apartment: '公寓',
-  condo: '公寓',
-  villa: '别墅',
-  house: '别墅',
-  shop: '商铺',
-  commercial: '商铺',
-  office: '写字楼',
-}
-
-const statusLabelMap: Record<string, string> = {
-  vacant: '空置中',
-  rented: '已出租',
-  reserved: '已预订',
-  maintenance: '维护中',
-}
-
-// 朝向/装修枚举 → 展示文案（与 C 端公开口径一致，见 publicSite.orientation / decoration）
-const propertyOrientationMap: Record<string, string> = {
-  north: '朝北', south: '朝南', east: '朝东', west: '朝西',
-  northeast: '朝东北', northwest: '朝西北', southeast: '朝东南', southwest: '朝西南',
-}
-const propertyDecorationMap: Record<string, string> = {
-  bare: '毛坯', simple: '简装', standard: '精装', luxury: '豪装', fully_furnished: '带家具家电',
-}
-const propertyOrientationLabel = (v: string) => propertyOrientationMap[v] || v
-const propertyDecorationLabel = (v: string) => propertyDecorationMap[v] || v
-
-// 租约状态文案
-const leaseStatusMap: Record<string, string> = {
-  active: '生效中',
-  pending: '待生效',
-  expired: '已到期',
-  terminated: '已退租',
-}
-
-// 文档类型（后端 DocumentType 枚举）→ 展示文案与徽章色调
+// 文档类型（后端 DocumentType 枚举）→ 展示文案与徽章色调。属于内部管理端术语，
+// 与 C 端枚举不同，暂不接 i18n（改动面超出本次范围）。
 const DOC_TYPE_LABEL: Record<string, string> = {
   contract: '合同',
   receipt: '收据',
@@ -104,6 +80,41 @@ const DOC_TYPE_BADGE: Record<string, string> = {
 const PropertyDetail = () => {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
+
+  // ---- 枚举 → 文案：一律走 i18n ----
+  // 此前 propertyType / propertyStatus / orientation / decoration 四组都是模块级
+  // 硬编码中文常量，EN/TH 环境进入详情页会整屏漏翻（同文件其它文案早已接了 t()）。
+  // 放到组件内经 useMemo 计算，语言切换时才会跟着刷新。
+  const propertyTypeMap = useMemo<Record<string, string>>(() => ({
+    apartment: t('propertyType.apartment'),
+    condo: t('propertyType.condo'),
+    villa: t('propertyType.villa'),
+    house: t('propertyType.house'),
+    shop: t('propertyType.shop'),
+    commercial: t('propertyType.commercial'),
+    office: t('propertyType.office'),
+  }), [t])
+
+  const statusLabelMap = useMemo<Record<string, string>>(() => ({
+    vacant: t('propertyStatus.vacant'),
+    rented: t('propertyStatus.rented'),
+    reserved: t('propertyStatus.reserved'),
+    maintenance: t('propertyStatus.maintenance'),
+  }), [t])
+
+  const leaseStatusMap = useMemo<Record<string, string>>(() => ({
+    active: t('leaseStatus.active'),
+    pending: t('leaseStatus.pending'),
+    expired: t('leaseStatus.expired'),
+    terminated: t('leaseStatus.terminated'),
+  }), [t])
+
+  // 未知枚举值回落为原始值（不显示成空），保证排障时能看见后端到底返回了什么。
+  const orientationLabel = (v: string) =>
+    t(`publicSite.orientation.${v}`, { defaultValue: v })
+  const decorationLabel = (v: string) =>
+    t(`publicSite.decoration.${v}`, { defaultValue: v })
 
   // v1.8 Google 翻译：房源描述可自行翻译
   const [translatedDesc, setTranslatedDesc] = useState<string | null>(null)
@@ -224,6 +235,8 @@ const PropertyDetail = () => {
   }
 
   const projectName = detail.project_name || detail.project_id || ''
+  // 房源自身币种：所有金额展示都跟随它（后端 currency 字段可能为 null，回落 THB）
+  const currency = detail.currency || 'THB'
   const ptype =
     propertyTypeMap[detail.property_type || ''] || detail.property_type || '公寓'
   const statusKey = (detail.status || 'vacant').toLowerCase()
@@ -240,8 +253,10 @@ const PropertyDetail = () => {
   const displayAddress =
     detail.address || `${detail.city || ''} ${projectName}`.trim() || '—'
   const propNo = `PROP-2026-${String(id || '0000').padStart(4, '0').slice(-4)}`
-  const monthlyRentText = formatRent(detail.monthly_rent ?? 0)
-  const depositText = detail.deposit_amount ? formatRent(detail.deposit_amount) : '—'
+  const monthlyRentText = formatRent(detail.monthly_rent ?? 0, currency)
+  const depositText = detail.deposit_amount
+    ? formatRent(detail.deposit_amount, currency)
+    : '—'
 
   // 真实租约数据：当前生效租约 + 历史租约
   const currentLease = leases.find((l) => l.status === 'active') || null
@@ -255,11 +270,11 @@ const PropertyDetail = () => {
   const specBedrooms = detail.bedrooms != null ? `${detail.bedrooms} 间` : '—'
   const specBathrooms = detail.bathrooms != null ? `${detail.bathrooms} 间` : '—'
   const specParking = detail.parking != null ? `${detail.parking} 个` : '—'
-  const specOrientation = detail.orientation ? propertyOrientationLabel(detail.orientation) : '—'
-  const specDecoration = detail.decoration ? propertyDecorationLabel(detail.decoration) : '—'
+  const specOrientation = detail.orientation ? orientationLabel(detail.orientation) : '—'
+  const specDecoration = detail.decoration ? decorationLabel(detail.decoration) : '—'
   const specUnitPrice =
     detail.monthly_rent && detail.size_sqm
-      ? formatRent(Number(detail.monthly_rent) / Number(detail.size_sqm))
+      ? formatRent(Number(detail.monthly_rent) / Number(detail.size_sqm), currency)
       : '—'
 
   return (
@@ -569,7 +584,7 @@ const PropertyDetail = () => {
                     <td className="rent-table__mono">{`LSE-${String(r.id).slice(0, 8).toUpperCase()}`}</td>
                     <td>{r.tenant_name || '—'}</td>
                     <td>{`${formatDate(r.start_date)} 至 ${formatDate(r.end_date)}`}</td>
-                    <td>{formatRent(r.monthly_rent)}</td>
+                    <td>{formatRent(r.monthly_rent, r.currency || currency)}</td>
                     <td>
                       <span className="rent-badge rent-badge--neutral">
                         {leaseStatusMapTxt(r.status)}

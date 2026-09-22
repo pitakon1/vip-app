@@ -30,9 +30,12 @@ const PRIORITY_OPTIONS: Array<{ label: string; value: MaintenanceTicket['priorit
   { label: '紧急', value: 'urgent' },
 ];
 
+// 与后端 TicketStatus 对齐（open/assigned/in_progress/resolved/closed）。
+// 注意语义映射：后端 `open` = 已提交待受理 → 展示「待处理」；
+// 后端 `assigned` = 已派单 → 展示「已受理」。
 const statusMeta: Record<string, { text: string; color: string; bg: string }> = {
-  submitted: { text: '待处理', color: colors.warning, bg: colors.warningLight },
-  accepted: { text: '已受理', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  open: { text: '待处理', color: colors.warning, bg: colors.warningLight },
+  assigned: { text: '已受理', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
   in_progress: { text: '处理中', color: colors.primary, bg: colors.sidebarActive },
   resolved: { text: '已完成', color: colors.success, bg: colors.successLight },
   closed: { text: '已关闭', color: colors.ink3, bg: colors.surface2 },
@@ -57,8 +60,9 @@ const STATUS_TABS: { key: StatusTabKey; label: string }[] = [
 
 const matchTab = (status: string, tab: StatusTabKey) => {
   if (tab === 'all') return true;
-  if (tab === 'pending') return status === 'submitted';
-  if (tab === 'processing') return status === 'accepted' || status === 'in_progress';
+  // 关键：后端建单默认 `open`，必须归入「待处理」，否则新建工单哪个 Tab 都进不去。
+  if (tab === 'pending') return status === 'open';
+  if (tab === 'processing') return status === 'assigned' || status === 'in_progress';
   return status === 'resolved' || status === 'closed';
 };
 
@@ -194,7 +198,7 @@ export default function MaintenanceScreen() {
   };
 
   const renderTicket = ({ item }: { item: TicketRow }) => {
-    const meta = statusMeta[item.status] ?? statusMeta.submitted;
+    const meta = statusMeta[item.status] ?? statusMeta.open;
     const prio = priorityMeta[item.priority] ?? priorityMeta.medium;
     const prioLabel =
       PRIORITY_OPTIONS.find((p) => p.value === item.priority)?.label ?? '—';
@@ -231,9 +235,9 @@ export default function MaintenanceScreen() {
   };
 
   // Stat Row / Tabs 计数均来自真实工单
-  const pendingCount = tickets.filter((t) => t.status === 'submitted').length;
+  const pendingCount = tickets.filter((t) => t.status === 'open').length;
   const processingCount = tickets.filter(
-    (t) => t.status === 'accepted' || t.status === 'in_progress'
+    (t) => t.status === 'assigned' || t.status === 'in_progress'
   ).length;
   const tabCount = (key: StatusTabKey) =>
     tickets.filter((t) => matchTab(t.status, key)).length;

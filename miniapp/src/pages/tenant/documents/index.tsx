@@ -9,29 +9,40 @@ import './index.scss'
 import { iconStyle } from '@/utils/icons'
 
 const TYPE_MAP: Record<string, string> = {
-  lease: '租赁合同',
-  handover: '交接单',
+  contract: '合同',
   receipt: '收据',
-  voucher: '缴费凭证',
-  purchase: '购房合同',
-  property: '产权证明'
+  inspection_photo: '验房照片',
+  tax_invoice: '税务发票',
+  wht_certificate: '代扣税凭证',
+  other: '其他'
 }
 
-// 合同类与收据类文档归类，用于 Tabs 与统计
-const CONTRACT_TYPES = ['lease', 'purchase', 'property', 'handover']
-const RECEIPT_TYPES = ['receipt', 'voucher']
+// 标签归类（用于 Tabs 与统计）
+const CONTRACT_TYPES = ['contract']
+const RECEIPT_TYPES = ['receipt']
 
-/** 文档类型对应的徽标配色 */
+/** 文档类型对应的徽标配色（对齐 App 的 TYPE_META 配色） */
 const typeBadge = (type: string) => {
-  if (CONTRACT_TYPES.includes(type)) return 'badge--primary'
-  if (RECEIPT_TYPES.includes(type)) return 'badge--info'
-  return 'badge--neutral'
+  switch (type) {
+    case 'contract':
+      return 'badge--primary'
+    case 'receipt':
+      return 'badge--info'
+    case 'inspection_photo':
+      return 'badge--success'
+    case 'tax_invoice':
+      return 'badge--warning'
+    case 'wht_certificate':
+      return 'badge--error'
+    default:
+      return 'badge--neutral'
+  }
 }
 
-/** 文档类型对应的图标底色（合同=主色 / 收据=信息色 / 其他=中性） */
+/** 文档类型对应的图标底色 */
 const typeIcon = (type: string) => {
-  if (CONTRACT_TYPES.includes(type)) return 'doc-icon--primary'
-  if (RECEIPT_TYPES.includes(type)) return 'doc-icon--info'
+  if (type === 'contract') return 'doc-icon--primary'
+  if (type === 'receipt') return 'doc-icon--info'
   return 'doc-icon--neutral'
 }
 
@@ -91,7 +102,11 @@ export default function TenantDocumentsPage() {
     return documents
   }, [documents, tab])
 
-  /** 小程序未提供文档上传接口，此处不做本地假数据，改为引导走线上流程 */
+  /**
+   * 小程序后端未提供文档上传接口（documentsApi 仅有 list），
+   * 对齐 App 上传能力需后端开放上传 API。此处不做本地假数据，
+   * 保留引导走线上流程；待后端补上传接口后再接入。
+   */
   const handleUpload = () => {
     Taro.showModal({
       title: '上传文档',

@@ -92,14 +92,11 @@ export default function TenantPaymentsPage() {
   })
 
   const pending = payments.filter((p) => p.status === 'pending')
+  // 统计口径对齐 App：已支付（succeeded / paid）/ 待支付（pending）
+  const isPaid = (p: Payment) => p.status === 'succeeded' || p.status === 'paid'
+  const paidCount = payments.filter(isPaid).length
   const dueTotal = pending.reduce((sum, p) => sum + Number(p.amount || 0), 0)
   const currency = pending[0]?.currency || payments[0]?.currency || 'THB'
-  const uploadedCount = payments.filter((p) => !!p.paid_at).length
-  const reviewingCount = payments.filter((p) => p.status === 'processing').length
-
-  const goUploadVoucher = () => {
-    Taro.navigateTo({ url: '/pages/tenant/documents/index' })
-  }
 
   const channelFor = (cur?: string) =>
     cur === 'CNY' ? 'wechat' : cur === 'USD' ? 'stripe' : 'promptpay'
@@ -159,7 +156,12 @@ export default function TenantPaymentsPage() {
         `发票号：${inv.invoice_no || '-'}`,
         `价税合计：${cur}${total.toLocaleString()}`,
         `不含税额：${cur}${net.toLocaleString()}`,
-        `税额：${cur}${tax.toLocaleString()}（税率 ${Number(inv.vat_rate || 0) * 100}%）`,
+        // 对齐 App：税率直接展示 %（后端已为百分比值，不再 ×100）
+        `税额：${cur}${tax.toLocaleString()}（税率 ${Number(inv.vat_rate || 0)}%）`,
+        // 对齐 App：开票抬头（bill_to）/ 项目（description）；小程序后端无 source 时留空展示占位，不编造
+        `开票抬头：${inv?.bill_to?.name || '—'}`,
+        ...(inv?.bill_to?.email ? [`电子邮箱：${inv.bill_to.email}`] : []),
+        ...(inv?.description ? [`项目：${inv.description}`] : []),
         `支付渠道：${inv.channel || '-'}`,
         `开票时间：${formatDate(inv.paid_at ?? pay.paid_at)}`
       ].join('\n')
@@ -180,9 +182,6 @@ export default function TenantPaymentsPage() {
             <View className='pay-banner-badges'>
               <Text className='pay-banner-badge'>待支付</Text>
             </View>
-            <View className='pay-banner-cta' onClick={goUploadVoucher}>
-              <Text className='pay-banner-cta-text'>上传凭证</Text>
-            </View>
             <View className='pay-banner-actions'>
               <View className='pay-banner-btn pay-banner-btn--ghost' onClick={() => handlePay(pending[0])}>
                 <Text className='pay-banner-btn-text'>立即缴费（共 {pending.length} 笔）</Text>
@@ -193,12 +192,12 @@ export default function TenantPaymentsPage() {
 
         <View className='stat-row'>
           <View className='stat-item'>
-            <Text className='stat-label'>已上传</Text>
-            <Text className='stat-value'>{uploadedCount} 张</Text>
+            <Text className='stat-label'>已支付</Text>
+            <Text className='stat-value'>{paidCount} 笔</Text>
           </View>
           <View className='stat-item'>
-            <Text className='stat-label'>待审核</Text>
-            <Text className='stat-value'>{reviewingCount} 笔</Text>
+            <Text className='stat-label'>待支付</Text>
+            <Text className='stat-value'>{pending.length} 笔</Text>
           </View>
         </View>
 
@@ -254,7 +253,7 @@ export default function TenantPaymentsPage() {
                         )}
                         {isSucceeded && (
                           <View className='pay-chip' onClick={() => handleInvoice(pay)}>
-                            <Text className='pay-chip-text'>开发票</Text>
+                            <Text className='pay-chip-text'>发票</Text>
                           </View>
                         )}
                       </View>
@@ -265,10 +264,6 @@ export default function TenantPaymentsPage() {
             </View>
           )}
         </ScrollView>
-      </View>
-
-      <View className='pay-fab' onClick={goUploadVoucher}>
-        <Text className='pay-fab-text'>上传</Text>
       </View>
     </View>
   )

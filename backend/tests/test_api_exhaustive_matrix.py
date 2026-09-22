@@ -1,6 +1,6 @@
 """接口全量×角色鉴权矩阵测试（测试脚本核心：后端「每一个接口」）。
 
-思路：对后端全部 228 条路由做行为级穷举——
+思路：对后端全部路由做行为级穷举——
 1. 匿名请求：受保护接口一律 401（不允许"静默放行"或裸奔公开）。
 2. 管理员：所有接口均不被 401/403 拒绝（管理员是全端通用角色）。
 3. 任何角色命中任何接口都不允许 500（接口崩溃 = BUG，直接暴露）。
@@ -9,13 +9,18 @@
 
 边界说明：
 - 依赖树反射只能看到 `Depends(require_role(...))`；函数体内手动 `if user.role not in ...`
-  的接口（见 MANUAL_GATE_FILES）不参与比对，避免误报。
+  的接口不参与比对，避免误报——判定方式见 `_has_manual_role_gate()`（逐端点源码探测）。
 - 细粒度权限点（require_permission）与手工角色判断的接口只做 1/2/3 项断言。
 - websocket 路由 /uploads 静态挂载不参与 HTTP 矩阵。
+- 公开面 = `PUBLIC_ROUTES` 显式清单 + `PUBLIC_PATH_PREFIXES` 前缀（C 端公开 API 层）。
+  登录类端点若"参数校验先于鉴权"会返回 422 而非 401，属正常，必须登记。
+- 503 不算崩溃：它是服务端主动声明依赖未就绪（未配置的 provider），与 500 未捕获异常区分。
 """
 # ruff: noqa: E402
+import inspect
 import logging
 import pathlib
+import re
 import sys
 import uuid
 from types import SimpleNamespace
@@ -42,10 +47,18 @@ from app.services import backup_service  # noqa: E402
 ROLES = [UserRole.tenant, UserRole.owner, UserRole.employee, UserRole.agent, UserRole.admin]
 
 # 真正公开（无需登录）的接口
+# 注意：登录类端点在**参数校验先于鉴权**时会返回 422 而非 401，这是正常的，
+# 必须登记进来，否则匿名断言会把它们误判成"裸奔公开"。
 PUBLIC_ROUTES = {
     ("POST", "/api/v1/auth/login"),
     ("POST", "/api/v1/auth/register"),
     ("POST", "/api/v1/auth/refresh"),
+    ("POST", "/api/v1/auth/otp/request"),
+    ("POST", "/api/v1/auth/login/otp"),
+    ("POST", "/api/v1/auth/wx/login"),
+    ("GET", "/api/v1/auth/oauth/status"),
+    ("POST", "/api/v1/auth/oauth/google"),
+    ("POST", "/api/v1/auth/oauth/apple"),
     ("POST", "/api/v1/payments/webhook/{channel}"),
     ("GET", "/"),
     ("GET", "/health"),
@@ -55,6 +68,11 @@ PUBLIC_ROUTES = {
 }
 
 # 依赖树反射无法看到"函数体内手动角色判断"的接口文件
+# ⚠️ 这是一份**兜底白名单**，不是主判据：曾经因为漏登记 app.api.v1.listings /
+# app.api.v1.dedupe_reviews（两者都是 `Depends(get_current_user)` + 函数体内
+# `if user.role not in STAFF_ROLES: 403`），导致矩阵把 tenant/owner 的 403 当成
+# "应放行却被拒"，测试长期假红。现改为逐端点源码探测 _has_manual_role_gate()，
+# 本名单只保留历史条目以防正则覆盖不到的写法。
 MANUAL_GATE_FILES = {
     "app.api.v1.documents",
     "app.api.v1.brokers",
@@ -69,6 +87,36 @@ MANUAL_GATE_FILES = {
     "app.api.v1.service_orders",
     "app.api.v1.commission_rules",
 }
+
+# 函数体内手动角色判断的形态：`if user.role not in STAFF_ROLES` / `user.role != ...`
+_MANUAL_GATE_RE = re.compile(r"\.role\s+not\s+in|\.role\s*!=")
+
+
+def _has_manual_role_gate(route) -> bool:
+    """逐端点探测：该 handler 源码里是否含"手动角色判断"。
+
+    比文件级白名单精确：同一个文件里，用 require_role 的端点仍参与矩阵比对，
+    只有真正手动门控的端点被跳过，覆盖不丢。
+    """
+    endpoint = getattr(route, "endpoint", None)
+    if endpoint is None:
+        return False
+    try:
+        source = inspect.getsource(endpoint)
+    except (OSError, TypeError):
+        return False
+    return bool(_MANUAL_GATE_RE.search(source))
+
+
+# 设计上匿名可访问的路径前缀（C 端公开 API 层：浏览/搜索/留资/学校/小区/开发商等）
+PUBLIC_PATH_PREFIXES = ("/api/v1/public/",)
+
+
+def _is_public(method: str, path: str) -> bool:
+    """是否属于"公开接口"（不参与匿名 401 断言、不参与角色矩阵比对）。"""
+    if (method, path) in PUBLIC_ROUTES:
+        return True
+    return path.startswith(PUBLIC_PATH_PREFIXES)
 
 
 def _route_entries():
@@ -207,10 +255,10 @@ def test_anonymous_requests_are_rejected(api, engine):
         fails = []
         for methods, path, route in _route_entries():
             url = _substitute(path)
-            if ("GET", path) in PUBLIC_ROUTES or ("POST", path) in PUBLIC_ROUTES:
-                continue
             for method in methods:
                 if method == "*":
+                    continue
+                if _is_public(method, path):
                     continue
                 r = client.request(method, url)
                 if r.status_code != 401:
@@ -258,7 +306,12 @@ def test_admin_can_access_every_route(api, engine):
 
 # ------------------------------------------------------------ 3. 任何角色任何接口不允许 500
 def test_no_500_errors_for_any_role(api, engine):
-    """所有角色命中所有接口：不允许出现 500（接口崩溃）。"""
+    """所有角色命中所有接口：不允许出现 500（接口崩溃）。
+
+    503 不算崩溃：它是服务端**主动声明依赖未就绪**（如 OAuth provider 未配置、
+    外部服务不可达），属于预期的优雅降级；而 500 代表未捕获异常。二者必须区分，
+    否则"依赖没配"会一直压在 500 断言上，真正的崩溃反而被淹没。
+    """
     crashes = []
     users = {r: api.mk_user(r) for r in ROLES}
     for role, user in users.items():
@@ -270,7 +323,7 @@ def test_no_500_errors_for_any_role(api, engine):
                     continue
                 body = {} if method in ("POST", "PATCH", "PUT") else None
                 r = client.request(method, url, json=body)
-                if r.status_code >= 500:
+                if r.status_code >= 500 and r.status_code != 503:
                     crashes.append((role.value, method, path, r.status_code, r.text[:120]))
     assert not crashes, f"发现接口 500：{crashes[:20]}"
 
@@ -286,9 +339,10 @@ def test_role_access_matrix_matches_declared_roles(api, engine):
         declared_roles, perm_gated = _expected_roles(route)
         if (
             module in MANUAL_GATE_FILES
+            or _has_manual_role_gate(route)
             or perm_gated
-            or (not declared_roles and ("GET", path) in PUBLIC_ROUTES)
-            or (not declared_roles and ("POST", path) in PUBLIC_ROUTES)
+            or (not declared_roles and _is_public("GET", path))
+            or (not declared_roles and _is_public("POST", path))
         ):
             # 手动门控 / 权限点门控 / 公开路由：不参与自动比对
             skipped += 1

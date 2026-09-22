@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
-import api from '@/lib/api'
+import api, { MAX_PAGE_SIZE } from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import { propertiesApi } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
@@ -81,10 +81,13 @@ const TenantDashboard = () => {
     queryKey: ['tenant-dashboard', 'home', uid],
     cacheKey: `tenant-dashboard:home:${uid}`,
     queryFn: async () => {
-      const [propsRes, notifRes] = await Promise.all([
-        propertiesApi.list({ page: 1, pageSize: 999 } as any).catch(() => ({ data: { items: [] } })),
-        api.get('/notifications/me').catch(() => ({ data: { items: [] } })),
-      ])
+        const [propsRes, notifRes] = await Promise.all([
+          // ⚠️ 技术债：首页一次性拉「推荐房源」，同样是拿分页接口当全量接口用。
+          // 取值贴住后端硬顶，超过 100 条时会静默少数据。正确解法是按首页实际
+          // 需要的条数（十几条）取，或改用专门的推荐接口。
+          propertiesApi.list({ page: 1, pageSize: MAX_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
+          api.get('/notifications/me').catch(() => ({ data: { items: [] } })),
+        ])
       const pPayload = propsRes.data?.data ?? propsRes.data
       const nPayload = notifRes.data?.data ?? notifRes.data
       return {
