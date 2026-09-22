@@ -173,6 +173,24 @@ export default function EmployeeHomePage() {
     .filter((v) => isToday(v.scheduled_at))
     .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
 
+  // 去跟进：选一个阶段推进线索（真实写 PATCH /leads/{id}），此前只弹「暂未开放」
+  const STAGE_ORDER = ['inquiring', 'viewing_scheduled', 'negotiating', 'pending_contract', 'closed']
+  const goFollowUp = async (lead: Lead) => {
+    const labels = STAGE_ORDER.map((s) => STAGE_META[s].label)
+    try {
+      const res = await Taro.showActionSheet({ itemList: labels })
+      const stage = STAGE_ORDER[res.tapIndex]
+      if (!stage || stage === lead.stage) return
+      await leadsApi.update(String(lead.id), { stage })
+      Taro.showToast({ title: '已更新跟进阶段', icon: 'success' })
+      fetchAll()
+    } catch (err: any) {
+      // 用户取消选择时 tapIndex 不存在，静默返回
+      if (err?.errMsg && String(err.errMsg).includes('cancel')) return
+      Taro.showToast({ title: err?.message || '更新失败', icon: 'none' })
+    }
+  }
+
   // 下一场：今天首个尚未开始的场次（用于「已过 / 下一场」标记）
   const nowTs = Date.now()
   const nextIdx = todayList.findIndex((v) => new Date(String(v.scheduled_at)).getTime() >= nowTs)
@@ -255,7 +273,7 @@ export default function EmployeeHomePage() {
             </View>
             <View
               className='emp-section__action'
-              onClick={() => Taro.showToast({ title: '「新建带看」暂未开放', icon: 'none' })}
+              onClick={() => Taro.navigateTo({ url: '/pages/employee/property-browse/index' })}
             >
               <Text className='emp-section__action-text'>+ 新建带看</Text>
             </View>
@@ -354,7 +372,7 @@ export default function EmployeeHomePage() {
                     </View>
                     <View
                       className='emp-lead__btn'
-                      onClick={() => Taro.showToast({ title: '「去跟进」暂未开放', icon: 'none' })}
+                      onClick={() => goFollowUp(lead)}
                     >
                       <Text className='emp-lead__btn-text'>去跟进</Text>
                     </View>

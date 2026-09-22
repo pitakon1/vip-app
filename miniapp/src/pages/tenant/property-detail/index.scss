@@ -450,4 +450,105 @@
     font-size: 28rpx;
     color: var(--ink-3);
   }
+
+  // 预约看房底部弹层
+  .book-mask {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+    background-color: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .book-sheet {
+    width: 100%;
+    padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background-color: var(--surface);
+
+    &__title {
+      display: block;
+      font-size: 32rpx;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    &__sub {
+      display: block;
+      margin-top: 8rpx;
+      font-size: 24rpx;
+      color: var(--ink-3);
+    }
+
+    &__pickers {
+      display: flex;
+      gap: 16rpx;
+      margin-top: 24rpx;
+    }
+
+    &__picker {
+      flex: 1;
+      height: 80rpx;
+      padding: 0 20rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--line);
+      background-color: var(--surface-2);
+
+      &-text {
+        font-size: 28rpx;
+        color: var(--ink);
+      }
+    }
+
+    &__input {
+      margin-top: 20rpx;
+      height: 80rpx;
+      padding: 0 20rpx;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--line);
+      background-color: var(--surface-2);
+      font-size: 28rpx;
+      color: var(--ink);
+    }
+
+    &__foot {
+      display: flex;
+      gap: 16rpx;
+      margin-top: 28rpx;
+    }
+
+    &__btn {
+      flex: 1;
+      height: 88rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-lg);
+      font-size: 30rpx;
+      font-weight: 600;
+
+      &--ghost {
+        border: 1px solid var(--line);
+        background-color: var(--surface-2);
+        color: var(--ink-2);
+      }
+
+      &--primary {
+        background-color: var(--primary);
+        color: var(--primary-foreground);
+        box-shadow: var(--shadow-primary);
+      }
+
+      &--disabled {
+        opacity: 0.6;
+      }
+    }
+  }
 }

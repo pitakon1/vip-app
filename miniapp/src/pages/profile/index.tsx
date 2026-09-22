@@ -166,6 +166,12 @@ export default function ProfilePage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
 
   const [appVersion, setAppVersion] = useState('')
+  // 管理端「业务设置」真实值（租金/合同提醒天数、自动催缴）
+  const [business, setBusiness] = useState<{
+    rent_reminder_days?: number
+    lease_reminder_days?: number
+    auto_dunning?: boolean
+  }>({})
 
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const { data: leaseList, refresh } = useSwrCache<any[]>({
@@ -188,6 +194,7 @@ export default function ProfilePage() {
       }
       if (currentRole === 'admin') {
         loadAppInfo()
+        loadBusiness()
       }
       if (currentRole === 'owner') {
         loadAppInfo()
@@ -203,6 +210,17 @@ export default function ProfilePage() {
       setAppVersion(info?.version || '')
     } catch (error) {
       console.warn('[Profile] 获取版本信息失败', error)
+    }
+  }
+
+  // 管理端「业务设置」的真实值（此前三项只有标签、没有值，点击提示「暂未开放」）
+  const loadBusiness = async () => {
+    try {
+      const res: any = await companyApi.settings()
+      const biz = (res?.data ?? res)?.business
+      if (biz) setBusiness(biz)
+    } catch (error) {
+      console.warn('[Profile] 获取业务设置失败', error)
     }
   }
 
@@ -446,9 +464,71 @@ export default function ProfilePage() {
       case 'notify':
         openPrefs()
         return
+      case 'rent-reminder':
+      case 'lease-reminder':
+        editBusinessDays(
+          entry.key === 'rent-reminder' ? 'rent_reminder_days' : 'lease_reminder_days'
+        )
+        return
+      case 'auto-dunning':
+        editAutoDunning()
+        return
       default:
         handleTodo(entry.label)
     }
+  }
+
+  // 管理端「业务设置」：直接编辑并落库到 /company/settings（此前三项点击只提示「暂未开放」）
+  const saveBusiness = async (patch: Record<string, any>) => {
+    try {
+      await companyApi.updateSettings({
+        business: {
+          rent_reminder_days: business.rent_reminder_days ?? 7,
+          lease_reminder_days: business.lease_reminder_days ?? 30,
+          auto_dunning: business.auto_dunning ?? true,
+          ...patch
+        }
+      })
+      setBusiness((b) => ({ ...b, ...patch }))
+      Taro.showToast({ title: '已保存', icon: 'success' })
+    } catch (error: any) {
+      Taro.showToast({ title: error?.message || '保存失败', icon: 'none' })
+    }
+  }
+
+  const editBusinessDays = (key: 'rent_reminder_days' | 'lease_reminder_days') => {
+    const isRent = key === 'rent_reminder_days'
+    const max = isRent ? 180 : 365
+    Taro.showModal({
+      title: isRent ? '租金到期前提醒天数' : '合同到期前提醒天数',
+      editable: true,
+      placeholderText: String(business[key] ?? (isRent ? 7 : 30)),
+      success: (res) => {
+        if (!res.confirm) return
+        const n = Number.parseInt(String(res.content ?? ''), 10)
+        if (!Number.isFinite(n) || n < 0 || n > max) {
+          Taro.showToast({ title: `请输入 0-${max} 之间的整数`, icon: 'none' })
+          return
+        }
+        saveBusiness({ [key]: n })
+      }
+    })
+  }
+
+  const editAutoDunning = () => {
+    Taro.showActionSheet({ itemList: ['开启', '关闭'] })
+      .then((res) => saveBusiness({ auto_dunning: res.tapIndex === 0 }))
+      .catch(() => {
+        /* 用户取消 */
+      })
+  }
+
+  // 业务设置行右侧的真实值（读 /company/settings.business）
+  const businessValue = (key: string): string | undefined => {
+    if (key === 'rent-reminder') return `${business.rent_reminder_days ?? 7} 天前`
+    if (key === 'lease-reminder') return `${business.lease_reminder_days ?? 30} 天前`
+    if (key === 'auto-dunning') return business.auto_dunning === false ? '已关闭' : '已开启'
+    return undefined
   }
 
   // 业主「设置」行：有值时不显示箭头；通知提醒用成功徽章（对齐 owner-mini-settings.html）
@@ -729,7 +809,9 @@ export default function ProfilePage() {
           <View className='section-title'>
             <Text>业务设置</Text>
           </View>
-          <View className='panel panel--list'>{BUSINESS_ROWS.map(renderRow)}</View>
+          <View className='panel panel--list'>
+            {BUSINESS_ROWS.map((entry) => renderRow({ ...entry, value: businessValue(entry.key) }))}
+          </View>
 
           <View className='section-title'>
             <Text>员工管理</Text>

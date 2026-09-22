@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { View, Text, ScrollView, Image, Input } from '@tarojs/components'
+import { View, Text, ScrollView, Image, Input, Picker } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { request } from '@/lib/api'
-import { favoritesApi, saleListingApi } from '@/services/api'
+import { favoritesApi, saleListingApi, viewingsApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as formatMoney } from '@/utils/format'
 import { ICONS, iconStyle } from '@/utils/icons'
@@ -102,6 +102,16 @@ const formatDay = (x?: string) => {
   return `${d.getMonth() + 1}月${d.getDate()}日`
 }
 
+const pad2 = (n: number) => String(n).padStart(2, '0')
+// 默认看房时间：下一个整点（与员工端「预约带看」同口径）
+const defaultSlot = () => {
+  const d = new Date(Date.now() + 3600000)
+  return {
+    date: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`,
+    time: `${pad2(d.getHours())}:00`
+  }
+}
+
 export default function TenantPropertyDetailPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const router = useRouter()
@@ -113,6 +123,12 @@ export default function TenantPropertyDetailPage() {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [rateInput, setRateInput] = useState('')
   const [showLoan, setShowLoan] = useState(false)
+
+  // 预约看房（真实写接口 POST /viewings）
+  const [showBooking, setShowBooking] = useState(false)
+  const [bookingNote, setBookingNote] = useState('')
+  const [bookingSlot, setBookingSlot] = useState(defaultSlot())
+  const [bookingBusy, setBookingBusy] = useState(false)
 
   interface DetailPayload {
     property: PropertyItem | null
@@ -280,9 +296,34 @@ export default function TenantPropertyDetailPage() {
     }
   }
 
-  // 原型该按钮为无跳转占位，预约看房页不在小程序原型范围内，此处明确提示未开放
+  // 预约看房：展开表单（此前只弹「暂未开放」，与员工端「预约带看」已有能力不一致）
   const goBooking = () => {
-    Taro.showToast({ title: '「立即预约看房」暂未开放', icon: 'none' })
+    if (!useAuthStore.getState().token) {
+      Taro.showToast({ title: '请先登录', icon: 'none' })
+      setTimeout(() => Taro.navigateTo({ url: '/pages/login/index' }), 600)
+      return
+    }
+    setBookingNote('')
+    setBookingSlot(defaultSlot())
+    setShowBooking((s) => !s)
+  }
+
+  const submitBooking = async () => {
+    if (!propertyId) return
+    setBookingBusy(true)
+    try {
+      await viewingsApi.create({
+        property_id: propertyId,
+        scheduled_at: `${bookingSlot.date}T${bookingSlot.time}:00`,
+        notes: bookingNote.trim() || undefined
+      })
+      Taro.showToast({ title: '预约成功', icon: 'success' })
+      setShowBooking(false)
+    } catch (err: any) {
+      Taro.showToast({ title: err?.message || '预约失败', icon: 'none' })
+    } finally {
+      setBookingBusy(false)
+    }
   }
 
   const pickPhoto = (index: number) => setPhotoIndex(index)
@@ -530,6 +571,54 @@ export default function TenantPropertyDetailPage() {
           <Text>立即预约看房</Text>
         </View>
       </View>
+
+      {/* 预约看房表单（真实写接口 POST /viewings） */}
+      {showBooking && (
+        <View className='book-mask' onClick={() => setShowBooking(false)}>
+          <View className='book-sheet' onClick={(e) => e.stopPropagation()}>
+            <Text className='book-sheet__title'>预约看房</Text>
+            <Text className='book-sheet__sub'>{property?.project_name || property?.room_number || '当前房源'}</Text>
+            <View className='book-sheet__pickers'>
+              <Picker
+                mode='date'
+                value={bookingSlot.date}
+                onChange={(e: any) => setBookingSlot((s) => ({ ...s, date: e.detail.value }))}
+              >
+                <View className='book-sheet__picker'>
+                  <Text className='book-sheet__picker-text'>{bookingSlot.date}</Text>
+                </View>
+              </Picker>
+              <Picker
+                mode='time'
+                value={bookingSlot.time}
+                onChange={(e: any) => setBookingSlot((s) => ({ ...s, time: e.detail.value }))}
+              >
+                <View className='book-sheet__picker'>
+                  <Text className='book-sheet__picker-text'>{bookingSlot.time}</Text>
+                </View>
+              </Picker>
+            </View>
+            <Input
+              className='book-sheet__input'
+              value={bookingNote}
+              placeholder='备注（选填，如希望看的房间）'
+              placeholderStyle='color:#98a1ab'
+              onInput={(e: any) => setBookingNote(e.detail.value)}
+            />
+            <View className='book-sheet__foot'>
+              <View className='book-sheet__btn book-sheet__btn--ghost' onClick={() => setShowBooking(false)}>
+                <Text>取消</Text>
+              </View>
+              <View
+                className={`book-sheet__btn book-sheet__btn--primary${bookingBusy ? ' book-sheet__btn--disabled' : ''}`}
+                onClick={() => !bookingBusy && submitBooking()}
+              >
+                <Text>{bookingBusy ? '提交中...' : '确认预约'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   )
 }

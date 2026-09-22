@@ -84,7 +84,10 @@ export const propertiesApi = {
 
 // 公司信息（公开接口）：仅取真实版本号供「我的 - 关于」展示，避免写死版本
 export const companyApi = {
-  info: () => request({ url: '/company/info', method: 'GET' })
+  info: () => request({ url: '/company/info', method: 'GET' }),
+  // 系统配置（管理员）：通知规则 / 支付渠道 / 业务提醒参数，管理端「业务设置」读写
+  settings: () => request({ url: '/company/settings', method: 'GET' }),
+  updateSettings: (data: any) => request({ url: '/company/settings', method: 'PUT', data })
 }
 
 // ============ 客户线索（CRM）============
