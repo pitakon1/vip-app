@@ -53,7 +53,7 @@ from app.models import (
     User,
     UserRole,
 )
-from app.providers.payment.service import payment_service
+from app.providers.payment.service import payment_service, UnmatchedWebhookError
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -529,8 +529,17 @@ def payment_webhook(
 ):
     """支付结果回调统一入口（渠道回调，公开接口）。
 
-    流程：验签 → 幂等检查 → 解析 → 落库 → 触发业务事件。
+    流程：验签 → 定位支付单 → 幂等落库 → 业务流转 → 领域事件。
     签名校验所需请求头（如 Stripe-Signature）由渠道 provider 负责读取。
+
+    幂等口径：`payment_webhook_events` 表 `(channel, transaction_id)` 唯一约束，
+    与业务变更同事务提交；重复投递返回 200 `duplicate webhook`。
+
+    状态码约定（渠道据此决定是否重投）：
+    - 200：已处理 / 重复投递 / 无需变更
+    - 400：验签失败或报文缺引用键（重投无用）
+    - 409：**本地暂时匹配不到支付单**（多为回调早于下单落库），渠道应重投。
+      返回 2xx 会让这笔支付在本地永久丢失，故必须是非 2xx。
 
     [刻意保留] 无前端调用方：由支付网关（Stripe/Omise 等）服务端回调，不属于 UI 调用；
     已在契约工具 INTENTIONAL_ORPHANS 登记，不再报警。
@@ -540,6 +549,8 @@ def payment_webhook(
             session, channel, payload, headers=dict(request.headers)
         )
         return result
+    except UnmatchedWebhookError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except PermissionError:
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
     except ValueError as e:

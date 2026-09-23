@@ -41,6 +41,7 @@ celery_app.conf.update(
         "reconcile_payments": {"queue": "default"},
         "daily_payment_report": {"queue": "default"},
         "daily_backup_sync": {"queue": "maintenance"},
+        "revalidate_listings": {"queue": "notification"},
     },
     task_default_queue="default",
 )
@@ -78,6 +79,10 @@ celery_app.conf.beat_schedule = {
     'daily-backup-sync': {
         'task': 'daily_backup_sync',
         'schedule': crontab(hour=2, minute=0),  # 每天凌晨 2:00 数据备份/同步
+    },
+    'revalidate-listings': {
+        'task': 'revalidate_listings',
+        'schedule': crontab(hour=10, minute=0),  # 每天 10:00 真房源保鲜复验
     },
 }
 

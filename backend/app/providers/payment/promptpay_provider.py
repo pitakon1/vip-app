@@ -152,8 +152,12 @@ class PromptPayProvider(PaymentProvider):
         )
 
     def verify_webhook(self, payload: dict, headers: dict) -> bool:
-        """PromptPay 无标准 webhook，银行回调需自定义验证"""
-        return True
+        """PromptPay 无标准 webhook，银行回调需自定义验证。
+
+        未实现验签前一律拒绝（fail closed），避免伪造到账通知。
+        接入聚合支付后由聚合平台的统一验签替代本方法。
+        """
+        return False
 
     def parse_webhook(self, payload: dict, headers: dict) -> dict:
         """解析标准化回调负载，返回 {transaction_id, status, amount, currency}

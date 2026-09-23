@@ -200,7 +200,11 @@ def _send_code(recipient: str, channel: str, code: str) -> bool:
 
 
 def _issue_otp(session: Session, recipient: str, channel: str) -> str:
-    """生成验证码入库并作废旧码，返回明文（供 dev_code / 日志兜底）。"""
+    """生成验证码入库并作废旧码，返回明文。
+
+    明文只在上层"决定要回显"时才用得到（见 request_otp 的 DEBUG 开关）；
+    任何情况下都不写日志、不进响应。
+    """
     now = datetime.utcnow()
     # 作废该接收方未消费的历史码
     for old in session.exec(
@@ -222,6 +226,23 @@ def _issue_otp(session: Session, recipient: str, channel: str) -> str:
     )
     session.commit()
     return code
+
+
+def _void_unused_otp(session: Session, recipient: str) -> None:
+    """作废该接收方所有未消费的验证码。
+
+    发送失败时调用：既然码没送到用户手上，就不能留在库里被人撞库使用。
+    """
+    now = datetime.utcnow()
+    for row in session.exec(
+        select(VerificationCode).where(
+            VerificationCode.recipient == recipient,
+            VerificationCode.used_at.is_(None),
+        )
+    ).all():
+        row.used_at = now
+        session.add(row)
+    session.commit()
 
 
 def _consume_otp(session: Session, recipient: str, code: str) -> None:
@@ -348,7 +369,11 @@ def request_otp(
 ):
     """请求发送验证码。channel=sms 需手机号、email 需邮箱。
 
-    本地未配置短信/邮件凭据时，返回体携带 dev_code（并打印日志）以便闭环联调。
+    安全约定：**默认不回显验证码**。短信/邮件发送失败（未配凭据、额度用尽、
+    网关故障）一律返 503 并作废刚生成的码，绝不把明文码放进响应体——
+    否则任何人对任意手机号请求一次就能拿到码登录，等于账号接管入口。
+
+    仅本地联调：需要 **DEBUG 与 OTP_DEV_CODE_ECHO 同时为真** 才回显 dev_code。
     """
     recipient = (req.recipient or "").strip()
     channel = (req.channel or "sms").lower().strip()
@@ -363,13 +388,33 @@ def request_otp(
 
     code = _issue_otp(session, recipient, channel)
     sent = _send_code(recipient, channel, code)
-    dev_code = code if (settings.DEBUG or not sent) else None
-    if dev_code:
-        logger.info("otp.dev_code channel=%s recipient=%s code=%s", channel, recipient, code)
+
+    # 联调回显：必须显式双开关，非 DEBUG 时一律忽略该配置
+    echo_dev_code = bool(settings.DEBUG and settings.OTP_DEV_CODE_ECHO)
+
+    if not sent and not echo_dev_code:
+        _void_unused_otp(session, recipient)
+        logger.warning(
+            "otp.delivery_failed channel=%s recipient=%s",
+            channel,
+            recipient,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail=f"Verification code delivery unavailable via {channel}",
+        )
+
+    # 日志只记事件，不记明文码
+    logger.info(
+        "otp.issued channel=%s recipient=%s delivered=%s",
+        channel,
+        recipient,
+        sent,
+    )
     return {
         "ok": True,
         "message": "Verification code sent",
-        "dev_code": dev_code,
+        "dev_code": code if echo_dev_code else None,
     }
 
 

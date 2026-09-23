@@ -82,11 +82,12 @@ MANUAL_GATE_FILES = {
     "app.api.v1.market_data",
     "app.api.v1.markets",
     "app.api.v1.payments",
-    "app.api.v1.property_deals",
     "app.api.v1.sale_listings",
     "app.api.v1.service_orders",
     "app.api.v1.commission_rules",
 }
+# 已移出名单：`app.api.v1.property_deals` —— 其员工门控已改为声明式
+# `Depends(require_employee)`，依赖树反射能直接看到，不再需要文件级豁免。
 
 # 函数体内手动角色判断的形态：`if user.role not in STAFF_ROLES` / `user.role != ...`
 _MANUAL_GATE_RE = re.compile(r"\.role\s+not\s+in|\.role\s*!=")
@@ -277,7 +278,8 @@ def test_public_routes_do_not_require_auth(api, engine):
         for method, path in PUBLIC_ROUTES:
             url = _substitute(path)
             r = client.request(method, url)
-            assert r.status_code in (200, 400, 401, 422), (method, path, r.status_code)
+            # 503 = 依赖未配置的主动降级（如 otp 发送通道未配），公开但不等于可用
+            assert r.status_code in (200, 400, 401, 422, 503), (method, path, r.status_code)
             assert r.status_code != 500, (method, path, "公开接口 500")
         # webhook 无签名调用：不能 404/500（要么 400 要么 401）
         hook = client.post("/api/v1/payments/webhook/test")

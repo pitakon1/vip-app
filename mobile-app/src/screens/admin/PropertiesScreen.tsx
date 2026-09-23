@@ -16,17 +16,17 @@ import {
   RefreshControl,
   Alert,
   Image,
+  Modal,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import api from '@/lib/api';
-import { notifyError } from '@/utils/feedback';
-import { propertiesApi } from '@/services/api';
+import { notify, notifyError } from '@/utils/feedback';
+import { propertiesApi, usersAdminApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { AREA_GROUPS } from '@/data/locationArea';
@@ -49,6 +49,9 @@ interface PropertyItem {
   furnished?: boolean;
   photos?: unknown[] | null;
   project_name?: string | null;
+  // 归属人（房源由哪位员工录入）：管理员可见全部，销售/经纪只看自己录的
+  created_by?: string | null;
+  creator_name?: string | null;
 }
 
 const TYPE_META: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
@@ -185,6 +188,12 @@ export default function AdminPropertiesScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const firstLoad = useRef(true);
+  // 「指派归属人」弹层：员工列表 + 搜索 + 当前正在指派的房源
+  const [assignTarget, setAssignTarget] = useState<PropertyItem | null>(null);
+  const [staff, setStaff] = useState<{ id: string; full_name?: string; role?: string }[]>([]);
+  const [staffKw, setStaffKw] = useState('');
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [assigning, setAssigning] = useState(false);
 
   // 状态计数与列表共用同一批查询（统计行数字与列表口径一致）
   const fetchCounts = useCallback(async () => {
@@ -322,6 +331,80 @@ export default function AdminPropertiesScreen() {
     await load({ nextPage: page + 1 });
   }, [load, loadingMore, page, totalPages]);
 
+  // 从「新增 / 编辑房源」页返回时刷新：该屏原本只在 mount 时加载，
+  // 新建/编辑/指派后回到列表看到的还是旧数据。用 useIsFocused 追踪焦点变化
+  // （而不是 addListener('focus')：后者在首帧就会触发，导致挂载时重复请求）。
+  const isFocused = useIsFocused();
+  const wasFocused = useRef(isFocused);
+  useEffect(() => {
+    if (isFocused && !wasFocused.current) {
+      fetchCounts();
+      load({ nextPage: 1 });
+    }
+    wasFocused.current = isFocused;
+  }, [isFocused, fetchCounts, load]);
+
+  // ===== 指派归属人（管理员专用）=====
+  const loadAssignStaff = useCallback(async () => {
+    setStaffLoading(true);
+    try {
+      const res = await usersAdminApi.list({ page_size: 100 });
+      const list = ((res as any)?.data?.items ?? []) as { id: string; full_name?: string; role?: string }[];
+      // 房源归属只能是内部员工：管理员 / 销售 / 经纪（业主、租客不参与）
+      setStaff(list.filter((u) => u.role === 'agent' || u.role === 'employee'));
+    } catch (e: any) {
+      notifyError('加载员工列表失败', e);
+      setStaff([]);
+    } finally {
+      setStaffLoading(false);
+    }
+  }, []);
+
+  const openAssign = useCallback(
+    (p: PropertyItem) => {
+      setAssignTarget(p);
+      setStaffKw('');
+      loadAssignStaff();
+    },
+    [loadAssignStaff],
+  );
+
+  const closeAssign = useCallback(() => {
+    setAssignTarget(null);
+    setStaff([]);
+    setStaffKw('');
+  }, []);
+
+  const doAssign = useCallback(
+    async (employeeId: string | null) => {
+      if (!assignTarget || assigning) return;
+      setAssigning(true);
+      try {
+        await propertiesApi.assign(assignTarget.id, employeeId);
+        const name = employeeId ? staff.find((s) => s.id === employeeId)?.full_name ?? null : null;
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === assignTarget.id ? { ...it, created_by: employeeId, creator_name: name } : it,
+          ),
+        );
+        notify(employeeId ? '已指派归属人' : '已收回归属');
+        closeAssign();
+        fetchCounts();
+      } catch (e: any) {
+        notifyError('指派失败', e);
+      } finally {
+        setAssigning(false);
+      }
+    },
+    [assignTarget, assigning, staff, closeAssign, fetchCounts],
+  );
+
+  const filteredStaff = useMemo(() => {
+    const kw = staffKw.trim().toLowerCase();
+    if (!kw) return staff;
+    return staff.filter((s) => (s.full_name ?? '').toLowerCase().includes(kw));
+  }, [staff, staffKw]);
+
   const doDelete = (p: PropertyItem) => {
     const title = [p.room_number, p.building].filter(Boolean).join(' · ') || p.address || '该房源';
     Alert.alert('删除房源', `确定删除「${title}」吗？删除后不可恢复。`, [
@@ -331,7 +414,7 @@ export default function AdminPropertiesScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.delete(`/properties/${p.id}`);
+            await propertiesApi.remove(p.id);
             setItems((prev) => prev.filter((it) => it.id !== p.id));
             setTotal((t) => Math.max(0, t - 1));
             fetchCounts();
@@ -414,6 +497,51 @@ export default function AdminPropertiesScreen() {
     );
   }, [schools, schoolKw]);
 
+  // 单行筛选栏 Tab 展示数据（对齐 C 端：未选中时只显示维度名，选中后显示当前取值）
+  const filterTabs = useMemo(() => {
+    const districtLabel = allDistricts.find((d) => d.key === districtSel)?.label;
+    return [
+      {
+        key: 'location',
+        label: districtLabel || (metroSel.length ? `地铁 ${metroSel.length}` : '区域'),
+        active: !!(districtSel || metroSel.length),
+      },
+      {
+        key: 'price',
+        label: priceRange
+          ? priceRange === 'custom'
+            ? '自定义'
+            : optionLabel(PRICE_OPTIONS, priceRange, '价格')
+          : '价格',
+        active: !!priceRange,
+      },
+      {
+        key: 'bedrooms',
+        label: bedrooms !== '' ? optionLabel(BEDROOM_OPTIONS, bedrooms, '房型') : '房型',
+        active: bedrooms !== '',
+      },
+      {
+        key: 'area',
+        label: areaRange
+          ? areaRange === 'custom'
+            ? '自定义'
+            : optionLabel(AREA_OPTIONS, areaRange, '面积')
+          : '面积',
+        active: !!areaRange,
+      },
+      {
+        key: 'school',
+        label: schoolId ? '已选学校' : '学校',
+        active: !!schoolId,
+      },
+      {
+        key: 'sort',
+        label: sort !== 'default' ? optionLabel(SORT_OPTIONS, sort, '排序') : '排序',
+        active: sort !== 'default',
+      },
+    ] as { key: string; label: string; active: boolean }[];
+  }, [districtSel, metroSel.length, priceRange, bedrooms, areaRange, schoolId, sort]);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -436,28 +564,40 @@ export default function AdminPropertiesScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
       }
     >
-      {/* 搜索 */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={16} color={colors.ink3} />
-        <TextInput
-          style={styles.searchInput}
-          value={keyword}
-          onChangeText={setKeyword}
-          placeholder="搜索房源名称/地址"
-          placeholderTextColor={colors.ink3}
-          returnKeyType="search"
-        />
-        {keyword ? (
-          <TouchableOpacity
-            onPress={() => setKeyword('')}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="清除搜索"
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="close-circle" size={18} color={colors.ink3} />
-          </TouchableOpacity>
-        ) : null}
+      {/* 搜索 + 新增房源 */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={16} color={colors.ink3} />
+          <TextInput
+            style={styles.searchInput}
+            value={keyword}
+            onChangeText={setKeyword}
+            placeholder="搜索房源名称/地址"
+            placeholderTextColor={colors.ink3}
+            returnKeyType="search"
+          />
+          {keyword ? (
+            <TouchableOpacity
+              onPress={() => setKeyword('')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="清除搜索"
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="close-circle" size={18} color={colors.ink3} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          style={styles.addBtn}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('PropertyEdit', { mode: 'create' })}
+          accessibilityRole="button"
+          accessibilityLabel="新增房源"
+        >
+          <Ionicons name="add" size={16} color={colors.primaryForeground} />
+          <Text style={styles.addBtnText}>新增</Text>
+        </TouchableOpacity>
       </View>
 
       {/* 状态筛选 */}
@@ -474,83 +614,52 @@ export default function AdminPropertiesScreen() {
         ))}
       </ScrollView>
 
-      {/* 筛选：房型 / 价格 / 面积 / 排序（口径与 Web / 租客端一致） */}
-      <View style={styles.filterRow}>
-        <TouchableOpacity
-          style={[styles.filterChip, activeFilter === 'bedrooms' && styles.filterChipActive]}
-          activeOpacity={0.7}
-          onPress={() => setActiveFilter(activeFilter === 'bedrooms' ? '' : 'bedrooms')}
-        >
-          <Text style={[styles.filterChipText, activeFilter === 'bedrooms' && styles.filterChipTextActive]}>
-            房型：{optionLabel(BEDROOM_OPTIONS, bedrooms, '不限房型')}
-          </Text>
-          <Ionicons name="chevron-down" size={13} color={activeFilter === 'bedrooms' ? colors.primary : colors.ink3} />
-        </TouchableOpacity>
+      {/* 单行筛选栏（对齐 C 端：宽度够时等分铺满，不够时横向滚动；点击从顶部下拉面板展开） */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterTabsRow}
+        contentContainerStyle={styles.filterTabsContent}
+      >
+        {filterTabs.map((tb) => (
+          <TouchableOpacity
+            key={tb.key}
+            style={[
+              styles.filterTab,
+              activeFilter === tb.key && styles.filterTabOpen,
+              tb.active && styles.filterTabActive,
+            ]}
+            activeOpacity={0.7}
+            onPress={() => {
+              if (activeFilter === tb.key) {
+                setActiveFilter('');
+                return;
+              }
+              // 打开区域面板时回显已选城区所在的省市
+              if (tb.key === 'location') echoAreaDrill();
+              setActiveFilter(tb.key);
+            }}
+          >
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.filterTabLabel,
+                (activeFilter === tb.key || tb.active) && styles.filterTabLabelActive,
+              ]}
+            >
+              {tb.label}
+            </Text>
+            <Ionicons
+              name={activeFilter === tb.key ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={tb.active || activeFilter === tb.key ? colors.primary : colors.ink3}
+            />
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-        <TouchableOpacity
-          style={[styles.filterChip, activeFilter === 'price' && styles.filterChipActive]}
-          activeOpacity={0.7}
-          onPress={() => setActiveFilter(activeFilter === 'price' ? '' : 'price')}
-        >
-          <Text style={[styles.filterChipText, activeFilter === 'price' && styles.filterChipTextActive]}>
-            价格：{priceRange === 'custom' ? '自定义' : optionLabel(PRICE_OPTIONS, priceRange, '不限价格')}
-          </Text>
-          <Ionicons name="chevron-down" size={13} color={activeFilter === 'price' ? colors.primary : colors.ink3} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, activeFilter === 'area' && styles.filterChipActive]}
-          activeOpacity={0.7}
-          onPress={() => setActiveFilter(activeFilter === 'area' ? '' : 'area')}
-        >
-          <Text style={[styles.filterChipText, activeFilter === 'area' && styles.filterChipTextActive]}>
-            面积：{areaRange === 'custom' ? '自定义' : optionLabel(AREA_OPTIONS, areaRange, '不限面积')}
-          </Text>
-          <Ionicons name="chevron-down" size={13} color={activeFilter === 'area' ? colors.primary : colors.ink3} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, activeFilter === 'location' && styles.filterChipActive]}
-          activeOpacity={0.7}
-          onPress={() => {
-            if (activeFilter === 'location') {
-              setActiveFilter('');
-              return;
-            }
-            // 打开区域面板时回显已选城区所在的省市
-            echoAreaDrill();
-            setActiveFilter('location');
-          }}
-        >
-          <Text style={[styles.filterChipText, activeFilter === 'location' && styles.filterChipTextActive]}>
-            区域：{districtSel || metroSel.length ? '已选' : '不限'}
-          </Text>
-          <Ionicons name="chevron-down" size={13} color={activeFilter === 'location' ? colors.primary : colors.ink3} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, activeFilter === 'sort' && styles.filterChipActive]}
-          activeOpacity={0.7}
-          onPress={() => setActiveFilter(activeFilter === 'sort' ? '' : 'sort')}
-        >
-          <Text style={[styles.filterChipText, activeFilter === 'sort' && styles.filterChipTextActive]}>
-            排序：{optionLabel(SORT_OPTIONS, sort, '默认排序')}
-          </Text>
-          <Ionicons name="chevron-down" size={13} color={activeFilter === 'sort' ? colors.primary : colors.ink3} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, activeFilter === 'school' && styles.filterChipActive]}
-          activeOpacity={0.7}
-          onPress={() => setActiveFilter(activeFilter === 'school' ? '' : 'school')}
-        >
-          <Text style={[styles.filterChipText, activeFilter === 'school' && styles.filterChipTextActive]}>
-            学校{schoolId ? ' · 已选' : ''}
-          </Text>
-          <Ionicons name="chevron-down" size={13} color={activeFilter === 'school' ? colors.primary : colors.ink3} />
-        </TouchableOpacity>
-      </View>
-
+      {/* 顶部下拉面板（对齐 C 端：紧贴 Tab 栏下方、通栏直角带投影；未展开时 display:none） */}
+      <View style={[styles.dropPanel, activeFilter === '' && styles.dropPanelHidden]}>
       {/* 展开的筛选项 */}
       {activeFilter === 'bedrooms' && (
         <View style={styles.optRow}>
@@ -867,6 +976,7 @@ export default function AdminPropertiesScreen() {
           </TouchableOpacity>
         </View>
       )}
+      </View>
 
       {/* 统计行 */}
       <View style={styles.statRow}>
@@ -949,6 +1059,16 @@ export default function AdminPropertiesScreen() {
                     <Text style={styles.priceUnit}> /月</Text>
                   </Text>
                 </View>
+                {/* 归属人：历史房源 created_by 为空，仅管理员可见并可由管理员指派 */}
+                <View style={styles.ownerRow}>
+                  <Ionicons name="person-outline" size={12} color={colors.ink3} />
+                  <Text
+                    style={[styles.ownerText, !p.creator_name && styles.ownerTextEmpty]}
+                    numberOfLines={1}
+                  >
+                    {p.creator_name ?? '未指派'}
+                  </Text>
+                </View>
               </TouchableOpacity>
 
               <View style={styles.cardFoot}>
@@ -958,6 +1078,16 @@ export default function AdminPropertiesScreen() {
                   onPress={() => navigation.navigate('AdminPropertyDetail', { id: p.id })}
                 >
                   <Text style={styles.manageText}>管理</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.assignBtn}
+                  activeOpacity={0.7}
+                  onPress={() => openAssign(p)}
+                  accessibilityRole="button"
+                  accessibilityLabel="指派归属人"
+                >
+                  <Ionicons name="person-add-outline" size={15} color={colors.primary} />
+                  <Text style={styles.assignText}>指派</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.deleteBtn}
@@ -979,6 +1109,86 @@ export default function AdminPropertiesScreen() {
           <ActivityIndicator color={colors.primary} />
         </View>
       )}
+
+      {/* 指派归属人：选中内部员工（销售/经纪/管理员）后，该房源即归其名下维护 */}
+      <Modal visible={!!assignTarget} transparent animationType="fade" onRequestClose={closeAssign}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>指派归属人</Text>
+              <TouchableOpacity
+                onPress={closeAssign}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="关闭"
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={20} color={colors.ink3} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSub} numberOfLines={1}>
+              {assignTarget ? adminTitle(assignTarget) : ''}
+            </Text>
+
+            <View style={styles.modalSearch}>
+              <Ionicons name="search" size={15} color={colors.ink3} />
+              <TextInput
+                style={styles.modalSearchInput}
+                value={staffKw}
+                onChangeText={setStaffKw}
+                placeholder="搜索员工姓名"
+                placeholderTextColor={colors.ink3}
+              />
+            </View>
+
+            <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
+              {staffLoading ? (
+                <View style={styles.modalLoading}>
+                  <ActivityIndicator color={colors.primary} />
+                </View>
+              ) : filteredStaff.length === 0 ? (
+                <Text style={styles.modalEmpty}>未找到可指派的员工</Text>
+              ) : (
+                filteredStaff.map((s) => {
+                  const active = assignTarget?.created_by === s.id;
+                  return (
+                    <TouchableOpacity
+                      key={s.id}
+                      style={styles.modalItem}
+                      activeOpacity={0.7}
+                      disabled={assigning}
+                      onPress={() => doAssign(s.id)}
+                    >
+                      <View style={styles.modalItemBody}>
+                        <Text style={styles.modalItemTitle} numberOfLines={1}>
+                          {s.full_name || '未命名员工'}
+                        </Text>
+                        <Text style={styles.modalItemSub}>
+                          {s.role === 'employee' ? '经纪' : '销售'}
+                        </Text>
+                      </View>
+                      {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.modalClear}
+              activeOpacity={0.7}
+              disabled={assigning || !assignTarget?.created_by}
+              onPress={() => doAssign(null)}
+            >
+              <Text
+                style={[styles.modalClearText, !assignTarget?.created_by && styles.modalClearTextDisabled]}
+              >
+                收回归属（仅管理员可见）
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -988,13 +1198,19 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  searchBar: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginHorizontal: 20,
     marginTop: 14,
     marginBottom: 12,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 14,
     height: 44,
     backgroundColor: colors.surface,
@@ -1003,6 +1219,16 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.md,
   },
   searchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 44,
+    paddingHorizontal: 14,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.primary,
+  },
+  addBtnText: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
 
   chipScroll: { flexGrow: 0, marginBottom: 12 },
   chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20 },
@@ -1018,33 +1244,57 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
 
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginHorizontal: 20,
+  // 贝壳式单行 Tab 筛选栏 + 顶部下拉面板（视觉与 C 端找房页一致）
+  filterTabsRow: {
+    flexGrow: 0,
+    marginHorizontal: 12,
     marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.md,
+    overflow: 'hidden',
   },
-  filterChip: {
+  filterTabsContent: { flexGrow: 1 },
+  filterTab: {
+    // flexGrow + flexShrink:0：宽度够时等分铺满，不够时按内容撑开并触发横向滚动
+    flexGrow: 1,
+    flexShrink: 0,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: colors.radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
+    justifyContent: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
     backgroundColor: colors.surface,
   },
-  filterChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.alpha(colors.primaryRgb, 0.08),
+  filterTabOpen: { backgroundColor: colors.surface2 },
+  filterTabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
   },
-  filterChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  filterChipTextActive: { color: colors.primary, fontWeight: '600' },
+  filterTabLabel: {
+    fontSize: 13,
+    color: colors.ink2,
+    fontWeight: '500',
+    maxWidth: 92,
+  },
+  filterTabLabelActive: { color: colors.primary, fontWeight: '600' },
+  dropPanel: {
+    marginBottom: 12,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    shadowColor: colors.ink,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  dropPanelHidden: { display: 'none' },
 
   /* 学校筛选项（C 端维度） */
-  schoolPanel: { marginHorizontal: 20, marginBottom: 12 },
+  schoolPanel: { marginBottom: 4 },
   schoolSearch: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1085,8 +1335,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 4,
   },
   optChip: {
     paddingHorizontal: 14,
@@ -1104,8 +1353,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 4,
   },
   customLabel: { fontSize: 13, color: colors.ink2 },
   customSep: { fontSize: 13, color: colors.ink3 },
@@ -1136,7 +1384,6 @@ const styles = StyleSheet.create({
   locGroupLabel: {
     fontSize: 12,
     color: colors.ink3,
-    marginHorizontal: 20,
     marginBottom: 8,
     marginTop: 4,
   },
@@ -1146,8 +1393,7 @@ const styles = StyleSheet.create({
   locArea: {
     flexDirection: 'row',
     maxHeight: 260,
-    marginHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 4,
   },
   locAreaCol: {
     // 按最长国家名「马来西亚」倒推：条目 padding 6×2 + 4×13 = 64px
@@ -1230,6 +1476,9 @@ const styles = StyleSheet.create({
   priceRow: { marginTop: 8 },
   price: { fontSize: 16, fontWeight: '800', color: colors.primary, fontVariant: ['tabular-nums'] },
   priceUnit: { fontSize: 11, fontWeight: '500', color: colors.ink3 },
+  ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  ownerText: { flex: 1, fontSize: 12, color: colors.ink2 },
+  ownerTextEmpty: { color: colors.warning, fontWeight: '600' },
 
   cardFoot: {
     flexDirection: 'row',
@@ -1248,6 +1497,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   manageText: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
+  assignBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 12,
+    height: 44,
+    borderRadius: colors.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  assignText: { fontSize: 13, fontWeight: '600', color: colors.primary },
   deleteBtn: {
     width: 44,
     height: 44,
@@ -1258,4 +1518,57 @@ const styles = StyleSheet.create({
   },
 
   moreWrap: { paddingVertical: 16, alignItems: 'center' },
+
+  // 指派归属人弹层
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 16,
+    maxHeight: '80%',
+  },
+  modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  modalSub: { fontSize: 12, color: colors.ink3, marginTop: 4 },
+  modalSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 40,
+    paddingHorizontal: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface2,
+  },
+  modalSearchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
+  modalLoading: { paddingVertical: 28, alignItems: 'center' },
+  modalEmpty: { paddingVertical: 28, textAlign: 'center', fontSize: 13, color: colors.ink3 },
+  modalList: { marginTop: 8 },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  modalItemBody: { flex: 1, gap: 3, paddingRight: 12 },
+  modalItemTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  modalItemSub: { fontSize: 12, color: colors.ink3 },
+  modalClear: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderRadius: colors.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface2,
+  },
+  modalClearText: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  modalClearTextDisabled: { color: colors.ink3, opacity: 0.5 },
 });

@@ -131,7 +131,15 @@ def _mk_owner(engine, role=UserRole.owner) -> tuple[User, Owner]:
         return u, owner
 
 
-def _mk_property(engine, owner_id, monthly_rent=12000.0, status=PropertyStatus.rented):
+def _mk_property(
+    engine, owner_id, monthly_rent=12000.0, status=PropertyStatus.rented, created_by=None
+):
+    """直接落库造房源。
+
+    `created_by` 是房源归属人：销售/经纪只能看到并操作自己录入的房源，所以造数据
+    时若要让 agent/employee 账号看得到，必须把归属人一并写入（为 None 时按「历史
+    房源」处理，仅管理员可见）。
+    """
     with Session(engine) as s:
         prop = Property(
             owner_id=owner_id,
@@ -141,6 +149,7 @@ def _mk_property(engine, owner_id, monthly_rent=12000.0, status=PropertyStatus.r
             currency="THB",
             deposit_amount=monthly_rent * 2,
             status=status,
+            created_by=created_by,
         )
         s.add(prop)
         s.commit()
@@ -439,12 +448,16 @@ def test_owner_annual_financial_summary_groups_by_month(api, engine):
 
 # ------------------------------------------------------------ 房源与鉴权
 def test_properties_pagination_filters_and_auth_required(api, engine):
-    """房源列表分页/状态筛选可用；缺少凭证时必须 401（不能静默放行）。"""
-    owner_user, owner = _mk_owner(engine)
-    _mk_property(engine, owner.id, status=PropertyStatus.vacant)
-    _mk_property(engine, owner.id, status=PropertyStatus.rented)
+    """房源列表分页/状态筛选可用；缺少凭证时必须 401（不能静默放行）。
 
+    房源归属人写成该 agent：销售/经纪只能看到自己录入的房源，若留空则按
+    「历史房源」处理（仅管理员可见），这里测的是分页/筛选本身，故需归属到位。
+    """
     agent = api.mk_user(UserRole.agent)
+    owner_user, owner = _mk_owner(engine)
+    _mk_property(engine, owner.id, status=PropertyStatus.vacant, created_by=agent.id)
+    _mk_property(engine, owner.id, status=PropertyStatus.rented, created_by=agent.id)
+
     client = api.login(agent)
 
     paged = client.get("/api/v1/properties", params={"page_size": 1})
@@ -477,7 +490,11 @@ def test_property_keyword_search_and_sort(api, engine):
     覆盖两个易错点：
     1. 关键词要能命中「关联楼盘」的字段（房源地址里没写区域时不应漏搜）；
     2. 排序参数必须真的改变 SQL 的 ORDER BY，而不是前端排序。
+
+    房源归属人统一写成该 agent：销售/经纪只能看到自己录入的房源，留空则按
+    「历史房源」处理（仅管理员可见），会让本用例全部落空。
     """
+    agent = api.mk_user(UserRole.agent)
     owner_user, owner = _mk_owner(engine)
     with Session(engine) as s:
         proj = Project(
@@ -503,6 +520,7 @@ def test_property_keyword_search_and_sort(api, engine):
                 size_sqm=size,
                 building=building,
                 project_id=project,
+                created_by=agent.id,
             )
             s.add(prop)
             s.commit()
@@ -513,7 +531,6 @@ def test_property_keyword_search_and_sort(api, engine):
     mid = _mk("A-101", "Sukhumvit Soi 24", 20000.0, bedrooms=2, size=55.0)
     pricey = _mk("C-303", "Rama 9 Road", 35000.0, bedrooms=4, size=120.0, project=project_id)
 
-    agent = api.mk_user(UserRole.agent)
     client = api.login(agent)
     base = "/api/v1/properties"
 
@@ -553,6 +570,81 @@ def test_property_keyword_search_and_sort(api, engine):
     assert client.get(base, params={"status": "reserved"}).status_code == 422
     # 非法排序参数同样 422，不能被当成默认排序静默吞掉
     assert client.get(base, params={"sort": "whatever"}).status_code == 422
+
+
+# ------------------------------------------------------------ 房源数据隔离
+def test_property_visibility_isolation_and_assign(api, engine):
+    """房源按归属人隔离：管理员全量、销售/经纪仅自己录入、历史房源仅管理员。
+
+    「房源管理分权限」的核心约束，重点盯两类回归：
+    1. 可见性条件被写成空列表（= 不加条件）会立刻变成全量泄露；
+    2. 写操作只校验「看得见」不校验「归属」，会让员工改到别人的房源。
+    """
+    admin = api.mk_user(UserRole.admin)
+    agent_a = api.mk_user(UserRole.agent)
+    agent_b = api.mk_user(UserRole.agent)
+    _owner_user, owner = _mk_owner(engine)
+
+    mine = _mk_property(engine, owner.id, created_by=agent_a.id)
+    legacy = _mk_property(engine, owner.id, created_by=None)  # 历史房源
+
+    def _ids(user):
+        r = api.login(user).get("/api/v1/properties", params={"page_size": 50})
+        assert r.status_code == 200, r.text
+        return {i["id"] for i in r.json()["items"]}
+
+    assert _ids(admin) == {str(mine.id), str(legacy.id)}
+    assert _ids(agent_a) == {str(mine.id)}
+    assert _ids(agent_b) == set()
+
+    b = api.login(agent_b)
+    # 越权读返回 404 而不是 403：403 等于确认「该 id 存在」，会变成枚举探针
+    assert b.get(f"/api/v1/properties/{mine.id}").status_code == 404
+    assert b.get(f"/api/v1/properties/{legacy.id}").status_code == 404
+    # 越权写
+    assert b.patch(f"/api/v1/properties/{mine.id}", json={"room_number": "X"}).status_code == 403
+    assert b.delete(f"/api/v1/properties/{mine.id}").status_code == 403
+
+    a = api.login(agent_a)
+    assert a.get(f"/api/v1/properties/{mine.id}").status_code == 200
+    assert a.patch(f"/api/v1/properties/{mine.id}", json={"room_number": "A-9"}).status_code == 200
+
+    # 指派只能由管理员发起，否则员工可以互相抢房源
+    assert (
+        a.post(
+            f"/api/v1/properties/{legacy.id}/assign",
+            json={"created_by": str(agent_b.id)},
+        ).status_code
+        == 403
+    )
+    # 注意：api.login 会重设全局依赖覆盖，前面拿到的 client 会跟着变成新登录的人，
+    # 所以每次切回管理员都要重新 login 一次。
+    assigned = api.login(admin).post(
+        f"/api/v1/properties/{legacy.id}/assign", json={"created_by": str(agent_b.id)}
+    )
+    assert assigned.status_code == 200, assigned.text
+    assert assigned.json()["creator_name"]
+    # 历史房源原本员工不可见，指派后接手人就能看到并操作了
+    assert _ids(agent_b) == {str(legacy.id)}
+
+    # 只能指派给内部员工；指向不存在/非员工账号一律 400
+    assert (
+        api.login(admin)
+        .post(
+            f"/api/v1/properties/{legacy.id}/assign",
+            json={"created_by": str(uuid.uuid4())},
+        )
+        .status_code
+        == 400
+    )
+    # 传 null 收回归属，房源回到管理员池
+    assert (
+        api.login(admin)
+        .post(f"/api/v1/properties/{legacy.id}/assign", json={"created_by": None})
+        .status_code
+        == 200
+    )
+    assert _ids(agent_b) == set()
 
 
 # ------------------------------------------------------------ 房源展示名

@@ -30,6 +30,7 @@ export default {
     'pages/admin/payments/index',
     'pages/admin/leases/index',
     'pages/admin/accounts/index',
+    'pages/admin/permissions/index',
     'pages/admin/commission-rules/index',
     // 管理端「待审核」→ 工单审核中心（对齐 Web /system/review-center）
     'pages/admin/review-center/index',

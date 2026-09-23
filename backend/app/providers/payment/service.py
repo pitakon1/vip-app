@@ -11,11 +11,19 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import structlog
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from .base import PaymentChannel, PaymentRequest, RefundRequest
 from .router import payment_router
 from ...models.payment import Payment, PaymentStatus
+from ...models.payment_webhook_event import (
+    PaymentWebhookEvent,
+    WEBHOOK_IGNORED,
+    WEBHOOK_PROCESSED,
+    WEBHOOK_UNMATCHED,
+    build_dedupe_key,
+)
 from ...models.lease import Lease
 from ...models.employee import Employee
 from ...models.notification import Notification, NotificationChannel, NotificationStatus
@@ -23,21 +31,112 @@ from ...core.events import publish_event
 
 logger = structlog.get_logger()
 
-# 内存幂等缓存：记录最近处理过的 webhook 事务键（生产环境替换为 Redis）
-_WEBHOOK_MEMO: set = set()
-_WEBHOOK_MEMO_MAX = 10000
+
+class UnmatchedWebhookError(Exception):
+    """回调验签通过、但本地找不到可匹配的支付单。
+
+    这是**可重试**错误：多为「渠道回调早于下单落库」的时序竞争，
+    端点应返回非 2xx（本实现返回 409）让渠道按自己的退避策略重投，
+    否则这笔支付会在本地永久停留在 processing。
+    """
 
 
-def _mark_webhook_seen(key: str) -> bool:
-    """返回 False 表示该 key 已处理过（幂等）。"""
-    if key in _WEBHOOK_MEMO:
-        return False
-    _WEBHOOK_MEMO.add(key)
-    if len(_WEBHOOK_MEMO) > _WEBHOOK_MEMO_MAX:
-        # 简单防内存膨胀：清空重建
-        _WEBHOOK_MEMO.clear()
-        _WEBHOOK_MEMO.add(key)
-    return True
+def _extract_event_id(payload: dict, tx_id: Optional[str]) -> Optional[str]:
+    """提取渠道的**事件** id（区别于交易 id）。
+
+    只有渠道确实提供了独立事件 id 时才返回：若 `payload["id"]` 与交易号相同
+    （通用/PromptPay 渠道就是这么写的），说明那是交易 id 而非事件 id，
+    返回 None 让幂等键退化为「交易号 + 业务状态」，避免把同笔支付的不同
+    事件（processing / succeeded）折叠成一条而丢掉成功回调。
+    """
+    for key in ("event_id", "id"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            value = value.strip()
+            if value != tx_id:
+                return value
+    return None
+
+
+def _extract_reference_keys(payload: dict) -> tuple[Optional[str], Optional[str]]:
+    """从渠道原始报文里尽力提取 (payment_id, idempotency_key) 作为兜底匹配键。
+
+    回调可能早于「下单落库」到达，此时按 `channel_transaction_id` 查不到单子。
+    下单时我们已把 `payment_id` / `idempotency_key` 放进 provider 的 metadata
+    （见 create_order），所以渠道只要回传了这些字段就能补上匹配。
+    各渠道位置不一，这里按常见位置逐个尝试，取不到就返回 None。
+    """
+    candidates: list[dict] = [payload]
+    data = payload.get("data")
+    if isinstance(data, dict):
+        candidates.append(data)
+        obj = data.get("object")
+        if isinstance(obj, dict):
+            candidates.append(obj)
+    for meta_key in ("metadata", "meta"):
+        for src in list(candidates):
+            meta = src.get(meta_key)
+            if isinstance(meta, dict):
+                candidates.append(meta)
+
+    payment_id: Optional[str] = None
+    idempotency_key: Optional[str] = None
+    for src in candidates:
+        if not isinstance(src, dict):
+            continue
+        if not payment_id:
+            for key in ("payment_id", "client_reference_id"):
+                value = src.get(key)
+                if isinstance(value, str) and value.strip():
+                    payment_id = value.strip()
+                    break
+        if not idempotency_key:
+            for key in ("idempotency_key", "idempotencyKey", "out_trade_no", "merchant_order_id"):
+                value = src.get(key)
+                if isinstance(value, str) and value.strip():
+                    idempotency_key = value.strip()
+                    break
+    return payment_id, idempotency_key
+
+
+def _find_payment(
+    session: Session,
+    tx_id: Optional[str],
+    payment_id_hint: Optional[str],
+    idempotency_key_hint: Optional[str],
+) -> tuple[Optional[Payment], Optional[str]]:
+    """定位支付单，返回 (payment, matched_by)。matched_by 用于留档追溯。"""
+    if tx_id:
+        found = session.exec(
+            select(Payment).where(
+                Payment.channel_transaction_id == tx_id,
+                Payment.deleted_at.is_(None),
+            )
+        ).first()
+        if found:
+            return found, "channel_transaction_id"
+
+    if idempotency_key_hint:
+        found = session.exec(
+            select(Payment).where(
+                Payment.idempotency_key == idempotency_key_hint,
+                Payment.deleted_at.is_(None),
+            )
+        ).first()
+        if found:
+            return found, "idempotency_key"
+
+    if payment_id_hint:
+        try:
+            pid = uuid.UUID(payment_id_hint)
+        except (ValueError, AttributeError, TypeError):
+            pid = None
+        if pid is not None:
+            found = session.get(Payment, pid)
+            if found and not found.deleted_at:
+                return found, "payment_id"
+
+    return None, None
 
 
 def _status_from_result(result) -> str:
@@ -347,7 +446,13 @@ class PaymentService:
         payload: dict,
         headers: dict,
     ) -> dict:
-        """统一 webhook：验签 → 幂等 → 解析 → 落库 → 触发业务事件。"""
+        """统一 webhook：验签 → 幂等 → 解析 → 落库 → 触发业务事件。
+
+        幂等与留档全部落 `payment_webhook_events` 表（不再用进程内 set）：
+        唯一键 `(channel, transaction_id)` 冲突即视为重复投递。
+        幂等记录与业务变更**同事务提交**——提交失败则两者一起回滚，
+        渠道重投仍能被正常处理，不会出现"标记了但没入账"的丢单。
+        """
         try:
             provider = payment_router.get_provider(PaymentChannel(channel))
         except (ValueError, KeyError):
@@ -361,29 +466,105 @@ class PaymentService:
         # 2. 解析
         parsed = provider.parse_webhook(payload, headers)
         tx_id = parsed.get("transaction_id")
-        if not tx_id:
-            return {"ok": True, "ignored": True, "reason": "no transaction_id"}
+        payment_id_hint, idem_hint = _extract_reference_keys(payload)
+        event_status = parsed.get("status", "")
+        event_id = _extract_event_id(payload, tx_id)
+        dedupe_key = build_dedupe_key(
+            channel,
+            event_id=event_id,
+            transaction_id=tx_id,
+            event_status=event_status,
+            idempotency_key=idem_hint,
+            payload=payload,
+        )
 
-        # 3. 幂等检查
-        memo_key = f"{channel}:{tx_id}"
-        if not _mark_webhook_seen(memo_key):
+        # 3. 定位支付单：渠道交易号优先，其次 idempotency_key / payment_id 兜底。
+        #    回调可能早于「下单落库」到达，兜底键就是为这种情况准备的。
+        if not (tx_id or idem_hint or payment_id_hint):
+            # 报文里没有任何可用于匹配的引用键：属渠道侧报文问题，重投也无用，
+            # 按 400 返回（端点上映射为不可重试），但仍留档便于排查对接。
+            session.add(
+                PaymentWebhookEvent(
+                    dedupe_key=dedupe_key,
+                    channel=channel,
+                    event_id=event_id,
+                    transaction_id=None,
+                    idempotency_key=None,
+                    status=WEBHOOK_UNMATCHED,
+                    event_status=event_status,
+                    note="webhook carries no reference key",
+                    raw_payload=payload,
+                )
+            )
+            session.commit()
+            logger.warning("payment.webhook.no_reference_key", channel=channel)
+            raise ValueError("webhook carries no reference key")
+
+        payment, matched_by = _find_payment(session, tx_id, payment_id_hint, idem_hint)
+
+        if not payment:
+            # 绝不返回 2xx：渠道看到 2xx 就不会重投，这笔支付会在本地永久丢失。
+            # 留档 unmatched 供人工/定时补单，同时让渠道按自己的退避策略重投。
+            event = PaymentWebhookEvent(
+                dedupe_key=dedupe_key,
+                channel=channel,
+                event_id=event_id,
+                transaction_id=tx_id,
+                idempotency_key=idem_hint,
+                status=WEBHOOK_UNMATCHED,
+                event_status=event_status,
+                note="no local payment matched; awaiting channel retry",
+                raw_payload=payload,
+            )
+            session.add(event)
+            session.commit()
+            logger.warning(
+                "payment.webhook.unmatched",
+                channel=channel,
+                transaction_id=tx_id,
+                event_id=event_id,
+                idempotency_key=idem_hint,
+                payment_id_hint=payment_id_hint,
+                event_row_id=str(event.id),
+            )
+            raise UnmatchedWebhookError(
+                f"Payment not found for channel={channel} transaction_id={tx_id}"
+            )
+
+        # 4. 幂等：插入回调事件行。唯一约束冲突 = 该事件已处理过。
+        event = PaymentWebhookEvent(
+            dedupe_key=dedupe_key,
+            channel=channel,
+            event_id=event_id,
+            transaction_id=tx_id,
+            idempotency_key=idem_hint,
+            payment_id=payment.id,
+            status=WEBHOOK_PROCESSED,
+            event_status=event_status,
+            note=f"matched_by={matched_by}",
+            raw_payload=payload,
+        )
+        session.add(event)
+        try:
+            session.flush()
+        except IntegrityError:
+            session.rollback()
+            logger.info(
+                "payment.webhook.duplicate",
+                channel=channel,
+                transaction_id=tx_id,
+                event_id=event_id,
+                dedupe_key=dedupe_key,
+                payment_id=str(payment.id),
+            )
             return {"ok": True, "ignored": True, "reason": "duplicate webhook"}
 
-        # 4. 落库：通过渠道交易号定位支付单
-        payment = session.exec(
-            select(Payment).where(
-                Payment.channel_transaction_id == tx_id,
-                Payment.deleted_at.is_(None),
-            )
-        ).first()
-        if not payment:
-            return {"ok": True, "ignored": True, "reason": "payment not found"}
-
-        # 已处于终态的支付单不再变更
+        # 已处于终态的支付单不再变更（仍留档，便于审计重复投递）
         if payment.status in (PaymentStatus.succeeded, PaymentStatus.refunded):
+            event.mark(WEBHOOK_IGNORED, payment.id, "payment already final")
+            session.add(event)
+            session.commit()
             return {"ok": True, "ignored": True, "reason": "payment already final"}
-
-        event_status = parsed.get("status", "")
         changed = False
         if event_status in ("succeeded", "success", "completed"):
             payment.status = PaymentStatus.succeeded
@@ -426,16 +607,20 @@ class PaymentService:
             payment.status = PaymentStatus.expired
             changed = True
 
-        if changed:
-            session.add(payment)
-            session.commit()
-            session.refresh(payment)
+        # 5. 幂等记录与业务变更同一个事务提交：
+        #    提交成功 = 业务已生效 + 幂等键已占用；提交失败则两者一起回滚，
+        #    渠道重投会重新走完整流程，不会出现「标记了却没入账」。
+        session.add(payment)
+        session.commit()
+        session.refresh(payment)
 
         logger.info(
             "payment.webhook.handled",
             payment_id=str(payment.id),
             channel=channel,
             status=payment.status.value,
+            changed=changed,
+            matched_by=matched_by,
         )
         return {"ok": True, "payment_id": str(payment.id), "status": payment.status.value}
 

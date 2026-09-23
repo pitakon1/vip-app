@@ -70,6 +70,13 @@ class Property(TimestampMixin, table=True):
         default=None, foreign_key="projects.id"
     )
     owner_id: uuid.UUID = Field(foreign_key="owners.id", index=True)
+    # 创建人（房源归属人）：记录是哪位员工把房源录进来的，用于「管理员看全部、
+    # 销售/经纪只看自己录的」的数据隔离。历史房源该列为 NULL，仅管理员可见，
+    # 管理员可通过指派接口补归属。指向 users.id 而非 employees.id——admin 账号
+    # 可能没有员工档案（如超管），用 users.id 才能覆盖全部角色。
+    created_by: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="users.id", index=True
+    )
     room_number: str = Field(max_length=50)
     floor: Optional[int] = None
     building: Optional[str] = None

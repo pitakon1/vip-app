@@ -42,6 +42,7 @@ from app.models import (
     School,
 )
 from app.providers.geo import haversine_km, lat_lng_bounds
+from app.services import freshness_service
 from app.services.search import relevance_score, resolve_sort
 
 logger = get_logger(__name__)
@@ -103,6 +104,11 @@ class PublicListingCard(BaseModel):
     # 学区：带学校筛选时回填最近学校与距离
     nearest_school_name: Optional[str] = None
     nearest_school_km: Optional[float] = None
+    # 真房源保鲜（对标贝壳「真房源」）：C 端信任信号，免登录即可见。
+    # 只暴露状态与核验时间，不含核验人/方式/证据（那些属内部作业数据）。
+    verification_status: Optional[str] = None
+    last_verified_at: Optional[datetime] = None
+    verified_days_ago: Optional[int] = None
 
 
 class PublicBrokerCard(BaseModel):
@@ -335,6 +341,7 @@ def _build_card(
         if listing.listing_type == ListingType.rent
         else listing.asking_price
     )
+    freshness = freshness_service.listing_freshness_payload(listing)
     return PublicListingCard(
         id=listing.id,
         property_id=listing.property_id,
@@ -367,6 +374,13 @@ def _build_card(
         photos=prop.photos if prop else None,
         status=_enum_value(prop.status) if prop else None,
         created_at=listing.created_at,
+        verification_status=freshness["verification_status"],
+        last_verified_at=listing.last_verified_at,
+        verified_days_ago=(
+            (datetime.utcnow() - listing.last_verified_at).days
+            if listing.last_verified_at
+            else None
+        ),
     )
 
 
@@ -403,7 +417,14 @@ def _project_brief(
 
 
 def _listings_base_stmt():
-    """公开可见的上架单基础查询：仅 active、未删除，带房源与楼盘。"""
+    """公开可见的上架单基础查询：仅 active、未删除、未保鲜过期，带房源与楼盘。
+
+    **保鲜过期不对外可见**：这是「真房源」的硬约束。除了 `Listing.status`
+    被 Celery 置为 `expired`，这里还按 `next_revalidate_at` 做一次时间过滤——
+    即使定时任务挂了，到期房源也会立刻从 C 端消失，不依赖 worker 是否存活。
+    `next_revalidate_at` 为空（历史数据/尚未纳入保鲜）视为不过期。
+    """
+    cutoff = datetime.utcnow()
     return (
         select(Listing, Property, Project)
         .join(Property, Listing.property_id == Property.id)
@@ -411,6 +432,10 @@ def _listings_base_stmt():
         .where(
             Listing.deleted_at.is_(None),
             Listing.status == ListingStatus.active,
+            or_(
+                Listing.next_revalidate_at.is_(None),
+                Listing.next_revalidate_at > cutoff,
+            ),
             Property.deleted_at.is_(None),
         )
     )

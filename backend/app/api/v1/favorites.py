@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -135,13 +136,20 @@ def list_favorites(
         ).all()
     }
     # 每套房源对应的公开上架单（优先租单）：供 App 收藏列表跳转公开详情页。
+    # 必须与 /public/listings 同一口径：**保鲜过期（next_revalidate_at 已过）的单
+    # 在公开详情页是 404**，这里若还把它当跳转目标，用户点进去就是死链。
     prop_ids = list(props.keys())
+    cutoff = datetime.utcnow()
     listing_map: dict = {}
     for li in session.exec(
         select(Listing).where(
             Listing.property_id.in_(prop_ids) if prop_ids else Listing.id.is_(None),
             Listing.deleted_at.is_(None),
             Listing.status == ListingStatus.active,
+            or_(
+                Listing.next_revalidate_at.is_(None),
+                Listing.next_revalidate_at > cutoff,
+            ),
         )
     ).all():
         cur = listing_map.get(li.property_id)

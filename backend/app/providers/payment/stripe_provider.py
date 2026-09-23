@@ -143,8 +143,12 @@ class StripeProvider(PaymentProvider):
         签名格式: t=timestamp,v1=signature
         签名算法: HMAC-SHA256(secret, "{timestamp}.{payload}")
         """
-        sig_header = headers.get("Stripe-Signature") or headers.get("stripe-signature", "")
         secret = _get_webhook_secret()
+        if not secret:
+            # fail closed：密钥为空时，攻击者用空密钥就能算出"合法"HMAC，
+            # 等于完全没有验签。未配置即拒绝。
+            return False
+        sig_header = headers.get("Stripe-Signature") or headers.get("stripe-signature", "")
         if not sig_header:
             return False
         elements = {}

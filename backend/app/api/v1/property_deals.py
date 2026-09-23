@@ -1,4 +1,15 @@
-"""产权成交、定金(Iscrow)托管、按揭申请路由（买卖交易闭环）。"""
+"""产权成交、定金(Iscrow)托管、按揭申请路由（买卖交易闭环）。
+
+## 鉴权口径（修复：此前多个端点只校验「已登录」）
+
+- `create` / `update_status` / `create_escrow` / `release_escrow` /
+  `refund_escrow` / `update_mortgage_status` 是**平台作业 / 资金动作**，限员工。
+- `list` / `get` / `list_escrows` 走 `deal_visibility_conditions()` /
+  `can_view_deal()`：员工全量；租客仅本人为买方或经办人的成交；
+  业主额外可见本人名下房源的成交（卖方）。不可见统一 404。
+- 修复前：任意登录用户可用任意 deal_id 推进他人成交状态、读定金金额、
+  查任意成交详情。C 端「我的交易订单」只用到 `list` / `get`，不受影响。
+"""
 import uuid
 from datetime import datetime
 from typing import List, Optional
@@ -8,11 +19,16 @@ from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user
+from app.core.auth import (
+    STAFF_ROLES,
+    can_view_deal,
+    deal_visibility_conditions,
+    get_current_user,
+    require_employee,
+)
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     User,
-    UserRole,
     PropertyDeal,
     PropertyDealStatus,
     Escrow,
@@ -23,6 +39,17 @@ from app.models import (
 )
 
 router = APIRouter(prefix="/property-deals", tags=["property-deals"])
+
+
+
+def _get_visible_deal(session: Session, user: User, deal_id: uuid.UUID) -> PropertyDeal:
+    """取成交并做归属校验；不可见时统一 404（不回显「存在但你没权限」）。"""
+    deal = session.get(PropertyDeal, deal_id)
+    if not deal or deal.deleted_at:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    if not can_view_deal(session, user, deal):
+        raise HTTPException(status_code=404, detail="Deal not found")
+    return deal
 
 
 class DealIn(BaseModel):
@@ -123,15 +150,13 @@ def list_deals(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """成交列表（管理/经纪人可见全部，普通用户仅相关）。"""
+    """成交列表（员工可见全部，其余仅相关：买方/经办人/名下房源卖方）。"""
     query = select(PropertyDeal).where(PropertyDeal.deleted_at.is_(None))
     if status:
         query = query.where(PropertyDeal.status == status)
-    if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
-        query = query.where(
-            (PropertyDeal.buyer_user_id == user.id)
-            | (PropertyDeal.sales_user_id == user.id)
-        )
+    conditions = deal_visibility_conditions(session, user)
+    if conditions:
+        query = query.where(*conditions)
     query = query.order_by(PropertyDeal.created_at.desc())
     page = paginate_query(session, query, pagination)
     page.items = [_deal_dict(i) for i in page.items]
@@ -142,9 +167,12 @@ def list_deals(
 def create_deal(
     req: DealIn,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
-    """创建成交（经纪人/管理员）。"""
+    """创建成交（限员工：经纪人/管理员）。
+
+    创建成交会联动挂牌状态并确定买方/经办人，属平台作业动作。
+    """
     listing = session.get(SaleListing, req.sale_listing_id)
     if not listing or listing.deleted_at:
         raise HTTPException(status_code=404, detail="Sale listing not found")
@@ -175,9 +203,8 @@ def get_deal(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    deal = session.get(PropertyDeal, deal_id)
-    if not deal or deal.deleted_at:
-        raise HTTPException(status_code=404, detail="Deal not found")
+    """成交详情。可见性走 `can_view_deal()`，不可见返回 404。"""
+    deal = _get_visible_deal(session, user, deal_id)
     return _deal_dict(deal)
 
 
@@ -186,12 +213,13 @@ def update_deal_status(
     deal_id: uuid.UUID,
     status: PropertyDealStatus,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
-    """推进状态（托管中/已签/过户/完成）。"""
-    deal = session.get(PropertyDeal, deal_id)
-    if not deal or deal.deleted_at:
-        raise HTTPException(status_code=404, detail="Deal not found")
+    """推进状态（托管中/已签/过户/完成）。限员工。
+
+    修复前：任意登录用户可用任意 deal_id 推进他人成交状态。
+    """
+    deal = _get_visible_deal(session, user, deal_id)
     deal.status = status
     if status == PropertyDealStatus.signed:
         deal.signed_at = datetime.utcnow()
@@ -205,12 +233,10 @@ def update_deal_status(
 def create_escrow(
     req: EscrowIn,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
-    """登记定金托管。"""
-    deal = session.get(PropertyDeal, req.deal_id)
-    if not deal or deal.deleted_at:
-        raise HTTPException(status_code=404, detail="Deal not found")
+    """登记定金托管。限员工（资金动作）。"""
+    deal = _get_visible_deal(session, user, req.deal_id)
     escrow = Escrow(
         deal_id=req.deal_id,
         amount=req.amount,
@@ -238,6 +264,11 @@ def list_escrows(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
+    """某成交的定金托管记录。须先能看见该成交，否则 404。
+
+    修复前：任意登录用户可用任意 deal_id 读取他人定金金额。
+    """
+    _get_visible_deal(session, user, deal_id)
     escrows = session.exec(
         select(Escrow)
         .where(Escrow.deal_id == deal_id, Escrow.deleted_at.is_(None))
@@ -261,11 +292,9 @@ def list_escrows(
 def release_escrow(
     escrow_id: uuid.UUID,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
-    """解除托管（放款给卖方，需管理/经纪人）。"""
-    if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
-        raise HTTPException(status_code=403, detail="No permission")
+    """解除托管（放款给卖方，需员工）。"""
     escrow = session.get(Escrow, escrow_id)
     if not escrow or escrow.deleted_at:
         raise HTTPException(status_code=404, detail="Escrow not found")
@@ -281,11 +310,9 @@ def release_escrow(
 def refund_escrow(
     escrow_id: uuid.UUID,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
-    """退还定金给买方。"""
-    if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
-        raise HTTPException(status_code=403, detail="No permission")
+    """退还定金给买方。需员工。"""
     escrow = session.get(Escrow, escrow_id)
     if not escrow or escrow.deleted_at:
         raise HTTPException(status_code=404, detail="Escrow not found")
@@ -303,10 +330,20 @@ def create_mortgage(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """提交按揭申请。"""
+    """提交按揭申请。
+
+    非员工只能以**本人**为买方提交（不接受 payload 里的 `buyer_user_id`，
+    否则可替他人发起贷款申请）；如带 `deal_id`，须能看见该成交。
+    """
+    if req.deal_id is not None:
+        _get_visible_deal(session, user, req.deal_id)
+    if user.role in STAFF_ROLES:
+        buyer_user_id = req.buyer_user_id or user.id
+    else:
+        buyer_user_id = user.id
     mortgage = MortgageApplication(
         deal_id=req.deal_id,
-        buyer_user_id=req.buyer_user_id or user.id,
+        buyer_user_id=buyer_user_id,
         bank=req.bank,
         loan_amount=req.loan_amount,
         currency=req.currency,
@@ -357,11 +394,9 @@ def update_mortgage_status(
     mortgage_id: uuid.UUID,
     status: MortgageStatus,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
-    """按揭状态审批（管理/经纪人）。"""
-    if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
-        raise HTTPException(status_code=403, detail="No permission")
+    """按揭状态审批。需员工。"""
     m = session.get(MortgageApplication, mortgage_id)
     if not m:
         raise HTTPException(status_code=404, detail="Mortgage not found")

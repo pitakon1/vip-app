@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../stores/auth';
+import { useI18n } from '../i18n';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -30,8 +31,12 @@ export type RootStackParamList = {
   OwnerPayments: undefined;
   OwnerMarketing: undefined;
   AdminUsers: undefined;
+  AdminPermissions: undefined;
   AdminPropertyDetail: { id: string };
-  PropertyEdit: { id?: string } | { initial?: any } | undefined;
+  // mode: 'create' 为新增房源；带 id/initial 为编辑
+  PropertyEdit:
+    | { id?: string; initial?: any; mode?: 'create' }
+    | undefined;
   AdminLeases: undefined;
   EmployeePropertyBrowse: undefined;
   OwnerPropertyDetail: { id: string };
@@ -116,6 +121,7 @@ const PerformanceScreen = lazyScreen(() => import('../screens/employee/Performan
 const PropertiesScreen = lazyScreen(() => import('../screens/employee/PropertiesScreen'));
 const CalendarScreen = lazyScreen(() => import('../screens/employee/CalendarScreen'));
 const AdminUsersScreen = lazyScreen(() => import('../screens/admin/AdminUsersScreen'));
+const AdminPermissionsScreen = lazyScreen(() => import('../screens/admin/PermissionsScreen'));
 const AdminPropertyDetailScreen = lazyScreen(() => import('../screens/admin/PropertyDetailScreen'));
 const PropertyEditScreen = lazyScreen(() => import('../screens/admin/PropertyEditScreen'));
 const AdminLeasesScreen = lazyScreen(() => import('../screens/admin/LeasesScreen'));
@@ -154,6 +160,7 @@ const PriceAlertsScreen = lazyScreen(() => import('../screens/tenant/PriceAlerts
 
 export function RootNavigator() {
   const isLoading = useAuthStore((state) => state.isLoading);
+  const { t } = useI18n();
 
   if (isLoading) {
     return <ScreenFallback />;
@@ -187,7 +194,8 @@ export function RootNavigator() {
       <Stack.Screen name="Performance" component={PerformanceScreen} options={{ headerShown: true, title: '我的业绩' }} />
       <Stack.Screen name="EmployeeProperties" component={PropertiesScreen} options={{ headerShown: true, title: '房源管理' }} />
       <Stack.Screen name="Calendar" component={CalendarScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ headerShown: true, title: '账号管理' }} />
+      <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ headerShown: true, title: t('acc.title') }} />
+      <Stack.Screen name="AdminPermissions" component={AdminPermissionsScreen} options={{ headerShown: true, title: t('perm.entry') }} />
       <Stack.Screen name="Contacts" component={ContactScreen} options={{ headerShown: true, title: '同事通讯录' }} />
       <Stack.Screen name="OwnerHome" component={OwnerHomeScreen} options={{ headerShown: true, title: '资产管理' }} />
       <Stack.Screen name="OwnerIncome" component={OwnerIncomeScreen} options={{ headerShown: true, title: '收益明细' }} />
@@ -210,7 +218,15 @@ export function RootNavigator() {
       <Stack.Screen name="BrokerAgreement" component={BrokerAgreementScreen} options={{ headerShown: true, title: '协议签约' }} />
       <Stack.Screen name="EmployeePropertyBrowse" component={EmployeePropertyBrowseScreen} options={{ headerShown: true, title: '房源浏览' }} />
       <Stack.Screen name="AdminPropertyDetail" component={AdminPropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />
-      <Stack.Screen name="PropertyEdit" component={PropertyEditScreen} options={{ headerShown: true, title: '编辑房源' }} />
+      <Stack.Screen
+        name="PropertyEdit"
+        component={PropertyEditScreen}
+        // 同一屏兼作新增与编辑，标题随进入方式切换（mode=create 为新增）
+        options={({ route }: any) => ({
+          headerShown: true,
+          title: route?.params?.mode === 'create' ? '新增房源' : '编辑房源',
+        })}
+      />
       <Stack.Screen name="AdminLeases" component={AdminLeasesScreen} options={{ headerShown: true, title: '合同管理' }} />
       <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} options={{ headerShown: true, title: '语言' }} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: true, title: '编辑资料' }} />

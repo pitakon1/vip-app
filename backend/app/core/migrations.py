@@ -64,12 +64,20 @@ _ADDITIVE_COLUMNS: Dict[str, Dict[str, str]] = {
         "foreign_quota_pct": "float",
         "payment_plan": "json",
     },
+    # 真房源保鲜：上架单的核验时间轴与状态（见 models/verification.py）
+    "listings": {
+        "last_verified_at": "ts",
+        "next_revalidate_at": "ts",
+        "verification_status": "varchar(20)",
+        "expired_at": "ts",
+    },
 }
 
 # 表 -> 需要建立索引的列（索引名按 SQLAlchemy 约定 ix_<table>_<column>）
 _ADDITIVE_INDEXES: Dict[str, List[str]] = {
     "properties": ["orientation", "decoration", "listing_no"],
     "projects": ["developer_id", "tenure"],
+    "listings": ["next_revalidate_at", "verification_status"],
 }
 
 

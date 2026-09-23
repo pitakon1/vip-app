@@ -38,6 +38,13 @@ export const authApi = {
 export const propertiesApi = {
   list: (params?: any) => api.get('/properties', { params }),
   get: (id: string) => api.get(`/properties/${id}`),
+  // 新建房源（管理端「新增房源」）。created_by 由服务端按当前登录账号写入，
+  // 客户端不传——房源归属必须由 token 决定，不能由调用方指定。
+  create: (data: any) => api.post('/properties', data),
+  remove: (id: string) => api.delete(`/properties/${id}`),
+  // 指派房源归属人（管理员专用）。传 null 收回归属，房源回到管理员池。
+  assign: (id: string, createdBy: string | null) =>
+    api.post(`/properties/${id}/assign`, { created_by: createdBy }),
   // 房源编辑补全：PATCH /properties/{id}，接受普通编辑字段（如 monthly_rent、status 租态）。
   // 注意：已移除 listing_status 发布态，删除即下架。
   update: (id: string, data: any) => api.patch(`/properties/${id}`, data),
@@ -321,7 +328,20 @@ export const leadsApi = {
 export const usersAdminApi = {
   list: (params?: any) => api.get('/admin/users', { params }),
   create: (data: any) => api.post('/admin/users', data),
+  // 编辑账号（资料 / 角色 / 启停）。此前 App 端只封装了增删，
+  // 导致账号建好后角色无法修改，只能删了重建。
+  update: (id: string, data: any) => api.patch(`/admin/users/${id}`, data),
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
+};
+
+// 管理端：角色权限配置（权限点分组 + 各角色已分配；可编辑保存，保存后即时生效）
+export const permissionsAdminApi = {
+  /** 权限点分组（categories）+ 每个角色当前分配（roles） */
+  list: () => api.get('/admin/permissions'),
+  role: (role: string) => api.get(`/admin/permissions/roles/${role}`),
+  /** 覆盖设置某角色权限点（先清后设，后端随即失效权限缓存） */
+  setRole: (role: string, codes: string[]) =>
+    api.put(`/admin/permissions/roles/${role}`, { codes }),
 };
 
 // 公司资料与系统配置（管理端「我的 - 业务设置」读写：租金/合同提醒天数、自动催缴）

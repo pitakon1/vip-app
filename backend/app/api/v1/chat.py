@@ -23,8 +23,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
 from app.db import engine, get_session
-from app.core.auth import get_current_user
-from app.core.security import decode_access_token
+from app.core.auth import get_current_user, user_from_token
 from app.models import ChatParticipant, Conversation, Message, MessageType, User
 from app.models.user import UserRole
 from app.schemas.chat import ConversationOut, MessageOut
@@ -447,11 +446,27 @@ def _authorize_ws(conversation_id: uuid.UUID, user_id: str) -> bool:
         return conv is not None and is_participant(conv, user_id)
 
 
+def _ws_user_id(token: str) -> Optional[str]:
+    """WebSocket 握手认证：复用 `user_from_token` 的完整校验。
+
+    此前只调 `decode_access_token`，不校验账号是否被停用、令牌是否已被吊销，
+    于是登出或停用账号后，旧令牌仍能连上 WS 收发消息（HTTP 接口已经拒绝，
+    WS 这条旁路绕过了它）。这里复用同一套校验，在同步会话中执行以免阻塞事件循环。
+    """
+    with Session(engine) as session:
+        try:
+            user = user_from_token(token, session)
+        except HTTPException:
+            return None
+        return str(user.id)
+
+
 @router.websocket("/ws/chat/{conversation_id}")
 async def chat_ws(websocket: WebSocket, conversation_id: str):
     """WebSocket 实时聊天。连接：/ws/chat/{id}?token=JWT。"""
-    payload = decode_access_token(websocket.query_params.get("token") or "")
-    user_id = (payload or {}).get("sub")
+    user_id = await run_in_threadpool(
+        _ws_user_id, websocket.query_params.get("token") or ""
+    )
     if not user_id:
         await websocket.close(code=WS_UNAUTHORIZED)
         return

@@ -3,8 +3,12 @@ version: '3.8'
 # 后端服务共用的容器内环境变量。
 # 注意：`backend/.env` 是本地开发配置（sqlite + localhost 地址），容器里必须覆盖
 # 成 compose 服务名，否则容器内 localhost 指向容器自身，连不上 PG/Redis。
+#
+# 口令不再提供默认值：`${POSTGRES_PASSWORD:?}` 在未设置时会让 compose 直接报错退出，
+# 避免"忘了改默认口令 postgres"就上线（默认口令 + 端口暴露 = 直接被人拖库）。
+# 请在项目根目录的 .env 中设置 POSTGRES_PASSWORD。
 x-backend-env: &backend-env
-  DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-rental_db}
+  DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 未设置，请在根目录 .env 中配置}@postgres:5432/${POSTGRES_DB:-rental_db}
   REDIS_URL: redis://redis:6379/0
   CELERY_BROKER_URL: redis://redis:6379/1
   CELERY_RESULT_BACKEND: redis://redis:6379/2
@@ -18,10 +22,13 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 未设置，请在根目录 .env 中配置}
       POSTGRES_DB: ${POSTGRES_DB:-rental_db}
+    # 仅绑定宿主机回环地址：数据库不应直接暴露到公网。
+    # 原先写成 "5432:5432" 会监听 0.0.0.0，公网可扫到并直接用默认口令尝试登录。
+    # 如需从其他机器连接，请走 SSH 隧道或 VPN，不要改回 0.0.0.0。
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -36,8 +43,11 @@ services:
     image: valkey/valkey:8-alpine
     container_name: rental_redis
     restart: unless-stopped
+    # 仅绑定宿主机回环地址。未授权且对外可达的 Redis 极其危险：
+    # 攻击者可用 CONFIG SET dir/dbfilename 写文件，进而拿到容器/宿主机 shell。
+    # 若要把 Redis 移到独立主机，请务必同时启用 requirepass 并同步修改上面的 REDIS_URL。
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -51,8 +61,10 @@ services:
     build: ./backend
     container_name: rental_fastapi
     restart: unless-stopped
+    # 仅绑定回环：后端只应经 Nginx 反向代理访问。
+    # 原先 "8000:8000" 会绕过 Nginx，直接暴露未加 TLS、无安全响应头的后端。
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - ./backend/.env
     environment: *backend-env

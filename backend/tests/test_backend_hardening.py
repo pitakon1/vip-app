@@ -384,6 +384,9 @@ def test_batch_extras_query_count_is_constant(engine):
 # ------------------------------------------------------------ 乐观锁落到接口
 def test_property_update_accepts_version_guard(api):
     """PATCH /properties/{id} 支持可选 version 校验，不带 version 时行为不变。"""
+    # 归属人写成本用例的 agent：销售/经纪只能改自己录入的房源，
+    # 留空会被当成「历史房源」而只允许管理员操作（403）。
+    agent = api.mk_user(UserRole.agent)
     owner = None
     with Session(api.engine) as s:
         owner = Owner(user_id=uuid.uuid4())
@@ -397,6 +400,7 @@ def test_property_update_accepts_version_guard(api):
             monthly_rent=12000,
             currency="THB",
             status=PropertyStatus.vacant,
+            created_by=agent.id,
         )
         s.add(prop)
         s.commit()
@@ -404,7 +408,7 @@ def test_property_update_accepts_version_guard(api):
         prop_id = str(prop.id)
         version = prop.version
 
-    client = api.login(api.mk_user(UserRole.agent))
+    client = api.login(agent)
     ok = client.patch(f"/api/v1/properties/{prop_id}", json={"room_number": "A102"})
     assert ok.status_code == 200 and ok.json()["room_number"] == "A102"
 
@@ -732,3 +736,119 @@ def test_property_photo_upload_rejects_non_image_content(api, tmp_path, monkeypa
         assert ok.status_code == 200, ok.text
         assert ok.json()["added"][0].endswith(".png")
         assert len(list(upload_dir.glob("*.png"))) == 1
+
+
+# ==================== 支付回调验签 fail closed ====================
+# 修复前的缺陷（任一即可伪造到账）：
+#   - base / generic / promptpay 的 verify_webhook 恒返回 True；
+#   - alipay / wechat 在未配置公钥/平台证书时返回 True；
+#   - wise 只判断 "存在 X-Signature 头"，随便填一个值即通过；
+#   - stripe 在密钥为空时用空密钥算 HMAC，攻击者可自行算出"合法"签名。
+# 配合公开无鉴权的 POST /payments/webhook/{channel}，任何人 POST 一段 JSON
+# 就能把支付单标记为已到账。以下用例锁住"缺验签材料一律拒绝"的契约。
+
+# 覆盖三类实现：通用占位渠道 / 有验签但未配置材料 / 有验签且材料为空会退化
+_FailClosedChannels = ["paypal", "grabpay", "truemoney", "promptpay", "alipay", "wechat", "wise", "stripe"]
+
+
+def _forged_signature_headers() -> dict:
+    """把各渠道认得的签名头全部塞满伪造值。"""
+    return {
+        "X-Signature": "forged",
+        "Authorization": "Bearer forged",
+        "Stripe-Signature": "t=1,v1=forged",
+        "Wechatpay-Timestamp": "1",
+        "Wechatpay-Nonce": "forged",
+        "Wechatpay-Signature": "Zm9yZ2Vk",
+        "sign": "forged",
+        "sign_type": "RSA2",
+    }
+
+
+@pytest.mark.parametrize("channel", _FailClosedChannels)
+def test_webhook_verify_fails_closed_when_unconfigured(channel, monkeypatch):
+    """未配置验签材料时，任何渠道的回调都必须被拒绝。"""
+    from app.providers.payment import (
+        alipay_provider,
+        stripe_provider,
+        wechat_provider,
+        wise_provider,
+    )
+    from app.providers.payment.base import PaymentChannel
+    from app.providers.payment.router import payment_router
+
+    # 模拟"生产忘了配置"：清空所有验签材料（这些名字在 provider 模块内被直接引用）
+    monkeypatch.setattr(stripe_provider, "STRIPE_WEBHOOK_SECRET", "", raising=False)
+    monkeypatch.setattr(alipay_provider, "ALIPAY_PUBLIC_KEY", "", raising=False)
+    monkeypatch.setattr(wechat_provider, "WECHAT_PLATFORM_CERT", "", raising=False)
+    monkeypatch.setattr(wise_provider, "WISE_API_KEY", "", raising=False)
+
+    provider = payment_router.get_provider(PaymentChannel(channel))
+    assert (
+        provider.verify_webhook(
+            {"event": "payment.succeeded", "transaction_id": "forged"},
+            _forged_signature_headers(),
+        )
+        is False
+    ), f"{channel} 未配置验签材料时仍放行了回调 —— 可被伪造到账"
+
+
+def test_stripe_webhook_rejects_empty_secret(monkeypatch):
+    """Stripe 空密钥必须拒绝：否则攻击者用空密钥即可算出合法 HMAC。"""
+    import hashlib
+    import hmac
+    import json
+
+    from app.providers.payment import stripe_provider
+    from app.providers.payment.base import PaymentChannel
+    from app.providers.payment.router import payment_router
+
+    monkeypatch.setattr(stripe_provider, "STRIPE_WEBHOOK_SECRET", "", raising=False)
+    provider = payment_router.get_provider(PaymentChannel.STRIPE)
+
+    payload = {"event": "payment.succeeded", "transaction_id": "forged"}
+    t = "1"
+    payload_str = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+    # 攻击者按"空密钥"自行计算签名
+    forged = hmac.new(b"", f"{t}.{payload_str}".encode(), hashlib.sha256).hexdigest()
+
+    assert provider.verify_webhook(payload, {"Stripe-Signature": f"t={t},v1={forged}"}) is False
+
+
+def test_webhook_endpoint_rejects_forged_callback(engine):
+    """端到端：伪造回调不能把支付单标记为已到账。"""
+    import uuid as _uuid
+
+    from app.models.payment import Payment, PaymentStatus, PaymentType
+    from app.models.payment_webhook_event import PaymentWebhookEvent
+
+    session = Session(engine)
+    app.dependency_overrides[get_session] = lambda: session
+    try:
+        pay = Payment(
+            payer_id=_uuid.uuid4(),
+            amount=6000,
+            currency="THB",
+            payment_type=PaymentType.rent,
+            status=PaymentStatus.pending,
+            channel="paypal",
+            idempotency_key=str(_uuid.uuid4()),
+        )
+        session.add(pay)
+        session.commit()
+        session.refresh(pay)
+        pay_id = str(pay.id)
+
+        resp = TestClient(app).post(
+            "/api/v1/payments/webhook/paypal",
+            json={"event": "payment.succeeded", "id": "forged", "payment_id": pay_id},
+            headers=_forged_signature_headers(),
+        )
+        assert resp.status_code >= 400, f"伪造回调被接受了：{resp.status_code} {resp.text}"
+
+        session.expire_all()
+        assert session.get(Payment, _uuid.UUID(pay_id)).status == PaymentStatus.pending
+        assert session.exec(select(PaymentWebhookEvent)).all() == []
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+        session.close()

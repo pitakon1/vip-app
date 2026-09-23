@@ -149,10 +149,13 @@ class WiseProvider(PaymentProvider):
         )
 
     def verify_webhook(self, payload: dict, headers: dict) -> bool:
-        """验证 Wise webhook（通过签名头或 HTTP Basic Auth）"""
-        # 完整实现需校验 X-Signature 头（HMAC-SHA1）
-        # 开发环境简化为存在鉴权头即通过
-        return bool(headers.get("X-Signature") or headers.get("Authorization"))
+        """验证 Wise webhook（fail closed）。
+
+        完整实现需用 API 私钥对 X-Signature 头做 HMAC-SHA1 校验；
+        此前仅判断"鉴权头是否存在"，攻击者随便填一个 X-Signature 即可绕过，
+        因此未实现真正验签前一律拒绝。
+        """
+        return False
 
     def parse_webhook(self, payload: dict, headers: dict) -> dict:
         """解析 Wise webhook 事件"""

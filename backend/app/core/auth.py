@@ -4,12 +4,15 @@ from typing import Optional
 
 from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy import false
+from sqlalchemy import false, or_
 from sqlmodel import Session, select
 from .security import decode_access_token
 from ..db import get_session
 from ..models.lease import Lease
 from ..models.owner import Owner
+from ..models.property import Property
+from ..models.contract import Contract, ContractParty
+from ..models.property_deal import PropertyDeal
 from ..models.tenant import Tenant
 from ..models.user import User, UserRole
 
@@ -165,6 +168,166 @@ def can_view_lease(session: Session, user: User, lease: Lease) -> bool:
         return lease.owner_id is not None and lease.owner_id == owner_id_of(session, user)
     if user.role == UserRole.tenant:
         return lease.tenant_id is not None and lease.tenant_id == tenant_id_of(session, user)
+    return False
+
+
+def _same_id(a, b) -> bool:
+    """宽松比较两个 id：缓存里的 dict 经过 JSON 往返后 id 会变成字符串，
+    直接与 UUID 比会恒不相等。统一转字符串比较。"""
+    if a is None or b is None:
+        return False
+    return str(a) == str(b)
+
+
+def property_visibility_conditions(session: Session, user: User) -> list:
+    """房源可见性 → 查询条件（数据隔离必须由 token 决定，不能由调用方传参决定）。
+
+    - 管理员：全量（含 `created_by` 为空的历史房源，由管理员指派归属人）；
+    - 销售 / 经纪（agent / employee）：仅自己录入的房源（`created_by` 为空的历史
+      房源自动被排除）；
+    - 业主：仅本人名下房源；
+    - 租客：全量。**这是刻意的**：C 端房源详情页与「同小区推荐」走的就是
+      `/properties` 系列接口（见 `mobile-app/src/screens/tenant/PropertyDetailScreen.tsx`），
+      租客本就是「登录后浏览公开房源」，此处收紧会让 C 端详情页立刻白屏。
+      要收紧须先把 C 端切到 `/public` 接口，不在本次范围。
+    - 其余角色：不可见。
+
+    返回 `[false()]` 表示「一条都看不到」。与 `lease_visibility_conditions` 同理，
+    必须显式置空而不是返回空列表（空列表 = 不加条件 = 全量泄露）。
+    """
+    if user.role == UserRole.admin:
+        return []
+    if user.role in (UserRole.agent, UserRole.employee):
+        return [Property.created_by == user.id]
+    if user.role == UserRole.owner:
+        owner_id = owner_id_of(session, user)
+        return [Property.owner_id == owner_id] if owner_id else [false()]
+    if user.role == UserRole.tenant:
+        return []
+    return [false()]
+
+
+def can_view_property(session: Session, user: User, prop) -> bool:
+    """单条房源的可见性判定（与 `property_visibility_conditions` 同一口径）。
+
+    `prop` 允许传 ORM 对象或详情缓存里的 dict：`GET /properties/{id}` 会把
+    `prop.model_dump()` 的结果缓存起来，用 getattr/dict.get 双取以兼容两者。
+    """
+    def _field(name):
+        if isinstance(prop, dict):
+            return prop.get(name)
+        return getattr(prop, name, None)
+
+    if user.role == UserRole.admin:
+        return True
+    if user.role in (UserRole.agent, UserRole.employee):
+        return _same_id(_field("created_by"), user.id)
+    if user.role == UserRole.owner:
+        return _same_id(_field("owner_id"), owner_id_of(session, user))
+    if user.role == UserRole.tenant:
+        return True
+    return False
+
+
+def contract_visibility_conditions(session: Session, user: User) -> list:
+    """合同可见性 → 查询条件（与租约/房源同一口径）。
+
+    - 员工（admin/agent/employee）：全量，内部作业需要跨业主查阅；
+    - 业主 / 租客：仅「本人作为签署方」或「挂在本人租约下」的合同；
+    - 其余角色：不可见。
+
+    修复背景：合同接口此前只校验「已登录」，任意登录用户都能列全站合同、
+    读任意合同全文（正文含双方证件号）。返回 `[false()]` 表示一条都看不到，
+    必须显式置空而不是返回空列表（空列表 = 不加条件 = 全量泄露）。
+    """
+    if user.role in STAFF_ROLES:
+        return []
+    if user.role not in (UserRole.owner, UserRole.tenant):
+        return [false()]
+
+    as_party = select(ContractParty.contract_id).where(ContractParty.user_id == user.id)
+    lease_conds = lease_visibility_conditions(session, user)
+    conditions = [Contract.id.in_(as_party)]
+    if lease_conds:
+        conditions.append(Contract.lease_id.in_(select(Lease.id).where(*lease_conds)))
+    return [or_(*conditions)]
+
+
+def can_view_contract(session: Session, user: User, contract: Contract) -> bool:
+    """单份合同的可见性判定（与 `contract_visibility_conditions` 同一口径）。"""
+    if user.role in STAFF_ROLES:
+        return True
+    if user.role not in (UserRole.owner, UserRole.tenant):
+        return False
+
+    # 1) 本人是签署方
+    party = session.exec(
+        select(ContractParty).where(
+            ContractParty.contract_id == contract.id,
+            ContractParty.user_id == user.id,
+        )
+    ).first()
+    if party:
+        return True
+
+    # 2) 合同挂在本人租约下
+    if contract.lease_id:
+        lease = session.get(Lease, contract.lease_id)
+        if lease is not None and can_view_lease(session, user, lease):
+            return True
+    return False
+
+
+def deal_visibility_conditions(session: Session, user: User) -> list:
+    """买卖成交可见性 → 查询条件（与租约/房源/合同同一口径）。
+
+    - 员工（admin/agent/employee）：全量，内部作业需要跨业主查阅；
+    - 租客：仅本人作为买方或经办人的成交；
+    - 业主：除买方/经办人身份外，再加「本人名下房源的成交」——买卖交易里
+      业主就是卖方，是成交的当然当事方；
+    - 其余角色：不可见。
+
+    修复背景：`property_deals.py` 的 `get_deal` / `update_deal_status` /
+    `create_escrow` / `list_escrows` 此前只校验「已登录」，任意登录用户都能
+    推进他人成交状态、读取他人定金金额。返回 `[false()]` 表示一条都看不到，
+    必须显式置空而不是返回空列表（空列表 = 不加条件 = 全量泄露）。
+    """
+    if user.role in STAFF_ROLES:
+        return []
+    if user.role not in (UserRole.owner, UserRole.tenant):
+        return [false()]
+
+    conditions = [
+        PropertyDeal.buyer_user_id == user.id,
+        PropertyDeal.sales_user_id == user.id,
+    ]
+    if user.role == UserRole.owner:
+        owner_id = owner_id_of(session, user)
+        if owner_id:
+            conditions.append(
+                PropertyDeal.property_id.in_(
+                    select(Property.id).where(Property.owner_id == owner_id)
+                )
+            )
+    return [or_(*conditions)]
+
+
+def can_view_deal(session: Session, user: User, deal) -> bool:
+    """单条成交的可见性判定（与 `deal_visibility_conditions` 同一口径）。"""
+    if user.role in STAFF_ROLES:
+        return True
+    if user.role not in (UserRole.owner, UserRole.tenant):
+        return False
+    if _same_id(getattr(deal, "buyer_user_id", None), user.id):
+        return True
+    if _same_id(getattr(deal, "sales_user_id", None), user.id):
+        return True
+    if user.role == UserRole.owner:
+        property_id = getattr(deal, "property_id", None)
+        if property_id:
+            prop = session.get(Property, property_id)
+            if prop is not None and _same_id(prop.owner_id, owner_id_of(session, user)):
+                return True
     return False
 
 

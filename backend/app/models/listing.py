@@ -38,6 +38,7 @@ class ListingStatus(str, Enum):
     closed = "closed"  # 已下架
     cancelled = "cancelled"
     rejected = "rejected"  # 审核驳回
+    expired = "expired"  # 真房源保鲜到期未复验（Celery 自动流转，见 freshness_service）
 
 
 class MandateType(str, Enum):
@@ -126,3 +127,19 @@ class Listing(TimestampMixin, table=True):
     )
     reject_reason: Optional[str] = None
     reviewed_at: Optional[datetime] = None
+
+    # ---- 真房源保鲜（对标贝壳，见 models/verification.py 的说明）----
+    last_verified_at: Optional[datetime] = Field(
+        default=None, description="最近一次核验通过时间"
+    )
+    next_revalidate_at: Optional[datetime] = Field(
+        default=None, index=True,
+        description="下次必须复验的时间；到期未复验由 revalidate_listings 任务标记 expired",
+    )
+    verification_status: str = Field(
+        default="unverified", index=True,
+        description="保鲜状态：unverified/verified/pending/expired（C 端徽标口径）",
+    )
+    expired_at: Optional[datetime] = Field(
+        default=None, description="因保鲜到期被自动下架的时间"
+    )

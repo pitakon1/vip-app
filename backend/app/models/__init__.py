@@ -29,6 +29,12 @@ from .lease import Lease, LeaseStatus
 from .lead import Lead, LeadStage
 from .employee import Employee
 from .payment import Payment, PaymentType, PaymentStatus
+from .payment_webhook_event import (
+    PaymentWebhookEvent,
+    WEBHOOK_PROCESSED,
+    WEBHOOK_UNMATCHED,
+    WEBHOOK_IGNORED,
+)
 from .document import Document, DocumentType
 from .service_order import ServiceOrder, ServiceType, ServiceOrderStatus
 from .maintenance_ticket import MaintenanceTicket, TicketPriority, TicketStatus
@@ -70,7 +76,13 @@ from .viewing_appointment import ViewingAppointment, ViewingStatus
 from .commission_rule import CommissionRule, CommissionRuleScope
 from .favorite import Favorite
 from .price_alert import PriceAlert
-from .sale_listing import SaleListing, SaleType, ListingStatus, Valuation, AVMMethod
+from .sale_listing import (
+    SaleListing,
+    SaleType,
+    ListingStatus as SaleListingStatus,
+    Valuation,
+    AVMMethod,
+)
 from .property_deal import (
     PropertyDeal,
     PropertyDealStatus,
@@ -105,6 +117,20 @@ from .market_data import (
 )
 from .rbac import Permission, RolePermission, UserGroup, UserGroupMember
 from .company_profile import CompanyProfile
+from .property_contribution import (
+    ACNRole,
+    ACN_ROLE_LABELS,
+    DEFAULT_ROLE_WEIGHTS,
+    PropertyContribution,
+    CommissionSplitPlan,
+    actor_key_of,
+)
+from .verification import (
+    PropertyVerification,
+    VerificationMethod,
+    VerificationResult,
+    ListingVerificationStatus,
+)
 
 # 全局注册乐观锁版本号自增（Web 与 Celery worker 都从本模块导入模型）
 from app.core.concurrency import install_version_bumper
@@ -199,7 +225,7 @@ __all__ = [
     "PriceAlert",
     "SaleListing",
     "SaleType",
-    "ListingStatus",
+    "SaleListingStatus",
     "Valuation",
     "AVMMethod",
     "PropertyDeal",
@@ -231,4 +257,14 @@ __all__ = [
     "UserGroup",
     "UserGroupMember",
     "CompanyProfile",
+    "ACNRole",
+    "ACN_ROLE_LABELS",
+    "DEFAULT_ROLE_WEIGHTS",
+    "PropertyContribution",
+    "CommissionSplitPlan",
+    "actor_key_of",
+    "PropertyVerification",
+    "VerificationMethod",
+    "VerificationResult",
+    "ListingVerificationStatus",
 ]

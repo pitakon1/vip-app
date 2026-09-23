@@ -22,7 +22,7 @@ from app.models import (
     Property,
     SaleListing,
     SaleType,
-    ListingStatus,
+    SaleListingStatus,
     Valuation,
     AVMMethod,
 )
@@ -115,7 +115,7 @@ def _serialize(listing: SaleListing) -> dict:
 @router.get("", response_model=Page[SaleListingOut])
 def list_sale_listings(
     sale_type: Optional[SaleType] = None,
-    status: Optional[ListingStatus] = None,
+    status: Optional[SaleListingStatus] = None,
     q: Optional[str] = Query(
         None, max_length=100, description="关键词：挂牌标题 / 地址 / 描述"
     ),
@@ -144,7 +144,7 @@ def list_sale_listings(
         # 非管理员默认只看对外可见状态
         if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
             query = query.where(SaleListing.status.in_(
-                [ListingStatus.active, ListingStatus.pending]
+                [SaleListingStatus.active, SaleListingStatus.pending]
             ))
     if keyword:
         pattern = f"%{keyword}%"
@@ -187,7 +187,7 @@ def create_sale_listing(
         description=req.description,
         license_ref=req.license_ref,
         owner_user_id=user.id if req.sale_type == SaleType.sell else None,
-        status=ListingStatus.active,
+        status=SaleListingStatus.active,
     )
     session.add(listing)
     session.commit()
@@ -241,7 +241,7 @@ def update_sale_listing(
 @router.post("/{listing_id}/status")
 def change_listing_status(
     listing_id: uuid.UUID,
-    status: ListingStatus,
+    status: SaleListingStatus,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):

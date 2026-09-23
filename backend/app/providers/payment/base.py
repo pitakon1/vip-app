@@ -101,8 +101,13 @@ class PaymentProvider(ABC):
         ...
 
     def verify_webhook(self, payload: dict, headers: dict) -> bool:
-        """验证 webhook 签名"""
-        return True
+        """验证 webhook 签名。
+
+        默认 **fail closed**：基类无法完成验签，必须由具体渠道重写。
+        此前默认返回 True，导致任何未重写验签的渠道都会被无条件放行，
+        攻击者只需 POST 一段 JSON 就能把支付单标记为已到账。
+        """
+        return False
 
     def parse_webhook(self, payload: dict, headers: dict) -> dict:
         """解析 webhook，返回标准化结果 {transaction_id, status, amount}"""

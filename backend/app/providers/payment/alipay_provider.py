@@ -199,7 +199,8 @@ class AlipayProvider(PaymentProvider):
         """验证支付宝异步通知签名（RSA2）"""
         public_key = _get_alipay_public_key()
         if not public_key:
-            return True  # 开发环境跳过
+            # fail closed：未配置支付宝公钥时无法验签，直接拒绝而非放行
+            return False
         sign = payload.get("sign", "")
         if not sign:
             return False

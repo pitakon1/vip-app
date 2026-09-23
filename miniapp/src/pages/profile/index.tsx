@@ -7,6 +7,7 @@ import { authApi, chatApi, companyApi, leasesApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { iconStyle } from '@/utils/icons'
 import type { IconKey } from '@/utils/icons'
+import { useI18n } from '@/i18n'
 import type { User } from '@/types'
 import './index.scss'
 
@@ -160,6 +161,7 @@ const maskEmail = (email?: string) => {
 }
 
 export default function ProfilePage() {
+  const { t } = useI18n()
   const user = useAuthStore((state) => state.user)
   const login = useAuthStore((state) => state.login)
   const logout = useAuthStore((state) => state.logout)
@@ -814,16 +816,25 @@ export default function ProfilePage() {
           </View>
 
           <View className='section-title'>
-            <Text>员工管理</Text>
+            <Text>{t('acc.sectionSystem')}</Text>
           </View>
           <View className='panel panel--list'>
-            {renderRow({
-              key: 'employees',
-              label: '员工管理',
-              desc: '管理员工账号、角色与权限',
-              url: '/pages/admin/accounts/index',
-              icon: 'user'
-            })}
+            {[
+              {
+                key: 'accounts',
+                label: t('acc.title'),
+                desc: t('acc.manageDesc'),
+                url: '/pages/admin/accounts/index',
+                icon: 'user' as IconKey
+              },
+              {
+                key: 'permissions',
+                label: t('perm.entry'),
+                desc: t('perm.entryDesc'),
+                url: '/pages/admin/permissions/index',
+                icon: 'gear' as IconKey
+              }
+            ].map(renderRow)}
           </View>
 
           {renderAboutSection()}

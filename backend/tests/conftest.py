@@ -30,6 +30,7 @@ from app.models.employee import Employee
 from app.models.lease import Lease
 from app.models.notification import Notification
 from app.models.payment import Payment
+from app.models.payment_webhook_event import PaymentWebhookEvent
 from app.models.user import User
 
 

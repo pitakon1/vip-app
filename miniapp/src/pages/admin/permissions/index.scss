@@ -1,0 +1,193 @@
+/* 管理端 · 角色权限配置（对齐 Web 端 /system/permissions） */
+.pm-page {
+  min-height: 100vh;
+  background: var(--bg);
+  /* 底部留出「保存条 + 底部导航」的空间，避免最后一张卡被遮挡 */
+  padding: 24rpx 24rpx 340rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 角色切换 ===== */
+.pm-roles {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  margin-bottom: 20rpx;
+}
+
+.pm-role {
+  flex-shrink: 0;
+  height: 64rpx;
+  padding: 0 30rpx;
+  margin-right: 16rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+
+  &--active {
+    background: rgba(var(--primary-rgb), 0.1);
+    border-color: var(--primary);
+  }
+
+  &--active .pm-role__text {
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--ink-2);
+  }
+}
+
+/* ===== 已选统计 ===== */
+.pm-summary {
+  display: block;
+  font-size: 24rpx;
+  color: var(--ink-3);
+  margin-bottom: 16rpx;
+}
+
+/* ===== 类目全选 chips ===== */
+.pm-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 20rpx;
+}
+
+.pm-quick__item {
+  padding: 8rpx 20rpx;
+  border-radius: var(--radius-full);
+  background: var(--card);
+  border: 1px solid var(--line);
+
+  &--on {
+    background: rgba(var(--primary-rgb), 0.1);
+    border-color: var(--primary);
+  }
+
+  &--on .pm-quick__text {
+    color: var(--primary);
+    font-weight: 600;
+  }
+}
+
+.pm-quick__text {
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+/* ===== 权限点分组卡片 ===== */
+.pm-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+
+  &__title {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 12rpx;
+  }
+}
+
+.pm-perm {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  padding: 16rpx 0;
+
+  &__box {
+    width: 36rpx;
+    height: 36rpx;
+    margin-top: 4rpx;
+    flex-shrink: 0;
+    border: 2rpx solid var(--line);
+    border-radius: 8rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--on {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+  }
+
+  &__tick {
+    font-size: 22rpx;
+    line-height: 1;
+    color: var(--primary-foreground);
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    display: block;
+    font-size: 27rpx;
+    color: var(--ink);
+  }
+
+  &__desc {
+    display: block;
+    font-size: 22rpx;
+    color: var(--ink-3);
+    margin-top: 4rpx;
+  }
+}
+
+/* ===== 空态 ===== */
+.pm-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+
+  &__text {
+    font-size: 28rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* ===== 保存条（固定于底部导航之上） ===== */
+.pm-save-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(112rpx + constant(safe-area-inset-bottom));
+  bottom: calc(112rpx + env(safe-area-inset-bottom));
+  z-index: 99;
+  padding: 16rpx 24rpx;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+
+.pm-save-btn {
+  height: 84rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-primary);
+
+  &--disabled {
+    opacity: 0.6;
+  }
+
+  &__text {
+    font-size: 28rpx;
+    font-weight: 700;
+    color: var(--primary-foreground);
+  }
+}

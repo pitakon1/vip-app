@@ -6,6 +6,7 @@ import { fmtMoney } from '@/utils/format'
 import useAuthStore from '@/stores/auth'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface EmployeeItem {
@@ -29,14 +30,18 @@ const PROBATION_DAYS = 90
 
 const AVATAR_TONES = ['primary', 'info', 'success', 'warning', 'neutral']
 
-const FILTERS: { key: string; label: string }[] = [
-  { key: '', label: '全部' },
-  { key: 'active', label: '在职' },
-  { key: 'inactive', label: '离职' },
-  { key: 'probation', label: '试用期' }
+/** 状态筛选（文案走 i18n：acc.filter.*；空 key 表示全部） */
+const FILTERS: { key: string; i18nKey: string }[] = [
+  { key: '', i18nKey: 'all' },
+  { key: 'active', i18nKey: 'active' },
+  { key: 'inactive', i18nKey: 'inactive' },
+  { key: 'probation', i18nKey: 'probation' }
 ]
 
 const PAGE_SIZE = 100
+
+/** 可分配的员工账号角色（与 Web 账号管理的角色口径一致，此处只列员工侧角色） */
+const ROLE_KEYS = ['employee', 'agent', 'admin']
 
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-')
 
@@ -50,6 +55,7 @@ const monthPrefixOf = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 
 export default function AdminEmployeesPage() {
+  const { t } = useI18n()
   const [list, setList] = useState<EmployeeItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -64,16 +70,58 @@ export default function AdminEmployeesPage() {
   const remove = async (e: EmployeeItem) => {
     if (!e.user_id) return
     const res = await Taro.showModal({
-      title: '删除账号',
-      content: `确定删除「${e.full_name || '该员工'}」的账号吗？该操作不可恢复。`
+      title: t('acc.deleteAccount'),
+      content: t('acc.deleteConfirmShort', { name: e.full_name || t('acc.unnamed') })
     })
     if (!res.confirm) return
     try {
       await adminUsersApi.deleteUser(e.user_id)
-      Taro.showToast({ title: '已删除', icon: 'success' })
+      Taro.showToast({ title: t('acc.deleted'), icon: 'success' })
       fetchEmployees()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || '删除失败', icon: 'none' })
+      Taro.showToast({ title: err?.message || t('acc.deleteFailed'), icon: 'none' })
+    }
+  }
+
+  /**
+   * 修改账号角色（PATCH /admin/users/{id}）。
+   * 此前小程序端只能建号/删号，账号角色定死不可改。
+   * 先按邮箱回查账号拿到当前角色，再让管理员在动作面板里选择新角色。
+   */
+  const changeRole = async (e: EmployeeItem) => {
+    if (!e.user_id) {
+      Taro.showToast({ title: t('acc.noBoundAccount'), icon: 'none' })
+      return
+    }
+    let current = ''
+    try {
+      const res: any = await adminUsersApi.list({
+        keyword: e.email || e.full_name || '',
+        page_size: 10
+      })
+      const d = res?.data ?? res
+      const items: any[] = Array.isArray(d) ? d : d?.items || []
+      const hit = items.find((u) => String(u.id) === String(e.user_id)) ?? items[0]
+      current = hit?.role || ''
+    } catch (error) {
+      console.error('[AdminEmployees] 回查账号角色失败', error)
+    }
+
+    const sheet = await Taro.showActionSheet({
+      itemList: ROLE_KEYS.map((key) =>
+        key === current ? `${t(`perm.role.${key}`)}${t('acc.currentRole')}` : t(`perm.role.${key}`)
+      )
+    }).catch(() => null)
+    if (!sheet) return
+    const picked = ROLE_KEYS[sheet.tapIndex]
+    if (!picked || picked === current) return
+
+    try {
+      await adminUsersApi.update(e.user_id, { role: picked })
+      Taro.showToast({ title: t('acc.roleChangedTo', { role: t(`perm.role.${picked}`) }), icon: 'success' })
+      fetchEmployees()
+    } catch (err: any) {
+      Taro.showToast({ title: err?.message || t('acc.roleChangeFailed'), icon: 'none' })
     }
   }
 
@@ -87,7 +135,7 @@ export default function AdminEmployeesPage() {
       setTotal(Number(d?.total ?? items.length))
     } catch (error) {
       console.error('[AdminEmployees] 获取员工失败', error)
-      Taro.showToast({ title: '加载员工失败', icon: 'none' })
+      Taro.showToast({ title: t('acc.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -158,12 +206,12 @@ export default function AdminEmployeesPage() {
       <View className='ac-stats-row'>
         <View className='ac-stat-card'>
           <Text className='ac-stat-card__value'>{stats.total}</Text>
-          <Text className='ac-stat-card__label'>总员工</Text>
-          <Text className='badge badge--primary ac-stat-card__badge'>全员</Text>
+          <Text className='ac-stat-card__label'>{t('acc.totalStaff')}</Text>
+          <Text className='badge badge--primary ac-stat-card__badge'>{t('acc.allStaff')}</Text>
         </View>
         <View className='ac-stat-card'>
           <Text className='ac-stat-card__value'>{stats.active}</Text>
-          <Text className='ac-stat-card__label'>在职</Text>
+          <Text className='ac-stat-card__label'>{t('acc.filter.active')}</Text>
           <Text className='badge badge--success ac-stat-card__badge'>
             {stats.total ? Math.round((stats.active / stats.total) * 100) : 0}%
           </Text>
@@ -172,12 +220,12 @@ export default function AdminEmployeesPage() {
       <View className='ac-stats-row'>
         <View className='ac-stat-card'>
           <Text className='ac-stat-card__value'>{stats.inactive}</Text>
-          <Text className='ac-stat-card__label'>离职</Text>
-          <Text className='badge badge--neutral ac-stat-card__badge'>已离岗</Text>
+          <Text className='ac-stat-card__label'>{t('acc.filter.inactive')}</Text>
+          <Text className='badge badge--neutral ac-stat-card__badge'>{t('acc.leftPost')}</Text>
         </View>
         <View className='ac-stat-card'>
           <Text className='ac-stat-card__value'>{stats.newThisMonth}</Text>
-          <Text className='ac-stat-card__label'>本月新入职</Text>
+          <Text className='ac-stat-card__label'>{t('acc.newThisMonth')}</Text>
           <Text className='badge badge--info ac-stat-card__badge'>+{stats.newThisMonth}</Text>
         </View>
       </View>
@@ -187,13 +235,13 @@ export default function AdminEmployeesPage() {
         <Input
           className='ac-search__input'
           value={keyword}
-          placeholder='搜索员工姓名/工号'
+          placeholder={t('acc.searchPlaceholder')}
           confirmType='search'
           onInput={(e: any) => setKeyword(e.detail.value)}
           onConfirm={handleSearch}
         />
         <View className='ac-search__btn' onClick={handleSearch}>
-          <Text className='ac-search__btn-text'>搜索</Text>
+          <Text className='ac-search__btn-text'>{t('acc.search')}</Text>
         </View>
       </View>
 
@@ -205,28 +253,28 @@ export default function AdminEmployeesPage() {
             className={`ac-chip ${filter === f.key ? 'ac-chip--active' : ''}`}
             onClick={() => setFilter(f.key)}
           >
-            <Text className='ac-chip__text'>{f.label}</Text>
+            <Text className='ac-chip__text'>{t(`acc.filter.${f.i18nKey}`)}</Text>
           </View>
         ))}
       </ScrollView>
 
       <View className='ac-section-head'>
-        <Text className='ac-section-head__title'>员工列表</Text>
-        <Text className='ac-section-head__count'>共 {visible.length} 人</Text>
+        <Text className='ac-section-head__title'>{t('acc.listTitle')}</Text>
+        <Text className='ac-section-head__count'>{t('acc.countPeople', { n: visible.length })}</Text>
       </View>
 
       <ScrollView scrollY className='ac-list'>
         {loading && visible.length === 0 && (
           <View className='ac-state'>
-            <Text className='ac-state__text'>加载中...</Text>
+            <Text className='ac-state__text'>{t('acc.loading')}</Text>
           </View>
         )}
         {!loading && visible.length === 0 && (
           <View className='ac-state'>
             <View className='icon-svg' style={iconStyle('user', 72)} />
-            <Text className='ac-state__text'>暂无员工</Text>
+            <Text className='ac-state__text'>{t('acc.empty')}</Text>
             <Text className='ac-state__desc'>
-              {query || filter ? '换个筛选条件试试' : '还没有员工档案'}
+              {query || filter ? t('acc.tryOtherFilter') : t('acc.emptySearch')}
             </Text>
           </View>
         )}
@@ -235,10 +283,10 @@ export default function AdminEmployeesPage() {
           const inactive = e.is_active === false || e.status === 'inactive'
           const probation = isProbation(e)
           const badge = inactive
-            ? { text: '离职', cls: 'badge--neutral' }
+            ? { text: t('acc.filter.inactive'), cls: 'badge--neutral' }
             : probation
-            ? { text: '试用期', cls: 'badge--warning' }
-            : { text: '在职', cls: 'badge--success' }
+            ? { text: t('acc.filter.probation'), cls: 'badge--warning' }
+            : { text: t('acc.filter.active'), cls: 'badge--success' }
           const tone = AVATAR_TONES[index % AVATAR_TONES.length]
           const perf = perfMap[String(e.id)] || perfMap[String(e.user_id || '')] || null
           const percent = perf ? Math.round((perf.amount / maxPerf) * 100) : 0
@@ -246,19 +294,19 @@ export default function AdminEmployeesPage() {
             <View key={e.id} className={`ac-card ${inactive ? 'ac-card--dim' : ''}`}>
               <View className='ac-card__avatar-row'>
                 <View className={`ac-avatar ac-avatar--${tone}`}>
-                  <Text className='ac-avatar__text'>{(e.full_name || '员').slice(0, 1)}</Text>
+                  <Text className='ac-avatar__text'>{(e.full_name || t('acc.unnamed')).slice(0, 1)}</Text>
                 </View>
                 <View className='ac-card__head'>
-                  <Text className='ac-card__name'>{e.full_name || '未命名员工'}</Text>
+                  <Text className='ac-card__name'>{e.full_name || t('acc.unnamed')}</Text>
                   <Text className='ac-card__code'>
-                    工号 {e.employee_no || e.employee_code || '-'}
+                    {t('acc.codePrefix')} {e.employee_no || e.employee_code || '-'}
                   </Text>
                 </View>
                 <Text className={`badge ${badge.cls}`}>{badge.text}</Text>
               </View>
 
               <Text className='ac-card__position'>
-                {[e.position, e.department].filter(Boolean).join(' · ') || '未设置职位/部门'}
+                {[e.position, e.department].filter(Boolean).join(' · ') || t('acc.noPosition')}
               </Text>
 
               {!!e.phone && (
@@ -271,23 +319,29 @@ export default function AdminEmployeesPage() {
               <View className='ac-card__perf'>
                 <View className='ac-card__perf-head'>
                   <Text className='ac-card__perf-label'>
-                    累计佣金{perf ? ` · 成交 ${perf.deals} 单` : ''}
+                    {t('acc.totalCommission')}
+                    {perf ? t('acc.dealCount', { n: perf.deals }) : ''}
                   </Text>
                   <Text className='ac-card__perf-value'>
-                    {perf ? fmtMoney(perf.amount, 'THB') : '暂无业绩'}
+                    {perf ? fmtMoney(perf.amount, 'THB') : t('acc.noPerf')}
                   </Text>
                 </View>
                 <View className='ac-progress'>
                   <View className='ac-progress__fill' style={{ width: `${percent}%` }} />
                 </View>
                 <Text className='ac-card__perf-tip'>
-                  {perf ? `占团队最高 ${percent}%` : `入职 ${fmtDate(e.hire_date)}`}
+                  {perf ? t('acc.maxShare', { n: percent }) : t('acc.joinedAt', { date: fmtDate(e.hire_date) })}
                 </Text>
               </View>
 
-              {!!e.user_id && String(e.user_id) !== String(currentUserId) && (
+              {!!e.user_id && (
                 <View className='ac-card__actions'>
-                  <View className='ac-act ac-act--del' onClick={() => remove(e)}>删除账号</View>
+                  <View className='ac-act ac-act--role' onClick={() => changeRole(e)}>
+                    {t('acc.changeRole')}
+                  </View>
+                  {String(e.user_id) !== String(currentUserId) && (
+                    <View className='ac-act ac-act--del' onClick={() => remove(e)}>{t('acc.deleteAccount')}</View>
+                  )}
                 </View>
               )}
             </View>

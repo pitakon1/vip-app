@@ -67,7 +67,13 @@ class GenericProvider(PaymentProvider):
         )
 
     def verify_webhook(self, payload: dict, headers: dict) -> bool:
-        return True
+        """通用占位渠道没有统一验签标准，一律拒绝（fail closed）。
+
+        这些渠道尚未对接真实网关（无签名算法、无密钥），此前恒返回 True，
+        等于任何人 POST 一段 JSON 即可把支付单标记为已到账。
+        接入聚合支付后，由聚合平台的统一验签替代本方法。
+        """
+        return False
 
     def parse_webhook(self, payload: dict, headers: dict) -> dict:
         """解析标准化回调负载，返回 {transaction_id, status, amount, currency}

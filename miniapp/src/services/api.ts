@@ -232,6 +232,14 @@ export const adminUsersApi = {
   me: () => request({ url: '/admin/users/me', method: 'GET' })
 }
 
+// 管理端：角色权限配置（权限点分组 + 各角色已分配；可编辑保存，保存后即时生效）
+export const adminPermissionsApi = {
+  list: () => request({ url: '/admin/permissions', method: 'GET' }),
+  role: (role: string) => request({ url: `/admin/permissions/roles/${role}`, method: 'GET' }),
+  setRole: (role: string, codes: string[]) =>
+    request({ url: `/admin/permissions/roles/${role}`, method: 'PUT', data: { codes } })
+}
+
 // 管理端：佣金规则配置
 export const commissionRulesApi = {
   list: (params?: any) => request({ url: '/commission-rules', method: 'GET', data: params }),

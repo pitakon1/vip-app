@@ -11,7 +11,13 @@ from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, lease_visibility_conditions
+from app.core.auth import (
+    can_view_property,
+    get_current_user,
+    lease_visibility_conditions,
+    property_visibility_conditions,
+    require_admin,
+)
 from app.core.cache import (
     delete_cache_pattern,
     get_cache,
@@ -169,6 +175,9 @@ class PropertyDetail(BaseModel):
     video_url: Optional[str] = None
     project_name: Optional[str] = None
     owner_name: Optional[str] = None
+    # 创建人（房源归属人）：销售/经纪的数据隔离依据；NULL = 历史房源，仅管理员可见
+    created_by: Optional[uuid.UUID] = None
+    creator_name: Optional[str] = None
 
 
 class PropertyLeaseItem(BaseModel):
@@ -208,9 +217,22 @@ def _tenant_name(tenant: Optional[Tenant], users: dict) -> Optional[str]:
 
 
 def _ensure_owner_access(user: User, prop: Property, session: Session) -> None:
-    """权限：管理员/经纪人可操作任意房源；业主仅可操作名下房源。"""
+    """单条房源的写权限。
+
+    - 管理员：可操作任意房源；
+    - 销售 / 经纪（agent / employee）：仅可操作**自己录入**的房源（`created_by`
+      为空的历史房源归管理员，员工不可操作）；
+    - 业主：仅可操作名下房源；
+    - 其余角色：拒绝。
+
+    这里传进来的是 ORM 对象，`created_by` 与 `user.id` 都是 UUID，直接比较即可。
+    """
     role = _role_value(user)
-    if role in {UserRole.admin.value, UserRole.agent.value}:
+    if role == UserRole.admin.value:
+        return
+    if role in {UserRole.agent.value, UserRole.employee.value}:
+        if prop.created_by is None or prop.created_by != user.id:
+            raise HTTPException(status_code=403, detail="只能操作自己添加的房源")
         return
     if role != UserRole.owner.value:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -327,11 +349,20 @@ def list_properties(
         f"{bedrooms_min}:{bedrooms_max}:{orientation or ''}:{decoration or ''}:{floor_level or ''}:"
         f"{'|'.join(amenity or [])}:{has_video}:{sort}"
     )
-    cached = get_cache(cache_key)
+    # 列表缓存只在管理员请求时启用。缓存键不含用户身份，若非 admin 也走缓存，
+    # 管理员的全量结果会被串给销售/经纪（越权泄露）。非 admin 的可见集本就很小，
+    # 直接查库即可；这样 admin 的 key 只会被 admin 读写，从根上消除串号。
+    use_cache = _role_value(user) == UserRole.admin.value
+    cached = get_cache(cache_key) if use_cache else None
     if cached is not None:
         return cached
 
-    conditions = [Property.deleted_at.is_(None)]
+    conditions = [
+        Property.deleted_at.is_(None),
+        # 数据隔离由 token 决定（不由调用方传参决定）：管理员全量、销售/经纪仅自己
+        # 录入的、业主仅名下、租客维持 C 端公开浏览口径。
+        *property_visibility_conditions(session, user),
+    ]
     term_conditions = _keyword_conditions(terms)
     if term_conditions:
         conditions.append(or_(*term_conditions))
@@ -458,11 +489,29 @@ def list_properties(
         if project_ids
         else {}
     )
+    # 归属人姓名同样批量取（管理端列表要展示「归属人」），照 project_names 的
+    # `in_` 做法，避免逐条 session.get 造成 N+1。
+    creator_ids = list({p.created_by for p in items if p.created_by})
+    creator_names = (
+        {
+            u.id: u.full_name
+            for u in session.exec(select(User).where(User.id.in_(creator_ids))).all()
+        }
+        if creator_ids
+        else {}
+    )
     result.items = [
-        {**p.model_dump(), "project_name": project_names.get(p.project_id)}
+        {
+            **p.model_dump(),
+            "project_name": project_names.get(p.project_id),
+            "creator_name": creator_names.get(p.created_by),
+        }
         for p in result.items
     ]
-    set_cache(cache_key, result, ttl=60)
+    # 与读取同源：只有 admin 的请求才写缓存，否则销售/经纪的小结果集会覆盖
+    # 管理员的全量缓存，后续管理员就读到残缺数据。
+    if use_cache:
+        set_cache(cache_key, result, ttl=60)
     return result
 
 
@@ -506,6 +555,9 @@ def create_property(
         ).first()
         if not owner_ok:
             raise HTTPException(status_code=400, detail="owner_id 指向的业主不存在或已删除")
+    # 记录创建人（房源归属人）。写权限与列表可见性都以它为准：管理员全量，
+    # 销售/经纪只能看到并操作自己录入的房源。此处由服务端写入，不接受客户端传参。
+    payload["created_by"] = user.id
     prop = Property(**payload)
     session.add(prop)
     session.commit()
@@ -513,6 +565,59 @@ def create_property(
     delete_cache_pattern("cache:properties:*")
     invalidate_aggregate_caches()  # 新建房源会改变总数/空置数
     return prop
+
+
+class PropertyAssign(BaseModel):
+    """指派房源归属人（管理员专用）。传 null 表示收回归属，房源回到管理员池。"""
+
+    created_by: Optional[uuid.UUID] = None
+
+
+@router.post("/{property_id}/assign", response_model=PropertyDetail)
+def assign_property(
+    property_id: uuid.UUID,
+    req: PropertyAssign,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    """把房源指派给某位内部员工（管理员专用）。
+
+    历史房源（`created_by` 为 NULL）按设计只有管理员可见，员工看不到也就无从
+    接手；这里给管理员一个把存量房源「分发」给销售/经纪的入口，否则那些房源会
+    永久卡在管理员池里。
+
+    只能指派给内部员工角色：`created_by` 的语义是「谁负责这套房源」，
+    指派给业主/租客没有意义（业主关系走 `owner_id`）。
+    """
+    prop = session.get(Property, property_id)
+    if not prop or prop.deleted_at:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    if req.created_by is not None:
+        assignee = session.get(User, req.created_by)
+        if not assignee or not assignee.is_active:
+            raise HTTPException(status_code=400, detail="归属人不存在或已停用")
+        if assignee.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
+            raise HTTPException(status_code=400, detail="只能指派给内部员工（管理员/销售/经纪）")
+
+    prop.created_by = req.created_by
+    session.add(prop)
+    session.commit()
+    session.refresh(prop)
+    # 归属人变了，列表缓存必须整片失效：旧结果会继续按旧归属返回给员工
+    delete_cache_pattern("cache:properties:*")
+
+    project = session.get(Project, prop.project_id) if prop.project_id else None
+    owner_user = None
+    if prop.owner_id:
+        owner = session.get(Owner, prop.owner_id)
+        owner_user = session.get(User, owner.user_id) if owner and owner.user_id else None
+    creator_user = session.get(User, prop.created_by) if prop.created_by else None
+    data = prop.model_dump()
+    data["project_name"] = project.name if project else None
+    data["owner_name"] = owner_user.full_name if owner_user else None
+    data["creator_name"] = creator_user.full_name if creator_user else None
+    return data
 
 
 class PropertyMapPoint(BaseModel):
@@ -613,33 +718,44 @@ def get_property(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """获取房源详情（附带项目名称与业主名称）。
+    """获取房源详情（附带项目名称、业主名称与归属人姓名）。
 
-    一次联表查询取齐 房源 / 楼盘 / 业主账号 三份数据：此前是 4 次
+    一次联表查询取齐 房源 / 楼盘 / 业主账号 / 创建人 四份数据：此前是 4 次
     `session.get` 串行往返（房源→楼盘→业主→账号），详情页首屏被数据库
     往返次数拖住；这里合并成一条带 outer join 的语句，缺关联时字段为 None。
+
+    越权一律返回 404 而不是 403：403 等于告诉对方「这个 id 确实存在」，
+    会变成枚举房源 id 的探针。缓存里存的是房源本身（不含用户身份），
+    故权限判定必须放在取缓存**之后**，否则销售/经纪能靠缓存命中绕过隔离。
     """
     cache_key = f"cache:properties:detail:{property_id}"
     cached = get_cache(cache_key)
     if cached is not None:
+        if not can_view_property(session, user, cached):
+            raise HTTPException(status_code=404, detail="Property not found")
         return cached
 
+    creator = aliased(User)
     row = session.exec(
-        select(Property, Project, User)
+        select(Property, Project, User, creator)
         .outerjoin(Project, Property.project_id == Project.id)
         .outerjoin(Owner, Property.owner_id == Owner.id)
         .outerjoin(User, Owner.user_id == User.id)
+        .outerjoin(creator, Property.created_by == creator.id)
         .where(Property.id == property_id)
     ).first()
     if not row:
         raise HTTPException(status_code=404, detail="Property not found")
-    prop, project, owner_user = row
+    prop, project, owner_user, creator_user = row
     if prop.deleted_at:
+        raise HTTPException(status_code=404, detail="Property not found")
+    if not can_view_property(session, user, prop):
         raise HTTPException(status_code=404, detail="Property not found")
 
     data = prop.model_dump()
     data["project_name"] = project.name if project else None
     data["owner_name"] = owner_user.full_name if owner_user else None
+    data["creator_name"] = creator_user.full_name if creator_user else None
     set_cache(cache_key, data, ttl=60)
     return data
 

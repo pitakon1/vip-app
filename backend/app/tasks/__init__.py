@@ -11,6 +11,7 @@
 from . import (  # noqa: F401 - 导入即注册任务，模块名本身不被引用
     backup_tasks,
     event_tasks,
+    freshness_tasks,
     notification_tasks,
     reconciliation_tasks,
     reminder_tasks,

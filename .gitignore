@@ -56,6 +56,8 @@ backend/celerybeat-schedule*
 # ===== 日志 =====
 logs/
 *.log
+# uvicorn 本地运行日志会落成 backend/_uvicorn.log.err（后缀是 .err，不被 *.log 覆盖）
+*.log.*
 
 # ===== 编辑器与系统 =====
 .vscode/

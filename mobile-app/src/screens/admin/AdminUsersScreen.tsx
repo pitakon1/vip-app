@@ -26,6 +26,7 @@ import LoadingState from '@/components/LoadingState';
 import { notify, notifyError } from '@/utils/feedback';
 import api from '@/lib/api';
 import { authApi, employeesApi, usersAdminApi } from '@/services/api';
+import { useI18n } from '@/i18n';
 
 interface EmployeeRow {
   id: string;
@@ -50,26 +51,27 @@ interface LeaderRow {
 }
 
 type StatusFilter = 'all' | 'active' | 'inactive' | 'probation';
-const FILTERS: { key: StatusFilter; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'active', label: '在职' },
-  { key: 'inactive', label: '离职' },
-  { key: 'probation', label: '试用期' },
-];
+/** 状态筛选（文案走 i18n：acc.filter.*） */
+const FILTERS: StatusFilter[] = ['all', 'active', 'inactive', 'probation'];
 
 const PROBATION_DAYS = 90; // 后端无试用期字段，按入职 90 天内视为试用期
 const DAY_MS = 86400000;
 
+/** 可分配的员工账号角色（与 Web 账号管理的角色口径一致，此处只列员工侧角色） */
+const ROLE_KEYS = ['employee', 'agent', 'admin'] as const;
+
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
-const STATUS_META: Record<string, { label: string; color: string; rgb: string }> = {
-  active: { label: '在职', color: colors.success, rgb: colors.successRgb },
-  probation: { label: '试用期', color: colors.info, rgb: colors.infoRgb },
-  inactive: { label: '离职', color: colors.ink3, rgb: colors.primaryRgb },
+/** 状态色板（文案走 i18n：acc.filter.active / probation / inactive） */
+const STATUS_META: Record<string, { color: string; rgb: string }> = {
+  active: { color: colors.success, rgb: colors.successRgb },
+  probation: { color: colors.info, rgb: colors.infoRgb },
+  inactive: { color: colors.ink3, rgb: colors.primaryRgb },
 };
 
 export default function AdminUsersScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [total, setTotal] = useState(0);
   const [perfMap, setPerfMap] = useState<Record<string, LeaderRow>>({});
@@ -83,6 +85,13 @@ export default function AdminUsersScreen() {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [meId, setMeId] = useState<string | null>(null);
 
+  // 修改账号角色（后端 PATCH /admin/users/{id}）。此前 App 端只能建号时定死 employee，
+  // 账号建好后角色改不了，只能删了重建。
+  const [roleTarget, setRoleTarget] = useState<EmployeeRow | null>(null);
+  const [roleDraft, setRoleDraft] = useState('employee');
+  const [roleLoading, setRoleLoading] = useState(false);
+  const [roleSaving, setRoleSaving] = useState(false);
+
   // 新建员工账号
   const [showCreate, setShowCreate] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
@@ -93,38 +102,39 @@ export default function AdminUsersScreen() {
     department: '',
     position: '',
     password: '123456',
+    role: 'employee',
   });
   const openCreate = () => {
-    setForm({ full_name: '', email: '', department: '', position: '', password: '123456' });
+    setForm({ full_name: '', email: '', department: '', position: '', password: '123456', role: 'employee' });
     setFormErr({});
     setShowCreate(true);
   };
   const doCreate = async () => {
     const err: typeof formErr = {};
-    if (!form.full_name.trim()) err.full_name = '请填写姓名';
+    if (!form.full_name.trim()) err.full_name = t('acc.nameRequired');
     if (!form.email.trim()) {
-      err.email = '请填写邮箱';
+      err.email = t('acc.emailRequired');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      err.email = '邮箱格式不正确';
+      err.email = t('acc.emailInvalid');
     }
-    if (!form.password || form.password.length < 6) err.password = '初始密码至少 6 位';
+    if (!form.password || form.password.length < 6) err.password = t('acc.initPwdError');
     setFormErr(err);
     if (Object.keys(err).length > 0) return;
     setCreateSaving(true);
     try {
       await usersAdminApi.create({
-        role: 'employee',
+        role: form.role,
         full_name: form.full_name.trim(),
         email: form.email.trim(),
         department: form.department.trim() || undefined,
         position: form.position.trim() || undefined,
         password: form.password,
       });
-      notify('成功', '员工账号已创建');
+      notify(t('acc.success'), t('acc.created'));
       setShowCreate(false);
       fetchData();
     } catch (e: any) {
-      notifyError('创建失败', e);
+      notifyError(t('acc.createFailed'), e);
     } finally {
       setCreateSaving(false);
     }
@@ -142,7 +152,7 @@ export default function AdminUsersScreen() {
     }
     if (empRes.status === 'rejected') {
       setLoadError(true);
-      notifyError('加载失败', (empRes as any).reason);
+      notifyError(t('acc.loadFailed'), (empRes as any).reason);
     } else {
       setLoadError(false);
     }
@@ -169,7 +179,7 @@ export default function AdminUsersScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -179,38 +189,38 @@ export default function AdminUsersScreen() {
 
   const toggleActive = async (emp: EmployeeRow) => {
     if (!emp.user_id) {
-      notifyError('无法操作', { message: '该员工未绑定登录账号' });
+      notifyError(t('acc.cannotOperate'), { message: t('acc.noBoundAccount') });
       return;
     }
     try {
       await api.post(`/admin/users/${emp.user_id}/${emp.is_active ? 'deactivate' : 'activate'}`);
-      notify('成功', emp.is_active ? '账号已停用' : '账号已启用');
+      notify(t('acc.success'), emp.is_active ? t('acc.accountDisabled') : t('acc.accountEnabled'));
       fetchData();
     } catch (e: any) {
-      notifyError('操作失败', e);
+      notifyError(t('acc.opFailed'), e);
     }
   };
 
   const deleteUser = (emp: EmployeeRow) => {
     if (!emp.user_id) {
-      Alert.alert('无法操作', '该员工未绑定登录账号');
+      Alert.alert(t('acc.cannotOperate'), t('acc.noBoundAccount'));
       return;
     }
     Alert.alert(
-      '删除账号',
-      `确认删除「${emp.full_name || emp.user_id}」的账号？删除后历史单据保留，账号立即失效且不可恢复。`,
+      t('acc.deleteAccount'),
+      t('acc.deleteConfirm', { name: emp.full_name || emp.user_id }),
       [
-        { text: '取消', style: 'cancel' },
+        { text: t('acc.cancel'), style: 'cancel' },
         {
-          text: '删除',
+          text: t('acc.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await usersAdminApi.deleteUser(emp.user_id as string);
-              notify('成功', '账号已删除');
+              notify(t('acc.success'), t('acc.deleted'));
               fetchData();
             } catch (e: any) {
-              notifyError('删除失败', e);
+              notifyError(t('acc.deleteFailed'), e);
             }
           },
         },
@@ -220,22 +230,62 @@ export default function AdminUsersScreen() {
 
   const doResetPwd = async () => {
     if (!newPwd || newPwd.length < 6) {
-      setPwdError('新密码至少 6 位');
+      setPwdError(t('acc.newPwdError'));
       return;
     }
     setPwdError('');
     if (!pwdTarget?.user_id) {
-      notifyError('无法操作', { message: '该员工未绑定登录账号' });
+      notifyError(t('acc.cannotOperate'), { message: t('acc.noBoundAccount') });
       return;
     }
     try {
       await api.post(`/admin/users/${pwdTarget.user_id}/reset-password`, { new_password: newPwd });
-      notify('成功', '密码已重置');
+      notify(t('acc.success'), t('acc.pwdReset'));
       setPwdTarget(null);
       setNewPwd('');
       setPwdError('');
     } catch (e: any) {
-      notifyError('重置失败', e);
+      notifyError(t('acc.pwdResetFailed'), e);
+    }
+  };
+
+  /** 打开「改角色」弹层：按邮箱回查账号拿到当前角色，避免默认值误导 */
+  const openRole = async (emp: EmployeeRow) => {
+    if (!emp.user_id) {
+      notifyError(t('acc.cannotOperate'), { message: t('acc.noBoundAccount') });
+      return;
+    }
+    setRoleTarget(emp);
+    setRoleDraft('employee');
+    setRoleLoading(true);
+    try {
+      const { data } = await usersAdminApi.list({
+        keyword: emp.email ?? emp.full_name ?? '',
+        page_size: 10,
+      });
+      const d = data?.data ?? data;
+      const items: any[] = d?.items ?? d ?? [];
+      const hit = items.find((u) => String(u.id) === String(emp.user_id)) ?? items[0];
+      if (hit?.role) setRoleDraft(hit.role);
+    } catch {
+      /* 回查失败保留默认值，保存时仍以所选角色覆盖 */
+    } finally {
+      setRoleLoading(false);
+    }
+  };
+
+  const doSaveRole = async () => {
+    if (!roleTarget?.user_id) return;
+    setRoleSaving(true);
+    try {
+      await usersAdminApi.update(roleTarget.user_id, { role: roleDraft });
+      notify(t('acc.success'), t('acc.roleUpdated', { name: roleTarget.full_name || t('acc.title') }));
+      setRoleTarget(null);
+      fetchData();
+    } catch (e: any) {
+      notifyError(t('acc.saveFailed'), e);
+    } finally {
+      setRoleSaving(false);
     }
   };
 
@@ -286,12 +336,13 @@ export default function AdminUsersScreen() {
     ...Object.values(perfMap).map((r) => Number(r.performance ?? 0)),
   );
 
-  const statusOf = (e: EmployeeRow) =>
-    !e.is_active ? STATUS_META.inactive : isProbation(e) ? STATUS_META.probation : STATUS_META.active;
+  const statusKeyOf = (e: EmployeeRow) =>
+    !e.is_active ? 'inactive' : isProbation(e) ? 'probation' : 'active';
 
   const renderEmployee = useCallback(
     ({ item }: { item: EmployeeRow }) => {
-      const meta = statusOf(item);
+      const statusKey = statusKeyOf(item);
+      const meta = STATUS_META[statusKey];
       const perf = perfMap[item.id];
       const performance = Number(perf?.performance ?? 0);
       const bar = maxPerf > 0 ? Math.max(0, Math.min(performance / maxPerf, 1)) : 0;
@@ -306,14 +357,16 @@ export default function AdminUsersScreen() {
             </View>
             <View style={styles.cardBody}>
               <View style={styles.nameRow}>
-                <Text style={styles.name} numberOfLines={1}>{item.full_name || '未命名员工'}</Text>
+                <Text style={styles.name} numberOfLines={1}>{item.full_name || t('acc.unnamed')}</Text>
                 <View style={[styles.roleTag, { backgroundColor: colors.alpha(meta.rgb, 0.12) }]}>
-                  <Text style={[styles.roleText, { color: meta.color }]}>{meta.label}</Text>
+                  <Text style={[styles.roleText, { color: meta.color }]}>
+                    {t(`acc.filter.${statusKey}`)}
+                  </Text>
                 </View>
               </View>
-              <Text style={styles.empCode}>{item.employee_no || item.employee_code || '无工号'}</Text>
+              <Text style={styles.empCode}>{item.employee_no || item.employee_code || t('acc.noCode')}</Text>
               <Text style={styles.deptLine} numberOfLines={1}>
-                {[item.position, item.department].filter(Boolean).join(' · ') || '未分配部门'}
+                {[item.position, item.department].filter(Boolean).join(' · ') || t('acc.noDept')}
               </Text>
               {!!item.phone && (
                 <View style={styles.contactRow}>
@@ -326,18 +379,18 @@ export default function AdminUsersScreen() {
 
           {/* 业绩（系统按佣金结算自动核算） */}
           <View style={styles.perfRow}>
-            <Text style={styles.perfLabel}>累计业绩</Text>
+            <Text style={styles.perfLabel}>{t('acc.totalPerf')}</Text>
             <Text style={styles.perfValue}>
               {symOf(undefined)}
               {performance.toLocaleString()}
             </Text>
-            <Text style={styles.perfDeals}>{perf?.deals ?? 0} 单</Text>
+            <Text style={styles.perfDeals}>{t('acc.ordersUnit', { n: perf?.deals ?? 0 })}</Text>
           </View>
           <View style={styles.perfTrack}>
             <View style={[styles.perfBar, { flex: Math.max(bar, 0.02) }]} />
             <View style={{ flex: Math.max(1 - bar, 0) }} />
           </View>
-          <Text style={styles.perfHint}>团队占比 {shareRate}%</Text>
+          <Text style={styles.perfHint}>{t('acc.teamShare', { n: shareRate })}</Text>
 
           <View style={styles.actionRow}>
             <TouchableOpacity
@@ -349,25 +402,31 @@ export default function AdminUsersScreen() {
               }}
             >
               <Ionicons name="key-outline" size={14} color={colors.primary} />
-              <Text style={styles.actionText}>重置密码</Text>
+              <Text style={styles.actionText}>{t('acc.resetPwd')}</Text>
             </TouchableOpacity>
+            {item.user_id ? (
+              <TouchableOpacity style={styles.actionLink} activeOpacity={0.7} onPress={() => openRole(item)}>
+                <Ionicons name="shield-checkmark-outline" size={14} color={colors.primary} />
+                <Text style={styles.actionText}>{t('acc.changeRole')}</Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity style={styles.actionLink} activeOpacity={0.7} onPress={() => toggleActive(item)}>
               <Ionicons name="power-outline" size={14} color={colors.ink2} />
               <Text style={[styles.actionText, { color: colors.ink2 }]}>
-                {item.is_active ? '停用账号' : '启用账号'}
+                {item.is_active ? t('acc.deactivate') : t('acc.activate')}
               </Text>
             </TouchableOpacity>
             {item.user_id && item.user_id !== meId ? (
               <TouchableOpacity style={styles.actionLink} activeOpacity={0.7} onPress={() => deleteUser(item)}>
                 <Ionicons name="trash-outline" size={14} color={colors.error} />
-                <Text style={[styles.actionText, { color: colors.error }]}>删除账号</Text>
+                <Text style={[styles.actionText, { color: colors.error }]}>{t('acc.deleteAccount')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
         </View>
       );
     },
-    [perfMap, maxPerf],
+    [perfMap, maxPerf, meId, t],
   );
 
   if (loading) {
@@ -397,14 +456,14 @@ export default function AdminUsersScreen() {
       {/* 概览统计 */}
       <View style={styles.statRow}>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>总员工</Text>
+          <Text style={styles.statLabel}>{t('acc.totalStaff')}</Text>
           <Text style={styles.statValue}>{total}</Text>
           <View style={[styles.statBadge, { backgroundColor: colors.alpha(colors.primaryRgb, 0.12) }]}>
-            <Text style={[styles.statBadgeText, { color: colors.primary }]}>全员</Text>
+            <Text style={[styles.statBadgeText, { color: colors.primary }]}>{t('acc.allStaff')}</Text>
           </View>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>在职</Text>
+          <Text style={styles.statLabel}>{t('acc.filter.active')}</Text>
           <Text style={styles.statValue}>{activeCount}</Text>
           <View style={[styles.statBadge, { backgroundColor: colors.alpha(colors.successRgb, 0.12) }]}>
             <Text style={[styles.statBadgeText, { color: colors.success }]}>{activeRate}%</Text>
@@ -413,14 +472,14 @@ export default function AdminUsersScreen() {
       </View>
       <View style={styles.statRow}>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>离职</Text>
+          <Text style={styles.statLabel}>{t('acc.filter.inactive')}</Text>
           <Text style={styles.statValue}>{inactiveCount}</Text>
           <View style={[styles.statBadge, { backgroundColor: colors.surface2 }]}>
-            <Text style={[styles.statBadgeText, { color: colors.ink2 }]}>已离岗</Text>
+            <Text style={[styles.statBadgeText, { color: colors.ink2 }]}>{t('acc.leftPost')}</Text>
           </View>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>本月新入职</Text>
+          <Text style={styles.statLabel}>{t('acc.newThisMonth')}</Text>
           <Text style={styles.statValue}>{newThisMonth}</Text>
           <View style={[styles.statBadge, { backgroundColor: colors.alpha(colors.infoRgb, 0.12) }]}>
             <Text style={[styles.statBadgeText, { color: colors.info }]}>+{newThisMonth}</Text>
@@ -435,7 +494,7 @@ export default function AdminUsersScreen() {
           style={styles.searchInput}
           value={kw}
           onChangeText={setKw}
-          placeholder="搜索员工姓名/工号"
+          placeholder={t('acc.searchPlaceholder')}
           placeholderTextColor={colors.ink3}
           returnKeyType="search"
         />
@@ -445,26 +504,29 @@ export default function AdminUsersScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
         {FILTERS.map((f) => (
           <TouchableOpacity
-            key={f.key}
-            style={[styles.chip, filter === f.key && styles.chipActive]}
+            key={f}
+            style={[styles.chip, filter === f && styles.chipActive]}
             activeOpacity={0.7}
-            onPress={() => setFilter(f.key)}
+            onPress={() => setFilter(f)}
           >
-            <Text style={[styles.chipText, filter === f.key && styles.chipTextActive]}>{f.label}</Text>
+            <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>
+              {t(`acc.filter.${f}`)}
+            </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
       {/* 列表 */}
       <View style={styles.listHead}>
-        <Text style={styles.listTitle}>员工列表</Text>
+        <Text style={styles.listTitle}>{t('acc.listTitle')}</Text>
         <View style={styles.listHeadRight}>
           <Text style={styles.listHint}>
-            共 {total} 人{probationCount > 0 ? ` · 试用期 ${probationCount} 人` : ''}
+            {t('acc.countPeople', { n: total })}
+            {probationCount > 0 ? t('acc.probationCount', { n: probationCount }) : ''}
           </Text>
           <TouchableOpacity style={styles.createBtn} activeOpacity={0.7} onPress={openCreate}>
             <Ionicons name="add" size={15} color="#fff" />
-            <Text style={styles.createBtnText}>新建</Text>
+            <Text style={styles.createBtnText}>{t('acc.create')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -472,9 +534,9 @@ export default function AdminUsersScreen() {
       {loadError && employees.length === 0 ? (
         <EmptyState
           icon="cloud-offline-outline"
-          title="加载失败"
-          sub="无法获取员工列表，下拉刷新重试"
-          actionLabel="重试"
+          title={t('acc.loadFailed')}
+          sub={t('acc.loadFailedSub')}
+          actionLabel={t('acc.retry')}
           onAction={() => {
             setRefreshing(true);
             fetchData();
@@ -483,8 +545,8 @@ export default function AdminUsersScreen() {
       ) : visible.length === 0 ? (
         <EmptyState
           icon="people-outline"
-          title={employees.length === 0 ? '暂无员工' : '无匹配员工'}
-          sub={employees.length === 0 ? '下拉刷新重试' : '换个关键词或筛选条件试试'}
+          title={employees.length === 0 ? t('acc.empty') : t('acc.emptySearch')}
+          sub={employees.length === 0 ? t('acc.pullRefresh') : t('acc.tryOtherFilter')}
         />
       ) : (
         <FlatList
@@ -500,8 +562,10 @@ export default function AdminUsersScreen() {
       <Modal visible={!!pwdTarget} transparent animationType="fade" onRequestClose={() => { setPwdTarget(null); setPwdError(''); }}>
         <View style={styles.modalMask}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>重置密码 · {pwdTarget?.full_name}</Text>
-            <Text style={styles.modalLabel}>新密码</Text>
+            <Text style={styles.modalTitle}>
+              {t('acc.resetPwdTitle', { name: pwdTarget?.full_name ?? '' })}
+            </Text>
+            <Text style={styles.modalLabel}>{t('acc.newPwd')}</Text>
             <TextInput
               style={[styles.modalInput, !!pwdError && styles.modalInputError]}
               value={newPwd}
@@ -509,7 +573,7 @@ export default function AdminUsersScreen() {
                 setNewPwd(t);
                 if (pwdError) setPwdError('');
               }}
-              placeholder="输入新密码（至少 6 位）"
+              placeholder={t('acc.newPwdPlaceholder')}
               placeholderTextColor={colors.ink3}
               secureTextEntry
               autoFocus
@@ -517,10 +581,10 @@ export default function AdminUsersScreen() {
             {!!pwdError && <Text style={styles.fieldError}>{pwdError}</Text>}
             <View style={styles.modalActions}>
               <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => { setPwdTarget(null); setPwdError(''); }} accessibilityRole="button">
-                <Text style={styles.modalCancelText}>取消</Text>
+                <Text style={styles.modalCancelText}>{t('acc.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} onPress={doResetPwd} accessibilityRole="button">
-                <Text style={styles.modalOkText}>确认重置</Text>
+                <Text style={styles.modalOkText}>{t('acc.confirmReset')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -531,8 +595,8 @@ export default function AdminUsersScreen() {
       <Modal visible={showCreate} transparent animationType="fade" onRequestClose={() => setShowCreate(false)}>
         <View style={styles.modalMask}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>新建员工账号</Text>
-            <Text style={styles.modalLabel}>姓名 *</Text>
+            <Text style={styles.modalTitle}>{t('acc.createTitle')}</Text>
+            <Text style={styles.modalLabel}>{t('acc.name')} *</Text>
             <TextInput
               style={[styles.modalInput, !!formErr.full_name && styles.modalInputError]}
               value={form.full_name}
@@ -540,12 +604,12 @@ export default function AdminUsersScreen() {
                 setForm((f) => ({ ...f, full_name: t }));
                 if (formErr.full_name) setFormErr((e) => ({ ...e, full_name: undefined }));
               }}
-              placeholder="请输入姓名"
+              placeholder={t('acc.namePlaceholder')}
               placeholderTextColor={colors.ink3}
               autoFocus
             />
             {!!formErr.full_name && <Text style={styles.fieldError}>{formErr.full_name}</Text>}
-            <Text style={styles.modalLabel}>邮箱 *</Text>
+            <Text style={styles.modalLabel}>{t('acc.email')} *</Text>
             <TextInput
               style={[styles.modalInput, !!formErr.email && styles.modalInputError]}
               value={form.email}
@@ -553,29 +617,44 @@ export default function AdminUsersScreen() {
                 setForm((f) => ({ ...f, email: t }));
                 if (formErr.email) setFormErr((e) => ({ ...e, email: undefined }));
               }}
-              placeholder="请输入邮箱"
+              placeholder={t('acc.emailPlaceholder')}
               placeholderTextColor={colors.ink3}
               autoCapitalize="none"
               keyboardType="email-address"
             />
             {!!formErr.email && <Text style={styles.fieldError}>{formErr.email}</Text>}
-            <Text style={styles.modalLabel}>部门（选填）</Text>
+            <Text style={styles.modalLabel}>{t('acc.role')}</Text>
+            <View style={styles.roleChipRow}>
+              {ROLE_KEYS.map((key) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.roleChip, form.role === key && styles.roleChipActive]}
+                  activeOpacity={0.8}
+                  onPress={() => setForm((f) => ({ ...f, role: key }))}
+                >
+                  <Text style={[styles.roleChipText, form.role === key && styles.roleChipTextActive]}>
+                    {t(`perm.role.${key}`)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.modalLabel}>{t('acc.deptOptional')}</Text>
             <TextInput
               style={styles.modalInput}
               value={form.department}
               onChangeText={(t) => setForm((f) => ({ ...f, department: t }))}
-              placeholder="请输入部门"
+              placeholder={t('acc.deptPlaceholder')}
               placeholderTextColor={colors.ink3}
             />
-            <Text style={styles.modalLabel}>职位（选填）</Text>
+            <Text style={styles.modalLabel}>{t('acc.positionOptional')}</Text>
             <TextInput
               style={styles.modalInput}
               value={form.position}
               onChangeText={(t) => setForm((f) => ({ ...f, position: t }))}
-              placeholder="请输入职位"
+              placeholder={t('acc.positionPlaceholder')}
               placeholderTextColor={colors.ink3}
             />
-            <Text style={styles.modalLabel}>初始密码 *</Text>
+            <Text style={styles.modalLabel}>{t('acc.initPwd')} *</Text>
             <TextInput
               style={[styles.modalInput, !!formErr.password && styles.modalInputError]}
               value={form.password}
@@ -583,14 +662,14 @@ export default function AdminUsersScreen() {
                 setForm((f) => ({ ...f, password: t }));
                 if (formErr.password) setFormErr((e) => ({ ...e, password: undefined }));
               }}
-              placeholder="至少要 6 位"
+              placeholder={t('acc.initPwdPlaceholder')}
               placeholderTextColor={colors.ink3}
               secureTextEntry
             />
             {!!formErr.password && <Text style={styles.fieldError}>{formErr.password}</Text>}
             <View style={styles.modalActions}>
               <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setShowCreate(false)} accessibilityRole="button">
-                <Text style={styles.modalCancelText}>取消</Text>
+                <Text style={styles.modalCancelText}>{t('acc.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalOk, createSaving && styles.modalBtnDisabled]}
@@ -599,7 +678,60 @@ export default function AdminUsersScreen() {
                 onPress={doCreate}
                 accessibilityRole="button"
               >
-                <Text style={styles.modalOkText}>{createSaving ? '创建中…' : '创建'}</Text>
+                <Text style={styles.modalOkText}>{createSaving ? t('acc.creating') : t('acc.createBtn')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 修改账号角色（PATCH /admin/users/{id}） */}
+      <Modal
+        visible={!!roleTarget}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRoleTarget(null)}
+      >
+        <View style={styles.modalMask}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {t('acc.roleTitle', { name: roleTarget?.full_name || t('acc.title') })}
+            </Text>
+            <Text style={styles.modalLabel}>{t('acc.role')}</Text>
+            <View style={styles.roleChipRow}>
+              {ROLE_KEYS.map((key) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.roleChip, roleDraft === key && styles.roleChipActive]}
+                  activeOpacity={0.8}
+                  onPress={() => setRoleDraft(key)}
+                >
+                  <Text style={[styles.roleChipText, roleDraft === key && styles.roleChipTextActive]}>
+                    {t(`perm.role.${key}`)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.roleHint}>
+              {roleLoading ? t('acc.roleLoading') : t('acc.roleHint')}
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalCancel]}
+                activeOpacity={0.7}
+                onPress={() => setRoleTarget(null)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.modalCancelText}>{t('acc.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalOk, (roleSaving || roleLoading) && styles.modalBtnDisabled]}
+                activeOpacity={0.7}
+                disabled={roleSaving || roleLoading}
+                onPress={doSaveRole}
+                accessibilityRole="button"
+              >
+                <Text style={styles.modalOkText}>{roleSaving ? t('acc.saving') : t('acc.save')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -743,4 +875,17 @@ const styles = StyleSheet.create({
   modalOk: { backgroundColor: colors.primary },
   modalOkText: { color: '#fff', fontWeight: '600' },
   modalBtnDisabled: { opacity: 0.6 },
+  roleChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  roleChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: colors.radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  roleChipActive: { backgroundColor: colors.sidebarActive, borderColor: colors.primary },
+  roleChipText: { fontSize: 13, color: colors.ink2 },
+  roleChipTextActive: { color: colors.primary, fontWeight: '700' },
+  roleHint: { fontSize: 12, color: colors.ink3, marginBottom: 16 },
 });

@@ -29,6 +29,7 @@ from app.core.rate_limit import apply_default_limit, limiter
 from app.core.rbac import seed_permissions
 from app.db import Session, engine
 from app.models import UserRole
+from app.providers.payment import channel_config as payment_channel_config
 from app.redis_client import get_redis_sync
 from app.api.v1 import api_router
 
@@ -51,6 +52,19 @@ _INTEGRATION_PROBES = [
     ("电子签", "CONTRACT_SIGNING_SECRET", False),
 ]
 _FALLBACK_SECRETS = (_DEFAULT_SECRET, "change-me-signing-secret")
+
+# 支付回调验签材料 -> 是否具备验签能力。
+# 缺材料的渠道一律拒绝回调（provider.verify_webhook fail closed），
+# 这里只做可见性提示：不会伪造到账，但真实到账也不会入账，上线收款前必须补齐。
+# 若采用聚合支付，只需配置 AGGREGATOR_WEBHOOK_SECRET 一项。
+_PAYMENT_VERIFY_PROBES = [
+    ("聚合支付", bool(payment_channel_config.AGGREGATOR_WEBHOOK_SECRET)),
+    ("Stripe", bool(payment_channel_config.STRIPE_WEBHOOK_SECRET)),
+    ("微信支付", bool(payment_channel_config.WECHAT_PLATFORM_CERT)),
+    ("支付宝", bool(payment_channel_config.ALIPAY_PUBLIC_KEY)),
+    ("Wise", bool(payment_channel_config.WISE_API_KEY)),
+    ("PromptPay", False),  # 无标准 webhook，需自定义验签后方可启用
+]
 
 
 class RootInfoOut(BaseModel):
@@ -139,6 +153,23 @@ def _run_startup_selfcheck() -> None:
                 "携带凭证的跨域请求。生产环境请显式列出前端域名。"
             ),
         )
+
+    # 5) 支付回调验签：未配置验签材料的渠道一律拒绝回调（fail closed）。
+    #    此前的占位默认密钥会让生产环境在"忘记覆盖"时仍接受伪造回调，
+    #    故这里显式提示，避免"看起来配好了、其实没验签"。
+    unverified_channels = [name for name, ready in _PAYMENT_VERIFY_PROBES if not ready]
+    if unverified_channels:
+        logger.warning(
+            "startup.selfcheck.payment_verify_disabled",
+            channels=unverified_channels,
+            note=(
+                "以下渠道未配置验签材料，回调将被拒绝：既不会伪造到账，"
+                "真实到账也不会入账。上线收款前请补齐密钥/证书；"
+                "若改用聚合支付，只需配置 AGGREGATOR_WEBHOOK_SECRET。"
+            ),
+        )
+    else:
+        logger.info("startup.selfcheck.payment_verify", mode="all configured")
 
 
 @asynccontextmanager

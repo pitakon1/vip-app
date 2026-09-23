@@ -627,21 +627,36 @@ export default function ProfileScreen() {
             ))}
           </Card>
 
-          {/* 员工管理入口 */}
-          <TouchableOpacity
-            style={styles.employeeEntry}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('AdminUsers')}
-          >
-            <View style={styles.employeeIcon}>
-              <Ionicons name="people" size={18} color={colors.primary} />
-            </View>
-            <View style={styles.employeeInfo}>
-              <Text style={styles.employeeTitle}>员工管理</Text>
-              <Text style={styles.employeeDesc}>管理员工账号、角色与权限</Text>
-            </View>
-            <Text style={styles.arrow}>›</Text>
-          </TouchableOpacity>
+          {/* 系统管理：账号管理 + 角色权限（对齐 Web 侧边栏「系统」组） */}
+          <Text style={styles.settingSectionTitle}>{t('acc.sectionSystem')}</Text>
+          <Card style={styles.settingListCard}>
+            <TouchableOpacity
+              style={[styles.settingRow, styles.settingRowBorder]}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('AdminUsers')}
+            >
+              <View style={styles.settingLeft}>
+                <View style={[styles.settingIconBox, { backgroundColor: colors.sidebarActive }]}>
+                  <Ionicons name="people" size={16} color={colors.primary} />
+                </View>
+                <Text style={styles.settingLabel}>{t('acc.title')}</Text>
+              </View>
+              <Text style={styles.arrow}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.settingRow}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('AdminPermissions')}
+            >
+              <View style={styles.settingLeft}>
+                <View style={[styles.settingIconBox, { backgroundColor: colors.sidebarActive }]}>
+                  <Ionicons name="key" size={16} color={colors.primary} />
+                </View>
+                <Text style={styles.settingLabel}>{t('perm.entry')}</Text>
+              </View>
+              <Text style={styles.arrow}>›</Text>
+            </TouchableOpacity>
+          </Card>
 
           {/* 合同管理入口 */}
           <TouchableOpacity

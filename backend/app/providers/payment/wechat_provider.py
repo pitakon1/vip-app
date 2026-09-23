@@ -224,7 +224,8 @@ class WechatProvider(PaymentProvider):
             return False
         platform_cert = _get_platform_cert()
         if not platform_cert:
-            return True  # 开发环境跳过
+            # fail closed：未配置微信平台证书时无法验签，直接拒绝而非放行
+            return False
         body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
         message = f"{timestamp}\n{nonce}\n{body}\n"
         try:
