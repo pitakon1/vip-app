@@ -23,6 +23,7 @@ from sqlmodel import Session, select
 from app.core.auth import (
     STAFF_ROLES,
     get_current_user,
+    property_visibility_conditions,
     require_employee,
 )
 from app.api.v1.leases import lease_filter_conditions
@@ -98,8 +99,16 @@ def export_properties(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
-    """导出租房房源清单（筛选口径与 Web 房源列表一致）。"""
-    conditions = [Property.deleted_at.is_(None)]
+    """导出租房房源清单（筛选口径与 Web 房源列表一致）。
+
+    可见范围与 /properties 列表同一口径（数据隔离由 token 决定）：此前只校验
+    require_employee 却未应用 `property_visibility_conditions`，任意 agent/employee
+    都能导出全站房源（他人地址/业主名/月租）。
+    """
+    conditions = [
+        Property.deleted_at.is_(None),
+        *property_visibility_conditions(session, user),
+    ]
     if status:
         conditions.append(Property.status == status)
     if property_type:
@@ -114,12 +123,16 @@ def export_properties(
             )
         )
 
+    # 多取一行用于检测截断：达到 MAX_ROWS 上限时导出文件看似完整实为部分数据，
+    # 必须显式告知调用方（响应头 X-Export-Truncated: true），避免静默丢行。
     props = session.exec(
         select(Property)
         .where(*conditions)
         .order_by(Property.created_at.desc())
-        .limit(MAX_ROWS)
+        .limit(MAX_ROWS + 1)
     ).all()
+    truncated = len(props) > MAX_ROWS
+    props = props[:MAX_ROWS]
 
     owners = {
         o.id: o
@@ -162,7 +175,7 @@ def export_properties(
                 _dt(p.created_at),
             ]
         )
-    return csv_response(
+    resp = csv_response(
         [
             "房号",
             "楼盘",
@@ -185,6 +198,9 @@ def export_properties(
         rows,
         f"properties_{_stamp()}.csv",
     )
+    if truncated:
+        resp.headers["X-Export-Truncated"] = "true"
+    return resp
 
 
 # ------------------------------------------------------------ 租约

@@ -3,12 +3,12 @@ import uuid
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user
+from app.core.auth import STAFF_ROLES, get_current_user
 from app.core.cache import (
     delete_cache_pattern,
     get_cache,
@@ -19,6 +19,7 @@ from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
     User,
     UserRole,
+    Owner,
     Property,
     SaleListing,
     SaleType,
@@ -35,7 +36,7 @@ class SaleListingIn(BaseModel):
     title: str
     property_id: Optional[uuid.UUID] = None
     address: Optional[str] = None
-    asking_price: float
+    asking_price: float = Field(gt=0)  # 与模型约束对齐：0/负价直接 422，不再撞 ORM 500
     currency: str = "THB"
     size_sqm: Optional[float] = None
     bedrooms: Optional[int] = None
@@ -138,14 +139,20 @@ def list_sale_listings(
     query = select(SaleListing).where(SaleListing.deleted_at.is_(None))
     if sale_type:
         query = query.where(SaleListing.sale_type == sale_type)
+    # 角色可见性：非员工无论是否显式传 status，都只能看对外状态或与自己相关的挂牌，
+    # 防止用 status 参数越权读取他人 contracted/cancelled 等内部状态
+    if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
+        query = query.where(
+            or_(
+                SaleListing.status.in_(
+                    [SaleListingStatus.active, SaleListingStatus.pending]
+                ),
+                SaleListing.owner_user_id == user.id,
+                SaleListing.agent_user_id == user.id,
+            )
+        )
     if status:
         query = query.where(SaleListing.status == status)
-    else:
-        # 非管理员默认只看对外可见状态
-        if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
-            query = query.where(SaleListing.status.in_(
-                [SaleListingStatus.active, SaleListingStatus.pending]
-            ))
     if keyword:
         pattern = f"%{keyword}%"
         query = query.where(
@@ -170,10 +177,27 @@ def create_sale_listing(
     user: User = Depends(get_current_user),
 ):
     """发布挂牌（个人卖家/经纪人/管理员）。"""
+    owner_user_id: Optional[uuid.UUID] = None
+    agent_user_id: Optional[uuid.UUID] = None
     if req.property_id:
         prop = session.get(Property, req.property_id)
-        if not prop:
+        if not prop or prop.deleted_at:
             raise HTTPException(status_code=404, detail="Property not found")
+        if req.sale_type == SaleType.sell:
+            owner = session.get(Owner, prop.owner_id) if prop.owner_id else None
+            if user.role in STAFF_ROLES:
+                # 员工代挂卖：归属取房源业主账号，经手人记为当前员工
+                owner_user_id = owner.user_id if owner else None
+                agent_user_id = user.id
+            else:
+                # 非员工只能挂自己名下房源，防止租客对任意 property_id 挂 sell 单
+                if owner is None or owner.user_id != user.id:
+                    raise HTTPException(
+                        status_code=403, detail="该房源不属于当前用户，无法挂卖"
+                    )
+                owner_user_id = user.id
+    elif req.sale_type == SaleType.sell:
+        owner_user_id = user.id
     listing = SaleListing(
         title=req.title,
         sale_type=req.sale_type,
@@ -186,7 +210,8 @@ def create_sale_listing(
         bathrooms=req.bathrooms,
         description=req.description,
         license_ref=req.license_ref,
-        owner_user_id=user.id if req.sale_type == SaleType.sell else None,
+        owner_user_id=owner_user_id,
+        agent_user_id=agent_user_id,
         status=SaleListingStatus.active,
     )
     session.add(listing)
@@ -206,6 +231,15 @@ def get_sale_listing(
     listing = session.get(SaleListing, listing_id)
     if not listing or listing.deleted_at:
         raise HTTPException(status_code=404, detail="Listing not found")
+    # 非员工只能看对外状态或与自己相关的挂牌（与列表同一口径，不可见统一 404）
+    if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
+        visible = (
+            listing.status in (SaleListingStatus.active, SaleListingStatus.pending)
+            or listing.owner_user_id == user.id
+            or listing.agent_user_id == user.id
+        )
+        if not visible:
+            raise HTTPException(status_code=404, detail="Listing not found")
     return _serialize(listing)
 
 
@@ -226,7 +260,13 @@ def update_sale_listing(
     )
     if not can_edit:
         raise HTTPException(status_code=403, detail="No permission")
-    for field, value in req.model_dump(exclude_unset=True).items():
+    updates = req.model_dump(exclude_unset=True)
+    # 换绑房源时重新校验目标房源存在，防止把 property_id 改成任意 UUID
+    if updates.get("property_id") is not None:
+        prop = session.get(Property, updates["property_id"])
+        if not prop or prop.deleted_at:
+            raise HTTPException(status_code=404, detail="Property not found")
+    for field, value in updates.items():
         if field == "sale_type":
             continue
         setattr(listing, field, value)

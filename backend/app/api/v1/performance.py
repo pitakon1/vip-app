@@ -14,7 +14,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, require_employee
+from app.core.auth import require_employee
 from app.models import CommissionSettlement, DealType, Employee, User
 
 router = APIRouter(prefix="/performance", tags=["performance"])
@@ -226,14 +226,31 @@ def get_performance_leaderboard(
     month: Optional[int] = None,
     limit: int = 20,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_employee),
 ):
-    """业绩排行榜（系统按佣金结算自动核算，按佣金降序，可按年月筛选）。"""
+    """业绩排行榜（系统按佣金结算自动核算，按佣金降序，可按年月筛选）。
+
+    仅员工可看：排行榜暴露全公司佣金（敏感财务数据），租客不应可见。
+
+    年月筛选用日期区间比较而非 `func.strftime`（SQLite 专属，PostgreSQL 下
+    直接 ProgrammingError）：
+    - 年 + 月：`created_at >= (year,month,1)` 且 `< 下个月 1 日`；
+    - 仅年：`>= (year,1,1)` 且 `< (year+1,1,1)`；
+    - 仅月：保持原语义（任意年份的该月），`func.extract` 跨方言。
+    """
     conditions = [CommissionSettlement.deleted_at.is_(None)]
-    if year:
-        conditions.append(func.strftime("%Y", CommissionSettlement.created_at) == str(year))
-    if month:
-        conditions.append(func.strftime("%m", CommissionSettlement.created_at) == f"{month:02d}")
+    if year and month:
+        start = datetime(year, month, 1)
+        end = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+        conditions.append(CommissionSettlement.created_at >= start)
+        conditions.append(CommissionSettlement.created_at < end)
+    elif year:
+        conditions.append(CommissionSettlement.created_at >= datetime(year, 1, 1))
+        conditions.append(CommissionSettlement.created_at < datetime(year + 1, 1, 1))
+    elif month:
+        conditions.append(
+            func.extract("month", CommissionSettlement.created_at) == month
+        )
 
     settlements = session.exec(
         select(CommissionSettlement).where(*conditions)

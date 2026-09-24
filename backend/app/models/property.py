@@ -92,7 +92,8 @@ class Property(TimestampMixin, table=True):
         default=None, max_length=300, index=True, description="规范化地址（供相似度比对）"
     )
     property_type: str = Field(default="apartment")  # apartment/house/condo/commercial
-    monthly_rent: float = Field(gt=0)
+    # 租金仅租售混合档案中的租侧有值；纯售房源允许为空（租侧展示与价格筛选按 NULL 处理）
+    monthly_rent: Optional[float] = Field(default=None)
     currency: str = Field(default="THB", max_length=3)
     deposit_amount: float = Field(default=0)
     deposit_months: int = Field(default=2)

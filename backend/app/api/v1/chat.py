@@ -355,6 +355,10 @@ def create_conversation(
             uid = str(uuid.UUID(str(value)))
         except (ValueError, AttributeError, TypeError):
             raise HTTPException(status_code=400, detail=f"Invalid user id: {value}")
+        # 与 phone/email 路径一致：校验用户真实存在，否则参与者索引会写进
+        # 幽灵 user_id（FK IntegrityError 500 或不可达的幽灵参与者）
+        if session.get(User, uuid.UUID(uid)) is None:
+            raise HTTPException(status_code=404, detail=f"User not found: {value}")
         if uid not in normalized:
             normalized.append(uid)
 

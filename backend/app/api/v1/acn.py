@@ -314,6 +314,11 @@ def create_split_plan(
     """计算并落库分佣方案；`apply_to_deal=true` 时同时生成 `SplitDeal` 应付款项。
 
     三端暂无调用方：接口就绪，前端页面待做（见 tools_contract_check --orphans 清单）。"""
+    if payload.apply_to_deal and not payload.deal_id:
+        raise HTTPException(
+            status_code=400,
+            detail="apply_to_deal=True 时必须提供 deal_id",
+        )
     try:
         plan = acn_service.split_plan_for_property(
             session,

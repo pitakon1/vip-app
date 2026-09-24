@@ -47,9 +47,12 @@ from app.core.uploads import (
     validate_internal_url,
 )
 from app.models import (
+    Lease,
+    Owner,
     Payment,
     PaymentType,
     PaymentStatus,
+    Tenant,
     User,
     UserRole,
 )
@@ -92,7 +95,7 @@ class PaymentCreate(BaseModel):
     property_id: Optional[uuid.UUID] = None
     payer_id: uuid.UUID
     payee_id: Optional[uuid.UUID] = None
-    amount: float
+    amount: float = Field(gt=0)
     currency: str = "THB"
     payment_type: PaymentType = PaymentType.rent
     channel: Optional[str] = None
@@ -427,6 +430,33 @@ def create_payment(
         raise HTTPException(
             status_code=403, detail="Tenant can only create payment for self"
         )
+
+    # 归属校验：带了租约的支付单必须与调用方相关，否则任意登录用户
+    # 都能给别人租约乱开支付单。租客 → 仅本人租约；业主 → 仅本人房源；
+    # 员工（admin/agent/employee）视为管理端不受限。
+    if req.lease_id:
+        lease = session.get(Lease, req.lease_id)
+        if lease is None or lease.deleted_at:
+            raise HTTPException(status_code=404, detail="Lease not found")
+        if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
+            tenant = session.exec(
+                select(Tenant).where(
+                    Tenant.id == lease.tenant_id, Tenant.deleted_at.is_(None)
+                )
+            ).first()
+            owner = session.exec(
+                select(Owner).where(
+                    Owner.id == lease.owner_id, Owner.deleted_at.is_(None)
+                )
+            ).first()
+            is_related = (tenant is not None and tenant.user_id == user.id) or (
+                owner is not None and owner.user_id == user.id
+            )
+            if not is_related:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Not allowed to create payment for this lease",
+                )
 
     data = req.model_dump()
     if not data.get("idempotency_key"):
@@ -946,7 +976,11 @@ def refund_payment(
 ):
     """退款：有渠道交易号原路退回，否则标记线下人工退款。"""
     payment = _get_payment_or_404(payment_id, session)
-    return payment_service.refund(session, payment, amount=req.amount, reason=req.reason)
+    try:
+        return payment_service.refund(session, payment, amount=req.amount, reason=req.reason)
+    except ValueError as e:
+        # 退款金额超限等参数错误 → 400（对齐 webhook 端点对 ValueError 的映射）
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{payment_id}/late-fee/waive")

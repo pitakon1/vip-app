@@ -671,6 +671,10 @@ def list_property_map_points(
 
     conditions = [
         Property.deleted_at.is_(None),
+        # 与 /properties 列表同一数据隔离口径：管理员全量、销售/经纪仅自己录入的、
+        # 业主仅名下、租客保持 C 端公开浏览。此前缺这组条件，任何登录用户（如业主）
+        # 都能从地图点位拉全站房源地址/月租。
+        *property_visibility_conditions(session, user),
         Property.project_id.is_not(None),
         Project.lat.is_not(None),
         Project.lng.is_not(None),

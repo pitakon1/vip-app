@@ -346,12 +346,16 @@ def financial_reconciliation(
     - 房源名只按被引用的 ID 加载，不做全表加载。
     """
     now = datetime.utcnow()
-    # 分桶口径：succeeded → 已收；否则到期日已过 → 逾期；未到期或无到期日 → 应收
+    # 分桶口径：succeeded → 已收；其余只有「仍有收款义务」的状态才参与应收/逾期。
+    # failed/refunded/disputed/expired 是终态（收不回来或已退回），到期也不该计入，
+    # 否则失败/退款单会把逾期应收虚高（此前它们被 ~is_received 全兜进了分桶）。
+    _OUTSTANDING = (PaymentStatus.pending, PaymentStatus.processing)
     is_received = Payment.status == PaymentStatus.succeeded
+    is_outstanding = Payment.status.in_(_OUTSTANDING)
     is_overdue = (
-        ~is_received & Payment.due_date.is_not(None) & (Payment.due_date < now)
+        is_outstanding & Payment.due_date.is_not(None) & (Payment.due_date < now)
     )
-    is_receivable = ~is_received & ~is_overdue
+    is_receivable = is_outstanding & ~is_overdue
 
     def _sum(condition):
         return func.coalesce(func.sum(case((condition, Payment.amount), else_=0.0)), 0.0)
@@ -407,14 +411,14 @@ def financial_reconciliation(
 
     records = []
     for p in payments:
-        # 注意：这里的"逾期"口径不排除 refunded（refunded 且已过截止日也算 overdue），
-        # 与 core.payments.payment_bucket（refunded 归 pending）不同，属既有行为，保留。
+        # 与上方聚合同一口径：终态单（failed/refunded/disputed/expired）不参与
+        # 应收/逾期对账，逐笔按实际状态标记，避免「总额不算它、明细却标逾期」。
         if p.status == PaymentStatus.succeeded:
             bucket = "received"
-        elif p.due_date and p.due_date < now:
-            bucket = "overdue"
+        elif p.status in _OUTSTANDING:
+            bucket = "overdue" if (p.due_date and p.due_date < now) else "pending"
         else:
-            bucket = "pending"
+            bucket = p.status.value
         if p.property_id:
             key_to_id.setdefault(str(p.property_id), p.property_id)
         records.append(
@@ -470,14 +474,17 @@ def operational_trend(
     year, month = _shift_month(months - 1)
     start = datetime(year, month, 1)
 
-    revenue_year = func.extract("year", Payment.created_at)
-    revenue_month = func.extract("month", Payment.created_at)
+    # 营收统一按实付时间（paid_at）归月，与 /summary 的 monthly_revenue 同一口径；
+    # paid_at 为空（如线下收据未回写实付时间）用 created_at 兜底，保证不丢单。
+    paid_field = func.coalesce(Payment.paid_at, Payment.created_at)
+    revenue_year = func.extract("year", paid_field)
+    revenue_month = func.extract("month", paid_field)
     revenue_rows = session.exec(
         select(revenue_year, revenue_month, func.sum(Payment.amount))
         .where(
             Payment.deleted_at.is_(None),
             Payment.status == PaymentStatus.succeeded,
-            Payment.created_at >= start,
+            paid_field >= start,
         )
         .group_by(revenue_year, revenue_month)
     ).all()

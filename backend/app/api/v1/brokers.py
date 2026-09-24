@@ -1,4 +1,5 @@
 """开放分销体系路由：外部渠道商、转介绍、联合单分成。"""
+import re
 import uuid
 from datetime import datetime
 from typing import List, Optional
@@ -321,13 +322,39 @@ def create_referral(
     ).first()
     if not broker:
         raise HTTPException(status_code=404, detail="Invite code not found")
+    # 邀请码状态校验：仅 active 邀请码可用，pending/suspended 一律拒绝
+    if broker.status != BrokerStatus.active:
+        raise HTTPException(status_code=400, detail="邀请码未激活")
+    # 自荐拦截：当前登录用户不得使用自己（绑定的账号）的邀请码刷量
+    if broker.user_id and broker.user_id == user.id:
+        raise HTTPException(status_code=400, detail="不能使用自己的邀请码")
+    phone_norm = str(referred_phone).strip() if referred_phone else None
+    if phone_norm is not None:
+        # referred_phone 格式校验
+        if not re.fullmatch(r"\+?[0-9\s\-]{6,20}", phone_norm):
+            raise HTTPException(status_code=400, detail="referred_phone 格式非法")
+        # 自荐拦截：被推荐手机号与邀请人账号手机号相同
+        if broker.user_id:
+            inviter = session.get(User, broker.user_id)
+            if inviter and inviter.phone and inviter.phone == phone_norm:
+                raise HTTPException(status_code=400, detail="不能推荐自己")
+        # 同一 phone 已被同一邀请码引用过 → 409（防重复刷量）
+        dup = session.exec(
+            select(Referral).where(
+                Referral.invite_code == invite_code,
+                Referral.referred_phone == phone_norm,
+                Referral.deleted_at.is_(None),
+            )
+        ).first()
+        if dup:
+            raise HTTPException(status_code=409, detail="该手机号已被该邀请码推荐过")
     ref = Referral(
         referrer_partner_id=broker.id,
         referrer_user_id=broker.user_id,
         invite_code=invite_code,
         referred_user_id=user.id,
         referred_name=referred_name or user.full_name,
-        referred_phone=referred_phone,
+        referred_phone=phone_norm,
         source=source,
         property_id=property_id,
         project_id=project_id,
@@ -345,10 +372,20 @@ def my_referrals(
     user: User = Depends(get_current_user),
 ):
     """我的转介绍记录（作为推荐人）。"""
+    # referrer_partner_id 是 broker_partners.id、referrer_user_id 是 users.id，
+    # 两者不能混比（partner_id == user.id 跨域比较恒不成立）——先取当前用户绑定的渠道商。
+    broker = session.exec(
+        select(BrokerPartner).where(
+            BrokerPartner.user_id == user.id, BrokerPartner.deleted_at.is_(None)
+        )
+    ).first()
     rows = session.exec(
         select(Referral)
         .where(
-            or_(Referral.referrer_user_id == user.id, Referral.referrer_partner_id == user.id),
+            or_(
+                Referral.referrer_user_id == user.id,
+                Referral.referrer_partner_id == broker.id if broker else Referral.id.is_(None),
+            ),
             Referral.deleted_at.is_(None),
         )
         .order_by(Referral.created_at.desc())
@@ -484,6 +521,20 @@ def create_split(
     """创建联合单分成（多人/多角色拆分佣金）。"""
     if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="No permission")
+    # 入参校验：SplitDeal 模型对 commission_total / split_rate / split_amount
+    # 均有 gt=0 约束，非法值会抛 IntegrityError 500——提前 400 拒绝。
+    if not isinstance(commission_total, (int, float)) or commission_total <= 0:
+        raise HTTPException(status_code=400, detail="commission_total 必须 > 0")
+    total_rate = 0.0
+    for p in participants:
+        if not isinstance(p, dict):
+            raise HTTPException(status_code=400, detail="参与者格式非法")
+        rate = p.get("rate", 0)
+        if not isinstance(rate, (int, float)) or rate <= 0 or rate > 100:
+            raise HTTPException(status_code=400, detail="split rate 须在 (0, 100] 区间")
+        total_rate += rate
+    if total_rate > 100 + 1e-9:
+        raise HTTPException(status_code=400, detail="参与者比率合计不能超过 100%")
     created = []
     for p in participants:
         split = SplitDeal(

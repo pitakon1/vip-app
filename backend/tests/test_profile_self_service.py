@@ -81,13 +81,28 @@ def api(engine):
 def test_update_me_partial_fields(api):
     user = api.mk_user(phone=None)
     client = api.login(user)
-    r = client.patch("/api/v1/auth/me", json={"full_name": "新名字", "phone": "13900001111"})
+    r = client.patch("/api/v1/auth/me", json={"full_name": "新名字"})
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["full_name"] == "新名字"
-    assert body["phone"] == "13900001111"
     # 未提供字段保持原值
+    assert body["phone"] is None
     assert body["email"] == user.email
+
+
+def test_update_me_phone_requires_otp(api):
+    """改手机号必须携带验证码：无 code 直接 400，不允许绑定未验证号码。"""
+    user = api.mk_user(phone=None)
+    client = api.login(user)
+    r = client.patch("/api/v1/auth/me", json={"phone": "13900001111"})
+    assert r.status_code == 400, r.text
+    # 手机号未被改动（UserMeOut 不含 phone 字段，直接查库验证）
+    from sqlmodel import Session, select
+
+    from app.models.user import User
+
+    with Session(api.engine) as s:
+        assert s.exec(select(User).where(User.id == user.id)).one().phone is None
 
 
 def test_update_me_email_conflict_409(api):

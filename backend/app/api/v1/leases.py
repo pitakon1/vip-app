@@ -79,8 +79,10 @@ def _create_commission_settlement(
         broker_id=broker_id,
         broker_base_rate=broker_base,
     )
-    # rate>1 视为百分比（如 5 = 5%），否则视为月租倍数（兼容旧默认 1.0）
-    factor = rate / 100 if rate > 1 else rate
+    # rate 语义统一为百分比：commission_rules.rate / broker.base_rate 均为 0-100
+    # （如 5 = 5%），fallback 1.0 也按 1% 处理。此前 `rate>1 视为百分比否则视为
+    # 月租倍数` 的歧义会让 rate=1.0（1%）被当成 1 个月租金，佣金放大 100 倍。
+    factor = rate / 100.0
     session.add(
         CommissionSettlement(
             employee_id=agent_id,
@@ -392,6 +394,29 @@ def create_lease(
     if prop is None or prop.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Property not found")
 
+    # 入参防御：租金必须为正、押金不可为负、合同期必须合法
+    if req.monthly_rent <= 0:
+        raise HTTPException(status_code=400, detail="monthly_rent must be > 0")
+    if req.deposit_amount is not None and req.deposit_amount < 0:
+        raise HTTPException(status_code=400, detail="deposit_amount must be >= 0")
+    if req.end_date <= req.start_date:
+        raise HTTPException(
+            status_code=400, detail="end_date must be after start_date"
+        )
+
+    # 同一房源不能同时存在两本生效租约（active/pending）
+    active_lease = session.exec(
+        select(Lease).where(
+            Lease.property_id == req.property_id,
+            Lease.status.in_([LeaseStatus.active, LeaseStatus.pending]),
+            Lease.deleted_at.is_(None),
+        )
+    ).first()
+    if active_lease is not None:
+        raise HTTPException(
+            status_code=409, detail="Property already has an active lease"
+        )
+
     # 业主缺省时按房源归属带出，避免客户端必须自己查 owner_id
     owner_id = req.owner_id or prop.owner_id
     if owner_id is None:
@@ -527,6 +552,29 @@ def renew_lease(
     if not _can_renew(session, user, old_lease):
         raise HTTPException(status_code=403, detail="No permission to renew this lease")
 
+    # 入参防御：合同期必须合法；显式传的租金必须为正
+    if req.end_date <= req.start_date:
+        raise HTTPException(
+            status_code=400, detail="end_date must be after start_date"
+        )
+    if req.monthly_rent is not None and req.monthly_rent <= 0:
+        raise HTTPException(status_code=400, detail="monthly_rent must be > 0")
+
+    # 同一房源不能同时存在两本生效租约（排除被续约的旧租约自身，
+    # 否则续约必然把自己当成冲突而 409）
+    active_lease = session.exec(
+        select(Lease).where(
+            Lease.property_id == old_lease.property_id,
+            Lease.status.in_([LeaseStatus.active, LeaseStatus.pending]),
+            Lease.deleted_at.is_(None),
+            Lease.id != old_lease.id,
+        )
+    ).first()
+    if active_lease is not None:
+        raise HTTPException(
+            status_code=409, detail="Property already has an active lease"
+        )
+
     can_override_rent = user.role in (UserRole.admin, UserRole.agent)
     new_lease = Lease(
         property_id=old_lease.property_id,
@@ -623,6 +671,22 @@ def deposit_settlement(
     if not lease or lease.deleted_at:
         raise HTTPException(status_code=404, detail="Lease not found")
 
+    # 幂等守卫：押金已结算过的租约不允许重复结算，
+    # 否则 idempotency_key=deposit-return-{lease.id} 撞唯一约束 500
+    if lease.deposit_status in ("returned", "forfeited"):
+        raise HTTPException(
+            status_code=409, detail="Deposit already settled for this lease"
+        )
+
+    # 扣款不允许为负：负数会把净退款放大（等同反向补贴）
+    if req.damage_charges < 0:
+        raise HTTPException(status_code=400, detail="damage_charges must be >= 0")
+    for d in req.other_deductions:
+        if not isinstance(d, dict) or float(d.get("amount", 0)) < 0:
+            raise HTTPException(
+                status_code=400, detail="other_deductions amounts must be >= 0"
+            )
+
     deposit_held = lease.deposit_amount or 0
 
     # 到期前应缴而未缴的租金
@@ -666,11 +730,19 @@ def deposit_settlement(
     lease.status = LeaseStatus.terminated
     session.add(lease)
     if net > 0:
+        # payer_id 外键指向 users.id，而 lease.owner_id 指向 owners.id：
+        # 必须经 Owner.user_id 换算成业主登录账号，否则退租押金在
+        # 导出 / /payments/me 里归属错误（此前直接把 owners.id 当用户 id）
+        owner = session.get(Owner, lease.owner_id)
+        if owner is None:
+            raise HTTPException(
+                status_code=400, detail="Owner record missing for deposit refund"
+            )
         session.add(
             Payment(
                 lease_id=lease.id,
                 property_id=lease.property_id,
-                payer_id=lease.owner_id,
+                payer_id=owner.user_id,
                 amount=net,
                 currency=lease.currency,
                 payment_type=PaymentType.refund,

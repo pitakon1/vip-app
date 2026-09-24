@@ -128,9 +128,15 @@ def list_markets(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """市场列表。published_only=True 时仅返回对外已发布市场（前台用）。"""
+    """市场列表。published_only=True 时仅返回对外已发布市场（前台用）。
+
+    非员工角色强制只看已发布市场：未发布市场及 vat_rate/transfer_fee_rate 等
+    商业配置不对 C 端暴露（此前默认 published_only=False 且仅需登录即可读全量）。
+    员工默认可见全部，保持既有内部行为不变。
+    """
+    effective_published_only = published_only or user.role not in STAFF_ROLES
     query = select(MarketConfig).where(MarketConfig.deleted_at.is_(None))
-    if published_only:
+    if effective_published_only:
         query = query.where(MarketConfig.published.is_(True))
     query = query.order_by(MarketConfig.sort_order)
     page = paginate_query(session, query, pagination)

@@ -28,6 +28,7 @@ from app.models import (
     Property,
     TicketStatus,
     User,
+    UserRole,
 )
 
 router = APIRouter(prefix="/employees", tags=["employees"])
@@ -405,7 +406,16 @@ def get_employee_performance(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
-    """员工业绩明细（系统按佣金结算自动核算，按时间倒序）。"""
+    """员工业绩明细（系统按佣金结算自动核算，按时间倒序）。
+
+    仅本人或 admin 可看：佣金明细是敏感财务数据，普通员工不能翻看他人，
+    此前任意员工都能按 employee_id 读任意员工的佣金记录。
+    """
+    employee = session.get(Employee, employee_id)
+    if not employee or employee.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if user.role != UserRole.admin and employee.user_id != user.id:
+        raise HTTPException(status_code=403, detail="No permission")
     rows = session.exec(
         select(CommissionSettlement)
         .where(

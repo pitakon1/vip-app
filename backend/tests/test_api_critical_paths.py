@@ -737,11 +737,13 @@ def test_annual_financial_summary_without_properties(api, engine):
 def test_export_csv_reports_content_and_scope(api, engine):
     """导出报表：内容/编码正确，且可见范围不能被导出绕过。"""
     owner_user, owner = _mk_owner(engine)
-    prop = _mk_property(engine, owner.id, status=PropertyStatus.vacant)
-
     tenant_user = api.mk_user(UserRole.tenant)
     employee_user = api.mk_user(UserRole.employee)
     outsider_user = api.mk_user(UserRole.tenant)
+    # 房源归属到 employee：销售/经纪只能看到自己录入的房源（created_by=None=历史房源仅管理员可见）
+    prop = _mk_property(
+        engine, owner.id, status=PropertyStatus.vacant, created_by=employee_user.id
+    )
     with Session(engine) as s:
         tenant = Tenant(user_id=tenant_user.id)
         s.add(tenant)
@@ -1137,6 +1139,8 @@ def test_property_map_points_and_project_geocode(api, engine):
         s.refresh(unlocated)
         located_id, unlocated_id = located.id, unlocated.id
 
+    agent = api.mk_user(UserRole.agent)
+
     def _mk(room, project_id=None, video=None):
         with Session(engine) as s:
             prop = Property(
@@ -1147,6 +1151,7 @@ def test_property_map_points_and_project_geocode(api, engine):
                 currency="THB",
                 project_id=project_id,
                 video_url=video,
+                created_by=agent.id,
             )
             s.add(prop)
             s.commit()
@@ -1158,7 +1163,6 @@ def test_property_map_points_and_project_geocode(api, engine):
     unlocated_prop = _mk("U-201", unlocated_id)
     _mk("N-301")  # 不属于任何项目 → 不应出现在地图
 
-    agent = api.mk_user(UserRole.agent)
     client = api.login(agent)
     base = "/api/v1/properties"
 

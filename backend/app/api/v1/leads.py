@@ -9,10 +9,10 @@ from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, require_agent, require_employee
+from app.core.auth import STAFF_ROLES, get_current_user, require_agent, require_employee
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate_query
-from app.models import Lead, LeadStage, User
+from app.models import Employee, Lead, LeadStage, User, UserRole
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -65,6 +65,9 @@ def list_leads(
     user: User = Depends(get_current_user),
 ):
     """线索列表（分页，可按 stage 筛选、按关键词搜索姓名/电话/邮箱/社交账号）。"""
+    # 线索含 phone/email/wechat/line 等客户联系方式，仅内部员工/经纪可见
+    if user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="Access denied. Staff only")
     conditions = [Lead.deleted_at.is_(None)]
     if stage:
         conditions.append(Lead.stage == stage)
@@ -114,6 +117,9 @@ def get_lead(
     user: User = Depends(get_current_user),
 ):
     """获取线索详情。"""
+    # 线索含客户联系方式，仅内部员工/经纪可见
+    if user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="Access denied. Staff only")
     lead = session.get(Lead, lead_id)
     if not lead or lead.deleted_at:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -131,6 +137,19 @@ def update_lead(
     lead = session.get(Lead, lead_id)
     if not lead or lead.deleted_at:
         raise HTTPException(status_code=404, detail="Lead not found")
+
+    # 归属校验：非 admin 只能改派给自己员工档案的线索（防抢单/转单/置 closed）
+    if user.role != UserRole.admin:
+        emp = session.exec(
+            select(Employee).where(
+                Employee.user_id == user.id, Employee.deleted_at.is_(None)
+            )
+        ).first()
+        if not emp or lead.assigned_to != emp.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Only the assigned employee or an admin can update this lead",
+            )
 
     old_stage = lead.stage
     update_data = req.model_dump(exclude_unset=True)
@@ -170,6 +189,20 @@ def delete_lead(
     lead = session.get(Lead, lead_id)
     if not lead or lead.deleted_at:
         raise HTTPException(status_code=404, detail="Lead not found")
+
+    # 归属校验：非 admin 只能软删派给自己员工档案的线索
+    if user.role != UserRole.admin:
+        emp = session.exec(
+            select(Employee).where(
+                Employee.user_id == user.id, Employee.deleted_at.is_(None)
+            )
+        ).first()
+        if not emp or lead.assigned_to != emp.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Only the assigned employee or an admin can delete this lead",
+            )
+
     lead.deleted_at = datetime.now()
     session.add(lead)
     publish_event(

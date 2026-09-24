@@ -149,6 +149,8 @@ def create_user(
     existing = session.exec(select(User).where(User.email == req.email)).first()
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
+    if not req.password or len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password too short (min 6)")
 
     new_user = User(
         email=req.email,
@@ -185,22 +187,87 @@ def update_user(
     session: Session = Depends(get_session),
     admin: User = Depends(require_permission("account:update")),
 ):
-    """编辑账号（角色/资料/启停）。"""
+    """编辑账号（角色/资料/启停）。
+
+    安全约定：
+    - `is_active` 变更（停用/启用他人）需要额外权限 `account:deactivate`——
+      仅持有 `account:update` 不得绕过独立启停权限直接停用账号；
+    - 角色改为 `admin` 属提权：仅 admin 本人可授予，且禁止把自己改为 admin；
+    - email/phone 提交前查重，避免撞唯一索引 500 或同号多账号歧义；
+    - role 变为 agent/employee 时自动创建员工档案（与 create_user 一致），
+      变为其他角色时软删档案。
+    """
     u = session.get(User, user_id)
     if not u or u.deleted_at:
         raise HTTPException(status_code=404, detail="User not found")
-    if u.id == admin.id and req.is_active is False:
-        raise HTTPException(status_code=400, detail="Cannot deactivate yourself")
 
     data = req.model_dump(exclude_unset=True)
+    is_active_change = data.pop("is_active", None)
     new_role = data.pop("role", None)
     department = data.pop("department", None)
     position = data.pop("position", None)
 
+    if is_active_change is not None:
+        if u.id == admin.id and is_active_change is False:
+            raise HTTPException(status_code=400, detail="Cannot deactivate yourself")
+        perms = get_user_permissions(session, admin)
+        if "account:deactivate" not in perms:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied. Required permissions: ['account:deactivate']",
+            )
+        u.is_active = is_active_change
+
+    if new_role:
+        if new_role == UserRole.admin and admin.role != UserRole.admin:
+            raise HTTPException(
+                status_code=403, detail="Only admins can grant the admin role"
+            )
+        if u.id == admin.id and new_role == UserRole.admin:
+            raise HTTPException(
+                status_code=400, detail="Cannot change your own role to admin"
+            )
+        u.role = new_role
+
+    new_email = data.get("email")
+    if new_email is not None and new_email != u.email:
+        if session.exec(
+            select(User).where(User.email == new_email, User.id != u.id)
+        ).first():
+            raise HTTPException(status_code=409, detail="Email already in use")
+    new_phone = data.get("phone")
+    if new_phone is not None and new_phone != u.phone:
+        if session.exec(
+            select(User).where(User.phone == new_phone, User.id != u.id)
+        ).first():
+            raise HTTPException(status_code=409, detail="Phone already in use")
+
     for key, value in data.items():
         setattr(u, key, value)
+
+    # 角色联动员工档案：变为 agent/employee 且无档案时自动建档；
+    # 变为其他角色（owner/tenant/admin）时软删档案
     if new_role:
-        u.role = new_role
+        emp = session.exec(
+            select(Employee).where(
+                Employee.user_id == u.id, Employee.deleted_at.is_(None)
+            )
+        ).first()
+        if new_role in (UserRole.agent, UserRole.employee):
+            if not emp:
+                session.add(
+                    Employee(
+                        user_id=u.id,
+                        employee_code=f"E{uuid.uuid4().hex[:8].upper()}",
+                        department=department,
+                        position=position,
+                        hire_date=date_type.today(),
+                        is_active=True,
+                    )
+                )
+        elif emp:
+            emp.deleted_at = datetime.now()
+            session.add(emp)
 
     if department is not None or position is not None:
         emp = session.exec(

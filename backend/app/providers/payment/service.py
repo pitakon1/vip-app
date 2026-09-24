@@ -16,7 +16,7 @@ from sqlmodel import Session, select
 
 from .base import PaymentChannel, PaymentRequest, RefundRequest
 from .router import payment_router
-from ...models.payment import Payment, PaymentStatus
+from ...models.payment import Payment, PaymentStatus, PaymentType
 from ...models.payment_webhook_event import (
     PaymentWebhookEvent,
     WEBHOOK_IGNORED,
@@ -368,6 +368,21 @@ class PaymentService:
             "channel_transaction_id": payment.channel_transaction_id,
         }
 
+    def _refunded_total(self, session: Session, payment: Payment) -> float:
+        """该支付单已累计退款的金额。
+
+        Payment 表无退款累计字段，纯逻辑层实现：每次退款落一条
+        `payment_type=refund` 的记录，idempotency_key 带原单前缀
+        `refund-{payment.id}-...`，累计即前缀查询求和。
+        """
+        rows = session.exec(
+            select(Payment.amount).where(
+                Payment.idempotency_key.like(f"refund-{payment.id}-%"),
+                Payment.deleted_at.is_(None),
+            )
+        ).all()
+        return round(sum(float(r[0] or 0) for r in rows), 2)
+
     def refund(
         self,
         session: Session,
@@ -381,15 +396,20 @@ class PaymentService:
 
         refund_amount = amount if amount is not None else payment.amount
 
-        # 校验退款金额：必须为正，且不能超过已收金额
-        if refund_amount <= 0 or refund_amount > payment.amount:
+        # 校验退款金额：必须为正
+        if refund_amount <= 0:
             return {
                 "ok": False,
-                "error": (
-                    f"Invalid refund amount {refund_amount}; "
-                    f"must be > 0 and <= {payment.amount}"
-                ),
+                "error": f"Invalid refund amount {refund_amount}; must be > 0",
             }
+
+        # 累计校验：已退 + 本次不得超过原单金额（部分退款可多次，需防超退）
+        refunded_total = self._refunded_total(session, payment)
+        if refunded_total + refund_amount > payment.amount + 0.01:
+            raise ValueError(
+                f"Refund amount {refund_amount} exceeds remaining refundable "
+                f"{round(payment.amount - refunded_total, 2)}"
+            )
 
         if payment.channel and payment.channel_transaction_id:
             try:
@@ -417,6 +437,24 @@ class PaymentService:
             payment.status = PaymentStatus.refunded
         payment.failure_reason = reason or None
         session.add(payment)
+        # 每次退款落一条 refund 记录（idempotency_key 带原单前缀），
+        # 供 _refunded_total 累计校验与对账留痕。
+        session.add(
+            Payment(
+                lease_id=payment.lease_id,
+                property_id=payment.property_id,
+                payer_id=payment.payer_id,
+                payee_id=payment.payee_id,
+                amount=refund_amount,
+                currency=payment.currency,
+                payment_type=PaymentType.refund,
+                status=PaymentStatus.succeeded,
+                channel=payment.channel,
+                idempotency_key=f"refund-{payment.id}-{uuid.uuid4().hex}",
+                description=f"Refund of payment {payment.id}",
+                paid_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            )
+        )
         session.commit()
         session.refresh(payment)
 
@@ -567,28 +605,60 @@ class PaymentService:
             return {"ok": True, "ignored": True, "reason": "payment already final"}
         changed = False
         if event_status in ("succeeded", "success", "completed"):
-            payment.status = PaymentStatus.succeeded
-            payment.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
-            changed = True
-            self._notify_succeeded(
-                session,
-                payment,
-                float(parsed.get("amount") or payment.amount),
-                parsed.get("currency") or payment.currency,
-                payment.channel or channel,
-            )
-            publish_event(
-                session,
-                "payment.received",
-                "payment",
-                payment.id,
-                {
-                    "payment_id": str(payment.id),
-                    "amount": float(parsed.get("amount") or payment.amount),
-                    "currency": parsed.get("currency") or payment.currency,
-                    "channel": payment.channel or channel,
-                },
-            )
+            # 金额校验：回调金额与本地支付单不一致视为异常，拒绝置 succeeded，
+            # 落 failed 并留档，防止伪造/错配回调把错误金额标记为到账。
+            webhook_amount = parsed.get("amount")
+            amount_mismatch = False
+            if webhook_amount is not None:
+                try:
+                    amount_mismatch = (
+                        abs(float(webhook_amount) - float(payment.amount)) > 0.01
+                    )
+                except (TypeError, ValueError):
+                    amount_mismatch = True
+            if amount_mismatch:
+                payment.status = PaymentStatus.failed
+                payment.failure_reason = (
+                    f"webhook amount mismatch: got {webhook_amount}, "
+                    f"expected {payment.amount}"
+                )
+                changed = True
+                logger.warning(
+                    "payment.webhook.amount_mismatch",
+                    payment_id=str(payment.id),
+                    expected=payment.amount,
+                    got=webhook_amount,
+                )
+                publish_event(
+                    session,
+                    "payment.failed",
+                    "payment",
+                    payment.id,
+                    {"payment_id": str(payment.id), "reason": payment.failure_reason},
+                )
+            else:
+                payment.status = PaymentStatus.succeeded
+                payment.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                changed = True
+                self._notify_succeeded(
+                    session,
+                    payment,
+                    float(webhook_amount or payment.amount),
+                    parsed.get("currency") or payment.currency,
+                    payment.channel or channel,
+                )
+                publish_event(
+                    session,
+                    "payment.received",
+                    "payment",
+                    payment.id,
+                    {
+                        "payment_id": str(payment.id),
+                        "amount": float(webhook_amount or payment.amount),
+                        "currency": parsed.get("currency") or payment.currency,
+                        "channel": payment.channel or channel,
+                    },
+                )
         elif event_status in ("failed", "failure"):
             payment.status = PaymentStatus.failed
             payment.failure_reason = "provider reported failure via webhook"

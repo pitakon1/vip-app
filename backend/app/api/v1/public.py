@@ -523,15 +523,20 @@ def list_public_map_points(
     terms = [q.strip()] if q and q.strip() else []
     terms += [k.strip() for k in (keywords or []) if k and k.strip()]
     terms = list(dict.fromkeys(terms))[:20]
-    for term in terms:
-        pattern = f"%{term}%"
+    # 同义词组「任一命中」：所有关键词合并为一个 OR 组（与 /properties 口径一致）
+    if terms:
         conditions.append(
-            Property.room_number.ilike(pattern)
-            | Property.address.ilike(pattern)
-            | Property.building.ilike(pattern)
-            | Project.name.ilike(pattern)
-            | Project.district.ilike(pattern)
-            | Project.city.ilike(pattern)
+            or_(
+                *[
+                    Property.room_number.ilike(f"%{term}%")
+                    | Property.address.ilike(f"%{term}%")
+                    | Property.building.ilike(f"%{term}%")
+                    | Project.name.ilike(f"%{term}%")
+                    | Project.district.ilike(f"%{term}%")
+                    | Project.city.ilike(f"%{term}%")
+                    for term in terms
+                ]
+            )
         )
     if price_min is not None:
         conditions.append(Listing.monthly_rent >= price_min)
@@ -678,20 +683,25 @@ def list_public_listings(
     if bedrooms_max is not None:
         conditions.append(Property.bedrooms <= bedrooms_max)
 
-    # 关键词：房源自身字段或所属楼盘字段任一命中
+    # 关键词：房源自身字段或所属楼盘字段任一命中；同义词组「任一命中」——
+    # 所有关键词合并为一个 OR 组（与 /properties 口径一致）
     terms = [q.strip()] if q and q.strip() else []
     terms += [k.strip() for k in (keywords or []) if k and k.strip()]
     terms = list(dict.fromkeys(terms))[:20]
-    for term in terms:
-        pattern = f"%{term}%"
+    if terms:
         conditions.append(
-            Property.room_number.ilike(pattern)
-            | Property.address.ilike(pattern)
-            | Property.building.ilike(pattern)
-            | Project.name.ilike(pattern)
-            | Project.address.ilike(pattern)
-            | Project.district.ilike(pattern)
-            | Project.city.ilike(pattern)
+            or_(
+                *[
+                    Property.room_number.ilike(f"%{term}%")
+                    | Property.address.ilike(f"%{term}%")
+                    | Property.building.ilike(f"%{term}%")
+                    | Project.name.ilike(f"%{term}%")
+                    | Project.address.ilike(f"%{term}%")
+                    | Project.district.ilike(f"%{term}%")
+                    | Project.city.ilike(f"%{term}%")
+                    for term in terms
+                ]
+            )
         )
 
     # 排序

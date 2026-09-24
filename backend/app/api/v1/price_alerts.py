@@ -114,6 +114,34 @@ def subscribe(
             if price is not None:
                 subscribed_price = price
 
+    # 取消订阅是软删（置 deleted_at），而表上 (user_id, property_id) 唯一约束是
+    # 硬性的——取消后再订阅若直接新建必撞唯一约束（IntegrityError 500）。
+    # 有软删旧行时复活它：清 deleted_at、重置通知状态、更新订阅参数。
+    stale = session.exec(
+        select(PriceAlert).where(
+            PriceAlert.user_id == user.id,
+            PriceAlert.property_id == req.property_id,
+            PriceAlert.deleted_at.is_not(None),
+        )
+    ).first()
+    if stale:
+        stale.deleted_at = None
+        stale.listing_id = listing_id
+        stale.subscribed_price = subscribed_price
+        stale.currency = currency
+        stale.notified_at = None  # 新订阅周期重新计通知，避免 notified_at 残留导致不再触发
+        session.add(stale)
+        session.commit()
+        session.refresh(stale)
+        return {
+            "ok": True,
+            "subscribed": True,
+            "id": str(stale.id),
+            "subscribed_price": stale.subscribed_price,
+            "currency": stale.currency,
+            "created_at": stale.created_at.isoformat() if stale.created_at else None,
+        }
+
     alert = PriceAlert(
         user_id=user.id,
         property_id=req.property_id,

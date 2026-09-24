@@ -28,6 +28,15 @@ from app.models import (
 
 router = APIRouter(prefix="/viewings", tags=["viewings"])
 
+# 预约状态流转白名单：pending→confirmed→completed/cancelled；禁止回退（confirmed→pending）
+# 与跳步（pending→completed），已完成/已取消为终态
+_VIEWING_TRANSITIONS = {
+    ViewingStatus.pending: {ViewingStatus.confirmed, ViewingStatus.cancelled},
+    ViewingStatus.confirmed: {ViewingStatus.completed, ViewingStatus.cancelled},
+    ViewingStatus.completed: set(),
+    ViewingStatus.cancelled: set(),
+}
+
 
 class ViewingCreate(BaseModel):
     property_id: uuid.UUID
@@ -117,6 +126,23 @@ def create_viewing(
     if not prop or prop.deleted_at:
         raise HTTPException(status_code=404, detail="Property not found")
 
+    # 同一房源同一时段已有待确认/已确认的预约时拒绝堆积
+    conflicting = session.exec(
+        select(ViewingAppointment).where(
+            ViewingAppointment.property_id == req.property_id,
+            ViewingAppointment.scheduled_at == req.scheduled_at,
+            ViewingAppointment.status.in_(
+                (ViewingStatus.pending, ViewingStatus.confirmed)
+            ),
+            ViewingAppointment.deleted_at.is_(None),
+        )
+    ).first()
+    if conflicting:
+        raise HTTPException(
+            status_code=409,
+            detail="This time slot is already booked for the property",
+        )
+
     appointment = ViewingAppointment(
         property_id=req.property_id,
         scheduled_at=req.scheduled_at,
@@ -203,6 +229,21 @@ def update_viewing(
         raise HTTPException(status_code=404, detail="Viewing not found")
 
     data = req.model_dump(exclude_unset=True)
+    # 状态机校验：仅允许白名单内流转（pending→confirmed→completed/cancelled），非法 409
+    new_status = data.get("status")
+    if new_status is not None and new_status != v.status:
+        if new_status not in _VIEWING_TRANSITIONS.get(v.status, set()):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Invalid status transition: {v.status.value} -> {new_status.value}"
+                ),
+            )
+    # 指派员工必须真实存在
+    if data.get("assigned_to") is not None:
+        employee = session.get(Employee, data["assigned_to"])
+        if not employee or employee.deleted_at:
+            raise HTTPException(status_code=400, detail="Employee not found")
     # 状态流转时补齐关联字段
     if data.get("status") == ViewingStatus.completed and not data.get("completed_at"):
         data["completed_at"] = datetime.utcnow()

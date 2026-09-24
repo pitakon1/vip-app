@@ -448,6 +448,14 @@ def create_listing(
             raise HTTPException(status_code=404, detail="Owner not found")
         owner_id = req.owner_id
 
+    # 租金上架单必须有真实月租金（>0），防止 0 值入库污染价格口径；
+    # 纯售上架单不要求租金（Property.monthly_rent 可空）。
+    if req.listing_type == ListingType.rent:
+        if not req.monthly_rent or req.monthly_rent <= 0:
+            raise HTTPException(
+                status_code=422, detail="租房上架单必须填写月租金（大于 0）"
+            )
+
     payload = req.model_dump()
     payload = _validate_commission(req, payload)
     payload = _apply_split_sides(
@@ -465,6 +473,11 @@ def create_listing(
 
     if dedupe["existing"] is not None:
         prop = dedupe["existing"]
+        # 强命中已有档案时必须校验归属：档案属于他人时不允许挂靠发布
+        if prop.owner_id != owner_id:
+            raise HTTPException(
+                status_code=400, detail="该房源不属于当前用户，无法发布上架单"
+            )
         existing_dedupe_state = DedupeState.new
         # 同一档案上已存在「同类型」有效上架单 → 判定重复阻断（待人工）
         dup = session.exec(
@@ -489,7 +502,8 @@ def create_listing(
             building=req.building,
             address=req.address,
             property_type=req.property_type,
-            monthly_rent=req.monthly_rent or 0.0,
+            # 纯售上架单不产生租金：monthly_rent 传 None，避免 0 值污染价格口径
+            monthly_rent=req.monthly_rent if req.listing_type == ListingType.rent else None,
             currency=req.currency,
             size_sqm=req.size_sqm,
             bedrooms=req.bedrooms,
@@ -594,9 +608,10 @@ def update_listing(
     if not is_staff and li.publisher_user_id != user.id:
         raise HTTPException(status_code=403, detail="No permission")
     update = req.model_dump(exclude_unset=True)
-    # 仅 staff 可改状态；佣金/分成规则统一再校验
+    # 仅 staff 可改状态；非 staff 传 status 直接明示拒绝（不再静默丢弃假成功）
     if "status" in update and not is_staff:
-        update.pop("status", None)
+        raise HTTPException(status_code=403, detail="只有员工可修改上架单状态")
+    # 佣金/分成规则统一再校验
     if "mandate_type" in update or "buyer_side_rate" in update or "split_option" in update:
         _apply_split_sides(
             req.mandate_type or li.mandate_type,

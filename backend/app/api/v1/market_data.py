@@ -387,12 +387,20 @@ def list_matches(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """匹配列表（带上房源信息与推送状态，供撮合页展示与推送）。"""
+    """匹配列表（带上房源信息与推送状态，供撮合页展示与推送）。
+
+    非员工角色只能看**自己**的匹配记录：`lead_id` / `user_id` 入参来自调用方，
+    若直接透传会让任意登录用户拉到全站 PropertyMatch（含他人房源地址/月租）。
+    隔离由 token 决定：员工/管理员可查全部（撮合页内部场景），其余角色强制
+    `user_id == 自己`。
+    """
     query = (
         select(PropertyMatch)
         .where(PropertyMatch.deleted_at.is_(None))
         .order_by(PropertyMatch.score.desc())
     )
+    if user.role not in STAFF_ROLES:
+        query = query.where(PropertyMatch.user_id == user.id)
     if lead_id:
         query = query.where(PropertyMatch.lead_id == lead_id)
     if user_id:

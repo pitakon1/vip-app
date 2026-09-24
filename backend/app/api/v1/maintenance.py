@@ -8,12 +8,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, require_agent
+from app.core.auth import STAFF_ROLES, get_current_user, require_agent
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate, paginate_query
 from app.models import (
     Conversation,
     Employee,
+    Lease,
     MaintenanceTicket,
     Owner,
     Property,
@@ -30,6 +31,16 @@ router = APIRouter(prefix="/maintenance-tickets", tags=["maintenance"])
 
 # 允许租客/业主自助撤销的工单状态：已开工及之后的状态只能由员工侧走 PATCH 收口
 CANCELLABLE_STATUSES = (TicketStatus.open, TicketStatus.assigned)
+
+# 工单状态流转白名单：仅允许前进（open→assigned→in_progress→resolved→closed），
+# 回退（如 resolved/closed 重新改回 open）一律 409。
+_TICKET_STATUS_RANK = {
+    TicketStatus.open: 0,
+    TicketStatus.assigned: 1,
+    TicketStatus.in_progress: 2,
+    TicketStatus.resolved: 3,
+    TicketStatus.closed: 4,
+}
 
 
 class MaintenanceTicketRate(BaseModel):
@@ -253,6 +264,17 @@ def create_maintenance_ticket(
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant profile not found")
         data["tenant_id"] = tenant.id
+        # 租客提交强制绑定房源业主，且租约必须属于该租客，防止把工单挂到他人名下
+        data["owner_id"] = prop.owner_id
+        if req.lease_id:
+            lease = session.get(Lease, req.lease_id)
+            if not lease:
+                raise HTTPException(status_code=404, detail="Lease not found")
+            if lease.tenant_id != tenant.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Lease does not belong to current tenant",
+                )
     elif user.role == UserRole.owner:
         owner = session.exec(
             select(Owner).where(
@@ -302,6 +324,9 @@ def get_maintenance_ticket(
     ticket = session.get(MaintenanceTicket, ticket_id)
     if not ticket or ticket.deleted_at:
         raise HTTPException(status_code=404, detail="Maintenance ticket not found")
+    # 提交人本人（租客/业主）或员工/管理员可读，防止任意登录用户窥探他人工单全文
+    if user.role not in STAFF_ROLES and not _is_ticket_owner(session, user, ticket):
+        raise HTTPException(status_code=403, detail="Not allowed to view this ticket")
     return _with_display_fields(session, [ticket])[0]
 
 
@@ -318,6 +343,20 @@ def update_maintenance_ticket(
         raise HTTPException(status_code=404, detail="Maintenance ticket not found")
 
     update_data = req.model_dump(exclude_unset=True)
+    # 状态机校验：仅允许前进（open→assigned→in_progress→resolved→closed），回退一律 409
+    new_status = update_data.get("status")
+    if new_status is not None and _TICKET_STATUS_RANK[new_status] < _TICKET_STATUS_RANK[
+        ticket.status
+    ]:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Invalid status transition: {ticket.status.value} -> {new_status.value}"
+            ),
+        )
+    # 费用不允许为负
+    if update_data.get("cost") is not None and update_data["cost"] < 0:
+        raise HTTPException(status_code=400, detail="cost must be >= 0")
     # 状态变为 resolved 时自动记录解决时间
     if update_data.get("status") in (TicketStatus.resolved, TicketStatus.closed):
         if not update_data.get("resolved_at") and not ticket.resolved_at:
@@ -342,6 +381,9 @@ def rate_maintenance_ticket(
     ticket = session.get(MaintenanceTicket, ticket_id)
     if not ticket or ticket.deleted_at:
         raise HTTPException(status_code=404, detail="Maintenance ticket not found")
+    # 仅提交人本人（或管理员）可评分，防止先到先得伪造他人工单评价
+    if not _is_ticket_owner(session, user, ticket):
+        raise HTTPException(status_code=403, detail="Not allowed to rate this ticket")
     if ticket.status not in (TicketStatus.resolved, TicketStatus.closed):
         raise HTTPException(
             status_code=409, detail="Only resolved or closed tickets can be rated"

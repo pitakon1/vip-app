@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, require_owner
+from app.core.auth import STAFF_ROLES, get_current_user, require_owner
 from app.models import (
     Owner,
     Property,
@@ -166,10 +166,19 @@ def get_service_package(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """套餐详情。"""
+    """套餐详情（业主仅限本人名下套餐，员工/管理员可看全部）。"""
     package = session.get(ServicePackage, package_id)
     if not package or package.deleted_at:
         raise HTTPException(status_code=404, detail="Service package not found")
+    # 金额/单价/配额属敏感信息：非员工必须为本套餐业主本人，其他角色 403
+    if user.role not in STAFF_ROLES:
+        owner = session.exec(
+            select(Owner).where(Owner.user_id == user.id, Owner.deleted_at.is_(None))
+        ).first()
+        if not owner or package.owner_id != owner.id:
+            raise HTTPException(
+                status_code=403, detail="Not allowed to view this service package"
+            )
     return package
 
 

@@ -335,7 +335,9 @@ def register(
             phone=phone,
         )
     elif email and req.password:
-        # 方式二：邮箱 + 密码
+        # 方式二：邮箱 + 密码（无验证码，绝不能绑定未验证的手机号——
+        # 否则攻击者用自己的邮箱注册、填受害者手机号即占用该号码，
+        # 受害者再用手机号验证码登录会进入攻击者账号）
         if not _is_valid_email(email):
             raise HTTPException(status_code=400, detail="Invalid email address")
         if session.exec(select(User).where(User.email == email)).first():
@@ -345,7 +347,7 @@ def register(
             hashed_password=get_password_hash(req.password),
             full_name=req.full_name or "用户",
             role=req.role,
-            phone=phone,
+            phone=None,  # 邮箱+密码注册忽略 req.phone：绑定手机号必须走验证码分支
         )
     else:
         raise HTTPException(
@@ -675,6 +677,7 @@ class UpdateSelfRequest(BaseModel):
     phone: str | None = None
     email: str | None = None
     avatar_url: str | None = None
+    code: str | None = None  # 修改手机号时的验证码（须先向新手机号发起 /otp/request）
 
 
 @router.patch("/me")
@@ -686,26 +689,37 @@ def update_me(
     """更新当前用户资料。
 
     邮箱 / 手机号若与**其它**账号冲突返回 409；未提供的字段保持不变。
+    修改邮箱须通过格式校验；**绑定/更换手机号必须携带发往该号码的验证码**，
+    防止占用他人未验证号码（否则攻击者可把本人账号手机号改成受害者号码，
+    受害者用手机号验证码登录会进入攻击者账号）。
     返回按项目既有方式脱敏后的最新用户。
     """
     data = req.model_dump(exclude_unset=True)
     if not data:
         return serialize_user(user)
 
-    if data.get("email") is not None and data["email"] != user.email:
+    new_email = data.get("email")
+    if new_email is not None and new_email != user.email:
+        if not _is_valid_email(new_email):
+            raise HTTPException(status_code=400, detail="Invalid email address")
         clash = session.exec(
-            select(User).where(User.email == data["email"], User.id != user.id)
+            select(User).where(User.email == new_email, User.id != user.id)
         ).first()
         if clash:
             raise HTTPException(status_code=409, detail="Email already in use")
-        user.email = data["email"]
-    if data.get("phone") is not None and data["phone"] != user.phone:
+        user.email = new_email
+    new_phone = data.get("phone")
+    if new_phone is not None and new_phone != user.phone:
+        # 先查重再消耗验证码，避免把有效验证码烧在注定失败的请求上
         clash = session.exec(
-            select(User).where(User.phone == data["phone"], User.id != user.id)
+            select(User).where(User.phone == new_phone, User.id != user.id)
         ).first()
         if clash:
             raise HTTPException(status_code=409, detail="Phone already in use")
-        user.phone = data["phone"]
+        if not _is_valid_phone(new_phone):
+            raise HTTPException(status_code=400, detail="Invalid phone number")
+        _consume_otp(session, new_phone, (req.code or "").strip())
+        user.phone = new_phone
     if data.get("full_name") is not None:
         user.full_name = data["full_name"]
     if data.get("avatar_url") is not None:

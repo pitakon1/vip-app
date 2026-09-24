@@ -276,9 +276,10 @@ def _settings_payload(profile: CompanyProfile) -> Dict[str, object]:
     channels = raw.get("payment_channels")
     business = raw.get("business")
     return {
-        "notify_rows": notify if isinstance(notify, list) and notify else DEFAULT_NOTIFY_ROWS,
+        # 仅当未配置（None）时回落默认值；空列表是管理员「全部关闭」的意图，原样返回
+        "notify_rows": notify if isinstance(notify, list) else DEFAULT_NOTIFY_ROWS,
         "payment_channels": channels
-        if isinstance(channels, list) and channels
+        if isinstance(channels, list)
         else DEFAULT_PAYMENT_CHANNELS,
         "business": {**DEFAULT_BUSINESS, **(business if isinstance(business, dict) else {})},
     }

@@ -10,7 +10,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import case as sa_case
 from sqlalchemy import func
@@ -266,7 +266,9 @@ def operations_activity(
     """活跃趋势，支持上卷：granularity = day | week | month。"""
     days = max(7, min(90, days))
     if granularity not in ("day", "week", "month"):
-        granularity = "day"
+        raise HTTPException(
+            status_code=422, detail="granularity must be one of: day, week, month"
+        )
     start = _day_start(-(days - 1))
     rows = session.exec(
         select(
@@ -305,10 +307,19 @@ def operations_activity(
     for day, cnt in rows:
         key = str(day)[:7]  # YYYY-MM
         buckets_m[key] = buckets_m.get(key, 0) + int(cnt)
+    # 缺失月份补 0（与 day 口径一致：从起始月铺到当月）
+    y, m = start.year, start.month
+    end = _day_start(0)
+    months: list[str] = []
+    while (y, m) <= (end.year, end.month):
+        months.append(f"{y:04d}-{m:02d}")
+        m += 1
+        if m > 12:
+            y, m = y + 1, 1
     return {
         "granularity": "month",
         "days": days,
-        "series": {k: buckets_m[k] for k in sorted(buckets_m.keys())},
+        "series": {k: buckets_m.get(k, 0) for k in months},
     }
 
 

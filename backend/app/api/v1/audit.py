@@ -80,7 +80,14 @@ def list_audit_logs(
     )
     page = paginate_query(session, stmt, pagination)
 
-    users = {u.id: u for u in session.exec(select(User)).all()}
+    # 只查当前页涉及的操作人，避免每请求全表加载 User
+    actor_ids = {log.actor_user_id for log in page.items if log.actor_user_id}
+    users = {}
+    if actor_ids:
+        users = {
+            u.id: u
+            for u in session.exec(select(User).where(User.id.in_(actor_ids))).all()
+        }
     enriched = []
     for log in page.items:
         actor = users.get(log.actor_user_id)

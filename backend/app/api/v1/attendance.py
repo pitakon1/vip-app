@@ -5,10 +5,10 @@
 """
 import uuid
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -149,13 +149,31 @@ def _validate_location(session: Session, employee_id, today, lat, lng) -> dict:
     return {"lat": lat, "lng": lng, "within_radius": False, "distance_km": round(dist, 3)}
 
 
+def _require_location(payload: dict) -> tuple[float, float]:
+    """打卡必须携带有效定位：lat/lng 同时存在、为数值且在合理范围内，否则 400。"""
+    lat = payload.get("lat")
+    lng = payload.get("lng")
+    if lat is None or lng is None:
+        raise HTTPException(status_code=400, detail="lat and lng are required for check-in/check-out")
+    if (
+        isinstance(lat, bool)
+        or not isinstance(lat, (int, float))
+        or isinstance(lng, bool)
+        or not isinstance(lng, (int, float))
+    ):
+        raise HTTPException(status_code=400, detail="lat and lng must be numeric")
+    if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+        raise HTTPException(status_code=400, detail="lat/lng out of valid range")
+    return float(lat), float(lng)
+
+
 @router.post("/check-in")
 def check_in(
     payload: dict = Body(default={}),
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
-    """打卡上班。body 可含 {lat, lng} 用于定位校验。"""
+    """打卡上班。body 必含 {lat, lng}（同时存在、数值且在合理范围内）用于定位校验。"""
     employee = _get_employee(session, user)
     today = date.today()
     existing = session.exec(
@@ -166,11 +184,8 @@ def check_in(
         )
     ).first()
 
-    location = None
-    if payload.get("lat") is not None and payload.get("lng") is not None:
-        location = _validate_location(
-            session, employee.id, today, payload["lat"], payload["lng"]
-        )
+    lat, lng = _require_location(payload)
+    location = _validate_location(session, employee.id, today, lat, lng)
 
     now = datetime.utcnow()
     if existing:
@@ -200,7 +215,7 @@ def check_out(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
-    """打卡下班。body 可含 {lat, lng}。"""
+    """打卡下班。body 必含 {lat, lng}（同时存在、数值且在合理范围内）用于定位校验。"""
     employee = _get_employee(session, user)
     today = date.today()
     attendance = session.exec(
@@ -215,10 +230,10 @@ def check_out(
     if attendance.check_out_time:
         raise HTTPException(status_code=400, detail="Already checked out today")
 
-    if payload.get("lat") is not None and payload.get("lng") is not None:
-        attendance.check_out_location = _validate_location(
-            session, employee.id, today, payload["lat"], payload["lng"]
-        )
+    lat, lng = _require_location(payload)
+    attendance.check_out_location = _validate_location(
+        session, employee.id, today, lat, lng
+    )
     attendance.check_out_time = datetime.utcnow()
     session.add(attendance)
     session.commit()
@@ -287,9 +302,34 @@ def my_attendance(
 
 
 # ---------------- 外勤 / 出差 申请 ----------------
+class ExternalTripIn(BaseModel):
+    """外勤/出差申请请求体：trip_date 必填、date 类型且不能是过去日期。"""
+
+    trip_date: date
+    from_location: Optional[str] = None
+    to_location: Optional[str] = None
+    to_lat: Optional[float] = None
+    to_lng: Optional[float] = None
+    reason: str = ""
+
+    @field_validator("trip_date")
+    @classmethod
+    def _not_past(cls, v: date) -> date:
+        if v < date.today():
+            raise ValueError("trip_date must not be in the past")
+        return v
+
+
+class ExternalTripActionIn(BaseModel):
+    """外勤审批动作：action 必填（approved / rejected）。"""
+
+    action: Literal["approved", "rejected"]
+    reply_note: Optional[str] = None
+
+
 @router.post("/external-trips")
 def apply_external_trip(
-    payload: dict,
+    payload: ExternalTripIn,
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
@@ -297,12 +337,12 @@ def apply_external_trip(
     employee = _get_employee(session, user)
     app = ExternalTripApplication(
         employee_id=employee.id,
-        trip_date=date.fromisoformat(payload.get("trip_date")),
-        from_location=payload.get("from_location"),
-        to_location=payload.get("to_location"),
-        to_lat=payload.get("to_lat"),
-        to_lng=payload.get("to_lng"),
-        reason=payload.get("reason", ""),
+        trip_date=payload.trip_date,
+        from_location=payload.from_location,
+        to_location=payload.to_location,
+        to_lat=payload.to_lat,
+        to_lng=payload.to_lng,
+        reason=payload.reason,
         status=TripStatus.pending,
     )
     session.add(app)
@@ -344,7 +384,7 @@ def list_external_trips(
 @router.post("/external-trips/{trip_id}/approve")
 def approve_external_trip(
     trip_id: uuid.UUID,
-    payload: dict = Body(default={}),
+    payload: ExternalTripActionIn,
     session: Session = Depends(get_session),
     user: User = Depends(require_role(UserRole.admin, UserRole.agent)),
 ):
@@ -352,11 +392,10 @@ def approve_external_trip(
     app = session.get(ExternalTripApplication, trip_id)
     if not app:
         raise HTTPException(status_code=404, detail="Trip application not found")
-    action = payload.get("action", "approved")
-    app.status = TripStatus.approved if action == "approved" else TripStatus.rejected
+    app.status = TripStatus.approved if payload.action == "approved" else TripStatus.rejected
     app.approved_by = user.id
     app.approved_at = datetime.utcnow()
-    app.reply_note = payload.get("reply_note")
+    app.reply_note = payload.reply_note
     session.add(app)
     session.commit()
     session.refresh(app)

@@ -130,6 +130,10 @@ def dismiss_dedupe_review(
     review = session.get(PropertyDedupeReview, review_id)
     if not review or review.deleted_at:
         raise HTTPException(status_code=404, detail="Review not found")
+    # 与 merge 一致的「已处理」守卫：已合并（merged）/已驳回（dismissed）不可再改，
+    # 否则候选上架单已被合并抑制后又被放行，形成矛盾脏数据。
+    if review.status not in (ReviewStatus.pending, ReviewStatus.blocked):
+        raise HTTPException(status_code=409, detail="Review already handled")
     candidate = session.get(Listing, review.candidate_listing_id) if review.candidate_listing_id else None
 
     if candidate and candidate.dedupe_state == DedupeState.suspect:

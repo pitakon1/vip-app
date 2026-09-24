@@ -33,6 +33,7 @@ from app.models import (
     DocumentType,
     Lease,
     Owner,
+    Property,
     Tenant,
     User,
     UserRole,
@@ -230,11 +231,34 @@ def create_document(
 ):
     """登记文档元数据（文件由 /documents/upload 落盘后回填 URL）。
 
+    归属口径与 /upload 完全一致（复用 _owner_id_for_upload）：
+    租客禁止登记（403），业主强制挂到本人名下（忽略入参 owner_id），
+    员工/管理员须显式指定业主。租约/房源若指定，必须属于该业主。
+
     `file_url` 只接受服务端生成的 `/uploads/documents/<文件名>` 形式，
     不允许外部地址，避免库里存进任意链接后被下载接口当作跳转目标。
     """
+    data = req.model_dump()
+    # 归属收口：与 /upload 同口径，防止租客任意指定 owner_id/lease_id 登记他人文档
+    data["owner_id"] = _owner_id_for_upload(session, user, data.get("owner_id"))
+    if data.get("lease_id"):
+        lease = session.get(Lease, data["lease_id"])
+        if not lease:
+            raise HTTPException(status_code=404, detail="Lease not found")
+        if lease.owner_id != data["owner_id"]:
+            raise HTTPException(
+                status_code=403, detail="Lease does not belong to owner"
+            )
+    if data.get("property_id"):
+        prop = session.get(Property, data["property_id"])
+        if not prop or prop.deleted_at:
+            raise HTTPException(status_code=404, detail="Property not found")
+        if prop.owner_id != data["owner_id"]:
+            raise HTTPException(
+                status_code=403, detail="Property does not belong to owner"
+            )
     doc = Document(
-        **{**req.model_dump(), "file_url": _validate_stored_url(req.file_url)},
+        **{**data, "file_url": _validate_stored_url(req.file_url)},
         uploaded_by=user.id,
     )
     session.add(doc)

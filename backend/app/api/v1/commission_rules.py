@@ -11,22 +11,29 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
 from app.core.pagination import Page, PaginationParams, paginate_query
-from app.models import BrokerPartner, CommissionRule, CommissionRuleScope, Employee, User
+from app.models import (
+    BrokerPartner,
+    CommissionRule,
+    CommissionRuleScope,
+    DealType,
+    Employee,
+    User,
+)
 
 router = APIRouter(prefix="/commission-rules", tags=["commission-rules"])
 
 
 class CommissionRuleCreate(BaseModel):
     name: str
-    deal_type: str = "new_rental"
-    rate: float
+    deal_type: DealType = DealType.new_rental  # 枚举校验：拼错的成交类型直接 422
+    rate: float = Field(gt=0, le=100)  # 与模型约束对齐：负费率/0 直接 422
     scope: CommissionRuleScope = CommissionRuleScope.all_employees
     department: Optional[str] = None
     employee_id: Optional[uuid.UUID] = None
@@ -41,8 +48,8 @@ class CommissionRuleCreate(BaseModel):
 
 class CommissionRuleUpdate(BaseModel):
     name: Optional[str] = None
-    deal_type: Optional[str] = None
-    rate: Optional[float] = None
+    deal_type: Optional[DealType] = None  # 枚举校验：拼错的成交类型直接 422
+    rate: Optional[float] = Field(default=None, gt=0, le=100)
     scope: Optional[CommissionRuleScope] = None
     department: Optional[str] = None
     employee_id: Optional[uuid.UUID] = None

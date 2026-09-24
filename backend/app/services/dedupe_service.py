@@ -13,8 +13,7 @@ import unicodedata
 from typing import Dict, Optional
 from uuid import UUID
 
-from sqlalchemy import select
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.models import (
     DedupeType,

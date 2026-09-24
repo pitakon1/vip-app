@@ -93,6 +93,52 @@ def _serialize_group(session: Session, g: UserGroup) -> dict:
     }
 
 
+def _serialize_groups(session: Session, groups: list[UserGroup]) -> list[dict]:
+    """批量序列化分组：成员与用户各一次 `in_` 查询，避免逐组 2N+1 查询。"""
+    if not groups:
+        return []
+    group_ids = [g.id for g in groups]
+    members = session.exec(
+        select(UserGroupMember).where(UserGroupMember.group_id.in_(group_ids))
+    ).all()
+    members_by_group: dict[uuid.UUID, list[UserGroupMember]] = {}
+    user_ids: set[uuid.UUID] = set()
+    for m in members:
+        members_by_group.setdefault(m.group_id, []).append(m)
+        user_ids.add(m.user_id)
+    users: dict[uuid.UUID, User] = {}
+    if user_ids:
+        users = {
+            u.id: u
+            for u in session.exec(
+                select(User).where(User.id.in_(user_ids))
+            ).all()
+        }
+    out = []
+    for g in groups:
+        g_members = members_by_group.get(g.id, [])
+        member_names = [
+            {
+                "user_id": str(m.user_id),
+                "full_name": users.get(m.user_id).full_name if users.get(m.user_id) else None,
+                "email": users.get(m.user_id).email if users.get(m.user_id) else None,
+            }
+            for m in g_members
+        ]
+        out.append(
+            {
+                "id": str(g.id),
+                "name": g.name,
+                "description": g.description,
+                "is_active": g.is_active,
+                "member_count": len(g_members),
+                "members": member_names,
+                "created_at": g.created_at.isoformat() if g.created_at else None,
+            }
+        )
+    return out
+
+
 @router.get("", response_model=UserGroupListOut)
 def list_groups(
     session: Session = Depends(get_session),
@@ -104,7 +150,7 @@ def list_groups(
         .where(UserGroup.deleted_at.is_(None))
         .order_by(UserGroup.created_at.desc())
     ).all()
-    return {"items": [_serialize_group(session, g) for g in groups], "total": len(groups)}
+    return {"items": _serialize_groups(session, groups), "total": len(groups)}
 
 
 @router.post("", status_code=201)
@@ -214,12 +260,16 @@ def remove_member(
     user: User = Depends(require_permission("group:manage")),
 ):
     """从分组移除成员。"""
+    g = session.get(UserGroup, group_id)
+    if not g or g.deleted_at:
+        raise HTTPException(status_code=404, detail="Group not found")
     row = session.exec(
         select(UserGroupMember).where(
             UserGroupMember.group_id == group_id, UserGroupMember.user_id == user_id
         )
     ).first()
-    if row:
-        session.delete(row)
-        session.commit()
+    if not row:
+        raise HTTPException(status_code=404, detail="Member not in group")
+    session.delete(row)
+    session.commit()
     return {"ok": True}

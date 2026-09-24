@@ -109,15 +109,30 @@ def review_todos(
     ).all()
 
     # 申请人/房源显示名缓存
+    trip_emp_ids = [t.employee_id for t in trips]
     employees = {
         e.id: e
         for e in session.exec(
             select(Employee).where(
-                Employee.id.in_([t.employee_id for t in trips]) if trips else Employee.id.is_not(None)
+                Employee.id.in_(trip_emp_ids) if trip_emp_ids else Employee.id.is_(None)
             )
         ).all()
     }
-    users = {u.id: u for u in session.exec(select(User)).all()}
+    # 只查列表实际会用到 user 的 id：外勤的申请人 + 服务订单的下单人
+    used_user_ids = {
+        emp.user_id
+        for t in trips
+        if (emp := employees.get(t.employee_id)) and emp.user_id
+    }
+    used_user_ids.update(o.orderer_id for o in orders if o.orderer_id)
+    users = {
+        u.id: u
+        for u in session.exec(
+            select(User).where(
+                User.id.in_(used_user_ids) if used_user_ids else User.id.is_(None)
+            )
+        ).all()
+    }
     properties = {
         p.id: p
         for p in session.exec(
@@ -181,7 +196,7 @@ def review_todos(
             {
                 "type": "contract",
                 "id": str(c.id),
-                "title": f"合同 · {c.title or c.contract_id}",
+                "title": f"合同 · {c.title or c.kind.value}",
                 "applicant": "-",
                 "reason": f"状态需流转：{c.status.value}",
                 "status": c.status.value,

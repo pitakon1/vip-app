@@ -8,21 +8,35 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user
+from app.core.auth import STAFF_ROLES, get_current_user
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
+    Lease,
+    Owner,
+    Property,
     ServiceOrder,
     ServiceType,
     ServiceOrderStatus,
     ServicePackage,
     ServiceBillingModel,
     ServicePackageStatus,
+    Tenant,
     User,
     UserRole,
 )
 
 router = APIRouter(prefix="/service-orders", tags=["service-orders"])
+
+# 服务订单状态流转白名单：仅允许前进（pending→assigned→in_progress→completed/cancelled），
+# 回退一律 409——状态回退后再置 completed 会让按次扣次（quota_used+1）重复执行。
+_SERVICE_ORDER_STATUS_RANK = {
+    ServiceOrderStatus.pending: 0,
+    ServiceOrderStatus.assigned: 1,
+    ServiceOrderStatus.in_progress: 2,
+    ServiceOrderStatus.completed: 3,
+    ServiceOrderStatus.cancelled: 4,
+}
 
 
 class ServiceOrderCreate(BaseModel):
@@ -42,12 +56,13 @@ class ServiceOrderCreate(BaseModel):
 
 
 class ServiceOrderStatusUpdate(BaseModel):
+    """服务订单状态更新（员工侧）。评分只能走 /{order_id}/review，不在此接受。"""
+
     status: ServiceOrderStatus
     provider_id: Optional[str] = None
     scheduled_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     notes: Optional[str] = None
-    rating: Optional[int] = None
 
 
 class ServiceOrderReview(BaseModel):
@@ -97,6 +112,45 @@ def create_service_order(
     记录购买时的计费方式与本次结算金额（billing_model / billing_amount），
     并可在创建时关联一个按次套餐（service_package_id），完成时用于扣次。
     """
+    # 房源必须存在
+    prop = session.get(Property, req.property_id)
+    if not prop or prop.deleted_at:
+        raise HTTPException(status_code=404, detail="Property not found")
+    # 非员工只能为自己下单，禁止替他人下单
+    if user.role not in STAFF_ROLES and req.orderer_id != user.id:
+        raise HTTPException(
+            status_code=403, detail="Not allowed to create order for another user"
+        )
+    # 订单必须与下单人存在真实关系：业主名下房源 / 租客已承租房源（复用套餐校验口径）
+    if req.orderer_type == "owner":
+        owner = session.exec(
+            select(Owner).where(
+                Owner.user_id == req.orderer_id, Owner.deleted_at.is_(None)
+            )
+        ).first()
+        if not owner:
+            raise HTTPException(status_code=404, detail="Owner profile not found")
+        if prop.owner_id != owner.id:
+            raise HTTPException(
+                status_code=403, detail="Property does not belong to orderer"
+            )
+    elif req.orderer_type == "tenant":
+        tenant = session.exec(
+            select(Tenant).where(
+                Tenant.user_id == req.orderer_id, Tenant.deleted_at.is_(None)
+            )
+        ).first()
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant profile not found")
+        lease = session.exec(
+            select(Lease).where(
+                Lease.tenant_id == tenant.id, Lease.property_id == req.property_id
+            )
+        ).first()
+        if not lease:
+            raise HTTPException(
+                status_code=403, detail="Property is not leased to orderer"
+            )
     # 计费金额默认取请求的单次金额（= unit_price）；未给 billing_amount 时沿用 amount
     billing_amount = (
         req.billing_amount if req.billing_amount is not None else req.amount
@@ -161,12 +215,28 @@ def update_service_order_status(
         raise HTTPException(status_code=404, detail="Service order not found")
 
     update_data = req.model_dump(exclude_unset=True)
+    # 评分只能走 /{order_id}/review 接口，员工在状态更新里直写评分一律剥离
+    update_data.pop("rating", None)
+    # 状态机校验：仅允许前进，回退（尤其 completed 之后改回旧状态再置 completed）会
+    # 绕过幂等扣次，导致 quota_used 重复 +1
+    new_status = update_data.get("status")
+    if new_status is not None and _SERVICE_ORDER_STATUS_RANK[
+        new_status
+    ] < _SERVICE_ORDER_STATUS_RANK[order.status]:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Invalid status transition: {order.status.value} -> {new_status.value}"
+            ),
+        )
+    # 幂等扣次判据：以 completed_at 是否已落为唯一条件（而非当前 status 比较），
+    # 重复提交 completed 不会再触发 quota_used +1
     is_completion = (
         update_data.get("status") == ServiceOrderStatus.completed
-        and order.status != ServiceOrderStatus.completed
+        and not order.completed_at
     )
     # 状态变为 completed 时自动记录完成时间
-    if is_completion and not order.completed_at:
+    if is_completion:
         update_data["completed_at"] = datetime.utcnow()
 
     for key, value in update_data.items():

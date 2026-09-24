@@ -36,9 +36,40 @@ from app.models import (
     MortgageApplication,
     MortgageStatus,
     SaleListing,
+    SaleListingStatus,
 )
 
 router = APIRouter(prefix="/property-deals", tags=["property-deals"])
+
+
+# 成交状态合法流转白名单（终态 completed/failed/cancelled 不可再跳转）
+_DEAL_STATUS_TRANSITIONS: dict[PropertyDealStatus, set] = {
+    PropertyDealStatus.drafted: {
+        PropertyDealStatus.escrow_pending,
+        PropertyDealStatus.signed,
+        PropertyDealStatus.failed,
+        PropertyDealStatus.cancelled,
+    },
+    PropertyDealStatus.escrow_pending: {
+        PropertyDealStatus.signed,
+        PropertyDealStatus.failed,
+        PropertyDealStatus.cancelled,
+    },
+    PropertyDealStatus.signed: {
+        PropertyDealStatus.transferring,
+        PropertyDealStatus.completed,
+        PropertyDealStatus.failed,
+        PropertyDealStatus.cancelled,
+    },
+    PropertyDealStatus.transferring: {
+        PropertyDealStatus.completed,
+        PropertyDealStatus.failed,
+        PropertyDealStatus.cancelled,
+    },
+    PropertyDealStatus.completed: set(),
+    PropertyDealStatus.failed: set(),
+    PropertyDealStatus.cancelled: set(),
+}
 
 
 
@@ -176,6 +207,15 @@ def create_deal(
     listing = session.get(SaleListing, req.sale_listing_id)
     if not listing or listing.deleted_at:
         raise HTTPException(status_code=404, detail="Sale listing not found")
+    # 同一挂牌只允许创建一笔成交：已成交/关闭/取消/过期一律拒绝重复建单
+    if listing.status not in (SaleListingStatus.active, SaleListingStatus.pending):
+        raise HTTPException(
+            status_code=409, detail="该挂牌已成交或关闭，不能重复创建成交"
+        )
+    if req.buyer_user_id and not session.get(User, req.buyer_user_id):
+        raise HTTPException(status_code=404, detail="Buyer user not found")
+    if req.sales_user_id and not session.get(User, req.sales_user_id):
+        raise HTTPException(status_code=404, detail="Sales user not found")
     deal = PropertyDeal(
         sale_listing_id=req.sale_listing_id,
         buyer_user_id=req.buyer_user_id,
@@ -190,7 +230,7 @@ def create_deal(
     # 成交创建与挂牌状态联动在同一个事务内一次提交，避免后段失败产生
     # 「成交已建、挂牌未联动」的不一致。
     session.add(deal)
-    listing.status = "contracted"
+    listing.status = SaleListingStatus.contracted
     session.add(listing)
     session.commit()
     session.refresh(deal)
@@ -220,8 +260,15 @@ def update_deal_status(
     修复前：任意登录用户可用任意 deal_id 推进他人成交状态。
     """
     deal = _get_visible_deal(session, user, deal_id)
+    # 状态机校验：非法跳转（含同状态重复提交）一律 409
+    allowed = _DEAL_STATUS_TRANSITIONS.get(deal.status, set())
+    if status not in allowed:
+        raise HTTPException(
+            status_code=409,
+            detail=f"非法状态流转：{deal.status.value} → {status.value}",
+        )
     deal.status = status
-    if status == PropertyDealStatus.signed:
+    if status == PropertyDealStatus.signed and deal.signed_at is None:
         deal.signed_at = datetime.utcnow()
     session.add(deal)
     session.commit()
@@ -298,6 +345,9 @@ def release_escrow(
     escrow = session.get(Escrow, escrow_id)
     if not escrow or escrow.deleted_at:
         raise HTTPException(status_code=404, detail="Escrow not found")
+    # 仅「已存入」的托管可放款，已终结（放款/退款）的托管不得重复操作
+    if escrow.status != EscrowStatus.deposited:
+        raise HTTPException(status_code=409, detail="当前托管状态不允许放款")
     escrow.status = EscrowStatus.released_seller
     escrow.released_at = datetime.utcnow()
     session.add(escrow)
@@ -316,6 +366,9 @@ def refund_escrow(
     escrow = session.get(Escrow, escrow_id)
     if not escrow or escrow.deleted_at:
         raise HTTPException(status_code=404, detail="Escrow not found")
+    # 仅「已存入」的托管可退款，已终结（放款/退款）的托管不得重复操作
+    if escrow.status != EscrowStatus.deposited:
+        raise HTTPException(status_code=409, detail="当前托管状态不允许退款")
     escrow.status = EscrowStatus.refunded_buyer
     escrow.refunded_at = datetime.utcnow()
     session.add(escrow)

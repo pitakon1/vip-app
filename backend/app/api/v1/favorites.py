@@ -76,6 +76,29 @@ def add_favorite(
     if existing:
         return {"ok": True, "favorited": True, "id": str(existing.id)}
 
+    # 取消收藏是软删（置 deleted_at），而表上 (user_id, property_id) 唯一约束是
+    # 硬性的——取消后再收藏若直接新建必撞唯一约束（IntegrityError 500）。
+    # 有软删旧行时复活它：清 deleted_at 并更新备注。
+    stale = session.exec(
+        select(Favorite).where(
+            Favorite.user_id == user.id,
+            Favorite.property_id == req.property_id,
+            Favorite.deleted_at.is_not(None),
+        )
+    ).first()
+    if stale:
+        stale.deleted_at = None
+        stale.notes = req.notes or ""
+        session.add(stale)
+        session.commit()
+        session.refresh(stale)
+        return {
+            "ok": True,
+            "favorited": True,
+            "id": str(stale.id),
+            "created_at": stale.created_at.isoformat() if stale.created_at else None,
+        }
+
     fav = Favorite(user_id=user.id, property_id=req.property_id, notes=req.notes or "")
     session.add(fav)
     session.commit()

@@ -148,6 +148,10 @@ def add_party(
     追加签署方会写入证件号等 PII，且决定谁有权签署，属平台作业动作。
     """
     _get_visible_contract(session, user, contract_id)
+    try:
+        role = SignerRole(payload.get("role", "tenant"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="非法签署角色")
     party = ContractParty(
         contract_id=contract_id,
         user_id=payload.get("user_id"),
@@ -155,7 +159,7 @@ def add_party(
         email=payload.get("email", ""),
         id_number=payload.get("id_number"),
         phone=payload.get("phone"),
-        role=SignerRole(payload.get("role", "tenant")),
+        role=role,
     )
     session.add(party)
     session.commit()
