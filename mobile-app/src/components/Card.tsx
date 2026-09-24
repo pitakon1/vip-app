@@ -22,18 +22,18 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
-    padding: 16,
-    marginVertical: 8,
-    marginHorizontal: 12,
+    padding: colors.spacing.lg, // 16
+    marginVertical: colors.spacing.sm, // 8
+    marginHorizontal: colors.spacing.md, // 12
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     ...colors.shadow.card,
   },
   title: {
-    fontSize: 16,
+    fontSize: colors.fontSize.lg, // 16
     fontWeight: '700',
     color: colors.ink,
-    marginBottom: 12,
+    marginBottom: colors.spacing.md, // 12
     letterSpacing: -0.2,
   },
 });

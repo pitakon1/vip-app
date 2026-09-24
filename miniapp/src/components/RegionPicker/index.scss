@@ -115,7 +115,10 @@
 }
 
 .rp-opt {
-  padding: 14rpx 12rpx;
+  display: flex;
+  align-items: center;
+  min-height: 88rpx; /* 触控目标最小 ≈44pt（原 padding 14rpx 12rpx 不足一半） */
+  padding: 12rpx 16rpx;
   border-radius: var(--radius-md);
   margin-bottom: 8rpx;
 

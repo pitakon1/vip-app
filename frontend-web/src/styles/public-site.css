@@ -73,7 +73,7 @@
 }
 
 .pub-loc__text {
-  font-size: 13px;
+  font-size: 14px; /* 正文下限：原 13px 低于可读基线 */
   max-width: 96px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -120,8 +120,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  height: 40px;
+  gap: 8px; /* 相邻可点元素间距 ≥8 */
+  height: 44px; /* 触控目标最小 44px */
   padding: 0 18px;
   font-size: 14px;
   font-family: inherit;

@@ -38,11 +38,11 @@ export function Badge({ text, primary }: { text: string; primary?: boolean }) {
 
 const styles = StyleSheet.create({
   chip: {
-    height: 32,
+    minHeight: 44, // 触控最小高度 44pt（iOS HIG / Android 48dp 折中基准）
     borderRadius: colors.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16, // 对齐 8px 间距网格
     alignItems: 'center',
     justifyContent: 'center',
   },

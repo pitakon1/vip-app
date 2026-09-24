@@ -40,6 +40,14 @@ export default function PublicBackRow() {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 4, alignSelf: 'flex-start' },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8, // 相邻可点元素间距 ≥8（原 2 会诱导误触）
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    minHeight: 44, // 返回入口也是可点目标，高度对齐 44pt
+    alignSelf: 'flex-start',
+  },
   text: { fontSize: colors.fontSize.base, color: colors.ink2 },
 });

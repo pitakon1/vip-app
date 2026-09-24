@@ -169,7 +169,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  min-height: 40px; /* 菜单行高 ≥40，鼠标/触屏都可点 */
+  padding: 6px 12px;
   border-radius: var(--rent-radius-md);
   font-size: 14px;
   font-weight: 500;
@@ -177,7 +178,7 @@
   text-decoration: none;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
-  margin-bottom: 2px;
+  margin-bottom: 4px; /* 相邻项间距对齐 4/8 网格（原 2 过挤） */
 }
 .rent-nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
 .rent-nav-item[data-active="true"] {
