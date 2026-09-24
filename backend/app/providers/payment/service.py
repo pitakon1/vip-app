@@ -599,8 +599,14 @@ class PaymentService:
             )
             return {"ok": True, "ignored": True, "reason": "duplicate webhook"}
 
-        # 已处于终态的支付单不再变更（仍留档，便于审计重复投递）
-        if payment.status in (PaymentStatus.succeeded, PaymentStatus.refunded):
+        # 已处于终态的支付单不再变更（仍留档，便于审计重复投递）。
+        # expired 必须一并拦截：已取消的单收到 succeeded 回调会被下面 641-663
+        # 分支复活为已到账（与凭证上传路径一致，expired 视为终态）。
+        if payment.status in (
+            PaymentStatus.succeeded,
+            PaymentStatus.refunded,
+            PaymentStatus.expired,
+        ):
             event.mark(WEBHOOK_IGNORED, payment.id, "payment already final")
             session.add(event)
             session.commit()

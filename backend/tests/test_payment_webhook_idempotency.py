@@ -152,3 +152,23 @@ def test_payload_without_reference_key_raises_value_error(session):
     rows = session.exec(select(PaymentWebhookEvent)).all()
     assert len(rows) == 1
     assert "no reference key" in (rows[0].note or "")
+
+
+def test_expired_payment_not_revived_by_succeeded_webhook(session):
+    """终态防护：已取消（expired）的支付单收到 succeeded 回调不得复活为已到账。
+
+    与凭证上传路径一致（expired 视为终态）：webhook 分支此前只拦
+    succeeded/refunded，漏了 expired——真实渠道回调会让已取消单复活置
+    succeeded 并写 paid_at（假到账）。本用例锁住 expired 拦截。
+    """
+    pay = _make_payment(session, tx_id="TX-EXP", status=PaymentStatus.expired)
+
+    result = _hook(
+        session, {"transaction_id": "TX-EXP", "id": "EVT-EXP", "event": "payment.succeeded", "amount": 6000}
+    )
+    assert result.get("ignored") is True
+    assert result.get("reason") == "payment already final"
+
+    session.refresh(pay)
+    assert pay.status == PaymentStatus.expired
+    assert pay.paid_at is None
