@@ -14,13 +14,14 @@ export const CURRENCY_SYMBOL: Record<string, string> = {
 // 基准换算率：THB=1（与后端 app/services/pricing.py 保持一致；RM 为产品原型展示币种）
 const RATES: Record<string, number> = { THB: 1, CNY: 5.2, USD: 36, EUR: 39, RM: 10 }
 
-/** 按符号格式化金额：THB 显示 ฿ + 千分位，其余显示符号 + 千分位。 */
+/** 按符号格式化金额：THB 显示 ฿ + 千分位，其余显示符号 + 千分位；空值（null/undefined/''）显示 '—'，不附币种符号。 */
 export function formatMoney(
-  value: number,
+  value: number | string | null | undefined,
   currency: string = 'THB',
   displaySymbol = true,
 ): string {
-  const num = Number(value || 0)
+  if (value === null || value === undefined || value === '') return '—'
+  const num = Number(value)
   const code = (currency || 'THB').toUpperCase()
   if (!displaySymbol) return num.toLocaleString()
   const symbol = CURRENCY_SYMBOL[code] || `${code} `

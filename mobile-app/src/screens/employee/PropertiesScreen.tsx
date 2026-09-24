@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
@@ -93,6 +94,7 @@ const SORTS: { key: string; label: string }[] = [
 export default function PropertiesScreen() {
   const respContainer = useResponsiveContainerStyle();
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<PropertyItem[]>([]);
   const [total, setTotal] = useState(0);
   const [vacantTotal, setVacantTotal] = useState<number | null>(null);
@@ -536,7 +538,7 @@ export default function PropertiesScreen() {
       {/* 按学校找房（C 端维度下拉面板） */}
       <Modal visible={schoolOpen} transparent animationType="fade" onRequestClose={() => setSchoolOpen(false)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setSchoolOpen(false)}>
-          <TouchableOpacity style={styles.panel} activeOpacity={1} onPress={() => {}}>
+          <TouchableOpacity style={[styles.panel, { paddingBottom: insets.bottom + 12 }]} activeOpacity={1} onPress={() => {}}>
             <View style={styles.panelHead}>
               <Text style={styles.panelTitle}>按学校找房</Text>
               <TouchableOpacity onPress={() => setSchoolOpen(false)} hitSlop={8}>
@@ -617,7 +619,7 @@ export default function PropertiesScreen() {
       {/* 更多筛选：价格 / 面积 / 卧室（C 端维度） */}
       <Modal visible={moreOpen} transparent animationType="fade" onRequestClose={() => setMoreOpen(false)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setMoreOpen(false)}>
-          <TouchableOpacity style={styles.panel} activeOpacity={1} onPress={() => {}}>
+          <TouchableOpacity style={[styles.panel, { paddingBottom: insets.bottom + 12 }]} activeOpacity={1} onPress={() => {}}>
             <View style={styles.panelHead}>
               <Text style={styles.panelTitle}>更多筛选</Text>
               <TouchableOpacity onPress={() => setMoreOpen(false)} hitSlop={8}>
@@ -866,7 +868,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: colors.radius.xl,
     paddingHorizontal: colors.spacing.lg,
     paddingTop: colors.spacing.lg,
-    paddingBottom: colors.spacing.xl,
     maxHeight: '78%',
   },
   panelHead: {

@@ -45,7 +45,7 @@
   width: 100%;
   background: var(--surface);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  padding: 0 24rpx 24rpx;
+  padding: 0 24rpx calc(24rpx + env(safe-area-inset-bottom));
   max-height: 82vh;
   display: flex;
   flex-direction: column;

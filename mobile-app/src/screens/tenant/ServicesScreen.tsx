@@ -11,6 +11,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import api from '@/lib/api';
 import { leasesApi, serviceOrdersApi } from '@/services/api';
@@ -96,6 +97,7 @@ export default function ServicesScreen() {
   const [buyModel, setBuyModel] = useState<BuyModel>('per_use');
   const [buyQty, setBuyQty] = useState<number>(1);
   const [submitting, setSubmitting] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const q = useCachedQuery<ServicesPayload>({
     queryKey: ['tenant-services', uid],
@@ -334,7 +336,7 @@ export default function ServicesScreen() {
         onRequestClose={() => setSelected(null)}
       >
         <View style={styles.overlay}>
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
             {/* 商品头 */}
             <View style={styles.skuHead}>
               <View style={styles.skuIcon}>
@@ -571,7 +573,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: colors.radius.xl,
     borderTopRightRadius: colors.radius.xl,
     padding: 16,
-    paddingBottom: 24,
     maxHeight: '82%',
   },
   skuHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },

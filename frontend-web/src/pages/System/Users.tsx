@@ -93,9 +93,9 @@ const Users = () => {
   }
 
   const handleSubmit = async () => {
-    const values = await form.validateFields()
-    setSaving(true)
     try {
+      const values = await form.validateFields()
+      setSaving(true)
       if (editing) {
         await api.patch(`/admin/users/${editing.id}`, values)
         message.success(t('systemUsers.msgUpdated'))
@@ -106,6 +106,10 @@ const Users = () => {
       setModalOpen(false)
       fetchData()
     } catch (err: any) {
+      if (err?.errorFields) {
+        form.scrollToField(err.errorFields[0].name)
+        return
+      }
       message.error(err?.response?.data?.detail || err?.response?.data?.message || t('systemUsers.errSave'))
     } finally {
       setSaving(false)

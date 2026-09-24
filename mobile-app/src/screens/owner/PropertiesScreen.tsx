@@ -25,6 +25,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
@@ -263,6 +264,7 @@ export default function PropertiesScreen() {
   const respContainer = useResponsiveContainerStyle();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const { t } = useI18n();
   const TYPE_META = typeMetaMap(t);
   const STATUS_CHIPS = statusChips(t);
@@ -1143,7 +1145,7 @@ export default function PropertiesScreen() {
         onRequestClose={closeForm}
       >
         <View style={styles.mask}>
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle}>{editingId ? t('prop.editTitle') : t('prop.createTitle')}</Text>
               <TouchableOpacity onPress={closeForm} hitSlop={12}>
@@ -1567,7 +1569,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderTopLeftRadius: colors.radius.xl,
     borderTopRightRadius: colors.radius.xl,
-    paddingBottom: 24,
     maxHeight: '90%',
   },
   sheetHead: {

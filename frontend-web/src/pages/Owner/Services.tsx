@@ -439,6 +439,10 @@ const Services = () => {
       bookingForm.resetFields()
       refresh()
     } catch (err: any) {
+      if (err?.errorFields) {
+        bookingForm.scrollToField(err.errorFields[0].name)
+        return
+      }
       if (err?.response) {
         message.error(err?.response?.data?.detail || t('ownerServices.bookFailed'))
       }
@@ -512,6 +516,10 @@ const Services = () => {
         )
       }
     } catch (err: any) {
+      if (err?.errorFields) {
+        form.scrollToField(err.errorFields[0].name)
+        return
+      }
       if (err?.response) {
         message.error(err?.response?.data?.detail || t('ownerServices.subscribeFailed'))
       }
@@ -574,6 +582,10 @@ const Services = () => {
       repairForm.resetFields()
       refresh()
     } catch (err: any) {
+      if (err?.errorFields) {
+        repairForm.scrollToField(err.errorFields[0].name)
+        return
+      }
       if (err?.response) {
         message.error(err?.response?.data?.detail || t('ownerServices.repairFailed'))
       }

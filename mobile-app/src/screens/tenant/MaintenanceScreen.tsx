@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Card from '@/components/Card';
 import colors from '@/theme/colors';
 import { maintenanceApi, leasesApi } from '@/services/api';
@@ -76,6 +77,7 @@ interface TicketRow extends MaintenanceTicket {}
 
 export default function MaintenanceScreen() {
   const { t } = useI18n();
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   // 提交表单
   const [title, setTitle] = useState('');
@@ -441,7 +443,7 @@ export default function MaintenanceScreen() {
         onRequestClose={() => setSelected(null)}
       >
         <View style={styles.modalWrap}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { paddingBottom: insets.bottom + 12 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>工单详情</Text>
               <TouchableOpacity
@@ -641,7 +643,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: colors.radius.xl,
     borderTopRightRadius: colors.radius.xl,
     padding: 16,
-    paddingBottom: 28,
   },
   modalHeader: {
     flexDirection: 'row',

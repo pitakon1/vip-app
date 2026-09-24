@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import { fmtMoney } from '@/utils/format';
@@ -19,10 +20,11 @@ interface Props {
 /** 扫码支付弹层：展示待付金额与二维码，供用户用支付应用扫描 */
 export default function PaymentSheet({ visible, qr, amount, currency, channelLabel, onClose }: Props) {
   const { t } = useI18n();
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.mask}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.head}>
             <Text style={styles.title}>{t('pay.scanTitle')}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('profile.close')}>
@@ -56,7 +58,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: colors.radius.xl,
     borderTopRightRadius: colors.radius.xl,
     padding: colors.spacing.lg,
-    paddingBottom: colors.spacing.xxl,
     alignItems: 'center',
   },
   head: {

@@ -230,7 +230,7 @@
       width: 100%;
       background-color: var(--card);
       border-radius: 24px 24px 0 0;
-      padding: 32px 28px 40px;
+      padding: 32px 28px calc(40px + env(safe-area-inset-bottom));
 
       .rate-panel-header {
         display: flex;

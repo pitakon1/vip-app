@@ -1126,7 +1126,7 @@ export default function AdminPropertiesScreen() {
       {/* 指派归属人：选中内部员工（销售/经纪/管理员）后，该房源即归其名下维护 */}
       <Modal visible={!!assignTarget} transparent animationType="fade" onRequestClose={closeAssign}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 12 }]}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>{t('adm.psAssignTitle')}</Text>
               <TouchableOpacity
@@ -1540,7 +1540,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: colors.radius.xl,
     paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: 16,
     maxHeight: '80%',
   },
   modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

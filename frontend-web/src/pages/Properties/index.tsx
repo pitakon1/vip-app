@@ -430,7 +430,10 @@ const Properties = () => {
       setModalOpen(false)
       fetchData()
     } catch (err: any) {
-      if (err?.errorFields) return
+      if (err?.errorFields) {
+        form.scrollToField(err.errorFields[0].name)
+        return
+      }
       message.error(err?.response?.data?.message || t('property.saveFailed'))
     } finally { setSubmitting(false) }
   }

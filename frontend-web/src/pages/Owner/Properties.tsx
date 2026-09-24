@@ -351,7 +351,10 @@ const Properties = () => {
       setModalOpen(false)
       refresh()
     } catch (err: any) {
-      if (err?.errorFields) return
+      if (err?.errorFields) {
+        form.scrollToField(err.errorFields[0].name)
+        return
+      }
       const detail = err?.response?.data?.detail
       message.error(typeof detail === 'string' && detail ? detail : err?.response?.data?.message || t('ownerProperties.errSaveFailed'))
     } finally {

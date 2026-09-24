@@ -64,15 +64,19 @@ const Groups = () => {
   }
 
   const handleCreate = async () => {
-    const values = await form.validateFields()
-    setSaving(true)
     try {
+      const values = await form.validateFields()
+      setSaving(true)
       await api.post('/user-groups', values)
       message.success(t('systemGroups.msgCreated'))
       setModalOpen(false)
       form.resetFields()
       fetchGroups()
     } catch (err: any) {
+      if (err?.errorFields) {
+        form.scrollToField(err.errorFields[0].name)
+        return
+      }
       message.error(err?.response?.data?.detail || t('systemGroups.errCreate'))
     } finally {
       setSaving(false)
