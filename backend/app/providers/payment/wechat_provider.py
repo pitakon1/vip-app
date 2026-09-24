@@ -177,13 +177,15 @@ class WechatProvider(PaymentProvider):
     def refund(self, request: RefundRequest) -> RefundResult:
         """发起退款"""
         url = "/v3/refund/domestic/refunds"
+        # 微信 APIv3：total=原单金额、refund=本次退款金额；部分退款必须传原单金额
+        original_total = int(round((request.original_amount or request.amount) * 100))
         body = {
             "out_trade_no": request.channel_transaction_id,
             "out_refund_no": f"RF{int(time.time())}",
             "reason": request.reason or "refund",
             "amount": {
                 "refund": int(round(request.amount * 100)),
-                "total": int(round(request.amount * 100)),
+                "total": original_total,
                 "currency": "CNY",
             },
         }
@@ -297,7 +299,10 @@ def _decrypt_aes_gcm(
     """使用 AES-256-GCM 解密微信回调资源（APIv3 密钥）"""
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-    key_bytes = hashlib.sha256(key.encode("utf-8")).digest()  # 确保 32 字节
+    # 微信 APIv3 密钥本身就是 32 字节，直接 UTF-8 编码即可。
+    # 此前误用 sha256 派生，得到与微信加密所用不同的密钥，导致成功回调永远解密
+    # 失败、status 恒为 unknown、真实到账无法入账。
+    key_bytes = key.encode("utf-8")
     cipher_bytes = base64.b64decode(ciphertext)
     aesgcm = AESGCM(key_bytes)
     ad = associated_data.encode("utf-8") if associated_data else None

@@ -12,8 +12,9 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import Date
 from sqlalchemy import case as sa_case
-from sqlalchemy import func
+from sqlalchemy import cast, func
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -110,9 +111,9 @@ def _daily_active(session: Session, days: int) -> dict[str, int]:
     for i in range(days - 1, -1, -1):
         out[_day_start(-i).date().isoformat()] = 0
     for day, cnt in session.exec(
-        select(func.date(User.last_login_at), func.count(User.id))
+        select(cast(User.last_login_at, Date), func.count(User.id))
         .where(User.last_login_at >= start)
-        .group_by(func.date(User.last_login_at))
+        .group_by(cast(User.last_login_at, Date))
     ).all():
         out[str(day)] = int(cnt)
     return out
@@ -272,11 +273,11 @@ def operations_activity(
     start = _day_start(-(days - 1))
     rows = session.exec(
         select(
-            func.date(User.last_login_at),
+            cast(User.last_login_at, Date),
             func.count(User.id),
         )
         .where(User.last_login_at >= start)
-        .group_by(func.date(User.last_login_at))
+        .group_by(cast(User.last_login_at, Date))
     ).all()
 
     if granularity == "day":

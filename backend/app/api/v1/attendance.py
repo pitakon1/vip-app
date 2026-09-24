@@ -390,7 +390,7 @@ def approve_external_trip(
 ):
     """审批外勤申请（admin/agent）。payload: {action: approved|rejected, reply_note?}"""
     app = session.get(ExternalTripApplication, trip_id)
-    if not app:
+    if not app or app.deleted_at:
         raise HTTPException(status_code=404, detail="Trip application not found")
     app.status = TripStatus.approved if payload.action == "approved" else TripStatus.rejected
     app.approved_by = user.id

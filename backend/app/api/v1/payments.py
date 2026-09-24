@@ -21,7 +21,7 @@ import mimetypes
 import uuid
 from datetime import date as date_type, datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
@@ -427,10 +427,14 @@ def create_payment(
     user: User = Depends(get_current_user),
 ):
     """创建支付单（租客 / 管理端均可，含幂等键防重复下单）。"""
-    # 租客只能为自己创建支付单
-    if user.role == UserRole.tenant and req.payer_id != user.id:
+    # 归属校验：非员工只能为自己创建支付单；带租约的支付单额外要求与租约相关
+    # （此前只拦租客，owner 传任意 payer_id 即可给无关用户开虚假缴费单）。
+    if (
+        user.role not in (UserRole.admin, UserRole.agent, UserRole.employee)
+        and req.payer_id != user.id
+    ):
         raise HTTPException(
-            status_code=403, detail="Tenant can only create payment for self"
+            status_code=403, detail="Non-staff can only create payment for self"
         )
 
     # 归属校验：带了租约的支付单必须与调用方相关，否则任意登录用户
@@ -519,8 +523,7 @@ def list_my_payments(
 
 @router.post("/upload")
 def upload_payment_proof(
-    amount: float = Form(...),
-    payment_date: str = Form(...),
+    amount: Annotated[float, Form(gt=0)],
     payment_method: str = Form("bank_transfer"),
     receipt: Optional[UploadFile] = File(None),
     session: Session = Depends(get_session),
@@ -581,10 +584,15 @@ async def payment_webhook(
     已在契约工具 INTENTIONAL_ORPHANS 登记，不再报警。
     """
     raw_body = await request.body()
-    try:
-        payload = json.loads(raw_body)
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    if channel == PaymentChannel.ALIPAY.value:
+        # 支付宝异步通知是 application/x-www-form-urlencoded，不是 JSON；
+        # 此前只做 json.loads 必然 400，回调被渠道判死、支付单永久 processing。
+        payload = dict(await request.form())
+    else:
+        try:
+            payload = json.loads(raw_body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise HTTPException(status_code=400, detail="Invalid JSON body")
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="Invalid webhook payload")
 
@@ -819,6 +827,12 @@ def pay_payment(
         raise HTTPException(
             status_code=400, detail=f"Payment already in final state: {payment.status.value}"
         )
+    # 支付处理中：重复发起会生成第二个渠道订单，用户若两笔都付即重复扣款
+    if payment.status == PaymentStatus.processing:
+        raise HTTPException(
+            status_code=409,
+            detail="Payment is being processed, please wait for the result",
+        )
 
     return payment_service.create_order(
         session, payment, req.channel, customer_email=user.email
@@ -867,9 +881,11 @@ def submit_payment_proof(
     payment.receipt_url = _validate_receipt_url(req.receipt_url)
     if req.channel:
         payment.channel = req.channel
+    # expired（已取消）视为终态：不允许上传凭证把已取消的单复活为待审核
     if payment.status not in (
         PaymentStatus.succeeded,
         PaymentStatus.refunded,
+        PaymentStatus.expired,
     ):
         payment.status = PaymentStatus.pending
     session.add(payment)
@@ -995,6 +1011,13 @@ def refund_payment(
 ):
     """退款：有渠道交易号原路退回，否则标记线下人工退款。"""
     payment = _get_payment_or_404(payment_id, session)
+    # 行锁：串行化同一支付单的并发退款，保证「累计已退 + 本次 ≤ 原单金额」
+    # 的校验与退款落库原子（PostgreSQL 生效；SQLite 无行锁但仅开发环境）。
+    locked = session.exec(
+        select(Payment).where(Payment.id == payment_id).with_for_update()
+    ).first()
+    if locked is not None:
+        payment = locked
     try:
         return payment_service.refund(session, payment, amount=req.amount, reason=req.reason)
     except ValueError as e:

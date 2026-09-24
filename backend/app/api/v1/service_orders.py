@@ -46,12 +46,12 @@ class ServiceOrderCreate(BaseModel):
     service_type: ServiceType
     scheduled_at: Optional[datetime] = None
     provider_id: Optional[str] = None
-    amount: float = 0
+    amount: float = Field(default=0, ge=0)
     currency: str = "THB"
     notes: Optional[str] = None
     # 购买计费方式与本次结算金额（配合服务套餐做「按次扣次」）
     billing_model: Optional[str] = None  # monthly/per_use/annual
-    billing_amount: Optional[float] = None
+    billing_amount: Optional[float] = Field(default=None, ge=0)
     service_package_id: Optional[uuid.UUID] = None  # 关联的按次套餐
 
 

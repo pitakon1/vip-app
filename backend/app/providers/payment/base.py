@@ -69,6 +69,8 @@ class RefundRequest:
     channel_transaction_id: str
     amount: float
     reason: str = ""
+    # 原单金额：部分退款时渠道（如微信 V3）要求 total=原单金额、refund=退款金额
+    original_amount: Optional[float] = None
 
 
 @dataclass

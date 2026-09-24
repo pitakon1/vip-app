@@ -26,6 +26,8 @@ from app.models import (
     ContractKind,
     ContractParty,
     SignerRole,
+    Employee,
+    PropertyDeal,
 )
 from app.services import esign_service
 
@@ -521,6 +523,9 @@ def create_split(
     """创建联合单分成（多人/多角色拆分佣金）。"""
     if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="No permission")
+    # 分成必须挂在一笔真实存在的交易上（否则 FK IntegrityError 500）
+    if not session.get(PropertyDeal, deal_id):
+        raise HTTPException(status_code=404, detail="Deal not found")
     # 入参校验：SplitDeal 模型对 commission_total / split_rate / split_amount
     # 均有 gt=0 约束，非法值会抛 IntegrityError 500——提前 400 拒绝。
     if not isinstance(commission_total, (int, float)) or commission_total <= 0:
@@ -537,6 +542,38 @@ def create_split(
         raise HTTPException(status_code=400, detail="参与者比率合计不能超过 100%")
     created = []
     for p in participants:
+        # 参与者至少指定一种身份，且该身份必须真实存在（否则 FK 报 500）
+        puid, peid, ppid = p.get("user_id"), p.get("employee_id"), p.get("partner_id")
+        if puid is None and peid is None and ppid is None:
+            raise HTTPException(
+                status_code=400, detail="参与者必须指定 user_id/employee_id/partner_id 之一"
+            )
+        if puid is not None and not session.get(User, puid):
+            raise HTTPException(status_code=400, detail=f"参与者用户不存在: {puid}")
+        if peid is not None and not session.get(Employee, peid):
+            raise HTTPException(status_code=400, detail=f"参与者员工不存在: {peid}")
+        if ppid is not None and not session.get(BrokerPartner, ppid):
+            raise HTTPException(status_code=400, detail=f"参与者分销商不存在: {ppid}")
+        # 幂等：同一交易同一参与者已有分成记录时拒绝重复（防结算侧重复分佣）
+        dup_conds = []
+        if puid is not None:
+            dup_conds.append(SplitDeal.participant_user_id == puid)
+        if peid is not None:
+            dup_conds.append(SplitDeal.participant_employee_id == peid)
+        if ppid is not None:
+            dup_conds.append(SplitDeal.participant_partner_id == ppid)
+        if dup_conds:
+            dup = session.exec(
+                select(SplitDeal).where(
+                    SplitDeal.deal_id == deal_id,
+                    SplitDeal.deleted_at.is_(None),
+                    or_(*dup_conds),
+                )
+            ).first()
+            if dup:
+                raise HTTPException(
+                    status_code=400, detail="该参与者在此交易中已有分成记录，请勿重复添加"
+                )
         split = SplitDeal(
             deal_id=deal_id,
             commission_total=commission_total,

@@ -447,7 +447,11 @@ def _authorize_ws(conversation_id: uuid.UUID, user_id: str) -> bool:
     """校验用户是会话成员（在同步会话中执行，避免阻塞事件循环）。"""
     with Session(engine) as session:
         conv = session.get(Conversation, conversation_id)
-        return conv is not None and is_participant(conv, user_id)
+        return (
+            conv is not None
+            and conv.deleted_at is None
+            and is_participant(conv, user_id)
+        )
 
 
 def _ws_user_id(token: str) -> Optional[str]:

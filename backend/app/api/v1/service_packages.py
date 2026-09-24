@@ -204,6 +204,14 @@ def update_service_package(
         raise HTTPException(status_code=403, detail="Not your service package")
 
     update_data = req.model_dump(exclude_unset=True)
+    # 状态机：active → cancelled 允许（取消订阅）；cancelled 为终态，禁止复活
+    # （否则可绕过「每房源仅一个 active 套餐」的重复订阅限制）
+    if "status" in update_data:
+        if package.status == ServicePackageStatus.cancelled:
+            raise HTTPException(
+                status_code=400,
+                detail="已取消的套餐不可恢复，请重新订阅",
+            )
     for key, value in update_data.items():
         setattr(package, key, value)
     session.add(package)

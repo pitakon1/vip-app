@@ -83,9 +83,9 @@ class Settings(BaseSettings):
     # ==================== 新增功能配置 ====================
     # 1) 即时聊天：无额外外部依赖（使用 WebSocket + 数据库/in-process 广播）。
     #
-    # 2) 电子签合同：合同渲染 + 数字签名。SIGNING_SECRET 用于 HMAC 签名，
-    #    若检测到 cryptography 库则使用 RSA 签名（更接近生产电子签）。
-    #    同样不设默认值：缺省时非 DEBUG 环境启动自检会提示（见 main.py 探针表），
+    # 2) 电子签合同：合同渲染 + 数字签名。SIGNING_SECRET 用于确定性 HMAC-SHA256 签名
+    #   （esign_service.py 已统一该实现，不再使用随机 RSA 密钥）。
+    #    不设默认值：缺省时非 DEBUG 环境启动自检会提示（见 main.py 探针表），
     #    签名时 fail closed 直接报错，避免用公开的示例密钥签出"看起来有效"的合同。
     CONTRACT_SIGNING_SECRET: str = ""
     CONTRACT_OUTPUT_DIR: str = "./contracts"

@@ -459,9 +459,14 @@ def notify_match(
     prop = session.get(Property, match.property_id)
     name = prop.display_name if prop else str(match.property_id)
     if prop:
+        # 纯售房源（monthly_rent=None）也允许被匹配，租金文案按需拼接
+        rent_part = (
+            f"，月租 {prop.monthly_rent} {prop.currency or 'THB'}"
+            if prop.monthly_rent is not None
+            else ""
+        )
         content = (
-            f"为您匹配到房源 {name}（房号 {prop.room_number}），"
-            f"月租 {prop.monthly_rent} {prop.currency or 'THB'}，"
+            f"为您匹配到房源 {name}（房号 {prop.room_number}）{rent_part}，"
             f"匹配度 {match.score} 分，地址：{prop.address}。如需看房请联系您的顾问。"
         )
     else:

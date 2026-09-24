@@ -85,25 +85,37 @@ def review_todos(
     """聚合待办审核列表。"""
     trips = session.exec(
         select(ExternalTripApplication)
-        .where(ExternalTripApplication.status.in_(_TRIP_PENDING))
+        .where(
+            ExternalTripApplication.deleted_at.is_(None),
+            ExternalTripApplication.status.in_(_TRIP_PENDING),
+        )
         .order_by(desc(ExternalTripApplication.created_at))
         .limit(30)
     ).all()
     tickets = session.exec(
         select(MaintenanceTicket)
-        .where(MaintenanceTicket.status.in_(_TICKET_PENDING))
+        .where(
+            MaintenanceTicket.deleted_at.is_(None),
+            MaintenanceTicket.status.in_(_TICKET_PENDING),
+        )
         .order_by(desc(MaintenanceTicket.created_at))
         .limit(30)
     ).all()
     orders = session.exec(
         select(ServiceOrder)
-        .where(ServiceOrder.status.in_(_ORDER_PENDING))
+        .where(
+            ServiceOrder.deleted_at.is_(None),
+            ServiceOrder.status.in_(_ORDER_PENDING),
+        )
         .order_by(desc(ServiceOrder.created_at))
         .limit(30)
     ).all()
     contracts = session.exec(
         select(Contract)
-        .where(Contract.status.in_(_CONTRACT_PENDING))
+        .where(
+            Contract.deleted_at.is_(None),
+            Contract.status.in_(_CONTRACT_PENDING),
+        )
         .order_by(desc(Contract.created_at))
         .limit(30)
     ).all()

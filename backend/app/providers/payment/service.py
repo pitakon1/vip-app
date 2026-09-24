@@ -422,6 +422,8 @@ class PaymentService:
                         channel_transaction_id=payment.channel_transaction_id,
                         amount=refund_amount,
                         reason=reason,
+                        # 原单金额：部分退款时渠道要求 total=原单金额
+                        original_amount=payment.amount,
                     )
                 )
                 if not result.success:

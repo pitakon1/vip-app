@@ -47,6 +47,15 @@ def user_from_token(token: str, session: Session) -> User:
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    # 令牌类型校验：refresh token 有效期 7 天，只允许走 /auth/refresh，
+    # 不能当 access token 调业务接口。旧令牌无 type 声明时按 access 兼容处理。
+    token_type = payload.get("type")
+    if token_type is not None and token_type != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")

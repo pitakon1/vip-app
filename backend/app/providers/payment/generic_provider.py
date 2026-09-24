@@ -27,7 +27,25 @@ class GenericProvider(PaymentProvider):
         self.channel = channel
 
     def create_payment(self, request: PaymentRequest) -> PaymentResult:
-        """返回模拟 checkout_url，状态 pending"""
+        """未接入渠道下单。
+
+        「银行转账」是线下渠道：无在线收款，流程是用户线下转账后上传凭证、
+        管理端人工核销，故保留联调占位 checkout_url。
+        其余未接入真实网关的线上渠道一律 **fail closed**——此前恒返回成功 +
+        mock 页面，用户付款后回调被拒、支付单永远 processing，等于假成功。
+        """
+        if self.channel != PaymentChannel.BANK_TRANSFER:
+            return PaymentResult(
+                success=False,
+                error_message=(
+                    f"支付渠道 {self.channel.value} 尚未开通，请选择其他渠道"
+                ),
+                raw_response={
+                    "mock": True,
+                    "channel": self.channel.value,
+                    "status": "unavailable",
+                },
+            )
         channel_name = quote(self.channel.value)
         key = quote(request.idempotency_key)
         return PaymentResult(
@@ -55,7 +73,17 @@ class GenericProvider(PaymentProvider):
         )
 
     def refund(self, request: RefundRequest) -> RefundResult:
-        """模拟退款成功"""
+        """未接入渠道退款：与 create_payment 一致，仅线下银行转账保留 mock。"""
+        if self.channel != PaymentChannel.BANK_TRANSFER:
+            return RefundResult(
+                success=False,
+                error_message=f"支付渠道 {self.channel.value} 尚未开通",
+                raw_response={
+                    "mock": True,
+                    "channel": self.channel.value,
+                    "status": "unavailable",
+                },
+            )
         return RefundResult(
             success=True,
             refund_id=f"mock-refund-{request.channel_transaction_id}",
