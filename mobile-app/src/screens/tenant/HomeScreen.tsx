@@ -7,7 +7,6 @@ import {
   RefreshControl,
   TouchableOpacity,
   ScrollView,
-  Image,
   Platform,
   Pressable,
   FlatList,
@@ -18,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
+import RemoteImage from '@/components/RemoteImage';
 import { paymentsApi, maintenanceApi } from '@/services/api';
 import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
 import { fmtMoney as formatMoney } from '@/utils/format';
@@ -251,7 +251,7 @@ const PropertyCard = React.memo(function PropertyCard({
       <Animated.View style={[styles.propCard, { transform: [{ scale }] }]}>
         <View style={styles.propImgWrap}>
           {photo ? (
-            <Image source={{ uri: photo }} style={styles.propImg} resizeMode="cover" />
+            <RemoteImage uri={photo} style={styles.propImg} resizeMode="cover" />
           ) : (
             <View style={[styles.propImg, styles.propImgPlaceholder]}>
               <Ionicons name="business-outline" size={26} color={colors.ink3} />
@@ -330,7 +330,7 @@ const SaleCard = React.memo(function SaleCard({
       <Animated.View style={[styles.propCard, { transform: [{ scale }] }]}>
         <View style={styles.propImgWrap}>
           {photo ? (
-            <Image source={{ uri: photo }} style={styles.propImg} resizeMode="cover" />
+            <RemoteImage uri={photo} style={styles.propImg} resizeMode="cover" />
           ) : (
             <View style={[styles.propImg, styles.propImgPlaceholder]}>
               <Ionicons name="pricetag-outline" size={26} color={colors.ink3} />
@@ -408,7 +408,7 @@ const SchoolCard = React.memo(function SchoolCard({
       <Animated.View style={[styles.propCard, { transform: [{ scale }] }]}>
         <View style={styles.propImgWrap}>
           {photo ? (
-            <Image source={{ uri: photo }} style={styles.propImg} resizeMode="cover" />
+            <RemoteImage uri={photo} style={styles.propImg} resizeMode="cover" />
           ) : (
             <View style={[styles.propImg, styles.propImgPlaceholder]}>
               <Ionicons name="school-outline" size={26} color={colors.ink3} />

@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
-  Image,
   ScrollView,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -28,6 +27,7 @@ import { fmtMoney as formatRent } from '@/utils/format';
 import { notify, notifyError } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import RemoteImage from '@/components/RemoteImage';
 import { useI18n } from '@/i18n';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
@@ -270,7 +270,7 @@ const ListingCard = React.memo(function ListingCard({
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={() => onPress(item)}>
       <View style={styles.thumbWrap}>
         {photo ? (
-          <Image source={{ uri: photo }} style={styles.thumb} resizeMode="cover" />
+          <RemoteImage uri={photo} style={styles.thumb} resizeMode="cover" />
         ) : (
           // 无图占位分支（保证图片区不塌陷）
           <View style={[styles.thumb, styles.thumbPlaceholder]}>
@@ -890,7 +890,8 @@ export default function ListingsScreen() {
   );
 
   // 买房挂牌卡片（真实数据：挂牌价 / 面积 / 户型）
-  const renderSaleItem = ({ item }: { item: SaleListing }) => (
+  const renderSaleItem = useCallback(
+    ({ item }: { item: SaleListing }) => (
     <TouchableOpacity
       style={styles.card}
       activeOpacity={0.85}
@@ -930,6 +931,15 @@ export default function ListingsScreen() {
         </View>
       </View>
     </TouchableOpacity>
+    ),
+    [navigation, t],
+  );
+
+  // 列表卡片的外部渲染态（收藏红心 / 收藏按钮忙碌 / 翻译中）：
+  // 稳定引用 + 只在变化时换 identity，避免对象字面量导致 FlatList 每帧全量重渲
+  const listExtraData = useMemo(
+    () => ({ favSet, favLoading, translatingId }),
+    [favSet, favLoading, translatingId],
   );
 
   // 加载态（统一 LoadingState，含文案说明）
@@ -1440,6 +1450,9 @@ export default function ListingsScreen() {
         maxToRenderPerBatch={8}
         windowSize={7}
         removeClippedSubviews
+        /* 收藏/翻译态属于 data 之外的父级状态：不传 extraData 时 FlatList 不重渲染卡片，
+           点收藏后红心不更新。memo 化保证只在收藏/加载/翻译状态变化时才触发行重渲染 */
+        extraData={listExtraData}
         ListEmptyComponent={
           biz === 'sale' && saleLoading ? (
             <LoadingState label={t('list.loadingSale')} />

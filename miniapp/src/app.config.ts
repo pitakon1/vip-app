@@ -10,30 +10,8 @@ export default {
     'pages/public/communities/index',
     'pages/public/community-detail/index',
     'pages/public/listing-detail/index',
+    // ===== 主包只留首屏 + 高频 C 端页（冷启动体积），低频作业页全部走分包 =====
     'pages/owner/home/index',
-    'pages/owner/properties/index',
-    'pages/owner/income/index',
-    'pages/owner/marketing/index',
-    'pages/owner/property-detail/index',
-    'pages/employee/home/index',
-    'pages/employee/performance/index',
-    'pages/employee/calendar/index',
-    'pages/employee/properties/index',
-    'pages/employee/property-edit/index',
-    'pages/employee/property-browse/index',
-    'pages/employee/crm/index',
-    'pages/employee/contacts/index',
-    'pages/admin/home/index',
-    'pages/admin/properties/index',
-    'pages/admin/property-detail/index',
-    'pages/admin/crm/index',
-    'pages/admin/payments/index',
-    'pages/admin/leases/index',
-    'pages/admin/accounts/index',
-    'pages/admin/permissions/index',
-    'pages/admin/commission-rules/index',
-    // 管理端「待审核」→ 工单审核中心（对齐 Web /system/review-center）
-    'pages/admin/review-center/index',
     'pages/tenant/home/index',
     'pages/tenant/documents/index',
     'pages/tenant/services/index',
@@ -47,16 +25,40 @@ export default {
     'pages/location/index',
     'pages/tenant/property-detail/index',
     'pages/tenant/leases/index',
-    'pages/tenant/leases/detail',
-    'pages/tenant/deals/index',
-    'pages/tenant/deals/detail',
     'pages/profile/index',
-    'pages/chat/list/index',
-    'pages/chat/detail/index',
-    'pages/attendance/index',
-    'pages/staff/listing-edit/index',
-    'pages/staff/listings/index',
-    'pages/staff/contract/index'
+    'pages/attendance/index'
+  ],
+  subPackages: [
+    // 业主低频页：房源管理 / 收益 / 委托挂牌 / 房源详情
+    {
+      root: 'pages/owner',
+      pages: ['properties/index', 'income/index', 'marketing/index', 'property-detail/index']
+    },
+    // 员工作业页：业绩 / 日历 / 房源管理 / 客源线索 / 联系方式
+    {
+      root: 'pages/employee',
+      pages: ['home/index', 'performance/index', 'calendar/index', 'properties/index', 'property-edit/index', 'property-browse/index', 'crm/index', 'contacts/index']
+    },
+    // 管理端后台：全部低频，独立分包
+    {
+      root: 'pages/admin',
+      pages: ['home/index', 'properties/index', 'property-detail/index', 'crm/index', 'payments/index', 'leases/index', 'accounts/index', 'permissions/index', 'commission-rules/index', 'review-center/index']
+    },
+    // 内部/渠道上架作业
+    {
+      root: 'pages/staff',
+      pages: ['listing-edit/index', 'listings/index', 'contract/index']
+    },
+    // 聊天
+    {
+      root: 'pages/chat',
+      pages: ['list/index', 'detail/index']
+    },
+    // 租客低频：租约详情 / 交易订单
+    {
+      root: 'pages/tenant',
+      pages: ['leases/detail', 'deals/index', 'deals/detail']
+    }
   ],
   window: {
     backgroundTextStyle: 'light',
