@@ -18,6 +18,7 @@ from app.celery_app import celery_app
 from app.db import engine
 from app.models.lease import Lease, LeaseStatus
 from app.models.employee import Employee
+from app.models.tenant import Tenant
 from app.models.payment import Payment, PaymentStatus, PaymentType
 from app.models.notification import Notification, NotificationChannel, NotificationStatus
 import uuid
@@ -31,8 +32,8 @@ def check_expiring_leases():
     with Session(engine) as session:
         for days_before in [30, 7, 1]:
             target_date = now + timedelta(days=days_before)
-            start = target_date.replace(hour=0, minute=0, second=0)
-            end = target_date.replace(hour=23, minute=59, second=59)
+            start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
 
             leases = session.exec(
                 select(Lease).where(
@@ -43,22 +44,20 @@ def check_expiring_leases():
             ).all()
 
             for lease in leases:
-                # 创建通知记录
-                notif = Notification(
-                    id=uuid.uuid4(),
-                    user_id=lease.tenant_id,  # 需要通过 tenant 找到 user_id
-                    channel=NotificationChannel.in_app,
-                    template_key="lease_expiring",
-                    recipient=str(lease.tenant_id),
-                    subject=f"您的租约将在 {days_before} 天后到期",
-                    content=f"租约编号 {lease.id} 将在 {days_before} 天后到期，请联系我们续约。",
-                    status=NotificationStatus.queued,
+                # 收件人必须是登录账号（users.id）：Lease.tenant_id 指向 tenants.id，
+                # 直接当 user_id 用会写到不存在的用户上（Postgres 下外键直接报错）。
+                tenant = session.get(Tenant, lease.tenant_id)
+                _notify(
+                    session,
+                    tenant.user_id if tenant else None,
+                    "lease_expiring",
+                    f"您的租约将在 {days_before} 天后到期",
+                    f"租约编号 {lease.id} 将在 {days_before} 天后到期，请联系我们续约。",
+                    lease.id,
                     related_entity_type="lease",
-                    related_entity_id=str(lease.id),
                 )
-                session.add(notif)
 
-            session.commit()
+        session.commit()
 
     return {"checked": True}
 
@@ -83,15 +82,25 @@ def _notify(
     template_key: str,
     subject: str,
     content: str,
-    payment: Payment,
+    related_entity_id,
+    related_entity_type: str = "payment",
 ):
-    """创建站内通知并幂等去重：同一支付单的同一阶段只推送一次。"""
+    """创建站内通知并幂等去重：同一实体 + 同一模板 + 同一正文只推送一次。
+
+    正文参与去重键是必要的：滞纳金按逾期天数重算，金额变大时正文会变，
+    此时应当再推一条（见 `accrue_late_fees_task`）；而同一阶段的催缴提醒
+    正文固定，任务重跑不会重复推送。
+
+    `related_entity_id` 必须是 UUID 对象而非 str —— 该列是 UUID 类型，
+    传字符串会在绑定时抛 `'str' object has no attribute 'hex'`。
+    """
     if not user_id:
         return
     exists = session.exec(
         select(Notification).where(
             Notification.template_key == template_key,
-            Notification.related_entity_id == payment.id,
+            Notification.related_entity_id == related_entity_id,
+            Notification.content == content,
         )
     ).first()
     if exists:
@@ -106,8 +115,8 @@ def _notify(
             subject=subject,
             content=content,
             status=NotificationStatus.queued,
-            related_entity_type="payment",
-            related_entity_id=payment.id,
+            related_entity_type=related_entity_type,
+            related_entity_id=related_entity_id,
         )
     )
 
@@ -150,8 +159,8 @@ def _remind_payment(session: Session, payment: Payment, days_before, overdue: bo
         _rent_stage_message(payment, days_before, overdue)
     )
 
-    _notify(session, payment.payer_id, tenant_tpl, tenant_title, tenant_content, payment)
-    _notify(session, agent_user_id, agent_tpl, agent_title, agent_content, payment)
+    _notify(session, payment.payer_id, tenant_tpl, tenant_title, tenant_content, payment.id)
+    _notify(session, agent_user_id, agent_tpl, agent_title, agent_content, payment.id)
 
 
 @celery_app.task(name="check_upcoming_rent_payments")
@@ -219,7 +228,7 @@ def accrue_late_fees_task():
                 "逾期滞纳金提醒",
                 f"您的租金 {amount} 已逾期，当前累计滞纳金 {fee}，"
                 f"合计应缴 {payment.total_due}，请尽快缴纳。",
-                payment,
+                payment.id,
             )
             _notify(
                 session,
@@ -228,7 +237,7 @@ def accrue_late_fees_task():
                 "租金逾期·滞纳金计提",
                 f"租户 {payment.payer_id} 的租金 {amount} 已计提滞纳金 {fee}，"
                 f"合计应缴 {payment.total_due}，请跟进催缴或评估减免。",
-                payment,
+                payment.id,
             )
 
         session.commit()

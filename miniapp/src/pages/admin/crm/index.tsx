@@ -1,10 +1,19 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { leadsApi, employeesApi, chatApi } from '@/services/api'
+import { leadsApi, employeesApi } from '@/services/api'
 import { MAX_PAGE_SIZE } from '@/lib/api'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import {
+  PAGE_SIZE,
+  computeLeadStats,
+  filterLeads,
+  fmtDate,
+  fmtMoney,
+  callPhone,
+  chatCustomer
+} from '@/lib/crmShared'
 import './index.scss'
 
 interface LeadItem {
@@ -41,20 +50,6 @@ const FILTERS: { key: string; label: string }[] = [
   { key: 'pending_contract', label: '待签约' },
   { key: 'closed', label: '已成交' }
 ]
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  CNY: '¥',
-  THB: '',
-  EUR: '€',
-  USD: '$'
-}
-
-const PAGE_SIZE = 100
-
-const fmtMoney = (v?: number, currency?: string) =>
-  `${CURRENCY_SYMBOL[currency || 'THB'] || ''}${Number(v || 0).toLocaleString()}`
-
-const fmtDate = (v?: string) => (v ? String(v).slice(5, 10) : '-')
 
 export default function AdminCrmPage() {
   const [leads, setLeads] = useState<LeadItem[]>([])
@@ -171,58 +166,10 @@ export default function AdminCrmPage() {
   const handleSearch = () => setQuery(keyword.trim())
 
   // 阶段筛选（客户端，因接口一次拉全量；后端仅支持 stage 参数）
-  const visible = useMemo(() => {
-    const kw = query.toLowerCase()
-    return leads.filter((l) => {
-      if (stage && l.stage !== stage) return false
-      if (!kw) return true
-      return [l.name, l.phone, l.email]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(kw))
-    })
-  }, [leads, stage, query])
+  const visible = useMemo(() => filterLeads(leads, stage, query), [leads, stage, query])
 
   // 统计：按已加载线索实时计算（接口不提供分阶段计数）
-  const stats = useMemo(() => {
-    const now = new Date()
-    const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    return {
-      total: total || leads.length,
-      intent: leads.filter((l) => l.stage === 'inquiring').length,
-      closed: leads.filter((l) => l.stage === 'closed').length,
-      newThisMonth: leads.filter((l) => String(l.created_at || '').startsWith(monthPrefix)).length
-    }
-  }, [leads, total])
-
-  const callPhone = (phone?: string) => {
-    if (!phone) return
-    Taro.makePhoneCall({ phoneNumber: phone }).catch(() => {})
-  }
-
-  // 联系客户：小程序内发消息（按手机号/邮箱解析客户账号并创建会话）
-  const chatCustomer = async (l: LeadItem) => {
-    const phone = (l.phone || '').trim()
-    const email = (l.email || '').trim()
-    if (!phone && !email) {
-      Taro.showToast({ title: '客户未留电话/邮箱，无法发消息', icon: 'none' })
-      return
-    }
-    try {
-      const res: any = await chatApi.createConversation({
-        title: (l.name || '客户咨询').trim(),
-        ...(phone ? { participant_phones: [phone] } : {}),
-        ...(email ? { participant_emails: [email] } : {})
-      })
-      const conv = res?.data ?? res
-      if (!conv?.id) throw new Error('会话创建失败')
-      Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
-    } catch (error: any) {
-      Taro.showToast({
-        title: error?.message || '客户未注册账号，请先通过电话/邮箱联系',
-        icon: 'none'
-      })
-    }
-  }
+  const stats = useMemo(() => computeLeadStats(leads, total), [leads, total])
 
   return (
     <View className='crm-page'>

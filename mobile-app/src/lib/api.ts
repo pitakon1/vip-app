@@ -17,6 +17,11 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // 数组型查询参数必须序列化成「重复键」：keywords=a&keywords=b。
+  // axios 默认输出 keywords[]=a&keywords[]=b，而后端 FastAPI 的
+  // `List[str] = Query(...)` 只认重复键，带方括号的键会被静默忽略——
+  // 表现为「区域/配套设施筛选勾选了、列表却完全没变」，且无任何报错。
+  paramsSerializer: { indexes: null },
 });
 
 /**

@@ -198,7 +198,10 @@ def get_commission_rule(
     if not rule or rule.deleted_at:
         raise HTTPException(status_code=404, detail="Commission rule not found")
     my_broker = _broker_of_user(session, user)
-    if user.role.value != "admin" and rule.broker_id != my_broker:
+    # 非 admin 必须先有渠道归属，且只能访问本渠道规则。
+    # 不能只写 `rule.broker_id != my_broker`：全局规则的 broker_id 与无归属用户的
+    # my_broker 同为 None，`None != None` 为 False 会让任意登录用户通过校验。
+    if user.role.value != "admin" and (not my_broker or rule.broker_id != my_broker):
         raise HTTPException(status_code=403, detail="No access to this rule")
     return _to_dict(rule)
 
@@ -215,7 +218,10 @@ def update_commission_rule(
     if not rule or rule.deleted_at:
         raise HTTPException(status_code=404, detail="Commission rule not found")
     my_broker = _broker_of_user(session, user)
-    if user.role.value != "admin" and rule.broker_id != my_broker:
+    # 非 admin 必须先有渠道归属，且只能访问本渠道规则。
+    # 不能只写 `rule.broker_id != my_broker`：全局规则的 broker_id 与无归属用户的
+    # my_broker 同为 None，`None != None` 为 False 会让任意登录用户通过校验。
+    if user.role.value != "admin" and (not my_broker or rule.broker_id != my_broker):
         raise HTTPException(status_code=403, detail="No access to this rule")
     update_data = req.model_dump(exclude_unset=True)
     if user.role.value != "admin":
@@ -241,7 +247,10 @@ def delete_commission_rule(
     if not rule or rule.deleted_at:
         raise HTTPException(status_code=404, detail="Commission rule not found")
     my_broker = _broker_of_user(session, user)
-    if user.role.value != "admin" and rule.broker_id != my_broker:
+    # 非 admin 必须先有渠道归属，且只能访问本渠道规则。
+    # 不能只写 `rule.broker_id != my_broker`：全局规则的 broker_id 与无归属用户的
+    # my_broker 同为 None，`None != None` 为 False 会让任意登录用户通过校验。
+    if user.role.value != "admin" and (not my_broker or rule.broker_id != my_broker):
         raise HTTPException(status_code=403, detail="No access to this rule")
     rule.deleted_at = datetime.utcnow()
     session.add(rule)

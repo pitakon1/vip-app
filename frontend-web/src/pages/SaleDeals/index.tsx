@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Empty, message } from 'antd'
 import { saleListingApi, propertyDealApi } from '@/services/api'
+import { useCachedQuery } from '@/lib/queryCache'
 
 /* ===== 看板列定义（覆盖全部挂牌状态） ===== */
 const LISTING_KANBAN_COLUMNS: { key: string; title: string; statuses: string[] }[] = [
@@ -91,7 +92,6 @@ const TABS = [
 
 const SaleDeals = () => {
   const [activeTab, setActiveTab] = useState('listing')
-  const [loading, setLoading] = useState(false)
   const [listingCreateOpen, setListingCreateOpen] = useState(false)
 
   return (
@@ -124,18 +124,16 @@ const SaleDeals = () => {
         ))}
       </div>
 
-      {activeTab === 'listing' && <ListingTab loading={loading} setLoading={setLoading} createOpen={listingCreateOpen} onOpenChange={setListingCreateOpen} />}
-      {activeTab === 'deal' && <DealTab loading={loading} setLoading={setLoading} />}
-      {activeTab === 'escrow' && <EscrowTab loading={loading} setLoading={setLoading} />}
-      {activeTab === 'mortgage' && <MortgageTab loading={loading} setLoading={setLoading} />}
+      {activeTab === 'listing' && <ListingTab createOpen={listingCreateOpen} onOpenChange={setListingCreateOpen} />}
+      {activeTab === 'deal' && <DealTab />}
+      {activeTab === 'escrow' && <EscrowTab />}
+      {activeTab === 'mortgage' && <MortgageTab />}
     </div>
   )
 }
 
 /* ===== 售房挂牌 Tab ===== */
-const ListingTab = ({ loading, setLoading, createOpen, onOpenChange }: { loading: boolean; setLoading: (v: boolean) => void; createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
-  const [items, setItems] = useState<Listing[]>([])
-  const [total, setTotal] = useState(0)
+const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
   const [page, setPage] = useState(1)
   const [saleType, setSaleType] = useState('')
   const [status, setStatus] = useState('')
@@ -144,23 +142,24 @@ const ListingTab = ({ loading, setLoading, createOpen, onOpenChange }: { loading
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ title: '', sale_type: 'sell', asking_price: '', currency: 'THB', address: '', size_sqm: '', bedrooms: '', bathrooms: '', description: '' })
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
+  // 挂牌列表：按筛选/页码缓存
+  const listingsQ = useCachedQuery<{ items: Listing[]; total: number }>({
+    queryKey: ['sale-listings', String(page), saleType, status],
+    cacheKey: `sale-listings:${page}:${saleType}:${status}`,
+    queryFn: async () => {
       const res = await saleListingApi.list({ page, pageSize: 10, sale_type: saleType || undefined, status: status || undefined })
       const payload = res.data?.data ?? res.data
-      setItems(payload?.items ?? [])
-      setTotal(payload?.total ?? 0)
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || '获取挂牌列表失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [page, saleType, status, setLoading])
+      return { items: payload?.items ?? [], total: payload?.total ?? 0 }
+    },
+  })
+  const items = listingsQ.data?.items ?? []
+  const total = listingsQ.data?.total ?? 0
+  const loading = listingsQ.isPending && !listingsQ.data
+  const refresh = () => { void listingsQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    if (listingsQ.isError) message.error((listingsQ.error as any)?.response?.data?.message || '获取挂牌列表失败')
+  }, [listingsQ.isError, listingsQ.error])
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
@@ -185,7 +184,7 @@ const ListingTab = ({ loading, setLoading, createOpen, onOpenChange }: { loading
       message.success('挂牌已发布')
       onOpenChange(false)
       setForm({ title: '', sale_type: 'sell', asking_price: '', currency: 'THB', address: '', size_sqm: '', bedrooms: '', bathrooms: '', description: '' })
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '发布失败')
     } finally {
@@ -197,7 +196,7 @@ const ListingTab = ({ loading, setLoading, createOpen, onOpenChange }: { loading
     try {
       await saleListingApi.updateStatus(id, s)
       message.success('状态已更新')
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '更新失败')
     }
@@ -465,9 +464,7 @@ const ValuationForm = ({ listingId, defaultForm, onDone }: { listingId: string; 
 }
 
 /* ===== 产权成交 Tab ===== */
-const DealTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v: boolean) => void }) => {
-  const [items, setItems] = useState<Deal[]>([])
-  const [total, setTotal] = useState(0)
+const DealTab = () => {
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const [listings, setListings] = useState<Listing[]>([])
@@ -475,23 +472,24 @@ const DealTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v: bo
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ sale_listing_id: '', sale_price: '', currency: 'THB', buyer_user_id: '', sales_user_id: '', notes: '' })
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
+  // 成交列表：按筛选/页码缓存
+  const dealsQ = useCachedQuery<{ items: Deal[]; total: number }>({
+    queryKey: ['property-deals', String(page), status],
+    cacheKey: `property-deals:${page}:${status}`,
+    queryFn: async () => {
       const res = await propertyDealApi.list({ page, pageSize: 10, status: status || undefined })
       const payload = res.data?.data ?? res.data
-      setItems(payload?.items ?? [])
-      setTotal(payload?.total ?? 0)
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || '获取成交列表失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [page, status, setLoading])
+      return { items: payload?.items ?? [], total: payload?.total ?? 0 }
+    },
+  })
+  const items = dealsQ.data?.items ?? []
+  const total = dealsQ.data?.total ?? 0
+  const loading = dealsQ.isPending && !dealsQ.data
+  const refresh = () => { void dealsQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    if (dealsQ.isError) message.error((dealsQ.error as any)?.response?.data?.message || '获取成交列表失败')
+  }, [dealsQ.isError, dealsQ.error])
 
   const loadListings = async () => {
     try {
@@ -518,7 +516,7 @@ const DealTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v: bo
       })
       message.success('成交已创建（挂牌自动联动为已签约）')
       setCreateOpen(false)
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '创建失败')
     } finally {
@@ -532,7 +530,7 @@ const DealTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v: bo
     try {
       await propertyDealApi.updateStatus(id, s)
       message.success('状态已推进')
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '推进失败')
     }
@@ -632,46 +630,48 @@ const DealTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v: bo
 }
 
 /* ===== 定金托管 Tab ===== */
-const EscrowTab = ({ setLoading }: { loading: boolean; setLoading: (v: boolean) => void }) => {
-  const [deals, setDeals] = useState<Deal[]>([])
+const EscrowTab = () => {
   const [dealId, setDealId] = useState('')
-  const [escrows, setEscrows] = useState<Escrow[]>([])
   const [registerOpen, setRegisterOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ amount: '', currency: 'THB' })
 
-  const loadDeals = useCallback(async () => {
-    setLoading(true)
-    try {
+  // 成交下拉：缓存优先；首次加载后自动选中第一条（与原行为一致）
+  const dealsQ = useCachedQuery<Deal[]>({
+    queryKey: ['property-deals', 'options'],
+    cacheKey: 'property-deals:options',
+    queryFn: async () => {
       const res = await propertyDealApi.list({ page: 1, pageSize: 100 })
       const payload = res.data?.data ?? res.data
-      const list = payload?.items ?? []
-      setDeals(list)
-      if (list.length > 0) setDealId(list[0].id)
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || '获取成交列表失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [setLoading])
+      return payload?.items ?? []
+    },
+  })
+  const deals = dealsQ.data ?? []
 
   useEffect(() => {
-    loadDeals()
-  }, [loadDeals])
-
-  const loadEscrows = useCallback(async (did: string) => {
-    if (!did) return
-    try {
-      const res = await propertyDealApi.listEscrows(did)
-      setEscrows(res.data ?? [])
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || '获取托管失败')
-    }
-  }, [])
+    if (!dealId && deals.length > 0) setDealId(deals[0].id)
+  }, [dealId, deals])
 
   useEffect(() => {
-    if (dealId) loadEscrows(dealId)
-  }, [dealId, loadEscrows])
+    if (dealsQ.isError) message.error((dealsQ.error as any)?.response?.data?.message || '获取成交列表失败')
+  }, [dealsQ.isError, dealsQ.error])
+
+  // 托管记录：按所选成交缓存
+  const escrowsQ = useCachedQuery<Escrow[]>({
+    queryKey: ['deal-escrows', dealId],
+    cacheKey: `deal-escrows:${dealId}`,
+    enabled: !!dealId,
+    queryFn: async () => {
+      const res = await propertyDealApi.listEscrows(dealId)
+      return res.data ?? []
+    },
+  })
+  const escrows = escrowsQ.data ?? []
+  const refreshEscrows = () => { void escrowsQ.refetch({ cancelRefetch: false }) }
+
+  useEffect(() => {
+    if (escrowsQ.isError) message.error((escrowsQ.error as any)?.response?.data?.message || '获取托管失败')
+  }, [escrowsQ.isError, escrowsQ.error])
 
   const handleRegister = async () => {
     if (!form.amount) {
@@ -684,7 +684,7 @@ const EscrowTab = ({ setLoading }: { loading: boolean; setLoading: (v: boolean) 
       message.success('定金托管已登记')
       setRegisterOpen(false)
       setForm({ amount: '', currency: 'THB' })
-      if (dealId) loadEscrows(dealId)
+      refreshEscrows()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '登记失败')
     } finally {
@@ -692,12 +692,12 @@ const EscrowTab = ({ setLoading }: { loading: boolean; setLoading: (v: boolean) 
     }
   }
 
-  const act = async (id: string, type: 'release' | 'refund', refresh: (id: string) => void) => {
+  const act = async (id: string, type: 'release' | 'refund') => {
     try {
       if (type === 'release') await propertyDealApi.releaseEscrow(id)
       else await propertyDealApi.refundEscrow(id)
       message.success(type === 'release' ? '已放款给卖方' : '已退款给买方')
-      refresh(dealId)
+      refreshEscrows()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '操作失败')
     }
@@ -740,8 +740,8 @@ const EscrowTab = ({ setLoading }: { loading: boolean; setLoading: (v: boolean) 
                           <div className="rent-flex rent-gap-2">
                             {actionable && (
                               <>
-                                <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => act(e.id, 'release', loadEscrows)}>放款</button>
-                                <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => act(e.id, 'refund', loadEscrows)}>退款</button>
+                                <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => act(e.id, 'release')}>放款</button>
+                                <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => act(e.id, 'refund')}>退款</button>
                               </>
                             )}
                           </div>
@@ -778,28 +778,28 @@ const EscrowTab = ({ setLoading }: { loading: boolean; setLoading: (v: boolean) 
 }
 
 /* ===== 按揭 Tab ===== */
-const MortgageTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v: boolean) => void }) => {
-  const [items, setItems] = useState<Mortgage[]>([])
+const MortgageTab = () => {
   const [deals, setDeals] = useState<Deal[]>([])
   const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ bank: '', loan_amount: '', currency: 'THB', term_months: '360', deal_id: '', buyer_user_id: '' })
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
+  // 按揭列表：缓存优先渲染 + 后台刷新
+  const mortgagesQ = useCachedQuery<Mortgage[]>({
+    queryKey: ['my-mortgages'],
+    cacheKey: 'my-mortgages',
+    queryFn: async () => {
       const res = await propertyDealApi.myMortgages()
-      setItems(res.data ?? [])
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || '获取按揭列表失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [setLoading])
+      return res.data ?? []
+    },
+  })
+  const items = mortgagesQ.data ?? []
+  const loading = mortgagesQ.isPending && !mortgagesQ.data
+  const refresh = () => { void mortgagesQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    if (mortgagesQ.isError) message.error((mortgagesQ.error as any)?.response?.data?.message || '获取按揭列表失败')
+  }, [mortgagesQ.isError, mortgagesQ.error])
 
   const loadDeals = async () => {
     try {
@@ -829,7 +829,7 @@ const MortgageTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v
       message.success('按揭申请已提交')
       setCreateOpen(false)
       setForm({ bank: '', loan_amount: '', currency: 'THB', term_months: '360', deal_id: '', buyer_user_id: '' })
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '提交失败')
     } finally {
@@ -841,7 +841,7 @@ const MortgageTab = ({ loading, setLoading }: { loading: boolean; setLoading: (v
     try {
       await propertyDealApi.updateMortgageStatus(id, status)
       message.success('按揭状态已更新')
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '审批失败')
     }

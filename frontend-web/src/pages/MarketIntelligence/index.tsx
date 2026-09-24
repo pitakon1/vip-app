@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { message } from 'antd'
 import { marketDataApi, leadsApi, marketApi, employeesApi } from '@/services/api'
+import { useCachedQuery } from '@/lib/queryCache'
 
 const SIGNAL_LEVEL: Record<string, { label: string; badge: string }> = {
   info: { label: '提示', badge: 'rent-badge--info' },
@@ -99,8 +100,6 @@ const MarketIntelligence = () => {
 
 /* ===== 市场指数 ===== */
 const IndicesTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
-  const [items, setItems] = useState<Index[]>([])
-  const [loading, setLoading] = useState(false)
   const [marketCode, setMarketCode] = useState('')
   const [debouncedMarketCode, setDebouncedMarketCode] = useState('')
   const [indexType, setIndexType] = useState('')
@@ -113,19 +112,24 @@ const IndicesTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
     return () => clearTimeout(t)
   }, [marketCode])
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
+  // 指数列表：按筛选条件缓存（缓存优先渲染 + 后台刷新）
+  const indicesQ = useCachedQuery<Index[]>({
+    queryKey: ['market-indices', debouncedMarketCode, indexType],
+    cacheKey: `market-indices:${debouncedMarketCode}:${indexType}`,
+    queryFn: async () => {
       const res = await marketDataApi.indices({ market_code: debouncedMarketCode || undefined, index_type: indexType || undefined })
-      setItems(res.data ?? [])
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || '获取市场指数失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [debouncedMarketCode, indexType])
+      return res.data ?? []
+    },
+  })
+  const items = indicesQ.data ?? []
+  const loading = indicesQ.isPending && !indicesQ.data
+  const refresh = () => { void indicesQ.refetch({ cancelRefetch: false }) }
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    if (indicesQ.isError) {
+      message.error((indicesQ.error as any)?.response?.data?.message || '获取市场指数失败')
+    }
+  }, [indicesQ.isError, indicesQ.error])
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
@@ -150,7 +154,7 @@ const IndicesTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       message.success('指数已发布')
       onOpenChange(false)
       setForm({ market_code: '', index_type: 'sale', period: '', value: '', delta_pct: '', sample_count: '0', avg_price_sqm: '', avg_rent: '', currency: 'THB' })
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '发布失败')
     } finally {
@@ -239,42 +243,47 @@ const IndicesTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
 /* ===== 市场报告 ===== */
 const ReportsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
-  const [items, setItems] = useState<Report[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [markets, setMarkets] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ market_code: '', report_type: 'district', area: '', property_type: '', period: '', summary: '', metrics_json: '' })
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
+  // 报告列表：按页码缓存
+  const reportsQ = useCachedQuery<{ items: Report[]; total: number }>({
+    queryKey: ['market-reports', String(page)],
+    cacheKey: `market-reports:${page}`,
+    queryFn: async () => {
       const res = await marketDataApi.reports({ page, pageSize: 10 })
       const payload = res.data?.data ?? res.data
-      setItems(payload?.items ?? [])
-      setTotal(payload?.total ?? 0)
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || '获取报告失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [page])
+      return { items: payload?.items ?? [], total: payload?.total ?? 0 }
+    },
+  })
+  const items = reportsQ.data?.items ?? []
+  const total = reportsQ.data?.total ?? 0
+  const loading = reportsQ.isPending && !reportsQ.data
+  const refresh = () => { void reportsQ.refetch({ cancelRefetch: false }) }
 
-  useEffect(() => { fetchData() }, [fetchData])
-
-  const loadMarkets = async () => {
-    try {
-      const res = await marketApi.list({ page: 1, pageSize: 100 })
-      const payload = res.data?.data ?? res.data
-      setMarkets(payload?.items ?? [])
-    } catch { /* 忽略 */ }
-  }
-
-  // 弹窗由页头按钮打开时，按需加载市场下拉
   useEffect(() => {
-    if (createOpen) loadMarkets()
-  }, [createOpen])
+    if (reportsQ.isError) {
+      message.error((reportsQ.error as any)?.response?.data?.message || '获取报告失败')
+    }
+  }, [reportsQ.isError, reportsQ.error])
+
+  // 市场下拉：仅弹窗打开时按需加载
+  const marketsQ = useCachedQuery<any[]>({
+    queryKey: ['markets', 'options'],
+    cacheKey: 'markets:options',
+    enabled: createOpen,
+    queryFn: async () => {
+      try {
+        const res = await marketApi.list({ page: 1, pageSize: 100 })
+        const payload = res.data?.data ?? res.data
+        return payload?.items ?? []
+      } catch {
+        return []
+      }
+    },
+  })
+  const markets = marketsQ.data ?? []
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
@@ -297,7 +306,7 @@ const ReportsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       message.success('报告已发布')
       onOpenChange(false)
       setForm({ market_code: '', report_type: 'district', area: '', property_type: '', period: '', summary: '', metrics_json: '' })
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '发布失败')
     } finally {
@@ -392,41 +401,45 @@ const ReportsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
 /* ===== 智能匹配（线索 → 房源推荐 → 推送租客） ===== */
 const MatchesTab = () => {
-  const [leads, setLeads] = useState<any[]>([])
   const [leadId, setLeadId] = useState('')
-  const [items, setItems] = useState<Match[]>([])
-  const [loading, setLoading] = useState(false)
   const [computing, setComputing] = useState(false)
   const [pushingId, setPushingId] = useState('')
 
-  useEffect(() => {
-    const loadLeads = async () => {
+  // 线索下拉：缓存优先（无权限时降级为空）
+  const leadsQ = useCachedQuery<any[]>({
+    queryKey: ['leads', 'options'],
+    cacheKey: 'leads:options',
+    queryFn: async () => {
       try {
         const res = await leadsApi.list({ page: 1, pageSize: 100 })
         const payload = res.data?.data ?? res.data
-        setLeads(payload?.items ?? [])
-      } catch { /* 忽略：无权限时线索下拉为空 */ }
-    }
-    loadLeads()
-  }, [])
+        return payload?.items ?? []
+      } catch {
+        return []
+      }
+    },
+  })
+  const leads = leadsQ.data ?? []
 
-  const fetchData = useCallback(async () => {
-    if (!leadId) {
-      setItems([])
-      return
-    }
-    setLoading(true)
-    try {
+  // 匹配结果：仅在选中线索后查询，按线索缓存
+  const matchesQ = useCachedQuery<Match[]>({
+    queryKey: ['market-matches', leadId],
+    cacheKey: `market-matches:${leadId}`,
+    enabled: !!leadId,
+    queryFn: async () => {
       const res = await marketDataApi.listMatches({ lead_id: leadId })
-      setItems(res.data ?? [])
-    } catch (e: any) {
-      message.error(e?.response?.data?.detail || e?.response?.data?.message || '获取匹配结果失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [leadId])
+      return res.data ?? []
+    },
+  })
+  const items = matchesQ.data ?? []
+  const loading = matchesQ.isPending && !matchesQ.data
+  const refresh = () => { void matchesQ.refetch({ cancelRefetch: false }) }
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    if (matchesQ.isError) {
+      message.error((matchesQ.error as any)?.response?.data?.detail || (matchesQ.error as any)?.response?.data?.message || '获取匹配结果失败')
+    }
+  }, [matchesQ.isError, matchesQ.error])
 
   const handleCompute = async () => {
     if (!leadId) {
@@ -437,7 +450,7 @@ const MatchesTab = () => {
     try {
       const res = await marketDataApi.computeMatches({ lead_id: leadId, limit: 10 })
       message.success(`已生成 ${res.data?.total ?? 0} 条房源推荐`)
-      await fetchData()
+      await matchesQ.refetch({ cancelRefetch: false })
     } catch (e: any) {
       message.error(e?.response?.data?.detail || e?.response?.data?.message || '计算匹配失败')
     } finally {
@@ -454,7 +467,7 @@ const MatchesTab = () => {
       } else {
         message.success('已推送给租客')
       }
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.detail || e?.response?.data?.message || '推送失败')
     } finally {
@@ -526,13 +539,9 @@ const MatchesTab = () => {
 
 /* ===== 流失预警 ===== */
 const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
-  const [items, setItems] = useState<Signal[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [level, setLevel] = useState('')
   const [resolved, setResolved] = useState('')
-  const [leads, setLeads] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ signal_type: 'lease_expiring', level: 'warning', detail: '', suggested_action: '', lead_id: '' })
   // 派发跟进
@@ -542,36 +551,47 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
   const [assignForm, setAssignForm] = useState({ assignee_id: '', note: '' })
   const [assigning, setAssigning] = useState(false)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
+  // 流失预警信号：按筛选/页码缓存
+  const signalsQ = useCachedQuery<{ items: Signal[]; total: number }>({
+    queryKey: ['market-churn', String(page), level, resolved],
+    cacheKey: `market-churn:${page}:${level}:${resolved}`,
+    queryFn: async () => {
       const res = await marketDataApi.churnSignals({
         page, pageSize: 10,
         level: level || undefined,
         is_resolved: resolved === '' ? undefined : resolved === '1',
       })
       const payload = res.data?.data ?? res.data
-      setItems(payload?.items ?? [])
-      setTotal(payload?.total ?? 0)
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || '获取预警信号失败')
-    } finally {
-      setLoading(false)
+      return { items: payload?.items ?? [], total: payload?.total ?? 0 }
+    },
+  })
+  const items = signalsQ.data?.items ?? []
+  const total = signalsQ.data?.total ?? 0
+  const loading = signalsQ.isPending && !signalsQ.data
+  const refresh = () => { void signalsQ.refetch({ cancelRefetch: false }) }
+
+  useEffect(() => {
+    if (signalsQ.isError) {
+      message.error((signalsQ.error as any)?.response?.data?.message || '获取预警信号失败')
     }
-  }, [page, level, resolved])
+  }, [signalsQ.isError, signalsQ.error])
 
-  useEffect(() => { fetchData() }, [fetchData])
-
-  const loadLeads = async () => {
-    try {
-      const res = await leadsApi.list({ page: 1, pageSize: 100 })
-      const payload = res.data?.data ?? res.data
-      setLeads(payload?.items ?? [])
-    } catch { /* 忽略 */ }
-  }
-
-  // 页头「生成信号」打开时按需加载线索选项
-  useEffect(() => { if (createOpen) loadLeads() }, [createOpen])
+  // 线索下拉：页头「生成信号」打开时按需加载（与匹配 Tab 共用缓存）
+  const leadsQ = useCachedQuery<any[]>({
+    queryKey: ['leads', 'options'],
+    cacheKey: 'leads:options',
+    enabled: createOpen,
+    queryFn: async () => {
+      try {
+        const res = await leadsApi.list({ page: 1, pageSize: 100 })
+        const payload = res.data?.data ?? res.data
+        return payload?.items ?? []
+      } catch {
+        return []
+      }
+    },
+  })
+  const leads = leadsQ.data ?? []
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
@@ -588,7 +608,7 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
       message.success('预警信号已生成')
       onOpenChange(false)
       setForm({ signal_type: 'lease_expiring', level: 'warning', detail: '', suggested_action: '', lead_id: '' })
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '生成失败')
     } finally {
@@ -600,7 +620,7 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
     try {
       await marketDataApi.resolveChurnSignal(id)
       message.success('已标记为处理完成')
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '处理失败')
     }
@@ -630,7 +650,7 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
       })
       message.success(res.data?.reassigned ? '已重新派发跟进人' : '已派发跟进')
       setAssignOpen(false)
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.detail || e?.response?.data?.message || '派发失败')
     } finally {

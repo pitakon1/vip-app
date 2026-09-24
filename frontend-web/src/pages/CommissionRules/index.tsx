@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { message, Alert, Button } from 'antd'
 import { commissionRulesApi, employeesApi } from '@/services/api'
 import api from '@/lib/api'
 import useAuthStore from '@/stores/auth'
+import { useCachedQuery } from '@/lib/queryCache'
 import './commission-rules.css'
 
 type DealType = 'new_rental' | 'renewal' | 'management'
@@ -155,16 +156,64 @@ const CommissionRules = () => {
     { value: 'by_broker', label: t('commissionRules.brokerScopeOption.by_broker') },
     { value: 'by_employee', label: t('commissionRules.brokerScopeOption.by_employee') },
   ]
-  const [items, setItems] = useState<CommissionRule[]>([])
-  const [loading, setLoading] = useState(false)
-  const [loadFailed, setLoadFailed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [brokers, setBrokers] = useState<Broker[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
   const [page, setPage] = useState(1)
+
+  // 规则列表：缓存优先渲染 + 后台刷新（与其余页面策略一致）
+  const rulesQ = useCachedQuery<CommissionRule[]>({
+    queryKey: ['commission-rules', 'list'],
+    cacheKey: 'commission-rules:list',
+    queryFn: async () => {
+      const res = await commissionRulesApi.list()
+      const payload = res.data?.data ?? res.data
+      return payload?.items ?? payload ?? []
+    },
+  })
+  // 员工 / 分销商下拉：非关键数据，失败静默降级为空
+  const employeesQ = useCachedQuery<Employee[]>({
+    queryKey: ['commission-rules', 'employees'],
+    cacheKey: 'commission-rules:employees',
+    queryFn: async () => {
+      try {
+        const res = await employeesApi.list({ page: 1, page_size: 100 })
+        const payload = res.data?.data ?? res.data
+        return payload?.items ?? payload ?? []
+      } catch {
+        return []
+      }
+    },
+  })
+  const brokersQ = useCachedQuery<Broker[]>({
+    queryKey: ['commission-rules', 'brokers'],
+    cacheKey: 'commission-rules:brokers',
+    queryFn: async () => {
+      try {
+        const res = await api.get('/brokers', { params: { page_size: 100 } })
+        const payload = res.data?.data ?? res.data
+        return (payload?.items ?? []).map((b: Broker) => ({ id: b.id, partner_name: b.partner_name }))
+      } catch {
+        return []
+      }
+    },
+  })
+
+  const items = rulesQ.data ?? []
+  const employees = employeesQ.data ?? []
+  const brokers = brokersQ.data ?? []
+  const loading = rulesQ.isPending && !rulesQ.data
+  const loadFailed = rulesQ.isError
+  const refresh = () => { void rulesQ.refetch({ cancelRefetch: false }) }
+
+  // 加载失败提示（保留原有 toast 行为）
+  useEffect(() => {
+    if (rulesQ.isError) {
+      message.error((rulesQ.error as any)?.response?.data?.message || t('commissionRules.fetchFailed'))
+    }
+  }, [rulesQ.isError, rulesQ.error, t])
+
   // 前端本地分页（规则量小，保持现有接口不变）
   const pageSize = 10
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
@@ -174,47 +223,6 @@ const CommissionRules = () => {
   useEffect(() => {
     if (page > pageCount) setPage(pageCount)
   }, [page, pageCount])
-
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await commissionRulesApi.list()
-      const payload = res.data?.data ?? res.data
-      setItems(payload?.items ?? payload ?? [])
-      setLoadFailed(false)
-    } catch (err: any) {
-      setLoadFailed(true)
-      message.error(err?.response?.data?.message || t('commissionRules.fetchFailed'))
-    } finally {
-      setLoading(false)
-    }
-  }, [t])
-
-  const fetchEmployees = useCallback(async () => {
-    try {
-      const res = await employeesApi.list({ page: 1, page_size: 100 })
-      const payload = res.data?.data ?? res.data
-      setEmployees(payload?.items ?? payload ?? [])
-    } catch {
-      /* 员工列表非关键，失败静默 */
-    }
-  }, [])
-
-  const fetchBrokers = useCallback(async () => {
-    try {
-      const res = await api.get('/brokers', { params: { page_size: 100 } })
-      const payload = res.data?.data ?? res.data
-      setBrokers((payload?.items ?? []).map((b: Broker) => ({ id: b.id, partner_name: b.partner_name })))
-    } catch {
-      setBrokers([])
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-    fetchEmployees()
-    fetchBrokers()
-  }, [fetchData, fetchEmployees, fetchBrokers])
 
   const openCreate = () => {
     setEditingId(null)
@@ -301,7 +309,7 @@ const CommissionRules = () => {
         message.success(t('commissionRules.created'))
       }
       setModalOpen(false)
-      fetchData()
+      refresh()
     } catch (err: any) {
       message.error(err?.response?.data?.message || t('commissionRules.saveFailed'))
     } finally {
@@ -313,7 +321,7 @@ const CommissionRules = () => {
     try {
       await commissionRulesApi.update(rule.id, { is_active: !rule.is_active })
       message.success(rule.is_active ? t('commissionRules.ruleDisabled') : t('commissionRules.ruleEnabled'))
-      fetchData()
+      refresh()
     } catch (err: any) {
       message.error(err?.response?.data?.message || t('commissionRules.opFailed'))
     }
@@ -324,7 +332,7 @@ const CommissionRules = () => {
     try {
       await commissionRulesApi.delete(rule.id)
       message.success(t('commissionRules.deleted'))
-      fetchData()
+      refresh()
     } catch (err: any) {
       message.error(err?.response?.data?.message || t('commissionRules.deleteFailed'))
     }
@@ -362,7 +370,7 @@ const CommissionRules = () => {
           showIcon
           style={{ marginBottom: 16 }}
           message={t('commissionRules.fetchFailed')}
-          action={<Button size="small" onClick={() => fetchData()}>{t('common.retry')}</Button>}
+          action={<Button size="small" onClick={() => refresh()}>{t('common.retry')}</Button>}
         />
       )}
 

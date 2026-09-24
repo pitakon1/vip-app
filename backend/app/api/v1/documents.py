@@ -149,6 +149,22 @@ def _attachment_name(doc: Document, path: Path) -> str:
     return f"{stem or 'document'}{path.suffix}"
 
 
+def _resolve_readable_document(
+    session: Session, user: User, document_id: uuid.UUID
+) -> tuple[Document, Path]:
+    """按可见性规则取文档及其磁盘路径，不可见时抛 404/403。
+
+    预览（/file）与下载（/download）共用：两者的取件与鉴权完全一致，
+    只在响应头（Content-Type / Content-Disposition）上不同。
+    """
+    doc = session.get(Document, document_id)
+    if not doc or doc.deleted_at:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not _can_read_document(session, user, doc):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return doc, _stored_file_path(doc)
+
+
 def _owner_id_for_upload(
     session: Session, user: User, owner_id: Optional[uuid.UUID]
 ) -> uuid.UUID:
@@ -342,12 +358,7 @@ def read_document_file(
     认证支持 `Authorization` 头或 `?token=`（见 `get_current_user_allow_query_token`）。
     文件从磁盘流式回传，不暴露也不重定向到落库路径。
     """
-    doc = session.get(Document, document_id)
-    if not doc or doc.deleted_at:
-        raise HTTPException(status_code=404, detail="Document not found")
-    if not _can_read_document(session, user, doc):
-        raise HTTPException(status_code=403, detail="Access denied")
-    path = _stored_file_path(doc)
+    doc, path = _resolve_readable_document(session, user, document_id)
     return FileResponse(path, media_type=doc.mime_type or "application/octet-stream")
 
 
@@ -363,12 +374,7 @@ def download_document(
     任意指定，等于把正规域名出借给外部钓鱼链接做开放重定向；现在一律由服务端
     解析磁盘路径后流式回传，重定向面彻底移除。
     """
-    doc = session.get(Document, document_id)
-    if not doc or doc.deleted_at:
-        raise HTTPException(status_code=404, detail="Document not found")
-    if not _can_read_document(session, user, doc):
-        raise HTTPException(status_code=403, detail="Access denied")
-    path = _stored_file_path(doc)
+    doc, path = _resolve_readable_document(session, user, document_id)
     return FileResponse(
         path,
         media_type=doc.mime_type or "application/octet-stream",

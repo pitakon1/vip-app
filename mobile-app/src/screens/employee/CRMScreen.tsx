@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   StyleSheet,
+  FlatList,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
@@ -25,29 +26,9 @@ import colors from '../../theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
-import api from '../../lib/api';
 import { chatApi, leadsApi } from '../../services/api';
-
-interface Lead {
-  id: string;
-  name?: string | null;
-  phone?: string | null;
-  line_id?: string | null;
-  wechat_id?: string | null;
-  email?: string | null;
-  nationality?: string | null;
-  budget_min?: number | null;
-  budget_max?: number | null;
-  budget_currency?: string | null;
-  interested_projects?: unknown[] | null;
-  recommended_projects?: unknown[] | null;
-  stage?: string | null;
-  assigned_to?: string | null;
-  source?: string | null;
-  notes?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
+import { useCrmLeads, type Lead } from '@/hooks/useCrmLeads';
+import { currencySymbol } from '@/lib/currency';
 
 const STAGES: { key: string; label: string; color: string; rgb: string }[] = [
   { key: 'inquiring', label: '咨询中', color: colors.info, rgb: colors.infoRgb },
@@ -65,19 +46,13 @@ const stageMeta = (key?: string | null) =>
     rgb: colors.primaryRgb,
   };
 
-const symOf = (c?: string | null) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
-
 export default function CRMScreen() {
   const respContainer = useResponsiveContainerStyle();
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [stageTotals, setStageTotals] = useState<Record<string, number>>({});
-  const [totalCustomers, setTotalCustomers] = useState(0);
-  const [monthNew, setMonthNew] = useState<number | null>(null);
-  const [nameMap, setNameMap] = useState<Record<string, string>>({});
   const [stage, setStage] = useState('');
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { leads, stageTotals, totalCustomers, monthNew, nameMap, load } = useCrmLeads(stage);
 
   // 编辑线索弹窗（对齐管理员端：可填写姓名/电话/来源/意向项目/阶段/备注）
   const [formOpen, setFormOpen] = useState(false);
@@ -176,52 +151,6 @@ export default function CRMScreen() {
     }
   };
 
-  const load = useCallback(async () => {
-    const results = await Promise.allSettled([
-      leadsApi.list({ page: 1, page_size: 100 }),
-      leadsApi.list({ page: 1, page_size: 50, ...(stage ? { stage } : {}) }),
-      ...STAGES.map((s) => leadsApi.list({ stage: s.key, page: 1, page_size: 1 })),
-      api.get('/employees/directory'),
-    ]);
-
-    const itemsOf = (res: PromiseSettledResult<any>): any[] => {
-      if (res.status !== 'fulfilled') return [];
-      const d = res.value?.data;
-      return Array.isArray(d) ? d : (d?.items ?? []);
-    };
-
-    // 全量首屏（按创建时间倒序）用于「本月新增」统计
-    const allLeads = itemsOf(results[0]) as Lead[];
-    setMonthNew(
-      allLeads.filter((l) => l.created_at && dayjs(l.created_at).isSame(dayjs(), 'month')).length,
-    );
-
-    setLeads(itemsOf(results[1]) as Lead[]);
-
-    const totals: Record<string, number> = {};
-    STAGES.forEach((s, idx) => {
-      const res = results[2 + idx];
-      if (res.status === 'fulfilled') {
-        const d = res.value?.data as { total?: number } | undefined;
-        totals[s.key] = typeof d?.total === 'number' ? d.total : 0;
-      } else {
-        totals[s.key] = 0;
-      }
-    });
-    setStageTotals(totals);
-    setTotalCustomers(Object.values(totals).reduce((a, b) => a + b, 0));
-
-    if (results[7].status === 'fulfilled') {
-      const dir = results[7].value.data as { items?: { id: string; full_name?: string }[] };
-      setNameMap(
-        (dir?.items ?? []).reduce<Record<string, string>>((acc, e) => {
-          if (e.full_name) acc[e.id] = e.full_name;
-          return acc;
-        }, {}),
-      );
-    }
-  }, [stage]);
-
   useEffect(() => {
     (async () => {
       await load();
@@ -251,7 +180,7 @@ export default function CRMScreen() {
     const meta = stageMeta(l.stage);
     const budget =
       l.budget_max || l.budget_min
-        ? `预算 ${symOf(l.budget_currency)}${Number(l.budget_max || l.budget_min || 0).toLocaleString()}`
+        ? `预算 ${currencySymbol(l.budget_currency)}${Number(l.budget_max || l.budget_min || 0).toLocaleString()}`
         : null;
     const tags = [
       budget,
@@ -335,12 +264,16 @@ export default function CRMScreen() {
 
   return (
     <>
-      <ScrollView
+      <FlatList
         style={styles.container}
         contentContainerStyle={[styles.content, respContainer]}
         showsVerticalScrollIndicator={false}
+        data={visibleLeads}
+        keyExtractor={(l) => l.id}
+        renderItem={({ item }) => <View style={styles.listItem}>{renderLead(item)}</View>}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-      >
+        ListHeaderComponent={
+          <>
       {/* 搜索 */}
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color={colors.ink3} />
@@ -414,16 +347,16 @@ export default function CRMScreen() {
 
       {/* 客户列表 */}
       <Text style={styles.sectionTitle}>客户列表</Text>
-      {visibleLeads.length === 0 ? (
-        <EmptyState
-          icon="people-outline"
-          title={keyword ? '没有找到客户' : '暂无客户线索'}
-          sub={keyword ? '换个姓名或电话试试' : '分配给你的客户线索会展示在这里'}
-        />
-      ) : (
-        <View style={styles.list}>{visibleLeads.map((l) => renderLead(l))}</View>
-      )}
-      </ScrollView>
+          </>
+        }
+        ListEmptyComponent={
+          <EmptyState
+            icon="people-outline"
+            title={keyword ? '没有找到客户' : '暂无客户线索'}
+            sub={keyword ? '换个姓名或电话试试' : '分配给你的客户线索会展示在这里'}
+          />
+        }
+      />
 
       {/* 编辑客户状态弹窗（对齐管理员端表单） */}
       <Modal visible={formOpen} transparent animationType="fade" onRequestClose={() => setFormOpen(false)}>
@@ -543,7 +476,7 @@ const styles = StyleSheet.create({
     marginTop: colors.spacing.xl,
     marginBottom: colors.spacing.sm,
   },
-  list: { paddingHorizontal: colors.spacing.md, gap: colors.spacing.md },
+  listItem: { paddingHorizontal: colors.spacing.md, marginBottom: colors.spacing.md },
 
   leadCard: {
     backgroundColor: colors.surface,

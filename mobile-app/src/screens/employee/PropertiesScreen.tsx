@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   StyleSheet,
+  FlatList,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -26,6 +27,8 @@ import { propertiesApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import RegionPicker, { type RegionSelection } from '@/components/RegionPicker';
+import { currencySymbol } from '@/lib/currency';
+import { propertyCoverUrl } from '@/lib/property';
 
 const PAGE_SIZE = 10;
 
@@ -86,20 +89,6 @@ const SORTS: { key: string; label: string }[] = [
   { key: 'price_desc', label: '租金从高到低' },
   { key: 'area_desc', label: '面积从大到小' },
 ];
-
-const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
-
-// 取房源照片首图 URL（兼容字符串与 {url|path} 对象两种形态），无则返回空
-const photoUrlOf = (photos?: unknown[] | null): string => {
-  if (!Array.isArray(photos) || photos.length === 0) return '';
-  const first = photos[0];
-  if (typeof first === 'string') return first;
-  if (first && typeof first === 'object') {
-    const o = first as { url?: unknown; path?: unknown };
-    return typeof o.url === 'string' ? o.url : typeof o.path === 'string' ? o.path : '';
-  }
-  return '';
-};
 
 export default function PropertiesScreen() {
   const respContainer = useResponsiveContainerStyle();
@@ -314,7 +303,7 @@ export default function PropertiesScreen() {
     const st = p.status ?? 'vacant';
     const meta = STATUS_META[st] ?? { label: st, color: colors.ink2, bg: colors.surface2 };
     const type = TYPE_META[p.property_type ?? 'apartment'] ?? TYPE_META.apartment;
-    const cover = photoUrlOf(p.photos);
+    const cover = propertyCoverUrl(p.photos);
     const title = p.project_name
       ? `${p.project_name} · ${p.room_number ?? ''}`.trim()
       : ([p.room_number, p.building].filter(Boolean).join(' · ') || p.address || '房源');
@@ -372,7 +361,7 @@ export default function PropertiesScreen() {
           </View>
           <View style={styles.bottom}>
             <Text style={styles.price}>
-              {symOf(p.currency)}
+              {currencySymbol(p.currency)}
               {Number(p.monthly_rent || 0).toLocaleString()}
               <Text style={styles.priceUnit}>/月</Text>
             </Text>
@@ -397,14 +386,18 @@ export default function PropertiesScreen() {
 
   return (
     <>
-    <ScrollView
+    <FlatList
       style={styles.container}
       contentContainerStyle={[styles.content, respContainer]}
       showsVerticalScrollIndicator={false}
+      data={items}
+      keyExtractor={(p) => p.id}
+      renderItem={({ item }) => <View style={styles.listItem}>{renderCard(item)}</View>}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
       }
-    >
+      ListHeaderComponent={
+        <>
       {/* 搜索 */}
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color={colors.ink3} />
@@ -511,17 +504,18 @@ export default function PropertiesScreen() {
         ) : null}
       </Text>
 
-      {items.length === 0 ? (
+        </>
+      }
+      ListEmptyComponent={
         <EmptyState
           icon="business-outline"
           title="暂无房源"
           sub={keyword || status ? '换个关键词或筛选条件试试' : '可管理的房源会展示在这里'}
         />
-      ) : (
-        <View style={styles.list}>
-          {items.map((p) => renderCard(p))}
-
-          {page < totalPages ? (
+      }
+      ListFooterComponent={
+        page < totalPages ? (
+          <View style={styles.listFooter}>
             <TouchableOpacity
               style={styles.loadMore}
               activeOpacity={0.8}
@@ -534,10 +528,10 @@ export default function PropertiesScreen() {
                 <Text style={styles.loadMoreText}>加载更多房源</Text>
               )}
             </TouchableOpacity>
-          ) : null}
-        </View>
-      )}
-    </ScrollView>
+          </View>
+        ) : null
+      }
+    />
 
       {/* 按学校找房（C 端维度下拉面板） */}
       <Modal visible={schoolOpen} transparent animationType="fade" onRequestClose={() => setSchoolOpen(false)}>
@@ -766,7 +760,8 @@ const styles = StyleSheet.create({
   countStrong: { fontSize: 14, fontWeight: '700', color: colors.ink },
   countVacant: { fontSize: 14, fontWeight: '700', color: colors.info },
 
-  list: { paddingHorizontal: colors.spacing.md, gap: colors.spacing.md },
+  listItem: { paddingHorizontal: colors.spacing.md, marginBottom: colors.spacing.md },
+  listFooter: { paddingHorizontal: colors.spacing.md },
   card: {
     flexDirection: 'row',
     backgroundColor: colors.surface,

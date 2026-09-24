@@ -86,48 +86,52 @@ def get_summary(
     if cached is not None:
         return cached
 
-    total = session.exec(
-        select(func.count(Property.id)).where(Property.deleted_at.is_(None))
+    # ---- 房源状态：total / vacant / rented / maintenance 合并为一次条件聚合 ----
+    prop_row = session.exec(
+        select(
+            func.count(Property.id),
+            func.sum(case((Property.status == PropertyStatus.vacant, 1), else_=0)),
+            func.sum(case((Property.status == PropertyStatus.rented, 1), else_=0)),
+            func.sum(case((Property.status == PropertyStatus.maintenance, 1), else_=0)),
+        ).where(Property.deleted_at.is_(None))
     ).one()
-    vacant = session.exec(
-        select(func.count(Property.id)).where(
-            Property.deleted_at.is_(None),
-            Property.status == PropertyStatus.vacant,
-        )
-    ).one()
-    rented = session.exec(
-        select(func.count(Property.id)).where(
-            Property.deleted_at.is_(None),
-            Property.status == PropertyStatus.rented,
-        )
-    ).one()
-    maintenance = session.exec(
-        select(func.count(Property.id)).where(
-            Property.deleted_at.is_(None),
-            Property.status == PropertyStatus.maintenance,
-        )
-    ).one()
+    total = int(prop_row[0] or 0)
+    vacant = int(prop_row[1] or 0)
+    rented = int(prop_row[2] or 0)
+    maintenance = int(prop_row[3] or 0)
 
     now = datetime.utcnow()
     thirty_days_later = now + timedelta(days=30)
-    expiring_leases = session.exec(
-        select(func.count(Lease.id)).where(
-            Lease.end_date <= thirty_days_later,
-            Lease.end_date >= now,
-            Lease.status == LeaseStatus.active,
-            Lease.deleted_at.is_(None),
-        )
+
+    # ---- 租约：即将到期数量 + 活跃租约月租金收入，合并为一次条件聚合 ----
+    lease_row = session.exec(
+        select(
+            func.sum(
+                case(
+                    (
+                        (Lease.end_date <= thirty_days_later)
+                        & (Lease.end_date >= now)
+                        & (Lease.status == LeaseStatus.active),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Lease.status == LeaseStatus.active, Lease.monthly_rent),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
+        ).where(Lease.deleted_at.is_(None))
     ).one()
+    expiring_leases = int(lease_row[0] or 0)
+    active_lease_revenue = lease_row[1] or 0
 
     seven_days_later = now + timedelta(days=7)
-    upcoming_payments = session.exec(
-        select(func.count(Payment.id)).where(
-            Payment.due_date <= seven_days_later,
-            Payment.due_date >= now,
-            Payment.status == PaymentStatus.pending,
-            Payment.deleted_at.is_(None),
-        )
-    ).one()
 
     # 月度收入（当月已成功的付款），与字段语义一致，仅统计本月
     _this_month = datetime.utcnow()
@@ -136,41 +140,52 @@ def get_summary(
         _next_month_start = datetime(_month_start.year + 1, 1, 1)
     else:
         _next_month_start = datetime(_month_start.year, _month_start.month + 1, 1)
-    monthly_revenue = session.exec(
-        select(func.coalesce(func.sum(Payment.amount), 0)).where(
-            Payment.status == PaymentStatus.succeeded,
-            Payment.paid_at >= _month_start,
-            Payment.paid_at < _next_month_start,
-            Payment.deleted_at.is_(None),
-        )
-    ).one()
 
-    # 活跃租约的月租金总收入
-    active_lease_revenue = session.exec(
-        select(func.coalesce(func.sum(Lease.monthly_rent), 0)).where(
-            Lease.status == LeaseStatus.active,
-            Lease.deleted_at.is_(None),
-        )
+    # ---- 付款：即将到期待付数量 + 本月已成功收入，合并为一次条件聚合 ----
+    payment_row = session.exec(
+        select(
+            func.sum(
+                case(
+                    (
+                        (Payment.due_date <= seven_days_later)
+                        & (Payment.due_date >= now)
+                        & (Payment.status == PaymentStatus.pending),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            (Payment.status == PaymentStatus.succeeded)
+                            & (Payment.paid_at >= _month_start)
+                            & (Payment.paid_at < _next_month_start),
+                            Payment.amount,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
+        ).where(Payment.deleted_at.is_(None))
     ).one()
+    upcoming_payments = int(payment_row[0] or 0)
+    monthly_revenue = payment_row[1] or 0
 
     # 入住率
     occupancy_rate = round(rented / total * 100, 1) if total > 0 else 0
 
-    # 活跃线索数
-    active_leads = session.exec(
-        select(func.count(Lead.id)).where(
-            Lead.stage != LeadStage.closed,
-            Lead.deleted_at.is_(None),
-        )
+    # ---- 线索：活跃 / 已成交数量，合并为一次条件聚合 ----
+    lead_row = session.exec(
+        select(
+            func.sum(case((Lead.stage != LeadStage.closed, 1), else_=0)),
+            func.sum(case((Lead.stage == LeadStage.closed, 1), else_=0)),
+        ).where(Lead.deleted_at.is_(None))
     ).one()
-
-    # 已成交线索数
-    closed_leads = session.exec(
-        select(func.count(Lead.id)).where(
-            Lead.stage == LeadStage.closed,
-            Lead.deleted_at.is_(None),
-        )
-    ).one()
+    active_leads = int(lead_row[0] or 0)
+    closed_leads = int(lead_row[1] or 0)
 
     # 成交率
     conversion_rate = round(closed_leads / (closed_leads + active_leads) * 100, 1) if (closed_leads + active_leads) > 0 else 0

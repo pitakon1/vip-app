@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -19,9 +19,7 @@ import {
   ExclamationCircleOutlined,
   PlusOutlined,
 } from '@ant-design/icons'
-import dayjs from 'dayjs'
-import { propertiesApi, projectsApi } from '@/services/api'
-import { MAX_PAGE_SIZE } from '@/lib/api'
+import { propertiesApi, projectsApi, type QueryParams } from '@/services/api'
 import { downloadReport } from '@/lib/download'
 import useAuthStore from '@/stores/auth'
 import type { Project, Property } from '@/types'
@@ -48,13 +46,33 @@ const bannerColorFor = (seed: string) => {
 
 const formatRent = (v: any) => Number(v || 0).toLocaleString()
 
-// 命中关键词：房源地址/城市/项目名/城区/区域任一包含即可（区域/地铁筛选，与租客端口径一致）
-const matchLocation = (item: any, kws: string[]): boolean =>
-  kws.some((k) =>
-    [item.address, item.city, item.project_id, item.district, item.area]
-      .filter(Boolean)
-      .some((v) => String(v).toLowerCase().includes(k))
-  )
+// 前端排序 key → 后端 sort 参数
+const SORT_MAP: Record<string, string> = {
+  'rent-asc': 'price_asc',
+  'rent-desc': 'price_desc',
+  created: 'latest',
+}
+
+// 区间解析：预设 'min-max' / 'min+'（如 '5000-10000' / '50000+'），自定义取输入值。
+// 返回空对象表示该侧不限（不传对应参数）。
+const parseRange = (raw: string, customMin: string, customMax: string): { min?: number; max?: number } => {
+  const out: { min?: number; max?: number } = {}
+  if (raw === 'custom') {
+    if (customMin) { const v = Number(customMin); if (!Number.isNaN(v)) out.min = v }
+    if (customMax) { const v = Number(customMax); if (!Number.isNaN(v)) out.max = v }
+    return out
+  }
+  if (!raw) return out
+  if (raw.endsWith('+')) {
+    const v = Number(raw.slice(0, -1))
+    if (!Number.isNaN(v)) out.min = v
+    return out
+  }
+  const [a, b] = raw.split('-')
+  if (a) { const v = Number(a); if (!Number.isNaN(v)) out.min = v }
+  if (b) { const v = Number(b); if (!Number.isNaN(v)) out.max = v }
+  return out
+}
 
 const PAGE_SIZE = 10
 
@@ -69,8 +87,9 @@ const Properties = () => {
   const role = user?.role || ''
   const isManageMode = role === 'admin' || role === 'agent' || role === 'employee'
 
-  // 数据
-  const [allItems, setAllItems] = useState<Property[]>([])
+  // 数据（服务端分页：items 为当前页数据，total 为后端返回的总数）
+  const [items, setItems] = useState<Property[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
 
@@ -207,7 +226,7 @@ const Properties = () => {
     }
   }
 
-  // 数据获取
+  // 数据获取：筛选条件全部下推后端做真·服务端分页
   const fetchProjects = useCallback(async () => {
     try {
       const res = await projectsApi.list()
@@ -216,21 +235,54 @@ const Properties = () => {
     } catch { /* ignore */ }
   }, [])
 
+  // 当前筛选 + 分页 → 后端查询参数
+  const buildParams = useCallback((): QueryParams => {
+    const params: QueryParams = {
+      page,
+      pageSize: PAGE_SIZE,
+      sort: SORT_MAP[sort] || 'latest',
+    }
+    const kw = keyword.trim()
+    if (kw) params.q = kw
+    if (activeLocationKw.length) params.keywords = activeLocationKw
+    if (status) params.status = status
+    if (propertyType) params.property_type = propertyType
+    if (onlyVideo) params.has_video = true
+    // 房间数：'0'=单间, '1'/'2'/'3' 精确, '4'=≥4
+    if (bedrooms !== '') {
+      const n = Number(bedrooms)
+      params.bedrooms_min = n
+      if (bedrooms !== '4') params.bedrooms_max = n
+    }
+    const price = parseRange(priceRange, priceCustomMin, priceCustomMax)
+    if (price.min !== undefined) params.price_min = price.min
+    if (price.max !== undefined) params.price_max = price.max
+    const area = parseRange(areaRange, areaCustomMin, areaCustomMax)
+    if (area.min !== undefined) params.area_min = area.min
+    if (area.max !== undefined) params.area_max = area.max
+    return params
+  }, [page, keyword, activeLocationKw, status, propertyType, onlyVideo, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
+
+  // 请求序列守卫：只有最新一次请求的响应才允许 setState，
+  // 防止快速改筛选时旧响应覆盖新结果。
+  const reqIdRef = useRef(0)
   const fetchData = useCallback(async () => {
+    const reqId = ++reqIdRef.current
     setLoading(true)
     try {
-      // ⚠️ 技术债：这里是「拉全量 → 前端筛选 → 前端切片」的假分页，
-      // 20+ 个筛选条件都还在前端跑。取值只能贴到后端硬顶（100），
-      // 房源数超过 100 时列表会少数据且不报错。正确解法是把筛选下推后端做真分页。
-      const res = await propertiesApi.list({ page: 1, pageSize: MAX_PAGE_SIZE })
+      const res = await propertiesApi.list(buildParams())
+      if (reqId !== reqIdRef.current) return
       const payload = res.data?.data ?? res.data
-      setAllItems(payload?.items ?? [])
+      setItems(payload?.items ?? [])
+      setTotal(payload?.total ?? 0)
     } catch {
-      setAllItems([])
+      if (reqId !== reqIdRef.current) return
+      setItems([])
+      setTotal(0)
     } finally {
-      setLoading(false)
+      if (reqId === reqIdRef.current) setLoading(false)
     }
-  }, [t])
+  }, [buildParams])
 
   useEffect(() => { fetchProjects() }, [fetchProjects])
   useEffect(() => { fetchData() }, [fetchData])
@@ -292,90 +344,8 @@ const Properties = () => {
     }
   }
 
-  // 前端筛选 + 排序
-  const filteredItems = useMemo(() => {
-    let list = [...allItems]
-    const kw = keyword.trim().toLowerCase()
-    if (kw) {
-      list = list.filter((it: any) =>
-        [it.room_number, it.address, it.project_id, it.building, it.city]
-          .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(kw))
-      )
-    }
-    if (status) {
-      list = list.filter((it: any) => (it.status || 'vacant').toLowerCase() === status)
-    }
-    if (propertyType) {
-      list = list.filter((it: any) => (it.property_type || '').toLowerCase() === propertyType)
-    }
-    // 按区域 / 按地铁：命中已选城区/站点关键词（与租客端口径一致）
-    if (activeLocationKw.length) {
-      list = list.filter((it: any) => matchLocation(it, activeLocationKw))
-    }
-    // 只看带视频
-    if (onlyVideo) {
-      list = list.filter((it: any) => !!it.video_url)
-    }
-    // 房间数（对齐后端 bedrooms_min/bedrooms_max：'0'=单间, '1'/'2'/'3' 精确, '4'=≥4）
-    if (bedrooms !== '') {
-      const n = Number(bedrooms)
-      if (bedrooms === '4') {
-        list = list.filter((it: any) => Number(it.bedrooms || 0) >= 4)
-      } else {
-        list = list.filter((it: any) => Number(it.bedrooms || 0) === n)
-      }
-    }
-    // 价格区间（对齐后端 price_min/price_max）：预设区间 or 自定义
-    {
-      let pMin = 0, pMax = Infinity
-      if (priceRange === 'custom') {
-        if (priceCustomMin) { const mn = Number(priceCustomMin); if (!Number.isNaN(mn)) pMin = mn }
-        if (priceCustomMax) { const mx = Number(priceCustomMax); if (!Number.isNaN(mx)) pMax = mx }
-      } else if (priceRange) {
-        const [mn, mx] = priceRange.split('-').map(Number)
-        if (!Number.isNaN(mn)) pMin = mn
-        if (!Number.isNaN(mx)) pMax = mx
-      }
-      list = list.filter((it: any) => {
-        const r = Number(it.monthly_rent || 0)
-        return r >= pMin && r <= pMax
-      })
-    }
-    // 面积区间（对齐后端 area_min/area_max）：预设区间 or 自定义
-    {
-      let aMin = 0, aMax = Infinity
-      if (areaRange === 'custom') {
-        if (areaCustomMin) { const mn = Number(areaCustomMin); if (!Number.isNaN(mn) && mn > 0) aMin = mn }
-        if (areaCustomMax) { const mx = Number(areaCustomMax); if (!Number.isNaN(mx) && mx > 0) aMax = mx }
-      } else if (areaRange) {
-        const [mn, mx] = areaRange.split('-').map(Number)
-        if (!Number.isNaN(mn)) aMin = mn
-        if (!Number.isNaN(mx)) aMax = mx
-      }
-      list = list.filter((it: any) => {
-        const s = Number(it.size_sqm || 0)
-        return s >= aMin && s <= aMax
-      })
-    }
-    switch (sort) {
-      case 'rent-asc': list.sort((a: any, b: any) => a.monthly_rent - b.monthly_rent); break
-      case 'rent-desc': list.sort((a: any, b: any) => b.monthly_rent - a.monthly_rent); break
-      case 'created':
-      default:
-        list.sort((a: any, b: any) => dayjs(b.created_at || 0).valueOf() - dayjs(a.created_at || 0).valueOf())
-        break
-    }
-    return list
-  }, [allItems, keyword, status, propertyType, activeLocationKw, onlyVideo, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
-
+  // 筛选/排序变化时回到第 1 页（服务端分页）
   useEffect(() => { setPage(1) }, [keyword, status, propertyType, activeLocationKw, onlyVideo, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
-
-  const total = filteredItems.length
-  const pagedItems = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE
-    return filteredItems.slice(start, start + PAGE_SIZE)
-  }, [filteredItems, page])
 
   // 分页页码（对齐原型 admin-properties 的 rent-pagination 结构）
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -897,7 +867,7 @@ const Properties = () => {
 
       {/* Property Card Grid（对齐原型 rent-grid--auto） */}
       <Spin spinning={loading} tip={t('common.loading')}>
-        {pagedItems.length === 0 && !loading ? (
+        {items.length === 0 && !loading ? (
           <div className="rent-empty">
             <div className="rent-empty__icon">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -906,7 +876,7 @@ const Properties = () => {
           </div>
         ) : (
           <div className="rent-grid rent-grid--auto">
-            {pagedItems.map((item: any) => renderListItem(item))}
+            {items.map((item: any) => renderListItem(item))}
           </div>
         )}
       </Spin>

@@ -228,7 +228,13 @@ def list_employees(
 
     stmt = select(Employee).where(*conditions).order_by(Employee.created_at.desc())
     page = paginate_query(session, stmt, pagination)
-    users = {u.id: u for u in session.exec(select(User)).all()}
+    # 只取本页员工引用的用户，避免把全表 users 拉进内存（员工数一涨就是每次请求一次全量加载）
+    user_ids = {e.user_id for e in page.items if e.user_id}
+    users = (
+        {u.id: u for u in session.exec(select(User).where(User.id.in_(user_ids))).all()}
+        if user_ids
+        else {}
+    )
     enriched = [
         {
             **e.model_dump(),
@@ -345,8 +351,24 @@ def get_leaderboard(
         )
     ).all()
 
-    employees = {e.id: e for e in session.exec(select(Employee)).all()}
-    users = {u.id: u for u in session.exec(select(User)).all()}
+    # 只加载被结算记录实际引用的员工 / 用户，避免全表加载
+    employee_ids = {s.employee_id for s in settlements if s.employee_id}
+    employees = (
+        {
+            e.id: e
+            for e in session.exec(
+                select(Employee).where(Employee.id.in_(employee_ids))
+            ).all()
+        }
+        if employee_ids
+        else {}
+    )
+    user_ids = {e.user_id for e in employees.values() if e.user_id}
+    users = (
+        {u.id: u for u in session.exec(select(User).where(User.id.in_(user_ids))).all()}
+        if user_ids
+        else {}
+    )
     me = session.exec(
         select(Employee).where(Employee.user_id == user.id)
     ).first()

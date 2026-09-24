@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, ScrollView, Input } from '@tarojs/components'
+import { View, Text, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import {
@@ -8,76 +8,12 @@ import {
   propertiesApi,
   favoritesApi
 } from '@/services/api'
-import { fmtMoney as formatMoney } from '@/utils/format'
-import type { NotificationType } from '@/types'
 import { iconStyle } from '@/utils/icons'
 import { getCacheSync, isFreshSync, setCache } from '@/utils/cache'
+import { TYPE_MAP, notifCategory, notifTitle, pickList, type NotifRow } from '@/lib/homeShared'
 import BottomNav from '@/components/BottomNav'
+import PropertyRail from '@/components/PropertyRail'
 import './index.scss'
-
-const TYPE_MAP: Record<NotificationType, { text: string; color: string; bg: string }> = {
-  payment: { text: '租金提醒', color: 'var(--error)', bg: 'rgba(var(--error-rgb), 0.1)' },
-  lease: { text: '合同到期', color: 'var(--warning)', bg: 'rgba(var(--warning-rgb), 0.1)' },
-  maintenance: { text: '维修通知', color: 'var(--primary)', bg: 'var(--sidebar-active)' },
-  system: { text: '系统通知', color: 'var(--ink-3)', bg: 'var(--surface-2)' }
-}
-
-/** 通知行（后端返回 subject/content/status/related_entity_type，无 type 字段） */
-interface NotifRow {
-  id: number | string
-  subject?: string
-  title?: string
-  content?: string
-  status?: string
-  read?: boolean
-  related_entity_type?: string
-  template_key?: string
-  created_at?: string
-  createdAt?: string
-  [key: string]: any
-}
-
-// 按关联实体推导通知分类（后端无 type 字段）
-const RENT_KEYS = ['lease', 'payment', 'rent', 'invoice', 'deposit']
-const SERVICE_KEYS = ['maintenance', 'service_order', 'service', 'repair', 'ticket']
-
-const notifCategory = (n: NotifRow): NotificationType => {
-  const raw = `${n?.related_entity_type || ''} ${n?.template_key || ''}`.toLowerCase()
-  if (SERVICE_KEYS.some((k) => raw.includes(k))) return 'maintenance'
-  if (raw.includes('lease')) return 'lease'
-  if (RENT_KEYS.some((k) => raw.includes(k))) return 'payment'
-  return 'system'
-}
-
-const notifTitle = (n: NotifRow) => n?.subject || n?.title || '通知'
-const notifTime = (n: NotifRow) => n?.created_at || n?.createdAt || ''
-
-function pickList<T>(res: any): T[] {
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res?.data)) return res.data
-  if (Array.isArray(res?.items)) return res.items
-  if (Array.isArray(res?.list)) return res.list
-  if (Array.isArray(res?.data?.items)) return res.data.items
-  if (Array.isArray(res?.data?.list)) return res.data.list
-  return []
-}
-
-const formatDay = (x?: string) => (x ? String(x).slice(0, 10) : '')
-
-const propertyTitle = (item: any) =>
-  item?.room_number ||
-  item?.project_name ||
-  item?.building ||
-  item?.address ||
-  `房源 #${String(item?.id ?? '').slice(0, 8)}`
-
-const propertyAddress = (item: any) =>
-  [item?.city, item?.address || item?.project_name].filter(Boolean).join(' · ')
-
-const propertyTags = (item: any): string[] =>
-  [item?.property_type, item?.furnished ? '拎包入住' : '', item?.bedrooms ? `${item.bedrooms}卧` : '']
-    .filter(Boolean)
-    .slice(0, 3) as string[]
 
 export default function OwnerHomePage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
@@ -257,77 +193,6 @@ export default function OwnerHomePage() {
     })
   }
 
-  const renderRail = (title: string, items: any[]) => (
-    <View className='rv-sec'>
-      <View className='rv-sec__head'>
-        <Text className='rv-sec__title'>{title}</Text>
-        <Text className='rv-sec__more' onClick={() => goQuick('/pages/tenant/listings/index')}>
-          更多 ›
-        </Text>
-      </View>
-      {items.length === 0 ? (
-        <View className='empty-state'>
-          <View className='empty-state__icon icon-svg' style={iconStyle('home', 80)} />
-          <Text>暂无房源</Text>
-        </View>
-      ) : (
-        <ScrollView scrollX className='rv-rail'>
-          <View className='rv-rail-inner'>
-            {items.map((item) => (
-              <View
-                key={item?.id}
-                className='rv-prop'
-                onClick={() =>
-                  goQuick(`/pages/tenant/property-detail/index?id=${item?.id}`)
-                }
-              >
-                <View className='rv-prop__img'>
-                  <View className='rv-prop__img-icon icon-svg' style={iconStyle('home', 48)} />
-                  {!!item?.property_type && (
-                    <Text className='rv-prop__badge'>{item.property_type}</Text>
-                  )}
-                  <View
-                    className='rv-prop__fav'
-                    aria-label={favSet.has(String(item?.id)) ? '取消收藏' : '收藏'}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      toggleFavorite(String(item?.id))
-                    }}
-                  >
-                    <View
-                      className='icon-svg'
-                      style={iconStyle(
-                        favSet.has(String(item?.id)) ? 'heartFill' : 'heart',
-                        32
-                      )}
-                    />
-                  </View>
-                </View>
-                <View className='rv-prop__body'>
-                  <Text className='rv-prop__name'>{propertyTitle(item)}</Text>
-                  <Text className='rv-prop__addr'>{propertyAddress(item) || '—'}</Text>
-                  <View className='rv-prop__tags'>
-                    {propertyTags(item).map((tag) => (
-                      <Text key={tag} className='rv-tag'>{tag}</Text>
-                    ))}
-                  </View>
-                  <View className='rv-prop__bottom'>
-                    <Text className='rv-prop__price'>
-                      {Number(item?.sale_price) > 0
-                        ? formatMoney(item.sale_price, item?.currency)
-                        : `${formatMoney(item?.monthly_rent, item?.currency)}/月`}
-                    </Text>
-                    <Text className='rv-prop__meta'>{formatDay(item?.created_at || item?.published_at)}</Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      )}
-    </View>
-  )
-
   return (
     <View className='tenant-home-page'>
       <View className='page-container'>
@@ -374,9 +239,9 @@ export default function OwnerHomePage() {
           <Text className='browse-banner__arrow'>›</Text>
         </View>
 
-        {renderRail('精选房源', featuredItems)}
-        {renderRail('新上房源', newItems)}
-        {renderRail('热门二手房', commItems)}
+        <PropertyRail title='精选房源' items={featuredItems} favSet={favSet} onToggleFavorite={toggleFavorite} />
+        <PropertyRail title='新上房源' items={newItems} favSet={favSet} onToggleFavorite={toggleFavorite} />
+        <PropertyRail title='热门二手房' items={commItems} favSet={favSet} onToggleFavorite={toggleFavorite} />
 
         <View className='rv-block-head'>
           <Text className='rv-block-title rv-block-title--inline'>最近动态</Text>

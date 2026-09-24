@@ -498,23 +498,17 @@ export default function ProfilePage() {
     }
   }
 
+  // 提醒天数用预设档位选择：Taro.showModal 不支持 editable / placeholderText / res.content
+  // （那是微信原生扩展字段，Taro 3.6 类型里没有，跨端也没有输入框，
+  // 会退化成「点了没反应/永远提示格式错误」），改用与「自动催缴」一致的 ActionSheet。
   const editBusinessDays = (key: 'rent_reminder_days' | 'lease_reminder_days') => {
-    const isRent = key === 'rent_reminder_days'
-    const max = isRent ? 180 : 365
-    Taro.showModal({
-      title: isRent ? '租金到期前提醒天数' : '合同到期前提醒天数',
-      editable: true,
-      placeholderText: String(business[key] ?? (isRent ? 7 : 30)),
-      success: (res) => {
-        if (!res.confirm) return
-        const n = Number.parseInt(String(res.content ?? ''), 10)
-        if (!Number.isFinite(n) || n < 0 || n > max) {
-          Taro.showToast({ title: `请输入 0-${max} 之间的整数`, icon: 'none' })
-          return
-        }
-        saveBusiness({ [key]: n })
-      }
-    })
+    const options =
+      key === 'rent_reminder_days' ? [3, 7, 14, 30, 60, 90] : [30, 60, 90, 180, 365]
+    Taro.showActionSheet({ itemList: options.map((d) => `${d} 天前`) })
+      .then((res) => saveBusiness({ [key]: options[res.tapIndex] }))
+      .catch(() => {
+        /* 用户取消 */
+      })
   }
 
   const editAutoDunning = () => {

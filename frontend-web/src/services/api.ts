@@ -3,8 +3,9 @@ import api from '@/lib/api'
 /**
  * 查询串参数：只透传给 axios，不做业务校验。
  * 保留标量联合而不是 `Record<string, any>`，避免把 any 继续扩散到调用方。
+ * 数组用于多值查询参数（如 `keywords`），请求层会序列化成重复键（`keywords=a&keywords=b`）。
  */
-export type QueryParams = Record<string, string | number | boolean | undefined | null>
+export type QueryParams = Record<string, string | number | boolean | string[] | undefined | null>
 
 /** 请求体：形状由各接口自己的 Pydantic 模型保证，封装层不猜，故用 unknown。 */
 export type RequestBody = unknown

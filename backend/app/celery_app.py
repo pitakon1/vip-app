@@ -21,8 +21,10 @@ celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
-    # 时区配置
-    timezone="Asia/Shanghai",
+    # 时区配置：业务市场在泰国，统一用曼谷本地时间。
+    # 这会让下方所有 `crontab(hour=...)` 定时任务按曼谷本地时间触发——
+    # 此前配的是 Asia/Shanghai，实际比曼谷早 1 小时，催缴/报表/备份都会提前一小时跑。
+    timezone="Asia/Bangkok",
     enable_utc=True,
     # 任务执行配置
     task_acks_late=True,

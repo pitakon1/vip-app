@@ -239,11 +239,24 @@ def get_performance_leaderboard(
         select(CommissionSettlement).where(*conditions)
     ).all()
 
-    employees = {e.id: e for e in session.exec(select(Employee)).all()}
-    users = {
-        u.id: u
-        for u in session.exec(select(User)).all()
-    }
+    # 只加载被结算记录实际引用的员工 / 用户，避免全表加载
+    employee_ids = {s.employee_id for s in settlements if s.employee_id}
+    employees = (
+        {
+            e.id: e
+            for e in session.exec(
+                select(Employee).where(Employee.id.in_(employee_ids))
+            ).all()
+        }
+        if employee_ids
+        else {}
+    )
+    user_ids = {e.user_id for e in employees.values() if e.user_id}
+    users = (
+        {u.id: u for u in session.exec(select(User).where(User.id.in_(user_ids))).all()}
+        if user_ids
+        else {}
+    )
     leaderboard: dict = {}
     for s in settlements:
         key = str(s.employee_id)

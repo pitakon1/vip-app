@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   StyleSheet,
+  FlatList,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -31,6 +32,8 @@ import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
+import { currencySymbol } from '@/lib/currency';
+import { propertyCoverUrl } from '@/lib/property';
 
 const PAGE_SIZE = 10;
 
@@ -117,20 +120,6 @@ const SORT_OPTIONS: { key: string; label: string }[] = [
 
 const optionLabel = (opts: { key: string; label: string }[], key: string, fallback: string) =>
   opts.find((o) => o.key === key)?.label ?? fallback;
-
-const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
-
-// 取房源照片首图 URL（兼容字符串与 {url|path} 对象两种形态），无则返回空
-const photoUrlOf = (photos?: unknown[] | null): string => {
-  if (!Array.isArray(photos) || photos.length === 0) return '';
-  const first = photos[0];
-  if (typeof first === 'string') return first;
-  if (first && typeof first === 'object') {
-    const o = first as { url?: unknown; path?: unknown };
-    return typeof o.url === 'string' ? o.url : typeof o.path === 'string' ? o.path : '';
-  }
-  return '';
-};
 
 // 房源标题：优先「小区名 · 房号」（与 C 端一致），缺小区名时回退房号·楼栋
 const adminTitle = (p: PropertyItem) =>
@@ -542,6 +531,102 @@ export default function AdminPropertiesScreen() {
     ] as { key: string; label: string; active: boolean }[];
   }, [districtSel, metroSel.length, priceRange, bedrooms, areaRange, schoolId, sort]);
 
+  const renderPropertyCard = (p: PropertyItem) => {
+    const type = TYPE_META[p.property_type ?? 'apartment'] ?? TYPE_META.apartment;
+    const meta = STATUS_META[p.status ?? 'vacant'] ?? {
+      label: p.status ?? '未知',
+      color: colors.ink2,
+      rgb: colors.primaryRgb,
+    };
+    const spec = [
+      p.size_sqm ? `${p.size_sqm}㎡` : null,
+      p.bedrooms ? `${p.bedrooms} 卧` : null,
+      p.bathrooms ? `${p.bathrooms} 浴` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    return (
+      <View style={styles.card}>
+        <View style={styles.banner}>
+          {propertyCoverUrl(p.photos) ? (
+            <Image source={{ uri: propertyCoverUrl(p.photos) }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          ) : (
+            <View style={styles.bannerIcon}>
+              <Ionicons name={type.icon} size={26} color={colors.primaryForeground} />
+            </View>
+          )}
+          <View style={[styles.typeBadge, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.typeBadgeText, { color: type.color }]}>{type.label}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: colors.alpha(meta.rgb, 0.14) }]}>
+            <Text style={[styles.statusBadgeText, { color: meta.color }]}>{meta.label}</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.cardBody}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('PropertyEdit', { id: p.id })}
+        >
+          <Text style={styles.name} numberOfLines={1}>
+            {adminTitle(p)}
+          </Text>
+          <View style={styles.addrRow}>
+            <Ionicons name="location-outline" size={13} color={colors.ink3} />
+            <Text style={styles.addr} numberOfLines={1}>{p.address || '暂无地址'}</Text>
+          </View>
+          {!!spec && <Text style={styles.spec}>{spec}</Text>}
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>
+              {currencySymbol(p.currency)}
+              {Number(p.monthly_rent || 0).toLocaleString()}
+              <Text style={styles.priceUnit}> /月</Text>
+            </Text>
+          </View>
+          {/* 归属人：历史房源 created_by 为空，仅管理员可见并可由管理员指派 */}
+          <View style={styles.ownerRow}>
+            <Ionicons name="person-outline" size={12} color={colors.ink3} />
+            <Text
+              style={[styles.ownerText, !p.creator_name && styles.ownerTextEmpty]}
+              numberOfLines={1}
+            >
+              {p.creator_name ?? '未指派'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <View style={styles.cardFoot}>
+          <TouchableOpacity
+            style={styles.manageBtn}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('AdminPropertyDetail', { id: p.id })}
+          >
+            <Text style={styles.manageText}>管理</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.assignBtn}
+            activeOpacity={0.7}
+            onPress={() => openAssign(p)}
+            accessibilityRole="button"
+            accessibilityLabel="指派归属人"
+          >
+            <Ionicons name="person-add-outline" size={15} color={colors.primary} />
+            <Text style={styles.assignText}>指派</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            activeOpacity={0.7}
+            onPress={() => doDelete(p)}
+            accessibilityRole="button"
+            accessibilityLabel="删除房源"
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.error} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -551,19 +636,21 @@ export default function AdminPropertiesScreen() {
   }
 
   return (
-    <ScrollView
+    <>
+    <FlatList
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingTop: insets.top }, respContainer]}
       showsVerticalScrollIndicator={false}
-      onScroll={({ nativeEvent }) => {
-        const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-        if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 80) onLoadMore();
-      }}
-      scrollEventThrottle={100}
+      data={displayItems}
+      keyExtractor={(p) => p.id}
+      renderItem={({ item }) => renderPropertyCard(item)}
+      onEndReached={onLoadMore}
+      onEndReachedThreshold={0.1}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
       }
-    >
+      ListHeaderComponent={
+        <>
       {/* 搜索 + 新增房源 */}
       <View style={styles.searchRow}>
         <View style={styles.searchBar}>
@@ -1000,115 +1087,23 @@ export default function AdminPropertiesScreen() {
 
       {/* 房源列表 */}
       <Text style={styles.sectionTitle}>房源列表</Text>
-      {displayItems.length === 0 ? (
+        </>
+      }
+      ListEmptyComponent={
         <EmptyState
           icon="business-outline"
           title={keyword || activeLocationKw.length ? '没有找到房源' : '暂无房源'}
           sub={keyword || activeLocationKw.length ? '换个名称、地址或筛选条件试试' : '新增房源后会展示在这里'}
         />
-      ) : (
-        displayItems.map((p) => {
-          const type = TYPE_META[p.property_type ?? 'apartment'] ?? TYPE_META.apartment;
-          const meta = STATUS_META[p.status ?? 'vacant'] ?? {
-            label: p.status ?? '未知',
-            color: colors.ink2,
-            rgb: colors.primaryRgb,
-          };
-          const spec = [
-            p.size_sqm ? `${p.size_sqm}㎡` : null,
-            p.bedrooms ? `${p.bedrooms} 卧` : null,
-            p.bathrooms ? `${p.bathrooms} 浴` : null,
-          ]
-            .filter(Boolean)
-            .join(' · ');
-          return (
-            <View key={p.id} style={styles.card}>
-              <View style={styles.banner}>
-                {photoUrlOf(p.photos) ? (
-                  <Image source={{ uri: photoUrlOf(p.photos) }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                ) : (
-                  <View style={styles.bannerIcon}>
-                    <Ionicons name={type.icon} size={26} color={colors.primaryForeground} />
-                  </View>
-                )}
-                <View style={[styles.typeBadge, { backgroundColor: colors.surface }]}>
-                  <Text style={[styles.typeBadgeText, { color: type.color }]}>{type.label}</Text>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: colors.alpha(meta.rgb, 0.14) }]}>
-                  <Text style={[styles.statusBadgeText, { color: meta.color }]}>{meta.label}</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.cardBody}
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate('PropertyEdit', { id: p.id })}
-              >
-                <Text style={styles.name} numberOfLines={1}>
-                  {adminTitle(p)}
-                </Text>
-                <View style={styles.addrRow}>
-                  <Ionicons name="location-outline" size={13} color={colors.ink3} />
-                  <Text style={styles.addr} numberOfLines={1}>{p.address || '暂无地址'}</Text>
-                </View>
-                {!!spec && <Text style={styles.spec}>{spec}</Text>}
-                <View style={styles.priceRow}>
-                  <Text style={styles.price}>
-                    {symOf(p.currency)}
-                    {Number(p.monthly_rent || 0).toLocaleString()}
-                    <Text style={styles.priceUnit}> /月</Text>
-                  </Text>
-                </View>
-                {/* 归属人：历史房源 created_by 为空，仅管理员可见并可由管理员指派 */}
-                <View style={styles.ownerRow}>
-                  <Ionicons name="person-outline" size={12} color={colors.ink3} />
-                  <Text
-                    style={[styles.ownerText, !p.creator_name && styles.ownerTextEmpty]}
-                    numberOfLines={1}
-                  >
-                    {p.creator_name ?? '未指派'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <View style={styles.cardFoot}>
-                <TouchableOpacity
-                  style={styles.manageBtn}
-                  activeOpacity={0.7}
-                  onPress={() => navigation.navigate('AdminPropertyDetail', { id: p.id })}
-                >
-                  <Text style={styles.manageText}>管理</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.assignBtn}
-                  activeOpacity={0.7}
-                  onPress={() => openAssign(p)}
-                  accessibilityRole="button"
-                  accessibilityLabel="指派归属人"
-                >
-                  <Ionicons name="person-add-outline" size={15} color={colors.primary} />
-                  <Text style={styles.assignText}>指派</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.deleteBtn}
-                  activeOpacity={0.7}
-                  onPress={() => doDelete(p)}
-                  accessibilityRole="button"
-                  accessibilityLabel="删除房源"
-                >
-                  <Ionicons name="trash-outline" size={18} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
-        })
-      )}
-
-      {loadingMore && (
-        <View style={styles.moreWrap}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      )}
+      }
+      ListFooterComponent={
+        loadingMore ? (
+          <View style={styles.moreWrap}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : null
+      }
+    />
 
       {/* 指派归属人：选中内部员工（销售/经纪/管理员）后，该房源即归其名下维护 */}
       <Modal visible={!!assignTarget} transparent animationType="fade" onRequestClose={closeAssign}>
@@ -1189,7 +1184,7 @@ export default function AdminPropertiesScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </>
   );
 }
 

@@ -283,6 +283,9 @@ def _keyword_conditions(terms: List[str]) -> list:
 def list_properties(
     pagination: PaginationParams = Depends(),
     status: Optional[PropertyStatus] = None,
+    property_type: Optional[str] = Query(
+        None, max_length=50, description="房源类型 apartment/house/condo/commercial"
+    ),
     project_id: Optional[uuid.UUID] = None,
     school_id: Optional[uuid.UUID] = Query(
         None, description="按学校找房：学校 ID（按半径反查其覆盖的小区）"
@@ -342,7 +345,7 @@ def list_properties(
     sort = resolve_sort(sort, terms, allowed=_PROPERTY_SORTS)
     cache_key = (
         f"cache:properties:list:{pagination.page}:{pagination.page_size}:"
-        f"{status.value if status else ''}:{project_id or ''}:{owner_id or ''}:"
+        f"{status.value if status else ''}:{property_type or ''}:{project_id or ''}:{owner_id or ''}:"
         f"{school_id or ''}:{school_radius_km}:"
         f"{country or ''}:{province or ''}:{city or ''}:{district or ''}:{subway or ''}:"
         f"{'|'.join(terms)}:{price_min}:{price_max}:{area_min}:{area_max}:"
@@ -368,6 +371,8 @@ def list_properties(
         conditions.append(or_(*term_conditions))
     if status:
         conditions.append(Property.status == status)
+    if property_type:
+        conditions.append(Property.property_type == property_type)
     if project_id:
         conditions.append(Property.project_id == project_id)
     # 按学校找房：先用经纬度包围盒粗筛小区，再在应用层用 haversine 精算半径，

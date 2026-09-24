@@ -5,14 +5,6 @@ import { chatWsUrl, request } from '@/lib/api'
 declare const API_BASE: string
 
 export const authApi = {
-  login: (email: string, password: string) =>
-    request({
-      url: '/auth/login',
-      method: 'POST',
-      // 后端 login 使用 OAuth2PasswordRequestForm（表单格式），需 username/password
-      data: `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
-      header: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    }),
   register: (data: any) => request({ url: '/auth/register', method: 'POST', data }),
   // 微信一键登录：Taro.login() 的 code 换 openid，按 openid 找/建用户并返回 token
   // 本地未配置微信凭据时后端返回 503，此处保留 statusCode 便于页面友好提示
@@ -66,7 +58,27 @@ export const authApi = {
 }
 
 export const propertiesApi = {
-  list: (params?: any) => request({ url: '/properties', method: 'GET', data: params }),
+  /**
+   * 房源列表。
+   *
+   * 数组型筛选（keywords / amenity）单独拼到 URL 上：Taro 的 GET 序列化对数组用
+   * 下标格式（`keywords[0]=a`），而 FastAPI 的 `List[str] = Query(...)` 只认重复键
+   * （`keywords=a&keywords=b`），混在 data 里传会被后端静默忽略——表现为
+   * 「区域/配套设施筛选勾选了、列表却完全没变」，且无任何报错。
+   * （与 publicApi.listings 的处理方式一致。）
+   */
+  list: (params?: any) => {
+    const { keywords, amenity, ...rest } = params ?? {}
+    const query = (['keywords', 'amenity'] as const)
+      .flatMap((key) => {
+        const list = key === 'keywords' ? keywords : amenity
+        return Array.isArray(list)
+          ? list.filter(Boolean).map((v) => `${key}=${encodeURIComponent(String(v))}`)
+          : []
+      })
+      .join('&')
+    return request({ url: `/properties${query ? `?${query}` : ''}`, method: 'GET', data: rest })
+  },
   get: (id: string) => request({ url: `/properties/${id}`, method: 'GET' }),
   update: (id: string, data: any) =>
     request({ url: `/properties/${id}`, method: 'PATCH', data }),
@@ -93,7 +105,6 @@ export const companyApi = {
 // ============ 客户线索（CRM）============
 export const leadsApi = {
   list: (params?: any) => request({ url: '/leads', method: 'GET', data: params }),
-  get: (id: string) => request({ url: `/leads/${id}`, method: 'GET' }),
   create: (data: any) => request({ url: '/leads', method: 'POST', data }),
   update: (id: string, data: any) => request({ url: `/leads/${id}`, method: 'PATCH', data }),
   delete: (id: string) => request({ url: `/leads/${id}`, method: 'DELETE' })
@@ -109,8 +120,6 @@ export const leasesApi = {
 
 export const paymentsApi = {
   mine: () => request({ url: '/payments/me', method: 'GET' }),
-  // 收款列表（员工日历页取租金到期用，支持 status/payment_type/lease_id 等筛选）
-  list: (params?: any) => request({ url: `/payments${qs(params)}`, method: 'GET' }),
   // 手动记账 / 确认到账（管理端写操作）
   create: (data: any) => request({ url: '/payments', method: 'POST', data }),
   get: (id: string) => request({ url: `/payments/${id}`, method: 'GET' }),
@@ -123,9 +132,7 @@ export const paymentsApi = {
 
 export const viewingsApi = {
   create: (data: any) => request({ url: '/viewings', method: 'POST', data }),
-  mine: () => request({ url: '/viewings/mine', method: 'GET' }),
-  list: (params?: any) => request({ url: '/viewings', method: 'GET', data: params }),
-  updateStatus: (id: string, data: any) => request({ url: `/viewings/${id}`, method: 'PATCH', data })
+  list: (params?: any) => request({ url: '/viewings', method: 'GET', data: params })
 }
 
 export const documentsApi = {
@@ -166,10 +173,6 @@ export const favoritesApi = {
 // 小程序此前缺这一层封装导致该入口只能提示「建设中」。
 export const priceAlertsApi = {
   list: (params?: any) => request({ url: '/price-alerts', method: 'GET', data: params }),
-  status: (propertyId: string) =>
-    request({ url: `/price-alerts/status/${propertyId}`, method: 'GET' }),
-  subscribe: (data: { property_id: string; listing_id?: string }) =>
-    request({ url: '/price-alerts', method: 'POST', data }),
   unsubscribe: (propertyId: string) =>
     request({ url: `/price-alerts/${propertyId}`, method: 'DELETE' })
 }
@@ -216,7 +219,6 @@ export const dashboardApi = {
   summary: () => request({ url: '/dashboard/summary', method: 'GET' }),
   recentPayments: () => request({ url: '/dashboard/recent-payments', method: 'GET' }),
   expiringLeases: () => request({ url: '/dashboard/expiring-leases', method: 'GET' }),
-  propertyStatusDistribution: () => request({ url: '/dashboard/property-status-distribution', method: 'GET' }),
   financialReconciliation: () => request({ url: '/dashboard/financial-reconciliation', method: 'GET' }),
   trend: (params?: any) => request({ url: '/dashboard/trend', method: 'GET', data: params })
 }
@@ -225,17 +227,14 @@ export const dashboardApi = {
 // 管理端：账号管理（列表 / 开通 / 编辑 / 启停 / 删除）
 export const adminUsersApi = {
   list: (params?: any) => request({ url: '/admin/users', method: 'GET', data: params }),
-  create: (data: any) => request({ url: '/admin/users', method: 'POST', data }),
   update: (id: string, data: any) =>
     request({ url: `/admin/users/${id}`, method: 'PATCH', data }),
-  deleteUser: (id: string) => request({ url: `/admin/users/${id}`, method: 'DELETE' }),
-  me: () => request({ url: '/admin/users/me', method: 'GET' })
+  deleteUser: (id: string) => request({ url: `/admin/users/${id}`, method: 'DELETE' })
 }
 
 // 管理端：角色权限配置（权限点分组 + 各角色已分配；可编辑保存，保存后即时生效）
 export const adminPermissionsApi = {
   list: () => request({ url: '/admin/permissions', method: 'GET' }),
-  role: (role: string) => request({ url: `/admin/permissions/roles/${role}`, method: 'GET' }),
   setRole: (role: string, codes: string[]) =>
     request({ url: `/admin/permissions/roles/${role}`, method: 'PUT', data: { codes } })
 }
@@ -276,10 +275,7 @@ export const chatApi = {
 }
 
 export const contractsApi = {
-  list: (params?: any) => request({ url: '/contracts', method: 'GET', data: params }),
   get: (id: string) => request({ url: `/contracts/${id}`, method: 'GET' }),
-  generate: (data: any) => request({ url: '/contracts/generate', method: 'POST', data }),
-  addParty: (id: string, data: any) => request({ url: `/contracts/${id}/parties`, method: 'POST', data }),
   sign: (id: string, partyId: string) =>
     request({ url: `/contracts/${id}/sign`, method: 'POST', data: { party_id: partyId } })
 }
@@ -301,10 +297,9 @@ const qs = (params?: any) => {
 }
 
 // ============ 员工业绩与佣金 ============
-// 业绩：本月汇总 / 历史月度 / 排行榜
+// 业绩：本月汇总 / 历史月度
 export const performanceApi = {
-  me: (params?: any) => request({ url: `/performance/me${qs(params)}`, method: 'GET' }),
-  leaderboard: (params?: any) => request({ url: `/performance/leaderboard${qs(params)}`, method: 'GET' })
+  me: (params?: any) => request({ url: `/performance/me${qs(params)}`, method: 'GET' })
 }
 
 // 我的佣金结算明细
@@ -315,40 +310,18 @@ export const commissionsApi = {
 // ============ 买卖交易闭环（挂牌 / 成交 / 托管 / 按揭） ============
 export const saleListingApi = {
   list: (params?: any) => request({ url: `/sale-listings${qs(params)}`, method: 'GET' }),
-  create: (data: any) => request({ url: '/sale-listings', method: 'POST', data }),
-  updateStatus: (id: string, status: string) =>
-    request({ url: `/sale-listings/${id}/status${qs({ status })}`, method: 'POST' }),
   valuations: (id: string) => request({ url: `/sale-listings/${id}/valuations`, method: 'GET' })
 }
 
 export const propertyDealApi = {
   list: (params?: any) => request({ url: `/property-deals${qs(params)}`, method: 'GET' }),
-  get: (id: string) => request({ url: `/property-deals/${id}`, method: 'GET' }),
-  create: (data: any) => request({ url: '/property-deals', method: 'POST', data }),
-  updateStatus: (id: string, status: string) =>
-    request({ url: `/property-deals/${id}/status${qs({ status })}`, method: 'PATCH' }),
-  createEscrow: (data: any) => request({ url: '/property-deals/escrows', method: 'POST', data }),
-  listEscrows: (dealId: string) => request({ url: `/property-deals/escrows/${dealId}`, method: 'GET' }),
-  releaseEscrow: (id: string) => request({ url: `/property-deals/escrows/${id}/release`, method: 'POST' }),
-  refundEscrow: (id: string) => request({ url: `/property-deals/escrows/${id}/refund`, method: 'POST' }),
-  createMortgage: (data: any) => request({ url: '/property-deals/mortgages', method: 'POST', data }),
-  myMortgages: () => request({ url: '/property-deals/mortgages/mine', method: 'GET' })
+  get: (id: string) => request({ url: `/property-deals/${id}`, method: 'GET' })
 }
 
 // ============ 分销体系（渠道商 / 转介绍 / 联合单分成） ============
 export const brokerApi = {
   list: (params?: any) => request({ url: `/brokers${qs(params)}`, method: 'GET' }),
-  me: () => request({ url: '/brokers/me', method: 'GET' }),
-  create: (data: any) => request({ url: '/brokers', method: 'POST', data }),
-  approve: (id: string, data: any) => request({ url: `/brokers/${id}/approve`, method: 'POST', data }),
-  suspend: (id: string) => request({ url: `/brokers/${id}/suspend`, method: 'POST' }),
-  createReferral: (params: any) => request({ url: `/brokers/referrals${qs(params)}`, method: 'POST' }),
-  myReferrals: () => request({ url: '/brokers/referrals/mine', method: 'GET' }),
-  createSplitDeal: (data: any) => {
-    const { participants, ...rest } = data
-    const p = { ...rest, participants: JSON.stringify(participants || []) }
-    return request({ url: `/brokers/split-deals${qs(p)}`, method: 'POST' })
-  }
+  me: () => request({ url: '/brokers/me', method: 'GET' })
 }
 
 // ============ 多国市场配置 ============
@@ -358,9 +331,6 @@ export const listingApi = {
   list: (params?: any) => request({ url: `/listings${qs(params)}`, method: 'GET' }),
   get: (id: string) => request({ url: `/listings/${id}`, method: 'GET' }),
   update: (id: string, data: any) => request({ url: `/listings/${id}`, method: 'PATCH', data }),
-  // 平台上架审核：decision=approved|rejected，附 note
-  review: (id: string, data: { decision: string; note?: string }) =>
-    request({ url: `/listings/${id}/review`, method: 'POST', data }),
   // 下架/成交关闭：{sold?}{rented?}
   close: (id: string, data: any = {}) =>
     request({ url: `/listings/${id}/close`, method: 'POST', data })

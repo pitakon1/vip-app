@@ -24,32 +24,12 @@ import dayjs from 'dayjs';
 import colors from '../../theme/colors';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
-import api from '../../lib/api';
 import { notify, notifyError } from '../../utils/feedback';
 import { leadsApi } from '../../services/api';
 import { useI18n } from '../../i18n';
 import { useRefreshList } from '../../hooks/useRefreshList';
-
-interface Lead {
-  id: string;
-  name?: string | null;
-  phone?: string | null;
-  line_id?: string | null;
-  wechat_id?: string | null;
-  email?: string | null;
-  nationality?: string | null;
-  budget_min?: number | null;
-  budget_max?: number | null;
-  budget_currency?: string | null;
-  interested_projects?: unknown[] | null;
-  recommended_projects?: unknown[] | null;
-  stage?: string | null;
-  assigned_to?: string | null;
-  source?: string | null;
-  notes?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
+import { useCrmLeads, type Lead } from '@/hooks/useCrmLeads';
+import { currencySymbol } from '@/lib/currency';
 
 const STAGES: { key: string; labelKey: string; color: string; rgb: string }[] = [
   { key: 'inquiring', labelKey: 'crm.stage.inquiring', color: colors.info, rgb: colors.infoRgb },
@@ -59,18 +39,12 @@ const STAGES: { key: string; labelKey: string; color: string; rgb: string }[] = 
   { key: 'closed', labelKey: 'crm.stage.closed', color: colors.success, rgb: colors.successRgb },
 ];
 
-const symOf = (c?: string | null) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
-
 export default function AdminCRMScreen() {
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [stageTotals, setStageTotals] = useState<Record<string, number>>({});
-  const [totalCustomers, setTotalCustomers] = useState(0);
-  const [monthNew, setMonthNew] = useState<number | null>(null);
-  const [nameMap, setNameMap] = useState<Record<string, string>>({});
   const [stage, setStage] = useState('');
   const [keyword, setKeyword] = useState('');
+  const { leads, stageTotals, totalCustomers, monthNew, nameMap, load } = useCrmLeads(stage);
 
   // 线索表单弹窗（id 存在为编辑，否则新建）
   const [formOpen, setFormOpen] = useState(false);
@@ -155,52 +129,6 @@ export default function AdminCRMScreen() {
     ]);
   };
 
-  const load = useCallback(async () => {
-    const results = await Promise.allSettled([
-      leadsApi.list({ page: 1, page_size: 100 }),
-      leadsApi.list({ page: 1, page_size: 50, ...(stage ? { stage } : {}) }),
-      ...STAGES.map((s) => leadsApi.list({ stage: s.key, page: 1, page_size: 1 })),
-      api.get('/employees/directory'),
-    ]);
-
-    const itemsOf = (res: PromiseSettledResult<any>): any[] => {
-      if (res.status !== 'fulfilled') return [];
-      const d = res.value?.data;
-      return Array.isArray(d) ? d : (d?.items ?? []);
-    };
-
-    // 全量首屏（按创建时间倒序）用于「本月新增」统计
-    const allLeads = itemsOf(results[0]) as Lead[];
-    setMonthNew(
-      allLeads.filter((l) => l.created_at && dayjs(l.created_at).isSame(dayjs(), 'month')).length,
-    );
-
-    setLeads(itemsOf(results[1]) as Lead[]);
-
-    const totals: Record<string, number> = {};
-    STAGES.forEach((s, idx) => {
-      const res = results[2 + idx];
-      if (res.status === 'fulfilled') {
-        const d = res.value?.data as { total?: number } | undefined;
-        totals[s.key] = typeof d?.total === 'number' ? d.total : 0;
-      } else {
-        totals[s.key] = 0;
-      }
-    });
-    setStageTotals(totals);
-    setTotalCustomers(Object.values(totals).reduce((a, b) => a + b, 0));
-
-    if (results[7].status === 'fulfilled') {
-      const dir = results[7].value.data as { items?: { id: string; full_name?: string }[] };
-      setNameMap(
-        (dir?.items ?? []).reduce<Record<string, string>>((acc, e) => {
-          if (e.full_name) acc[e.id] = e.full_name;
-          return acc;
-        }, {}),
-      );
-    }
-  }, [stage]);
-
   const { loading, refreshControl } = useRefreshList(load);
 
   const visibleLeads = useMemo(() => {
@@ -223,7 +151,7 @@ export default function AdminCRMScreen() {
       const metaLabel = meta ? t(meta.labelKey) : l.stage || t('crm.unknownStage');
       const budget =
         l.budget_max || l.budget_min
-          ? `${t('crm.budget')} ${symOf(l.budget_currency)}${Number(l.budget_max || l.budget_min || 0).toLocaleString()}`
+          ? `${t('crm.budget')} ${currencySymbol(l.budget_currency)}${Number(l.budget_max || l.budget_min || 0).toLocaleString()}`
           : null;
       const tags = [
         budget,

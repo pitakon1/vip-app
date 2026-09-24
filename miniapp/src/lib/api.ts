@@ -22,12 +22,6 @@ export interface RequestOptions<T = unknown> {
   mockData?: T
 }
 
-export interface ApiResponse<T = unknown> {
-  data: T
-  statusCode: number
-  header: Record<string, string>
-}
-
 /** 并发 401 时共用一个刷新 Promise，避免打出刷新风暴。 */
 let refreshing: Promise<string> | null = null;
 /** 避免并发 401 触发多次 redirectTo（多次跳转会打乱页面栈）。 */

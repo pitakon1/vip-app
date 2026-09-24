@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
 import { brokerApi, propertyDealApi } from '@/services/api'
+import { useCachedQuery } from '@/lib/queryCache'
 
 const BROKER_TYPE: Record<string, string> = {
   individual: '独立经纪人',
@@ -102,35 +103,33 @@ const Distribution = () => {
 
 /* ===== 渠道商 Tab ===== */
 const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
-  const [items, setItems] = useState<Broker[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const [level, setLevel] = useState('')
   const [keyword, setKeyword] = useState('')
-  const [loading, setLoading] = useState(false)
   const [approveBroker, setApproveBroker] = useState<Broker | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ partner_name: '', broker_type: 'individual', contact_name: '', contact_phone: '', contact_email: '', country: 'TH', base_rate: '' })
   const [approveForm, setApproveForm] = useState<any>({ level: 'silver', base_rate: '' })
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
+  // 渠道商列表：按筛选/页码缓存（缓存优先渲染 + 后台刷新）
+  const brokersQ = useCachedQuery<{ items: Broker[]; total: number }>({
+    queryKey: ['brokers', String(page), status, level],
+    cacheKey: `brokers:${page}:${status}:${level}`,
+    queryFn: async () => {
       const res = await brokerApi.list({ page, pageSize: 10, status: status || undefined, level: level || undefined })
       const payload = res.data?.data ?? res.data
-      setItems(payload?.items ?? [])
-      setTotal(payload?.total ?? 0)
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || '获取渠道商列表失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [page, status, level])
+      return { items: payload?.items ?? [], total: payload?.total ?? 0 }
+    },
+  })
+  const items = brokersQ.data?.items ?? []
+  const total = brokersQ.data?.total ?? 0
+  const loading = brokersQ.isPending && !brokersQ.data
+  const refresh = () => { void brokersQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    if (brokersQ.isError) message.error((brokersQ.error as any)?.response?.data?.message || '获取渠道商列表失败')
+  }, [brokersQ.isError, brokersQ.error])
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
   const setApproveField = (k: string) => (e: any) => setApproveForm((f: any) => ({ ...f, [k]: e.target.value }))
@@ -153,7 +152,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       })
       message.success('渠道商已登记（待审批）')
       onOpenChange(false)
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '登记失败')
     } finally {
@@ -171,7 +170,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       })
       message.success('已审批并定级')
       setApproveBroker(null)
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '审批失败')
     } finally {
@@ -183,7 +182,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
     try {
       await brokerApi.suspend(b.id)
       message.success('渠道商已暂停')
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '暂停失败')
     }
@@ -407,25 +406,26 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
 /* ===== 转介绍记录 Tab ===== */
 const ReferralsTab = () => {
-  const [items, setItems] = useState<Referral[]>([])
-  const [loading, setLoading] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ invite_code: '', referred_name: '', referred_phone: '' })
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
+  // 转介绍记录：缓存优先渲染 + 后台刷新
+  const referralsQ = useCachedQuery<Referral[]>({
+    queryKey: ['my-referrals'],
+    cacheKey: 'my-referrals',
+    queryFn: async () => {
       const res = await brokerApi.myReferrals()
-      setItems(res.data ?? [])
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || '获取转介绍记录失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      return res.data ?? []
+    },
+  })
+  const items = referralsQ.data ?? []
+  const loading = referralsQ.isPending && !referralsQ.data
+  const refresh = () => { void referralsQ.refetch({ cancelRefetch: false }) }
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    if (referralsQ.isError) message.error((referralsQ.error as any)?.response?.data?.message || '获取转介绍记录失败')
+  }, [referralsQ.isError, referralsQ.error])
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
@@ -445,7 +445,7 @@ const ReferralsTab = () => {
       message.success('转介绍已记录')
       setCreateOpen(false)
       setForm({ invite_code: '', referred_name: '', referred_phone: '' })
-      fetchData()
+      refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || '记录失败')
     } finally {
@@ -516,19 +516,21 @@ const ReferralsTab = () => {
 
 /* ===== 联合单分成 Tab ===== */
 const SplitTab = () => {
-  const [deals, setDeals] = useState<any[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<string>('')
   const [form, setForm] = useState<any>({ deal_id: '', commission_total: '', currency: 'THB', participants: [{ role: 'agent', rate: '100', kind: 'user_id', subject: '' }] })
 
-  useEffect(() => {
-    propertyDealApi.list({ page: 1, pageSize: 100 })
-      .then((res) => {
-        const payload = res.data?.data ?? res.data
-        setDeals(payload?.items ?? [])
-      })
-      .catch(() => { /* 忽略 */ })
-  }, [])
+  // 成交下拉：与托管页共用缓存（键一致）
+  const dealsQ = useCachedQuery<any[]>({
+    queryKey: ['property-deals', 'options'],
+    cacheKey: 'property-deals:options',
+    queryFn: async () => {
+      const res = await propertyDealApi.list({ page: 1, pageSize: 100 })
+      const payload = res.data?.data ?? res.data
+      return payload?.items ?? []
+    },
+  })
+  const deals = dealsQ.data ?? []
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
