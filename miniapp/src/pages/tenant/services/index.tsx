@@ -6,6 +6,7 @@ import { serviceOrdersApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import type { ServiceItem } from '@/types'
 import { iconStyle } from '@/utils/icons'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -180,9 +181,7 @@ export default function TenantServicesPage() {
 
         <ScrollView scrollY className='order-list'>
           {ordersLoading && orders.length === 0 && (
-            <View className='empty-tip'>
-              <Text>{t('pub.loading')}</Text>
-            </View>
+            <StateBlock loading text={t('pub.loading')} />
           )}
           {!ordersLoading && orders.length === 0 && (
             <View className='empty-tip'>

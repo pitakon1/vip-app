@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Modal, Spin } from 'antd'
+import { message, Modal, Spin, Empty } from 'antd'
 import dayjs from 'dayjs'
 import { useTranslation } from 'react-i18next'
 import { leasesApi, propertiesApi } from '@/services/api'
@@ -588,7 +588,15 @@ const Leases = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayData.map((lease) => {
+                  {displayData.length === 0 ? (
+                    <tr>
+                      <td colSpan={8}>
+                        <div className="rent-empty">
+                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('leases.leaseEmpty')} />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : displayData.map((lease) => {
                     const ds = getDisplayStatus(lease)
                     const meta = displayStatusMeta[ds]
                     const code = (lease as any).code || `LC-${lease.id}`

@@ -28,6 +28,7 @@ import {
   schoolStageLabel,
 } from '@/lib/publicSite';
 import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
 import { Badge, Chip } from './PublicFilterChip';
 import PublicBackRow from './PublicBackRow';
 
@@ -139,9 +140,7 @@ export default function PublicSchoolsScreen() {
       <Text style={styles.count}>{t('pub.totalCount', { n: total })}</Text>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingState label={t('pub.loading')} />
       ) : items.length === 0 ? (
         <EmptyState icon="school-outline" title={t('pub.schoolsEmpty')} sub={t('pub.schoolsHint')} />
       ) : (

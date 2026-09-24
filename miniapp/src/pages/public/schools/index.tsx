@@ -17,6 +17,7 @@ import {
 } from '@/lib/publicSite'
 import { useI18n } from '@/i18n'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
 const PAGE_SIZE = 30
@@ -118,7 +119,7 @@ export default function PublicSchoolsPage() {
         <Text className='pub-count'>{t('pub.schoolCount', { n: total })}</Text>
 
         {loading ? (
-          <View className='pub-loading'>{t('pub.loading')}</View>
+          <StateBlock loading text={t('pub.loading')} />
         ) : items.length === 0 ? (
           <View className='pub-empty'>{t('pub.schoolsEmpty')}</View>
         ) : (

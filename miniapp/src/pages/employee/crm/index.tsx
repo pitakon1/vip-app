@@ -13,6 +13,7 @@ import {
   callPhone,
   chatCustomer
 } from '@/lib/crmShared'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -190,9 +191,7 @@ export default function EmployeeCrmPage() {
 
       <ScrollView scrollY className='crm-list'>
         {loading && visible.length === 0 && (
-          <View className='crm-state'>
-            <Text className='crm-state__text'>{t('pub.loading')}</Text>
-          </View>
+          <StateBlock loading text={t('pub.loading')} />
         )}
         {!loading && visible.length === 0 && (
           <View className='crm-state'>

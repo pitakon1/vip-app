@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { View, Text, ScrollView, Image, Input } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
@@ -8,6 +8,7 @@ import { METRO_LINES } from '@/data/locationMetro'
 import { useLocationStore, findCityByKey } from '@/stores/location'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
 import { usePaginatedList } from '@/hooks/usePaginatedList'
 import './index.scss'
 import { useI18n } from '@/i18n'
@@ -67,6 +68,9 @@ const BIZ_OPTIONS: { key: BizKey; label: string }[] = [
 // 合租无独立字段，以房号/标题/描述/类型中的关键词命中判断
 const SHARE_KEYWORDS = ['合租', '单间', 'share', 'shared']
 const PAGE_SIZE = 20
+// 搜索历史：Taro storage，去重置顶、上限 10 条、越界丢最旧
+const RECENT_SEARCHES_KEY = 'recent_searches'
+const RECENT_SEARCHES_MAX = 10
 
 const matchBiz = (item: Listing, biz: BizKey): boolean => {
   const isSale = Number(item.sale_price) > 0
@@ -224,12 +228,33 @@ export default function TenantListingsPage() {
     })
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
   const [favPending, setFavPending] = useState<Set<string>>(new Set())
+  // 收藏红心点击动效（仅视觉 class 切换，不动收藏数据流）
+  const [favAnim, setFavAnim] = useState<Set<string>>(new Set())
 
   // 顶部搜索栏 + 业务栏（由首页「出租/买房」入口带入参数初始化）
   const initialBiz: BizKey = router.params?.biz === 'buy' ? 'sale' : 'rent'
   const [keyword, setKeyword] = useState<string>(router.params?.q ? decodeURIComponent(router.params.q) : '')
   const [query, setQuery] = useState<string>(router.params?.q ? decodeURIComponent(router.params.q) : '')
+  // 最近搜索词（focus 且有历史词时展示）
+  const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [searchFocused, setSearchFocused] = useState(false)
   const [biz, setBiz] = useState<BizKey>(initialBiz)
+
+  // 进入页面时读取本地搜索历史
+  useEffect(() => {
+    try {
+      const stored = Taro.getStorageSync(RECENT_SEARCHES_KEY)
+      setRecentSearches(
+        Array.isArray(stored)
+          ? stored
+              .filter((k: unknown) => typeof k === 'string' && k.trim())
+              .slice(0, RECENT_SEARCHES_MAX)
+          : []
+      )
+    } catch (e) {
+      console.error('[Listings] 读取搜索历史失败', e)
+    }
+  }, [])
 
   // 按区域 / 按地铁（对齐贝壳「区域 | 地铁」下拉面板）
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area')
@@ -305,14 +330,50 @@ export default function TenantListingsPage() {
 
   const handleSearch = () => {
     const q = keyword.trim()
+    // 提交搜索时写入历史：去重置顶、上限 10 条、越界丢最旧
+    if (q) {
+      setRecentSearches((prev) => {
+        const next = [q, ...prev.filter((k) => k !== q)].slice(0, RECENT_SEARCHES_MAX)
+        try {
+          Taro.setStorageSync(RECENT_SEARCHES_KEY, next)
+        } catch (e) {
+          console.error('[Listings] 保存搜索历史失败', e)
+        }
+        return next
+      })
+    }
     setQuery(q)
     fetchListings(1, { q })
+  }
+
+  const applyRecent = (word: string) => {
+    setKeyword(word)
+    setQuery(word)
+    fetchListings(1, { q: word })
+  }
+
+  const clearRecent = () => {
+    setRecentSearches([])
+    try {
+      Taro.setStorageSync(RECENT_SEARCHES_KEY, [])
+    } catch (e) {
+      console.error('[Listings] 清空搜索历史失败', e)
+    }
   }
 
   const toggleFavorite = async (e: any, item: Listing) => {
     e.stopPropagation()
     const pid = String(item.id)
     if (favPending.has(pid)) return
+    // 红心 scale 微动效（仅视觉 class 切换，不动收藏数据流）
+    setFavAnim((s) => new Set(s).add(pid))
+    setTimeout(() => {
+      setFavAnim((s) => {
+        const next = new Set(s)
+        next.delete(pid)
+        return next
+      })
+    }, 400)
     const willFav = !favSet.has(pid)
     setFavPending((s) => new Set(s).add(pid))
     setFavSet((prev) => {
@@ -952,11 +1013,33 @@ export default function TenantListingsPage() {
             confirmType='search'
             onInput={(e: any) => setKeyword(e.detail.value)}
             onConfirm={handleSearch}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => {
+              // 延迟收起，避免点击历史词条时面板先行消失
+              setTimeout(() => setSearchFocused(false), 200)
+            }}
           />
           <View className='list-search__btn' onClick={handleSearch}>
             <Text className='list-search__btn-text'>{t('common.search')}</Text>
           </View>
         </View>
+
+        {/* ===== 最近搜索（输入框聚焦且有历史词时展示，普通 View 换行 chips）===== */}
+        {searchFocused && recentSearches.length > 0 && (
+          <View className='recent-searches'>
+            <View className='recent-searches__head'>
+              <Text className='recent-searches__title'>{t('search.recent')}</Text>
+              <Text className='recent-searches__clear' onClick={clearRecent}>{t('search.clearAll')}</Text>
+            </View>
+            <View className='recent-searches__chips'>
+              {recentSearches.map((w) => (
+                <View key={w} className='recent-searches__chip' onClick={() => applyRecent(w)}>
+                  <Text>{w}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* ===== 业务栏：整租 / 合租 / 买房 ===== */}
         <View className='biz-bar'>
@@ -1005,9 +1088,7 @@ export default function TenantListingsPage() {
 
         <ScrollView scrollY className='list-scroll'>
           {loading && visibleList.length === 0 && (
-            <View className='empty-state'>
-              <Text>{t('common.loading')}</Text>
-            </View>
+            <StateBlock loading text={t('common.loading')} />
           )}
           {!loading && listError && visibleList.length === 0 && (
             <View className='empty-state'>
@@ -1046,7 +1127,10 @@ export default function TenantListingsPage() {
                   )}
                   <Text className='house-type'>{typeLabelOf(t, item.property_type)}</Text>
                   <View className='house-fav' aria-label={isFaved ? t('tl.unfav') : t('prop.fav')} onClick={(e) => toggleFavorite(e, item)}>
-                    <View className='icon-svg' style={iconStyle(isFaved ? 'heartFill' : 'heart', 34)} />
+                    <View
+                      className={`icon-svg fav-bounce${favAnim.has(String(item.id)) ? ' fav-bounce--active' : ''}`}
+                      style={iconStyle(isFaved ? 'heartFill' : 'heart', 34)}
+                    />
                   </View>
                 </View>
                 <View className='house-info'>

@@ -43,6 +43,46 @@
     }
   }
 
+  /* ===== 最近搜索（输入框聚焦时展示，复用筛选 chip 视觉）===== */
+  .recent-searches {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 2px 4px 16px;
+
+    .recent-searches__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      .recent-searches__title {
+        font-size: 26px;
+        font-weight: 600;
+        color: var(--ink-2);
+      }
+
+      .recent-searches__clear {
+        font-size: 24px;
+        color: var(--ink-3);
+      }
+    }
+
+    .recent-searches__chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+
+      .recent-searches__chip {
+        padding: 10px 22px;
+        border-radius: 999px;
+        background-color: var(--surface-2);
+        color: var(--ink);
+        font-size: 24px;
+        max-width: 100%;
+      }
+    }
+  }
+
   /* ===== 业务栏：整租 / 合租 / 买房 ===== */
   .biz-bar {
     display: flex;

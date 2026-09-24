@@ -9,6 +9,7 @@ import './index.scss'
 import { useI18n } from '@/i18n'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
 
 interface VacantItem {
   id: string
@@ -857,9 +858,7 @@ export default function OwnerMarketingPage() {
         </View>
 
         {loading && (
-          <View className='empty-tip'>
-            <Text>{t('common.loading')}</Text>
-          </View>
+          <StateBlock loading text={t('common.loading')} />
         )}
       </View>
 

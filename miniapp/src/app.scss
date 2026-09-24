@@ -327,3 +327,24 @@ view, text {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.05);
 }
+
+/* 收藏红心点击微动效（scale 缩放，transition 0.15s） */
+.fav-bounce {
+  transition: transform 0.15s ease;
+}
+
+.fav-bounce--active {
+  animation: fav-bounce-scale 0.35s ease;
+}
+
+@keyframes fav-bounce-scale {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

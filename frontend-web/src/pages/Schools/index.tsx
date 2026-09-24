@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Skeleton } from 'antd'
 import api from '@/lib/api'
 import PublicTopBar from '@/components/PublicTopBar'
 import { curriculumLabel, schoolStageLabel } from '@/lib/publicLabels'
@@ -144,7 +145,11 @@ const SchoolsPage = () => {
           </div>
 
           {loading ? (
-            <div className="pub-loading">{t('common.loading')}</div>
+            <div className="pub-loading">
+              <Skeleton active paragraph={{ rows: 1 }} />
+              <Skeleton active paragraph={{ rows: 1 }} />
+              <Skeleton active paragraph={{ rows: 1 }} />
+            </div>
           ) : items.length === 0 ? (
             <div className="pub-empty">{t('publicSite.schoolsEmpty')}</div>
           ) : (

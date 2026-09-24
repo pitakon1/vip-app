@@ -5,12 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
 import { priceAlertsApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 import RemoteImage from '@/components/RemoteImage';
@@ -95,11 +95,7 @@ export default function PriceAlertsScreen() {
   );
 
   if (loading) {
-    return (
-      <View style={[styles.center, { paddingTop: insets.top + 24 }]}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
+    return <LoadingState label={t('pub.loading')} />;
   }
 
   if (!loading && failed) {

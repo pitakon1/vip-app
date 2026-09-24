@@ -8,6 +8,7 @@ import { fmtMoney as money } from '@/utils/format'
 import './index.scss'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 
 interface IncomeRecord {
@@ -231,9 +232,7 @@ export default function OwnerIncomePage() {
         </View>
         <View className='card card--list'>
           {loading && income.records.length === 0 && (
-            <View className='empty-tip'>
-              <Text>{t('common.loading')}</Text>
-            </View>
+            <StateBlock loading text={t('common.loading')} />
           )}
           {!loading && !error && filtered.length === 0 && (
             <View className='empty-tip'>

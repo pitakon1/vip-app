@@ -35,6 +35,7 @@ import { SCHOOL_RADIUS_OPTIONS, loadRates } from '@/lib/publicSite';
 import PublicListingRow from './PublicListingRow';
 import PublicBackRow from './PublicBackRow';
 import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
 
 const PAGE_SIZE = 20;
 
@@ -256,9 +257,7 @@ export default function PublicListingsScreen() {
 
       {/* ---- 列表 ---- */}
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingState label={t('pub.loading')} />
       ) : items.length === 0 ? (
         <EmptyState icon="home-outline" title={t('pub.empty')} sub={t('pub.listingsHint')} />
       ) : (

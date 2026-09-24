@@ -5,6 +5,7 @@ import { paymentsApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as formatMoney } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 import { useI18n } from '@/i18n'
 
@@ -221,9 +222,7 @@ export default function TenantPaymentsPage() {
 
         <ScrollView scrollY className='pay-list'>
           {loading && payments.length === 0 && (
-            <View className='empty-state'>
-              <Text>{t('common.loading')}</Text>
-            </View>
+            <StateBlock loading text={t('common.loading')} />
           )}
           {!loading && payments.length === 0 && (
             <View className='empty-state'>

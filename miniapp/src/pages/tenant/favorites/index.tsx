@@ -13,6 +13,7 @@ import { favoritesApi } from '@/services/api'
 import { photoUrl } from '@/lib/publicSite'
 import { fmtMoney as money } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
 interface FavItem {
@@ -89,9 +90,7 @@ export default function FavoritesPage() {
     <View className='fav-page'>
       <View className='page-container'>
         {loading && items.length === 0 && (
-          <View className='empty-tip'>
-            <Text>加载中...</Text>
-          </View>
+          <StateBlock loading text='加载中...' />
         )}
         {!loading && failed && (
           <View className='empty-tip' onClick={() => { setLoading(true); void load() }}>

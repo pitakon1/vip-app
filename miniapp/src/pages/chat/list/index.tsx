@@ -4,6 +4,7 @@ import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { chatApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -66,9 +67,7 @@ export default function ChatListPage() {
     <View className='chat-list-page'>
       <View className='page-container'>
         {loading && conversations.length === 0 && (
-          <View className='empty-state'>
-            <Text>{t('common.loading')}</Text>
-          </View>
+          <StateBlock loading text={t('common.loading')} />
         )}
         <View className='conversation-list'>
           {conversations.map((c) => (

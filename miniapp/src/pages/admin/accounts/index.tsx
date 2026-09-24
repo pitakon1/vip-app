@@ -6,6 +6,7 @@ import { fmtMoney } from '@/utils/format'
 import useAuthStore from '@/stores/auth'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -265,9 +266,7 @@ export default function AdminEmployeesPage() {
 
       <ScrollView scrollY className='ac-list'>
         {loading && visible.length === 0 && (
-          <View className='ac-state'>
-            <Text className='ac-state__text'>{t('acc.loading')}</Text>
-          </View>
+          <StateBlock loading text={t('acc.loading')} />
         )}
         {!loading && visible.length === 0 && (
           <View className='ac-state'>

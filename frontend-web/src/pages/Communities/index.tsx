@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Skeleton } from 'antd'
 import api from '@/lib/api'
 import { convertCurrency, formatMoney, loadRates } from '@/lib/money'
 import PublicTopBar from '@/components/PublicTopBar'
@@ -99,7 +100,18 @@ const CommunitiesPage = () => {
           </div>
 
           {loading ? (
-            <div className="pub-loading">{t('common.loading')}</div>
+            <div className="pub-grid">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div className="pub-listing" key={n}>
+                  <div className="pub-listing__media">
+                    <Skeleton.Image active style={{ width: '100%', height: 170 }} />
+                  </div>
+                  <div className="pub-listing__body">
+                    <Skeleton active paragraph={{ rows: 3 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : items.length === 0 ? (
             <div className="pub-empty">{t('publicSite.communitiesEmpty')}</div>
           ) : (

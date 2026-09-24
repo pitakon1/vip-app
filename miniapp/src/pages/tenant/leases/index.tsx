@@ -4,6 +4,7 @@ import useAuthStore from '@/stores/auth'
 import { leasesApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -70,9 +71,7 @@ export default function TenantLeasesPage() {
       <View className='page-container'>
         <View className='card card--list'>
           {loading && leases.length === 0 && (
-            <View className='empty-tip'>
-              <Text>{t('common.loading')}</Text>
-            </View>
+            <StateBlock loading text={t('common.loading')} />
           )}
           {!loading && leases.length === 0 && (
             <View className='empty-tip'>

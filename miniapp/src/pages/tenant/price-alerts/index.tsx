@@ -11,6 +11,7 @@ import useAuthStore from '@/stores/auth'
 import { priceAlertsApi } from '@/services/api'
 import { photoUrl } from '@/lib/publicSite'
 import { fmtMoney as money } from '@/utils/format'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -91,9 +92,7 @@ export default function PriceAlertsPage() {
     <View className='alert-page'>
       <View className='page-container'>
         {loading && items.length === 0 && (
-          <View className='empty-tip'>
-            <Text>{t('common.loading')}</Text>
-          </View>
+          <StateBlock loading text={t('common.loading')} />
         )}
         {!loading && failed && (
           <View className='empty-tip' onClick={() => { setLoading(true); void load() }}>

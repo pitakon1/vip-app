@@ -1545,6 +1545,8 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'list.emptySale': '暂无在售挂牌',
     'list.countPrefix': '共 ',
     'list.countSuffix': ' 套房源',
+    'search.recent': '最近搜索',
+    'search.clearAll': '清空',
   },
   en: {
     'tab.home': 'Home',
@@ -3036,6 +3038,8 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'list.emptySale': 'No sale listings yet',
     'list.countPrefix': '',
     'list.countSuffix': ' listings',
+    'search.recent': 'Recent searches',
+    'search.clearAll': 'Clear',
   },
   th: {
     'tab.home': 'หน้าหลัก',
@@ -4526,6 +4530,8 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'list.emptySale': 'ยังไม่มีประกาศขาย',
     'list.countPrefix': 'ทั้งหมด ',
     'list.countSuffix': ' รายการ',
+    'search.recent': 'ค้นหาล่าสุด',
+    'search.clearAll': 'ล้าง',
   },
 };
 

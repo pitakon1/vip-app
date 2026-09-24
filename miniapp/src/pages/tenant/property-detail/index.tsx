@@ -127,6 +127,8 @@ export default function TenantPropertyDetailPage() {
   const propertyId = router.params?.id
 
   const [fav, setFav] = useState(false)
+  // 收藏红心点击动效（仅视觉 class 切换，不动收藏数据流）
+  const [favAnim, setFavAnim] = useState(false)
   const TYPE_LABELS = buildTypeLabels(t)
   const STATUS_LABELS = buildStatusLabels(t)
 
@@ -296,6 +298,9 @@ export default function TenantPropertyDetailPage() {
   }, [loanAmount, rateInput])
 
   const handleToggleFavorite = async () => {
+    // 红心 scale 微动效（仅视觉 class 切换，不动收藏数据流）
+    setFavAnim(true)
+    setTimeout(() => setFavAnim(false), 400)
     const pid = String(propertyId)
     const next = !fav
     setFav(next)
@@ -573,7 +578,7 @@ export default function TenantPropertyDetailPage() {
       <View className='detail-bar'>
         <View className='detail-bar__fav' onClick={handleToggleFavorite}>
           <View
-            className='icon-svg'
+            className={`icon-svg fav-bounce${favAnim ? ' fav-bounce--active' : ''}`}
             style={{ backgroundImage: `url("${fav ? ICONS.heartFill : ICONS.heart}")` }}
           />
           <Text className='detail-bar__fav-text'>{fav ? t('prop.favOn') : t('prop.fav')}</Text>

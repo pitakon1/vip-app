@@ -24,6 +24,7 @@ import { publicApi, unwrapPage, type PublicProject } from '@/services/publicApi'
 import { convertFromThb, loadRates, tenureLabel, type TFunction } from '@/lib/publicSite';
 import { fmtMoney } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
 import { Badge } from './PublicFilterChip';
 import PublicBackRow from './PublicBackRow';
 
@@ -102,9 +103,7 @@ export default function PublicCommunitiesScreen() {
       <Text style={styles.count}>{t('pub.totalCount', { n: total })}</Text>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingState label={t('pub.loading')} />
       ) : items.length === 0 ? (
         <EmptyState icon="business-outline" title={t('pub.communitiesEmpty')} sub={t('pub.communitiesHint')} />
       ) : (

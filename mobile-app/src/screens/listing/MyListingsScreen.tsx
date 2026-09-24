@@ -11,7 +11,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { notify, notifyError } from '@/utils/feedback';
 import { fmtMoney } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
 import Card from '@/components/Card';
 import type { Listing } from '@/types';
 
@@ -164,7 +164,7 @@ export default function MyListingsScreen() {
   return (
     <View style={styles.container}>
       {loading ? (
-        <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
+        <LoadingState label="加载中…" />
       ) : items.length === 0 ? (
         <EmptyState
           icon="business-outline"

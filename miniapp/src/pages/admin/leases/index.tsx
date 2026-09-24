@@ -6,6 +6,7 @@ import { MAX_PAGE_SIZE } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -248,9 +249,7 @@ export default function AdminLeasesPage() {
 
       <ScrollView scrollY className='ale-list'>
         {loading && visible.length === 0 && (
-          <View className='ale-state'>
-            <Text className='ale-state__text'>{t('pub.loading')}</Text>
-          </View>
+          <StateBlock loading text={t('pub.loading')} />
         )}
         {!loading && visible.length === 0 && (
           <View className='ale-state'>

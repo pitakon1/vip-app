@@ -6,6 +6,7 @@ import { documentsApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import type { Document } from '@/types'
 import './index.scss'
+import StateBlock from '@/components/StateBlock'
 import { iconStyle } from '@/utils/icons'
 import { useI18n } from '@/i18n'
 
@@ -192,9 +193,7 @@ export default function TenantDocumentsPage() {
 
         <ScrollView scrollY className='document-list'>
           {loading && documents.length === 0 && (
-            <View className='empty-state'>
-              <Text>{t('common.loading')}</Text>
-            </View>
+            <StateBlock loading text={t('common.loading')} />
           )}
           {!loading && visibleDocs.length === 0 && (
             <View className='empty-state'>

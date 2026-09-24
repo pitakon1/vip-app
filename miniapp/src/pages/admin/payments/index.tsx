@@ -6,6 +6,7 @@ import { fmtMoney } from '@/utils/format'
 import { request } from '@/lib/api'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -326,9 +327,7 @@ export default function AdminPaymentsPage() {
         </View>
 
         {loading && visible.length === 0 && (
-          <View className='apay-state'>
-            <Text className='apay-state__text'>{t('pub.loading')}</Text>
-          </View>
+          <StateBlock loading text={t('pub.loading')} />
         )}
         {!loading && visible.length === 0 && (
           <View className='apay-state'>

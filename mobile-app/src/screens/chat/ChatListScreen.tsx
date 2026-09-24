@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -8,6 +8,7 @@ import colors from '@/theme/colors';
 import { chatApi } from '@/services/api';
 import { notifyError } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
 import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
@@ -109,11 +110,7 @@ export default function ChatListScreen() {
   );
 
   if (loading) {
-    return (
-      <View style={[styles.center, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <LoadingState label={t('pub.loading')} />;
   }
 
   return (

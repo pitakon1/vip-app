@@ -13,6 +13,7 @@ import { getCacheSync, isFreshSync, setCache } from '@/utils/cache'
 import { TYPE_MAP, notifCategory, notifTitle, pickList, type NotifRow } from '@/lib/homeShared'
 import BottomNav from '@/components/BottomNav'
 import PropertyRail from '@/components/PropertyRail'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
 export default function OwnerHomePage() {
@@ -251,9 +252,7 @@ export default function OwnerHomePage() {
         </View>
         <View className='feed-card'>
           {loading && feedItems.length === 0 && (
-            <View className='empty-state'>
-              <Text>加载中...</Text>
-            </View>
+            <StateBlock loading text='加载中...' />
           )}
           {!loading && feedItems.length === 0 && (
             <View className='empty-state'>

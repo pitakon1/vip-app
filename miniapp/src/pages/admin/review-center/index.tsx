@@ -14,6 +14,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { attendanceApi, maintenanceApi, serviceOrdersApi } from '@/services/api'
 import { request } from '@/lib/api'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -142,9 +143,7 @@ export default function AdminReviewCenterPage() {
         </View>
 
         {loading && items.length === 0 && (
-          <View className='empty-tip'>
-            <Text>{t('common.loading')}</Text>
-          </View>
+          <StateBlock loading text={t('common.loading')} />
         )}
         {!loading && failed && (
           <View className='empty-tip' onClick={() => { setLoading(true); void load() }}>

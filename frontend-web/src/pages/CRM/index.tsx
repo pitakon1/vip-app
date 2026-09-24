@@ -749,7 +749,13 @@ const CRM = () => {
                 </tr>
               </thead>
               <tbody>
-                {displayData.map((lead) => (
+                {displayData.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="rent-empty">{t('crm.emptyLeads')}</div>
+                    </td>
+                  </tr>
+                ) : displayData.map((lead) => (
                   <tr key={lead.id}>
                     <td className="rent-text-bold">{lead.name}</td>
                     <td>{lead.nationality || '-'}</td>

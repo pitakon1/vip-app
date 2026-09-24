@@ -5,6 +5,7 @@ import useAuthStore from '@/stores/auth'
 import { maintenanceApi, leasesApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { iconStyle } from '@/utils/icons'
+import StateBlock from '@/components/StateBlock'
 import type { MaintenanceTicket, MaintenanceStatus, MaintenancePriority } from '@/types'
 import './index.scss'
 import { useI18n } from '@/i18n'
@@ -262,9 +263,7 @@ export default function TenantMaintenancePage() {
 
         <ScrollView scrollY className='ticket-list'>
           {loading && tickets.length === 0 && (
-            <View className='empty-state'>
-              <Text>{t('common.loading')}</Text>
-            </View>
+            <StateBlock loading text={t('common.loading')} />
           )}
           {!loading && visibleTickets.length === 0 && (
             <View className='empty-state'>

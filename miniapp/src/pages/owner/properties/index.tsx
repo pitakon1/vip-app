@@ -8,6 +8,7 @@ import { fmtMoney as money } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import { AREA_GROUPS } from '@/data/locationArea'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
 import RegionPicker, { type RegionSelection } from '@/components/RegionPicker'
 import './index.scss'
 import { useI18n } from '@/i18n'
@@ -697,9 +698,7 @@ export default function OwnerPropertiesPage() {
 
         {/* 房源列表卡片 */}
         {loading && filtered.length === 0 && (
-          <View className='op-state'>
-            <Text className='op-state__text'>{t('common.loading')}</Text>
-          </View>
+          <StateBlock loading text={t('common.loading')} />
         )}
         {!loading && filtered.length === 0 && (
           <View className='op-state'>

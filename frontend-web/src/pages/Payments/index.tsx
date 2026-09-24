@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message } from 'antd'
+import { message, Empty } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { paymentsApi } from '@/services/api'
 import { downloadReport } from '@/lib/download'
@@ -548,7 +548,15 @@ const Payments = () => {
                 </tr>
               </thead>
               <tbody>
-                {displayData.map((p) => {
+                {displayData.length === 0 ? (
+                  <tr>
+                    <td colSpan={10}>
+                      <div className="rent-empty">
+                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('payments.empty')} />
+                      </div>
+                    </td>
+                  </tr>
+                ) : displayData.map((p) => {
                   const ds = toDisplayStatus(p)
                   const dt = toDisplayType(p)
                   const sMeta = statusMeta[ds]

@@ -14,6 +14,7 @@ import { TYPE_MAP, notifCategory, notifTitle, pickList, type NotifRow } from '@/
 import BottomNav from '@/components/BottomNav'
 import { useLocationStore } from '@/stores/location'
 import PropertyRail from '@/components/PropertyRail'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
 export default function TenantHomePage() {
@@ -260,9 +261,7 @@ export default function TenantHomePage() {
         </View>
         <View className='feed-card'>
           {loading && feedItems.length === 0 && (
-            <View className='empty-state'>
-              <Text>加载中...</Text>
-            </View>
+            <StateBlock loading text='加载中...' />
           )}
           {!loading && feedItems.length === 0 && (
             <View className='empty-state'>

@@ -13,6 +13,8 @@ import {
   RefreshControl,
   Alert,
   ScrollView,
+  Animated,
+  Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -34,6 +36,11 @@ import { METRO_LINES } from '@/data/locationMetro';
 import { useAuthStore } from '@/stores/auth';
 import { useLocationStore, findCityByKey } from '@/stores/location';
 import { getCached, isFresh, setCached } from '@/lib/cache';
+import { getItem, setItem } from '@/lib/kv';
+
+// 搜索历史（最近搜索）：本地持久化，去重置顶、上限 10 条
+const RECENT_SEARCHES_KEY = 'recent_searches';
+const MAX_RECENT_SEARCHES = 10;
 
 interface Listing {
   id: string;
@@ -266,6 +273,25 @@ const ListingCard = React.memo(function ListingCard({
 }: ListingCardProps) {
   const { t } = useI18n();
   const photo = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : null;
+  // 收藏红心点赞式弹簧动效：点击即弹（乐观反馈，不等后端）
+  const favPop = useRef(new Animated.Value(1)).current;
+  const popFav = () => {
+    favPop.setValue(1);
+    Animated.sequence([
+      Animated.spring(favPop, {
+        toValue: 1.4,
+        speed: 30,
+        bounciness: 14,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.spring(favPop, {
+        toValue: 1,
+        speed: 30,
+        bounciness: 4,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start();
+  };
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={() => onPress(item)}>
       <View style={styles.thumbWrap}>
@@ -282,7 +308,10 @@ const ListingCard = React.memo(function ListingCard({
         </View>
         <TouchableOpacity
           style={styles.favBtn}
-          onPress={() => onToggleFav(item)}
+          onPress={() => {
+            popFav();
+            onToggleFav(item);
+          }}
           disabled={favBusy}
           activeOpacity={0.8}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -290,11 +319,13 @@ const ListingCard = React.memo(function ListingCard({
           accessibilityLabel={favorited ? t('list.unfavorite') : t('list.favorite')}
           accessibilityState={{ disabled: favBusy }}
         >
-          <Ionicons
-            name={favorited ? 'heart' : 'heart-outline'}
-            size={18}
-            color={favorited ? colors.error : colors.primaryForeground}
-          />
+          <Animated.View style={{ transform: [{ scale: favPop }] }}>
+            <Ionicons
+              name={favorited ? 'heart' : 'heart-outline'}
+              size={18}
+              color={favorited ? colors.error : colors.primaryForeground}
+            />
+          </Animated.View>
         </TouchableOpacity>
       </View>
       <View style={styles.info}>
@@ -356,6 +387,9 @@ export default function ListingsScreen() {
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [keyword, setKeyword] = useState('');
+  // 最近搜索（本地持久化）：焦点态 + 历史词非空时展示 chips
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [priceRange, setPriceRange] = useState('');
   const [customMin, setCustomMin] = useState(''); // 自定义最低价（万）
   const [customMax, setCustomMax] = useState(''); // 自定义最高价（万）
@@ -570,6 +604,71 @@ export default function ListingsScreen() {
     },
     [queryClient, token, navigation, t],
   );
+
+  // ---------- 最近搜索（本地历史：去重置顶 / 上限 10 条 / 越界丢最旧） ----------
+  const recentRef = useRef<string[]>([]);
+  useEffect(() => {
+    recentRef.current = recentSearches;
+  }, [recentSearches]);
+
+  // 首次挂载读取本地历史（MMKV → AsyncStorage 自动降级，失败静默）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await getItem(RECENT_SEARCHES_KEY);
+        if (!cancelled && raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            setRecentSearches(
+              arr.filter((x) => typeof x === 'string').slice(0, MAX_RECENT_SEARCHES),
+            );
+          }
+        }
+      } catch {
+        /* 读取失败静默：历史缺失不影响搜索 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 写入历史：去重置顶、上限 10 条（越界丢弃最旧）
+  const saveRecentSearch = useCallback(async (kw: string) => {
+    const next = [kw, ...recentRef.current.filter((x) => x !== kw)].slice(0, MAX_RECENT_SEARCHES);
+    setRecentSearches(next);
+    try {
+      await setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+    } catch {
+      /* 写入失败静默 */
+    }
+  }, []);
+
+  // 右上角清空
+  const clearRecentSearches = useCallback(async () => {
+    setRecentSearches([]);
+    try {
+      await setItem(RECENT_SEARCHES_KEY, JSON.stringify([]));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // 点击历史词：填入输入框并立即触发搜索（列表为本地过滤，setKeyword 即生效），同时置顶该词
+  const applyRecentSearch = useCallback(
+    (kw: string) => {
+      setKeyword(kw);
+      saveRecentSearch(kw);
+    },
+    [saveRecentSearch],
+  );
+
+  // 提交搜索：关键词写入历史
+  const handleSearchSubmit = useCallback(() => {
+    const kw = keyword.trim();
+    if (kw) saveRecentSearch(kw);
+  }, [keyword, saveRecentSearch]);
 
   // 金刚区分类直达：路由参数变化时同步筛选
   useEffect(() => {
@@ -963,9 +1062,40 @@ export default function ListingsScreen() {
             value={keyword}
             onChangeText={setKeyword}
             returnKeyType="search"
+            onFocus={() => setSearchFocused(true)}
+            onSubmitEditing={handleSearchSubmit}
           />
         </View>
       </View>
+      {/* 最近搜索：输入框有焦点且本地有历史词时展示（无历史不渲染） */}
+      {searchFocused && recentSearches.length > 0 && (
+        <View style={styles.recentWrap}>
+          <View style={styles.recentHead}>
+            <Text style={styles.recentTitle}>{t('search.recent')}</Text>
+            <TouchableOpacity
+              onPress={clearRecentSearches}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('search.clearAll')}
+            >
+              <Text style={styles.recentClear}>{t('search.clearAll')}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.recentGroup}>
+            {recentSearches.map((kw) => (
+              <TouchableOpacity
+                key={kw}
+                style={styles.recentChip}
+                onPress={() => applyRecentSearch(kw)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+              >
+                <Text style={styles.recentChipText}>{kw}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
       {/* 业务归属 Tab（整租 / 合租 / 买房）+ 地图入口 */}
       <View style={styles.bizBar}>
         {BIZ_TABS.map((b) => (
@@ -1566,6 +1696,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
+  // 最近搜索：标题行 + 横向换行 chips（无历史词时不渲染该区块）
+  recentWrap: { paddingHorizontal: 12, paddingBottom: 8 },
+  recentHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  recentTitle: { fontSize: 12, color: colors.ink2, fontWeight: '600' },
+  recentClear: { fontSize: 12, color: colors.ink3, paddingVertical: 2 },
+  recentGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  recentChip: {
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  recentChipText: { fontSize: 13, color: colors.ink2 },
   filterBtn: {
     justifyContent: 'center',
     alignItems: 'center',

@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { listingApi, authApi } from '@/services/api'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 import { useI18n } from '@/i18n'
 
@@ -135,7 +136,7 @@ export default function StaffListingsPage() {
 
       <ScrollView scrollY className='st-list'>
         {loading && visible.length === 0 && (
-          <View className='st-state'><Text className='st-state__text'>{t('common.loading')}</Text></View>
+          <StateBlock loading text={t('common.loading')} />
         )}
         {!loading && visible.length === 0 && (
           <View className='st-state'><Text className='st-state__text'>{t('staff.empty')}</Text></View>

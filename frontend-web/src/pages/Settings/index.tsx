@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { message, Empty } from 'antd'
+import { message, Empty, Spin } from 'antd'
 import { companyApi, backupApi } from '@/services/api'
 import { useTranslation } from 'react-i18next'
 import type { CompanyInfo } from '@/types'
@@ -168,15 +168,18 @@ const Settings = () => {
 
   // v1.8 数据备份状态
   const [backupJobs, setBackupJobs] = useState<any[]>([])
-  const [backupLoading] = useState(false)
+  const [backupLoading, setBackupLoading] = useState(false)
   const [backupRunning, setBackupRunning] = useState(false)
 
   const fetchBackupJobs = async () => {
+    setBackupLoading(true)
     try {
       const res = await backupApi.jobs()
       setBackupJobs(res.data || [])
     } catch {
       // 静默处理，地址未配置时保持空列表
+    } finally {
+      setBackupLoading(false)
     }
   }
 
@@ -848,7 +851,16 @@ const Settings = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {backupJobs.length === 0 && (
+                  {backupLoading ? (
+                    <tr>
+                      <td colSpan={6}>
+                        <div className="rent-empty">
+                          <Spin size="small" style={{ marginRight: 8 }} />
+                          <span className="rent-text-muted">{t('common.loading')}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : backupJobs.length === 0 ? (
                     <tr>
                       <td colSpan={6}>
                         <div className="rent-empty">
@@ -856,8 +868,8 @@ const Settings = () => {
                         </div>
                       </td>
                     </tr>
-                  )}
-                  {backupJobs.map((job) => (
+                  ) : (
+                    backupJobs.map((job) => (
                     <tr key={job.id}>
                       <td className="rent-table__mono">{job.created_at ? new Date(job.created_at).toLocaleString() : '-'}</td>
                       <td>{job.type === 'daily' ? t('settings.backupTypeDaily') : job.type === 'manual' ? t('settings.backupTypeManual') : job.type}</td>
@@ -870,7 +882,8 @@ const Settings = () => {
                       <td className="rent-table__mono">{job.size_bytes ? `${(job.size_bytes / 1024 / 1024).toFixed(2)} MB` : '-'}</td>
                       <td className="rent-text-muted">{job.error || '-'}</td>
                     </tr>
-                  ))}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

@@ -7,6 +7,7 @@ import { request } from '@/lib/api'
 import { iconStyle } from '@/utils/icons'
 import { AREA_GROUPS } from '@/data/locationArea'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -536,9 +537,7 @@ export default function AdminPropertiesPage() {
 
       <ScrollView scrollY className='ap-list'>
         {loading && list.length === 0 && (
-          <View className='ap-state'>
-            <Text className='ap-state__text'>{t('pub.loading')}</Text>
-          </View>
+          <StateBlock loading text={t('pub.loading')} />
         )}
         {!loading && list.length === 0 && (
           <View className='ap-state'>

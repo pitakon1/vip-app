@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -263,6 +263,7 @@ export default function PropertyDetailScreen() {
       } else {
         await favoritesApi.toggle(propertyId);
       }
+      popFav();
       void favQ.refetch();
     } catch {
       notify(t('acc.opFailed'), t('prop.retryLater'));
@@ -358,6 +359,25 @@ export default function PropertyDetailScreen() {
       bounciness: 0,
       useNativeDriver: Platform.OS !== 'web',
     }).start();
+  // 收藏成功后的红心弹跳反馈（点赞式 spring：放大回弹，独立于按压缩放）
+  const popFav = useCallback(() => {
+    favScale.stopAnimation();
+    favScale.setValue(1);
+    Animated.sequence([
+      Animated.spring(favScale, {
+        toValue: 1.35,
+        speed: 25,
+        bounciness: 12,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.spring(favScale, {
+        toValue: 1,
+        speed: 25,
+        bounciness: 4,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start();
+  }, [favScale]);
 
   if (loading) {
     return <LoadingState label={t('prop.loadingDetail')} />;
