@@ -7,15 +7,18 @@ import { useSwrCache } from '@/hooks/useSwrCache'
 import type { Document } from '@/types'
 import './index.scss'
 import { iconStyle } from '@/utils/icons'
+import { useI18n } from '@/i18n'
 
-const TYPE_MAP: Record<string, string> = {
-  contract: '合同',
-  receipt: '收据',
-  inspection_photo: '验房照片',
-  tax_invoice: '税务发票',
-  wht_certificate: '代扣税凭证',
-  other: '其他'
-}
+const buildTypeMap = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, string> => ({
+  contract: t('doc.type.contract'),
+  receipt: t('doc.type.receipt'),
+  inspection_photo: t('doc.type.inspectionPhoto'),
+  tax_invoice: t('doc.type.taxInvoice'),
+  wht_certificate: t('doc.type.whtCertificate'),
+  other: t('common.other')
+})
 
 // 标签归类（用于 Tabs 与统计）
 const CONTRACT_TYPES = ['contract']
@@ -46,11 +49,13 @@ const typeIcon = (type: string) => {
   return 'doc-icon--neutral'
 }
 
-const TABS: Array<{ key: string; label: string }> = [
-  { key: 'all', label: '全部' },
-  { key: 'contract', label: '合同' },
-  { key: 'receipt', label: '收据' },
-  { key: 'other', label: '其他' }
+const buildTabs = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Array<{ key: string; label: string }> => [
+  { key: 'all', label: t('common.all') },
+  { key: 'contract', label: t('doc.type.contract') },
+  { key: 'receipt', label: t('doc.type.receipt') },
+  { key: 'other', label: t('common.other') }
 ]
 
 const isImageName = (name?: string) => /\.(png|jpg|jpeg|gif|webp)$/i.test(name || '')
@@ -66,9 +71,12 @@ function pickList(res: any): Document[] {
 }
 
 export default function TenantDocumentsPage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const [tab, setTab] = useState('all')
+  const TYPE_MAP = buildTypeMap(t)
+  const TABS = buildTabs(t)
 
   const { data, loading, refresh } = useSwrCache<Document[]>({
     key: `tenant:documents:${uid}`,
@@ -109,10 +117,10 @@ export default function TenantDocumentsPage() {
    */
   const handleUpload = () => {
     Taro.showModal({
-      title: '上传文档',
-      content: '小程序暂不支持直接上传文档，请在缴费或报修流程中提交凭证，或联系客服协助上传。',
+      title: t('tenantDocs.uploadTitle'),
+      content: t('tenantDocs.uploadNote'),
       showCancel: false,
-      confirmText: '知道了'
+      confirmText: t('common.gotIt')
     })
   }
 
@@ -121,32 +129,32 @@ export default function TenantDocumentsPage() {
       Taro.previewImage({ urls: [doc.url], current: doc.url })
       return
     }
-    Taro.showToast({ title: `预览：${doc.name}`, icon: 'none' })
+    Taro.showToast({ title: `${t('tenantDocs.preview')}${doc.name}`, icon: 'none' })
   }
 
   const handleDownload = async (doc: Document) => {
     if (!doc.url) {
-      Taro.showToast({ title: '文件地址不可用', icon: 'none' })
+      Taro.showToast({ title: t('tenantDocs.urlUnavailable'), icon: 'none' })
       return
     }
-    Taro.showLoading({ title: '下载中...', mask: true })
+    Taro.showLoading({ title: t('tenantDocs.downloading'), mask: true })
     try {
       const res = await Taro.downloadFile({ url: doc.url })
       Taro.hideLoading()
       if (res.statusCode !== 200) {
-        Taro.showToast({ title: '下载失败', icon: 'none' })
+        Taro.showToast({ title: t('common.downloadFailed'), icon: 'none' })
         return
       }
       if (isImageName(doc.name)) {
         await Taro.saveImageToPhotosAlbum({ filePath: res.tempFilePath })
-        Taro.showToast({ title: '已保存到相册', icon: 'success' })
+        Taro.showToast({ title: t('tenantDocs.savedToAlbum'), icon: 'success' })
       } else {
         await Taro.openDocument({ filePath: res.tempFilePath, showMenu: true })
       }
     } catch (error) {
       Taro.hideLoading()
       console.error('[TenantDocs] 下载失败', error)
-      Taro.showToast({ title: '下载失败，请重试', icon: 'none' })
+      Taro.showToast({ title: t('tenantDocs.downloadFailedRetry'), icon: 'none' })
     }
   }
 
@@ -155,13 +163,13 @@ export default function TenantDocumentsPage() {
       <View className='page-container'>
         <ScrollView scrollX className='doc-tabs'>
           <View className='doc-tabs-inner'>
-            {TABS.map((t) => (
+            {TABS.map((tabItem) => (
               <View
-                key={t.key}
-                className={`doc-tab ${tab === t.key ? 'doc-tab--active' : ''}`}
-                onClick={() => setTab(t.key)}
+                key={tabItem.key}
+                className={`doc-tab ${tab === tabItem.key ? 'doc-tab--active' : ''}`}
+                onClick={() => setTab(tabItem.key)}
               >
-                <Text className='doc-tab-text'>{t.label}</Text>
+                <Text className='doc-tab-text'>{tabItem.label}</Text>
               </View>
             ))}
           </View>
@@ -169,29 +177,29 @@ export default function TenantDocumentsPage() {
 
         <View className='stat-row'>
           <View className='stat-item'>
-            <Text className='stat-label'>合同</Text>
-            <Text className='stat-value'>{contractCount} 份</Text>
+            <Text className='stat-label'>{t('doc.type.contract')}</Text>
+            <Text className='stat-value'>{t('common.copyCount', { n: contractCount })}</Text>
           </View>
           <View className='stat-item'>
-            <Text className='stat-label'>收据</Text>
-            <Text className='stat-value'>{receiptCount} 份</Text>
+            <Text className='stat-label'>{t('doc.type.receipt')}</Text>
+            <Text className='stat-value'>{t('common.copyCount', { n: receiptCount })}</Text>
           </View>
         </View>
 
         <View className='section-title'>
-          <Text>文档列表</Text>
+          <Text>{t('tenantDocs.listTitle')}</Text>
         </View>
 
         <ScrollView scrollY className='document-list'>
           {loading && documents.length === 0 && (
             <View className='empty-state'>
-              <Text>加载中...</Text>
+              <Text>{t('common.loading')}</Text>
             </View>
           )}
           {!loading && visibleDocs.length === 0 && (
             <View className='empty-state'>
               <View className='empty-state__icon icon-svg' style={iconStyle('doc', 80)} />
-              <Text>暂无文档</Text>
+              <Text>{t('tenantDocs.empty')}</Text>
             </View>
           )}
           {visibleDocs.map((doc) => (
@@ -215,7 +223,7 @@ export default function TenantDocumentsPage() {
                 </View>
               </View>
               <View className='doc-download' onClick={() => handleDownload(doc)}>
-                <Text className='doc-download-text'>下载</Text>
+                <Text className='doc-download-text'>{t('common.download')}</Text>
               </View>
             </View>
           ))}

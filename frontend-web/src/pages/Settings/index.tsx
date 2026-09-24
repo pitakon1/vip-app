@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { message, Empty } from 'antd'
 import { companyApi, backupApi } from '@/services/api'
+import { useTranslation } from 'react-i18next'
 import type { CompanyInfo } from '@/types'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './settings.css'
@@ -22,22 +23,22 @@ interface CompanyFormState {
 
 // 权限矩阵数据
 const PERMISSION_MATRIX = [
-  { name: '查看房源', admin: true, owner: true, tenant: true, employee: true },
-  { name: '编辑房源', admin: true, owner: true, tenant: false, employee: true },
-  { name: '查看合同', admin: true, owner: true, tenant: true, employee: true },
-  { name: '管理付款', admin: true, owner: true, tenant: false, employee: true },
-  { name: '管理员工', admin: true, owner: false, tenant: false, employee: false },
-  { name: '系统设置', admin: true, owner: false, tenant: false, employee: false },
+  { name: 'settings.permViewProperties', admin: true, owner: true, tenant: true, employee: true },
+  { name: 'settings.permEditProperties', admin: true, owner: true, tenant: false, employee: true },
+  { name: 'settings.permViewContracts', admin: true, owner: true, tenant: true, employee: true },
+  { name: 'settings.permManagePayments', admin: true, owner: true, tenant: false, employee: true },
+  { name: 'settings.permManageEmployees', admin: true, owner: false, tenant: false, employee: false },
+  { name: 'settings.title', admin: true, owner: false, tenant: false, employee: false },
 ]
 
 // 通知行配置
 const NOTIFICATION_ROWS = [
-  { key: 'rent', title: '租金到期提醒', desc: '租金到期前 7 天向租客发送提醒通知', channels: { email: true, sms: true, push: false }, enabled: true },
-  { key: 'lease', title: '合同到期提醒', desc: '合同到期前 30 天通知业主与租客', channels: { email: true, sms: false, push: true }, enabled: true },
-  { key: 'register', title: '新租客注册通知', desc: '新租客完成注册后通知管理员', channels: { email: true, sms: false, push: true }, enabled: true },
-  { key: 'payment', title: '付款确认通知', desc: '收到租金付款后向租客发送确认', channels: { email: true, sms: true, push: false }, enabled: true },
-  { key: 'maintenance', title: '维修申请通知', desc: '租客提交维修申请后通知业主与员工', channels: { email: true, sms: true, push: true }, enabled: true },
-  { key: 'system', title: '系统维护通知', desc: '计划内系统维护提前通知全体用户', channels: { email: true, sms: false, push: true }, enabled: false },
+  { key: 'rent', title: 'settings.notifRentTitle', desc: 'settings.notifRentDesc', channels: { email: true, sms: true, push: false }, enabled: true },
+  { key: 'lease', title: 'settings.notifLeaseTitle', desc: 'settings.notifLeaseDesc', channels: { email: true, sms: false, push: true }, enabled: true },
+  { key: 'register', title: 'settings.notifRegisterTitle', desc: 'settings.notifRegisterDesc', channels: { email: true, sms: false, push: true }, enabled: true },
+  { key: 'payment', title: 'settings.notifPaymentTitle', desc: 'settings.notifPaymentDesc', channels: { email: true, sms: true, push: false }, enabled: true },
+  { key: 'maintenance', title: 'settings.notifMaintenanceTitle', desc: 'settings.notifMaintenanceDesc', channels: { email: true, sms: true, push: true }, enabled: true },
+  { key: 'system', title: 'settings.notifSystemTitle', desc: 'settings.notifSystemDesc', channels: { email: true, sms: false, push: true }, enabled: false },
 ]
 
 // 支付渠道配置
@@ -63,25 +64,25 @@ interface PaymentChannel {
 const PAYMENT_CHANNELS: PaymentChannel[] = [
   {
     key: 'bank',
-    name: '银行转账',
-    desc: '支持 Bangkok Bank / Kasikorn / SCB 网银转账',
+    name: 'settings.chBankName',
+    desc: 'settings.chBankDesc',
     enabled: true,
     icon: '<path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v3"/><path d="M12 14v3"/><path d="M16 14v3"/>',
     fields: [
-      { label: 'Bangkok Bank 账号', value: '', mono: true },
-      { label: 'Kasikorn 账号', value: '', mono: true },
-      { label: 'PromptPay 账号', value: '', mono: true },
-      { label: '账户持有人姓名', value: '', mono: false },
+      { label: 'settings.chBankField1', value: '', mono: true },
+      { label: 'settings.chBankField2', value: '', mono: true },
+      { label: 'settings.chBankField3', value: '', mono: true },
+      { label: 'settings.chBankField4', value: '', mono: false },
     ],
   },
   {
     key: 'card',
-    name: '信用卡',
-    desc: 'Visa / Mastercard 在线支付',
+    name: 'settings.chCardName',
+    desc: 'settings.chCardDesc',
     enabled: true,
     icon: '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
     fields: [
-      { label: '商户 ID (Merchant ID)', value: '', mono: true },
+      { label: 'settings.chCardField1', value: '', mono: true },
     ],
     cards: [
       { name: 'Visa', checked: true },
@@ -91,30 +92,30 @@ const PAYMENT_CHANNELS: PaymentChannel[] = [
   },
   {
     key: 'alipay',
-    name: '支付宝',
-    desc: 'Alipay 跨境收款',
+    name: 'settings.chAlipayName',
+    desc: 'settings.chAlipayDesc',
     enabled: false,
     icon: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>',
     fields: [
-      { label: '商户 ID (Partner ID)', value: '', mono: true },
-      { label: 'API Key', value: '', mono: true, password: true, hint: '出于安全考虑，密钥已加密保存' },
+      { label: 'settings.chAlipayField1', value: '', mono: true },
+      { label: 'API Key', value: '', mono: true, password: true, hint: 'settings.chApiKeyHint' },
     ],
   },
   {
     key: 'wechat',
-    name: '微信支付',
-    desc: 'WeChat Pay 跨境收款',
+    name: 'settings.chWechatName',
+    desc: 'settings.chWechatDesc',
     enabled: false,
     icon: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
     fields: [
-      { label: '商户 ID (MCH ID)', value: '', mono: true },
-      { label: 'API Key', value: '', mono: true, password: true, hint: '出于安全考虑，密钥已加密保存' },
+      { label: 'settings.chWechatField1', value: '', mono: true },
+      { label: 'API Key', value: '', mono: true, password: true, hint: 'settings.chApiKeyHint' },
     ],
   },
   {
     key: 'wise',
     name: 'Wise',
-    desc: 'Wise Business 跨境收款',
+    desc: 'settings.chWiseDesc',
     enabled: false,
     icon: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
     fields: [
@@ -128,6 +129,7 @@ const CURRENCY_OPTIONS = ['THB (฿) — 泰铢', 'USD — 美元', 'CNY — 人
 const TIMEZONE_OPTIONS = ['Asia/Bangkok (UTC+7)', 'Asia/Singapore (UTC+8)', 'Asia/Shanghai (UTC+8)', 'UTC — 协调世界时']
 
 const Settings = () => {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('company')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -190,14 +192,14 @@ const Settings = () => {
       const job = res.data
       message.success(
         job && job.status === 'success'
-          ? '备份完成'
+          ? t('settings.msgBackupDone')
           : job && job.status === 'running'
-            ? '备份任务已启动'
-            : '备份执行完成（请查看记录）',
+            ? t('settings.msgBackupStarted')
+            : t('settings.msgBackupFinished'),
       )
       fetchBackupJobs()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '备份失败')
+      message.error(err?.response?.data?.detail || t('settings.errBackupFailed'))
     } finally {
       setBackupRunning(false)
     }
@@ -229,7 +231,7 @@ const Settings = () => {
       }))
       setUpdatedAt(payload?.updated_at || '')
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取公司信息失败')
+      message.error(err?.response?.data?.message || t('settings.errFetchCompany'))
     } finally {
       setLoading(false)
     }
@@ -247,7 +249,7 @@ const Settings = () => {
         setChannels(payload.payment_channels)
       }
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取系统配置失败')
+      message.error(err?.response?.data?.message || t('settings.errFetchSettings'))
     }
   }
 
@@ -283,9 +285,9 @@ const Settings = () => {
       // 用后端返回值回填，顺便刷新「最后更新」时间
       const payload = res.data?.data ?? res.data
       if (payload?.updated_at) setUpdatedAt(payload.updated_at)
-      message.success('公司信息已保存')
+      message.success(t('settings.msgCompanySaved'))
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '保存失败')
+      message.error(err?.response?.data?.message || t('settings.errSaveFailed'))
     } finally {
       setSaving(false)
     }
@@ -303,9 +305,9 @@ const Settings = () => {
       const res = await companyApi.uploadLogo(file)
       const payload = res.data?.data ?? res.data
       setLogoUrl(payload?.logo_url || '')
-      message.success('公司 Logo 已上传')
+      message.success(t('settings.msgLogoUploaded'))
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || 'Logo 上传失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('settings.errLogoUpload'))
     } finally {
       setLogoUploading(false)
       if (logoInputRef.current) logoInputRef.current.value = ''
@@ -317,9 +319,9 @@ const Settings = () => {
     try {
       await companyApi.removeLogo()
       setLogoUrl('')
-      message.success('公司 Logo 已移除')
+      message.success(t('settings.msgLogoRemoved'))
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || 'Logo 移除失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('settings.errLogoRemove'))
     } finally {
       setLogoUploading(false)
     }
@@ -330,9 +332,9 @@ const Settings = () => {
     setSaving(true)
     try {
       await companyApi.updateSettings({ notify_rows: notifyRows })
-      message.success('通知设置已保存')
+      message.success(t('settings.msgNotifySaved'))
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || '保存失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('settings.errSaveFailed'))
     } finally {
       setSaving(false)
     }
@@ -341,7 +343,7 @@ const Settings = () => {
   // 通知设置重置：丢弃本次改动，重新拉取后端已保存的配置
   const handleNotifyReset = async () => {
     await fetchSettings()
-    message.success('通知设置已恢复为已保存配置')
+    message.success(t('settings.msgNotifyRestored'))
   }
 
   // 保存支付渠道（同上，改为落库）
@@ -349,9 +351,9 @@ const Settings = () => {
     setSaving(true)
     try {
       await companyApi.updateSettings({ payment_channels: channels })
-      message.success('渠道配置已保存')
+      message.success(t('settings.msgChannelSaved'))
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || '保存失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('settings.errSaveFailed'))
     } finally {
       setSaving(false)
     }
@@ -360,7 +362,7 @@ const Settings = () => {
   // 渠道配置重置：丢弃本次改动，重新拉取后端已保存的配置
   const handleChannelReset = async () => {
     await fetchSettings()
-    message.success('渠道配置已恢复为已保存配置')
+    message.success(t('settings.msgChannelRestored'))
   }
 
   const toggleChannel = (key: string) => {
@@ -405,11 +407,11 @@ const Settings = () => {
   }
 
   const tabs = [
-    { key: 'company', label: '公司信息' },
-    { key: 'payment', label: '支付渠道' },
-    { key: 'notification', label: '通知设置' },
-    { key: 'permission', label: '权限管理' },
-    { key: 'backup', label: '数据备份' },
+    { key: 'company', label: 'settings.tabCompany' },
+    { key: 'payment', label: 'settings.tabPayment' },
+    { key: 'notification', label: 'settings.tabNotification' },
+    { key: 'permission', label: 'settings.tabPermission' },
+    { key: 'backup', label: 'settings.tabBackup' },
   ]
 
   return (
@@ -417,26 +419,26 @@ const Settings = () => {
       {/* Page header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">系统设置</h2>
-          <p className="rent-page-header__subtitle">管理公司信息、支付渠道、通知规则与角色权限</p>
+          <h2 className="rent-page-header__title">{t('settings.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('settings.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <span className="rent-badge rent-badge--neutral">
-            最后更新：{updatedAt ? updatedAt.slice(0, 10) : '—'}
+            {t('settings.lastUpdated', { date: updatedAt ? updatedAt.slice(0, 10) : '—' })}
           </span>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="rent-tabs">
-        {tabs.map((t) => (
+        {tabs.map((tab) => (
           <div
-            key={t.key}
+            key={tab.key}
             className="rent-tab"
-            data-active={activeTab === t.key ? 'true' : 'false'}
-            onClick={() => setActiveTab(t.key)}
+            data-active={activeTab === tab.key ? 'true' : 'false'}
+            onClick={() => setActiveTab(tab.key)}
           >
-            {t.label}
+            {t(tab.label)}
           </div>
         ))}
       </div>
@@ -446,12 +448,12 @@ const Settings = () => {
         <div className="rent-tab-panel" data-active="true">
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">公司信息</h3>
-            <span className="rent-badge rent-badge--neutral">基本信息</span>
+            <h3 className="rent-card__title">{t('settings.tabCompany')}</h3>
+            <span className="rent-badge rent-badge--neutral">{t('settings.basicInfo')}</span>
           </div>
           <div className="rent-card__body">
             <div className="rent-form-group">
-              <label className="rent-form-label">公司名称</label>
+              <label className="rent-form-label">{t('settings.companyName')}</label>
               <input
                 className="rent-form-input"
                 type="text"
@@ -461,7 +463,7 @@ const Settings = () => {
               />
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">公司注册编号</label>
+              <label className="rent-form-label">{t('settings.companyRegNo')}</label>
               <input
                 className="rent-form-input"
                 type="text"
@@ -469,10 +471,10 @@ const Settings = () => {
                 disabled={loading}
                 onChange={(e) => setCompanyForm((p) => ({ ...p, regNo: e.target.value }))}
               />
-              <div className="rent-form-hint">SSM 注册编号，将显示在合同与发票上</div>
+              <div className="rent-form-hint">{t('settings.regNoHint')}</div>
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">公司地址</label>
+              <label className="rent-form-label">{t('settings.companyAddress')}</label>
               <textarea
                 className="rent-form-textarea"
                 rows={2}
@@ -483,7 +485,7 @@ const Settings = () => {
             </div>
             <div className="rent-form-row">
               <div className="rent-form-group">
-                <label className="rent-form-label">联系电话</label>
+                <label className="rent-form-label">{t('settings.contactPhone')}</label>
                 <input
                   className="rent-form-input"
                   type="text"
@@ -493,7 +495,7 @@ const Settings = () => {
                 />
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">联系邮箱</label>
+                <label className="rent-form-label">{t('settings.contactEmail')}</label>
                 <input
                   className="rent-form-input"
                   type="email"
@@ -505,7 +507,7 @@ const Settings = () => {
             </div>
             <div className="rent-form-row">
               <div className="rent-form-group">
-                <label className="rent-form-label">结算货币</label>
+                <label className="rent-form-label">{t('settings.currency')}</label>
                 <select
                   className="rent-form-select"
                   value={companyForm.currency}
@@ -513,7 +515,7 @@ const Settings = () => {
                   onChange={(e) => setCompanyForm((p) => ({ ...p, currency: e.target.value }))}
                 >
                   {!CURRENCY_OPTIONS.includes(companyForm.currency) && (
-                    <option value="">未设置</option>
+                    <option value="">{t('settings.notSet')}</option>
                   )}
                   {CURRENCY_OPTIONS.map((opt) => (
                     <option key={opt}>{opt}</option>
@@ -521,7 +523,7 @@ const Settings = () => {
                 </select>
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">时区</label>
+                <label className="rent-form-label">{t('settings.timezone')}</label>
                 <select
                   className="rent-form-select"
                   value={companyForm.timezone}
@@ -529,7 +531,7 @@ const Settings = () => {
                   onChange={(e) => setCompanyForm((p) => ({ ...p, timezone: e.target.value }))}
                 >
                   {!TIMEZONE_OPTIONS.includes(companyForm.timezone) && (
-                    <option value="">未设置</option>
+                    <option value="">{t('settings.notSet')}</option>
                   )}
                   {TIMEZONE_OPTIONS.map((opt) => (
                     <option key={opt}>{opt}</option>
@@ -538,14 +540,14 @@ const Settings = () => {
               </div>
             </div>
             <div className="rent-form-group" style={{ marginBottom: 0 }}>
-              <label className="rent-form-label">公司 Logo</label>
+              <label className="rent-form-label">{t('settings.companyLogo')}</label>
               <div className="rent-logo-preview">
                 {logoUrl ? (
                   <>
                     <img className="rent-logo-preview__box" src={logoUrl} alt="logo" />
                     <div>
                       <div className="rent-text-sm rent-text-bold">{logoUrl.split('/').pop()}</div>
-                      <div className="rent-caption">公司标识 · 已保存</div>
+                      <div className="rent-caption">{t('settings.logoSaved')}</div>
                     </div>
                     <button
                       className="rent-btn rent-btn--ghost rent-btn--sm"
@@ -554,15 +556,15 @@ const Settings = () => {
                       onClick={handleLogoRemove}
                       disabled={logoUploading}
                     >
-                      移除
+                      {t('settings.remove')}
                     </button>
                   </>
                 ) : (
                   <>
                     <img className="rent-logo-preview__box" src={brandLogo} alt="logo" />
                     <div>
-                      <div className="rent-text-sm rent-text-bold">未设置 Logo</div>
-                      <div className="rent-caption">当前展示平台默认标识</div>
+                      <div className="rent-text-sm rent-text-bold">{t('settings.logoNotSet')}</div>
+                      <div className="rent-caption">{t('settings.logoDefaultHint')}</div>
                     </div>
                   </>
                 )}
@@ -586,16 +588,16 @@ const Settings = () => {
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                 </div>
                 <div className="rent-text-sm rent-text-bold" style={{ color: 'var(--rent-ink)' }}>
-                  {logoUploading ? '上传中…' : '点击上传或拖拽文件到此处'}
+                  {logoUploading ? t('settings.uploading') : t('settings.uploadHint')}
                 </div>
-                <div className="rent-caption" style={{ marginTop: 4 }}>建议尺寸 256×256px，支持 PNG / JPG / WEBP / GIF，最大 2MB</div>
+                <div className="rent-caption" style={{ marginTop: 4 }}>{t('settings.uploadSpec')}</div>
               </label>
             </div>
           </div>
           <div className="rent-card__footer rent-flex" style={{ justifyContent: 'flex-end', gap: 8 }}>
-            <button className="rent-btn rent-btn--secondary" type="button" onClick={handleCompanyReset} disabled={loading}>重置</button>
+            <button className="rent-btn rent-btn--secondary" type="button" onClick={handleCompanyReset} disabled={loading}>{t('settings.reset')}</button>
             <button className="rent-btn rent-btn--primary" type="button" onClick={handleCompanySave} disabled={saving || loading}>
-              {saving ? '保存中...' : '保存更改'}
+              {saving ? t('settings.saving') : t('settings.saveChanges')}
             </button>
           </div>
         </div>
@@ -605,7 +607,7 @@ const Settings = () => {
       {/* ===== Tab 2: 支付渠道 ===== */}
       {activeTab === 'payment' && (
         <div className="rent-tab-panel" data-active="true">
-          <p className="rent-body rent-mb-4">启用并配置租客可用的付款方式。已启用的渠道将显示在账单支付页面。</p>
+          <p className="rent-body rent-mb-4">{t('settings.paymentIntro')}</p>
           <div className="rent-grid rent-grid--2" style={{ alignItems: 'start' }}>
             {channels.map((ch) => (
               <div key={ch.key} className="rent-channel-card" data-enabled={ch.enabled ? 'true' : 'false'}>
@@ -615,8 +617,8 @@ const Settings = () => {
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: ch.icon }} />
                     </div>
                     <div>
-                      <div className="rent-channel-card__name">{ch.name}</div>
-                      <div className="rent-channel-card__desc">{ch.desc}</div>
+                      <div className="rent-channel-card__name">{t(ch.name)}</div>
+                      <div className="rent-channel-card__desc">{t(ch.desc)}</div>
                     </div>
                   </div>
                   <label className="rent-switch">
@@ -632,19 +634,19 @@ const Settings = () => {
                 <div className="rent-channel-card__body">
                   {ch.fields.map((f, i) => (
                     <div key={i} className="rent-form-group" style={{ marginBottom: i === ch.fields.length - 1 && !ch.cards ? 0 : 20 }}>
-                      <label className="rent-form-label">{f.label}</label>
+                      <label className="rent-form-label">{t(f.label)}</label>
                       <input
                         className={`rent-form-input${f.mono ? ' rent-table__mono' : ''}`}
                         type={f.password ? 'password' : 'text'}
                         value={f.value}
                         onChange={(e) => updateChannelField(ch.key, i, e.target.value)}
                       />
-                      {f.hint && <div className="rent-form-hint">{f.hint}</div>}
+                      {f.hint && <div className="rent-form-hint">{t(f.hint)}</div>}
                     </div>
                   ))}
                   {ch.cards && (
                     <div className="rent-form-group" style={{ marginBottom: 0 }}>
-                      <label className="rent-form-label">支持卡种</label>
+                      <label className="rent-form-label">{t('settings.supportedCards')}</label>
                       <div className="rent-flex rent-gap-4" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
                         {ch.cards.map((card) => (
                           <label key={card.name} className="rent-check">
@@ -663,9 +665,9 @@ const Settings = () => {
             ))}
           </div>
           <div className="rent-settings-savebar">
-            <button className="rent-btn rent-btn--secondary" type="button" onClick={handleChannelReset}>恢复默认</button>
+            <button className="rent-btn rent-btn--secondary" type="button" onClick={handleChannelReset}>{t('settings.restoreDefault')}</button>
             <button className="rent-btn rent-btn--primary" type="button" onClick={handleChannelSave} disabled={saving}>
-              {saving ? '保存中...' : '保存渠道配置'}
+              {saving ? t('settings.saving') : t('settings.saveChannelConfig')}
             </button>
           </div>
         </div>
@@ -676,30 +678,30 @@ const Settings = () => {
         <div className="rent-tab-panel" data-active="true">
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">通知规则</h3>
+            <h3 className="rent-card__title">{t('settings.notifyRules')}</h3>
             <div className="rent-flex rent-gap-4" style={{ alignItems: 'center' }}>
-              <span className="rent-text-sm rent-text-muted">渠道：</span>
-              <span className="rent-badge rent-badge--primary">邮件</span>
-              <span className="rent-badge rent-badge--primary">短信</span>
-              <span className="rent-badge rent-badge--primary">推送</span>
+              <span className="rent-text-sm rent-text-muted">{t('settings.channelsLabel')}</span>
+              <span className="rent-badge rent-badge--primary">{t('settings.email')}</span>
+              <span className="rent-badge rent-badge--primary">{t('settings.sms')}</span>
+              <span className="rent-badge rent-badge--primary">{t('settings.push')}</span>
             </div>
           </div>
           <div className="rent-card__body" style={{ padding: 0 }}>
             {notifyRows.map((row) => (
               <div key={row.key} className="rent-notify-row">
                 <div className="rent-notify-row__info">
-                  <div className="rent-notify-row__title">{row.title}</div>
-                  <div className="rent-notify-row__desc">{row.desc}</div>
+                  <div className="rent-notify-row__title">{t(row.title)}</div>
+                  <div className="rent-notify-row__desc">{t(row.desc)}</div>
                 </div>
                 <div className="rent-notify-row__channels">
                   <label className="rent-check">
-                    <input type="checkbox" checked={row.channels.email} onChange={() => toggleNotify(row.key, 'email')} /> 邮件
+                    <input type="checkbox" checked={row.channels.email} onChange={() => toggleNotify(row.key, 'email')} /> {t('settings.email')}
                   </label>
                   <label className="rent-check">
-                    <input type="checkbox" checked={row.channels.sms} onChange={() => toggleNotify(row.key, 'sms')} /> 短信
+                    <input type="checkbox" checked={row.channels.sms} onChange={() => toggleNotify(row.key, 'sms')} /> {t('settings.sms')}
                   </label>
                   <label className="rent-check">
-                    <input type="checkbox" checked={row.channels.push} onChange={() => toggleNotify(row.key, 'push')} /> 推送
+                    <input type="checkbox" checked={row.channels.push} onChange={() => toggleNotify(row.key, 'push')} /> {t('settings.push')}
                   </label>
                 </div>
                 <div className="rent-notify-row__toggle">
@@ -717,9 +719,9 @@ const Settings = () => {
             ))}
           </div>
           <div className="rent-card__footer rent-flex" style={{ justifyContent: 'flex-end', gap: 8 }}>
-            <button className="rent-btn rent-btn--secondary" type="button" onClick={handleNotifyReset}>重置</button>
+            <button className="rent-btn rent-btn--secondary" type="button" onClick={handleNotifyReset}>{t('settings.reset')}</button>
             <button className="rent-btn rent-btn--primary" type="button" onClick={handleNotifySave} disabled={saving}>
-              {saving ? '保存中...' : '保存通知设置'}
+              {saving ? t('settings.saving') : t('settings.saveNotifySettings')}
             </button>
           </div>
         </div>
@@ -729,28 +731,28 @@ const Settings = () => {
       {/* ===== Tab 4: 权限管理 ===== */}
       {activeTab === 'permission' && (
         <div className="rent-tab-panel" data-active="true">
-          <p className="rent-body rent-mb-4">以下为系统预设的角色权限矩阵。每个角色可执行的操作已按职责分配。</p>
+          <p className="rent-body rent-mb-4">{t('settings.permissionIntro')}</p>
           <div className="rent-card">
             <div className="rent-card__header">
-              <h3 className="rent-card__title">角色权限矩阵</h3>
-              <span className="rent-badge rent-badge--neutral">预设权限</span>
+              <h3 className="rent-card__title">{t('settings.permMatrixTitle')}</h3>
+              <span className="rent-badge rent-badge--neutral">{t('settings.presetPermissions')}</span>
             </div>
             <div className="rent-card__body" style={{ padding: 0 }}>
               <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
                 <table className="rent-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '34%' }}>权限项</th>
-                      <th className="rent-perm-cell">管理员</th>
-                      <th className="rent-perm-cell">业主</th>
-                      <th className="rent-perm-cell">租客</th>
-                      <th className="rent-perm-cell">员工</th>
+                      <th style={{ width: '34%' }}>{t('settings.thPermission')}</th>
+                      <th className="rent-perm-cell">{t('settings.roleAdmin')}</th>
+                      <th className="rent-perm-cell">{t('settings.roleOwner')}</th>
+                      <th className="rent-perm-cell">{t('settings.roleTenant')}</th>
+                      <th className="rent-perm-cell">{t('settings.roleEmployee')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {PERMISSION_MATRIX.map((perm) => (
                       <tr key={perm.name}>
-                        <td>{perm.name}</td>
+                        <td>{t(perm.name)}</td>
                         <td className="rent-perm-cell">
                           <span className="rent-perm-icon">
                             {perm.admin ? (
@@ -798,15 +800,15 @@ const Settings = () => {
                 <span className="rent-perm-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--state-success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </span>
-                <span className="rent-text-sm rent-text-muted">允许</span>
+                <span className="rent-text-sm rent-text-muted">{t('settings.allowed')}</span>
               </span>
               <span className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
                 <span className="rent-perm-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                 </span>
-                <span className="rent-text-sm rent-text-muted">禁止</span>
+                <span className="rent-text-sm rent-text-muted">{t('settings.denied')}</span>
               </span>
-              <span className="rent-text-sm rent-text-muted" style={{ marginLeft: 'auto' }}>权限按角色预设，如需自定义请联系系统管理员</span>
+              <span className="rent-text-sm rent-text-muted" style={{ marginLeft: 'auto' }}>{t('settings.permFooterHint')}</span>
             </div>
           </div>
         </div>
@@ -817,32 +819,32 @@ const Settings = () => {
         <div className="rent-tab-panel" data-active="true">
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">数据备份与每日同步</h3>
+            <h3 className="rent-card__title">{t('settings.backupTitle')}</h3>
             <span className="rent-badge rent-badge--primary">v1.8</span>
           </div>
           <div className="rent-card__body">
             <p className="rent-body rent-mb-4">
-              系统每日凌晨（02:00）自动执行全库备份，您也可以手动触发一次备份。备份以
+              {t('settings.backupIntroA')}
               <span className="rent-table__mono"> .json.gz </span>
-              格式保存到服务器备份目录，并记录每次任务的状态与结果。
+              {t('settings.backupIntroB')}
             </p>
             <div className="rent-flex rent-gap-4" style={{ alignItems: 'center', flexWrap: 'wrap', marginBottom: 24 }}>
               <button className="rent-btn rent-btn--primary" type="button" onClick={handleBackupRun} disabled={backupRunning}>
-                {backupRunning ? '备份中...' : '立即执行备份'}
+                {backupRunning ? t('settings.backupRunning') : t('settings.runBackupNow')}
               </button>
-              <span className="rent-text-sm rent-text-muted">自动备份策略：每日 02:00 · 全表快照 · 保留最近记录</span>
-              <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button" onClick={fetchBackupJobs} disabled={backupLoading} style={{ marginLeft: 'auto' }}>刷新</button>
+              <span className="rent-text-sm rent-text-muted">{t('settings.autoBackupPolicy')}</span>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button" onClick={fetchBackupJobs} disabled={backupLoading} style={{ marginLeft: 'auto' }}>{t('settings.refresh')}</button>
             </div>
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
                 <thead>
                   <tr>
-                    <th>时间</th>
-                    <th>类型</th>
-                    <th>状态</th>
-                    <th>文件</th>
-                    <th>大小</th>
-                    <th>备注</th>
+                    <th>{t('settings.thTime')}</th>
+                    <th>{t('settings.thType')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{t('settings.thFile')}</th>
+                    <th>{t('settings.thSize')}</th>
+                    <th>{t('settings.thRemark')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -850,7 +852,7 @@ const Settings = () => {
                     <tr>
                       <td colSpan={6}>
                         <div className="rent-empty">
-                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无备份记录" />
+                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('settings.emptyBackups')} />
                         </div>
                       </td>
                     </tr>
@@ -858,10 +860,10 @@ const Settings = () => {
                   {backupJobs.map((job) => (
                     <tr key={job.id}>
                       <td className="rent-table__mono">{job.created_at ? new Date(job.created_at).toLocaleString() : '-'}</td>
-                      <td>{job.type === 'daily' ? '每日同步' : job.type === 'manual' ? '手动' : job.type}</td>
+                      <td>{job.type === 'daily' ? t('settings.backupTypeDaily') : job.type === 'manual' ? t('settings.backupTypeManual') : job.type}</td>
                       <td>
                         <span className="rent-badge" data-success={job.status === 'success' ? 'true' : undefined} data-danger={job.status === 'failed' ? 'true' : undefined}>
-                          {job.status === 'success' ? '成功' : job.status === 'failed' ? '失败' : job.status}
+                          {job.status === 'success' ? t('settings.statusSuccess') : job.status === 'failed' ? t('settings.statusFailed') : job.status}
                         </span>
                       </td>
                       <td className="rent-table__mono" style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.file_path || '-'}</td>

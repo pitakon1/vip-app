@@ -8,6 +8,7 @@ import { fmtMoney as money } from '@/utils/format'
 import './index.scss'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import { useI18n } from '@/i18n'
 
 interface IncomeRecord {
   id: string
@@ -50,27 +51,35 @@ const EMPTY_INCOME: IncomeData = {
 const shortMoney = (v: number) =>
   v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))
 
-const FILTERS: Array<{ key: string; label: string }> = [
-  { key: 'all', label: '全部' },
-  { key: 'received', label: '已到账' },
-  { key: 'pending', label: '待收' },
-  { key: 'overdue', label: '逾期' }
+const buildFilters = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Array<{ key: string; label: string }> => [
+  { key: 'all', label: t('common.all') },
+  { key: 'received', label: t('ownerIncome.filterReceived') },
+  { key: 'pending', label: t('ownerIncome.filterPending') },
+  { key: 'overdue', label: t('ownerIncome.filterOverdue') }
 ]
 
 // 状态元信息：颜色语义交由 SCSS 徽章/图标类实现
-const STATUS_META: Record<string, { label: string; cls: string; icon: 'money' | 'calendar' | 'close' }> = {
-  received: { label: '已到账', cls: 'success', icon: 'money' },
-  pending: { label: '待收', cls: 'warning', icon: 'calendar' },
-  overdue: { label: '逾期', cls: 'error', icon: 'close' }
-}
+type IncomeStatusMeta = Record<string, { label: string; cls: string; icon: 'money' | 'calendar' | 'close' }>
+const buildStatusMeta = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): IncomeStatusMeta => ({
+  received: { label: t('ownerIncome.filterReceived'), cls: 'success', icon: 'money' },
+  pending: { label: t('ownerIncome.filterPending'), cls: 'warning', icon: 'calendar' },
+  overdue: { label: t('ownerIncome.filterOverdue'), cls: 'error', icon: 'close' }
+})
 
-const metaOf = (status: string) => STATUS_META[status] || STATUS_META.pending
+const metaOf = (status: string, map: IncomeStatusMeta) => map[status] || map.pending
 
 export default function OwnerIncomePage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const [activeFilter, setActiveFilter] = useState('all')
   const [error, setError] = useState(false)
+  const FILTERS = buildFilters(t)
+  const STATUS_META = buildStatusMeta(t)
 
   interface IncomePayload {
     income: IncomeData
@@ -147,20 +156,20 @@ export default function OwnerIncomePage() {
         <View className='hero'>
           <View className='hero__top'>
             <View className='hero__left'>
-              <Text className='hero__label'>本月收入</Text>
+              <Text className='hero__label'>{t('ownerIncome.monthIncome')}</Text>
               <Text className='hero__amount'>{money(monthReceived, income.currency)}</Text>
             </View>
             <View className='hero__tag'>
-              <Text>{income.rented_count} 套在租</Text>
+              <Text>{t('ownerIncome.rentedCount', { n: income.rented_count })}</Text>
             </View>
           </View>
           <View className='hero__stats'>
             <View className='hero__stat'>
-              <Text className='hero__stat-label'>年累计收入</Text>
+              <Text className='hero__stat-label'>{t('ownerIncome.yearIncome')}</Text>
               <Text className='hero__stat-value'>{money(yearReceived, income.currency)}</Text>
             </View>
             <View className='hero__stat hero__stat--right'>
-              <Text className='hero__stat-label'>待收金额</Text>
+              <Text className='hero__stat-label'>{t('ownerIncome.receivable')}</Text>
               <Text className='hero__stat-value'>{money(receivable, income.currency)}</Text>
             </View>
           </View>
@@ -168,13 +177,13 @@ export default function OwnerIncomePage() {
 
         {/* 月度收入趋势 */}
         <View className='section-title'>
-          <Text>月度收入趋势</Text>
-          <Text className='section-hint'>{thisYear} 年</Text>
+          <Text>{t('ownerIncome.trendTitle')}</Text>
+          <Text className='section-hint'>{t('common.year', { y: thisYear })}</Text>
         </View>
         <View className='card'>
           {trend.length === 0 ? (
             <View className='empty-tip'>
-              <Text>暂无月度收入数据</Text>
+              <Text>{t('ownerIncome.noTrend')}</Text>
             </View>
           ) : (
             <View className='chart'>
@@ -193,7 +202,7 @@ export default function OwnerIncomePage() {
                       />
                     </View>
                     <Text className={`chart__label ${isCurrent ? 'chart__label--current' : ''}`}>
-                      {m.month.slice(5)}月
+                      {t('home.monthShort', { m: m.month.slice(5) })}
                     </Text>
                   </View>
                 )
@@ -217,34 +226,34 @@ export default function OwnerIncomePage() {
 
         {/* 收入明细 */}
         <View className='section-title'>
-          <Text>收入明细</Text>
-          <Text className='section-hint'>{filtered.length} 笔</Text>
+          <Text>{t('ownerIncome.details')}</Text>
+          <Text className='section-hint'>{t('common.countBi', { n: filtered.length })}</Text>
         </View>
         <View className='card card--list'>
           {loading && income.records.length === 0 && (
             <View className='empty-tip'>
-              <Text>加载中...</Text>
+              <Text>{t('common.loading')}</Text>
             </View>
           )}
           {!loading && !error && filtered.length === 0 && (
             <View className='empty-tip'>
-              <Text>{income.records.length === 0 ? '暂无收入明细' : '该筛选下暂无记录'}</Text>
+              <Text>{income.records.length === 0 ? t('ownerIncome.noRecords') : t('ownerIncome.noFiltered')}</Text>
             </View>
           )}
           {!loading && error && income.records.length === 0 && (
             <View className='empty-tip'>
-              <Text>加载失败，请下拉重试</Text>
+              <Text>{t('tenantHome.loadFailedRetry')}</Text>
             </View>
           )}
           {filtered.map((r) => {
-            const meta = metaOf(r.status)
+            const meta = metaOf(r.status, STATUS_META)
             return (
               <View key={r.id} className='row'>
                 <View className={`row__badge row__badge--${meta.cls}`}>
                   <View className='icon-svg' style={iconStyle(meta.icon, 36)} />
                 </View>
                 <View className='row__body'>
-                  <Text className='row__title'>{r.property || '关联房源'}</Text>
+                  <Text className='row__title'>{r.property || t('ownerIncome.linkedProperty')}</Text>
                   <Text className='row__desc'>{r.month || '—'}</Text>
                 </View>
                 <View className='row__right'>

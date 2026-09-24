@@ -43,9 +43,9 @@ const TenantMy = () => {
       const res: any = await authApi.uploadAvatar(file)
       const updated = res?.data ?? res
       if (updated && updated.id && token) login(token, updated)
-      message.success('头像已更新')
+      message.success(t('tenantMy.msgAvatarUpdated'))
     } catch {
-      message.error('头像上传失败，请重试')
+      message.error(t('tenantMy.errAvatarUpload'))
     }
   }
 
@@ -64,12 +64,12 @@ const TenantMy = () => {
       const res = await chatApi.support()
       const conv = Array.isArray(res?.data) ? res.data[0] : res?.data
       if (!conv?.id) {
-        message.warning('客服暂未开通')
+        message.warning(t('tenantMy.warnSupportUnavailable'))
         return
       }
       navigate(`/chat?id=${conv.id}`)
     } catch {
-      message.warning('客服暂未开通')
+      message.warning(t('tenantMy.warnSupportUnavailable'))
     }
   }
 
@@ -138,7 +138,7 @@ const TenantMy = () => {
         <div>
           <h2 className="rent-page-header__title">{t('menu.profile')}</h2>
           <p className="rent-page-header__subtitle">
-            {dayjs().format('YYYY年M月D日')}
+            {dayjs().format(t('tenantMy.dateFormat'))}
           </p>
         </div>
         <div className="rent-page-header__actions">
@@ -167,8 +167,8 @@ const TenantMy = () => {
               type="button"
               className="rent-avatar rent-avatar--lg rent-avatar--upload"
               onClick={pickAvatar}
-              title="点击更换头像"
-              aria-label="点击更换头像"
+              title={t('tenantMy.changeAvatar')}
+              aria-label={t('tenantMy.changeAvatar')}
             >
               {user?.avatar_url ? (
                 <img className="rent-avatar__img" src={user.avatar_url} alt="avatar" />
@@ -197,7 +197,7 @@ const TenantMy = () => {
             onClick={(e) => { e.preventDefault(); navigate('/login') }}
           >
             <div className="rent-my__guest-info">
-              <div className="rent-text-bold" style={{ fontSize: 20 }}>登录/注册</div>
+              <div className="rent-text-bold" style={{ fontSize: 20 }}>{t('tenantMy.loginOrRegister')}</div>
             </div>
             <div className="rent-avatar rent-avatar--lg rent-avatar--guest">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">

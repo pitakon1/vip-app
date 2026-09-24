@@ -4,25 +4,30 @@ import useAuthStore from '@/stores/auth'
 import { propertyDealApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
+import { useI18n } from '@/i18n'
 import './detail.scss'
 
 const fmtDate = (x?: string) => (x ? String(x).slice(0, 10) : '—')
 
 // 交易订单状态（PropertyDealStatus）
-const DEAL_STATUS: Record<string, { text: string; cls: string }> = {
-  drafted: { text: '洽谈中', cls: 'neutral' },
-  escrow_pending: { text: '定金托管中', cls: 'warning' },
-  signed: { text: '已签约', cls: 'primary' },
-  transferring: { text: '过户中', cls: 'info' },
-  completed: { text: '已完成', cls: 'success' },
-  failed: { text: '交易失败', cls: 'error' },
-  cancelled: { text: '已取消', cls: 'neutral' }
-}
+const buildDealStatus = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, { text: string; cls: string }> => ({
+  drafted: { text: t('deals.stDrafted'), cls: 'neutral' },
+  escrow_pending: { text: t('deals.stEscrowPending'), cls: 'warning' },
+  signed: { text: t('deals.stSigned'), cls: 'primary' },
+  transferring: { text: t('deals.stTransferring'), cls: 'info' },
+  completed: { text: t('deals.stCompleted'), cls: 'success' },
+  failed: { text: t('deals.stFailed'), cls: 'error' },
+  cancelled: { text: t('deals.stCancelled'), cls: 'neutral' }
+})
 
 export default function TenantDealDetailPage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const router = useRouter()
   const dealId = String(router.params?.deal_id ?? '')
+  const DEAL_STATUS = buildDealStatus(t)
 
   const { data: deal, loading, refresh } = useSwrCache<any>({
     key: `tenant:deal-detail:${dealId}`,
@@ -33,7 +38,7 @@ export default function TenantDealDetailPage() {
   })
 
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: '订单详情' })
+    Taro.setNavigationBarTitle({ title: t('deals.detailTitle') })
     loadFromStorage()
     if (!useAuthStore.getState().token) {
       Taro.redirectTo({ url: '/pages/login/index' })
@@ -47,7 +52,7 @@ export default function TenantDealDetailPage() {
       <View className='tenant-deal-detail-page'>
         <View className='page-container'>
           <View className='empty-tip'>
-            <Text>订单不存在或已删除</Text>
+            <Text>{t('deals.notFound')}</Text>
           </View>
         </View>
       </View>
@@ -58,14 +63,14 @@ export default function TenantDealDetailPage() {
   }
 
   const meta = DEAL_STATUS[String(deal?.status ?? '')] ?? DEAL_STATUS.drafted
-  const title = deal?.listing_title || deal?.property_name || `交易订单 #${String(deal?.id ?? '').slice(0, 8)}`
+  const title = deal?.listing_title || deal?.property_name || `${t('deals.orderFallback')} #${String(deal?.id ?? '').slice(0, 8)}`
 
   // 关键节点（按时间先后）
   const timeline: Array<{ label: string; value: string }> = (
     [
-      { label: '创建订单', value: deal?.created_at ?? '' },
-      { label: '签约时间', value: deal?.signed_at ?? '' },
-      { label: '过户日期', value: deal?.transfer_date ?? '' }
+      { label: t('deals.nodeCreated'), value: deal?.created_at ?? '' },
+      { label: t('deals.nodeSigned'), value: deal?.signed_at ?? '' },
+      { label: t('deals.nodeTransfer'), value: deal?.transfer_date ?? '' }
     ] as Array<{ label: string; value: string }>
   ).filter((x) => !!x.value)
 
@@ -88,7 +93,7 @@ export default function TenantDealDetailPage() {
 
         {/* 关键节点卡 */}
         <View className='card'>
-          <Text className='section-label'>交易节点</Text>
+          <Text className='section-label'>{t('deals.nodesSection')}</Text>
           {timeline.map((node) => (
             <View key={node.label} className='timeline-row'>
               <View className='timeline-dot' />

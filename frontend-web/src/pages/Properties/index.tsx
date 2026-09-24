@@ -220,9 +220,9 @@ const Properties = () => {
         { status: status || undefined, property_type: propertyType || undefined, q: keyword.trim() || undefined },
         'properties.csv',
       )
-      message.success('房源清单已导出')
+      message.success(t('propertiesPage.exported'))
     } catch {
-      message.error('导出失败，请稍后重试')
+      message.error(t('propertiesPage.exportFailed'))
     }
   }
 
@@ -508,15 +508,15 @@ const Properties = () => {
             </span>
             <span className="rent-prop-card__stat">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4"/></svg>
-              {beds} 卧
+              {beds} {t('propertiesPage.unitBed')}
             </span>
             <span className="rent-prop-card__stat">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
-              {baths} 浴
+              {baths} {t('propertiesPage.unitBath')}
             </span>
           </div>
           <div className="rent-prop-card__rent-row">
-            <span className="rent-prop-card__rent">฿{formatRent(rent)}<span className="rent-prop-card__rent-unit">/月</span></span>
+            <span className="rent-prop-card__rent">฿{formatRent(rent)}<span className="rent-prop-card__rent-unit">{t('propertiesPage.perMonth')}</span></span>
             <span className={`rent-badge rent-badge--${statusTone}`}>
               {statusLabelMap[statusKey] || item.status}
             </span>
@@ -565,13 +565,13 @@ const Properties = () => {
   const locLabel = (() => {
     if (districtSel) {
       const node = AREA_GROUPS.flatMap((g) => g.children).find((d) => d.key === districtSel)
-      return node ? node.label : '按区域'
+      return node ? node.label : t('propertiesPage.byArea')
     }
     if (metroSel.length) {
       const first = metroSel[0]
       return metroSel.length > 1 ? `${first} +${metroSel.length - 1}` : first
     }
-    return '按区域'
+    return t('propertiesPage.byArea')
   })()
 
   const locPanelContent = (
@@ -585,7 +585,7 @@ const Properties = () => {
             onClick={() => setLocTab(tab)}
           >
             <LocIcon kind={tab} />
-            {tab === 'area' ? '按区域' : '按地铁'}
+            {tab === 'area' ? t('propertiesPage.byArea') : t('propertiesPage.byMetro')}
           </button>
         ))}
       </div>
@@ -623,7 +623,7 @@ const Properties = () => {
                     className={`prop-loc-panel__chip ${districtSel === null ? 'prop-loc-panel__chip--active' : ''}`}
                     onClick={() => applyDistrict(null)}
                   >
-                    不限
+                    {t('propertiesPage.anyDistrict')}
                   </button>
                   {activeAreaGroup.children.map((d) => (
                     <button
@@ -683,7 +683,7 @@ const Properties = () => {
                   {s.name}
                 </button>
               ))}
-              {activeLine && !activeLine.stations.length && <span className="prop-loc-panel__empty">暂无</span>}
+              {activeLine && !activeLine.stations.length && <span className="prop-loc-panel__empty">{t('propertiesPage.none')}</span>}
             </div>
           </div>
         </div>
@@ -691,7 +691,7 @@ const Properties = () => {
 
       <div className="prop-loc-panel__footer">
         {locTab === 'metro' && (
-          <span className="prop-loc-panel__count">已选 <strong>{metroDraft.length}</strong></span>
+          <span className="prop-loc-panel__count">{t('propertiesPage.selectedLabel')} <strong>{metroDraft.length}</strong></span>
         )}
         <div className="prop-loc-panel__actions">
           <button
@@ -699,14 +699,14 @@ const Properties = () => {
             className="prop-loc-panel__btn prop-loc-panel__btn--ghost"
             onClick={() => (locTab === 'metro' ? clearMetroDraft() : resetLoc())}
           >
-            重置
+            {t('common.reset')}
           </button>
           <button
             type="button"
             className="prop-loc-panel__btn prop-loc-panel__btn--primary"
             onClick={() => (locTab === 'metro' ? confirmMetro() : setLocOpen(false))}
           >
-            确定
+            {t('common.confirm')}
           </button>
         </div>
       </div>
@@ -727,7 +727,7 @@ const Properties = () => {
         <div className="rent-page-header__actions">
           <button className="rent-btn rent-btn--secondary" onClick={handleExport}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            导出
+            {t('propertiesPage.export')}
           </button>
           {isManageMode && (
             <button className="rent-btn rent-btn--secondary" onClick={openCoordModal}>
@@ -771,34 +771,34 @@ const Properties = () => {
           </button>
         </Popover>
         <select className="rent-form-select rent-filter-bar__select" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">全部状态</option>
+          <option value="">{t('propertiesPage.optAllStatus')}</option>
           <option value="rented">{statusLabelMap.rented}</option>
           <option value="vacant">{statusLabelMap.vacant}</option>
           <option value="maintenance">{statusLabelMap.maintenance}</option>
         </select>
         <select className="rent-form-select rent-filter-bar__select" value={propertyType} onChange={(e) => setPropertyType(e.target.value)}>
-          <option value="">全部类型</option>
+          <option value="">{t('propertiesPage.optAllTypes')}</option>
           <option value="apartment">{propertyTypeMap.apartment}</option>
           <option value="villa">{propertyTypeMap.villa}</option>
           <option value="shop">{propertyTypeMap.shop}</option>
           <option value="office">{propertyTypeMap.office}</option>
         </select>
         <select className="rent-form-select rent-filter-bar__select" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)}>
-          <option value="">不限房型</option>
-          <option value="0">单间</option>
-          <option value="1">1室</option>
-          <option value="2">2室</option>
-          <option value="3">3室</option>
-          <option value="4">4室及以上</option>
+          <option value="">{t('propertiesPage.optAnyBedrooms')}</option>
+          <option value="0">{t('propertiesPage.optStudio')}</option>
+          <option value="1">{t('propertiesPage.optBedroomsN', { n: 1 })}</option>
+          <option value="2">{t('propertiesPage.optBedroomsN', { n: 2 })}</option>
+          <option value="3">{t('propertiesPage.optBedroomsN', { n: 3 })}</option>
+          <option value="4">{t('propertiesPage.optBedrooms4Plus')}</option>
         </select>
         <select className="rent-form-select rent-filter-bar__select" value={priceRange} onChange={(e) => setPriceRange(e.target.value)}>
-          <option value="">不限价格</option>
-          <option value="0-5000">5000以下</option>
+          <option value="">{t('propertiesPage.optAnyPrice')}</option>
+          <option value="0-5000">{t('propertiesPage.priceBelow5000')}</option>
           <option value="5000-10000">5000-10000</option>
           <option value="10000-20000">10000-20000</option>
           <option value="20000-50000">20000-50000</option>
-          <option value="50000+">50000以上</option>
-          <option value="custom">自定义价格</option>
+          <option value="50000+">{t('propertiesPage.priceAbove50000')}</option>
+          <option value="custom">{t('propertiesPage.customPrice')}</option>
         </select>
         {priceRange === 'custom' && (
           <div className="rent-filter-bar__custom">
@@ -807,7 +807,7 @@ const Properties = () => {
               type="number"
               min={0}
               value={priceCustomMin}
-              placeholder="最低"
+              placeholder={t('propertiesPage.minPrice')}
               onChange={(e) => setPriceCustomMin(e.target.value)}
             />
             <span className="rent-filter-bar__custom-sep">-</span>
@@ -816,18 +816,18 @@ const Properties = () => {
               type="number"
               min={0}
               value={priceCustomMax}
-              placeholder="最高"
+              placeholder={t('propertiesPage.maxPrice')}
               onChange={(e) => setPriceCustomMax(e.target.value)}
             />
           </div>
         )}
         <select className="rent-form-select rent-filter-bar__select" value={areaRange} onChange={(e) => setAreaRange(e.target.value)}>
-          <option value="">不限面积</option>
-          <option value="0-50">50㎡以下</option>
+          <option value="">{t('propertiesPage.optAnyArea')}</option>
+          <option value="0-50">{t('propertiesPage.areaBelow50')}</option>
           <option value="50-100">50-100㎡</option>
           <option value="100-200">100-200㎡</option>
-          <option value="200+">200㎡以上</option>
-          <option value="custom">自定义面积</option>
+          <option value="200+">{t('propertiesPage.areaAbove200')}</option>
+          <option value="custom">{t('propertiesPage.customArea')}</option>
         </select>
         {areaRange === 'custom' && (
           <div className="rent-filter-bar__custom">
@@ -836,7 +836,7 @@ const Properties = () => {
               type="number"
               min={0}
               value={areaCustomMin}
-              placeholder="最小"
+              placeholder={t('propertiesPage.minArea')}
               onChange={(e) => setAreaCustomMin(e.target.value)}
             />
             <span className="rent-filter-bar__custom-sep">-</span>
@@ -845,15 +845,15 @@ const Properties = () => {
               type="number"
               min={0}
               value={areaCustomMax}
-              placeholder="最大"
+              placeholder={t('propertiesPage.maxArea')}
               onChange={(e) => setAreaCustomMax(e.target.value)}
             />
           </div>
         )}
         <select className="rent-form-select rent-filter-bar__select" value={sort} onChange={(e) => setSort(e.target.value)}>
-          <option value="created">最近创建</option>
-          <option value="rent-asc">租金升序</option>
-          <option value="rent-desc">租金降序</option>
+          <option value="created">{t('propertiesPage.sortLatest')}</option>
+          <option value="rent-asc">{t('propertiesPage.sortRentAsc')}</option>
+          <option value="rent-desc">{t('propertiesPage.sortRentDesc')}</option>
         </select>
         <button
           type="button"
@@ -861,7 +861,7 @@ const Properties = () => {
           onClick={() => setOnlyVideo((v) => !v)}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="14" height="14" rx="2" /><polygon points="22 7 16 11 16 13 22 17 22 7" /></svg>
-          只看带视频
+          {t('propertiesPage.onlyVideo')}
         </button>
       </div>
 
@@ -884,10 +884,10 @@ const Properties = () => {
       {/* Pagination（对齐原型 rent-pagination） */}
       {total > 0 && (
         <div className="rent-pagination">
-          <span className="rent-pagination__info">共 {total} 条记录</span>
+          <span className="rent-pagination__info">{t('propertiesPage.totalRecords', { total })}</span>
           <button
             className="rent-pagination__btn"
-            aria-label="上一页"
+            aria-label={t('propertiesPage.prevPage')}
             disabled={page <= 1}
             onClick={() => setPage(Math.max(1, page - 1))}
           >
@@ -909,7 +909,7 @@ const Properties = () => {
           )}
           <button
             className="rent-pagination__btn"
-            aria-label="下一页"
+            aria-label={t('propertiesPage.nextPage')}
             disabled={page >= totalPages}
             onClick={() => setPage(Math.min(totalPages, page + 1))}
           >

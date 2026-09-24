@@ -505,7 +505,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
       {locTab === 'area' ? (
         // 链家样式：只列当前定位城市的 区/街道 chips（国家·城市在顶栏左上角定位器选择）
         <div className="rent-loc-panel__area rent-loc-panel__area--flat">
-          <div className="rent-loc-panel__stations-title">{citySel.cityLabel} · 区/街道</div>
+          <div className="rent-loc-panel__stations-title">{citySel.cityLabel} · {t('publicSite.districtStreet')}</div>
           <div className="rent-loc-panel__chips">
             <button
               type="button"
@@ -775,7 +775,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   const morePanelContent = (
     <div className="rent-loc-panel rent-price-panel">
       <div className="rent-loc-panel__body">
-        <div className="rent-loc-panel__group-title">朝向</div>
+        <div className="rent-loc-panel__group-title">{t('publicSite.orientationLabel')}</div>
         <div className="rent-loc-panel__chips">
           {orientationOptions.map((o) => (
             <button
@@ -788,7 +788,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
             </button>
           ))}
         </div>
-        <div className="rent-loc-panel__group-title">楼层</div>
+        <div className="rent-loc-panel__group-title">{t('publicSite.floor')}</div>
         <div className="rent-loc-panel__chips">
           {floorLevelOptions.map((o) => (
             <button
@@ -835,7 +835,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
           />
           <span className="rent-price-custom__unit">{t('areaRange.unit')}</span>
         </div>
-        <div className="rent-loc-panel__group-title">装修</div>
+        <div className="rent-loc-panel__group-title">{t('publicSite.decorationLabel')}</div>
         <div className="rent-loc-panel__chips">
           {decorationOptions.map((o) => (
             <button
@@ -848,7 +848,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
             </button>
           ))}
         </div>
-        <div className="rent-loc-panel__group-title">配套设施</div>
+        <div className="rent-loc-panel__group-title">{t('publicSite.facilities')}</div>
         <div className="rent-loc-panel__chips">
           {amenityOptions.map((o) => (
             <button
@@ -1410,7 +1410,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
                 {t('common.total')} {total} {t('property.units')}
               </span>
               <div className="rent-pagination__pages">
-                <button className="rent-page-btn" type="button" aria-label="上一页" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                <button className="rent-page-btn" type="button" aria-label={t('publicSite.ariaPrev')} disabled={page <= 1} onClick={() => setPage(page - 1)}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                 </button>
                 {pageNumbers.map((p, i) => {
@@ -1423,7 +1423,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
                     </Fragment>
                   )
                 })}
-                <button className="rent-page-btn" type="button" aria-label="下一页" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>
+                <button className="rent-page-btn" type="button" aria-label={t('publicSite.ariaNext')} disabled={page >= pageCount} onClick={() => setPage(page + 1)}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
                 </button>
               </div>

@@ -10,6 +10,7 @@ import { AREA_GROUPS } from '@/data/locationArea'
 import BottomNav from '@/components/BottomNav'
 import RegionPicker, { type RegionSelection } from '@/components/RegionPicker'
 import './index.scss'
+import { useI18n } from '@/i18n'
 
 // ============ 接口字段（后端 snake_case）============
 interface OwnerProp {
@@ -57,79 +58,95 @@ function pickList(res: any): any[] {
 }
 
 // ============ 列表展示映射（对齐管理端） ============
-const TYPE_LABELS: Record<string, string> = {
-  apartment: '公寓',
-  condo: '公寓',
-  house: '别墅',
-  villa: '别墅',
-  commercial: '商铺',
-  shop: '商铺',
-  office: '写字楼'
-}
+const buildTypeLabels = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, string> => ({
+  apartment: t('prop.typeApartment'),
+  condo: t('prop.typeApartment'),
+  house: t('prop.typeVilla'),
+  villa: t('prop.typeVilla'),
+  commercial: t('prop.typeCommercial'),
+  shop: t('prop.typeCommercial'),
+  office: t('prop.typeOffice')
+})
 
 // 状态筛选 chips
-const STATUS_FILTERS: { key: string; label: string }[] = [
-  { key: '', label: '全部' },
-  { key: 'vacant', label: '空置中' },
-  { key: 'rented', label: '已出租' },
-  { key: 'renewing', label: '续约中' },
-  { key: 'maintenance', label: '维护中' },
-  { key: 'reserved', label: '已预订' }
+const buildStatusFilters = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): { key: string; label: string }[] => [
+  { key: '', label: t('common.all') },
+  { key: 'vacant', label: t('prop.statusVacantLong') },
+  { key: 'rented', label: t('prop.statusRentedLong') },
+  { key: 'renewing', label: t('prop.statusRenewing') },
+  { key: 'maintenance', label: t('prop.statusMaintenanceLong') },
+  { key: 'reserved', label: t('prop.statusReserved') }
 ]
 
 // 房型选项：''=不限, '0'=单间, '1'/'2'=精确居室, '3'=3室及以上, '4'=4室及以上（对齐管理端/租客端）
-const BEDROOM_OPTIONS = [
-  { key: '', label: '不限房型' },
-  { key: '0', label: '单间' },
-  { key: '1', label: '1室' },
-  { key: '2', label: '2室' },
-  { key: '3', label: '3室+' },
-  { key: '4', label: '4室+' }
+const buildBedroomOptions = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): { key: string; label: string }[] => [
+  { key: '', label: t('prop.bedroomAny') },
+  { key: '0', label: t('prop.bedroom0') },
+  { key: '1', label: t('prop.bedroom1') },
+  { key: '2', label: t('prop.bedroom2') },
+  { key: '3', label: t('op.bedroom3Plus') },
+  { key: '4', label: t('prop.bedroom4') }
 ]
 
 // 价格区间（单位 万/月，语义对齐管理端）：''=不限, 预设 key, 'custom'=自定义
-const PRICE_OPTIONS = [
-  { key: '', label: '不限价格' },
-  { key: 'u3', label: '≤3万' },
-  { key: '3-5', label: '3-5万' },
-  { key: '5-8', label: '5-8万' },
-  { key: 'g8', label: '≥8万' },
-  { key: 'custom', label: '自定义' }
+const buildPriceOptions = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): { key: string; label: string }[] => [
+  { key: '', label: t('prop.priceAny') },
+  { key: 'u3', label: t('prop.priceU3') },
+  { key: '3-5', label: t('prop.price35') },
+  { key: '5-8', label: t('prop.price58') },
+  { key: 'g8', label: t('prop.priceG8') },
+  { key: 'custom', label: t('prop.custom') }
 ]
 
 // 面积区间：''=不限, 预设 key, 'custom'=自定义
-const AREA_OPTIONS = [
-  { key: '', label: '不限面积' },
-  { key: '0-50', label: '≤50㎡' },
-  { key: '50-100', label: '50-100㎡' },
-  { key: '100-150', label: '100-150㎡' },
-  { key: '150-200', label: '150-200㎡' },
-  { key: '200+', label: '≥200㎡' },
-  { key: 'custom', label: '自定义' }
+const buildAreaOptions = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): { key: string; label: string }[] => [
+  { key: '', label: t('prop.areaAny') },
+  { key: '0-50', label: t('op.areaU50') },
+  { key: '50-100', label: t('op.area50to100') },
+  { key: '100-150', label: t('op.area100to150') },
+  { key: '150-200', label: t('op.area150to200') },
+  { key: '200+', label: t('op.area200plus') },
+  { key: 'custom', label: t('prop.custom') }
 ]
 
-const SORT_OPTIONS = [
-  { key: 'latest', label: '默认排序' },
-  { key: 'price_asc', label: '价格从低到高' },
-  { key: 'price_desc', label: '价格从高到低' },
-  { key: 'area_desc', label: '面积从大到小' }
+const buildSortOptions = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): { key: string; label: string }[] => [
+  { key: 'latest', label: t('prop.sortDefault') },
+  { key: 'price_asc', label: t('prop.sortPriceAsc') },
+  { key: 'price_desc', label: t('prop.sortPriceDesc') },
+  { key: 'area_desc', label: t('prop.sortAreaDesc') }
 ]
 
 // ============ 新增/编辑表单（对齐后端 PropertyCreate/Update，不含 project_id/owner_id） ============
 const CURRENCY_OPTIONS = ['THB', 'USD', 'CNY']
 
-const TYPE_GROUPS: { label: string; keys: string[] }[] = [
-  { label: '公寓', keys: ['apartment', 'condo'] },
-  { label: '别墅', keys: ['house', 'villa'] },
-  { label: '商铺', keys: ['commercial', 'shop'] },
-  { label: '写字楼', keys: ['office'] }
+const buildTypeGroups = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): { label: string; keys: string[] }[] => [
+  { label: t('prop.typeApartment'), keys: ['apartment', 'condo'] },
+  { label: t('prop.typeVilla'), keys: ['house', 'villa'] },
+  { label: t('prop.typeCommercial'), keys: ['commercial', 'shop'] },
+  { label: t('prop.typeOffice'), keys: ['office'] }
 ]
 
-const EDIT_STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: 'vacant', label: '空置' },
-  { value: 'rented', label: '在租' },
-  { value: 'maintenance', label: '维护中' },
-  { value: 'reserved', label: '已预订' }
+const buildEditStatusOptions = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): { value: string; label: string }[] => [
+  { value: 'vacant', label: t('prop.statusVacant') },
+  { value: 'rented', label: t('prop.statusRented') },
+  { value: 'maintenance', label: t('prop.statusMaintenanceLong') },
+  { value: 'reserved', label: t('prop.statusReserved') }
 ]
 
 interface EditForm {
@@ -202,19 +219,34 @@ const num = (v: string) => {
   return Number.isFinite(n) ? n : undefined
 }
 
-const propertyTitle = (p: OwnerProp) =>
-  p.display_name || p.name || p.project_name || p.projectName || p.room_number || p.code || p.address || '未命名房源'
+const propertyTitle = (
+  p: OwnerProp,
+  t: (k: string, p?: Record<string, string | number>) => string
+) =>
+  p.display_name || p.name || p.project_name || p.projectName || p.room_number || p.code || p.address || t('prop.unnamed')
 
-const propStatus = (p: OwnerProp) => {
+const propStatus = (
+  p: OwnerProp,
+  t: (k: string, p?: Record<string, string | number>) => string
+) => {
   const s = String(p.status || '').toLowerCase()
-  if (s === 'vacant' || s === 'available') return { text: '空置', cls: 'vacant' }
-  if (s === 'for_sale' || s === 'on_sale' || s === 'sale') return { text: '在售', cls: 'sale' }
-  return { text: '在租', cls: 'rented' }
+  if (s === 'vacant' || s === 'available') return { text: t('prop.statusVacant'), cls: 'vacant' }
+  if (s === 'for_sale' || s === 'on_sale' || s === 'sale') return { text: t('op.statusForSale'), cls: 'sale' }
+  return { text: t('prop.statusRented'), cls: 'rented' }
 }
 
 export default function OwnerPropertiesPage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
+  const TYPE_LABELS = buildTypeLabels(t)
+  const STATUS_FILTERS = buildStatusFilters(t)
+  const BEDROOM_OPTIONS = buildBedroomOptions(t)
+  const PRICE_OPTIONS = buildPriceOptions(t)
+  const AREA_OPTIONS = buildAreaOptions(t)
+  const SORT_OPTIONS = buildSortOptions(t)
+  const TYPE_GROUPS = buildTypeGroups(t)
+  const EDIT_STATUS_OPTIONS = buildEditStatusOptions(t)
 
   // 筛选（客户端过滤）
   const [keyword, setKeyword] = useState('')
@@ -350,21 +382,21 @@ export default function OwnerPropertiesPage() {
   const goMarketing = () => Taro.navigateTo({ url: '/pages/owner/marketing/index' })
 
   const confirmDelete = (p: OwnerProp) => {
-    const title = propertyTitle(p)
+    const title = propertyTitle(p, t)
     Taro.showModal({
-      title: '删除房源',
-      content: `确定删除「${title}」吗？删除后不可恢复。`,
-      confirmText: '删除',
+      title: t('prop.deleteTitle'),
+      content: t('op.deleteContent', { name: title }),
+      confirmText: t('common.delete'),
       confirmColor: '#ef4444',
       success: async (res) => {
         if (!res.confirm) return
         try {
           await ownerApi.remove(String(p.id))
-          Taro.showToast({ title: '房源已删除', icon: 'success' })
+          Taro.showToast({ title: t('op.deleted'), icon: 'success' })
           refresh(true)
         } catch (err: any) {
           const detail = err?.data?.detail || err?.message
-          Taro.showToast({ title: typeof detail === 'string' ? detail : '删除失败', icon: 'none' })
+          Taro.showToast({ title: typeof detail === 'string' ? detail : t('common.deleteFailed'), icon: 'none' })
         }
       }
     })
@@ -400,19 +432,19 @@ export default function OwnerPropertiesPage() {
 
   const submitForm = async () => {
     if (!form.room_number.trim()) {
-      Taro.showToast({ title: '请填写房号', icon: 'none' })
+      Taro.showToast({ title: t('op.roomRequired'), icon: 'none' })
       return
     }
     if (!form.address.trim()) {
-      Taro.showToast({ title: '请填写地址', icon: 'none' })
+      Taro.showToast({ title: t('op.addressRequired'), icon: 'none' })
       return
     }
     if (!form.monthly_rent.trim() || Number(form.monthly_rent) <= 0) {
-      Taro.showToast({ title: '请填写月租', icon: 'none' })
+      Taro.showToast({ title: t('op.rentRequired'), icon: 'none' })
       return
     }
     if (!form.size_sqm.trim() || Number(form.size_sqm) <= 0) {
-      Taro.showToast({ title: '请填写面积', icon: 'none' })
+      Taro.showToast({ title: t('op.areaRequired'), icon: 'none' })
       return
     }
     const payload: Record<string, any> = {
@@ -435,7 +467,7 @@ export default function OwnerPropertiesPage() {
       video_url: form.video_url.trim() || undefined
     }
     setSubmitting(true)
-    Taro.showLoading({ title: '保存中...', mask: true })
+    Taro.showLoading({ title: t('common.saving'), mask: true })
     try {
       if (editingId) {
         await ownerApi.update(editingId, { ...payload, photos: form.photos })
@@ -444,12 +476,12 @@ export default function OwnerPropertiesPage() {
       }
       Taro.hideLoading()
       resetModal()
-      Taro.showToast({ title: editingId ? '房源已更新' : '房源创建成功', icon: 'success' })
+      Taro.showToast({ title: editingId ? t('op.updated') : t('op.created'), icon: 'success' })
       refresh(true)
     } catch (err: any) {
       console.error('[OwnerProperties] 保存房源失败', err)
       Taro.hideLoading()
-      Taro.showToast({ title: err?.message || '保存失败，请重试', icon: 'none' })
+      Taro.showToast({ title: err?.message || t('op.saveFailedRetry'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }
@@ -463,7 +495,7 @@ export default function OwnerPropertiesPage() {
       success: async (res) => {
         const localPaths = (res.tempFilePaths || []).slice(0, 6)
         if (!localPaths.length) return
-        Taro.showLoading({ title: '上传中...' })
+        Taro.showLoading({ title: t('prop.uploading') })
         try {
           let latest: string[] = [...form.photos]
           for (const p of localPaths) {
@@ -474,11 +506,11 @@ export default function OwnerPropertiesPage() {
           }
           set('photos', latest)
           Taro.hideLoading()
-          Taro.showToast({ title: '已上传', icon: 'success' })
+          Taro.showToast({ title: t('common.uploaded'), icon: 'success' })
         } catch (err) {
           console.error('[OwnerProperties] 照片上传失败', err)
           Taro.hideLoading()
-          Taro.showToast({ title: '上传失败', icon: 'none' })
+          Taro.showToast({ title: t('common.uploadFailed'), icon: 'none' })
         }
       }
     })
@@ -487,8 +519,8 @@ export default function OwnerPropertiesPage() {
   const removePhoto = (url: string) => {
     if (!editingId) return
     Taro.showModal({
-      title: '删除照片',
-      content: '确认删除该照片？',
+      title: t('prop.deletePhotoTitle'),
+      content: t('prop.deletePhotoContent'),
       success: async (r) => {
         if (!r.confirm) return
         try {
@@ -499,7 +531,7 @@ export default function OwnerPropertiesPage() {
           else set('photos', form.photos.filter((x) => x !== url))
         } catch (err) {
           console.error('[OwnerProperties] 删除照片失败', err)
-          Taro.showToast({ title: '删除失败', icon: 'none' })
+          Taro.showToast({ title: t('common.deleteFailed'), icon: 'none' })
         }
       }
     })
@@ -518,11 +550,11 @@ export default function OwnerPropertiesPage() {
         {/* 页头：标题 + 委托挂牌 */}
         <View className='page-header'>
           <View className='page-header__body'>
-            <Text className='page-header__title'>房源管理</Text>
-            <Text className='page-header__sub'>共 {stats.total} 套 · 点击查看详情</Text>
+            <Text className='page-header__title'>{t('op.manageTitle')}</Text>
+            <Text className='page-header__sub'>{t('op.headerSub', { n: stats.total })}</Text>
           </View>
           <View className='page-header__btn' hoverClass='page-header__btn--hover' onClick={goMarketing}>
-            <Text>委托挂牌</Text>
+            <Text>{t('op.listForSale')}</Text>
           </View>
         </View>
 
@@ -531,13 +563,13 @@ export default function OwnerPropertiesPage() {
           <Input
             className='op-search__input'
             value={keyword}
-            placeholder='搜索房号/地址/楼栋'
+            placeholder={t('op.searchPlaceholder')}
             confirmType='search'
             onInput={(e: any) => setKeyword(e.detail.value)}
             onConfirm={handleSearch}
           />
           <View className='op-search__btn' onClick={handleSearch}>
-            <Text className='op-search__btn-text'>搜索</Text>
+            <Text className='op-search__btn-text'>{t('common.search')}</Text>
           </View>
         </View>
 
@@ -590,11 +622,11 @@ export default function OwnerPropertiesPage() {
           <View className='op-custom'>
             {priceRange === 'custom' && (
               <View className='op-custom__group'>
-                <Text className='op-custom__name'>价格(万)</Text>
+                <Text className='op-custom__name'>{t('prop.priceWan')}</Text>
                 <Input
                   className='op-custom__input'
                   type='number'
-                  placeholder='最低'
+                  placeholder={t('prop.minArea')}
                   value={priceCustomMin}
                   onInput={(e: any) => setPriceCustomMin(e.detail.value)}
                 />
@@ -602,7 +634,7 @@ export default function OwnerPropertiesPage() {
                 <Input
                   className='op-custom__input'
                   type='number'
-                  placeholder='最高'
+                  placeholder={t('prop.maxArea')}
                   value={priceCustomMax}
                   onInput={(e: any) => setPriceCustomMax(e.detail.value)}
                 />
@@ -610,11 +642,11 @@ export default function OwnerPropertiesPage() {
             )}
             {areaRange === 'custom' && (
               <View className='op-custom__group'>
-                <Text className='op-custom__name'>面积</Text>
+                <Text className='op-custom__name'>{t('prop.areaShort')}</Text>
                 <Input
                   className='op-custom__input'
                   type='number'
-                  placeholder='最小'
+                  placeholder={t('prop.min')}
                   value={areaCustomMin}
                   onInput={(e: any) => setAreaCustomMin(e.detail.value)}
                 />
@@ -622,7 +654,7 @@ export default function OwnerPropertiesPage() {
                 <Input
                   className='op-custom__input'
                   type='number'
-                  placeholder='最大'
+                  placeholder={t('prop.max')}
                   value={areaCustomMax}
                   onInput={(e: any) => setAreaCustomMax(e.detail.value)}
                 />
@@ -635,50 +667,50 @@ export default function OwnerPropertiesPage() {
         <View className='op-stats'>
           <View className='op-stat op-stat--primary'>
             <Text className='op-stat__value'>{stats.total}</Text>
-            <Text className='op-stat__label'>名下房源</Text>
+            <Text className='op-stat__label'>{t('op.statOwned')}</Text>
           </View>
           <View className='op-stat op-stat--success'>
             <Text className='op-stat__value'>{stats.rented}</Text>
-            <Text className='op-stat__label'>在租</Text>
+            <Text className='op-stat__label'>{t('prop.statusRented')}</Text>
           </View>
           <View className='op-stat op-stat--warning'>
             <Text className='op-stat__value'>{stats.vacant}</Text>
-            <Text className='op-stat__label'>空置</Text>
+            <Text className='op-stat__label'>{t('prop.statusVacant')}</Text>
           </View>
           <View className='op-stat op-stat--info'>
             <Text className='op-stat__value'>{stats.forSale}</Text>
-            <Text className='op-stat__label'>在售</Text>
+            <Text className='op-stat__label'>{t('op.statusForSale')}</Text>
           </View>
         </View>
 
         {/* 列表标题行 + 新增房源 */}
         <View className='op-section-head'>
           <View className='op-section-head__left'>
-            <Text className='op-section-head__title'>房源列表</Text>
-            <Text className='op-section-head__count'>共 {filtered.length} 套</Text>
+            <Text className='op-section-head__title'>{t('prop.listTitle')}</Text>
+            <Text className='op-section-head__count'>{t('prop.countUnit', { n: filtered.length })}</Text>
           </View>
           <View className='op-add-btn' hoverClass='op-add-btn--hover' onClick={openCreate}>
             <Text className='op-add-btn__plus'>＋</Text>
-            <Text className='op-add-btn__text'>新增房源</Text>
+            <Text className='op-add-btn__text'>{t('op.newListing')}</Text>
           </View>
         </View>
 
         {/* 房源列表卡片 */}
         {loading && filtered.length === 0 && (
           <View className='op-state'>
-            <Text className='op-state__text'>加载中...</Text>
+            <Text className='op-state__text'>{t('common.loading')}</Text>
           </View>
         )}
         {!loading && filtered.length === 0 && (
           <View className='op-state'>
             <View className='icon-svg' style={iconStyle('home', 72)} />
-            <Text className='op-state__text'>暂无房源</Text>
-            <Text className='op-state__desc'>{query || status || bedrooms || priceRange || areaRange ? '换个筛选条件试试' : '点击右上角「新增房源」录入'}</Text>
+            <Text className='op-state__text'>{t('prop.empty')}</Text>
+            <Text className='op-state__desc'>{query || status || bedrooms || priceRange || areaRange ? t('prop.emptyFiltered') : t('op.emptyCreate')}</Text>
           </View>
         )}
 
         {filtered.map((item) => {
-          const st = propStatus(item)
+          const st = propStatus(item, t)
           return (
             <View
               key={String(item.id)}
@@ -688,24 +720,24 @@ export default function OwnerPropertiesPage() {
               {/* 头图占位 + 类型/状态徽章 */}
               <View className='op-card__banner'>
                 {Array.isArray(item.photos) && item.photos.length > 0 ? null : (
-                  <Text className='op-card__banner-ph'>房源</Text>
+                  <Text className='op-card__banner-ph'>{t('common.listingFallback')}</Text>
                 )}
-                <Text className='op-card__type'>{TYPE_LABELS[item.property_type || ''] || '房源'}</Text>
+                <Text className='op-card__type'>{TYPE_LABELS[item.property_type || ''] || t('common.listingFallback')}</Text>
                 <Text className={`op-card__status op-card__status--${st.cls}`}>{st.text}</Text>
               </View>
 
               <View className='op-card__body'>
                 <Text className='op-card__name'>
-                  {item.room_number || item.address || '未命名房源'}
+                  {item.room_number || item.address || t('prop.unnamed')}
                 </Text>
                 <View className='op-card__addr'>
                   <Text className='icon-svg icon-svg--sm' style={iconStyle('home', 26)} />
-                  <Text className='op-card__addr-text'>{item.address || '暂无地址'}</Text>
+                  <Text className='op-card__addr-text'>{item.address || t('prop.noAddress')}</Text>
                 </View>
                 <View className='op-card__meta'>
                   <Text className='op-card__meta-item'>{(item.size_sqm ?? item.area) || 0}㎡</Text>
-                  <Text className='op-card__meta-item'>{item.bedrooms || 0}卧</Text>
-                  <Text className='op-card__meta-item'>{item.bathrooms || 0}浴</Text>
+                  <Text className='op-card__meta-item'>{t('prop.bedroomUnit', { n: item.bedrooms || 0 })}</Text>
+                  <Text className='op-card__meta-item'>{t('prop.bathroomUnit', { n: item.bathrooms || 0 })}</Text>
                 </View>
                 <View className='op-card__price-row'>
                   <Text className='op-card__price'>
@@ -713,9 +745,9 @@ export default function OwnerPropertiesPage() {
                       ? money(item.monthly_rent ?? item.rentPrice, item.currency || 'THB')
                       : item.sale_price
                         ? money(item.sale_price, item.currency || 'THB')
-                        : '暂无挂牌价'}
+                        : t('op.noPrice')}
                     {item.monthly_rent ?? item.rentPrice ? (
-                      <Text className='op-card__price-unit'>/月</Text>
+                      <Text className='op-card__price-unit'>{t('pub.perMonth')}</Text>
                     ) : null}
                   </Text>
                 </View>
@@ -731,7 +763,7 @@ export default function OwnerPropertiesPage() {
                     openEdit(item)
                   }}
                 >
-                  <Text className='op-card__edit-text'>编辑</Text>
+                  <Text className='op-card__edit-text'>{t('common.edit')}</Text>
                 </View>
                 <View
                   className='op-card__manage'
@@ -741,7 +773,7 @@ export default function OwnerPropertiesPage() {
                     goMarketing()
                   }}
                 >
-                  <Text className='op-card__manage-text'>委托挂牌</Text>
+                  <Text className='op-card__manage-text'>{t('op.listForSale')}</Text>
                 </View>
                 <View
                   className='op-card__del'
@@ -764,54 +796,54 @@ export default function OwnerPropertiesPage() {
         <View className='sheet-mask' onClick={resetModal}>
           <View className='sheet' onClick={(e) => e.stopPropagation()}>
             <View className='sheet__head'>
-              <Text className='sheet__title'>{editingId ? '编辑房源' : '新增房源'}</Text>
+              <Text className='sheet__title'>{editingId ? t('prop.editTitle') : t('op.newListing')}</Text>
               <View className='sheet__close icon-svg' style={iconStyle('close', 36)} onClick={resetModal} />
             </View>
             <View className='sheet__body'>
-              <Text className='field-label'>房号 *</Text>
+              <Text className='field-label'>{t('op.roomNoLabel')}</Text>
               <Input
                 className='input'
                 value={form.room_number}
                 onInput={(e: any) => set('room_number', e.detail.value)}
-                placeholder='如：A-1201'
+                placeholder={t('op.roomPlaceholder')}
                 maxlength={40}
               />
 
               <View className='field-row'>
                 <View className='field-col'>
-                  <Text className='field-label'>楼栋</Text>
+                  <Text className='field-label'>{t('prop.buildingLabel')}</Text>
                   <Input
                     className='input'
                     value={form.building}
                     onInput={(e: any) => set('building', e.detail.value)}
-                    placeholder='如：A栋'
+                    placeholder={t('op.buildingPlaceholder')}
                     maxlength={60}
                   />
                 </View>
                 <View className='field-col'>
-                  <Text className='field-label'>楼层</Text>
+                  <Text className='field-label'>{t('prop.floorLabel')}</Text>
                   <Input
                     className='input'
                     type='number'
                     value={form.floor}
                     onInput={(e: any) => set('floor', e.detail.value)}
-                    placeholder='如 12'
+                    placeholder={t('op.floorPlaceholder')}
                   />
                 </View>
               </View>
 
-              <Text className='field-label'>地址 *</Text>
+              <Text className='field-label'>{t('op.addressLabel')}</Text>
               <Input
                 className='input'
                 value={form.address}
                 onInput={(e: any) => set('address', e.detail.value)}
-                placeholder='房源所在地址'
+                placeholder={t('op.addressPlaceholder')}
                 maxlength={120}
               />
 
               <View className='field-row'>
                 <View className='field-col'>
-                  <Text className='field-label'>房型</Text>
+                  <Text className='field-label'>{t('op.roomType')}</Text>
                   <Picker
                     mode='selector'
                     range={TYPE_GROUPS.map((t) => t.label)}
@@ -825,7 +857,7 @@ export default function OwnerPropertiesPage() {
                   </Picker>
                 </View>
                 <View className='field-col'>
-                  <Text className='field-label'>币种</Text>
+                  <Text className='field-label'>{t('prop.currencyLabel')}</Text>
                   <Picker
                     mode='selector'
                     range={CURRENCY_OPTIONS}
@@ -842,74 +874,74 @@ export default function OwnerPropertiesPage() {
 
               <View className='field-row'>
                 <View className='field-col'>
-                  <Text className='field-label'>月租 *</Text>
+                  <Text className='field-label'>{t('op.rentLabel')}</Text>
                   <Input
                     className='input'
                     type='digit'
                     value={form.monthly_rent}
                     onInput={(e: any) => set('monthly_rent', e.detail.value)}
-                    placeholder='如 12000'
+                    placeholder={t('op.rentPlaceholder')}
                   />
                 </View>
                 <View className='field-col'>
-                  <Text className='field-label'>押金金额</Text>
+                  <Text className='field-label'>{t('prop.depositAmount')}</Text>
                   <Input
                     className='input'
                     type='digit'
                     value={form.deposit_amount}
                     onInput={(e: any) => set('deposit_amount', e.detail.value)}
-                    placeholder='如 24000'
+                    placeholder={t('op.depositPlaceholder')}
                   />
                 </View>
               </View>
 
               <View className='field-row'>
                 <View className='field-col'>
-                  <Text className='field-label'>押金月数</Text>
+                  <Text className='field-label'>{t('prop.depositMonths')}</Text>
                   <Input
                     className='input'
                     type='number'
                     value={form.deposit_months}
                     onInput={(e: any) => set('deposit_months', e.detail.value)}
-                    placeholder='如 2'
+                    placeholder={t('op.countPlaceholder')}
                   />
                 </View>
                 <View className='field-col'>
-                  <Text className='field-label'>面积（㎡）*</Text>
+                  <Text className='field-label'>{t('op.areaLabel')}</Text>
                   <Input
                     className='input'
                     type='digit'
                     value={form.size_sqm}
                     onInput={(e: any) => set('size_sqm', e.detail.value)}
-                    placeholder='如 45'
+                    placeholder={t('op.areaPlaceholder')}
                   />
                 </View>
               </View>
 
               <View className='field-row'>
                 <View className='field-col'>
-                  <Text className='field-label'>卧室</Text>
+                  <Text className='field-label'>{t('prop.bedrooms')}</Text>
                   <Input
                     className='input'
                     type='number'
                     value={form.bedrooms}
                     onInput={(e: any) => set('bedrooms', e.detail.value)}
-                    placeholder='如 2'
+                    placeholder={t('op.countPlaceholder')}
                   />
                 </View>
                 <View className='field-col'>
-                  <Text className='field-label'>卫生间</Text>
+                  <Text className='field-label'>{t('prop.bathrooms')}</Text>
                   <Input
                     className='input'
                     type='number'
                     value={form.bathrooms}
                     onInput={(e: any) => set('bathrooms', e.detail.value)}
-                    placeholder='如 1'
+                    placeholder={t('op.bathPlaceholder')}
                   />
                 </View>
               </View>
 
-              <Text className='field-label'>状态</Text>
+              <Text className='field-label'>{t('prop.statusLabel')}</Text>
               <View className='pick-wrap'>
                 {EDIT_STATUS_OPTIONS.map((s) => {
                   const active = form.status === s.value
@@ -928,17 +960,17 @@ export default function OwnerPropertiesPage() {
 
               <View className='field-row'>
                 <View className='field-col'>
-                  <Text className='field-label'>可入住日期</Text>
+                  <Text className='field-label'>{t('op.availableDate')}</Text>
                   <Input
                     className='input'
                     value={form.available_from}
                     onInput={(e: any) => set('available_from', e.detail.value)}
-                    placeholder='如 2026-10-01'
+                    placeholder={t('op.datePlaceholder')}
                     maxlength={10}
                   />
                 </View>
                 <View className='field-col field-col--switch'>
-                  <Text className='field-label'>带家具</Text>
+                  <Text className='field-label'>{t('prop.furnishedYes')}</Text>
                   <Switch
                     checked={form.furnished}
                     color='#14b8a6'
@@ -947,28 +979,28 @@ export default function OwnerPropertiesPage() {
                 </View>
               </View>
 
-              <Text className='field-label'>视频链接</Text>
+              <Text className='field-label'>{t('op.videoUrl')}</Text>
               <Input
                 className='input'
                 value={form.video_url}
                 onInput={(e: any) => set('video_url', e.detail.value)}
-                placeholder='如 https://... （选填）'
+                placeholder={t('op.videoPlaceholder')}
                 maxlength={300}
               />
 
-              <Text className='field-label'>房源描述</Text>
+              <Text className='field-label'>{t('prop.descTitle')}</Text>
               <Textarea
                 className='input input--area'
                 value={form.description}
                 onInput={(e: any) => set('description', e.detail.value)}
-                placeholder='请输入房源描述（选填）'
+                placeholder={t('op.descPlaceholder')}
                 maxlength={500}
               />
 
               {/* 照片：仅编辑态展示（上传需房源已存在） */}
               {editingId && (
                 <>
-                  <Text className='field-label'>房源照片</Text>
+                  <Text className='field-label'>{t('prop.photosTitle')}</Text>
                   <View className='photo-grid'>
                     {form.photos.map((url, idx) => (
                       <View key={idx} className='photo-item'>
@@ -979,7 +1011,7 @@ export default function OwnerPropertiesPage() {
                       </View>
                     ))}
                     <View className='photo-add' hoverClass='photo-add--hover' onClick={pickPhotos}>
-                      <Text className='photo-add__text'>＋ 添加照片</Text>
+                      <Text className='photo-add__text'>{t('prop.addPhoto')}</Text>
                     </View>
                   </View>
                 </>
@@ -990,7 +1022,7 @@ export default function OwnerPropertiesPage() {
                 hoverClass='submit-btn--hover'
                 onClick={submitForm}
               >
-                <Text className='submit-btn__text'>{submitting ? '提交中…' : editingId ? '保存修改' : '确认创建'}</Text>
+                <Text className='submit-btn__text'>{submitting ? t('common.submitting') : editingId ? t('op.saveEdit') : t('op.confirmCreate')}</Text>
               </View>
             </View>
           </View>

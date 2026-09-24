@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Card, Tabs, Checkbox, Button, Space, message, Tag } from 'antd'
 import { SaveOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 
 interface PermData {
@@ -9,11 +10,11 @@ interface PermData {
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  admin: '管理员',
-  agent: '经纪人',
-  employee: '员工',
-  owner: '业主',
-  tenant: '租客',
+  admin: 'systemPermissions.roleAdmin',
+  agent: 'systemPermissions.roleAgent',
+  employee: 'systemPermissions.roleEmployee',
+  owner: 'systemPermissions.roleOwner',
+  tenant: 'systemPermissions.roleTenant',
 }
 const ROLE_COLOR: Record<string, string> = {
   admin: 'magenta',
@@ -23,16 +24,17 @@ const ROLE_COLOR: Record<string, string> = {
   tenant: 'green',
 }
 const CAT_LABEL: Record<string, string> = {
-  system: '系统',
-  account: '账号管理',
-  group: '分组管理',
-  role: '角色配置',
-  review: '工单审核',
-  data: '数据查看',
-  commission: '佣金配置',
+  system: 'menu.section.system',
+  account: 'menu.accountUsers',
+  group: 'systemPermissions.catGroup',
+  role: 'systemPermissions.catRole',
+  review: 'menu.reviewCenter',
+  data: 'systemPermissions.catData',
+  commission: 'systemPermissions.catCommission',
 }
 
 const Permissions = () => {
+  const { t } = useTranslation()
   const [data, setData] = useState<PermData | null>(null)
   const [role, setRole] = useState('admin')
   const [checked, setChecked] = useState<string[]>([])
@@ -47,7 +49,7 @@ const Permissions = () => {
       setData(d)
       setChecked(d?.roles?.[role] ?? [])
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '加载权限失败')
+      message.error(err?.response?.data?.detail || t('systemPermissions.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -67,9 +69,9 @@ const Permissions = () => {
       const res = await api.put(`/admin/permissions/roles/${role}`, { codes: checked })
       const d = res.data?.data ?? res.data
       setChecked(d.permissions ?? [])
-      message.success(`已保存「${ROLE_LABEL[role]}」权限`)
+      message.success(t('systemPermissions.saved', { role: t(ROLE_LABEL[role]) }))
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '保存失败')
+      message.error(err?.response?.data?.detail || t('systemPermissions.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -79,14 +81,14 @@ const Permissions = () => {
     <div className="rent-main">
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title" style={{ margin: '0 0 4px' }}>角色权限配置</h2>
+          <h2 className="rent-page-header__title" style={{ margin: '0 0 4px' }}>{t('systemPermissions.title')}</h2>
           <p className="rent-page-header__subtitle" style={{ margin: 0 }}>
-            按角色分配功能权限点，登录后前端菜单与接口权限即时生效
+            {t('systemPermissions.subtitle')}
           </p>
         </div>
         <div className="rent-page-header__actions">
           <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleSave}>
-            保存配置
+            {t('systemPermissions.saveBtn')}
           </Button>
         </div>
       </div>
@@ -97,14 +99,14 @@ const Permissions = () => {
           onChange={setRole}
           items={Object.keys(ROLE_LABEL).map((r) => ({
             key: r,
-            label: <Tag color={ROLE_COLOR[r]}>{ROLE_LABEL[r]}</Tag>,
+            label: <Tag color={ROLE_COLOR[r]}>{t(ROLE_LABEL[r])}</Tag>,
             children: null,
           }))}
         />
 
         <Space wrap style={{ marginBottom: 16 }}>
           <span style={{ color: 'var(--rent-ink-3)', fontWeight: 500 }}>
-            已选 {checked.length} / {Object.values(data?.categories ?? {}).reduce((s, arr) => s + arr.length, 0)} 项
+            {t('systemPermissions.selectedCount', { selected: checked.length, total: Object.values(data?.categories ?? {}).reduce((s, arr) => s + arr.length, 0) })}
           </span>
           {Object.entries(data?.categories ?? {}).map(([cat, perms]) => {
             const codes = perms.map((p) => p.code)
@@ -116,7 +118,7 @@ const Permissions = () => {
                 size="small"
                 onClick={() => toggleAll(codes, !allOn)}
               >
-                {allOn ? '✓ 全选' : someOn ? '· 全选' : '+ 全选'} · {CAT_LABEL[cat] || cat}
+                {allOn ? '✓' : someOn ? '·' : '+'} {t('systemPermissions.selectAll')} · {CAT_LABEL[cat] ? t(CAT_LABEL[cat]) : cat}
               </Button>
             )
           })}
@@ -124,7 +126,7 @@ const Permissions = () => {
 
         <div className="rent-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
           {Object.entries(data?.categories ?? {}).map(([cat, perms]) => (
-            <Card key={cat} size="small" title={CAT_LABEL[cat] || cat} style={{ marginBottom: 0 }}>
+            <Card key={cat} size="small" title={CAT_LABEL[cat] ? t(CAT_LABEL[cat]) : cat} style={{ marginBottom: 0 }}>
               <Checkbox.Group
                 style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
                 value={checked}

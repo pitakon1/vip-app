@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { message } from 'antd'
 import { contractsApi } from '@/services/api'
+import { useTranslation } from 'react-i18next'
 import './contracts.css'
 
 interface Contract {
@@ -21,15 +22,16 @@ interface Party {
 }
 
 const statusLabel: Record<string, string> = {
-  draft: '草稿',
-  sent: '待签署',
-  partially_signed: '待签署',
-  signed: '已签署',
-  completed: '已完成',
-  voided: '已作废',
+  draft: 'contracts.stDraft',
+  sent: 'contracts.stPendingSign',
+  partially_signed: 'contracts.stPendingSign',
+  signed: 'contracts.stSigned',
+  completed: 'contracts.stCompleted',
+  voided: 'contracts.stVoided',
 }
 
 const Contracts = () => {
+  const { t } = useTranslation()
   const [contracts, setContracts] = useState<Contract[]>([])
   const [detail, setDetail] = useState<{ contract?: Contract; parties: Party[] }>({ parties: [] })
   const [form, setForm] = useState({
@@ -45,7 +47,7 @@ const Contracts = () => {
     contractsApi
       .list()
       .then((res) => setContracts(res.data || []))
-      .catch(() => message.warning('合同列表加载失败'))
+      .catch(() => message.warning(t('contracts.errList')))
   }
   useEffect(loadList, [])
 
@@ -63,10 +65,10 @@ const Contracts = () => {
         },
       })
       .then(() => {
-        message.success('合同已自动生成')
+        message.success(t('contracts.msgGenerated'))
         loadList()
       })
-      .catch(() => message.error('合同生成失败'))
+      .catch(() => message.error(t('contracts.errGenerate')))
   }
 
   const handleOpen = (id: string) => {
@@ -96,10 +98,10 @@ const Contracts = () => {
     contractsApi
       .addParty(detail.contract.id, { name: '王五', role: 'tenant', email: 'w@example.com' })
       .then(() => {
-        message.success('已追加签署方')
+        message.success(t('contracts.msgPartyAdded'))
         handleOpen(detail.contract!.id)
       })
-      .catch(() => message.error('追加签署方失败'))
+      .catch(() => message.error(t('contracts.errAddParty')))
   }
 
   const handleSign = (partyId: string) => {
@@ -107,54 +109,54 @@ const Contracts = () => {
     contractsApi
       .sign(detail.contract.id, partyId)
       .then(() => {
-        message.success('签署成功')
+        message.success(t('contracts.msgSigned'))
         handleOpen(detail.contract!.id)
       })
-      .catch(() => message.error('签署失败'))
+      .catch(() => message.error(t('contracts.errSign')))
   }
 
   return (
     <div className="rent-main">
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">电子签合同</h2>
-          <p className="rent-page-header__subtitle">根据用户信息自动生成合同并数字签名</p>
+          <h2 className="rent-page-header__title">{t('contracts.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('contracts.subtitle')}</p>
         </div>
       </div>
 
       <div className="rent-card rent-mb-5">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">自动生成合同</h3>
-          <span className="rent-text-sm rent-text-muted">填入租约信息 → 一键生成 HTML 合同（含 SHA-256 哈希存证）</span>
+          <h3 className="rent-card__title">{t('contracts.genTitle')}</h3>
+          <span className="rent-text-sm rent-text-muted">{t('contracts.genHint')}</span>
         </div>
         <div className="rent-card__body">
           <div className="rent-grid rent-grid--3 rent-mb-3">
             <div className="rent-field">
-              <label className="rent-label">房东 / 出租方</label>
+              <label className="rent-label">{t('contracts.fLandlord')}</label>
               <input className="rent-input" value={form.landlord} onChange={(e) => setForm({ ...form, landlord: e.target.value })} />
             </div>
             <div className="rent-field">
-              <label className="rent-label">租客 / 承租方</label>
+              <label className="rent-label">{t('contracts.fTenant')}</label>
               <input className="rent-input" value={form.tenant} onChange={(e) => setForm({ ...form, tenant: e.target.value })} />
             </div>
             <div className="rent-field">
-              <label className="rent-label">房源</label>
+              <label className="rent-label">{t('contracts.fProperty')}</label>
               <input className="rent-input" value={form.property} onChange={(e) => setForm({ ...form, property: e.target.value })} />
             </div>
           </div>
           <div className="rent-grid rent-grid--3 rent-mb-3">
             <div className="rent-field">
-              <label className="rent-label">月租金（THB）</label>
+              <label className="rent-label">{t('contracts.fRent')}</label>
               <input className="rent-input" type="number" value={form.rent} onChange={(e) => setForm({ ...form, rent: e.target.value })} />
             </div>
             <div className="rent-field">
-              <label className="rent-label">租期（月）</label>
+              <label className="rent-label">{t('contracts.fMonths')}</label>
               <input className="rent-input" type="number" value={form.months} onChange={(e) => setForm({ ...form, months: e.target.value })} />
             </div>
             <div className="rent-field">
-              <label className="rent-label">合同语言</label>
+              <label className="rent-label">{t('contracts.fLanguage')}</label>
               <select className="rent-input" value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })}>
-                <option value="zh">中文</option>
+                <option value="zh">{t('contracts.langZh')}</option>
                 <option value="en">English</option>
                 <option value="th">ไทย</option>
               </select>
@@ -162,7 +164,7 @@ const Contracts = () => {
           </div>
           <div className="rent-flex" style={{ justifyContent: 'flex-end' }}>
             <button className="rent-btn rent-btn--primary" onClick={handleGenerate}>
-              生成合同
+              {t('contracts.generate')}
             </button>
           </div>
         </div>
@@ -170,24 +172,24 @@ const Contracts = () => {
 
       <div className="rent-card">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">合同列表</h3>
+          <h3 className="rent-card__title">{t('contracts.listTitle')}</h3>
         </div>
         <div className="rent-card__body" style={{ padding: 0 }}>
           <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
             <table className="rent-table">
               <thead>
                 <tr>
-                  <th>标题</th>
-                  <th>语言</th>
-                  <th>状态</th>
-                  <th>操作</th>
+                  <th>{t('contracts.thTitle')}</th>
+                  <th>{t('contracts.thLanguage')}</th>
+                  <th>{t('contracts.thStatus')}</th>
+                  <th>{t('common.action')}</th>
                 </tr>
               </thead>
               <tbody>
                 {contracts.length === 0 ? (
                   <tr>
                     <td colSpan={4}>
-                      <div className="rent-empty">暂无合同</div>
+                      <div className="rent-empty">{t('contracts.noContracts')}</div>
                     </td>
                   </tr>
                 ) : (
@@ -201,11 +203,11 @@ const Contracts = () => {
                       </td>
                       <td>{c.language}</td>
                       <td>
-                        <span className="rent-badge rent-badge--neutral">{statusLabel[c.status] || c.status}</span>
+                        <span className="rent-badge rent-badge--neutral">{statusLabel[c.status] ? t(statusLabel[c.status]) : c.status}</span>
                       </td>
                       <td>
                         <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => handleOpen(c.id)}>
-                          签署
+                          {t('contracts.sign')}
                         </button>
                       </td>
                     </tr>
@@ -220,26 +222,26 @@ const Contracts = () => {
       {detail.contract && (
         <div className="rent-card rent-mt-5">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">签署 · {detail.contract.title}</h3>
-            <span className="rent-text-sm rent-text-muted">状态：{statusLabel[detail.contract.status] || detail.contract.status}</span>
+            <h3 className="rent-card__title">{t('contracts.signTitle', { title: detail.contract.title })}</h3>
+            <span className="rent-text-sm rent-text-muted">{t('contracts.statusLabel', { s: statusLabel[detail.contract.status] ? t(statusLabel[detail.contract.status]) : detail.contract.status })}</span>
           </div>
           <div className="rent-card__body">
             <div className="rent-grid rent-grid--2 rent-mb-3">
               {detail.parties.length === 0 ? (
-                <div className="rent-empty">尚未添加签署方</div>
+                <div className="rent-empty">{t('contracts.noParties')}</div>
               ) : (
                 detail.parties.map((p) => (
                   <div key={p.id} className="rent-contract-party">
                     <div>
                       <div className="rent-text-bold">{p.name}</div>
-                      <div className="rent-text-sm rent-text-muted">角色：{p.role}</div>
+                      <div className="rent-text-sm rent-text-muted">{t('contracts.roleLabel', { r: p.role })}</div>
                     </div>
                     <div className="rent-flex" style={{ gap: 8, alignItems: 'center' }}>
                       {p.signed ? (
-                        <span className="rent-badge rent-badge--success">已签署</span>
+                        <span className="rent-badge rent-badge--success">{t('contracts.stSigned')}</span>
                       ) : (
                         <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => handleSign(p.id)}>
-                          签署
+                          {t('contracts.sign')}
                         </button>
                       )}
                     </div>
@@ -249,7 +251,7 @@ const Contracts = () => {
             </div>
             <div className="rent-flex" style={{ justifyContent: 'flex-end' }}>
               <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={handleAddParty}>
-                + 追加签署方
+                + {t('contracts.addParty')}
               </button>
             </div>
           </div>

@@ -416,7 +416,7 @@ const TenantPropertyDetail = () => {
   return (
     <>
       {/* 面包屑 */}
-      <nav className="rent-detail-crumb" aria-label="面包屑">
+      <nav className="rent-detail-crumb" aria-label={t('tenantPropertyDetail.ariaBreadcrumb')}>
         <a onClick={() => navigate('/tenant/dashboard')}>{t('tenantPropertyDetail.crumbHome')}</a>
         <Icon d={ICONS.chevron} />
         <a onClick={() => navigate('/tenant/listings')}>{t('tenantPropertyDetail.crumbListings')}</a>
@@ -480,7 +480,7 @@ const TenantPropertyDetail = () => {
 
         {/* 2 价格区（双业务） */}
         <section className="rent-detail-card rent-detail-price">
-          <div className="rent-v17-tabs" role="tablist" aria-label="业务切换">
+          <div className="rent-v17-tabs" role="tablist" aria-label={t('tenantPropertyDetail.ariaTabs')}>
             <button
               className="rent-v17-tab"
               type="button"
@@ -697,7 +697,7 @@ const TenantPropertyDetail = () => {
           <button
             className="rent-detail-bar__fav"
             type="button"
-            aria-label="收藏"
+            aria-label={t('tenantPropertyDetail.ariaFavorite')}
             data-active={favorited}
             disabled={favBusy}
             onClick={handleToggleFavorite}

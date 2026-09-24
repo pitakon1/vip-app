@@ -52,23 +52,25 @@ interface Listing {
   [key: string]: any;
 }
 
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
+
 // 业务归属 Tab（对齐原型 rv17-bizbar：整租 / 合租 / 买房）
 type BizKey = 'rent' | 'share' | 'sale';
-const BIZ_TABS: { key: BizKey; label: string }[] = [
-  { key: 'rent', label: '整租' },
-  { key: 'share', label: '合租' },
-  { key: 'sale', label: '买房' },
+const bizTabs = (t: TFunc): { key: BizKey; label: string }[] => [
+  { key: 'rent', label: t('list.biz.rent') },
+  { key: 'share', label: t('list.biz.share') },
+  { key: 'sale', label: t('list.biz.sale') },
 ];
 
 // 房源类型：链家式单行筛选栏容不下，收进「更多」面板
-const PROPERTY_TYPE_FILTERS = [
-  { key: '', label: '不限' },
-  { key: 'apartment', label: '公寓' },
-  { key: 'condo', label: '公寓式' },
-  { key: 'villa', label: '别墅' },
-  { key: 'house', label: '独栋' },
-  { key: 'office', label: '写字楼' },
-  { key: 'shop', label: '商铺' },
+const propertyTypeFilters = (t: TFunc) => [
+  { key: '', label: t('common.any') },
+  { key: 'apartment', label: t('prop.type.apartment') },
+  { key: 'condo', label: t('prop.type.condoStyle') },
+  { key: 'villa', label: t('prop.type.house') },
+  { key: 'house', label: t('prop.type.detached') },
+  { key: 'office', label: t('prop.type.office') },
+  { key: 'shop', label: t('prop.type.commercial') },
 ];
 
 // 买卖挂牌（真实数据源：GET /sale-listings）
@@ -88,111 +90,111 @@ interface SaleListing {
 
 // 价格区间（月租，THB）—— 贝壳式：预设快捷区间 + 自定义最低/最高
 interface PricePreset { key: string; label: string; min: number; max: number }
-const PRICE_RANGES: PricePreset[] = [
-  { key: '', label: '不限', min: 0, max: Infinity },
-  { key: 'u3', label: '≤3万', min: 0, max: 30000 },
-  { key: '3-5', label: '3-5万', min: 30000, max: 50000 },
-  { key: '5-8', label: '5-8万', min: 50000, max: 80000 },
-  { key: 'g8', label: '≥8万', min: 80000, max: Infinity },
+const priceRanges = (t: TFunc): PricePreset[] => [
+  { key: '', label: t('common.any'), min: 0, max: Infinity },
+  { key: 'u3', label: t('prop.priceLt3'), min: 0, max: 30000 },
+  { key: '3-5', label: t('prop.price3to5'), min: 30000, max: 50000 },
+  { key: '5-8', label: t('prop.price5to8'), min: 50000, max: 80000 },
+  { key: 'g8', label: t('prop.priceGt8'), min: 80000, max: Infinity },
 ];
 
 // 户型筛选（贝壳式：1-5 室+）
-const BEDROOM_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: '1', label: '1室' },
-  { key: '2', label: '2室' },
-  { key: '3', label: '3室' },
-  { key: '4', label: '4室' },
-  { key: '5', label: '5室+' },
+const bedroomOptions = (t: TFunc) => [
+  { key: '', label: t('common.any') },
+  { key: '1', label: t('prop.bedroomN', { n: 1 }) },
+  { key: '2', label: t('prop.bedroomN', { n: 2 }) },
+  { key: '3', label: t('prop.bedroomN', { n: 3 }) },
+  { key: '4', label: t('prop.bedroomN', { n: 4 }) },
+  { key: '5', label: t('prop.bedroom5plus') },
 ];
 
 // 状态筛选（贝壳式，与 Web / 小程序一致）
-const STATUS_FILTERS = [
-  { key: '', label: '不限' },
-  { key: 'vacant', label: '空置' },
-  { key: 'rented', label: '已出租' },
-  { key: 'reserved', label: '已预订' },
-  { key: 'maintenance', label: '维护中' },
+const statusFilters = (t: TFunc) => [
+  { key: '', label: t('common.any') },
+  { key: 'vacant', label: t('status.vacant') },
+  { key: 'rented', label: t('status.rented') },
+  { key: 'reserved', label: t('status.reserved') },
+  { key: 'maintenance', label: t('status.maintenance') },
 ];
 
 // 朝向筛选（贝壳式 8 向；东南亚西晒极强，朝向是硬决策因素）
-const ORIENTATION_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: 'north', label: '北' },
-  { key: 'south', label: '南' },
-  { key: 'east', label: '东' },
-  { key: 'west', label: '西' },
-  { key: 'northeast', label: '东北' },
-  { key: 'northwest', label: '西北' },
-  { key: 'southeast', label: '东南' },
-  { key: 'southwest', label: '西南' },
+const orientationOptions = (t: TFunc) => [
+  { key: '', label: t('common.any') },
+  { key: 'north', label: t('prop.orient.north') },
+  { key: 'south', label: t('prop.orient.south') },
+  { key: 'east', label: t('prop.orient.east') },
+  { key: 'west', label: t('prop.orient.west') },
+  { key: 'northeast', label: t('prop.orient.northeast') },
+  { key: 'northwest', label: t('prop.orient.northwest') },
+  { key: 'southeast', label: t('prop.orient.southeast') },
+  { key: 'southwest', label: t('prop.orient.southwest') },
 ];
 
 // 楼层筛选（贝壳式低/中/高；低层 1-5 / 中层 6-15 / 高层 16+）
-const FLOOR_LEVEL_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: 'low', label: '低楼层(1-5层)' },
-  { key: 'mid', label: '中楼层(6-15层)' },
-  { key: 'high', label: '高楼层(16层+)' },
+const floorLevelOptions = (t: TFunc) => [
+  { key: '', label: t('common.any') },
+  { key: 'low', label: t('prop.floorLow') },
+  { key: 'mid', label: t('prop.floorMid') },
+  { key: 'high', label: t('prop.floorHigh') },
 ];
 
 // 装修筛选（东南亚口径：带家具家电是最常见出租形态）
-const DECORATION_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: 'bare', label: '毛坯' },
-  { key: 'simple', label: '简装' },
-  { key: 'standard', label: '精装' },
-  { key: 'luxury', label: '豪装' },
-  { key: 'fully_furnished', label: '带家具家电' },
+const decorationOptions = (t: TFunc) => [
+  { key: '', label: t('common.any') },
+  { key: 'bare', label: t('pub.decoration.bare') },
+  { key: 'simple', label: t('pub.decoration.simple') },
+  { key: 'standard', label: t('pub.decoration.standard') },
+  { key: 'luxury', label: t('pub.decoration.luxury') },
+  { key: 'fully_furnished', label: t('pub.decoration.fully_furnished') },
 ];
 
 // 配套设施筛选（东南亚口径，多选任一命中；无供暖/暖气/天然气——东南亚无冬季）
-const AMENITY_OPTIONS = [
-  { key: 'aircon', label: '空调' },
-  { key: 'pool', label: '泳池' },
-  { key: 'gym', label: '健身房' },
-  { key: 'parking', label: '停车位' },
-  { key: 'elevator', label: '电梯' },
-  { key: 'balcony', label: '阳台' },
-  { key: 'garden', label: '花园/庭院' },
+const amenityOptions = (t: TFunc) => [
+  { key: 'aircon', label: t('prop.amenity.aircon') },
+  { key: 'pool', label: t('prop.amenity.pool') },
+  { key: 'gym', label: t('prop.amenity.gym') },
+  { key: 'parking', label: t('prop.amenity.parking') },
+  { key: 'elevator', label: t('prop.amenity.elevator') },
+  { key: 'balcony', label: t('prop.amenity.balcony') },
+  { key: 'garden', label: t('prop.amenity.garden') },
 ];
 
 // 面积筛选（贝壳式：预设快捷区间 + 自定义最低/最高 ㎡）
 interface AreaPreset { key: string; label: string; min: number; max: number }
-const AREA_PRESETS: AreaPreset[] = [
-  { key: '', label: '不限', min: 0, max: Infinity },
-  { key: 'u50', label: '≤50㎡', min: 0, max: 50 },
-  { key: '50-100', label: '50-100㎡', min: 50, max: 100 },
-  { key: '100-150', label: '100-150㎡', min: 100, max: 150 },
-  { key: '150-200', label: '150-200㎡', min: 150, max: 200 },
-  { key: 'g200', label: '≥200㎡', min: 200, max: Infinity },
+const areaPresets = (t: TFunc): AreaPreset[] => [
+  { key: '', label: t('common.any'), min: 0, max: Infinity },
+  { key: 'u50', label: t('prop.areaLt50'), min: 0, max: 50 },
+  { key: '50-100', label: t('prop.area50to100'), min: 50, max: 100 },
+  { key: '100-150', label: t('prop.area100to150'), min: 100, max: 150 },
+  { key: '150-200', label: t('prop.area150to200'), min: 150, max: 200 },
+  { key: 'g200', label: t('prop.areaGt200'), min: 200, max: Infinity },
 ];
 
 // 排序（贝壳式下拉 Tab）
-const SORT_OPTIONS = [
-  { key: 'default', label: '默认排序' },
-  { key: 'latest', label: '最新发布' },
-  { key: 'price_asc', label: '价格从低到高' },
-  { key: 'price_desc', label: '价格从高到低' },
-  { key: 'area_desc', label: '面积从大到小' },
+const sortOptions = (t: TFunc) => [
+  { key: 'default', label: t('prop.sort.default') },
+  { key: 'latest', label: t('prop.sort.latest') },
+  { key: 'price_asc', label: t('prop.sort.priceLowHigh') },
+  { key: 'price_desc', label: t('prop.sort.priceHighLow') },
+  { key: 'area_desc', label: t('prop.sort.areaDesc') },
 ];
 
-const typeLabels: Record<string, string> = {
-  apartment: '公寓',
-  condo: '公寓',
-  villa: '别墅',
-  house: '别墅',
-  shop: '商铺',
-  commercial: '商铺',
-  office: '写字楼',
-};
+const typeLabels = (t: TFunc): Record<string, string> => ({
+  apartment: t('prop.type.apartment'),
+  condo: t('prop.type.apartment'),
+  villa: t('prop.type.house'),
+  house: t('prop.type.house'),
+  shop: t('prop.type.commercial'),
+  commercial: t('prop.type.commercial'),
+  office: t('prop.type.office'),
+});
 
-const statusLabels: Record<string, string> = {
-  vacant: '空置',
-  rented: '已出租',
-  reserved: '已预订',
-  maintenance: '维护中',
-};
+const statusLabels = (t: TFunc): Record<string, string> => ({
+  vacant: t('status.vacant'),
+  rented: t('status.rented'),
+  reserved: t('status.reserved'),
+  maintenance: t('status.maintenance'),
+});
 
 // ==================== 按区域 / 按地铁找房（对齐贝壳「区域 | 地铁」；与 Web 端数据保持一致） ====================
 
@@ -262,6 +264,7 @@ const ListingCard = React.memo(function ListingCard({
   onToggleFav,
   onTranslate,
 }: ListingCardProps) {
+  const { t } = useI18n();
   const photo = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : null;
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={() => onPress(item)}>
@@ -275,7 +278,7 @@ const ListingCard = React.memo(function ListingCard({
           </View>
         )}
         <View style={[styles.statusBadge, { backgroundColor: statusColors(item.status) }]}>
-          <Text style={styles.statusText}>{statusLabels[item.status ?? 'vacant'] ?? '—'}</Text>
+          <Text style={styles.statusText}>{statusLabels(t)[item.status ?? 'vacant'] ?? '—'}</Text>
         </View>
         <TouchableOpacity
           style={styles.favBtn}
@@ -284,7 +287,7 @@ const ListingCard = React.memo(function ListingCard({
           activeOpacity={0.8}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
-          accessibilityLabel={favorited ? '取消收藏' : '收藏房源'}
+          accessibilityLabel={favorited ? t('list.unfavorite') : t('list.favorite')}
           accessibilityState={{ disabled: favBusy }}
         >
           <Ionicons
@@ -296,21 +299,21 @@ const ListingCard = React.memo(function ListingCard({
       </View>
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={1}>
-          {item.title || item.room_number || '未命名房源'}
+          {item.title || item.room_number || t('list.unnamed')}
         </Text>
         <Text style={styles.address} numberOfLines={1}>
-          {item.address || '暂无地址'}
+          {item.address || t('prop.noAddress')}
         </Text>
         <View style={styles.tagRow}>
-          <Text style={styles.tag}>{typeLabels[item.property_type ?? ''] ?? '房源'}</Text>
+          <Text style={styles.tag}>{typeLabels(t)[item.property_type ?? ''] ?? t('listingFallback')}</Text>
           <Text style={styles.tag}>
-            {item.bedrooms ?? 0}室·{item.size_sqm ?? 0}㎡
+            {t('list.bedArea', { bed: item.bedrooms ?? 0, area: item.size_sqm ?? 0 })}
           </Text>
         </View>
         <View style={styles.bottomRow}>
           <Text style={styles.rent}>
             {formatRent(item.monthly_rent, item.currency)}
-            <Text style={styles.rentUnit}>/月</Text>
+            <Text style={styles.rentUnit}>{t('rent.perMonth')}</Text>
           </Text>
           {/* 仅当房源文本语言与界面语言不一致时才展示翻译入口 */}
           {showTranslate ? (
@@ -320,11 +323,11 @@ const ListingCard = React.memo(function ListingCard({
               disabled={translating}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               accessibilityRole="button"
-              accessibilityLabel="Google 翻译"
+              accessibilityLabel={t('list.googleTranslate')}
               accessibilityState={{ disabled: translating }}
             >
               <Text style={styles.translateText}>
-                {translating ? '翻译中...' : 'Google 翻译'}
+                {translating ? t('list.translating') : t('list.googleTranslate')}
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -337,6 +340,17 @@ const ListingCard = React.memo(function ListingCard({
 export default function ListingsScreen() {
   const respContainer = useResponsiveContainerStyle();
   const { t, lang } = useI18n();
+  const BIZ_TABS = useMemo(() => bizTabs(t), [t]);
+  const PROPERTY_TYPE_FILTERS = useMemo(() => propertyTypeFilters(t), [t]);
+  const PRICE_RANGES = useMemo(() => priceRanges(t), [t]);
+  const BEDROOM_OPTIONS = useMemo(() => bedroomOptions(t), [t]);
+  const STATUS_FILTERS = useMemo(() => statusFilters(t), [t]);
+  const ORIENTATION_OPTIONS = useMemo(() => orientationOptions(t), [t]);
+  const FLOOR_LEVEL_OPTIONS = useMemo(() => floorLevelOptions(t), [t]);
+  const DECORATION_OPTIONS = useMemo(() => decorationOptions(t), [t]);
+  const AMENITY_OPTIONS = useMemo(() => amenityOptions(t), [t]);
+  const AREA_PRESETS = useMemo(() => areaPresets(t), [t]);
+  const SORT_OPTIONS = useMemo(() => sortOptions(t), [t]);
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -440,7 +454,7 @@ export default function ListingsScreen() {
         if (seq !== listReqSeq.current) return;
         setLoadError(true);
         // web 下 Alert.alert 是空实现，这里统一走 web 安全反馈（失败可见 + 可重试）
-        notifyError('加载失败', err, () => {
+        notifyError(t('loadFailed'), err, () => {
           setLoading(true);
           loadListings();
         });
@@ -451,7 +465,7 @@ export default function ListingsScreen() {
         }
       }
     },
-    [schoolFilter],
+    [schoolFilter, t],
   );
 
   useEffect(() => {
@@ -549,12 +563,12 @@ export default function ListingsScreen() {
         }
         queryClient.invalidateQueries({ queryKey: ['fav-status'] });
       } catch {
-        notify('操作失败', '请稍后重试');
+        notify(t('acc.opFailed'), t('prop.retryLater'));
       } finally {
         setFavLoading((s) => ({ ...s, [pid]: false }));
       }
     },
-    [queryClient, token, navigation],
+    [queryClient, token, navigation, t],
   );
 
   // 金刚区分类直达：路由参数变化时同步筛选
@@ -602,14 +616,14 @@ export default function ListingsScreen() {
   const regionLabel = useMemo(() => {
     if (districtSel) {
       const node = locCity?.children.find((d) => d.key === districtSel);
-      return node ? node.label : '区域';
+      return node ? node.label : t('regionFilter.title');
     }
     if (metroSel.length) {
       const first = metroSel[0];
       return metroSel.length > 1 ? `${first} +${metroSel.length - 1}` : first;
     }
-    return '区域';
-  }, [districtSel, metroSel, locCity]);
+    return t('regionFilter.title');
+  }, [districtSel, metroSel, locCity, t]);
 
   // 全局城市作用域：当前定位城市下，房源必须命中该城任一城区关键词（整体过滤，链家式「定位城市看房」）
   const globalCityKw = useMemo(
@@ -649,11 +663,11 @@ export default function ListingsScreen() {
   const hasPriceFilter = !!(priceRange || customMin || customMax);
   const hasAreaFilter = !!(areaRange || areaCustomMin || areaCustomMax);
   const priceLabel = priceRange
-    ? PRICE_RANGES.find((r) => r.key === priceRange)?.label ?? '价格'
+    ? PRICE_RANGES.find((r) => r.key === priceRange)?.label ?? t('list.filterPrice')
     : customMin || customMax
-    ? '自定义'
-    : '价格';
-  const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label ?? '排序';
+    ? t('prop.custom')
+    : t('list.filterPrice');
+  const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label ?? t('list.filterSort');
   // 「更多」收纳了学校 / 户型 / 房源类型 / 朝向 / 楼层 / 面积 / 装修 / 配套 / 状态，角标按已生效组数计
   const moreBadge =
     (schoolId ? 1 : 0) +
@@ -715,10 +729,10 @@ export default function ListingsScreen() {
 
   // 贝壳式 Tab 栏展示数据
   const filterTabs = [
-    { key: 'region', label: districtSel || metroSel.length ? regionLabel : '区域', active: !!activeLocationKw.length, badge: 0 },
-    { key: 'price', label: hasPriceFilter ? priceLabel : '价格', active: hasPriceFilter, badge: 0 },
-    { key: 'more', label: '更多', active: moreBadge > 0, badge: moreBadge },
-    { key: 'sort', label: sortKey !== 'default' ? sortLabel : '排序', active: sortKey !== 'default', badge: 0 },
+    { key: 'region', label: districtSel || metroSel.length ? regionLabel : t('regionFilter.title'), active: !!activeLocationKw.length, badge: 0 },
+    { key: 'price', label: hasPriceFilter ? priceLabel : t('list.filterPrice'), active: hasPriceFilter, badge: 0 },
+    { key: 'more', label: t('list.filterMore'), active: moreBadge > 0, badge: moreBadge },
+    { key: 'sort', label: sortKey !== 'default' ? sortLabel : t('list.filterSort'), active: sortKey !== 'default', badge: 0 },
   ] as { key: OpenTab; label: string; active: boolean; badge: number }[];
 
   const onRefresh = useCallback(() => {
@@ -734,7 +748,7 @@ export default function ListingsScreen() {
   const handleTranslate = useCallback(async (item: Listing) => {
     const source = translateSource(item);
     if (!source) {
-      notify('提示', '该房源暂无描述文本');
+      notify(t('common.hint'), t('list.noDesc'));
       return;
     }
     setTranslatingId(item.id);
@@ -742,13 +756,13 @@ export default function ListingsScreen() {
       const res = await translateApi.translate(source, 'zh');
       const data = res.data;
       const text = data?.translated_text ?? '';
-      notify('翻译结果（中文）', text || '翻译服务未配置密钥，已返回原文本。');
+      notify(t('list.translateResult'), text || t('list.translateNoKey'));
     } catch {
-      notify('翻译失败', '请稍后重试');
+      notify(t('list.translateFail'), t('prop.retryLater'));
     } finally {
       setTranslatingId(null);
     }
-  }, []);
+  }, [t]);
 
   // 进入房源详情（useCallback：引用稳定）；公开层卡片 id 为挂牌 id → 公开详情页（匿名可看）
   const goDetail = useCallback(
@@ -827,7 +841,7 @@ export default function ListingsScreen() {
     }
     return true;
       }),
-    [listings, filter, statusFilter, bedFilter, orientationSel, floorSel, decorSel, amenitySel, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, keyword, activeLocationKw, globalCityKw],
+    [listings, filter, statusFilter, bedFilter, orientationSel, floorSel, decorSel, amenitySel, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, keyword, activeLocationKw, globalCityKw, PRICE_RANGES, AREA_PRESETS],
   );
 
   // 排序（贝壳式 Tab）
@@ -884,7 +898,7 @@ export default function ListingsScreen() {
         if (item.id) {
           navigation.navigate('PublicListingDetail', { id: item.id });
         } else {
-          Alert.alert('提示', '该挂牌暂未关联房源详情');
+          Alert.alert(t('common.hint'), t('list.noListingDetail'));
         }
       }}
     >
@@ -893,25 +907,25 @@ export default function ListingsScreen() {
           <Ionicons name="pricetag-outline" size={28} color={colors.ink3} />
         </View>
         <View style={[styles.statusBadge, { backgroundColor: colors.warning }]}>
-          <Text style={styles.statusText}>在售</Text>
+          <Text style={styles.statusText}>{t('prop.status.forSale')}</Text>
         </View>
       </View>
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={1}>
-          {item.title || '未命名挂牌'}
+          {item.title || t('list.unnamedSale')}
         </Text>
         <Text style={styles.address} numberOfLines={1}>
-          {item.address || '暂无地址'}
+          {item.address || t('prop.noAddress')}
         </Text>
         <View style={styles.tagRow}>
           <Text style={styles.tag}>
-            {item.bedrooms ?? 0}室·{item.size_sqm ?? 0}㎡
+            {t('list.bedArea', { bed: item.bedrooms ?? 0, area: item.size_sqm ?? 0 })}
           </Text>
         </View>
         <View style={styles.bottomRow}>
           <Text style={styles.rent}>
             {formatRent(item.asking_price, item.currency)}
-            <Text style={styles.rentUnit}> 总价</Text>
+            <Text style={styles.rentUnit}>{t('list.totalPrice')}</Text>
           </Text>
         </View>
       </View>
@@ -922,7 +936,7 @@ export default function ListingsScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <LoadingState label="加载房源中…" />
+        <LoadingState label={t('list.loadingListings')} />
       </View>
     );
   }
@@ -934,7 +948,7 @@ export default function ListingsScreen() {
         <View style={styles.searchBar}>
           <TextInput
             style={styles.searchInput}
-            placeholder="搜索小区 / 地址 / 房号"
+            placeholder={t('list.searchPlaceholder')}
             placeholderTextColor={colors.ink3}
             value={keyword}
             onChangeText={setKeyword}
@@ -963,9 +977,9 @@ export default function ListingsScreen() {
       {/* 结果计数 */}
       <View style={styles.resultCount}>
         <Text style={styles.resultCountText}>
-          共 <Text style={styles.resultCountNum}>
+          {t('list.countPrefix')}<Text style={styles.resultCountNum}>
             {biz === 'sale' ? saleFiltered.length : biz === 'share' ? 0 : sortedData.length}
-          </Text> 套房源
+          </Text>{t('list.countSuffix')}
         </Text>
       </View>
       {/* 链家式单行筛选栏（点击后从顶部下拉面板，非底部弹层）—— 买卖挂牌不适用租赁筛选维度 */}
@@ -1030,7 +1044,7 @@ export default function ListingsScreen() {
                         activeOpacity={0.7}
                       >
                         <Text style={[styles.keRailText, locTab === tab && styles.keRailTextActive]}>
-                          {tab === 'area' ? '区域' : '地铁'}
+                          {tab === 'area' ? t('regionFilter.title') : t('list.metro')}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -1039,7 +1053,7 @@ export default function ListingsScreen() {
                     <>
                       {/* 当前定位城市下的 区/街道 平铺列表：找房页不做国家/省市，只留 区/街道 颗粒度（链家样式） */}
                       <ScrollView style={styles.keCol3} showsVerticalScrollIndicator={false}>
-                        <Text style={styles.keSection}>{locSel.cityLabel} · 区/街道</Text>
+                        <Text style={styles.keSection}>{t('list.districtSuffix', { city: locSel.cityLabel })}</Text>
                         <TouchableOpacity
                           style={styles.keOption}
                           onPress={() => applyDistrict(null)}
@@ -1047,7 +1061,7 @@ export default function ListingsScreen() {
                         >
                           <View style={styles.keOptionMain}>
                             <Text style={[styles.keOptionText, districtSel === null && styles.keOptionTextActive]}>
-                              不限
+                              {t('common.any')}
                             </Text>
                           </View>
                           <View style={[styles.keRadio, districtSel === null && styles.keRadioOn]}>
@@ -1082,7 +1096,7 @@ export default function ListingsScreen() {
                           onPress={clearMetroDraft}
                           activeOpacity={0.7}
                         >
-                          <Text style={[styles.keRowText, !metroDraft.length && styles.keRowTextActive]}>不限</Text>
+                          <Text style={[styles.keRowText, !metroDraft.length && styles.keRowTextActive]}>{t('common.any')}</Text>
                         </TouchableOpacity>
                         {cityMetroLines.map((l) => (
                           <TouchableOpacity
@@ -1104,7 +1118,7 @@ export default function ListingsScreen() {
                       <ScrollView style={styles.keCol3} showsVerticalScrollIndicator={false}>
                         <Text style={styles.keSection}>
                           {activeLine ? `${activeLine.cityLabel} · ${activeLine.name}` : ''}
-                          {metroDraft.length ? ` · 已选 ${metroDraft.length}` : ''}
+                          {metroDraft.length ? t('list.selectedN', { n: metroDraft.length }) : ''}
                         </Text>
                         {activeLine?.stations.map((s) => (
                           <TouchableOpacity
@@ -1129,10 +1143,10 @@ export default function ListingsScreen() {
                 </View>
                 <View style={styles.panelActions}>
                   <TouchableOpacity style={styles.resetBtn} onPress={() => resetCurrent('region')} activeOpacity={0.7}>
-                    <Text style={styles.resetText}>重置</Text>
+                    <Text style={styles.resetText}>{t('pub.reset')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmCurrent('region')} activeOpacity={0.7}>
-                    <Text style={styles.confirmText}>确定</Text>
+                    <Text style={styles.confirmText}>{t('common.confirm')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -1140,7 +1154,7 @@ export default function ListingsScreen() {
 
             {openTab === 'price' && (
               <>
-                <Text style={styles.dropGroupTitle}>快捷选择</Text>
+                <Text style={styles.dropGroupTitle}>{t('list.quickSelect')}</Text>
                 <View style={styles.filterGroup}>
                   {PRICE_RANGES.map((r) => (
                     <TouchableOpacity
@@ -1155,7 +1169,7 @@ export default function ListingsScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
-                <Text style={styles.dropGroupTitle}>自定义价格</Text>
+                <Text style={styles.dropGroupTitle}>{t('list.customPrice')}</Text>
                 <View style={styles.priceCustomRow}>
                   <View style={styles.priceCustomInput}>
                     <Text style={styles.priceCustomPrefix}>฿</Text>
@@ -1163,32 +1177,32 @@ export default function ListingsScreen() {
                       style={styles.priceCustomField}
                       value={customMin}
                       onChangeText={(v) => { setCustomMin(v.replace(/[^\d]/g, '')); if (v) setPriceRange(''); }}
-                      placeholder="最低价"
+                      placeholder={t('list.minPrice')}
                       placeholderTextColor={colors.ink3}
                       keyboardType="number-pad"
                     />
-                    <Text style={styles.priceCustomUnit}>万/月</Text>
+                    <Text style={styles.priceCustomUnit}>{t('prop.tenThousandPerMonth')}</Text>
                   </View>
-                  <Text style={styles.priceCustomDivider}>至</Text>
+                  <Text style={styles.priceCustomDivider}>{t('list.to')}</Text>
                   <View style={styles.priceCustomInput}>
                     <Text style={styles.priceCustomPrefix}>฿</Text>
                     <TextInput
                       style={styles.priceCustomField}
                       value={customMax}
                       onChangeText={(v) => { setCustomMax(v.replace(/[^\d]/g, '')); if (v) setPriceRange(''); }}
-                      placeholder="最高价"
+                      placeholder={t('list.maxPrice')}
                       placeholderTextColor={colors.ink3}
                       keyboardType="number-pad"
                     />
-                    <Text style={styles.priceCustomUnit}>万/月</Text>
+                    <Text style={styles.priceCustomUnit}>{t('prop.tenThousandPerMonth')}</Text>
                   </View>
                 </View>
                 <View style={styles.panelActions}>
                   <TouchableOpacity style={styles.resetBtn} onPress={() => resetCurrent('price')} activeOpacity={0.7}>
-                    <Text style={styles.resetText}>重置</Text>
+                    <Text style={styles.resetText}>{t('pub.reset')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmCurrent('price')} activeOpacity={0.7}>
-                    <Text style={styles.confirmText}>确定</Text>
+                    <Text style={styles.confirmText}>{t('common.confirm')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -1198,7 +1212,7 @@ export default function ListingsScreen() {
               <>
                 {/* 多组条件叠加后超出面板高度，内容区独立滚动，操作行常驻可见 */}
                 <ScrollView style={styles.dropBodyTall}>
-                  <Text style={styles.dropGroupTitle}>户型</Text>
+                  <Text style={styles.dropGroupTitle}>{t('list.layout')}</Text>
                   <View style={styles.filterGroup}>
                     {BEDROOM_OPTIONS.map((b) => (
                       <TouchableOpacity
@@ -1210,7 +1224,7 @@ export default function ListingsScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <Text style={styles.dropGroupTitle}>学校 · 距离</Text>
+                  <Text style={styles.dropGroupTitle}>{t('list.schoolDistance')}</Text>
                   <View style={styles.filterGroup}>
                     {SCHOOL_RADIUS_OPTIONS.map((km) => (
                       <TouchableOpacity
@@ -1228,7 +1242,7 @@ export default function ListingsScreen() {
                     style={styles.dropSearch}
                     value={schoolKw}
                     onChangeText={setSchoolKw}
-                    placeholder="搜索学校名称"
+                    placeholder={t('prop.searchSchool')}
                     placeholderTextColor={colors.ink3}
                     returnKeyType="search"
                   />
@@ -1240,7 +1254,7 @@ export default function ListingsScreen() {
                         setSchoolName('');
                       }}
                     >
-                      <Text style={[styles.filterText, !schoolId && styles.filterTextActive]}>不限</Text>
+                      <Text style={[styles.filterText, !schoolId && styles.filterTextActive]}>{t('common.any')}</Text>
                     </TouchableOpacity>
                     {filteredSchools.map((s) => (
                       <TouchableOpacity
@@ -1248,7 +1262,7 @@ export default function ListingsScreen() {
                         style={[styles.filterChip, schoolId === s.id && styles.filterChipActive]}
                         onPress={() => {
                           setSchoolId(s.id);
-                          setSchoolName(s.name ?? '学校');
+                          setSchoolName(s.name ?? t('prop.filterSchool'));
                         }}
                       >
                         <Text style={[styles.filterText, schoolId === s.id && styles.filterTextActive]}>
@@ -1258,9 +1272,9 @@ export default function ListingsScreen() {
                     ))}
                   </View>
                   {schoolsLoaded && !filteredSchools.length && (
-                    <Text style={styles.dropEmpty}>暂无匹配学校</Text>
+                    <Text style={styles.dropEmpty}>{t('list.noSchoolMatch')}</Text>
                   )}
-                  <Text style={styles.dropGroupTitle}>房源类型</Text>
+                  <Text style={styles.dropGroupTitle}>{t('prop.type')}</Text>
                   <View style={styles.filterGroup}>
                     {PROPERTY_TYPE_FILTERS.map((f) => (
                       <TouchableOpacity
@@ -1272,7 +1286,7 @@ export default function ListingsScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <Text style={styles.dropGroupTitle}>朝向</Text>
+                  <Text style={styles.dropGroupTitle}>{t('prop.orientation')}</Text>
                   <View style={styles.filterGroup}>
                     {ORIENTATION_OPTIONS.map((o) => (
                       <TouchableOpacity
@@ -1284,7 +1298,7 @@ export default function ListingsScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <Text style={styles.dropGroupTitle}>楼层</Text>
+                  <Text style={styles.dropGroupTitle}>{t('list.floor')}</Text>
                   <View style={styles.filterGroup}>
                     {FLOOR_LEVEL_OPTIONS.map((fl) => (
                       <TouchableOpacity
@@ -1296,7 +1310,7 @@ export default function ListingsScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <Text style={styles.dropGroupTitle}>面积</Text>
+                  <Text style={styles.dropGroupTitle}>{t('pub.filterArea')}</Text>
                   <View style={styles.filterGroup}>
                     {AREA_PRESETS.map((a) => (
                       <TouchableOpacity
@@ -1317,26 +1331,26 @@ export default function ListingsScreen() {
                         style={styles.priceCustomField}
                         value={areaCustomMin}
                         onChangeText={(v) => { setAreaCustomMin(v.replace(/[^\d]/g, '')); if (v) setAreaRange(''); }}
-                        placeholder="最低㎡"
+                        placeholder={t('list.minArea')}
                         placeholderTextColor={colors.ink3}
                         keyboardType="number-pad"
                       />
                       <Text style={styles.priceCustomUnit}>㎡</Text>
                     </View>
-                    <Text style={styles.priceCustomDivider}>至</Text>
+                    <Text style={styles.priceCustomDivider}>{t('list.to')}</Text>
                     <View style={styles.priceCustomInput}>
                       <TextInput
                         style={styles.priceCustomField}
                         value={areaCustomMax}
                         onChangeText={(v) => { setAreaCustomMax(v.replace(/[^\d]/g, '')); if (v) setAreaRange(''); }}
-                        placeholder="最高㎡"
+                        placeholder={t('list.maxArea')}
                         placeholderTextColor={colors.ink3}
                         keyboardType="number-pad"
                       />
                       <Text style={styles.priceCustomUnit}>㎡</Text>
                     </View>
                   </View>
-                  <Text style={styles.dropGroupTitle}>装修</Text>
+                  <Text style={styles.dropGroupTitle}>{t('prop.decoration')}</Text>
                   <View style={styles.filterGroup}>
                     {DECORATION_OPTIONS.map((d) => (
                       <TouchableOpacity
@@ -1348,7 +1362,7 @@ export default function ListingsScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <Text style={styles.dropGroupTitle}>配套设施</Text>
+                  <Text style={styles.dropGroupTitle}>{t('list.amenities')}</Text>
                   <View style={styles.filterGroup}>
                     {AMENITY_OPTIONS.map((a) => {
                       const on = amenitySel.includes(a.key);
@@ -1367,7 +1381,7 @@ export default function ListingsScreen() {
                       );
                     })}
                   </View>
-                  <Text style={styles.dropGroupTitle}>房源状态</Text>
+                  <Text style={styles.dropGroupTitle}>{t('list.propertyStatus')}</Text>
                   <View style={styles.filterGroup}>
                     {STATUS_FILTERS.map((s) => (
                       <TouchableOpacity
@@ -1382,10 +1396,10 @@ export default function ListingsScreen() {
                 </ScrollView>
                 <View style={styles.panelActions}>
                   <TouchableOpacity style={styles.resetBtn} onPress={() => resetCurrent('more')} activeOpacity={0.7}>
-                    <Text style={styles.resetText}>重置</Text>
+                    <Text style={styles.resetText}>{t('pub.reset')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmCurrent('more')} activeOpacity={0.7}>
-                    <Text style={styles.confirmText}>确定</Text>
+                    <Text style={styles.confirmText}>{t('common.confirm')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -1428,7 +1442,7 @@ export default function ListingsScreen() {
         removeClippedSubviews
         ListEmptyComponent={
           biz === 'sale' && saleLoading ? (
-            <LoadingState label="加载在售挂牌中…" />
+            <LoadingState label={t('list.loadingSale')} />
           ) : (
             <View style={styles.emptyBox}>
               {loadError && biz !== 'sale' ? (
@@ -1458,14 +1472,14 @@ export default function ListingsScreen() {
                     color={colors.ink3}
                   />
                   <Text style={styles.empty}>
-                    {biz === 'share' ? '暂无合租房源' : '没有找到合适的房源'}
+                    {biz === 'share' ? t('list.emptyShare') : t('empty.listings')}
                   </Text>
                   <Text style={styles.emptySub}>
                     {biz === 'share'
-                      ? '当前房源数据未区分合租/整租'
+                      ? t('list.shareHint')
                       : biz === 'sale'
-                      ? '暂无在售挂牌'
-                      : '试试调整关键字或筛选条件'}
+                      ? t('list.emptySale')
+                      : t('empty.listingsSub')}
                   </Text>
                 </>
               )}

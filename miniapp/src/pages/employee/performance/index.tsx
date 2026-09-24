@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { employeesApi, performanceApi, commissionsApi, leasesApi, propertiesApi, viewingsApi } from '@/services/api'
 import './index.scss'
+import { useI18n } from '@/i18n'
 
 interface RankItem {
   id: string
@@ -40,18 +41,22 @@ interface Commission {
   created_at?: string
 }
 
-const DEAL_TYPE_LABELS: Record<string, string> = {
-  new_rental: '新租成交',
-  renewal: '续约成交',
-  management: '托管服务'
-}
+const buildDealTypeLabels = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, string> => ({
+  new_rental: t('perf.dealNewRental'),
+  renewal: t('perf.dealRenewal'),
+  management: t('perf.dealManagement')
+})
 
 // 结算状态（对齐后端 SettlementStatus: pending/approved/paid）
-const SETTLE_META: Record<string, { label: string; cls: string }> = {
-  pending: { label: '待结算', cls: 'perf-tag--warning' },
-  approved: { label: '审核通过', cls: 'perf-tag--info' },
-  paid: { label: '已结算', cls: 'perf-tag--success' }
-}
+const buildSettleMeta = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, { label: string; cls: string }> => ({
+  pending: { label: t('perf.stPending'), cls: 'perf-tag--warning' },
+  approved: { label: t('perf.stApproved'), cls: 'perf-tag--info' },
+  paid: { label: t('perf.stPaid'), cls: 'perf-tag--success' }
+})
 
 const fmtMoney = (v?: number, currency?: string) => {
   const sym: Record<string, string> = { CNY: '¥', THB: '', USD: '$', EUR: '€' }
@@ -80,6 +85,7 @@ const pick = (res: any, key?: string): any => {
 }
 
 export default function EmployeePerformancePage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [leaderboard, setLeaderboard] = useState<RankItem[]>([])
   const [employee, setEmployee] = useState<EmployeeInfo | null>(null)
@@ -89,6 +95,8 @@ export default function EmployeePerformancePage() {
   const [propMap, setPropMap] = useState<Record<string, any>>({})
   const [viewingCount, setViewingCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
+  const DEAL_TYPE_LABELS = buildDealTypeLabels(t)
+  const SETTLE_META = buildSettleMeta(t)
 
   const fetchAll = async () => {
     setLoading(true)
@@ -140,7 +148,7 @@ export default function EmployeePerformancePage() {
       setViewingCount(vw.length)
     } catch (error) {
       console.error('[Performance] 加载失败', error)
-      Taro.showToast({ title: '加载失败', icon: 'none' })
+      Taro.showToast({ title: t('common.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -160,7 +168,7 @@ export default function EmployeePerformancePage() {
   const selfRow = myIndex >= 0 ? leaderboard[myIndex] : undefined
 
   const now = new Date()
-  const periodLabel = `${now.getFullYear()}年${now.getMonth() + 1}月`
+  const periodLabel = t('perf.yearMonth', { y: now.getFullYear(), m: now.getMonth() + 1 })
   const subline = [periodLabel, employee?.position || employee?.department].filter(Boolean).join(' · ')
 
   // 本月佣金明细：口径对齐 App——仅统计本月（created_at 当月）佣金，
@@ -198,8 +206,8 @@ export default function EmployeePerformancePage() {
   const propNameOf = (c: Commission) => {
     const lease = leaseMap[String(c.lease_id || '')]
     const prop = lease ? propMap[String(lease.property_id || '')] : undefined
-    if (!prop) return '房源信息不可用'
-    return prop.room_number || prop.address || '未命名房源'
+    if (!prop) return t('perf.propUnavailable')
+    return prop.room_number || prop.address || t('prop.unnamed')
   }
   const leaseOf = (c: Commission) => leaseMap[String(c.lease_id || '')]
 
@@ -208,31 +216,31 @@ export default function EmployeePerformancePage() {
       <View className='page-container'>
         {/* 业绩概览 hero（4 项，均为真实数据） */}
         <View className='perf-hero'>
-          <Text className='perf-hero__title'>本月业绩</Text>
+          <Text className='perf-hero__title'>{t('perf.monthPerf')}</Text>
           <Text className='perf-hero__sub'>{subline}</Text>
           <View className='perf-hero__stats'>
             <View className='perf-hero__stat'>
-              <Text className='perf-hero__stat-label'>本月签约</Text>
+              <Text className='perf-hero__stat-label'>{t('perf.monthDeals')}</Text>
               <Text className='perf-hero__stat-value'>
                 {summary.month_deals ?? selfRow?.deals ?? '—'}
-                <Text className='perf-hero__stat-unit'> 单</Text>
+                <Text className='perf-hero__stat-unit'>{t('home.dealUnit')}</Text>
               </Text>
             </View>
             <View className='perf-hero__stat'>
-              <Text className='perf-hero__stat-label'>本月带看</Text>
+              <Text className='perf-hero__stat-label'>{t('perf.monthViewings')}</Text>
               <Text className='perf-hero__stat-value'>
                 {viewingCount ?? '—'}
-                <Text className='perf-hero__stat-unit'> 次</Text>
+                <Text className='perf-hero__stat-unit'>{t('perf.viewingUnit')}</Text>
               </Text>
             </View>
             <View className='perf-hero__stat'>
-              <Text className='perf-hero__stat-label'>本月业绩</Text>
+              <Text className='perf-hero__stat-label'>{t('perf.monthPerf')}</Text>
               <Text className='perf-hero__stat-value'>
                 {summary.month_total !== undefined ? fmtMoney(summary.month_total) : '—'}
               </Text>
             </View>
             <View className='perf-hero__stat'>
-              <Text className='perf-hero__stat-label'>我的排名</Text>
+              <Text className='perf-hero__stat-label'>{t('perf.myRank')}</Text>
               <Text className='perf-hero__stat-value'>
                 {myRank > 0 ? myRank : '—'}
                 {myRank > 0 && leaderboard.length > 0 ? (
@@ -246,19 +254,19 @@ export default function EmployeePerformancePage() {
         {/* 佣金明细 */}
         <View className='perf-section'>
           <View className='perf-section__head'>
-            <Text className='perf-section__title'>佣金明细</Text>
-            <Text className='perf-section__sub'>{detailRows.length} 笔</Text>
+            <Text className='perf-section__title'>{t('perf.commissionDetail')}</Text>
+            <Text className='perf-section__sub'>{t('common.countBi', { n: detailRows.length })}</Text>
           </View>
 
           {loading && detailRows.length === 0 ? (
             <View className='perf-state perf-state--loading'>
               <View className='perf-state__spinner' />
-              <Text className='perf-state__title'>正在加载</Text>
+              <Text className='perf-state__title'>{t('perf.loading')}</Text>
             </View>
           ) : detailRows.length === 0 ? (
             <View className='perf-state'>
-              <Text className='perf-state__title'>暂无佣金记录</Text>
-              <Text className='perf-state__desc'>签约后系统会自动核算佣金</Text>
+              <Text className='perf-state__title'>{t('perf.noCommissions')}</Text>
+              <Text className='perf-state__desc'>{t('perf.noCommissionsDesc')}</Text>
             </View>
           ) : (
             detailRows.map((c) => {
@@ -276,13 +284,13 @@ export default function EmployeePerformancePage() {
                     </View>
                   </View>
                   <Text className='perf-com__meta'>
-                    {DEAL_TYPE_LABELS[c.deal_type || ''] || c.deal_type || '成交'} ·{' '}
+                    {DEAL_TYPE_LABELS[c.deal_type || ''] || c.deal_type || t('perf.dealFallback')} ·{' '}
                     {lease?.monthly_rent
-                      ? `月租 ${fmtMoney(lease.monthly_rent, lease.currency)}`
-                      : `计佣基数 ${fmtMoney(c.commission_base, c.currency)}`}
+                      ? `${t('lease.monthlyRent')} ${fmtMoney(lease.monthly_rent, lease.currency)}`
+                      : `${t('perf.commissionBase')} ${fmtMoney(c.commission_base, c.currency)}`}
                   </Text>
                   <View className='perf-com__bottom'>
-                    <Text className='perf-com__rate'>佣金 ({fmtRate(c.commission_rate)})</Text>
+                    <Text className='perf-com__rate'>{t('perf.commissionRate', { rate: fmtRate(c.commission_rate) })}</Text>
                     <Text className='perf-com__amount'>
                       {fmtMoney(c.commission_amount, c.currency)}
                     </Text>
@@ -298,20 +306,20 @@ export default function EmployeePerformancePage() {
           <View className='perf-total'>
             <View className='perf-total__cells'>
               <View className='perf-total__cell'>
-                <Text className='perf-total__label'>已结算</Text>
+                <Text className='perf-total__label'>{t('perf.stPaid')}</Text>
                 <Text className='perf-total__value perf-total__value--paid'>
                   {fmtMoney(totals.paid, commissions[0]?.currency)}
                 </Text>
               </View>
               <View className='perf-total__cell'>
-                <Text className='perf-total__label'>待结算</Text>
+                <Text className='perf-total__label'>{t('perf.stPending')}</Text>
                 <Text className='perf-total__value perf-total__value--pending'>
                   {fmtMoney(totals.pending, commissions[0]?.currency)}
                 </Text>
               </View>
             </View>
             <View className='perf-total__sum'>
-              <Text className='perf-total__sum-label'>合计</Text>
+              <Text className='perf-total__sum-label'>{t('perf.total')}</Text>
               <Text className='perf-total__sum-value'>
                 {fmtMoney(totals.total, commissions[0]?.currency)}
               </Text>
@@ -322,13 +330,13 @@ export default function EmployeePerformancePage() {
         {/* 业绩排行榜（原型无此区块，保留真实功能） */}
         <View className='perf-section'>
           <View className='perf-section__head'>
-            <Text className='perf-section__title'>业绩排行榜</Text>
+            <Text className='perf-section__title'>{t('perf.leaderboard')}</Text>
           </View>
 
           {leaderboard.length === 0 ? (
             <View className='perf-state'>
-              <Text className='perf-state__title'>暂无业绩数据</Text>
-              <Text className='perf-state__desc'>完成首单后即可上榜</Text>
+              <Text className='perf-state__title'>{t('perf.noPerfData')}</Text>
+              <Text className='perf-state__desc'>{t('perf.noPerfDataDesc')}</Text>
             </View>
           ) : (
             leaderboard.map((item, index) => {
@@ -341,10 +349,10 @@ export default function EmployeePerformancePage() {
                   <View className='rank-info'>
                     <Text className='rank-name'>
                       {item.full_name || '—'}
-                      {item.is_self ? '（我）' : ''}
+                      {item.is_self ? t('perf.selfMark') : ''}
                     </Text>
                     <Text className='rank-deals'>
-                      {item.position || item.department || ''} · 成交 {item.deals} 单
+                      {item.position || item.department || ''} · {t('perf.dealCount', { n: item.deals })}
                     </Text>
                   </View>
                   <Text className={`rank-amount ${item.is_self ? 'rank-amount--self' : ''}`}>

@@ -58,73 +58,77 @@ interface PropertyItem {
   creator_name?: string | null;
 }
 
-const TYPE_META: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  apartment: { label: '公寓', icon: 'business-outline', color: colors.primary },
-  condo: { label: '公寓', icon: 'business-outline', color: colors.primary },
-  house: { label: '别墅', icon: 'home-outline', color: colors.success },
-  commercial: { label: '商铺', icon: 'storefront-outline', color: colors.warning },
-  office: { label: '写字楼', icon: 'briefcase-outline', color: colors.info },
-};
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
-const STATUS_META: Record<string, { label: string; color: string; rgb: string }> = {
-  vacant: { label: '空置中', color: colors.warning, rgb: colors.warningRgb },
-  rented: { label: '已出租', color: colors.success, rgb: colors.successRgb },
-  reserved: { label: '已预订', color: colors.primary, rgb: colors.primaryRgb },
-  maintenance: { label: '维护中', color: colors.info, rgb: colors.infoRgb },
-  renewing: { label: '续约中', color: colors.primary, rgb: colors.primaryRgb },
-};
+const typeMeta = (t: TFunc): Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> => ({
+  apartment: { label: t('prop.type.apartment'), icon: 'business-outline', color: colors.primary },
+  condo: { label: t('prop.type.apartment'), icon: 'business-outline', color: colors.primary },
+  house: { label: t('prop.type.house'), icon: 'home-outline', color: colors.success },
+  commercial: { label: t('prop.type.commercial'), icon: 'storefront-outline', color: colors.warning },
+  office: { label: t('prop.type.office'), icon: 'briefcase-outline', color: colors.info },
+});
+
+const statusMeta = (t: TFunc): Record<string, { label: string; color: string; rgb: string }> => ({
+  vacant: { label: t('adm.psStatusVacant'), color: colors.warning, rgb: colors.warningRgb },
+  rented: { label: t('status.rented'), color: colors.success, rgb: colors.successRgb },
+  reserved: { label: t('status.reserved'), color: colors.primary, rgb: colors.primaryRgb },
+  maintenance: { label: t('status.maintenance'), color: colors.info, rgb: colors.infoRgb },
+  renewing: { label: t('prop.status.renewing'), color: colors.primary, rgb: colors.primaryRgb },
+});
 
 // 状态筛选（口径与租客端 ListingsScreen 一致：含已预订）
-const CHIPS: { key: string; label: string }[] = [
-  { key: '', label: '全部' },
-  { key: 'vacant', label: '空置' },
-  { key: 'rented', label: '已出租' },
-  { key: 'reserved', label: '已预订' },
-  { key: 'maintenance', label: '维护中' },
+const chips = (t: TFunc): { key: string; label: string }[] => [
+  { key: '', label: t('common.all') },
+  { key: 'vacant', label: t('status.vacant') },
+  { key: 'rented', label: t('status.rented') },
+  { key: 'reserved', label: t('status.reserved') },
+  { key: 'maintenance', label: t('status.maintenance') },
 ];
 
 // 选筛选项（取值口径与 Web / 租客端一致）
-const BEDROOM_OPTIONS: { key: string; label: string }[] = [
-  { key: '', label: '不限房型' },
-  { key: '0', label: '单间' },
-  { key: '1', label: '1室' },
-  { key: '2', label: '2室' },
-  { key: '3', label: '3室及以上' },
+const bedroomOptions = (t: TFunc): { key: string; label: string }[] => [
+  { key: '', label: t('prop.bedroomsAny') },
+  { key: '0', label: t('prop.bedroom.studio') },
+  { key: '1', label: t('prop.bedroomN', { n: 1 }) },
+  { key: '2', label: t('prop.bedroomN', { n: 2 }) },
+  { key: '3', label: t('adm.psBed3plus') },
 ];
 // 价格区间（月租，THB，万 → ×10000）—— 对齐租客端 PRICE_RANGES
-const PRICE_OPTIONS: { key: string; label: string; min: number; max: number }[] = [
-  { key: '', label: '不限价格', min: 0, max: Infinity },
-  { key: 'u3', label: '≤3万', min: 0, max: 30000 },
-  { key: '3-5', label: '3-5万', min: 30000, max: 50000 },
-  { key: '5-8', label: '5-8万', min: 50000, max: 80000 },
-  { key: 'g8', label: '≥8万', min: 80000, max: Infinity },
-  { key: 'custom', label: '自定义', min: 0, max: Infinity },
+const priceOptions = (t: TFunc): { key: string; label: string; min: number; max: number }[] => [
+  { key: '', label: t('prop.priceAny'), min: 0, max: Infinity },
+  { key: 'u3', label: t('prop.priceLt3'), min: 0, max: 30000 },
+  { key: '3-5', label: t('prop.price3to5'), min: 30000, max: 50000 },
+  { key: '5-8', label: t('prop.price5to8'), min: 50000, max: 80000 },
+  { key: 'g8', label: t('prop.priceGt8'), min: 80000, max: Infinity },
+  { key: 'custom', label: t('prop.custom'), min: 0, max: Infinity },
 ];
 // 面积区间（㎡）—— 对齐租客端 AREA_PRESETS
-const AREA_OPTIONS: { key: string; label: string; min: number; max: number }[] = [
-  { key: '', label: '不限面积', min: 0, max: Infinity },
-  { key: 'u50', label: '≤50㎡', min: 0, max: 50 },
-  { key: '50-100', label: '50-100㎡', min: 50, max: 100 },
-  { key: '100-150', label: '100-150㎡', min: 100, max: 150 },
-  { key: '150-200', label: '150-200㎡', min: 150, max: 200 },
-  { key: 'g200', label: '≥200㎡', min: 200, max: Infinity },
-  { key: 'custom', label: '自定义', min: 0, max: Infinity },
+const areaOptions = (t: TFunc): { key: string; label: string; min: number; max: number }[] => [
+  { key: '', label: t('prop.areaAny'), min: 0, max: Infinity },
+  { key: 'u50', label: t('prop.areaLt50'), min: 0, max: 50 },
+  { key: '50-100', label: t('prop.area50to100'), min: 50, max: 100 },
+  { key: '100-150', label: t('prop.area100to150'), min: 100, max: 150 },
+  { key: '150-200', label: t('prop.area150to200'), min: 150, max: 200 },
+  { key: 'g200', label: t('prop.areaGt200'), min: 200, max: Infinity },
+  { key: 'custom', label: t('prop.custom'), min: 0, max: Infinity },
 ];
 // 排序（对齐租客端 SORT_OPTIONS）
-const SORT_OPTIONS: { key: string; label: string }[] = [
-  { key: 'default', label: '默认排序' },
-  { key: 'latest', label: '最新发布' },
-  { key: 'price_asc', label: '价格从低到高' },
-  { key: 'price_desc', label: '价格从高到低' },
-  { key: 'area_desc', label: '面积从大到小' },
+const sortOptions = (t: TFunc): { key: string; label: string }[] => [
+  { key: 'default', label: t('prop.sort.default') },
+  { key: 'latest', label: t('prop.sort.latest') },
+  { key: 'price_asc', label: t('prop.sort.priceLowHigh') },
+  { key: 'price_desc', label: t('prop.sort.priceHighLow') },
+  { key: 'area_desc', label: t('prop.sort.areaDesc') },
 ];
 
 const optionLabel = (opts: { key: string; label: string }[], key: string, fallback: string) =>
   opts.find((o) => o.key === key)?.label ?? fallback;
 
 // 房源标题：优先「小区名 · 房号」（与 C 端一致），缺小区名时回退房号·楼栋
-const adminTitle = (p: PropertyItem) =>
-  p.project_name ? `${p.project_name} · ${p.room_number ?? ''}`.trim() : ([p.room_number, p.building].filter(Boolean).join(' · ') || p.address || '未命名房源');
+const adminTitle = (p: PropertyItem, t: TFunc) =>
+  p.project_name
+    ? `${p.project_name} · ${p.room_number ?? ''}`.trim()
+    : [p.room_number, p.building].filter(Boolean).join(' · ') || p.address || t('list.unnamed');
 
 // 命中区域/地铁关键词：房源地址/标题/房号/城市/区域任一包含即匹配（对齐租客端 matchLocation）
 const matchLocation = (item: any, kws: string[]): boolean =>
@@ -142,6 +146,13 @@ export default function AdminPropertiesScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
+  const TYPE_META = useMemo(() => typeMeta(t), [t]);
+  const STATUS_META = useMemo(() => statusMeta(t), [t]);
+  const CHIPS = useMemo(() => chips(t), [t]);
+  const BEDROOM_OPTIONS = useMemo(() => bedroomOptions(t), [t]);
+  const PRICE_OPTIONS = useMemo(() => priceOptions(t), [t]);
+  const AREA_OPTIONS = useMemo(() => areaOptions(t), [t]);
+  const SORT_OPTIONS = useMemo(() => sortOptions(t), [t]);
   const [items, setItems] = useState<PropertyItem[]>([]);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -285,7 +296,7 @@ export default function AdminPropertiesScreen() {
           setTotal(0);
           setTotalPages(1);
         }
-        notifyError('加载房源失败', e);
+        notifyError(t('adm.psLoadFail'), e);
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -293,7 +304,7 @@ export default function AdminPropertiesScreen() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm],
+    [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm, PRICE_OPTIONS, AREA_OPTIONS],
   );
 
   useEffect(() => {
@@ -344,12 +355,12 @@ export default function AdminPropertiesScreen() {
       // 房源归属只能是内部员工：管理员 / 销售 / 经纪（业主、租客不参与）
       setStaff(list.filter((u) => u.role === 'agent' || u.role === 'employee'));
     } catch (e: any) {
-      notifyError('加载员工列表失败', e);
+      notifyError(t('adm.psLoadStaffFail'), e);
       setStaff([]);
     } finally {
       setStaffLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const openAssign = useCallback(
     (p: PropertyItem) => {
@@ -378,16 +389,16 @@ export default function AdminPropertiesScreen() {
             it.id === assignTarget.id ? { ...it, created_by: employeeId, creator_name: name } : it,
           ),
         );
-        notify(employeeId ? '已指派归属人' : '已收回归属');
+        notify(employeeId ? t('adm.psAssigned') : t('adm.psAssignRevoked'));
         closeAssign();
         fetchCounts();
       } catch (e: any) {
-        notifyError('指派失败', e);
+        notifyError(t('adm.psAssignFail'), e);
       } finally {
         setAssigning(false);
       }
     },
-    [assignTarget, assigning, staff, closeAssign, fetchCounts],
+    [assignTarget, assigning, staff, closeAssign, fetchCounts, t],
   );
 
   const filteredStaff = useMemo(() => {
@@ -501,49 +512,52 @@ export default function AdminPropertiesScreen() {
         key: 'price',
         label: priceRange
           ? priceRange === 'custom'
-            ? '自定义'
-            : optionLabel(PRICE_OPTIONS, priceRange, '价格')
-          : '价格',
+            ? t('prop.custom')
+            : optionLabel(PRICE_OPTIONS, priceRange, t('adm.psFilterPrice'))
+          : t('adm.psFilterPrice'),
         active: !!priceRange,
       },
       {
         key: 'bedrooms',
-        label: bedrooms !== '' ? optionLabel(BEDROOM_OPTIONS, bedrooms, '房型') : '房型',
+        label:
+          bedrooms !== ''
+            ? optionLabel(BEDROOM_OPTIONS, bedrooms, t('adm.psFilterLayout'))
+            : t('adm.psFilterLayout'),
         active: bedrooms !== '',
       },
       {
         key: 'area',
         label: areaRange
           ? areaRange === 'custom'
-            ? '自定义'
-            : optionLabel(AREA_OPTIONS, areaRange, '面积')
-          : '面积',
+            ? t('prop.custom')
+            : optionLabel(AREA_OPTIONS, areaRange, t('adm.psFilterArea'))
+          : t('adm.psFilterArea'),
         active: !!areaRange,
       },
       {
         key: 'school',
-        label: schoolId ? '已选学校' : '学校',
+        label: schoolId ? t('adm.psSchoolSelected') : t('adm.psFilterSchool'),
         active: !!schoolId,
       },
       {
         key: 'sort',
-        label: sort !== 'default' ? optionLabel(SORT_OPTIONS, sort, '排序') : '排序',
+        label: sort !== 'default' ? optionLabel(SORT_OPTIONS, sort, t('adm.psFilterSort')) : t('adm.psFilterSort'),
         active: sort !== 'default',
       },
     ] as { key: string; label: string; active: boolean }[];
-  }, [districtSel, metroSel.length, priceRange, bedrooms, areaRange, schoolId, sort]);
+  }, [districtSel, metroSel.length, priceRange, bedrooms, areaRange, schoolId, sort, PRICE_OPTIONS, BEDROOM_OPTIONS, AREA_OPTIONS, SORT_OPTIONS, t]);
 
   const renderPropertyCard = (p: PropertyItem) => {
     const type = TYPE_META[p.property_type ?? 'apartment'] ?? TYPE_META.apartment;
     const meta = STATUS_META[p.status ?? 'vacant'] ?? {
-      label: p.status ?? '未知',
+      label: p.status ?? t('common.unknown'),
       color: colors.ink2,
       rgb: colors.primaryRgb,
     };
     const spec = [
       p.size_sqm ? `${p.size_sqm}㎡` : null,
-      p.bedrooms ? `${p.bedrooms} 卧` : null,
-      p.bathrooms ? `${p.bathrooms} 浴` : null,
+      p.bedrooms ? t('adm.psSpecBed', { n: p.bedrooms }) : null,
+      p.bathrooms ? t('adm.psSpecBath', { n: p.bathrooms }) : null,
     ]
       .filter(Boolean)
       .join(' · ');
@@ -571,18 +585,18 @@ export default function AdminPropertiesScreen() {
           onPress={() => navigation.navigate('PropertyEdit', { id: p.id })}
         >
           <Text style={styles.name} numberOfLines={1}>
-            {adminTitle(p)}
+            {adminTitle(p, t)}
           </Text>
           <View style={styles.addrRow}>
             <Ionicons name="location-outline" size={13} color={colors.ink3} />
-            <Text style={styles.addr} numberOfLines={1}>{p.address || '暂无地址'}</Text>
+            <Text style={styles.addr} numberOfLines={1}>{p.address || t('prop.noAddress')}</Text>
           </View>
           {!!spec && <Text style={styles.spec}>{spec}</Text>}
           <View style={styles.priceRow}>
             <Text style={styles.price}>
               {currencySymbol(p.currency)}
               {Number(p.monthly_rent || 0).toLocaleString()}
-              <Text style={styles.priceUnit}> /月</Text>
+              <Text style={styles.priceUnit}>{` ${t('mkt.perMonth')}`}</Text>
             </Text>
           </View>
           {/* 归属人：历史房源 created_by 为空，仅管理员可见并可由管理员指派 */}
@@ -592,7 +606,7 @@ export default function AdminPropertiesScreen() {
               style={[styles.ownerText, !p.creator_name && styles.ownerTextEmpty]}
               numberOfLines={1}
             >
-              {p.creator_name ?? '未指派'}
+              {p.creator_name ?? t('adm.psUnassigned')}
             </Text>
           </View>
         </TouchableOpacity>
@@ -603,24 +617,24 @@ export default function AdminPropertiesScreen() {
             activeOpacity={0.7}
             onPress={() => navigation.navigate('AdminPropertyDetail', { id: p.id })}
           >
-            <Text style={styles.manageText}>管理</Text>
+            <Text style={styles.manageText}>{t('adm.psManage')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.assignBtn}
             activeOpacity={0.7}
             onPress={() => openAssign(p)}
             accessibilityRole="button"
-            accessibilityLabel="指派归属人"
+            accessibilityLabel={t('adm.psAssignTitle')}
           >
             <Ionicons name="person-add-outline" size={15} color={colors.primary} />
-            <Text style={styles.assignText}>指派</Text>
+            <Text style={styles.assignText}>{t('adm.psAssign')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.deleteBtn}
             activeOpacity={0.7}
             onPress={() => doDelete(p)}
             accessibilityRole="button"
-            accessibilityLabel="删除房源"
+            accessibilityLabel={t('prop.deleteTitle')}
           >
             <Ionicons name="trash-outline" size={18} color={colors.error} />
           </TouchableOpacity>
@@ -661,7 +675,7 @@ export default function AdminPropertiesScreen() {
             style={styles.searchInput}
             value={keyword}
             onChangeText={setKeyword}
-            placeholder="搜索房源名称/地址"
+            placeholder={t('adm.psSearchPh')}
             placeholderTextColor={colors.ink3}
             returnKeyType="search"
           />
@@ -670,7 +684,7 @@ export default function AdminPropertiesScreen() {
               onPress={() => setKeyword('')}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="清除搜索"
+              accessibilityLabel={t('adm.psClearSearch')}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons name="close-circle" size={18} color={colors.ink3} />
@@ -682,10 +696,10 @@ export default function AdminPropertiesScreen() {
           activeOpacity={0.8}
           onPress={() => navigation.navigate('PropertyEdit', { mode: 'create' })}
           accessibilityRole="button"
-          accessibilityLabel="新增房源"
+          accessibilityLabel={t('adm.psAddProperty')}
         >
           <Ionicons name="add" size={16} color={colors.primaryForeground} />
-          <Text style={styles.addBtnText}>新增</Text>
+          <Text style={styles.addBtnText}>{t('adm.psAdd')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -781,26 +795,26 @@ export default function AdminPropertiesScreen() {
       )}
       {activeFilter === 'price' && priceRange === 'custom' && (
         <View style={styles.customRow}>
-          <Text style={styles.customLabel}>最低</Text>
+          <Text style={styles.customLabel}>{t('adm.psMin')}</Text>
           <TextInput
             style={styles.customInput}
             value={priceCustomMin}
             onChangeText={setPriceCustomMin}
             keyboardType="numeric"
-            placeholder="如 3"
+            placeholder={t('adm.psEg3')}
             placeholderTextColor={colors.ink3}
           />
           <Text style={styles.customSep}>-</Text>
-          <Text style={styles.customLabel}>最高</Text>
+          <Text style={styles.customLabel}>{t('adm.psMax')}</Text>
           <TextInput
             style={styles.customInput}
             value={priceCustomMax}
             onChangeText={setPriceCustomMax}
             keyboardType="numeric"
-            placeholder="如 8"
+            placeholder={t('adm.psEg8')}
             placeholderTextColor={colors.ink3}
           />
-          <Text style={styles.customLabel}>万/月</Text>
+          <Text style={styles.customLabel}>{t('adm.psWanPerMonth')}</Text>
         </View>
       )}
 
@@ -820,23 +834,23 @@ export default function AdminPropertiesScreen() {
       )}
       {activeFilter === 'area' && areaRange === 'custom' && (
         <View style={styles.customRow}>
-          <Text style={styles.customLabel}>最小</Text>
+          <Text style={styles.customLabel}>{t('adm.psMinArea')}</Text>
           <TextInput
             style={styles.customInput}
             value={areaCustomMin}
             onChangeText={setAreaCustomMin}
             keyboardType="numeric"
-            placeholder="如 60"
+            placeholder={t('adm.psEg60')}
             placeholderTextColor={colors.ink3}
           />
           <Text style={styles.customSep}>-</Text>
-          <Text style={styles.customLabel}>最大</Text>
+          <Text style={styles.customLabel}>{t('adm.psMaxArea')}</Text>
           <TextInput
             style={styles.customInput}
             value={areaCustomMax}
             onChangeText={setAreaCustomMax}
             keyboardType="numeric"
-            placeholder="如 120"
+            placeholder={t('adm.psEg120')}
             placeholderTextColor={colors.ink3}
           />
         </View>
@@ -861,19 +875,19 @@ export default function AdminPropertiesScreen() {
       {activeFilter === 'location' && (
         <View>
           <View style={styles.customRow}>
-            {(['area', 'metro'] as const).map((t) => (
+            {(['area', 'metro'] as const).map((tb) => (
               <TouchableOpacity
-                key={t}
-                style={[styles.locTabChip, locTab === t && styles.locTabChipActive]}
+                key={tb}
+                style={[styles.locTabChip, locTab === tb && styles.locTabChipActive]}
                 activeOpacity={0.7}
                 onPress={() => {
-                  if (t === 'metro') setMetroDraft(metroSel);
+                  if (tb === 'metro') setMetroDraft(metroSel);
                   else echoAreaDrill();
-                  setLocTab(t);
+                  setLocTab(tb);
                 }}
               >
-                <Text style={[styles.locTabText, locTab === t && styles.locTabTextActive]}>
-                  {t === 'area' ? '区域' : '地铁'}
+                <Text style={[styles.locTabText, locTab === tb && styles.locTabTextActive]}>
+                  {tb === 'area' ? t('prop.area') : t('list.metro')}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -918,7 +932,7 @@ export default function AdminPropertiesScreen() {
                         activeOpacity={0.7}
                         onPress={() => setDistrictSel(null)}
                       >
-                        <Text style={[styles.optChipText, districtSel === null && styles.optChipTextActive]}>不限</Text>
+                        <Text style={[styles.optChipText, districtSel === null && styles.optChipTextActive]}>{t('common.any')}</Text>
                       </TouchableOpacity>
                       {activeAreaGroup.children.map((d) => (
                         <TouchableOpacity
@@ -955,7 +969,7 @@ export default function AdminPropertiesScreen() {
             </View>
           ) : (
             <>
-              <Text style={styles.locGroupLabel}>线路</Text>
+              <Text style={styles.locGroupLabel}>{t('adm.psMetroLine')}</Text>
               <View style={[styles.optRow, styles.locLineRow]}>
                 {METRO_LINES.map((l) => (
                   <TouchableOpacity
@@ -971,7 +985,9 @@ export default function AdminPropertiesScreen() {
                 ))}
               </View>
               <Text style={styles.locGroupLabel}>
-                站点{metroDraft.length ? ` · 已选 ${metroDraft.length}` : ''}
+                {metroDraft.length
+                  ? t('adm.psStationSelected', { n: metroDraft.length })
+                  : t('adm.psStation')}
               </Text>
               <View style={styles.optRow}>
                 {METRO_LINES.find((l) => l.key === metroLine)?.stations.map((s) => (
@@ -989,10 +1005,10 @@ export default function AdminPropertiesScreen() {
               </View>
               <View style={styles.customRow}>
                 <TouchableOpacity style={styles.optChip} activeOpacity={0.7} onPress={() => setMetroDraft([])}>
-                  <Text style={styles.optChipText}>清除</Text>
+                  <Text style={styles.optChipText}>{t('adm.psClear')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.optChip, styles.locConfirmBtn]} activeOpacity={0.7} onPress={() => setMetroSel(metroDraft)}>
-                  <Text style={styles.optChipText}>确定</Text>
+                  <Text style={styles.optChipText}>{t('common.confirm')}</Text>
                 </TouchableOpacity>
               </View>
             </>
@@ -1003,7 +1019,7 @@ export default function AdminPropertiesScreen() {
       {/* 学校（C 端维度：按学校 + 半径找房） */}
       {activeFilter === 'school' && (
         <View style={styles.schoolPanel}>
-          <Text style={styles.locGroupLabel}>距离</Text>
+          <Text style={styles.locGroupLabel}>{t('adm.psDistance')}</Text>
           <View style={styles.optRow}>
             {SCHOOL_RADIUS_OPTIONS.map((kmv) => (
               <TouchableOpacity
@@ -1024,13 +1040,13 @@ export default function AdminPropertiesScreen() {
               style={styles.schoolSearchInput}
               value={schoolKw}
               onChangeText={setSchoolKw}
-              placeholder="搜索学校名称"
+              placeholder={t('prop.searchSchool')}
               placeholderTextColor={colors.ink3}
             />
           </View>
           <ScrollView style={styles.schoolList} keyboardShouldPersistTaps="handled">
             {filteredSchools.length === 0 ? (
-              <Text style={styles.schoolEmpty}>未找到相关学校</Text>
+              <Text style={styles.schoolEmpty}>{t('adm.psNoSchool')}</Text>
             ) : (
               filteredSchools.map((s) => {
                 const active = schoolId === s.id;
@@ -1061,7 +1077,7 @@ export default function AdminPropertiesScreen() {
             }}
             style={styles.schoolReset}
           >
-            <Text style={styles.schoolResetText}>不限（清除学校）</Text>
+            <Text style={styles.schoolResetText}>{t('adm.psClearSchool')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1070,32 +1086,32 @@ export default function AdminPropertiesScreen() {
       {/* 统计行 */}
       <View style={styles.statRow}>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>总房源</Text>
+          <Text style={styles.statLabel}>{t('adm.psTotal')}</Text>
           <Text style={[styles.statValue, { color: colors.primary }]}>{total}</Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>空置</Text>
+          <Text style={styles.statLabel}>{t('status.vacant')}</Text>
           <Text style={[styles.statValue, { color: colors.warning }]}>{counts.vacant ?? 0}</Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>已出租</Text>
+          <Text style={styles.statLabel}>{t('status.rented')}</Text>
           <Text style={[styles.statValue, { color: colors.success }]}>{counts.rented ?? 0}</Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>维护中</Text>
+          <Text style={styles.statLabel}>{t('status.maintenance')}</Text>
           <Text style={[styles.statValue, { color: colors.info }]}>{counts.maintenance ?? 0}</Text>
         </View>
       </View>
 
       {/* 房源列表 */}
-      <Text style={styles.sectionTitle}>房源列表</Text>
+      <Text style={styles.sectionTitle}>{t('adm.psListTitle')}</Text>
         </>
       }
       ListEmptyComponent={
         <EmptyState
           icon="business-outline"
-          title={keyword || activeLocationKw.length ? '没有找到房源' : '暂无房源'}
-          sub={keyword || activeLocationKw.length ? '换个名称、地址或筛选条件试试' : '新增房源后会展示在这里'}
+          title={keyword || activeLocationKw.length ? t('adm.psEmptyFilterTitle') : t('adm.psEmptyTitle')}
+          sub={keyword || activeLocationKw.length ? t('adm.psEmptyFilterSub') : t('adm.psEmptySub')}
         />
       }
       ListFooterComponent={
@@ -1112,19 +1128,19 @@ export default function AdminPropertiesScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>指派归属人</Text>
+              <Text style={styles.modalTitle}>{t('adm.psAssignTitle')}</Text>
               <TouchableOpacity
                 onPress={closeAssign}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel="关闭"
+                accessibilityLabel={t('common.close')}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <Ionicons name="close" size={20} color={colors.ink3} />
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSub} numberOfLines={1}>
-              {assignTarget ? adminTitle(assignTarget) : ''}
+              {assignTarget ? adminTitle(assignTarget, t) : ''}
             </Text>
 
             <View style={styles.modalSearch}>
@@ -1133,7 +1149,7 @@ export default function AdminPropertiesScreen() {
                 style={styles.modalSearchInput}
                 value={staffKw}
                 onChangeText={setStaffKw}
-                placeholder="搜索员工姓名"
+                placeholder={t('adm.psSearchStaffPh')}
                 placeholderTextColor={colors.ink3}
               />
             </View>
@@ -1144,7 +1160,7 @@ export default function AdminPropertiesScreen() {
                   <ActivityIndicator color={colors.primary} />
                 </View>
               ) : filteredStaff.length === 0 ? (
-                <Text style={styles.modalEmpty}>未找到可指派的员工</Text>
+                <Text style={styles.modalEmpty}>{t('adm.psNoStaff')}</Text>
               ) : (
                 filteredStaff.map((s) => {
                   const active = assignTarget?.created_by === s.id;
@@ -1158,10 +1174,10 @@ export default function AdminPropertiesScreen() {
                     >
                       <View style={styles.modalItemBody}>
                         <Text style={styles.modalItemTitle} numberOfLines={1}>
-                          {s.full_name || '未命名员工'}
+                          {s.full_name || t('adm.psUnnamedStaff')}
                         </Text>
                         <Text style={styles.modalItemSub}>
-                          {s.role === 'employee' ? '经纪' : '销售'}
+                          {s.role === 'employee' ? t('adm.psRoleEmployee') : t('adm.psRoleSales')}
                         </Text>
                       </View>
                       {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
@@ -1180,7 +1196,7 @@ export default function AdminPropertiesScreen() {
               <Text
                 style={[styles.modalClearText, !assignTarget?.created_by && styles.modalClearTextDisabled]}
               >
-                收回归属（仅管理员可见）
+                {t('adm.psRevoke')}
               </Text>
             </TouchableOpacity>
           </View>

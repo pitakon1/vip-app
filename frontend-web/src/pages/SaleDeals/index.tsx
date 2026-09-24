@@ -1,53 +1,54 @@
 import { useEffect, useState } from 'react'
 import { Empty, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { saleListingApi, propertyDealApi } from '@/services/api'
 import { useCachedQuery } from '@/lib/queryCache'
 
 /* ===== 看板列定义（覆盖全部挂牌状态） ===== */
 const LISTING_KANBAN_COLUMNS: { key: string; title: string; statuses: string[] }[] = [
-  { key: 'active', title: '在售', statuses: ['active'] },
-  { key: 'pending', title: '待审', statuses: ['pending'] },
-  { key: 'contracted', title: '已签约', statuses: ['contracted'] },
-  { key: 'closed', title: '已成交', statuses: ['closed'] },
-  { key: 'ended', title: '已取消 / 已过期', statuses: ['cancelled', 'expired'] },
+  { key: 'active', title: 'saleDeals.stActive', statuses: ['active'] },
+  { key: 'pending', title: 'saleDeals.stPending', statuses: ['pending'] },
+  { key: 'contracted', title: 'saleDeals.stContracted', statuses: ['contracted'] },
+  { key: 'closed', title: 'saleDeals.stClosed', statuses: ['closed'] },
+  { key: 'ended', title: 'saleDeals.stCancelledExpired', statuses: ['cancelled', 'expired'] },
 ]
 
 /* ===== 常量与翻译 ===== */
 const LISTING_STATUS: Record<string, { label: string; badge: string }> = {
-  active: { label: '在售', badge: 'rent-badge--success' },
-  pending: { label: '待审', badge: 'rent-badge--info' },
-  contracted: { label: '已签约', badge: 'rent-badge--primary' },
-  closed: { label: '已成交', badge: 'rent-badge--success' },
-  cancelled: { label: '已取消', badge: 'rent-badge--neutral' },
-  expired: { label: '已过期', badge: 'rent-badge--neutral' },
+  active: { label: 'saleDeals.stActive', badge: 'rent-badge--success' },
+  pending: { label: 'saleDeals.stPending', badge: 'rent-badge--info' },
+  contracted: { label: 'saleDeals.stContracted', badge: 'rent-badge--primary' },
+  closed: { label: 'saleDeals.stClosed', badge: 'rent-badge--success' },
+  cancelled: { label: 'saleDeals.stCancelled', badge: 'rent-badge--neutral' },
+  expired: { label: 'saleDeals.stExpired', badge: 'rent-badge--neutral' },
 }
 
-const SALE_TYPE: Record<string, string> = { buy: '挂买', sell: '挂卖' }
+const SALE_TYPE: Record<string, string> = { buy: 'saleDeals.typeBuy', sell: 'saleDeals.typeSell' }
 
 const DEAL_STATUS: Record<string, { label: string; badge: string }> = {
-  drafted: { label: '草稿', badge: 'rent-badge--neutral' },
-  escrow_pending: { label: '托管中', badge: 'rent-badge--info' },
-  signed: { label: '已签署', badge: 'rent-badge--primary' },
-  transferring: { label: '过户中', badge: 'rent-badge--warning' },
-  completed: { label: '已完成', badge: 'rent-badge--success' },
-  failed: { label: '失败', badge: 'rent-badge--error' },
-  cancelled: { label: '已取消', badge: 'rent-badge--neutral' },
+  drafted: { label: 'saleDeals.dealDrafted', badge: 'rent-badge--neutral' },
+  escrow_pending: { label: 'saleDeals.dealEscrowPending', badge: 'rent-badge--info' },
+  signed: { label: 'saleDeals.dealSigned', badge: 'rent-badge--primary' },
+  transferring: { label: 'saleDeals.dealTransferring', badge: 'rent-badge--warning' },
+  completed: { label: 'saleDeals.dealCompleted', badge: 'rent-badge--success' },
+  failed: { label: 'saleDeals.dealFailed', badge: 'rent-badge--error' },
+  cancelled: { label: 'saleDeals.dealCancelled', badge: 'rent-badge--neutral' },
 }
 
 const ESCROW_STATUS: Record<string, { label: string; badge: string }> = {
-  deposited: { label: '已托管', badge: 'rent-badge--info' },
-  held: { label: '冻结中', badge: 'rent-badge--warning' },
-  released_seller: { label: '已放款·卖方', badge: 'rent-badge--success' },
-  refunded_buyer: { label: '已退款·买方', badge: 'rent-badge--neutral' },
+  deposited: { label: 'saleDeals.escrowDeposited', badge: 'rent-badge--info' },
+  held: { label: 'saleDeals.escrowHeld', badge: 'rent-badge--warning' },
+  released_seller: { label: 'saleDeals.escrowReleasedSeller', badge: 'rent-badge--success' },
+  refunded_buyer: { label: 'saleDeals.escrowRefundedBuyer', badge: 'rent-badge--neutral' },
 }
 
 const MORTGAGE_STATUS: Record<string, { label: string; badge: string }> = {
-  applied: { label: '已申请', badge: 'rent-badge--info' },
-  under_review: { label: '审核中', badge: 'rent-badge--warning' },
-  pre_approved: { label: '预审批', badge: 'rent-badge--info' },
-  approved: { label: '已审批', badge: 'rent-badge--success' },
-  disbursed: { label: '已放款', badge: 'rent-badge--success' },
-  rejected: { label: '已拒绝', badge: 'rent-badge--error' },
+  applied: { label: 'saleDeals.mortApplied', badge: 'rent-badge--info' },
+  under_review: { label: 'saleDeals.mortUnderReview', badge: 'rent-badge--warning' },
+  pre_approved: { label: 'saleDeals.mortPreApproved', badge: 'rent-badge--info' },
+  approved: { label: 'saleDeals.mortApproved', badge: 'rent-badge--success' },
+  disbursed: { label: 'saleDeals.mortDisbursed', badge: 'rent-badge--success' },
+  rejected: { label: 'saleDeals.mortRejected', badge: 'rent-badge--error' },
 }
 
 const fmtMoney = (v?: number) =>
@@ -84,13 +85,14 @@ interface Escrow { id: string; deal_id?: string; amount?: number; currency?: str
 interface Mortgage { id: string; bank?: string; loan_amount?: number; currency?: string; term_months?: number; status?: string; status_at?: string }
 
 const TABS = [
-  { key: 'listing', label: '售房挂牌' },
-  { key: 'deal', label: '产权成交' },
-  { key: 'escrow', label: '定金托管' },
-  { key: 'mortgage', label: '按揭' },
+  { key: 'listing', label: 'saleDeals.tabListing' },
+  { key: 'deal', label: 'saleDeals.tabDeal' },
+  { key: 'escrow', label: 'saleDeals.tabEscrow' },
+  { key: 'mortgage', label: 'saleDeals.tabMortgage' },
 ]
 
 const SaleDeals = () => {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('listing')
   const [listingCreateOpen, setListingCreateOpen] = useState(false)
 
@@ -98,28 +100,28 @@ const SaleDeals = () => {
     <div className="rent-main">
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">买卖交易闭环</h2>
+          <h2 className="rent-page-header__title">{t('saleDeals.title')}</h2>
           <p className="rent-page-header__subtitle">
-            从挂牌、估价、产权成交到定金托管与按揭审批的全流程管理
+            {t('saleDeals.subtitle')}
           </p>
         </div>
         {activeTab === 'listing' && (
           <div className="rent-page-header__actions">
-            <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setListingCreateOpen(true)}>+ 发布挂牌</button>
+            <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setListingCreateOpen(true)}>{t('saleDeals.btnPublishListing')}</button>
           </div>
         )}
       </div>
 
       <div className="rent-tabs">
-        {TABS.map((t) => (
+        {TABS.map((t2) => (
           <button
-            key={t.key}
+            key={t2.key}
             type="button"
             className="rent-tab"
-            data-active={activeTab === t.key}
-            onClick={() => { setActiveTab(t.key); setListingCreateOpen(false) }}
+            data-active={activeTab === t2.key}
+            onClick={() => { setActiveTab(t2.key); setListingCreateOpen(false) }}
           >
-            {t.label}
+            {t(t2.label)}
           </button>
         ))}
       </div>
@@ -134,6 +136,7 @@ const SaleDeals = () => {
 
 /* ===== 售房挂牌 Tab ===== */
 const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const [saleType, setSaleType] = useState('')
   const [status, setStatus] = useState('')
@@ -158,14 +161,14 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
   const refresh = () => { void listingsQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
-    if (listingsQ.isError) message.error((listingsQ.error as any)?.response?.data?.message || '获取挂牌列表失败')
+    if (listingsQ.isError) message.error((listingsQ.error as any)?.response?.data?.message || t('saleDeals.errFetchListings'))
   }, [listingsQ.isError, listingsQ.error])
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
   const handleCreate = async () => {
     if (!form.title || !form.asking_price) {
-      message.error('请填写标题与挂牌价')
+      message.error(t('saleDeals.errTitlePriceRequired'))
       return
     }
     setSubmitting(true)
@@ -181,12 +184,12 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
         bathrooms: form.bathrooms ? Number(form.bathrooms) : undefined,
         description: form.description || undefined,
       })
-      message.success('挂牌已发布')
+      message.success(t('saleDeals.msgListingPublished'))
       onOpenChange(false)
       setForm({ title: '', sale_type: 'sell', asking_price: '', currency: 'THB', address: '', size_sqm: '', bedrooms: '', bathrooms: '', description: '' })
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '发布失败')
+      message.error(e?.response?.data?.message || t('saleDeals.errPublishFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -195,10 +198,10 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
   const changeStatus = async (id: string, s: string) => {
     try {
       await saleListingApi.updateStatus(id, s)
-      message.success('状态已更新')
+      message.success(t('saleDeals.msgStatusUpdated'))
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '更新失败')
+      message.error(e?.response?.data?.message || t('saleDeals.errUpdateFailed'))
     }
   }
 
@@ -207,7 +210,7 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       const res = await saleListingApi.valuations(listing.id)
       setValOpen({ listing, items: res.data ?? [] })
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '获取估价失败')
+      message.error(e?.response?.data?.message || t('saleDeals.errFetchValuations'))
     }
   }
 
@@ -216,35 +219,35 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
   return (
     <>
       <div className="rent-filter-bar">
-        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 120 }} aria-label="类型" value={saleType} onChange={(e) => { setSaleType(e.target.value); setPage(1) }}>
-          <option value="">全部类型</option>
-          <option value="sell">挂卖</option>
-          <option value="buy">挂买</option>
+        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 120 }} aria-label={t('saleDeals.colType')} value={saleType} onChange={(e) => { setSaleType(e.target.value); setPage(1) }}>
+          <option value="">{t('saleDeals.allTypes')}</option>
+          <option value="sell">{t('saleDeals.typeSell')}</option>
+          <option value="buy">{t('saleDeals.typeBuy')}</option>
         </select>
-        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 130 }} aria-label="状态" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
-          <option value="">全部状态</option>
+        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 130 }} aria-label={t('saleDeals.colStatus')} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
+          <option value="">{t('saleDeals.allStatuses')}</option>
           {Object.keys(LISTING_STATUS).map((k) => (
-            <option key={k} value={k}>{LISTING_STATUS[k].label}</option>
+            <option key={k} value={k}>{t(LISTING_STATUS[k].label)}</option>
           ))}
         </select>
         <div style={{ flex: 1 }} />
         <div className="rent-chart-range-group">
-          <button type="button" className={`rent-chart-range${view === 'kanban' ? ' rent-chart-range--active' : ''}`} onClick={() => setView('kanban')}>看板视图</button>
-          <button type="button" className={`rent-chart-range${view === 'list' ? ' rent-chart-range--active' : ''}`} onClick={() => setView('list')}>列表视图</button>
+          <button type="button" className={`rent-chart-range${view === 'kanban' ? ' rent-chart-range--active' : ''}`} onClick={() => setView('kanban')}>{t('saleDeals.viewKanban')}</button>
+          <button type="button" className={`rent-chart-range${view === 'list' ? ' rent-chart-range--active' : ''}`} onClick={() => setView('list')}>{t('saleDeals.viewList')}</button>
         </div>
       </div>
 
       <div className="rent-card">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">挂牌列表</h3>
-          <span className="rent-badge rent-badge--neutral">共 {total} 条</span>
+          <h3 className="rent-card__title">{t('saleDeals.cardListings')}</h3>
+          <span className="rent-badge rent-badge--neutral">{t('saleDeals.totalCount', { count: total })}</span>
         </div>
         <div className="rent-card__body" style={{ padding: 0 }}>
           {loading ? (
-            <div className="rent-empty rent-text-muted">加载中...</div>
+            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
           ) : view === 'kanban' ? (
             items.length === 0 ? (
-              <div className="rent-empty"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无挂牌数据" /></div>
+              <div className="rent-empty"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('saleDeals.emptyListings')} /></div>
             ) : (
               <div className="rent-kanban" style={{ padding: '18px 22px' }}>
                 {LISTING_KANBAN_COLUMNS.map((col) => {
@@ -252,7 +255,7 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
                   return (
                     <div className="rent-kanban__column" key={col.key}>
                       <div className="rent-kanban__column-header">
-                        <span className="rent-kanban__column-title">{col.title}</span>
+                        <span className="rent-kanban__column-title">{t(col.title)}</span>
                         <span className="rent-kanban__column-count">{colItems.length}</span>
                       </div>
                       {colItems.length === 0 ? (
@@ -264,9 +267,9 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
                             {it.currency ? `${it.currency} ` : ''}{fmtMoney(it.asking_price)}
                           </div>
                           <div style={{ fontSize: 12, color: 'var(--rent-ink-3)' }}>
-                            {SALE_TYPE[it.sale_type || ''] || '—'}
+                            {SALE_TYPE[it.sale_type || ''] ? t(SALE_TYPE[it.sale_type || '']) : '—'}
                             {it.size_sqm != null ? ` · ${it.size_sqm}㎡` : ''}
-                            {it.bedrooms != null ? ` · ${it.bedrooms}室` : ''}
+                            {it.bedrooms != null ? ` · ${it.bedrooms}${t('saleDeals.unitRoomSuffix')}` : ''}
                           </div>
                         </div>
                       ))}
@@ -276,13 +279,13 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
               </div>
             )
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">暂无挂牌数据</div>
+            <div className="rent-empty rent-text-muted">{t('saleDeals.emptyListings')}</div>
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
                 <thead>
                   <tr>
-                    <th>标题</th><th>类型</th><th>挂牌价</th><th>币种</th><th>面积(㎡)</th><th>状态</th><th>操作</th>
+                    <th>{t('saleDeals.colTitle')}</th><th>{t('saleDeals.colType')}</th><th>{t('saleDeals.colAskingPrice')}</th><th>{t('saleDeals.colCurrency')}</th><th>{t('saleDeals.colSize')}</th><th>{t('saleDeals.colStatus')}</th><th>{t('saleDeals.colAction')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -291,21 +294,21 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
                     return (
                       <tr key={it.id}>
                         <td>{it.title || it.address || '—'}</td>
-                        <td>{SALE_TYPE[it.sale_type || ''] || '—'}</td>
+                        <td>{SALE_TYPE[it.sale_type || ''] ? t(SALE_TYPE[it.sale_type || '']) : '—'}</td>
                         <td className="rent-num">{fmtMoney(it.asking_price)}</td>
                         <td>{it.currency || '—'}</td>
                         <td className="rent-num">{it.size_sqm ?? '—'}</td>
-                        <td><span className={`rent-badge ${st.badge}`}>{st.label}</span></td>
+                        <td><span className={`rent-badge ${st.badge}`}>{t(st.label)}</span></td>
                         <td>
                           <div className="rent-flex rent-gap-2">
-                            <select className="rent-form-select" style={{ width: 96, minWidth: 96 }} aria-label="推进状态" value="" onChange={(e) => e.target.value && changeStatus(it.id, e.target.value)}>
-                              <option value="">改状态</option>
+                            <select className="rent-form-select" style={{ width: 96, minWidth: 96 }} aria-label={t('saleDeals.labelAdvanceStatus')} value="" onChange={(e) => e.target.value && changeStatus(it.id, e.target.value)}>
+                              <option value="">{t('saleDeals.optChangeStatus')}</option>
                               {Object.keys(LISTING_STATUS).map((k) => (
-                                <option key={k} value={k}>{LISTING_STATUS[k].label}</option>
+                                <option key={k} value={k}>{t(LISTING_STATUS[k].label)}</option>
                               ))}
                             </select>
                             <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openValuation(it)}>
-                              估价 {shortId(it.id)}
+                              {t('saleDeals.btnValuation', { id: shortId(it.id) })}
                             </button>
                           </div>
                         </td>
@@ -317,10 +320,10 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
             </div>
           )}
           <div className="rent-pagination" style={{ marginTop: 14, padding: '0 22px 16px' }}>
-            <span className="rent-pagination__info">共 {total} 条 · 每页 10 条</span>
-            <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>上一页</button>
+            <span className="rent-pagination__info">{t('saleDeals.totalPerPage', { count: total })}</span>
+            <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>{t('saleDeals.prevPage')}</button>
             <span className="rent-pagination__info">{page}</span>
-            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>下一页</button>
+            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>{t('saleDeals.nextPage')}</button>
           </div>
         </div>
       </div>
@@ -328,56 +331,56 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       {createOpen && (
         <div className="rent-modal-backdrop" onClick={() => onOpenChange(false)}>
           <div className="rent-modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
-            <div className="rent-modal__header"><h3 className="rent-card__title">发布挂牌</h3></div>
+            <div className="rent-modal__header"><h3 className="rent-card__title">{t('saleDeals.modalPublishListing')}</h3></div>
             <div className="rent-modal__body">
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">标题 *</label>
-                  <input className="rent-form-input" value={form.title} onChange={setField('title')} placeholder="例如：曼谷素坤逸 2 房公寓" />
+                  <label className="rent-form-label">{t('saleDeals.labelTitle')}</label>
+                  <input className="rent-form-input" value={form.title} onChange={setField('title')} placeholder={t('saleDeals.phTitle')} />
                 </div>
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">类型</label>
+                  <label className="rent-form-label">{t('saleDeals.colType')}</label>
                   <select className="rent-form-select" value={form.sale_type} onChange={setField('sale_type')}>
-                    <option value="sell">挂卖</option><option value="buy">挂买</option>
+                    <option value="sell">{t('saleDeals.typeSell')}</option><option value="buy">{t('saleDeals.typeBuy')}</option>
                   </select>
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">币种</label>
+                  <label className="rent-form-label">{t('saleDeals.colCurrency')}</label>
                   <input className="rent-form-input" value={form.currency} onChange={setField('currency')} />
                 </div>
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">挂牌价 *</label>
+                  <label className="rent-form-label">{t('saleDeals.labelAskingPrice')}</label>
                   <input className="rent-form-input" type="number" value={form.asking_price} onChange={setField('asking_price')} />
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">面积(㎡)</label>
+                  <label className="rent-form-label">{t('saleDeals.colSize')}</label>
                   <input className="rent-form-input" type="number" value={form.size_sqm} onChange={setField('size_sqm')} />
                 </div>
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">卧室</label>
+                  <label className="rent-form-label">{t('saleDeals.labelBedrooms')}</label>
                   <input className="rent-form-input" type="number" value={form.bedrooms} onChange={setField('bedrooms')} />
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">卫生间</label>
+                  <label className="rent-form-label">{t('saleDeals.labelBathrooms')}</label>
                   <input className="rent-form-input" type="number" value={form.bathrooms} onChange={setField('bathrooms')} />
                 </div>
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">地址</label>
+                  <label className="rent-form-label">{t('saleDeals.labelAddress')}</label>
                   <input className="rent-form-input" value={form.address} onChange={setField('address')} />
                 </div>
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => onOpenChange(false)}>取消</button>
-              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? '发布中...' : '发布'}</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => onOpenChange(false)}>{t('common.cancel')}</button>
+              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? t('saleDeals.btnPublishing') : t('saleDeals.btnPublish')}</button>
             </div>
           </div>
         </div>
@@ -387,16 +390,16 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
         <div className="rent-modal-backdrop" onClick={() => setValOpen(null)}>
           <div className="rent-modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">AVM 估价 · {valOpen.listing.title || shortId(valOpen.listing.id)}</h3>
+              <h3 className="rent-card__title">{t('saleDeals.modalAvmTitle', { name: valOpen.listing.title || shortId(valOpen.listing.id) })}</h3>
             </div>
             <div className="rent-modal__body">
-              <label className="rent-form-label">估价记录</label>
+              <label className="rent-form-label">{t('saleDeals.labelValuationRecords')}</label>
               <div className="rent-table-wrap" style={{ marginBottom: 16 }}>
                 <table className="rent-table">
-                  <thead><tr><th>方法</th><th style={{ textAlign: 'right' }}>估值</th><th style={{ textAlign: 'right' }}>低/高</th><th>置信度</th></tr></thead>
+                  <thead><tr><th>{t('saleDeals.colMethod')}</th><th style={{ textAlign: 'right' }}>{t('saleDeals.colValuation')}</th><th style={{ textAlign: 'right' }}>{t('saleDeals.colLowHigh')}</th><th>{t('saleDeals.colConfidence')}</th></tr></thead>
                   <tbody>
                     {valOpen.items.length === 0 ? (
-                      <tr><td colSpan={4} className="rent-text-muted rent-text-center">暂无估价</td></tr>
+                      <tr><td colSpan={4} className="rent-text-muted rent-text-center">{t('saleDeals.emptyValuations')}</td></tr>
                     ) : valOpen.items.map((v: any) => (
                       <tr key={v.id}>
                         <td>{v.method || 'blended'}</td>
@@ -418,13 +421,14 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 }
 
 const ValuationForm = ({ listingId, defaultForm, onDone }: { listingId: string; defaultForm: any; onDone: () => void }) => {
+  const { t } = useTranslation()
   const [form, setForm] = useState<any>({ ...defaultForm })
   const [submitting, setSubmitting] = useState(false)
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
   const handleAdd = async () => {
     if (!form.market_value) {
-      message.error('请填写估值')
+      message.error(t('saleDeals.errValuationRequired'))
       return
     }
     setSubmitting(true)
@@ -436,10 +440,10 @@ const ValuationForm = ({ listingId, defaultForm, onDone }: { listingId: string; 
         high_estimate: form.high ? Number(form.high) : undefined,
         confidence: Number(form.confidence || 50),
       })
-      message.success('估价已提交')
+      message.success(t('saleDeals.msgValuationSubmitted'))
       onDone()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '估价失败')
+      message.error(e?.response?.data?.message || t('saleDeals.errValuationFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -447,17 +451,17 @@ const ValuationForm = ({ listingId, defaultForm, onDone }: { listingId: string; 
 
   return (
     <div>
-      <label className="rent-form-label">新增估价</label>
+      <label className="rent-form-label">{t('saleDeals.labelAddValuation')}</label>
       <div className="rent-form-row">
-        <div className="rent-form-group"><input className="rent-form-input" type="number" placeholder="估值 *" value={form.market_value} onChange={setField('market_value')} /></div>
-        <div className="rent-form-group"><input className="rent-form-input" type="number" placeholder="低估值" value={form.low} onChange={setField('low')} /></div>
+        <div className="rent-form-group"><input className="rent-form-input" type="number" placeholder={t('saleDeals.phValuation')} value={form.market_value} onChange={setField('market_value')} /></div>
+        <div className="rent-form-group"><input className="rent-form-input" type="number" placeholder={t('saleDeals.phLow')} value={form.low} onChange={setField('low')} /></div>
       </div>
       <div className="rent-form-row">
-        <div className="rent-form-group"><input className="rent-form-input" type="number" placeholder="高估值" value={form.high} onChange={setField('high')} /></div>
-        <div className="rent-form-group"><input className="rent-form-input" type="number" placeholder="置信度(0-100)" value={form.confidence} onChange={setField('confidence')} /></div>
+        <div className="rent-form-group"><input className="rent-form-input" type="number" placeholder={t('saleDeals.phHigh')} value={form.high} onChange={setField('high')} /></div>
+        <div className="rent-form-group"><input className="rent-form-input" type="number" placeholder={t('saleDeals.phConfidence')} value={form.confidence} onChange={setField('confidence')} /></div>
       </div>
       <div className="rent-flex rent-gap-2" style={{ marginTop: 12 }}>
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={handleAdd} disabled={submitting}>{submitting ? '提交中...' : '提交估价'}</button>
+        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={handleAdd} disabled={submitting}>{submitting ? t('common.submitting') : t('saleDeals.btnSubmitValuation')}</button>
       </div>
     </div>
   )
@@ -465,6 +469,7 @@ const ValuationForm = ({ listingId, defaultForm, onDone }: { listingId: string; 
 
 /* ===== 产权成交 Tab ===== */
 const DealTab = () => {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const [listings, setListings] = useState<Listing[]>([])
@@ -488,7 +493,7 @@ const DealTab = () => {
   const refresh = () => { void dealsQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
-    if (dealsQ.isError) message.error((dealsQ.error as any)?.response?.data?.message || '获取成交列表失败')
+    if (dealsQ.isError) message.error((dealsQ.error as any)?.response?.data?.message || t('saleDeals.errFetchDeals'))
   }, [dealsQ.isError, dealsQ.error])
 
   const loadListings = async () => {
@@ -501,7 +506,7 @@ const DealTab = () => {
 
   const handleCreate = async () => {
     if (!form.sale_listing_id || !form.sale_price) {
-      message.error('请选择挂牌并填写成交价')
+      message.error(t('saleDeals.errDealRequired'))
       return
     }
     setSubmitting(true)
@@ -514,11 +519,11 @@ const DealTab = () => {
         sales_user_id: form.sales_user_id || undefined,
         notes: form.notes || undefined,
       })
-      message.success('成交已创建（挂牌自动联动为已签约）')
+      message.success(t('saleDeals.msgDealCreated'))
       setCreateOpen(false)
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '创建失败')
+      message.error(e?.response?.data?.message || t('saleDeals.errCreateFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -529,35 +534,35 @@ const DealTab = () => {
   const changeStatus = async (id: string, s: string) => {
     try {
       await propertyDealApi.updateStatus(id, s)
-      message.success('状态已推进')
+      message.success(t('saleDeals.msgStatusAdvanced'))
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '推进失败')
+      message.error(e?.response?.data?.message || t('saleDeals.errAdvanceFailed'))
     }
   }
 
   return (
     <>
       <div className="rent-filter-bar">
-        <select className="rent-form-select" style={{ width: 'auto', minWidth: 130 }} aria-label="状态" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
-          <option value="">全部状态</option>
-          {Object.keys(DEAL_STATUS).map((k) => <option key={k} value={k}>{DEAL_STATUS[k].label}</option>)}
+        <select className="rent-form-select" style={{ width: 'auto', minWidth: 130 }} aria-label={t('saleDeals.colStatus')} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
+          <option value="">{t('saleDeals.allStatuses')}</option>
+          {Object.keys(DEAL_STATUS).map((k) => <option key={k} value={k}>{t(DEAL_STATUS[k].label)}</option>)}
         </select>
         <div style={{ flex: 1 }} />
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => { loadListings(); setCreateOpen(true) }}>+ 新建成交</button>
+        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => { loadListings(); setCreateOpen(true) }}>{t('saleDeals.btnNewDeal')}</button>
       </div>
 
       <div className="rent-card">
-        <div className="rent-card__header"><h3 className="rent-card__title">成交列表</h3><span className="rent-badge rent-badge--neutral">共 {total} 条</span></div>
+        <div className="rent-card__header"><h3 className="rent-card__title">{t('saleDeals.cardDeals')}</h3><span className="rent-badge rent-badge--neutral">{t('saleDeals.totalCount', { count: total })}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
           {loading ? (
-            <div className="rent-empty rent-text-muted">加载中...</div>
+            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">暂无成交数据</div>
+            <div className="rent-empty rent-text-muted">{t('saleDeals.emptyDeals')}</div>
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
-                <thead><tr><th>成交ID</th><th>挂牌ID</th><th style={{ textAlign: 'right' }}>成交价</th><th>币种</th><th>状态</th><th>备注</th><th>操作</th></tr></thead>
+                <thead><tr><th>{t('saleDeals.colDealId')}</th><th>{t('saleDeals.colListingId')}</th><th style={{ textAlign: 'right' }}>{t('saleDeals.colSalePrice')}</th><th>{t('saleDeals.colCurrency')}</th><th>{t('saleDeals.colStatus')}</th><th>{t('saleDeals.colNotes')}</th><th>{t('saleDeals.colAction')}</th></tr></thead>
                 <tbody>
                   {items.map((d) => {
                     const st = DEAL_STATUS[d.status || 'drafted'] || DEAL_STATUS.drafted
@@ -567,12 +572,12 @@ const DealTab = () => {
                         <td><span className="rent-mono">{shortId(d.sale_listing_id)}</span></td>
                         <td className="rent-num">{fmtMoney(d.sale_price)}</td>
                         <td>{d.currency || '—'}</td>
-                        <td><span className={`rent-badge ${st.badge}`}>{st.label}</span></td>
+                        <td><span className={`rent-badge ${st.badge}`}>{t(st.label)}</span></td>
                         <td>{d.notes || '—'}</td>
                         <td>
-                          <select className="rent-form-select" style={{ width: 110, minWidth: 110 }} aria-label="推进状态" value="" onChange={(e) => e.target.value && changeStatus(d.id, e.target.value)}>
-                            <option value="">推进状态</option>
-                            {Object.keys(DEAL_STATUS).map((k) => <option key={k} value={k}>{DEAL_STATUS[k].label}</option>)}
+                          <select className="rent-form-select" style={{ width: 110, minWidth: 110 }} aria-label={t('saleDeals.labelAdvanceStatus')} value="" onChange={(e) => e.target.value && changeStatus(d.id, e.target.value)}>
+                            <option value="">{t('saleDeals.labelAdvanceStatus')}</option>
+                            {Object.keys(DEAL_STATUS).map((k) => <option key={k} value={k}>{t(DEAL_STATUS[k].label)}</option>)}
                           </select>
                         </td>
                       </tr>
@@ -586,41 +591,41 @@ const DealTab = () => {
       </div>
 
       <div className="rent-pagination">
-        <span className="rent-pagination__info">共 {total} 条</span>
-        <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>上一页</button>
+        <span className="rent-pagination__info">{t('saleDeals.totalCount', { count: total })}</span>
+        <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>{t('saleDeals.prevPage')}</button>
         <span className="rent-pagination__info">{page}</span>
-        <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>下一页</button>
+        <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>{t('saleDeals.nextPage')}</button>
       </div>
 
       {createOpen && (
         <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
           <div className="rent-modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
-            <div className="rent-modal__header"><h3 className="rent-card__title">新建产权成交</h3></div>
+            <div className="rent-modal__header"><h3 className="rent-card__title">{t('saleDeals.modalNewDeal')}</h3></div>
             <div className="rent-modal__body">
               <div className="rent-form-row">
                 <div className="rent-form-group" style={{ flex: 1 }}>
-                  <label className="rent-form-label">挂牌 *</label>
+                  <label className="rent-form-label">{t('saleDeals.labelListing')}</label>
                   <select className="rent-form-select" value={form.sale_listing_id} onChange={setField('sale_listing_id')}>
-                    <option value="">请选择在售挂牌</option>
+                    <option value="">{t('saleDeals.phSelectListing')}</option>
                     {listings.map((l) => <option key={l.id} value={l.id}>{l.title || shortId(l.id)}</option>)}
                   </select>
                 </div>
               </div>
               <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">成交价 *</label><input className="rent-form-input" type="number" value={form.sale_price} onChange={setField('sale_price')} /></div>
-                <div className="rent-form-group"><label className="rent-form-label">币种</label><input className="rent-form-input" value={form.currency} onChange={setField('currency')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.labelSalePrice')}</label><input className="rent-form-input" type="number" value={form.sale_price} onChange={setField('sale_price')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.colCurrency')}</label><input className="rent-form-input" value={form.currency} onChange={setField('currency')} /></div>
               </div>
               <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">买方用户ID</label><input className="rent-form-input" value={form.buyer_user_id} onChange={setField('buyer_user_id')} /></div>
-                <div className="rent-form-group"><label className="rent-form-label">卖方/经纪人用户ID</label><input className="rent-form-input" value={form.sales_user_id} onChange={setField('sales_user_id')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.labelBuyerId')}</label><input className="rent-form-input" value={form.buyer_user_id} onChange={setField('buyer_user_id')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.labelSalesId')}</label><input className="rent-form-input" value={form.sales_user_id} onChange={setField('sales_user_id')} /></div>
               </div>
               <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">备注</label><textarea className="rent-form-textarea" rows={2} value={form.notes} onChange={setField('notes')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.colNotes')}</label><textarea className="rent-form-textarea" rows={2} value={form.notes} onChange={setField('notes')} /></div>
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>取消</button>
-              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? '创建中...' : '创建'}</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>{t('common.cancel')}</button>
+              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? t('saleDeals.btnCreating') : t('saleDeals.btnCreate')}</button>
             </div>
           </div>
         </div>
@@ -631,6 +636,7 @@ const DealTab = () => {
 
 /* ===== 定金托管 Tab ===== */
 const EscrowTab = () => {
+  const { t } = useTranslation()
   const [dealId, setDealId] = useState('')
   const [registerOpen, setRegisterOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -653,7 +659,7 @@ const EscrowTab = () => {
   }, [dealId, deals])
 
   useEffect(() => {
-    if (dealsQ.isError) message.error((dealsQ.error as any)?.response?.data?.message || '获取成交列表失败')
+    if (dealsQ.isError) message.error((dealsQ.error as any)?.response?.data?.message || t('saleDeals.errFetchDeals'))
   }, [dealsQ.isError, dealsQ.error])
 
   // 托管记录：按所选成交缓存
@@ -670,23 +676,23 @@ const EscrowTab = () => {
   const refreshEscrows = () => { void escrowsQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
-    if (escrowsQ.isError) message.error((escrowsQ.error as any)?.response?.data?.message || '获取托管失败')
+    if (escrowsQ.isError) message.error((escrowsQ.error as any)?.response?.data?.message || t('saleDeals.errFetchEscrows'))
   }, [escrowsQ.isError, escrowsQ.error])
 
   const handleRegister = async () => {
     if (!form.amount) {
-      message.error('请填写托管金额')
+      message.error(t('saleDeals.errEscrowAmountRequired'))
       return
     }
     setSubmitting(true)
     try {
       await propertyDealApi.createEscrow({ deal_id: dealId, amount: Number(form.amount), currency: form.currency || 'THB' })
-      message.success('定金托管已登记')
+      message.success(t('saleDeals.msgEscrowRegistered'))
       setRegisterOpen(false)
       setForm({ amount: '', currency: 'THB' })
       refreshEscrows()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '登记失败')
+      message.error(e?.response?.data?.message || t('saleDeals.errRegisterFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -696,10 +702,10 @@ const EscrowTab = () => {
     try {
       if (type === 'release') await propertyDealApi.releaseEscrow(id)
       else await propertyDealApi.refundEscrow(id)
-      message.success(type === 'release' ? '已放款给卖方' : '已退款给买方')
+      message.success(type === 'release' ? t('saleDeals.msgReleasedSeller') : t('saleDeals.msgRefundedBuyer'))
       refreshEscrows()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '操作失败')
+      message.error(e?.response?.data?.message || t('saleDeals.errOpFailed'))
     }
   }
 
@@ -708,23 +714,23 @@ const EscrowTab = () => {
   return (
     <>
       <div className="rent-filter-bar">
-        <select className="rent-form-select" aria-label="成交" style={{ width: 'auto', minWidth: 220 }} value={dealId} onChange={(e) => setDealId(e.target.value)}>
-          <option value="" disabled>请选择成交</option>
-          {deals.map((d) => <option key={d.id} value={d.id}>成交 {shortId(d.id)} · {d.currency || '-'}{fmtMoney(d.sale_price)}</option>)}
+        <select className="rent-form-select" aria-label={t('saleDeals.labelDeal')} style={{ width: 'auto', minWidth: 220 }} value={dealId} onChange={(e) => setDealId(e.target.value)}>
+          <option value="" disabled>{t('saleDeals.phSelectDeal')}</option>
+          {deals.map((d) => <option key={d.id} value={d.id}>{t('saleDeals.dealOption', { id: shortId(d.id) })} · {d.currency || '-'}{fmtMoney(d.sale_price)}</option>)}
         </select>
         <div style={{ flex: 1 }} />
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setRegisterOpen(true)} disabled={!dealId}>+ 登记托管</button>
+        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setRegisterOpen(true)} disabled={!dealId}>{t('saleDeals.btnRegisterEscrow')}</button>
       </div>
 
       <div className="rent-card">
-        <div className="rent-card__header"><h3 className="rent-card__title">定金托管记录</h3><span className="rent-badge rent-badge--neutral">{escrows.length} 笔</span></div>
+        <div className="rent-card__header"><h3 className="rent-card__title">{t('saleDeals.cardEscrows')}</h3><span className="rent-badge rent-badge--neutral">{t('saleDeals.countUnit', { count: escrows.length })}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
           {escrows.length === 0 ? (
-            <div className="rent-empty rent-text-muted">请选择成交查看托管，或登记新托管</div>
+            <div className="rent-empty rent-text-muted">{t('saleDeals.emptyEscrows')}</div>
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
-                <thead><tr><th>托管ID</th><th style={{ textAlign: 'right' }}>金额</th><th>币种</th><th>状态</th><th>托管日期</th><th>操作</th></tr></thead>
+                <thead><tr><th>{t('saleDeals.colEscrowId')}</th><th style={{ textAlign: 'right' }}>{t('saleDeals.colAmount')}</th><th>{t('saleDeals.colCurrency')}</th><th>{t('saleDeals.colStatus')}</th><th>{t('saleDeals.colDepositedAt')}</th><th>{t('saleDeals.colAction')}</th></tr></thead>
                 <tbody>
                   {escrows.map((e) => {
                     const st = ESCROW_STATUS[e.status || 'deposited'] || ESCROW_STATUS.deposited
@@ -734,14 +740,14 @@ const EscrowTab = () => {
                         <td><span className="rent-mono">{shortId(e.id)}</span></td>
                         <td className="rent-num">{fmtMoney(e.amount)}</td>
                         <td>{e.currency || '—'}</td>
-                        <td><span className={`rent-badge ${st.badge}`}>{st.label}</span></td>
+                        <td><span className={`rent-badge ${st.badge}`}>{t(st.label)}</span></td>
                         <td className="rent-table__mono">{e.deposited_at ? String(e.deposited_at).slice(0, 10) : '—'}</td>
                         <td>
                           <div className="rent-flex rent-gap-2">
                             {actionable && (
                               <>
-                                <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => act(e.id, 'release')}>放款</button>
-                                <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => act(e.id, 'refund')}>退款</button>
+                                <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => act(e.id, 'release')}>{t('saleDeals.btnRelease')}</button>
+                                <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => act(e.id, 'refund')}>{t('saleDeals.btnRefund')}</button>
                               </>
                             )}
                           </div>
@@ -759,16 +765,16 @@ const EscrowTab = () => {
       {registerOpen && (
         <div className="rent-modal-backdrop" onClick={() => setRegisterOpen(false)}>
           <div className="rent-modal" style={{ width: 400 }} onClick={(e) => e.stopPropagation()}>
-            <div className="rent-modal__header"><h3 className="rent-card__title">登记定金托管</h3></div>
+            <div className="rent-modal__header"><h3 className="rent-card__title">{t('saleDeals.modalRegisterEscrow')}</h3></div>
             <div className="rent-modal__body">
               <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">托管金额 *</label><input className="rent-form-input" type="number" value={form.amount} onChange={setField('amount')} /></div>
-                <div className="rent-form-group"><label className="rent-form-label">币种</label><input className="rent-form-input" value={form.currency} onChange={setField('currency')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.labelEscrowAmount')}</label><input className="rent-form-input" type="number" value={form.amount} onChange={setField('amount')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.colCurrency')}</label><input className="rent-form-input" value={form.currency} onChange={setField('currency')} /></div>
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setRegisterOpen(false)}>取消</button>
-              <button className="rent-btn rent-btn--primary" onClick={handleRegister} disabled={submitting}>{submitting ? '登记中...' : '登记'}</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setRegisterOpen(false)}>{t('common.cancel')}</button>
+              <button className="rent-btn rent-btn--primary" onClick={handleRegister} disabled={submitting}>{submitting ? t('saleDeals.btnRegistering') : t('saleDeals.btnRegister')}</button>
             </div>
           </div>
         </div>
@@ -779,6 +785,7 @@ const EscrowTab = () => {
 
 /* ===== 按揭 Tab ===== */
 const MortgageTab = () => {
+  const { t } = useTranslation()
   const [deals, setDeals] = useState<Deal[]>([])
   const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -798,7 +805,7 @@ const MortgageTab = () => {
   const refresh = () => { void mortgagesQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
-    if (mortgagesQ.isError) message.error((mortgagesQ.error as any)?.response?.data?.message || '获取按揭列表失败')
+    if (mortgagesQ.isError) message.error((mortgagesQ.error as any)?.response?.data?.message || t('saleDeals.errFetchMortgages'))
   }, [mortgagesQ.isError, mortgagesQ.error])
 
   const loadDeals = async () => {
@@ -813,7 +820,7 @@ const MortgageTab = () => {
 
   const handleCreate = async () => {
     if (!form.bank || !form.loan_amount) {
-      message.error('请填写银行与贷款金额')
+      message.error(t('saleDeals.errBankAmountRequired'))
       return
     }
     setSubmitting(true)
@@ -826,12 +833,12 @@ const MortgageTab = () => {
         deal_id: form.deal_id || undefined,
         buyer_user_id: form.buyer_user_id || undefined,
       })
-      message.success('按揭申请已提交')
+      message.success(t('saleDeals.msgMortgageSubmitted'))
       setCreateOpen(false)
       setForm({ bank: '', loan_amount: '', currency: 'THB', term_months: '360', deal_id: '', buyer_user_id: '' })
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '提交失败')
+      message.error(e?.response?.data?.message || t('saleDeals.errSubmitFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -840,32 +847,32 @@ const MortgageTab = () => {
   const approve = async (id: string, status: string) => {
     try {
       await propertyDealApi.updateMortgageStatus(id, status)
-      message.success('按揭状态已更新')
+      message.success(t('saleDeals.msgMortgageUpdated'))
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '审批失败')
+      message.error(e?.response?.data?.message || t('saleDeals.errApproveFailed'))
     }
   }
 
   return (
     <>
       <div className="rent-filter-bar">
-        <span className="rent-text-muted">按揭申请（当前账号名下）</span>
+        <span className="rent-text-muted">{t('saleDeals.mortgagesOwned')}</span>
         <div style={{ flex: 1 }} />
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => { loadDeals(); setCreateOpen(true) }}>+ 提交申请</button>
+        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => { loadDeals(); setCreateOpen(true) }}>{t('saleDeals.btnSubmitApplication')}</button>
       </div>
 
       <div className="rent-card">
-        <div className="rent-card__header"><h3 className="rent-card__title">按揭列表</h3><span className="rent-badge rent-badge--neutral">{items.length} 笔</span></div>
+        <div className="rent-card__header"><h3 className="rent-card__title">{t('saleDeals.cardMortgages')}</h3><span className="rent-badge rent-badge--neutral">{t('saleDeals.countUnit', { count: items.length })}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
           {loading ? (
-            <div className="rent-empty rent-text-muted">加载中...</div>
+            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">暂无按揭申请，可提交新申请</div>
+            <div className="rent-empty rent-text-muted">{t('saleDeals.emptyMortgages')}</div>
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
-                <thead><tr><th>银行</th><th style={{ textAlign: 'right' }}>贷款金额</th><th>币种</th><th>期限(月)</th><th>状态</th><th>操作</th></tr></thead>
+                <thead><tr><th>{t('saleDeals.colBank')}</th><th style={{ textAlign: 'right' }}>{t('saleDeals.colLoanAmount')}</th><th>{t('saleDeals.colCurrency')}</th><th>{t('saleDeals.colTerm')}</th><th>{t('saleDeals.colStatus')}</th><th>{t('saleDeals.colAction')}</th></tr></thead>
                 <tbody>
                   {items.map((m) => {
                     const st = MORTGAGE_STATUS[m.status || 'applied'] || MORTGAGE_STATUS.applied
@@ -876,12 +883,12 @@ const MortgageTab = () => {
                         <td className="rent-num">{fmtMoney(m.loan_amount)}</td>
                         <td>{m.currency || '—'}</td>
                         <td>{m.term_months ?? '—'}</td>
-                        <td><span className={`rent-badge ${st.badge}`}>{st.label}</span></td>
+                        <td><span className={`rent-badge ${st.badge}`}>{t(st.label)}</span></td>
                         <td>
                           {pending && (
                             <div className="rent-flex rent-gap-2">
-                              <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => approve(m.id, 'approved')}>通过</button>
-                              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => approve(m.id, 'rejected')}>拒绝</button>
+                              <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => approve(m.id, 'approved')}>{t('saleDeals.btnApprove')}</button>
+                              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => approve(m.id, 'rejected')}>{t('saleDeals.btnReject')}</button>
                             </div>
                           )}
                         </td>
@@ -898,33 +905,33 @@ const MortgageTab = () => {
       {createOpen && (
         <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
           <div className="rent-modal" style={{ width: 460 }} onClick={(e) => e.stopPropagation()}>
-            <div className="rent-modal__header"><h3 className="rent-card__title">提交按揭申请</h3></div>
+            <div className="rent-modal__header"><h3 className="rent-card__title">{t('saleDeals.modalMortgage')}</h3></div>
             <div className="rent-modal__body">
               <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">银行 *</label><input className="rent-form-input" value={form.bank} onChange={setField('bank')} /></div>
-                <div className="rent-form-group"><label className="rent-form-label">贷款金额 *</label><input className="rent-form-input" type="number" value={form.loan_amount} onChange={setField('loan_amount')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.labelBank')}</label><input className="rent-form-input" value={form.bank} onChange={setField('bank')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.labelLoanAmount')}</label><input className="rent-form-input" type="number" value={form.loan_amount} onChange={setField('loan_amount')} /></div>
               </div>
               <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">币种</label><input className="rent-form-input" value={form.currency} onChange={setField('currency')} /></div>
-                <div className="rent-form-group"><label className="rent-form-label">期限(月)</label><input className="rent-form-input" type="number" value={form.term_months} onChange={setField('term_months')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.colCurrency')}</label><input className="rent-form-input" value={form.currency} onChange={setField('currency')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.colTerm')}</label><input className="rent-form-input" type="number" value={form.term_months} onChange={setField('term_months')} /></div>
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group" style={{ flex: 1 }}>
-                  <label className="rent-form-label">关联成交</label>
+                  <label className="rent-form-label">{t('saleDeals.labelLinkedDeal')}</label>
                   <select className="rent-form-select" value={form.deal_id} onChange={setField('deal_id')}>
-                    <option value="">不关联</option>
-                    {deals.map((d) => <option key={d.id} value={d.id}>成交 {shortId(d.id)}</option>)}
+                    <option value="">{t('saleDeals.optNoLink')}</option>
+                    {deals.map((d) => <option key={d.id} value={d.id}>{t('saleDeals.dealOption', { id: shortId(d.id) })}</option>)}
                   </select>
                 </div>
                 <div className="rent-form-group" style={{ flex: 1 }}>
-                  <label className="rent-form-label">买方用户ID</label>
+                  <label className="rent-form-label">{t('saleDeals.labelBuyerId')}</label>
                   <input className="rent-form-input" value={form.buyer_user_id} onChange={setField('buyer_user_id')} />
                 </div>
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>取消</button>
-              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? '提交中...' : '提交'}</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>{t('common.cancel')}</button>
+              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? t('common.submitting') : t('saleDeals.btnSubmit')}</button>
             </div>
           </div>
         </div>

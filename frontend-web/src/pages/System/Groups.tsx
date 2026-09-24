@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Card, Button, Space, Modal, Form, Input, Select, message, Popconfirm, Empty, Tag, Drawer, Avatar } from 'antd'
 import { PlusOutlined, TeamOutlined, DeleteOutlined, UserAddOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
+import { useTranslation } from 'react-i18next'
 
 interface GroupMember {
   user_id: string
@@ -24,6 +25,7 @@ interface AccountOption {
 }
 
 const Groups = () => {
+  const { t } = useTranslation()
   const [groups, setGroups] = useState<UserGroup[]>([])
   const [loading, setLoading] = useState(false)
   const [form] = Form.useForm()
@@ -41,7 +43,7 @@ const Groups = () => {
       const payload = res.data?.data ?? res.data
       setGroups(payload?.items ?? [])
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '加载分组失败')
+      message.error(err?.response?.data?.detail || t('systemGroups.errLoad'))
     } finally {
       setLoading(false)
     }
@@ -66,12 +68,12 @@ const Groups = () => {
     setSaving(true)
     try {
       await api.post('/user-groups', values)
-      message.success('分组已创建')
+      message.success(t('systemGroups.msgCreated'))
       setModalOpen(false)
       form.resetFields()
       fetchGroups()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '创建失败')
+      message.error(err?.response?.data?.detail || t('systemGroups.errCreate'))
     } finally {
       setSaving(false)
     }
@@ -80,10 +82,10 @@ const Groups = () => {
   const handleDelete = async (g: UserGroup) => {
     try {
       await api.delete(`/user-groups/${g.id}`)
-      message.success('分组已删除')
+      message.success(t('systemGroups.msgDeleted'))
       fetchGroups()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '删除失败')
+      message.error(err?.response?.data?.detail || t('systemGroups.errDelete'))
     }
   }
 
@@ -100,10 +102,10 @@ const Groups = () => {
       const payload = res.data?.data ?? res.data
       setMembers(payload.members ?? [])
       memberForm.resetFields()
-      message.success('已加入分组')
+      message.success(t('systemGroups.msgAdded'))
       fetchGroups()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '添加失败')
+      message.error(err?.response?.data?.detail || t('systemGroups.errAdd'))
     }
   }
 
@@ -111,10 +113,10 @@ const Groups = () => {
     try {
       await api.delete(`/user-groups/${drawerGroup!.id}/members/${userId}`)
       setMembers((m) => m.filter((x) => x.user_id !== userId))
-      message.success('已移除成员')
+      message.success(t('systemGroups.msgRemoved'))
       fetchGroups()
     } catch (err: any) {
-      message.error('移除失败')
+      message.error(t('systemGroups.errRemove'))
     }
   }
 
@@ -122,19 +124,19 @@ const Groups = () => {
     <div className="rent-main">
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title" style={{ margin: '0 0 4px' }}>用户分组</h2>
-          <p className="rent-page-header__subtitle" style={{ margin: 0 }}>按运营团队组织账号，便于管理与协作</p>
+          <h2 className="rent-page-header__title" style={{ margin: '0 0 4px' }}>{t('systemGroups.title')}</h2>
+          <p className="rent-page-header__subtitle" style={{ margin: 0 }}>{t('systemGroups.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
-            新建分组
+            {t('systemGroups.newGroup')}
           </Button>
         </div>
       </div>
 
       {groups.length === 0 && !loading ? (
         <div className="rent-empty">
-          <Empty description="暂无分组，点击右上角新建" />
+          <Empty description={t('systemGroups.emptyGroups')} />
         </div>
       ) : (
         <div className="rent-grid rent-grid--3">
@@ -146,28 +148,28 @@ const Groups = () => {
                 <Space>
                   <TeamOutlined style={{ color: 'var(--rent-primary)' }} />
                   {g.name}
-                  {!g.is_active && <Tag>已停用</Tag>}
+                  {!g.is_active && <Tag>{t('systemGroups.inactive')}</Tag>}
                 </Space>
               }
               extra={
-                <Popconfirm title="确认删除该分组？" onConfirm={() => handleDelete(g)}>
+                <Popconfirm title={t('systemGroups.confirmDelete')} onConfirm={() => handleDelete(g)}>
                   <Button size="small" type="text" danger icon={<DeleteOutlined />} />
                 </Popconfirm>
               }
             >
-              <p style={{ color: 'var(--rent-ink-3)', minHeight: 20, marginBottom: 16 }}>{g.description || '暂无描述'}</p>
+              <p style={{ color: 'var(--rent-ink-3)', minHeight: 20, marginBottom: 16 }}>{g.description || t('systemGroups.noDescription')}</p>
               <Space wrap>
                 {(g.members ?? []).slice(0, 8).map((m) => (
                   <Avatar key={m.user_id} size="small" style={{ background: 'var(--rent-primary)' }}>
                     {(m.full_name || '?').charAt(0).toUpperCase()}
                   </Avatar>
                 ))}
-                {g.member_count === 0 && <span style={{ color: 'var(--rent-ink-3)', fontSize: 13 }}>暂无成员</span>}
+                {g.member_count === 0 && <span style={{ color: 'var(--rent-ink-3)', fontSize: 13 }}>{t('systemGroups.noMembers')}</span>}
               </Space>
               <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--rent-ink-3)', fontSize: 13 }}>{g.member_count} 名成员</span>
+                <span style={{ color: 'var(--rent-ink-3)', fontSize: 13 }}>{t('systemGroups.membersCount', { count: g.member_count })}</span>
                 <Button size="small" icon={<UserAddOutlined />} onClick={() => openDrawer(g)}>
-                  管理成员
+                  {t('systemGroups.manageMembers')}
                 </Button>
               </div>
             </Card>
@@ -175,19 +177,19 @@ const Groups = () => {
         </div>
       )}
 
-      <Modal title="新建分组" open={modalOpen} onCancel={() => setModalOpen(false)} onOk={handleCreate} confirmLoading={saving} destroyOnClose>
+      <Modal title={t('systemGroups.newGroup')} open={modalOpen} onCancel={() => setModalOpen(false)} onOk={handleCreate} confirmLoading={saving} destroyOnClose>
         <Form form={form} layout="vertical">
-          <Form.Item name="name" label="分组名称" rules={[{ required: true, message: '请输入分组名称' }]}>
-            <Input placeholder="如：运营一组" />
+          <Form.Item name="name" label={t('systemGroups.labelName')} rules={[{ required: true, message: t('systemGroups.errNameRequired') }]}>
+            <Input placeholder={t('systemGroups.phGroupName')} />
           </Form.Item>
-          <Form.Item name="description" label="描述">
-            <Input.TextArea rows={2} placeholder="用途说明" />
+          <Form.Item name="description" label={t('systemGroups.labelDescription')}>
+            <Input.TextArea rows={2} placeholder={t('systemGroups.phPurpose')} />
           </Form.Item>
         </Form>
       </Modal>
 
       <Drawer
-        title={`分组成员 · ${drawerGroup?.name || ''}`}
+        title={t('systemGroups.drawerTitle', { name: drawerGroup?.name || '' })}
         open={!!drawerGroup}
         onClose={() => setDrawerGroup(null)}
         width={420}
@@ -196,7 +198,7 @@ const Groups = () => {
           <Form.Item name="user_id" style={{ flex: 1 }}>
             <Select
               showSearch
-              placeholder="选择账号加入分组"
+              placeholder={t('systemGroups.phSelectAccount')}
               optionFilterProp="label"
               options={accounts
                 .filter((a) => !members.some((m) => m.user_id === a.id))
@@ -205,13 +207,13 @@ const Groups = () => {
           </Form.Item>
           <Form.Item>
             <Button type="primary" icon={<UserAddOutlined />} onClick={addMember}>
-              添加
+              {t('systemGroups.add')}
             </Button>
           </Form.Item>
         </Form>
 
         {members.length === 0 ? (
-          <Empty description="暂无成员" />
+          <Empty description={t('systemGroups.noMembers')} />
         ) : (
           members.map((m) => (
             <div
@@ -229,11 +231,11 @@ const Groups = () => {
                   {(m.full_name || '?').charAt(0).toUpperCase()}
                 </Avatar>
                 <div>
-                  <div style={{ fontWeight: 600 }}>{m.full_name || '未命名'}</div>
+                  <div style={{ fontWeight: 600 }}>{m.full_name || t('systemGroups.unnamed')}</div>
                   <div style={{ fontSize: 12, color: 'var(--rent-ink-3)' }}>{m.email}</div>
                 </div>
               </Space>
-              <Popconfirm title="移除该成员？" onConfirm={() => removeMember(m.user_id)}>
+              <Popconfirm title={t('systemGroups.confirmRemove')} onConfirm={() => removeMember(m.user_id)}>
                 <Button size="small" type="text" danger icon={<DeleteOutlined />} />
               </Popconfirm>
             </div>

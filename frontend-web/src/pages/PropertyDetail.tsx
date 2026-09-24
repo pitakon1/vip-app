@@ -58,15 +58,15 @@ const formatDate = (v?: string) => {
   return d.isValid() ? d.format('YYYY-MM-DD') : '-'
 }
 
-// 文档类型（后端 DocumentType 枚举）→ 展示文案与徽章色调。属于内部管理端术语，
-// 与 C 端枚举不同，暂不接 i18n（改动面超出本次范围）。
+// 文档类型（后端 DocumentType 枚举）→ i18n key 与徽章色调。属于内部管理端术语，
+// 与 C 端枚举不同，渲染处再走 t()。
 const DOC_TYPE_LABEL: Record<string, string> = {
-  contract: '合同',
-  receipt: '收据',
-  inspection_photo: '验房照片',
-  tax_invoice: '税务发票',
-  wht_certificate: '预扣税证明',
-  other: '其他',
+  contract: 'propertyDetail.docContract',
+  receipt: 'propertyDetail.docReceipt',
+  inspection_photo: 'propertyDetail.docInspectionPhoto',
+  tax_invoice: 'propertyDetail.docTaxInvoice',
+  wht_certificate: 'propertyDetail.docWhtCertificate',
+  other: 'propertyDetail.docOther',
 }
 const DOC_TYPE_BADGE: Record<string, string> = {
   contract: 'rent-badge--primary',
@@ -178,7 +178,7 @@ const PropertyDetail = () => {
   const handleTranslate = async () => {
     const source = detail?.description || detail?.address || detail?.project_name || ''
     if (!source) {
-      message.warning('暂无可翻译的房源描述文本')
+      message.warning(t('propertyDetail.msgNoDesc'))
       return
     }
     setTranslating(true)
@@ -187,12 +187,12 @@ const PropertyDetail = () => {
       const data = res.data
       if (data.ok !== false && data.translated_text) {
         setTranslatedDesc(data.translated_text)
-        message.success('翻译完成')
+        message.success(t('propertyDetail.msgTranslated'))
       } else {
-        setTranslatedDesc(data.translated_text || (data.message === '未配置密钥，返回原文本' ? source : '翻译服务未配置密钥，返回原文'))
+        setTranslatedDesc(data.translated_text || (data.message === '未配置密钥，返回原文本' ? source : t('propertyDetail.msgKeyMissing')))
       }
     } catch {
-      message.error('翻译失败')
+      message.error(t('propertyDetail.msgTranslateFailed'))
     } finally {
       setTranslating(false)
     }
@@ -201,7 +201,7 @@ const PropertyDetail = () => {
   // 打开文档：与业主文档页一致，带鉴权头走 /documents/{id}/file 取 blob 后新窗口预览
   const openDoc = async (doc: any) => {
     if (!doc?.id) {
-      message.error('文件地址不存在')
+      message.error(t('propertyDetail.msgFileMissing'))
       return
     }
     try {
@@ -210,7 +210,7 @@ const PropertyDetail = () => {
       window.open(blobUrl, '_blank')
       window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
     } catch {
-      message.error('打开文档失败')
+      message.error(t('propertyDetail.msgOpenDocFailed'))
     }
   }
 
@@ -219,7 +219,7 @@ const PropertyDetail = () => {
   }, [id])
 
   if (loading) {
-    return <div className="rent-main"><div className="rent-empty">加载中...</div></div>
+    return <div className="rent-main"><div className="rent-empty">{t('common.loading')}</div></div>
   }
 
   if (!detail) {
@@ -227,9 +227,9 @@ const PropertyDetail = () => {
       <div className="rent-main">
         <button className="rent-back-link" onClick={() => navigate(-1)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
-          返回房源列表
+          {t('propertyDetail.backToList')}
         </button>
-        <div className="rent-empty">未找到该房源</div>
+        <div className="rent-empty">{t('propertyDetail.notFound')}</div>
       </div>
     )
   }
@@ -238,9 +238,9 @@ const PropertyDetail = () => {
   // 房源自身币种：所有金额展示都跟随它（后端 currency 字段可能为 null，回落 THB）
   const currency = detail.currency || 'THB'
   const ptype =
-    propertyTypeMap[detail.property_type || ''] || detail.property_type || '公寓'
+    propertyTypeMap[detail.property_type || ''] || detail.property_type || t('propertyType.apartment')
   const statusKey = (detail.status || 'vacant').toLowerCase()
-  const statusLabel = statusLabelMap[statusKey] || detail.status || '空置中'
+  const statusLabel = statusLabelMap[statusKey] || detail.status || t('propertyStatus.vacant')
   const statusBadgeClass =
     statusKey === 'rented'
       ? 'rent-badge--success'
@@ -249,7 +249,7 @@ const PropertyDetail = () => {
         : 'rent-badge--info'
 
   // 名称兜底：API 未返回时用项目名/房号，不再使用设计稿静态数据
-  const displayName = projectName || (detail.room_number ? `${detail.room_number} 单元` : '房源详情')
+  const displayName = projectName || (detail.room_number ? t('propertyDetail.unitSuffix', { n: detail.room_number }) : t('propertyDetail.title'))
   const displayAddress =
     detail.address || `${detail.city || ''} ${projectName}`.trim() || '—'
   const propNo = `PROP-2026-${String(id || '0000').padStart(4, '0').slice(-4)}`
@@ -262,14 +262,14 @@ const PropertyDetail = () => {
   const currentLease = leases.find((l) => l.status === 'active') || null
   const historyLeases = leases.filter((l) => l.status !== 'active')
   const leaseStatusBadge = currentLease ? 'rent-badge--success' : 'rent-badge--neutral'
-  const leaseStatusText = currentLease ? '生效中' : '无生效租约'
+  const leaseStatusText = currentLease ? t('propertyDetail.leaseActive') : t('propertyDetail.noActiveLease')
   const leaseStatusMapTxt = (st?: string) => (st ? leaseStatusMap[st] || st : '—')
 
   // 规格数据（缺字段时显示 '—' 占位，面积按平方米展示）
   const specArea = detail.size_sqm != null ? `${Number(detail.size_sqm).toLocaleString()} ㎡` : '—'
-  const specBedrooms = detail.bedrooms != null ? `${detail.bedrooms} 间` : '—'
-  const specBathrooms = detail.bathrooms != null ? `${detail.bathrooms} 间` : '—'
-  const specParking = detail.parking != null ? `${detail.parking} 个` : '—'
+  const specBedrooms = detail.bedrooms != null ? t('propertyDetail.roomCount', { n: detail.bedrooms }) : '—'
+  const specBathrooms = detail.bathrooms != null ? t('propertyDetail.roomCount', { n: detail.bathrooms }) : '—'
+  const specParking = detail.parking != null ? t('propertyDetail.parkingCount', { n: detail.parking }) : '—'
   const specOrientation = detail.orientation ? orientationLabel(detail.orientation) : '—'
   const specDecoration = detail.decoration ? decorationLabel(detail.decoration) : '—'
   const specUnitPrice =
@@ -282,7 +282,7 @@ const PropertyDetail = () => {
       {/* Back link */}
       <button className="rent-back-link" onClick={() => navigate(-1)}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
-        返回房源列表
+        {t('propertyDetail.backToList')}
       </button>
 
       {/* Property header card */}
@@ -319,50 +319,50 @@ const PropertyDetail = () => {
                   {statusLabel}
                 </span>
                 {detail.video_url && (
-                  <span className="rent-badge rent-badge--info">视频看房</span>
+                  <span className="rent-badge rent-badge--info">{t('propertyDetail.videoTour')}</span>
                 )}
-                <span className="rent-badge rent-badge--neutral">编号 {propNo}</span>
+                <span className="rent-badge rent-badge--neutral">{t('propertyDetail.propNoLabel', { no: propNo })}</span>
               </div>
 
               {/* Key specs grid */}
               <div className="rent-spec-grid">
                 <div className="rent-spec-item">
-                  <div className="rent-spec-item__label">面积</div>
+                  <div className="rent-spec-item__label">{t('propertyDetail.lblArea')}</div>
                   <div className="rent-spec-item__value">{specArea}</div>
                 </div>
                 <div className="rent-spec-item">
-                  <div className="rent-spec-item__label">卧室</div>
+                  <div className="rent-spec-item__label">{t('propertyDetail.lblBedrooms')}</div>
                   <div className="rent-spec-item__value">{specBedrooms}</div>
                 </div>
                 <div className="rent-spec-item">
-                  <div className="rent-spec-item__label">卫浴</div>
+                  <div className="rent-spec-item__label">{t('propertyDetail.lblBathrooms')}</div>
                   <div className="rent-spec-item__value">{specBathrooms}</div>
                 </div>
                 <div className="rent-spec-item">
-                  <div className="rent-spec-item__label">车位</div>
+                  <div className="rent-spec-item__label">{t('propertyDetail.lblParking')}</div>
                   <div className="rent-spec-item__value">{specParking}</div>
                 </div>
                 <div className="rent-spec-item">
-                  <div className="rent-spec-item__label">朝向</div>
+                  <div className="rent-spec-item__label">{t('propertyDetail.lblOrientation')}</div>
                   <div className="rent-spec-item__value">{specOrientation}</div>
                 </div>
                 <div className="rent-spec-item">
-                  <div className="rent-spec-item__label">装修</div>
+                  <div className="rent-spec-item__label">{t('propertyDetail.lblDecoration')}</div>
                   <div className="rent-spec-item__value">{specDecoration}</div>
                 </div>
                 <div className="rent-spec-item">
-                  <div className="rent-spec-item__label">单价</div>
-                  <div className="rent-spec-item__value">{specUnitPrice}{detail.monthly_rent && detail.size_sqm ? '/㎡·月' : ''}</div>
+                  <div className="rent-spec-item__label">{t('propertyDetail.lblUnitPrice')}</div>
+                  <div className="rent-spec-item__value">{specUnitPrice}{detail.monthly_rent && detail.size_sqm ? t('propertyDetail.perSqmMonth') : ''}</div>
                 </div>
               </div>
 
               {/* Monthly rent + actions */}
               <div className="rent-flex rent-flex--between" style={{ alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
                 <div>
-                  <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 4 }}>月租金</div>
+                  <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 4 }}>{t('propertyDetail.lblMonthlyRent')}</div>
                   <div>
                     <span className="rent-prop-rent">{monthlyRentText}</span>
-                    <span className="rent-prop-rent__period">/月</span>
+                    <span className="rent-prop-rent__period">{t('propertyDetail.perMonth')}</span>
                   </div>
                 </div>
                 <div className="rent-prop-actions">
@@ -371,21 +371,21 @@ const PropertyDetail = () => {
                     onClick={() => navigate('/properties')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                    编辑信息
+                    {t('propertyDetail.btnEdit')}
                   </button>
                   <button
                     className="rent-btn rent-btn--primary"
                     onClick={() => navigate('/leases')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="11" x2="12" y2="17" /><line x1="9" y1="14" x2="15" y2="14" /></svg>
-                    新建合同
+                    {t('propertyDetail.btnNewContract')}
                   </button>
                   <button
                     className="rent-btn rent-btn--ghost"
                     onClick={() => navigate('/leases')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
-                    查看文档
+                    {t('propertyDetail.btnViewDocs')}
                   </button>
                 </div>
               </div>
@@ -399,7 +399,7 @@ const PropertyDetail = () => {
         {/* Current lease info */}
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">当前租约信息</h3>
+            <h3 className="rent-card__title">{t('propertyDetail.currentLeaseTitle')}</h3>
             <span className={`rent-badge ${leaseStatusBadge}`}>
               <span className="rent-badge--dot" style={{ background: 'currentColor' }} />
               {leaseStatusText}
@@ -407,25 +407,25 @@ const PropertyDetail = () => {
           </div>
           <div className="rent-card__body">
             <dl className="rent-dl">
-              <dt className="rent-dl__dt">租客</dt>
+              <dt className="rent-dl__dt">{t('propertyDetail.lblTenant')}</dt>
               <dd className="rent-dl__dd">{currentLease?.tenant_name || '—'}</dd>
-              <dt className="rent-dl__dt">合同编号</dt>
+              <dt className="rent-dl__dt">{t('propertyDetail.lblContractNo')}</dt>
               <dd className="rent-dl__dd rent-table__mono">
                 {currentLease ? `LSE-${String(currentLease.id).slice(0, 8).toUpperCase()}` : '—'}
               </dd>
-              <dt className="rent-dl__dt">租期</dt>
+              <dt className="rent-dl__dt">{t('propertyDetail.lblLeaseTerm')}</dt>
               <dd className="rent-dl__dd">
                 {currentLease
-                  ? `${formatDate(currentLease.start_date)} 至 ${formatDate(currentLease.end_date)}`
+                  ? t('propertyDetail.dateRange', { a: formatDate(currentLease.start_date), b: formatDate(currentLease.end_date) })
                   : '—'}
               </dd>
-              <dt className="rent-dl__dt">月租</dt>
+              <dt className="rent-dl__dt">{t('propertyDetail.lblMonthlyRentShort')}</dt>
               <dd className="rent-dl__dd">
                 {currentLease ? formatRent(currentLease.monthly_rent) : monthlyRentText}
               </dd>
-              <dt className="rent-dl__dt">押金</dt>
+              <dt className="rent-dl__dt">{t('propertyDetail.lblDeposit')}</dt>
               <dd className="rent-dl__dd">{depositText}</dd>
-              <dt className="rent-dl__dt">状态</dt>
+              <dt className="rent-dl__dt">{t('common.status')}</dt>
               <dd className="rent-dl__dd">
                 <span className={`rent-badge ${leaseStatusBadge}`}>
                   <span className="rent-badge--dot" style={{ background: 'currentColor' }} />
@@ -439,33 +439,33 @@ const PropertyDetail = () => {
         {/* Owner info */}
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">业主信息</h3>
+            <h3 className="rent-card__title">{t('propertyDetail.ownerInfoTitle')}</h3>
           </div>
           <div className="rent-card__body">
             <div className="rent-owner-head">
               <div className="rent-avatar rent-avatar--lg">
-                {(detail.owner_name || '业').charAt(0)}
+                {(detail.owner_name || t('propertyDetail.ownerInitial')).charAt(0)}
               </div>
               <div>
                 <div className="rent-owner-head__name">{detail.owner_name || '—'}</div>
                 <div className="rent-owner-head__sub">
-                  {detail.owner_id ? `业主 · ${String(detail.owner_id).slice(0, 8).toUpperCase()}` : '—'}
+                  {detail.owner_id ? t('propertyDetail.ownerIdPrefix', { id: String(detail.owner_id).slice(0, 8).toUpperCase() }) : '—'}
                 </div>
               </div>
             </div>
 
             <hr className="rent-divider" />
 
-            <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 6 }}>收益分成</div>
+            <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 6 }}>{t('propertyDetail.revenueSplit')}</div>
             <div className="rent-flex rent-flex--between rent-gap-3">
               <div>
-                <div className="rent-text-sm rent-text-muted">业主分成</div>
+                <div className="rent-text-sm rent-text-muted">{t('propertyDetail.ownerShareLabel')}</div>
                 <div className="rent-spec-item__value" style={{ color: 'var(--rent-primary)' }}>
                   {detail.owner_share != null ? `${detail.owner_share}%` : '—'}
                 </div>
               </div>
               <div>
-                <div className="rent-text-sm rent-text-muted">管理费</div>
+                <div className="rent-text-sm rent-text-muted">{t('propertyDetail.mgmtFeeLabel')}</div>
                 <div className="rent-spec-item__value">
                   {detail.mgmt_share != null ? `${detail.mgmt_share}%` : '—'}
                 </div>
@@ -476,8 +476,8 @@ const PropertyDetail = () => {
               <div className="rent-split-bar__mgmt" style={{ width: `${detail.mgmt_share ?? 0}%` }} />
             </div>
             <div className="rent-split-legend">
-              <span>业主 {formatRent(detail.owner_amount ?? 0)}</span>
-              <span>管理 {formatRent(detail.mgmt_amount ?? 0)}</span>
+              <span>{t('propertyDetail.ownerLegend', { amt: formatRent(detail.owner_amount ?? 0) })}</span>
+              <span>{t('propertyDetail.mgmtLegend', { amt: formatRent(detail.mgmt_amount ?? 0) })}</span>
             </div>
           </div>
         </div>
@@ -486,7 +486,7 @@ const PropertyDetail = () => {
       {/* 房源描述 + Google 翻译按钮 */}
       <div className="rent-card rent-mb-4">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">房源描述</h3>
+          <h3 className="rent-card__title">{t('propertyDetail.descTitle')}</h3>
           <div className="rent-flex" style={{ gap: 8, alignItems: 'center' }}>
             <select
               className="rent-input"
@@ -506,17 +506,17 @@ const PropertyDetail = () => {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4, verticalAlign: -2 }}>
                 <path d="M23 5l-7 14M17 5l-7 14M8 9l-5 6M7 15H2M19 9h4" />
               </svg>
-              {translating ? '翻译中...' : 'Google 翻译'}
+              {translating ? t('propertyDetail.translating') : t('propertyDetail.googleTranslate')}
             </button>
           </div>
         </div>
         <div className="rent-card__body">
           <div className="rent-text-muted" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-            {translatedDesc || detail.description || (detail.address ? detail.address : '暂无描述，可点击右上角「Google 翻译」翻译地址或描述文本。')}
+            {translatedDesc || detail.description || (detail.address ? detail.address : t('propertyDetail.noDescHint'))}
           </div>
           {translatedDesc && detail.description && (
             <div className="rent-text-sm rent-text-muted rent-mt-2" style={{ borderTop: '1px solid var(--rent-line)', paddingTop: 8 }}>
-              原文：{detail.description}
+              {t('propertyDetail.originalLabel')}{detail.description}
             </div>
           )}
         </div>
@@ -525,21 +525,21 @@ const PropertyDetail = () => {
       {/* 相关文档 */}
       <div className="rent-card rent-mb-4">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">相关文档</h3>
-          <span className="rent-text-sm rent-text-muted">共 {docs.length} 份</span>
+          <h3 className="rent-card__title">{t('propertyDetail.docsTitle')}</h3>
+          <span className="rent-text-sm rent-text-muted">{t('propertyDetail.docsCount', { n: docs.length })}</span>
         </div>
         <div className="rent-card__body">
           {docs.length === 0 ? (
-            <div className="rent-text-muted" style={{ padding: '8px 0' }}>暂无相关文档</div>
+            <div className="rent-text-muted" style={{ padding: '8px 0' }}>{t('propertyDetail.noDocs')}</div>
           ) : (
             <div className="rent-doc-list">
               {docs.map((d) => (
                 <div className="rent-doc-row" key={d.id}>
                   <div className="rent-doc-row__main">
-                    <div className="rent-doc-row__name">{d.title || d.name || '未命名文档'}</div>
+                    <div className="rent-doc-row__name">{d.title || d.name || t('propertyDetail.untitledDoc')}</div>
                     <div className="rent-doc-row__meta">
                       <span className={`rent-badge ${DOC_TYPE_BADGE[d.type] || 'rent-badge--neutral'}`}>
-                        {DOC_TYPE_LABEL[d.type] || '其他'}
+                        {DOC_TYPE_LABEL[d.type] ? t(DOC_TYPE_LABEL[d.type]) : t('propertyDetail.docOther')}
                       </span>
                       <span>{d.created_at ? formatDate(d.created_at) : ''}</span>
                     </div>
@@ -549,7 +549,7 @@ const PropertyDetail = () => {
                     className="rent-btn rent-btn--ghost rent-btn--sm"
                     onClick={() => openDoc(d)}
                   >
-                    查看
+                    {t('propertyDetail.btnView')}
                   </button>
                 </div>
               ))}
@@ -561,21 +561,21 @@ const PropertyDetail = () => {
       {/* Historical leases (full width) */}
       <div className="rent-card">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">历史租约</h3>
-          <span className="rent-text-sm rent-text-muted">共 {historyLeases.length} 条记录</span>
+          <h3 className="rent-card__title">{t('propertyDetail.historyTitle')}</h3>
+          <span className="rent-text-sm rent-text-muted">{t('propertyDetail.historyCount', { n: historyLeases.length })}</span>
         </div>
         <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
           {historyLeases.length === 0 ? (
-            <div className="rent-loading-row">暂无历史租约</div>
+            <div className="rent-loading-row">{t('propertyDetail.noHistory')}</div>
           ) : (
             <table className="rent-table">
               <thead>
                 <tr>
-                  <th>合同编号</th>
-                  <th>租客</th>
-                  <th>租期</th>
-                  <th>月租</th>
-                  <th>状态</th>
+                  <th>{t('propertyDetail.lblContractNo')}</th>
+                  <th>{t('propertyDetail.lblTenant')}</th>
+                  <th>{t('propertyDetail.lblLeaseTerm')}</th>
+                  <th>{t('propertyDetail.lblMonthlyRentShort')}</th>
+                  <th>{t('common.status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -583,7 +583,7 @@ const PropertyDetail = () => {
                   <tr key={r.id}>
                     <td className="rent-table__mono">{`LSE-${String(r.id).slice(0, 8).toUpperCase()}`}</td>
                     <td>{r.tenant_name || '—'}</td>
-                    <td>{`${formatDate(r.start_date)} 至 ${formatDate(r.end_date)}`}</td>
+                    <td>{t('propertyDetail.dateRange', { a: formatDate(r.start_date), b: formatDate(r.end_date) })}</td>
                     <td>{formatRent(r.monthly_rent, r.currency || currency)}</td>
                     <td>
                       <span className="rent-badge rent-badge--neutral">

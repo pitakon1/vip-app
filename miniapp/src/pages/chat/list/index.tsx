@@ -4,6 +4,7 @@ import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { chatApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface Conversation {
@@ -27,6 +28,7 @@ function pickList<T>(res: any): T[] {
 const formatTime = (x?: string) => (x ? String(x).replace('T', ' ').slice(5, 16) : '')
 
 export default function ChatListPage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(false)
@@ -35,7 +37,7 @@ export default function ChatListPage() {
     setLoading(true)
     const convRes = await chatApi.conversations().catch(() => null)
     if (!convRes) {
-      Taro.showToast({ title: '加载会话失败', icon: 'none' })
+      Taro.showToast({ title: t('chat.loadConvFailed'), icon: 'none' })
     }
     setConversations(convRes ? pickList<Conversation>(convRes) : [])
     setLoading(false)
@@ -65,7 +67,7 @@ export default function ChatListPage() {
       <View className='page-container'>
         {loading && conversations.length === 0 && (
           <View className='empty-state'>
-            <Text>加载中...</Text>
+            <Text>{t('common.loading')}</Text>
           </View>
         )}
         <View className='conversation-list'>
@@ -80,7 +82,7 @@ export default function ChatListPage() {
                   {(c.peer_name || c.title || '?').charAt(0)}
                 </Text>
               </View>
-              <Text className='conv-title'>{c.peer_name || c.title || '未命名会话'}</Text>
+              <Text className='conv-title'>{c.peer_name || c.title || t('chat.unnamedConv')}</Text>
               <Text className='conv-time'>
                 {formatTime(c.created_at || c.updated_at)}
               </Text>

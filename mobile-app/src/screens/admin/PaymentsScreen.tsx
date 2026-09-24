@@ -22,8 +22,11 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { notify, notifyError } from '@/utils/feedback';
 import { dashboardApi, paymentsApi, propertiesApi, usersAdminApi } from '@/services/api';
+import { useI18n } from '@/i18n';
 
 const PAGE_SIZE = 50;
+
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
 interface PaymentRow {
   id: string;
@@ -42,43 +45,59 @@ interface PaymentRow {
 }
 
 type ChipKey = 'all' | 'succeeded' | 'pending' | 'expired' | 'refunded';
-const CHIPS: { key: ChipKey; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'succeeded', label: '已收款' },
-  { key: 'pending', label: '待收款' },
-  { key: 'expired', label: '逾期' },
-  { key: 'refunded', label: '已退款' },
+const chips = (t: TFunc): { key: ChipKey; label: string }[] => [
+  { key: 'all', label: t('common.all') },
+  { key: 'succeeded', label: t('admPay.chipSucceeded') },
+  { key: 'pending', label: t('admPay.chipPending') },
+  { key: 'expired', label: t('pay.ownerOverdue') },
+  { key: 'refunded', label: t('pay.status.refunded') },
 ];
 
 // 状态展示口径与后端 PaymentStatus 枚举一一对应
-const STATUS_META: Record<string, { label: string; color: string; rgb: string }> = {
-  succeeded: { label: '已收款', color: colors.success, rgb: colors.successRgb },
-  pending: { label: '待收款', color: colors.warning, rgb: colors.warningRgb },
-  processing: { label: '处理中', color: colors.info, rgb: colors.infoRgb },
-  expired: { label: '逾期', color: colors.error, rgb: colors.errorRgb },
-  failed: { label: '失败', color: colors.error, rgb: colors.errorRgb },
-  refunded: { label: '已退款', color: colors.ink2, rgb: colors.primaryRgb },
-  disputed: { label: '争议中', color: colors.error, rgb: colors.errorRgb },
+const STATUS_META: Record<string, { key?: string; label?: string; color: string; rgb: string }> = {
+  succeeded: { key: 'admPay.chipSucceeded', color: colors.success, rgb: colors.successRgb },
+  pending: { key: 'admPay.chipPending', color: colors.warning, rgb: colors.warningRgb },
+  processing: { key: 'common.processing', color: colors.info, rgb: colors.infoRgb },
+  expired: { key: 'pay.ownerOverdue', color: colors.error, rgb: colors.errorRgb },
+  failed: { key: 'admPay.stFailed', color: colors.error, rgb: colors.errorRgb },
+  refunded: { key: 'pay.status.refunded', color: colors.ink2, rgb: colors.primaryRgb },
+  disputed: { key: 'admPay.stDisputed', color: colors.error, rgb: colors.errorRgb },
 };
 
 const TYPE_LABEL: Record<string, string> = {
-  rent: '租金',
-  deposit: '押金',
-  commission: '佣金',
-  service_fee: '服务费',
-  utility: '水电费',
-  tax: '税费',
-  refund: '退款',
+  rent: 'pay.type.rent',
+  deposit: 'pay.type.deposit',
+  commission: 'pay.type.commission',
+  service_fee: 'pay.type.service_fee',
+  utility: 'admPay.typeUtility',
+  tax: 'pay.type.tax',
+  refund: 'pay.type.refund',
 };
 
-const CHANNEL_META: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string; rgb: string }> = {
+const typeText = (t: TFunc, type?: string | null, fallback?: string) => {
+  const k = TYPE_LABEL[type ?? ''];
+  return k ? t(k) : (fallback ?? '');
+};
+
+const CHANNEL_META: Record<string, { label?: string; labelKey?: string; icon: keyof typeof Ionicons.glyphMap; color: string; rgb: string }> = {
   promptpay: { label: 'PromptPay', icon: 'qr-code-outline', color: colors.primary, rgb: colors.primaryRgb },
   stripe: { label: 'Stripe', icon: 'card-outline', color: colors.info, rgb: colors.infoRgb },
-  bank_transfer: { label: '银行转账', icon: 'business-outline', color: colors.ink2, rgb: colors.primaryRgb },
-  wechat: { label: '微信支付', icon: 'chatbubble-ellipses-outline', color: colors.success, rgb: colors.successRgb },
-  alipay: { label: '支付宝', icon: 'wallet-outline', color: colors.info, rgb: colors.infoRgb },
+  bank_transfer: { labelKey: 'admPay.chBank', icon: 'business-outline', color: colors.ink2, rgb: colors.primaryRgb },
+  wechat: { labelKey: 'pay.channelWechat', icon: 'chatbubble-ellipses-outline', color: colors.success, rgb: colors.successRgb },
+  alipay: { labelKey: 'admPay.chAlipay', icon: 'wallet-outline', color: colors.info, rgb: colors.infoRgb },
   wise: { label: 'Wise', icon: 'swap-horizontal-outline', color: colors.warning, rgb: colors.warningRgb },
   paypal: { label: 'PayPal', icon: 'logo-paypal', color: colors.info, rgb: colors.infoRgb },
+};
+
+const channelText = (t: TFunc, key: string) => {
+  const m = CHANNEL_META[key];
+  return m?.labelKey ? t(m.labelKey) : (m?.label ?? '');
+};
+
+const statusText = (t: TFunc, status?: string | null) => {
+  const m = STATUS_META[status ?? ''];
+  if (m) return m.key ? t(m.key) : (m.label ?? '');
+  return status || t('common.unknown');
 };
 
 // 手动记账可选币种 / 类型 / 渠道
@@ -91,6 +110,8 @@ const fmtMoney = (v?: number, c?: string) => `${symOf(c)}${Number(v ?? 0).toLoca
 const fmtDate = (v?: string | null) => (v ? String(v).slice(0, 10) : '-');
 
 export default function AdminPaymentsScreen() {
+  const { t } = useI18n();
+  const CHIPS = useMemo(() => chips(t), [t]);
   const insets = useSafeAreaInsets();
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -174,7 +195,7 @@ export default function AdminPaymentsScreen() {
         }[];
         setPropMap(
           rows.reduce<Record<string, string>>((acc, p) => {
-            acc[p.id] = [p.room_number, p.building].filter(Boolean).join(' · ') || p.address || '房源';
+            acc[p.id] = [p.room_number, p.building].filter(Boolean).join(' · ') || p.address || t('mkt.propertyFallback');
             return acc;
           }, {}),
         );
@@ -183,7 +204,7 @@ export default function AdminPaymentsScreen() {
       setLoading(false);
       setRefreshing(false);
     },
-    [],
+    [t],
   );
 
   useEffect(() => {
@@ -212,8 +233,8 @@ export default function AdminPaymentsScreen() {
   const submitForm = async () => {
     const amount = Number(form.amount);
     const errs: { payer_id?: string; amount?: string } = {};
-    if (!form.payer_id) errs.payer_id = '请选择付款方';
-    if (!Number.isFinite(amount) || amount <= 0) errs.amount = '请输入有效金额';
+    if (!form.payer_id) errs.payer_id = t('admPay.errPayer');
+    if (!Number.isFinite(amount) || amount <= 0) errs.amount = t('admPay.errAmount');
     if (Object.keys(errs).length) {
       setFormErrors(errs);
       return;
@@ -230,11 +251,11 @@ export default function AdminPaymentsScreen() {
       if (form.due_date.trim()) payload.due_date = form.due_date.trim();
       if (form.description.trim()) payload.description = form.description.trim();
       await paymentsApi.create(payload);
-      notify('成功', '交易已手动入账');
+      notify(t('acc.success'), t('admPay.createdMsg'));
       setShowForm(false);
       load(chip);
     } catch (e: any) {
-      notifyError('入账失败', e);
+      notifyError(t('admPay.errCreate'), e);
     }
   };
 
@@ -243,12 +264,12 @@ export default function AdminPaymentsScreen() {
     if (!confirmItem) return;
     try {
       await paymentsApi.confirm(confirmItem.id, { note: confirmNote.trim() || undefined });
-      notify('成功', '已确认到账');
+      notify(t('acc.success'), t('admPay.confirmedMsg'));
       setConfirmItem(null);
       setConfirmNote('');
       load(chip);
     } catch (e: any) {
-      notifyError('确认到账失败', e);
+      notifyError(t('admPay.errConfirm'), e);
     }
   };
 
@@ -262,9 +283,9 @@ export default function AdminPaymentsScreen() {
     try {
       const res = type === 'receipt' ? await paymentsApi.receipt(detailItem.id) : await paymentsApi.invoice(detailItem.id);
       const d = (res as any)?.data ?? {};
-      setDetailDoc({ title: type === 'receipt' ? '收款凭证' : '税务发票', body: JSON.stringify(d, null, 2) });
+      setDetailDoc({ title: type === 'receipt' ? t('admPay.receipt') : t('admPay.invoice'), body: JSON.stringify(d, null, 2) });
     } catch (e: any) {
-      notifyError('获取凭证失败', e);
+      notifyError(t('admPay.errDoc'), e);
     }
   };
 
@@ -297,7 +318,7 @@ export default function AdminPaymentsScreen() {
       <View style={styles.incomeCard}>
         <View style={styles.incomeTop}>
           <View style={styles.incomeLeft}>
-            <Text style={styles.incomeLabel}>本月总收入</Text>
+            <Text style={styles.incomeLabel}>{t('admPay.totalIncome')}</Text>
             <Text style={styles.incomeNum}>{fmtMoney(summary.monthly_revenue)}</Text>
           </View>
           <Ionicons name="cash-outline" size={34} color={colors.alpha('255, 255, 255', 0.9)} />
@@ -305,18 +326,18 @@ export default function AdminPaymentsScreen() {
 
         <View style={styles.incomeSplit}>
           <View style={styles.incomeCell}>
-            <Text style={styles.incomeCellLabel}>已收</Text>
+            <Text style={styles.incomeCellLabel}>{t('admPay.received')}</Text>
             <Text style={styles.incomeCellValue}>{fmtMoney(received)}</Text>
           </View>
           <View style={styles.incomeDivider} />
           <View style={styles.incomeCell}>
-            <Text style={styles.incomeCellLabel}>待收</Text>
+            <Text style={styles.incomeCellLabel}>{t('admPay.receivable')}</Text>
             <Text style={styles.incomeCellValue}>{fmtMoney(receivable)}</Text>
           </View>
         </View>
 
         <View style={styles.rateRow}>
-          <Text style={styles.rateLabel}>收缴率</Text>
+          <Text style={styles.rateLabel}>{t('admPay.collectRate')}</Text>
           <Text style={styles.rateValue}>{collectRate}%</Text>
         </View>
         <View style={styles.rateTrack}>
@@ -341,27 +362,27 @@ export default function AdminPaymentsScreen() {
 
       {/* 交易记录 */}
       <View style={styles.listHead}>
-        <Text style={styles.sectionTitle}>交易记录</Text>
+        <Text style={styles.sectionTitle}>{t('admPay.records')}</Text>
         <View style={styles.listHeadRight}>
-          <Text style={styles.listHint}>共 {total} 笔</Text>
+          <Text style={styles.listHint}>{t('admPay.countN', { n: total })}</Text>
           <TouchableOpacity style={styles.addBtn} activeOpacity={0.8} onPress={openForm}>
             <Ionicons name="add" size={14} color="#fff" />
-            <Text style={styles.addBtnText}>手动记账</Text>
+            <Text style={styles.addBtnText}>{t('admPay.manualEntry')}</Text>
           </TouchableOpacity>
         </View>
       </View>
       {payments.length === 0 ? (
-        <EmptyState icon="card-outline" title="暂无交易记录" sub="该筛选条件下没有收付款流水" />
+        <EmptyState icon="card-outline" title={t('admPay.emptyTitle')} sub={t('admPay.emptySub')} />
       ) : (
         payments.map((p) => {
           const meta = STATUS_META[p.status ?? ''] ?? {
-            label: p.status ?? '未知',
+            label: p.status || t('common.unknown'),
             color: colors.ink2,
             rgb: colors.primaryRgb,
           };
           const channelKey = (p.channel ?? '').toLowerCase();
           const channelMeta = CHANNEL_META[channelKey] ?? {
-            label: p.channel || '其他渠道',
+            label: p.channel || t('admPay.unknownChannel'),
             icon: 'card-outline' as keyof typeof Ionicons.glyphMap,
             color: colors.ink2,
             rgb: colors.primaryRgb,
@@ -376,11 +397,11 @@ export default function AdminPaymentsScreen() {
                 </View>
                 <View style={styles.payBody}>
                   <Text style={styles.payTitle} numberOfLines={1}>
-                    {payer || TYPE_LABEL[p.payment_type ?? ''] || '收款'}
+                    {payer || typeText(t, p.payment_type) || t('admPay.payerFallback')}
                   </Text>
                   <Text style={styles.paySub} numberOfLines={1}>
                     {[
-                      propName || p.description || TYPE_LABEL[p.payment_type ?? ''] || '租金',
+                      propName || p.description || typeText(t, p.payment_type) || t('admPay.rentFallback'),
                       fmtDate(p.paid_at || p.due_date || p.created_at),
                     ]
                       .filter(Boolean)
@@ -390,7 +411,7 @@ export default function AdminPaymentsScreen() {
                 <View style={styles.payRight}>
                   <Text style={styles.payAmount}>{fmtMoney(p.amount, p.currency)}</Text>
                   <View style={[styles.badge, { backgroundColor: colors.alpha(meta.rgb, 0.12) }]}>
-                    <Text style={[styles.badgeText, { color: meta.color }]}>{meta.label}</Text>
+                    <Text style={[styles.badgeText, { color: meta.color }]}>{meta.key ? t(meta.key) : meta.label}</Text>
                   </View>
                 </View>
               </View>
@@ -405,12 +426,12 @@ export default function AdminPaymentsScreen() {
                     }}
                   >
                     <Ionicons name="checkmark-circle-outline" size={14} color={colors.primary} />
-                    <Text style={[styles.actionBtnText, { color: colors.primary }]}>确认到账</Text>
+                    <Text style={[styles.actionBtnText, { color: colors.primary }]}>{t('admPay.confirmArrival')}</Text>
                   </TouchableOpacity>
                 ) : null}
                 <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={() => openDetail(p)}>
                   <Ionicons name="eye-outline" size={14} color={colors.ink2} />
-                  <Text style={[styles.actionBtnText, { color: colors.ink2 }]}>查看</Text>
+                  <Text style={[styles.actionBtnText, { color: colors.ink2 }]}>{t('admPay.view')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -423,32 +444,32 @@ export default function AdminPaymentsScreen() {
         <View style={styles.modalMask}>
           <ScrollView contentContainerStyle={styles.modalCardWrap}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>手动记账</Text>
+              <Text style={styles.modalTitle}>{t('admPay.manualEntry')}</Text>
 
               {/* 付款方 */}
-              <Text style={styles.fieldLabel}>付款方 *</Text>
+              <Text style={styles.fieldLabel}>{t('admPay.payerLabel')}</Text>
               <TouchableOpacity
                 style={[styles.pickerField, formErrors.payer_id ? styles.fieldError : null]}
                 activeOpacity={0.7}
                 onPress={() => setShowUserPicker(true)}
               >
                 <Text style={form.payer_id ? styles.pickerValue : styles.pickerPlaceholder}>
-                  {form.payer_name || (form.payer_id ? form.payer_id : '选择账户')}
+                  {form.payer_name || (form.payer_id ? form.payer_id : t('admPay.pickAccount'))}
                 </Text>
                 <Ionicons name="chevron-down" size={16} color={colors.ink3} />
               </TouchableOpacity>
               {!!formErrors.payer_id && <Text style={styles.fieldErrorText}>{formErrors.payer_id}</Text>}
 
-              <Text style={styles.fieldLabel}>收款方（选填，默认当前租户/收款方）</Text>
+              <Text style={styles.fieldLabel}>{t('admPay.payeeLabel')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={form.payee_id}
                 onChangeText={(v) => setForm((f) => ({ ...f, payee_id: v }))}
-                placeholder="收款方账户 ID"
+                placeholder={t('admPay.payeePlaceholder')}
                 placeholderTextColor={colors.ink3}
               />
 
-              <Text style={styles.fieldLabel}>金额 *</Text>
+              <Text style={styles.fieldLabel}>{t('admPay.amountLabel')}</Text>
               <TextInput
                 style={[styles.textInput, formErrors.amount ? styles.fieldError : null]}
                 value={form.amount}
@@ -462,7 +483,7 @@ export default function AdminPaymentsScreen() {
               />
               {!!formErrors.amount && <Text style={styles.fieldErrorText}>{formErrors.amount}</Text>}
 
-              <Text style={styles.fieldLabel}>币种</Text>
+              <Text style={styles.fieldLabel}>{t('admPay.currencyLabel')}</Text>
               <View style={styles.chipRow2}>
                 {CURRENCIES.map((c) => (
                   <TouchableOpacity
@@ -475,7 +496,7 @@ export default function AdminPaymentsScreen() {
                 ))}
               </View>
 
-              <Text style={styles.fieldLabel}>类型</Text>
+              <Text style={styles.fieldLabel}>{t('admPay.typeLabel')}</Text>
               <View style={styles.chipRow2}>
                 {PAYMENT_TYPE_KEYS.map((k) => (
                   <TouchableOpacity
@@ -484,13 +505,13 @@ export default function AdminPaymentsScreen() {
                     onPress={() => setForm((f) => ({ ...f, payment_type: k }))}
                   >
                     <Text style={[styles.chip2Text, form.payment_type === k && styles.chip2TextActive]}>
-                      {TYPE_LABEL[k]}
+                      {typeText(t, k)}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.fieldLabel}>渠道</Text>
+              <Text style={styles.fieldLabel}>{t('admPay.channelLabel')}</Text>
               <View style={styles.chipRow2}>
                 {CHANNEL_KEYS.map((k) => (
                   <TouchableOpacity
@@ -499,36 +520,36 @@ export default function AdminPaymentsScreen() {
                     onPress={() => setForm((f) => ({ ...f, channel: f.channel === k ? '' : k }))}
                   >
                     <Text style={[styles.chip2Text, form.channel === k && styles.chip2TextActive]}>
-                      {CHANNEL_META[k].label}
+                      {channelText(t, k)}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.fieldLabel}>应付日期（YYYY-MM-DD）</Text>
+              <Text style={styles.fieldLabel}>{t('admPay.dueDateLabel')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={form.due_date}
                 onChangeText={(v) => setForm((f) => ({ ...f, due_date: v }))}
-                placeholder="如 2026-10-01"
+                placeholder={t('admPay.dueDatePlaceholder')}
                 placeholderTextColor={colors.ink3}
               />
 
-              <Text style={styles.fieldLabel}>备注</Text>
+              <Text style={styles.fieldLabel}>{t('admPay.descLabel')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={form.description}
                 onChangeText={(v) => setForm((f) => ({ ...f, description: v }))}
-                placeholder="备注说明"
+                placeholder={t('admPay.descPlaceholder')}
                 placeholderTextColor={colors.ink3}
               />
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setShowForm(false)}>
-                  <Text style={styles.modalCancelText}>取消</Text>
+                  <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} onPress={submitForm}>
-                  <Text style={styles.modalOkText}>保存入账</Text>
+                  <Text style={styles.modalOkText}>{t('admPay.save')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -540,7 +561,7 @@ export default function AdminPaymentsScreen() {
       <Modal visible={showUserPicker} transparent animationType="fade" onRequestClose={() => setShowUserPicker(false)}>
         <View style={styles.modalMask}>
           <View style={[styles.modalCard, styles.pickerCard]}>
-            <Text style={styles.modalTitle}>选择付款方</Text>
+            <Text style={styles.modalTitle}>{t('admPay.pickPayer')}</Text>
             <ScrollView style={styles.pickerScroll}>
               {userList.map((u) => (
                 <TouchableOpacity
@@ -562,23 +583,23 @@ export default function AdminPaymentsScreen() {
       <Modal visible={!!confirmItem} transparent animationType="fade" onRequestClose={() => setConfirmItem(null)}>
         <View style={styles.modalMask}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>确认到账</Text>
+            <Text style={styles.modalTitle}>{t('admPay.confirmArrival')}</Text>
             <Text style={styles.modalNoteText}>
-              确认该笔交易 {confirmItem ? fmtMoney(confirmItem.amount, confirmItem.currency) : ''} 已到账？
+              {t('admPay.confirmQuestion', { amount: confirmItem ? fmtMoney(confirmItem.amount, confirmItem.currency) : '' })}
             </Text>
             <TextInput
               style={styles.textInput}
               value={confirmNote}
               onChangeText={setConfirmNote}
-              placeholder="到账备注（选填）"
+              placeholder={t('admPay.confirmNote')}
               placeholderTextColor={colors.ink3}
             />
             <View style={styles.modalActions}>
               <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setConfirmItem(null)}>
-                <Text style={styles.modalCancelText}>取消</Text>
+                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} onPress={doConfirm}>
-                <Text style={styles.modalOkText}>确认到账</Text>
+                <Text style={styles.modalOkText}>{t('admPay.confirmArrival')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -590,22 +611,22 @@ export default function AdminPaymentsScreen() {
         <View style={styles.modalMask}>
           <ScrollView contentContainerStyle={styles.modalCardWrap}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>交易详情</Text>
+              <Text style={styles.modalTitle}>{t('admPay.detailTitle')}</Text>
               {detailItem ? (
                 <>
                   {[
-                    ['金额', fmtMoney(detailItem.amount, detailItem.currency)],
-                    ['类型', TYPE_LABEL[detailItem.payment_type ?? ''] || detailItem.payment_type || '-'],
-                    ['状态', STATUS_META[detailItem.status ?? '']?.label || detailItem.status || '-'],
-                    ['渠道', detailItem.channel || '-'],
-                    ['付款方', detailItem.payer_id ? userMap[detailItem.payer_id] || detailItem.payer_id : '-'],
-                    ['应付日期', fmtDate(detailItem.due_date)],
-                    ['实收日期', fmtDate(detailItem.paid_at)],
-                    ['创建时间', fmtDate(detailItem.created_at)],
-                    ['备注', detailItem.description || '-'],
+                    ['admPay.fAmount', fmtMoney(detailItem.amount, detailItem.currency)],
+                    ['admPay.fType', typeText(t, detailItem.payment_type, detailItem.payment_type || '-')],
+                    ['admPay.fStatus', detailItem.status ? statusText(t, detailItem.status) : '-'],
+                    ['admPay.fChannel', detailItem.channel || '-'],
+                    ['admPay.fPayer', detailItem.payer_id ? userMap[detailItem.payer_id] || detailItem.payer_id : '-'],
+                    ['admPay.fDueDate', fmtDate(detailItem.due_date)],
+                    ['admPay.fPaidDate', fmtDate(detailItem.paid_at)],
+                    ['admPay.fCreatedAt', fmtDate(detailItem.created_at)],
+                    ['admPay.fDesc', detailItem.description || '-'],
                   ].map(([k, v]) => (
                     <View key={k} style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>{k}</Text>
+                      <Text style={styles.detailLabel}>{t(k)}</Text>
                       <Text style={styles.detailValue} numberOfLines={3}>{v}</Text>
                     </View>
                   ))}
@@ -613,11 +634,11 @@ export default function AdminPaymentsScreen() {
                   <View style={styles.actionRow}>
                     <TouchableOpacity style={styles.docBtn} activeOpacity={0.7} onPress={() => openDoc('receipt')}>
                       <Ionicons name="receipt-outline" size={14} color={colors.primary} />
-                      <Text style={styles.docBtnText}>收款凭证</Text>
+                      <Text style={styles.docBtnText}>{t('admPay.receipt')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.docBtn} activeOpacity={0.7} onPress={() => openDoc('invoice')}>
                       <Ionicons name="document-text-outline" size={14} color={colors.primary} />
-                      <Text style={styles.docBtnText}>税务发票</Text>
+                      <Text style={styles.docBtnText}>{t('admPay.invoice')}</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -630,7 +651,7 @@ export default function AdminPaymentsScreen() {
                 </>
               ) : null}
               <TouchableOpacity style={[styles.modalBtn, styles.modalOk, styles.closeBtn]} activeOpacity={0.7} onPress={() => setDetailItem(null)}>
-                <Text style={styles.modalOkText}>关闭</Text>
+                <Text style={styles.modalOkText}>{t('common.close')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

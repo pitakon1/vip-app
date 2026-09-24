@@ -8,6 +8,7 @@ import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as formatMoney } from '@/utils/format'
 import { ICONS, iconStyle } from '@/utils/icons'
 import './index.scss'
+import { useI18n } from '@/i18n'
 
 interface PropertyItem {
   id?: string
@@ -56,19 +57,23 @@ interface SaleListingItem {
   status?: string
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  apartment: '公寓',
-  house: '住宅',
-  condo: '公寓',
-  commercial: '商铺'
-}
+const buildTypeLabels = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, string> => ({
+  apartment: t('prop.typeApartment'),
+  house: t('prop.typeHouse'),
+  condo: t('prop.typeApartment'),
+  commercial: t('prop.typeCommercial')
+})
 
-const STATUS_LABELS: Record<string, string> = {
-  vacant: '可租',
-  rented: '已出租',
-  reserved: '已预订',
-  maintenance: '维护中'
-}
+const buildStatusLabels = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, string> => ({
+  vacant: t('tpd.statusVacant'),
+  rented: t('prop.statusRentedLong'),
+  reserved: t('prop.statusReserved'),
+  maintenance: t('prop.statusMaintenanceLong')
+})
 
 const LOAN_YEARS = 30
 const DOWN_PAYMENT_RATIO = 0.3
@@ -95,11 +100,14 @@ function photoUrl(p: any): string {
   return p.url || p.src || p.path || ''
 }
 
-const formatDay = (x?: string) => {
+const formatDay = (
+  x: string | undefined,
+  t: (k: string, p?: Record<string, string | number>) => string
+) => {
   if (!x) return ''
   const d = new Date(x)
   if (Number.isNaN(d.getTime())) return String(x).slice(0, 10)
-  return `${d.getMonth() + 1}月${d.getDate()}日`
+  return t('cal.dateMD', { m: d.getMonth() + 1, d: d.getDate() })
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
@@ -113,11 +121,14 @@ const defaultSlot = () => {
 }
 
 export default function TenantPropertyDetailPage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const router = useRouter()
   const propertyId = router.params?.id
 
   const [fav, setFav] = useState(false)
+  const TYPE_LABELS = buildTypeLabels(t)
+  const STATUS_LABELS = buildStatusLabels(t)
 
   const [biz, setBiz] = useState<'rent' | 'buy'>('rent')
   const [photoIndex, setPhotoIndex] = useState(0)
@@ -208,7 +219,7 @@ export default function TenantPropertyDetailPage() {
 
   const title = useMemo(() => {
     const parts = [property?.project_name, property?.building, property?.room_number].filter(Boolean)
-    return parts.length ? parts.join(' ') : property?.address || '房源详情'
+    return parts.length ? parts.join(' ') : property?.address || t('prop.detailTitle')
   }, [property])
 
   useEffect(() => {
@@ -219,14 +230,14 @@ export default function TenantPropertyDetailPage() {
     const typeLabel = TYPE_LABELS[property?.property_type || ''] || '—'
     const layout =
       property?.bedrooms || property?.bathrooms
-        ? `${property?.bedrooms || 0}室${property?.bathrooms || 0}卫`
+        ? t('tpd.layoutRooms', { bed: property?.bedrooms || 0, bath: property?.bathrooms || 0 })
         : '—'
     return [
-      { value: property?.size_sqm ? `${property.size_sqm}㎡` : '—', label: '建筑面积' },
-      { value: layout, label: '户型' },
-      { value: property?.floor ? `${property.floor}层` : '—', label: '所在楼层' },
-      { value: typeLabel, label: '物业类型' },
-      { value: property?.furnished ? '全屋家具' : '无家具', label: '家具配套' }
+      { value: property?.size_sqm ? `${property.size_sqm}㎡` : '—', label: t('tpd.factArea') },
+      { value: layout, label: t('prop.filterLayout') },
+      { value: property?.floor ? t('tpd.floorN', { n: property.floor }) : '—', label: t('tpd.factFloor') },
+      { value: typeLabel, label: t('tpd.factType') },
+      { value: property?.furnished ? t('tpd.furnishedAll') : t('prop.furnishedNo'), label: t('tpd.factFurniture') }
     ]
   }, [property])
 
@@ -234,11 +245,11 @@ export default function TenantPropertyDetailPage() {
     const p = property
     const list: string[] = []
     if (p?.property_type && TYPE_LABELS[p.property_type]) list.push(TYPE_LABELS[p.property_type])
-    if (p?.furnished) list.push('全屋家具')
-    if (p?.deposit_months) list.push(`押 ${p.deposit_months} 付 1`)
-    if (p?.available_from) list.push(`${formatDay(p.available_from)} 起可入住`)
-    if (p?.video_url) list.push('视频看房')
-    if (p?.status === 'vacant') list.push('随时可看房')
+    if (p?.furnished) list.push(t('tpd.furnishedAll'))
+    if (p?.deposit_months) list.push(t('tpd.depositMonths', { n: p.deposit_months }))
+    if (p?.available_from) list.push(t('tpd.availableFrom', { d: formatDay(p.available_from, t) }))
+    if (p?.video_url) list.push(t('prop.videoTag'))
+    if (p?.status === 'vacant') list.push(t('tpd.viewAnytime'))
     Object.entries(project?.amenities || {}).forEach(([key, value]) => {
       if (!value) return
       list.push(typeof value === 'string' ? value : key)
@@ -248,14 +259,14 @@ export default function TenantPropertyDetailPage() {
 
   const pois = useMemo(() => {
     const list: { name: string; meta: string }[] = []
-    if (project?.nearest_subway) list.push({ name: '最近地铁', meta: project.nearest_subway })
+    if (project?.nearest_subway) list.push({ name: t('tpd.poiMetro'), meta: project.nearest_subway })
     const location = [project?.city, project?.district].filter(Boolean).join(' · ')
     const addr = location || project?.address || property?.address
-    if (addr) list.push({ name: '所在区域', meta: addr })
+    if (addr) list.push({ name: t('tpd.poiArea'), meta: addr })
     if (project?.property_management_company) {
-      list.push({ name: '物业管理', meta: project.property_management_company })
+      list.push({ name: t('tpd.poiMgmt'), meta: project.property_management_company })
     }
-    if (project?.developer) list.push({ name: '开发商', meta: project.developer })
+    if (project?.developer) list.push({ name: t('pub.developer'), meta: project.developer })
     return list
   }, [project, property])
 
@@ -263,10 +274,13 @@ export default function TenantPropertyDetailPage() {
     const rent = Number(property?.monthly_rent || 0)
     if (!rent || !peerAvg) return ''
     const diff = Math.round(((rent - peerAvg) / peerAvg) * 100)
-    if (diff === 0) return `同小区均价 ${formatMoney(peerAvg, property?.currency)}/月 · 与均价持平`
-    return `同小区均价 ${formatMoney(peerAvg, property?.currency)}/月 · ${
-      diff > 0 ? '高于' : '低于'
-    }均价 ${Math.abs(diff)}%`
+    if (diff === 0)
+      return t('tpd.benchmarkEqual', { v: `${formatMoney(peerAvg, property?.currency)}/月` })
+    return t('tpd.benchmarkDiff', {
+      v: `${formatMoney(peerAvg, property?.currency)}/月`,
+      dir: diff > 0 ? t('tpd.above') : t('tpd.below'),
+      p: Math.abs(diff)
+    })
   }, [property, peerAvg])
 
   const salePrice = Number(saleListing?.asking_price || 0)
@@ -288,18 +302,18 @@ export default function TenantPropertyDetailPage() {
     try {
       if (next) await favoritesApi.add(pid)
       else await favoritesApi.remove(pid)
-      Taro.showToast({ title: next ? '已收藏' : '已取消收藏', icon: 'none' })
+      Taro.showToast({ title: next ? t('prop.favOn') : t('tpd.favRemoved'), icon: 'none' })
     } catch (error) {
       console.error('[PropertyDetail] 收藏切换失败', error)
       setFav(!next)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.opFailed'), icon: 'none' })
     }
   }
 
   // 预约看房：展开表单（此前只弹「暂未开放」，与员工端「预约带看」已有能力不一致）
   const goBooking = () => {
     if (!useAuthStore.getState().token) {
-      Taro.showToast({ title: '请先登录', icon: 'none' })
+      Taro.showToast({ title: t('tpd.loginFirst'), icon: 'none' })
       setTimeout(() => Taro.navigateTo({ url: '/pages/login/index' }), 600)
       return
     }
@@ -317,10 +331,10 @@ export default function TenantPropertyDetailPage() {
         scheduled_at: `${bookingSlot.date}T${bookingSlot.time}:00`,
         notes: bookingNote.trim() || undefined
       })
-      Taro.showToast({ title: '预约成功', icon: 'success' })
+      Taro.showToast({ title: t('tpd.bookOk'), icon: 'success' })
       setShowBooking(false)
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || '预约失败', icon: 'none' })
+      Taro.showToast({ title: err?.message || t('prop.bookingFailed'), icon: 'none' })
     } finally {
       setBookingBusy(false)
     }
@@ -333,7 +347,7 @@ export default function TenantPropertyDetailPage() {
       <View className='tenant-property-detail-page'>
         <View className='empty-state'>
           <View className='empty-state__icon icon-svg' style={iconStyle('home', 80)} />
-          <Text>房源不存在或已下架</Text>
+          <Text>{t('pub.listingNotFound')}</Text>
         </View>
       </View>
     )
@@ -357,13 +371,13 @@ export default function TenantPropertyDetailPage() {
               ) : (
                 <View className='gallery-ph'>
                   <View className='icon-svg icon-svg--lg' style={{ backgroundImage: `url("${ICONS.home}")` }} />
-                  <Text className='gallery-ph__text'>暂无房源图片</Text>
+                  <Text className='gallery-ph__text'>{t('tpd.noPhotos')}</Text>
                 </View>
               )}
               {photos.length > 0 && (
                 <Text className='gallery-count'>{`${photoIndex + 1}/${photos.length}`}</Text>
               )}
-              {!!property?.video_url && <Text className='gallery-badge'>视频看房</Text>}
+              {!!property?.video_url && <Text className='gallery-badge'>{t('prop.videoTag')}</Text>}
             </View>
             {photos.length > 1 && (
               <ScrollView scrollX className='gallery-thumbs'>
@@ -393,7 +407,7 @@ export default function TenantPropertyDetailPage() {
                     setShowLoan(false)
                   }}
                 >
-                  <Text>{key === 'rent' ? '租房' : '买房'}</Text>
+                  <Text>{key === 'rent' ? t('pub.typeRent') : t('pub.typeSell')}</Text>
                 </View>
               ))}
             </View>
@@ -404,7 +418,7 @@ export default function TenantPropertyDetailPage() {
                   <View className='price-main'>
                     <Text className='price-value'>
                       {formatMoney(property?.monthly_rent, property?.currency)}
-                      <Text className='price-unit'>/月</Text>
+                      <Text className='price-unit'>{t('pub.perMonth')}</Text>
                     </Text>
                   </View>
                   {!!statusText && (
@@ -424,12 +438,12 @@ export default function TenantPropertyDetailPage() {
                 <Text className='price-addr'>
                   {[project?.city, project?.district].filter(Boolean).join(' · ') ||
                     property?.address ||
-                    '暂无地址'}
+                    t('prop.noAddress')}
                 </Text>
                 {!!property?.deposit_amount && (
                   <Text className='price-extra'>
-                    押金 {formatMoney(property.deposit_amount, property.currency)}
-                    {property?.deposit_months ? `（押 ${property.deposit_months} 个月）` : ''}
+                    {t('prop.depositLabel')} {formatMoney(property.deposit_amount, property.currency)}
+                    {property?.deposit_months ? t('prop.depositMonthsSuffix', { n: property.deposit_months }) : ''}
                   </Text>
                 )}
               </View>
@@ -441,25 +455,25 @@ export default function TenantPropertyDetailPage() {
                       <View className='price-main'>
                         <Text className='price-value'>
                           {formatMoney(salePrice, saleListing.currency || property?.currency)}
-                          <Text className='price-unit'>总价</Text>
+                          <Text className='price-unit'>{t('tpd.totalPrice')}</Text>
                         </Text>
                       </View>
                       <Text className='price-badge'>
-                        {saleListing.status === 'sold' ? '已成交' : '可售'}
+                        {saleListing.status === 'sold' ? t('home.stClosed') : t('tpd.forSale')}
                       </Text>
                     </View>
                     <View className='loan-line'>
-                      <Text className='loan-line__item'>首付 {DOWN_PAYMENT_RATIO * 100}%</Text>
+                      <Text className='loan-line__item'>{t('tpd.downPayment', { p: DOWN_PAYMENT_RATIO * 100 })}</Text>
                       <Text className='loan-line__sep'>·</Text>
                       <Text className='loan-line__item'>
-                        贷款额 {formatMoney(loanAmount, saleListing.currency || property?.currency)}
+                        {t('tpd.loanAmount', { v: formatMoney(loanAmount, saleListing.currency || property?.currency) })}
                       </Text>
                       <Text className='loan-line__sep'>·</Text>
-                      <Text className='loan-line__item'>{LOAN_YEARS}年期</Text>
+                      <Text className='loan-line__item'>{t('tpd.loanYears', { n: LOAN_YEARS })}</Text>
                     </View>
                     {!!unitPrice && (
                       <Text className='price-extra'>
-                        单价 {formatMoney(Math.round(unitPrice), saleListing.currency || property?.currency)}/㎡
+                        {t('tpd.unitPrice', { v: formatMoney(Math.round(unitPrice), saleListing.currency || property?.currency) })}
                       </Text>
                     )}
                     {showLoan && (
@@ -469,7 +483,7 @@ export default function TenantPropertyDetailPage() {
                             className='loan-input__field'
                             type='digit'
                             value={rateInput}
-                            placeholder='请输入年利率（%）'
+                            placeholder={t('tpd.ratePlaceholder')}
                             placeholderStyle='color:#98a1ab'
                             onInput={(e: any) => setRateInput(e.detail.value)}
                           />
@@ -477,8 +491,10 @@ export default function TenantPropertyDetailPage() {
                         </View>
                         <Text className='loan-result'>
                           {monthlyPayment
-                            ? `等额本息月供约 ${formatMoney(Math.round(monthlyPayment), saleListing.currency || property?.currency)}/月`
-                            : '填写年利率后自动试算月供'}
+                            ? t('tpd.monthlyPayment', {
+                                v: `${formatMoney(Math.round(monthlyPayment), saleListing.currency || property?.currency)}/月`
+                              })
+                            : t('tpd.monthlyPaymentHint')}
                         </Text>
                       </View>
                     )}
@@ -486,12 +502,12 @@ export default function TenantPropertyDetailPage() {
                     <Text className='price-addr'>
                       {[project?.city, project?.district].filter(Boolean).join(' · ') ||
                         property?.address ||
-                        '暂无地址'}
+                        t('prop.noAddress')}
                     </Text>
                   </>
                 ) : (
                   <View className='biz-empty'>
-                    <Text>该房源暂未挂牌出售</Text>
+                    <Text>{t('tpd.notForSale')}</Text>
                   </View>
                 )}
               </View>
@@ -500,7 +516,7 @@ export default function TenantPropertyDetailPage() {
 
           {/* 3 核心信息 */}
           <View className='detail-card'>
-            <Text className='detail-title'>核心信息</Text>
+            <Text className='detail-title'>{t('tpd.coreInfo')}</Text>
             <View className='facts-grid'>
               {facts.map((f) => (
                 <View key={f.label} className='fact'>
@@ -514,7 +530,7 @@ export default function TenantPropertyDetailPage() {
 
           {/* 4 房源卖点与基础配套 */}
           <View className='detail-card'>
-            <Text className='detail-title'>房源卖点与基础配套</Text>
+            <Text className='detail-title'>{t('tpd.highlights')}</Text>
             {chips.length ? (
               <View className='chips'>
                 {chips.map((c) => (
@@ -523,17 +539,17 @@ export default function TenantPropertyDetailPage() {
               </View>
             ) : (
               <View className='empty-state'>
-                <Text>暂无卖点与配套信息</Text>
+                <Text>{t('tpd.noHighlights')}</Text>
               </View>
             )}
           </View>
 
           {/* 5 位置与周边 */}
           <View className='detail-card'>
-            <Text className='detail-title'>位置与周边</Text>
+            <Text className='detail-title'>{t('tpd.location')}</Text>
             <View className='map-canvas'>
               <View className='icon-svg icon-svg--lg' style={{ backgroundImage: `url("${ICONS.home}")` }} />
-              <Text className='map-pin-label'>{project?.name || property?.address || '位置待完善'}</Text>
+              <Text className='map-pin-label'>{project?.name || property?.address || t('tpd.locationPending')}</Text>
             </View>
             {pois.length ? (
               <View className='pois'>
@@ -546,7 +562,7 @@ export default function TenantPropertyDetailPage() {
               </View>
             ) : (
               <View className='empty-state'>
-                <Text>暂无周边信息</Text>
+                <Text>{t('tpd.noPois')}</Text>
               </View>
             )}
           </View>
@@ -560,15 +576,15 @@ export default function TenantPropertyDetailPage() {
             className='icon-svg'
             style={{ backgroundImage: `url("${fav ? ICONS.heartFill : ICONS.heart}")` }}
           />
-          <Text className='detail-bar__fav-text'>{fav ? '已收藏' : '收藏'}</Text>
+          <Text className='detail-bar__fav-text'>{fav ? t('prop.favOn') : t('prop.fav')}</Text>
         </View>
         {biz === 'buy' && salePrice > 0 && (
           <View className='detail-bar__loan' onClick={() => setShowLoan((s) => !s)}>
-            <Text>算贷款</Text>
+            <Text>{t('tpd.calcLoan')}</Text>
           </View>
         )}
         <View className='detail-bar__book' onClick={goBooking}>
-          <Text>立即预约看房</Text>
+          <Text>{t('tpd.bookNow')}</Text>
         </View>
       </View>
 
@@ -576,8 +592,8 @@ export default function TenantPropertyDetailPage() {
       {showBooking && (
         <View className='book-mask' onClick={() => setShowBooking(false)}>
           <View className='book-sheet' onClick={(e) => e.stopPropagation()}>
-            <Text className='book-sheet__title'>预约看房</Text>
-            <Text className='book-sheet__sub'>{property?.project_name || property?.room_number || '当前房源'}</Text>
+            <Text className='book-sheet__title'>{t('tpd.bookViewing')}</Text>
+            <Text className='book-sheet__sub'>{property?.project_name || property?.room_number || t('tpd.currentProperty')}</Text>
             <View className='book-sheet__pickers'>
               <Picker
                 mode='date'
@@ -601,19 +617,19 @@ export default function TenantPropertyDetailPage() {
             <Input
               className='book-sheet__input'
               value={bookingNote}
-              placeholder='备注（选填，如希望看的房间）'
+              placeholder={t('tpd.bookNotePlaceholder')}
               placeholderStyle='color:#98a1ab'
               onInput={(e: any) => setBookingNote(e.detail.value)}
             />
             <View className='book-sheet__foot'>
               <View className='book-sheet__btn book-sheet__btn--ghost' onClick={() => setShowBooking(false)}>
-                <Text>取消</Text>
+                <Text>{t('common.cancel')}</Text>
               </View>
               <View
                 className={`book-sheet__btn book-sheet__btn--primary${bookingBusy ? ' book-sheet__btn--disabled' : ''}`}
                 onClick={() => !bookingBusy && submitBooking()}
               >
-                <Text>{bookingBusy ? '提交中...' : '确认预约'}</Text>
+                <Text>{bookingBusy ? t('common.submitting') : t('prop.confirmBooking')}</Text>
               </View>
             </View>
           </View>

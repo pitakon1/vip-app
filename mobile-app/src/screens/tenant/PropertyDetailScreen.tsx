@@ -65,22 +65,41 @@ interface SaleListing {
   [key: string]: any;
 }
 
-const typeLabels: Record<string, string> = {
-  apartment: '公寓',
-  condo: '公寓',
-  villa: '别墅',
-  house: '别墅',
-  shop: '商铺',
-  commercial: '商铺',
-  office: '写字楼',
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
+
+const typeText = (t: TFunc, type?: string) => {
+  switch (type) {
+    case 'apartment':
+    case 'condo':
+      return t('prop.type.apartment');
+    case 'villa':
+    case 'house':
+      return t('prop.type.house');
+    case 'shop':
+    case 'commercial':
+      return t('prop.type.commercial');
+    case 'office':
+      return t('prop.type.office');
+    default:
+      return '';
+  }
 };
 
-const statusLabels: Record<string, string> = {
-  vacant: '空置',
-  rented: '已出租',
-  renewing: '续约中',
-  maintenance: '维护中',
-  reserved: '已预订',
+const statusText = (t: TFunc, status?: string) => {
+  switch (status) {
+    case 'vacant':
+      return t('status.vacant');
+    case 'rented':
+      return t('status.rented');
+    case 'renewing':
+      return t('prop.status.renewing');
+    case 'maintenance':
+      return t('status.maintenance');
+    case 'reserved':
+      return t('status.reserved');
+    default:
+      return '';
+  }
 };
 
 const screenWidth = Dimensions.get('window').width;
@@ -122,7 +141,7 @@ export default function PropertyDetailScreen() {
       if (pRes.status === 'rejected') {
         throw (
           (pRes.reason as any)?.response?.data?.detail ||
-          '无法获取房源详情，请检查网络后重试'
+          t('prop.detailLoadFail')
         );
       }
       const d: any = pRes.value?.data;
@@ -246,7 +265,7 @@ export default function PropertyDetailScreen() {
       }
       void favQ.refetch();
     } catch {
-      notify('操作失败', '请稍后重试');
+      notify(t('acc.opFailed'), t('prop.retryLater'));
     } finally {
       setFavBusy(false);
     }
@@ -263,7 +282,7 @@ export default function PropertyDetailScreen() {
       }
       void priceQ.refetch();
     } catch {
-      notify('操作失败', '请稍后重试');
+      notify(t('acc.opFailed'), t('prop.retryLater'));
     } finally {
       setPriceBusy(false);
     }
@@ -272,7 +291,7 @@ export default function PropertyDetailScreen() {
   const handleBooking = async () => {
     if (!propertyId) return;
     if (!bookingTime.trim()) {
-      notify('提示', '请填写看房时间，如 2026-09-20 10:00');
+      notify(t('common.hint'), t('prop.viewingTimeRequired'));
       return;
     }
     setBookingBusy(true);
@@ -282,12 +301,12 @@ export default function PropertyDetailScreen() {
         scheduled_at: bookingTime.trim().replace(' ', 'T'),
         notes: bookingNote.trim() || undefined,
       });
-      notify('提交成功', '预约已提交，工作人员将尽快与您确认');
+      notify(t('maint.submitSuccess'), t('prop.bookingOkMsg'));
       setBookingOpen(false);
       setBookingTime('');
       setBookingNote('');
     } catch (err: any) {
-      notify('提交失败', err?.response?.data?.detail || '请稍后重试');
+      notify(t('maint.submitFail'), err?.response?.data?.detail || t('prop.retryLater'));
     } finally {
       setBookingBusy(false);
     }
@@ -295,7 +314,7 @@ export default function PropertyDetailScreen() {
 
   const handleTranslate = async () => {
     if (!property?.description) {
-      notify('提示', '该房源暂无描述');
+      notify(t('common.hint'), t('prop.noDescToast'));
       return;
     }
     setTranslating(true);
@@ -307,7 +326,7 @@ export default function PropertyDetailScreen() {
         String(d?.translated_text ?? d?.translation ?? d?.text ?? JSON.stringify(d)),
       );
     } catch (err: any) {
-      notify('翻译失败', err?.response?.data?.message || '请稍后重试');
+      notify(t('prop.translateFail'), err?.response?.data?.message || t('prop.retryLater'));
     } finally {
       setTranslating(false);
     }
@@ -316,8 +335,8 @@ export default function PropertyDetailScreen() {
   const langs: { key: typeof target; label: string }[] = [
     { key: 'en', label: 'EN' },
     { key: 'es', label: 'ES' },
-    { key: 'ja', label: '日' },
-    { key: 'ko', label: '韩' },
+    { key: 'ja', label: t('prop.langJa') },
+    { key: 'ko', label: t('prop.langKo') },
   ];
 
   // 主 CTA 按压反馈：按下缩至 0.97、松手 spring 回弹（原生驱动；web 退化默认）
@@ -341,7 +360,7 @@ export default function PropertyDetailScreen() {
     }).start();
 
   if (loading) {
-    return <LoadingState label="加载房源详情…" />;
+    return <LoadingState label={t('prop.loadingDetail')} />;
   }
 
   // 错误态：加载失败时给出原因与重试入口（原实现仅 Alert，web 下不可见）
@@ -350,9 +369,9 @@ export default function PropertyDetailScreen() {
       <View style={styles.container}>
         <EmptyState
           icon="cloud-offline-outline"
-          title="加载失败"
+          title={t('loadFailed')}
           sub={loadError}
-          actionLabel="重试"
+          actionLabel={t('pub.retry')}
           onAction={() => void detailQ.refetch()}
         />
       </View>
@@ -362,7 +381,7 @@ export default function PropertyDetailScreen() {
   if (!propertyId) {
     return (
       <View style={styles.container}>
-        <EmptyState icon="home-outline" title="未指定房源" sub="请从房源列表进入详情页" />
+        <EmptyState icon="home-outline" title={t('prop.noSpecified')} sub={t('prop.enterFromList')} />
       </View>
     );
   }
@@ -372,9 +391,9 @@ export default function PropertyDetailScreen() {
       <View style={styles.container}>
         <EmptyState
           icon="alert-circle-outline"
-          title="房源不存在或已下架"
-          sub="该房源可能已被删除，去看看其他房源"
-          actionLabel="去找房源"
+          title={t('prop.goneTitle')}
+          sub={t('prop.goneSub')}
+          actionLabel={t('prop.goFindListings')}
           onAction={() => navigation.navigate('Listings')}
         />
       </View>
@@ -387,45 +406,50 @@ export default function PropertyDetailScreen() {
   const displayName =
     [property.project_name, property.room_number].filter(Boolean).join(' ') ||
     property.address ||
-    '房源详情';
-  const typeLabel = typeLabels[String(property.property_type ?? '')] ?? '房源';
-  const statusLabel = statusLabels[String(property.status ?? '')] ?? '在租';
+    t('prop.detailTitle');
+  const typeLabel = typeText(t, String(property.property_type ?? '')) || t('tab.properties');
+  const statusLabel = statusText(t, String(property.status ?? '')) || t('prop.status.rented');
 
   // 核心信息：仅展示接口真实字段
   const facts: { icon: keyof typeof Ionicons.glyphMap; value: string; label: string }[] = [];
-  if (property.size_sqm) facts.push({ icon: 'scan-outline', value: `${property.size_sqm}㎡`, label: '建筑面积' });
+  if (property.size_sqm) facts.push({ icon: 'scan-outline', value: `${property.size_sqm}㎡`, label: t('prop.factArea') });
   if (property.bedrooms || property.bathrooms)
     facts.push({
       icon: 'grid-outline',
-      value: `${property.bedrooms ?? 0}室${property.bathrooms ?? 0}卫`,
-      label: '户型',
+      value: t('prop.bedBath', { bed: property.bedrooms ?? 0, bath: property.bathrooms ?? 0 }),
+      label: t('pub.layout'),
     });
   if (property.floor || property.building)
     facts.push({
       icon: 'layers-outline',
-      value: [property.building, property.floor ? `${property.floor}层` : null].filter(Boolean).join(' '),
-      label: '所在楼层',
+      value: [
+        property.building,
+        property.floor ? t('prop.floorN', { n: property.floor }) : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
+      label: t('prop.factFloor'),
     });
   facts.push({
     icon: 'color-palette-outline',
-    value: property.furnished ? '精装修' : '毛坯',
-    label: '装修程度',
+    value: property.furnished ? t('list.furnished') : t('pub.decoration.bare'),
+    label: t('prop.factDecoration'),
   });
   if (property.deposit_amount)
     facts.push({
       icon: 'wallet-outline',
       value: `${formatMoney(property.deposit_amount, property.currency)}${
-        property.deposit_months ? ` · ${property.deposit_months}个月` : ''
+        property.deposit_months ? ` · ${t('prop.monthsN', { n: property.deposit_months })}` : ''
       }`,
-      label: '押金',
+      label: t('pub.deposit'),
     });
 
   // 卖点与配套：由真实字段派生
   const featureTags = [
     typeLabel,
     statusLabel,
-    property.furnished ? '精装修' : '毛坯',
-    ...(property.video_url ? ['视频看房'] : []),
+    property.furnished ? t('list.furnished') : t('pub.decoration.bare'),
+    ...(property.video_url ? [t('list.videoTour')] : []),
     ...(property.project_name ? [String(property.project_name)] : []),
   ];
 
@@ -493,7 +517,7 @@ export default function PropertyDetailScreen() {
               {!!property.video_url && (
                 <View style={styles.galleryVideo}>
                   <Ionicons name="videocam" size={14} color={colors.primaryForeground} />
-                  <Text style={styles.galleryVideoText}>视频看房</Text>
+                  <Text style={styles.galleryVideoText}>{t('list.videoTour')}</Text>
                 </View>
               )}
               {/* 缩略图条：点击切换到对应大图 */}
@@ -519,7 +543,7 @@ export default function PropertyDetailScreen() {
           ) : (
             <View style={[styles.galleryImg, styles.galleryPlaceholder]}>
               <Ionicons name="image-outline" size={30} color={colors.ink3} />
-              <Text style={styles.galleryPlaceholderText}>暂无房源图片</Text>
+              <Text style={styles.galleryPlaceholderText}>{t('prop.noImages')}</Text>
             </View>
           )}
         </View>
@@ -535,7 +559,7 @@ export default function PropertyDetailScreen() {
                 activeOpacity={0.7}
               >
                 <Text style={[styles.bizTabText, biz === b && styles.bizTabTextActive]}>
-                  {b === 'rent' ? '租房' : '买房'}
+                  {b === 'rent' ? t('pub.typeRent') : t('pub.typeSell')}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -547,7 +571,7 @@ export default function PropertyDetailScreen() {
                 <View style={styles.priceLeft}>
                   <Text style={styles.priceValue}>
                     {formatMoney(property.monthly_rent, property.currency)}
-                    <Text style={styles.priceUnit}>/月</Text>
+                    <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>
                   </Text>
                   <View style={styles.tagRow}>
                     {featureTags.slice(0, 3).map((tag) => (
@@ -558,12 +582,12 @@ export default function PropertyDetailScreen() {
                   </View>
                 </View>
                 <View style={styles.badgeSuccess}>
-                  <Text style={styles.badgeSuccessText}>可预约看房</Text>
+                  <Text style={styles.badgeSuccessText}>{t('prop.bookable')}</Text>
                 </View>
               </View>
               <Text style={styles.propName}>{displayName}</Text>
               <Text style={styles.propAddr}>
-                <Ionicons name="location-outline" size={13} color={colors.ink3} /> {property.address || '暂无地址'}
+                <Ionicons name="location-outline" size={13} color={colors.ink3} /> {property.address || t('prop.noAddress')}
               </Text>
             </>
           ) : saleListing ? (
@@ -572,17 +596,23 @@ export default function PropertyDetailScreen() {
                 <View style={styles.priceLeft}>
                   <Text style={styles.priceValue}>
                     {formatMoney(saleListing.asking_price, saleListing.currency)}
-                    <Text style={styles.priceUnit}> 总价</Text>
+                    <Text style={styles.priceUnit}> {t('prop.totalPrice')}</Text>
                   </Text>
                   <View style={styles.tagRow}>
                     {[
                       saleListing.size_sqm && saleListing.asking_price
-                        ? `单价 ${formatMoney(
-                            Math.round(Number(saleListing.asking_price) / Number(saleListing.size_sqm)),
-                            saleListing.currency,
-                          )}/㎡`
+                        ? t('prop.unitPricePerSqm', {
+                            price: formatMoney(
+                              Math.round(
+                                Number(saleListing.asking_price) / Number(saleListing.size_sqm),
+                              ),
+                              saleListing.currency,
+                            ),
+                          })
                         : null,
-                      saleListing.bedrooms ? `${saleListing.bedrooms}室` : null,
+                      saleListing.bedrooms
+                        ? t('prop.bedroomN', { n: saleListing.bedrooms })
+                        : null,
                     ]
                       .filter(Boolean)
                       .map((tag) => (
@@ -593,31 +623,40 @@ export default function PropertyDetailScreen() {
                   </View>
                 </View>
                 <View style={styles.badgeSuccess}>
-                  <Text style={styles.badgeSuccessText}>可预约看房</Text>
+                  <Text style={styles.badgeSuccessText}>{t('prop.bookable')}</Text>
                 </View>
               </View>
               <Text style={styles.propName}>{saleListing.title || displayName}</Text>
               <Text style={styles.propAddr}>
                 <Ionicons name="location-outline" size={13} color={colors.ink3} />{' '}
-                {saleListing.address || property.address || '暂无地址'}
+                {saleListing.address || property.address || t('prop.noAddress')}
               </Text>
               {/* 首付 / 年限提示（月供由「算贷款」按用户输入利率试算） */}
               <TouchableOpacity style={styles.loanHint} activeOpacity={0.8} onPress={openCalculator}>
                 <Text style={styles.loanHintText}>
-                  首付 3 成约 {formatMoney(Math.round(Number(saleListing.asking_price || 0) * 0.3), saleListing.currency)}
-                  {' · '}贷款 30 年 · 点击试算月供
+                  {t('prop.loanHint', {
+                    down: formatMoney(
+                      Math.round(Number(saleListing.asking_price || 0) * 0.3),
+                      saleListing.currency,
+                    ),
+                    years: 30,
+                  })}
                 </Text>
                 <Ionicons name="calculator-outline" size={16} color={colors.primary} />
               </TouchableOpacity>
             </>
           ) : (
-            <EmptyState icon="pricetag-outline" title="该房源暂无在售挂牌" sub="这套房源目前只支持租赁" />
+            <EmptyState
+              icon="pricetag-outline"
+              title={t('prop.noSaleListing')}
+              sub={t('prop.rentOnly')}
+            />
           )}
         </View>
 
         {/* 3. 核心信息 */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>核心信息</Text>
+          <Text style={styles.cardTitle}>{t('prop.sectionCore')}</Text>
           {facts.length ? (
             <View style={styles.factGrid}>
               {facts.map((f) => (
@@ -631,14 +670,16 @@ export default function PropertyDetailScreen() {
               ))}
             </View>
           ) : (
-            <EmptyState icon="information-circle-outline" title="暂无核心信息" />
+            <EmptyState icon="information-circle-outline" title={t('prop.noCore')} />
           )}
           {/* 同小区均价基准（同 project_id 真实房源聚合） */}
           {projectStats && (
             <View style={styles.avgBar}>
               <Text style={styles.avgBarText}>
-                同小区均价 {formatMoney(projectStats.avg, property.currency)}/月 ·{' '}
-                {projectStats.count} 套在租
+                {t('prop.avgRentBar', {
+                  price: formatMoney(projectStats.avg, property.currency),
+                  count: projectStats.count,
+                })}
               </Text>
               {rentGap !== null && (
                 <Text
@@ -648,10 +689,10 @@ export default function PropertyDetailScreen() {
                   ]}
                 >
                   {rentGap > 0
-                    ? `高于均价 ${rentGap}%`
+                    ? t('prop.avgHigh', { pct: rentGap })
                     : rentGap < 0
-                    ? `低于均价 ${Math.abs(rentGap)}%`
-                    : '与均价持平'}
+                    ? t('prop.avgLow', { pct: Math.abs(rentGap) })
+                    : t('prop.avgFlat')}
                 </Text>
               )}
             </View>
@@ -660,7 +701,7 @@ export default function PropertyDetailScreen() {
 
         {/* 4. 房源卖点与配套 */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>房源卖点与基础配套</Text>
+          <Text style={styles.cardTitle}>{t('prop.sectionFeatures')}</Text>
           <View style={styles.chipRow}>
             {featureTags.map((tag) => (
               <View key={tag} style={styles.chip}>
@@ -669,13 +710,15 @@ export default function PropertyDetailScreen() {
             ))}
           </View>
           {!!property.owner_name && (
-            <Text style={styles.cardMeta}>业主：{String(property.owner_name)}</Text>
+            <Text style={styles.cardMeta}>
+              {t('prop.ownerLabel', { name: String(property.owner_name) })}
+            </Text>
           )}
         </View>
 
         {/* 5. 位置与周边 */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>位置与周边</Text>
+          <Text style={styles.cardTitle}>{t('prop.sectionLocation')}</Text>
           {property.address || property.project_name ? (
             <>
               <Text style={styles.mapPinLabel}>
@@ -684,15 +727,15 @@ export default function PropertyDetailScreen() {
               </Text>
             </>
           ) : (
-            <EmptyState icon="map-outline" title="暂无位置信息" />
+            <EmptyState icon="map-outline" title={t('prop.noLocation')} />
           )}
         </View>
 
         {/* 6. 房源描述 + 翻译（保留原有能力） */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>房源描述</Text>
-          <Text style={styles.desc}>{property.description || '该房源暂无详细描述。'}</Text>
-          <Text style={styles.subTitle}>Google 翻译</Text>
+          <Text style={styles.cardTitle}>{t('prop.sectionDesc')}</Text>
+          <Text style={styles.desc}>{property.description || t('prop.noDesc')}</Text>
+          <Text style={styles.subTitle}>{t('prop.googleTranslate')}</Text>
           {property.description ? (
             <View style={styles.langRow}>
               {langs.map((l) => (
@@ -716,7 +759,7 @@ export default function PropertyDetailScreen() {
             {translating ? (
               <ActivityIndicator color={colors.primaryForeground} size="small" />
             ) : (
-              <Text style={styles.transText}>翻译描述</Text>
+              <Text style={styles.transText}>{t('prop.translateDesc')}</Text>
             )}
           </TouchableOpacity>
           {translated ? (
@@ -744,7 +787,7 @@ export default function PropertyDetailScreen() {
             onPressIn={() => pressIn(favScale)}
             onPressOut={() => pressOut(favScale)}
             accessibilityRole="button"
-            accessibilityLabel={favorited ? '取消收藏' : '收藏房源'}
+            accessibilityLabel={favorited ? t('list.unfavorite') : t('prop.favA11yOff')}
             accessibilityState={{ disabled: favBusy }}
           >
             <Ionicons
@@ -752,7 +795,9 @@ export default function PropertyDetailScreen() {
               size={20}
               color={favorited ? colors.error : colors.ink2}
             />
-            <Text style={styles.favText}>{favorited ? '已收藏' : '收藏'}</Text>
+            <Text style={styles.favText}>
+              {favorited ? t('prop.favorited') : t('prop.favorite')}
+            </Text>
           </TouchableOpacity>
         </Animated.View>
         <Animated.View style={{ transform: [{ scale: bellScale }] }}>
@@ -787,7 +832,7 @@ export default function PropertyDetailScreen() {
             onPressOut={() => pressOut(contactScale)}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.ink2} />
-            <Text style={styles.contactText}>联系经纪</Text>
+            <Text style={styles.contactText}>{t('prop.contactBroker')}</Text>
           </TouchableOpacity>
         </Animated.View>
         {/* 算贷款：仅买房业务下展示（对齐原型） */}
@@ -798,7 +843,7 @@ export default function PropertyDetailScreen() {
             onPress={openCalculator}
           >
             <Ionicons name="calculator-outline" size={18} color={colors.ink2} />
-            <Text style={styles.contactText}>算贷款</Text>
+            <Text style={styles.contactText}>{t('prop.calcLoan')}</Text>
           </TouchableOpacity>
         ) : null}
         <Animated.View style={{ transform: [{ scale: bookScale }] }}>
@@ -809,7 +854,7 @@ export default function PropertyDetailScreen() {
             onPressIn={() => pressIn(bookScale)}
             onPressOut={() => pressOut(bookScale)}
           >
-            <Text style={styles.bookText}>立即预约看房</Text>
+            <Text style={styles.bookText}>{t('prop.bookNow')}</Text>
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -824,13 +869,13 @@ export default function PropertyDetailScreen() {
         <View style={styles.modalWrap}>
           <View style={[styles.modalCard, { paddingBottom: colors.spacing.xxl + insets.bottom }]}>
             <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>预约看房</Text>
+              <Text style={styles.modalTitle}>{t('pub.bookViewing')}</Text>
               <TouchableOpacity
                 onPress={() => setBookingOpen(false)}
                 activeOpacity={0.7}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 accessibilityRole="button"
-                accessibilityLabel="关闭"
+                accessibilityLabel={t('common.close')}
               >
                 <Ionicons name="close" size={22} color={colors.ink2} />
               </TouchableOpacity>
@@ -838,18 +883,18 @@ export default function PropertyDetailScreen() {
             <Text style={styles.modalProp} numberOfLines={1}>
               {displayName}
             </Text>
-            <Text style={styles.label}>希望时间</Text>
+            <Text style={styles.label}>{t('prop.viewingTime')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="如 2026-09-20 10:00"
+              placeholder={t('prop.viewingTimePh')}
               placeholderTextColor={colors.ink3}
               value={bookingTime}
               onChangeText={setBookingTime}
             />
-            <Text style={styles.label}>备注（可选）</Text>
+            <Text style={styles.label}>{t('prop.viewingNote')}</Text>
             <TextInput
               style={[styles.input, styles.textarea]}
-              placeholder="如：希望看白天时段"
+              placeholder={t('prop.viewingNotePh')}
               placeholderTextColor={colors.ink3}
               value={bookingNote}
               onChangeText={setBookingNote}
@@ -864,7 +909,7 @@ export default function PropertyDetailScreen() {
               {bookingBusy ? (
                 <ActivityIndicator color={colors.primaryForeground} size="small" />
               ) : (
-                <Text style={styles.transText}>提交预约</Text>
+                <Text style={styles.transText}>{t('prop.submitBooking')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -881,13 +926,13 @@ export default function PropertyDetailScreen() {
         <View style={styles.modalWrap}>
           <View style={[styles.modalCard, { paddingBottom: colors.spacing.xxl + insets.bottom }]}>
             <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>算贷款</Text>
+              <Text style={styles.modalTitle}>{t('prop.calcLoan')}</Text>
               <TouchableOpacity
                 onPress={() => setCalcOpen(false)}
                 activeOpacity={0.7}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 accessibilityRole="button"
-                accessibilityLabel="关闭"
+                accessibilityLabel={t('common.close')}
               >
                 <Ionicons name="close" size={22} color={colors.ink2} />
               </TouchableOpacity>
@@ -895,10 +940,10 @@ export default function PropertyDetailScreen() {
             <Text style={styles.modalProp} numberOfLines={1}>
               {saleListing?.title || displayName}
             </Text>
-            <Text style={styles.label}>房屋总价</Text>
+            <Text style={styles.label}>{t('prop.calcPrice')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="请输入总价"
+              placeholder={t('prop.calcPricePh')}
               placeholderTextColor={colors.ink3}
               keyboardType="numeric"
               value={calcPrice}
@@ -906,7 +951,7 @@ export default function PropertyDetailScreen() {
             />
             <View style={styles.calcRow}>
               <View style={styles.calcCol}>
-                <Text style={styles.label}>首付比例(%)</Text>
+                <Text style={styles.label}>{t('prop.calcDown')}</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="30"
@@ -917,10 +962,10 @@ export default function PropertyDetailScreen() {
                 />
               </View>
               <View style={styles.calcCol}>
-                <Text style={styles.label}>年利率(%)</Text>
+                <Text style={styles.label}>{t('prop.calcRate')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="如 4.5"
+                  placeholder={t('prop.calcRatePh')}
                   placeholderTextColor={colors.ink3}
                   keyboardType="numeric"
                   value={calcRate}
@@ -928,7 +973,7 @@ export default function PropertyDetailScreen() {
                 />
               </View>
               <View style={styles.calcCol}>
-                <Text style={styles.label}>年限(年)</Text>
+                <Text style={styles.label}>{t('prop.calcYears')}</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="30"
@@ -941,27 +986,27 @@ export default function PropertyDetailScreen() {
             </View>
             <View style={styles.calcResult}>
               <View style={styles.calcResultRow}>
-                <Text style={styles.calcResultLabel}>首付金额</Text>
+                <Text style={styles.calcResultLabel}>{t('prop.calcDownAmount')}</Text>
                 <Text style={styles.calcResultValue}>
                   {formatMoney(Math.round(Number(calcPrice || 0) * calcDownRatio), saleListing?.currency)}
                 </Text>
               </View>
               <View style={styles.calcResultRow}>
-                <Text style={styles.calcResultLabel}>贷款金额</Text>
+                <Text style={styles.calcResultLabel}>{t('prop.calcLoanAmount')}</Text>
                 <Text style={styles.calcResultValue}>
                   {formatMoney(Math.round(calcPrincipal), saleListing?.currency)}
                 </Text>
               </View>
               <View style={styles.calcResultRow}>
-                <Text style={styles.calcResultLabel}>月供（等额本息）</Text>
+                <Text style={styles.calcResultLabel}>{t('prop.calcMonthly')}</Text>
                 <Text style={styles.calcMonthly}>
                   {calcMonthly
-                    ? `${formatMoney(Math.round(calcMonthly), saleListing?.currency)}/月`
-                    : '请输入年利率'}
+                    ? `${formatMoney(Math.round(calcMonthly), saleListing?.currency)}${t('pub.perMonth')}`
+                    : t('prop.calcRateRequired')}
                 </Text>
               </View>
             </View>
-            <Text style={styles.calcNote}>试算结果仅供参考，实际利率与额度以金融机构审批为准。</Text>
+            <Text style={styles.calcNote}>{t('prop.calcNote')}</Text>
           </View>
         </View>
       </Modal>

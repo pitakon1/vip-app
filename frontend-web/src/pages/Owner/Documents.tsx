@@ -6,6 +6,7 @@ import dayjs from 'dayjs'
 import api from '@/lib/api'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import { useTranslation } from 'react-i18next'
 import './documents.css'
 
 interface OwnerDocument {
@@ -28,16 +29,16 @@ type DocStatus = 'success' | 'neutral' | 'warning'
 
 // 类型筛选选项（与原型 owner-documents 一致）
 const TYPE_OPTIONS: { value: DocCategory; label: string }[] = [
-  { value: 'all', label: '全部类型' },
-  { value: 'contract', label: '合同' },
-  { value: 'receipt', label: '收据' },
-  { value: 'ownership', label: '产权证明' },
-  { value: 'tax', label: '税务' },
-  { value: 'other', label: '其他' },
+  { value: 'all', label: 'ownerDocuments.optAllTypes' },
+  { value: 'contract', label: 'ownerDocuments.catContract' },
+  { value: 'receipt', label: 'ownerDocuments.catReceipt' },
+  { value: 'ownership', label: 'ownerDocuments.catOwnership' },
+  { value: 'tax', label: 'ownerDocuments.catTax' },
+  { value: 'other', label: 'ownerDocuments.catOther' },
 ]
 
 // 时间筛选选项（与原型一致）
-const TIME_OPTIONS = ['全部时间', '近3个月', '近1年', '自定义']
+const TIME_OPTIONS = ['ownerDocuments.timeAll', 'ownerDocuments.timeLast3m', 'ownerDocuments.timeLast1y', 'ownerDocuments.timeCustom']
 
 // 设计稿静态演示数据（API 数据为空时兜底，字段与原型表格一致）
 interface FallbackDoc {
@@ -51,23 +52,23 @@ interface FallbackDoc {
 }
 
 const FALLBACK_DOCS: FallbackDoc[] = [
-  { name: 'Sunway Mesmerrra 租赁合同.pdf', category: 'contract', property: 'Sunway Mesmerrra', size: '2.4 MB', date: '2024-01-15', status: 'success', statusLabel: '有效' },
-  { name: '2024年Q3租金收据.pdf', category: 'receipt', property: 'Sunway Mesmerrra', size: '856 KB', date: '2024-10-05', status: 'neutral', statusLabel: '已归档' },
-  { name: '房产产权证明.jpg', category: 'ownership', property: '双威金沙国际公寓', size: '3.1 MB', date: '2023-06-20', status: 'success', statusLabel: '有效' },
-  { name: '2024年度房产税申报表.xlsx', category: 'tax', property: '多处房产', size: '1.2 MB', date: '2024-03-12', status: 'neutral', statusLabel: '已归档' },
-  { name: 'Sunway Rio Sintra 物业管理协议.pdf', category: 'contract', property: 'Sunway Rio Sintra', size: '1.8 MB', date: '2024-02-08', status: 'success', statusLabel: '有效' },
-  { name: '2024年Q1租金收据.pdf', category: 'receipt', property: 'Sunway Rio Sintra', size: '780 KB', date: '2024-04-10', status: 'neutral', statusLabel: '已归档' },
-  { name: '房屋租赁登记备案证明.pdf', category: 'ownership', property: 'Sunway Mesmerrra', size: '640 KB', date: '2023-08-15', status: 'success', statusLabel: '有效' },
-  { name: '2024年物业费缴费凭证.png', category: 'other', property: 'Sunway Rio Sintra', size: '1.5 MB', date: '2024-05-22', status: 'warning', statusLabel: '待审核' },
-  { name: '2024年度个人所得税清单.pdf', category: 'tax', property: '多处房产', size: '920 KB', date: '2024-06-30', status: 'neutral', statusLabel: '已归档' },
+  { name: 'Sunway Mesmerrra 租赁合同.pdf', category: 'contract', property: 'Sunway Mesmerrra', size: '2.4 MB', date: '2024-01-15', status: 'success', statusLabel: 'ownerDocuments.stValid' },
+  { name: '2024年Q3租金收据.pdf', category: 'receipt', property: 'Sunway Mesmerrra', size: '856 KB', date: '2024-10-05', status: 'neutral', statusLabel: 'ownerDocuments.stArchived' },
+  { name: '房产产权证明.jpg', category: 'ownership', property: '双威金沙国际公寓', size: '3.1 MB', date: '2023-06-20', status: 'success', statusLabel: 'ownerDocuments.stValid' },
+  { name: '2024年度房产税申报表.xlsx', category: 'tax', property: '多处房产', size: '1.2 MB', date: '2024-03-12', status: 'neutral', statusLabel: 'ownerDocuments.stArchived' },
+  { name: 'Sunway Rio Sintra 物业管理协议.pdf', category: 'contract', property: 'Sunway Rio Sintra', size: '1.8 MB', date: '2024-02-08', status: 'success', statusLabel: 'ownerDocuments.stValid' },
+  { name: '2024年Q1租金收据.pdf', category: 'receipt', property: 'Sunway Rio Sintra', size: '780 KB', date: '2024-04-10', status: 'neutral', statusLabel: 'ownerDocuments.stArchived' },
+  { name: '房屋租赁登记备案证明.pdf', category: 'ownership', property: 'Sunway Mesmerrra', size: '640 KB', date: '2023-08-15', status: 'success', statusLabel: 'ownerDocuments.stValid' },
+  { name: '2024年物业费缴费凭证.png', category: 'other', property: 'Sunway Rio Sintra', size: '1.5 MB', date: '2024-05-22', status: 'warning', statusLabel: 'ownerDocuments.stPendingReview' },
+  { name: '2024年度个人所得税清单.pdf', category: 'tax', property: '多处房产', size: '920 KB', date: '2024-06-30', status: 'neutral', statusLabel: 'ownerDocuments.stArchived' },
 ]
 
 const categoryLabelMap: Record<string, string> = {
-  contract: '合同',
-  receipt: '收据',
-  ownership: '产权证明',
-  tax: '税务',
-  other: '其他',
+  contract: 'ownerDocuments.catContract',
+  receipt: 'ownerDocuments.catReceipt',
+  ownership: 'ownerDocuments.catOwnership',
+  tax: 'ownerDocuments.catTax',
+  other: 'ownerDocuments.catOther',
 }
 
 const categoryBadgeMap: Record<string, string> = {
@@ -229,6 +230,7 @@ interface DisplayDoc {
 }
 
 const Documents = () => {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<DocCategory>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [timeFilter, setTimeFilter] = useState(TIME_OPTIONS[0])
@@ -260,7 +262,7 @@ const Documents = () => {
           name: d.title || d.name,
         }))
       } catch (err: any) {
-        message.error(err?.response?.data?.message || '获取文档列表失败')
+        message.error(err?.response?.data?.message || t('ownerDocuments.errFetchList'))
         return []
       }
     },
@@ -276,7 +278,7 @@ const Documents = () => {
   // 这里用 blob 中转而不是把 token 拼进 URL：URL 会留在历史记录、日志与 Referer 里。
   const openDocument = async (doc: OwnerDocument, download: boolean) => {
     if (!doc.file_url || !doc.id) {
-      message.error('文件地址不存在')
+      message.error(t('ownerDocuments.errNoFileUrl'))
       return
     }
     try {
@@ -298,7 +300,7 @@ const Documents = () => {
       // 浏览器读取完才回收：过早 revoke 会让预览页/下载拿到空内容
       window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
     } catch {
-      message.error(download ? '下载文件失败' : '预览文件失败')
+      message.error(download ? t('ownerDocuments.errDownloadFailed') : t('ownerDocuments.errPreviewFailed'))
     }
   }
 
@@ -332,12 +334,12 @@ const Documents = () => {
       await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
-      message.success('文档上传成功')
+      message.success(t('ownerDocuments.msgUploaded'))
       setPendingFile(null)
       refresh()
     } catch (err: any) {
       const detail = err?.response?.data?.detail
-      message.error(detail || '上传失败，请稍后重试')
+      message.error(detail || t('ownerDocuments.errUploadFailed'))
     } finally {
       setUploading(false)
     }
@@ -345,25 +347,25 @@ const Documents = () => {
 
   const handleDelete = (doc: DisplayDoc) => {
     if (!doc.fromApi) {
-      message.warning('演示数据不支持删除')
+      message.warning(t('ownerDocuments.warnDemoNoDelete'))
       return
     }
     Modal.confirm({
-      title: '删除文档',
-      content: `确定要删除文档「${doc.name}」吗？删除后无法恢复。`,
-      okText: '删除',
+      title: t('ownerDocuments.modalDeleteTitle'),
+      content: t('ownerDocuments.modalDeleteContent', { name: doc.name }),
+      okText: t('common.delete'),
       okButtonProps: { danger: true },
-      cancelText: '取消',
+      cancelText: t('common.cancel'),
       onOk: async () => {
         try {
           await api.delete(`/documents/${doc.id}`)
-          message.success(`文档「${doc.name}」已删除`)
+          message.success(t('ownerDocuments.msgDeleted', { name: doc.name }))
           queryClient.setQueryData<OwnerDocument[]>(docsQueryKey, (old) =>
             (old ?? []).filter((d) => String(d.id) !== String(doc.id)),
           )
         } catch (err: any) {
           const detail = err?.response?.data?.detail
-          message.error(detail || '删除失败，请稍后重试')
+          message.error(detail || t('ownerDocuments.errDeleteFailed'))
         }
       },
     })
@@ -380,7 +382,7 @@ const Documents = () => {
           id: d.id || `api-${i}`,
           name,
           category: cat,
-          categoryLabel: categoryLabelMap[cat] || '其他',
+          categoryLabel: categoryLabelMap[cat] || 'ownerDocuments.catOther',
           property: d.property_name || d.property || '-',
           size: d.file_size
             ? d.file_size > 1024 * 1024
@@ -389,7 +391,7 @@ const Documents = () => {
             : '—',
           date: d.created_at ? dayjs(d.created_at).format('YYYY-MM-DD') : '-',
           status: 'neutral' as DocStatus,
-          statusLabel: '已归档',
+          statusLabel: 'ownerDocuments.stArchived',
           file_url: d.file_url || '',
           iconType: docIconType(name),
           fromApi: true,
@@ -401,7 +403,7 @@ const Documents = () => {
           id: `fb-${i}`,
           name: d.name,
           category: d.category,
-          categoryLabel: categoryLabelMap[d.category] || '其他',
+          categoryLabel: categoryLabelMap[d.category] || 'ownerDocuments.catOther',
           property: d.property,
           size: d.size,
           date: d.date,
@@ -426,9 +428,9 @@ const Documents = () => {
     if (kw) {
       list = list.filter((d) => d.name.toLowerCase().includes(kw))
     }
-    if (timeFilter === '近3个月') {
+    if (timeFilter === 'ownerDocuments.timeLast3m') {
       list = list.filter((d) => d.date !== '-' && dayjs(d.date).isAfter(dayjs().subtract(3, 'month')))
-    } else if (timeFilter === '近1年') {
+    } else if (timeFilter === 'ownerDocuments.timeLast1y') {
       list = list.filter((d) => d.date !== '-' && dayjs(d.date).isAfter(dayjs().subtract(1, 'year')))
     }
     return list
@@ -451,15 +453,15 @@ const Documents = () => {
       {loading && (
         <div className="owner-loading-bar">
           <Spin size="small" style={{ marginRight: 8 }} />
-          数据加载中…
+          {t('ownerDocuments.loadingData')}
         </div>
       )}
 
       {/* Page header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">我的文档</h2>
-          <p className="rent-page-header__subtitle">查看和管理您的房产相关文档</p>
+          <h2 className="rent-page-header__title">{t('ownerDocuments.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('ownerDocuments.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <button
@@ -468,7 +470,7 @@ const Documents = () => {
             onClick={() => fileInputRef.current?.click()}
           >
             {uploadIcon}
-            上传文档
+            {t('ownerDocuments.uploadDoc')}
           </button>
           <input
             ref={fileInputRef}
@@ -490,7 +492,7 @@ const Documents = () => {
         </div>
         <div className="rent-storage__body">
           <div className="rent-storage__text">
-            <span>存储空间使用情况</span>
+            <span>{t('ownerDocuments.storageUsage')}</span>
             <span>
               <strong>{formatBytes(usedBytes)}</strong> / 5 GB
             </span>
@@ -507,7 +509,7 @@ const Documents = () => {
           {searchIcon}
           <input
             type="text"
-            placeholder="搜索文档名称..."
+            placeholder={t('ownerDocuments.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value)
@@ -524,7 +526,7 @@ const Documents = () => {
           }}
         >
           {TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>{t(o.label)}</option>
           ))}
         </select>
         <select
@@ -535,8 +537,8 @@ const Documents = () => {
             setPage(1)
           }}
         >
-          {TIME_OPTIONS.map((t) => (
-            <option key={t} value={t}>{t}</option>
+          {TIME_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>{t(opt)}</option>
           ))}
         </select>
       </div>
@@ -546,20 +548,20 @@ const Documents = () => {
         <table className="rent-table">
           <thead>
             <tr>
-              <th>文档名称</th>
-              <th>类型</th>
-              <th>关联房产</th>
-              <th>上传日期</th>
-              <th>大小</th>
-              <th>状态</th>
-              <th>操作</th>
+              <th>{t('ownerDocuments.thDocName')}</th>
+              <th>{t('ownerDocuments.thType')}</th>
+              <th>{t('ownerDocuments.thProperty')}</th>
+              <th>{t('ownerDocuments.thUploadDate')}</th>
+              <th>{t('ownerDocuments.thSize')}</th>
+              <th>{t('common.status')}</th>
+              <th>{t('common.action')}</th>
             </tr>
           </thead>
           <tbody>
             {visibleDocs.length === 0 ? (
               <tr>
                 <td colSpan={7}>
-                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无文档" />
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('ownerDocuments.emptyDocs')} />
                 </td>
               </tr>
             ) : (
@@ -575,14 +577,14 @@ const Documents = () => {
                   </td>
                   <td>
                     <span className={`rent-badge ${categoryBadgeMap[doc.category] || 'rent-badge--neutral'}`}>
-                      {doc.categoryLabel}
+                      {t(doc.categoryLabel)}
                     </span>
                   </td>
                   <td>{doc.property}</td>
                   <td className="rent-table__mono">{doc.date}</td>
                   <td className="rent-table__mono">{doc.size}</td>
                   <td>
-                    <span className={`rent-badge ${statusBadgeMap[doc.status]}`}>{doc.statusLabel}</span>
+                    <span className={`rent-badge ${statusBadgeMap[doc.status]}`}>{t(doc.statusLabel)}</span>
                   </td>
                   <td>
                     <div className="rent-act-group">
@@ -591,21 +593,21 @@ const Documents = () => {
                         className="rent-btn rent-btn--ghost rent-btn--sm"
                         onClick={() => handleDownload({ id: doc.id, name: doc.name, file_url: doc.file_url } as OwnerDocument)}
                       >
-                        下载
+                        {t('ownerDocuments.actDownload')}
                       </button>
                       <button
                         type="button"
                         className="rent-btn rent-btn--ghost rent-btn--sm"
                         onClick={() => handlePreview({ id: doc.id, name: doc.name, file_url: doc.file_url } as OwnerDocument)}
                       >
-                        预览
+                        {t('ownerDocuments.actPreview')}
                       </button>
                       <button
                         type="button"
                         className="rent-btn rent-btn--danger-ghost rent-btn--sm"
                         onClick={() => handleDelete(doc)}
                       >
-                        删除
+                        {t('common.delete')}
                       </button>
                     </div>
                   </td>
@@ -619,12 +621,12 @@ const Documents = () => {
       {/* Pagination */}
       <div className="rent-pagination">
         <span className="rent-pagination__info">
-          共 {visibleDocs.length} 条记录 · 每页 {PAGE_SIZE} 条
+          {t('ownerDocuments.recordsInfo', { total: visibleDocs.length, size: PAGE_SIZE })}
         </span>
         <button
           type="button"
           className="rent-pagination__btn"
-          aria-label="上一页"
+          aria-label={t('ownerDocuments.ariaPrev')}
           disabled={safePage <= 1}
           onClick={() => setPage(Math.max(1, safePage - 1))}
         >
@@ -636,7 +638,7 @@ const Documents = () => {
         <button
           type="button"
           className="rent-pagination__btn"
-          aria-label="下一页"
+          aria-label={t('ownerDocuments.ariaNext')}
           disabled={safePage >= pageCount}
           onClick={() => setPage(Math.min(pageCount, safePage + 1))}
         >
@@ -647,9 +649,9 @@ const Documents = () => {
       {/* 上传确认：确认文件与分类后再提交 */}
       <Modal
         open={!!pendingFile}
-        title="上传文档"
-        okText="上传"
-        cancelText="取消"
+        title={t('ownerDocuments.modalUploadTitle')}
+        okText={t('ownerDocuments.upload')}
+        cancelText={t('common.cancel')}
         confirmLoading={uploading}
         onOk={handleUploadConfirm}
         onCancel={() => !uploading && setPendingFile(null)}
@@ -657,7 +659,7 @@ const Documents = () => {
         <div className="owner-upload-modal">
           <div className="owner-upload-modal__file">{pendingFile?.name}</div>
           <label className="owner-upload-modal__label" htmlFor="owner-upload-category">
-            文档分类
+            {t('ownerDocuments.docCategory')}
           </label>
           <select
             id="owner-upload-category"
@@ -666,7 +668,7 @@ const Documents = () => {
             onChange={(e) => setPendingCategory(e.target.value as Exclude<DocCategory, 'all'>)}
           >
             {TYPE_OPTIONS.filter((o) => o.value !== 'all').map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>{t(o.label)}</option>
             ))}
           </select>
         </div>

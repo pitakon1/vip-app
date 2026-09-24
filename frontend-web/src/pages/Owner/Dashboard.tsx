@@ -114,9 +114,9 @@ const Dashboard = () => {
     p.name || (p.project_name ? `${p.project_name} · ${p.room_number}` : p.room_number || p.address || '—')
 
   const propMeta = (p: OwnerProperty) => {
-    const dims = `${p.bedrooms ?? 0}室${p.bathrooms ?? 0}厅 ${p.size_sqm || 0}㎡`
+    const dims = t('ownerDashboard.dims', { bed: p.bedrooms ?? 0, bath: p.bathrooms ?? 0, size: p.size_sqm || 0 })
     const s = String(p.status || '').toLowerCase()
-    if (s === 'for_sale' || s === 'on_sale' || s === 'sale') return `${dims} · 在售`
+    if (s === 'for_sale' || s === 'on_sale' || s === 'sale') return t('ownerDashboard.metaForSale', { dims })
     return `${dims} · ${p.tenant_name || '-'}`
   }
 
@@ -125,16 +125,16 @@ const Dashboard = () => {
       {loading && (
         <div className="owner-loading-bar">
           <Spin size="small" style={{ marginRight: 8 }} />
-          数据加载中…
+          {t('ownerDashboard.loadingData')}
         </div>
       )}
 
       {/* ===== Page Header（对齐其他端：rent-page-header 页头） ===== */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">业主工作台</h2>
+          <h2 className="rent-page-header__title">{t('ownerDashboard.title')}</h2>
           <p className="rent-page-header__subtitle">
-            {dayjs().format('YYYY年M月D日')} · 轻松管理名下房源与租金收益
+            {dayjs().format(t('ownerDashboard.dateFormat'))} · {t('ownerDashboard.subtitle')}
           </p>
         </div>
       </div>
@@ -144,28 +144,28 @@ const Dashboard = () => {
         {/* 收益总览 */}
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">收益总览</h3>
+            <h3 className="rent-card__title">{t('ownerDashboard.incomeOverview')}</h3>
             <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => navigate('/owner/income')}>
-              查看明细
+              {t('ownerDashboard.viewDetail')}
             </button>
           </div>
           <div className="rent-card__body">
-            <div className="rent-text-sm rent-text-muted rent-mb-4">本月合计（租金 + 售房款）</div>
+            <div className="rent-text-sm rent-text-muted rent-mb-4">{t('ownerDashboard.monthlyTotal')}</div>
             <div className="rent-grid rent-grid--3" style={{ gap: 12 }}>
               <div>
-                <div className="rent-text-sm rent-text-muted">本月应收</div>
+                <div className="rent-text-sm rent-text-muted">{t('ownerDashboard.monthlyReceivable')}</div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--rent-ink)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
                   {fmtThb(monthlyIncome)}
                 </div>
               </div>
               <div>
-                <div className="rent-text-sm rent-text-muted">已收</div>
+                <div className="rent-text-sm rent-text-muted">{t('ownerDashboard.collected')}</div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--state-success)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
                   {fmtThb(collectedIncome)}
                 </div>
               </div>
               <div>
-                <div className="rent-text-sm rent-text-muted">待收</div>
+                <div className="rent-text-sm rent-text-muted">{t('ownerDashboard.pending')}</div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--state-warning)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
                   {fmtThb(pendingAmount)}
                 </div>
@@ -175,8 +175,8 @@ const Dashboard = () => {
               <div className="rent-progress__bar" style={{ width: `${collectedRate}%` }} />
             </div>
             <div className="rent-flex rent-flex--between rent-mt-2">
-              <span className="rent-text-sm rent-text-muted">本月收款进度</span>
-              <span className="rent-text-sm rent-text-bold" style={{ color: 'var(--rent-primary)' }}>已收 {collectedRate}%</span>
+              <span className="rent-text-sm rent-text-muted">{t('ownerDashboard.collectionProgress')}</span>
+              <span className="rent-text-sm rent-text-bold" style={{ color: 'var(--rent-primary)' }}>{t('ownerDashboard.collectedPct', { pct: collectedRate })}</span>
             </div>
           </div>
         </div>
@@ -184,33 +184,33 @@ const Dashboard = () => {
         {/* 资产概览 */}
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">资产概览</h3>
+            <h3 className="rent-card__title">{t('ownerDashboard.assetOverview')}</h3>
             <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => navigate('/owner/properties')}>
-              查看全部
+              {t('ownerDashboard.viewAll')}
             </button>
           </div>
           <div className="rent-card__body" style={{ padding: 12 }}>
             <div className="rent-grid rent-grid--3" style={{ gap: 12 }}>
               <div className="rent-stat-card">
-                <div className="rent-stat-card__label">名下房源</div>
+                <div className="rent-stat-card__label">{t('ownerDashboard.myProperties')}</div>
                 <div className="rent-stat-card__value">
-                  {totalProps} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>套</span>
+                  {totalProps} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerDashboard.unitSuffix')}</span>
                 </div>
-                <div className="rent-stat-card__delta">{statusCount.for_sale} 套在售</div>
+                <div className="rent-stat-card__delta">{t('ownerDashboard.forSaleCount', { n: statusCount.for_sale })}</div>
               </div>
               <div className="rent-stat-card">
-                <div className="rent-stat-card__label">在租房源</div>
+                <div className="rent-stat-card__label">{t('ownerDashboard.rentedProperties')}</div>
                 <div className="rent-stat-card__value">
-                  {rentedCount} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>套</span>
+                  {rentedCount} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerDashboard.unitSuffix')}</span>
                 </div>
-                <div className="rent-stat-card__delta rent-stat-card__delta--up">占比 {occupancyPct}%</div>
+                <div className="rent-stat-card__delta rent-stat-card__delta--up">{t('ownerDashboard.occupancyPct', { pct: occupancyPct })}</div>
               </div>
               <div className="rent-stat-card">
-                <div className="rent-stat-card__label">空置房源</div>
+                <div className="rent-stat-card__label">{t('ownerDashboard.vacantProperties')}</div>
                 <div className="rent-stat-card__value">
-                  {vacantCount} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>套</span>
+                  {vacantCount} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerDashboard.unitSuffix')}</span>
                 </div>
-                <div className="rent-stat-card__delta">待挂牌出租</div>
+                <div className="rent-stat-card__delta">{t('ownerDashboard.awaitingListing')}</div>
               </div>
             </div>
             <hr className="rent-divider" />
@@ -224,7 +224,7 @@ const Dashboard = () => {
                   <div className="rent-v17-prop__body">
                     <div className="rent-flex rent-flex--between" style={{ gap: 8 }}>
                       <div className="rent-v17-prop__name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{propTitle(rentedProp)}</div>
-                      <span className="rent-badge rent-badge--success" style={{ flexShrink: 0 }}>在租</span>
+                      <span className="rent-badge rent-badge--success" style={{ flexShrink: 0 }}>{t('ownerDashboard.badgeRented')}</span>
                     </div>
                     <div className="rent-v17-prop__meta">{propMeta(rentedProp)}</div>
                     <div className="rent-v17-prop__price">
@@ -242,7 +242,7 @@ const Dashboard = () => {
                   <div className="rent-v17-prop__body">
                     <div className="rent-flex rent-flex--between" style={{ gap: 8 }}>
                       <div className="rent-v17-prop__name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{propTitle(saleProp)}</div>
-                      <span className="rent-badge rent-badge--warning" style={{ flexShrink: 0 }}>在售</span>
+                      <span className="rent-badge rent-badge--warning" style={{ flexShrink: 0 }}>{t('ownerDashboard.badgeForSale')}</span>
                     </div>
                     <div className="rent-v17-prop__meta">{propMeta(saleProp)}</div>
                     <div className="rent-v17-prop__price">{fmtThb(saleProp.sale_price || 0)}</div>
@@ -252,7 +252,7 @@ const Dashboard = () => {
             </div>
             {!rentedProp && !saleProp && (
               <div className="rent-empty" style={{ padding: '20px 0' }}>
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无房源数据" />
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('ownerDashboard.noProperties')} />
               </div>
             )}
           </div>

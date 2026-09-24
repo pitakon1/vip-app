@@ -14,6 +14,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { attendanceApi, maintenanceApi, serviceOrdersApi } from '@/services/api'
 import { request } from '@/lib/api'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface TodoItem {
@@ -26,36 +27,43 @@ interface TodoItem {
   created_at?: string
 }
 
-const TYPE_META: Record<string, { label: string; cls: string }> = {
-  trip: { label: '外勤申请', cls: 'info' },
-  maintenance: { label: '报修工单', cls: 'warning' },
-  service: { label: '服务订单', cls: 'success' },
-  contract: { label: '合同流转', cls: 'neutral' }
-}
+const buildTypeMeta = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, { label: string; cls: string }> => ({
+  trip: { label: t('review.typeTrip'), cls: 'info' },
+  maintenance: { label: t('review.typeMaintenance'), cls: 'warning' },
+  service: { label: t('review.typeService'), cls: 'success' },
+  contract: { label: t('review.typeContract'), cls: 'neutral' }
+})
 
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-  pending: { label: '待处理', cls: 'warning' },
-  approved: { label: '已通过', cls: 'success' },
-  rejected: { label: '已驳回', cls: 'error' },
-  open: { label: '待受理', cls: 'warning' },
-  assigned: { label: '已派单', cls: 'info' },
-  in_progress: { label: '处理中', cls: 'info' },
-  resolved: { label: '已完结', cls: 'success' },
-  closed: { label: '已关闭', cls: 'neutral' },
-  draft: { label: '草稿', cls: 'neutral' },
-  sent: { label: '已发出', cls: 'info' },
-  partially_signed: { label: '部分签署', cls: 'warning' }
-}
+const buildStatusMeta = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, { label: string; cls: string }> => ({
+  pending: { label: t('maint.stOpen'), cls: 'warning' },
+  approved: { label: t('att.tripApproved'), cls: 'success' },
+  rejected: { label: t('att.tripRejected'), cls: 'error' },
+  open: { label: t('svc.stPending'), cls: 'warning' },
+  assigned: { label: t('maint.stAssigned'), cls: 'info' },
+  in_progress: { label: t('maint.stInProgress'), cls: 'info' },
+  resolved: { label: t('review.stResolved'), cls: 'success' },
+  closed: { label: t('maint.stClosed'), cls: 'neutral' },
+  draft: { label: t('review.stDraft'), cls: 'neutral' },
+  sent: { label: t('review.stSent'), cls: 'info' },
+  partially_signed: { label: t('review.stPartialSigned'), cls: 'warning' }
+})
 
 const fmtTime = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '—')
 
 export default function AdminReviewCenterPage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [items, setItems] = useState<TodoItem[]>([])
   const [summary, setSummary] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [busyKey, setBusyKey] = useState<string | null>(null)
+  const TYPE_META = buildTypeMeta(t)
+  const STATUS_META = buildStatusMeta(t)
 
   const load = async () => {
     setFailed(false)
@@ -75,7 +83,7 @@ export default function AdminReviewCenterPage() {
   }
 
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: '工单审核中心' })
+    Taro.setNavigationBarTitle({ title: t('review.title') })
     loadFromStorage()
     if (!useAuthStore.getState().token) {
       Taro.redirectTo({ url: '/pages/login/index' })
@@ -93,7 +101,7 @@ export default function AdminReviewCenterPage() {
       Taro.showToast({ title: okMsg, icon: 'success' })
       await load()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || '操作失败', icon: 'none' })
+      Taro.showToast({ title: err?.message || t('common.opFailed'), icon: 'none' })
     } finally {
       setBusyKey(null)
     }
@@ -105,15 +113,15 @@ export default function AdminReviewCenterPage() {
       () =>
         attendanceApi.approveExternalTrip(id, {
           action,
-          reply_note: action === 'approved' ? '管理员审批通过' : '管理员驳回'
+          reply_note: action === 'approved' ? t('review.tripApprovedNote') : t('review.tripRejectedNote')
         }),
-      action === 'approved' ? '已通过' : '已驳回'
+      action === 'approved' ? t('att.tripApproved') : t('att.tripRejected')
     )
 
   const rejectTrip = (id: string) => {
     Taro.showModal({
-      title: '驳回外勤申请',
-      content: '确认驳回该外勤申请？',
+      title: t('review.rejectTripTitle'),
+      content: t('review.rejectTripConfirm'),
       confirmColor: '#ef4444',
       success: (r) => {
         if (r.confirm) void approveTrip(id, 'rejected')
@@ -135,17 +143,17 @@ export default function AdminReviewCenterPage() {
 
         {loading && items.length === 0 && (
           <View className='empty-tip'>
-            <Text>加载中...</Text>
+            <Text>{t('common.loading')}</Text>
           </View>
         )}
         {!loading && failed && (
           <View className='empty-tip' onClick={() => { setLoading(true); void load() }}>
-            <Text>加载失败，点击重试</Text>
+            <Text>{t('common.loadFailedTapRetry')}</Text>
           </View>
         )}
         {!loading && !failed && items.length === 0 && (
           <View className='empty-tip'>
-            <Text>暂无待办，所有工单已处理完毕</Text>
+            <Text>{t('review.empty')}</Text>
           </View>
         )}
 
@@ -162,9 +170,9 @@ export default function AdminReviewCenterPage() {
                 </View>
                 <Text className='review-card__title'>{r.title || '—'}</Text>
               </View>
-              <Text className='review-card__meta'>申请人：{r.applicant || '—'}</Text>
-              <Text className='review-card__meta'>内容：{r.reason || '—'}</Text>
-              <Text className='review-card__meta'>提交：{fmtTime(r.created_at)}</Text>
+              <Text className='review-card__meta'>{t('review.applicant')}{r.applicant || '—'}</Text>
+              <Text className='review-card__meta'>{t('review.content')}{r.reason || '—'}</Text>
+              <Text className='review-card__meta'>{t('review.submitted')}{fmtTime(r.created_at)}</Text>
               <View className='review-card__foot'>
                 <View className={`tag tag--${sMeta.cls}`}>
                   <Text>{sMeta.label}</Text>
@@ -176,10 +184,10 @@ export default function AdminReviewCenterPage() {
                         className='btn btn--sm btn--primary'
                         onClick={() => void approveTrip(id, 'approved')}
                       >
-                        <Text>通过</Text>
+                        <Text>{t('review.approve')}</Text>
                       </View>
                       <View className='btn btn--sm btn--secondary' onClick={() => rejectTrip(id)}>
-                        <Text>驳回</Text>
+                        <Text>{t('review.reject')}</Text>
                       </View>
                     </>
                   )}
@@ -188,18 +196,18 @@ export default function AdminReviewCenterPage() {
                       <View
                         className='btn btn--sm btn--primary'
                         onClick={() =>
-                          void run(`${id}-assigned`, () => maintenanceApi.update(id, { status: 'assigned' }), '工单已受理')
+                          void run(`${id}-assigned`, () => maintenanceApi.update(id, { status: 'assigned' }), t('review.ticketAccepted'))
                         }
                       >
-                        <Text>受理</Text>
+                        <Text>{t('review.accept')}</Text>
                       </View>
                       <View
                         className='btn btn--sm btn--secondary'
                         onClick={() =>
-                          void run(`${id}-resolved`, () => maintenanceApi.update(id, { status: 'resolved' }), '工单已完结')
+                          void run(`${id}-resolved`, () => maintenanceApi.update(id, { status: 'resolved' }), t('review.ticketResolved'))
                         }
                       >
-                        <Text>完结</Text>
+                        <Text>{t('review.finish')}</Text>
                       </View>
                     </>
                   )}
@@ -207,10 +215,10 @@ export default function AdminReviewCenterPage() {
                     <View
                       className='btn btn--sm btn--primary'
                       onClick={() =>
-                        void run(`${id}-assigned`, () => serviceOrdersApi.updateStatus(id, { status: 'assigned' }), '订单已受理')
+                        void run(`${id}-assigned`, () => serviceOrdersApi.updateStatus(id, { status: 'assigned' }), t('review.orderAccepted'))
                       }
                     >
-                      <Text>受理</Text>
+                      <Text>{t('review.accept')}</Text>
                     </View>
                   )}
                   {r.type === 'contract' && (
@@ -218,7 +226,7 @@ export default function AdminReviewCenterPage() {
                       className='btn btn--sm btn--secondary'
                       onClick={() => Taro.navigateTo({ url: '/pages/admin/leases/index' })}
                     >
-                      <Text>去合同管理</Text>
+                      <Text>{t('review.goContracts')}</Text>
                     </View>
                   )}
                 </View>

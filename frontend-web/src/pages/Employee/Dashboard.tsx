@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Spin, Empty, Alert, Button } from 'antd'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
@@ -34,11 +35,11 @@ interface FollowUpLease {
 
 // 线索阶段展示元数据（对应 /leads 接口的 stage 字段）
 const LEAD_STAGE_META: Record<string, { text: string; cls: string; color: string }> = {
-  inquiring: { text: '咨询中', cls: 'rent-badge--info', color: 'var(--state-info)' },
-  viewing_scheduled: { text: '看房中', cls: 'rent-badge--info', color: 'var(--state-info)' },
-  negotiating: { text: '谈判中', cls: 'rent-badge--warning', color: 'var(--state-warning)' },
-  pending_contract: { text: '待签约', cls: 'rent-badge--primary', color: 'var(--rent-primary)' },
-  closed: { text: '已成交', cls: 'rent-badge--success', color: 'var(--state-success)' },
+  inquiring: { text: 'employeeDashboard.lsInquiring', cls: 'rent-badge--info', color: 'var(--state-info)' },
+  viewing_scheduled: { text: 'employeeDashboard.lsViewing', cls: 'rent-badge--info', color: 'var(--state-info)' },
+  negotiating: { text: 'employeeDashboard.lsNegotiating', cls: 'rent-badge--warning', color: 'var(--state-warning)' },
+  pending_contract: { text: 'employeeDashboard.lsPendingContract', cls: 'rent-badge--primary', color: 'var(--rent-primary)' },
+  closed: { text: 'employeeDashboard.lsClosed', cls: 'rent-badge--success', color: 'var(--state-success)' },
 }
 
 const getLeadStageBadge = (stage: string) =>
@@ -69,15 +70,15 @@ const fmtCompact = (v: number) => {
 
 // 带看状态标签
 const VIEWING_STATUS_META: Record<string, { text: string; badge: string }> = {
-  pending: { text: '待确认', badge: 'rent-badge--neutral' },
-  confirmed: { text: '已确认', badge: 'rent-badge--primary' },
-  completed: { text: '已完成', badge: 'rent-badge--success' },
-  cancelled: { text: '已取消', badge: 'rent-badge--neutral' },
-  no_show: { text: '爽约', badge: 'rent-badge--error' },
+  pending: { text: 'employeeDashboard.vsPending', badge: 'rent-badge--neutral' },
+  confirmed: { text: 'employeeDashboard.vsConfirmed', badge: 'rent-badge--primary' },
+  completed: { text: 'employeeDashboard.vsCompleted', badge: 'rent-badge--success' },
+  cancelled: { text: 'employeeDashboard.vsCancelled', badge: 'rent-badge--neutral' },
+  no_show: { text: 'employeeDashboard.vsNoShow', badge: 'rent-badge--error' },
 }
 
 const getViewingStatus = (status?: string | null) =>
-  VIEWING_STATUS_META[status ?? ''] ?? { text: status || '待确认', badge: 'rent-badge--neutral' }
+  VIEWING_STATUS_META[status ?? ''] ?? { text: status || 'employeeDashboard.vsPending', badge: 'rent-badge--neutral' }
 
 const toHHmm = (iso?: string | null) => {
   if (!iso) return '--:--'
@@ -85,18 +86,19 @@ const toHHmm = (iso?: string | null) => {
   return d.isValid() ? d.format('HH:mm') : '--:--'
 }
 
-const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+const WEEKDAYS = ['employeeDashboard.wdSun', 'employeeDashboard.wdMon', 'employeeDashboard.wdTue', 'employeeDashboard.wdWed', 'employeeDashboard.wdThu', 'employeeDashboard.wdFri', 'employeeDashboard.wdSat']
 
 // 最近联系展示：今天 / 昨天 / MM-DD
-const formatRelativeTime = (iso?: string, today?: dayjs.Dayjs) => {
+const formatRelativeTime = (iso: string | undefined, today: dayjs.Dayjs | undefined, t: (k: string, o?: any) => string) => {
   if (!iso) return '-'
   const d = dayjs(iso)
-  if (today && d.isSame(today, 'day')) return `今天 ${d.format('HH:mm')}`
-  if (today && d.isSame(today.subtract(1, 'day'), 'day')) return `昨天 ${d.format('HH:mm')}`
+  if (today && d.isSame(today, 'day')) return t('employeeDashboard.relToday', { time: d.format('HH:mm') })
+  if (today && d.isSame(today.subtract(1, 'day'), 'day')) return t('employeeDashboard.relYesterday', { time: d.format('HH:mm') })
   return d.format('MM-DD')
 }
 
 const Dashboard = () => {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [summary, setSummary] = useState<SummaryData>({})
   const [monthly, setMonthly] = useState<MonthPerf[]>([])
@@ -146,7 +148,7 @@ const Dashboard = () => {
       setLoadFailed(anyFailed)
     } catch (err: any) {
       setLoadFailed(true)
-      message.error(err?.response?.data?.message || '获取数据失败')
+      message.error(err?.response?.data?.message || t('employeeDashboard.fetchFailed'))
     } finally {
       setLoading(false)
     }
@@ -167,12 +169,12 @@ const Dashboard = () => {
     const max = Math.max(1, ...six.map((m) => Number(m.commission ?? 0)))
     const cur = dayjs()
     return six.map((m) => ({
-      label: `${m.month}月`,
+      label: t('employeeDashboard.monthLabel', { month: m.month }),
       value: fmtCompact(Number(m.commission ?? 0)),
       height: `${Math.max(4, Math.round((Number(m.commission ?? 0) / max) * 100))}%`,
       active: m.year === cur.year() && m.month === cur.month() + 1,
     }))
-  }, [monthly])
+  }, [monthly, t])
 
   // 全部来自真实接口数据，无演示兜底
   // 今日工作台时间线：当天真实带看，按时间升序
@@ -184,18 +186,18 @@ const Dashboard = () => {
 
   return (
     <div className="rent-main">
-      {loading && <div className="rent-loading-row"><Spin size="small" style={{ marginRight: 8 }} />加载中...</div>}
+      {loading && <div className="rent-loading-row"><Spin size="small" style={{ marginRight: 8 }} />{t('common.loading')}</div>}
 
       {loadFailed && !loading && (
         <Alert
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
-          message="部分数据加载失败"
-          description="工作台部分接口暂时不可用，已显示其他可用栏目，请稍后重试。"
+          message={t('employeeDashboard.partialFailed')}
+          description={t('employeeDashboard.partialFailedDesc')}
           action={
             <Button size="small" onClick={() => fetchAll()}>
-              重试
+              {t('common.retry')}
             </Button>
           }
         />
@@ -205,13 +207,13 @@ const Dashboard = () => {
       <div className="rent-page-header">
         <div>
           <p className="rent-page-header__subtitle" style={{ margin: 0 }}>
-            {today.format('M月D日')} 星期{WEEKDAYS[today.day()]} · 今日 {todayViewings.length} 场带看 · 高意向客户 {hotLeads.length} 位 · 待收款 {pendingReceivable} 笔
+            {t('employeeDashboard.todaySummary', { date: today.format(t('employeeDashboard.dateMd')), wd: t(WEEKDAYS[today.day()]), viewings: todayViewings.length, leads: hotLeads.length, pending: pendingReceivable })}
           </p>
         </div>
         <div className="rent-page-header__actions">
           <Link to="/viewings" className="rent-btn rent-btn--primary">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="12" y1="14" x2="12" y2="18" /><line x1="10" y1="16" x2="14" y2="16" /></svg>
-            新建带看
+            {t('employeeDashboard.newViewing')}
           </Link>
         </div>
       </div>
@@ -226,15 +228,15 @@ const Dashboard = () => {
           <div className="rent-card">
             <div className="rent-card__header">
               <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
-                <h3 className="rent-card__title">今日工作台</h3>
-                <span className="rent-badge rent-badge--primary">{todayViewings.length} 场带看</span>
+                <h3 className="rent-card__title">{t('employeeDashboard.todayWorkbench')}</h3>
+                <span className="rent-badge rent-badge--primary">{t('employeeDashboard.viewingsCount', { n: todayViewings.length })}</span>
               </div>
-              <Link to="/viewings" className="rent-btn rent-btn--ghost rent-btn--sm">全部预约</Link>
+              <Link to="/viewings" className="rent-btn rent-btn--ghost rent-btn--sm">{t('employeeDashboard.allViewings')}</Link>
             </div>
             <div className="rent-card__body">
               {todayViewings.length === 0 ? (
                 <div className="rent-empty">
-                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="今日暂无带看安排" />
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('employeeDashboard.noViewingsToday')} />
                 </div>
               ) : (
                 todayViewings.map((item) => {
@@ -245,25 +247,25 @@ const Dashboard = () => {
                         <div className="rent-wb-time__range" style={{ color: 'var(--rent-primary)' }}>
                           {toHHmm(item.scheduled_at)}
                         </div>
-                        <div className="rent-wb-time__status">{st.text}</div>
+                        <div className="rent-wb-time__status">{t(st.text)}</div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="rent-text-bold">{item.property_title || '房源'}</div>
+                        <div className="rent-text-bold">{item.property_title || t('employeeDashboard.propertyFallback')}</div>
                         <div className="rent-text-sm rent-text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {item.property_address || ''} {item.visitor_name ? `· ${item.visitor_name}` : ''}
                         </div>
                       </div>
-                      <span className={`rent-badge ${st.badge}`}>{st.text}</span>
+                      <span className={`rent-badge ${st.badge}`}>{t(st.text)}</span>
                     </div>
                   )
                 })
               )}
             </div>
             <div className="rent-card__footer" style={{ display: 'flex', gap: 8 }}>
-              <Link to="/crm" className="rent-btn rent-btn--secondary rent-btn--sm" style={{ flex: 1 }}>联系客户</Link>
+              <Link to="/crm" className="rent-btn rent-btn--secondary rent-btn--sm" style={{ flex: 1 }}>{t('employeeDashboard.contactClient')}</Link>
               <Link to="/viewings" className="rent-btn rent-btn--primary rent-btn--sm" style={{ flex: 1 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                新建带看
+                {t('employeeDashboard.newViewing')}
               </Link>
             </div>
           </div>
@@ -272,28 +274,28 @@ const Dashboard = () => {
           <div className="rent-card">
             <div className="rent-card__header">
               <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
-                <h3 className="rent-card__title">待跟进客户</h3>
-                <span className="rent-badge rent-badge--warning">{hotLeads.length} 位高意向</span>
+                <h3 className="rent-card__title">{t('employeeDashboard.hotLeadsTitle')}</h3>
+                <span className="rent-badge rent-badge--warning">{t('employeeDashboard.hotLeadsCount', { n: hotLeads.length })}</span>
               </div>
-              <Link to="/crm" className="rent-btn rent-btn--ghost rent-btn--sm">全部客户</Link>
+              <Link to="/crm" className="rent-btn rent-btn--ghost rent-btn--sm">{t('employeeDashboard.allClients')}</Link>
             </div>
             <div className="rent-card__body" style={{ padding: 0 }}>
               <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
                 <table className="rent-table">
                   <thead>
                     <tr>
-                      <th>客户</th>
-                      <th>意向房源</th>
-                      <th>最近联系</th>
-                      <th>阶段</th>
-                      <th>操作</th>
+                      <th>{t('employeeDashboard.thClient')}</th>
+                      <th>{t('employeeDashboard.thInterested')}</th>
+                      <th>{t('employeeDashboard.thLastContact')}</th>
+                      <th>{t('employeeDashboard.thStage')}</th>
+                      <th>{t('common.action')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {leads.length === 0 ? (
                       <tr>
                         <td colSpan={5}>
-                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无跟进客户" />
+                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('employeeDashboard.noLeads')} />
                         </td>
                       </tr>
                     ) : (
@@ -309,16 +311,16 @@ const Dashboard = () => {
                               </div>
                             </td>
                             <td>{formatInterested(f.interested_projects)}</td>
-                            <td className="rent-text-sm rent-text-muted">{formatRelativeTime(f.updated_at, today)}</td>
+                            <td className="rent-text-sm rent-text-muted">{formatRelativeTime(f.updated_at, today, t)}</td>
                             <td>
                               <span className={`rent-badge ${stage.cls}`}>
                                 <span className="rent-badge--dot" style={{ background: stage.color }}></span>
-                                {stage.text}
+                                {t(stage.text)}
                               </span>
                             </td>
                             <td>
                               <Link to="/crm" className={`rent-btn rent-btn--sm ${closed ? 'rent-btn--ghost' : 'rent-btn--primary'}`}>
-                                {closed ? '查看' : '去跟进'}
+                                {closed ? t('employeeDashboard.view') : t('employeeDashboard.followUp')}
                               </Link>
                             </td>
                           </tr>
@@ -335,36 +337,36 @@ const Dashboard = () => {
           <div className="rent-card">
             <div className="rent-card__header">
               <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
-                <h3 className="rent-card__title">租约临期跟进</h3>
-                <span className="rent-badge rent-badge--warning">{followUpLeases.length} 份待跟进</span>
+                <h3 className="rent-card__title">{t('employeeDashboard.leaseFollowUpTitle')}</h3>
+                <span className="rent-badge rent-badge--warning">{t('employeeDashboard.leaseFollowUpCount', { n: followUpLeases.length })}</span>
               </div>
-              <span className="rent-text-sm rent-text-muted">续约 SLA</span>
+              <span className="rent-text-sm rent-text-muted">{t('employeeDashboard.renewSla')}</span>
             </div>
             <div className="rent-card__body" style={{ padding: 0 }}>
               {followUpLeases.length === 0 ? (
-                <div className="rent-empty rent-text-muted">暂无临期租约，自动跟进任务已清空</div>
+                <div className="rent-empty rent-text-muted">{t('employeeDashboard.noLeases')}</div>
               ) : (
                 <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
                   <table className="rent-table">
                     <thead>
                       <tr>
-                        <th>房源</th>
-                        <th style={{ textAlign: 'right' }}>月租</th>
-                        <th>到期日</th>
-                        <th>剩余天数</th>
-                        <th>跟进状态</th>
+                        <th>{t('employeeDashboard.propertyFallback')}</th>
+                        <th style={{ textAlign: 'right' }}>{t('employeeDashboard.thMonthlyRent')}</th>
+                        <th>{t('employeeDashboard.thDueDate')}</th>
+                        <th>{t('employeeDashboard.thDaysLeft')}</th>
+                        <th>{t('employeeDashboard.thFollowStatus')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {followUpLeases.map((fl) => {
                         const days = Number(fl.days_to_expire ?? 0)
                         const urgent = days <= 15
-                        const due = days < 0 ? '已到期' : `${days} 天`
+                        const due = days < 0 ? t('employeeDashboard.expired') : t('employeeDashboard.daysLeft', { n: days })
                         return (
                           <tr key={fl.lease_id}>
                             <td>
                               <div>{fl.property_title || '—'}</div>
-                              <div className="rent-text-sm rent-text-muted">续约续接</div>
+                              <div className="rent-text-sm rent-text-muted">{t('employeeDashboard.renewFollow')}</div>
                             </td>
                             <td className="rent-table__mono" style={{ textAlign: 'right' }}>
                               {fl.currency || 'THB'} {Number(fl.monthly_rent ?? 0).toLocaleString()}
@@ -375,7 +377,7 @@ const Dashboard = () => {
                             </td>
                             <td>
                               <span className={`rent-badge ${urgent ? 'rent-badge--error' : 'rent-badge--neutral'}`}>
-                                {urgent ? '需立即续约' : '跟踪中'}
+                                {urgent ? t('employeeDashboard.renewUrgent') : t('employeeDashboard.tracking')}
                               </span>
                             </td>
                           </tr>
@@ -395,23 +397,23 @@ const Dashboard = () => {
           {/* 业绩摘要：本月三格 + 近 6 个月佣金柱图 */}
           <div className="rent-card">
             <div className="rent-card__header">
-              <h3 className="rent-card__title">业绩摘要</h3>
-              <span className="rent-badge rent-badge--primary">本月</span>
+              <h3 className="rent-card__title">{t('employeeDashboard.perfSummary')}</h3>
+              <span className="rent-badge rent-badge--primary">{t('employeeDashboard.thisMonth')}</span>
             </div>
             <div className="rent-wb-strip">
               <div className="rent-wb-strip__cell">
-                <div className="rent-wb-strip__value">{summary.monthly_deals === undefined ? '-' : monthlyDeals} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--rent-ink-3)' }}>单</span></div>
-                <div className="rent-wb-strip__label">本月成交</div>
+                <div className="rent-wb-strip__value">{summary.monthly_deals === undefined ? '-' : monthlyDeals} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('employeeDashboard.unit')}</span></div>
+                <div className="rent-wb-strip__label">{t('employeeDashboard.monthlyDeals')}</div>
               </div>
               <div className="rent-wb-strip__cell">
                 {/* 币种跟随接口返回：此前写死 'RM'，而 /dashboard/summary 的佣金本就是泰铢口径，
                     且同文件 line 370 的租约金额用的是 `fl.currency || 'THB'`——同一页两种币种。 */}
                 <div className="rent-wb-strip__value rent-wb-strip__value--md">{summary.monthly_commission === undefined ? '-' : formatMoney(monthlyCommission, summary.currency || 'THB')}</div>
-                <div className="rent-wb-strip__label">佣金收入</div>
+                <div className="rent-wb-strip__label">{t('employeeDashboard.commissionIncome')}</div>
               </div>
               <div className="rent-wb-strip__cell">
                 <div className="rent-wb-strip__value">{rank || '-'}</div>
-                <div className="rent-wb-strip__label">团队排名</div>
+                <div className="rent-wb-strip__label">{t('employeeDashboard.teamRank')}</div>
               </div>
             </div>
             <div className="rent-card__body" style={{ paddingTop: 4 }}>

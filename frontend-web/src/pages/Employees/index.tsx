@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { message, Spin, Empty, Modal } from 'antd'
 import api from '@/lib/api'
 import { employeesApi } from '@/services/api'
@@ -49,13 +50,14 @@ const emptyEmployeeForm: EmployeeFormValues = {
 // 将 API 状态映射到设计稿显示状态
 const getStatusBadge = (status: string): { cls: string; text: string } => {
   const s = (status || '').toLowerCase()
-  if (s === 'active' || s === '在职') return { cls: 'rent-badge--success', text: '在职' }
-  if (s === 'probation' || s === '试用期') return { cls: 'rent-badge--warning', text: '试用期' }
-  if (s === 'inactive' || s === 'resigned' || s === '离职') return { cls: 'rent-badge--neutral', text: '离职' }
+  if (s === 'active' || s === '在职') return { cls: 'rent-badge--success', text: 'employees.stActive' }
+  if (s === 'probation' || s === '试用期') return { cls: 'rent-badge--warning', text: 'employees.stProbation' }
+  if (s === 'inactive' || s === 'resigned' || s === '离职') return { cls: 'rent-badge--neutral', text: 'employees.stInactive' }
   return { cls: 'rent-badge--neutral', text: status || '-' }
 }
 
 const Employees = () => {
+  const { t } = useTranslation()
   const [data, setData] = useState<Employee[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -80,7 +82,7 @@ const Employees = () => {
       setData(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取员工列表失败')
+      message.error(err?.response?.data?.message || t('employees.errFetch'))
     } finally {
       setLoading(false)
     }
@@ -171,7 +173,7 @@ const Employees = () => {
         'employees.csv',
       )
     } catch {
-      message.error('导出失败，请稍后重试')
+      message.error(t('employees.errExport'))
     } finally {
       setExporting(false)
     }
@@ -198,15 +200,15 @@ const Employees = () => {
   // 查看 / 编辑共用「员工档案 + 账号」两表数据，缺少 user_id 时只能只读
   const handleCreate = async () => {
     if (!createForm.fullName.trim()) {
-      message.error('请输入姓名')
+      message.error(t('employees.errNameRequired'))
       return
     }
     if (!createForm.email.trim()) {
-      message.error('请输入登录邮箱')
+      message.error(t('employees.errEmailRequired'))
       return
     }
     if (!createForm.password || createForm.password.length < 6) {
-      message.error('初始密码至少 6 位')
+      message.error(t('employees.errPasswordMin'))
       return
     }
     try {
@@ -220,12 +222,12 @@ const Employees = () => {
         department: createForm.department || undefined,
         position: createForm.position || undefined,
       })
-      message.success('员工已开通')
+      message.success(t('employees.msgCreated'))
       setCreateOpen(false)
       fetchData()
       fetchDepartments()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || '开通失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('employees.errCreateFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -233,11 +235,11 @@ const Employees = () => {
 
   const handleUpdate = async () => {
     if (!editEmp?.user_id) {
-      message.error('该员工缺少账号信息，无法编辑')
+      message.error(t('employees.errNoAccount'))
       return
     }
     if (!editForm.fullName.trim() || !editForm.email.trim()) {
-      message.error('姓名与邮箱不能为空')
+      message.error(t('employees.errNameEmailRequired'))
       return
     }
     try {
@@ -250,12 +252,12 @@ const Employees = () => {
         position: editForm.position || undefined,
         is_active: editForm.isActive,
       })
-      message.success('已保存')
+      message.success(t('employees.msgSaved'))
       setEditEmp(null)
       fetchData()
       fetchDepartments()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || '保存失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('employees.errSaveFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -271,7 +273,7 @@ const Employees = () => {
       const payload = res.data?.data ?? res.data
       setPerfRows(Array.isArray(payload) ? payload : [])
     } catch {
-      message.error('获取绩效明细失败')
+      message.error(t('employees.errPerfFetch'))
     } finally {
       setPerfLoading(false)
     }
@@ -378,8 +380,8 @@ const Employees = () => {
       {/* Page Header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">员工管理</h2>
-          <p className="rent-page-header__subtitle">管理员工信息与绩效</p>
+          <h2 className="rent-page-header__title">{t('employees.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('employees.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <button
@@ -389,11 +391,11 @@ const Employees = () => {
             disabled={exporting}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-            {exporting ? '导出中...' : '导出'}
+            {exporting ? t('employees.exporting') : t('employees.btnExport')}
           </button>
           <button className="rent-btn rent-btn--primary" type="button" onClick={openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-            新增员工
+            {t('employees.btnAdd')}
           </button>
         </div>
       </div>
@@ -403,11 +405,11 @@ const Employees = () => {
         <div className="rent-stat-card">
           <div className="rent-stat-card__head">
             <div>
-              <div className="rent-stat-card__label">总员工数</div>
+              <div className="rent-stat-card__label">{t('employees.statTotal')}</div>
               <div className="rent-stat-card__value rent-num">{stats.totalEmp}</div>
               <div className="rent-stat-card__delta rent-stat-card__delta--up">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
-                +2 本月
+                {t('employees.statDeltaNew')}
               </div>
             </div>
             <div className="rent-stat-card__icon" style={{ background: 'rgba(20, 184, 166, 0.1)', color: 'var(--rent-primary)' }}>
@@ -419,7 +421,7 @@ const Employees = () => {
         <div className="rent-stat-card">
           <div className="rent-stat-card__head">
             <div>
-              <div className="rent-stat-card__label">本月销冠</div>
+              <div className="rent-stat-card__label">{t('employees.statTop')}</div>
               <div className="rent-stat-card__value rent-num" style={{ fontSize: 22 }}>{stats.topName}</div>
               <div className="rent-stat-card__delta" style={{ color: 'var(--state-warning)' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
@@ -435,7 +437,7 @@ const Employees = () => {
         <div className="rent-stat-card">
           <div className="rent-stat-card__head">
             <div>
-              <div className="rent-stat-card__label">平均业绩</div>
+              <div className="rent-stat-card__label">{t('employees.statAvg')}</div>
               <div className="rent-stat-card__value rent-num">{formatMoney(stats.avg)}</div>
               <div className="rent-stat-card__delta rent-stat-card__delta--up">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
@@ -451,10 +453,10 @@ const Employees = () => {
         <div className="rent-stat-card">
           <div className="rent-stat-card__head">
             <div>
-              <div className="rent-stat-card__label">团队目标完成率</div>
+              <div className="rent-stat-card__label">{t('employees.statCompletion')}</div>
               <div className="rent-stat-card__value rent-num">{stats.completion}%</div>
               <div className="rent-progress rent-mt-3"><div className="rent-progress__bar" style={{ width: `${stats.completion}%` }}></div></div>
-              <div className="rent-stat-card__delta rent-text-muted">本月团队目标</div>
+              <div className="rent-stat-card__delta rent-text-muted">{t('employees.statTarget')}</div>
             </div>
             <div className="rent-stat-card__icon" style={{ background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>
@@ -470,7 +472,7 @@ const Employees = () => {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
             <input
               type="text"
-              placeholder="搜索姓名 / 工号 / 邮箱"
+              placeholder={t('employees.searchPlaceholder')}
               value={keywordInput}
               onChange={(e) => setKeywordInput(e.target.value)}
             />
@@ -478,69 +480,69 @@ const Employees = () => {
         </div>
         <select
           className="rent-filter-select"
-          aria-label="部门筛选"
+          aria-label={t('employees.ariaDept')}
           value={queryParams.department || ''}
           onChange={(e) => handleDepartmentChange(e.target.value)}
         >
-          <option value="">全部部门</option>
+          <option value="">{t('employees.optAllDepts')}</option>
           {departments.map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
         </select>
         <select
           className="rent-filter-select"
-          aria-label="状态筛选"
+          aria-label={t('employees.ariaStatus')}
           value={queryParams.status || ''}
           onChange={(e) => handleStatusChange((e.target.value || undefined) as EmployeeStatus | undefined)}
         >
-          <option value="">全部状态</option>
-          <option value="active">在职</option>
-          <option value="probation">试用期</option>
-          <option value="inactive">离职</option>
+          <option value="">{t('employees.optAllStatus')}</option>
+          <option value="active">{t('employees.stActive')}</option>
+          <option value="probation">{t('employees.stProbation')}</option>
+          <option value="inactive">{t('employees.stInactive')}</option>
         </select>
         <select
           className="rent-filter-select"
-          aria-label="排序"
+          aria-label={t('employees.ariaSort')}
           value={sortBy}
           onChange={(e) => handleSortChange(e.target.value)}
         >
-          <option value="perf-desc">业绩从高到低</option>
-          <option value="perf-asc">业绩从低到高</option>
-          <option value="joined-desc">入职时间最近</option>
-          <option value="id-asc">工号升序</option>
+          <option value="perf-desc">{t('employees.sortPerfDesc')}</option>
+          <option value="perf-asc">{t('employees.sortPerfAsc')}</option>
+          <option value="joined-desc">{t('employees.sortJoinedDesc')}</option>
+          <option value="id-asc">{t('employees.sortIdAsc')}</option>
         </select>
       </div>
 
       {/* Employees Table */}
       <div className="rent-card">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">员工列表</h3>
-          <span className="rent-text-sm rent-text-muted">实时同步 · 截至 {todayStr}</span>
+          <h3 className="rent-card__title">{t('employees.listTitle')}</h3>
+          <span className="rent-text-sm rent-text-muted">{t('employees.syncedAt', { date: todayStr })}</span>
         </div>
         <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
           <table className="rent-table">
             <thead>
               <tr>
-                <th>工号</th>
-                <th>姓名</th>
-                <th>部门</th>
-                <th>职位</th>
-                <th>联系方式</th>
-                <th>入职日期</th>
-                <th>本月业绩 (฿)</th>
-                <th>状态</th>
-                <th>操作</th>
+                <th>{t('employees.thEmpNo')}</th>
+                <th>{t('employees.thName')}</th>
+                <th>{t('employees.thDept')}</th>
+                <th>{t('employees.thPosition')}</th>
+                <th>{t('employees.thContact')}</th>
+                <th>{t('employees.thHireDate')}</th>
+                <th>{t('employees.thPerformance')}</th>
+                <th>{t('common.status')}</th>
+                <th>{t('common.action')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="rent-loading-row"><Spin size="small" style={{ marginRight: 8 }} />加载中...</td>
+                  <td colSpan={9} className="rent-loading-row"><Spin size="small" style={{ marginRight: 8 }} />{t('common.loading')}</td>
                 </tr>
               ) : listData.length === 0 ? (
                 <tr>
                   <td colSpan={9}>
-                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无员工数据" />
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('employees.empty')} />
                   </td>
                 </tr>
               ) : (
@@ -575,15 +577,15 @@ const Employees = () => {
                         <div className="rent-perf">
                           <div className="rent-perf__value">{formatMoney(perf)}</div>
                           <div className="rent-progress"><div className={`rent-progress__bar ${perfCls}`} style={{ width: `${pct}%` }}></div></div>
-                          <div className="rent-perf__meta"><span>目标完成</span><span className={`rent-perf__pct ${pctCls}`}>{pct}%</span></div>
+                          <div className="rent-perf__meta"><span>{t('employees.targetDone')}</span><span className={`rent-perf__pct ${pctCls}`}>{pct}%</span></div>
                         </div>
                       </td>
-                      <td><span className={`rent-badge ${status.cls}`}>{status.text}</span></td>
+                      <td><span className={`rent-badge ${status.cls}`}>{t(status.text)}</span></td>
                       <td>
                         <div className="rent-actions">
-                          <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button" onClick={() => setDetailEmp(emp)}>查看</button>
-                          <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button" onClick={() => openEdit(emp)}>编辑</button>
-                          <button className="rent-btn rent-btn--primary-ghost rent-btn--sm" type="button" onClick={() => openPerf(emp)}>绩效</button>
+                          <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button" onClick={() => setDetailEmp(emp)}>{t('employees.btnView')}</button>
+                          <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button" onClick={() => openEdit(emp)}>{t('common.edit')}</button>
+                          <button className="rent-btn rent-btn--primary-ghost rent-btn--sm" type="button" onClick={() => openPerf(emp)}>{t('employees.btnPerf')}</button>
                         </div>
                       </td>
                     </tr>
@@ -595,12 +597,12 @@ const Employees = () => {
         </div>
         <div className="rent-card__footer">
           <div className="rent-pagination rent-pagination--split">
-            <span className="rent-pagination__info">共 {totalDisplay} 条记录</span>
+            <span className="rent-pagination__info">{t('employees.pageInfo', { count: totalDisplay })}</span>
             <div className="rent-flex rent-gap-2">
               <button
                 className="rent-pagination__btn"
                 type="button"
-                aria-label="上一页"
+                aria-label={t('employees.ariaPrev')}
                 disabled={queryParams.page <= 1}
                 onClick={() => setQueryParams((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
               >
@@ -624,7 +626,7 @@ const Employees = () => {
               <button
                 className="rent-pagination__btn"
                 type="button"
-                aria-label="下一页"
+                aria-label={t('employees.ariaNext')}
                 disabled={queryParams.page >= totalPages}
                 onClick={() => setQueryParams((p) => ({ ...p, page: Math.min(totalPages, p.page + 1) }))}
               >
@@ -638,67 +640,67 @@ const Employees = () => {
       {/* 新增员工：开通 employee 账号并同步建档（POST /admin/users） */}
       <Modal
         open={createOpen}
-        title="新增员工"
+        title={t('employees.createTitle')}
         onCancel={() => setCreateOpen(false)}
         onOk={handleCreate}
         confirmLoading={submitting}
-        okText="开通"
-        cancelText="取消"
+        okText={t('employees.okCreate')}
+        cancelText={t('common.cancel')}
         destroyOnClose
       >
         <div className="rent-form-group">
-          <label className="rent-form-label">姓名 *</label>
+          <label className="rent-form-label">{t('employees.labelName')}</label>
           <input
             className="rent-form-input"
             value={createForm.fullName}
             onChange={(e) => setCreateForm((f) => ({ ...f, fullName: e.target.value }))}
-            placeholder="请输入姓名"
+            placeholder={t('employees.placeholderName')}
           />
         </div>
         <div className="rent-form-group">
-          <label className="rent-form-label">登录邮箱 *</label>
+          <label className="rent-form-label">{t('employees.labelEmail')}</label>
           <input
             className="rent-form-input"
             type="email"
             value={createForm.email}
             onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-            placeholder="用于登录后台"
+            placeholder={t('employees.placeholderEmail')}
           />
         </div>
         <div className="rent-form-group">
-          <label className="rent-form-label">初始密码 *</label>
+          <label className="rent-form-label">{t('employees.labelPassword')}</label>
           <input
             className="rent-form-input"
             value={createForm.password}
             onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
-            placeholder="至少 6 位"
+            placeholder={t('employees.placeholderPassword')}
           />
         </div>
         <div className="rent-form-group">
-          <label className="rent-form-label">手机号</label>
+          <label className="rent-form-label">{t('employees.labelPhone')}</label>
           <input
             className="rent-form-input"
             value={createForm.phone}
             onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="选填"
+            placeholder={t('employees.placeholderOptional')}
           />
         </div>
         <div className="rent-form-group">
-          <label className="rent-form-label">部门</label>
+          <label className="rent-form-label">{t('employees.labelDept')}</label>
           <input
             className="rent-form-input"
             value={createForm.department}
             onChange={(e) => setCreateForm((f) => ({ ...f, department: e.target.value }))}
-            placeholder="如 Sales"
+            placeholder={t('employees.placeholderDept')}
           />
         </div>
         <div className="rent-form-group">
-          <label className="rent-form-label">职位</label>
+          <label className="rent-form-label">{t('employees.labelPosition')}</label>
           <input
             className="rent-form-input"
             value={createForm.position}
             onChange={(e) => setCreateForm((f) => ({ ...f, position: e.target.value }))}
-            placeholder="如 Property Agent"
+            placeholder={t('employees.placeholderPosition')}
           />
         </div>
       </Modal>
@@ -706,20 +708,20 @@ const Employees = () => {
       {/* 编辑员工：账号资料 + 员工档案（PATCH /admin/users/{user_id}） */}
       <Modal
         open={!!editEmp}
-        title="编辑员工"
+        title={t('employees.editTitle')}
         onCancel={() => setEditEmp(null)}
         onOk={handleUpdate}
         confirmLoading={submitting}
-        okText="保存"
-        cancelText="取消"
+        okText={t('common.save')}
+        cancelText={t('common.cancel')}
         destroyOnClose
       >
         <div className="rent-form-group">
-          <label className="rent-form-label">工号</label>
+          <label className="rent-form-label">{t('employees.labelEmpNo')}</label>
           <input className="rent-form-input" value={editEmp?.employee_no || '-'} readOnly />
         </div>
         <div className="rent-form-group">
-          <label className="rent-form-label">姓名 *</label>
+          <label className="rent-form-label">{t('employees.labelName')}</label>
           <input
             className="rent-form-input"
             value={editForm.fullName}
@@ -727,7 +729,7 @@ const Employees = () => {
           />
         </div>
         <div className="rent-form-group">
-          <label className="rent-form-label">邮箱 *</label>
+          <label className="rent-form-label">{t('employees.labelEmailEdit')}</label>
           <input
             className="rent-form-input"
             value={editForm.email}
@@ -735,7 +737,7 @@ const Employees = () => {
           />
         </div>
         <div className="rent-form-group">
-          <label className="rent-form-label">手机号</label>
+          <label className="rent-form-label">{t('employees.labelPhone')}</label>
           <input
             className="rent-form-input"
             value={editForm.phone}
@@ -743,7 +745,7 @@ const Employees = () => {
           />
         </div>
         <div className="rent-form-group">
-          <label className="rent-form-label">部门</label>
+          <label className="rent-form-label">{t('employees.labelDept')}</label>
           <input
             className="rent-form-input"
             value={editForm.department}
@@ -751,7 +753,7 @@ const Employees = () => {
           />
         </div>
         <div className="rent-form-group">
-          <label className="rent-form-label">职位</label>
+          <label className="rent-form-label">{t('employees.labelPosition')}</label>
           <input
             className="rent-form-input"
             value={editForm.position}
@@ -759,14 +761,14 @@ const Employees = () => {
           />
         </div>
         <div className="rent-form-group" style={{ marginBottom: 0 }}>
-          <label className="rent-form-label">在职状态</label>
+          <label className="rent-form-label">{t('employees.labelActiveStatus')}</label>
           <select
             className="rent-form-select"
             value={editForm.isActive ? 'active' : 'inactive'}
             onChange={(e) => setEditForm((f) => ({ ...f, isActive: e.target.value === 'active' }))}
           >
-            <option value="active">在职</option>
-            <option value="inactive">离职</option>
+            <option value="active">{t('employees.stActive')}</option>
+            <option value="inactive">{t('employees.stInactive')}</option>
           </select>
         </div>
       </Modal>
@@ -774,11 +776,11 @@ const Employees = () => {
       {/* 查看员工：只读档案 */}
       <Modal
         open={!!detailEmp}
-        title="员工详情"
+        title={t('employees.detailTitle')}
         onCancel={() => setDetailEmp(null)}
         footer={
           <button className="rent-btn rent-btn--secondary" type="button" onClick={() => setDetailEmp(null)}>
-            关闭
+            {t('common.close')}
           </button>
         }
         destroyOnClose
@@ -786,21 +788,21 @@ const Employees = () => {
         {detailEmp && (
           <>
             <div className="rent-form-group">
-              <label className="rent-form-label">工号</label>
+              <label className="rent-form-label">{t('employees.labelEmpNo')}</label>
               <div className="rent-table__mono">{detailEmp.employee_no || '-'}</div>
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">姓名</label>
+              <label className="rent-form-label">{t('employees.labelNamePlain')}</label>
               <div>{detailEmp.full_name || '-'}</div>
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">部门 / 职位</label>
+              <label className="rent-form-label">{t('employees.labelDeptPosition')}</label>
               <div>
                 {detailEmp.department || '-'} · {detailEmp.position || '-'}
               </div>
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">联系方式</label>
+              <label className="rent-form-label">{t('employees.labelContact')}</label>
               <div>
                 {detailEmp.phone || '-'}
                 <span className="rent-text-muted" style={{ marginLeft: 8 }}>
@@ -809,18 +811,18 @@ const Employees = () => {
               </div>
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">入职日期</label>
+              <label className="rent-form-label">{t('employees.labelHireDate')}</label>
               <div>{detailEmp.hire_date || '-'}</div>
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">本月业绩</label>
+              <label className="rent-form-label">{t('employees.labelPerformance')}</label>
               <div className="rent-num">{formatMoney(Number(detailEmp.performance || 0))}</div>
             </div>
             <div className="rent-form-group" style={{ marginBottom: 0 }}>
-              <label className="rent-form-label">状态</label>
+              <label className="rent-form-label">{t('common.status')}</label>
               <div>
                 <span className={`rent-badge ${getStatusBadge(detailEmp.status || '').cls}`}>
-                  {getStatusBadge(detailEmp.status || '').text}
+                  {t(getStatusBadge(detailEmp.status || '').text)}
                 </span>
               </div>
             </div>
@@ -831,11 +833,11 @@ const Employees = () => {
       {/* 绩效明细：系统按佣金结算自动核算（GET /employees/{id}/performance） */}
       <Modal
         open={!!perfEmp}
-        title={`绩效明细 · ${perfEmp?.full_name || ''}`}
+        title={t('employees.perfTitle', { name: perfEmp?.full_name || '' })}
         onCancel={() => setPerfEmp(null)}
         footer={
           <button className="rent-btn rent-btn--secondary" type="button" onClick={() => setPerfEmp(null)}>
-            关闭
+            {t('common.close')}
           </button>
         }
         width={720}
@@ -844,20 +846,20 @@ const Employees = () => {
         {perfLoading ? (
           <div className="rent-empty">
             <Spin size="small" style={{ marginRight: 8 }} />
-            <span className="rent-text-muted">加载中...</span>
+            <span className="rent-text-muted">{t('common.loading')}</span>
           </div>
         ) : perfRows.length === 0 ? (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无佣金结算记录" />
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('employees.perfEmpty')} />
         ) : (
           <table className="rent-table">
             <thead>
               <tr>
-                <th>成交类型</th>
-                <th>佣金基数</th>
-                <th>比例</th>
-                <th>佣金金额</th>
-                <th>结算状态</th>
-                <th>创建时间</th>
+                <th>{t('employees.thDealType')}</th>
+                <th>{t('employees.thCommissionBase')}</th>
+                <th>{t('employees.thRate')}</th>
+                <th>{t('employees.thCommissionAmount')}</th>
+                <th>{t('employees.thSettleStatus')}</th>
+                <th>{t('employees.thCreatedAt')}</th>
               </tr>
             </thead>
             <tbody>

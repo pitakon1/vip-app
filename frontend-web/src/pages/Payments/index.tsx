@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { paymentsApi } from '@/services/api'
 import { downloadReport } from '@/lib/download'
 import type { Payment, PaymentStatus } from '@/types'
@@ -9,10 +10,10 @@ import './payments.css'
 type DisplayStatus = 'completed' | 'pending' | 'overdue' | 'refunded'
 
 const statusMeta: Record<DisplayStatus, { label: string; badge: string; dot: string }> = {
-  completed: { label: '已完成', badge: 'rent-badge--success', dot: 'var(--state-success)' },
-  pending: { label: '待确认', badge: 'rent-badge--info', dot: 'var(--state-info)' },
-  overdue: { label: '逾期', badge: 'rent-badge--error', dot: 'var(--state-error)' },
-  refunded: { label: '已退款', badge: 'rent-badge--neutral', dot: 'var(--rent-ink-3)' },
+  completed: { label: 'payments.stCompleted', badge: 'rent-badge--success', dot: 'var(--state-success)' },
+  pending: { label: 'payments.stPending', badge: 'rent-badge--info', dot: 'var(--state-info)' },
+  overdue: { label: 'payments.stOverdue', badge: 'rent-badge--error', dot: 'var(--state-error)' },
+  refunded: { label: 'payments.stRefunded', badge: 'rent-badge--neutral', dot: 'var(--rent-ink-3)' },
 }
 
 // 将 API 状态映射为设计稿展示状态
@@ -31,9 +32,9 @@ const toDisplayStatus = (p: Payment): DisplayStatus => {
 type DisplayType = 'income' | 'expense' | 'refund'
 
 const typeMeta: Record<DisplayType, { label: string; badge: string }> = {
-  income: { label: '收款', badge: 'rent-badge--primary' },
-  expense: { label: '付款', badge: 'rent-badge--neutral' },
-  refund: { label: '退款', badge: 'rent-badge--warning' },
+  income: { label: 'payments.tyIncome', badge: 'rent-badge--primary' },
+  expense: { label: 'payments.tyExpense', badge: 'rent-badge--neutral' },
+  refund: { label: 'payments.tyRefund', badge: 'rent-badge--warning' },
 }
 
 const toDisplayType = (p: Payment): DisplayType => {
@@ -55,6 +56,7 @@ interface QueryParams {
 }
 
 const Payments = () => {
+  const { t } = useTranslation()
   const [data, setData] = useState<Payment[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -106,7 +108,7 @@ const Payments = () => {
       setData(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取付款列表失败')
+      message.error(err?.response?.data?.message || t('payments.errFetch'))
     } finally {
       setLoading(false)
     }
@@ -126,9 +128,9 @@ const Payments = () => {
         },
         'payments.csv',
       )
-      message.success('收付款流水已导出')
+      message.success(t('payments.msgExported'))
     } catch {
-      message.error('导出失败，请稍后重试')
+      message.error(t('payments.errExport'))
     }
   }
 
@@ -229,17 +231,17 @@ const Payments = () => {
   const handleRefund = async () => {
     if (!currentPayment) return
     if (!refundReason.trim()) {
-      message.error('请输入退款原因')
+      message.error(t('payments.errRefundReason'))
       return
     }
     try {
       setSubmitting(true)
       await paymentsApi.refund(String(currentPayment.id), refundReason)
-      message.success('退款申请已提交')
+      message.success(t('payments.msgRefundSubmitted'))
       setRefundOpen(false)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '退款失败')
+      message.error(err?.response?.data?.message || t('payments.errRefundFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -270,17 +272,17 @@ const Payments = () => {
     if (!waivePayment) return
     const amount = waiveAmount.trim() ? Number(waiveAmount) : null
     if (amount !== null && (!Number.isFinite(amount) || amount <= 0)) {
-      message.error('减免金额需大于 0')
+      message.error(t('payments.errWaiveAmount'))
       return
     }
     try {
       setSubmitting(true)
       await paymentsApi.waiveLateFee(String(waivePayment.id), amount, waiveReason.trim())
-      message.success('滞纳金已减免')
+      message.success(t('payments.msgWaived'))
       setWaiveOpen(false)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '减免失败')
+      message.error(err?.response?.data?.detail || t('payments.errWaiveFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -289,13 +291,13 @@ const Payments = () => {
   // 手动记账提交
   const handleManualSubmit = async () => {
     if (!Number(manualForm.amount) || Number(manualForm.amount) <= 0) {
-      message.error('请输入有效的金额')
+      message.error(t('payments.errInvalidAmount'))
       return
     }
     // 后端 PaymentCreate.payer_id 是必填（UUID）。此前表单标注「可留空」并把空值发成
     // undefined，提交后只会收到 422，页面笼统提示「登记失败」，用户看不出是哪个字段的问题。
     if (!manualForm.payer_id.trim()) {
-      message.error('请填写付款人 / 租客 ID')
+      message.error(t('payments.errPayerRequired'))
       return
     }
     try {
@@ -308,7 +310,7 @@ const Payments = () => {
         due_date: manualForm.due_date || undefined,
         description: manualForm.description || undefined,
       })
-      message.success('已登记')
+      message.success(t('payments.msgRegistered'))
       setManualOpen(false)
       setManualForm({
         payer_id: '', payee_id: '', amount: '', currency: 'THB',
@@ -316,7 +318,7 @@ const Payments = () => {
       })
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || '登记失败')
+      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('payments.errRegisterFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -329,11 +331,11 @@ const Payments = () => {
     try {
       setConfirming(true)
       await paymentsApi.confirm(String(confirmTarget.id), { note: undefined })
-      message.success('已确认到账')
+      message.success(t('payments.msgConfirmed'))
       setConfirmTarget(null)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '确认失败')
+      message.error(err?.response?.data?.detail || t('payments.errConfirmFailed'))
     } finally {
       setConfirming(false)
     }
@@ -365,8 +367,8 @@ const Payments = () => {
       {/* Page Header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">收付款管理</h2>
-          <p className="rent-page-header__subtitle">跟踪所有租金收付记录</p>
+          <h2 className="rent-page-header__title">{t('payments.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('payments.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <button className="rent-btn rent-btn--secondary" onClick={handleExport}>
@@ -375,14 +377,14 @@ const Payments = () => {
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            导出
+            {t('payments.btnExport')}
           </button>
           <button className="rent-btn rent-btn--primary" onClick={() => setManualOpen(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            手动记账
+            {t('payments.btnManual')}
           </button>
         </div>
       </div>
@@ -390,42 +392,42 @@ const Payments = () => {
       {/* Summary Cards */}
       <div className="rent-grid rent-grid--4 rent-mb-5">
         <div className="rent-stat-card">
-          <div className="rent-stat-card__label">本月收入</div>
+          <div className="rent-stat-card__label">{t('payments.statIncome')}</div>
           <div className="rent-stat-card__value">฿{Number(statIncome).toLocaleString()}</div>
           <div className="rent-stat-card__delta rent-stat-card__delta--up">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="18 15 12 9 6 15" />
             </svg>
-            +15.2% 较上月
+            {t('payments.statDeltaUp')}
           </div>
         </div>
         <div className="rent-stat-card">
-          <div className="rent-stat-card__label">本月支出</div>
+          <div className="rent-stat-card__label">{t('payments.statExpense')}</div>
           <div className="rent-stat-card__value">฿{Number(statExpense).toLocaleString()}</div>
           <div className="rent-stat-card__delta rent-stat-card__delta--up">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="6 9 12 15 18 9" />
             </svg>
-            -3.1% 较上月
+            {t('payments.statDeltaDown')}
           </div>
         </div>
         <div className="rent-stat-card">
-          <div className="rent-stat-card__label">待收款</div>
+          <div className="rent-stat-card__label">{t('payments.statPending')}</div>
           <div className="rent-stat-card__value">฿{Number(statPending).toLocaleString()}</div>
           <div className="rent-mt-2">
             <span className="rent-badge rent-badge--warning">
               <span className="rent-badge--dot" style={{ background: 'var(--state-warning)' }} />
-              {summary.pendingCount} 笔待确认
+              {t('payments.pendingCount', { count: summary.pendingCount })}
             </span>
           </div>
         </div>
         <div className="rent-stat-card">
-          <div className="rent-stat-card__label">逾期款项</div>
+          <div className="rent-stat-card__label">{t('payments.statOverdue')}</div>
           <div className="rent-stat-card__value">฿{Number(statOverdue).toLocaleString()}</div>
           <div className="rent-mt-2">
             <span className="rent-badge rent-badge--error">
               <span className="rent-badge--dot" style={{ background: 'var(--state-error)' }} />
-              {summary.overdueCount} 笔逾期
+              {t('payments.overdueCount', { count: summary.overdueCount })}
             </span>
           </div>
         </div>
@@ -441,7 +443,7 @@ const Payments = () => {
             </svg>
             <input
               type="text"
-              placeholder="搜索租客姓名"
+              placeholder={t('payments.searchPlaceholder')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSearch((e.target as HTMLInputElement).value)
               }}
@@ -451,45 +453,45 @@ const Payments = () => {
         <select
           className="rent-form-select"
           style={{ width: 'auto', minWidth: 120 }}
-          aria-label="类型"
+          aria-label={t('payments.ariaType')}
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
         >
-          <option value="">全部类型</option>
-          <option value="rent">租金</option>
-          <option value="deposit">押金</option>
-          <option value="commission">佣金</option>
-          <option value="service_fee">服务费</option>
-          <option value="utility">水电</option>
-          <option value="tax">税费</option>
-          <option value="refund">退款</option>
+          <option value="">{t('payments.optAllTypes')}</option>
+          <option value="rent">{t('payments.optRent')}</option>
+          <option value="deposit">{t('payments.optDeposit')}</option>
+          <option value="commission">{t('payments.optCommission')}</option>
+          <option value="service_fee">{t('payments.optServiceFee')}</option>
+          <option value="utility">{t('payments.optUtility')}</option>
+          <option value="tax">{t('payments.optTax')}</option>
+          <option value="refund">{t('payments.optRefund')}</option>
         </select>
         <select
           className="rent-form-select"
           style={{ width: 'auto', minWidth: 120 }}
-          aria-label="状态"
+          aria-label={t('common.status')}
           value={queryParams.status || ''}
           onChange={(e) => handleStatusChange(e.target.value || undefined)}
         >
-          <option value="">全部状态</option>
-          <option value="succeeded">已完成</option>
-          <option value="pending">待确认</option>
-          <option value="overdue">逾期</option>
-          <option value="refunded">已退款</option>
+          <option value="">{t('payments.optAllStatus')}</option>
+          <option value="succeeded">{t('payments.stCompleted')}</option>
+          <option value="pending">{t('payments.stPending')}</option>
+          <option value="overdue">{t('payments.stOverdue')}</option>
+          <option value="refunded">{t('payments.stRefunded')}</option>
         </select>
         <select
           className="rent-form-select"
           style={{ width: 'auto', minWidth: 130 }}
-          aria-label="方式"
+          aria-label={t('payments.ariaChannel')}
           value={filterMethod}
           onChange={(e) => setFilterMethod(e.target.value)}
         >
-          <option value="">全部方式</option>
+          <option value="">{t('payments.optChannelAll')}</option>
           <option value="promptpay">PromptPay</option>
-          <option value="bank_transfer">银行转账</option>
-          <option value="stripe">信用卡</option>
-          <option value="alipay">支付宝</option>
-          <option value="wechat">微信</option>
+          <option value="bank_transfer">{t('payments.chBankTransfer')}</option>
+          <option value="stripe">{t('payments.chCreditCard')}</option>
+          <option value="alipay">{t('payments.chAlipay')}</option>
+          <option value="wechat">{t('payments.chWechat')}</option>
           <option value="wise">Wise</option>
         </select>
         <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
@@ -497,16 +499,16 @@ const Payments = () => {
             type="date"
             className="rent-form-input"
             style={{ width: 'auto' }}
-            aria-label="起始日期"
+            aria-label={t('payments.ariaStart')}
             value={filterStart}
             onChange={(e) => setFilterStart(e.target.value)}
           />
-          <span className="rent-text-muted rent-text-sm">至</span>
+          <span className="rent-text-muted rent-text-sm">{t('payments.to')}</span>
           <input
             type="date"
             className="rent-form-input"
             style={{ width: 'auto' }}
-            aria-label="结束日期"
+            aria-label={t('payments.ariaEnd')}
             value={filterEnd}
             onChange={(e) => setFilterEnd(e.target.value)}
           />
@@ -518,14 +520,14 @@ const Payments = () => {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
           </svg>
-          筛选
+          {t('payments.btnFilter')}
         </button>
       </div>
 
       {/* Payments Table */}
       {loading ? (
         <div className="rent-empty">
-          <div className="rent-text-muted">加载中...</div>
+          <div className="rent-text-muted">{t('common.loading')}</div>
         </div>
       ) : (
         <>
@@ -533,16 +535,16 @@ const Payments = () => {
             <table className="rent-table">
               <thead>
                 <tr>
-                  <th>流水号</th>
-                  <th>日期</th>
-                  <th>租客/业主</th>
-                  <th>类型</th>
-                  <th className="rent-money">金额 (฿)</th>
-                  <th className="rent-money">滞纳金 (฿)</th>
-                  <th>方式</th>
-                  <th>合同编号</th>
-                  <th>状态</th>
-                  <th>操作</th>
+                  <th>{t('payments.thCode')}</th>
+                  <th>{t('payments.thDate')}</th>
+                  <th>{t('payments.thTenantOwner')}</th>
+                  <th>{t('payments.thType')}</th>
+                  <th className="rent-money">{t('payments.thAmount')}</th>
+                  <th className="rent-money">{t('payments.thLateFee')}</th>
+                  <th>{t('payments.thChannel')}</th>
+                  <th>{t('payments.thContract')}</th>
+                  <th>{t('common.status')}</th>
+                  <th>{t('common.action')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -568,7 +570,7 @@ const Payments = () => {
                       <td className="rent-table__mono">{date}</td>
                       <td>{tenantName}</td>
                       <td>
-                        <span className={`rent-badge ${tMeta.badge}`}>{tMeta.label}</span>
+                        <span className={`rent-badge ${tMeta.badge}`}>{t(tMeta.label)}</span>
                       </td>
                       <td className="rent-money rent-num">{formatAmount(p)}</td>
                       <td className="rent-money rent-num">
@@ -577,7 +579,7 @@ const Payments = () => {
                             <span style={{ color: 'var(--state-error)' }}>{formatFee(feeDue)}</span>
                             {Number(p.late_fee_waived || 0) > 0 && (
                               <span className="rent-text-muted rent-text-sm">
-                                {` （已减 ${formatFee(Number(p.late_fee_waived))}）`}
+                                {t('payments.waivedSuffix', { amount: formatFee(Number(p.late_fee_waived)) })}
                               </span>
                             )}
                           </>
@@ -590,21 +592,21 @@ const Payments = () => {
                       <td>
                         <span className={`rent-badge ${sMeta.badge}`}>
                           <span className="rent-badge--dot" style={{ background: sMeta.dot }} />
-                          {sMeta.label}
+                          {t(sMeta.label)}
                         </span>
                       </td>
                       <td>
                         <div className="rent-flex rent-gap-2">
-                          <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openDetail(p, 'detail')}>查看</button>
+                          <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openDetail(p, 'detail')}>{t('payments.btnView')}</button>
                           {isConfirmable && (
-                            <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => openConfirm(p)}>确认</button>
+                            <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => openConfirm(p)}>{t('payments.btnConfirm')}</button>
                           )}
                           {feeDue > 0 && (
                             <button
                               className="rent-btn rent-btn--ghost rent-btn--sm"
                               onClick={() => openWaive(p)}
                             >
-                              减免
+                              {t('payments.btnWaive')}
                             </button>
                           )}
                           {isRefundable && (
@@ -613,7 +615,7 @@ const Payments = () => {
                               style={{ color: 'var(--state-error)', borderColor: 'var(--state-error)' }}
                               onClick={() => openRefund(p)}
                             >
-                              退款
+                              {t('payments.btnRefund')}
                             </button>
                           )}
                         </div>
@@ -627,10 +629,10 @@ const Payments = () => {
 
           {/* Pagination */}
           <div className="rent-pagination">
-            <span className="rent-pagination__info">共 {statTotal.toLocaleString()} 条记录</span>
+            <span className="rent-pagination__info">{t('payments.pageInfo', { count: statTotal.toLocaleString() })}</span>
             <button
               className="rent-pagination__btn"
-              aria-label="上一页"
+              aria-label={t('payments.ariaPrev')}
               onClick={() => setQueryParams((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
               disabled={queryParams.page <= 1}
             >
@@ -654,7 +656,7 @@ const Payments = () => {
             )}
             <button
               className="rent-pagination__btn"
-              aria-label="下一页"
+              aria-label={t('payments.ariaNext')}
               onClick={() => setQueryParams((p) => ({ ...p, page: Math.min(totalPages, p.page + 1) }))}
               disabled={queryParams.page >= totalPages}
             >
@@ -671,7 +673,7 @@ const Payments = () => {
         <div className="rent-modal-backdrop" onClick={() => setRefundOpen(false)}>
           <div className="rent-modal payments-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">申请退款</h3>
+              <h3 className="rent-card__title">{t('payments.modalRefundTitle')}</h3>
               <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setRefundOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -681,20 +683,20 @@ const Payments = () => {
             </div>
             <div className="rent-modal__body">
               <div className="rent-form-group" style={{ marginBottom: 0 }}>
-                <label className="rent-form-label">退款原因 *</label>
+                <label className="rent-form-label">{t('payments.labelRefundReason')}</label>
                 <textarea
                   className="rent-form-textarea"
                   rows={3}
-                  placeholder="请输入退款原因"
+                  placeholder={t('payments.placeholderRefundReason')}
                   value={refundReason}
                   onChange={(e) => setRefundReason(e.target.value)}
                 />
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setRefundOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setRefundOpen(false)}>{t('common.cancel')}</button>
               <button className="rent-btn rent-btn--primary" onClick={handleRefund} disabled={submitting}>
-                {submitting ? '提交中...' : '确定'}
+                {submitting ? t('common.submitting') : t('common.confirm')}
               </button>
             </div>
           </div>
@@ -706,7 +708,7 @@ const Payments = () => {
         <div className="rent-modal-backdrop" onClick={() => setWaiveOpen(false)}>
           <div className="rent-modal payments-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">减免逾期滞纳金</h3>
+              <h3 className="rent-card__title">{t('payments.modalWaiveTitle')}</h3>
               <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setWaiveOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -716,12 +718,13 @@ const Payments = () => {
             </div>
             <div className="rent-modal__body">
               <p className="rent-text-muted rent-text-sm" style={{ marginTop: 0 }}>
-                {`当前应缴滞纳金 ${formatFee(lateFeeDue(waivePayment))} ฿（已减免 ${formatFee(
-                  Number(waivePayment.late_fee_waived || 0),
-                )} ฿）`}
+                {t('payments.waiveSummary', {
+                  due: formatFee(lateFeeDue(waivePayment)),
+                  waived: formatFee(Number(waivePayment.late_fee_waived || 0)),
+                })}
               </p>
               <div className="rent-form-group">
-                <label className="rent-form-label">减免金额（留空表示全额减免）</label>
+                <label className="rent-form-label">{t('payments.labelWaiveAmount')}</label>
                 <input
                   type="number"
                   min="0"
@@ -733,20 +736,20 @@ const Payments = () => {
                 />
               </div>
               <div className="rent-form-group" style={{ marginBottom: 0 }}>
-                <label className="rent-form-label">减免原因</label>
+                <label className="rent-form-label">{t('payments.labelWaiveReason')}</label>
                 <textarea
                   className="rent-form-textarea"
                   rows={3}
-                  placeholder="例如：老客户首次逾期，经审批减免"
+                  placeholder={t('payments.placeholderWaiveReason')}
                   value={waiveReason}
                   onChange={(e) => setWaiveReason(e.target.value)}
                 />
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setWaiveOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setWaiveOpen(false)}>{t('common.cancel')}</button>
               <button className="rent-btn rent-btn--primary" onClick={handleWaive} disabled={submitting}>
-                {submitting ? '提交中...' : '确定减免'}
+                {submitting ? t('common.submitting') : t('payments.btnConfirmWaive')}
               </button>
             </div>
           </div>
@@ -758,7 +761,7 @@ const Payments = () => {
         <div className="rent-modal-backdrop" onClick={() => setManualOpen(false)}>
           <div className="rent-modal payments-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">手动记账</h3>
+              <h3 className="rent-card__title">{t('payments.modalManualTitle')}</h3>
               <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setManualOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -768,18 +771,18 @@ const Payments = () => {
             </div>
             <div className="rent-modal__body">
               <div className="rent-form-group">
-                <label className="rent-form-label">付款人 / 租客 ID</label>
-                <input className="rent-form-input" placeholder="租客 ID（必填）" value={manualForm.payer_id} onChange={setManual('payer_id')} />
+                <label className="rent-form-label">{t('payments.labelPayer')}</label>
+                <input className="rent-form-input" placeholder={t('payments.placeholderPayer')} value={manualForm.payer_id} onChange={setManual('payer_id')} />
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">收款人 / 收款方 ID</label>
-                <input className="rent-form-input" placeholder="收款方 ID（可留空）" value={manualForm.payee_id} onChange={setManual('payee_id')} />
+                <label className="rent-form-label">{t('payments.labelPayee')}</label>
+                <input className="rent-form-input" placeholder={t('payments.placeholderPayee')} value={manualForm.payee_id} onChange={setManual('payee_id')} />
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">金额 *</label>
+                <label className="rent-form-label">{t('payments.labelAmount')}</label>
                 <div className="rent-flex rent-gap-2">
                   <input className="rent-form-input" type="number" min="0" step="0.01" placeholder="0.00" value={manualForm.amount} onChange={setManual('amount')} />
-                  <select className="rent-form-select" style={{ width: 110 }} aria-label="币种" value={manualForm.currency} onChange={setManual('currency')}>
+                  <select className="rent-form-select" style={{ width: 110 }} aria-label={t('payments.ariaCurrency')} value={manualForm.currency} onChange={setManual('currency')}>
                     <option value="THB">THB</option>
                     <option value="CNY">CNY</option>
                     <option value="EUR">EUR</option>
@@ -787,40 +790,40 @@ const Payments = () => {
                 </div>
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">费用类型</label>
-                <select className="rent-form-select" aria-label="费用类型" value={manualForm.payment_type} onChange={setManual('payment_type')}>
-                  <option value="rent">租金</option>
-                  <option value="deposit">押金</option>
-                  <option value="commission">佣金</option>
-                  <option value="service_fee">服务费</option>
-                  <option value="utility">水电费</option>
-                  <option value="tax">税费</option>
+                <label className="rent-form-label">{t('payments.labelFeeType')}</label>
+                <select className="rent-form-select" aria-label={t('payments.ariaFeeType')} value={manualForm.payment_type} onChange={setManual('payment_type')}>
+                  <option value="rent">{t('payments.optRent')}</option>
+                  <option value="deposit">{t('payments.optDeposit')}</option>
+                  <option value="commission">{t('payments.optCommission')}</option>
+                  <option value="service_fee">{t('payments.optServiceFee')}</option>
+                  <option value="utility">{t('payments.optUtilityFee')}</option>
+                  <option value="tax">{t('payments.optTax')}</option>
                 </select>
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">收款方式</label>
-                <select className="rent-form-select" aria-label="收款方式" value={manualForm.channel} onChange={setManual('channel')}>
+                <label className="rent-form-label">{t('payments.labelChannel')}</label>
+                <select className="rent-form-select" aria-label={t('payments.ariaChannel2')} value={manualForm.channel} onChange={setManual('channel')}>
                   <option value="promptpay">PromptPay</option>
-                  <option value="bank_transfer">银行转账</option>
-                  <option value="stripe">信用卡</option>
-                  <option value="alipay">支付宝</option>
-                  <option value="wechat">微信</option>
+                  <option value="bank_transfer">{t('payments.chBankTransfer')}</option>
+                  <option value="stripe">{t('payments.chCreditCard')}</option>
+                  <option value="alipay">{t('payments.chAlipay')}</option>
+                  <option value="wechat">{t('payments.chWechat')}</option>
                   <option value="wise">Wise</option>
                 </select>
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">到期日期</label>
+                <label className="rent-form-label">{t('payments.labelDueDate')}</label>
                 <input className="rent-form-input" type="date" value={manualForm.due_date} onChange={setManual('due_date')} />
               </div>
               <div className="rent-form-group" style={{ marginBottom: 0 }}>
-                <label className="rent-form-label">备注</label>
-                <textarea className="rent-form-textarea" rows={3} placeholder="补充说明（选填）" value={manualForm.description} onChange={setManual('description')} />
+                <label className="rent-form-label">{t('payments.labelRemark')}</label>
+                <textarea className="rent-form-textarea" rows={3} placeholder={t('payments.placeholderRemark')} value={manualForm.description} onChange={setManual('description')} />
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setManualOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setManualOpen(false)}>{t('common.cancel')}</button>
               <button className="rent-btn rent-btn--primary" onClick={handleManualSubmit} disabled={submitting}>
-                {submitting ? '提交中...' : '登记'}
+                {submitting ? t('common.submitting') : t('payments.btnRegister')}
               </button>
             </div>
           </div>
@@ -832,7 +835,7 @@ const Payments = () => {
         <div className="rent-modal-backdrop" onClick={() => setConfirmTarget(null)}>
           <div className="rent-modal payments-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">确认到账</h3>
+              <h3 className="rent-card__title">{t('payments.modalConfirmTitle')}</h3>
               <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setConfirmTarget(null)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -842,13 +845,13 @@ const Payments = () => {
             </div>
             <div className="rent-modal__body">
               <p className="rent-text-muted rent-text-sm" style={{ marginTop: 0 }}>
-                {`确认该笔款项已到账？金额 ${formatAmount(confirmTarget)} ฿（${statusMeta[toDisplayStatus(confirmTarget)].label}）`}
+                {t('payments.confirmSummary', { amount: formatAmount(confirmTarget), status: t(statusMeta[toDisplayStatus(confirmTarget)].label) })}
               </p>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setConfirmTarget(null)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setConfirmTarget(null)}>{t('common.cancel')}</button>
               <button className="rent-btn rent-btn--primary" onClick={handleConfirmSub} disabled={confirming}>
-                {confirming ? '提交中...' : '确认到账'}
+                {confirming ? t('common.submitting') : t('payments.btnConfirmArrival')}
               </button>
             </div>
           </div>
@@ -860,7 +863,7 @@ const Payments = () => {
         <div className="rent-modal-backdrop" onClick={() => setDetail(null)}>
           <div className="rent-modal payments-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">付款明细</h3>
+              <h3 className="rent-card__title">{t('payments.modalDetailTitle')}</h3>
               <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setDetail(null)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -871,22 +874,22 @@ const Payments = () => {
             <div className="rent-modal__body">
               {detailType === 'detail' ? (
                 <>
-                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">流水号</span><span className="rent-mono">{(detail as any).code || `PMT-${detail.id}`}</span></div></div>
-                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">金额</span><span>{formatAmount(detail)} {(detail as any).currency || 'THB'}</span></div></div>
-                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">类型</span><span>{typeMeta[toDisplayType(detail)].label}</span></div></div>
-                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">状态</span><span>{statusMeta[toDisplayStatus(detail)].label}</span></div></div>
-                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">方式</span><span>{detail.channel || '-'}</span></div></div>
-                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">到期日</span><span>{detail.due_date || '-'}</span></div></div>
-                  <div className="rent-form-group" style={{ marginBottom: 0 }}><div className="rent-modal-row"><span className="rent-text-muted">备注</span><span>{detail.description || '-'}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.thCode')}</span><span className="rent-mono">{(detail as any).code || `PMT-${detail.id}`}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.rowAmount')}</span><span>{formatAmount(detail)} {(detail as any).currency || 'THB'}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.thType')}</span><span>{t(typeMeta[toDisplayType(detail)].label)}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('common.status')}</span><span>{t(statusMeta[toDisplayStatus(detail)].label)}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.thChannel')}</span><span>{detail.channel || '-'}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.rowDueDate')}</span><span>{detail.due_date || '-'}</span></div></div>
+                  <div className="rent-form-group" style={{ marginBottom: 0 }}><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.labelRemark')}</span><span>{detail.description || '-'}</span></div></div>
                 </>
               ) : docData === null ? (
-                <div className="rent-empty rent-text-muted">加载中...</div>
+                <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
               ) : (docData as any)?.error ? (
-                <div className="rent-empty rent-text-muted">凭证/发票获取失败</div>
+                <div className="rent-empty rent-text-muted">{t('payments.errDocFetch')}</div>
               ) : (
                 <div className="rent-empty">
                   {(docData as any)?.url ? (
-                    <img src={(docData as any).url} alt="凭证/发票" style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} />
+                    <img src={(docData as any).url} alt={t('payments.altDoc')} style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} />
                   ) : (
                     <pre className="rent-text-muted" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(docData, null, 2)}</pre>
                   )}
@@ -896,11 +899,11 @@ const Payments = () => {
             <div className="rent-modal__footer rent-flex" style={{ justifyContent: 'flex-end', gap: 8 }}>
               {detailType === 'detail' && (
                 <>
-                  <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openDetail(detail, 'receipt')}>缴费凭证</button>
-                  <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openDetail(detail, 'invoice')}>发票</button>
+                  <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openDetail(detail, 'receipt')}>{t('payments.btnReceipt')}</button>
+                  <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openDetail(detail, 'invoice')}>{t('payments.btnInvoice')}</button>
                 </>
               )}
-              <button className="rent-btn rent-btn--secondary" onClick={() => setDetail(null)}>关闭</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setDetail(null)}>{t('common.close')}</button>
             </div>
           </div>
         </div>

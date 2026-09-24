@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Modal, Spin } from 'antd'
 import dayjs from 'dayjs'
+import { useTranslation } from 'react-i18next'
 import { leasesApi, propertiesApi } from '@/services/api'
 import { downloadReport } from '@/lib/download'
 import type { Lease, LeaseStatus, Property } from '@/types'
@@ -9,10 +10,10 @@ import './leases.css'
 type DisplayStatus = 'active' | 'expiring' | 'expired' | 'terminated'
 
 const displayStatusMeta: Record<DisplayStatus, { label: string; badge: string; dot: string }> = {
-  active: { label: '生效中', badge: 'rent-badge--success', dot: 'var(--state-success)' },
-  expiring: { label: '即将到期', badge: 'rent-badge--warning', dot: 'var(--state-warning)' },
-  expired: { label: '已到期', badge: 'rent-badge--error', dot: 'var(--state-error)' },
-  terminated: { label: '已终止', badge: 'rent-badge--neutral', dot: 'var(--rent-ink-3)' },
+  active: { label: 'leases.stActive', badge: 'rent-badge--success', dot: 'var(--state-success)' },
+  expiring: { label: 'leases.stExpiring', badge: 'rent-badge--warning', dot: 'var(--state-warning)' },
+  expired: { label: 'leases.stExpired', badge: 'rent-badge--error', dot: 'var(--state-error)' },
+  terminated: { label: 'leases.stTerminated', badge: 'rent-badge--neutral', dot: 'var(--rent-ink-3)' },
 }
 
 // 根据租约数据计算显示状态
@@ -42,17 +43,17 @@ interface QueryParams {
 
 // 房源类型取值与后端 Property.property_type 对齐（apartment/house/condo/commercial）
 const PROPERTY_TYPE_OPTIONS = [
-  { value: 'apartment', label: '公寓' },
-  { value: 'house', label: '独栋住宅' },
-  { value: 'condo', label: '公寓住宅' },
-  { value: 'commercial', label: '商铺 / 写字楼' },
+  { value: 'apartment', label: 'leases.typeApartment' },
+  { value: 'house', label: 'leases.typeHouse' },
+  { value: 'condo', label: 'leases.typeCondo' },
+  { value: 'commercial', label: 'leases.typeCommercial' },
 ]
 
 // 押金状态取值（后端 deposit_status：held/refunded/forfeited）
 const depositStatusLabel: Record<string, string> = {
-  held: '已收押金',
-  refunded: '已退还',
-  forfeited: '已扣除',
+  held: 'leases.depHeld',
+  refunded: 'leases.depRefunded',
+  forfeited: 'leases.depForfeited',
 }
 
 interface CreateFormValues {
@@ -82,6 +83,7 @@ const emptyCreateForm: CreateFormValues = {
 }
 
 const Leases = () => {
+  const { t } = useTranslation()
   const [data, setData] = useState<Lease[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -133,7 +135,7 @@ const Leases = () => {
       setData(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取租约列表失败')
+      message.error(err?.response?.data?.message || t('leases.errFetch'))
     } finally {
       setLoading(false)
     }
@@ -220,7 +222,7 @@ const Leases = () => {
   // 筛选：把「合同类型 / 起始日区间」草稿条件提交给服务端（状态下拉为即时筛选）
   const handleApplyFilters = () => {
     if (filterStart && filterEnd && filterStart > filterEnd) {
-      message.warning('起始日期不能晚于结束日期')
+      message.warning(t('leases.warnDateRange'))
       return
     }
     setQueryParams((p) => ({
@@ -248,7 +250,7 @@ const Leases = () => {
         `leases_${dayjs().format('YYYYMMDD')}.csv`,
       )
     } catch {
-      message.error('导出失败，请稍后重试')
+      message.error(t('leases.errExport'))
     } finally {
       setExporting(false)
     }
@@ -273,27 +275,27 @@ const Leases = () => {
 
   const handleCreate = async () => {
     if (!createForm.propertyId) {
-      message.error('请选择房源')
+      message.error(t('leases.errSelectProperty'))
       return
     }
     if (!createForm.tenantName.trim()) {
-      message.error('请输入租客姓名')
+      message.error(t('leases.errTenantName'))
       return
     }
     if (!createForm.tenantPhone.trim()) {
-      message.error('请输入租客电话')
+      message.error(t('leases.errTenantPhone'))
       return
     }
     if (!createForm.startDate || !createForm.endDate) {
-      message.error('请选择租期')
+      message.error(t('leases.errLeaseTerm'))
       return
     }
     if (!createForm.monthlyRent) {
-      message.error('请输入月租金')
+      message.error(t('leases.errMonthlyRent'))
       return
     }
     if (!createForm.deposit) {
-      message.error('请输入押金')
+      message.error(t('leases.errDeposit'))
       return
     }
     try {
@@ -307,11 +309,11 @@ const Leases = () => {
         monthly_rent: Number(createForm.monthlyRent),
         deposit_amount: Number(createForm.deposit),
       })
-      message.success('创建租约成功')
+      message.success(t('leases.msgCreated'))
       setCreateOpen(false)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '创建失败')
+      message.error(err?.response?.data?.message || t('leases.errCreateFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -320,11 +322,11 @@ const Leases = () => {
   const handleRenew = async () => {
     if (!currentLease) return
     if (!renewForm.startDate || !renewForm.endDate) {
-      message.error('请选择新租期')
+      message.error(t('leases.errRenewTerm'))
       return
     }
     if (!renewForm.monthlyRent) {
-      message.error('请输入月租金')
+      message.error(t('leases.errMonthlyRent'))
       return
     }
     try {
@@ -334,11 +336,11 @@ const Leases = () => {
         endDate: renewForm.endDate,
         monthlyRent: Number(renewForm.monthlyRent),
       })
-      message.success('续约成功')
+      message.success(t('leases.msgRenewed'))
       setRenewOpen(false)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '续约失败')
+      message.error(err?.response?.data?.message || t('leases.errRenewFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -346,20 +348,20 @@ const Leases = () => {
 
   const handleTerminate = (record: Lease) => {
     Modal.confirm({
-      title: '确认退房吗？',
-      content: `合同 ${(record as any).code || record.id} 将被终止。`,
-      okText: '确认',
-      cancelText: '取消',
+      title: t('leases.terminateTitle'),
+      content: t('leases.terminateContent', { code: (record as any).code || record.id }),
+      okText: t('common.confirm'),
+      cancelText: t('common.cancel'),
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
           await leasesApi.terminate(String(record.id), {
             terminateDate: dayjs().format('YYYY-MM-DD'),
           })
-          message.success('退房成功')
+          message.success(t('leases.msgTerminated'))
           fetchData()
         } catch (err: any) {
-          message.error(err?.response?.data?.message || '退房失败')
+          message.error(err?.response?.data?.message || t('leases.errTerminateFailed'))
         }
       },
     })
@@ -375,8 +377,8 @@ const Leases = () => {
       {/* Page Header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">合同管理</h2>
-          <p className="rent-page-header__subtitle">管理所有租赁合同</p>
+          <h2 className="rent-page-header__title">{t('leases.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('leases.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <button
@@ -390,14 +392,14 @@ const Leases = () => {
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            {exporting ? '导出中...' : '导出报表'}
+            {exporting ? t('leases.exporting') : t('leases.btnExport')}
           </button>
           <button className="rent-btn rent-btn--primary" type="button" onClick={openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            新建合同
+            {t('leases.btnNew')}
           </button>
         </div>
       </div>
@@ -415,7 +417,7 @@ const Leases = () => {
               </svg>
             </div>
             <div style={{ flex: 1 }}>
-              <div className="rent-stat-card__label">总合同数</div>
+              <div className="rent-stat-card__label">{t('leases.statTotal')}</div>
               <div className="rent-stat-card__value">{statTotal}</div>
             </div>
           </div>
@@ -429,7 +431,7 @@ const Leases = () => {
               </svg>
             </div>
             <div style={{ flex: 1 }}>
-              <div className="rent-stat-card__label">生效中</div>
+              <div className="rent-stat-card__label">{t('leases.stActive')}</div>
               <div className="rent-stat-card__value">{statActive}</div>
             </div>
           </div>
@@ -443,7 +445,7 @@ const Leases = () => {
               </svg>
             </div>
             <div style={{ flex: 1 }}>
-              <div className="rent-stat-card__label">即将到期</div>
+              <div className="rent-stat-card__label">{t('leases.stExpiring')}</div>
               <div className="rent-stat-card__value">{statExpiring}</div>
             </div>
           </div>
@@ -458,7 +460,7 @@ const Leases = () => {
               </svg>
             </div>
             <div style={{ flex: 1 }}>
-              <div className="rent-stat-card__label">已终止</div>
+              <div className="rent-stat-card__label">{t('leases.stTerminated')}</div>
               <div className="rent-stat-card__value">{statTerminated}</div>
             </div>
           </div>
@@ -475,7 +477,7 @@ const Leases = () => {
             </svg>
             <input
               type="text"
-              placeholder="搜索房源 / 租客"
+              placeholder={t('leases.searchPlaceholder')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSearch((e.target as HTMLInputElement).value)
               }}
@@ -485,29 +487,29 @@ const Leases = () => {
         <select
           className="rent-form-select"
           style={{ width: 'auto' }}
-          aria-label="合同状态"
+          aria-label={t('leases.ariaStatus')}
           value={filterStatus}
           onChange={(e) => {
             setFilterStatus(e.target.value)
             handleStatusChange(e.target.value || undefined)
           }}
         >
-          <option value="">全部状态</option>
-          <option value="active">生效中</option>
-          <option value="expiring">即将到期</option>
-          <option value="expired">已到期</option>
-          <option value="terminated">已终止</option>
+          <option value="">{t('leases.optAllStatus')}</option>
+          <option value="active">{t('leases.stActive')}</option>
+          <option value="expiring">{t('leases.stExpiring')}</option>
+          <option value="expired">{t('leases.stExpired')}</option>
+          <option value="terminated">{t('leases.stTerminated')}</option>
         </select>
         <select
           className="rent-form-select"
           style={{ width: 'auto' }}
-          aria-label="合同类型"
+          aria-label={t('leases.ariaType')}
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
         >
-          <option value="">全部类型</option>
+          <option value="">{t('leases.optAllTypes')}</option>
           {PROPERTY_TYPE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>{t(opt.label)}</option>
           ))}
         </select>
         <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
@@ -515,16 +517,16 @@ const Leases = () => {
             type="date"
             className="rent-form-input"
             style={{ width: 'auto' }}
-            aria-label="起始日期"
+            aria-label={t('leases.ariaStart')}
             value={filterStart}
             onChange={(e) => setFilterStart(e.target.value)}
           />
-          <span className="rent-text-muted rent-text-sm">至</span>
+          <span className="rent-text-muted rent-text-sm">{t('leases.to')}</span>
           <input
             type="date"
             className="rent-form-input"
             style={{ width: 'auto' }}
-            aria-label="结束日期"
+            aria-label={t('leases.ariaEnd')}
             value={filterEnd}
             onChange={(e) => setFilterEnd(e.target.value)}
           />
@@ -537,7 +539,7 @@ const Leases = () => {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          筛选
+          {t('leases.btnFilter')}
         </button>
         <button
           className="rent-btn rent-btn--ghost rent-btn--sm"
@@ -558,7 +560,7 @@ const Leases = () => {
             }))
           }}
         >
-          重置
+          {t('common.reset')}
         </button>
       </div>
 
@@ -567,7 +569,7 @@ const Leases = () => {
         {loading ? (
           <div className="rent-empty">
             <Spin size="small" style={{ marginRight: 8 }} />
-            <span className="rent-text-muted">加载中...</span>
+            <span className="rent-text-muted">{t('common.loading')}</span>
           </div>
         ) : (
           <>
@@ -575,14 +577,14 @@ const Leases = () => {
               <table className="rent-table">
                 <thead>
                   <tr>
-                    <th>合同编号</th>
-                    <th>房源</th>
-                    <th>租客</th>
-                    <th>起始日</th>
-                    <th>到期日</th>
-                    <th className="rent-money">月租 (฿)</th>
-                    <th>状态</th>
-                    <th>操作</th>
+                    <th>{t('leases.thCode')}</th>
+                    <th>{t('leases.thProperty')}</th>
+                    <th>{t('leases.thTenant')}</th>
+                    <th>{t('leases.thStart')}</th>
+                    <th>{t('leases.thEnd')}</th>
+                    <th className="rent-money">{t('leases.thMonthlyRent')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{t('common.action')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -603,7 +605,7 @@ const Leases = () => {
                         <td>
                           <span className={`rent-badge ${meta.badge}`}>
                             <span className="rent-badge--dot" style={{ background: meta.dot }} />
-                            {meta.label}
+                            {t(meta.label)}
                           </span>
                         </td>
                         <td>
@@ -613,14 +615,14 @@ const Leases = () => {
                               type="button"
                               onClick={() => setDetailLease(lease)}
                             >
-                              查看
+                              {t('leases.btnView')}
                             </button>
                             <button
                               className="rent-btn rent-btn--ghost rent-btn--sm"
                               type="button"
                               onClick={() => openRenew(lease)}
                             >
-                              编辑
+                              {t('common.edit')}
                             </button>
                             <button
                               className="rent-btn rent-btn--ghost rent-btn--sm"
@@ -629,7 +631,7 @@ const Leases = () => {
                               disabled={lease.status === 'terminated'}
                               onClick={() => handleTerminate(lease)}
                             >
-                              终止
+                              {t('leases.btnTerminate')}
                             </button>
                           </div>
                         </td>
@@ -642,10 +644,10 @@ const Leases = () => {
             {/* Pagination */}
             <div className="rent-card__footer">
               <div className="rent-pagination" style={{ padding: 0 }}>
-                <span className="rent-pagination__info">共 {statTotal} 条记录</span>
+                <span className="rent-pagination__info">{t('leases.pageInfo', { count: statTotal })}</span>
                 <button
                   className="rent-pagination__btn"
-                  aria-label="上一页"
+                  aria-label={t('leases.ariaPrev')}
                   onClick={() => setQueryParams((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
                   disabled={queryParams.page <= 1}
                 >
@@ -669,7 +671,7 @@ const Leases = () => {
                 )}
                 <button
                   className="rent-pagination__btn"
-                  aria-label="下一页"
+                  aria-label={t('leases.ariaNext')}
                   onClick={() => setQueryParams((p) => ({ ...p, page: Math.min(totalPages, p.page + 1) }))}
                   disabled={queryParams.page >= totalPages}
                 >
@@ -688,8 +690,8 @@ const Leases = () => {
         <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
           <div className="rent-modal leases-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">新建租约</h3>
-              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label="关闭" onClick={() => setCreateOpen(false)}>
+              <h3 className="rent-card__title">{t('leases.modalCreateTitle')}</h3>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label={t('common.close')} onClick={() => setCreateOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -699,40 +701,40 @@ const Leases = () => {
             <div className="rent-modal__body">
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">房源 *</label>
+                  <label className="rent-form-label">{t('leases.labelProperty')}</label>
                   <select
                     className="rent-form-select"
                     value={createForm.propertyId}
                     onChange={(e) => setCreateForm((f) => ({ ...f, propertyId: e.target.value }))}
                   >
-                    <option value="">请选择房源</option>
+                    <option value="">{t('leases.optSelectProperty')}</option>
                     {properties.map((p) => (
                       <option key={p.id} value={p.id}>{p.room_number || `#${p.id}`}</option>
                     ))}
                   </select>
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">租客姓名 *</label>
+                  <label className="rent-form-label">{t('leases.labelTenantName')}</label>
                   <input
                     className="rent-form-input"
                     value={createForm.tenantName}
                     onChange={(e) => setCreateForm((f) => ({ ...f, tenantName: e.target.value }))}
-                    placeholder="请输入租客姓名"
+                    placeholder={t('leases.placeholderTenantName')}
                   />
                 </div>
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">租客电话 *</label>
+                  <label className="rent-form-label">{t('leases.labelTenantPhone')}</label>
                   <input
                     className="rent-form-input"
                     value={createForm.tenantPhone}
                     onChange={(e) => setCreateForm((f) => ({ ...f, tenantPhone: e.target.value }))}
-                    placeholder="请输入租客电话"
+                    placeholder={t('leases.placeholderTenantPhone')}
                   />
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">租期 *</label>
+                  <label className="rent-form-label">{t('leases.labelTerm')}</label>
                   <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
                     <input
                       type="date"
@@ -740,7 +742,7 @@ const Leases = () => {
                       value={createForm.startDate}
                       onChange={(e) => setCreateForm((f) => ({ ...f, startDate: e.target.value }))}
                     />
-                    <span className="rent-text-muted rent-text-sm">至</span>
+                    <span className="rent-text-muted rent-text-sm">{t('leases.to')}</span>
                     <input
                       type="date"
                       className="rent-form-input"
@@ -752,33 +754,33 @@ const Leases = () => {
               </div>
               <div className="rent-form-row" style={{ marginBottom: 0 }}>
                 <div className="rent-form-group" style={{ marginBottom: 0 }}>
-                  <label className="rent-form-label">月租金 *</label>
+                  <label className="rent-form-label">{t('leases.labelMonthlyRent')}</label>
                   <input
                     className="rent-form-input"
                     type="number"
                     min={0}
                     value={createForm.monthlyRent}
                     onChange={(e) => setCreateForm((f) => ({ ...f, monthlyRent: e.target.value }))}
-                    placeholder="月租金"
+                    placeholder={t('leases.placeholderMonthlyRent')}
                   />
                 </div>
                 <div className="rent-form-group" style={{ marginBottom: 0 }}>
-                  <label className="rent-form-label">押金 *</label>
+                  <label className="rent-form-label">{t('leases.labelDeposit')}</label>
                   <input
                     className="rent-form-input"
                     type="number"
                     min={0}
                     value={createForm.deposit}
                     onChange={(e) => setCreateForm((f) => ({ ...f, deposit: e.target.value }))}
-                    placeholder="押金"
+                    placeholder={t('leases.placeholderDeposit')}
                   />
                 </div>
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>{t('common.cancel')}</button>
               <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>
-                {submitting ? '提交中...' : '确定'}
+                {submitting ? t('common.submitting') : t('common.confirm')}
               </button>
             </div>
           </div>
@@ -790,8 +792,8 @@ const Leases = () => {
         <div className="rent-modal-backdrop" onClick={() => setRenewOpen(false)}>
           <div className="rent-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">续约</h3>
-              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label="关闭" onClick={() => setRenewOpen(false)}>
+              <h3 className="rent-card__title">{t('leases.modalRenewTitle')}</h3>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label={t('common.close')} onClick={() => setRenewOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -800,7 +802,7 @@ const Leases = () => {
             </div>
             <div className="rent-modal__body">
               <div className="rent-form-group">
-                <label className="rent-form-label">新租期 *</label>
+                <label className="rent-form-label">{t('leases.labelNewTerm')}</label>
                 <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
                   <input
                     type="date"
@@ -808,7 +810,7 @@ const Leases = () => {
                     value={renewForm.startDate}
                     onChange={(e) => setRenewForm((f) => ({ ...f, startDate: e.target.value }))}
                   />
-                  <span className="rent-text-muted rent-text-sm">至</span>
+                  <span className="rent-text-muted rent-text-sm">{t('leases.to')}</span>
                   <input
                     type="date"
                     className="rent-form-input"
@@ -818,21 +820,21 @@ const Leases = () => {
                 </div>
               </div>
               <div className="rent-form-group" style={{ marginBottom: 0 }}>
-                <label className="rent-form-label">新月租金 *</label>
+                <label className="rent-form-label">{t('leases.labelNewMonthlyRent')}</label>
                 <input
                   className="rent-form-input"
                   type="number"
                   min={0}
                   value={renewForm.monthlyRent}
                   onChange={(e) => setRenewForm((f) => ({ ...f, monthlyRent: e.target.value }))}
-                  placeholder="月租金"
+                  placeholder={t('leases.placeholderMonthlyRent')}
                 />
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setRenewOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setRenewOpen(false)}>{t('common.cancel')}</button>
               <button className="rent-btn rent-btn--primary" onClick={handleRenew} disabled={submitting}>
-                {submitting ? '提交中...' : '确定'}
+                {submitting ? t('common.submitting') : t('common.confirm')}
               </button>
             </div>
           </div>
@@ -848,11 +850,11 @@ const Leases = () => {
             style={{ maxWidth: 600 }}
           >
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">合同详情</h3>
+              <h3 className="rent-card__title">{t('leases.modalDetailTitle')}</h3>
               <button
                 className="rent-btn rent-btn--ghost rent-btn--sm"
                 type="button"
-                aria-label="关闭"
+                aria-label={t('common.close')}
                 onClick={() => setDetailLease(null)}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -864,73 +866,73 @@ const Leases = () => {
             <div className="rent-modal__body">
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">合同编号</label>
+                  <label className="rent-form-label">{t('leases.labelCode')}</label>
                   <div className="rent-mono">
                     {(detailLease as any).code || `LC-${detailLease.id}`}
                   </div>
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">合同状态</label>
+                  <label className="rent-form-label">{t('leases.labelStatus')}</label>
                   <div>
                     <span className={`rent-badge ${detailMeta.badge}`}>
                       <span className="rent-badge--dot" style={{ background: detailMeta.dot }} />
-                      {detailMeta.label}
+                      {t(detailMeta.label)}
                     </span>
                   </div>
                 </div>
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">房源</label>
+                  <label className="rent-form-label">{t('leases.labelPropertyPlain')}</label>
                   <div>{resolvePropertyName(detailLease)}</div>
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">租客</label>
+                  <label className="rent-form-label">{t('leases.labelTenantPlain')}</label>
                   <div>{resolveTenantName(detailLease)}</div>
                 </div>
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">起始日</label>
+                  <label className="rent-form-label">{t('leases.labelStartPlain')}</label>
                   <div>{dayjs(detailLease.start_date).format('YYYY-MM-DD')}</div>
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">到期日</label>
+                  <label className="rent-form-label">{t('leases.labelEndPlain')}</label>
                   <div>{dayjs(detailLease.end_date).format('YYYY-MM-DD')}</div>
                 </div>
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">月租</label>
+                  <label className="rent-form-label">{t('leases.labelMonthlyRentPlain')}</label>
                   <div className="rent-num">
                     {detailLease.currency || '฿'} {Number(detailLease.monthly_rent || 0).toLocaleString()}
                   </div>
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">押金</label>
+                  <label className="rent-form-label">{t('leases.labelDepositPlain')}</label>
                   <div className="rent-num">
                     {detailLease.currency || '฿'} {Number(detailLease.deposit_amount || 0).toLocaleString()}
                     <span className="rent-text-muted rent-text-sm" style={{ marginLeft: 8 }}>
-                      {depositStatusLabel[detailLease.deposit_status] || detailLease.deposit_status || '-'}
+                      {depositStatusLabel[detailLease.deposit_status] ? t(depositStatusLabel[detailLease.deposit_status]) : detailLease.deposit_status || '-'}
                     </span>
                   </div>
                 </div>
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">合同文件</label>
+                <label className="rent-form-label">{t('leases.labelContractFile')}</label>
                 <div>
                   {detailLease.contract_url ? (
                     <a href={detailLease.contract_url} target="_blank" rel="noreferrer">
                       {detailLease.contract_url}
                     </a>
                   ) : (
-                    <span className="rent-text-muted">未上传</span>
+                    <span className="rent-text-muted">{t('leases.notUploaded')}</span>
                   )}
                 </div>
               </div>
               <div className="rent-form-group" style={{ marginBottom: 0 }}>
-                <label className="rent-form-label">特殊条款</label>
-                <div>{detailLease.special_terms || <span className="rent-text-muted">无</span>}</div>
+                <label className="rent-form-label">{t('leases.labelSpecialTerms')}</label>
+                <div>{detailLease.special_terms || <span className="rent-text-muted">{t('leases.none')}</span>}</div>
               </div>
             </div>
             <div className="rent-modal__footer">
@@ -939,7 +941,7 @@ const Leases = () => {
                 type="button"
                 onClick={() => setDetailLease(null)}
               >
-                关闭
+                {t('common.close')}
               </button>
             </div>
           </div>

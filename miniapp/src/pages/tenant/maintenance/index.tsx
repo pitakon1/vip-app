@@ -7,19 +7,24 @@ import { useSwrCache } from '@/hooks/useSwrCache'
 import { iconStyle } from '@/utils/icons'
 import type { MaintenanceTicket, MaintenanceStatus, MaintenancePriority } from '@/types'
 import './index.scss'
+import { useI18n } from '@/i18n'
 
 // 键名与后端 TicketStatus 对齐（open/assigned/in_progress/resolved/closed）。
 // 展示文案保持业务语义：后端 open=已提交待受理 →「待处理」，assigned=已派单 →「已受理」。
-const STATUS_MAP: Record<MaintenanceStatus, { text: string; color: string }> = {
-  open: { text: '待处理', color: 'var(--warning)' },
-  assigned: { text: '已受理', color: 'var(--info)' },
-  in_progress: { text: '处理中', color: 'var(--primary)' },
-  resolved: { text: '已完成', color: 'var(--success)' },
-  closed: { text: '已关闭', color: 'var(--ink-3)' }
-}
+const buildStatusMap = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<MaintenanceStatus, { text: string; color: string }> => ({
+  open: { text: t('maint.stOpen'), color: 'var(--warning)' },
+  assigned: { text: t('maint.stAccepted'), color: 'var(--info)' },
+  in_progress: { text: t('maint.stInProgress'), color: 'var(--primary)' },
+  resolved: { text: t('maint.stResolved'), color: 'var(--success)' },
+  closed: { text: t('maint.stClosed'), color: 'var(--ink-3)' }
+})
 
 const PRIORITY_OPTIONS: MaintenancePriority[] = ['low', 'medium', 'high', 'urgent']
-const PRIORITY_LABELS = ['低', '中', '高', '紧急']
+const buildPriorityLabels = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): string[] => [t('maint.priorityLow'), t('maint.priorityMedium'), t('maint.priorityHigh'), t('maint.priorityUrgent')]
 
 /** 优先级徽标配色（紧急=error / 高=warning / 中=info / 低=neutral） */
 const PRIORITY_BADGE: Record<MaintenancePriority, string> = {
@@ -38,11 +43,13 @@ const STATUS_BADGE: Record<MaintenanceStatus, string> = {
   closed: 'badge--neutral'
 }
 
-const TABS = [
-  { key: 'all', label: '全部' },
-  { key: 'pending', label: '待处理' },
-  { key: 'processing', label: '处理中' },
-  { key: 'done', label: '已完成' }
+const buildTabs = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Array<{ key: string; label: string }> => [
+  { key: 'all', label: t('common.all') },
+  { key: 'pending', label: t('maint.stOpen') },
+  { key: 'processing', label: t('maint.stInProgress') },
+  { key: 'done', label: t('maint.stResolved') }
 ]
 
 /**
@@ -69,6 +76,7 @@ function pickList(res: any): MaintenanceTicket[] {
 }
 
 export default function TenantMaintenancePage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const [showForm, setShowForm] = useState(false)
@@ -77,6 +85,9 @@ export default function TenantMaintenancePage() {
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<MaintenancePriority>('medium')
   const [tab, setTab] = useState('all')
+  const STATUS_MAP = buildStatusMap(t)
+  const PRIORITY_LABELS = buildPriorityLabels(t)
+  const TABS = buildTabs(t)
 
   // 工单详情弹层 + 评价
   const [activeTicket, setActiveTicket] = useState<MaintenanceTicket | null>(null)
@@ -100,23 +111,23 @@ export default function TenantMaintenancePage() {
   const submitRating = async () => {
     if (!activeTicket) return
     if (rating < 1) {
-      Taro.showToast({ title: '请选择评分', icon: 'none' })
+      Taro.showToast({ title: t('maint.ratingRequired'), icon: 'none' })
       return
     }
     setRatingSubmitting(true)
-    Taro.showLoading({ title: '提交中...', mask: true })
+    Taro.showLoading({ title: t('common.submitting'), mask: true })
     try {
       await maintenanceApi.rate(String(activeTicket.id), {
         rating,
         feedback: feedback.trim() || undefined
       })
       Taro.hideLoading()
-      Taro.showToast({ title: '评价已提交', icon: 'success' })
+      Taro.showToast({ title: t('maint.ratingSubmitted'), icon: 'success' })
       setActiveTicket(null)
     } catch (error) {
       console.error('[Maintenance] 提交评价失败', error)
       Taro.hideLoading()
-      Taro.showToast({ title: '提交失败，请重试', icon: 'none' })
+      Taro.showToast({ title: t('common.submitFailedRetry'), icon: 'none' })
     } finally {
       setRatingSubmitting(false)
     }
@@ -158,16 +169,16 @@ export default function TenantMaintenancePage() {
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      Taro.showToast({ title: '请填写标题', icon: 'none' })
+      Taro.showToast({ title: t('maint.titleRequired'), icon: 'none' })
       return
     }
     if (!activeLease?.property_id) {
-      Taro.showToast({ title: '当前没有生效中的租约，无法提交报修', icon: 'none' })
+      Taro.showToast({ title: t('maint.noActiveLease'), icon: 'none' })
       return
     }
 
     setSubmitting(true)
-    Taro.showLoading({ title: '提交中...', mask: true })
+    Taro.showLoading({ title: t('common.submitting'), mask: true })
     try {
       const res = await maintenanceApi.create({
         property_id: activeLease.property_id,
@@ -194,11 +205,11 @@ export default function TenantMaintenancePage() {
       resetForm()
       setShowForm(false)
       Taro.hideLoading()
-      Taro.showToast({ title: '提交成功', icon: 'success' })
+      Taro.showToast({ title: t('common.submitSuccess'), icon: 'success' })
     } catch (error) {
       console.error('[Maintenance] 提交报修失败', error)
       Taro.hideLoading()
-      Taro.showToast({ title: '提交失败，请重试', icon: 'none' })
+      Taro.showToast({ title: t('common.submitFailedRetry'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }
@@ -220,25 +231,25 @@ export default function TenantMaintenancePage() {
       <View className='page-container'>
         <View className='stat-row'>
           <View className='stat-item'>
-            <Text className='stat-label'>待处理</Text>
-            <Text className='stat-value'>{counts.pending} 个</Text>
+            <Text className='stat-label'>{t('maint.stOpen')}</Text>
+            <Text className='stat-value'>{t('common.countGe', { n: counts.pending })}</Text>
           </View>
           <View className='stat-item'>
-            <Text className='stat-label'>处理中</Text>
-            <Text className='stat-value'>{counts.processing} 个</Text>
+            <Text className='stat-label'>{t('maint.stInProgress')}</Text>
+            <Text className='stat-value'>{t('common.countGe', { n: counts.processing })}</Text>
           </View>
         </View>
 
         <ScrollView scrollX className='ticket-tabs'>
           <View className='ticket-tabs-inner'>
-            {TABS.map((t) => (
+            {TABS.map((tabItem) => (
               <View
-                key={t.key}
-                className={`ticket-tab ${tab === t.key ? 'ticket-tab--active' : ''}`}
-                onClick={() => setTab(t.key)}
+                key={tabItem.key}
+                className={`ticket-tab ${tab === tabItem.key ? 'ticket-tab--active' : ''}`}
+                onClick={() => setTab(tabItem.key)}
               >
                 <Text className='ticket-tab-text'>
-                  {t.label} {counts[t.key as keyof typeof counts]}
+                  {tabItem.label} {counts[tabItem.key as keyof typeof counts]}
                 </Text>
               </View>
             ))}
@@ -246,25 +257,25 @@ export default function TenantMaintenancePage() {
         </ScrollView>
 
         <View className='section-title'>
-          <Text>工单列表</Text>
+          <Text>{t('maint.listTitle')}</Text>
         </View>
 
         <ScrollView scrollY className='ticket-list'>
           {loading && tickets.length === 0 && (
             <View className='empty-state'>
-              <Text>加载中...</Text>
+              <Text>{t('common.loading')}</Text>
             </View>
           )}
           {!loading && visibleTickets.length === 0 && (
             <View className='empty-state'>
               <View className='empty-state__icon icon-svg' style={iconStyle('clipboard', 80)} />
-              <Text>暂无报修记录</Text>
+              <Text>{t('maint.emptyRecords')}</Text>
             </View>
           )}
           {visibleTickets.map((ticket) => {
             const statusInfo = STATUS_MAP[ticket.status] || STATUS_MAP.open
             const priorityLabel =
-              PRIORITY_LABELS[PRIORITY_OPTIONS.indexOf(ticket.priority)] ?? '中'
+              PRIORITY_LABELS[PRIORITY_OPTIONS.indexOf(ticket.priority)] ?? t('maint.priorityMedium')
             return (
               <View key={ticket.id} className='ticket-card' onClick={() => openDetail(ticket)}>
                 <View className='ticket-header'>
@@ -291,28 +302,28 @@ export default function TenantMaintenancePage() {
         {showForm && (
           <View className='form-card'>
             <View className='form-item'>
-              <Text className='form-label'>标题</Text>
+              <Text className='form-label'>{t('maint.formTitle')}</Text>
               <Input
                 className='form-input'
                 type='text'
-                placeholder='请输入报修标题'
+                placeholder={t('maint.titlePlaceholder')}
                 value={title}
                 onInput={(e) => setTitle(e.detail.value)}
               />
             </View>
 
             <View className='form-item'>
-              <Text className='form-label'>问题描述</Text>
+              <Text className='form-label'>{t('maint.formDesc')}</Text>
               <Textarea
                 className='form-textarea'
-                placeholder='请详细描述问题'
+                placeholder={t('maint.descPlaceholder')}
                 value={description}
                 onInput={(e) => setDescription(e.detail.value)}
               />
             </View>
 
             <View className='form-item'>
-              <Text className='form-label'>优先级</Text>
+              <Text className='form-label'>{t('maint.formPriority')}</Text>
               <Picker
                 mode='selector'
                 range={PRIORITY_LABELS}
@@ -337,7 +348,7 @@ export default function TenantMaintenancePage() {
               disabled={submitting}
               onClick={handleSubmit}
             >
-              提交报修
+              {t('maint.submitRepair')}
             </Button>
           </View>
         )}
@@ -354,18 +365,18 @@ export default function TenantMaintenancePage() {
                 />
               </View>
               <Text className='rate-panel-status'>
-                状态：{(STATUS_MAP[activeTicket.status] || STATUS_MAP.open).text}
+                {t('maint.statusPrefix')}{(STATUS_MAP[activeTicket.status] || STATUS_MAP.open).text}
               </Text>
               <Text className='rate-panel-desc'>{activeTicket.description}</Text>
               <Text className='rate-panel-meta'>
-                优先级：
-                {PRIORITY_LABELS[PRIORITY_OPTIONS.indexOf(activeTicket.priority)] ?? '中'} · 提交于{' '}
+                {t('maint.priorityPrefix')}
+                {PRIORITY_LABELS[PRIORITY_OPTIONS.indexOf(activeTicket.priority)] ?? t('maint.priorityMedium')} · {t('maint.submittedAt')}{' '}
                 {activeTicket.createdAt}
               </Text>
 
               {activeTicket.status === 'resolved' || activeTicket.status === 'closed' ? (
                 <View className='rate-body'>
-                  <Text className='rate-label'>服务评价</Text>
+                  <Text className='rate-label'>{t('maint.rateLabel')}</Text>
                   <View className='rate-stars'>
                     {[1, 2, 3, 4, 5].map((n) => (
                       <View
@@ -376,10 +387,10 @@ export default function TenantMaintenancePage() {
                       />
                     ))}
                   </View>
-                  <Text className='rate-label'>反馈意见（可选）</Text>
+                  <Text className='rate-label'>{t('maint.feedbackLabel')}</Text>
                   <Textarea
                     className='rate-textarea'
-                    placeholder='请输入您的评价或建议'
+                    placeholder={t('maint.feedbackPlaceholder')}
                     value={feedback}
                     onInput={(e) => setFeedback(e.detail.value)}
                   />
@@ -390,11 +401,11 @@ export default function TenantMaintenancePage() {
                     loading={ratingSubmitting}
                     onClick={submitRating}
                   >
-                    提交评价
+                    {t('maint.submitRating')}
                   </Button>
                 </View>
               ) : (
-                <Text className='rate-tip'>工单处理完成后可进行服务评价</Text>
+                <Text className='rate-tip'>{t('maint.rateTip')}</Text>
               )}
             </View>
           </View>

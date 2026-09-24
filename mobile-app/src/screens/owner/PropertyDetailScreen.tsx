@@ -19,8 +19,10 @@ import { documentsApi, paymentsApi, propertiesApi } from '@/services/api';
 import { fmtMoney as money } from '@/utils/format';
 import { documentFileUrl } from '@/lib/api';
 import { useCachedQuery } from '@/lib/useCachedQuery';
+import { useI18n } from '@/i18n';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
 /** 业主房源详情参数：主 agent 需在 RootNavigator 注册 OwnerPropertyDetail: { id: string } */
 type OwnerDetailParamList = {
@@ -81,63 +83,71 @@ interface OwnerDocument {
 }
 
 /* 文档类型映射（与 DocumentsScreen 一致） */
-const DOC_TYPE_META: Record<
-  string,
-  { label: string; color: string; bg: string; icon: IoniconName }
-> = {
-  contract: { label: '合同', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), icon: 'document-text-outline' },
-  receipt: { label: '收据', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), icon: 'receipt-outline' },
-  inspection_photo: { label: '验房照片', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), icon: 'image-outline' },
-  tax_invoice: { label: '税务发票', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), icon: 'document-outline' },
-  wht_certificate: { label: '代扣税凭证', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1), icon: 'document-outline' },
-  other: { label: '其他', color: colors.ink3, bg: colors.surface2, icon: 'folder-outline' },
+const DOC_TYPE_META = (
+  t: TFunc,
+): Record<string, { label: string; color: string; bg: string; icon: IoniconName }> => ({
+  contract: { label: t('docType.contract'), color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), icon: 'document-text-outline' },
+  receipt: { label: t('docType.receipt'), color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), icon: 'receipt-outline' },
+  inspection_photo: { label: t('docType.inspectionPhoto'), color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), icon: 'image-outline' },
+  tax_invoice: { label: t('docType.taxInvoice'), color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), icon: 'document-outline' },
+  wht_certificate: { label: t('docType.whtCertificate'), color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1), icon: 'document-outline' },
+  other: { label: t('docType.other'), color: colors.ink3, bg: colors.surface2, icon: 'folder-outline' },
+});
+
+const docMetaOf = (t: TFunc, type?: string) => {
+  const m = DOC_TYPE_META(t);
+  return m[type ?? ''] ?? m.other;
 };
 
-const docMetaOf = (type?: string) => DOC_TYPE_META[type ?? ''] ?? DOC_TYPE_META.other;
-
-const PAY_TYPE_LABEL: Record<string, string> = {
-  rent: '租金',
-  deposit: '押金',
-  utility: '水电费',
-  management: '物业费',
-  maintenance: '维修费',
-  other: '其他',
+const PAY_TYPE_KEYS: Record<string, string> = {
+  rent: 'pay.type.rent',
+  deposit: 'pay.type.deposit',
+  utility: 'admPay.typeUtility',
+  management: 'pay.type.utility',
+  maintenance: 'opd.typeMaintenanceFee',
+  other: 'docType.other',
 };
 
-const payStatusMeta = (status?: string) => {
+const payTypeLabel = (t: TFunc, type?: string) => {
+  const k = PAY_TYPE_KEYS[type ?? ''];
+  return k ? t(k) : '';
+};
+
+const payStatusMeta = (t: TFunc, status?: string) => {
   const s = String(status || '').toLowerCase();
   if (s === 'paid' || s === 'succeeded') {
-    return { label: '已到账', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) };
+    return { label: t('opd.stPaid'), color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) };
   }
   if (s === 'overdue') {
-    return { label: '逾期', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.12) };
+    return { label: t('pay.ownerOverdue'), color: colors.error, bg: colors.alpha(colors.errorRgb, 0.12) };
   }
   if (s === 'pending' || s === 'processing') {
-    return { label: '待确认', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) };
+    return { label: t('opd.stPending'), color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) };
   }
-  return { label: s || '未知', color: colors.ink3, bg: colors.surface2 };
+  return { label: s || t('common.unknown'), color: colors.ink3, bg: colors.surface2 };
 };
 
-const propStatusMeta = (status?: string) => {
+const propStatusMeta = (t: TFunc, status?: string) => {
   const s = String(status || '').toLowerCase();
   if (s === 'rented' || s === 'active') {
-    return { label: '在租', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) };
+    return { label: t('prop.status.rented'), color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) };
   }
   if (s === 'vacant' || s === 'available') {
-    return { label: '空置', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) };
+    return { label: t('opd.stVacant'), color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) };
   }
   if (s === 'renewing') {
-    return { label: '续约中', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12) };
+    return { label: t('prop.status.renewing'), color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12) };
   }
   if (s === 'maintenance') {
-    return { label: '维护中', color: colors.ink3, bg: colors.surface2 };
+    return { label: t('opd.stMaintenance'), color: colors.ink3, bg: colors.surface2 };
   }
-  return { label: s || '未知', color: colors.ink3, bg: colors.surface2 };
+  return { label: s || t('common.unknown'), color: colors.ink3, bg: colors.surface2 };
 };
 
 export default function OwnerPropertyDetailScreen() {
   const route = useRoute<RouteProp<OwnerDetailParamList, 'OwnerPropertyDetail'>>();
   const navigation = useNavigation<NativeStackNavigationProp<OwnerDetailParamList>>();
+  const { t } = useI18n();
   const propertyId = String(route.params?.id ?? '');
 
   interface DetailPayload {
@@ -192,23 +202,23 @@ export default function OwnerPropertyDetailScreen() {
   const openDoc = useCallback(async (docId?: string) => {
     const url = docId ? await documentFileUrl(docId, 'file') : null;
     if (!url) {
-      Alert.alert('无法打开', '登录状态已失效，请重新登录');
+      Alert.alert(t('doc.openFailTitle'), t('doc.sessionExpired'));
       return;
     }
     const supported = await Linking.canOpenURL(url).catch(() => false);
     if (!supported) {
-      Alert.alert('无法打开', '当前设备不支持打开该类型文件');
+      Alert.alert(t('doc.openFailTitle'), t('doc.unsupported'));
       return;
     }
     Linking.openURL(url);
-  }, []);
+  }, [t]);
 
   const currency = prop?.currency || leases[0]?.currency || 'THB';
 
   const propTitle =
     prop?.project_name
       ? `${prop.project_name} ${prop.room_number ?? ''}`.trim()
-      : prop?.room_number || prop?.address || '房源';
+      : prop?.room_number || prop?.address || t('mkt.propertyFallback');
 
   /* 当前租约：优先取生效中的租约 */
   const activeLease = useMemo(
@@ -277,7 +287,7 @@ export default function OwnerPropertyDetailScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <LoadingState label="正在加载房源详情…" />
+        <LoadingState label={t('opd.loading')} />
       </View>
     );
   }
@@ -287,14 +297,14 @@ export default function OwnerPropertyDetailScreen() {
       <View style={styles.center}>
         <EmptyState
           icon="home-outline"
-          title="房源不存在或无权限查看"
-          sub="请返回上一页重新选择名下房源"
+          title={t('opd.notFoundTitle')}
+          sub={t('opd.notFoundSub')}
         />
       </View>
     );
   }
 
-  const statusMeta = propStatusMeta(prop.status);
+  const statusMeta = propStatusMeta(t, prop.status);
 
   const QUICK_ACTIONS: {
     key: string;
@@ -306,7 +316,7 @@ export default function OwnerPropertyDetailScreen() {
   }[] = [
     {
       key: 'receipt',
-      label: '发起收款',
+      label: t('opd.startCollection'),
       icon: 'card-outline',
       color: colors.success,
       bg: colors.alpha(colors.successRgb, 0.1),
@@ -343,18 +353,18 @@ export default function OwnerPropertyDetailScreen() {
               <View style={styles.infoAddrRow}>
                 <Ionicons name="location-outline" size={13} color={colors.ink3} />
                 <Text style={styles.infoAddr} numberOfLines={1}>
-                  {prop.address || '地址未登记'}
+                  {prop.address || t('opd.addrMissing')}
                 </Text>
               </View>
               <Text style={styles.infoMeta} numberOfLines={1}>
-                {prop.bedrooms ?? 0}室{prop.bathrooms ?? 0}厅 · {prop.size_sqm ?? 0}㎡
+                {t('opd.rooms', { b: prop.bedrooms ?? 0, r: prop.bathrooms ?? 0 })} · {prop.size_sqm ?? 0}㎡
               </Text>
             </View>
           </View>
 
           <View style={styles.rentRow}>
             <View>
-              <Text style={styles.mutedSm}>月租金</Text>
+              <Text style={styles.mutedSm}>{t('opd.monthlyRent')}</Text>
               <Text style={styles.rentValue}>{money(prop.monthly_rent, currency)}</Text>
             </View>
             <View style={[styles.badge, { backgroundColor: statusMeta.bg }]}>
@@ -365,33 +375,33 @@ export default function OwnerPropertyDetailScreen() {
 
         {/* ===== 在租状态 ===== */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>在租状态</Text>
-          <Text style={styles.sectionHint}>{activeLease ? formatDate(activeLease.end_date) : '暂无租约'}</Text>
+          <Text style={styles.sectionTitle}>{t('opd.leaseStatus')}</Text>
+          <Text style={styles.sectionHint}>{activeLease ? formatDate(activeLease.end_date) : t('opd.noLease')}</Text>
         </View>
         <View style={styles.card}>
           {!activeLease ? (
             <EmptyState
               icon="key-outline"
-              title="暂无在租租约"
-              sub="房源出租并签约后，租客与租期信息会显示在这里"
+              title={t('opd.noLeaseTitle')}
+              sub={t('opd.noLeaseSub')}
             />
           ) : (
             <>
               <View style={styles.metricGrid}>
                 <View style={styles.metricCell}>
-                  <Text style={styles.metricLabel}>当前租客</Text>
+                  <Text style={styles.metricLabel}>{t('opd.currentTenant')}</Text>
                   <Text style={styles.metricValue} numberOfLines={1}>
                     {activeLease.tenant_name || '—'}
                   </Text>
                 </View>
                 <View style={styles.metricCell}>
-                  <Text style={styles.metricLabel}>租约到期日</Text>
+                  <Text style={styles.metricLabel}>{t('opd.leaseEnd')}</Text>
                   <Text style={styles.metricValue} numberOfLines={1}>
                     {formatDate(activeLease.end_date)}
                   </Text>
                 </View>
                 <View style={styles.metricCell}>
-                  <Text style={styles.metricLabel}>押金</Text>
+                  <Text style={styles.metricLabel}>{t('opd.deposit')}</Text>
                   <Text style={styles.metricValue} numberOfLines={1}>
                     {prop.deposit_amount ? money(prop.deposit_amount, currency) : '—'}
                   </Text>
@@ -404,7 +414,7 @@ export default function OwnerPropertyDetailScreen() {
                     <View style={[styles.progressBar, { width: `${leaseProgress.pct}%` }]} />
                   </View>
                   <View style={styles.progressFoot}>
-                    <Text style={styles.mutedSm}>租期进度</Text>
+                    <Text style={styles.mutedSm}>{t('opd.leaseProgress')}</Text>
                     <Text
                       style={[
                         styles.progressRate,
@@ -412,8 +422,8 @@ export default function OwnerPropertyDetailScreen() {
                       ]}
                     >
                       {leaseProgress.daysLeft >= 0
-                        ? `剩余 ${leaseProgress.daysLeft} 天`
-                        : `已到期 ${Math.abs(leaseProgress.daysLeft)} 天`}
+                        ? t('opd.daysLeft', { n: leaseProgress.daysLeft })
+                        : t('opd.daysOverdue', { n: Math.abs(leaseProgress.daysLeft) })}
                     </Text>
                   </View>
                 </>
@@ -424,19 +434,19 @@ export default function OwnerPropertyDetailScreen() {
 
         {/* ===== 本月收益 ===== */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>本月收益</Text>
-          <Text style={styles.sectionHint}>按本房源账单口径</Text>
+          <Text style={styles.sectionTitle}>{t('opd.monthIncome')}</Text>
+          <Text style={styles.sectionHint}>{t('opd.byBillBasis')}</Text>
         </View>
         <View style={styles.card}>
           {monthIncome.hasData ? (
             <>
               <View style={styles.incomeGrid}>
                 <View style={styles.incomeCell}>
-                  <Text style={styles.mutedSm}>本月应收</Text>
+                  <Text style={styles.mutedSm}>{t('opd.monthDue')}</Text>
                   <Text style={styles.incomeValue}>{money(monthIncome.due, currency)}</Text>
                 </View>
                 <View style={[styles.incomeCell, styles.incomeCellPaid]}>
-                  <Text style={styles.mutedSm}>已收</Text>
+                  <Text style={styles.mutedSm}>{t('opd.received')}</Text>
                   <Text style={[styles.incomeValue, { color: colors.success }]}>
                     {money(monthIncome.received, currency)}
                   </Text>
@@ -446,36 +456,36 @@ export default function OwnerPropertyDetailScreen() {
                 <View style={[styles.progressBar, { width: `${monthIncome.rate}%` }]} />
               </View>
               <View style={styles.progressFoot}>
-                <Text style={styles.mutedSm}>本月收款进度</Text>
+                <Text style={styles.mutedSm}>{t('opd.monthCollectProgress')}</Text>
                 <Text style={[styles.progressRate, { color: colors.primary }]}>
-                  已收 {monthIncome.rate}%
+                  {t('opd.receivedPct', { rate: monthIncome.rate })}
                 </Text>
               </View>
             </>
           ) : (
             <EmptyState
               icon="wallet-outline"
-              title="本月暂无账单"
-              sub="本房源本月租金账单生成后，这里会显示应收与已收"
+              title={t('opd.noBillTitle')}
+              sub={t('opd.noBillSub')}
             />
           )}
         </View>
 
         {/* ===== 相关文档 ===== */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>相关文档</Text>
-          <Text style={styles.sectionHint}>{docs.length} 份</Text>
+          <Text style={styles.sectionTitle}>{t('opd.relatedDocs')}</Text>
+          <Text style={styles.sectionHint}>{t('opd.docCount', { n: docs.length })}</Text>
         </View>
         <View style={styles.card}>
           {docs.length === 0 ? (
             <EmptyState
               icon="document-text-outline"
-              title="暂无相关文档"
-              sub="该房源暂无上传的合同或证件文件"
+              title={t('opd.noDocTitle')}
+              sub={t('opd.noDocSub')}
             />
           ) : (
             docs.map((d, idx, arr) => {
-              const meta = docMetaOf(d.type);
+              const meta = docMetaOf(t, d.type);
               return (
                 <TouchableOpacity
                   key={d.id || String(idx)}
@@ -488,7 +498,7 @@ export default function OwnerPropertyDetailScreen() {
                   </View>
                   <View style={styles.flowBody}>
                     <Text style={styles.flowTitle} numberOfLines={1}>
-                      {d.title || '未命名文档'}
+                      {d.title || t('opd.untitledDoc')}
                     </Text>
                     <Text style={styles.flowMeta} numberOfLines={1}>
                       {formatDate(d.created_at)}
@@ -505,19 +515,19 @@ export default function OwnerPropertyDetailScreen() {
 
         {/* ===== 历史流水 ===== */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>历史流水</Text>
-          <Text style={styles.sectionHint}>{propertyPayments.length} 笔</Text>
+          <Text style={styles.sectionTitle}>{t('opd.history')}</Text>
+          <Text style={styles.sectionHint}>{t('opd.recordCount', { n: propertyPayments.length })}</Text>
         </View>
         <View style={styles.card}>
           {propertyPayments.length === 0 ? (
             <EmptyState
               icon="receipt-outline"
-              title="暂无流水记录"
-              sub="租金收付记录会按时间倒序显示在这里"
+              title={t('opd.noRecordTitle')}
+              sub={t('opd.noRecordSub')}
             />
           ) : (
             propertyPayments.slice(0, 10).map((p, idx, arr) => {
-              const st = payStatusMeta(p.status);
+              const st = payStatusMeta(t, p.status);
               const month = Number(String(p.paid_at || p.due_date || '').slice(5, 7));
               const isPaid = ['paid', 'succeeded'].includes(String(p.status || '').toLowerCase());
               return (
@@ -534,8 +544,8 @@ export default function OwnerPropertyDetailScreen() {
                   </View>
                   <View style={styles.flowBody}>
                     <Text style={styles.flowTitle} numberOfLines={1}>
-                      {month ? `${month} 月` : ''}
-                      {PAY_TYPE_LABEL[p.payment_type ?? ''] || '账单'}
+                      {month ? t('opd.monthN', { n: month }) : ''}
+                      {payTypeLabel(t, p.payment_type) || t('opd.bill')}
                       {activeLease?.tenant_name ? ` · ${activeLease.tenant_name}` : ''}
                     </Text>
                     <Text style={styles.flowMeta} numberOfLines={1}>
@@ -560,7 +570,7 @@ export default function OwnerPropertyDetailScreen() {
 
         {/* ===== 快捷操作 ===== */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>快捷操作</Text>
+          <Text style={styles.sectionTitle}>{t('opd.quickActions')}</Text>
         </View>
         <View style={styles.actionsRow}>
           {QUICK_ACTIONS.map((a) => (

@@ -11,6 +11,7 @@ import useAuthStore from '@/stores/auth'
 import { priceAlertsApi } from '@/services/api'
 import { photoUrl } from '@/lib/publicSite'
 import { fmtMoney as money } from '@/utils/format'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface AlertItem {
@@ -28,6 +29,7 @@ interface AlertItem {
 }
 
 export default function PriceAlertsPage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [items, setItems] = useState<AlertItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -51,7 +53,7 @@ export default function PriceAlertsPage() {
   }
 
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: '降价提醒' })
+    Taro.setNavigationBarTitle({ title: t('priceAlert.title') })
     loadFromStorage()
     if (!useAuthStore.getState().token) {
       Taro.redirectTo({ url: '/pages/login/index' })
@@ -78,7 +80,7 @@ export default function PriceAlertsPage() {
       await priceAlertsApi.unsubscribe(String(item.property_id))
       setItems((prev) => prev.filter((it) => it.property_id !== item.property_id))
     } catch (err) {
-      Taro.showToast({ title: '取消订阅失败，请重试', icon: 'none' })
+      Taro.showToast({ title: t('priceAlert.unsubFailed'), icon: 'none' })
       console.error('[price-alerts] 取消订阅失败', err)
     } finally {
       setBusyId(null)
@@ -90,22 +92,22 @@ export default function PriceAlertsPage() {
       <View className='page-container'>
         {loading && items.length === 0 && (
           <View className='empty-tip'>
-            <Text>加载中...</Text>
+            <Text>{t('common.loading')}</Text>
           </View>
         )}
         {!loading && failed && (
           <View className='empty-tip' onClick={() => { setLoading(true); void load() }}>
-            <Text>加载失败，点击重试</Text>
+            <Text>{t('common.loadFailedTapRetry')}</Text>
           </View>
         )}
         {!loading && !failed && items.length === 0 && (
           <View className='empty-tip'>
-            <Text>还没有订阅降价提醒，在房源详情页开启后这里会展示价格变化</Text>
+            <Text>{t('priceAlert.empty')}</Text>
           </View>
         )}
         {items.map((it, idx) => {
           const cover = photoUrl(it.photo) || ''
-          const title = it.title || it.room_number || `房源 #${String(it.property_id ?? '').slice(0, 8)}`
+          const title = it.title || it.room_number || `${t('common.listingFallback')} #${String(it.property_id ?? '').slice(0, 8)}`
           const subscribed = Number(it.subscribed_price ?? 0)
           const current = Number(it.current_price ?? subscribed)
           const diff = subscribed - current
@@ -116,7 +118,7 @@ export default function PriceAlertsPage() {
                 <Image className='alert-card__cover' src={cover} mode='aspectFill' />
               ) : (
                 <View className='alert-card__cover alert-card__cover--empty'>
-                  <Text>暂无图片</Text>
+                  <Text>{t('pub.noPhoto')}</Text>
                 </View>
               )}
               <View className='alert-card__body'>
@@ -125,16 +127,16 @@ export default function PriceAlertsPage() {
                 <View className='alert-card__prices'>
                   <Text className='alert-card__price'>{money(current, it.currency)}</Text>
                   {subscribed > 0 && subscribed !== current ? (
-                    <Text className='alert-card__was'>订阅价 {money(subscribed, it.currency)}</Text>
+                    <Text className='alert-card__was'>{t('priceAlert.subscribedPrice', { price: money(subscribed, it.currency) })}</Text>
                   ) : null}
                 </View>
                 {dropped ? (
                   <Text className='alert-card__badge'>
-                    已降价 {money(diff, it.currency)}
+                    {t('priceAlert.dropped', { amount: money(diff, it.currency) })}
                   </Text>
                 ) : (
                   <Text className='alert-card__hint'>
-                    {it.notified_at ? '已提醒' : '等待降价'}
+                    {it.notified_at ? t('priceAlert.notified') : t('priceAlert.waiting')}
                   </Text>
                 )}
               </View>
@@ -145,7 +147,7 @@ export default function PriceAlertsPage() {
                   void unsubscribe(it)
                 }}
               >
-                <Text className='alert-card__cancel-text'>取消</Text>
+                <Text className='alert-card__cancel-text'>{t('common.cancel')}</Text>
               </View>
             </View>
           )

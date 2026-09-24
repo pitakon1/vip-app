@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Input } from '@tarojs/components'
 import Taro, { useDidShow, useUnload, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { authApi, chatApi } from '@/services/api'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface Message {
@@ -27,6 +28,7 @@ function pickMessages(res: any): Message[] {
 }
 
 export default function ChatDetailPage() {
+  const { t } = useI18n()
   const router = useRouter()
   const conversationId = String(router.params.id ?? '')
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
@@ -44,7 +46,7 @@ export default function ChatDetailPage() {
       setMessages(pickMessages(res))
     } catch (error) {
       console.error('[ChatDetail] 获取消息失败', error)
-      Taro.showToast({ title: '加载消息失败', icon: 'none' })
+      Taro.showToast({ title: t('chat.loadMsgFailed'), icon: 'none' })
     }
   }
 
@@ -111,7 +113,7 @@ export default function ChatDetailPage() {
       await fetchMessages()
     } catch (error) {
       console.error('[ChatDetail] 发送失败', error)
-      Taro.showToast({ title: '发送失败', icon: 'none' })
+      Taro.showToast({ title: t('chat.sendFailed'), icon: 'none' })
     } finally {
       setSending(false)
     }
@@ -122,7 +124,7 @@ export default function ChatDetailPage() {
       <ScrollView scrollY className='message-list' scrollWithAnimation>
         {messages.length === 0 && (
           <View className='empty-state'>
-            <Text>暂时没有消息，来说点什么吧</Text>
+            <Text>{t('chat.empty')}</Text>
           </View>
         )}
         {messages.map((m) => {
@@ -145,11 +147,11 @@ export default function ChatDetailPage() {
           value={inputText}
           onInput={(e) => setInputText(e.detail.value)}
           confirmType='send'
-          placeholder='输入消息...'
+          placeholder={t('chat.inputPlaceholder')}
           onConfirm={handleSend}
         />
         <View className={`send-btn ${sending ? 'disabled' : ''}`} onClick={handleSend}>
-          <Text className='send-text'>发送</Text>
+          <Text className='send-text'>{t('chat.send')}</Text>
         </View>
       </View>
     </View>

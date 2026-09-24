@@ -12,7 +12,7 @@
  *   - 传 route.params.initial（完整 Property 对象）：直接作为初值，不额外请求。
  * 说明：房源无独立上架/下架，删除即下架，故不处理 listing_status。
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -60,19 +60,21 @@ interface PropertyForm {
   video_url: string;
 }
 
-const STATUS_OPTIONS: { key: string; label: string }[] = [
-  { key: 'vacant', label: '空置中' },
-  { key: 'rented', label: '已出租' },
-  { key: 'renewing', label: '续约中' },
-  { key: 'maintenance', label: '维护中' },
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
+
+const statusOptions = (t: TFunc): { key: string; label: string }[] => [
+  { key: 'vacant', label: t('edit.statusVacant') },
+  { key: 'rented', label: t('status.rented') },
+  { key: 'renewing', label: t('prop.status.renewing') },
+  { key: 'maintenance', label: t('status.maintenance') },
 ];
 
-const TYPE_OPTIONS: { key: string; label: string }[] = [
-  { key: 'apartment', label: '公寓' },
-  { key: 'condo', label: '公寓(康都)' },
-  { key: 'house', label: '别墅' },
-  { key: 'commercial', label: '商铺' },
-  { key: 'office', label: '写字楼' },
+const typeOptions = (t: TFunc): { key: string; label: string }[] => [
+  { key: 'apartment', label: t('prop.type.apartment') },
+  { key: 'condo', label: t('prop.type.condo') },
+  { key: 'house', label: t('prop.type.house') },
+  { key: 'commercial', label: t('prop.type.commercial') },
+  { key: 'office', label: t('prop.type.office') },
 ];
 
 const CURRENCY_OPTIONS: { key: string; label: string }[] = [
@@ -84,33 +86,33 @@ const CURRENCY_OPTIONS: { key: string; label: string }[] = [
 
 // 朝向 / 装修 / 配套的取值与文案必须与 C 端筛选栏同口径（后端按枚举值过滤），
 // 这里只去掉筛选栏的「不限」项——编辑表单里清空靠再次点击取消选中。
-const ORIENTATION_OPTIONS: { key: string; label: string }[] = [
-  { key: 'north', label: '北' },
-  { key: 'south', label: '南' },
-  { key: 'east', label: '东' },
-  { key: 'west', label: '西' },
-  { key: 'northeast', label: '东北' },
-  { key: 'northwest', label: '西北' },
-  { key: 'southeast', label: '东南' },
-  { key: 'southwest', label: '西南' },
+const orientationOptions = (t: TFunc): { key: string; label: string }[] => [
+  { key: 'north', label: t('prop.orient.north') },
+  { key: 'south', label: t('prop.orient.south') },
+  { key: 'east', label: t('prop.orient.east') },
+  { key: 'west', label: t('prop.orient.west') },
+  { key: 'northeast', label: t('prop.orient.northeast') },
+  { key: 'northwest', label: t('prop.orient.northwest') },
+  { key: 'southeast', label: t('prop.orient.southeast') },
+  { key: 'southwest', label: t('prop.orient.southwest') },
 ];
 
-const DECORATION_OPTIONS: { key: string; label: string }[] = [
-  { key: 'bare', label: '毛坯' },
-  { key: 'simple', label: '简装' },
-  { key: 'standard', label: '精装' },
-  { key: 'luxury', label: '豪装' },
-  { key: 'fully_furnished', label: '带家具家电' },
+const decorationOptions = (t: TFunc): { key: string; label: string }[] => [
+  { key: 'bare', label: t('pub.decoration.bare') },
+  { key: 'simple', label: t('pub.decoration.simple') },
+  { key: 'standard', label: t('pub.decoration.standard') },
+  { key: 'luxury', label: t('pub.decoration.luxury') },
+  { key: 'fully_furnished', label: t('pub.decoration.fully_furnished') },
 ];
 
-const AMENITY_OPTIONS: { key: string; label: string }[] = [
-  { key: 'aircon', label: '空调' },
-  { key: 'pool', label: '泳池' },
-  { key: 'gym', label: '健身房' },
-  { key: 'parking', label: '停车位' },
-  { key: 'elevator', label: '电梯' },
-  { key: 'balcony', label: '阳台' },
-  { key: 'garden', label: '花园/庭院' },
+const amenityOptions = (t: TFunc): { key: string; label: string }[] => [
+  { key: 'aircon', label: t('prop.amenity.aircon') },
+  { key: 'pool', label: t('prop.amenity.pool') },
+  { key: 'gym', label: t('prop.amenity.gym') },
+  { key: 'parking', label: t('prop.amenity.parking') },
+  { key: 'elevator', label: t('prop.amenity.elevator') },
+  { key: 'balcony', label: t('prop.amenity.balcony') },
+  { key: 'garden', label: t('prop.amenity.garden') },
 ];
 
 type PickerKind = 'owner' | 'project';
@@ -137,6 +139,11 @@ export default function PropertyEditScreen() {
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
+  const STATUS_OPTIONS = useMemo(() => statusOptions(t), [t]);
+  const TYPE_OPTIONS = useMemo(() => typeOptions(t), [t]);
+  const ORIENTATION_OPTIONS = useMemo(() => orientationOptions(t), [t]);
+  const DECORATION_OPTIONS = useMemo(() => decorationOptions(t), [t]);
+  const AMENITY_OPTIONS = useMemo(() => amenityOptions(t), [t]);
   const currentUser = useAuthStore((s) => s.user);
   const isCreate: boolean = route?.params?.mode === 'create';
   const paramId: string | undefined = isCreate ? undefined : route?.params?.id;
@@ -233,7 +240,7 @@ export default function PropertyEditScreen() {
         if (cancelled) return;
         applyInitial((res as any)?.data ?? null);
       } catch (e: any) {
-        if (!cancelled) notifyError('加载失败', e);
+        if (!cancelled) notifyError(t('acc.loadFailed'), e);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -308,23 +315,23 @@ export default function PropertyEditScreen() {
     if (isCreate) {
       // 新建时后端必填：房号、地址、月租；内部角色还要选归属业主
       if (!form.room_number.trim()) {
-        notifyError('无法保存', { message: '请填写房号/名称' });
+        notifyError(t('edit.cannotSave'), { message: t('edit.roomRequired') });
         return;
       }
       if (!form.address.trim()) {
-        notifyError('无法保存', { message: '请填写地址' });
+        notifyError(t('edit.cannotSave'), { message: t('prop.addressRequired') });
         return;
       }
       if (!form.monthly_rent) {
-        notifyError('无法保存', { message: '请填写月租' });
+        notifyError(t('edit.cannotSave'), { message: t('edit.rentRequired') });
         return;
       }
       if (canPickOwner && !form.owner_id) {
-        notifyError('无法保存', { message: '请选择归属业主' });
+        notifyError(t('edit.cannotSave'), { message: t('edit.ownerRequiredMsg') });
         return;
       }
     } else if (!currentId) {
-      notifyError('无法保存', { message: '缺少房源 ID' });
+      notifyError(t('edit.cannotSave'), { message: t('edit.missingId') });
       return;
     }
 
@@ -343,7 +350,7 @@ export default function PropertyEditScreen() {
           try {
             await propertiesApi.uploadPhotos(newId, pendingPhotos as any[]);
           } catch (e: any) {
-            notifyError('照片上传失败', e);
+            notifyError(t('edit.photoUploadFail'), e);
           }
         }
       } else {
@@ -352,7 +359,7 @@ export default function PropertyEditScreen() {
       }
       navigation.goBack();
     } catch (e: any) {
-      notifyError('保存失败', e);
+      notifyError(t('prop.saveFail'), e);
     } finally {
       setSaving(false);
     }
@@ -368,7 +375,7 @@ export default function PropertyEditScreen() {
         quality: 0.8,
       });
     } catch {
-      notifyError('无法打开相册', { message: '请检查相册权限后重试' });
+      notifyError(t('prop.albumFailTitle'), { message: t('prop.albumFailMsg') });
       return;
     }
     if (result.canceled || !result.assets?.length) return;
@@ -391,9 +398,9 @@ export default function PropertyEditScreen() {
       const d = up?.data ?? {};
       if (Array.isArray(d.photos)) setPhotos(d.photos as string[]);
       else setPhotos((prev) => [...prev, ...picked.map((a) => a.uri)]);
-      notify('上传成功', '照片已添加到房源');
+      notify(t('prop.uploadOk'), t('prop.uploadOkMsg'));
     } catch (e: any) {
-      notifyError('上传失败', e);
+      notifyError(t('prop.uploadFail'), e);
     } finally {
       setPhotoBusy(false);
     }
@@ -414,7 +421,7 @@ export default function PropertyEditScreen() {
       if (Array.isArray(d.photos)) setPhotos(d.photos as string[]);
       else setPhotos((prev) => prev.filter((p) => p !== url));
     } catch (e: any) {
-      notifyError('删除失败', e);
+      notifyError(t('prop.deleteFail'), e);
     } finally {
       setPhotoBusy(false);
     }
@@ -455,31 +462,31 @@ export default function PropertyEditScreen() {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.headTitle}>{isCreate ? '新增房源' : '编辑房源'}</Text>
+      <Text style={styles.headTitle}>{isCreate ? t('prop.createTitle') : t('prop.editTitle')}</Text>
       <Text style={styles.headSub}>
-        {isCreate ? '录入房源信息，保存后进入房源库' : '修改房源信息，保存后生效'}
+        {isCreate ? t('edit.subCreate') : t('edit.subEdit')}
       </Text>
 
       {/* 基础信息 */}
-      <Text style={styles.sectionTitle}>基础信息</Text>
+      <Text style={styles.sectionTitle}>{t('prop.sectionBasic')}</Text>
       <View style={styles.card}>
-        {field('房号/名称', form.room_number, 'room_number', { placeholder: '如 A-101 或 曼谷 Asok 1 栋' })}
+        {field(t('edit.labelRoom'), form.room_number, 'room_number', { placeholder: t('prop.fieldRoomPlaceholder') })}
         <View style={styles.row}>
-          <View style={styles.rowItem}>{field('月租', form.monthly_rent, 'monthly_rent', { keyboard: 'numeric', placeholder: '0' })}</View>
-          <View style={styles.rowItem}>{field('押金', form.deposit_amount, 'deposit_amount', { keyboard: 'numeric', placeholder: '0' })}</View>
+          <View style={styles.rowItem}>{field(t('edit.labelRent'), form.monthly_rent, 'monthly_rent', { keyboard: 'numeric', placeholder: '0' })}</View>
+          <View style={styles.rowItem}>{field(t('prop.fieldDeposit'), form.deposit_amount, 'deposit_amount', { keyboard: 'numeric', placeholder: '0' })}</View>
         </View>
         <View style={styles.row}>
-          <View style={styles.rowItem}>{field('押金月数', form.deposit_months, 'deposit_months', { keyboard: 'number-pad', placeholder: '1' })}</View>
-          <View style={styles.rowItem}>{field('面积(㎡)', form.size_sqm, 'size_sqm', { keyboard: 'numeric', placeholder: '0' })}</View>
+          <View style={styles.rowItem}>{field(t('prop.fieldDepositMonths'), form.deposit_months, 'deposit_months', { keyboard: 'number-pad', placeholder: '1' })}</View>
+          <View style={styles.rowItem}>{field(t('edit.labelArea'), form.size_sqm, 'size_sqm', { keyboard: 'numeric', placeholder: '0' })}</View>
         </View>
         <View style={styles.row}>
-          <View style={styles.rowItem}>{field('卧室数', form.bedrooms, 'bedrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
-          <View style={styles.rowItem}>{field('卫浴数', form.bathrooms, 'bathrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
+          <View style={styles.rowItem}>{field(t('prop.fieldBedrooms'), form.bedrooms, 'bedrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
+          <View style={styles.rowItem}>{field(t('prop.fieldBathrooms'), form.bathrooms, 'bathrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
         </View>
-        {field('地址', form.address, 'address', { placeholder: '详细地址，如素坤逸 24 巷' })}
+        {field(t('pub.address'), form.address, 'address', { placeholder: t('prop.fieldAddressPlaceholder') })}
         <View style={styles.row}>
-          <View style={styles.rowItem}>{field('楼栋', form.building, 'building', { placeholder: '如 A 栋' })}</View>
-          <View style={styles.rowItem}>{field('楼层', form.floor, 'floor', { keyboard: 'number-pad', placeholder: '如 12' })}</View>
+          <View style={styles.rowItem}>{field(t('prop.fieldBuilding'), form.building, 'building', { placeholder: t('prop.fieldBuildingPlaceholder') })}</View>
+          <View style={styles.rowItem}>{field(t('prop.fieldFloor'), form.floor, 'floor', { keyboard: 'number-pad', placeholder: t('prop.fieldFloorPlaceholder') })}</View>
         </View>
 
         <View style={styles.field}>
@@ -518,11 +525,11 @@ export default function PropertyEditScreen() {
           </View>
         </View>
 
-        {field('可入住日期', form.available_from, 'available_from', { placeholder: 'YYYY-MM-DD，如 2026-10-01' })}
+        {field(t('prop.fieldAvailableFrom'), form.available_from, 'available_from', { placeholder: t('prop.fieldAvailableFromPlaceholder') })}
       </View>
 
       {/* 归属：业主（员工侧必选）与所属小区 */}
-      <Text style={styles.sectionTitle}>归属</Text>
+      <Text style={styles.sectionTitle}>{t('edit.sectionOwner')}</Text>
       <View style={styles.card}>
         {canPickOwner ? (
           <View style={styles.field}>
@@ -533,13 +540,13 @@ export default function PropertyEditScreen() {
               onPress={() => loadPickerItems('owner', '')}
             >
               <Text style={ownerLabel ? styles.selectValue : styles.selectPlaceholder}>
-                {ownerLabel || '搜索并选择业主'}
+                {ownerLabel || t('edit.selectOwner')}
               </Text>
               <Text style={styles.selectArrow}>›</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <Text style={styles.hintText}>业主账号新增房源时，归属业主自动绑定为本人</Text>
+          <Text style={styles.hintText}>{t('edit.ownerAutoHint')}</Text>
         )}
 
         <View style={styles.field}>
@@ -550,7 +557,7 @@ export default function PropertyEditScreen() {
             onPress={() => loadPickerItems('project', '')}
           >
             <Text style={projectLabel ? styles.selectValue : styles.selectPlaceholder}>
-              {projectLabel || '搜索并选择小区'}
+              {projectLabel || t('edit.selectProject')}
             </Text>
             <Text style={styles.selectArrow}>›</Text>
           </TouchableOpacity>
@@ -562,14 +569,14 @@ export default function PropertyEditScreen() {
                 setProjectLabel('');
               }}
             >
-              <Text style={styles.clearText}>清除所选小区</Text>
+              <Text style={styles.clearText}>{t('edit.clearProject')}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
       </View>
 
       {/* 租态 */}
-      <Text style={styles.sectionTitle}>租态</Text>
+      <Text style={styles.sectionTitle}>{t('prop.sectionLease')}</Text>
       <View style={styles.card}>
         <Text style={styles.label}>{t('prop.status')}</Text>
         <View style={styles.chipWrap}>
@@ -589,13 +596,13 @@ export default function PropertyEditScreen() {
       </View>
 
       {/* 描述 */}
-      <Text style={styles.sectionTitle}>房源描述</Text>
+      <Text style={styles.sectionTitle}>{t('prop.sectionDesc')}</Text>
       <View style={styles.card}>
-        {field('描述', form.description, 'description', { multiline: true, placeholder: '周边配套、交通、特色等' })}
+        {field(t('prop.fieldDesc'), form.description, 'description', { multiline: true, placeholder: t('prop.fieldDescPlaceholder') })}
       </View>
 
       {/* 朝向 / 装修 / 配套 / 视频：取值与 C 端筛选栏同口径，否则筛不出来 */}
-      <Text style={styles.sectionTitle}>朝向与装修</Text>
+      <Text style={styles.sectionTitle}>{t('edit.sectionOrientation')}</Text>
       <View style={styles.card}>
         <View style={styles.field}>
           <Text style={styles.label}>{t('prop.orientation')}</Text>
@@ -634,16 +641,16 @@ export default function PropertyEditScreen() {
           </View>
         </View>
 
-        {field('视频看房链接', form.video_url, 'video_url', { placeholder: 'https://… 或 /uploads/properties/x.mp4' })}
+        {field(t('edit.labelVideo'), form.video_url, 'video_url', { placeholder: t('edit.videoPlaceholder') })}
       </View>
 
       {/* 带家具 */}
-      <Text style={styles.sectionTitle}>设施</Text>
+      <Text style={styles.sectionTitle}>{t('prop.sectionFacilities')}</Text>
       <View style={styles.card}>
         <View style={styles.switchRow}>
           <View style={styles.switchInfo}>
-            <Text style={styles.switchTitle}>带家具</Text>
-            <Text style={styles.switchSub}>是否提供家具（精装）</Text>
+            <Text style={styles.switchTitle}>{t('prop.furnished')}</Text>
+            <Text style={styles.switchSub}>{t('prop.furnishedSub')}</Text>
           </View>
           <Switch
             value={form.furnished}
@@ -673,13 +680,13 @@ export default function PropertyEditScreen() {
       </View>
 
       {/* 照片 */}
-      <Text style={styles.sectionTitle}>房源照片</Text>
+      <Text style={styles.sectionTitle}>{t('prop.sectionPhotos')}</Text>
       <View style={styles.card}>
         <TouchableOpacity style={styles.uploadBtn} activeOpacity={0.8} onPress={pickAndUpload} disabled={photoBusy}>
           {photoBusy ? (
             <ActivityIndicator color={colors.primaryForeground} />
           ) : (
-            <Text style={styles.uploadText}>上传照片</Text>
+            <Text style={styles.uploadText}>{t('prop.uploadPhoto')}</Text>
           )}
         </TouchableOpacity>
         {photos.length > 0 ? (
@@ -692,7 +699,7 @@ export default function PropertyEditScreen() {
                   activeOpacity={0.8}
                   onPress={() => removePhoto(url)}
                   accessibilityRole="button"
-                  accessibilityLabel="删除本张照片"
+                  accessibilityLabel={t('edit.deletePhoto')}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
                   <Text style={styles.photoDelText}>×</Text>
@@ -702,7 +709,7 @@ export default function PropertyEditScreen() {
           </View>
         ) : (
           <Text style={styles.photoHint}>
-            {isCreate ? '暂无照片，保存房源后会自动上传所选照片' : '暂无照片，点击上方按钮上传'}
+            {isCreate ? t('edit.photoEmptyCreate') : t('prop.photoEmpty')}
           </Text>
         )}
       </View>
@@ -712,7 +719,7 @@ export default function PropertyEditScreen() {
         {saving ? (
           <ActivityIndicator color={colors.primaryForeground} />
         ) : (
-          <Text style={styles.saveText}>{isCreate ? '创建房源' : '保存'}</Text>
+          <Text style={styles.saveText}>{isCreate ? t('edit.createBtn') : t('acc.save')}</Text>
         )}
       </TouchableOpacity>
 
@@ -727,10 +734,10 @@ export default function PropertyEditScreen() {
           <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 12 }]}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>
-                {picker.kind === 'owner' ? '选择归属业主' : '选择所属小区'}
+                {picker.kind === 'owner' ? t('edit.modalTitleOwner') : t('edit.modalTitleProject')}
               </Text>
-              <TouchableOpacity onPress={closePicker} accessibilityRole="button" accessibilityLabel="关闭">
-                <Text style={styles.modalClose}>关闭</Text>
+              <TouchableOpacity onPress={closePicker} accessibilityRole="button" accessibilityLabel={t('edit.close')}>
+                <Text style={styles.modalClose}>{t('edit.close')}</Text>
               </TouchableOpacity>
             </View>
             <TextInput
@@ -740,7 +747,7 @@ export default function PropertyEditScreen() {
                 setPicker((p) => ({ ...p, q: v }));
                 if (picker.kind) loadPickerItems(picker.kind, v);
               }}
-              placeholder={picker.kind === 'owner' ? '搜索姓名 / 手机 / 邮箱' : '搜索小区名称'}
+              placeholder={picker.kind === 'owner' ? t('edit.searchOwnerPh') : t('edit.searchProjectPh')}
               placeholderTextColor={colors.ink3}
               autoCorrect={false}
             />
@@ -749,7 +756,7 @@ export default function PropertyEditScreen() {
                 <ActivityIndicator color={colors.primary} />
               </View>
             ) : picker.items.length === 0 ? (
-              <Text style={styles.modalEmpty}>没有匹配的结果</Text>
+              <Text style={styles.modalEmpty}>{t('edit.noMatch')}</Text>
             ) : (
               <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
                 {picker.items.map((item) => (
@@ -761,12 +768,12 @@ export default function PropertyEditScreen() {
                   >
                     <Text style={styles.modalItemTitle} numberOfLines={1}>
                       {picker.kind === 'owner'
-                        ? item.name || item.phone || item.email || '未命名业主'
-                        : item.name || '未命名小区'}
+                        ? item.name || item.phone || item.email || t('edit.unnamedOwner')
+                        : item.name || t('edit.unnamedProject')}
                     </Text>
                     {picker.kind === 'owner' ? (
                       <Text style={styles.modalItemSub} numberOfLines={1}>
-                        {[item.phone, item.email, `在管 ${item.property_count ?? 0} 套`]
+                        {[item.phone, item.email, t('edit.managedCount', { n: item.property_count ?? 0 })]
                           .filter(Boolean)
                           .join(' · ')}
                       </Text>

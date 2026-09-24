@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import api from '@/lib/api'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import { useTranslation } from 'react-i18next'
 import './payments.css'
 
 interface PaymentMethod {
@@ -31,8 +32,8 @@ interface PaymentRecord {
 const paymentMethods: PaymentMethod[] = [
   {
     id: 'qr',
-    name: '扫码支付',
-    desc: '微信 / 支付宝',
+    name: 'ownerPayments.pmQr',
+    desc: 'ownerPayments.pmQrDesc',
     icon: (
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -50,7 +51,7 @@ const paymentMethods: PaymentMethod[] = [
   {
     id: 'card',
     name: 'Visa / Mastercard',
-    desc: '信用卡 / 借记卡',
+    desc: 'ownerPayments.pmCardDesc',
     icon: (
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -62,8 +63,8 @@ const paymentMethods: PaymentMethod[] = [
   },
   {
     id: 'alipay',
-    name: '支付宝',
-    desc: 'Alipay 国际',
+    name: 'ownerPayments.pmAlipay',
+    desc: 'ownerPayments.pmAlipayDesc',
     icon: (
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="10" />
@@ -76,7 +77,7 @@ const paymentMethods: PaymentMethod[] = [
   },
   {
     id: 'wechat',
-    name: '微信支付',
+    name: 'ownerPayments.pmWechat',
     desc: 'WeChat Pay',
     icon: (
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -88,8 +89,8 @@ const paymentMethods: PaymentMethod[] = [
   },
   {
     id: 'wise',
-    name: 'Wise 转账',
-    desc: '跨境转账',
+    name: 'ownerPayments.pmWise',
+    desc: 'ownerPayments.pmWiseDesc',
     icon: (
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <polyline points="3 7 9 7 7 9" />
@@ -105,18 +106,18 @@ const paymentMethods: PaymentMethod[] = [
 ]
 
 const statusLabelMap: Record<string, string> = {
-  succeeded: '成功',
-  paid: '已支付',
-  pending: '待处理',
-  failed: '失败',
-  overdue: '逾期',
+  succeeded: 'ownerPayments.stSucceeded',
+  paid: 'ownerPayments.stPaid',
+  pending: 'ownerPayments.stPending',
+  failed: 'ownerPayments.stFailed',
+  overdue: 'ownerPayments.stOverdue',
 }
 
 const typeLabelMap: Record<string, string> = {
-  rent: '租金',
-  deposit: '押金',
-  refund: '退款',
-  service: '服务费',
+  rent: 'ownerPayments.tyRent',
+  deposit: 'ownerPayments.fDeposit',
+  refund: 'ownerPayments.tyRefund',
+  service: 'ownerPayments.fServiceFee',
 }
 
 const fmtMoney = (v: number) => `RM ${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -139,23 +140,25 @@ interface RecordRow {
   status: string
 }
 
-const RecordsTable = ({ rows }: { rows: RecordRow[] }) => (
+const RecordsTable = ({ rows }: { rows: RecordRow[] }) => {
+  const { t } = useTranslation()
+  return (
   <div className="rent-table-wrap pay-table-wrap">
     <table className="rent-table">
       <thead>
         <tr>
-          <th>缴费日期</th>
-          <th>缴费项目</th>
-          <th>金额</th>
-          <th>支付方式</th>
-          <th>状态</th>
+          <th>{t('ownerPayments.thDate')}</th>
+          <th>{t('ownerPayments.fPaymentItem')}</th>
+          <th>{t('ownerPayments.thAmount')}</th>
+          <th>{t('ownerPayments.fPaymentMethod')}</th>
+          <th>{t('common.status')}</th>
         </tr>
       </thead>
       <tbody>
         {rows.length === 0 ? (
           <tr>
             <td colSpan={5}>
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无缴费记录" />
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('ownerPayments.noRecords')} />
             </td>
           </tr>
         ) : (
@@ -163,8 +166,9 @@ const RecordsTable = ({ rows }: { rows: RecordRow[] }) => (
             const status = r.status || 'paid'
             const badgeCls = statusBadgeCls[status] || 'rent-badge--neutral'
             const label =
-              statusLabelMap[status] ||
-              (status === 'paid' ? '已支付' : status === 'pending' ? '处理中' : status)
+              statusLabelMap[status]
+                ? t(statusLabelMap[status])
+                : (status === 'paid' ? t('ownerPayments.stPaid') : status === 'pending' ? t('ownerPayments.stProcessing') : status)
             const dotColor =
               status === 'paid' || status === 'succeeded'
                 ? 'var(--state-success)'
@@ -190,12 +194,14 @@ const RecordsTable = ({ rows }: { rows: RecordRow[] }) => (
       </tbody>
     </table>
   </div>
-)
+  )
+}
 
 /** 卡片内「最近」预览条数，其余走「查看全部」弹窗 */
 const RECENT_RECORD_LIMIT = 5
 
 const Payments = () => {
+  const { t } = useTranslation()
   const [currentMethod, setCurrentMethod] = useState<PaymentMethod | null>(null)
   const [amount, setAmount] = useState<number>(0)
   const [submitting, setSubmitting] = useState(false)
@@ -215,7 +221,7 @@ const Payments = () => {
         const payload = res.data?.data ?? res.data
         return payload?.items ?? []
       } catch (err: any) {
-        message.error(err?.response?.data?.message || '获取付款记录失败')
+        message.error(err?.response?.data?.message || t('ownerPayments.errLoadRecords'))
         return []
       }
     },
@@ -231,7 +237,7 @@ const Payments = () => {
         const items = Array.isArray(res.data) ? res.data : (res.data?.items ?? [])
         return items.map((p: any) => ({
           id: p.id,
-          label: `${p.address || p.property_name || '房产'} · ${p.room_number || ''}`.replace(' · ', ' · '),
+          label: `${p.address || p.property_name || t('ownerPayments.fProperty')} · ${p.room_number || ''}`.replace(' · ', ' · '),
         }))
       } catch {
         return []
@@ -265,11 +271,11 @@ const Payments = () => {
 
   const handleConfirmPay = async () => {
     if (amount <= 0) {
-      message.warning('请先输入缴费金额')
+      message.warning(t('ownerPayments.warnAmount'))
       return
     }
     if (!user) {
-      message.error('登录状态已失效，请重新登录')
+      message.error(t('ownerPayments.errSession'))
       return
     }
     setSubmitting(true)
@@ -283,11 +289,11 @@ const Payments = () => {
         idempotency_key: `owner-pay-${user.id}-${Date.now()}`,
         description: '业主在线缴费',
       })
-      message.success('支付单已创建，请按所选方式完成支付')
+      message.success(t('ownerPayments.msgCreated'))
       refresh()
       setCurrentMethod(null)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '创建支付单失败')
+      message.error(err?.response?.data?.message || t('ownerPayments.errCreate'))
     } finally {
       setSubmitting(false)
     }
@@ -301,7 +307,7 @@ const Payments = () => {
   const renderRecords: RecordRow[] = records.map((r) => ({
     id: r.id,
     date: r.paid_at || r.due_date ? dayjs(r.paid_at || r.due_date).format('YYYY-MM-DD') : '-',
-    item: typeLabelMap[r.payment_type || ''] || r.payment_type || '管理费',
+    item: typeLabelMap[r.payment_type || ''] ? t(typeLabelMap[r.payment_type || '']) : (r.payment_type || t('ownerPayments.fManagementFee')),
     amount: Number(r.amount || 0),
     channel: r.channel || '-',
     status: r.status,
@@ -312,15 +318,15 @@ const Payments = () => {
       {loading && (
         <div className="owner-loading-bar">
           <Spin size="small" style={{ marginRight: 8 }} />
-          数据加载中…
+          {t('common.loading')}
         </div>
       )}
 
       {/* Page header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">在线付款</h2>
-          <p className="rent-page-header__subtitle">安全便捷的在线缴费，支持扫码、银行卡、支付宝、微信及跨境转账</p>
+          <h2 className="rent-page-header__title">{t('ownerPayments.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('ownerPayments.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <button type="button" className="rent-btn rent-btn--secondary" onClick={() => setRecordsOpen(true)}>
@@ -328,7 +334,7 @@ const Payments = () => {
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
-            缴费记录
+            {t('ownerPayments.recordsTitle')}
           </button>
         </div>
       </div>
@@ -338,29 +344,29 @@ const Payments = () => {
         {/* Left column — Payment form */}
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">管理费缴纳</h3>
+            <h3 className="rent-card__title">{t('ownerPayments.cardTitle')}</h3>
             <span className="rent-badge rent-badge--info">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
-              安全支付
+              {t('ownerPayments.securePay')}
             </span>
           </div>
           <div className="rent-card__body">
             {/* Payment purpose */}
             <div className="rent-form-group">
-              <label className="rent-form-label">缴费项目</label>
+              <label className="rent-form-label">{t('ownerPayments.fPaymentItem')}</label>
               <select className="rent-form-select">
-                <option>管理费</option>
-                <option>维修费</option>
-                <option>服务费</option>
-                <option>押金</option>
+                <option>{t('ownerPayments.fManagementFee')}</option>
+                <option>{t('ownerPayments.fRepairFee')}</option>
+                <option>{t('ownerPayments.fServiceFee')}</option>
+                <option>{t('ownerPayments.fDeposit')}</option>
               </select>
             </div>
 
             {/* Property */}
             <div className="rent-form-group">
-              <label className="rent-form-label">关联房产</label>
+              <label className="rent-form-label">{t('ownerPayments.fRelatedProperty')}</label>
               <select
                 className="rent-form-select"
                 value={selectedProperty}
@@ -371,33 +377,33 @@ const Payments = () => {
                     <option key={p.id} value={p.id}>{p.label}</option>
                   ))
                 ) : (
-                  <option value="">暂无关联房产</option>
+                  <option value="">{t('ownerPayments.noRelatedProperty')}</option>
                 )}
               </select>
             </div>
 
             {/* Amount */}
             <div className="rent-form-group">
-              <label className="rent-form-label">缴费金额</label>
+              <label className="rent-form-label">{t('ownerPayments.fAmount')}</label>
               <div className="pay-amount-wrap">
                 <span className="pay-amount-prefix">RM</span>
                 <input
                   type="text"
                   className="pay-amount-input"
                   value={amount > 0 ? amount.toFixed(2) : ''}
-                  placeholder="请输入金额"
+                  placeholder={t('ownerPayments.phAmount')}
                   onChange={(e) => {
                     const n = Number(e.target.value.replace(/,/g, ''))
                     if (!Number.isNaN(n)) setAmount(n)
                   }}
                 />
               </div>
-              <div className="rent-form-hint">本期应缴金额 {fmtMoney(displayAmount)}，含 8% 服务税</div>
+              <div className="rent-form-hint">{t('ownerPayments.amountHint', { amount: fmtMoney(displayAmount) })}</div>
             </div>
 
             {/* Payment method */}
             <div className="rent-form-group">
-              <label className="rent-form-label">支付方式</label>
+              <label className="rent-form-label">{t('ownerPayments.fPaymentMethod')}</label>
               <div className="rent-grid rent-grid--3 pay-method-grid">
                 {paymentMethods.map((m) => {
                   const isSelected = selectedMethod.id === m.id
@@ -414,8 +420,8 @@ const Payments = () => {
                         </svg>
                       </span>
                       <div className="pay-method-card__icon">{m.icon}</div>
-                      <div className="pay-method-card__label">{m.name}</div>
-                      <div className="pay-method-card__sub">{m.desc}</div>
+                      <div className="pay-method-card__label">{t(m.name)}</div>
+                      <div className="pay-method-card__sub">{t(m.desc)}</div>
                     </div>
                   )
                 })}
@@ -436,12 +442,12 @@ const Payments = () => {
                     <path d="M20 20v1" />
                   </svg>
                   <span className="rent-text-bold" style={{ fontSize: 14, color: 'var(--rent-ink)' }}>
-                    {selectedMethod.name}
+                    {t(selectedMethod.name)}
                   </span>
                 </div>
                 <span className="rent-badge rent-badge--warning">
                   <span className="rent-badge--dot" style={{ background: 'var(--state-warning)' }} />
-                  二维码有效期: 14:59
+                  {t('ownerPayments.qrValid')}
                 </span>
               </div>
               <div className="rent-text-center">
@@ -456,9 +462,9 @@ const Payments = () => {
                     <rect x="7" y="14" width="3" height="3" />
                     <rect x="14" y="14" width="3" height="3" />
                   </svg>
-                  <span className="rent-text-sm rent-text-muted">扫码支付</span>
+                  <span className="rent-text-sm rent-text-muted">{t('ownerPayments.pmQr')}</span>
                 </div>
-                <p className="pay-panel-tip">使用微信/支付宝扫描上方二维码完成支付</p>
+                <p className="pay-panel-tip">{t('ownerPayments.qrTip')}</p>
               </div>
             </div>
 
@@ -467,7 +473,7 @@ const Payments = () => {
               <label className="pay-check">
                 <input type="checkbox" defaultChecked />
                 <span>
-                  我已阅读并同意<a href="#">《支付服务协议》</a>，支付成功后款项将实时到账。
+                  {t('ownerPayments.termsPrefix')}<a href="#">{t('ownerPayments.termsLink')}</a>{t('ownerPayments.termsSuffix')}
                 </span>
               </label>
             </div>
@@ -482,7 +488,7 @@ const Payments = () => {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
-              {submitting ? '提交中…' : `确认支付 ${fmtMoney(displayAmount)}`}
+              {submitting ? t('common.submitting') : t('ownerPayments.confirmPay', { amount: fmtMoney(displayAmount) })}
             </button>
           </div>
         </div>
@@ -490,33 +496,33 @@ const Payments = () => {
         {/* Right column — Payment summary */}
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">订单详情</h3>
-            <span className="rent-caption">订单号 #{`PAY${dayjs().format('YYYYMMDDHHmmss')}`}</span>
+            <h3 className="rent-card__title">{t('ownerPayments.orderDetail')}</h3>
+            <span className="rent-caption">{t('ownerPayments.orderNo')} #{`PAY${dayjs().format('YYYYMMDDHHmmss')}`}</span>
           </div>
           <div className="rent-card__body">
             <div className="pay-summary-row">
-              <span className="pay-summary-row__label">缴费项目</span>
-              <span className="pay-summary-row__value">{dayjs().format('YYYY年M月')}管理费</span>
+              <span className="pay-summary-row__label">{t('ownerPayments.fPaymentItem')}</span>
+              <span className="pay-summary-row__value">{dayjs().format(t('ownerPayments.monthFormat'))}{t('ownerPayments.fManagementFee')}</span>
             </div>
             <div className="pay-summary-row">
-              <span className="pay-summary-row__label">关联房产</span>
+              <span className="pay-summary-row__label">{t('ownerPayments.fRelatedProperty')}</span>
               <span className="pay-summary-row__value">
                 {properties.find((p) => p.id === selectedProperty)?.label.split(' · ')[0] || '—'}
               </span>
             </div>
             <div className="pay-summary-row">
-              <span className="pay-summary-row__label">应缴金额</span>
+              <span className="pay-summary-row__label">{t('ownerPayments.amountDue')}</span>
               <span className="pay-summary-row__value rent-mono">{fmtMoney(displayAmount)}</span>
             </div>
             <div className="pay-summary-row">
-              <span className="pay-summary-row__label">优惠折扣</span>
+              <span className="pay-summary-row__label">{t('ownerPayments.discount')}</span>
               <span className="pay-summary-row__value rent-mono" style={{ color: 'var(--state-success)' }}>
                 -RM 0.00
               </span>
             </div>
             <hr className="rent-divider" />
             <div className="pay-summary-total">
-              <span className="pay-summary-total__label">实付金额</span>
+              <span className="pay-summary-total__label">{t('ownerPayments.amountPaid')}</span>
               <span className="pay-summary-total__value rent-num">{fmtMoney(displayAmount)}</span>
             </div>
             <div className="rent-mt-4">
@@ -526,7 +532,7 @@ const Payments = () => {
                   <polyline points="9 12 11 14 15 10" />
                 </svg>
                 <span className="rent-caption" style={{ color: 'var(--state-success)' }}>
-                  支付受 PCI-DSS 加密保护
+                  {t('ownerPayments.pciNote')}
                 </span>
               </div>
               <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
@@ -534,13 +540,13 @@ const Payments = () => {
                   <circle cx="12" cy="12" r="10" />
                   <polyline points="12 6 12 12 16 14" />
                 </svg>
-                <span className="rent-caption">预计 2 分钟内到账</span>
+                <span className="rent-caption">{t('ownerPayments.arrivalNote')}</span>
               </div>
             </div>
           </div>
           <div className="rent-card__footer">
             <button type="button" className="pay-link" onClick={() => setRecordsOpen(true)}>
-              <span>最近缴费记录</span>
+              <span>{t('ownerPayments.recentRecords')}</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
@@ -552,13 +558,13 @@ const Payments = () => {
       {/* Recent payments card (full width) */}
       <div className="rent-card">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">最近缴费记录</h3>
+          <h3 className="rent-card__title">{t('ownerPayments.recentRecords')}</h3>
           <button
             type="button"
             className="rent-btn rent-btn--ghost rent-btn--sm"
             onClick={() => setRecordsOpen(true)}
           >
-            查看全部
+            {t('ownerPayments.viewAll')}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="9 18 15 12 9 6" />
             </svg>
@@ -569,7 +575,7 @@ const Payments = () => {
 
       {/* 全部缴费记录（真实 /payments/me 数据） */}
       <Modal
-        title="缴费记录"
+        title={t('ownerPayments.recordsTitle')}
         open={recordsOpen}
         onCancel={() => setRecordsOpen(false)}
         footer={null}

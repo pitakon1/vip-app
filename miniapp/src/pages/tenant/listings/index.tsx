@@ -10,6 +10,7 @@ import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import { usePaginatedList } from '@/hooks/usePaginatedList'
 import './index.scss'
+import { useI18n } from '@/i18n'
 
 interface Listing {
   id: string
@@ -27,29 +28,41 @@ interface Listing {
   [key: string]: any
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  apartment: '公寓',
-  condo: '公寓',
-  villa: '别墅',
-  house: '别墅',
-  shop: '商铺',
-  commercial: '商铺',
-  office: '写字楼'
+const typeLabelOf = (
+  t: (k: string, p?: Record<string, string | number>) => string,
+  type?: string
+): string => {
+  const map: Record<string, string> = {
+    apartment: t('prop.typeApartment'),
+    condo: t('prop.typeApartment'),
+    villa: t('prop.typeVilla'),
+    house: t('prop.typeVilla'),
+    shop: t('prop.typeCommercial'),
+    commercial: t('prop.typeCommercial'),
+    office: t('prop.typeOffice')
+  }
+  return map[type || ''] || t('prop.listing')
 }
 
-const STATUS_META: Record<string, { text: string; color: string }> = {
-  vacant: { text: '空置', color: 'var(--success)' },
-  rented: { text: '已出租', color: 'var(--primary)' },
-  reserved: { text: '已预订', color: 'var(--primary)' },
-  maintenance: { text: '维护中', color: 'var(--warning)' }
+const statusMetaOf = (
+  t: (k: string, p?: Record<string, string | number>) => string,
+  s?: string
+): { text: string; color: string } => {
+  const map: Record<string, { text: string; color: string }> = {
+    vacant: { text: t('pub.statusVacant'), color: 'var(--success)' },
+    rented: { text: t('pub.statusRented'), color: 'var(--primary)' },
+    reserved: { text: t('pub.statusReserved'), color: 'var(--primary)' },
+    maintenance: { text: t('pub.statusMaintenance'), color: 'var(--warning)' }
+  }
+  return map[s || ''] || map.vacant
 }
 
 // ==================== 业务类型：整租 / 合租 / 买房（对齐原型业务栏） ====================
 type BizKey = 'rent' | 'share' | 'sale'
 const BIZ_OPTIONS: { key: BizKey; label: string }[] = [
-  { key: 'rent', label: '整租' },
-  { key: 'share', label: '合租' },
-  { key: 'sale', label: '买房' }
+  { key: 'rent', label: 'tl.bizWhole' },
+  { key: 'share', label: 'tl.bizShare' },
+  { key: 'sale', label: 'pub.typeSell' }
 ]
 // 合租无独立字段，以房号/标题/描述/类型中的关键词命中判断
 const SHARE_KEYWORDS = ['合租', '单间', 'share', 'shared']
@@ -72,21 +85,21 @@ const matchBiz = (item: Listing, biz: BizKey): boolean => {
 
 // ==================== 排序（贝壳式下拉 Tab） ====================
 const SORT_OPTIONS = [
-  { key: 'default', label: '默认排序' },
-  { key: 'latest', label: '最新发布' },
-  { key: 'price_asc', label: '价格从低到高' },
-  { key: 'price_desc', label: '价格从高到低' },
-  { key: 'area_desc', label: '面积从大到小' }
+  { key: 'default', label: 'prop.sortDefault' },
+  { key: 'latest', label: 'tl.sortLatest' },
+  { key: 'price_asc', label: 'prop.sortPriceAsc' },
+  { key: 'price_desc', label: 'prop.sortPriceDesc' },
+  { key: 'area_desc', label: 'prop.sortAreaDesc' }
 ]
 
 // ==================== 价格筛选（对齐贝壳「价格」弹层：预设区间 + 自定义最低/最高 + 重置/确定） ====================
 interface PricePreset { key: string; label: string; min: number; max: number }
 const PRICE_PRESETS: PricePreset[] = [
-  { key: '', label: '不限', min: 0, max: Infinity },
-  { key: 'u3', label: '≤3万', min: 0, max: 30000 },
-  { key: '3-5', label: '3-5万', min: 30000, max: 50000 },
-  { key: '5-8', label: '5-8万', min: 50000, max: 80000 },
-  { key: 'g8', label: '≥8万', min: 80000, max: Infinity }
+  { key: '', label: 'pub.filterAny', min: 0, max: Infinity },
+  { key: 'u3', label: 'tl.priceU3', min: 0, max: 30000 },
+  { key: '3-5', label: 'pub.range.35', min: 30000, max: 50000 },
+  { key: '5-8', label: 'tl.price58', min: 50000, max: 80000 },
+  { key: 'g8', label: 'tl.priceG8', min: 80000, max: Infinity }
 ]
 const matchPrice = (rent: number, min: number, max: number): boolean => {
   if (min != null && !Number.isNaN(min) && min > 0 && rent < min) return false
@@ -96,69 +109,69 @@ const matchPrice = (rent: number, min: number, max: number): boolean => {
 
 // 户型 / 面积 / 状态（与价格同构的贝壳式快捷选项）
 const BEDROOM_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: '1', label: '1室' },
-  { key: '2', label: '2室' },
-  { key: '3', label: '3室' },
-  { key: '4', label: '4室' },
-  { key: '5', label: '5室+' }
+  { key: '', label: 'pub.filterAny' },
+  { key: '1', label: 'pub.bed.1' },
+  { key: '2', label: 'pub.bed.2' },
+  { key: '3', label: 'pub.bed.3' },
+  { key: '4', label: 'tl.bed4' },
+  { key: '5', label: 'tl.bed5p' }
 ]
 
 // 朝向筛选（贝壳式 8 向；东南亚西晒极强，朝向是硬决策因素）
 const ORIENTATION_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: 'north', label: '北' },
-  { key: 'south', label: '南' },
-  { key: 'east', label: '东' },
-  { key: 'west', label: '西' },
-  { key: 'northeast', label: '东北' },
-  { key: 'northwest', label: '西北' },
-  { key: 'southeast', label: '东南' },
-  { key: 'southwest', label: '西南' }
+  { key: '', label: 'pub.filterAny' },
+  { key: 'north', label: 'tl.dirNorth' },
+  { key: 'south', label: 'tl.dirSouth' },
+  { key: 'east', label: 'tl.dirEast' },
+  { key: 'west', label: 'tl.dirWest' },
+  { key: 'northeast', label: 'tl.dirNortheast' },
+  { key: 'northwest', label: 'tl.dirNorthwest' },
+  { key: 'southeast', label: 'tl.dirSoutheast' },
+  { key: 'southwest', label: 'tl.dirSouthwest' }
 ]
 
 // 楼层筛选（贝壳式低/中/高；低层 1-5 / 中层 6-15 / 高层 16+）
 const FLOOR_LEVEL_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: 'low', label: '低楼层(1-5层)' },
-  { key: 'mid', label: '中楼层(6-15层)' },
-  { key: 'high', label: '高楼层(16层+)' }
+  { key: '', label: 'pub.filterAny' },
+  { key: 'low', label: 'tl.floorLow' },
+  { key: 'mid', label: 'tl.floorMid' },
+  { key: 'high', label: 'tl.floorHigh' }
 ]
 
 // 装修筛选（东南亚口径：带家具家电是最常见出租形态）
 const DECORATION_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: 'bare', label: '毛坯' },
-  { key: 'simple', label: '简装' },
-  { key: 'standard', label: '精装' },
-  { key: 'luxury', label: '豪装' },
-  { key: 'fully_furnished', label: '带家具家电' }
+  { key: '', label: 'pub.filterAny' },
+  { key: 'bare', label: 'pub.decoration.bare' },
+  { key: 'simple', label: 'pub.decoration.simple' },
+  { key: 'standard', label: 'pub.decoration.standard' },
+  { key: 'luxury', label: 'pub.decoration.luxury' },
+  { key: 'fully_furnished', label: 'pub.decoration.fully_furnished' }
 ]
 
 // 配套设施筛选（东南亚口径，多选任一命中；无供暖/暖气/天然气——东南亚无冬季）
 const AMENITY_OPTIONS = [
-  { key: 'aircon', label: '空调' },
-  { key: 'pool', label: '泳池' },
-  { key: 'gym', label: '健身房' },
-  { key: 'parking', label: '停车位' },
-  { key: 'elevator', label: '电梯' },
-  { key: 'balcony', label: '阳台' },
-  { key: 'garden', label: '花园/庭院' }
+  { key: 'aircon', label: 'tl.amenityAircon' },
+  { key: 'pool', label: 'tl.amenityPool' },
+  { key: 'gym', label: 'tl.amenityGym' },
+  { key: 'parking', label: 'tl.amenityParking' },
+  { key: 'elevator', label: 'tl.amenityElevator' },
+  { key: 'balcony', label: 'tl.amenityBalcony' },
+  { key: 'garden', label: 'tl.amenityGarden' }
 ]
 const AREA_PRESETS = [
-  { key: '', label: '不限', min: 0, max: Infinity },
-  { key: 'u50', label: '≤50㎡', min: 0, max: 50 },
-  { key: '50-100', label: '50-100㎡', min: 50, max: 100 },
-  { key: '100-150', label: '100-150㎡', min: 100, max: 150 },
-  { key: '150-200', label: '150-200㎡', min: 150, max: 200 },
-  { key: 'g200', label: '≥200㎡', min: 200, max: Infinity }
+  { key: '', label: 'pub.filterAny', min: 0, max: Infinity },
+  { key: 'u50', label: 'pub.area.u50', min: 0, max: 50 },
+  { key: '50-100', label: 'pub.area.50100', min: 50, max: 100 },
+  { key: '100-150', label: 'pub.area.100150', min: 100, max: 150 },
+  { key: '150-200', label: 'pub.area.150200', min: 150, max: 200 },
+  { key: 'g200', label: 'pub.area.g200', min: 200, max: Infinity }
 ]
 const STATUS_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: 'vacant', label: '空置' },
-  { key: 'rented', label: '已出租' },
-  { key: 'reserved', label: '已预订' },
-  { key: 'maintenance', label: '维护中' }
+  { key: '', label: 'pub.filterAny' },
+  { key: 'vacant', label: 'pub.statusVacant' },
+  { key: 'rented', label: 'pub.statusRented' },
+  { key: 'reserved', label: 'pub.statusReserved' },
+  { key: 'maintenance', label: 'pub.statusMaintenance' }
 ]
 const matchArea = (sqm: number, min: number, max: number): boolean => {
   if (min != null && !Number.isNaN(min) && min > 0 && sqm < min) return false
@@ -192,6 +205,7 @@ function pickList(res: any): Listing[] {
 type OpenTab = null | 'region' | 'price' | 'layout' | 'more' | 'sort'
 
 export default function TenantListingsPage() {
+  const { t } = useI18n()
   const router = useRouter()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const { list: listings, loading, loadingMore, hasMore, error: listError, fetch: fetchListings, fetchMore } =
@@ -206,7 +220,7 @@ export default function TenantListingsPage() {
         })
         return pickList(res)
       },
-      onError: () => Taro.showToast({ title: '加载房源失败', icon: 'none' })
+      onError: () => Taro.showToast({ title: t('tl.loadListingsFailed'), icon: 'none' })
     })
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
   const [favPending, setFavPending] = useState<Set<string>>(new Set())
@@ -310,7 +324,7 @@ export default function TenantListingsPage() {
     try {
       if (willFav) await favoritesApi.add(pid)
       else await favoritesApi.remove(pid)
-      Taro.showToast({ title: willFav ? '已收藏' : '已取消收藏', icon: 'none' })
+      Taro.showToast({ title: willFav ? t('prop.favOn') : t('tl.unfaved'), icon: 'none' })
     } catch (error) {
       console.error('[Listings] 收藏切换失败', error)
       setFavSet((prev) => {
@@ -319,7 +333,7 @@ export default function TenantListingsPage() {
         else next.add(pid)
         return next
       })
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.opFailed'), icon: 'none' })
     } finally {
       setFavPending((s) => {
         const next = new Set(s)
@@ -356,14 +370,14 @@ export default function TenantListingsPage() {
   const regionLabel = useMemo(() => {
     if (districtSel) {
       const node = distNode(districtSel)
-      return node ? node.label : '区域'
+      return node ? node.label : t('pub.district')
     }
     if (metroSel.length) {
       const first = metroSel[0]
       return metroSel.length > 1 ? `${first} +${metroSel.length - 1}` : first
     }
-    return '区域'
-  }, [districtSel, metroSel, cityDistricts])
+    return t('pub.district')
+  }, [districtSel, metroSel, cityDistricts, t])
 
   // 全局城市作用域：当前定位城市下，房源必须命中该城任一城区关键词（链家式「定位城市看房」）
   const globalCityKw = useMemo(
@@ -410,10 +424,10 @@ export default function TenantListingsPage() {
   const hasPriceFilter = !!(pricePreset || customMin || customMax)
   const priceLabel = useMemo(() => {
     const p = PRICE_PRESETS.find((x) => x.key === pricePreset)
-    if (p && p.key) return p.label
-    if (customMin || customMax) return `自定义`
-    return '价格'
-  }, [pricePreset, customMin, customMax])
+    if (p && p.key) return t(p.label)
+    if (customMin || customMax) return t('prop.custom')
+    return t('pub.filterPrice')
+  }, [pricePreset, customMin, customMax, t])
 
   const applyPricePreset = (key: string) => {
     setPricePreset(key)
@@ -429,7 +443,7 @@ export default function TenantListingsPage() {
       const mn = Number(min)
       const mx = Number(max)
       if (min && max && mx < mn) {
-        Taro.showToast({ title: '最高价需 ≥ 最低价', icon: 'none' })
+        Taro.showToast({ title: t('tl.maxPriceError'), icon: 'none' })
         return
       }
       setPricePreset('')
@@ -456,8 +470,8 @@ export default function TenantListingsPage() {
   }, [areaPreset, areaCustomMin, areaCustomMax])
   const hasAreaFilter = !!(areaPreset || areaCustomMin || areaCustomMax)
   const bedroomLabel = useMemo(
-    () => BEDROOM_OPTIONS.find((b) => b.key === bedroomSel)?.label || '房型',
-    [bedroomSel]
+    () => t(BEDROOM_OPTIONS.find((b) => b.key === bedroomSel)?.label || 'pub.filterBeds'),
+    [bedroomSel, t]
   )
 
   const applyAreaPreset = (key: string) => {
@@ -478,7 +492,7 @@ export default function TenantListingsPage() {
       const mn = Number(min)
       const mx = Number(max)
       if (min && max && mx < mn) {
-        Taro.showToast({ title: '最高面积需 ≥ 最低面积', icon: 'none' })
+        Taro.showToast({ title: t('tl.maxAreaError'), icon: 'none' })
         return
       }
       setAreaPreset('')
@@ -603,7 +617,7 @@ export default function TenantListingsPage() {
     }
   }, [listings, globalCityKw, biz, activeLocationKw, activePrice, activeArea, bedroomSel, statusSel, orientationSel, floorSel, decorSel, amenitySel, sortKey])
 
-  const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label || '排序'
+  const sortLabel = t(SORT_OPTIONS.find((s) => s.key === sortKey)?.label || 'pub.sort')
   const moreBadge =
     (hasAreaFilter ? 1 : 0) +
     (statusSel ? 1 : 0) +
@@ -613,11 +627,11 @@ export default function TenantListingsPage() {
     (amenitySel.length ? 1 : 0)
 
   const filterTabs = [
-    { key: 'region', label: activeLocationKw.length ? regionLabel : '区域', active: activeLocationKw.length > 0, badge: 0 },
-    { key: 'price', label: hasPriceFilter ? priceLabel : '价格', active: hasPriceFilter, badge: 0 },
-    { key: 'layout', label: bedroomSel ? bedroomLabel : '房型', active: !!bedroomSel, badge: 0 },
-    { key: 'more', label: '更多', active: moreBadge > 0, badge: moreBadge },
-    { key: 'sort', label: sortKey !== 'default' ? sortLabel : '排序', active: sortKey !== 'default', badge: 0 }
+    { key: 'region', label: activeLocationKw.length ? regionLabel : t('pub.district'), active: activeLocationKw.length > 0, badge: 0 },
+    { key: 'price', label: hasPriceFilter ? priceLabel : t('pub.filterPrice'), active: hasPriceFilter, badge: 0 },
+    { key: 'layout', label: bedroomSel ? bedroomLabel : t('pub.filterBeds'), active: !!bedroomSel, badge: 0 },
+    { key: 'more', label: t('pub.filterMore'), active: moreBadge > 0, badge: moreBadge },
+    { key: 'sort', label: sortKey !== 'default' ? sortLabel : t('pub.sort'), active: sortKey !== 'default', badge: 0 }
   ] as { key: OpenTab; label: string; active: boolean; badge: number }[]
 
   const openDetail = (item: Listing) => {
@@ -634,7 +648,7 @@ export default function TenantListingsPage() {
             className={`filter-subtab ${locTab === tab ? 'filter-subtab--active' : ''}`}
             onClick={() => setLocTab(tab)}
           >
-            <Text>{tab === 'area' ? '区域' : '地铁'}</Text>
+            <Text>{tab === 'area' ? t('pub.district') : t('pub.metro')}</Text>
           </View>
         ))}
       </View>
@@ -643,13 +657,13 @@ export default function TenantListingsPage() {
         {locTab === 'area' ? (
           // 链家样式：只列当前定位城市的 区/街道 chips（国家·城市在主页左上角定位器选择）
           <View className='filter-region-scroll'>
-            <Text className='loc-group__title'>{locSel.cityLabel} · 区/街道</Text>
+            <Text className='loc-group__title'>{locSel.cityLabel} · {t('tl.districtsSuffix')}</Text>
             <View className='filter-chips'>
               <View
                 className={`filter-chip ${districtSel === null ? 'filter-chip--active' : ''}`}
                 onClick={() => applyDistrict(null)}
               >
-                <Text>不限</Text>
+                <Text>{t('pub.filterAny')}</Text>
               </View>
               {cityDistricts.map((d) => (
                 <View
@@ -695,10 +709,10 @@ export default function TenantListingsPage() {
 
       <View className='filter-drop__footer'>
         <View className='loc-btn loc-btn--ghost' onClick={() => resetCurrent('region')}>
-          <Text>重置</Text>
+          <Text>{t('pub.reset')}</Text>
         </View>
         <View className='loc-btn loc-btn--primary' onClick={() => confirmCurrent('region')}>
-          <Text>确定</Text>
+          <Text>{t('pub.apply')}</Text>
         </View>
       </View>
     </>
@@ -706,7 +720,7 @@ export default function TenantListingsPage() {
 
   const renderPricePanel = () => (
     <>
-      <Text className='filter-group__title'>快捷选择</Text>
+      <Text className='filter-group__title'>{t('pub.quickSelect')}</Text>
       <View className='filter-chips'>
         {PRICE_PRESETS.map((p) => (
           <View
@@ -719,7 +733,7 @@ export default function TenantListingsPage() {
         ))}
       </View>
 
-      <Text className='filter-group__title'>自定义价格</Text>
+      <Text className='filter-group__title'>{t('pub.customPrice')}</Text>
       <View className='price-custom'>
         <View className='price-input'>
           <Text className='price-input__cur'>฿</Text>
@@ -727,34 +741,34 @@ export default function TenantListingsPage() {
             className='price-input__field'
             type='number'
             value={priceDraftMin}
-            placeholder='最低价'
+            placeholder={t('pub.filterMin')}
             placeholderStyle='color:#9ca3af'
             onInput={(e: any) => setPriceDraftMin(e.detail.value)}
           />
-          <Text className='price-input__unit'>万/月</Text>
+          <Text className='price-input__unit'>{t('pub.wanPerMonth')}</Text>
         </View>
-        <Text className='price-custom__divider'>至</Text>
+        <Text className='price-custom__divider'>{t('pub.to')}</Text>
         <View className='price-input'>
           <Text className='price-input__cur'>฿</Text>
           <Input
             className='price-input__field'
             type='number'
             value={priceDraftMax}
-            placeholder='最高价'
+            placeholder={t('pub.filterMax')}
             placeholderStyle='color:#9ca3af'
             onInput={(e: any) => setPriceDraftMax(e.detail.value)}
           />
-          <Text className='price-input__unit'>万/月</Text>
+          <Text className='price-input__unit'>{t('pub.wanPerMonth')}</Text>
         </View>
       </View>
-      <Text className='price-custom__hint'>单位：万/月，填写其一或两项均可，留空表示不限</Text>
+      <Text className='price-custom__hint'>{t('tl.priceHint')}</Text>
 
       <View className='filter-drop__footer'>
         <View className='loc-btn loc-btn--ghost' onClick={() => resetCurrent('price')}>
-          <Text>重置</Text>
+          <Text>{t('pub.reset')}</Text>
         </View>
         <View className='loc-btn loc-btn--primary' onClick={() => confirmCurrent('price')}>
-          <Text>确定</Text>
+          <Text>{t('pub.apply')}</Text>
         </View>
       </View>
     </>
@@ -762,7 +776,7 @@ export default function TenantListingsPage() {
 
   const renderLayoutPanel = () => (
     <>
-      <Text className='filter-group__title'>户型</Text>
+      <Text className='filter-group__title'>{t('pub.filterBeds')}</Text>
       <View className='filter-chips'>
         {BEDROOM_OPTIONS.map((b) => (
           <View
@@ -770,17 +784,17 @@ export default function TenantListingsPage() {
             className={`filter-chip ${bedroomDraft === b.key ? 'filter-chip--active' : ''}`}
             onClick={() => setBedroomDraft(b.key)}
           >
-            <Text>{b.label}</Text>
+            <Text>{t(b.label)}</Text>
           </View>
         ))}
       </View>
 
       <View className='filter-drop__footer'>
         <View className='loc-btn loc-btn--ghost' onClick={() => resetCurrent('layout')}>
-          <Text>重置</Text>
+          <Text>{t('pub.reset')}</Text>
         </View>
         <View className='loc-btn loc-btn--primary' onClick={() => confirmCurrent('layout')}>
-          <Text>确定</Text>
+          <Text>{t('pub.apply')}</Text>
         </View>
       </View>
     </>
@@ -788,7 +802,7 @@ export default function TenantListingsPage() {
 
   const renderMorePanel = () => (
     <>
-      <Text className='filter-group__title'>朝向</Text>
+      <Text className='filter-group__title'>{t('pub.orientationLabel')}</Text>
       <View className='filter-chips'>
         {ORIENTATION_OPTIONS.map((o) => (
           <View
@@ -796,12 +810,12 @@ export default function TenantListingsPage() {
             className={`filter-chip ${orientationDraft === o.key ? 'filter-chip--active' : ''}`}
             onClick={() => setOrientationDraft(o.key)}
           >
-            <Text>{o.label}</Text>
+            <Text>{t(o.label)}</Text>
           </View>
         ))}
       </View>
 
-      <Text className='filter-group__title'>楼层</Text>
+      <Text className='filter-group__title'>{t('pub.floor')}</Text>
       <View className='filter-chips'>
         {FLOOR_LEVEL_OPTIONS.map((fl) => (
           <View
@@ -809,12 +823,12 @@ export default function TenantListingsPage() {
             className={`filter-chip ${floorDraft === fl.key ? 'filter-chip--active' : ''}`}
             onClick={() => setFloorDraft(fl.key)}
           >
-            <Text>{fl.label}</Text>
+            <Text>{t(fl.label)}</Text>
           </View>
         ))}
       </View>
 
-      <Text className='filter-group__title'>面积</Text>
+      <Text className='filter-group__title'>{t('pub.filterArea')}</Text>
       <View className='filter-chips'>
         {AREA_PRESETS.map((p) => (
           <View
@@ -822,39 +836,39 @@ export default function TenantListingsPage() {
             className={`filter-chip ${areaPreset === p.key ? 'filter-chip--active' : ''}`}
             onClick={() => applyAreaPreset(p.key)}
           >
-            <Text>{p.label}</Text>
+            <Text>{t(p.label)}</Text>
           </View>
         ))}
       </View>
 
-      <Text className='filter-group__title'>自定义面积</Text>
+      <Text className='filter-group__title'>{t('pub.customArea')}</Text>
       <View className='price-custom'>
         <View className='price-input'>
           <Input
             className='price-input__field'
             type='number'
             value={areaDraftMin}
-            placeholder='最低㎡'
+            placeholder={t('tl.areaMinPlaceholder')}
             placeholderStyle='color:#9ca3af'
             onInput={(e: any) => setAreaDraftMin(e.detail.value)}
           />
-          <Text className='price-input__unit'>㎡</Text>
+          <Text className='price-input__unit'>{t('pub.sqm')}</Text>
         </View>
-        <Text className='price-custom__divider'>至</Text>
+        <Text className='price-custom__divider'>{t('pub.to')}</Text>
         <View className='price-input'>
           <Input
             className='price-input__field'
             type='number'
             value={areaDraftMax}
-            placeholder='最高㎡'
+            placeholder={t('tl.areaMaxPlaceholder')}
             placeholderStyle='color:#9ca3af'
             onInput={(e: any) => setAreaDraftMax(e.detail.value)}
           />
-          <Text className='price-input__unit'>㎡</Text>
+          <Text className='price-input__unit'>{t('pub.sqm')}</Text>
         </View>
       </View>
 
-      <Text className='filter-group__title'>装修</Text>
+      <Text className='filter-group__title'>{t('pub.decorationLabel')}</Text>
       <View className='filter-chips'>
         {DECORATION_OPTIONS.map((d) => (
           <View
@@ -862,12 +876,12 @@ export default function TenantListingsPage() {
             className={`filter-chip ${decorDraft === d.key ? 'filter-chip--active' : ''}`}
             onClick={() => setDecorDraft(d.key)}
           >
-            <Text>{d.label}</Text>
+            <Text>{t(d.label)}</Text>
           </View>
         ))}
       </View>
 
-      <Text className='filter-group__title'>配套设施</Text>
+      <Text className='filter-group__title'>{t('tl.amenities')}</Text>
       <View className='filter-chips'>
         {AMENITY_OPTIONS.map((a) => (
           <View
@@ -879,12 +893,12 @@ export default function TenantListingsPage() {
               )
             }
           >
-            <Text>{a.label}</Text>
+            <Text>{t(a.label)}</Text>
           </View>
         ))}
       </View>
 
-      <Text className='filter-group__title'>房源状态</Text>
+      <Text className='filter-group__title'>{t('pub.listingStatus')}</Text>
       <View className='filter-chips'>
         {STATUS_OPTIONS.map((s) => (
           <View
@@ -892,17 +906,17 @@ export default function TenantListingsPage() {
             className={`filter-chip ${statusDraft === s.key ? 'filter-chip--active' : ''}`}
             onClick={() => setStatusDraft(s.key)}
           >
-            <Text>{s.label}</Text>
+            <Text>{t(s.label)}</Text>
           </View>
         ))}
       </View>
 
       <View className='filter-drop__footer'>
         <View className='loc-btn loc-btn--ghost' onClick={() => resetCurrent('more')}>
-          <Text>重置</Text>
+          <Text>{t('pub.reset')}</Text>
         </View>
         <View className='loc-btn loc-btn--primary' onClick={() => confirmCurrent('more')}>
-          <Text>确定</Text>
+          <Text>{t('pub.apply')}</Text>
         </View>
       </View>
     </>
@@ -919,7 +933,7 @@ export default function TenantListingsPage() {
             setOpenTab(null)
           }}
         >
-          <Text>{s.label}</Text>
+          <Text>{t(s.label)}</Text>
           {sortKey === s.key && <Text className='filter-sort__check'>✓</Text>}
         </View>
       ))}
@@ -934,13 +948,13 @@ export default function TenantListingsPage() {
           <Input
             className='list-search__input'
             value={keyword}
-            placeholder='输入区域、小区名...'
+            placeholder={t('tl.searchPlaceholder')}
             confirmType='search'
             onInput={(e: any) => setKeyword(e.detail.value)}
             onConfirm={handleSearch}
           />
           <View className='list-search__btn' onClick={handleSearch}>
-            <Text className='list-search__btn-text'>搜索</Text>
+            <Text className='list-search__btn-text'>{t('common.search')}</Text>
           </View>
         </View>
 
@@ -952,7 +966,7 @@ export default function TenantListingsPage() {
               className={`biz-bar__item ${biz === b.key ? 'biz-bar__item--active' : ''}`}
               onClick={() => setBiz(b.key)}
             >
-              <Text className='biz-bar__text'>{b.label}</Text>
+              <Text className='biz-bar__text'>{t(b.label)}</Text>
             </View>
           ))}
         </View>
@@ -986,41 +1000,39 @@ export default function TenantListingsPage() {
 
         {/* ===== 结果计数 ===== */}
         <View className='result-row'>
-          <Text className='result-count'>
-            共 <Text className='result-count__num'>{visibleList.length}</Text> 套房源
-          </Text>
+          <Text className='result-count'>{t('pub.totalCount', { n: visibleList.length })}</Text>
         </View>
 
         <ScrollView scrollY className='list-scroll'>
           {loading && visibleList.length === 0 && (
             <View className='empty-state'>
-              <Text>加载中...</Text>
+              <Text>{t('common.loading')}</Text>
             </View>
           )}
           {!loading && listError && visibleList.length === 0 && (
             <View className='empty-state'>
-              <Text className='text-danger'>加载失败，请检查网络后重试</Text>
+              <Text className='text-danger'>{t('tl.loadFailedRetry')}</Text>
               <View className='error-retry' onClick={() => fetchListings(1, { q: query })}>
-                <Text className='error-retry__text'>点击重试</Text>
+                <Text className='error-retry__text'>{t('common.tapRetry')}</Text>
               </View>
             </View>
           )}
           {!loading && !listError && visibleList.length === 0 && (
             <View className='empty-state'>
               <View className='empty-state__icon icon-svg' style={iconStyle('home', 80)} />
-              <Text>{activeLocationKw.length ? '该区域/地铁暂无房源' : '暂无房源'}</Text>
+              <Text>{activeLocationKw.length ? t('tl.emptyRegion') : t('pub.emptyList')}</Text>
             </View>
           )}
           {visibleList.map((item) => {
             const photo = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : ''
-            const statusMeta = STATUS_META[item.status || 'vacant'] || STATUS_META.vacant
+            const statusMeta = statusMetaOf(t, item.status)
             const isSaleItem = Number(item.sale_price) > 0
             const isFaved = favSet.has(String(item.id))
             // 卡片标签：房型 / 面积 / 装修，最多 3 个（对齐原型标签行）
             const cardTags = [
-              Number(item.bedrooms) ? `${item.bedrooms}室` : '',
-              Number(item.size_sqm) ? `${item.size_sqm}㎡` : '',
-              item.furnished ? '拎包入住' : ''
+              Number(item.bedrooms) ? t('tl.roomCount', { n: item.bedrooms }) : '',
+              Number(item.size_sqm) ? t('tl.sizeSqm', { n: item.size_sqm }) : '',
+              item.furnished ? t('tl.moveInReady') : ''
             ].filter(Boolean) as string[]
             return (
               <View key={item.id} className='house-card' onClick={() => openDetail(item)}>
@@ -1029,17 +1041,17 @@ export default function TenantListingsPage() {
                     <Image className='house-img' src={photo} mode='aspectFill' lazyLoad />
                   ) : (
                     <View className='house-thumb-ph'>
-                      <Text>房源</Text>
+                      <Text>{t('pub.listingItem')}</Text>
                     </View>
                   )}
-                  <Text className='house-type'>{TYPE_LABELS[item.property_type || ''] || '房源'}</Text>
-                  <View className='house-fav' aria-label={isFaved ? '取消收藏' : '收藏'} onClick={(e) => toggleFavorite(e, item)}>
+                  <Text className='house-type'>{typeLabelOf(t, item.property_type)}</Text>
+                  <View className='house-fav' aria-label={isFaved ? t('tl.unfav') : t('prop.fav')} onClick={(e) => toggleFavorite(e, item)}>
                     <View className='icon-svg' style={iconStyle(isFaved ? 'heartFill' : 'heart', 34)} />
                   </View>
                 </View>
                 <View className='house-info'>
-                  <Text className='house-title'>{item.title || item.room_number || '未命名房源'}</Text>
-                  <Text className='house-addr'>{item.address || '暂无地址'}</Text>
+                  <Text className='house-title'>{item.title || item.room_number || t('prop.unnamed')}</Text>
+                  <Text className='house-addr'>{item.address || t('tl.noAddress')}</Text>
                   <View className='house-tags'>
                     {cardTags.map((tag) => (
                       <Text key={tag} className='house-tag'>{tag}</Text>
@@ -1050,7 +1062,7 @@ export default function TenantListingsPage() {
                       {isSaleItem
                         ? formatRent(item.sale_price, item.currency)
                         : formatRent(item.monthly_rent, item.currency)}
-                      <Text className='house-rent-unit'>{isSaleItem ? ' 总价' : '/月'}</Text>
+                      <Text className='house-rent-unit'>{isSaleItem ? ' ' + t('tl.totalPrice') : t('pub.perMonth')}</Text>
                     </Text>
                     <Text className='house-status' style={{ color: statusMeta.color }}>
                       {statusMeta.text}
@@ -1065,7 +1077,7 @@ export default function TenantListingsPage() {
           {hasMore && (
             <View className='load-more' onClick={fetchMore}>
               <Text className='load-more__text'>
-                {loadingMore ? '加载中...' : '加载更多房源'}
+                {loadingMore ? t('common.loading') : t('tl.loadMoreListings')}
               </Text>
             </View>
           )}

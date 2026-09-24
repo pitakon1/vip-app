@@ -10,20 +10,22 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { getHistory, clearHistory, type BrowseHistoryItem } from '@/utils/browseHistory'
 import { photoUrl } from '@/lib/publicSite'
 import { fmtMoney as money } from '@/utils/format'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 export default function BrowseHistoryPage() {
+  const { t } = useI18n()
   const [items, setItems] = useState<BrowseHistoryItem[]>([])
 
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: '浏览历史' })
+    Taro.setNavigationBarTitle({ title: t('history.title') })
     setItems(getHistory())
   })
 
   const clearAll = () => {
     Taro.showModal({
-      title: '清空浏览历史',
-      content: '清空后本机不再保留浏览记录，确定继续吗？',
+      title: t('history.clearTitle'),
+      content: t('history.clearConfirm'),
       confirmColor: '#ef4444',
       success: (res) => {
         if (!res.confirm) return
@@ -38,17 +40,17 @@ export default function BrowseHistoryPage() {
       <View className='page-container'>
         {items.length > 0 && (
           <View className='history-bar' onClick={clearAll}>
-            <Text className='history-bar__text'>清空历史</Text>
+            <Text className='history-bar__text'>{t('history.clear')}</Text>
           </View>
         )}
         {items.length === 0 && (
           <View className='empty-tip'>
-            <Text>还没有浏览记录，看过的房源会出现在这里</Text>
+            <Text>{t('history.empty')}</Text>
           </View>
         )}
         {items.map((it, idx) => {
           const cover = photoUrl(it.cover) || ''
-          const title = it.title || `房源 #${String(it.id ?? '').slice(0, 8)}`
+          const title = it.title || `${t('common.listingFallback')} #${String(it.id ?? '').slice(0, 8)}`
           return (
             <View
               key={it.id ?? idx}
@@ -59,7 +61,7 @@ export default function BrowseHistoryPage() {
                 <Image className='history-card__cover' src={cover} mode='aspectFill' />
               ) : (
                 <View className='history-card__cover history-card__cover--empty'>
-                  <Text>暂无图片</Text>
+                  <Text>{t('pub.noPhoto')}</Text>
                 </View>
               )}
               <View className='history-card__body'>
@@ -68,7 +70,7 @@ export default function BrowseHistoryPage() {
                 {it.price ? (
                   <Text className='history-card__price'>
                     {money(it.price, it.currency)}
-                    <Text className='history-card__unit'> /月</Text>
+                    <Text className='history-card__unit'> {t('pub.perMonth')}</Text>
                   </Text>
                 ) : null}
               </View>

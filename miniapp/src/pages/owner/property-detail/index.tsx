@@ -8,6 +8,7 @@ import { fmtMoney as money } from '@/utils/format'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import './index.scss'
+import { useI18n } from '@/i18n'
 
 // ============ 接口字段（后端 snake_case）============
 interface OwnerProperty {
@@ -89,67 +90,89 @@ const toTime = (x?: string) => {
 }
 
 // 房源状态（对齐后端 PropertyStatus 枚举）
-const PROPERTY_STATUS_TEXT: Record<string, string> = {
-  rented: '在租',
-  vacant: '空置',
-  renewing: '续租中',
-  maintenance: '维护中',
-  reserved: '已预订'
-}
+const buildPropertyStatusText = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, string> => ({
+  rented: t('prop.statusRented'),
+  vacant: t('prop.statusVacant'),
+  renewing: t('opd.statusRenewing'),
+  maintenance: t('prop.statusMaintenanceLong'),
+  reserved: t('prop.statusReserved')
+})
 
 // 租约状态（对齐后端 LeaseStatus 枚举）
-const LEASE_STATUS_TEXT: Record<string, string> = {
-  active: '在租',
-  pending: '待生效',
-  expired: '已到期',
-  terminated: '已终止'
-}
+const buildLeaseStatusText = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, string> => ({
+  active: t('prop.statusRented'),
+  pending: t('lease.stPending'),
+  expired: t('lease.stExpired'),
+  terminated: t('lease.stTerminated')
+})
 
 // 押金状态（对齐后端 deposit_status）
-const DEPOSIT_STATUS_TEXT: Record<string, string> = {
-  held: '托管中',
-  refunded: '已退还',
-  forfeited: '已扣除'
-}
+const buildDepositStatusText = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, string> => ({
+  held: t('tenantLease.depHeld'),
+  refunded: t('tenantLease.depRefunded'),
+  forfeited: t('opd.depForfeited')
+})
 
-const TYPE_TEXT: Record<string, string> = {
-  apartment: '公寓',
-  house: '住宅',
-  condo: '公寓',
-  commercial: '商铺'
-}
+const buildTypeText = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, string> => ({
+  apartment: t('prop.typeApartment'),
+  house: t('prop.typeHouse'),
+  condo: t('prop.typeApartment'),
+  commercial: t('prop.typeCommercial')
+})
 
-const propertyTitle = (p?: OwnerProperty | null) =>
-  p?.display_name || p?.project_name || p?.room_number || p?.code || p?.address || '房源详情'
+const propertyTitle = (
+  p: OwnerProperty | null | undefined,
+  t: (k: string, p?: Record<string, string | number>) => string
+) => p?.display_name || p?.project_name || p?.room_number || p?.code || p?.address || t('prop.detailTitle')
 
-const propertyMeta = (p?: OwnerProperty | null) => {
+const propertyMeta = (
+  p: OwnerProperty | null | undefined,
+  typeText: Record<string, string>,
+  t: (k: string, p?: Record<string, string | number>) => string
+) => {
   if (!p) return ''
-  const room = p.bedrooms ? `${p.bedrooms}室${p.bathrooms || 0}厅` : ''
+  const room = p.bedrooms ? t('opd.layoutRooms', { bed: p.bedrooms, bath: p.bathrooms || 0 }) : ''
   const size = p.size_sqm ? `${p.size_sqm}㎡` : ''
-  return [TYPE_TEXT[String(p.property_type || '')] || '', room, size].filter(Boolean).join(' · ')
+  return [typeText[String(p.property_type || '')] || '', room, size].filter(Boolean).join(' · ')
 }
 
 // 账单状态元信息：颜色语义交由 SCSS 徽章类实现
-const paymentStatusOf = (p: OwnerPayment): { text: string; cls: string; icon: IconKey } => {
-  if (p.status === 'succeeded') return { text: '已到账', cls: 'success', icon: 'money' }
-  if (p.status === 'pending') return { text: '待确认', cls: 'warning', icon: 'calendar' }
-  if (p.status === 'processing') return { text: '处理中', cls: 'info', icon: 'calendar' }
-  if (p.status === 'failed' || p.status === 'disputed') return { text: '异常', cls: 'error', icon: 'close' }
-  return { text: '已关闭', cls: 'neutral', icon: 'close' }
+const paymentStatusOf = (
+  p: OwnerPayment,
+  t: (k: string, p?: Record<string, string | number>) => string
+): { text: string; cls: string; icon: IconKey } => {
+  if (p.status === 'succeeded') return { text: t('ownerIncome.filterReceived'), cls: 'success', icon: 'money' }
+  if (p.status === 'pending') return { text: t('home.vPending'), cls: 'warning', icon: 'calendar' }
+  if (p.status === 'processing') return { text: t('pay.stProcessing'), cls: 'info', icon: 'calendar' }
+  if (p.status === 'failed' || p.status === 'disputed') return { text: t('opd.payAbnormal'), cls: 'error', icon: 'close' }
+  return { text: t('maint.stClosed'), cls: 'neutral', icon: 'close' }
 }
 
 // 文档类型（对齐后端 DocumentType 枚举）
-const DOC_TYPE_META: Record<string, { label: string; cls: string; icon: IconKey }> = {
-  contract: { label: '合同', cls: 'primary', icon: 'doc' },
-  receipt: { label: '收据', cls: 'success', icon: 'clipboard' },
-  tax_invoice: { label: '发票', cls: 'warning', icon: 'doc' },
-  wht_certificate: { label: '扣税凭证', cls: 'info', icon: 'clipboard' },
-  inspection_photo: { label: '证件', cls: 'info', icon: 'card' },
-  other: { label: '报表', cls: 'neutral', icon: 'chart' }
-}
+const buildDocTypeMeta = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, { label: string; cls: string; icon: IconKey }> => ({
+  contract: { label: t('doc.type.contract'), cls: 'primary', icon: 'doc' },
+  receipt: { label: t('doc.type.receipt'), cls: 'success', icon: 'clipboard' },
+  tax_invoice: { label: t('tpay.invoice'), cls: 'warning', icon: 'doc' },
+  wht_certificate: { label: t('opd.docWht'), cls: 'info', icon: 'clipboard' },
+  inspection_photo: { label: t('opd.docId'), cls: 'info', icon: 'card' },
+  other: { label: t('opd.docReport'), cls: 'neutral', icon: 'chart' }
+})
 
-const docMetaOf = (t?: string) =>
-  DOC_TYPE_META[t || ''] || { label: '其他', cls: 'neutral', icon: 'doc' as IconKey }
+const docMetaOf = (
+  t: (k: string, p?: Record<string, string | number>) => string,
+  meta: Record<string, { label: string; cls: string; icon: IconKey }>,
+  type?: string
+) => meta[type || ''] || { label: t('common.other'), cls: 'neutral', icon: 'doc' as IconKey }
 
 // openDocument 无法从「无扩展名的临时路径」推断格式，需显式给出 fileType
 type OpenableFileType = 'doc' | 'docx' | 'xls' | 'xlsx' | 'ppt' | 'pptx' | 'pdf'
@@ -167,9 +190,15 @@ const fileTypeOf = (doc: OwnerDocument): OpenableFileType | undefined => {
 }
 
 export default function OwnerPropertyDetailPage() {
+  const { t } = useI18n()
   const router = useRouter()
   const propertyId = router.params?.id || ''
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
+  const TYPE_TEXT = buildTypeText(t)
+  const PROPERTY_STATUS_TEXT = buildPropertyStatusText(t)
+  const LEASE_STATUS_TEXT = buildLeaseStatusText(t)
+  const DEPOSIT_STATUS_TEXT = buildDepositStatusText(t)
+  const DOC_TYPE_META = buildDocTypeMeta(t)
 
   interface DetailPayload {
     property: OwnerProperty
@@ -262,10 +291,10 @@ export default function OwnerPropertyDetailPage() {
    */
   const openDoc = async (doc: OwnerDocument) => {
     if (!doc.id) {
-      Taro.showToast({ title: '暂无文件', icon: 'none' })
+      Taro.showToast({ title: t('opd.noFile'), icon: 'none' })
       return
     }
-    Taro.showLoading({ title: '加载中', mask: true })
+    Taro.showLoading({ title: t('opd.loadingShort'), mask: true })
     let localPath = ''
     try {
       const token = currentToken()
@@ -280,7 +309,7 @@ export default function OwnerPropertyDetailPage() {
     } catch (e) {
       console.error('[OwnerPropertyDetail] 取件失败', e)
       Taro.hideLoading()
-      Taro.showToast({ title: '文件加载失败', icon: 'none' })
+      Taro.showToast({ title: t('opd.fileLoadFailed'), icon: 'none' })
       return
     }
     Taro.hideLoading()
@@ -291,14 +320,14 @@ export default function OwnerPropertyDetailPage() {
     }
     const fileType = fileTypeOf(doc)
     if (!fileType) {
-      Taro.showToast({ title: '该类型暂不支持在小程序内打开', icon: 'none' })
+      Taro.showToast({ title: t('opd.unsupportedOpen'), icon: 'none' })
       return
     }
     try {
       await Taro.openDocument({ filePath: localPath, fileType, showMenu: true })
     } catch (e) {
       console.error('[OwnerPropertyDetail] 打开失败', e)
-      Taro.showToast({ title: '文件打开失败', icon: 'none' })
+      Taro.showToast({ title: t('opd.fileOpenFailed'), icon: 'none' })
     }
   }
 
@@ -307,15 +336,15 @@ export default function OwnerPropertyDetailPage() {
       <View className='page-container'>
         {loading && !property && (
           <View className='empty-state'>
-            <Text>加载中...</Text>
+            <Text>{t('common.loading')}</Text>
           </View>
         )}
 
         {!loading && error && !property && (
           <View className='empty-state'>
-            <Text>房源加载失败，请稍后重试</Text>
+            <Text>{t('opd.loadFailedRetry')}</Text>
             <View className='retry-btn' onClick={() => refresh(true)} hoverClass='retry-btn--hover'>
-              <Text>重新加载</Text>
+              <Text>{t('opd.reload')}</Text>
             </View>
           </View>
         )}
@@ -328,46 +357,46 @@ export default function OwnerPropertyDetailPage() {
                 <View className='info-card__tile icon-svg' style={iconStyle('home', 48)} />
                 <View className='info-card__body'>
                   <View className='info-card__title-row'>
-                    <Text className='info-card__name'>{propertyTitle(property)}</Text>
+                    <Text className='info-card__name'>{propertyTitle(property, t)}</Text>
                     <Text className={`info-card__badge info-card__badge--${pStatus}`}>
                       {PROPERTY_STATUS_TEXT[pStatus] || pStatus}
                     </Text>
                   </View>
-                  <Text className='info-card__addr'>{property.address || '地址待补充'}</Text>
+                  <Text className='info-card__addr'>{property.address || t('opd.addressPending')}</Text>
                 </View>
               </View>
               <View className='info-card__foot'>
                 <View>
-                  <Text className='info-card__label'>月租金</Text>
+                  <Text className='info-card__label'>{t('lease.monthlyRentLabel')}</Text>
                   <Text className='info-card__rent'>{money(property.monthly_rent, currency)}</Text>
                 </View>
-                <Text className='info-card__meta'>{propertyMeta(property) || '—'}</Text>
+                <Text className='info-card__meta'>{propertyMeta(property, TYPE_TEXT, t) || '—'}</Text>
               </View>
             </View>
 
             {/* 在租状态 */}
             <View className='section-title'>
-              <Text>在租状态</Text>
+              <Text>{t('opd.leaseSection')}</Text>
             </View>
             <View className='card'>
               {!activeLease ? (
                 <View className='empty-state'>
-                  <Text>暂无租约记录</Text>
+                  <Text>{t('opd.noLease')}</Text>
                 </View>
               ) : (
                 <View>
                   <View className='metric-row'>
                     <View className='metric'>
-                      <Text className='metric__label'>当前租客</Text>
+                      <Text className='metric__label'>{t('prop.currentTenant')}</Text>
                       {/* 后端 Lease 仅存 tenant_id，无租客姓名，此处如实留空 */}
                       <Text className='metric__value'>—</Text>
                     </View>
                     <View className='metric'>
-                      <Text className='metric__label'>租约到期日</Text>
+                      <Text className='metric__label'>{t('opd.leaseEndDate')}</Text>
                       <Text className='metric__value'>{fmtDate(activeLease.end_date)}</Text>
                     </View>
                     <View className='metric'>
-                      <Text className='metric__label'>押金</Text>
+                      <Text className='metric__label'>{t('prop.depositLabel')}</Text>
                       <Text className='metric__value'>{money(activeLease.deposit_amount, currency)}</Text>
                     </View>
                   </View>
@@ -376,13 +405,15 @@ export default function OwnerPropertyDetailPage() {
                   </View>
                   <View className='status-bar'>
                     <Text className='status-bar__label'>
-                      租期进度 · {LEASE_STATUS_TEXT[String(activeLease.status || '')] || '—'}
+                      {t('opd.leaseProgress', { v: LEASE_STATUS_TEXT[String(activeLease.status || '')] || '—' })}
                       {activeLease.deposit_status
-                        ? ` · 押金${DEPOSIT_STATUS_TEXT[String(activeLease.deposit_status)] || activeLease.deposit_status}`
+                        ? t('opd.depositSuffix', {
+                            v: DEPOSIT_STATUS_TEXT[String(activeLease.deposit_status)] || activeLease.deposit_status
+                          })
                         : ''}
                     </Text>
                     <Text className={`status-bar__value ${remainDays <= 60 ? 'status-bar__value--warning' : ''}`}>
-                      剩余 {remainDays} 天
+                      {t('opd.remainDays', { n: remainDays })}
                     </Text>
                   </View>
                 </View>
@@ -391,21 +422,21 @@ export default function OwnerPropertyDetailPage() {
 
             {/* 本月收益 */}
             <View className='section-title'>
-              <Text>本月收益</Text>
+              <Text>{t('opd.monthIncome')}</Text>
             </View>
             <View className='card'>
               <View className='metric-row metric-row--two'>
                 <View className='metric metric--box'>
-                  <Text className='metric__label'>本月应收</Text>
+                  <Text className='metric__label'>{t('opd.monthReceivable')}</Text>
                   <Text className='metric__value metric__value--lg'>{money(monthReceivable, currency)}</Text>
                 </View>
                 <View className='metric metric--box metric--box-success'>
-                  <Text className='metric__label'>已收</Text>
+                  <Text className='metric__label'>{t('pay.received')}</Text>
                   <Text className='metric__value metric__value--lg metric__value--success'>
                     {money(monthReceived, currency)}
                   </Text>
                   <Text className={`badge badge--${monthReceived > 0 ? 'success' : 'warning'}`}>
-                    {monthReceived > 0 ? '已到账' : '待收'}
+                    {monthReceived > 0 ? t('ownerIncome.filterReceived') : t('ownerIncome.filterPending')}
                   </Text>
                 </View>
               </View>
@@ -413,24 +444,24 @@ export default function OwnerPropertyDetailPage() {
                 <View className='progress__bar' style={{ width: `${receivedPct}%` }} />
               </View>
               <View className='status-bar'>
-                <Text className='status-bar__label'>本月收款进度</Text>
-                <Text className='status-bar__value status-bar__value--success'>已收 {receivedPct}%</Text>
+                <Text className='status-bar__label'>{t('opd.monthCollectionProgress')}</Text>
+                <Text className='status-bar__value status-bar__value--success'>{t('opd.receivedPct', { p: receivedPct })}</Text>
               </View>
             </View>
 
             {/* 历史流水 */}
             <View className='section-title'>
-              <Text>历史流水</Text>
-              <Text className='section-hint'>{propertyPayments.length} 笔</Text>
+              <Text>{t('opd.history')}</Text>
+              <Text className='section-hint'>{t('common.countBi', { n: propertyPayments.length })}</Text>
             </View>
             <View className='card card--list'>
               {historyPayments.length === 0 ? (
                 <View className='empty-state'>
-                  <Text>暂无流水记录</Text>
+                  <Text>{t('opd.noHistory')}</Text>
                 </View>
               ) : (
                 historyPayments.map((p) => {
-                  const st = paymentStatusOf(p)
+                  const st = paymentStatusOf(p, t)
                   return (
                     <View key={p.id} className='flow-row'>
                       <View className={`flow-row__badge flow-row__badge--${st.cls}`}>
@@ -438,7 +469,7 @@ export default function OwnerPropertyDetailPage() {
                       </View>
                       <View className='flow-row__body'>
                         <Text className='flow-row__title'>
-                          {p.description || (p.payment_type === 'rent' ? '租金' : '账单')}
+                          {p.description || (p.payment_type === 'rent' ? t('pay.typeRent') : t('tpay.bill'))}
                         </Text>
                         <Text className='flow-row__desc'>{fmtDate(p.paid_at || p.due_date || p.created_at)}</Text>
                       </View>
@@ -457,17 +488,17 @@ export default function OwnerPropertyDetailPage() {
 
             {/* 相关文档 */}
             <View className='section-title'>
-              <Text>相关文档</Text>
-              <Text className='section-hint'>{propertyDocs.length} 份</Text>
+              <Text>{t('opd.docs')}</Text>
+              <Text className='section-hint'>{t('common.copyCount', { n: propertyDocs.length })}</Text>
             </View>
             <View className='card card--list'>
               {propertyDocs.length === 0 ? (
                 <View className='empty-state'>
-                  <Text>暂无相关文档</Text>
+                  <Text>{t('opd.noDocs')}</Text>
                 </View>
               ) : (
                 propertyDocs.map((doc) => {
-                  const meta = docMetaOf(doc.type)
+                  const meta = docMetaOf(t, DOC_TYPE_META, doc.type)
                   return (
                     <View
                       key={doc.id}
@@ -479,7 +510,7 @@ export default function OwnerPropertyDetailPage() {
                         <View className='icon-svg' style={iconStyle(meta.icon, 36)} />
                       </View>
                       <View className='doc-row__body'>
-                        <Text className='doc-row__title'>{doc.title || '未命名文档'}</Text>
+                        <Text className='doc-row__title'>{doc.title || t('opd.unnamedDoc')}</Text>
                         <View className='doc-row__meta'>
                           <Text className={`doc-row__tag doc-row__tag--${meta.cls}`}>{meta.label}</Text>
                           <Text>{fmtDate(doc.created_at)}</Text>

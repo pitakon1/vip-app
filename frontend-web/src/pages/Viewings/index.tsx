@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Spin, Empty } from 'antd'
 import { viewingsApi } from '@/services/api'
+import { useTranslation } from 'react-i18next'
 import './viewings.css'
 
 type ViewingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
@@ -20,11 +21,11 @@ interface Viewing {
 }
 
 const STATUS_META: Record<ViewingStatus, { label: string; badge: string; dot: string }> = {
-  pending: { label: '待确认', badge: 'rent-badge--warning', dot: 'var(--state-warning)' },
-  confirmed: { label: '已确认', badge: 'rent-badge--info', dot: 'var(--state-info)' },
-  completed: { label: '已完成', badge: 'rent-badge--success', dot: 'var(--state-success)' },
-  cancelled: { label: '已取消', badge: 'rent-badge--neutral', dot: 'var(--rent-ink-3)' },
-  no_show: { label: '未到场', badge: 'rent-badge--error', dot: 'var(--state-error)' },
+  pending: { label: 'viewings.stPending', badge: 'rent-badge--warning', dot: 'var(--state-warning)' },
+  confirmed: { label: 'viewings.stConfirmed', badge: 'rent-badge--info', dot: 'var(--state-info)' },
+  completed: { label: 'viewings.stCompleted', badge: 'rent-badge--success', dot: 'var(--state-success)' },
+  cancelled: { label: 'viewings.stCancelled', badge: 'rent-badge--neutral', dot: 'var(--rent-ink-3)' },
+  no_show: { label: 'viewings.stNoShow', badge: 'rent-badge--error', dot: 'var(--state-error)' },
 }
 
 interface QueryParams {
@@ -35,6 +36,7 @@ interface QueryParams {
 }
 
 const Viewings = () => {
+  const { t } = useTranslation()
   const [items, setItems] = useState<Viewing[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -57,7 +59,7 @@ const Viewings = () => {
       setItems(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取预约看房列表失败')
+      message.error(err?.response?.data?.message || t('viewings.errLoad'))
     } finally {
       setLoading(false)
     }
@@ -71,10 +73,10 @@ const Viewings = () => {
     try {
       setSubmittingId(id)
       await viewingsApi.updateStatus(id, status)
-      message.success('状态已更新')
+      message.success(t('viewings.msgStatusUpdated'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '更新状态失败')
+      message.error(err?.response?.data?.message || t('viewings.errUpdate'))
     } finally {
       setSubmittingId(null)
     }
@@ -84,24 +86,24 @@ const Viewings = () => {
 
   const counts = useMemo(() => {
     const nextStatus = (s: ViewingStatus) => ({
-      pending: { confirmed: '已确认', no_show: '未到场' },
-      confirmed: { completed: '已完成', cancelled: '已取消', no_show: '未到场' },
+      pending: { confirmed: t('viewings.stConfirmed'), no_show: t('viewings.stNoShow') },
+      confirmed: { completed: t('viewings.stCompleted'), cancelled: t('viewings.stCancelled'), no_show: t('viewings.stNoShow') },
       completed: {},
       cancelled: {},
       no_show: {},
     })[s] as Record<string, string>
     return { nextStatus }
-  }, [])
+  }, [t])
 
   return (
     <div className="rent-main">
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">预约看房管理</h2>
-          <p className="rent-page-header__subtitle">管理看房预约、确认与到访状态</p>
+          <h2 className="rent-page-header__title">{t('viewings.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('viewings.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
-          <span className="rent-badge rent-badge--neutral">共 {total.toLocaleString()} 条</span>
+          <span className="rent-badge rent-badge--neutral">{t('viewings.totalCount', { total: total.toLocaleString() })}</span>
         </div>
       </div>
 
@@ -110,7 +112,7 @@ const Viewings = () => {
         <select
           className="rent-form-select"
           style={{ width: 'auto', minWidth: 130 }}
-          aria-label="状态"
+          aria-label={t('viewings.thStatus')}
           value={queryParams.status || ''}
           onChange={(e) =>
             setQueryParams((p) => ({
@@ -120,17 +122,17 @@ const Viewings = () => {
             }))
           }
         >
-          <option value="">全部状态</option>
-          <option value="pending">待确认</option>
-          <option value="confirmed">已确认</option>
-          <option value="completed">已完成</option>
-          <option value="cancelled">已取消</option>
-          <option value="no_show">未到场</option>
+          <option value="">{t('viewings.optAllStatus')}</option>
+          <option value="pending">{t('viewings.stPending')}</option>
+          <option value="confirmed">{t('viewings.stConfirmed')}</option>
+          <option value="completed">{t('viewings.stCompleted')}</option>
+          <option value="cancelled">{t('viewings.stCancelled')}</option>
+          <option value="no_show">{t('viewings.stNoShow')}</option>
         </select>
         <div className="rent-search" style={{ width: 'auto', minWidth: 200 }}>
           <input
             type="text"
-            placeholder="房源ID（可选）"
+            placeholder={t('viewings.phPropertyId')}
             value={queryParams.property_id || ''}
             onChange={(e) => {
               const v = e.target.value
@@ -138,30 +140,30 @@ const Viewings = () => {
             }}
           />
         </div>
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setQueryParams((p) => ({ ...p, page: 1 }))}>筛选</button>
+        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setQueryParams((p) => ({ ...p, page: 1 }))}>{t('viewings.filter')}</button>
       </div>
 
       {/* Table */}
       {loading ? (
-        <div className="rent-empty"><Spin size="small" style={{ marginRight: 8 }} /><span className="rent-text-muted">加载中...</span></div>
+        <div className="rent-empty"><Spin size="small" style={{ marginRight: 8 }} /><span className="rent-text-muted">{t('common.loading')}</span></div>
       ) : (
         <div className="rent-table-wrap">
           <table className="rent-table">
             <thead>
               <tr>
-                <th>房源</th>
-                <th>预约时间</th>
-                <th>访客</th>
-                <th>联系方式</th>
-                <th>负责人</th>
-                <th>状态</th>
-                <th>备注</th>
-                <th>操作</th>
+                <th>{t('viewings.thProperty')}</th>
+                <th>{t('viewings.thScheduledAt')}</th>
+                <th>{t('viewings.thVisitor')}</th>
+                <th>{t('viewings.thContact')}</th>
+                <th>{t('viewings.thAssignee')}</th>
+                <th>{t('viewings.thStatus')}</th>
+                <th>{t('viewings.thNotes')}</th>
+                <th>{t('viewings.thAction')}</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 && (
-                <tr><td colSpan={8}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无预约看房记录" /></td></tr>
+                <tr><td colSpan={8}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('viewings.empty')} /></td></tr>
               )}
               {items.map((v) => {
                 const meta = STATUS_META[v.status] || STATUS_META.pending
@@ -183,7 +185,7 @@ const Viewings = () => {
                     <td>
                       <span className={`rent-badge ${meta.badge}`}>
                         <span className="rent-badge--dot" style={{ background: meta.dot }} />
-                        {meta.label}
+                        {t(meta.label)}
                       </span>
                     </td>
                     <td className="rent-text-muted" style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -215,17 +217,17 @@ const Viewings = () => {
       {/* Pagination */}
       {!loading && (
         <div className="rent-pagination">
-          <span className="rent-pagination__info">共 {total.toLocaleString()} 条记录</span>
+          <span className="rent-pagination__info">{t('viewings.totalRecords', { total: total.toLocaleString() })}</span>
           <button
             className="rent-pagination__btn"
-            aria-label="上一页"
+            aria-label={t('viewings.prevPage')}
             disabled={queryParams.page <= 1}
             onClick={() => setQueryParams((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
           >‹</button>
           <span className="rent-pagination__info">{queryParams.page} / {totalPages}</span>
           <button
             className="rent-pagination__btn"
-            aria-label="下一页"
+            aria-label={t('viewings.nextPage')}
             disabled={queryParams.page >= totalPages}
             onClick={() => setQueryParams((p) => ({ ...p, page: Math.min(totalPages, p.page + 1) }))}
           >›</button>

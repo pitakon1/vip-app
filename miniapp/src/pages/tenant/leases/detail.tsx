@@ -4,29 +4,34 @@ import useAuthStore from '@/stores/auth'
 import { leasesApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
+import { useI18n } from '@/i18n'
 import './detail.scss'
 
 const fmtDate = (x?: string) => (x ? String(x).slice(0, 10) : '—')
 
 // 租约状态（与「我的」页一致）
-const LEASE_STATUS: Record<string, { text: string; cls: string }> = {
-  active: { text: '生效中', cls: 'success' },
-  pending: { text: '待生效', cls: 'warning' },
-  expired: { text: '已到期', cls: 'neutral' },
-  terminated: { text: '已终止', cls: 'error' }
-}
+const buildLeaseStatus = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, { text: string; cls: string }> => ({
+  active: { text: t('lease.stActive'), cls: 'success' },
+  pending: { text: t('lease.stPending'), cls: 'warning' },
+  expired: { text: t('lease.stExpired'), cls: 'neutral' },
+  terminated: { text: t('lease.stTerminated'), cls: 'error' }
+})
 
-const DEPOSIT_STATUS: Record<string, string> = {
-  held: '托管中',
-  refunded: '已退还',
-  forfeited: '已没收'
-}
+const buildDepositStatus = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<string, string> => ({
+  held: t('tenantLease.depHeld'),
+  refunded: t('tenantLease.depRefunded'),
+  forfeited: t('tenantLease.depForfeited')
+})
 
-const leaseTitle = (l: any) =>
+const leaseTitle = (l: any, t: (k: string, p?: Record<string, string | number>) => string) =>
   l?.property_name ||
   l?.room_number ||
   l?.address ||
-  `租约 #${String(l?.id ?? '').slice(0, 8)}`
+  `${t('lease.leaseFallback')} #${String(l?.id ?? '').slice(0, 8)}`
 
 const leaseProgress = (l: any) => {
   const start = new Date(l?.start_date || l?.startDate || '').getTime()
@@ -37,9 +42,12 @@ const leaseProgress = (l: any) => {
 }
 
 export default function TenantLeaseDetailPage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const router = useRouter()
   const leaseId = String(router.params?.lease_id ?? '')
+  const LEASE_STATUS = buildLeaseStatus(t)
+  const DEPOSIT_STATUS = buildDepositStatus(t)
 
   const { data: lease, loading, refresh } = useSwrCache<any>({
     key: `tenant:lease-detail:${leaseId}`,
@@ -50,7 +58,7 @@ export default function TenantLeaseDetailPage() {
   })
 
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: '租约详情' })
+    Taro.setNavigationBarTitle({ title: t('tenantLease.detailTitle') })
     loadFromStorage()
     if (!useAuthStore.getState().token) {
       Taro.redirectTo({ url: '/pages/login/index' })
@@ -64,7 +72,7 @@ export default function TenantLeaseDetailPage() {
       <View className='tenant-lease-detail-page'>
         <View className='page-container'>
           <View className='empty-tip'>
-            <Text>租约不存在或已删除</Text>
+            <Text>{t('tenantLease.notFound')}</Text>
           </View>
         </View>
       </View>
@@ -89,39 +97,39 @@ export default function TenantLeaseDetailPage() {
         {/* 租期卡 */}
         <View className='card'>
           <View className='lease-head'>
-            <Text className='lease-title'>{leaseTitle(lease)}</Text>
+            <Text className='lease-title'>{leaseTitle(lease, t)}</Text>
             <View className={`lease-badge lease-badge--${meta.cls}`}>
               <Text>{meta.text}</Text>
             </View>
           </View>
-          <Text className='lease-meta'>月租金 {money(Number(lease?.monthly_rent || 0), lease?.currency)}</Text>
+          <Text className='lease-meta'>{t('lease.monthlyRentLabel')} {money(Number(lease?.monthly_rent || 0), lease?.currency)}</Text>
           <View className='lease-track'>
             <View className='lease-bar' style={{ width: `${leaseProgress(lease)}%` }} />
           </View>
           <View className='lease-foot'>
             <Text className='lease-foot__text'>
-              {fmtDate(lease?.start_date)} 至 {fmtDate(lease?.end_date)}
+              {fmtDate(lease?.start_date)} {t('pub.to')} {fmtDate(lease?.end_date)}
             </Text>
-            {remainDays > 0 && <Text className='lease-foot__remain'>剩余 {remainDays} 天</Text>}
+            {remainDays > 0 && <Text className='lease-foot__remain'>{t('lease.remainDays', { n: remainDays })}</Text>}
           </View>
           {totalDays > 0 && (
             <Text className='lease-sub'>
-              已过 {passedDays} / 共 {totalDays} 天
+              {t('lease.elapsedDays', { passed: passedDays, total: totalDays })}
             </Text>
           )}
         </View>
 
         {/* 明细卡 */}
         <View className='card'>
-          <Text className='section-label'>租约明细</Text>
+          <Text className='section-label'>{t('tenantLease.breakdown')}</Text>
           <View className='detail-row'>
-            <Text className='detail-label'>月租金</Text>
+            <Text className='detail-label'>{t('lease.monthlyRentLabel')}</Text>
             <Text className='detail-value'>
               {money(Number(lease?.monthly_rent || 0), lease?.currency)}
             </Text>
           </View>
           <View className='detail-row'>
-            <Text className='detail-label'>押金</Text>
+            <Text className='detail-label'>{t('pub.deposit')}</Text>
             <Text className='detail-value'>
               {money(Number(lease?.deposit_amount || 0), lease?.currency)}
               {lease?.deposit_status
@@ -130,11 +138,11 @@ export default function TenantLeaseDetailPage() {
             </Text>
           </View>
           <View className='detail-row'>
-            <Text className='detail-label'>租期开始</Text>
+            <Text className='detail-label'>{t('tenantLease.startDate')}</Text>
             <Text className='detail-value'>{fmtDate(lease?.start_date)}</Text>
           </View>
           <View className='detail-row'>
-            <Text className='detail-label'>租期结束</Text>
+            <Text className='detail-label'>{t('tenantLease.endDate')}</Text>
             <Text className='detail-value'>{fmtDate(lease?.end_date)}</Text>
           </View>
           {lease?.contract_url && (
@@ -142,13 +150,13 @@ export default function TenantLeaseDetailPage() {
               className='detail-row'
               onClick={() => Taro.navigateTo({ url: lease.contract_url })}
             >
-              <Text className='detail-label'>电子合同</Text>
-              <Text className='detail-value detail-value--link'>查看合同</Text>
+              <Text className='detail-label'>{t('tenantLease.eContract')}</Text>
+              <Text className='detail-value detail-value--link'>{t('tenantLease.viewContract')}</Text>
             </View>
           )}
           {lease?.special_terms && (
             <View className='detail-row detail-row--wrap'>
-              <Text className='detail-label'>特殊条款</Text>
+              <Text className='detail-label'>{t('tenantLease.specialTerms')}</Text>
               <Text className='detail-value detail-value--wrap'>{lease.special_terms}</Text>
             </View>
           )}

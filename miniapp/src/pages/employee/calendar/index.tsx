@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { employeesApi, viewingsApi, leasesApi, propertiesApi } from '@/services/api'
 import './index.scss'
+import { useI18n } from '@/i18n'
 
 /* =========================================================
    员工端 日历/日程排期（对齐 App CalendarScreen）
@@ -23,18 +24,23 @@ interface CalEvent {
   statusLabel?: string
 }
 
-const KIND_META: Record<EventKind, { label: string; color: string; bg: string }> = {
-  viewing: { label: '带看', color: 'var(--primary)', bg: 'rgba(var(--primary-rgb), 0.12)' },
-  rent: { label: '租金', color: 'var(--warning)', bg: 'rgba(var(--warning-rgb), 0.12)' },
-  contract: { label: '合同', color: 'var(--info, #0ea5e9)', bg: 'rgba(14, 165, 233, 0.12)' }
-}
+const buildKindMeta = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): Record<EventKind, { label: string; color: string; bg: string }> => ({
+  viewing: { label: t('cal.kindViewing'), color: 'var(--primary)', bg: 'rgba(var(--primary-rgb), 0.12)' },
+  rent: { label: t('cal.kindRent'), color: 'var(--warning)', bg: 'rgba(var(--warning-rgb), 0.12)' },
+  contract: { label: t('cal.kindContract'), color: 'var(--info, #0ea5e9)', bg: 'rgba(14, 165, 233, 0.12)' }
+})
 
-const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
-const MONTH_NAMES = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+const buildWeekdays = (t: (k: string, p?: Record<string, string | number>) => string): string[] =>
+  t('cal.weekdays').split(',')
+const buildMonthNames = (t: (k: string, p?: Record<string, string | number>) => string): string[] =>
+  t('cal.monthNames').split(',')
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const keyOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-const dateLabel = (d: Date) => `${d.getMonth() + 1}月${d.getDate()}日`
+const dateLabel = (d: Date, t: (k: string, p?: Record<string, string | number>) => string) =>
+  t('cal.dateMD', { m: d.getMonth() + 1, d: d.getDate() })
 const hhmm = (iso?: string | null) => {
   if (!iso) return '--:--'
   const d = new Date(iso)
@@ -114,6 +120,7 @@ const generateMonthDays = (year: number, month: number) => {
 }
 
 export default function EmployeeCalendarPage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const now = new Date()
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
@@ -126,6 +133,9 @@ export default function EmployeeCalendarPage() {
   const [receivables, setReceivables] = useState<ReceivableItem[]>([])
   const [propNames, setPropNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const KIND_META = buildKindMeta(t)
+  const WEEKDAYS = buildWeekdays(t)
+  const MONTH_NAMES = buildMonthNames(t)
 
   const load = async () => {
     setLoading(true)
@@ -179,7 +189,7 @@ export default function EmployeeCalendarPage() {
 
   const leaseName = (l: LeaseItem) => {
     const fromMap = l.property_id ? propNames[l.property_id] : ''
-    return fromMap || (l.property_id ? `房源 ${String(l.property_id).slice(0, 6)}` : '房源')
+    return fromMap || (l.property_id ? t('cal.propertyShort', { id: String(l.property_id).slice(0, 6) }) : t('common.listingFallback'))
   }
 
   // 全部日程事件（带看 / 租金到期 / 合同到期）
@@ -193,8 +203,8 @@ export default function EmployeeCalendarPage() {
       list.push({
         id: `viewing-${v.id}`,
         kind: 'viewing',
-        title: `${v.visitor_name || '待定客户'} 看房`,
-        sub: v.property_title || v.property_address || '房源',
+        title: t('cal.viewingTitle', { name: v.visitor_name || t('home.pendingClient') }),
+        sub: v.property_title || v.property_address || t('common.listingFallback'),
         date: d,
         timeLabel: hhmm(v.scheduled_at),
         statusLabel: v.status || undefined
@@ -208,10 +218,10 @@ export default function EmployeeCalendarPage() {
       list.push({
         id: `rent-${r.payment_id}`,
         kind: 'rent',
-        title: r.is_overdue ? '租金催收' : '租金到期',
-        sub: `${symOf(r.currency)}${Number(r.amount || 0).toLocaleString()} · ${dateLabel(d)}到期`,
+        title: r.is_overdue ? t('cal.rentOverdue') : t('cal.rentDue'),
+        sub: `${symOf(r.currency)}${Number(r.amount || 0).toLocaleString()} · ${t('cal.dueOn', { date: dateLabel(d, t) })}`,
         date: d,
-        statusLabel: r.is_overdue ? '已逾期' : '待收'
+        statusLabel: r.is_overdue ? t('cal.overdue') : t('cal.toCollect')
       })
     })
 
@@ -223,10 +233,10 @@ export default function EmployeeCalendarPage() {
       list.push({
         id: `contract-${l.id}`,
         kind: 'contract',
-        title: '合同到期提醒',
-        sub: `${leaseName(l)} · ${dateLabel(d)}到期${days >= 0 ? `（剩 ${days} 天）` : `（已过期 ${-days} 天）`}`,
+        title: t('cal.contractReminder'),
+        sub: `${leaseName(l)} · ${t('cal.dueOn', { date: dateLabel(d, t) })}${days >= 0 ? t('cal.daysLeft', { n: days }) : t('cal.daysExpired', { n: -days })}`,
         date: d,
-        statusLabel: days >= 0 ? `${days} 天后` : '已到期'
+        statusLabel: days >= 0 ? t('cal.inDays', { n: days }) : t('cal.expired')
       })
     })
 
@@ -320,7 +330,7 @@ export default function EmployeeCalendarPage() {
       <View key={e.id} className='cal-follow-item'>
         <View className='cal-follow-item__icon' style={{ background: meta.bg }}>
           <Text className='cal-follow-item__icon-text' style={{ color: meta.color }}>
-            {e.kind === 'viewing' ? '看' : e.kind === 'rent' ? '租' : '合'}
+            {e.kind === 'viewing' ? t('cal.iconViewing') : e.kind === 'rent' ? t('cal.iconRent') : t('cal.iconContract')}
           </Text>
         </View>
         <View className='cal-follow-item__body'>
@@ -354,7 +364,7 @@ export default function EmployeeCalendarPage() {
             {e.title}
           </Text>
           <Text className='cal-list-row__sub'>
-            {dateLabel(e.date)} · {e.sub}
+            {dateLabel(e.date, t)} · {e.sub}
           </Text>
         </View>
       </View>
@@ -381,13 +391,13 @@ export default function EmployeeCalendarPage() {
         {/* 日历提醒 hero */}
         <View className='cal-hero'>
           <View className='cal-hero__left'>
-            <Text className='cal-hero__title'>日历提醒</Text>
+            <Text className='cal-hero__title'>{t('cal.reminderTitle')}</Text>
             <Text className='cal-hero__sub'>
-              {currentYear} 年 {currentMonth + 1} 月 · 今日 {todayFollowUps.length} 项待跟进 · 本月租金到期 {stats.total} 户
+              {t('cal.heroSub', { y: currentYear, m: currentMonth + 1, n: todayFollowUps.length, total: stats.total })}
             </Text>
           </View>
           <View className='cal-hero__avatar'>
-            <Text className='cal-hero__avatar-text'>历</Text>
+            <Text className='cal-hero__avatar-text'>{t('cal.heroAvatar')}</Text>
           </View>
         </View>
 
@@ -395,20 +405,20 @@ export default function EmployeeCalendarPage() {
         <View className='cal-follow-card'>
           <View className='cal-follow-card__head'>
             <View className='cal-follow-card__head-left'>
-              <Text className='cal-follow-card__title'>今日待跟进</Text>
-              <Text className='cal-follow-card__warn'>{todayFollowUps.length} 项</Text>
+              <Text className='cal-follow-card__title'>{t('cal.todayFollowUp')}</Text>
+              <Text className='cal-follow-card__warn'>{t('cal.countItems', { n: todayFollowUps.length })}</Text>
             </View>
-            <Text className='cal-follow-card__date'>{dateLabel(today)}</Text>
+            <Text className='cal-follow-card__date'>{dateLabel(today, t)}</Text>
           </View>
           {loading && todayFollowUps.length === 0 ? (
             <View className='cal-state cal-state--loading'>
               <View className='cal-state__spinner' />
-              <Text className='cal-state__title'>正在加载</Text>
+              <Text className='cal-state__title'>{t('cal.loading')}</Text>
             </View>
           ) : todayFollowUps.length === 0 ? (
             <View className='cal-state'>
-              <Text className='cal-state__title'>今天没有待跟进事项</Text>
-              <Text className='cal-state__desc'>逾期租金、近期到期合同与今日带看会集中在这里</Text>
+              <Text className='cal-state__title'>{t('cal.noFollowUp')}</Text>
+              <Text className='cal-state__desc'>{t('cal.noFollowUpDesc')}</Text>
             </View>
           ) : (
             todayFollowUps.map(renderEventItem)
@@ -419,20 +429,20 @@ export default function EmployeeCalendarPage() {
         <View className='cal-card'>
           <View className='cal-card__head'>
             <Text className='cal-card__title'>
-              {currentYear} 年 {currentMonth + 1} 月
+              {t('cal.yearMonth', { y: currentYear, m: currentMonth + 1 })}
             </Text>
             <View className='cal-tabs'>
               <View
                 className={`cal-tabs__tab${viewMode === 'month' ? ' cal-tabs__tab--active' : ''}`}
                 onClick={() => setViewMode('month')}
               >
-                <Text className={`cal-tabs__text${viewMode === 'month' ? ' cal-tabs__text--active' : ''}`}>月视图</Text>
+                <Text className={`cal-tabs__text${viewMode === 'month' ? ' cal-tabs__text--active' : ''}`}>{t('cal.monthView')}</Text>
               </View>
               <View
                 className={`cal-tabs__tab${viewMode === 'list' ? ' cal-tabs__tab--active' : ''}`}
                 onClick={() => setViewMode('list')}
               >
-                <Text className={`cal-tabs__text${viewMode === 'list' ? ' cal-tabs__text--active' : ''}`}>列表</Text>
+                <Text className={`cal-tabs__text${viewMode === 'list' ? ' cal-tabs__text--active' : ''}`}>{t('cal.listView')}</Text>
               </View>
             </View>
           </View>
@@ -441,14 +451,14 @@ export default function EmployeeCalendarPage() {
             <View className='cal-body'>
               <View className='cal-today-row'>
                 <View className='cal-today-btn' hoverClass='cal-today-btn--hover' onClick={goToday}>
-                  <Text className='cal-today-btn__text'>今天</Text>
+                  <Text className='cal-today-btn__text'>{t('cal.today')}</Text>
                 </View>
                 <View className='cal-legend'>
                   {(['rent', 'contract', 'viewing'] as EventKind[]).map((k) => (
                     <View key={k} className='cal-legend__item'>
                       <View className='cal-legend__dot' style={{ background: KIND_META[k].color }} />
                       <Text className='cal-legend__label'>
-                        {k === 'rent' ? '租金到期' : k === 'contract' ? '合同到期' : '带看 / 催收'}
+                        {k === 'rent' ? t('cal.rentDue') : k === 'contract' ? t('cal.contractDue') : t('cal.viewingCollect')}
                       </Text>
                     </View>
                   ))}
@@ -500,20 +510,20 @@ export default function EmployeeCalendarPage() {
               {/* 选中日期安排 */}
               <View className='cal-selected-head'>
                 <Text className='cal-selected-head__title'>
-                  {selectedDate.getMonth() + 1}月{selectedDate.getDate()}日 安排
+                  {t('cal.scheduleOf', { date: dateLabel(selectedDate, t) })}
                 </Text>
-                <Text className='cal-selected-head__count'>{selectedItems.length} 项</Text>
+                <Text className='cal-selected-head__count'>{t('cal.countItems', { n: selectedItems.length })}</Text>
               </View>
               {selectedItems.length === 0 ? (
-                <Text className='cal-selected-empty'>这一天没有带看与到期跟进</Text>
+                <Text className='cal-selected-empty'>{t('cal.noDayEvents')}</Text>
               ) : (
                 selectedItems.map(renderEventItem)
               )}
             </View>
           ) : events.filter((e) => e.date.getFullYear() === currentYear && e.date.getMonth() === currentMonth).length === 0 ? (
             <View className='cal-state'>
-              <Text className='cal-state__title'>本月暂无安排</Text>
-              <Text className='cal-state__desc'>带看、租金与合同到期会按日期汇总在这里</Text>
+              <Text className='cal-state__title'>{t('cal.noMonthEvents')}</Text>
+              <Text className='cal-state__desc'>{t('cal.noMonthEventsDesc')}</Text>
             </View>
           ) : (
             <View className='cal-body'>
@@ -525,42 +535,42 @@ export default function EmployeeCalendarPage() {
         </View>
 
         {/* 本月重点 */}
-        <Text className='cal-section-title'>本月重点</Text>
+        <Text className='cal-section-title'>{t('cal.monthHighlights')}</Text>
         <View className='cal-strip'>
           <View className='cal-strip__cell'>
             <Text className='cal-strip__value'>
               {stats.total}
-              <Text className='cal-strip__unit'> 户</Text>
+              <Text className='cal-strip__unit'>{t('cal.unitHouseholds')}</Text>
             </Text>
-            <Text className='cal-strip__label'>本月租金到期</Text>
-            <Text className='cal-strip__sub'>待收 {stats.pending} · 逾期 {stats.overdue}</Text>
+            <Text className='cal-strip__label'>{t('cal.monthRentDue')}</Text>
+            <Text className='cal-strip__sub'>{t('cal.pendingOverdue', { a: stats.pending, b: stats.overdue })}</Text>
           </View>
           <View className='cal-strip__cell'>
             <Text className='cal-strip__value'>{stats.total > 0 ? `${stats.onTimeRate}%` : '—'}</Text>
-            <Text className='cal-strip__label'>按时率</Text>
-            <Text className='cal-strip__sub'>{stats.total > 0 ? `逾期 ${stats.overdue} 单` : '暂无待收租金单'}</Text>
+            <Text className='cal-strip__label'>{t('cal.onTimeRate')}</Text>
+            <Text className='cal-strip__sub'>{stats.total > 0 ? t('cal.overdueOrders', { n: stats.overdue }) : t('cal.noReceivables')}</Text>
           </View>
           <View className='cal-strip__cell'>
             <Text className='cal-strip__value'>
               {stats.contractsThisMonth}
-              <Text className='cal-strip__unit'> 份</Text>
+              <Text className='cal-strip__unit'>{t('cal.unitContracts')}</Text>
             </Text>
-            <Text className='cal-strip__label'>本月合同到期</Text>
-            <Text className='cal-strip__sub'>下月预告 {stats.contractsNextMonth} 份</Text>
+            <Text className='cal-strip__label'>{t('cal.monthContractDue')}</Text>
+            <Text className='cal-strip__sub'>{t('cal.nextMonthPreview', { n: stats.contractsNextMonth })}</Text>
           </View>
         </View>
 
         {/* 下月到期预告 */}
         <View className='cal-section-head'>
-          <Text className='cal-section-head__title'>下月到期预告</Text>
+          <Text className='cal-section-head__title'>{t('cal.nextExpiryTitle')}</Text>
           {stats.nextExpiries.length > 0 ? (
-            <Text className='cal-section-head__badge'>{stats.nextExpiries.length} 份</Text>
+            <Text className='cal-section-head__badge'>{t('cal.countContracts', { n: stats.nextExpiries.length })}</Text>
           ) : null}
         </View>
         {stats.nextExpiries.length === 0 ? (
           <View className='cal-state cal-state--card'>
-            <Text className='cal-state__title'>下月暂无到期合同</Text>
-            <Text className='cal-state__desc'>负责租约的到期日会提前在这里汇总</Text>
+            <Text className='cal-state__title'>{t('cal.noNextExpiry')}</Text>
+            <Text className='cal-state__desc'>{t('cal.noNextExpiryDesc')}</Text>
           </View>
         ) : (
           <View className='cal-list-card'>
@@ -572,12 +582,12 @@ export default function EmployeeCalendarPage() {
                   <View className='cal-simple-row__body'>
                     <Text className='cal-simple-row__title'>{leaseName(l)}</Text>
                     <Text className='cal-simple-row__sub'>
-                      {dateLabel(d)} 到期 · {symOf(l.currency)}
-                      {Number(l.monthly_rent || 0).toLocaleString()}/月
+                      {t('cal.dueOn', { date: dateLabel(d, t) })} · {symOf(l.currency)}
+                      {Number(l.monthly_rent || 0).toLocaleString()}{t('cal.perMonth')}
                     </Text>
                   </View>
                   <Text className={`cal-simple-row__badge${daysLeft <= 30 ? ' cal-simple-row__badge--warn' : ''}`}>
-                    {daysLeft >= 0 ? `${daysLeft} 天后` : '已到期'}
+                    {daysLeft >= 0 ? t('cal.inDays', { n: daysLeft }) : t('cal.expired')}
                   </Text>
                 </View>
               )
@@ -586,11 +596,11 @@ export default function EmployeeCalendarPage() {
         )}
 
         {/* 近期带看 */}
-        <Text className='cal-section-title'>近期带看</Text>
+        <Text className='cal-section-title'>{t('cal.recentViewings')}</Text>
         {upcomingViewings.length === 0 ? (
           <View className='cal-state cal-state--card'>
-            <Text className='cal-state__title'>暂无近期带看</Text>
-            <Text className='cal-state__desc'>客户预约的看房行程会展示在这里</Text>
+            <Text className='cal-state__title'>{t('cal.noRecentViewings')}</Text>
+            <Text className='cal-state__desc'>{t('cal.noRecentViewingsDesc')}</Text>
           </View>
         ) : (
           <View className='cal-list-card'>
@@ -598,7 +608,7 @@ export default function EmployeeCalendarPage() {
               <View key={e.id} className={`cal-simple-row${idx > 0 ? ' cal-simple-row--divided' : ''}`}>
                 <View className='cal-simple-row__body'>
                   <Text className='cal-simple-row__title'>
-                    {dateLabel(e.date)} {e.timeLabel} · {e.title}
+                    {dateLabel(e.date, t)} {e.timeLabel} · {e.title}
                   </Text>
                   <Text className='cal-simple-row__sub'>{e.sub}</Text>
                 </View>

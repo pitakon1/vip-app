@@ -5,7 +5,7 @@
  *      → 操作区（编辑房源/查看合同/维修工单）→ 当前租客 → 维修记录
  * 数据源：/properties/{id}、/properties/{id}/leases（含租客姓名）、/maintenance、/payments
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,9 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import api from '@/lib/api';
 import { propertiesApi, paymentsApi } from '@/services/api';
+import { useI18n } from '@/i18n';
+
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
 interface PropertyDetail {
   id: string;
@@ -64,35 +67,41 @@ interface TicketRow {
   created_at?: string | null;
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  apartment: '公寓',
-  condo: '公寓',
-  house: '别墅',
-  commercial: '商铺',
-  office: '写字楼',
+const TYPE_KEYS: Record<string, string> = {
+  apartment: 'prop.type.apartment',
+  condo: 'prop.type.condo',
+  house: 'prop.type.house',
+  commercial: 'prop.type.commercial',
+  office: 'prop.type.office',
 };
 
-const STATUS_META: Record<string, { label: string; color: string; rgb: string }> = {
-  vacant: { label: '空置中', color: colors.warning, rgb: colors.warningRgb },
-  rented: { label: '已出租', color: colors.success, rgb: colors.successRgb },
-  maintenance: { label: '维护中', color: colors.info, rgb: colors.infoRgb },
-  renewing: { label: '续约中', color: colors.primary, rgb: colors.primaryRgb },
-};
+const STATUS_META = (
+  t: TFunc,
+): Record<string, { label: string; color: string; rgb: string }> => ({
+  vacant: { label: t('adm.psStatusVacant'), color: colors.warning, rgb: colors.warningRgb },
+  rented: { label: t('apd.stRented'), color: colors.success, rgb: colors.successRgb },
+  maintenance: { label: t('opd.stMaintenance'), color: colors.info, rgb: colors.infoRgb },
+  renewing: { label: t('prop.status.renewing'), color: colors.primary, rgb: colors.primaryRgb },
+});
 
-const LEASE_STATUS: Record<string, { label: string; color: string; rgb: string }> = {
-  active: { label: '履约中', color: colors.success, rgb: colors.successRgb },
-  pending: { label: '待生效', color: colors.info, rgb: colors.infoRgb },
-  expired: { label: '已到期', color: colors.ink2, rgb: colors.primaryRgb },
-  terminated: { label: '已终止', color: colors.error, rgb: colors.errorRgb },
-};
+const LEASE_STATUS = (
+  t: TFunc,
+): Record<string, { label: string; color: string; rgb: string }> => ({
+  active: { label: t('apd.lsActive'), color: colors.success, rgb: colors.successRgb },
+  pending: { label: t('apd.lsPending'), color: colors.info, rgb: colors.infoRgb },
+  expired: { label: t('apd.lsExpired'), color: colors.ink2, rgb: colors.primaryRgb },
+  terminated: { label: t('apd.lsTerminated'), color: colors.error, rgb: colors.errorRgb },
+});
 
-const TICKET_STATUS: Record<string, { label: string; color: string; rgb: string }> = {
-  open: { label: '待处理', color: colors.warning, rgb: colors.warningRgb },
-  assigned: { label: '已派单', color: colors.info, rgb: colors.infoRgb },
-  in_progress: { label: '处理中', color: colors.info, rgb: colors.infoRgb },
-  resolved: { label: '已解决', color: colors.success, rgb: colors.successRgb },
-  closed: { label: '已关闭', color: colors.ink2, rgb: colors.primaryRgb },
-};
+const TICKET_STATUS = (
+  t: TFunc,
+): Record<string, { label: string; color: string; rgb: string }> => ({
+  open: { label: t('ticket.status.open'), color: colors.warning, rgb: colors.warningRgb },
+  assigned: { label: t('apd.ticketAssigned'), color: colors.info, rgb: colors.infoRgb },
+  in_progress: { label: t('common.processing'), color: colors.info, rgb: colors.infoRgb },
+  resolved: { label: t('ticket.status.resolved'), color: colors.success, rgb: colors.successRgb },
+  closed: { label: t('ticket.status.closed'), color: colors.ink2, rgb: colors.primaryRgb },
+});
 
 const fmtDate = (v?: string | null) => (v ? String(v).slice(0, 10) : '-');
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
@@ -101,6 +110,7 @@ export default function AdminPropertyDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const propertyId: string | undefined = route?.params?.id;
 
   const [property, setProperty] = useState<PropertyDetail | null>(null);
@@ -167,40 +177,43 @@ export default function AdminPropertyDetailScreen() {
   if (!property) {
     return (
       <View style={styles.center}>
-        <EmptyState icon="business-outline" title="房源不存在" sub="房源可能已被删除，请返回列表刷新" />
+        <EmptyState icon="business-outline" title={t('apd.notFoundTitle')} sub={t('apd.notFoundSub')} />
       </View>
     );
   }
 
-  const statusMeta = STATUS_META[property.status ?? 'vacant'] ?? {
-    label: property.status ?? '未知',
+  const statusMeta = STATUS_META(t)[property.status ?? 'vacant'] ?? {
+    label: property.status ?? t('common.unknown'),
     color: colors.ink2,
     rgb: colors.primaryRgb,
   };
   const currentLease = leases.find((l) => l.status === 'active') ?? leases[0] ?? null;
   const leaseMeta = currentLease
-    ? LEASE_STATUS[currentLease.status ?? ''] ?? {
-        label: currentLease.status ?? '未知',
+    ? LEASE_STATUS(t)[currentLease.status ?? ''] ?? {
+        label: currentLease.status ?? t('common.unknown'),
         color: colors.ink2,
         rgb: colors.primaryRgb,
       }
     : null;
 
+  const typeKey = TYPE_KEYS[property.property_type ?? 'apartment'];
+  const typeLabel = typeKey ? t(typeKey) : property.property_type ?? t('apd.propFallback');
+
   const infoRows: { label: string; value: string; wide?: boolean }[] = [
-    { label: '楼层', value: property.floor != null ? `第 ${property.floor} 层` : '-' },
-    { label: '装修', value: property.furnished ? '精装' : '简装' },
+    { label: t('listing.fFloor'), value: property.floor != null ? t('apd.floorN', { n: property.floor }) : '-' },
+    { label: t('apd.decorLabel'), value: property.furnished ? t('pub.decoration.standard') : t('pub.decoration.simple') },
     {
-      label: '押金',
+      label: t('opd.deposit'),
       value: `${symOf(property.currency)}${Number(property.deposit_amount || 0).toLocaleString()}${
-        property.deposit_months ? ` / ${property.deposit_months} 个月` : ''
+        property.deposit_months ? ` / ${t('apd.monthsN', { n: property.deposit_months })}` : ''
       }`,
     },
-    { label: '可用日期', value: fmtDate(property.available_from) },
+    { label: t('apd.availableDate'), value: fmtDate(property.available_from) },
     {
-      label: '租期',
+      label: t('apd.leaseTerm'),
       value: currentLease
-        ? `${fmtDate(currentLease.start_date)} 至 ${fmtDate(currentLease.end_date)}`
-        : '暂无生效租约',
+        ? t('apd.dateRange', { a: fmtDate(currentLease.start_date), b: fmtDate(currentLease.end_date) })
+        : t('apd.noActiveLease'),
       wide: true,
     },
   ];
@@ -227,7 +240,7 @@ export default function AdminPropertyDetailScreen() {
         <Ionicons name="business" size={44} color={colors.primaryForeground} />
         <View style={[styles.typeBadge, { backgroundColor: colors.surface }]}>
           <Text style={styles.typeBadgeText}>
-            {TYPE_LABEL[property.property_type ?? 'apartment'] ?? property.property_type ?? '房产'}
+            {typeLabel}
           </Text>
         </View>
       </View>
@@ -236,7 +249,7 @@ export default function AdminPropertyDetailScreen() {
       <View style={styles.headCard}>
         <View style={styles.headTop}>
           <Text style={styles.name} numberOfLines={2}>
-            {[property.room_number, property.building].filter(Boolean).join(' · ') || '未命名房源'}
+            {[property.room_number, property.building].filter(Boolean).join(' · ') || t('apd.unnamedProperty')}
           </Text>
           <View style={styles.badgeWrap}>
             <View style={[styles.badge, { backgroundColor: colors.alpha(statusMeta.rgb, 0.12) }]}>
@@ -247,38 +260,38 @@ export default function AdminPropertyDetailScreen() {
         </View>
         <View style={styles.addrRow}>
           <Ionicons name="location-outline" size={14} color={colors.ink3} />
-          <Text style={styles.addr}>{property.address || '暂无地址'}</Text>
+          <Text style={styles.addr}>{property.address || t('apd.noAddress')}</Text>
         </View>
       </View>
 
       {/* 关键指标 */}
       <View style={styles.keyRow}>
         <View style={styles.keyCell}>
-          <Text style={styles.keyLabel}>月租</Text>
+          <Text style={styles.keyLabel}>{t('edit.labelRent')}</Text>
           <Text style={[styles.keyValue, { color: colors.primary }]}>
             {symOf(property.currency)}
             {Number(property.monthly_rent || 0).toLocaleString()}
           </Text>
         </View>
         <View style={styles.keyCell}>
-          <Text style={styles.keyLabel}>面积</Text>
+          <Text style={styles.keyLabel}>{t('pub.size')}</Text>
           <Text style={styles.keyValue}>{property.size_sqm ? `${property.size_sqm}㎡` : '-'}</Text>
         </View>
         <View style={styles.keyCell}>
-          <Text style={styles.keyLabel}>户型</Text>
+          <Text style={styles.keyLabel}>{t('pub.layout')}</Text>
           <Text style={styles.keyValue}>
-            {property.bedrooms ? `${property.bedrooms} 卧` : '-'}
-            {property.bathrooms ? ` ${property.bathrooms} 浴` : ''}
+            {property.bedrooms ? t('adm.psSpecBed', { n: property.bedrooms }) : '-'}
+            {property.bathrooms ? ` ${t('adm.psSpecBath', { n: property.bathrooms })}` : ''}
           </Text>
         </View>
         <View style={styles.keyCell}>
-          <Text style={styles.keyLabel}>状态</Text>
+          <Text style={styles.keyLabel}>{t('apd.statusLabel')}</Text>
           <Text style={[styles.keyValue, { color: statusMeta.color }]}>{statusMeta.label}</Text>
         </View>
       </View>
 
       {/* 房源信息 */}
-      <Text style={styles.sectionTitle}>房源信息</Text>
+      <Text style={styles.sectionTitle}>{t('listing.propInfo')}</Text>
       <View style={styles.infoCard}>
         {infoRows.map((row) => (
           <View key={row.label} style={[styles.infoItem, row.wide && styles.infoItemWide]}>
@@ -298,14 +311,14 @@ export default function AdminPropertyDetailScreen() {
           <View style={[styles.actionIcon, { backgroundColor: colors.alpha(colors.primaryRgb, 0.12) }]}>
             <Ionicons name="create-outline" size={18} color={colors.primary} />
           </View>
-          <Text style={styles.actionLabel}>编辑房源</Text>
+          <Text style={styles.actionLabel}>{t('prop.editTitle')}</Text>
         </TouchableOpacity>
       </View>
 
       {/* 当前租客 */}
-      <Text style={styles.sectionTitle}>当前租客</Text>
+      <Text style={styles.sectionTitle}>{t('opd.currentTenant')}</Text>
       {!currentLease ? (
-        <EmptyState icon="person-outline" title="暂无租客" sub="房源签约后这里会展示在租租客与租金状态" />
+        <EmptyState icon="person-outline" title={t('apd.noTenantTitle')} sub={t('apd.noTenantSub')} />
       ) : (
         <View style={styles.tenantCard}>
           <View style={styles.tenantTop}>
@@ -316,10 +329,10 @@ export default function AdminPropertyDetailScreen() {
             </View>
             <View style={styles.tenantInfo}>
               <Text style={styles.tenantName} numberOfLines={1}>
-                {currentLease.tenant_name || '未命名租客'}
+                {currentLease.tenant_name || t('apd.unnamedTenant')}
               </Text>
               <Text style={styles.tenantMeta} numberOfLines={1}>
-                租客 · {currentLease.tenant_id ? currentLease.tenant_id.slice(0, 8).toUpperCase() : '-'}
+                {t('perm.role.tenant')} · {currentLease.tenant_id ? currentLease.tenant_id.slice(0, 8).toUpperCase() : '-'}
               </Text>
             </View>
             {leaseMeta && (
@@ -330,31 +343,31 @@ export default function AdminPropertyDetailScreen() {
           </View>
 
           <View style={styles.tenantRow}>
-            <Text style={styles.tenantRowLabel}>租期</Text>
+            <Text style={styles.tenantRowLabel}>{t('apd.leaseTerm')}</Text>
             <Text style={styles.tenantRowValue}>
-              {fmtDate(currentLease.start_date)} 至 {fmtDate(currentLease.end_date)}
+              {t('apd.dateRange', { a: fmtDate(currentLease.start_date), b: fmtDate(currentLease.end_date) })}
             </Text>
           </View>
           <View style={styles.tenantRow}>
-            <Text style={styles.tenantRowLabel}>月租金</Text>
+            <Text style={styles.tenantRowLabel}>{t('opd.monthlyRent')}</Text>
             <Text style={styles.tenantRowValue}>
               {symOf(currentLease.currency)}
               {Number(currentLease.monthly_rent || 0).toLocaleString()}
             </Text>
           </View>
           <View style={styles.tenantRow}>
-            <Text style={styles.tenantRowLabel}>租金状态</Text>
+            <Text style={styles.tenantRowLabel}>{t('apd.rentStatus')}</Text>
             {pendingPayments === null ? (
               <Text style={styles.tenantRowValue}>-</Text>
             ) : pendingPayments > 0 ? (
               <View style={[styles.badge, { backgroundColor: colors.alpha(colors.warningRgb, 0.12) }]}>
                 <Text style={[styles.badgeText, { color: colors.warning }]}>
-                  待支付 {pendingPayments} 笔
+                  {t('apd.pendingN', { n: pendingPayments })}
                 </Text>
               </View>
             ) : (
               <View style={[styles.badge, { backgroundColor: colors.alpha(colors.successRgb, 0.12) }]}>
-                <Text style={[styles.badgeText, { color: colors.success }]}>无欠缴</Text>
+                <Text style={[styles.badgeText, { color: colors.success }]}>{t('apd.noArrears')}</Text>
               </View>
             )}
           </View>
@@ -362,26 +375,26 @@ export default function AdminPropertyDetailScreen() {
       )}
 
       {/* 维修记录 */}
-      <Text style={styles.sectionTitle}>维修记录</Text>
+      <Text style={styles.sectionTitle}>{t('apd.maintRecords')}</Text>
       {tickets.length === 0 ? (
-        <EmptyState icon="construct-outline" title="暂无维修记录" sub="该房源提交报修后会展示在这里" />
+        <EmptyState icon="construct-outline" title={t('apd.noMaintTitle')} sub={t('apd.noMaintSub')} />
       ) : (
-        tickets.map((t) => {
-          const meta = TICKET_STATUS[t.status ?? 'open'] ?? {
-            label: t.status ?? '未知',
+        tickets.map((ticket) => {
+          const meta = TICKET_STATUS(t)[ticket.status ?? 'open'] ?? {
+            label: ticket.status ?? t('common.unknown'),
             color: colors.ink2,
             rgb: colors.primaryRgb,
           };
           return (
-            <View key={t.id} style={styles.ticketCard}>
+            <View key={ticket.id} style={styles.ticketCard}>
               <View style={[styles.ticketDot, { backgroundColor: meta.color }]} />
               <View style={styles.ticketBody}>
                 <View style={styles.ticketHead}>
-                  <Text style={styles.ticketTitle} numberOfLines={1}>{t.title || '报修工单'}</Text>
-                  <Text style={styles.ticketDate}>{fmtDate(t.created_at)}</Text>
+                  <Text style={styles.ticketTitle} numberOfLines={1}>{ticket.title || t('apd.repairTicket')}</Text>
+                  <Text style={styles.ticketDate}>{fmtDate(ticket.created_at)}</Text>
                 </View>
-                {!!t.description && (
-                  <Text style={styles.ticketDesc} numberOfLines={2}>{t.description}</Text>
+                {!!ticket.description && (
+                  <Text style={styles.ticketDesc} numberOfLines={2}>{ticket.description}</Text>
                 )}
               </View>
               <View style={[styles.badge, { backgroundColor: colors.alpha(meta.rgb, 0.12) }]}>

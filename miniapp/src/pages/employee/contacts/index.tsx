@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { employeesApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface Colleague {
@@ -42,6 +43,7 @@ function pickList(res: any): Colleague[] {
 }
 
 export default function EmployeeContactsPage() {
+  const { t } = useI18n()
   const [colleagues, setColleagues] = useState<Colleague[]>([])
   const [loading, setLoading] = useState(false)
   const [keyword, setKeyword] = useState('')
@@ -99,7 +101,7 @@ export default function EmployeeContactsPage() {
   // 按部门分组（保持接口返回的首现顺序）
   const groups: { name: string; items: Colleague[] }[] = []
   visible.forEach((e) => {
-    const name = e.department || '其他'
+    const name = e.department || t('common.other')
     let g = groups.find((it) => it.name === name)
     if (!g) {
       g = { name, items: [] }
@@ -127,12 +129,12 @@ export default function EmployeeContactsPage() {
         </View>
         <View className='c-item__body'>
           <Text className='c-item__name'>{e.full_name || '-'}</Text>
-          <Text className='c-item__pos'>{e.position || '员工'}</Text>
+          <Text className='c-item__pos'>{e.position || t('perm.role.employee')}</Text>
           {e.phone ? <Text className='c-item__phone'>{e.phone}</Text> : null}
         </View>
         <View className='c-item__ops'>
           <View className='c-op' hoverClass='c-op--hover' onClick={sendMessage}>
-            <Text className='c-op__text'>聊</Text>
+            <Text className='c-op__text'>{t('contacts.chatIcon')}</Text>
           </View>
           {e.phone ? (
             <View
@@ -140,7 +142,7 @@ export default function EmployeeContactsPage() {
               hoverClass='c-op--hover'
               onClick={() => callPhone(e.phone)}
             >
-              <Text className='c-op__text c-op__text--primary'>拨</Text>
+              <Text className='c-op__text c-op__text--primary'>{t('contacts.callIcon')}</Text>
             </View>
           ) : null}
         </View>
@@ -153,11 +155,11 @@ export default function EmployeeContactsPage() {
       <View className='page-container'>
         {/* 搜索 */}
         <View className='c-search'>
-          <Text className='c-search__icon'>搜</Text>
+          <Text className='c-search__icon'>{t('contacts.searchIcon')}</Text>
           <Input
             className='c-search__input'
             value={keyword}
-            placeholder='搜索姓名/部门/电话'
+            placeholder={t('contacts.searchPlaceholder')}
             placeholderClass='c-search__placeholder'
             onInput={(e: any) => onKeywordChange(e.detail.value)}
           />
@@ -166,13 +168,13 @@ export default function EmployeeContactsPage() {
         {loading && colleagues.length === 0 ? (
           <View className='c-state'>
             <View className='c-state__spinner' />
-            <Text className='c-state__title'>正在加载通讯录</Text>
+            <Text className='c-state__title'>{t('contacts.loading')}</Text>
           </View>
         ) : groups.length === 0 ? (
           <View className='c-state'>
-            <Text className='c-state__icon'>员</Text>
-            <Text className='c-state__title'>暂无同事信息</Text>
-            <Text className='c-state__desc'>换个关键词试试</Text>
+            <Text className='c-state__icon'>{t('contacts.emptyIcon')}</Text>
+            <Text className='c-state__title'>{t('contacts.empty')}</Text>
+            <Text className='c-state__desc'>{t('contacts.emptyDesc')}</Text>
           </View>
         ) : (
           groups.map((g) => (
@@ -180,7 +182,7 @@ export default function EmployeeContactsPage() {
               <View className='c-group__head'>
                 <Text className='c-group__title'>{g.name}</Text>
                 <View className={`c-dept c-dept--${TONE_CLASS[getTone({ department: g.name } as Colleague)] || 'primary'}`}>
-                  <Text className='c-dept__text'>{g.items.length} 人</Text>
+                  <Text className='c-dept__text'>{t('contacts.peopleCount', { n: g.items.length })}</Text>
                 </View>
               </View>
               {g.items.map((e) => renderItem(e))}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Form,
@@ -67,24 +68,25 @@ const bannerColorFor = (seed: string) => {
 const formatRent = (v: any) => Number(v || 0).toLocaleString()
 
 const statusLabelMap: Record<string, string> = {
-  vacant: '空置',
-  rented: '在租',
-  maintenance: '维护中',
-  reserved: '已预订',
+  vacant: 'ownerProperties.stVacant',
+  rented: 'ownerProperties.stRented',
+  maintenance: 'ownerProperties.stMaintenance',
+  reserved: 'ownerProperties.stReserved',
 }
 
 const propertyTypeMap: Record<string, string> = {
-  apartment: '公寓',
-  condo: '公寓',
-  villa: '别墅',
-  house: '住宅',
-  shop: '商铺',
-  commercial: '商业',
-  office: '写字楼',
+  apartment: 'ownerProperties.typeApartment',
+  condo: 'ownerProperties.typeApartment',
+  villa: 'ownerProperties.typeVilla',
+  house: 'ownerProperties.typeHouse',
+  shop: 'ownerProperties.typeShop',
+  commercial: 'ownerProperties.typeCommercial',
+  office: 'ownerProperties.typeOffice',
 }
 
 const Properties = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const user = useAuthStore((s) => s.user)
@@ -100,7 +102,7 @@ const Properties = () => {
         const payload = res.data?.data ?? res.data
         return payload?.items ?? []
       } catch (err: any) {
-        message.error(err?.response?.data?.message || '获取房源数据失败')
+        message.error(err?.response?.data?.message || t('ownerProperties.errFetch'))
         return []
       }
     },
@@ -313,21 +315,21 @@ const Properties = () => {
 
   const handleDelete = (id: string) => {
     Modal.confirm({
-      title: '删除房源',
+      title: t('ownerProperties.deleteTitle'),
       icon: <ExclamationCircleOutlined />,
-      content: '确定删除该房源吗？删除后不可恢复。',
-      okText: '删除',
+      content: t('ownerProperties.deleteContent'),
+      okText: t('common.delete'),
       okType: 'danger',
-      cancelText: '取消',
+      cancelText: t('common.cancel'),
       onOk: async () => {
         try {
           await propertiesApi.delete(String(id))
-          message.success('房源已删除')
+          message.success(t('ownerProperties.msgDeleted'))
           queryClient.setQueryData<OwnerProperty[]>(propsQueryKey, (old) =>
             (old ?? []).filter((p) => String(p.id) !== String(id)),
           )
         } catch (err: any) {
-          message.error(err?.response?.data?.detail || '删除失败，请稍后重试')
+          message.error(err?.response?.data?.detail || t('ownerProperties.errDeleteFailed'))
         }
       },
     })
@@ -341,17 +343,17 @@ const Properties = () => {
       const payload = editingId ? { ...values, photos } : values
       if (editingId) {
         await propertiesApi.update(editingId, payload)
-        message.success('房源已更新')
+        message.success(t('ownerProperties.msgUpdated'))
       } else {
         await propertiesApi.create(payload)
-        message.success('新增成功')
+        message.success(t('ownerProperties.msgCreated'))
       }
       setModalOpen(false)
       refresh()
     } catch (err: any) {
       if (err?.errorFields) return
       const detail = err?.response?.data?.detail
-      message.error(typeof detail === 'string' && detail ? detail : err?.response?.data?.message || '保存失败，请稍后重试')
+      message.error(typeof detail === 'string' && detail ? detail : err?.response?.data?.message || t('ownerProperties.errSaveFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -360,7 +362,7 @@ const Properties = () => {
   // ==================== 照片上传/删除（仅编辑态） ====================
 
   const uploadPhoto = async (file: File) => {
-    if (!editingId) { message.warning('请先保存房源再上传照片'); return }
+    if (!editingId) { message.warning(t('ownerProperties.warnSaveFirst')); return }
     try {
       const res = await propertiesApi.uploadPhotos(editingId, [file])
       const d = res.data?.data ?? res.data
@@ -371,7 +373,7 @@ const Properties = () => {
         return next
       })
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '照片上传失败，请稍后重试')
+      message.error(err?.response?.data?.detail || t('ownerProperties.errPhotoUpload'))
     }
   }
 
@@ -382,7 +384,7 @@ const Properties = () => {
       const d = res.data?.data ?? res.data
       setPhotos(Array.isArray(d?.photos) ? d.photos : [])
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '照片删除失败，请稍后重试')
+      message.error(err?.response?.data?.detail || t('ownerProperties.errPhotoDelete'))
     }
   }
 
@@ -397,7 +399,7 @@ const Properties = () => {
 
   const renderListItem = (item: OwnerProperty) => {
     const title = item.name || (item.project_name ? `${item.project_name} · ${item.room_number || ''}` : (item.room_number || item.address || '—'))
-    const ptype = propertyTypeMap[item.property_type || ''] || item.property_type || '公寓'
+    const ptype = propertyTypeMap[item.property_type || ''] || item.property_type || 'ownerProperties.typeApartment'
     const statusKey = (item.status || 'vacant').toLowerCase()
     const beds = Number(item.bedrooms || 0)
     const baths = Number(item.bathrooms || 0)
@@ -421,7 +423,7 @@ const Properties = () => {
       >
         {/* 头部纯色 banner + 类型角标 */}
         <div className="rent-prop-card__banner" style={{ background: bannerColorFor(seed) }}>
-          <span className="rent-prop-card__type-badge">{ptype}</span>
+          <span className="rent-prop-card__type-badge">{t(ptype)}</span>
         </div>
 
         {/* 主体 */}
@@ -435,17 +437,17 @@ const Properties = () => {
             </span>
             <span className="rent-prop-card__stat">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4"/></svg>
-              {beds} 卧
+              {beds} {t('ownerProperties.unitBedroom')}
             </span>
             <span className="rent-prop-card__stat">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
-              {baths} 浴
+              {baths} {t('ownerProperties.unitBath')}
             </span>
           </div>
           <div className="rent-prop-card__rent-row">
-            <span className="rent-prop-card__rent">{curSymbol}{formatRent(rent)}<span className="rent-prop-card__rent-unit">/月</span></span>
+            <span className="rent-prop-card__rent">{curSymbol}{formatRent(rent)}<span className="rent-prop-card__rent-unit">{t('ownerProperties.perMonth')}</span></span>
             <span className={`rent-badge rent-badge--${statusTone}`}>
-              {statusLabelMap[statusKey] || item.status}
+              {t(statusLabelMap[statusKey] || item.status)}
             </span>
           </div>
         </div>
@@ -456,27 +458,27 @@ const Properties = () => {
             className="rent-btn rent-btn--ghost rent-btn--sm"
             onClick={(e) => { e.stopPropagation(); navigate(`/properties/detail/${item.id}`) }}
           >
-            查看详情
+            {t('ownerProperties.viewDetail')}
           </a>
           <button
             className="rent-btn rent-btn--ghost rent-btn--sm"
             onClick={(e) => { e.stopPropagation(); navigate('/owner/marketing') }}
           >
-            委托挂牌
+            {t('ownerProperties.entrustListing')}
           </button>
           <button
             className="rent-btn rent-btn--secondary rent-btn--sm"
             onClick={(e) => { e.stopPropagation(); openEdit(item) }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
-            编辑
+            {t('common.edit')}
           </button>
           <button
             className="rent-btn rent-btn--danger rent-btn--sm"
             onClick={(e) => { e.stopPropagation(); handleDelete(item.id) }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            删除
+            {t('common.delete')}
           </button>
         </div>
       </div>
@@ -491,16 +493,16 @@ const Properties = () => {
       {/* Page Header（对齐管理员端 admin-properties） */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">房源管理</h2>
-          <p className="rent-page-header__subtitle">管理名下所有房源，点击卡片查看详情</p>
+          <h2 className="rent-page-header__title">{t('ownerProperties.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('ownerProperties.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <button type="button" className="rent-btn rent-btn--primary" onClick={() => navigate('/owner/marketing')}>
-            委托挂牌
+            {t('ownerProperties.entrustListing')}
           </button>
           <button type="button" className="rent-btn rent-btn--primary" onClick={openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            新增房源
+            {t('ownerProperties.createTitle')}
           </button>
         </div>
       </div>
@@ -510,33 +512,33 @@ const Properties = () => {
         <div className="rent-card__body" style={{ padding: 12 }}>
           <div className="rent-grid rent-grid--4" style={{ gap: 12 }}>
             <div className="rent-stat-card">
-              <div className="rent-stat-card__label">名下房源</div>
+              <div className="rent-stat-card__label">{t('ownerProperties.statTotal')}</div>
               <div className="rent-stat-card__value">
-                {totalProps} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>套</span>
+                {totalProps} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerProperties.unitSuit')}</span>
               </div>
-              <div className="rent-stat-card__delta">{statusCount.for_sale} 套在售</div>
+              <div className="rent-stat-card__delta">{statusCount.for_sale} {t('ownerProperties.onSaleSuffix')}</div>
             </div>
             <div className="rent-stat-card">
-              <div className="rent-stat-card__label">在租房源</div>
+              <div className="rent-stat-card__label">{t('ownerProperties.statRented')}</div>
               <div className="rent-stat-card__value">
-                {statusCount.rented} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>套</span>
+                {statusCount.rented} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerProperties.unitSuit')}</span>
               </div>
-              <div className="rent-stat-card__delta rent-stat-card__delta--up">占比 {occupancyPct}%</div>
+              <div className="rent-stat-card__delta rent-stat-card__delta--up">{t('ownerProperties.occupancyPrefix')} {occupancyPct}%</div>
             </div>
             <div className="rent-stat-card">
-              <div className="rent-stat-card__label">空置房源</div>
+              <div className="rent-stat-card__label">{t('ownerProperties.statVacant')}</div>
               <div className="rent-stat-card__value">
-                {statusCount.vacant} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>套</span>
+                {statusCount.vacant} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerProperties.unitSuit')}</span>
               </div>
-              <div className="rent-stat-card__delta">待挂牌出租</div>
+              <div className="rent-stat-card__delta">{t('ownerProperties.pendingList')}</div>
             </div>
             <div className="rent-stat-card">
-              <div className="rent-stat-card__label">委托出租</div>
+              <div className="rent-stat-card__label">{t('ownerProperties.statEntrusted')}</div>
               <div className="rent-stat-card__value">
                 {statusCount.rented + statusCount.vacant}{' '}
-                <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>套</span>
+                <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerProperties.unitSuit')}</span>
               </div>
-              <div className="rent-stat-card__delta">含在售共 {statusCount.for_sale} 套</div>
+              <div className="rent-stat-card__delta">{t('ownerProperties.includeOnSalePrefix')} {statusCount.for_sale} {t('ownerProperties.unitSuit')}</div>
             </div>
           </div>
         </div>
@@ -548,34 +550,34 @@ const Properties = () => {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input
             type="text"
-            placeholder="搜索房号 / 地址 / 楼栋"
+            placeholder={t('ownerProperties.phSearch')}
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
           />
         </div>
         <select className="rent-form-select rent-filter-bar__select" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">全部状态</option>
-          <option value="rented">在租</option>
-          <option value="vacant">空置</option>
-          <option value="maintenance">维护中</option>
-          <option value="reserved">已预订</option>
+          <option value="">{t('ownerProperties.allStatus')}</option>
+          <option value="rented">{t('ownerProperties.stRented')}</option>
+          <option value="vacant">{t('ownerProperties.stVacant')}</option>
+          <option value="maintenance">{t('ownerProperties.stMaintenance')}</option>
+          <option value="reserved">{t('ownerProperties.stReserved')}</option>
         </select>
         <select className="rent-form-select rent-filter-bar__select" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)}>
-          <option value="">不限房型</option>
-          <option value="0">单间</option>
-          <option value="1">1室</option>
-          <option value="2">2室</option>
-          <option value="3">3室</option>
-          <option value="4">4室及以上</option>
+          <option value="">{t('ownerProperties.allLayout')}</option>
+          <option value="0">{t('ownerProperties.layoutStudio')}</option>
+          <option value="1">{t('ownerProperties.layoutRoom', { n: 1 })}</option>
+          <option value="2">{t('ownerProperties.layoutRoom', { n: 2 })}</option>
+          <option value="3">{t('ownerProperties.layoutRoom', { n: 3 })}</option>
+          <option value="4">{t('ownerProperties.layout4Plus')}</option>
         </select>
         <select className="rent-form-select rent-filter-bar__select" value={priceRange} onChange={(e) => setPriceRange(e.target.value)}>
-          <option value="">不限价格</option>
-          <option value="0-5000">5000以下</option>
+          <option value="">{t('ownerProperties.allPrice')}</option>
+          <option value="0-5000">{t('ownerProperties.priceBelow', { n: '5000' })}</option>
           <option value="5000-10000">5000-10000</option>
           <option value="10000-20000">10000-20000</option>
           <option value="20000-50000">20000-50000</option>
-          <option value="50000+">50000以上</option>
-          <option value="custom">自定义价格</option>
+          <option value="50000+">{t('ownerProperties.priceAbove', { n: '50000' })}</option>
+          <option value="custom">{t('ownerProperties.customPrice')}</option>
         </select>
         {priceRange === 'custom' && (
           <div className="rent-filter-bar__custom">
@@ -584,7 +586,7 @@ const Properties = () => {
               type="number"
               min={0}
               value={priceCustomMin}
-              placeholder="最低"
+              placeholder={t('ownerProperties.phMin')}
               onChange={(e) => setPriceCustomMin(e.target.value)}
             />
             <span className="rent-filter-bar__custom-sep">-</span>
@@ -593,18 +595,18 @@ const Properties = () => {
               type="number"
               min={0}
               value={priceCustomMax}
-              placeholder="最高"
+              placeholder={t('ownerProperties.phMax')}
               onChange={(e) => setPriceCustomMax(e.target.value)}
             />
           </div>
         )}
         <select className="rent-form-select rent-filter-bar__select" value={areaRange} onChange={(e) => setAreaRange(e.target.value)}>
-          <option value="">不限面积</option>
-          <option value="0-50">50㎡以下</option>
+          <option value="">{t('ownerProperties.allArea')}</option>
+          <option value="0-50">{t('ownerProperties.areaBelow', { n: '50' })}</option>
           <option value="50-100">50-100㎡</option>
           <option value="100-200">100-200㎡</option>
-          <option value="200+">200㎡以上</option>
-          <option value="custom">自定义面积</option>
+          <option value="200+">{t('ownerProperties.areaAbove', { n: '200' })}</option>
+          <option value="custom">{t('ownerProperties.customArea')}</option>
         </select>
         {areaRange === 'custom' && (
           <div className="rent-filter-bar__custom">
@@ -613,7 +615,7 @@ const Properties = () => {
               type="number"
               min={0}
               value={areaCustomMin}
-              placeholder="最小"
+              placeholder={t('ownerProperties.phMinArea')}
               onChange={(e) => setAreaCustomMin(e.target.value)}
             />
             <span className="rent-filter-bar__custom-sep">-</span>
@@ -622,15 +624,15 @@ const Properties = () => {
               type="number"
               min={0}
               value={areaCustomMax}
-              placeholder="最大"
+              placeholder={t('ownerProperties.phMaxArea')}
               onChange={(e) => setAreaCustomMax(e.target.value)}
             />
           </div>
         )}
         <select className="rent-form-select rent-filter-bar__select" value={sort} onChange={(e) => setSort(e.target.value)}>
-          <option value="created">最近创建</option>
-          <option value="rent-asc">租金升序</option>
-          <option value="rent-desc">租金降序</option>
+          <option value="created">{t('ownerProperties.sortCreated')}</option>
+          <option value="rent-asc">{t('ownerProperties.sortRentAsc')}</option>
+          <option value="rent-desc">{t('ownerProperties.sortRentDesc')}</option>
         </select>
       </div>
 
@@ -641,10 +643,10 @@ const Properties = () => {
             <div className="rent-empty__icon">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </div>
-            <div>暂无房源</div>
+            <div>{t('ownerProperties.empty')}</div>
             <div style={{ marginTop: 12 }}>
               <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={openCreate}>
-                新增房源
+                {t('ownerProperties.createTitle')}
               </button>
             </div>
           </div>
@@ -658,10 +660,10 @@ const Properties = () => {
       {/* Pagination（对齐管理员端 rent-pagination） */}
       {total > 0 && (
         <div className="rent-pagination">
-          <span className="rent-pagination__info">共 {total} 条记录</span>
+          <span className="rent-pagination__info">{t('ownerProperties.totalRecords', { total })}</span>
           <button
             className="rent-pagination__btn"
-            aria-label="上一页"
+            aria-label={t('ownerProperties.prevPage')}
             disabled={page <= 1}
             onClick={() => setPage(Math.max(1, page - 1))}
           >
@@ -683,7 +685,7 @@ const Properties = () => {
           )}
           <button
             className="rent-pagination__btn"
-            aria-label="下一页"
+            aria-label={t('ownerProperties.nextPage')}
             disabled={page >= totalPages}
             onClick={() => setPage(Math.min(totalPages, page + 1))}
           >
@@ -694,13 +696,13 @@ const Properties = () => {
 
       {/* 新增/编辑弹窗（对齐管理员端 Modal+Form，宽 640） */}
       <Modal
-        title={editingId ? '编辑房源' : '新增房源'}
+        title={editingId ? t('ownerProperties.editTitle') : t('ownerProperties.createTitle')}
         open={modalOpen}
         onCancel={handleCancel}
         onOk={handleSubmit}
         confirmLoading={submitting}
-        okText="保存"
-        cancelText="取消"
+        okText={t('common.save')}
+        cancelText={t('common.cancel')}
         destroyOnClose
         width={640}
       >
@@ -712,33 +714,33 @@ const Properties = () => {
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="房号" name="room_number" rules={[{ required: true, message: '请输入房号' }]}>
-                <Input placeholder="如 12A-08" />
+              <Form.Item label={t('ownerProperties.labelRoomNo')} name="room_number" rules={[{ required: true, message: t('ownerProperties.reqRoomNo') }]}>
+                <Input placeholder={t('ownerProperties.phRoomNo')} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="楼栋" name="building">
-                <Input placeholder="如 A 栋" />
+              <Form.Item label={t('ownerProperties.labelBuilding')} name="building">
+                <Input placeholder={t('ownerProperties.phBuilding')} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item label="楼层" name="floor">
-                <InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder="如 12" />
+              <Form.Item label={t('ownerProperties.labelFloor')} name="floor">
+                <InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('ownerProperties.phFloor')} />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="类型" name="property_type">
+              <Form.Item label={t('ownerProperties.labelType')} name="property_type">
                 <Select
-                  placeholder="选择类型"
-                  options={Object.entries(propertyTypeMap).map(([k, v]) => ({ value: k, label: v }))}
+                  placeholder={t('ownerProperties.phType')}
+                  options={Object.entries(propertyTypeMap).map(([k, v]) => ({ value: k, label: t(v) }))}
                   allowClear
                 />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="币种" name="currency" rules={[{ required: true, message: '请选择币种' }]}>
+              <Form.Item label={t('ownerProperties.labelCurrency')} name="currency" rules={[{ required: true, message: t('ownerProperties.reqCurrency') }]}>
                 <Select
                   options={[
                     { value: 'THB', label: 'THB' },
@@ -749,68 +751,68 @@ const Properties = () => {
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item label="地址" name="address" rules={[{ required: true, message: '请输入地址' }]}>
-            <Input placeholder="如 88 Sukhumvit Rd, Bangkok" />
+          <Form.Item label={t('ownerProperties.labelAddress')} name="address" rules={[{ required: true, message: t('ownerProperties.reqAddress') }]}>
+            <Input placeholder={t('ownerProperties.phAddress')} />
           </Form.Item>
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item label="月租" name="monthly_rent" rules={[{ required: true, message: '请输入月租' }]}>
-                <InputNumber style={{ width: '100%' }} min={0} placeholder="如 2500" />
+              <Form.Item label={t('ownerProperties.labelRent')} name="monthly_rent" rules={[{ required: true, message: t('ownerProperties.reqRent') }]}>
+                <InputNumber style={{ width: '100%' }} min={0} placeholder={t('ownerProperties.phRent')} />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="押金" name="deposit_amount">
-                <InputNumber style={{ width: '100%' }} min={0} placeholder="如 5000" />
+              <Form.Item label={t('ownerProperties.labelDeposit')} name="deposit_amount">
+                <InputNumber style={{ width: '100%' }} min={0} placeholder={t('ownerProperties.phDeposit')} />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="押金（月）" name="deposit_months">
-                <InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder="如 2" />
+              <Form.Item label={t('ownerProperties.labelDepositMonths')} name="deposit_months">
+                <InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('ownerProperties.phMonths')} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item label="面积（㎡）" name="size_sqm" rules={[{ required: true, message: '请输入面积' }]}>
-                <InputNumber style={{ width: '100%' }} min={0} placeholder="如 58" />
+              <Form.Item label={t('ownerProperties.labelSize')} name="size_sqm" rules={[{ required: true, message: t('ownerProperties.reqSize') }]}>
+                <InputNumber style={{ width: '100%' }} min={0} placeholder={t('ownerProperties.phSize')} />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="卧室（室）" name="bedrooms">
-                <InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder="如 2" />
+              <Form.Item label={t('ownerProperties.labelBedrooms')} name="bedrooms">
+                <InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('ownerProperties.phBedrooms')} />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="卫浴（厅）" name="bathrooms">
-                <InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder="如 1" />
+              <Form.Item label={t('ownerProperties.labelBathrooms')} name="bathrooms">
+                <InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('ownerProperties.phBath')} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col span={10}>
-              <Form.Item label="状态" name="status" rules={[{ required: true, message: '请选择状态' }]}>
+              <Form.Item label={t('common.status')} name="status" rules={[{ required: true, message: t('ownerProperties.reqStatus') }]}>
                 <Select
-                  placeholder="选择状态"
-                  options={Object.entries(statusLabelMap).map(([k, v]) => ({ value: k, label: v }))}
+                  placeholder={t('ownerProperties.phStatus')}
+                  options={Object.entries(statusLabelMap).map(([k, v]) => ({ value: k, label: t(v) }))}
                 />
               </Form.Item>
             </Col>
             <Col span={10}>
-              <Form.Item label="可入住日期" name="available_from">
+              <Form.Item label={t('ownerProperties.labelAvailableFrom')} name="available_from">
                 <Input placeholder="YYYY-MM-DD" />
               </Form.Item>
             </Col>
             <Col span={4}>
-              <Form.Item label="带家具" name="furnished" valuePropName="checked">
+              <Form.Item label={t('ownerProperties.labelFurnished')} name="furnished" valuePropName="checked">
                 <Switch />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item label="描述" name="description">
-            <Input.TextArea rows={4} placeholder="房源描述、配套设施等" />
+          <Form.Item label={t('ownerProperties.labelDescription')} name="description">
+            <Input.TextArea rows={4} placeholder={t('ownerProperties.phDescription')} />
           </Form.Item>
           {editingId ? (
-            <Form.Item label="照片">
+            <Form.Item label={t('ownerProperties.labelPhotos')}>
               <Upload
                 listType="picture-card"
                 fileList={photoFileList}
@@ -824,12 +826,12 @@ const Properties = () => {
               >
                 <div>
                   <PlusOutlined />
-                  <div style={{ marginTop: 8 }}>上传</div>
+                  <div style={{ marginTop: 8 }}>{t('ownerProperties.upload')}</div>
                 </div>
               </Upload>
             </Form.Item>
           ) : null}
-          <Form.Item label="视频链接" name="video_url">
+          <Form.Item label={t('ownerProperties.labelVideoUrl')} name="video_url">
             <Input placeholder="https://..." allowClear />
           </Form.Item>
         </Form>

@@ -31,6 +31,8 @@ const PAYMENTS_KEY = (uid: string): string[] => ['payments', 'mine', uid];
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
+
 interface Payment {
   id: string;
   amount?: number;
@@ -44,14 +46,25 @@ interface Payment {
   [key: string]: any;
 }
 
-const typeLabels: Record<string, string> = {
-  rent: '租金',
-  deposit: '押金',
-  commission: '佣金',
-  service_fee: '服务费',
-  utility: '物业费',
-  tax: '税费',
-  refund: '退款',
+const typeLabelText = (t: TFunc, type?: string) => {
+  switch (type) {
+    case 'rent':
+      return t('pay.type.rent');
+    case 'deposit':
+      return t('pay.type.deposit');
+    case 'commission':
+      return t('pay.type.commission');
+    case 'service_fee':
+      return t('pay.type.service_fee');
+    case 'utility':
+      return t('pay.type.utility');
+    case 'tax':
+      return t('pay.type.tax');
+    case 'refund':
+      return t('pay.type.refund');
+    default:
+      return '';
+  }
 };
 
 const typeIcons: Record<string, IoniconName> = {
@@ -68,31 +81,31 @@ const typeIcons: Record<string, IoniconName> = {
  *  租客视角：待支付/已支付/全部 */
 type OwnerGroup = 'due' | 'paid' | 'overdue';
 
-const ownerStatusMap: Record<string, { text: string; group: OwnerGroup; color: string; bg: string }> = {
-  pending: { text: '待缴', group: 'due', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1) },
-  processing: { text: '处理中', group: 'due', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
-  succeeded: { text: '已缴', group: 'paid', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1) },
-  refunded: { text: '已退款', group: 'paid', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
-  failed: { text: '逾期', group: 'overdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
-  expired: { text: '逾期', group: 'overdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
-  disputed: { text: '争议', group: 'overdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
+const ownerStatusMap: Record<string, { key: string; group: OwnerGroup; color: string; bg: string }> = {
+  pending: { key: 'pay.ownerDue', group: 'due', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1) },
+  processing: { key: 'common.processing', group: 'due', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  succeeded: { key: 'pay.ownerPaid', group: 'paid', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1) },
+  refunded: { key: 'pay.status.refunded', group: 'paid', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  failed: { key: 'pay.ownerOverdue', group: 'overdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
+  expired: { key: 'pay.ownerOverdue', group: 'overdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
+  disputed: { key: 'pay.ownerDisputed', group: 'overdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
 };
 
 const ownerGroupOf = (status?: string): OwnerGroup => ownerStatusMap[status ?? '']?.group ?? 'due';
 
-const OWNER_FILTERS: { key: 'all' | OwnerGroup; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'due', label: '待缴' },
-  { key: 'paid', label: '已缴' },
-  { key: 'overdue', label: '逾期' },
+const ownerFilters = (t: TFunc): { key: 'all' | OwnerGroup; label: string }[] => [
+  { key: 'all', label: t('common.all') },
+  { key: 'due', label: t('pay.ownerDue') },
+  { key: 'paid', label: t('pay.ownerPaid') },
+  { key: 'overdue', label: t('pay.ownerOverdue') },
 ];
 
 // 付款记录以「月份」为主标题（对齐原型：2025年7月 + 金额 + 状态徽标）
-const monthLabel = (x?: string) => {
+const monthLabel = (t: TFunc, x?: string) => {
   if (!x) return '';
   const d = new Date(x);
   if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}年${d.getMonth() + 1}月`;
+  return t('pay.yearMonth', { y: d.getFullYear(), m: d.getMonth() + 1 });
 };
 
 // 是否已支付（含 succeeded 与历史 paid 两种状态）
@@ -113,6 +126,7 @@ const notify = (title?: string, message?: string) => {
  * 数据源统一为 paymentsApi.mine()。
  */
 export default function PaymentsScreen() {
+  const { t } = useI18n();
   const { canManageProperty, isActiveTenant } = useUserCapabilities();
   // 用户可能「既是业主又是租客」，能力驱动：有三种叠加，为避免嵌套滚动列表，双身份时用分段切换
   const showOwner = canManageProperty;
@@ -132,8 +146,8 @@ export default function PaymentsScreen() {
       <View style={styles.dualSeg}>
         {(
           [
-            { key: 'owner', label: '业主缴费' },
-            { key: 'tenant', label: '租客缴费' },
+            { key: 'owner', label: t('pay.ownerTab') },
+            { key: 'tenant', label: t('pay.tenantTab') },
           ] as const
         ).map((s) => {
           const active = activeView === s.key;
@@ -161,24 +175,25 @@ export default function PaymentsScreen() {
 /* ========================= 租客视角：待支付账单 ========================= */
 type PaySeg = 'pending' | 'paid' | 'all';
 
-const SEG_TABS: { key: PaySeg; label: string }[] = [
-  { key: 'pending', label: '待支付' },
-  { key: 'paid', label: '已支付' },
-  { key: 'all', label: '全部' },
+const segTabs = (t: TFunc): { key: PaySeg; label: string }[] => [
+  { key: 'pending', label: t('pay.status.pending') },
+  { key: 'paid', label: t('pay.status.succeeded') },
+  { key: 'all', label: t('common.all') },
 ];
 
-const tenantStatusMeta: Record<string, { text: string; color: string; bg: string }> = {
-  pending: { text: '待支付', color: colors.warning, bg: colors.warningLight },
-  processing: { text: '处理中', color: colors.primary, bg: colors.sidebarActive },
-  succeeded: { text: '已支付', color: colors.success, bg: colors.successLight },
-  failed: { text: '支付失败', color: colors.error, bg: colors.errorLight },
-  refunded: { text: '已退款', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
-  disputed: { text: '有争议', color: colors.error, bg: colors.errorLight },
-  expired: { text: '已过期', color: colors.ink3, bg: colors.surface2 },
+const tenantStatusMeta: Record<string, { key: string; color: string; bg: string }> = {
+  pending: { key: 'pay.status.pending', color: colors.warning, bg: colors.warningLight },
+  processing: { key: 'common.processing', color: colors.primary, bg: colors.sidebarActive },
+  succeeded: { key: 'pay.status.succeeded', color: colors.success, bg: colors.successLight },
+  failed: { key: 'pay.status.failed', color: colors.error, bg: colors.errorLight },
+  refunded: { key: 'pay.status.refunded', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  disputed: { key: 'pay.status.disputed', color: colors.error, bg: colors.errorLight },
+  expired: { key: 'mkt.lsExpired', color: colors.ink3, bg: colors.surface2 },
 };
 
 function TenantPaymentsView() {
   const { t } = useI18n();
+  const SEG_TABS = useMemo(() => segTabs(t), [t]);
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const uid = user?.id ?? 'anon';
@@ -233,9 +248,9 @@ function TenantPaymentsView() {
   }, [payments, seg]);
   const segTotal = segData.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const segMeta =
-    seg === 'pending' ? { text: '待支付', color: colors.warning }
-    : seg === 'paid' ? { text: '已支付', color: colors.success }
-    : { text: '全部', color: colors.ink2 };
+    seg === 'pending' ? { text: t('pay.status.pending'), color: colors.warning }
+    : seg === 'paid' ? { text: t('pay.status.succeeded'), color: colors.success }
+    : { text: t('common.all'), color: colors.ink2 };
 
   const now = new Date();
   const monthRent = pending.find((p) => {
@@ -243,12 +258,12 @@ function TenantPaymentsView() {
     const d = new Date(p.due_date);
     return !Number.isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   });
-  const heroLabel = monthRent ? '本月租金' : '待缴合计';
+  const heroLabel = monthRent ? t('pay.heroThisMonthRent') : t('pay.heroDueTotal');
   const heroAmount = monthRent ? Number(monthRent.amount || 0) : dueTotal;
 
   const channelFor = (cur?: string) => (cur === 'CNY' ? 'wechat' : cur === 'USD' ? 'stripe' : 'promptpay');
   const channelLabelFor = (cur?: string) =>
-    cur === 'CNY' ? '微信支付' : cur === 'USD' ? '银行卡 (Stripe)' : 'PromptPay';
+    cur === 'CNY' ? t('pay.channelWechat') : cur === 'USD' ? t('pay.channelStripe') : 'PromptPay';
 
   const handlePay = async (item: Payment) => {
     setPayingId(item.id);
@@ -269,10 +284,10 @@ function TenantPaymentsView() {
           channelLabel: channelLabelFor(item.currency),
         });
       } else {
-        notify('支付单已提交', '支付渠道已受理，请稍后查看支付结果。');
+        notify(t('pay.submittedTitle'), t('pay.submittedMsg'));
       }
     } catch (err: any) {
-      notify('支付失败', err?.response?.data?.detail || '请稍后重试');
+      notify(t('pay.status.failed'), err?.response?.data?.detail || t('prop.retryLater'));
     } finally {
       setPayingId(null);
     }
@@ -282,17 +297,22 @@ function TenantPaymentsView() {
     try {
       const res: any = await paymentsApi.receipt(item.id);
       const r = res?.data ?? res;
+      const channel = r.channel || '-';
       const lines = [
-        '=== 缴费凭证 ===',
-        `单号：${(r.reference_no || item.id).slice(0, 16)}`,
-        `金额：${formatMoney(r.amount ?? item.amount, r.currency ?? item.currency)}`,
-        `类型：${typeLabels[r.payment_type ?? ''] ?? r.payment_type ?? '-'}`,
-        `渠道：${r.channel || '-'}${r.channel_transaction_id ? `（${r.channel_transaction_id}）` : ''}`,
-        `支付时间：${fmtDate(r.paid_at ?? item.paid_at, 'minute')}`,
+        t('pay.receiptHeader'),
+        t('pay.receiptNo', { no: (r.reference_no || item.id).slice(0, 16) }),
+        t('pay.receiptAmount', { amount: formatMoney(r.amount ?? item.amount, r.currency ?? item.currency) }),
+        t('pay.receiptType', { type: typeLabelText(t, r.payment_type) || r.payment_type || '-' }),
+        t('pay.receiptChannel', {
+          channel: r.channel_transaction_id
+            ? t('pay.receiptChannelRef', { channel, ref: r.channel_transaction_id })
+            : channel,
+        }),
+        t('pay.receiptPaidAt', { time: fmtDate(r.paid_at ?? item.paid_at, 'minute') }),
       ].join('\n');
-      notify('缴费凭证', lines);
+      notify(t('pay.receiptTitle'), lines);
     } catch (err: any) {
-      notify('获取凭证失败', err?.response?.data?.detail || '请稍后重试');
+      notify(t('pay.receiptFail'), err?.response?.data?.detail || t('prop.retryLater'));
     }
   };
 
@@ -306,7 +326,7 @@ function TenantPaymentsView() {
     } catch (err: any) {
       setInvoiceItem(null);
       setInvoiceData(null);
-      notify('获取发票失败', err?.response?.data?.detail || '请稍后重试');
+      notify(t('pay.invoiceFail'), err?.response?.data?.detail || t('prop.retryLater'));
     } finally {
       setInvoiceLoading(false);
     }
@@ -321,21 +341,21 @@ function TenantPaymentsView() {
     return (
       <>
         <Ionicons name="document-text-outline" size={20} color={colors.primary} style={styles.invTitleIcon} />
-        <Text style={styles.invNo}>发票号 {iv.invoice_no || '—'}</Text>
-        <View style={styles.invRow}><Text style={styles.invLabel}>净金额</Text><Text style={styles.invValue}>{formatMoney(iv.net_amount, cur)}</Text></View>
-        <View style={styles.invRow}><Text style={styles.invLabel}>税额（{iv.vat_rate ? `${iv.vat_rate}%` : '—'}）</Text><Text style={styles.invValue}>{formatMoney(iv.tax_amount, cur)}</Text></View>
+        <Text style={styles.invNo}>{t('pay.invoiceNo', { no: iv.invoice_no || '—' })}</Text>
+        <View style={styles.invRow}><Text style={styles.invLabel}>{t('pay.invoiceNet')}</Text><Text style={styles.invValue}>{formatMoney(iv.net_amount, cur)}</Text></View>
+        <View style={styles.invRow}><Text style={styles.invLabel}>{t('pay.invoiceTax', { rate: iv.vat_rate ? `${iv.vat_rate}%` : '—' })}</Text><Text style={styles.invValue}>{formatMoney(iv.tax_amount, cur)}</Text></View>
         <View style={styles.invDivider} />
-        <View style={styles.invRow}><Text style={styles.invLabelBold}>合计（含税）</Text><Text style={styles.invTotal}>{formatMoney(iv.total_amount, cur)}</Text></View>
-        <Text style={styles.invMeta}>开票抬头：{iv.bill_to?.name || '—'}</Text>
-        {!!iv.bill_to?.email && <Text style={styles.invMeta}>电子邮箱：{iv.bill_to.email}</Text>}
-        {!!iv.description && <Text style={styles.invMeta}>项目：{iv.description}</Text>}
-        <Text style={styles.invMeta}>支付渠道：{iv.channel || '—'} · 支付时间：{fmtDate(iv.paid_at, 'minute')}</Text>
+        <View style={styles.invRow}><Text style={styles.invLabelBold}>{t('pay.invoiceTotal')}</Text><Text style={styles.invTotal}>{formatMoney(iv.total_amount, cur)}</Text></View>
+        <Text style={styles.invMeta}>{t('pay.invoiceBillTo', { name: iv.bill_to?.name || '—' })}</Text>
+        {!!iv.bill_to?.email && <Text style={styles.invMeta}>{t('pay.invoiceEmail', { email: iv.bill_to.email })}</Text>}
+        {!!iv.description && <Text style={styles.invMeta}>{t('pay.invoiceItem', { item: iv.description })}</Text>}
+        <Text style={styles.invMeta}>{t('pay.invoiceMeta', { channel: iv.channel || '—', time: fmtDate(iv.paid_at, 'minute') })}</Text>
       </>
     );
   };
 
   if (loading) {
-    return <View style={styles.center}><LoadingState label="加载账单中…" /></View>;
+    return <View style={styles.center}><LoadingState label={t('pay.loadingBills')} /></View>;
   }
 
   const bannerTarget = monthRent ?? pending[0];
@@ -346,10 +366,10 @@ function TenantPaymentsView() {
       <View style={styles.banner}>
         <View style={styles.bannerHead}>
           <Text style={styles.bannerLabel}>{heroLabel}</Text>
-          {pending.length > 0 && <View style={styles.bannerBadge}><Text style={styles.bannerBadgeText}>待支付</Text></View>}
+          {pending.length > 0 && <View style={styles.bannerBadge}><Text style={styles.bannerBadgeText}>{t('pay.status.pending')}</Text></View>}
         </View>
         <Text style={styles.bannerAmount}>{formatMoney(heroAmount, currency)}</Text>
-        <Text style={styles.bannerSub}>共 {pending.length} 笔待支付账单</Text>
+        <Text style={styles.bannerSub}>{t('pay.pendingBadgeCount', { n: pending.length })}</Text>
         {pending.length > 0 && (
           <Animated.View style={{ transform: [{ scale: bannerScale }] }}>
             <TouchableOpacity
@@ -360,61 +380,62 @@ function TenantPaymentsView() {
               onPressIn={() => pressIn(bannerScale)}
               onPressOut={() => pressOut(bannerScale)}
               accessibilityRole="button"
-              accessibilityLabel="立即缴费"
+              accessibilityLabel={t('pay.payNow')}
               accessibilityState={{ disabled: bannerPaying }}
             >
-              {bannerPaying ? <ActivityIndicator color={colors.primary} size="small" /> : <Text style={styles.bannerBtnText}>立即缴费</Text>}
+              {bannerPaying ? <ActivityIndicator color={colors.primary} size="small" /> : <Text style={styles.bannerBtnText}>{t('pay.payNow')}</Text>}
             </TouchableOpacity>
           </Animated.View>
         )}
       </View>
       <View style={styles.statRow}>
-        <View style={styles.stat}><Text style={styles.statLabel}>已支付</Text><Text style={styles.statValue}>{paidCount} 笔</Text></View>
-        <View style={styles.stat}><Text style={styles.statLabel}>待支付</Text><Text style={[styles.statValue, pending.length > 0 && { color: colors.warning }]}>{pending.length} 笔</Text></View>
+        <View style={styles.stat}><Text style={styles.statLabel}>{t('pay.status.succeeded')}</Text><Text style={styles.statValue}>{t('pay.countN', { n: paidCount })}</Text></View>
+        <View style={styles.stat}><Text style={styles.statLabel}>{t('pay.status.pending')}</Text><Text style={[styles.statValue, pending.length > 0 && { color: colors.warning }]}>{t('pay.countN', { n: pending.length })}</Text></View>
       </View>
       <View style={styles.segBar}>
         {SEG_TABS.map((s) => (
-          <TouchableOpacity key={s.key} style={[styles.segItem, seg === s.key && styles.segItemActive]} onPress={() => setSeg(s.key)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ selected: seg === s.key }} accessibilityLabel={`${s.label}账单`}>
+          <TouchableOpacity key={s.key} style={[styles.segItem, seg === s.key && styles.segItemActive]} onPress={() => setSeg(s.key)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ selected: seg === s.key }} accessibilityLabel={t('pay.segA11y', { label: s.label })}>
             <Text style={[styles.segText, seg === s.key && styles.segTextActive]}>{s.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
       <View style={styles.summaryRow}>
-        <Text style={styles.sectionTitle}>付款记录</Text>
-        <Text style={[styles.summaryText, { color: segMeta.color }]}>{segMeta.text} {segData.length} 笔 · 合计 {formatMoney(segTotal, currency)}</Text>
+        <Text style={styles.sectionTitle}>{t('pay.paymentRecords')}</Text>
+        <Text style={[styles.summaryText, { color: segMeta.color }]}>{t('pay.segSummary', { label: segMeta.text, n: segData.length, amount: formatMoney(segTotal, currency) })}</Text>
       </View>
       <FlatList
         data={segData}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
           const meta = tenantStatusMeta[item.status ?? 'pending'] ?? tenantStatusMeta.pending;
+          const typeLabel = typeLabelText(t, item.payment_type) || item.payment_type || t('pay.bill');
           const isPending = item.status === 'pending';
           const isSucceeded = item.status === 'succeeded';
           return (
             <View style={styles.card}>
               <View style={styles.rowMain}>
                 <View style={styles.rowLeft}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>{monthLabel(item.due_date) || typeLabels[item.payment_type ?? ''] || item.payment_type || '账单'}</Text>
-                  <Text style={styles.rowSub} numberOfLines={1}>{typeLabels[item.payment_type ?? ''] ?? '账单'} · 截止 {fmtDate(item.due_date, 'minute')}</Text>
+                  <Text style={styles.rowTitle} numberOfLines={1}>{monthLabel(t, item.due_date) || typeLabel}</Text>
+                  <Text style={styles.rowSub} numberOfLines={1}>{t('pay.dueBy', { type: typeLabel, date: fmtDate(item.due_date, 'minute') })}</Text>
                   {!!item.description && <Text style={styles.rowDesc} numberOfLines={1}>{item.description}</Text>}
                 </View>
                 <View style={styles.rowRight}>
                   <Text style={styles.rowAmount}>{formatMoney(item.amount, item.currency)}</Text>
-                  <View style={[styles.badge, { backgroundColor: meta.bg }]}><Text style={[styles.badgeText, { color: meta.color }]}>{meta.text}</Text></View>
+                  <View style={[styles.badge, { backgroundColor: meta.bg }]}><Text style={[styles.badgeText, { color: meta.color }]}>{t(meta.key)}</Text></View>
                 </View>
               </View>
               {isPending && (
-                <TouchableOpacity style={[styles.payBtn, payingId === item.id && styles.payBtnDisabled]} activeOpacity={0.8} onPress={() => handlePay(item)} disabled={payingId === item.id} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel={`${typeLabels[item.payment_type ?? ''] ?? '账单'}，去支付`}>
-                  {payingId === item.id ? <ActivityIndicator color={colors.primaryForeground} size="small" /> : <Text style={styles.payBtnText}>去支付</Text>}
+                <TouchableOpacity style={[styles.payBtn, payingId === item.id && styles.payBtnDisabled]} activeOpacity={0.8} onPress={() => handlePay(item)} disabled={payingId === item.id} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel={t('pay.payA11y', { type: typeLabel })}>
+                  {payingId === item.id ? <ActivityIndicator color={colors.primaryForeground} size="small" /> : <Text style={styles.payBtnText}>{t('pay.goPay')}</Text>}
                 </TouchableOpacity>
               )}
               {isSucceeded && (
                 <View style={styles.succBtnRow}>
-                  <TouchableOpacity style={styles.receiptBtn} activeOpacity={0.8} onPress={() => handleReceipt(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="查看缴费凭证"><Text style={styles.receiptBtnText}>查看凭证</Text></TouchableOpacity>
-                  <TouchableOpacity style={styles.receiptBtn} activeOpacity={0.8} onPress={() => openInvoice(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="查看发票"><Text style={styles.receiptBtnText}>发票</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.receiptBtn} activeOpacity={0.8} onPress={() => handleReceipt(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel={t('pay.viewReceiptA11y')}><Text style={styles.receiptBtnText}>{t('pay.viewReceipt')}</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.receiptBtn} activeOpacity={0.8} onPress={() => openInvoice(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel={t('pay.viewInvoiceA11y')}><Text style={styles.receiptBtnText}>{t('pay.invoice')}</Text></TouchableOpacity>
                 </View>
               )}
-              {!!item.paid_at && <Text style={styles.time}>支付时间 {fmtDate(item.paid_at, 'minute')}</Text>}
+              {!!item.paid_at && <Text style={styles.time}>{t('pay.paidAt', { time: fmtDate(item.paid_at, 'minute') })}</Text>}
             </View>
           );
         }}
@@ -423,7 +444,7 @@ function TenantPaymentsView() {
         ListEmptyComponent={loadError ? (
           <EmptyState icon="cloud-offline-outline" title={t('loadFailed')} sub={t('loadFailedSub')} actionLabel={t('retry')} onAction={refresh} />
         ) : (
-          <EmptyState icon="card-outline" title={seg === 'pending' ? '暂无待支付账单' : seg === 'paid' ? '暂无已支付账单' : t('empty.bills')} sub={t('empty.billsSub')} />
+          <EmptyState icon="card-outline" title={seg === 'pending' ? t('pay.emptyPendingTitle') : seg === 'paid' ? t('pay.emptyPaidTitle') : t('empty.bills')} sub={t('empty.billsSub')} />
         )}
         ListFooterComponent={<View style={{ height: 12 }} />}
       />
@@ -431,7 +452,7 @@ function TenantPaymentsView() {
       <Modal visible={!!invoiceItem} transparent animationType="slide" onRequestClose={closeInvoice}>
         <View style={styles.invWrap}>
           <View style={styles.invCard}>
-            <TouchableOpacity style={styles.invClose} onPress={closeInvoice} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="关闭">
+            <TouchableOpacity style={styles.invClose} onPress={closeInvoice} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel={t('common.close')}>
               <Ionicons name="close" size={22} color={colors.ink2} />
             </TouchableOpacity>
             {invoiceLoading ? <View style={styles.invCenter}><ActivityIndicator size="large" color={colors.primary} /></View> : renderInvoice()}
@@ -453,6 +474,8 @@ function TenantPaymentsView() {
 
 /* ========================= 业主视角：名下房源应收/已缴 ========================= */
 function OwnerPaymentsView() {
+  const { t } = useI18n();
+  const OWNER_FILTERS = useMemo(() => ownerFilters(t), [t]);
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const uid = user?.id ?? 'anon';
@@ -509,7 +532,7 @@ function OwnerPaymentsView() {
 
   const channelFor = (c?: string) => (c === 'CNY' ? 'wechat' : c === 'USD' ? 'stripe' : 'promptpay');
   const channelLabelFor = (c?: string) =>
-    c === 'CNY' ? '微信支付' : c === 'USD' ? '银行卡 (Stripe)' : 'PromptPay';
+    c === 'CNY' ? t('pay.channelWechat') : c === 'USD' ? t('pay.channelStripe') : 'PromptPay';
 
   const handlePay = async (item: Payment) => {
     try {
@@ -527,15 +550,15 @@ function OwnerPaymentsView() {
           channelLabel: channelLabelFor(item.currency),
         });
       } else {
-        notify('支付单已提交', '支付渠道已受理，请稍后查看支付结果。');
+        notify(t('pay.submittedTitle'), t('pay.submittedMsg'));
       }
     } catch (err: any) {
-      notify('支付失败', err?.response?.data?.detail || '请稍后重试');
+      notify(t('pay.status.failed'), err?.response?.data?.detail || t('prop.retryLater'));
     }
   };
 
   if (loading) {
-    return <View style={styles.center}><LoadingState label="正在加载账单…" /></View>;
+    return <View style={styles.center}><LoadingState label={t('pay.loadingBillsOwner')} /></View>;
   }
 
   return (
@@ -547,7 +570,7 @@ function OwnerPaymentsView() {
           const meta = ownerStatusMap[item.status ?? ''] ?? ownerStatusMap.pending;
           const group = ownerGroupOf(item.status);
           const icon = typeIcons[item.payment_type ?? ''] ?? 'receipt-outline';
-          const label = typeLabels[item.payment_type ?? ''] ?? item.payment_type ?? '账单';
+          const label = typeLabelText(t, item.payment_type) || item.payment_type || t('pay.bill');
           return (
             <View style={styles.card}>
               <View style={styles.cardTop}>
@@ -555,19 +578,19 @@ function OwnerPaymentsView() {
                 <View style={styles.cardInfo}>
                   <View style={styles.cardTitleRow}>
                     <Text style={styles.type} numberOfLines={1}>{label}</Text>
-                    <View style={[styles.badge, { backgroundColor: meta.bg }]}><Text style={[styles.badgeText, { color: meta.color }]}>{meta.text}</Text></View>
+                    <View style={[styles.badge, { backgroundColor: meta.bg }]}><Text style={[styles.badgeText, { color: meta.color }]}>{t(meta.key)}</Text></View>
                   </View>
-                  <Text style={styles.meta} numberOfLines={1}>{item.property || item.description || '账单'} · 到期 {item.due_date ? String(item.due_date).replace('T', ' ').slice(0, 10) : '-'}</Text>
+                  <Text style={styles.meta} numberOfLines={1}>{t('pay.ownerCardMeta', { name: item.property || item.description || t('pay.bill'), date: item.due_date ? String(item.due_date).replace('T', ' ').slice(0, 10) : '-' })}</Text>
                 </View>
               </View>
               <View style={styles.cardFoot}>
                 <Text style={styles.amount}>{formatMoney(item.amount, item.currency || ccy)}</Text>
                 {group === 'paid' ? (
-                  <View style={[styles.btn, styles.btnSecondary]}><Ionicons name="checkmark" size={14} color={colors.ink3} /><Text style={[styles.btnText, { color: colors.ink3 }]}>已缴清</Text></View>
+                  <View style={[styles.btn, styles.btnSecondary]}><Ionicons name="checkmark" size={14} color={colors.ink3} /><Text style={[styles.btnText, { color: colors.ink3 }]}>{t('pay.settled')}</Text></View>
                 ) : (
                   <TouchableOpacity style={[styles.btn, group === 'overdue' ? styles.btnDanger : styles.btnPrimary]} activeOpacity={0.85} onPress={() => handlePay(item)}>
                     <Ionicons name={group === 'overdue' ? 'alert-circle-outline' : 'card-outline'} size={14} color={colors.primaryForeground} />
-                    <Text style={[styles.btnText, { color: colors.primaryForeground }]}>{group === 'overdue' ? '补缴' : '去支付'}</Text>
+                    <Text style={[styles.btnText, { color: colors.primaryForeground }]}>{group === 'overdue' ? t('pay.topUp') : t('pay.goPay')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -579,12 +602,12 @@ function OwnerPaymentsView() {
         ListHeaderComponent={
           <View>
             <View style={styles.heroCard}>
-              <Text style={styles.heroLabel}>待支付</Text>
+              <Text style={styles.heroLabel}>{t('pay.status.pending')}</Text>
               <Text style={styles.heroAmount}>{formatMoney(dueTotal, ccy)}</Text>
               <View style={styles.heroDivider} />
               <View style={styles.heroStats}>
-                <View><Text style={styles.heroStatLabel}>本月已付</Text><Text style={styles.heroStatVal}>{formatMoney(monthPaid, ccy)}</Text></View>
-                <View style={styles.heroStatRight}><Text style={styles.heroStatLabel}>物业费</Text><Text style={styles.heroStatVal}>{formatMoney(utilityTotal, ccy)}</Text></View>
+                <View><Text style={styles.heroStatLabel}>{t('pay.paidThisMonth')}</Text><Text style={styles.heroStatVal}>{formatMoney(monthPaid, ccy)}</Text></View>
+                <View style={styles.heroStatRight}><Text style={styles.heroStatLabel}>{t('pay.type.utility')}</Text><Text style={styles.heroStatVal}>{formatMoney(utilityTotal, ccy)}</Text></View>
               </View>
             </View>
             <View style={styles.chips}>
@@ -598,12 +621,12 @@ function OwnerPaymentsView() {
               })}
             </View>
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitleBig}>账单列表</Text>
-              <Text style={styles.sectionHint}>{filtered.length} 笔</Text>
+              <Text style={styles.sectionTitleBig}>{t('pay.billList')}</Text>
+              <Text style={styles.sectionHint}>{t('pay.countN', { n: filtered.length })}</Text>
             </View>
           </View>
         }
-        ListEmptyComponent={<EmptyState icon="documents-outline" title="暂无账单" sub="名下房源产生物业费、水电费或租金结算后，会在这里列出每一笔" />}
+        ListEmptyComponent={<EmptyState icon="documents-outline" title={t('empty.bills')} sub={t('pay.emptyOwnerSub')} />}
       />
 
       <PaymentSheet

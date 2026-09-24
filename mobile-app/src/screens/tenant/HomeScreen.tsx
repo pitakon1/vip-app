@@ -96,77 +96,114 @@ interface HomeUser {
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-const statusLabels: Record<string, string> = {
-  vacant: '空置',
-  rented: '已出租',
-  reserved: '已预订',
-  maintenance: '维护中',
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
+
+const statusText = (t: TFunc, status?: string) => {
+  switch (status) {
+    case 'vacant':
+      return t('status.vacant');
+    case 'rented':
+      return t('status.rented');
+    case 'reserved':
+      return t('status.reserved');
+    case 'maintenance':
+      return t('status.maintenance');
+    default:
+      return '';
+  }
 };
 
-const typeLabels: Record<string, string> = {
-  apartment: '公寓',
-  condo: '公寓',
-  villa: '别墅',
-  house: '别墅',
-  shop: '商铺',
-  commercial: '商铺',
-  office: '写字楼',
+const typeText = (t: TFunc, type?: string) => {
+  switch (type) {
+    case 'apartment':
+    case 'condo':
+      return t('prop.type.apartment');
+    case 'villa':
+    case 'house':
+      return t('prop.type.house');
+    case 'shop':
+    case 'commercial':
+      return t('prop.type.commercial');
+    case 'office':
+      return t('prop.type.office');
+    default:
+      return '';
+  }
 };
 
 // 学校：学段 / 课程体系（与 Web、小程序的取值保持一致）
-const stageLabels: Record<string, string> = {
-  kindergarten: '幼儿园',
-  primary: '小学',
-  secondary: '中学',
-  high_school: '高中',
-  university: '大学',
-  k12: '一贯制',
-};
+const stageLabels = (t: TFunc): Record<string, string> => ({
+  kindergarten: t('pub.stage.kindergarten'),
+  primary: t('pub.stage.primary'),
+  secondary: t('pub.stage.secondary'),
+  high_school: t('pub.stage.high_school'),
+  university: t('pub.stage.university'),
+  k12: t('pub.stage.k12'),
+});
 
-const curriculumLabels: Record<string, string> = {
-  ib: 'IB',
-  american: '美制',
-  british: '英制',
-  french: '法式',
-  german: '德式',
-  japanese: '日式',
-  thai: '泰制',
-  bilingual: '双语',
-  other: '其他',
-};
+const curriculumLabels = (t: TFunc): Record<string, string> => ({
+  ib: t('pub.curriculum.ib'),
+  american: t('pub.curriculum.american'),
+  british: t('pub.curriculum.british'),
+  french: t('pub.curriculum.french'),
+  german: t('pub.curriculum.german'),
+  japanese: t('pub.curriculum.japanese'),
+  thai: t('pub.curriculum.thai'),
+  bilingual: t('pub.curriculum.bilingual'),
+  other: t('pub.curriculum.other'),
+});
 
-const paymentTypeLabels: Record<string, string> = {
-  rent: '租金',
-  deposit: '押金',
-  commission: '佣金',
-  service_fee: '服务费',
-  utility: '物业费',
-  tax: '税费',
-  refund: '退款',
-};
+const paymentTypeLabels = (t: TFunc): Record<string, string> => ({
+  rent: t('pay.type.rent'),
+  deposit: t('pay.type.deposit'),
+  commission: t('pay.type.commission'),
+  service_fee: t('pay.type.service_fee'),
+  utility: t('pay.type.utility'),
+  tax: t('pay.type.tax'),
+  refund: t('pay.type.refund'),
+});
 
-const paymentStatusLabels: Record<string, string> = {
-  pending: '待支付',
-  processing: '处理中',
-  succeeded: '已支付',
-  failed: '支付失败',
-  refunded: '已退款',
-  disputed: '有争议',
-  expired: '已过期',
-};
+const paymentStatusLabels = (t: TFunc): Record<string, string> => ({
+  pending: t('pay.status.pending'),
+  processing: t('common.processing'),
+  succeeded: t('pay.status.succeeded'),
+  failed: t('pay.status.failed'),
+  refunded: t('pay.status.refunded'),
+  disputed: t('pay.status.disputed'),
+  expired: t('mkt.lsExpired'),
+});
 
-const ticketStatusMeta: Record<
-  string,
-  { text: string; color: string; bg: string; progress: number }
-> = {
+const ticketStatusMeta = (
+  t: TFunc,
+): Record<string, { text: string; color: string; bg: string; progress: number }> => ({
   // 键名与后端 TicketStatus 对齐（open/assigned/in_progress/resolved/closed），
   // 展示文案保持业务语义：open=待处理、assigned=已受理。
-  open: { text: '待处理', color: colors.warning, bg: colors.warningLight, progress: 25 },
-  assigned: { text: '已受理', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), progress: 50 },
-  in_progress: { text: '处理中', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), progress: 70 },
-  resolved: { text: '已解决', color: colors.success, bg: colors.successLight, progress: 100 },
-  closed: { text: '已关闭', color: colors.ink3, bg: colors.surface2, progress: 100 },
-};
+  open: {
+    text: t('ticket.status.open'),
+    color: colors.warning,
+    bg: colors.warningLight,
+    progress: 25,
+  },
+  assigned: {
+    text: t('ticket.status.assigned'),
+    color: colors.info,
+    bg: colors.alpha(colors.infoRgb, 0.1),
+    progress: 50,
+  },
+  in_progress: {
+    text: t('common.processing'),
+    color: colors.info,
+    bg: colors.alpha(colors.infoRgb, 0.1),
+    progress: 70,
+  },
+  resolved: {
+    text: t('ticket.status.resolved'),
+    color: colors.success,
+    bg: colors.successLight,
+    progress: 100,
+  },
+  closed: { text: t('ticket.status.closed'), color: colors.ink3, bg: colors.surface2, progress: 100 },
+});
 
 const formatDay = (x?: string) => (x ? String(x).slice(0, 10) : '—');
 
@@ -183,6 +220,7 @@ const PropertyCard = React.memo(function PropertyCard({
   onPress: (id: string) => void;
 }) {
   // 按压缩放动画值
+  const { t } = useI18n();
   const scale = useRef(new Animated.Value(1)).current;
   const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
   return (
@@ -205,7 +243,10 @@ const PropertyCard = React.memo(function PropertyCard({
         }).start()
       }
       accessibilityRole="button"
-      accessibilityLabel={`${item.title || item.room_number || '房源'}，${item.address || '暂无地址'}`}
+      accessibilityLabel={t('home.a11yProperty', {
+        title: item.title || item.room_number || t('list.unnamed'),
+        address: item.address || t('prop.noAddress'),
+      })}
     >
       <Animated.View style={[styles.propCard, { transform: [{ scale }] }]}>
         <View style={styles.propImgWrap}>
@@ -218,28 +259,28 @@ const PropertyCard = React.memo(function PropertyCard({
           )}
           <View style={styles.propBadge}>
             <Text style={styles.propBadgeText}>
-              {typeLabels[String(item.property_type ?? '')] ?? '房源'}
+              {typeText(t, String(item.property_type ?? '')) || t('tab.properties')}
             </Text>
           </View>
         </View>
         <View style={styles.propBody}>
           <Text style={styles.propName} numberOfLines={1}>
-            {item.title || item.room_number || '未命名房源'}
+            {item.title || item.room_number || t('list.unnamed')}
           </Text>
           <Text style={styles.propAddr} numberOfLines={1}>
-            {item.address || '暂无地址'}
+            {item.address || t('prop.noAddress')}
           </Text>
           <View style={styles.propTags}>
             <Text style={styles.propTag}>
-              {item.bedrooms ?? 0}室 · {item.size_sqm ?? 0}㎡
+              {t('prop.bedroomN', { n: item.bedrooms ?? 0 })} · {item.size_sqm ?? 0}㎡
             </Text>
             <Text style={styles.propTag}>
-              {statusLabels[String(item.status ?? '')] ?? '在租'}
+              {statusText(t, String(item.status ?? '')) || t('prop.status.rented')}
             </Text>
           </View>
           <Text style={styles.propPrice}>
             {formatMoney(item.monthly_rent, item.currency)}
-            <Text style={styles.propPriceUnit}>/月</Text>
+            <Text style={styles.propPriceUnit}>{t('mkt.perMonth')}</Text>
           </Text>
         </View>
       </Animated.View>
@@ -256,6 +297,7 @@ const SaleCard = React.memo(function SaleCard({
   onPress: (id: string) => void;
 }) {
   // 按压缩放动画值
+  const { t } = useI18n();
   const scale = useRef(new Animated.Value(1)).current;
   const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
   const canOpen = !!item.id;
@@ -280,7 +322,10 @@ const SaleCard = React.memo(function SaleCard({
         }).start()
       }
       accessibilityRole="button"
-      accessibilityLabel={`${item.title || '在售房源'}，${item.address || '暂无地址'}`}
+      accessibilityLabel={t('home.a11ySale', {
+        title: item.title || t('home.saleFallback'),
+        address: item.address || t('prop.noAddress'),
+      })}
     >
       <Animated.View style={[styles.propCard, { transform: [{ scale }] }]}>
         <View style={styles.propImgWrap}>
@@ -292,19 +337,19 @@ const SaleCard = React.memo(function SaleCard({
             </View>
           )}
           <View style={styles.propBadge}>
-            <Text style={styles.propBadgeText}>二手房</Text>
+            <Text style={styles.propBadgeText}>{t('home.secondHand')}</Text>
           </View>
         </View>
         <View style={styles.propBody}>
           <Text style={styles.propName} numberOfLines={1}>
-            {item.title || '在售房源'}
+            {item.title || t('home.saleFallback')}
           </Text>
           <Text style={styles.propAddr} numberOfLines={1}>
-            {item.address || '暂无地址'}
+            {item.address || t('prop.noAddress')}
           </Text>
           <View style={styles.propTags}>
             <Text style={styles.propTag}>
-              {item.bedrooms ?? 0}室 · {item.size_sqm ?? 0}㎡
+              {t('prop.bedroomN', { n: item.bedrooms ?? 0 })} · {item.size_sqm ?? 0}㎡
             </Text>
           </View>
           <Text style={styles.propPrice}>{formatMoney(item.asking_price, item.currency)}</Text>
@@ -327,10 +372,13 @@ const SchoolCard = React.memo(function SchoolCard({
   onPress: (item: PublicSchool) => void;
 }) {
   // 按压缩放动画值
+  const { t } = useI18n();
+  const STAGE_LABELS = useMemo(() => stageLabels(t), [t]);
+  const CURRICULUM_LABELS = useMemo(() => curriculumLabels(t), [t]);
   const scale = useRef(new Animated.Value(1)).current;
   const photo = item.cover_url ? String(item.cover_url) : null;
-  const stage = stageLabels[String(item.stage ?? '')] ?? '国际学校';
-  const curriculum = curriculumLabels[String(item.curriculum ?? '')];
+  const stage = STAGE_LABELS[String(item.stage ?? '')] ?? t('pub.schoolsTitle');
+  const curriculum = CURRICULUM_LABELS[String(item.curriculum ?? '')];
   const sub = [item.name_en, item.district].filter(Boolean).join(' · ');
   return (
     <Pressable
@@ -352,7 +400,10 @@ const SchoolCard = React.memo(function SchoolCard({
         }).start()
       }
       accessibilityRole="button"
-      accessibilityLabel={`${item.name || '学校'}，${sub || '暂无地址'}，查看周边房源`}
+      accessibilityLabel={t('home.a11ySchool', {
+        name: item.name || t('home.unnamedSchool'),
+        address: sub || t('prop.noAddress'),
+      })}
     >
       <Animated.View style={[styles.propCard, { transform: [{ scale }] }]}>
         <View style={styles.propImgWrap}>
@@ -369,17 +420,17 @@ const SchoolCard = React.memo(function SchoolCard({
         </View>
         <View style={styles.propBody}>
           <Text style={styles.propName} numberOfLines={1}>
-            {item.name || '未命名学校'}
+            {item.name || t('home.unnamedSchool')}
           </Text>
           <Text style={styles.propAddr} numberOfLines={1}>
-            {sub || '暂无地址'}
+            {sub || t('prop.noAddress')}
           </Text>
           <View style={styles.propTags}>
             {curriculum ? <Text style={styles.propTag}>{curriculum}</Text> : null}
             {item.age_range ? <Text style={styles.propTag}>{item.age_range}</Text> : null}
           </View>
           <Text style={styles.propPrice} numberOfLines={1}>
-            {item.tuition_range || '学费面议'}
+            {item.tuition_range || t('home.tuitionNegotiable')}
           </Text>
         </View>
       </Animated.View>
@@ -394,6 +445,9 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [bizTab, setBizTab] = useState<'rent' | 'buy'>('rent');
   const { t } = useI18n();
+  const PAYMENT_TYPE = useMemo(() => paymentTypeLabels(t), [t]);
+  const PAYMENT_STATUS = useMemo(() => paymentStatusLabels(t), [t]);
+  const TICKET_STATUS = useMemo(() => ticketStatusMeta(t), [t]);
   const navigation = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
@@ -547,34 +601,34 @@ export default function HomeScreen() {
       at: number;
     }[] = [];
     payments.forEach((p) => {
-      const metaText = paymentStatusLabels[String(p.status ?? '')] ?? String(p.status ?? '');
-      const typeLabel = paymentTypeLabels[String(p.payment_type ?? '')];
+      const metaText = PAYMENT_STATUS[String(p.status ?? '')] ?? String(p.status ?? '');
+      const typeLabel = PAYMENT_TYPE[String(p.payment_type ?? '')];
       rows.push({
         id: `pay-${p.id}`,
         icon: 'card-outline',
         color: colors.success,
         bg: colors.successLight,
-        title: typeLabel ? `${typeLabel}账单` : '账单',
-        sub: p.description || `截止 ${formatDay(p.due_date)}`,
+        title: typeLabel ? t('home.billOf', { type: typeLabel }) : t('home.bill'),
+        sub: p.description || t('home.dueDate', { date: formatDay(p.due_date) }),
         badge: metaText,
         at: Date.parse(String(p.paid_at ?? p.due_date ?? '')) || 0,
       });
     });
     tickets.forEach((tk) => {
-      const meta = ticketStatusMeta[String(tk.status ?? '')] ?? ticketStatusMeta.open;
+      const meta = TICKET_STATUS[String(tk.status ?? '')] ?? TICKET_STATUS.open;
       rows.push({
         id: `maint-${tk.id}`,
         icon: 'build-outline',
         color: meta.color,
         bg: meta.bg,
-        title: '报修工单',
-        sub: `${tk.title || '报修'} · ${formatDay(tk.createdAt ?? tk.created_at)}`,
+        title: t('home.maintTicket'),
+        sub: `${tk.title || t('home.repair')} · ${formatDay(tk.createdAt ?? tk.created_at)}`,
         badge: meta.text,
         at: Date.parse(String(tk.createdAt ?? tk.created_at ?? '')) || 0,
       });
     });
     return rows.sort((a, b) => b.at - a.at).slice(0, 5);
-  }, [payments, tickets]);
+  }, [payments, tickets, PAYMENT_TYPE, PAYMENT_STATUS, TICKET_STATUS, t]);
 
   // 「买房」上下文：隐藏租房 rail，只展示购房 rail
   const isRentTab = bizTab === 'rent';
@@ -627,15 +681,15 @@ export default function HomeScreen() {
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>{t('home.featured')}</Text>
               <TouchableOpacity onPress={goListings} activeOpacity={0.7}>
-                <Text style={styles.linkText}>更多</Text>
+                <Text style={styles.linkText}>{t('list.filterMore')}</Text>
               </TouchableOpacity>
             </View>
             {recommended.length === 0 ? (
               <EmptyState
                 icon="home-outline"
                 title={t('home.noListings')}
-                sub="稍后再来看看新的房源"
-                actionLabel="去搜索"
+                sub={t('home.noListingsSub')}
+                actionLabel={t('home.goSearch')}
                 onAction={goListings}
               />
             ) : (
@@ -653,13 +707,13 @@ export default function HomeScreen() {
         ) : (
           <>
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>热门二手房</Text>
+              <Text style={styles.sectionTitle}>{t('home.hotSecondHand')}</Text>
             </View>
             {saleItems.length === 0 ? (
               <EmptyState
                 icon="pricetag-outline"
-                title="暂无在售房源"
-                sub="当前没有可浏览的在售挂牌"
+                title={t('mkt.emptySaleTitle')}
+                sub={t('home.noSaleSub')}
               />
             ) : (
               <ScrollView
@@ -682,14 +736,14 @@ export default function HomeScreen() {
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>{t('pub.tabSchools')}</Text>
               <TouchableOpacity onPress={goListings} activeOpacity={0.7}>
-                <Text style={styles.linkText}>更多</Text>
+                <Text style={styles.linkText}>{t('list.filterMore')}</Text>
               </TouchableOpacity>
             </View>
             {schools.length === 0 ? (
               <EmptyState
                 icon="school-outline"
-                title="暂无学校"
-                sub="学校数据完善后会显示在这里"
+                title={t('home.noSchools')}
+                sub={t('home.noSchoolsSub')}
               />
             ) : (
               <ScrollView
@@ -708,13 +762,13 @@ export default function HomeScreen() {
         return (
           <>
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>最近动态</Text>
+              <Text style={styles.sectionTitle}>{t('home.recentActivity')}</Text>
             </View>
             {activities.length === 0 ? (
               <EmptyState
                 icon="notifications-outline"
-                title="暂无动态"
-                sub="账单、报修等动态会显示在这里"
+                title={t('home.noActivity')}
+                sub={t('home.noActivitySub')}
               />
             ) : (
               <View style={styles.card}>
@@ -772,7 +826,7 @@ export default function HomeScreen() {
         activeOpacity={0.7}
         onPress={() => navigation.navigate('LocationPicker')}
         accessibilityRole="button"
-        accessibilityLabel="选择城市"
+        accessibilityLabel={t('home.selectCity')}
       >
         <>
           <Ionicons name="location-outline" size={14} color={colors.ink2} />
@@ -800,7 +854,7 @@ export default function HomeScreen() {
             activeOpacity={0.7}
           >
             <Text style={[styles.bizTabText, bizTab === b && styles.bizTabTextActive]}>
-              {b === 'rent' ? '租房' : '买房'}
+              {b === 'rent' ? t('pub.typeRent') : t('pub.typeSell')}
             </Text>
           </TouchableOpacity>
         ))}
