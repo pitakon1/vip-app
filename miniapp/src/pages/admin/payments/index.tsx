@@ -6,6 +6,7 @@ import { fmtMoney } from '@/utils/format'
 import { request } from '@/lib/api'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface PaymentItem {
@@ -25,33 +26,33 @@ interface PaymentItem {
 }
 
 const STATUS_META: Record<string, { text: string; badge: string }> = {
-  succeeded: { text: '已收', badge: 'badge--success' },
-  pending: { text: '待收', badge: 'badge--info' },
-  processing: { text: '处理中', badge: 'badge--info' },
-  failed: { text: '失败', badge: 'badge--error' },
-  refunded: { text: '已退款', badge: 'badge--neutral' },
-  disputed: { text: '争议', badge: 'badge--error' },
-  expired: { text: '已过期', badge: 'badge--neutral' }
+  succeeded: { text: 'pay.stSucceeded', badge: 'badge--success' },
+  pending: { text: 'pay.stPending', badge: 'badge--info' },
+  processing: { text: 'pay.stProcessing', badge: 'badge--info' },
+  failed: { text: 'pay.stFailed', badge: 'badge--error' },
+  refunded: { text: 'pay.stRefunded', badge: 'badge--neutral' },
+  disputed: { text: 'pay.stDisputed', badge: 'badge--error' },
+  expired: { text: 'pay.stExpired', badge: 'badge--neutral' }
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  rent: '租金',
-  deposit: '押金',
-  commission: '佣金',
-  service_fee: '服务费',
-  utility: '水电',
-  tax: '税费',
-  refund: '退款'
+  rent: 'pay.typeRent',
+  deposit: 'pay.typeDeposit',
+  commission: 'pay.typeCommission',
+  service_fee: 'pay.typeServiceFee',
+  utility: 'pay.typeUtility',
+  tax: 'pay.typeTax',
+  refund: 'pay.typeRefund'
 }
 
 const CHANNEL_LABELS: Record<string, string> = {
   promptpay: 'PromptPay',
   stripe: 'Stripe',
-  wechat: '微信支付',
-  alipay: '支付宝',
+  wechat: 'pay.chWechat',
+  alipay: 'pay.chAlipay',
   wise: 'Wise',
   paypal: 'PayPal',
-  bank_transfer: '银行转账'
+  bank_transfer: 'pay.chBankTransfer'
 }
 
 // 渠道 → 图标键 + 配色（用于左侧圆角图标容器）
@@ -66,11 +67,11 @@ const CHANNEL_META: Record<string, { icon: IconKey; tone: string }> = {
 }
 
 const FILTERS: { key: string; label: string }[] = [
-  { key: '', label: '全部' },
-  { key: 'succeeded', label: '已收款' },
-  { key: 'pending', label: '待收款' },
-  { key: 'overdue', label: '逾期' },
-  { key: 'refunded', label: '已退款' }
+  { key: '', label: 'common.all' },
+  { key: 'succeeded', label: 'pay.filterSucceeded' },
+  { key: 'pending', label: 'pay.filterPending' },
+  { key: 'overdue', label: 'pay.filterOverdue' },
+  { key: 'refunded', label: 'pay.filterRefunded' }
 ]
 
 const CURRENCY_SYMBOL: Record<string, string> = {
@@ -94,6 +95,7 @@ const isOverdue = (p: PaymentItem) =>
   p.status === 'pending' && !!p.due_date && new Date(p.due_date).getTime() < Date.now()
 
 export default function AdminPaymentsPage() {
+  const { t } = useI18n()
   const [list, setList] = useState<PaymentItem[]>([])
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('')
@@ -131,11 +133,11 @@ export default function AdminPaymentsPage() {
 
   const submitCreate = async () => {
     if (!form.amount || Number(form.amount) <= 0)
-      return Taro.showToast({ title: '请输入正确的金额', icon: 'none' })
+      return Taro.showToast({ title: t('pay.amountInvalid'), icon: 'none' })
     // 后端 PaymentCreate.payer_id 必填；此前表单标「选填」且空值不发送，
     // 提交后只拿到 422，toast 笼统显示「记账失败」，用户无法定位字段。
     if (!form.payer_id.trim())
-      return Taro.showToast({ title: '请填写付款人 ID', icon: 'none' })
+      return Taro.showToast({ title: t('pay.payerRequired'), icon: 'none' })
     setCreateBusy(true)
     try {
       const payload: Record<string, unknown> = {
@@ -148,19 +150,19 @@ export default function AdminPaymentsPage() {
       if (form.due_date) payload.due_date = `${form.due_date}T00:00:00`
       if (form.description) payload.description = form.description
       await paymentsApi.create(payload)
-      Taro.showToast({ title: '已记账', icon: 'success' })
+      Taro.showToast({ title: t('pay.recorded'), icon: 'success' })
       closeCreate()
       fetchList()
       fetchPayerNames()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || '记账失败', icon: 'none' })
+      Taro.showToast({ title: e?.message || t('pay.recordFailed'), icon: 'none' })
     } finally {
       setCreateBusy(false)
     }
   }
 
   const openConfirm = (p: PaymentItem) => {
-    setConfirmTarget({ id: p.id, name: payerMap[String(p.id)] || '该收款' })
+    setConfirmTarget({ id: p.id, name: payerMap[String(p.id)] || t('pay.thisPayment') })
     setNote('')
   }
 
@@ -168,12 +170,12 @@ export default function AdminPaymentsPage() {
     if (!confirmTarget) return
     try {
       await paymentsApi.confirm(confirmTarget.id, { note: note.trim() || undefined })
-      Taro.showToast({ title: '已确认到账', icon: 'success' })
+      Taro.showToast({ title: t('pay.confirmed'), icon: 'success' })
       setConfirmTarget(null)
       fetchList()
       fetchPayerNames()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || '确认失败', icon: 'none' })
+      Taro.showToast({ title: e?.message || t('pay.confirmFailed'), icon: 'none' })
     }
   }
 
@@ -182,7 +184,7 @@ export default function AdminPaymentsPage() {
       const res: any = await paymentsApi.get(p.id)
       setDetail(res?.data ?? res ?? p)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || '获取详情失败', icon: 'none' })
+      Taro.showToast({ title: e?.message || t('pay.detailFailed'), icon: 'none' })
     }
   }
 
@@ -191,7 +193,7 @@ export default function AdminPaymentsPage() {
     labels: Record<string, string>,
     onPick: (v: string) => void
   ) =>
-    Taro.showActionSheet({ itemList: options.map((o) => labels[o] || o) }).then((r) => {
+    Taro.showActionSheet({ itemList: options.map((o) => (labels[o] ? t(labels[o]) : o)) }).then((r) => {
       const opt = options[r.tapIndex]
       if (opt) onPick(opt)
     }).catch(() => {})
@@ -208,7 +210,7 @@ export default function AdminPaymentsPage() {
       setList(Array.isArray(d) ? d : d?.items || [])
     } catch (error) {
       console.error('[AdminPayments] 获取收款列表失败', error)
-      Taro.showToast({ title: '加载收款失败', icon: 'none' })
+      Taro.showToast({ title: t('pay.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -269,7 +271,7 @@ export default function AdminPaymentsPage() {
         <View className='apay-hero'>
           <View className='apay-hero__top'>
             <View className='apay-hero__left'>
-              <Text className='apay-hero__label'>本月总收入</Text>
+              <Text className='apay-hero__label'>{t('pay.monthIncome')}</Text>
               <Text className='apay-hero__value'>{fmtMoney(summary.monthIncome, currency)}</Text>
             </View>
             <View className='apay-hero__icon'>
@@ -279,19 +281,19 @@ export default function AdminPaymentsPage() {
 
           <View className='apay-hero__split'>
             <View className='apay-hero__cell'>
-              <Text className='apay-hero__cell-label'>已收</Text>
+              <Text className='apay-hero__cell-label'>{t('pay.received')}</Text>
               <Text className='apay-hero__cell-value'>{fmtMoney(summary.received, currency)}</Text>
             </View>
             <View className='apay-hero__divider' />
             <View className='apay-hero__cell'>
-              <Text className='apay-hero__cell-label'>待收</Text>
+              <Text className='apay-hero__cell-label'>{t('pay.pendingShort')}</Text>
               <Text className='apay-hero__cell-value'>{fmtMoney(summary.pending, currency)}</Text>
             </View>
           </View>
 
           <View className='apay-hero__rate'>
             <View className='apay-hero__rate-head'>
-              <Text className='apay-hero__rate-label'>收缴率</Text>
+              <Text className='apay-hero__rate-label'>{t('pay.collectionRate')}</Text>
               <Text className='apay-hero__rate-value'>{summary.rate}%</Text>
             </View>
             <View className='apay-hero__bar'>
@@ -308,43 +310,43 @@ export default function AdminPaymentsPage() {
               className={`apay-chip ${filter === f.key ? 'apay-chip--active' : ''}`}
               onClick={() => setFilter(f.key)}
             >
-              <Text className='apay-chip__text'>{f.label}</Text>
+              <Text className='apay-chip__text'>{t(f.label)}</Text>
             </View>
           ))}
         </ScrollView>
 
         <View className='apay-section-head'>
-          <Text className='apay-section-head__title'>交易记录</Text>
+          <Text className='apay-section-head__title'>{t('pay.txRecords')}</Text>
           <View className='apay-section-head__right'>
-            <Text className='apay-section-head__count'>共 {visible.length} 笔</Text>
+            <Text className='apay-section-head__count'>{t('pay.countUnit', { n: visible.length })}</Text>
             <View className='apay-addbox' onClick={openCreate}>
-              <Text className='apay-addbox__text'>+ 手动记账</Text>
+              <Text className='apay-addbox__text'>{t('pay.manualAdd')}</Text>
             </View>
           </View>
         </View>
 
         {loading && visible.length === 0 && (
           <View className='apay-state'>
-            <Text className='apay-state__text'>加载中...</Text>
+            <Text className='apay-state__text'>{t('pub.loading')}</Text>
           </View>
         )}
         {!loading && visible.length === 0 && (
           <View className='apay-state'>
             <View className='icon-svg' style={iconStyle('card', 72)} />
-            <Text className='apay-state__text'>暂无交易记录</Text>
-            <Text className='apay-state__desc'>换个筛选条件试试</Text>
+            <Text className='apay-state__text'>{t('pay.empty')}</Text>
+            <Text className='apay-state__desc'>{t('pay.emptyDesc')}</Text>
           </View>
         )}
 
         {visible.map((p) => {
           const meta = CHANNEL_META[p.channel || ''] || { icon: 'card' as IconKey, tone: 'neutral' }
           const status = STATUS_META[p.status || ''] || {
-            text: p.status || '-',
+            text: p.status || '',
             badge: 'badge--neutral'
           }
           const overdue = isOverdue(p)
           const payerName =
-            payerMap[String(p.id)] || `付款方 ${String(p.payer_id || '').slice(0, 8)}`
+            payerMap[String(p.id)] || t('pay.payerWithId', { id: String(p.payer_id || '').slice(0, 8) })
           return (
             <View key={p.id} className='apay-item'>
               <View className='apay-item__row'>
@@ -355,15 +357,16 @@ export default function AdminPaymentsPage() {
                 <View className='apay-item__body'>
                   <Text className='apay-item__name'>{payerName}</Text>
                   <Text className='apay-item__meta'>
-                    {TYPE_LABELS[p.payment_type || ''] || p.payment_type || '收款'} ·{' '}
-                    {CHANNEL_LABELS[p.channel || ''] || '未指定渠道'} · {fmtDate(p.created_at)}
+                    {t(TYPE_LABELS[p.payment_type || ''] || '') || p.payment_type || t('pay.receiptFallback')} ·{' '}
+                    {t(CHANNEL_LABELS[p.channel || ''] || '') || t('pay.channelUnset')} ·{' '}
+                    {fmtDate(p.created_at)}
                   </Text>
                 </View>
 
                 <View className='apay-item__right'>
                   <Text className='apay-item__amount'>{fmtMoney(p.amount, p.currency)}</Text>
                   <Text className={`badge ${overdue ? 'badge--error' : status.badge}`}>
-                    {overdue ? '逾期' : status.text}
+                    {overdue ? t('pay.overdue') : t(status.text) || '-'}
                   </Text>
                 </View>
               </View>
@@ -371,10 +374,12 @@ export default function AdminPaymentsPage() {
               <View className='apay-item__actions'>
                 {(p.status === 'pending' || p.status === 'processing') && (
                   <View className='apay-act apay-act--primary' onClick={() => openConfirm(p)}>
-                    确认到账
+                    {t('pay.confirmArrival')}
                   </View>
                 )}
-                <View className='apay-act' onClick={() => openDetail(p)}>查看详情</View>
+                <View className='apay-act' onClick={() => openDetail(p)}>
+                  {t('pay.viewDetail')}
+                </View>
               </View>
             </View>
           )
@@ -386,21 +391,21 @@ export default function AdminPaymentsPage() {
         <>
           <View className='apay-mask' onClick={closeCreate} />
           <View className='apay-sheet'>
-            <Text className='apay-sheet__title'>手动记账</Text>
+            <Text className='apay-sheet__title'>{t('pay.manualTitle')}</Text>
 
             <View className='apay-field'>
-              <Text className='apay-field__label apay-field__label--req'>金额</Text>
+              <Text className='apay-field__label apay-field__label--req'>{t('pay.fieldAmount')}</Text>
               <Input
                 className='apay-field__input'
                 type='digit'
                 value={form.amount}
-                placeholder='请输入金额'
+                placeholder={t('pay.amountPlaceholder')}
                 onInput={(e) => setFormField('amount', e.detail.value)}
               />
             </View>
 
             <View className='apay-field'>
-              <Text className='apay-field__label apay-field__label--req'>币种</Text>
+              <Text className='apay-field__label apay-field__label--req'>{t('pay.fieldCurrency')}</Text>
               <View
                 className='apay-field__select'
                 onClick={() => pickOption(CURRENCY_OPTIONS, CURRENCY_SYMBOL, (v) => setFormField('currency', v))}
@@ -411,31 +416,31 @@ export default function AdminPaymentsPage() {
             </View>
 
             <View className='apay-field'>
-              <Text className='apay-field__label apay-field__label--req'>类型</Text>
+              <Text className='apay-field__label apay-field__label--req'>{t('pay.fieldType')}</Text>
               <View
                 className='apay-field__select'
                 onClick={() => pickOption(TYPE_OPTIONS, TYPE_LABELS, (v) => setFormField('payment_type', v))}
               >
-                <Text>{TYPE_LABELS[form.payment_type] || form.payment_type}</Text>
+                <Text>{t(TYPE_LABELS[form.payment_type] || form.payment_type)}</Text>
                 <Text className='apay-field__tag'>▾</Text>
               </View>
             </View>
 
             <View className='apay-field'>
-              <Text className='apay-field__label'>收款渠道</Text>
+              <Text className='apay-field__label'>{t('pay.fieldChannel')}</Text>
               <View
                 className='apay-field__select'
                 onClick={() => pickOption(CHANNEL_OPTIONS, CHANNEL_LABELS, (v) => setFormField('channel', v))}
               >
                 <Text className={form.channel ? '' : 'apay-field__select--placeholder'}>
-                  {form.channel ? CHANNEL_LABELS[form.channel] : '请选择渠道'}
+                  {form.channel ? t(CHANNEL_LABELS[form.channel]) : t('pay.channelPlaceholder')}
                 </Text>
                 <Text className='apay-field__tag'>▾</Text>
               </View>
             </View>
 
             <View className='apay-field'>
-              <Text className='apay-field__label'>应付日期</Text>
+              <Text className='apay-field__label'>{t('pay.fieldDueDate')}</Text>
               <Input
                 className='apay-field__input'
                 type='text'
@@ -446,28 +451,28 @@ export default function AdminPaymentsPage() {
             </View>
 
             <View className='apay-field'>
-              <Text className='apay-field__label'>付款人ID（必填）</Text>
+              <Text className='apay-field__label'>{t('pay.fieldPayerId')}</Text>
               <Input
                 className='apay-field__input'
                 type='text'
                 value={form.payer_id}
-                placeholder='请填写付款人（租客）ID'
+                placeholder={t('pay.payerPlaceholder')}
                 onInput={(e) => setFormField('payer_id', e.detail.value)}
               />
             </View>
 
             <View className='apay-field'>
-              <Text className='apay-field__label'>备注</Text>
+              <Text className='apay-field__label'>{t('pay.fieldNote')}</Text>
               <Input
                 className='apay-field__input'
                 value={form.description}
-                placeholder='交易备注（选填）'
+                placeholder={t('pay.notePlaceholder')}
                 onInput={(e) => setFormField('description', e.detail.value)}
               />
             </View>
 
             <View className='apay-submit' onClick={submitCreate}>
-              {createBusy ? '提交中...' : '保存'}
+              {createBusy ? t('common.submitting') : t('common.save')}
             </View>
           </View>
         </>
@@ -478,18 +483,18 @@ export default function AdminPaymentsPage() {
         <>
           <View className='apay-mask' onClick={() => setConfirmTarget(null)} />
           <View className='apay-sheet'>
-            <Text className='apay-sheet__title'>确认到账</Text>
-            <Text className='apay-sheet__desc'>确认「{confirmTarget.name}」已收到款项？</Text>
+            <Text className='apay-sheet__title'>{t('pay.confirmArrival')}</Text>
+            <Text className='apay-sheet__desc'>{t('pay.confirmDesc', { name: confirmTarget.name })}</Text>
             <View className='apay-field'>
-              <Text className='apay-field__label'>到账备注（选填）</Text>
+              <Text className='apay-field__label'>{t('pay.confirmNoteLabel')}</Text>
               <Input
                 className='apay-field__input'
                 value={note}
-                placeholder='填写备注，将追加到该笔记录'
+                placeholder={t('pay.confirmNotePlaceholder')}
                 onInput={(e) => setNote(e.detail.value)}
               />
             </View>
-            <View className='apay-submit' onClick={runConfirm}>确认到账</View>
+            <View className='apay-submit' onClick={runConfirm}>{t('pay.confirmArrival')}</View>
           </View>
         </>
       )}
@@ -499,42 +504,48 @@ export default function AdminPaymentsPage() {
         <>
           <View className='apay-mask' onClick={() => setDetail(null)} />
           <View className='apay-sheet'>
-            <Text className='apay-sheet__title'>收款详情</Text>
+            <Text className='apay-sheet__title'>{t('pay.detailTitle')}</Text>
             <View className='apay-detail'>
               <View className='apay-detail__line'>
-                <Text className='apay-detail__k'>金额</Text>
+                <Text className='apay-detail__k'>{t('pay.detailAmount')}</Text>
                 <Text className='apay-detail__v'>{fmtMoney(detail.amount, detail.currency)}</Text>
               </View>
               <View className='apay-detail__line'>
-                <Text className='apay-detail__k'>类型</Text>
-                <Text className='apay-detail__v'>{TYPE_LABELS[detail.payment_type || ''] || detail.payment_type || '-'}</Text>
+                <Text className='apay-detail__k'>{t('pay.detailType')}</Text>
+                <Text className='apay-detail__v'>
+                  {t(TYPE_LABELS[detail.payment_type || ''] || '') || detail.payment_type || '-'}
+                </Text>
               </View>
               <View className='apay-detail__line'>
-                <Text className='apay-detail__k'>渠道</Text>
-                <Text className='apay-detail__v'>{CHANNEL_LABELS[detail.channel || ''] || detail.channel || '-'}</Text>
+                <Text className='apay-detail__k'>{t('pay.detailChannel')}</Text>
+                <Text className='apay-detail__v'>
+                  {t(CHANNEL_LABELS[detail.channel || ''] || '') || detail.channel || '-'}
+                </Text>
               </View>
               <View className='apay-detail__line'>
-                <Text className='apay-detail__k'>状态</Text>
-                <Text className='apay-detail__v'>{(STATUS_META[detail.status || ''] || {}).text || detail.status || '-'}</Text>
+                <Text className='apay-detail__k'>{t('pay.detailStatus')}</Text>
+                <Text className='apay-detail__v'>
+                  {t((STATUS_META[detail.status || ''] || {}).text || '') || detail.status || '-'}
+                </Text>
               </View>
               <View className='apay-detail__line'>
-                <Text className='apay-detail__k'>应付日期</Text>
+                <Text className='apay-detail__k'>{t('pay.detailDueDate')}</Text>
                 <Text className='apay-detail__v'>{fmtDate(detail.due_date)}</Text>
               </View>
               <View className='apay-detail__line'>
-                <Text className='apay-detail__k'>实收日期</Text>
+                <Text className='apay-detail__k'>{t('pay.detailPaidDate')}</Text>
                 <Text className='apay-detail__v'>{fmtDate(detail.paid_at)}</Text>
               </View>
               <View className='apay-detail__line'>
-                <Text className='apay-detail__k'>付款人ID</Text>
+                <Text className='apay-detail__k'>{t('pay.detailPayerId')}</Text>
                 <Text className='apay-detail__v'>{detail.payer_id || '-'}</Text>
               </View>
               <View className='apay-detail__line'>
-                <Text className='apay-detail__k'>备注</Text>
+                <Text className='apay-detail__k'>{t('pay.detailNote')}</Text>
                 <Text className='apay-detail__v'>{detail.description || '-'}</Text>
               </View>
             </View>
-            <View className='apay-submit' onClick={() => setDetail(null)}>关闭</View>
+            <View className='apay-submit' onClick={() => setDetail(null)}>{t('common.close')}</View>
           </View>
         </>
       )}

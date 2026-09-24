@@ -659,7 +659,7 @@ const Services = () => {
       {/* Featured Banner */}
       <div
         className="rent-card rent-mb-5"
-        style={{ background: '#14b8a6', border: 'none' }}
+        style={{ background: 'var(--rent-primary)', border: 'none' }}
       >
         <div
           className="rent-card__body"
@@ -667,10 +667,10 @@ const Services = () => {
         >
           <div style={{ flex: 1, minWidth: 240 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <span className="rent-badge" style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>限时优惠</span>
-              <span className="rent-badge" style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>8 折</span>
+              <span className="rent-badge" style={{ background: 'rgba(255,255,255,0.2)', color: 'var(--rent-primary-foreground)' }}>限时优惠</span>
+              <span className="rent-badge" style={{ background: 'rgba(255,255,255,0.2)', color: 'var(--rent-primary-foreground)' }}>8 折</span>
             </div>
-            <h3 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 6px', color: '#fff', letterSpacing: '-0.01em' }}>
+            <h3 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 6px', color: 'var(--rent-primary-foreground)', letterSpacing: '-0.01em' }}>
               年度维护套餐 限时8折
             </h3>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.88)', margin: 0 }}>
@@ -680,7 +680,7 @@ const Services = () => {
           <button
             type="button"
             className="rent-btn"
-            style={{ background: '#fff', color: 'var(--rent-primary)', fontWeight: 600, boxShadow: 'var(--rent-shadow-2)', padding: '11px 22px' }}
+            style={{ background: 'var(--rent-card)', color: 'var(--rent-primary)', fontWeight: 600, boxShadow: 'var(--rent-shadow-2)', padding: '11px 22px' }}
             onClick={openSubscribe}
           >
             立即订阅
@@ -770,7 +770,7 @@ const Services = () => {
                         left: '50%',
                         transform: 'translateX(-50%)',
                         background: 'var(--rent-primary)',
-                        color: '#fff',
+                        color: 'var(--rent-primary-foreground)',
                         fontSize: 11,
                         fontWeight: 600,
                         padding: '3px 14px',

@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { attendanceApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface Trip {
@@ -26,18 +27,18 @@ interface AttendanceRec {
 }
 
 const TRIP_STATUS: Record<string, { label: string; cls: string }> = {
-  pending: { label: '待审批', cls: 'a-badge--warning' },
-  approved: { label: '已通过', cls: 'a-badge--success' },
-  rejected: { label: '已驳回', cls: 'a-badge--error' }
+  pending: { label: 'att.tripPending', cls: 'a-badge--warning' },
+  approved: { label: 'att.tripApproved', cls: 'a-badge--success' },
+  rejected: { label: 'att.tripRejected', cls: 'a-badge--error' }
 }
 
 // 考勤状态 → 文案 + 徽章样式
 const ATT_STATUS: Record<string, string> = {
-  present: '正常',
-  late: '迟到',
-  absent: '缺勤',
-  leave: '请假',
-  field_work: '外勤'
+  present: 'att.stPresent',
+  late: 'att.stLate',
+  absent: 'att.stAbsent',
+  leave: 'att.stLeave',
+  field_work: 'att.stFieldWork'
 }
 
 const ATT_BADGE: Record<string, string> = {
@@ -55,7 +56,15 @@ const hhmm = (iso?: string | null) => {
   return Number.isNaN(d.getTime()) ? '' : `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+const WEEKDAYS = [
+  'att.wd0',
+  'att.wd1',
+  'att.wd2',
+  'att.wd3',
+  'att.wd4',
+  'att.wd5',
+  'att.wd6'
+]
 
 const todayStr = () => {
   const d = new Date()
@@ -73,6 +82,7 @@ function pickList(res: any): Trip[] {
 }
 
 export default function AttendancePage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [locState, setLocState] = useState<'getting' | 'ready' | 'denied'>('getting')
@@ -164,7 +174,7 @@ export default function AttendancePage() {
       setTrips(pickList(res))
       setShowTrips(true)
     } catch (err) {
-      Taro.showToast({ title: '外勤记录加载失败', icon: 'none' })
+      Taro.showToast({ title: t('att.tripsLoadFailed'), icon: 'none' })
     }
   }
 
@@ -185,7 +195,7 @@ export default function AttendancePage() {
     if (!loc) loc = await getLoc()
     if (!loc) {
       setLocState('denied')
-      Taro.showToast({ title: '请先授权定位后再打卡', icon: 'none' })
+      Taro.showToast({ title: t('att.locationRequired'), icon: 'none' })
       return
     }
     setActing(true)
@@ -193,10 +203,10 @@ export default function AttendancePage() {
       const payload = { lat: loc.latitude, lng: loc.longitude }
       if (mode === 'in') await attendanceApi.checkIn(payload)
       else await attendanceApi.checkOut(payload)
-      Taro.showToast({ title: mode === 'in' ? '上班打卡成功' : '下班打卡成功', icon: 'success' })
+      Taro.showToast({ title: mode === 'in' ? t('att.checkInSuccess') : t('att.checkOutSuccess'), icon: 'success' })
       await loadToday()
     } catch (err: any) {
-      let msg = err?.message || '打卡失败'
+      let msg = err?.message || t('att.checkFailed')
       // 后端可能返回英文 detail，截断展示
       if (typeof msg === 'string' && msg.length > 60) msg = `${msg.slice(0, 60)}...`
       Taro.showToast({ title: msg, icon: 'none' })
@@ -207,7 +217,7 @@ export default function AttendancePage() {
 
   const submitTrip = async () => {
     if (!reason.trim()) {
-      Taro.showToast({ title: '请填写外勤事由', icon: 'none' })
+      Taro.showToast({ title: t('att.reasonRequired'), icon: 'none' })
       return
     }
     setSubmitting(true)
@@ -216,11 +226,11 @@ export default function AttendancePage() {
         trip_date: tripDate,
         reason: reason.trim()
       })
-      Taro.showToast({ title: '外勤申请已提交', icon: 'success' })
+      Taro.showToast({ title: t('att.tripSubmitted'), icon: 'success' })
       setShowForm(false)
       setReason('')
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || '提交失败', icon: 'none' })
+      Taro.showToast({ title: err?.message || t('att.submitFailed'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }
@@ -228,19 +238,30 @@ export default function AttendancePage() {
 
   const locText =
     locState === 'getting'
-      ? '正在获取位置...'
+      ? t('att.locGetting')
       : location
       ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
       : locState === 'denied'
-      ? '未获取到定位，请确认已授权位置权限'
-      : '未获取到定位'
+      ? t('att.locDenied')
+      : t('att.locMissing')
 
-  const dateLabel = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${WEEKDAYS[now.getDay()]}`
+  const dateLabel = t('att.dateLabel', {
+    y: now.getFullYear(),
+    m: now.getMonth() + 1,
+    d: now.getDate(),
+    wd: t(WEEKDAYS[now.getDay()])
+  })
   const clockText = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`
   // 今日状态：优先接口 status，缺失时按打卡进度推导（不伪造）
   const todayStatus = !stateLoaded
     ? '--'
-    : ATT_STATUS[attStatus || ''] || (checkedOut ? '已签退' : checkedIn ? '已签到' : '未打卡')
+    : ATT_STATUS[attStatus || '']
+    ? t(ATT_STATUS[attStatus || ''])
+    : checkedOut
+    ? t('att.stCheckedOut')
+    : checkedIn
+    ? t('att.stCheckedIn')
+    : t('att.stNone')
 
   // 本月考勤记录（按日期倒序，接口已倒序）
   const monthPrefix = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`
@@ -274,12 +295,12 @@ export default function AttendancePage() {
             {/* GPS 定位（保留原有定位校验逻辑） */}
             <View className='a-clock__loc'>
               <View className={`a-clock__pin ${locState === 'ready' ? 'a-clock__pin--ok' : ''}`}>
-                <Text className='a-clock__pin-text'>位</Text>
+                <Text className='a-clock__pin-text'>{t('att.pin')}</Text>
               </View>
               <Text className='a-clock__loc-text'>{locText}</Text>
               {locState === 'denied' && (
                 <View className='a-clock__reloc' onClick={() => getLoc()}>
-                  <Text className='a-clock__reloc-text'>重新获取</Text>
+                  <Text className='a-clock__reloc-text'>{t('att.relocate')}</Text>
                 </View>
               )}
             </View>
@@ -291,7 +312,11 @@ export default function AttendancePage() {
                 onClick={() => !checkedIn && doCheck('in')}
               >
                 <Text className='a-pbtn__text'>
-                  {acting && !checkedIn ? '打卡中...' : checkedIn ? '已上班' : '上班打卡'}
+                  {acting && !checkedIn
+                    ? t('att.checkingIn')
+                    : checkedIn
+                    ? t('att.checkedInBtn')
+                    : t('att.checkInBtn')}
                 </Text>
               </View>
               <View
@@ -300,26 +325,30 @@ export default function AttendancePage() {
                 onClick={() => !checkedOut && checkedIn && doCheck('out')}
               >
                 <Text className='a-pbtn__text'>
-                  {checkedOut ? '已下班' : checkedIn ? '下班打卡' : '待上班后可下班'}
+                  {checkedOut
+                    ? t('att.checkedOutBtn')
+                    : checkedIn
+                    ? t('att.checkOutBtn')
+                    : t('att.checkOutDisabled')}
                 </Text>
               </View>
             </View>
 
             <View className='a-clock__stats'>
               <View className='a-clock__stat'>
-                <Text className='a-clock__stat-label'>上班签到</Text>
+                <Text className='a-clock__stat-label'>{t('att.checkInLabel')}</Text>
                 <Text className='a-clock__stat-value'>{checkInTime || '--:--'}</Text>
               </View>
               <View className='a-clock__divider' />
               <View className='a-clock__stat'>
-                <Text className='a-clock__stat-label'>下班签退</Text>
+                <Text className='a-clock__stat-label'>{t('att.checkOutLabel')}</Text>
                 <Text className={`a-clock__stat-value ${checkOutTime ? '' : 'a-clock__stat-value--muted'}`}>
                   {checkOutTime || '--:--'}
                 </Text>
               </View>
               <View className='a-clock__divider' />
               <View className='a-clock__stat'>
-                <Text className='a-clock__stat-label'>今日状态</Text>
+                <Text className='a-clock__stat-label'>{t('att.todayStatusLabel')}</Text>
                 <Text className='a-clock__stat-value'>{todayStatus}</Text>
               </View>
             </View>
@@ -327,34 +356,34 @@ export default function AttendancePage() {
 
           {roleNotice && (
             <View className='a-notice'>
-              <Text className='a-notice__text'>当前账号无考勤权限，打卡功能仅对经纪与员工开放</Text>
+              <Text className='a-notice__text'>{t('att.roleNotice')}</Text>
             </View>
           )}
 
           {/* 本月统计（2×2，数据来自本月真实考勤记录） */}
           <View className='a-month'>
             <View className='a-month__head'>
-              <Text className='a-month__title'>本月统计</Text>
+              <Text className='a-month__title'>{t('att.monthStats')}</Text>
               <Text className='a-month__sub'>
-                {now.getFullYear()} 年 {now.getMonth() + 1} 月
+                {t('att.monthLabel', { y: now.getFullYear(), m: now.getMonth() + 1 })}
               </Text>
             </View>
             <View className='a-month__grid'>
               <View className='a-month__cell'>
                 <Text className='a-month__num a-month__num--success'>{monthStats.present}</Text>
-                <Text className='a-month__label'>出勤 天</Text>
+                <Text className='a-month__label'>{t('att.presentDays')}</Text>
               </View>
               <View className='a-month__cell'>
                 <Text className='a-month__num a-month__num--warning'>{monthStats.late}</Text>
-                <Text className='a-month__label'>迟到 次</Text>
+                <Text className='a-month__label'>{t('att.lateTimes')}</Text>
               </View>
               <View className='a-month__cell'>
                 <Text className='a-month__num a-month__num--info'>{monthStats.leave}</Text>
-                <Text className='a-month__label'>请假 天</Text>
+                <Text className='a-month__label'>{t('att.leaveDays')}</Text>
               </View>
               <View className='a-month__cell'>
                 <Text className='a-month__num a-month__num--error'>{monthStats.absent}</Text>
-                <Text className='a-month__label'>缺勤 天</Text>
+                <Text className='a-month__label'>{t('att.absentDays')}</Text>
               </View>
             </View>
           </View>
@@ -362,11 +391,11 @@ export default function AttendancePage() {
           {/* 考勤记录（本月） */}
           <View className='a-rec'>
             <View className='a-rec__head'>
-              <Text className='a-rec__title'>考勤记录</Text>
+              <Text className='a-rec__title'>{t('att.records')}</Text>
             </View>
             {monthRecords.length === 0 ? (
               <View className='a-rec__empty'>
-                <Text className='a-rec__empty-text'>本月暂无考勤记录</Text>
+                <Text className='a-rec__empty-text'>{t('att.noRecords')}</Text>
               </View>
             ) : (
               monthRecords.map((r) => {
@@ -379,17 +408,17 @@ export default function AttendancePage() {
                 return (
                   <View key={r.id} className='a-rec__item'>
                     <View className='a-rec__date'>
-                      <Text className='a-rec__date-mon'>{mon}月</Text>
+                      <Text className='a-rec__date-mon'>{t('att.monthShort', { mon })}</Text>
                       <Text className='a-rec__date-day'>{day}</Text>
                     </View>
                     <View className='a-rec__body'>
                       <Text className='a-rec__times'>
-                        上班 {inT || '--:--'} · 下班 {outT || '--:--'}
+                        {t('att.recordTimes', { in: inT || '--:--', out: outT || '--:--' })}
                       </Text>
                       {r.notes ? <Text className='a-rec__note'>{r.notes}</Text> : null}
                     </View>
                     <View className={`a-badge ${stCls}`}>
-                      <Text>{stLabel}</Text>
+                      <Text>{t(stLabel)}</Text>
                     </View>
                   </View>
                 )
@@ -400,13 +429,14 @@ export default function AttendancePage() {
           {/* 外勤管理 */}
           <View className='a-trip'>
             <View className='a-trip__bar'>
-              <Text className='a-trip__title'>外勤 / 出差申请</Text>
+              <Text className='a-trip__title'>{t('att.tripTitle')}</Text>
               <View className='a-trip__acts'>
                 <Text className='a-trip__link' onClick={loadTrips}>
-                  我的记录{showTrips ? ' ▲' : ' ▼'}
+                  {t('att.myRecords')}
+                  {showTrips ? ' ▲' : ' ▼'}
                 </Text>
                 <Text className='a-trip__link a-trip__link--primary' onClick={() => setShowForm((v) => !v)}>
-                  新建申请
+                  {t('att.newTrip')}
                 </Text>
               </View>
             </View>
@@ -414,7 +444,7 @@ export default function AttendancePage() {
             {showForm && (
               <View className='a-form'>
                 <View className='a-form__row'>
-                  <Text className='a-form__label'>日期</Text>
+                  <Text className='a-form__label'>{t('att.fieldDate')}</Text>
                   <Picker
                     mode='date'
                     value={tripDate}
@@ -426,17 +456,17 @@ export default function AttendancePage() {
                   </Picker>
                 </View>
                 <View className='a-form__row a-form__row--col'>
-                  <Text className='a-form__label'>事由</Text>
+                  <Text className='a-form__label'>{t('att.fieldReason')}</Text>
                   <Input
                     className='a-form__input'
                     value={reason}
-                    placeholder='请填写外出或外勤事由'
+                    placeholder={t('att.reasonPlaceholder')}
                     onInput={(e: any) => setReason(e.detail.value)}
                   />
                 </View>
                 <View className='a-form__submit' onClick={submitTrip}>
                   <Text className='a-form__submit-text'>
-                    {submitting ? '提交中...' : '提交申请'}
+                    {submitting ? t('common.submitting') : t('att.submit')}
                   </Text>
                 </View>
               </View>
@@ -446,24 +476,28 @@ export default function AttendancePage() {
               <View className='a-trips'>
                 {trips.length === 0 ? (
                   <View className='a-trips__empty'>
-                    <Text className='a-trips__empty-text'>暂无外勤记录</Text>
+                    <Text className='a-trips__empty-text'>{t('att.noTrips')}</Text>
                   </View>
                 ) : (
-                  trips.map((t) => {
-                    const st = TRIP_STATUS[t.status || ''] || {
-                      label: t.status || '-',
+                  trips.map((trip) => {
+                    const st = TRIP_STATUS[trip.status || ''] || {
+                      label: trip.status || '-',
                       cls: 'a-badge--neutral'
                     }
                     return (
-                      <View key={t.id} className='a-trips__item'>
+                      <View key={trip.id} className='a-trips__item'>
                         <View className='a-trips__top'>
-                          <Text className='a-trips__date'>{t.trip_date || '-'}</Text>
+                          <Text className='a-trips__date'>{trip.trip_date || '-'}</Text>
                           <View className={`a-badge ${st.cls}`}>
-                            <Text>{st.label}</Text>
+                            <Text>{t(st.label)}</Text>
                           </View>
                         </View>
-                        <Text className='a-trips__reason'>{t.reason || '未填事由'}</Text>
-                        {t.reply_note && <Text className='a-trips__reply'>答复：{t.reply_note}</Text>}
+                        <Text className='a-trips__reason'>{trip.reason || t('att.noReason')}</Text>
+                        {trip.reply_note && (
+                          <Text className='a-trips__reply'>
+                            {t('att.reply', { note: trip.reply_note })}
+                          </Text>
+                        )}
                       </View>
                     )
                   })
@@ -474,10 +508,10 @@ export default function AttendancePage() {
 
           {/* 规则提示 */}
           <View className='a-rule'>
-            <Text className='a-rule__title'>打卡规则</Text>
-            <Text className='a-rule__item'>· 需授权位置权限，系统会校验是否在打卡范围内</Text>
-            <Text className='a-rule__item'>· 超出打卡范围时，先提交外勤申请并等审批通过</Text>
-            <Text className='a-rule__item'>· 上班后再打卡下班，全天仅各一次</Text>
+            <Text className='a-rule__title'>{t('att.rules')}</Text>
+            <Text className='a-rule__item'>{t('att.rule1')}</Text>
+            <Text className='a-rule__item'>{t('att.rule2')}</Text>
+            <Text className='a-rule__item'>{t('att.rule3')}</Text>
           </View>
         </ScrollView>
       </View>

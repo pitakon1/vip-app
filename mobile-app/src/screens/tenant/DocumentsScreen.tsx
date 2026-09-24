@@ -19,6 +19,7 @@ import { documentsApi } from '@/services/api';
 import { documentFileUrl } from '@/lib/api';
 import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 import { useAuthStore } from '@/stores/auth';
+import { useI18n } from '@/i18n';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -64,6 +65,7 @@ const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10)
 
 export default function DocumentsScreen() {
   const { isActiveTenant } = useUserCapabilities();
+  const { t } = useI18n();
   const user = useAuthStore((s) => s.user);
   const [filter, setFilter] = useState<string>('all');
   const [uploading, setUploading] = useState(false);
@@ -91,7 +93,7 @@ export default function DocumentsScreen() {
   // 加载失败提示（保留原行为）
   useEffect(() => {
     if (q.isError) {
-      Alert.alert('加载失败', '无法获取文档，请检查网络后重试');
+      Alert.alert(t('loadFailed'), t('doc.loadFailMsg'));
     }
   }, [q.isError]);
 
@@ -144,17 +146,17 @@ export default function DocumentsScreen() {
   // 打开 / 下载文档：统一走带鉴权的 /documents/{id}/file 取件，避免直接使用前端落库地址
   const openDoc = async (doc: DocItem, mode: 'file' | 'download' = 'file') => {
     if (!doc.id) {
-      Alert.alert('无法打开', '该文档缺少文件记录');
+      Alert.alert(t('doc.openFailTitle'), t('doc.noFile'));
       return;
     }
     const url = await documentFileUrl(doc.id, mode);
     if (!url) {
-      Alert.alert('无法打开', '登录状态已失效，请重新登录');
+      Alert.alert(t('doc.openFailTitle'), t('doc.sessionExpired'));
       return;
     }
     const supported = await Linking.canOpenURL(url).catch(() => false);
     if (!supported) {
-      Alert.alert('无法打开', '当前设备不支持打开该类型文件');
+      Alert.alert(t('doc.openFailTitle'), t('doc.unsupported'));
       return;
     }
     Linking.openURL(url);

@@ -13,6 +13,7 @@ import {
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 import { chatApi, authApi } from '@/services/api';
 import { notifyError } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
@@ -35,6 +36,7 @@ type Route = RouteProp<RootStackParamList, 'ChatDetail'>;
 export default function ChatDetailScreen() {
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const { conversationId, title } = route.params;
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,7 +185,7 @@ export default function ChatDetailScreen() {
       <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <TextInput
           style={styles.input}
-          placeholder={title ? `回复「${title}」` : '输入消息...'}
+          placeholder={title ? t('chat.replyPlaceholder', { title }) : t('chat.inputPlaceholder')}
           value={input}
           onChangeText={setInput}
           placeholderTextColor={colors.ink3}

@@ -5,6 +5,8 @@ import { dashboardApi, leasesApi, employeesApi } from '@/services/api'
 import { request } from '@/lib/api'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 const CURRENCY_SYMBOL: Record<string, string> = {
@@ -19,12 +21,13 @@ const fmtMoney = (v?: number, currency = 'THB') =>
 
 const fmtDate = (v?: string) => (v ? String(v).slice(5, 10) : '-')
 
-const monthLabel = (key: string) => {
+const monthLabel = (key: string, suffix: string) => {
   const m = Number(String(key).split('-')[1])
-  return m ? `${m}月` : key
+  return m ? `${m}${suffix}` : key
 }
 
 export default function AdminHomePage() {
+  const { t: tr } = useI18n()
   const [summary, setSummary] = useState<any>(null)
   const [trend, setTrend] = useState<any[]>([])
   const [recent, setRecent] = useState<any[]>([])
@@ -121,9 +124,9 @@ export default function AdminHomePage() {
         key: 'expiring',
         tone: 'warning',
         icon: 'calendar' as IconKey,
-        title: '合同 30 天内到期',
-        desc: '需提前联系租客确认续约',
-        value: `${num(summary?.expiring_leases ?? 0)} 份`,
+        title: tr('home.expiringTitle'),
+        desc: tr('home.expiringDesc'),
+        value: tr('home.countUnit', { n: num(summary?.expiring_leases ?? 0) }),
         url: '/pages/admin/leases/index',
         bar: ratio(num(summary?.expiring_leases ?? 0), total)
       },
@@ -131,8 +134,11 @@ export default function AdminHomePage() {
         key: 'overdue',
         tone: 'danger',
         icon: 'money' as IconKey,
-        title: '欠租与逾期',
-        desc: `逾期占比 ${Math.round(ratio(overdueAmt, totalBilling) * 100)}% · 待收款 ${num(summary?.upcoming_payments)} 笔`,
+        title: tr('home.overdueTitle'),
+        desc: tr('home.overdueDesc', {
+          p: Math.round(ratio(overdueAmt, totalBilling) * 100),
+          n: num(summary?.upcoming_payments)
+        }),
         value: fmtMoney(overdueAmt),
         url: '/pages/admin/payments/index',
         bar: ratio(overdueAmt, totalBilling)
@@ -141,8 +147,8 @@ export default function AdminHomePage() {
         key: 'vacancy',
         tone: 'info',
         icon: 'home' as IconKey,
-        title: '空置率',
-        desc: `空置 ${vacant} 套 / 共 ${total} 套 · 警戒线 10%`,
+        title: tr('home.vacancyTitle'),
+        desc: tr('home.vacancyDesc', { v: vacant, t: total }),
         value: `${vacancyRate}%`,
         url: '/pages/admin/properties/index',
         bar: ratio(vacant, total)
@@ -154,25 +160,25 @@ export default function AdminHomePage() {
   const metrics = [
     {
       key: 'revenue',
-      label: '本月营收',
+      label: 'home.metricRevenue',
       value: fmtMoney(summary?.monthly_revenue),
       tone: 'primary'
     },
     {
       key: 'occupancy',
-      label: '出租率',
+      label: 'home.metricOccupancy',
       value: `${Number(summary?.occupancy_rate || 0)}%`,
       tone: 'success'
     },
     {
       key: 'leases',
-      label: '在租合同',
+      label: 'home.metricLeases',
       value: String(counts.leases),
       tone: 'info'
     },
     {
       key: 'employees',
-      label: '员工数',
+      label: 'home.metricEmployees',
       value: String(counts.employees),
       tone: 'primary'
     }
@@ -182,20 +188,20 @@ export default function AdminHomePage() {
   const todos: Array<{ key: string; label: string; value: number; url?: string }> = [
     {
       key: 'review',
-      label: '待审核',
+      label: 'home.todoReview',
       value: counts.todos,
       url: '/pages/admin/review-center/index'
     },
     {
       key: 'recon',
-      label: '对账待核',
+      label: 'home.todoRecon',
       value: counts.reconDiff,
       // 与 App 管理端一致：对账差异去收款管理页逐笔核对
       url: '/pages/admin/payments/index'
     },
     {
       key: 'upcoming',
-      label: '7天内待缴',
+      label: 'home.todoUpcoming',
       value: Number(summary?.upcoming_payments || 0),
       url: '/pages/admin/payments/index'
     }
@@ -203,11 +209,11 @@ export default function AdminHomePage() {
 
   // 快捷入口（对齐原型 5 格）
   const shortcuts: { key: string; label: string; icon: IconKey; url: string }[] = [
-    { key: 'properties', label: '房源管理', icon: 'home', url: '/pages/admin/properties/index' },
-    { key: 'crm', label: '客户管理', icon: 'user', url: '/pages/admin/crm/index' },
-    { key: 'leases', label: '合同管理', icon: 'doc', url: '/pages/admin/leases/index' },
-    { key: 'payments', label: '收款管理', icon: 'money', url: '/pages/admin/payments/index' },
-    { key: 'listings', label: '上架房源', icon: 'clipboard', url: '/pages/staff/listing-edit/index' }
+    { key: 'properties', label: 'home.scProperties', icon: 'home', url: '/pages/admin/properties/index' },
+    { key: 'crm', label: 'home.scCrm', icon: 'user', url: '/pages/admin/crm/index' },
+    { key: 'leases', label: 'home.scLeases', icon: 'doc', url: '/pages/admin/leases/index' },
+    { key: 'payments', label: 'home.scPayments', icon: 'money', url: '/pages/admin/payments/index' },
+    { key: 'listings', label: 'home.scListings', icon: 'clipboard', url: '/pages/staff/listing-edit/index' }
   ]
 
   const go = (url: string) => Taro.navigateTo({ url })
@@ -236,7 +242,7 @@ export default function AdminHomePage() {
               </View>
               <View className='adm-risk__right'>
                 <Text className='adm-risk__value'>{r.value}</Text>
-                <Text className='adm-risk__link'>去处理 ›</Text>
+                <Text className='adm-risk__link'>{tr('home.handle')}</Text>
               </View>
             </View>
           ))}
@@ -246,7 +252,7 @@ export default function AdminHomePage() {
         <View className='adm-metrics'>
           {metrics.map((m) => (
             <View key={m.key} className='adm-metric'>
-              <Text className='adm-metric__label'>{m.label}</Text>
+              <Text className='adm-metric__label'>{tr(m.label)}</Text>
               <Text className={`adm-metric__value adm-metric__value--${m.tone}`}>{m.value}</Text>
             </View>
           ))}
@@ -255,12 +261,12 @@ export default function AdminHomePage() {
         {/* ===== 3. 经营趋势 · 收入 ===== */}
         <View className='adm-card'>
           <View className='adm-card__head'>
-            <Text className='adm-card__title'>经营趋势 · 收入</Text>
-            <Text className='adm-card__extra'>近 7 个月</Text>
+            <Text className='adm-card__title'>{tr('home.trendTitle')}</Text>
+            <Text className='adm-card__extra'>{tr('home.trendRange')}</Text>
           </View>
           {trend.length === 0 ? (
             <View className='adm-state'>
-              <Text className='adm-state__text'>暂无趋势数据</Text>
+              <Text className='adm-state__text'>{tr('home.trendEmpty')}</Text>
             </View>
           ) : (
             <View className='adm-chart'>
@@ -275,7 +281,7 @@ export default function AdminHomePage() {
                       className={`adm-chart__bar ${isLast ? 'adm-chart__bar--active' : ''}`}
                       style={{ height: `${height}rpx` }}
                     />
-                    <Text className='adm-chart__label'>{monthLabel(t.month)}</Text>
+                    <Text className='adm-chart__label'>{monthLabel(t.month, tr('home.monthSuffix'))}</Text>
                   </View>
                 )
               })}
@@ -285,18 +291,21 @@ export default function AdminHomePage() {
 
         {/* ===== 4. 待办汇总 ===== */}
         <View className='adm-todos'>
-          {todos.map((t) => (
+          {todos.map((todo) => (
             <View
-              key={t.key}
+              key={todo.key}
               className='adm-todo'
               onClick={() =>
-                t.url
-                  ? go(t.url)
-                  : Taro.showToast({ title: `「${t.label}」暂未开放`, icon: 'none' })
+                todo.url
+                  ? go(todo.url)
+                  : Taro.showToast({
+                      title: tr('home.comingSoon', { label: tr(todo.label) }),
+                      icon: 'none'
+                    })
               }
             >
-              <Text className='adm-todo__value'>{t.value}</Text>
-              <Text className='adm-todo__label'>{t.label}</Text>
+              <Text className='adm-todo__value'>{todo.value}</Text>
+              <Text className='adm-todo__label'>{tr(todo.label)}</Text>
             </View>
           ))}
         </View>
@@ -308,7 +317,7 @@ export default function AdminHomePage() {
               <View className='adm-quick__icon'>
                 <View className='icon-svg' style={iconStyle(s.icon, 44)} />
               </View>
-              <Text className='adm-quick__label'>{s.label}</Text>
+              <Text className='adm-quick__label'>{tr(s.label)}</Text>
             </View>
           ))}
         </View>
@@ -316,22 +325,26 @@ export default function AdminHomePage() {
         {/* ===== 6. 最近动态（来源：/dashboard/recent-payments） ===== */}
         <View className='adm-card'>
           <View className='adm-card__head'>
-            <Text className='adm-card__title'>最近动态</Text>
+            <Text className='adm-card__title'>{tr('home.recentTitle')}</Text>
             <Text className='adm-card__extra' onClick={() => go('/pages/admin/payments/index')}>
-              全部 ›
+              {tr('home.allMore')}
             </Text>
           </View>
           {recent.length === 0 && (
-            <View className='adm-state'>
-              <Text className='adm-state__text'>{loading ? '加载中...' : '暂无动态'}</Text>
-            </View>
+            <StateBlock
+              loading={loading}
+              empty={!loading}
+              text={loading ? tr('pub.loading') : tr('home.noActivity')}
+            />
           )}
           {recent.slice(0, 4).map((p, i) => (
             <View key={p.id || i} className='adm-activity'>
               <View className='adm-activity__dot' />
               <View className='adm-activity__body'>
                 <Text className='adm-activity__title'>
-                  收款{p.status === 'succeeded' ? '到账' : '单更新'} · {p.payer_name || '付款方'}
+                  {tr('home.receipt')}
+                  {p.status === 'succeeded' ? tr('home.receiptArrived') : tr('home.receiptUpdated')} ·{' '}
+                  {p.payer_name || tr('home.payer')}
                 </Text>
                 <Text className='adm-activity__desc'>
                   {fmtMoney(p.amount, p.currency)} · {fmtDate(p.paid_at || p.created_at)}
@@ -340,7 +353,7 @@ export default function AdminHomePage() {
               <Text
                 className={`badge ${p.status === 'succeeded' ? 'badge--success' : 'badge--warning'}`}
               >
-                {p.status === 'succeeded' ? '已收款' : '待收款'}
+                {p.status === 'succeeded' ? tr('pay.received') : tr('pay.pendingShort')}
               </Text>
             </View>
           ))}

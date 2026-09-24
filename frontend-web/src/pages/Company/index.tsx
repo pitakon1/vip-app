@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Empty } from 'antd'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 
 interface CompanyInfo {
@@ -30,6 +31,7 @@ const FALLBACK: CompanyInfo = {
 }
 
 const Company = () => {
+  const { t } = useTranslation()
   const [info, setInfo] = useState<CompanyInfo>(FALLBACK)
 
   useEffect(() => {
@@ -41,12 +43,12 @@ const Company = () => {
 
   // 企业资料字段（全部来自接口，无数据不渲染）
   const profileFields = [
-    { label: '公司名称', value: info.name },
-    { label: '注册编号', value: info.reg_no },
-    { label: '公司地址', value: info.address },
-    { label: '联系电话', value: info.phone },
-    { label: '客服邮箱', value: info.email },
-    { label: '官方网站', value: info.website },
+    { label: t('company.name'), value: info.name },
+    { label: t('company.regNo'), value: info.reg_no },
+    { label: t('company.address'), value: info.address },
+    { label: t('company.phone'), value: info.phone },
+    { label: t('company.email'), value: info.email },
+    { label: t('company.website'), value: info.website },
   ].filter((f) => !!f.value)
 
   const socialFields = [
@@ -118,7 +120,7 @@ const Company = () => {
                   <tr>
                     <td colSpan={4}>
                       <div className="rent-empty">
-                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无资质文件" />
+                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('company.emptyDocs')} />
                       </div>
                     </td>
                   </tr>

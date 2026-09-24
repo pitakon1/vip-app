@@ -17,6 +17,7 @@ import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
 import api from '@/lib/api';
 import { geoApi, attendanceApi } from '@/services/api';
+import { useI18n } from '@/i18n';
 import { notify, notifyError } from '@/utils/feedback';
 
 // 打卡半径（业务确认 C6：考勤地图定位；500 米）
@@ -72,6 +73,7 @@ const STATUS_META: Record<AttStatus, { label: string; color: string; bg: string 
 const fmtTime = (iso?: string | null) => (iso ? dayjs(iso).format('HH:mm') : '--:--');
 
 export default function AttendanceScreen() {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [today, setToday] = useState<TodayInfo | null>(null);
@@ -161,13 +163,13 @@ export default function AttendanceScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('无定位权限', '请在设置中允许访问位置');
+        Alert.alert(t('att.noPermTitle'), t('att.noPermMsg'));
         return null;
       }
       const pos = await Location.getCurrentPositionAsync({});
       return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
     } catch {
-      Alert.alert('定位失败', '无法获取当前定位');
+      Alert.alert(t('att.locFailTitle'), t('att.locFailMsg'));
       return null;
     }
   };

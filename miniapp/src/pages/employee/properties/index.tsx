@@ -3,6 +3,7 @@ import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { propertiesApi } from '@/services/api'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface Property {
@@ -24,25 +25,25 @@ interface Property {
 
 // 状态标签（对齐后端 PropertyStatus: vacant/rented/renewing/maintenance）
 const STATUS_META: Record<string, { label: string; cls: string }> = {
-  vacant: { label: '空置', cls: 'p-badge--info' },
-  rented: { label: '在租', cls: 'p-badge--success' },
-  renewing: { label: '续约中', cls: 'p-badge--warning' },
-  maintenance: { label: '维修中', cls: 'p-badge--warning' }
+  vacant: { label: 'prop.statusVacant', cls: 'p-badge--info' },
+  rented: { label: 'prop.statusRented', cls: 'p-badge--success' },
+  renewing: { label: 'prop.statusRenewing', cls: 'p-badge--warning' },
+  maintenance: { label: 'prop.statusMaintenance', cls: 'p-badge--warning' }
 }
 const getStatus = (s?: string) =>
-  STATUS_META[s ?? ''] ?? { label: s || '未知', cls: 'p-badge--neutral' }
+  STATUS_META[s ?? ''] ?? { label: s || 'prop.unknown', cls: 'p-badge--neutral' }
 
 // 快捷筛选（状态 / 类型）
 type QuickKey = '' | 'rented' | 'vacant' | 'maintenance' | 'apartment' | 'house' | 'shop' | 'office'
 const QUICK_CHIPS: { key: QuickKey; label: string; kind: 'status' | 'type' }[] = [
-  { key: '', label: '全部', kind: 'status' },
-  { key: 'rented', label: '在租', kind: 'status' },
-  { key: 'vacant', label: '空置', kind: 'status' },
-  { key: 'maintenance', label: '维修', kind: 'status' },
-  { key: 'apartment', label: '公寓', kind: 'type' },
-  { key: 'house', label: '别墅', kind: 'type' },
-  { key: 'shop', label: '商铺', kind: 'type' },
-  { key: 'office', label: '写字楼', kind: 'type' }
+  { key: '', label: 'common.all', kind: 'status' },
+  { key: 'rented', label: 'prop.statusRented', kind: 'status' },
+  { key: 'vacant', label: 'prop.statusVacant', kind: 'status' },
+  { key: 'maintenance', label: 'prop.quickMaintenance', kind: 'status' },
+  { key: 'apartment', label: 'prop.typeApartment', kind: 'type' },
+  { key: 'house', label: 'prop.typeVilla', kind: 'type' },
+  { key: 'shop', label: 'prop.typeCommercial', kind: 'type' },
+  { key: 'office', label: 'prop.typeOffice', kind: 'type' }
 ]
 
 // 类型关键词（后端 property_type 取值未完全标准化，按关键词命中）
@@ -54,36 +55,36 @@ const TYPE_KWS: Record<string, string[]> = {
 }
 
 const TYPE_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: 'apartment', label: '公寓' },
-  { key: 'house', label: '别墅' },
-  { key: 'shop', label: '商铺' },
-  { key: 'office', label: '写字楼' }
+  { key: '', label: 'pub.filterAny' },
+  { key: 'apartment', label: 'prop.typeApartment' },
+  { key: 'house', label: 'prop.typeVilla' },
+  { key: 'shop', label: 'prop.typeCommercial' },
+  { key: 'office', label: 'prop.typeOffice' }
 ]
 
 const STATUS_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: 'rented', label: '在租' },
-  { key: 'vacant', label: '空置' },
-  { key: 'renewing', label: '续约中' },
-  { key: 'maintenance', label: '维修中' }
+  { key: '', label: 'pub.filterAny' },
+  { key: 'rented', label: 'prop.statusRented' },
+  { key: 'vacant', label: 'prop.statusVacant' },
+  { key: 'renewing', label: 'prop.statusRenewing' },
+  { key: 'maintenance', label: 'prop.statusMaintenance' }
 ]
 
 const SORT_OPTIONS = [
-  { key: 'default', label: '默认排序' },
-  { key: 'rent_asc', label: '租金从低到高' },
-  { key: 'rent_desc', label: '租金从高到低' },
-  { key: 'area_desc', label: '面积从大到小' }
+  { key: 'default', label: 'prop.sortDefault' },
+  { key: 'rent_asc', label: 'prop.sortRentAsc' },
+  { key: 'rent_desc', label: 'prop.sortRentDesc' },
+  { key: 'area_desc', label: 'prop.sortAreaDesc' }
 ]
 
 const TYPE_LABELS: Record<string, string> = {
-  apartment: '公寓',
-  condo: '公寓',
-  house: '住宅',
-  villa: '别墅',
-  shop: '商铺',
-  commercial: '商铺',
-  office: '写字楼'
+  apartment: 'prop.typeApartment',
+  condo: 'prop.typeApartment',
+  house: 'prop.typeHouse',
+  villa: 'prop.typeVilla',
+  shop: 'prop.typeCommercial',
+  commercial: 'prop.typeCommercial',
+  office: 'prop.typeOffice'
 }
 
 function pickList(res: any): Property[] {
@@ -102,6 +103,7 @@ const formatRent = (v?: number, currency?: string) => {
 type FilterTab = null | 'status' | 'type' | 'sort'
 
 export default function EmployeePropertiesPage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [listings, setListings] = useState<Property[]>([])
   const [loading, setLoading] = useState(false)
@@ -121,7 +123,7 @@ export default function EmployeePropertiesPage() {
     } catch (err) {
       console.error('[Properties] 获取房源失败', err)
       setError(true)
-      Taro.showToast({ title: '加载房源失败', icon: 'none' })
+      Taro.showToast({ title: t('prop.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -181,28 +183,28 @@ export default function EmployeePropertiesPage() {
     [visibleList]
   )
 
-  const statusLabel = STATUS_OPTIONS.find((s) => s.key === statusKey)?.label || '状态'
-  const typeLabel = TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || '类型'
-  const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label || '排序'
+  const statusLabel = STATUS_OPTIONS.find((o) => o.key === statusKey)?.label || 'prop.statusLabel'
+  const typeLabel = TYPE_OPTIONS.find((o) => o.key === typeKey)?.label || 'prop.typeLabel'
+  const sortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label || 'prop.sortLabel'
   const tabs: { key: Exclude<FilterTab, null>; label: string; active: boolean }[] = [
-    { key: 'status', label: statusKey ? statusLabel : '状态', active: !!statusKey },
-    { key: 'type', label: typeKey ? typeLabel : '类型', active: !!typeKey },
-    { key: 'sort', label: sortKey !== 'default' ? sortLabel : '排序', active: sortKey !== 'default' }
+    { key: 'status', label: t(statusKey ? statusLabel : 'prop.statusLabel'), active: !!statusKey },
+    { key: 'type', label: t(typeKey ? typeLabel : 'prop.typeLabel'), active: !!typeKey },
+    { key: 'sort', label: t(sortKey !== 'default' ? sortLabel : 'prop.sortLabel'), active: sortKey !== 'default' }
   ]
 
   // 标签：由真实字段派生
   const tagsOf = (p: Property): string[] => {
     const tags: string[] = []
-    if (p.furnished) tags.push('精装')
-    if (p.video_url) tags.push('视频看房')
-    if (Array.isArray(p.photos) && p.photos.length > 0) tags.push('实拍图 ' + p.photos.length)
+    if (p.furnished) tags.push(t('prop.furnishedTag'))
+    if (p.video_url) tags.push(t('prop.videoTag'))
+    if (Array.isArray(p.photos) && p.photos.length > 0) tags.push(t('prop.photoTag', { n: p.photos.length }))
     return tags.slice(0, 3)
   }
 
   // 点击卡片 → 操作面板（删除房源等同下架，前台天然隐藏）
   const onCardTap = (it: Property) => {
     Taro.showActionSheet({
-      itemList: ['编辑房源'],
+      itemList: [t('prop.editListing')],
       success: (r) => {
         if (r.tapIndex === 0) {
           Taro.navigateTo({ url: `/pages/employee/property-edit/index?id=${it.id}` })
@@ -219,29 +221,29 @@ export default function EmployeePropertiesPage() {
           <Input
             className='p-search__input'
             value={keyword}
-            placeholder='搜索房源名称、地址...'
+            placeholder={t('prop.searchPlaceholder')}
             placeholderStyle='color:#98a1ab'
             onInput={(e: any) => setKeyword(e.detail.value)}
           />
           {keyword ? (
             <Text className='p-search__clear' onClick={() => setKeyword('')}>
-              清空
+              {t('common.clear')}
             </Text>
           ) : null}
         </View>
 
         {/* 下拉筛选 */}
         <View className='p-filters'>
-          {tabs.map((t) => (
+          {tabs.map((tab) => (
             <View
-              key={t.key}
-              className={`p-chip ${openTab === t.key ? 'p-chip--open' : ''} ${
-                t.active ? 'p-chip--active' : ''
+              key={tab.key}
+              className={`p-chip ${openTab === tab.key ? 'p-chip--open' : ''} ${
+                tab.active ? 'p-chip--active' : ''
               }`}
-              onClick={() => setOpenTab(openTab === t.key ? null : t.key)}
+              onClick={() => setOpenTab(openTab === tab.key ? null : tab.key)}
             >
-              <Text className='p-chip__text'>{t.label}</Text>
-              <Text className='p-chip__arrow'>{openTab === t.key ? '▲' : '▼'}</Text>
+              <Text className='p-chip__text'>{tab.label}</Text>
+              <Text className='p-chip__arrow'>{openTab === tab.key ? '▲' : '▼'}</Text>
             </View>
           ))}
         </View>
@@ -262,7 +264,7 @@ export default function EmployeePropertiesPage() {
                         setOpenTab(null)
                       }}
                     >
-                      <Text>{o.label}</Text>
+                      <Text>{t(o.label)}</Text>
                     </View>
                   )
                 })}
@@ -278,7 +280,7 @@ export default function EmployeePropertiesPage() {
                       setOpenTab(null)
                     }}
                   >
-                    <Text className='p-sort__text'>{s.label}</Text>
+                    <Text className='p-sort__text'>{t(s.label)}</Text>
                     {sortKey === s.key && <Text className='p-sort__check'>✓</Text>}
                   </View>
                 ))}
@@ -295,7 +297,7 @@ export default function EmployeePropertiesPage() {
               className={`p-quick__item ${quickActive === c.key ? 'p-quick__item--active' : ''}`}
               onClick={() => onQuick(c)}
             >
-              <Text>{c.label}</Text>
+              <Text>{t(c.label)}</Text>
             </View>
           ))}
         </ScrollView>
@@ -305,27 +307,30 @@ export default function EmployeePropertiesPage() {
         {/* 结果统计行 */}
         <View className='p-count'>
           <Text className='p-count__text'>
-            共 <Text className='p-count__strong'>{visibleList.length}</Text> 套 · 空置{' '}
-            <Text className='p-count__strong p-count__strong--vacant'>{vacantCount}</Text> 套
+            {t('prop.countTotal')}{' '}
+            <Text className='p-count__strong'>{visibleList.length}</Text> {t('prop.countUnitShort')} ·{' '}
+            {t('prop.countVacant')}{' '}
+            <Text className='p-count__strong p-count__strong--vacant'>{vacantCount}</Text>{' '}
+            {t('prop.countUnitShort')}
           </Text>
         </View>
 
         {loading && listings.length === 0 ? (
           <View className='p-state p-state--loading'>
             <View className='p-state__spinner' />
-            <Text className='p-state__title'>正在加载房源</Text>
+            <Text className='p-state__title'>{t('prop.loadingList')}</Text>
           </View>
         ) : error ? (
           <View className='p-state'>
-            <Text className='p-state__title'>加载失败</Text>
+            <Text className='p-state__title'>{t('common.loadFailed')}</Text>
             <View className='p-retry' onClick={fetchListings}>
-              <Text className='p-retry__text'>点击重试</Text>
+              <Text className='p-retry__text'>{t('common.tapRetry')}</Text>
             </View>
           </View>
         ) : visibleList.length === 0 ? (
           <View className='p-state'>
-            <Text className='p-state__title'>没有匹配的房源</Text>
-            <Text className='p-state__desc'>可调整筛选条件后重试</Text>
+            <Text className='p-state__title'>{t('prop.empty')}</Text>
+            <Text className='p-state__desc'>{t('prop.emptyFiltered')}</Text>
           </View>
         ) : (
           visibleList.map((it) => {
@@ -343,44 +348,45 @@ export default function EmployeePropertiesPage() {
                   {photo ? (
                     <Image className='p-card__photo' src={photo} mode='aspectFill' lazyLoad />
                   ) : (
-                    <Text className='p-card__ph'>房源</Text>
+                    <Text className='p-card__ph'>{t('prop.listing')}</Text>
                   )}
                   <View className='p-card__type'>
-                    <Text>{TYPE_LABELS[String(it.property_type || '').toLowerCase()] || '房源'}</Text>
+                    <Text>{t(TYPE_LABELS[String(it.property_type || '').toLowerCase()] || 'prop.listing')}</Text>
                   </View>
                 </View>
 
                 <View className='p-card__body'>
-                  <Text className='p-card__name'>{it.room_number || '未命名房源'}</Text>
-                  <Text className='p-card__addr'>{it.address || '暂无地址'}</Text>
+                  <Text className='p-card__name'>{it.room_number || t('prop.unnamed')}</Text>
+                  <Text className='p-card__addr'>{it.address || t('prop.noAddress')}</Text>
 
                   {tags.length > 0 && (
                     <View className='p-card__tags'>
-                      {tags.map((t) => (
-                        <Text key={t} className='p-card__tag'>
-                          {t}
+                      {tags.map((tag) => (
+                        <Text key={tag} className='p-card__tag'>
+                          {tag}
                         </Text>
                       ))}
                     </View>
                   )}
 
                   <Text className='p-card__stats'>
-                    {it.size_sqm || 0}㎡ · {it.bedrooms || 0}卧{it.bathrooms || 0}浴
+                    {it.size_sqm || 0}㎡ · {t('prop.bedroomUnit', { n: it.bedrooms || 0 })}{' '}
+                    {t('prop.bathroomUnit', { n: it.bathrooms || 0 })}
                   </Text>
 
                   {/* 租客行：后端未提供租客姓名，仅在空置时按真实状态展示「无租约」 */}
                   {it.status === 'vacant' && (
-                    <Text className='p-card__tenant p-card__tenant--vacant'>无租约</Text>
+                    <Text className='p-card__tenant p-card__tenant--vacant'>{t('prop.noLease')}</Text>
                   )}
 
                   <View className='p-card__bottom'>
                     <Text className='p-card__rent'>
                       {formatRent(it.monthly_rent, it.currency)}
-                      <Text className='p-card__unit'>/月</Text>
+                      <Text className='p-card__unit'>{t('pub.perMonth')}</Text>
                     </Text>
                     <View className='p-card__badges'>
                       <View className={`p-badge ${st.cls}`}>
-                        <Text>{st.label}</Text>
+                        <Text>{t(st.label)}</Text>
                       </View>
                     </View>
                   </View>

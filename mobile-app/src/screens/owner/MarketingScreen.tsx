@@ -15,6 +15,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { ownerApi, ownersApi, saleListingApi } from '@/services/api';
+import { useI18n } from '@/i18n';
 import { notify, notifyError } from '@/utils/feedback';
 import { fmtMoney as money } from '@/utils/format';
 
@@ -106,6 +107,7 @@ const RENT_STATUS: Record<string, { text: string; color: string; bg: string; pct
 const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '-');
 
 export default function OwnerMarketingScreen() {
+  const { t } = useI18n();
   const [tab, setTab] = useState<'rent' | 'sale'>('rent');
   const [vacants, setVacants] = useState<VacantItem[]>([]);
   const [totalVacant, setTotalVacant] = useState(0);
@@ -251,7 +253,7 @@ export default function OwnerMarketingScreen() {
     const title = formTitle.trim();
     const price = Number(formPrice);
     if (!title || !price) {
-      Alert.alert('请完善信息', '请填写物业名称与挂牌售价');
+      Alert.alert(t('mkt.incompleteTitle'), t('mkt.incompleteMsg'));
       return;
     }
     setSubmitting(true);
@@ -402,7 +404,7 @@ export default function OwnerMarketingScreen() {
                   })}
                   {selected && (
                     <Text style={styles.pickHint} numberOfLines={1}>
-                      已选：{selected.title} · 月租 {money(selected.monthly_rent, selected.currency)}
+                      {t('mkt.selectedHint', { title: selected.title, price: money(selected.monthly_rent, selected.currency) })}
                     </Text>
                   )}
                 </>

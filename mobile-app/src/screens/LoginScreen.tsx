@@ -67,7 +67,7 @@ export default function LoginScreen() {
 
   const handleSendCode = async () => {
     if (!phone.trim()) {
-      notifyError('提示', new Error('请输入手机号'));
+      notifyError(t('common.hint'), new Error(t('login.phoneRequired')));
       return;
     }
     const dev = await sendOtp(`${country.value}${phone.trim()}`, 'sms');
@@ -78,24 +78,24 @@ export default function LoginScreen() {
     let ok = true;
     if (method === 'email') {
       if (!email.trim()) {
-        setEmailError('请输入邮箱');
+        setEmailError(t('login.emailRequired'));
         ok = false;
       } else {
         setEmailError('');
       }
       if (!password) {
-        setPasswordError('请输入密码');
+        setPasswordError(t('login.passwordRequired'));
         ok = false;
       } else {
         setPasswordError('');
       }
     } else {
       if (!phone.trim()) {
-        notifyError('提示', new Error('请输入手机号'));
+        notifyError(t('common.hint'), new Error(t('login.phoneRequired')));
         ok = false;
       }
       if (!code.trim()) {
-        notifyError('提示', new Error('请输入验证码'));
+        notifyError(t('common.hint'), new Error(t('login.codeRequired')));
         ok = false;
       }
     }
@@ -109,7 +109,7 @@ export default function LoginScreen() {
       const token: string | undefined = data?.token ?? data?.access_token;
       const user = data?.user ?? data?.data?.user;
       if (!token || !user) {
-        throw new Error('登录响应格式异常');
+        throw new Error(t('login.badResponse'));
       }
       if (remember) {
         await tokenStorage.set(token);
@@ -119,7 +119,7 @@ export default function LoginScreen() {
       useAuthStore.setState({ user, token, isAuthenticated: true });
     } catch (err: any) {
       setLoading(false);
-      notifyError('登录失败', err);
+      notifyError(t('login.failedTitle'), err);
     }
   };
 
@@ -134,7 +134,7 @@ export default function LoginScreen() {
         onPress={() => setLangVisible(true)}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel="选择语言"
+        accessibilityLabel={t('login.selectLanguage')}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       >
         <Ionicons name="globe-outline" size={18} color={colors.ink2} />
@@ -167,14 +167,14 @@ export default function LoginScreen() {
 
           {/* 页脚：去注册 */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>还没有账号？</Text>
+            <Text style={styles.footerText}>{t('login.noAccount')}</Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('Register')}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="去注册"
+              accessibilityLabel={t('login.goRegister')}
             >
-              <Text style={styles.footerLink}>去注册</Text>
+              <Text style={styles.footerLink}>{t('login.goRegister')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -191,7 +191,7 @@ export default function LoginScreen() {
               onPress={() => setStage('choose')}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               accessibilityRole="button"
-              accessibilityLabel="返回方式选择"
+              accessibilityLabel={t('login.backToMethods')}
             >
               <Ionicons name="arrow-back" size={22} color={colors.ink} />
             </TouchableOpacity>
@@ -203,7 +203,7 @@ export default function LoginScreen() {
               <Text style={styles.label}>{t('login.email')}</Text>
               <TextInput
                 style={[styles.input, (email.length > 0 || emailError) && styles.inputFocused, !!emailError && styles.inputError]}
-                placeholder="请输入邮箱"
+                placeholder={t('login.emailRequired')}
                 placeholderTextColor={colors.ink3}
                 value={email}
                 onChangeText={(v) => {
@@ -218,7 +218,7 @@ export default function LoginScreen() {
               <Text style={styles.label}>{t('login.password')}</Text>
               <TextInput
                 style={[styles.input, (password.length > 0 || passwordError) && styles.inputFocused, !!passwordError && styles.inputError]}
-                placeholder="请输入密码"
+                placeholder={t('login.passwordRequired')}
                 placeholderTextColor={colors.ink3}
                 value={password}
                 onChangeText={(v) => {
@@ -232,39 +232,39 @@ export default function LoginScreen() {
             </>
           ) : (
             <>
-              <Text style={styles.label}>国家 / 地区</Text>
+              <Text style={styles.label}>{t('login.countryLabel')}</Text>
               <TouchableOpacity
                 style={styles.countryField}
                 onPress={() => setCountryVisible(true)}
                 accessibilityRole="button"
-                accessibilityLabel="选择国家码"
+                accessibilityLabel={t('login.selectCountryCode')}
               >
                 <Text style={styles.countryText}>{country.label}</Text>
                 <Ionicons name="chevron-down" size={16} color={colors.ink3} />
               </TouchableOpacity>
 
-              <Text style={styles.label}>手机号</Text>
+              <Text style={styles.label}>{t('login.phoneLabel')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="请输入手机号"
+                placeholder={t('login.phoneRequired')}
                 placeholderTextColor={colors.ink3}
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
                 textContentType="telephoneNumber"
-                accessibilityLabel="手机号"
+                accessibilityLabel={t('login.phoneLabel')}
               />
 
-              <Text style={styles.label}>验证码</Text>
+              <Text style={styles.label}>{t('login.codeLabel')}</Text>
               <View style={styles.codeRow}>
                 <TextInput
                   style={[styles.input, styles.codeInput]}
-                  placeholder="输入验证码"
+                  placeholder={t('login.codePlaceholder')}
                   placeholderTextColor={colors.ink3}
                   value={code}
                   onChangeText={setCode}
                   keyboardType="number-pad"
-                  accessibilityLabel="验证码"
+                  accessibilityLabel={t('login.codeLabel')}
                 />
                 <TouchableOpacity
                   style={[styles.codeBtn, (secondsLeft > 0 || sending) && styles.codeBtnDisabled]}
@@ -272,13 +272,15 @@ export default function LoginScreen() {
                   disabled={secondsLeft > 0 || sending}
                   activeOpacity={0.8}
                   accessibilityRole="button"
-                  accessibilityLabel={secondsLeft > 0 ? `重新获取，${secondsLeft}秒` : '获取验证码'}
+                  accessibilityLabel={
+                    secondsLeft > 0 ? t('login.resendIn', { n: secondsLeft }) : t('login.getCode')
+                  }
                 >
                   {sending ? (
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <Text style={styles.codeBtnText}>
-                      {secondsLeft > 0 ? `${secondsLeft}s` : '获取验证码'}
+                      {secondsLeft > 0 ? `${secondsLeft}s` : t('login.getCode')}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -302,7 +304,7 @@ export default function LoginScreen() {
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() =>
-                Alert.alert('忘记密码', '请联系管理员在「账号管理」中重置您的登录密码。')
+                Alert.alert(t('login.forgotTitle'), t('login.forgotMsg'))
               }
             >
               <Text style={styles.forgotText}>{t('login.forgot')}</Text>
@@ -323,14 +325,14 @@ export default function LoginScreen() {
 
           {/* 页脚：去注册 */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>还没有账号？</Text>
+            <Text style={styles.footerText}>{t('login.noAccount')}</Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('Register')}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="去注册"
+              accessibilityLabel={t('login.goRegister')}
             >
-              <Text style={styles.footerLink}>去注册</Text>
+              <Text style={styles.footerLink}>{t('login.goRegister')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -349,7 +351,7 @@ export default function LoginScreen() {
           onPress={() => setLangVisible(false)}
         >
           <View style={styles.langSheet}>
-            <Text style={styles.langSheetTitle}>选择语言</Text>
+            <Text style={styles.langSheetTitle}>{t('login.selectLanguage')}</Text>
             {LANGS.map((id: AppLang) => {
               const active = lang === id;
               return (
@@ -387,7 +389,7 @@ export default function LoginScreen() {
           onPress={() => setCountryVisible(false)}
         >
           <View style={styles.langSheet}>
-            <Text style={styles.langSheetTitle}>选择国家 / 地区</Text>
+            <Text style={styles.langSheetTitle}>{t('login.selectCountry')}</Text>
             {COUNTRY_CODES.map((c) => {
               const active = c.value === country.value;
               return (

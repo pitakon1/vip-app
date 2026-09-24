@@ -27,14 +27,6 @@ const _extFromUri = (uri: string) => {
   return m ? `.${m[1].toLowerCase()}` : '.jpg';
 };
 
-const roleLabels: Record<UserRole, string> = {
-  owner: '业主',
-  tenant: '租客',
-  agent: '经纪人',
-  employee: '员工',
-  admin: '管理员',
-};
-
 interface FuncEntry {
   key: string;
   labelKey: string;
@@ -208,11 +200,11 @@ export default function ProfileScreen() {
 
   // 后端无对应编辑接口的功能，点击统一提示「暂未开放」（不伪造假数据）
   const showNotAvailable = (name: string) => {
-    const msg = `「${name}」功能暂未开放`;
+    const msg = t('profile.notOpenMsg', { name });
     if (Platform.OS === 'web') {
       window.alert(msg);
     } else {
-      Alert.alert('暂未开放', msg);
+      Alert.alert(t('profile.notOpenTitle'), msg);
     }
   };
 
@@ -247,17 +239,20 @@ export default function ProfileScreen() {
   const companyLabel = appInfo.name || APP_COMPANY;
   // 个人通知偏好摘要（真实值：邮件/推送；原写死的「邮件 · 短信 · 推送」并无短信项）
   const notifySummary =
-    [userPrefs.email !== false ? '邮件' : '', userPrefs.push !== false ? '推送' : '']
+    [
+      userPrefs.email !== false ? t('profile.notifyEmail') : '',
+      userPrefs.push !== false ? t('profile.notifyPush') : '',
+    ]
       .filter(Boolean)
-      .join(' · ') || '全部关闭';
+      .join(' · ') || t('profile.notifyAllOff');
 
   // 管理端「我的」区块数据（对齐 admin-mobile-settings.html）
   const adminAccountItems: SettingItem[] = [
-    { key: 'password', icon: 'lock-closed', label: '修改密码', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
+    { key: 'password', icon: 'lock-closed', label: t('profile.changePassword'), color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
     {
       key: 'phone',
       icon: 'call',
-      label: '绑定手机',
+      label: t('profile.bindPhone'),
       value: user?.phone ? maskPhone(user.phone) : undefined,
       color: colors.info,
       bg: colors.alpha(colors.infoRgb, 0.1),
@@ -265,49 +260,49 @@ export default function ProfileScreen() {
     {
       key: 'email',
       icon: 'mail',
-      label: '绑定邮箱',
+      label: t('profile.bindEmail'),
       value: user?.email ? maskEmail(user.email) : undefined,
       color: colors.info,
       bg: colors.alpha(colors.infoRgb, 0.1),
     },
   ];
   const adminSystemItems: SettingItem[] = [
-    { key: 'language', icon: 'globe', label: '语言', value: lang === 'en' ? 'English' : lang === 'th' ? 'ไทย' : '中文', openLang: true, color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
-    { key: 'timezone', icon: 'time', label: '时区', value: userPrefs.timezone || undefined, color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
+    { key: 'language', icon: 'globe', label: t('profile.language'), value: currentLang, openLang: true, color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
+    { key: 'timezone', icon: 'time', label: t('profile.timezone'), value: userPrefs.timezone || undefined, color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1) },
     {
       key: 'notification',
       icon: 'notifications',
-      label: '通知设置',
+      label: t('profile.notifySettings'),
       // 实际只有「邮件 / 推送」两项个人通知偏好（原写死的「邮件 · 短信 · 推送」并不存在短信）
-      value: [userPrefs.email !== false ? '邮件' : '', userPrefs.push !== false ? '推送' : ''].filter(Boolean).join(' · ') || '全部关闭',
+      value: notifySummary,
       color: colors.error,
       bg: colors.alpha(colors.errorRgb, 0.1),
     },
   ];
   const adminBusinessItems: SettingItem[] = [
-    { key: 'commission', icon: 'settings', label: '佣金设置', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), route: 'CommissionRules' },
-    { key: 'rent-reminder', icon: 'calendar', label: '租金提醒天数', value: `${business?.rent_reminder_days ?? 7} 天前`, color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), route: 'AdminBusinessSettings' },
-    { key: 'lease-reminder', icon: 'document-text', label: '合同到期提醒', value: `${business?.lease_reminder_days ?? 30} 天前`, color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), route: 'AdminBusinessSettings' },
-    { key: 'auto-dunning', icon: 'refresh', label: '自动催缴', value: business?.auto_dunning === false ? '已关闭' : '已开启', valueTone: business?.auto_dunning === false ? undefined : 'success', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), route: 'AdminBusinessSettings' },
+    { key: 'commission', icon: 'settings', label: t('profile.commissionSettings'), color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), route: 'CommissionRules' },
+    { key: 'rent-reminder', icon: 'calendar', label: t('profile.rentReminderDays'), value: t('profile.daysAgo', { n: business?.rent_reminder_days ?? 7 }), color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), route: 'AdminBusinessSettings' },
+    { key: 'lease-reminder', icon: 'document-text', label: t('profile.leaseReminder'), value: t('profile.daysAgo', { n: business?.lease_reminder_days ?? 30 }), color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), route: 'AdminBusinessSettings' },
+    { key: 'auto-dunning', icon: 'refresh', label: t('profile.autoDunning'), value: business?.auto_dunning === false ? t('profile.statusOff') : t('profile.statusOn'), valueTone: business?.auto_dunning === false ? undefined : 'success', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), route: 'AdminBusinessSettings' },
   ];
   const adminAboutItems: SettingItem[] = [
-    { key: 'version', icon: 'information-circle', label: '版本信息', value: versionLabel, color: colors.ink2, bg: colors.surface2 },
-    { key: 'terms', icon: 'document-text', label: '用户协议', color: colors.ink2, bg: colors.surface2 },
-    { key: 'privacy', icon: 'shield-checkmark', label: '隐私政策', color: colors.ink2, bg: colors.surface2 },
+    { key: 'version', icon: 'information-circle', label: t('profile.versionInfo'), value: versionLabel, color: colors.ink2, bg: colors.surface2 },
+    { key: 'terms', icon: 'document-text', label: t('profile.terms'), color: colors.ink2, bg: colors.surface2 },
+    { key: 'privacy', icon: 'shield-checkmark', label: t('profile.privacy'), color: colors.ink2, bg: colors.surface2 },
   ];
 
   const handleLogout = () => {
     const doLogout = () => logout();
     // react-native-web 下 Alert.alert 是空实现，需用浏览器原生 confirm
     if (Platform.OS === 'web') {
-      if (window.confirm('确定要退出登录吗？')) {
+      if (window.confirm(t('profile.logoutConfirm'))) {
         doLogout();
       }
       return;
     }
-    Alert.alert('退出登录', '确定要退出登录吗？', [
-      { text: '取消', style: 'cancel' },
-      { text: '确定', style: 'destructive', onPress: doLogout },
+    Alert.alert(t('profile.logoutTitle'), t('profile.logoutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.confirm'), style: 'destructive', onPress: doLogout },
     ]);
   };
 
@@ -372,15 +367,15 @@ export default function ProfileScreen() {
       const res = await chatApi.support();
       const conv = Array.isArray(res?.data) ? res.data[0] : res?.data;
       if (!conv?.id) {
-        Alert.alert('提示', '客服暂未开通');
+        Alert.alert(t('common.hint'), t('profile.supportUnavailable'));
         return;
       }
       navigation.navigate('ChatDetail', {
         conversationId: conv.id,
-        title: conv.title ?? '平台客服',
+        title: conv.title ?? t('profile.support'),
       });
     } catch {
-      Alert.alert('提示', '客服暂未开通');
+      Alert.alert(t('common.hint'), t('profile.supportUnavailable'));
     }
   };
 
@@ -409,10 +404,10 @@ export default function ProfileScreen() {
       if (updated && updated.id) {
         setUser(updated);
       } else {
-        Alert.alert('提示', '头像上传成功，请稍后刷新查看');
+        Alert.alert(t('common.hint'), t('profile.avatarOk'));
       }
     } catch {
-      Alert.alert('提示', '头像上传失败，请重试');
+      Alert.alert(t('common.hint'), t('profile.avatarFail'));
     }
   };
 
@@ -478,11 +473,11 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             <View style={styles.userInfo}>
               <Text style={styles.userName}>
-                {user?.name ?? user?.full_name ?? '未知用户'}
+                {user?.name ?? user?.full_name ?? t('profile.unknownUser')}
               </Text>
               <View style={styles.userMetaRow}>
                 <View style={styles.roleTag}>
-                  <Text style={styles.roleTagText}>{user ? roleLabels[user.role] : '未登录'}</Text>
+                  <Text style={styles.roleTagText}>{user ? t(`perm.role.${user.role}`) : t('profile.notLoggedIn')}</Text>
                 </View>
                 {/* 用户卡统一展示掩码手机号（无手机号降级邮箱），与 Web/小程序「我的」用户卡一致 */}
                 <Text style={styles.userMeta} numberOfLines={1}>
@@ -497,7 +492,7 @@ export default function ProfileScreen() {
                 onPress={() => navigation.navigate('EditProfile')}
               >
                 <Ionicons name="create-outline" size={13} color={colors.ink2} />
-                <Text style={styles.editButtonText}>编辑资料</Text>
+                <Text style={styles.editButtonText}>{t('profile.edit')}</Text>
               </TouchableOpacity>
             ) : null}
           </>
@@ -552,7 +547,7 @@ export default function ProfileScreen() {
       {isAdmin ? (
         <>
           {/* 账户设置 */}
-          <Text style={styles.settingSectionTitle}>账户设置</Text>
+          <Text style={styles.settingSectionTitle}>{t('profile.sectionAccount')}</Text>
           <Card style={styles.settingListCard}>
             {adminAccountItems.map((item, idx) => (
               <TouchableOpacity
@@ -575,7 +570,7 @@ export default function ProfileScreen() {
           </Card>
 
           {/* 系统设置 */}
-          <Text style={styles.settingSectionTitle}>系统设置</Text>
+          <Text style={styles.settingSectionTitle}>{t('profile.sectionSystem')}</Text>
           <Card style={styles.settingListCard}>
             {adminSystemItems.map((item, idx) => (
               <TouchableOpacity
@@ -598,7 +593,7 @@ export default function ProfileScreen() {
           </Card>
 
           {/* 业务设置 */}
-          <Text style={styles.settingSectionTitle}>业务设置</Text>
+          <Text style={styles.settingSectionTitle}>{t('profile.sectionBusiness')}</Text>
           <Card style={styles.settingListCard}>
             {adminBusinessItems.map((item, idx) => (
               <TouchableOpacity
@@ -668,14 +663,14 @@ export default function ProfileScreen() {
               <Ionicons name="document-text" size={18} color={colors.primary} />
             </View>
             <View style={styles.employeeInfo}>
-              <Text style={styles.employeeTitle}>合同管理</Text>
-              <Text style={styles.employeeDesc}>管理租约合同、续约与到期</Text>
+              <Text style={styles.employeeTitle}>{t('profile.contractsTitle')}</Text>
+              <Text style={styles.employeeDesc}>{t('profile.contractsDesc')}</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
           {/* 关于 */}
-          <Text style={styles.settingSectionTitle}>关于</Text>
+          <Text style={styles.settingSectionTitle}>{t('profile.sectionAbout')}</Text>
           <Card style={styles.settingListCard}>
             {adminAboutItems.map((item, idx) => (
               <TouchableOpacity
@@ -700,7 +695,7 @@ export default function ProfileScreen() {
       ) : isStaff ? (
         <>
           {/* 常用功能（按角色差异化） */}
-          <Card title="常用功能">
+          <Card title={t('profile.commonFuncs')}>
             {entries.map((entry, idx) => (
               <TouchableOpacity
                 key={entry.key}
@@ -719,7 +714,7 @@ export default function ProfileScreen() {
           </Card>
 
           {/* 账户设置（对齐管理员端「我的」：修改密码/绑定手机/绑定邮箱） */}
-          <Text style={styles.settingSectionTitle}>账户设置</Text>
+          <Text style={styles.settingSectionTitle}>{t('profile.sectionAccount')}</Text>
           <Card style={styles.settingListCard}>
             {adminAccountItems.map((item, idx) => (
               <TouchableOpacity
@@ -742,7 +737,7 @@ export default function ProfileScreen() {
           </Card>
 
           {/* 系统设置（语言/时区/通知设置） */}
-          <Text style={styles.settingSectionTitle}>系统设置</Text>
+          <Text style={styles.settingSectionTitle}>{t('profile.sectionSystem')}</Text>
           <Card style={styles.settingListCard}>
             {adminSystemItems.map((item, idx) => (
               <TouchableOpacity
@@ -772,7 +767,7 @@ export default function ProfileScreen() {
           </Card>
 
           {/* 关于（版本/用户协议/隐私政策） */}
-          <Text style={styles.settingSectionTitle}>关于</Text>
+          <Text style={styles.settingSectionTitle}>{t('profile.sectionAbout')}</Text>
           <Card style={styles.settingListCard}>
             {adminAboutItems.map((item, idx) => (
               <TouchableOpacity
@@ -832,11 +827,11 @@ export default function ProfileScreen() {
 
       {!isGuest && (
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
-          <Text style={styles.logoutText}>退出登录</Text>
+          <Text style={styles.logoutText}>{t('profile.logout')}</Text>
         </TouchableOpacity>
       )}
 
-      {isAdmin && <Text style={styles.footerText}>{`${companyLabel} 管理后台 · ${versionLabel}`}</Text>}
+      {isAdmin && <Text style={styles.footerText}>{`${companyLabel} ${t('profile.adminConsole')} · ${versionLabel}`}</Text>}
     </ScrollView>
   );
 }

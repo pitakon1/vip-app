@@ -354,7 +354,7 @@ const Contacts = () => {
                     <span className="rent-contact-phone__num">{e.phone || '—'}</span>
                     <button
                       className="rent-icon-btn"
-                      style={{ width: 30, height: 30, background: 'var(--rent-primary)', borderColor: 'var(--rent-primary)', color: '#fff' }}
+                      style={{ width: 30, height: 30, background: 'var(--rent-primary)', borderColor: 'var(--rent-primary)', color: 'var(--rent-primary-foreground)' }}
                       onClick={() => handleCopy(e.phone || '', '手机号')}
                       title="复制手机号"
                     >

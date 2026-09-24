@@ -13,6 +13,7 @@ import {
   callPhone,
   chatCustomer
 } from '@/lib/crmShared'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface LeadItem {
@@ -34,23 +35,24 @@ interface LeadItem {
 
 // 后端 LeadStage 枚举（inquiring / viewing_scheduled / negotiating / pending_contract / closed）
 const STAGE_META: Record<string, { text: string; badge: string; avatar: string }> = {
-  inquiring: { text: '咨询中', badge: 'badge--info', avatar: 'crm-avatar--info' },
-  viewing_scheduled: { text: '看房中', badge: 'badge--primary', avatar: 'crm-avatar--primary' },
-  negotiating: { text: '谈判中', badge: 'badge--warning', avatar: 'crm-avatar--warning' },
-  pending_contract: { text: '待签约', badge: 'badge--warning', avatar: 'crm-avatar--warning' },
-  closed: { text: '已成交', badge: 'badge--success', avatar: 'crm-avatar--success' }
+  inquiring: { text: 'crm.empStageInquiring', badge: 'badge--info', avatar: 'crm-avatar--info' },
+  viewing_scheduled: { text: 'crm.empStageViewing', badge: 'badge--primary', avatar: 'crm-avatar--primary' },
+  negotiating: { text: 'crm.empStageNegotiating', badge: 'badge--warning', avatar: 'crm-avatar--warning' },
+  pending_contract: { text: 'crm.stagePending', badge: 'badge--warning', avatar: 'crm-avatar--warning' },
+  closed: { text: 'crm.stageClosed', badge: 'badge--success', avatar: 'crm-avatar--success' }
 }
 
 const FILTERS: { key: string; label: string }[] = [
-  { key: '', label: '全部' },
-  { key: 'inquiring', label: '咨询中' },
-  { key: 'viewing_scheduled', label: '看房中' },
-  { key: 'negotiating', label: '谈判中' },
-  { key: 'pending_contract', label: '待签约' },
-  { key: 'closed', label: '已成交' }
+  { key: '', label: 'crm.filterAll' },
+  { key: 'inquiring', label: 'crm.empStageInquiring' },
+  { key: 'viewing_scheduled', label: 'crm.empStageViewing' },
+  { key: 'negotiating', label: 'crm.empStageNegotiating' },
+  { key: 'pending_contract', label: 'crm.stagePending' },
+  { key: 'closed', label: 'crm.stageClosed' }
 ]
 
 export default function EmployeeCrmPage() {
+  const { t } = useI18n()
   const [leads, setLeads] = useState<LeadItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -68,7 +70,7 @@ export default function EmployeeCrmPage() {
       setTotal(Number(d?.total ?? items.length))
     } catch (error) {
       console.error('[EmployeeCrm] 获取客户失败', error)
-      Taro.showToast({ title: '加载客户失败', icon: 'none' })
+      Taro.showToast({ title: t('crm.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -108,7 +110,7 @@ export default function EmployeeCrmPage() {
 
   const submitEdit = async () => {
     if (!editName.trim()) {
-      Taro.showToast({ title: '请填写客户姓名', icon: 'none' })
+      Taro.showToast({ title: t('crm.nameRequired'), icon: 'none' })
       return
     }
     if (!editingId) return
@@ -121,11 +123,11 @@ export default function EmployeeCrmPage() {
         stage: editStage,
         notes: editNotes.trim()
       })
-      Taro.showToast({ title: '已更新客户状态', icon: 'success' })
+      Taro.showToast({ title: t('crm.statusUpdated'), icon: 'success' })
       setEditOpen(false)
       fetchLeads()
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || '更新失败', icon: 'none' })
+      Taro.showToast({ title: error?.message || t('crm.updateFailed'), icon: 'none' })
     } finally {
       setSaving(false)
     }
@@ -138,13 +140,13 @@ export default function EmployeeCrmPage() {
         <Input
           className='crm-search__input'
           value={keyword}
-          placeholder='搜索客户姓名/电话'
+          placeholder={t('crm.searchPlaceholder')}
           confirmType='search'
           onInput={(e: any) => setKeyword(e.detail.value)}
           onConfirm={handleSearch}
         />
         <View className='crm-search__btn' onClick={handleSearch}>
-          <Text className='crm-search__btn-text'>搜索</Text>
+          <Text className='crm-search__btn-text'>{t('crm.search')}</Text>
         </View>
       </View>
 
@@ -156,7 +158,7 @@ export default function EmployeeCrmPage() {
             className={`crm-chip ${stage === f.key ? 'crm-chip--active' : ''}`}
             onClick={() => setStage(f.key)}
           >
-            <Text className='crm-chip__text'>{f.label}</Text>
+            <Text className='crm-chip__text'>{t(f.label)}</Text>
           </View>
         ))}
       </ScrollView>
@@ -165,65 +167,65 @@ export default function EmployeeCrmPage() {
       <View className='crm-stats'>
         <View className='crm-stat crm-stat--primary'>
           <Text className='crm-stat__value'>{stats.total}</Text>
-          <Text className='crm-stat__label'>总客户</Text>
+          <Text className='crm-stat__label'>{t('crm.statTotal')}</Text>
         </View>
         <View className='crm-stat crm-stat--info'>
           <Text className='crm-stat__value'>{stats.intent}</Text>
-          <Text className='crm-stat__label'>意向</Text>
+          <Text className='crm-stat__label'>{t('crm.statIntent')}</Text>
         </View>
         <View className='crm-stat crm-stat--success'>
           <Text className='crm-stat__value'>{stats.closed}</Text>
-          <Text className='crm-stat__label'>已成交</Text>
+          <Text className='crm-stat__label'>{t('crm.stageClosed')}</Text>
         </View>
         <View className='crm-stat crm-stat--warning'>
           <Text className='crm-stat__value'>{stats.newThisMonth}</Text>
-          <Text className='crm-stat__label'>本月新增</Text>
+          <Text className='crm-stat__label'>{t('crm.statNewThisMonth')}</Text>
         </View>
       </View>
 
       <View className='crm-section-head'>
-        <Text className='crm-section-head__title'>客户列表</Text>
-        <Text className='crm-section-head__count'>共 {visible.length} 位</Text>
+        <Text className='crm-section-head__title'>{t('crm.listTitle')}</Text>
+        <Text className='crm-section-head__count'>{t('crm.countUnit', { n: visible.length })}</Text>
       </View>
 
       <ScrollView scrollY className='crm-list'>
         {loading && visible.length === 0 && (
           <View className='crm-state'>
-            <Text className='crm-state__text'>加载中...</Text>
+            <Text className='crm-state__text'>{t('pub.loading')}</Text>
           </View>
         )}
         {!loading && visible.length === 0 && (
           <View className='crm-state'>
             <View className='icon-svg' style={iconStyle('user', 72)} />
-            <Text className='crm-state__text'>暂无客户</Text>
+            <Text className='crm-state__text'>{t('crm.empty')}</Text>
             <Text className='crm-state__desc'>
-              {query || stage ? '换个筛选条件试试' : '分配给你的客户线索会展示在这里'}
+              {query || stage ? t('crm.emptyFiltered') : t('crm.empEmptyDesc')}
             </Text>
           </View>
         )}
 
         {visible.map((l) => {
           const meta = STAGE_META[l.stage || ''] || {
-            text: l.stage || '未知',
+            text: l.stage || t('crm.unknown'),
             badge: 'badge--neutral',
             avatar: ''
           }
           const budget =
             l.budget_min || l.budget_max
-              ? `预算 ${fmtMoney(l.budget_min || l.budget_max, l.budget_currency)}`
+              ? `${t('crm.budget')} ${fmtMoney(l.budget_min || l.budget_max, l.budget_currency)}`
               : ''
           return (
             <View key={l.id} className='crm-card'>
               <View className='crm-card__left'>
                 <View className={`crm-avatar ${meta.avatar}`}>
-                  <Text className='crm-avatar__text'>{(l.name || '客').slice(0, 1)}</Text>
+                  <Text className='crm-avatar__text'>{(l.name || t('crm.anonName')).slice(0, 1)}</Text>
                 </View>
               </View>
 
               <View className='crm-card__body'>
                 <View className='crm-card__top'>
-                  <Text className='crm-card__name'>{l.name || '未命名客户'}</Text>
-                  <Text className={`badge ${meta.badge}`}>{meta.text}</Text>
+                  <Text className='crm-card__name'>{l.name || t('crm.unnamed')}</Text>
+                  <Text className={`badge ${meta.badge}`}>{t(meta.text)}</Text>
                 </View>
 
                 {!!l.phone && (
@@ -235,19 +237,19 @@ export default function EmployeeCrmPage() {
 
                 <View className='crm-card__tags'>
                   {!!budget && <Text className='crm-tag'>{budget}</Text>}
-                  {!!l.source && <Text className='crm-tag'>来源 {l.source}</Text>}
+                  {!!l.source && <Text className='crm-tag'>{t('crm.source')} {l.source}</Text>}
                 </View>
 
                 <View className='crm-card__foot'>
                   <View className='icon-svg icon-svg--sm' style={iconStyle('calendar', 26)} />
                   <Text className='crm-card__foot-text'>
-                    跟进 {fmtDate(l.updated_at || l.created_at)}
+                     {t('crm.followUp')} {fmtDate(l.updated_at || l.created_at)}
                   </Text>
                   <View className='crm-card__edit' onClick={() => openEdit(l)}>
-                    <Text className='crm-card__edit-text'>编辑状态</Text>
+                    <Text className='crm-card__edit-text'>{t('crm.editStatus')}</Text>
                   </View>
                   <View className='crm-card__edit crm-card__edit--ghost' onClick={() => chatCustomer(l)}>
-                    <Text className='crm-card__edit-text'>发消息</Text>
+                    <Text className='crm-card__edit-text'>{t('crm.sendMsg')}</Text>
                   </View>
                 </View>
               </View>
@@ -260,36 +262,36 @@ export default function EmployeeCrmPage() {
       {editOpen && (
         <View className='modal-mask' onClick={() => setEditOpen(false)}>
           <View className='modal-sheet' onClick={(e) => e.stopPropagation()}>
-            <Text className='modal-sheet__title'>编辑客户状态</Text>
+            <Text className='modal-sheet__title'>{t('crm.editStatusTitle')}</Text>
             <View className='form-field'>
-              <Text className='form-field__label'>姓名 *</Text>
+              <Text className='form-field__label'>{t('crm.nameLabelStar')}</Text>
               <Input
                 className='form-field__input'
                 value={editName}
                 onInput={(e) => setEditName(e.detail.value)}
-                placeholder='请输入客户姓名'
+                placeholder={t('crm.namePlaceholderReq')}
               />
             </View>
             <View className='form-field'>
-              <Text className='form-field__label'>电话</Text>
+              <Text className='form-field__label'>{t('crm.phoneLabel')}</Text>
               <Input
                 className='form-field__input'
                 value={editPhone}
                 onInput={(e) => setEditPhone(e.detail.value)}
-                placeholder='请输入联系电话'
+                placeholder={t('crm.phonePlaceholderReq')}
               />
             </View>
             <View className='form-field'>
-              <Text className='form-field__label'>来源</Text>
+              <Text className='form-field__label'>{t('crm.source')}</Text>
               <Input
                 className='form-field__input'
                 value={editSource}
                 onInput={(e) => setEditSource(e.detail.value)}
-                placeholder='如 线上咨询 / 朋友介绍'
+                placeholder={t('crm.empSourcePlaceholder')}
               />
             </View>
             <View className='form-field'>
-              <Text className='form-field__label'>客户状态</Text>
+              <Text className='form-field__label'>{t('crm.statusLabel')}</Text>
               <View className='crm-edit-chips'>
                 {FILTERS.filter((f) => f.key).map((f) => (
                   <View
@@ -297,26 +299,26 @@ export default function EmployeeCrmPage() {
                     className={`crm-edit-chip ${editStage === f.key ? 'crm-edit-chip--active' : ''}`}
                     onClick={() => setEditStage(f.key)}
                   >
-                    <Text className='crm-edit-chip__text'>{f.label}</Text>
+                    <Text className='crm-edit-chip__text'>{t(f.label)}</Text>
                   </View>
                 ))}
               </View>
             </View>
             <View className='form-field'>
-              <Text className='form-field__label'>备注</Text>
+              <Text className='form-field__label'>{t('crm.notesLabel')}</Text>
               <Textarea
                 className='form-field__input form-field__textarea'
                 value={editNotes}
                 onInput={(e) => setEditNotes(e.detail.value)}
-                placeholder='需求备注（可选）'
+                placeholder={t('crm.empNotesPlaceholder')}
               />
             </View>
             <View className='modal-actions'>
               <Button className='modal-btn modal-btn--ghost' onClick={() => setEditOpen(false)}>
-                取消
+                {t('common.cancel')}
               </Button>
               <Button className='modal-btn modal-btn--primary' disabled={saving} onClick={submitEdit}>
-                {saving ? '保存中...' : '保存'}
+                {saving ? t('common.saving') : t('crm.save')}
               </Button>
             </View>
           </View>

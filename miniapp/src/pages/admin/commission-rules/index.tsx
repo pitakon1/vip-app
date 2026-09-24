@@ -5,23 +5,24 @@ import { commissionRulesApi, brokerApi, employeesApi } from '@/services/api'
 import { MAX_PAGE_SIZE } from '@/lib/api'
 import useAuthStore from '@/stores/auth'
 import type { User } from '@/types'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 /** 适用对象（对齐 Web 端 CommissionRules） */
 const SCOPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'all_employees', label: '全体员工' },
-  { value: 'by_department', label: '部门' },
-  { value: 'by_employee', label: '员工' },
-  { value: 'by_broker', label: '分销商' },
-  { value: 'broker_employee', label: '分销商员工' }
+  { value: 'all_employees', label: 'comm.scopeAll' },
+  { value: 'by_department', label: 'comm.scopeDept' },
+  { value: 'by_employee', label: 'comm.scopeEmployee' },
+  { value: 'by_broker', label: 'comm.scopeBroker' },
+  { value: 'broker_employee', label: 'comm.scopeBrokerEmployee' }
 ]
 
 const SCOPE_META: Record<string, string> = {
-  all_employees: '适用于全体员工',
-  by_department: '按部门配置差异化费率',
-  by_employee: '按员工配置差异化费率',
-  by_broker: '按分销商（渠道商）差异化定价',
-  broker_employee: '按分销商下属员工差异化定价'
+  all_employees: 'comm.descAll',
+  by_department: 'comm.descDept',
+  by_employee: 'comm.descEmployee',
+  by_broker: 'comm.descBroker',
+  broker_employee: 'comm.descBrokerEmployee'
 }
 
 interface Rule {
@@ -63,6 +64,7 @@ function scopeDetail(rule: Rule, brokers: Broker[], employees: Employee[]) {
 }
 
 export default function CommissionRulesPage() {
+  const { t } = useI18n()
   const role = useAuthStore((s) => s.user as User | null)?.role
   const isAdmin = role === 'admin'
 
@@ -164,19 +166,19 @@ export default function CommissionRulesPage() {
   }
 
   const submit = async () => {
-    if (!form.name.trim()) return Taro.showToast({ title: '请输入规则名称', icon: 'none' })
+    if (!form.name.trim()) return Taro.showToast({ title: t('comm.nameRequired'), icon: 'none' })
     if (form.rate === '' || Number(form.rate) < 0)
-      return Taro.showToast({ title: '请输入正确的费率', icon: 'none' })
+      return Taro.showToast({ title: t('comm.rateInvalid'), icon: 'none' })
     if (form.scope === 'by_department' && !form.department.trim())
-      return Taro.showToast({ title: '请输入部门名称', icon: 'none' })
+      return Taro.showToast({ title: t('comm.deptRequired'), icon: 'none' })
     if (form.scope === 'by_employee' && !form.employee_id)
-      return Taro.showToast({ title: '请选择员工', icon: 'none' })
+      return Taro.showToast({ title: t('comm.employeeRequired'), icon: 'none' })
     if (form.scope === 'broker_employee' && !form.broker_id)
-      return Taro.showToast({ title: '请先选择分销商', icon: 'none' })
+      return Taro.showToast({ title: t('comm.brokerFirst'), icon: 'none' })
     if (form.scope === 'broker_employee' && !form.broker_employee_id)
-      return Taro.showToast({ title: '请选择该分销商的员工', icon: 'none' })
+      return Taro.showToast({ title: t('comm.brokerEmployeeRequired'), icon: 'none' })
     if (form.scope === 'by_broker' && isAdmin && !form.broker_id)
-      return Taro.showToast({ title: '请选择分销商', icon: 'none' })
+      return Taro.showToast({ title: t('comm.brokerRequired'), icon: 'none' })
 
     const payload: Record<string, unknown> = {
       name: form.name,
@@ -194,23 +196,26 @@ export default function CommissionRulesPage() {
     try {
       if (editingId) await commissionRulesApi.update(editingId, payload)
       else await commissionRulesApi.create(payload)
-      Taro.showToast({ title: '已保存', icon: 'success' })
+      Taro.showToast({ title: t('common.saved'), icon: 'success' })
       closeSheet()
       load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || '保存失败', icon: 'none' })
+      Taro.showToast({ title: e?.message || t('common.saveFailed'), icon: 'none' })
     }
   }
 
   const remove = async (rule: Rule) => {
-    const res = await Taro.showModal({ title: '删除确认', content: `确定删除「${rule.name}」吗？` })
+    const res = await Taro.showModal({
+      title: t('common.deleteTitle'),
+      content: t('common.deleteConfirmContent', { name: rule.name })
+    })
     if (!res.confirm) return
     try {
       await commissionRulesApi.remove(rule.id)
-      Taro.showToast({ title: '已删除', icon: 'success' })
+      Taro.showToast({ title: t('common.deleted'), icon: 'success' })
       load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || '删除失败', icon: 'none' })
+      Taro.showToast({ title: e?.message || t('common.deleteFailed'), icon: 'none' })
     }
   }
 
@@ -236,11 +241,11 @@ export default function CommissionRulesPage() {
   const pickerTitle =
     picker?.type === 'broker'
       ? isAdmin
-        ? '选择分销商'
-        : '本渠道'
+        ? t('comm.pickBroker')
+        : t('comm.thisChannel')
       : picker?.type === 'employee'
-        ? '选择员工'
-        : '选择该分销商的员工'
+        ? t('comm.pickEmployee')
+        : t('comm.pickBrokerEmployee')
 
   const pickOption = (o: { id: string; label: string }) => {
     if (!picker) return
@@ -258,13 +263,13 @@ export default function CommissionRulesPage() {
   return (
     <View className='cr-page'>
       <View className='cr-page__hint'>
-        按交易类型与适用对象配置员工佣金比例（支持分销商差异化定价）。结算时按「员工 &gt; 部门 &gt; 分销商 &gt; 全局 &gt; 默认」优先级匹配。
+        {t('comm.hint')}
       </View>
 
       {loading ? (
-        <View className='cr-state'><Text className='cr-state__text'>加载中…</Text></View>
+        <View className='cr-state'><Text className='cr-state__text'>{t('pub.loading')}</Text></View>
       ) : rules.length === 0 ? (
-        <View className='cr-state'><Text className='cr-state__text'>暂无佣金规则，点击下方「新增」创建</Text></View>
+        <View className='cr-state'><Text className='cr-state__text'>{t('comm.empty')}</Text></View>
       ) : (
         <View className='cr-list'>
           {rules.map((rule) => (
@@ -273,13 +278,19 @@ export default function CommissionRulesPage() {
                 <Text className='cr-rule__name'>{rule.name}</Text>
                 <Text className='cr-rule__rate'>{Number(rule.rate ?? 0)}%</Text>
               </View>
-              <View className='cr-rule__scope'>{SCOPE_OPTIONS.find((o) => o.value === rule.scope)?.label || rule.scope}</View>
+              <View className='cr-rule__scope'>
+                {t(SCOPE_OPTIONS.find((o) => o.value === rule.scope)?.label || rule.scope)}
+              </View>
               {scopeDetail(rule, brokers, employees) && (
                 <View className='cr-rule__detail'>{scopeDetail(rule, brokers, employees)}</View>
               )}
               <View className='cr-rule__actions'>
-                <View className='cr-rule__btn cr-rule__btn--edit' onClick={() => openEdit(rule)}>编辑</View>
-                <View className='cr-rule__btn cr-rule__btn--del' onClick={() => remove(rule)}>删除</View>
+                <View className='cr-rule__btn cr-rule__btn--edit' onClick={() => openEdit(rule)}>
+                  {t('common.edit')}
+                </View>
+                <View className='cr-rule__btn cr-rule__btn--del' onClick={() => remove(rule)}>
+                  {t('common.delete')}
+                </View>
               </View>
             </View>
           ))}
@@ -288,7 +299,7 @@ export default function CommissionRulesPage() {
 
       {/* 底部新增 */}
       <View className='cr-footer'>
-        <View className='cr-addbtn' onClick={openNew}>新增佣金规则</View>
+        <View className='cr-addbtn' onClick={openNew}>{t('comm.addRule')}</View>
       </View>
 
       {/* ===== 表单面板 ===== */}
@@ -296,51 +307,51 @@ export default function CommissionRulesPage() {
         <>
           <View className='cr-mask' onClick={closeSheet} />
           <View className='cr-sheet'>
-            <Text className='cr-sheet__title'>{editingId ? '编辑规则' : '新增规则'}</Text>
+            <Text className='cr-sheet__title'>{editingId ? t('comm.editRule') : t('comm.newRule')}</Text>
 
             <View className='cr-field'>
-              <Text className='cr-field__label cr-field__label--req'>规则名称</Text>
+              <Text className='cr-field__label cr-field__label--req'>{t('comm.fieldName')}</Text>
               <Input
                 className='cr-field__input'
                 value={form.name}
-                placeholder='如：招商奖励 / 海外业绩提成'
+                placeholder={t('comm.namePlaceholder')}
                 onInput={(e) => set('name', e.detail.value)}
               />
             </View>
 
             <View className='cr-field'>
-              <Text className='cr-field__label cr-field__label--req'>费率（%）</Text>
+              <Text className='cr-field__label cr-field__label--req'>{t('comm.fieldRate')}</Text>
               <Input
                 className='cr-field__input'
                 type='digit'
                 value={form.rate}
-                placeholder='如 5 表示 5%'
+                placeholder={t('comm.ratePlaceholder')}
                 onInput={(e) => set('rate', e.detail.value)}
               />
             </View>
 
             <View className='cr-field'>
-              <Text className='cr-field__label cr-field__label--req'>适用对象</Text>
+              <Text className='cr-field__label cr-field__label--req'>{t('comm.fieldScope')}</Text>
               <View
                 className='cr-field__select'
-                onClick={() => Taro.showActionSheet({ itemList: SCOPE_OPTIONS.map((o) => o.label) }).then((r) => {
+                onClick={() => Taro.showActionSheet({ itemList: SCOPE_OPTIONS.map((o) => t(o.label)) }).then((r) => {
                   const opt = SCOPE_OPTIONS[r.tapIndex]
                   if (opt) pickScope(opt.value)
                 })}
               >
-                <Text>{SCOPE_OPTIONS.find((o) => o.value === form.scope)?.label || form.scope}</Text>
+                <Text>{t(SCOPE_OPTIONS.find((o) => o.value === form.scope)?.label || form.scope)}</Text>
                 <Text className='cr-field__tag'>▾</Text>
               </View>
-              <Text className='cr-field__tag'>{SCOPE_META[form.scope]}</Text>
+              <Text className='cr-field__tag'>{t(SCOPE_META[form.scope])}</Text>
             </View>
 
             {form.scope === 'by_department' && (
               <View className='cr-field'>
-                <Text className='cr-field__label cr-field__label--req'>部门名称</Text>
+                <Text className='cr-field__label cr-field__label--req'>{t('comm.fieldDept')}</Text>
                 <Input
                   className='cr-field__input'
                   value={form.department}
-                  placeholder='输入部门，按部门匹配'
+                  placeholder={t('comm.deptPlaceholder')}
                   onInput={(e) => set('department', e.detail.value)}
                 />
               </View>
@@ -348,14 +359,15 @@ export default function CommissionRulesPage() {
 
             {form.scope === 'by_employee' && (
               <View className='cr-field'>
-                <Text className='cr-field__label cr-field__label--req'>员工</Text>
+                <Text className='cr-field__label cr-field__label--req'>{t('comm.scopeEmployee')}</Text>
                 <View className='cr-field__select' onClick={() => openPicker('employee')}>
                   <Text className={form.employee_id ? '' : 'cr-field__select--placeholder'}>
                     {form.employee_id
                       ? employees.find((e) => e.id === form.employee_id)
-                        ? (employees.find((e) => e.id === form.employee_id)!.full_name || '已选员工')
-                        : '已选员工'
-                      : '搜索选择员工'}
+                        ? (employees.find((e) => e.id === form.employee_id)!.full_name ||
+                          t('comm.selectedEmployee'))
+                        : t('comm.selectedEmployee')
+                      : t('comm.searchEmployee')}
                   </Text>
                   <Text className='cr-field__tag'>▾</Text>
                 </View>
@@ -364,12 +376,13 @@ export default function CommissionRulesPage() {
 
             {form.scope === 'by_broker' && (
               <View className='cr-field'>
-                <Text className='cr-field__label cr-field__label--req'>分销商</Text>
+                <Text className='cr-field__label cr-field__label--req'>{t('comm.scopeBroker')}</Text>
                 <View className='cr-field__select' onClick={() => openPicker('broker')}>
                   <Text className={form.broker_id ? '' : 'cr-field__select--placeholder'}>
                     {form.broker_id
-                      ? ((brokers.find((b) => b.id === form.broker_id)?.partner_name) || '已选分销商')
-                      : isAdmin ? '搜索选择分销商' : '本渠道（默认）'}
+                      ? ((brokers.find((b) => b.id === form.broker_id)?.partner_name) ||
+                        t('comm.selectedBroker'))
+                      : isAdmin ? t('comm.searchBroker') : t('comm.thisChannelDefault')}
                   </Text>
                   <Text className='cr-field__tag'>▾</Text>
                 </View>
@@ -379,23 +392,27 @@ export default function CommissionRulesPage() {
             {form.scope === 'broker_employee' && (
               <>
                 <View className='cr-field'>
-                  <Text className='cr-field__label cr-field__label--req'>分销商</Text>
+                  <Text className='cr-field__label cr-field__label--req'>{t('comm.scopeBroker')}</Text>
                   <View className='cr-field__select' onClick={() => openPicker('broker')}>
                     <Text className={form.broker_id ? '' : 'cr-field__select--placeholder'}>
                       {form.broker_id
-                        ? ((brokers.find((b) => b.id === form.broker_id)?.partner_name) || '已选分销商')
-                        : isAdmin ? '搜索选择分销商' : '本渠道（默认）'}
+                        ? ((brokers.find((b) => b.id === form.broker_id)?.partner_name) ||
+                          t('comm.selectedBroker'))
+                        : isAdmin ? t('comm.searchBroker') : t('comm.thisChannelDefault')}
                     </Text>
                     <Text className='cr-field__tag'>▾</Text>
                   </View>
                 </View>
                 <View className='cr-field'>
-                  <Text className='cr-field__label cr-field__label--req'>该分销商的员工</Text>
+                  <Text className='cr-field__label cr-field__label--req'>{t('comm.fieldBrokerEmployee')}</Text>
                   <View className='cr-field__select' onClick={() => openPicker('broker_employee')}>
                     <Text className={form.broker_employee_id ? '' : 'cr-field__select--placeholder'}>
                       {form.broker_employee_id
-                        ? ((employees.find((e) => e.id === form.broker_employee_id)?.full_name) || '已选员工')
-                        : form.broker_id ? '搜索选择该分销商的员工' : '请先选择分销商'}
+                        ? ((employees.find((e) => e.id === form.broker_employee_id)?.full_name) ||
+                          t('comm.selectedEmployee'))
+                        : form.broker_id
+                          ? t('comm.searchBrokerEmployee')
+                          : t('comm.brokerRequired')}
                     </Text>
                     <Text className='cr-field__tag'>▾</Text>
                   </View>
@@ -403,7 +420,7 @@ export default function CommissionRulesPage() {
               </>
             )}
 
-            <View className='cr-submit' onClick={submit}>保存</View>
+            <View className='cr-submit' onClick={submit}>{t('common.save')}</View>
           </View>
         </>
       )}
@@ -417,12 +434,12 @@ export default function CommissionRulesPage() {
               className='cr-picker__search'
               autoFocus
               value={picker.keyword}
-              placeholder='搜索'
+              placeholder={t('common.search')}
               onInput={(e) => setPicker({ type: picker.type, keyword: e.detail.value })}
             />
             <View className='cr-picker__list'>
               {pickerOptions().length === 0 ? (
-                <View className='cr-picker__empty'><Text>未找到匹配项</Text></View>
+                <View className='cr-picker__empty'><Text>{t('comm.noMatch')}</Text></View>
               ) : (
                 pickerOptions().map((o: any) => {
                   const id = o.id
@@ -441,7 +458,7 @@ export default function CommissionRulesPage() {
                 })
               )}
             </View>
-            <View className='cr-picker__cancel' onClick={() => setPicker(null)}>取消</View>
+            <View className='cr-picker__cancel' onClick={() => setPicker(null)}>{t('common.cancel')}</View>
           </View>
         </View>
       )}

@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import { useLocationStore, LOCATION_GROUPS } from '@/stores/location'
+import { iconStyle } from '@/utils/icons'
 import './index.scss'
 
 export default function LocationPage() {
@@ -60,9 +61,9 @@ export default function LocationPage() {
             confirmType='search'
           />
           {query.length > 0 && (
-            <Text className='loc-search__clear' onClick={() => setQuery('')}>
-              ✕
-            </Text>
+            <View className='loc-search__clear' onClick={() => setQuery('')}>
+              <View className='icon-svg' style={iconStyle('close', 32)} />
+            </View>
           )}
         </View>
       </View>

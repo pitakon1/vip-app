@@ -40,13 +40,13 @@ body {
 
 .rent-app[data-ui="consumer"] .rent-search-hero__bar {
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--rent-card);
   box-shadow: 0 10px 32px -10px rgba(20,184,166, 0.40);
 }
 
 .rent-app[data-ui="consumer"] .rent-search-hero__search-btn {
   border-radius: 999px;
-  background: #14b8a6;
+  background: var(--rent-primary);
   box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.50);
 }
 
@@ -131,7 +131,7 @@ body {
 
 .rent-app[data-ui="consumer"] .rent-btn--primary {
   border-radius: 12px;
-  background: #14b8a6;
+  background: var(--rent-primary);
   box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.45);
 }
 
@@ -148,7 +148,7 @@ body {
 .rent-app[data-ui="consumer"] /* ===== Hero 渐变强化 ===== */
 .rent-hero,
 .rent-app[data-ui="consumer"] .rent-portal-hero {
-  background: #14b8a6;
+  background: var(--rent-primary);
 }
 
 .rent-app[data-ui="consumer"] /* ===== 头像 ===== */

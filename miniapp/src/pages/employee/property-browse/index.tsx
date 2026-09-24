@@ -6,6 +6,7 @@ import { propertiesApi, favoritesApi, viewingsApi } from '@/services/api'
 import { AREA_GROUPS } from '@/data/locationArea'
 import BottomNav from '@/components/BottomNav'
 import { usePaginatedList } from '@/hooks/usePaginatedList'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface Property {
@@ -29,13 +30,13 @@ interface Property {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  apartment: '公寓',
-  condo: '公寓',
-  house: '住宅',
-  villa: '别墅',
-  shop: '商铺',
-  commercial: '商铺',
-  office: '写字楼'
+  apartment: 'prop.typeApartment',
+  condo: 'prop.typeApartment',
+  house: 'prop.typeHouse',
+  villa: 'prop.typeVilla',
+  shop: 'prop.typeCommercial',
+  commercial: 'prop.typeCommercial',
+  office: 'prop.typeOffice'
 }
 
 const PAGE_SIZE = 10
@@ -44,7 +45,7 @@ const PAGE_SIZE = 10
 type FilterTab = null | 'region' | 'price' | 'layout' | 'sort'
 
 const PRICE_PRESETS = [
-  { key: '', label: '不限', min: 0, max: Infinity },
+  { key: '', label: 'pub.filterAny', min: 0, max: Infinity },
   { key: 'u3000', label: '≤3000', min: 0, max: 3000 },
   { key: '3-6', label: '3000-6000', min: 3000, max: 6000 },
   { key: '6-10', label: '6000-10000', min: 6000, max: 10000 },
@@ -52,18 +53,18 @@ const PRICE_PRESETS = [
 ]
 
 const BEDROOM_OPTIONS = [
-  { key: '', label: '不限' },
-  { key: '1', label: '1室' },
-  { key: '2', label: '2室' },
-  { key: '3', label: '3室' },
-  { key: '4', label: '4室+' }
+  { key: '', label: 'pub.filterAny' },
+  { key: '1', label: 'prop.layout1' },
+  { key: '2', label: 'prop.layout2' },
+  { key: '3', label: 'prop.layout3' },
+  { key: '4', label: 'prop.layout4' }
 ]
 
 const SORT_OPTIONS = [
-  { key: 'default', label: '默认排序' },
-  { key: 'price_asc', label: '租金从低到高' },
-  { key: 'price_desc', label: '租金从高到低' },
-  { key: 'area_desc', label: '面积从大到小' }
+  { key: 'default', label: 'prop.sortDefault' },
+  { key: 'price_asc', label: 'prop.sortRentAsc' },
+  { key: 'price_desc', label: 'prop.sortRentDesc' },
+  { key: 'area_desc', label: 'prop.sortAreaDesc' }
 ]
 
 function pickList(res: any): Property[] {
@@ -98,6 +99,7 @@ const defaultSlot = () => {
 }
 
 export default function EmployeePropertyBrowsePage() {
+  const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const {
     list,
@@ -117,7 +119,7 @@ export default function EmployeePropertyBrowsePage() {
       })
       return pickList(res)
     },
-    onError: () => Taro.showToast({ title: '加载房源失败', icon: 'none' })
+    onError: () => Taro.showToast({ title: t('prop.loadFailed'), icon: 'none' })
   })
 
   const [keyword, setKeyword] = useState('')
@@ -189,7 +191,7 @@ export default function EmployeePropertyBrowsePage() {
         else next.add(id)
         return next
       })
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+      Taro.showToast({ title: t('common.opFailed'), icon: 'none' })
     } finally {
       setFavPending((s) => {
         const next = new Set(s)
@@ -201,7 +203,7 @@ export default function EmployeePropertyBrowsePage() {
 
   // 分享客户：无房源分享接口，跳转消息列表手动发送
   const onShare = () => {
-    Taro.showToast({ title: '请在消息中发送给客户', icon: 'none' })
+    Taro.showToast({ title: t('crm.shareViaMessage'), icon: 'none' })
     setTimeout(() => Taro.navigateTo({ url: '/pages/chat/list/index' }), 600)
   }
 
@@ -213,7 +215,7 @@ export default function EmployeePropertyBrowsePage() {
 
   const submitBooking = async (p: Property) => {
     if (!visitorName.trim()) {
-      Taro.showToast({ title: '请填写客户姓名', icon: 'none' })
+      Taro.showToast({ title: t('crm.nameRequired'), icon: 'none' })
       return
     }
     try {
@@ -222,10 +224,10 @@ export default function EmployeePropertyBrowsePage() {
         scheduled_at: `${slot.date}T${slot.time}:00`,
         visitor_name: visitorName.trim()
       })
-      Taro.showToast({ title: '预约成功', icon: 'success' })
+      Taro.showToast({ title: t('crm.booked'), icon: 'success' })
       setBookingId('')
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || '预约失败', icon: 'none' })
+      Taro.showToast({ title: err?.message || t('prop.bookingFailed'), icon: 'none' })
     }
   }
 
@@ -246,10 +248,10 @@ export default function EmployeePropertyBrowsePage() {
     const node = allDistricts.find((d) => d.key === districtKey)
     return node ? node.kws : []
   }, [districtKey, allDistricts])
-  const regionLabel = allDistricts.find((d) => d.key === districtKey)?.label || '区域'
-  const priceLabel = PRICE_PRESETS.find((p) => p.key === priceKey)?.label || '租金'
-  const bedroomLabel = BEDROOM_OPTIONS.find((b) => b.key === bedroomKey)?.label || '户型'
-  const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label || '排序'
+  const regionLabel = allDistricts.find((d) => d.key === districtKey)?.label || 'prop.filterRegion'
+  const priceLabel = PRICE_PRESETS.find((p) => p.key === priceKey)?.label || 'prop.filterRent'
+  const bedroomLabel = BEDROOM_OPTIONS.find((b) => b.key === bedroomKey)?.label || 'prop.filterLayout'
+  const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label || 'prop.sortLabel'
 
   const visible = useMemo(() => {
     const preset = PRICE_PRESETS.find((p) => p.key === priceKey) || PRICE_PRESETS[0]
@@ -297,19 +299,19 @@ export default function EmployeePropertyBrowsePage() {
   }
 
   const tabs: { key: Exclude<FilterTab, null>; label: string; active: boolean }[] = [
-    { key: 'region', label: districtKey ? regionLabel : '区域', active: !!districtKey },
-    { key: 'price', label: priceKey ? priceLabel : '租金', active: !!priceKey },
-    { key: 'layout', label: bedroomKey ? bedroomLabel : '户型', active: !!bedroomKey },
-    { key: 'sort', label: sortKey !== 'default' ? sortLabel : '排序', active: sortKey !== 'default' }
+    { key: 'region', label: t(districtKey ? regionLabel : 'prop.filterRegion'), active: !!districtKey },
+    { key: 'price', label: t(priceKey ? priceLabel : 'prop.filterRent'), active: !!priceKey },
+    { key: 'layout', label: t(bedroomKey ? bedroomLabel : 'prop.filterLayout'), active: !!bedroomKey },
+    { key: 'sort', label: t(sortKey !== 'default' ? sortLabel : 'prop.sortLabel'), active: sortKey !== 'default' }
   ]
 
   // 由真实字段派生标签，无对应字段则不展示
   const tagsOf = (p: Property): string[] => {
     const tags: string[] = []
-    if (p.furnished) tags.push('精装修')
-    if (p.video_url) tags.push('视频看房')
-    if (Array.isArray(p.photos) && p.photos.length > 0) tags.push('实拍图 ' + p.photos.length)
-    if (p.status === 'vacant') tags.push('随时看房')
+    if (p.furnished) tags.push(t('prop.furnishedTagLong'))
+    if (p.video_url) tags.push(t('prop.videoTag'))
+    if (Array.isArray(p.photos) && p.photos.length > 0) tags.push(t('prop.photoTag', { n: p.photos.length }))
+    if (p.status === 'vacant') tags.push(t('prop.anytimeView'))
     return tags.slice(0, 3)
   }
 
@@ -321,27 +323,27 @@ export default function EmployeePropertyBrowsePage() {
           <Input
             className='pb-search__input'
             value={keyword}
-            placeholder='搜索小区、地址、地铁...'
+            placeholder={t('prop.browseSearchPlaceholder')}
             placeholderStyle='color:#98a1ab'
             confirmType='search'
             onInput={(e: any) => setKeyword(e.detail.value)}
             onConfirm={onSearch}
           />
           <View className='pb-search__btn' onClick={onSearch}>
-            <Text className='pb-search__btn-text'>搜索</Text>
+            <Text className='pb-search__btn-text'>{t('common.search')}</Text>
           </View>
         </View>
         <View className='pb-filters'>
-          {tabs.map((t) => (
+          {tabs.map((tab) => (
             <View
-              key={t.key}
-              className={`pb-chip ${openTab === t.key ? 'pb-chip--open' : ''} ${
-                t.active ? 'pb-chip--active' : ''
+              key={tab.key}
+              className={`pb-chip ${openTab === tab.key ? 'pb-chip--open' : ''} ${
+                tab.active ? 'pb-chip--active' : ''
               }`}
-              onClick={() => toggleTab(t.key)}
+              onClick={() => toggleTab(tab.key)}
             >
-              <Text className='pb-chip__text'>{t.label}</Text>
-              <Text className='pb-chip__arrow'>{openTab === t.key ? '▲' : '▼'}</Text>
+              <Text className='pb-chip__text'>{tab.label}</Text>
+              <Text className='pb-chip__arrow'>{openTab === tab.key ? '▲' : '▼'}</Text>
             </View>
           ))}
         </View>
@@ -381,7 +383,7 @@ export default function EmployeePropertyBrowsePage() {
                           className={`pb-opt ${!districtKey ? 'pb-opt--active' : ''}`}
                           onClick={() => pickDistrict('')}
                         >
-                          <Text>不限</Text>
+                          <Text>{t('pub.filterAny')}</Text>
                         </View>
                         {activeAreaGroup.children.map((d) => (
                           <View
@@ -425,7 +427,7 @@ export default function EmployeePropertyBrowsePage() {
                       setOpenTab(null)
                     }}
                   >
-                    <Text>{p.label}</Text>
+                    <Text>{t(p.label)}</Text>
                   </View>
                 ))}
               </View>
@@ -442,7 +444,7 @@ export default function EmployeePropertyBrowsePage() {
                       setOpenTab(null)
                     }}
                   >
-                    <Text>{b.label}</Text>
+                    <Text>{t(b.label)}</Text>
                   </View>
                 ))}
               </View>
@@ -459,7 +461,7 @@ export default function EmployeePropertyBrowsePage() {
                       setOpenTab(null)
                     }}
                   >
-                    <Text className='pb-sort__text'>{s.label}</Text>
+                    <Text className='pb-sort__text'>{t(s.label)}</Text>
                     {sortKey === s.key && <Text className='pb-sort__check'>✓</Text>}
                   </View>
                 ))}
@@ -471,25 +473,26 @@ export default function EmployeePropertyBrowsePage() {
 
       <View className='pb-body'>
         <Text className='pb-count'>
-          共 <Text className='pb-count__num'>{visible.length}</Text> 套房源
+          {t('prop.countTotal')} <Text className='pb-count__num'>{visible.length}</Text>{' '}
+          {t('prop.countListingsSuffix')}
         </Text>
 
         {loading && visible.length === 0 ? (
           <View className='pb-state pb-state--loading'>
             <View className='pb-state__spinner' />
-            <Text className='pb-state__title'>正在加载</Text>
+            <Text className='pb-state__title'>{t('common.loading')}</Text>
           </View>
         ) : error && visible.length === 0 ? (
           <View className='pb-state'>
-            <Text className='pb-state__title'>加载失败</Text>
+            <Text className='pb-state__title'>{t('common.loadFailed')}</Text>
             <View className='pb-retry' onClick={() => fetchList(1)}>
-              <Text className='pb-retry__text'>点击重试</Text>
+              <Text className='pb-retry__text'>{t('common.tapRetry')}</Text>
             </View>
           </View>
         ) : visible.length === 0 ? (
           <View className='pb-state'>
-            <Text className='pb-state__title'>暂无符合条件的房源</Text>
-            <Text className='pb-state__desc'>可调整筛选条件后重试</Text>
+            <Text className='pb-state__title'>{t('prop.emptyNoMatch')}</Text>
+            <Text className='pb-state__desc'>{t('prop.emptyFiltered')}</Text>
           </View>
         ) : (
           visible.map((p) => {
@@ -501,34 +504,34 @@ export default function EmployeePropertyBrowsePage() {
                   {photo ? (
                     <Image className='pb-card__photo' src={photo} mode='aspectFill' lazyLoad />
                   ) : (
-                    <Text className='pb-card__ph'>房源</Text>
+                    <Text className='pb-card__ph'>{t('prop.listing')}</Text>
                   )}
                   <View
                     className={`pb-fav ${isFav ? 'pb-fav--on' : ''}`}
                     onClick={() => toggleFav(String(p.id))}
                   >
-                    <Text className='pb-fav__text'>{isFav ? '已收藏' : '收藏'}</Text>
+                    <Text className='pb-fav__text'>{isFav ? t('prop.favOn') : t('prop.fav')}</Text>
                   </View>
                   <View className='pb-card__type'>
-                    <Text>{TYPE_LABELS[p.property_type || ''] || '房源'}</Text>
+                    <Text>{t(TYPE_LABELS[p.property_type || ''] || 'prop.listing')}</Text>
                   </View>
                 </View>
 
                 <View className='pb-card__body'>
                   <Text className='pb-card__name'>
-                    {p.room_number || '未命名房源'} {p.bedrooms || 0}室{p.bathrooms || 0}卫{' '}
-                    {p.size_sqm || 0}㎡
+                    {p.room_number || t('prop.unnamed')} {t('prop.bedroomUnit', { n: p.bedrooms || 0 })}{' '}
+                    {t('prop.bathroomUnit', { n: p.bathrooms || 0 })} {p.size_sqm || 0}㎡
                   </Text>
                   <Text className='pb-card__addr'>
-                    {p.address || '暂无地址'}
+                    {p.address || t('prop.noAddress')}
                     {p.floor ? ` | ${p.floor}` : ''}
                   </Text>
 
                   {tagsOf(p).length > 0 && (
                     <View className='pb-card__tags'>
-                      {tagsOf(p).map((t) => (
-                        <Text key={t} className='pb-card__tag'>
-                          {t}
+                      {tagsOf(p).map((tag) => (
+                        <Text key={tag} className='pb-card__tag'>
+                          {tag}
                         </Text>
                       ))}
                     </View>
@@ -537,14 +540,14 @@ export default function EmployeePropertyBrowsePage() {
                   <View className='pb-card__bottom'>
                     <Text className='pb-card__price'>
                       {formatRent(p.monthly_rent, p.currency)}
-                      <Text className='pb-card__price-unit'>/月</Text>
+                      <Text className='pb-card__price-unit'>{t('pub.perMonth')}</Text>
                     </Text>
                     <View className='pb-card__ops'>
                       <View className='pb-btn pb-btn--ghost' onClick={onShare}>
-                        <Text className='pb-btn__text pb-btn__text--ghost'>分享客户</Text>
+                        <Text className='pb-btn__text pb-btn__text--ghost'>{t('prop.shareToClient')}</Text>
                       </View>
                       <View className='pb-btn pb-btn--primary' onClick={() => openBooking(p)}>
-                        <Text className='pb-btn__text'>预约带看</Text>
+                        <Text className='pb-btn__text'>{t('prop.bookViewing')}</Text>
                       </View>
                     </View>
                   </View>
@@ -555,7 +558,7 @@ export default function EmployeePropertyBrowsePage() {
                       <Input
                         className='pb-book__input'
                         value={visitorName}
-                        placeholder='客户姓名'
+                        placeholder={t('prop.clientName')}
                         placeholderStyle='color:#98a1ab'
                         onInput={(e: any) => setVisitorName(e.detail.value)}
                       />
@@ -584,13 +587,13 @@ export default function EmployeePropertyBrowsePage() {
                           className='pb-btn pb-btn--ghost'
                           onClick={() => setBookingId('')}
                         >
-                          <Text className='pb-btn__text pb-btn__text--ghost'>取消</Text>
+                          <Text className='pb-btn__text pb-btn__text--ghost'>{t('common.cancel')}</Text>
                         </View>
                         <View
                           className='pb-btn pb-btn--primary'
                           onClick={() => submitBooking(p)}
                         >
-                          <Text className='pb-btn__text'>确认预约</Text>
+                          <Text className='pb-btn__text'>{t('prop.confirmBooking')}</Text>
                         </View>
                       </View>
                     </View>
@@ -605,7 +608,7 @@ export default function EmployeePropertyBrowsePage() {
         {hasMore && visible.length > 0 && (
           <View className='pb-more' onClick={fetchMore}>
             <Text className='pb-more__text'>
-              {loadingMore ? '加载中...' : '加载更多房源'}
+              {loadingMore ? t('common.loadingMore') : t('prop.loadMoreListings')}
             </Text>
           </View>
         )}

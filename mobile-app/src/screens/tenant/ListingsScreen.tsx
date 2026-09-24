@@ -1817,7 +1817,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   keRadioOn: { borderColor: colors.primary, backgroundColor: colors.primary },
-  keRadioDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#ffffff' },
+  keRadioDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.surface },
   keBack: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 2 },
   keBackText: { fontSize: 12, color: colors.ink3 },
   filterChip: {

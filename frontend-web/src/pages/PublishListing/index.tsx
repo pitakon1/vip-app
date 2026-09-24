@@ -516,7 +516,14 @@ const PublishListing = () => {
       >
         {result?.dedupe_state === 'blocked' ? (
           <div className="rent-form-group">
-            <div className="rent-text-bold" style={{ color: 'var(--state-error)' }}>⚠ 该房源疑似与已有上架单重复，已被阻断进入平台上架审核。</div>
+            <div className="rent-text-bold" style={{ color: 'var(--state-error)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              该房源疑似与已有上架单重复，已被阻断进入平台上架审核。
+            </div>
             <div className="rent-text-sm rent-text-muted rent-mt-2">请勿重复发布，可在「我的上架单」查看处理状态。</div>
           </div>
         ) : result && result.dedupe_reviews.length > 0 ? (
@@ -526,7 +533,13 @@ const PublishListing = () => {
           </div>
         ) : (
           <div className="rent-form-group">
-            <div className="rent-text-bold" style={{ color: 'var(--state-success)' }}>✅ 上架单已提交，当前状态：{result?.status || 'pending'}。</div>
+            <div className="rent-text-bold" style={{ color: 'var(--state-success)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m8 12 3 3 5-6" />
+              </svg>
+              上架单已提交，当前状态：{result?.status || 'pending'}。
+            </div>
             <div className="rent-text-sm rent-text-muted rent-mt-2">等待平台上架审核。</div>
           </div>
         )}

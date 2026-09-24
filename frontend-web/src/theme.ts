@@ -74,7 +74,7 @@ export const rentTheme: ThemeConfig = {
       headerBg: '#f3f1ec',
       headerColor: '#55606c',
       rowHoverBg: '#f3f1ec',
-      borderColor: '#ece7df',
+      borderColor: 'var(--rent-border)',
       cellPaddingBlock: 12,
       cellPaddingInline: 16,
     },

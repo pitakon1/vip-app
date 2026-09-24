@@ -7,6 +7,7 @@
  */
 import Taro from '@tarojs/taro'
 import { chatApi } from '@/services/api'
+import { useI18n } from '@/i18n'
 
 /** 一次拉全量的分页大小（后端硬顶 100）。 */
 export const PAGE_SIZE = 100
@@ -71,21 +72,21 @@ export async function chatCustomer(l: { name?: string; phone?: string; email?: s
   const phone = (l.phone || '').trim()
   const email = (l.email || '').trim()
   if (!phone && !email) {
-    Taro.showToast({ title: '客户未留电话/邮箱，无法发消息', icon: 'none' })
+    Taro.showToast({ title: useI18n.getState().t('crm.noContact'), icon: 'none' })
     return
   }
   try {
     const res: any = await chatApi.createConversation({
-      title: (l.name || '客户咨询').trim(),
+      title: (l.name || useI18n.getState().t('crm.chatTitle')).trim(),
       ...(phone ? { participant_phones: [phone] } : {}),
       ...(email ? { participant_emails: [email] } : {})
     })
     const conv = res?.data ?? res
-    if (!conv?.id) throw new Error('会话创建失败')
+    if (!conv?.id) throw new Error(useI18n.getState().t('crm.convFailed'))
     Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
   } catch (error: any) {
     Taro.showToast({
-      title: error?.message || '客户未注册账号，请先通过电话/邮箱联系',
+      title: error?.message || useI18n.getState().t('crm.notRegistered'),
       icon: 'none'
     })
   }

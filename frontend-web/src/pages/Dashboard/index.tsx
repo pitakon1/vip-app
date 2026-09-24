@@ -16,6 +16,7 @@ import {
 import { Line } from 'react-chartjs-2'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
+import { chartTheme } from '@/lib/chartTheme'
 import './dashboard.css'
 
 ChartJS.register(
@@ -314,7 +315,7 @@ const Dashboard = () => {
       {
         label: t('dashboardOps.income'),
         data: TREND_RATIO['12m'].map((r) => Math.round(baseRevenue * r)),
-        borderColor: '#14b8a6',
+        borderColor: chartTheme.primary,
         backgroundColor: 'rgba(20, 184, 166, 0.08)',
         fill: true,
         tension: 0.3,
@@ -338,7 +339,7 @@ const Dashboard = () => {
         backgroundColor: '#1c2733',
         titleColor: '#e8edf5',
         bodyColor: '#e8edf5',
-        borderColor: '#243044',
+        borderColor: chartTheme.tooltipBorder,
         borderWidth: 1,
         padding: 12,
         cornerRadius: 8,
@@ -351,13 +352,13 @@ const Dashboard = () => {
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: '#98a1ab', font: { size: 12 } },
+        ticks: { color: chartTheme.ink3, font: { size: 12 } },
         border: { display: false },
       },
       y: {
-        grid: { color: '#ece7df' },
+        grid: { color: chartTheme.line },
         ticks: {
-          color: '#98a1ab',
+          color: chartTheme.ink3,
           font: { size: 12 },
           callback: (v: any) => `${Number(v) / 1000}k`,
         },

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 import { fmtMoney } from '@/utils/format';
 
 interface Props {
@@ -17,25 +18,26 @@ interface Props {
 
 /** 扫码支付弹层：展示待付金额与二维码，供用户用支付应用扫描 */
 export default function PaymentSheet({ visible, qr, amount, currency, channelLabel, onClose }: Props) {
+  const { t } = useI18n();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.mask}>
         <View style={styles.sheet}>
           <View style={styles.head}>
-            <Text style={styles.title}>扫码支付</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="关闭">
+            <Text style={styles.title}>{t('pay.scanTitle')}</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('profile.close')}>
               <Ionicons name="close" size={22} color={colors.ink2} />
             </TouchableOpacity>
           </View>
           <View style={styles.amountWrap}>
-            <Text style={styles.amountLabel}>待支付金额</Text>
+            <Text style={styles.amountLabel}>{t('pay.amountLabel')}</Text>
             <Text style={styles.amount}>{fmtMoney(amount, currency)}</Text>
           </View>
           <View style={styles.qrBox}>
-            <QRCode value={qr} size={200} backgroundColor="#ffffff" color="#111827" />
+            <QRCode value={qr} size={200} backgroundColor={colors.surface} color={colors.text} />
           </View>
           <Text style={styles.hint}>
-            请使用 {channelLabel || '您的支付应用'} 扫描二维码完成支付
+            {t('pay.hint', { channel: channelLabel || t('pay.defaultChannel') })}
           </Text>
         </View>
       </View>
@@ -76,7 +78,7 @@ const styles = StyleSheet.create({
   },
   qrBox: {
     padding: colors.spacing.lg,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderRadius: colors.radius.lg,
     borderWidth: 1,
     borderColor: colors.border,

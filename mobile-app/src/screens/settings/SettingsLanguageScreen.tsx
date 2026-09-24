@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useI18n, LANGS, LANG_LABELS } from '@/i18n';
 import colors from '@/theme/colors';
 
@@ -27,7 +28,7 @@ export default function SettingsLanguageScreen() {
               accessibilityRole="button"
             >
               <Text style={styles.text}>{LANG_LABELS[item]}</Text>
-              {selected ? <Text style={styles.check}>✓</Text> : null}
+              {selected ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
             </TouchableOpacity>
           );
         }}
@@ -63,10 +64,5 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 15,
     color: colors.text,
-  },
-  check: {
-    fontSize: 18,
-    color: colors.primary,
-    fontWeight: '600',
   },
 });

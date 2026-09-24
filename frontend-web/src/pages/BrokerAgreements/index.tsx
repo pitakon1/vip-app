@@ -196,7 +196,15 @@ const BrokerAgreements = () => {
                   {signing ? '签署中...' : `签署（${p.name}）`}
                 </button>
               ))}
-              {allSigned && <span className="rent-text-bold" style={{ color: 'var(--state-success)' }}>✅ 协议已全部签署</span>}
+              {allSigned && (
+                <span className="rent-text-bold" style={{ color: 'var(--state-success)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="m8 12 3 3 5-6" />
+                  </svg>
+                  协议已全部签署
+                </span>
+              )}
             </div>
           </div>
         )}

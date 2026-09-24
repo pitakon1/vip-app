@@ -10,6 +10,7 @@ import {
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import { financialApi } from '@/services/api'
+import { chartTheme } from '@/lib/chartTheme'
 import './trend.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
@@ -105,12 +106,12 @@ const Trend = () => {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { labels: { color: '#64748b', boxWidth: 10, boxHeight: 10 } },
+      legend: { labels: { color: chartTheme.legend, boxWidth: 10, boxHeight: 10 } },
       tooltip: {
         backgroundColor: '#1c2733',
         titleColor: '#e8edf5',
         bodyColor: '#e8edf5',
-        borderColor: '#243044',
+        borderColor: chartTheme.tooltipBorder,
         borderWidth: 1,
         padding: 10,
         cornerRadius: 8,
@@ -123,12 +124,12 @@ const Trend = () => {
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: '#98a1ab', font: { size: 11 } },
+        ticks: { color: chartTheme.ink3, font: { size: 11 } },
         border: { display: false },
       },
       y: {
-        grid: { color: '#ece7df' },
-        ticks: { color: '#98a1ab', font: { size: 11 } },
+        grid: { color: chartTheme.line },
+        ticks: { color: chartTheme.ink3, font: { size: 11 } },
         border: { display: false },
       },
     },

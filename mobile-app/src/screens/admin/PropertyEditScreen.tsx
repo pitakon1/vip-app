@@ -33,6 +33,7 @@ import LoadingState from '@/components/LoadingState';
 import { notify, notifyError } from '@/utils/feedback';
 import { propertiesApi, ownersApi } from '@/services/api';
 import { publicApi } from '@/services/publicApi';
+import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
 
 interface PropertyForm {
@@ -135,6 +136,7 @@ export default function PropertyEditScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const currentUser = useAuthStore((s) => s.user);
   const isCreate: boolean = route?.params?.mode === 'create';
   const paramId: string | undefined = isCreate ? undefined : route?.params?.id;
@@ -481,7 +483,7 @@ export default function PropertyEditScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>房源类型</Text>
+          <Text style={styles.label}>{t('prop.type')}</Text>
           <View style={styles.chipWrap}>
             {TYPE_OPTIONS.map((s) => (
               <TouchableOpacity
@@ -499,7 +501,7 @@ export default function PropertyEditScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>币种</Text>
+          <Text style={styles.label}>{t('prop.currency')}</Text>
           <View style={styles.chipWrap}>
             {CURRENCY_OPTIONS.map((s) => (
               <TouchableOpacity
@@ -524,7 +526,7 @@ export default function PropertyEditScreen() {
       <View style={styles.card}>
         {canPickOwner ? (
           <View style={styles.field}>
-            <Text style={styles.label}>归属业主（必选）</Text>
+            <Text style={styles.label}>{t('prop.ownerRequired')}</Text>
             <TouchableOpacity
               style={styles.selectRow}
               activeOpacity={0.7}
@@ -541,7 +543,7 @@ export default function PropertyEditScreen() {
         )}
 
         <View style={styles.field}>
-          <Text style={styles.label}>所属小区（可选）</Text>
+          <Text style={styles.label}>{t('prop.projectOptional')}</Text>
           <TouchableOpacity
             style={styles.selectRow}
             activeOpacity={0.7}
@@ -569,7 +571,7 @@ export default function PropertyEditScreen() {
       {/* 租态 */}
       <Text style={styles.sectionTitle}>租态</Text>
       <View style={styles.card}>
-        <Text style={styles.label}>当前状态</Text>
+        <Text style={styles.label}>{t('prop.status')}</Text>
         <View style={styles.chipWrap}>
           {STATUS_OPTIONS.map((s) => (
             <TouchableOpacity
@@ -596,7 +598,7 @@ export default function PropertyEditScreen() {
       <Text style={styles.sectionTitle}>朝向与装修</Text>
       <View style={styles.card}>
         <View style={styles.field}>
-          <Text style={styles.label}>朝向</Text>
+          <Text style={styles.label}>{t('prop.orientation')}</Text>
           <View style={styles.chipWrap}>
             {ORIENTATION_OPTIONS.map((o) => (
               <TouchableOpacity
@@ -615,7 +617,7 @@ export default function PropertyEditScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>装修</Text>
+          <Text style={styles.label}>{t('prop.decoration')}</Text>
           <View style={styles.chipWrap}>
             {DECORATION_OPTIONS.map((d) => (
               <TouchableOpacity
@@ -652,7 +654,7 @@ export default function PropertyEditScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>配套设施（多选）</Text>
+          <Text style={styles.label}>{t('prop.amenities')}</Text>
           <View style={styles.chipWrap}>
             {AMENITY_OPTIONS.map((a) => (
               <TouchableOpacity

@@ -14,6 +14,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 import { useResponsive, useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
@@ -49,6 +50,7 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
 export default function AdminHomeScreen() {
+  const { t } = useI18n();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { isTablet } = useResponsive();
@@ -121,9 +123,9 @@ export default function AdminHomeScreen() {
   };
 
   // 近 7 个月营收（用于概览收入趋势图，对齐原型「近 7 月收入」）
-  const revenueTrend = trend.slice(-7).map((t) => ({
-    label: `${Number(t.month?.slice(5))}月`,
-    value: t.revenue ?? 0,
+  const revenueTrend = trend.slice(-7).map((row) => ({
+    label: t('common.monthN', { n: Number(row.month?.slice(5)) }),
+    value: row.revenue ?? 0,
   }));
 
   /* ===== 风险预警 / 待办汇总（全部由真实接口数据推导） ===== */

@@ -166,7 +166,7 @@
     }
 
     .avatar--guest {
-      background-color: #f2f3f5;
+      background-color: var(--avatar-bg);
     }
   }
 
@@ -280,7 +280,7 @@
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    background-color: #f2f3f5;
+    background-color: var(--avatar-bg);
   }
 
   /* 更换头像角标：登录后点击头像即可更换 */

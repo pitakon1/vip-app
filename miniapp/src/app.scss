@@ -16,10 +16,13 @@ page {
   --ink-rgb: 28, 39, 51;
   --ink-2: #55606c;
   --ink-3: #98a1ab;
+  --ink-4: #94a3b8;
   --line: #ece7df;
   --card: #ffffff;
   --surface-2: #f4f1ec;
   --surface-2-rgb: 244, 241, 236;
+  --surface-3: #f2f2f2;
+  --avatar-bg: #f2f3f5;
 
   /* ---- 状态色 ---- */
   --success: #16a34a;
@@ -36,6 +39,9 @@ page {
   --state-warning-light: #f4d9ad;
   --state-error-hover: #b91c1c;
   --state-purple: #7a5cd6;
+
+  /* ---- 品牌色 ---- */
+  --wechat: #07c160;
 
   /* ---- 圆角 ---- */
   --radius-sm: 8rpx;

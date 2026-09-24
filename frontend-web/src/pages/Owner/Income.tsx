@@ -15,6 +15,7 @@ import api from '@/lib/api'
 import { downloadReport, saveTextFile } from '@/lib/download'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import { chartTheme } from '@/lib/chartTheme'
 import './income.css'
 
 ChartJS.register(
@@ -365,12 +366,12 @@ const Income = () => {
         },
       },
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#98a1ab', font: { size: 12 } } },
+        x: { grid: { display: false }, ticks: { color: chartTheme.ink3, font: { size: 12 } } },
         y: {
           beginAtZero: true,
-          grid: { color: '#ece7df' },
+          grid: { color: chartTheme.line },
           ticks: {
-            color: '#98a1ab',
+            color: chartTheme.ink3,
             font: { size: 12 },
             callback: (v: any) => `฿ ${Math.round(Number(v || 0) / 1000)}k`,
           },
@@ -424,14 +425,14 @@ const Income = () => {
       scales: {
         x: {
           beginAtZero: true,
-          grid: { color: '#ece7df' },
+          grid: { color: chartTheme.line },
           ticks: {
-            color: '#98a1ab',
+            color: chartTheme.ink3,
             font: { size: 12 },
             callback: (v: any) => `฿ ${Math.round(Number(v || 0) / 1000)}k`,
           },
         },
-        y: { grid: { display: false }, ticks: { color: '#55606c', font: { size: 12 } } },
+        y: { grid: { display: false }, ticks: { color: chartTheme.ink2, font: { size: 12 } } },
       },
     }),
     [],

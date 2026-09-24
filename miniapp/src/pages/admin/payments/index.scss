@@ -270,7 +270,7 @@
 
     &--req::after {
       content: ' *';
-      color: var(--danger, #ff4d4f);
+      color: var(--error);
     }
   }
 

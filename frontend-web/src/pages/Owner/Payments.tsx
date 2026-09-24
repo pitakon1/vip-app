@@ -44,7 +44,7 @@ const paymentMethods: PaymentMethod[] = [
         <path d="M20 20v1" />
       </svg>
     ),
-    color: '#14b8a6',
+    color: 'var(--rent-primary)',
     bg: 'rgba(20, 184, 166, 0.10)',
   },
   {
@@ -57,7 +57,7 @@ const paymentMethods: PaymentMethod[] = [
         <line x1="2" y1="10" x2="22" y2="10" />
       </svg>
     ),
-    color: '#14b8a6',
+    color: 'var(--rent-primary)',
     bg: 'rgba(20, 184, 166, 0.10)',
   },
   {
@@ -71,7 +71,7 @@ const paymentMethods: PaymentMethod[] = [
         <path d="M12 8v8" />
       </svg>
     ),
-    color: '#14b8a6',
+    color: 'var(--rent-primary)',
     bg: 'rgba(20, 184, 166, 0.10)',
   },
   {
@@ -83,7 +83,7 @@ const paymentMethods: PaymentMethod[] = [
         <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
       </svg>
     ),
-    color: '#14b8a6',
+    color: 'var(--rent-primary)',
     bg: 'rgba(20, 184, 166, 0.10)',
   },
   {
@@ -99,7 +99,7 @@ const paymentMethods: PaymentMethod[] = [
         <line x1="3" y1="12" x2="21" y2="12" />
       </svg>
     ),
-    color: '#14b8a6',
+    color: 'var(--rent-primary)',
     bg: 'rgba(20, 184, 166, 0.10)',
   },
 ]

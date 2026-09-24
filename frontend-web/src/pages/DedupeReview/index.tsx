@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { message, Spin, Empty, Modal, Input } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { dedupeApi } from '@/services/api'
 
 interface DedupeReview {
@@ -20,6 +21,7 @@ const MATCH_TYPE_LABEL: Record<string, string> = { exact: '强命中', fuzzy: '�
 const STATUS_LABEL: Record<string, string> = { pending: '待审核', merged: '已合并', dismissed: '已驳回' }
 
 const DedupeReview = () => {
+  const { t } = useTranslation()
   const [items, setItems] = useState<DedupeReview[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -104,7 +106,7 @@ const DedupeReview = () => {
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 && <tr><td colSpan={7}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无去重待办" /></td></tr>}
+              {items.length === 0 && <tr><td colSpan={7}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('dedupeReview.empty')} /></td></tr>}
               {items.map((r) => (
                 <tr key={r.id}>
                   <td>
@@ -140,9 +142,9 @@ const DedupeReview = () => {
 
       <div className="rent-pagination">
         <span className="rent-pagination__info">共 {total.toLocaleString()} 条</span>
-        <button className="rent-pagination__btn" aria-label="上一页" disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</button>
+        <button className="rent-pagination__btn" aria-label={t('dedupeReview.prevPage')} disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</button>
         <span className="rent-pagination__info">{page} / {totalPages}</span>
-        <button className="rent-pagination__btn" aria-label="下一页" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>›</button>
+        <button className="rent-pagination__btn" aria-label={t('dedupeReview.nextPage')} disabled={page >= totalPages} onClick={() => setPage(page + 1)}>›</button>
       </div>
 
       <Modal
@@ -159,7 +161,7 @@ const DedupeReview = () => {
             <p>匹配键：<code>{current.match_key || '-'}</code></p>
             <div className="rent-form-group" style={{ marginTop: 12 }}>
               <label className="rent-form-label">备注（可选）</label>
-              <Input.TextArea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="填写处理备注" />
+              <Input.TextArea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('dedupeReview.notePlaceholder')} />
             </div>
           </div>
         )}

@@ -34,6 +34,7 @@ import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
 import { currencySymbol } from '@/lib/currency';
 import { propertyCoverUrl } from '@/lib/property';
+import { useI18n } from '@/i18n';
 
 const PAGE_SIZE = 10;
 
@@ -140,6 +141,7 @@ export default function AdminPropertiesScreen() {
   const respContainer = useResponsiveContainerStyle();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const [items, setItems] = useState<PropertyItem[]>([]);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -395,11 +397,11 @@ export default function AdminPropertiesScreen() {
   }, [staff, staffKw]);
 
   const doDelete = (p: PropertyItem) => {
-    const title = [p.room_number, p.building].filter(Boolean).join(' · ') || p.address || '该房源';
-    Alert.alert('删除房源', `确定删除「${title}」吗？删除后不可恢复。`, [
-      { text: '取消', style: 'cancel' },
+    const title = [p.room_number, p.building].filter(Boolean).join(' · ') || p.address || t('prop.thatProperty');
+    Alert.alert(t('prop.deleteTitle'), t('prop.deleteConfirm', { title }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '删除',
+        text: t('prop.delete'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -408,7 +410,7 @@ export default function AdminPropertiesScreen() {
             setTotal((t) => Math.max(0, t - 1));
             fetchCounts();
           } catch (e: any) {
-            Alert.alert('删除失败', e?.response?.data?.detail || '请稍后重试');
+            Alert.alert(t('prop.deleteFail'), e?.response?.data?.detail || t('prop.retryLater'));
           }
         },
       },
@@ -492,7 +494,7 @@ export default function AdminPropertiesScreen() {
     return [
       {
         key: 'location',
-        label: districtLabel || (metroSel.length ? `地铁 ${metroSel.length}` : '区域'),
+        label: districtLabel || (metroSel.length ? t('prop.metroCount', { n: metroSel.length }) : t('prop.area')),
         active: !!(districtSel || metroSel.length),
       },
       {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { message } from 'antd'
 import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { authApi, chatApi } from '@/services/api'
 import './chat.css'
 
@@ -22,6 +23,7 @@ interface Msg {
 }
 
 const Chat = () => {
+  const { t } = useTranslation()
   const [convs, setConvs] = useState<Conv[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [msgs, setMsgs] = useState<Msg[]>([])
@@ -168,7 +170,7 @@ const Chat = () => {
               <div className="rent-chat__input">
                 <input
                   className="rent-input"
-                  placeholder="输入消息..."
+                  placeholder={t('chat.inputPlaceholder')}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {

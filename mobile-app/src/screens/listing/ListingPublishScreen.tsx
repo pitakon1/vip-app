@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { notify, notifyError } from '@/utils/feedback';
 import { listingApi, ownersApi } from '@/services/api';
+import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
 
 const RENTAL_MONTHS = [
@@ -114,6 +115,7 @@ export default function ListingPublishScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const user = useAuthStore((s) => s.user);
   // 编辑模式：route.params.id（拉取既有上架单）
   const editId: string | undefined = route?.params?.id;
@@ -395,7 +397,7 @@ export default function ListingPublishScreen() {
           <View style={styles.rowItem}>{field('楼层', form.floor, 'floor', { numeric: true, placeholder: '如 12' })}</View>
         </View>
         <View style={styles.field}>
-          <Text style={styles.label}>房源类型</Text>
+          <Text style={styles.label}>{t('prop.type')}</Text>
           {chipRow(TYPE_OPTIONS, form.property_type, (k) => setField('property_type', k))}
         </View>
         <View style={styles.row}>
@@ -410,7 +412,7 @@ export default function ListingPublishScreen() {
           </View>
           <View style={styles.rowItem}>
             <View style={styles.field}>
-              <Text style={styles.label}>币种</Text>
+              <Text style={styles.label}>{t('prop.currency')}</Text>
               <View style={styles.chipWrap}>
                 {CURRENCY_OPTIONS.map((c) => (
                   <TouchableOpacity key={c} style={[styles.chip, form.currency === c && styles.chipActive]} onPress={() => setField('currency', c)}>
@@ -437,20 +439,20 @@ export default function ListingPublishScreen() {
       <View style={styles.card}>
         {isRent ? (
           <View style={styles.field}>
-            <Text style={styles.label}>租房佣金</Text>
+            <Text style={styles.label}>{t('listing.rentCommission')}</Text>
             {chipRow(RENTAL_MONTHS, form.rental_commission_months, (k) => setField('rental_commission_months', k))}
             <Text style={styles.hint}>以月租金为基数收取佣金</Text>
           </View>
         ) : (
           <View style={styles.field}>
-            <Text style={styles.label}>卖房佣金</Text>
+            <Text style={styles.label}>{t('listing.saleCommission')}</Text>
             {chipRow(SALE_RATES, form.sale_commission_rate, (k) => setField('sale_commission_rate', k))}
             <Text style={styles.hint}>以成交总价为基数，按比例收取</Text>
           </View>
         )}
 
         <View style={styles.field}>
-          <Text style={styles.label}>委托方式</Text>
+          <Text style={styles.label}>{t('listing.mandateType')}</Text>
           {chipRow(
             [{ key: 'exclusive', label: '独家/快速成交' }, { key: 'non_exclusive', label: '非独家' }],
             form.mandate_type,
@@ -460,13 +462,13 @@ export default function ListingPublishScreen() {
 
         {form.mandate_type === 'exclusive' ? (
           <View style={styles.field}>
-            <Text style={styles.label}>客源方可分比例（70-100%）</Text>
+            <Text style={styles.label}>{t('listing.buyerSideRate')}</Text>
             {field('客源方可分比例', form.buyer_side_rate, 'buyer_side_rate', { numeric: true, placeholder: '70' })}
             <Text style={styles.hint}>独家/快速成交：客源方 70-100%，剩余归房源方</Text>
           </View>
         ) : (
           <View style={styles.field}>
-            <Text style={styles.label}>非独家分成档位（客源方 : 房源方）</Text>
+            <Text style={styles.label}>{t('listing.splitTiers')}</Text>
             <View style={styles.chipWrap}>
               {SPLIT_OPTIONS.map((s) => (
                 <TouchableOpacity

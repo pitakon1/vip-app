@@ -52,6 +52,22 @@ export const colors = {
   info: '#0ea5e9',
   infoRgb: '14, 165, 233',
 
+  // ---- 第三方品牌色（OAuth 按钮）----
+  googleBlue: '#4285F4',
+  googleRed: '#EA4335',
+  googleGreen: '#34A853',
+  googleYellow: '#FBBC05',
+  black: '#000000',
+
+  // ---- 浅色强调底 / 描边（选中态、错误态）----
+  tint: '#f0f5ff',
+  tintBorder: '#adc6ff',
+  errorBorder: '#ffccc7',
+
+  // ---- 代码 / JSON 查看器（开发调试页）----
+  codeBg: '#1e1e1e',
+  codeText: '#d4d4d4',
+
   // ---- 透明度辅助 ----
   alpha: (rgb: string, a: number) => `rgba(${rgb}, ${a})`,
 

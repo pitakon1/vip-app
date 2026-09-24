@@ -12,6 +12,7 @@ import useAuthStore from '@/stores/auth'
 import { favoritesApi } from '@/services/api'
 import { photoUrl } from '@/lib/publicSite'
 import { fmtMoney as money } from '@/utils/format'
+import { iconStyle } from '@/utils/icons'
 import './index.scss'
 
 interface FavItem {
@@ -129,7 +130,7 @@ export default function FavoritesPage() {
                   void unfavorite(it)
                 }}
               >
-                <Text className='fav-card__heart-text'>♥</Text>
+                <View className='icon-svg' style={iconStyle('heartFill', 32)} />
               </View>
             </View>
           )

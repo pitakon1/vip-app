@@ -39,6 +39,31 @@ interface GoogleMapViewProps {
 const DEFAULT_ZOOM = 12
 const DEFAULT_HEIGHT = 420
 
+/** 内联 SVG 图标（currentColor 描边），替代 emoji，保证跨平台视觉一致。 */
+const iconProps = {
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 2,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+  'aria-hidden': true,
+}
+
+const WarnIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" {...iconProps} style={{ verticalAlign: '-1px', marginRight: 4 }}>
+    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+)
+
+const PinIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" {...iconProps} style={{ verticalAlign: '-1px', marginRight: 4 }}>
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+)
+
 /**
  * 通用 Google Maps 组件（搜索 / 路线 / 定位）。
  * - 搜索：Places Autocomplete，选中后地图平移并落一个定位点
@@ -204,7 +229,7 @@ function GoogleMapView({
     borderRadius: 8,
     fontSize: 13,
     color: 'var(--rent-ink, #1c2733)',
-    background: '#fff',
+    background: 'var(--rent-card)',
     outline: 'none',
     boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
   }
@@ -220,7 +245,7 @@ function GoogleMapView({
     border: 'none',
     borderRadius: 8,
     fontSize: 13,
-    color: '#fff',
+    color: 'var(--rent-primary-foreground)',
     background: 'var(--rent-primary, #14b8a6)',
     cursor: 'pointer',
     whiteSpace: 'nowrap',
@@ -233,7 +258,7 @@ function GoogleMapView({
     borderRadius: 8,
     fontSize: 13,
     color: 'var(--rent-ink, #1c2733)',
-    background: '#fff',
+    background: 'var(--rent-card)',
     cursor: 'pointer',
     whiteSpace: 'nowrap',
     boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
@@ -251,7 +276,7 @@ function GoogleMapView({
   }
   const errorStyle: CSSProperties = {
     ...statusBarStyle,
-    color: '#dc2626',
+    color: 'var(--state-error)',
     border: '1px solid #fecaca',
   }
 
@@ -275,7 +300,11 @@ function GoogleMapView({
           fontSize: 13,
         }}
       >
-        <span style={{ fontSize: 22 }}>🗺️</span>
+        <svg width="22" height="22" viewBox="0 0 24 24" {...iconProps}>
+          <polygon points="1 6 8 3 16 6 23 3 23 18 16 21 8 18 1 21 1 6" />
+          <line x1="8" y1="3" x2="8" y2="18" />
+          <line x1="16" y1="6" x2="16" y2="21" />
+        </svg>
         <span>{t('map.notConfigured')}</span>
       </div>
     )
@@ -353,7 +382,7 @@ function GoogleMapView({
           </button>
         </div>
 
-        {focus && <div style={focusStyle}>📍 {focus.label}</div>}
+        {focus && <div style={focusStyle}><PinIcon />{focus.label}</div>}
 
         <div style={rowStyle}>
           <input
@@ -378,15 +407,15 @@ function GoogleMapView({
           </button>
         </div>
 
-        {routeError && <div style={errorStyle}>⚠️ {routeError}</div>}
-        {statusMsg && <div style={errorStyle}>⚠️ {statusMsg}</div>}
+        {routeError && <div style={errorStyle}><WarnIcon />{routeError}</div>}
+        {statusMsg && <div style={errorStyle}><WarnIcon />{statusMsg}</div>}
         </div>
         )}
       </LoadScript>
 
       {loadError && (
         <div style={{ ...errorStyle, position: 'absolute', top: 12, left: 12, zIndex: 10 }}>
-          ⚠️ {t('map.loadFailed')}
+          <WarnIcon />{t('map.loadFailed')}
         </div>
       )}
     </div>

@@ -28,6 +28,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useI18n } from '@/i18n';
 import { publicApi, unwrapPage, type PublicListing, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS, loadRates } from '@/lib/publicSite';
@@ -349,7 +350,7 @@ export default function PublicListingsScreen() {
                           </Text>
                         ) : null}
                       </View>
-                      {active ? <Text style={styles.schoolCheck}>✓</Text> : null}
+                      {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
                     </TouchableOpacity>
                   );
                 })
@@ -560,7 +561,7 @@ const styles = StyleSheet.create({
   schoolRowActive: { backgroundColor: colors.sidebarActive },
   schoolName: { fontSize: colors.fontSize.base, color: colors.ink, fontWeight: '600' },
   schoolSub: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
-  schoolCheck: { color: colors.primary, fontSize: colors.fontSize.lg, fontWeight: '700' },
+
   rangeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   input: {
     height: 42,

@@ -80,6 +80,6 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#ffffff',
+    color: colors.primaryForeground,
   },
 });

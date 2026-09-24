@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 import type { MockProvider } from '@/hooks/useOAuth';
 
 interface Props {
@@ -34,6 +35,7 @@ export default function OAuthMockModal({
   onCancel,
   onSubmit,
 }: Props) {
+  const { t } = useI18n();
   const providerLabel = provider === 'apple' ? 'Apple' : 'Google';
   return (
     <Modal
@@ -44,11 +46,11 @@ export default function OAuthMockModal({
     >
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onCancel}>
         <View style={styles.sheet}>
-          <Text style={styles.title}>{providerLabel} Mock 登录</Text>
-          <Text style={styles.desc}>当前未配置 {providerLabel} 授权，请输入 mock 邮箱完成登录。</Text>
+          <Text style={styles.title}>{t('oauth.mockTitle', { provider: providerLabel })}</Text>
+          <Text style={styles.desc}>{t('oauth.mockDesc', { provider: providerLabel })}</Text>
           <TextInput
             style={styles.input}
-            placeholder="mock 邮箱"
+            placeholder={t('oauth.mockEmailPlaceholder')}
             placeholderTextColor={colors.ink3}
             value={email}
             onChangeText={onChangeEmail}
@@ -65,7 +67,7 @@ export default function OAuthMockModal({
             {busy ? (
               <ActivityIndicator color={colors.primaryForeground} />
             ) : (
-              <Text style={styles.buttonText}>登录</Text>
+              <Text style={styles.buttonText}>{t('login.submit')}</Text>
             )}
           </TouchableOpacity>
         </View>

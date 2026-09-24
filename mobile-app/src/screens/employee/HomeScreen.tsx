@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import {
   employeesApi,
@@ -112,6 +113,7 @@ const isSameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
 export default function HomeScreen() {
+  const { t } = useI18n();
   const navigation = useNavigation<any>();
   const respContainer = useResponsiveContainerStyle();
   const [viewings, setViewings] = useState<ViewingItem[]>([]);
@@ -170,7 +172,7 @@ export default function HomeScreen() {
         if (leaseCurrency) setCurrency(leaseCurrency);
       }
     } catch (err: any) {
-      Alert.alert('加载失败', err?.response?.data?.message || '无法获取工作台数据');
+      Alert.alert(t('loadFailed'), err?.response?.data?.message || t('emp.workbenchFail'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -234,7 +236,7 @@ export default function HomeScreen() {
       months.push({
         year: d.getFullYear(),
         month: d.getMonth() + 1,
-        label: `${d.getMonth() + 1}月`,
+        label: t('common.monthN', { n: d.getMonth() + 1 }),
         isCurrent: i === 0,
       });
     }

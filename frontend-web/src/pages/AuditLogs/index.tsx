@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { message, Empty } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { auditLogsApi } from '@/services/api'
 import './audit-logs.css'
 
@@ -23,36 +24,43 @@ interface Summary {
   [key: string]: any
 }
 
-// 操作类型元数据（徽章颜色与展示文案）
-const ACTION_META: Record<string, { label: string; badge: string }> = {
-  create: { label: '创建', badge: 'rent-badge--primary' },
-  created: { label: '创建', badge: 'rent-badge--primary' },
-  update: { label: '更新', badge: 'rent-badge--info' },
-  updated: { label: '更新', badge: 'rent-badge--info' },
-  delete: { label: '删除', badge: 'rent-badge--error' },
-  deleted: { label: '删除', badge: 'rent-badge--error' },
-  login: { label: '登录', badge: 'rent-badge--neutral' },
-  logout: { label: '登出', badge: 'rent-badge--neutral' },
-  export: { label: '导出', badge: 'rent-badge--warning' },
-  read: { label: '查看', badge: 'rent-badge--neutral' },
+// 操作类型元数据（徽章颜色与展示文案 key）
+const ACTION_META: Record<string, { labelKey: string; badge: string }> = {
+  create: { labelKey: 'auditLogs.actionCreate', badge: 'rent-badge--primary' },
+  created: { labelKey: 'auditLogs.actionCreate', badge: 'rent-badge--primary' },
+  update: { labelKey: 'auditLogs.actionUpdate', badge: 'rent-badge--info' },
+  updated: { labelKey: 'auditLogs.actionUpdate', badge: 'rent-badge--info' },
+  delete: { labelKey: 'auditLogs.actionDelete', badge: 'rent-badge--error' },
+  deleted: { labelKey: 'auditLogs.actionDelete', badge: 'rent-badge--error' },
+  login: { labelKey: 'auditLogs.actionLogin', badge: 'rent-badge--neutral' },
+  logout: { labelKey: 'auditLogs.actionLogout', badge: 'rent-badge--neutral' },
+  export: { labelKey: 'auditLogs.actionExport', badge: 'rent-badge--warning' },
+  read: { labelKey: 'auditLogs.actionRead', badge: 'rent-badge--neutral' },
 }
 
-const actionMeta = (action: string) =>
-  ACTION_META[action] ?? { label: action || '—', badge: 'rent-badge--neutral' }
+const actionMeta = (action: string, t: (key: string) => string) => {
+  const meta = ACTION_META[action]
+  return meta
+    ? { label: t(meta.labelKey), badge: meta.badge }
+    : { label: action || '—', badge: 'rent-badge--neutral' }
+}
 
-// 资源类型中文映射
+// 资源类型展示文案 key
 const RESOURCE_TEXT: Record<string, string> = {
-  property: '房源',
-  lease: '合同',
-  payment: '付款',
-  employee: '员工',
-  user: '用户',
-  contract: '合同',
-  commission_rule: '佣金规则',
-  viewing: '预约看房',
+  property: 'auditLogs.resourceProperty',
+  lease: 'auditLogs.resourceLease',
+  payment: 'auditLogs.resourcePayment',
+  employee: 'auditLogs.resourceEmployee',
+  user: 'auditLogs.resourceUser',
+  contract: 'auditLogs.resourceContract',
+  commission_rule: 'auditLogs.resourceCommissionRule',
+  viewing: 'auditLogs.resourceViewing',
 }
 
-const resourceText = (t: string) => RESOURCE_TEXT[t] || t || '—'
+const resourceText = (resource: string, t: (key: string) => string) => {
+  const key = RESOURCE_TEXT[resource]
+  return key ? t(key) : resource || '—'
+}
 
 interface QueryParams {
   page: number
@@ -65,6 +73,7 @@ interface QueryParams {
 }
 
 const AuditLogs = () => {
+  const { t } = useTranslation()
   const [items, setItems] = useState<AuditLog[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -102,11 +111,11 @@ const AuditLogs = () => {
       setItems(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取审计日志失败')
+      message.error(err?.response?.data?.message || t('auditLogs.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [queryParams])
+  }, [queryParams, t])
 
   useEffect(() => {
     fetchData()
@@ -133,28 +142,28 @@ const AuditLogs = () => {
 
   const summaryCards = [
     {
-      label: '累计审计日志',
+      label: t('auditLogs.summaryTotal'),
       value: summary.total_logs ?? '—',
       icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z',
-      sub: '系统安全审计',
+      sub: t('auditLogs.summaryTotalSub'),
     },
     {
-      label: '近24小时行为',
+      label: t('auditLogs.summary24h'),
       value: summary.actions_24h ?? '—',
       icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z',
-      sub: '新产生的操作记录',
+      sub: t('auditLogs.summary24hSub'),
     },
     {
-      label: '敏感数据访问',
+      label: t('auditLogs.summarySensitive'),
       value: summary.sensitive_access ?? '—',
       icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 8v4 M12 16h.01',
-      sub: '涉及 PII 字段的操作',
+      sub: t('auditLogs.summarySensitiveSub'),
     },
     {
-      label: '活跃操作员',
+      label: t('auditLogs.summaryActors'),
       value: summary.distinct_actors ?? '—',
       icon: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2',
-      sub: '不同账号的操作数',
+      sub: t('auditLogs.summaryActorsSub'),
     },
   ]
 
@@ -163,11 +172,11 @@ const AuditLogs = () => {
       {/* Page Header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">审计日志</h2>
-          <p className="rent-page-header__subtitle">追踪系统内所有敏感操作与数据访问记录</p>
+          <h2 className="rent-page-header__title">{t('auditLogs.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('auditLogs.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
-          <span className="rent-badge rent-badge--neutral">仅管理员可见</span>
+          <span className="rent-badge rent-badge--neutral">{t('auditLogs.adminOnly')}</span>
         </div>
       </div>
 
@@ -203,7 +212,7 @@ const AuditLogs = () => {
             </svg>
             <input
               type="text"
-              placeholder="操作员ID / 账号"
+              placeholder={t('auditLogs.actorPlaceholder')}
               value={draft.actor_user_id || ''}
               onChange={(e) => setDraft((p) => ({ ...p, actor_user_id: e.target.value || undefined }))}
               onKeyDown={(e) => e.key === 'Enter' && applySearch()}
@@ -213,77 +222,77 @@ const AuditLogs = () => {
         <select
           className="rent-filter-select rent-form-select"
           style={{ width: 'auto', minWidth: 120 }}
-          aria-label="操作类型"
+          aria-label={t('auditLogs.actionType')}
           value={draft.action || ''}
           onChange={(e) => setDraft((p) => ({ ...p, action: e.target.value || undefined }))}
         >
-          <option value="">全部操作</option>
-          <option value="create">创建</option>
-          <option value="update">更新</option>
-          <option value="delete">删除</option>
-          <option value="login">登录</option>
-          <option value="export">导出</option>
-          <option value="read">查看</option>
+          <option value="">{t('auditLogs.allActions')}</option>
+          <option value="create">{t('auditLogs.actionCreate')}</option>
+          <option value="update">{t('auditLogs.actionUpdate')}</option>
+          <option value="delete">{t('auditLogs.actionDelete')}</option>
+          <option value="login">{t('auditLogs.actionLogin')}</option>
+          <option value="export">{t('auditLogs.actionExport')}</option>
+          <option value="read">{t('auditLogs.actionRead')}</option>
         </select>
         <select
           className="rent-filter-select rent-form-select"
           style={{ width: 'auto', minWidth: 120 }}
-          aria-label="资源类型"
+          aria-label={t('auditLogs.resourceType')}
           value={draft.resource_type || ''}
           onChange={(e) => setDraft((p) => ({ ...p, resource_type: e.target.value || undefined }))}
         >
-          <option value="">全部资源</option>
-          <option value="property">房源</option>
-          <option value="lease">合同</option>
-          <option value="payment">付款</option>
-          <option value="employee">员工</option>
-          <option value="user">用户</option>
-          <option value="commission_rule">佣金规则</option>
-          <option value="viewing">预约看房</option>
+          <option value="">{t('auditLogs.allResources')}</option>
+          <option value="property">{t('auditLogs.resourceProperty')}</option>
+          <option value="lease">{t('auditLogs.resourceLease')}</option>
+          <option value="payment">{t('auditLogs.resourcePayment')}</option>
+          <option value="employee">{t('auditLogs.resourceEmployee')}</option>
+          <option value="user">{t('auditLogs.resourceUser')}</option>
+          <option value="commission_rule">{t('auditLogs.resourceCommissionRule')}</option>
+          <option value="viewing">{t('auditLogs.resourceViewing')}</option>
         </select>
         <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
           <input
             type="date"
             className="rent-form-input"
             style={{ width: 'auto' }}
-            aria-label="开始时间"
+            aria-label={t('auditLogs.startAt')}
             value={draft.start_at || ''}
             onChange={(e) => setDraft((p) => ({ ...p, start_at: e.target.value || undefined }))}
           />
-          <span className="rent-text-muted rent-text-sm">至</span>
+          <span className="rent-text-muted rent-text-sm">{t('auditLogs.to')}</span>
           <input
             type="date"
             className="rent-form-input"
             style={{ width: 'auto' }}
-            aria-label="结束时间"
+            aria-label={t('auditLogs.endAt')}
             value={draft.end_at || ''}
             onChange={(e) => setDraft((p) => ({ ...p, end_at: e.target.value || undefined }))}
           />
         </div>
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={applySearch}>查询</button>
-        <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={resetFilters}>重置</button>
+        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={applySearch}>{t('auditLogs.search')}</button>
+        <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={resetFilters}>{t('auditLogs.reset')}</button>
       </div>
 
       {/* Table */}
       <div className="rent-card">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">操作记录</h3>
+          <h3 className="rent-card__title">{t('auditLogs.recordsTitle')}</h3>
         </div>
         <div className="rent-card__body" style={{ padding: 0 }}>
           {loading ? (
-            <div className="rent-empty"><div className="rent-text-muted">加载中...</div></div>
+            <div className="rent-empty"><div className="rent-text-muted">{t('auditLogs.loading')}</div></div>
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
                 <thead>
                   <tr>
-                    <th>操作</th>
-                    <th>资源</th>
-                    <th>资源ID</th>
-                    <th>操作员</th>
-                    <th>访问的敏感字段</th>
-                    <th>IP</th>
-                    <th>时间</th>
+                    <th>{t('auditLogs.colAction')}</th>
+                    <th>{t('auditLogs.colResource')}</th>
+                    <th>{t('auditLogs.colResourceId')}</th>
+                    <th>{t('auditLogs.colActor')}</th>
+                    <th>{t('auditLogs.colPii')}</th>
+                    <th>{t('auditLogs.colIp')}</th>
+                    <th>{t('auditLogs.colTime')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -291,20 +300,20 @@ const AuditLogs = () => {
                     <tr>
                       <td colSpan={7}>
                         <div className="rent-empty">
-                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无匹配的审计记录" />
+                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('auditLogs.empty')} />
                         </div>
                       </td>
                     </tr>
                   )}
                   {items.map((log) => {
-                    const meta = actionMeta(log.action)
+                    const meta = actionMeta(log.action, t)
                     const pii = Array.isArray(log.pii_fields_accessed)
                       ? log.pii_fields_accessed.join(', ')
                       : log.pii_fields_accessed || '—'
                     return (
                       <tr key={log.id}>
                         <td><span className={`rent-badge ${meta.badge}`}>{meta.label}</span></td>
-                        <td>{resourceText(log.resource_type)}</td>
+                        <td>{resourceText(log.resource_type, t)}</td>
                         <td><span className="rent-mono">{log.resource_id ? String(log.resource_id).slice(0, 8) : '—'}</span></td>
                         <td>
                           <div className="audit-cell">{log.actor_name || '—'}</div>
@@ -324,17 +333,17 @@ const AuditLogs = () => {
           {/* Pagination */}
           {!loading && (
             <div className="rent-pagination" style={{ padding: '12px 20px' }}>
-              <span className="rent-pagination__info">共 {total.toLocaleString()} 条记录</span>
+              <span className="rent-pagination__info">{t('auditLogs.paginationInfo', { total: total.toLocaleString() })}</span>
               <button
                 className="rent-pagination__btn"
-                aria-label="上一页"
+                aria-label={t('auditLogs.prevPage')}
                 disabled={queryParams.page <= 1}
                 onClick={() => setQueryParams((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
               >‹</button>
               <span className="rent-pagination__info">{queryParams.page} / {totalPages}</span>
               <button
                 className="rent-pagination__btn"
-                aria-label="下一页"
+                aria-label={t('auditLogs.nextPage')}
                 disabled={queryParams.page >= totalPages}
                 onClick={() => setQueryParams((p) => ({ ...p, page: Math.min(totalPages, p.page + 1) }))}
               >›</button>

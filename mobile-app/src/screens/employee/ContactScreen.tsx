@@ -21,6 +21,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import api from '@/lib/api';
+import { useI18n } from '@/i18n';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 
 type Tone = 'primary' | 'success' | 'info' | 'warning';
@@ -54,6 +55,7 @@ const TONE_RGB: Record<Tone, string> = {
 };
 
 export default function ContactScreen() {
+  const { t } = useI18n();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [colleagues, setColleagues] = useState<Colleague[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -119,7 +121,7 @@ export default function ContactScreen() {
 
   const callPhone = async (phone?: string | null, name?: string | null) => {
     if (!phone) {
-      Alert.alert('暂无电话', `${name || '该同事'}未登记联系电话`);
+      Alert.alert(t('contact.noPhoneTitle'), t('contact.noPhoneMsg', { name: name || t('contact.unnamed') }));
       return;
     }
     try {

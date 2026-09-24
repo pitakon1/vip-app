@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { message, Spin } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { chatApi, employeesApi, leadsApi } from '@/services/api'
 import type { Lead, LeadStatus } from '@/types'
 import './crm.css'
@@ -8,12 +9,12 @@ import './crm.css'
 /* ===== 设计稿常量 ===== */
 type KanbanColumnKey = 'new' | 'contacted' | 'viewed' | 'negotiating' | 'closed'
 
-const KANBAN_COLUMNS: { key: KanbanColumnKey; label: string; color: string }[] = [
-  { key: 'new', label: '新线索', color: '#14b8a6' },
-  { key: 'contacted', label: '已联系', color: '#eab308' },
-  { key: 'viewed', label: '已看房', color: '#f97316' },
-  { key: 'negotiating', label: '谈判中', color: '#7a5cd6' },
-  { key: 'closed', label: '已成交', color: '#16a34a' },
+const KANBAN_COLUMNS: { key: KanbanColumnKey; labelKey: string; color: string }[] = [
+  { key: 'new', labelKey: 'crm.stageNew', color: 'var(--rent-primary)' },
+  { key: 'contacted', labelKey: 'crm.stageContacted', color: 'var(--state-yellow)' },
+  { key: 'viewed', labelKey: 'crm.stageViewed', color: 'var(--state-orange)' },
+  { key: 'negotiating', labelKey: 'crm.stageNegotiating', color: 'var(--state-purple)' },
+  { key: 'closed', labelKey: 'crm.stageClosed', color: 'var(--state-success)' },
 ]
 
 const statusToColumn: Record<LeadStatus, KanbanColumnKey> = {
@@ -222,6 +223,7 @@ const emptyCreateForm: CreateFormValues = {
 
 const CRM = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [data, setData] = useState<Lead[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -611,7 +613,7 @@ const CRM = () => {
                   <div className="rent-kanban__column-header">
                     <span className="rent-kanban__column-title rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
                       <span className="rent-badge--dot" style={{ background: col.color }} />
-                      {col.label}
+                      {t(col.labelKey)}
                     </span>
                     <span className="rent-kanban__column-count">{items.length}</span>
                   </div>

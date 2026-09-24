@@ -55,6 +55,21 @@
   --rent-accent-soft: rgba(20, 184, 166, 0.09);
   --rent-tint: rgba(20, 184, 166, 0.045);
 
+  /* ---- 补充中性色（媒体占位 / 浅色底）---- */
+  --rent-surface-3: #eef2f5;
+  --rent-tint-indigo: #f3f6ff;
+  --rent-tint-teal: #f0fdfa;
+
+  /* ---- 补充状态色（看板阶段 / 评分 / 状态点）---- */
+  --state-yellow: #eab308;
+  --state-orange: #f97316;
+  --state-amber: #fbbf24;
+  --state-amber-strong: #f59e0b;
+
+  /* ---- 图表（Chart.js 数据可视化，与主题令牌对齐）---- */
+  --chart-tooltip-bg: #243044;
+  --chart-legend: #64748b;
+
   /* ---- 圆角（五档基准，与 UI-设计原则.md §1.4 对齐） ---- */
   --rent-radius-sm: 6px;
   --rent-radius-md: 10px;

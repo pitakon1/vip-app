@@ -29,6 +29,7 @@ import LoadingState from '../../components/LoadingState';
 import { chatApi, leadsApi } from '../../services/api';
 import { useCrmLeads, type Lead } from '@/hooks/useCrmLeads';
 import { currencySymbol } from '@/lib/currency';
+import { useI18n } from '@/i18n';
 
 const STAGES: { key: string; label: string; color: string; rgb: string }[] = [
   { key: 'inquiring', label: '咨询中', color: colors.info, rgb: colors.infoRgb },
@@ -47,6 +48,7 @@ const stageMeta = (key?: string | null) =>
   };
 
 export default function CRMScreen() {
+  const { t } = useI18n();
   const respContainer = useResponsiveContainerStyle();
   const [stage, setStage] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -72,11 +74,11 @@ export default function CRMScreen() {
   const callCustomer = (l: Lead) => {
     const phone = (l.phone || '').trim();
     if (!phone) {
-      Alert.alert('联系客户', '该客户未留电话');
+      Alert.alert(t('crm.contactCustomer'), t('crm.noPhone'));
       return;
     }
     Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => {
-      Alert.alert('联系客户', '无法拨打电话');
+      Alert.alert(t('crm.contactCustomer'), t('crm.callFail'));
     });
   };
 
@@ -85,7 +87,7 @@ export default function CRMScreen() {
     const phone = (l.phone || '').trim();
     const email = (l.email || '').trim();
     if (!phone && !email) {
-      Alert.alert('联系客户', '该客户未留电话/邮箱，无法发起会话');
+      Alert.alert(t('crm.contactCustomer'), t('crm.noContactInfo'));
       return;
     }
     try {
@@ -101,10 +103,10 @@ export default function CRMScreen() {
       });
     } catch (e: any) {
       Alert.alert(
-        '无法发消息',
+        t('crm.cannotSend'),
         e?.response?.data?.detail ||
           e?.response?.data?.message ||
-          '该客户尚未注册账号，请先通过电话联系',
+          t('crm.notRegistered'),
       );
     }
   };
@@ -124,7 +126,7 @@ export default function CRMScreen() {
 
   const submitForm = async () => {
     if (!form.name.trim()) {
-      Alert.alert('编辑线索', '请填写客户姓名');
+      Alert.alert(t('crm.edit'), t('crm.nameRequired'));
       return;
     }
     setSaving(true);
@@ -141,11 +143,11 @@ export default function CRMScreen() {
       if (editingId) {
         await leadsApi.update(editingId, payload);
       }
-      Alert.alert('编辑线索', '保存成功');
+      Alert.alert(t('crm.edit'), t('crm.saved'));
       setFormOpen(false);
       load();
     } catch (e: any) {
-      Alert.alert('编辑线索', e?.response?.data?.detail || '保存失败，请稍后重试');
+      Alert.alert(t('crm.edit'), e?.response?.data?.detail || t('crm.saveFail'));
     } finally {
       setSaving(false);
     }

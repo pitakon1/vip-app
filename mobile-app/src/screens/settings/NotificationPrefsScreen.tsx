@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { authApi } from '@/services/api';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 import { notify, getErrorMessage } from '@/utils/feedback';
 
 /**
@@ -10,6 +12,7 @@ import { notify, getErrorMessage } from '@/utils/feedback';
  * 迁移自 ProfileScreen 的时区/通知弹层逻辑：读写用户时区与邮件/推送通知开关。
  */
 export default function NotificationPrefsScreen() {
+  const { t } = useI18n();
   const [timezone, setTimezone] = useState('Asia/Bangkok');
   const [email, setEmail] = useState(true);
   const [push, setPush] = useState(true);
@@ -46,9 +49,9 @@ export default function NotificationPrefsScreen() {
         notify_email: email,
         notify_push: push,
       });
-      notify('已保存');
+      notify(t('settings.saved'));
     } catch (e: any) {
-      notify(getErrorMessage(e, '保存失败'));
+      notify(getErrorMessage(e, t('settings.saveFailed')));
     } finally {
       setSaving(false);
     }
@@ -56,23 +59,41 @@ export default function NotificationPrefsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>时区</Text>
+      <Text style={styles.label}>{t('settings.timezone')}</Text>
       <TextInput
         style={styles.input}
         value={timezone}
         onChangeText={setTimezone}
-        placeholder="如 Asia/Bangkok"
+        placeholder={t('settings.timezonePlaceholder')}
         placeholderTextColor={colors.ink3}
         autoCapitalize="none"
       />
 
       <TouchableOpacity style={styles.prefRow} activeOpacity={0.7} onPress={() => setEmail(!email)}>
-        <Text style={styles.prefLabel}>邮件通知</Text>
-        <Text style={email ? styles.check : styles.prefOff}>{email ? '✓ 开启' : '关闭'}</Text>
+        <Text style={styles.prefLabel}>{t('settings.emailNotify')}</Text>
+        <View style={styles.prefValue}>
+          <Ionicons
+            name={email ? 'checkmark-circle' : 'ellipse-outline'}
+            size={16}
+            color={email ? colors.primary : colors.ink3}
+          />
+          <Text style={email ? styles.prefOn : styles.prefOff}>
+            {email ? t('common.on') : t('common.off')}
+          </Text>
+        </View>
       </TouchableOpacity>
       <TouchableOpacity style={styles.prefRow} activeOpacity={0.7} onPress={() => setPush(!push)}>
-        <Text style={styles.prefLabel}>推送通知</Text>
-        <Text style={push ? styles.check : styles.prefOff}>{push ? '✓ 开启' : '关闭'}</Text>
+        <Text style={styles.prefLabel}>{t('settings.pushNotify')}</Text>
+        <View style={styles.prefValue}>
+          <Ionicons
+            name={push ? 'checkmark-circle' : 'ellipse-outline'}
+            size={16}
+            color={push ? colors.primary : colors.ink3}
+          />
+          <Text style={push ? styles.prefOn : styles.prefOff}>
+            {push ? t('common.on') : t('common.off')}
+          </Text>
+        </View>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -81,7 +102,7 @@ export default function NotificationPrefsScreen() {
         disabled={saving || !loaded}
         onPress={save}
       >
-        <Text style={styles.saveText}>{saving ? '保存中...' : '保存'}</Text>
+        <Text style={styles.saveText}>{saving ? t('settings.saving') : t('settings.save')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -121,12 +142,13 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   prefLabel: { fontSize: 15, color: colors.text },
+  prefValue: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   prefOff: {
     fontSize: 14,
     color: colors.ink3,
   },
-  check: {
-    fontSize: 15,
+  prefOn: {
+    fontSize: 14,
     color: colors.primary,
     fontWeight: '600',
   },

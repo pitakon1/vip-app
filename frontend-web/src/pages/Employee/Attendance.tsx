@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { message, Spin, Empty, Alert, Button } from 'antd'
+import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import { attendanceApi, geoApi } from '@/services/api'
 import { downloadReport } from '@/lib/download'
@@ -90,6 +91,7 @@ const buildCalendar = (month: dayjs.Dayjs, records: AttendanceRecord[]): Calenda
 }
 
 const Attendance = () => {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -359,7 +361,7 @@ const Attendance = () => {
               style={{
                 fontSize: 56,
                 fontWeight: 700,
-                color: '#ffffff',
+                color: 'var(--rent-primary-foreground)',
                 letterSpacing: '-0.03em',
                 lineHeight: 1,
               }}
@@ -379,7 +381,7 @@ const Attendance = () => {
                 className="rent-badge"
                 style={{
                   background: checkInTime ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.12)',
-                  color: '#ffffff',
+                  color: 'var(--rent-primary-foreground)',
                 }}
               >
                 <span
@@ -390,7 +392,7 @@ const Attendance = () => {
               </span>
               <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }}>
                 今日打卡 · 上班{' '}
-                <span className="rent-mono" style={{ color: '#fff' }}>
+                <span className="rent-mono" style={{ color: 'var(--rent-primary-foreground)' }}>
                   {checkInTime ? fmtHHmm(checkInTime) : '--:--'}
                 </span>{' '}
                 · 下班{' '}
@@ -417,7 +419,7 @@ const Attendance = () => {
               className="rent-btn rent-btn--lg rent-btn--block"
               onClick={clockBtnClick}
               disabled={clockBtnDisabled}
-              style={{ background: '#ffffff', color: 'var(--rent-primary)', border: 'none' }}
+              style={{ background: 'var(--rent-card)', color: 'var(--rent-primary)', border: 'none' }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" />
@@ -428,7 +430,7 @@ const Attendance = () => {
             <button
               className="rent-btn rent-btn--lg rent-btn--block"
               onClick={handleScrollToOuting}
-              style={{ background: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.35)' }}
+              style={{ background: 'rgba(255,255,255,0.15)', color: 'var(--rent-primary-foreground)', border: '1px solid rgba(255,255,255,0.35)' }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -438,7 +440,7 @@ const Attendance = () => {
             </button>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: 1.5 }}>
               {gpsStatus === 'denied'
-                ? '⚠ 定位未授权，需允许定位才能打卡'
+                ? t('attendance.gpsDenied')
                 : geoInfo
                   ? `定位距离办公点 ${geoInfo.distance_km}km${geoInfo.address ? ` · ${geoInfo.address}` : ''}`
                   : '打卡将校验 500KM 半径定位，超出需先提交外勤申请'}

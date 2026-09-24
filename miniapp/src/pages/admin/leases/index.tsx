@@ -6,6 +6,7 @@ import { MAX_PAGE_SIZE } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface LeaseItem {
@@ -23,18 +24,18 @@ interface LeaseItem {
 
 // 后端 LeaseStatus：active / expired / terminated / pending
 const STATUS_META: Record<string, { text: string; badge: string }> = {
-  active: { text: '生效中', badge: 'badge--success' },
-  pending: { text: '待生效', badge: 'badge--info' },
-  expired: { text: '已到期', badge: 'badge--error' },
-  terminated: { text: '已终止', badge: 'badge--neutral' }
+  active: { text: 'lease.stActive', badge: 'badge--success' },
+  pending: { text: 'lease.stPending', badge: 'badge--info' },
+  expired: { text: 'lease.stExpired', badge: 'badge--error' },
+  terminated: { text: 'lease.stTerminated', badge: 'badge--neutral' }
 }
 
 const FILTERS: { key: string; label: string }[] = [
-  { key: '', label: '全部' },
-  { key: 'active', label: '生效中' },
-  { key: 'expiring', label: '即将到期' },
-  { key: 'expired', label: '已到期' },
-  { key: 'terminated', label: '已终止' }
+  { key: '', label: 'common.all' },
+  { key: 'active', label: 'lease.stActive' },
+  { key: 'expiring', label: 'lease.filterExpiring' },
+  { key: 'expired', label: 'lease.stExpired' },
+  { key: 'terminated', label: 'lease.stTerminated' }
 ]
 
 const PAGE_SIZE = 100
@@ -52,6 +53,7 @@ const addDays = (base: string, days: number) => {
 }
 
 export default function AdminLeasesPage() {
+  const { t } = useI18n()
   const [list, setList] = useState<LeaseItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -73,7 +75,7 @@ export default function AdminLeasesPage() {
       setTotal(Number(d?.total ?? items.length))
     } catch (error) {
       console.error('[AdminLeases] 获取合同失败', error)
-      Taro.showToast({ title: '加载合同失败', icon: 'none' })
+      Taro.showToast({ title: t('lease.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -90,7 +92,7 @@ export default function AdminLeasesPage() {
       const items: any[] = Array.isArray(d) ? d : d?.items || []
       const map: Record<string, string> = {}
       items.forEach((p) => {
-        map[String(p.id)] = p.room_number || p.address || '未命名房源'
+        map[String(p.id)] = p.room_number || p.address || t('lease.unnamedProperty')
       })
       setPropMap(map)
     } catch (error) {
@@ -165,8 +167,12 @@ export default function AdminLeasesPage() {
     const start = l.end_date ? addDays(l.end_date, 1) : addDays(new Date().toISOString(), 0)
     const end = addDays(start, 365)
     Taro.showModal({
-      title: '续约',
-      content: `新租期：${start} ~ ${end}，月租 ${fmtMoney(l.monthly_rent, l.currency)}`,
+      title: t('lease.renew'),
+      content: t('lease.renewConfirm', {
+        start,
+        end,
+        rent: fmtMoney(l.monthly_rent, l.currency)
+      }),
       success: async (r) => {
         if (!r.confirm) return
         try {
@@ -175,11 +181,11 @@ export default function AdminLeasesPage() {
             end_date: end,
             monthly_rent: l.monthly_rent
           })
-          Taro.showToast({ title: '续约成功', icon: 'none' })
+          Taro.showToast({ title: t('lease.renewed'), icon: 'none' })
           fetchLeases()
         } catch (error) {
           console.error('[AdminLeases] 续约失败', error)
-          Taro.showToast({ title: '续约失败', icon: 'none' })
+          Taro.showToast({ title: t('lease.renewFailed'), icon: 'none' })
         }
       }
     })
@@ -192,13 +198,13 @@ export default function AdminLeasesPage() {
         <Input
           className='ale-search__input'
           value={keyword}
-          placeholder='搜索合同编号/租客姓名'
+          placeholder={t('lease.searchPlaceholder')}
           confirmType='search'
           onInput={(e: any) => setKeyword(e.detail.value)}
           onConfirm={handleSearch}
         />
         <View className='ale-search__btn' onClick={handleSearch}>
-          <Text className='ale-search__btn-text'>搜索</Text>
+          <Text className='ale-search__btn-text'>{t('common.search')}</Text>
         </View>
       </View>
 
@@ -210,7 +216,7 @@ export default function AdminLeasesPage() {
             className={`ale-chip ${filter === f.key ? 'ale-chip--active' : ''}`}
             onClick={() => setFilter(f.key)}
           >
-            <Text className='ale-chip__text'>{f.label}</Text>
+            <Text className='ale-chip__text'>{t(f.label)}</Text>
           </View>
         ))}
       </ScrollView>
@@ -219,39 +225,39 @@ export default function AdminLeasesPage() {
       <View className='ale-stats'>
         <View className='ale-stat ale-stat--primary'>
           <Text className='ale-stat__value'>{stats.total}</Text>
-          <Text className='ale-stat__label'>总合同</Text>
+          <Text className='ale-stat__label'>{t('lease.statTotal')}</Text>
         </View>
         <View className='ale-stat ale-stat--success'>
           <Text className='ale-stat__value'>{stats.active}</Text>
-          <Text className='ale-stat__label'>生效中</Text>
+          <Text className='ale-stat__label'>{t('lease.stActive')}</Text>
         </View>
         <View className='ale-stat ale-stat--warning'>
           <Text className='ale-stat__value'>{stats.expiring}</Text>
-          <Text className='ale-stat__label'>即将到期</Text>
+          <Text className='ale-stat__label'>{t('lease.filterExpiring')}</Text>
         </View>
         <View className='ale-stat ale-stat--error'>
           <Text className='ale-stat__value'>{stats.expired}</Text>
-          <Text className='ale-stat__label'>已到期</Text>
+          <Text className='ale-stat__label'>{t('lease.stExpired')}</Text>
         </View>
       </View>
 
       <View className='ale-section-head'>
-        <Text className='ale-section-head__title'>合同列表</Text>
-        <Text className='ale-section-head__count'>共 {visible.length} 份</Text>
+        <Text className='ale-section-head__title'>{t('lease.listTitle')}</Text>
+        <Text className='ale-section-head__count'>{t('lease.countUnit', { n: visible.length })}</Text>
       </View>
 
       <ScrollView scrollY className='ale-list'>
         {loading && visible.length === 0 && (
           <View className='ale-state'>
-            <Text className='ale-state__text'>加载中...</Text>
+            <Text className='ale-state__text'>{t('pub.loading')}</Text>
           </View>
         )}
         {!loading && visible.length === 0 && (
           <View className='ale-state'>
             <View className='icon-svg' style={iconStyle('doc', 72)} />
-            <Text className='ale-state__text'>暂无合同</Text>
+            <Text className='ale-state__text'>{t('lease.empty')}</Text>
             <Text className='ale-state__desc'>
-              {query || filter ? '换个筛选条件试试' : '还没有生成租约合同'}
+              {query || filter ? t('lease.emptyFiltered') : t('lease.emptyNone')}
             </Text>
           </View>
         )}
@@ -266,22 +272,25 @@ export default function AdminLeasesPage() {
           return (
             <View key={l.id} className='ale-card'>
               <View className='ale-card__top'>
-                <Text className='ale-card__no'>合同 #{String(l.id).slice(0, 8).toUpperCase()}</Text>
+                <Text className='ale-card__no'>
+                  {t('lease.contractNo', { no: String(l.id).slice(0, 8).toUpperCase() })}
+                </Text>
                 <Text
                   className={`badge ${expiring ? 'badge--warning' : meta.badge}`}
                 >
-                  {expiring ? `即将到期 · ${left}天` : meta.text}
+                  {expiring ? t('lease.expiringIn', { n: left }) : t(meta.text)}
                 </Text>
               </View>
 
               <Text className='ale-card__tenant'>
-                {tenantMap[String(l.id)] || `租客 ${String(l.tenant_id || '').slice(0, 8)}`}
+                {tenantMap[String(l.id)] ||
+                  t('lease.tenantWithId', { id: String(l.tenant_id || '').slice(0, 8) })}
               </Text>
 
               <View className='ale-card__row'>
                 <View className='icon-svg icon-svg--sm' style={iconStyle('home', 26)} />
                 <Text className='ale-card__row-text'>
-                  {propMap[String(l.property_id || '')] || '未知房源'}
+                  {propMap[String(l.property_id || '')] || t('lease.unknownProperty')}
                 </Text>
               </View>
 
@@ -296,14 +305,14 @@ export default function AdminLeasesPage() {
 
               <View className='ale-card__foot'>
                 <View className='ale-card__rent'>
-                  <Text className='ale-card__rent-label'>月租</Text>
+                  <Text className='ale-card__rent-label'>{t('lease.monthlyRent')}</Text>
                   <Text className='ale-card__rent-value'>
                     {fmtMoney(l.monthly_rent, l.currency)}
                   </Text>
                 </View>
                 <View className='ale-card__actions'>
                   <View className='ale-btn ale-btn--ghost' onClick={() => openDetail(l)}>
-                    <Text className='ale-btn__text ale-btn__text--ghost'>查看详情</Text>
+                    <Text className='ale-btn__text ale-btn__text--ghost'>{t('lease.viewDetail')}</Text>
                   </View>
                   <View
                     className={`ale-btn ale-btn--primary ${l.status === 'terminated' ? 'ale-btn--disabled' : ''}`}
@@ -312,7 +321,7 @@ export default function AdminLeasesPage() {
                       renew(l)
                     }}
                   >
-                    <Text className='ale-btn__text ale-btn__text--primary'>续约</Text>
+                    <Text className='ale-btn__text ale-btn__text--primary'>{t('lease.renew')}</Text>
                   </View>
                 </View>
               </View>

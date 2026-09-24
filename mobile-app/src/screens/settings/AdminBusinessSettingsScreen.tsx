@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { companyApi } from '@/services/api';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 import { notify, getErrorMessage } from '@/utils/feedback';
 
 /**
@@ -13,6 +15,7 @@ import { notify, getErrorMessage } from '@/utils/feedback';
  * 「暂未开放」——既与后台真实配置脱钩，也没有可修改的入口。
  */
 export default function AdminBusinessSettingsScreen() {
+  const { t } = useI18n();
   const [rentDays, setRentDays] = useState('7');
   const [leaseDays, setLeaseDays] = useState('30');
   const [autoDunning, setAutoDunning] = useState(true);
@@ -45,11 +48,11 @@ export default function AdminBusinessSettingsScreen() {
     const rent = Number.parseInt(rentDays, 10);
     const lease = Number.parseInt(leaseDays, 10);
     if (!Number.isFinite(rent) || rent < 0 || rent > 180) {
-      notify('租金提醒天数需为 0-180 之间的整数');
+      notify(t('settings.rentDaysRange'));
       return;
     }
     if (!Number.isFinite(lease) || lease < 0 || lease > 365) {
-      notify('合同到期提醒天数需为 0-365 之间的整数');
+      notify(t('settings.leaseDaysRange'));
       return;
     }
     setSaving(true);
@@ -61,9 +64,9 @@ export default function AdminBusinessSettingsScreen() {
           auto_dunning: autoDunning,
         },
       });
-      notify('已保存');
+      notify(t('settings.saved'));
     } catch (e: any) {
-      notify(getErrorMessage(e, '保存失败'));
+      notify(getErrorMessage(e, t('settings.saveFailed')));
     } finally {
       setSaving(false);
     }
@@ -71,7 +74,7 @@ export default function AdminBusinessSettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>租金到期前提醒天数</Text>
+      <Text style={styles.label}>{t('settings.rentReminderDays')}</Text>
       <TextInput
         style={styles.input}
         value={rentDays}
@@ -81,7 +84,7 @@ export default function AdminBusinessSettingsScreen() {
         placeholderTextColor={colors.ink3}
       />
 
-      <Text style={styles.label}>合同到期前提醒天数</Text>
+      <Text style={styles.label}>{t('settings.leaseReminderDays')}</Text>
       <TextInput
         style={styles.input}
         value={leaseDays}
@@ -92,8 +95,17 @@ export default function AdminBusinessSettingsScreen() {
       />
 
       <TouchableOpacity style={styles.prefRow} activeOpacity={0.7} onPress={() => setAutoDunning(!autoDunning)}>
-        <Text style={styles.prefLabel}>自动催缴</Text>
-        <Text style={autoDunning ? styles.check : styles.prefOff}>{autoDunning ? '✓ 开启' : '关闭'}</Text>
+        <Text style={styles.prefLabel}>{t('settings.autoDunning')}</Text>
+        <View style={styles.prefValue}>
+          <Ionicons
+            name={autoDunning ? 'checkmark-circle' : 'ellipse-outline'}
+            size={16}
+            color={autoDunning ? colors.primary : colors.ink3}
+          />
+          <Text style={autoDunning ? styles.prefOn : styles.prefOff}>
+            {autoDunning ? t('common.on') : t('common.off')}
+          </Text>
+        </View>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -102,7 +114,7 @@ export default function AdminBusinessSettingsScreen() {
         disabled={saving || !loaded}
         onPress={save}
       >
-        <Text style={styles.saveText}>{saving ? '保存中...' : '保存'}</Text>
+        <Text style={styles.saveText}>{saving ? t('settings.saving') : t('settings.save')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -142,12 +154,13 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   prefLabel: { fontSize: 15, color: colors.text },
+  prefValue: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   prefOff: {
     fontSize: 14,
     color: colors.ink3,
   },
-  check: {
-    fontSize: 15,
+  prefOn: {
+    fontSize: 14,
     color: colors.primary,
     fontWeight: '600',
   },

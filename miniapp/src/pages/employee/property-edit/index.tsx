@@ -2,13 +2,14 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { View, Text, Input, Textarea, Picker, Switch, Button, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { propertiesApi } from '@/services/api'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 const STATUS_META: { key: string; label: string }[] = [
-  { key: 'vacant', label: '空置中' },
-  { key: 'rented', label: '已出租' },
-  { key: 'renewing', label: '续约中' },
-  { key: 'maintenance', label: '维护中' }
+  { key: 'vacant', label: 'prop.statusVacant' },
+  { key: 'rented', label: 'prop.statusRented' },
+  { key: 'renewing', label: 'prop.statusRenewing' },
+  { key: 'maintenance', label: 'prop.statusMaintenance' }
 ]
 
 const STATUS_NAME: Record<string, string> = Object.fromEntries(
@@ -16,13 +17,13 @@ const STATUS_NAME: Record<string, string> = Object.fromEntries(
 )
 
 const PROPERTY_TYPES = [
-  { key: 'apartment', label: '公寓' },
-  { key: 'condo', label: '公寓' },
-  { key: 'house', label: '别墅' },
-  { key: 'villa', label: '别墅' },
-  { key: 'commercial', label: '商铺' },
-  { key: 'shop', label: '商铺' },
-  { key: 'office', label: '写字楼' }
+  { key: 'apartment', label: 'prop.typeApartment' },
+  { key: 'condo', label: 'prop.typeApartment' },
+  { key: 'house', label: 'prop.typeHouse' },
+  { key: 'villa', label: 'prop.typeVilla' },
+  { key: 'commercial', label: 'prop.typeCommercial' },
+  { key: 'shop', label: 'prop.typeCommercial' },
+  { key: 'office', label: 'prop.typeOffice' }
 ]
 
 const num = (v: unknown) => {
@@ -54,6 +55,7 @@ const parseDetail = (d: any): any => {
 }
 
 export default function EmployeePropertyEditPage() {
+  const { t } = useI18n()
   const router = useRouter()
   const id = router.params?.id || ''
 
@@ -65,7 +67,7 @@ export default function EmployeePropertyEditPage() {
   // 尝试解析 route 传入的 initial data（JSON 字符串，可选）
   useEffect(() => {
     if (!id) {
-      Taro.showToast({ title: '缺少房源参数', icon: 'none' })
+      Taro.showToast({ title: t('prop.missingParam'), icon: 'none' })
     }
     const raw = router.params?.initial
     let parsed: any = null
@@ -97,7 +99,7 @@ export default function EmployeePropertyEditPage() {
       })
       .catch((err) => {
         console.error('[PropertyEdit] 获取房源失败', err)
-        Taro.showToast({ title: '加载房源失败', icon: 'none' })
+        Taro.showToast({ title: t('prop.loadFailed'), icon: 'none' })
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -136,11 +138,11 @@ export default function EmployeePropertyEditPage() {
         property_type: form.property_type,
         photos: Array.isArray(form.photos) ? form.photos : []
       })
-      Taro.showToast({ title: '已保存', icon: 'success' })
+      Taro.showToast({ title: t('common.saved'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 600)
     } catch (err) {
       console.error('[PropertyEdit] 保存失败', err)
-      Taro.showToast({ title: '保存失败', icon: 'none' })
+      Taro.showToast({ title: t('common.saveFailed'), icon: 'none' })
     } finally {
       setSaving(false)
     }
@@ -154,7 +156,7 @@ export default function EmployeePropertyEditPage() {
       success: async (res) => {
         const localPaths = (res.tempFilePaths || []).slice(0, 6)
         if (!localPaths.length) return
-        Taro.showLoading({ title: '上传中...' })
+        Taro.showLoading({ title: t('prop.uploading') })
         try {
           for (const p of localPaths) {
             const r: any = await propertiesApi.uploadPhotos(id, [{ url: p }])
@@ -163,11 +165,11 @@ export default function EmployeePropertyEditPage() {
             if (Array.isArray(arr)) set('photos', arr)
           }
           Taro.hideLoading()
-          Taro.showToast({ title: '已上传', icon: 'success' })
+          Taro.showToast({ title: t('common.uploaded'), icon: 'success' })
         } catch (err) {
           console.error('[PropertyEdit] 照片上传失败', err)
           Taro.hideLoading()
-          Taro.showToast({ title: '上传失败', icon: 'none' })
+          Taro.showToast({ title: t('common.uploadFailed'), icon: 'none' })
         }
       }
     })
@@ -176,8 +178,8 @@ export default function EmployeePropertyEditPage() {
   const removePhoto = (url: string) => {
     if (!id) return
     Taro.showModal({
-      title: '删除照片',
-      content: '确认删除该照片？',
+      title: t('prop.deletePhotoTitle'),
+      content: t('prop.deletePhotoContent'),
       success: async (r) => {
         if (!r.confirm) return
         try {
@@ -188,7 +190,7 @@ export default function EmployeePropertyEditPage() {
           else set('photos', (form?.photos || []).filter((x: string) => x !== url))
         } catch (err) {
           console.error('[PropertyEdit] 删除照片失败', err)
-          Taro.showToast({ title: '删除失败', icon: 'none' })
+          Taro.showToast({ title: t('common.deleteFailed'), icon: 'none' })
         }
       }
     })
@@ -205,7 +207,7 @@ export default function EmployeePropertyEditPage() {
     return (
       <View className='pe-page'>
         <View className='pe-state'>
-          <Text className='pe-state__text'>加载中...</Text>
+          <Text className='pe-state__text'>{t('pub.loading')}</Text>
         </View>
       </View>
     )
@@ -215,7 +217,7 @@ export default function EmployeePropertyEditPage() {
     return (
       <View className='pe-page'>
         <View className='pe-state'>
-          <Text className='pe-state__text'>房源不存在或缺少参数</Text>
+          <Text className='pe-state__text'>{t('prop.notFound')}</Text>
         </View>
       </View>
     )
@@ -227,29 +229,29 @@ export default function EmployeePropertyEditPage() {
       <View className='pe-nav'>
         <View className='pe-nav__back' onClick={() => Taro.navigateBack()}>
           <Text className='pe-nav__back-icon'>‹</Text>
-          <Text className='pe-nav__back-text'>返回</Text>
+          <Text className='pe-nav__back-text'>{t('common.back')}</Text>
         </View>
-        <Text className='pe-nav__title'>编辑房源</Text>
+        <Text className='pe-nav__title'>{t('prop.editTitle')}</Text>
         <View className='pe-nav__placeholder' />
       </View>
 
       <ScrollView scrollY className='pe-scroll'>
         {/* 房源信息 */}
         <View className='pe-card'>
-          <Text className='pe-card__title'>房源信息</Text>
-          {row('房源编号', (
+          <Text className='pe-card__title'>{t('prop.infoTitle')}</Text>
+          {row(t('prop.roomNo'), (
             <Input
               className='pe-input'
               value={form.room_number}
-              placeholder='如 A-12-03'
+              placeholder={t('prop.roomNoPlaceholder')}
               placeholderStyle='color:#98a1ab'
               onInput={(e: any) => set('room_number', e.detail.value)}
             />
           ))}
-          {row('房源类型', (
+          {row(t('prop.typeLabel'), (
             <Picker
               mode='selector'
-              range={PROPERTY_TYPES.map((t) => t.label)}
+              range={PROPERTY_TYPES.map((pt) => t(pt.label))}
               value={typeIndex < 0 ? 0 : typeIndex}
               onChange={(e: any) => {
                 const idx = Number(e.detail.value)
@@ -258,30 +260,30 @@ export default function EmployeePropertyEditPage() {
               }}
             >
               <View className='pe-picker'>
-                <Text className='pe-picker__text'>{PROPERTY_TYPES[typeIndex < 0 ? 0 : typeIndex]?.label || '请选择'}</Text>
+                <Text className='pe-picker__text'>{t(PROPERTY_TYPES[typeIndex < 0 ? 0 : typeIndex]?.label || 'prop.select')}</Text>
                 <Text className='pe-picker__arrow'>▼</Text>
               </View>
             </Picker>
           ))}
-          {row('地址', (
+          {row(t('prop.addressLabel'), (
             <Input
               className='pe-input'
               value={form.address}
-              placeholder='请输入详细地址'
+              placeholder={t('prop.addressPlaceholder')}
               placeholderStyle='color:#98a1ab'
               onInput={(e: any) => set('address', e.detail.value)}
             />
           ))}
-          {row('楼栋', (
+          {row(t('prop.buildingLabel'), (
             <Input
               className='pe-input'
               value={form.building}
-              placeholder='如 A 栋'
+              placeholder={t('prop.buildingPlaceholder')}
               placeholderStyle='color:#98a1ab'
               onInput={(e: any) => set('building', e.detail.value)}
             />
           ))}
-          {row('楼层', (
+          {row(t('prop.floorLabel'), (
             <Input
               className='pe-input'
               type='number'
@@ -291,16 +293,16 @@ export default function EmployeePropertyEditPage() {
               onInput={(e: any) => set('floor', e.detail.value)}
             />
           ))}
-          {row('币种', (
+          {row(t('prop.currencyLabel'), (
             <Input
               className='pe-input'
               value={form.currency}
-              placeholder='如 THB / CNY'
+              placeholder={t('prop.currencyPlaceholder')}
               placeholderStyle='color:#98a1ab'
               onInput={(e: any) => set('currency', e.detail.value)}
             />
           ))}
-          {row('可入住日期', (
+          {row(t('prop.availableFrom'), (
             <Input
               className='pe-input'
               value={form.available_from}
@@ -309,14 +311,14 @@ export default function EmployeePropertyEditPage() {
               onInput={(e: any) => set('available_from', e.detail.value)}
             />
           ))}
-          {row('带家具', (
+          {row(t('prop.furnishedLabel'), (
             <Switch
               checked={form.furnished}
               color='#14b8a6'
               onChange={(e: any) => set('furnished', e.detail.value)}
             />
           ))}
-          {row('月租', (
+          {row(t('prop.monthlyRent'), (
             <Input
               className='pe-input'
               type='number'
@@ -326,7 +328,7 @@ export default function EmployeePropertyEditPage() {
               onInput={(e: any) => set('monthly_rent', e.detail.value)}
             />
           ))}
-          {row('押金金额', (
+          {row(t('prop.depositAmount'), (
             <Input
               className='pe-input'
               type='number'
@@ -336,7 +338,7 @@ export default function EmployeePropertyEditPage() {
               onInput={(e: any) => set('deposit_amount', e.detail.value)}
             />
           ))}
-          {row('押金月数', (
+          {row(t('prop.depositMonths'), (
             <Input
               className='pe-input'
               type='number'
@@ -346,7 +348,7 @@ export default function EmployeePropertyEditPage() {
               onInput={(e: any) => set('deposit_months', e.detail.value)}
             />
           ))}
-          {row('面积㎡', (
+          {row(t('prop.areaLabel'), (
             <Input
               className='pe-input'
               type='number'
@@ -356,7 +358,7 @@ export default function EmployeePropertyEditPage() {
               onInput={(e: any) => set('size_sqm', e.detail.value)}
             />
           ))}
-          {row('卧室', (
+          {row(t('prop.bedrooms'), (
             <Input
               className='pe-input'
               type='number'
@@ -366,7 +368,7 @@ export default function EmployeePropertyEditPage() {
               onInput={(e: any) => set('bedrooms', e.detail.value)}
             />
           ))}
-          {row('卫生间', (
+          {row(t('prop.bathrooms'), (
             <Input
               className='pe-input'
               type='number'
@@ -376,10 +378,10 @@ export default function EmployeePropertyEditPage() {
               onInput={(e: any) => set('bathrooms', e.detail.value)}
             />
           ))}
-          {row('出租状态', (
+          {row(t('prop.statusLabel'), (
             <Picker
               mode='selector'
-              range={STATUS_META.map((s) => s.label)}
+              range={STATUS_META.map((s) => t(s.label))}
               value={statusIndex < 0 ? 0 : statusIndex}
               onChange={(e: any) => {
                 const idx = Number(e.detail.value)
@@ -388,7 +390,7 @@ export default function EmployeePropertyEditPage() {
               }}
             >
               <View className='pe-picker'>
-                <Text className='pe-picker__text'>{STATUS_NAME[form.status] || '请选择'}</Text>
+                <Text className='pe-picker__text'>{t(STATUS_NAME[form.status] || 'prop.select')}</Text>
                 <Text className='pe-picker__arrow'>▼</Text>
               </View>
             </Picker>
@@ -397,7 +399,7 @@ export default function EmployeePropertyEditPage() {
 
         {/* 房源照片 */}
         <View className='pe-card'>
-          <Text className='pe-card__title'>房源照片</Text>
+          <Text className='pe-card__title'>{t('prop.photosTitle')}</Text>
           {Array.isArray(form.photos) && form.photos.length > 0 && (
             <View className='pe-photo-grid'>
               {form.photos.map((url: string, idx: number) => (
@@ -414,17 +416,17 @@ export default function EmployeePropertyEditPage() {
             </View>
           )}
           <View className='pe-add-btn' onClick={pickPhotos}>
-            <Text className='pe-add-btn__text'>＋ 添加照片</Text>
+            <Text className='pe-add-btn__text'>{t('prop.addPhoto')}</Text>
           </View>
         </View>
 
         {/* 描述 */}
         <View className='pe-card'>
-          <Text className='pe-card__title'>房源描述</Text>
+          <Text className='pe-card__title'>{t('prop.descTitle')}</Text>
           <Textarea
             className='pe-textarea'
             value={form.description}
-            placeholder='请输入房源描述...'
+            placeholder={t('prop.descPlaceholder')}
             placeholderStyle='color:#98a1ab'
             maxlength={500}
             onInput={(e: any) => set('description', e.detail.value)}
@@ -433,7 +435,7 @@ export default function EmployeePropertyEditPage() {
 
         <View className='pe-footer'>
           <Button className='pe-save' loading={saving} onClick={handleSave}>
-            保存
+            {t('common.save')}
           </Button>
         </View>
       </ScrollView>

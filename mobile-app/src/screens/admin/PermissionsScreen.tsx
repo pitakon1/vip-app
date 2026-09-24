@@ -161,14 +161,21 @@ export default function PermissionsScreen() {
                     activeOpacity={0.8}
                     onPress={() => toggleCat(codes)}
                   >
-                    <Text
-                      style={[
-                        styles.quickChipText,
-                        (allOn || someOn) && styles.quickChipTextOn,
-                      ]}
-                    >
-                      {allOn ? '✓' : someOn ? '·' : '+'} {t('perm.selectAll')} · {catLabel(cat)}
-                    </Text>
+                    <View style={styles.quickChipInner}>
+                      <Ionicons
+                        name={allOn ? 'checkbox' : someOn ? 'remove-circle-outline' : 'add-circle-outline'}
+                        size={13}
+                        color={allOn || someOn ? colors.primary : colors.ink3}
+                      />
+                      <Text
+                        style={[
+                          styles.quickChipText,
+                          (allOn || someOn) && styles.quickChipTextOn,
+                        ]}
+                      >
+                        {t('perm.selectAll')} · {catLabel(cat)}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -280,6 +287,11 @@ const styles = StyleSheet.create({
   quickChipOn: {
     backgroundColor: colors.sidebarActive,
     borderColor: colors.primary,
+  },
+  quickChipInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   quickChipText: {
     fontSize: 12,

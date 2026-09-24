@@ -15,7 +15,9 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 import { tokenStorage } from '@/lib/storage';
 import { useAuthStore } from '@/stores/auth';
 import { authApi, propertiesApi, leasesApi, paymentsApi, notificationsApi, ownerApi, employeesApi, documentsApi } from '@/services/api';
@@ -55,6 +57,7 @@ const API_TESTS = [
 
 // ==================== 组件 ====================
 export default function TestScreen() {
+  const { t } = useI18n();
   const [results, setResults] = useState<Record<string, TestResult>>({});
   const [activeResult, setActiveResult] = useState<string | null>(null);
   const [autoLogin, setAutoLogin] = useState(true);
@@ -299,10 +302,18 @@ export default function TestScreen() {
         {activeData && (activeData.status === 'success' || activeData.status === 'error') && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                响应详情 - {activeData.status === 'success' ? '✅ 成功' : '❌ 失败'}
-                {activeData.duration ? ` (${activeData.duration}ms)` : ''}
-              </Text>
+              <View style={styles.responseTitleRow}>
+                <Ionicons
+                  name={activeData.status === 'success' ? 'checkmark-circle' : 'close-circle'}
+                  size={16}
+                  color={activeData.status === 'success' ? colors.success : colors.error}
+                />
+                <Text style={styles.responseTitleText}>
+                  {t('test.responseDetail')} -{' '}
+                  {activeData.status === 'success' ? t('test.success') : t('test.failure')}
+                  {activeData.duration ? ` (${activeData.duration}ms)` : ''}
+                </Text>
+              </View>
               <TouchableOpacity onPress={() => setExpandedJson(!expandedJson)}>
                 <Text style={styles.linkBtn}>{expandedJson ? '折叠' : '展开'}</Text>
               </TouchableOpacity>
@@ -435,6 +446,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  responseTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 1,
+  },
+  responseTitleText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -468,12 +490,12 @@ const styles = StyleSheet.create({
   accountBtn: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#f0f5ff',
+    backgroundColor: colors.tint,
     borderRadius: 8,
     padding: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#adc6ff',
+    borderColor: colors.tintBorder,
   },
   accountBtnText: {
     fontSize: 15,
@@ -537,7 +559,7 @@ const styles = StyleSheet.create({
   },
   testItemActive: {
     borderColor: colors.primary,
-    backgroundColor: '#f0f5ff',
+    backgroundColor: colors.tint,
   },
   testItemLeft: {
     flexDirection: 'row',
@@ -578,21 +600,21 @@ const styles = StyleSheet.create({
     padding: 8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#ffccc7',
+    borderColor: colors.errorBorder,
   },
   errorText: {
     fontSize: 12,
     color: colors.error,
   },
   jsonViewer: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: colors.codeBg,
     borderRadius: 8,
     padding: 10,
     maxHeight: 400,
   },
   jsonText: {
     fontSize: 11,
-    color: '#d4d4d4',
+    color: colors.codeText,
     fontFamily: 'monospace',
     lineHeight: 16,
   },

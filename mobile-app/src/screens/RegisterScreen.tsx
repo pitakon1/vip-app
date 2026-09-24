@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     borderColor: colors.fieldFill,
   },
   inputFocused: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderColor: colors.primary,
   },
   countryField: {
