@@ -28,13 +28,22 @@ from app.models import (
 
 router = APIRouter(prefix="/viewings", tags=["viewings"])
 
-# 预约状态流转白名单：pending→confirmed→completed/cancelled；禁止回退（confirmed→pending）
-# 与跳步（pending→completed），已完成/已取消为终态
+# 预约状态流转白名单：pending→confirmed→completed/cancelled/no_show；禁止回退
+# （confirmed→pending）与跳步（pending→completed），已完成/已取消/爽约为终态
 _VIEWING_TRANSITIONS = {
-    ViewingStatus.pending: {ViewingStatus.confirmed, ViewingStatus.cancelled},
-    ViewingStatus.confirmed: {ViewingStatus.completed, ViewingStatus.cancelled},
+    ViewingStatus.pending: {
+        ViewingStatus.confirmed,
+        ViewingStatus.cancelled,
+        ViewingStatus.no_show,
+    },
+    ViewingStatus.confirmed: {
+        ViewingStatus.completed,
+        ViewingStatus.cancelled,
+        ViewingStatus.no_show,
+    },
     ViewingStatus.completed: set(),
     ViewingStatus.cancelled: set(),
+    ViewingStatus.no_show: set(),
 }
 
 

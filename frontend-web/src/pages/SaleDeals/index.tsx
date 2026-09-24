@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Empty, message } from 'antd'
 import { useTranslation } from 'react-i18next'
-import { saleListingApi, propertyDealApi } from '@/services/api'
+import { saleListingApi, propertyDealApi, propertiesApi } from '@/services/api'
 import { useCachedQuery } from '@/lib/queryCache'
 
 /* ===== 看板列定义（覆盖全部挂牌状态） ===== */
@@ -143,7 +143,23 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
   const [valOpen, setValOpen] = useState<{ listing: Listing; items: any[] } | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState<any>({ title: '', sale_type: 'sell', asking_price: '', currency: 'THB', address: '', size_sqm: '', bedrooms: '', bathrooms: '', description: '' })
+  const [form, setForm] = useState<any>({ title: '', sale_type: 'sell', property_id: '', asking_price: '', currency: 'THB', address: '', size_sqm: '', bedrooms: '', bathrooms: '', description: '' })
+  // 挂牌创建弹层的「选择房源」下拉（挂卖单后端必须带 property_id）
+  const [propertyOptions, setPropertyOptions] = useState<any[]>([])
+
+  const loadPropertyOptions = async () => {
+    try {
+      const res = await propertiesApi.list({ page: 1, pageSize: 100 })
+      const payload = res.data?.data ?? res.data
+      setPropertyOptions(payload?.items ?? [])
+    } catch {
+      setPropertyOptions([])
+    }
+  }
+
+  useEffect(() => {
+    if (createOpen) void loadPropertyOptions()
+  }, [createOpen])
 
   // 挂牌列表：按筛选/页码缓存
   const listingsQ = useCachedQuery<{ items: Listing[]; total: number }>({
@@ -171,11 +187,17 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       message.error(t('saleDeals.errTitlePriceRequired'))
       return
     }
+    // 挂卖单后端必须带 property_id（缺失 404），挂买单不需要
+    if (form.sale_type === 'sell' && !form.property_id) {
+      message.error(t('saleDeals.errPropertyRequired'))
+      return
+    }
     setSubmitting(true)
     try {
       await saleListingApi.create({
         sale_type: form.sale_type,
         title: form.title,
+        property_id: form.property_id || undefined,
         asking_price: Number(form.asking_price),
         currency: form.currency || 'THB',
         address: form.address || undefined,
@@ -186,7 +208,7 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       })
       message.success(t('saleDeals.msgListingPublished'))
       onOpenChange(false)
-      setForm({ title: '', sale_type: 'sell', asking_price: '', currency: 'THB', address: '', size_sqm: '', bedrooms: '', bathrooms: '', description: '' })
+      setForm({ title: '', sale_type: 'sell', property_id: '', asking_price: '', currency: 'THB', address: '', size_sqm: '', bedrooms: '', bathrooms: '', description: '' })
       refresh()
     } catch (e: any) {
       message.error(e?.response?.data?.message || t('saleDeals.errPublishFailed'))
@@ -337,6 +359,17 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
                 <div className="rent-form-group">
                   <label className="rent-form-label">{t('saleDeals.labelTitle')}</label>
                   <input className="rent-form-input" value={form.title} onChange={setField('title')} placeholder={t('saleDeals.phTitle')} />
+                </div>
+              </div>
+              <div className="rent-form-row">
+                <div className="rent-form-group" style={{ flex: 1 }}>
+                  <label className="rent-form-label">{t('saleDeals.labelProperty')}</label>
+                  <select className="rent-form-select" value={form.property_id} onChange={setField('property_id')}>
+                    <option value="">{t('saleDeals.phSelectProperty')}</option>
+                    {propertyOptions.map((p) => (
+                      <option key={p.id} value={p.id}>{p.room_number || p.address || shortId(p.id)}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="rent-form-row">

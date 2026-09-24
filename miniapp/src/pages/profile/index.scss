@@ -643,6 +643,30 @@
     border-color: var(--error);
   }
 
+  /* 手机号 + 发送验证码并排 */
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+  }
+
+  &__input--flex {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__code-btn {
+    flex-shrink: 0;
+    height: 80rpx;
+    line-height: 80rpx;
+    padding: 0 24rpx;
+    font-size: 26rpx;
+    color: var(--primary-foreground, #fff);
+    background-color: var(--primary);
+    border-radius: var(--radius-md);
+    margin: 0;
+  }
+
   /* 内联表单校验错误文案：靠近字段展示 */
   &__error {
     display: block;

@@ -154,7 +154,6 @@ const Register = () => {
             email,
             password,
             full_name: fullName,
-            phone: phone ? phoneWithCode(countryCode, phone) : undefined,
             role,
           })
       const payload = res?.data?.data ?? res?.data
@@ -319,31 +318,8 @@ const Register = () => {
                       />
                     </div>
 
-                    {/* 邮箱模式下可选的手机号（选填） */}
-                    <div className="rent-form-group">
-                      <label className="rent-form-label" htmlFor="reg-phone-opt">{t('register.phone')}</label>
-                      <div className="rent-phone-row">
-                        <select
-                          id="reg-country-opt"
-                          className="rent-form-select"
-                          value={countryCode}
-                          onChange={(e) => setCountryCode(e.target.value)}
-                        >
-                          {COUNTRY_CODES.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                        <input
-                          type="tel"
-                          id="reg-phone-opt"
-                          className="rent-form-input"
-                          placeholder={t('register.phonePlaceholder')}
-                          autoComplete="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                        />
-                      </div>
-                    </div>
+                    {/* 邮箱模式不提供手机号输入：后端邮箱注册已忽略 phone，避免误导用户以为已绑定 */}
+                    <p className="rent-register-phone-note">{t('register.phoneNotBoundHint')}</p>
                   </>
                 )}
 

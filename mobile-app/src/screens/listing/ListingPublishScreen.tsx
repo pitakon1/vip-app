@@ -236,6 +236,15 @@ export default function ListingPublishScreen() {
       notify(t('listing.errIncomplete'), t('listing.errPhotosBody'));
       return;
     }
+    // 价格校验：租金/售价缺失或非正数后端会 422，先在前端拦住
+    if (form.listing_type === 'rent' && !(Number(form.monthly_rent) > 0)) {
+      notify(t('listing.errIncomplete'), t('listing.errRentBody'));
+      return;
+    }
+    if (form.listing_type === 'sell' && !(Number(form.asking_price) > 0)) {
+      notify(t('listing.errIncomplete'), t('listing.errSellBody'));
+      return;
+    }
     // 分佣校验
     if (form.mandate_type === 'exclusive') {
       const b = Number(form.buyer_side_rate);
@@ -259,6 +268,15 @@ export default function ListingPublishScreen() {
       furnished: form.furnished,
       available_from: form.available_from.trim() || undefined,
       currency: form.currency,
+      // 价格字段与后端 CreateListing 对齐：rent 必填 monthly_rent，sell 必填 asking_price
+      monthly_rent:
+        form.listing_type === 'rent' && form.monthly_rent
+          ? Number(form.monthly_rent)
+          : undefined,
+      asking_price:
+        form.listing_type === 'sell' && form.asking_price
+          ? Number(form.asking_price)
+          : undefined,
       photos: form.photos
         .split('\n')
         .map((s) => s.trim())

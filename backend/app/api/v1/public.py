@@ -522,6 +522,8 @@ def list_public_map_points(
 
     terms = [q.strip()] if q and q.strip() else []
     terms += [k.strip() for k in (keywords or []) if k and k.strip()]
+    # 单字符关键词（如 "a"）近乎全量命中，丢弃；全部丢弃则按无关键词处理
+    terms = [t for t in terms if len(t) >= 2]
     terms = list(dict.fromkeys(terms))[:20]
     # 同义词组「任一命中」：所有关键词合并为一个 OR 组（与 /properties 口径一致）
     if terms:
@@ -684,9 +686,11 @@ def list_public_listings(
         conditions.append(Property.bedrooms <= bedrooms_max)
 
     # 关键词：房源自身字段或所属楼盘字段任一命中；同义词组「任一命中」——
-    # 所有关键词合并为一个 OR 组（与 /properties 口径一致）
+    # 所有关键词合并为一个 OR 组（与 /properties 口径一致）。
+    # 单字符关键词（如 "a"）近乎全量命中，丢弃；全部丢弃则按无关键词处理
     terms = [q.strip()] if q and q.strip() else []
     terms += [k.strip() for k in (keywords or []) if k and k.strip()]
+    terms = [t for t in terms if len(t) >= 2]
     terms = list(dict.fromkeys(terms))[:20]
     if terms:
         conditions.append(

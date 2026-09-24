@@ -16,6 +16,7 @@
 - POST   /payments/{id}/late-fee/waive  减免逾期滞纳金（员工及以上）
 - GET    /payments/reconciliations  对账统计（Admin）
 """
+import json
 import mimetypes
 import uuid
 from datetime import date as date_type, datetime
@@ -56,6 +57,7 @@ from app.models import (
     User,
     UserRole,
 )
+from app.providers.payment.base import PaymentChannel
 from app.providers.payment.service import payment_service, UnmatchedWebhookError
 
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -551,9 +553,8 @@ def upload_payment_proof(
 
 
 @router.post("/webhook/{channel}")
-def payment_webhook(
+async def payment_webhook(
     channel: str,
-    payload: dict,
     request: Request,
     session: Session = Depends(get_session),
 ):
@@ -561,6 +562,11 @@ def payment_webhook(
 
     流程：验签 → 定位支付单 → 幂等落库 → 业务流转 → 领域事件。
     签名校验所需请求头（如 Stripe-Signature）由渠道 provider 负责读取。
+
+    **原始报文透传**：Stripe 的签名针对原始请求 body 字节，不能拿解析后的
+    JSON 重建签名负载（键序/转义不一致会导致真实回调验签失败、到账不入账）。
+    这里先读原始字节，再解析出 dict 供业务使用；stripe 渠道把原始字节经
+    headers 透传给 provider.verify_webhook（见 stripe_provider.py）。
 
     幂等口径：`payment_webhook_events` 表 `(channel, transaction_id)` 唯一约束，
     与业务变更同事务提交；重复投递返回 200 `duplicate webhook`。
@@ -574,9 +580,22 @@ def payment_webhook(
     [刻意保留] 无前端调用方：由支付网关（Stripe/Omise 等）服务端回调，不属于 UI 调用；
     已在契约工具 INTENTIONAL_ORPHANS 登记，不再报警。
     """
+    raw_body = await request.body()
+    try:
+        payload = json.loads(raw_body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Invalid webhook payload")
+
+    webhook_headers = dict(request.headers)
+    if channel == PaymentChannel.STRIPE.value:
+        # Stripe 验签针对原始报文字节：透传原字节，供 provider 计算 HMAC
+        webhook_headers["_stripe_raw_body"] = raw_body
+
     try:
         result = payment_service.handle_webhook(
-            session, channel, payload, headers=dict(request.headers)
+            session, channel, payload, headers=webhook_headers
         )
         return result
     except UnmatchedWebhookError as e:

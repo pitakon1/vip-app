@@ -58,6 +58,12 @@ def generate_promptpay_qr(
     Returns:
         EMVCo 标准 QR 字符串（含 CRC16 校验）
     """
+    if not (target or "").strip():
+        # fail closed：收款账号未配置时拒绝生成收款码，
+        # 否则会把客户款项引到空/错误账户（默认值已改为空串，见 channel_config）
+        raise ValueError(
+            "PromptPay 收款账号未配置（PROMPTPAY_TARGET 为空）：拒绝生成收款码"
+        )
     # 1. Payload format indicator
     payload = _field("00", "01")
     # 2. Point of initiation method: 11=dynamic(带金额), 12=static
@@ -112,6 +118,16 @@ class PromptPayProvider(PaymentProvider):
 
     def create_payment(self, request: PaymentRequest) -> PaymentResult:
         """生成 PromptPay QR 码，状态为 pending"""
+        if not (self._target or "").strip():
+            # fail closed：收款账号未配置时拒绝生成收款码，
+            # 否则会把客户款项引到空/错误账户（见 channel_config 说明）
+            return PaymentResult(
+                success=False,
+                error_message=(
+                    "PromptPay 收款账号（PROMPTPAY_TARGET）未配置，拒绝生成收款码："
+                    "请在后端 .env 设置真实收款手机号 / 国民ID / 税号。"
+                ),
+            )
         try:
             qr = generate_promptpay_qr(
                 target=self._target,

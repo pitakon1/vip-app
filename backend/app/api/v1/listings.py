@@ -525,7 +525,9 @@ def create_listing(
         payload["owner_commission_rate"] = 100.0
         if req.listing_type == ListingType.sell and payload.get("sale_commission_rate") is None:
             payload["sale_commission_rate"] = commission_rates.resolve_commission_rate(
-                session, deal_type="sale_transaction"
+                session,
+                deal_type="sale_transaction",
+                fallback_percent=1.0,  # 未配置规则时默认 1% 卖房佣金
             )
         if req.listing_type == ListingType.rent and payload.get("rental_commission_months") is None:
             payload["rental_commission_months"] = 1.0

@@ -142,6 +142,12 @@ class StripeProvider(PaymentProvider):
 
         签名格式: t=timestamp,v1=signature
         签名算法: HMAC-SHA256(secret, "{timestamp}.{payload}")
+
+        Stripe 的签名针对**原始请求 body 字节**，不能拿解析后的 JSON 重建——
+        键序/转义一旦与原始报文不一致，真实回调也会验签失败、到账不入账。
+        生产路径由 payments.py webhook 端点把原始 body 字节放进 headers 的
+        `_stripe_raw_body` 键透传至此（经 payment_service.handle_webhook）；
+        直接以 dict 调用时（测试/工具）退回紧凑 JSON 重建作为近似。
         """
         secret = _get_webhook_secret()
         if not secret:
@@ -160,12 +166,18 @@ class StripeProvider(PaymentProvider):
         v1 = elements.get("v1")
         if not t or not v1:
             return False
-        # Stripe 签名针对原始 body 字符串；此处以紧凑 JSON 重建（近似）
-        payload_str = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
-        signed_payload = f"{t}.{payload_str}"
+        raw = headers.get("_stripe_raw_body")
+        if raw is not None:
+            # 生产路径：直接用原始报文字节计算 HMAC
+            payload_bytes = raw.encode("utf-8") if isinstance(raw, str) else raw
+        else:
+            # 兼容直接传 dict 的调用方（测试/工具）：以紧凑 JSON 重建（近似）
+            payload_str = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+            payload_bytes = payload_str.encode("utf-8")
+        signed_payload = str(t).encode("utf-8") + b"." + payload_bytes
         expected = hmac.new(
             secret.encode("utf-8"),
-            signed_payload.encode("utf-8"),
+            signed_payload,
             hashlib.sha256,
         ).hexdigest()
         return hmac.compare_digest(expected, v1)

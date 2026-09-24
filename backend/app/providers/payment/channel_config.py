@@ -33,8 +33,9 @@ AGGREGATOR_WEBHOOK_SECRET = _env("AGGREGATOR_WEBHOOK_SECRET", "")
 
 # ═══════════ PromptPay（泰国本地，推荐）═══════════
 # 泰国用户扫码支付，QR 码由本地 EMVCo 算法生成，无需第三方 API。
-# ⚠️ 上线前必须改成真实收款账号：默认占位号码会把客户款项引导到错误账户。
-PROMPTPAY_TARGET = _env("PROMPTPAY_TARGET", "0812345678")            # 收款方标识：手机号 / 国民ID / 税号
+# ⚠️ 默认值为空（fail closed）：未配置时 promptpay_provider 拒绝生成收款码，
+# 绝不能用占位号码把客户款项引到错误账户。上线前必须在 .env 配置真实收款账号。
+PROMPTPAY_TARGET = _env("PROMPTPAY_TARGET", "")            # 收款方标识：手机号 / 国民ID / 税号
 PROMPTPAY_TARGET_TYPE = _env("PROMPTPAY_TARGET_TYPE", "phone")       # 标识类型：phone / national_id / tax_id
 PROMPTPAY_MERCHANT_NAME = _env("PROMPTPAY_MERCHANT_NAME", "VIP APP")  # QR 码上显示的商户名（≤25 字符）
 

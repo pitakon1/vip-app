@@ -324,6 +324,8 @@ export default function ProfilePage() {
   const [editName, setEditName] = useState('')
   const [editPhone, setEditPhone] = useState('')
   const [editEmail, setEditEmail] = useState('')
+  const [editCode, setEditCode] = useState('')
+  const [editSendingCode, setEditSendingCode] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
   // 内联校验错误：靠近对应字段展示，而非仅顶部 toast
   const [editErr, setEditErr] = useState('')
@@ -332,7 +334,26 @@ export default function ProfilePage() {
     setEditName((user as any)?.full_name || (user as any)?.name || '')
     setEditPhone(user?.phone || '')
     setEditEmail(user?.email || '')
+    setEditCode('')
+    setEditErr('')
     setEditVisible(true)
+  }
+
+  // 修改手机号必须先向新手机号发送验证码（后端 PATCH /auth/me 校验 code，否则 400）
+  const sendEditCode = async () => {
+    if (!editPhone.trim()) {
+      setEditErr('请先填写新手机号')
+      return
+    }
+    setEditSendingCode(true)
+    try {
+      await authApi.requestOtp({ recipient: editPhone.trim(), channel: 'sms' })
+      Taro.showToast({ title: '验证码已发送', icon: 'success' })
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || '验证码发送失败', icon: 'none' })
+    } finally {
+      setEditSendingCode(false)
+    }
   }
 
   const saveEdit = async () => {
@@ -341,10 +362,18 @@ export default function ProfilePage() {
       setEditErr('请填写姓名')
       return
     }
+    const phoneChanged = editPhone !== (user?.phone || '')
+    if (phoneChanged && !editCode.trim()) {
+      setEditErr('请先获取并填写验证码')
+      return
+    }
     setEditSaving(true)
     try {
       const payload: Record<string, string> = { full_name: editName.trim() }
-      if (editPhone !== (user?.phone || '')) payload.phone = editPhone.trim()
+      if (phoneChanged) {
+        payload.phone = editPhone.trim()
+        payload.code = editCode.trim()
+      }
       if (editEmail !== (user?.email || '')) payload.email = editEmail.trim()
       const res: any = await authApi.updateMe(payload)
       // 用返回的最新用户刷新本地状态（含认证 store 与缓存）
@@ -900,11 +929,29 @@ export default function ProfilePage() {
             </View>
             <View className='form-field'>
               <Text className='form-field__label'>手机号</Text>
+              <View className='form-field__row'>
+                <Input
+                  className='form-field__input form-field__input--flex'
+                  value={editPhone}
+                  onInput={(e) => setEditPhone(e.detail.value)}
+                  placeholder='请输入手机号'
+                />
+                <Button
+                  className='form-field__code-btn'
+                  disabled={editSendingCode}
+                  onClick={sendEditCode}
+                >
+                  {editSendingCode ? '发送中...' : '发送验证码'}
+                </Button>
+              </View>
+            </View>
+            <View className='form-field'>
+              <Text className='form-field__label'>验证码</Text>
               <Input
                 className='form-field__input'
-                value={editPhone}
-                onInput={(e) => setEditPhone(e.detail.value)}
-                placeholder='请输入手机号'
+                value={editCode}
+                onInput={(e) => setEditCode(e.detail.value)}
+                placeholder='修改手机号需填写新手机号收到的验证码'
               />
             </View>
             <View className='form-field'>

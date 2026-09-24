@@ -1,9 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
-import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 
@@ -144,10 +142,7 @@ const TenantDocuments = () => {
 
   const user = useAuthStore((s) => s.user)
   const uid = user?.id ?? 'anon'
-  const queryClient = useQueryClient()
-  const [, setFile] = useState<File | null>(null)
   const [activeTab, setActiveTab] = useState<SegmentKey>('all')
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const q = useCachedQuery<DocItem[]>({
     queryKey: ['tenant-documents', 'mine', uid],
@@ -173,46 +168,6 @@ const TenantDocuments = () => {
     return data.filter((d) => ['certificate', 'report', 'other'].includes(d.type))
   }, [data, activeTab])
 
-  const doUpload = async (f: File) => {
-    const formData = new FormData()
-    formData.append('file', f)
-    formData.append('type', 'lease_contract')
-
-    try {
-      try {
-        await api.post('/documents', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
-      } catch {
-        // API 不可用时仅本地展示
-      }
-      message.success(t('tenantDocuments.uploadSuccess'))
-      const newItem: DocItem = {
-        id: `local-${Date.now()}`,
-        name: f.name,
-        type: 'lease_contract',
-        url: '#',
-        uploadDate: dayjs().format('YYYY-MM-DD'),
-        created_at: dayjs().format('YYYY-MM-DD'),
-        size: Math.round(f.size / 1024),
-        source: t('tenantDocuments.sourceLocal'),
-      }
-      setFile(null)
-      queryClient.setQueryData<DocItem[]>(['tenant-documents', 'mine', uid], (prev) => [newItem, ...(prev ?? [])])
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || t('tenantDocuments.uploadFailed'))
-    }
-  }
-
-  const handleHeroSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (f) {
-      setFile(f)
-      doUpload(f)
-    }
-    e.target.value = ''
-  }
-
   const handlePreview = (r: DocItem) => {
     if (r.url && r.url !== '#') window.open(r.url, '_blank')
   }
@@ -236,23 +191,12 @@ const TenantDocuments = () => {
         </div>
       )}
 
-      {/* Clean hero row */}
+      {/* Clean hero row（租客端后端不开放上传，仅展示文档） */}
       <div className="rent-doc-hero">
         <div className="rent-doc-hero__text">
           <h1 className="rent-doc-hero__title">{t('tenantDocuments.myDocs')}</h1>
           <p className="rent-doc-hero__subtitle">{t('tenantDocuments.subtitle')}</p>
         </div>
-        <button className="rent-doc-hero__action" onClick={() => inputRef.current?.click()}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          {t('tenantDocuments.uploadDoc')}
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-          style={{ display: 'none' }}
-          onChange={handleHeroSelect}
-        />
       </div>
 
       {/* Segment control */}

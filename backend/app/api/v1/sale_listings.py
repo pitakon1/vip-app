@@ -179,25 +179,33 @@ def create_sale_listing(
     """发布挂牌（个人卖家/经纪人/管理员）。"""
     owner_user_id: Optional[uuid.UUID] = None
     agent_user_id: Optional[uuid.UUID] = None
-    if req.property_id:
+    if req.sale_type == SaleType.sell:
+        # 卖单必须关联具体房源（缺失 422，房源不存在 404）；
+        # 业主身份统一由后端从房源归属推导（覆盖请求值，防止乱填/把员工记成业主）
+        if req.property_id is None:
+            raise HTTPException(
+                status_code=422, detail="property_id is required for sell listing"
+            )
         prop = session.get(Property, req.property_id)
         if not prop or prop.deleted_at:
             raise HTTPException(status_code=404, detail="Property not found")
-        if req.sale_type == SaleType.sell:
-            owner = session.get(Owner, prop.owner_id) if prop.owner_id else None
-            if user.role in STAFF_ROLES:
-                # 员工代挂卖：归属取房源业主账号，经手人记为当前员工
-                owner_user_id = owner.user_id if owner else None
-                agent_user_id = user.id
-            else:
-                # 非员工只能挂自己名下房源，防止租客对任意 property_id 挂 sell 单
-                if owner is None or owner.user_id != user.id:
-                    raise HTTPException(
-                        status_code=403, detail="该房源不属于当前用户，无法挂卖"
-                    )
-                owner_user_id = user.id
-    elif req.sale_type == SaleType.sell:
-        owner_user_id = user.id
+        owner = session.get(Owner, prop.owner_id) if prop.owner_id else None
+        if user.role in STAFF_ROLES:
+            # 员工代挂卖：归属取房源业主账号，经手人记为当前员工
+            owner_user_id = owner.user_id if owner else None
+            agent_user_id = user.id
+        else:
+            # 非员工只能挂自己名下房源，防止租客对任意 property_id 挂 sell 单
+            if owner is None or owner.user_id != user.id:
+                raise HTTPException(
+                    status_code=403, detail="该房源不属于当前用户，无法挂卖"
+                )
+            owner_user_id = owner.user_id
+    elif req.property_id:
+        # 求购单可附带意向房源（可选），仅校验房源存在
+        prop = session.get(Property, req.property_id)
+        if not prop or prop.deleted_at:
+            raise HTTPException(status_code=404, detail="Property not found")
     listing = SaleListing(
         title=req.title,
         sale_type=req.sale_type,

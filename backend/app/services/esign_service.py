@@ -1,7 +1,7 @@
 """电子签合同服务。
 
-根据用户/租约信息自动渲染合同 → 计算全文哈希 → 各方数字签名（HMAC，若装有
-cryptography 库则升级为 RSA-256 签名，更贴近生产电子签）→ 生成签名 SVG 入库。
+根据用户/租约信息自动渲染合同 → 计算全文哈希 → 各方数字签名
+（HMAC-SHA256，见 sign_digest）→ 生成签名 SVG 入库。
 输出合同 .html/.json 文件到 CONTRACT_OUTPUT_DIR。
 """
 import hashlib
@@ -13,14 +13,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 from app.config import settings
-
-try:
-    from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.asymmetric import rsa
-
-    _HAS_CRYPTO = True
-except Exception:  # pragma: no cover - 依赖缺失时降级
-    _HAS_CRYPTO = False
 
 
 def _esc(v: Any) -> str:
@@ -158,18 +150,14 @@ def _signing_key() -> bytes:
 
 
 def sign_digest(data: str) -> str:
-    """对内容做数字签名：优先 RSA-256，退回 HMAC-SHA256。"""
-    # 先取密钥（未配置时抛错）。RSA 分支并不直接使用该密钥，但同样要求必须配置：
-    # 否则"没配密钥"的环境仍会产出带签名的合同，安全性全凭签名算法本身，难以审计。
+    """对内容做数字签名（HMAC-SHA256）。
+
+    统一走 HMAC 分支：原 RSA 分支每次调用都 `rsa.generate_private_key()` 生成
+    新的随机私钥且不保存（注释声称「用 SECRET 确定性派生」但代码未实现），
+    同一文档的签名永远无法复验/审计，已移除。HMAC 由 CONTRACT_SIGNING_SECRET
+    与内容确定性计算，可用同一密钥离线重建复验。
+    """
     key_material = _signing_key()
-    if _HAS_CRYPTO:
-        try:
-            # 用 SECRET 派生 RSA 私钥（确定性），便于离线重建验证
-            key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-            sig = key.sign(data.encode("utf-8"), hashes.SHA256())
-            return sig.hex()
-        except Exception:
-            pass
     return hmac.new(key_material, data.encode("utf-8"), hashlib.sha256).hexdigest()
 
 

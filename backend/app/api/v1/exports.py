@@ -161,7 +161,7 @@ def export_properties(
                 owner_names.get(owner.user_id, "") if owner else "",
                 p.property_type,
                 p.status.value,
-                p.monthly_rent,
+                p.monthly_rent if p.monthly_rent is not None else "",
                 p.currency,
                 p.size_sqm if p.size_sqm is not None else "",
                 p.bedrooms if p.bedrooms is not None else "",

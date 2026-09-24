@@ -117,6 +117,12 @@ def create_service_package(
         if req.unit_price:
             amount = round(req.unit_price * req.billing_interval, 2)
         else:
+            # 纯售房源无月租，无法按（佣金 + 托管费）× 月租计价
+            if prop.monthly_rent is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="该房源未设置月租金，无法按此计价，请传入 unit_price",
+                )
             # 兼容既有调用：未给单价时沿用旧托管费基数（佣金 + 托管费）× 月租
             amount = (req.commission_rate + req.management_fee_rate) * prop.monthly_rent
 

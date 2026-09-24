@@ -6,7 +6,13 @@
   3. by_broker     分销商（渠道商）专属
   4. all_employees 全局
   5. broker.base_rate（分销商基础分成比例，>0 时生效）
-  6. fallback 1.0（默认 1 个月租金）
+  6. fallback：调用方传入的 fallback_percent（默认佣金百分比）
+
+返回值语义：统一为**百分比** 0-100（如 5 表示 5%），消费方除以 100 换算
+月租倍数。fallback 的默认值因场景而异，由调用方显式指定：
+- 租单结算（leases.py）：fallback_percent=100.0（=1 个月租金，结算时
+  /100 得月租倍数 1.0）
+- 售单挂牌（listings.py）：fallback_percent=1.0（=默认 1% 卖房佣金）
 """
 import uuid
 from datetime import datetime
@@ -19,6 +25,8 @@ from app.models import (
     CommissionRule,
     CommissionRuleScope,
 )
+
+# fallback 语义已参数化：调用方通过 fallback_percent 指定默认佣金百分比
 
 
 def _pick_rate(rules: list[CommissionRule]) -> Optional[float]:
@@ -40,12 +48,17 @@ def resolve_commission_rate(
     session: Session,
     *,
     deal_type: str,
+    fallback_percent: float,
     employee_id: Optional[uuid.UUID] = None,
     department: Optional[str] = None,
     broker_id: Optional[uuid.UUID] = None,
     broker_base_rate: float = 0.0,
 ) -> float:
-    """解析最终佣金比例（%）。"""
+    """解析最终佣金比例（%）。
+
+    fallback_percent：未命中任何配置时的默认佣金百分比（0-100）。
+    租单结算传 100.0（=1 个月租金），售单挂牌传 1.0（=1% 卖房佣金）。
+    """
     base = select(CommissionRule).where(
         CommissionRule.deleted_at.is_(None),
         CommissionRule.deal_type == deal_type,
@@ -99,7 +112,8 @@ def resolve_commission_rate(
     if broker_base_rate and broker_base_rate > 0:
         return broker_base_rate
 
-    return 1.0
+    # 6) fallback：调用方指定的默认佣金百分比（见模块 docstring）
+    return fallback_percent
 
 
 def get_broker_base_rate(session: Session, broker_id: Optional[uuid.UUID]) -> float:

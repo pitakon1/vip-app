@@ -284,7 +284,7 @@ const Payments = () => {
         payer_id: user.id,
         amount,
         currency: 'THB',
-        payment_type: 'service',
+        payment_type: 'service_fee',
         channel: currentMethod?.id || 'qr',
         idempotency_key: `owner-pay-${user.id}-${Date.now()}`,
         description: '业主在线缴费',

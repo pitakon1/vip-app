@@ -74,14 +74,14 @@ def _create_commission_settlement(
     rate = resolve_commission_rate(
         session,
         deal_type=deal_type.value,
+        fallback_percent=100.0,  # 未配置规则时默认 1 个月租金（100% 月租）
         employee_id=agent_id,
         department=emp.department if emp else None,
         broker_id=broker_id,
         broker_base_rate=broker_base,
     )
-    # rate 语义统一为百分比：commission_rules.rate / broker.base_rate 均为 0-100
-    # （如 5 = 5%），fallback 1.0 也按 1% 处理。此前 `rate>1 视为百分比否则视为
-    # 月租倍数` 的歧义会让 rate=1.0（1%）被当成 1 个月租金，佣金放大 100 倍。
+    # rate 统一为百分比 0-100（规则/broker 如 5 = 5%；fallback=100.0 = 1 个月
+    # 租金），除以 100 换算成月租倍数后乘以月租得到佣金
     factor = rate / 100.0
     session.add(
         CommissionSettlement(

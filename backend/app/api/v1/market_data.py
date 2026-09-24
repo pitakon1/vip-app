@@ -315,8 +315,8 @@ def _compute_match(lead: Lead, prop: Property) -> int:
     score = 0
     if prop.status == PropertyStatus.vacant:
         score += 30
-    # 预算匹配
-    if lead.budget_min and lead.budget_max:
+    # 预算匹配（纯售房源无月租 monthly_rent=None，跳过预算维度）
+    if lead.budget_min and lead.budget_max and prop.monthly_rent is not None:
         if lead.budget_min <= prop.monthly_rent <= lead.budget_max:
             score += 40
         elif lead.budget_min <= prop.monthly_rent * 1.2:

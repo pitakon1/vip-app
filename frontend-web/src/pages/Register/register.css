@@ -76,6 +76,15 @@
   margin-bottom: 18px;
 }
 
+/* 邮箱注册模式下的提示文案（手机号不在此绑定） */
+.rent-register-page .rent-register-phone-note {
+  margin: -6px 0 18px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #9a9ea3;
+  font-family: var(--rent-font-sans);
+}
+
 .rent-register-page .rent-form-label {
   display: block;
   font-size: 13px;
