@@ -12,7 +12,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Date
+from sqlalchemy import String
 from sqlalchemy import case as sa_case
 from sqlalchemy import cast, func
 from sqlmodel import Session, select
@@ -101,6 +101,17 @@ def _activity_counts(session: Session, today: datetime) -> tuple[int, int, int]:
     return dau, wau, mau
 
 
+def _day_expr():
+    """日期分组表达式（跨方言）：取日期字符串前 10 位（YYYY-MM-DD）。
+
+    不能用 cast(..., Date)：SQLite 驱动会把 CAST AS DATE 结果按声明类型转成
+    date 对象，SQLAlchemy 的 Date 处理器 str_to_date 收到非 str 会崩
+    （fromisoformat: argument must be str）。改 String + substr 在
+    SQLite / PostgreSQL 下均返回纯字符串，无类型处理器介入。
+    """
+    return func.substr(cast(User.last_login_at, String), 1, 10)
+
+
 def _daily_active(session: Session, days: int) -> dict[str, int]:
     """近 N 日每日活跃用户数（缺失日期补 0）。
 
@@ -110,10 +121,11 @@ def _daily_active(session: Session, days: int) -> dict[str, int]:
     out: dict[str, int] = {}
     for i in range(days - 1, -1, -1):
         out[_day_start(-i).date().isoformat()] = 0
+    day_expr = _day_expr()
     for day, cnt in session.exec(
-        select(cast(User.last_login_at, Date), func.count(User.id))
+        select(day_expr, func.count(User.id))
         .where(User.last_login_at >= start)
-        .group_by(cast(User.last_login_at, Date))
+        .group_by(day_expr)
     ).all():
         out[str(day)] = int(cnt)
     return out
@@ -271,13 +283,14 @@ def operations_activity(
             status_code=422, detail="granularity must be one of: day, week, month"
         )
     start = _day_start(-(days - 1))
+    day_expr = _day_expr()
     rows = session.exec(
         select(
-            cast(User.last_login_at, Date),
+            day_expr,
             func.count(User.id),
         )
         .where(User.last_login_at >= start)
-        .group_by(cast(User.last_login_at, Date))
+        .group_by(day_expr)
     ).all()
 
     if granularity == "day":
