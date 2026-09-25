@@ -656,11 +656,19 @@ def export_reconciliation_csv(
     复用财务对账的分桶口径（received / pending / overdue，见 core.payments），
     导出逐笔明细，供线下对账归档。
     """
+    # 逐笔导出同样设行数上限：报表是给人看的，超限即截断并显式告知，
+    # 避免大表全量拉取拖垮内存（口径与 exports.py 的 MAX_ROWS 一致）。
+    EXPORT_MAX_ROWS = 50000
     now = datetime.utcnow()
     conditions = [Payment.deleted_at.is_(None)]
     payments = session.exec(
-        select(Payment).where(*conditions).order_by(Payment.created_at.desc())
+        select(Payment)
+        .where(*conditions)
+        .order_by(Payment.created_at.desc())
+        .limit(EXPORT_MAX_ROWS + 1)
     ).all()
+    truncated = len(payments) > EXPORT_MAX_ROWS
+    payments = payments[:EXPORT_MAX_ROWS]
 
     payer_ids = {p.payer_id for p in payments} | {
         p.payee_id for p in payments if p.payee_id
@@ -693,7 +701,12 @@ def export_reconciliation_csv(
         ]
         for p in payments
     ]
-    return csv_response(header, rows, f"reconciliations_{now.strftime('%Y%m%d')}.csv")
+    resp = csv_response(
+        header, rows, f"reconciliations_{now.strftime('%Y%m%d')}.csv"
+    )
+    if truncated:
+        resp.headers["X-Export-Truncated"] = "true"
+    return resp
 
 
 @router.get("/{payment_id}", response_model=Payment)

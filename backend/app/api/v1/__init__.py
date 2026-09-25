@@ -51,6 +51,7 @@ from .dedupe_reviews import router as dedupe_reviews_router
 from .public import router as public_router
 from .acn import router as acn_router
 from .verifications import router as verifications_router
+from .uploads_admin import router as uploads_admin_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -101,5 +102,6 @@ api_router.include_router(dedupe_reviews_router)
 api_router.include_router(public_router)
 api_router.include_router(acn_router)
 api_router.include_router(verifications_router)
+api_router.include_router(uploads_admin_router)
 
 __all__ = ["api_router"]

@@ -59,7 +59,7 @@ MAX_ROWS = 50000
 
 def _stamp() -> str:
     """文件名里的日期后缀，避免多次导出互相覆盖。"""
-    return datetime.now().strftime("%Y%m%d")
+    return datetime.utcnow().strftime("%Y%m%d")
 
 
 def _dt(value: Optional[datetime]) -> str:
