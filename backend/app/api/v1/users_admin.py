@@ -266,7 +266,7 @@ def update_user(
                     )
                 )
         elif emp:
-            emp.deleted_at = datetime.now()
+            emp.deleted_at = datetime.utcnow()
             session.add(emp)
 
     if department is not None or position is not None:
@@ -323,7 +323,7 @@ def delete_user(
     if u.id == admin.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
 
-    u.deleted_at = datetime.now()
+    u.deleted_at = datetime.utcnow()
     u.is_active = False
     # 递增令牌版本号，使该账号已签发的令牌全部失效
     u.token_version = int(u.token_version or 0) + 1
@@ -336,7 +336,7 @@ def delete_user(
         )
     ).first()
     if emp:
-        emp.deleted_at = datetime.now()
+        emp.deleted_at = datetime.utcnow()
         session.add(emp)
 
     # 名下线索的责任人置空，避免孤儿引用（线索本身保留）

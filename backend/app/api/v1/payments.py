@@ -544,7 +544,7 @@ def upload_payment_proof(
         status=PaymentStatus.pending,
         channel=payment_method if payment_method != "cash" else "bank_transfer",
         idempotency_key=str(uuid.uuid4()),
-        paid_at=datetime.now(),
+        paid_at=datetime.utcnow(),
         due_date=None,
         description=f"凭证上传 {payment_method}",
         receipt_url=receipt_url,
@@ -656,7 +656,7 @@ def export_reconciliation_csv(
     复用财务对账的分桶口径（received / pending / overdue，见 core.payments），
     导出逐笔明细，供线下对账归档。
     """
-    now = datetime.now()
+    now = datetime.utcnow()
     conditions = [Payment.deleted_at.is_(None)]
     payments = session.exec(
         select(Payment).where(*conditions).order_by(Payment.created_at.desc())
@@ -914,14 +914,14 @@ def confirm_payment(
         )
 
     payment.status = PaymentStatus.succeeded
-    payment.paid_at = req.paid_at or datetime.now()
+    payment.paid_at = req.paid_at or datetime.utcnow()
     payment.channel = payment.channel or "bank_transfer"
     if req.note:
         payment.description = (
             (payment.description + " | ") if payment.description else ""
         ) + req.note
     # 写财务核销字段：确认到账即视为已核销
-    payment.reconciled_at = datetime.now()
+    payment.reconciled_at = datetime.utcnow()
     payment.reconciled_by = user.id
     payment.reconciliation_status = "reconciled"
     payment.reconciliation_note = req.note or "管理端确认到账"
@@ -970,7 +970,7 @@ def reconcile_payment(
             detail=f"Cannot reconcile payment in state: {payment.status.value}",
         )
 
-    payment.reconciled_at = datetime.now()
+    payment.reconciled_at = datetime.utcnow()
     payment.reconciled_by = user.id
     payment.reconciliation_status = "reconciled"
     payment.reconciliation_note = req.note or payment.reconciliation_note

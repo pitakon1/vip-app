@@ -203,7 +203,7 @@ def delete_lead(
                 detail="Only the assigned employee or an admin can delete this lead",
             )
 
-    lead.deleted_at = datetime.now()
+    lead.deleted_at = datetime.utcnow()
     session.add(lead)
     publish_event(
         session,
