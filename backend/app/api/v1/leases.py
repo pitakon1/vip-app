@@ -501,6 +501,17 @@ def get_lease(
     return lease
 
 
+# 租约状态合法流转白名单：expired/terminated 为终态，不可翻回生效状态。
+# （此前 PATCH 可把已退房/已到期的租约直接改回 active，绕过「同一房源
+#   仅一本生效租约」约束，且房源状态不会联动回退）
+_LEASE_STATUS_TRANSITIONS: dict[LeaseStatus, set] = {
+    LeaseStatus.pending: {LeaseStatus.active, LeaseStatus.expired, LeaseStatus.terminated},
+    LeaseStatus.active: {LeaseStatus.expired, LeaseStatus.terminated},
+    LeaseStatus.expired: set(),
+    LeaseStatus.terminated: set(),
+}
+
+
 @router.patch("/{lease_id}")
 def update_lease(
     lease_id: uuid.UUID,
@@ -514,6 +525,28 @@ def update_lease(
         raise HTTPException(status_code=404, detail="Lease not found")
     update_data = req.model_dump(exclude_unset=True)
     ensure_version(lease, update_data.pop("version", None), "租约")
+    # 状态变更走白名单：终态不可复活，生效态不可与同房源其他生效租约并存
+    new_status = update_data.get("status")
+    if new_status is not None and new_status != lease.status:
+        allowed = _LEASE_STATUS_TRANSITIONS.get(lease.status, set())
+        if new_status not in allowed:
+            raise HTTPException(
+                status_code=409,
+                detail=f"非法状态流转：{lease.status.value} → {new_status.value}",
+            )
+        if new_status in (LeaseStatus.active, LeaseStatus.pending):
+            conflict = session.exec(
+                select(Lease).where(
+                    Lease.property_id == lease.property_id,
+                    Lease.status.in_([LeaseStatus.active, LeaseStatus.pending]),
+                    Lease.deleted_at.is_(None),
+                    Lease.id != lease.id,
+                )
+            ).first()
+            if conflict is not None:
+                raise HTTPException(
+                    status_code=409, detail="Property already has an active lease"
+                )
     for key, value in update_data.items():
         setattr(lease, key, value)
     session.add(lease)

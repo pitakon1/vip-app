@@ -30,6 +30,33 @@ from app.models import (
 
 router = APIRouter(prefix="/sale-listings", tags=["sale-listings"])
 
+# 挂牌状态合法流转白名单（SaleListingStatus = sale_listing.ListingStatus）：
+# closed/cancelled/expired 为终态，不可翻回对外可见状态（此前可直接把已成交/
+# 已下架/已取消的挂牌改回 active，重新出现在 C 端并可被再次创建成交，一房多卖）
+_SALE_LISTING_STATUS_TRANSITIONS: dict[SaleListingStatus, set] = {
+    SaleListingStatus.pending: {
+        SaleListingStatus.active,
+        SaleListingStatus.contracted,
+        SaleListingStatus.closed,
+        SaleListingStatus.cancelled,
+        SaleListingStatus.expired,
+    },
+    SaleListingStatus.active: {
+        SaleListingStatus.contracted,
+        SaleListingStatus.closed,
+        SaleListingStatus.cancelled,
+        SaleListingStatus.expired,
+    },
+    SaleListingStatus.contracted: {
+        SaleListingStatus.closed,
+        SaleListingStatus.cancelled,
+        SaleListingStatus.expired,
+    },
+    SaleListingStatus.closed: set(),
+    SaleListingStatus.cancelled: set(),
+    SaleListingStatus.expired: set(),
+}
+
 
 class SaleListingIn(BaseModel):
     sale_type: SaleType = SaleType.sell
@@ -298,6 +325,15 @@ def change_listing_status(
         raise HTTPException(status_code=404, detail="Listing not found")
     if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
         raise HTTPException(status_code=403, detail="No permission")
+    # 状态机校验：终态不可复活，非法跳转一律 409；同状态重复提交视为幂等无操作
+    if status == listing.status:
+        return _serialize(listing)
+    allowed = _SALE_LISTING_STATUS_TRANSITIONS.get(listing.status, set())
+    if status not in allowed:
+        raise HTTPException(
+            status_code=409,
+            detail=f"非法状态流转：{listing.status.value} → {status.value}",
+        )
     listing.status = status
     session.add(listing)
     session.commit()

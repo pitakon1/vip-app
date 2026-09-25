@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -71,6 +71,32 @@ _DEAL_STATUS_TRANSITIONS: dict[PropertyDealStatus, set] = {
     PropertyDealStatus.cancelled: set(),
 }
 
+# 按揭状态合法流转白名单：仅允许按审批流程前进，终态（disbursed/rejected）
+# 不可再翻转（此前 PATCH 直接写任意状态，已放款/已拒单可被改回 applied 重新走流程）
+_MORTGAGE_STATUS_TRANSITIONS: dict[MortgageStatus, set] = {
+    MortgageStatus.applied: {
+        MortgageStatus.under_review,
+        MortgageStatus.pre_approved,
+        MortgageStatus.approved,
+        MortgageStatus.rejected,
+    },
+    MortgageStatus.under_review: {
+        MortgageStatus.pre_approved,
+        MortgageStatus.approved,
+        MortgageStatus.rejected,
+    },
+    MortgageStatus.pre_approved: {
+        MortgageStatus.approved,
+        MortgageStatus.rejected,
+    },
+    MortgageStatus.approved: {
+        MortgageStatus.disbursed,
+        MortgageStatus.rejected,
+    },
+    MortgageStatus.disbursed: set(),
+    MortgageStatus.rejected: set(),
+}
+
 
 
 def _get_visible_deal(session: Session, user: User, deal_id: uuid.UUID) -> PropertyDeal:
@@ -87,14 +113,15 @@ class DealIn(BaseModel):
     sale_listing_id: uuid.UUID
     buyer_user_id: Optional[uuid.UUID] = None
     sales_user_id: Optional[uuid.UUID] = None
-    sale_price: float
+    # 与模型 gt=0 约束对齐：负/零价直接 422，避免撞 ORM IntegrityError 500
+    sale_price: float = Field(gt=0)
     currency: str = "THB"
     notes: Optional[str] = None
 
 
 class EscrowIn(BaseModel):
     deal_id: uuid.UUID
-    amount: float
+    amount: float = Field(gt=0)
     currency: str = "THB"
 
 
@@ -102,7 +129,7 @@ class MortgageIn(BaseModel):
     buyer_user_id: Optional[uuid.UUID] = None
     deal_id: Optional[uuid.UUID] = None
     bank: str
-    loan_amount: float
+    loan_amount: float = Field(gt=0)
     currency: str = "THB"
     term_months: int = 360
 
@@ -449,10 +476,20 @@ def update_mortgage_status(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
-    """按揭状态审批。需员工。"""
+    """按揭状态审批。需员工。
+
+    修复前：直接写入任意状态，已放款/已拒单的申请可被翻回 applied 重新走流程，
+    也可跳过审查直接 disbursed。现在按白名单推进，非法跳转一律 409。
+    """
     m = session.get(MortgageApplication, mortgage_id)
     if not m:
         raise HTTPException(status_code=404, detail="Mortgage not found")
+    allowed = _MORTGAGE_STATUS_TRANSITIONS.get(m.status, set())
+    if status not in allowed:
+        raise HTTPException(
+            status_code=409,
+            detail=f"非法状态流转：{m.status.value} → {status.value}",
+        )
     m.status = status
     m.status_at = datetime.utcnow()
     session.add(m)
