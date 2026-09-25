@@ -392,6 +392,12 @@ def approve_external_trip(
     app = session.get(ExternalTripApplication, trip_id)
     if not app or app.deleted_at:
         raise HTTPException(status_code=404, detail="Trip application not found")
+    # 终态不可再审批：已 approved/rejected 的申请拒绝翻转覆盖
+    if app.status != TripStatus.pending:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Trip application already {app.status.value} (final)",
+        )
     app.status = TripStatus.approved if payload.action == "approved" else TripStatus.rejected
     app.approved_by = user.id
     app.approved_at = datetime.utcnow()

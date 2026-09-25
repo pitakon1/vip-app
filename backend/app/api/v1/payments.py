@@ -1019,10 +1019,17 @@ def refund_payment(
     if locked is not None:
         payment = locked
     try:
-        return payment_service.refund(session, payment, amount=req.amount, reason=req.reason)
+        result = payment_service.refund(session, payment, amount=req.amount, reason=req.reason)
     except ValueError as e:
         # 退款金额超限等参数错误 → 400（对齐 webhook 端点对 ValueError 的映射）
         raise HTTPException(status_code=400, detail=str(e))
+    if not result.get("ok"):
+        # 业务拒绝（非 succeeded 单等）→ 400：让前端走错误分支，避免
+        # 「200 + ok:false」被前端当成功提示（假成功退款）。
+        raise HTTPException(
+            status_code=400, detail=result.get("error", "Refund failed")
+        )
+    return result
 
 
 @router.post("/{payment_id}/late-fee/waive")

@@ -654,6 +654,12 @@ def review_listing(
     decision = body.get("decision")
     if decision not in ("approved", "rejected"):
         raise HTTPException(status_code=400, detail="decision must be approved/rejected")
+    # 终态保护：已成交/下架/取消/到期的房源不可再被审核翻转（防止已成交房被改成 rejected 等假数据）
+    if li.status not in (ListingStatus.pending, ListingStatus.rejected):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Listing status {li.status.value} is final, cannot review",
+        )
     if decision == "approved":
         li.status = ListingStatus.active
     else:

@@ -109,10 +109,23 @@ def generate_contract(
         contract_kind = ContractKind(kind)
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Invalid kind: {kind}")
+
+    def _to_uuid(value, field: str):
+        """把字符串 uuid 转为 uuid.UUID；非法值 400（否则 UUID 列绑定处理器崩溃 500）。"""
+        if value is None:
+            return None
+        try:
+            return uuid.UUID(str(value))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=400, detail=f"Invalid {field}")
+
+    lease_id = _to_uuid(payload.get("lease_id"), "lease_id")
+    property_id = _to_uuid(payload.get("property_id"), "property_id")
+
     meta = esign_service.generate_contract(counters, language, kind=contract_kind.value)
     contract = Contract(
-        lease_id=payload.get("lease_id"),
-        property_id=payload.get("property_id"),
+        lease_id=lease_id,
+        property_id=property_id,
         title=meta["title"],
         kind=contract_kind,
         language=language,
@@ -152,9 +165,14 @@ def add_party(
         role = SignerRole(payload.get("role", "tenant"))
     except ValueError:
         raise HTTPException(status_code=400, detail="非法签署角色")
+    user_id_raw = payload.get("user_id")
+    try:
+        user_id_u = uuid.UUID(str(user_id_raw)) if user_id_raw else None
+    except (ValueError, TypeError, AttributeError):
+        raise HTTPException(status_code=400, detail="Invalid user_id")
     party = ContractParty(
         contract_id=contract_id,
-        user_id=payload.get("user_id"),
+        user_id=user_id_u,
         name=payload.get("name", ""),
         email=payload.get("email", ""),
         id_number=payload.get("id_number"),
