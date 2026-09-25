@@ -232,6 +232,29 @@ def _with_display_names(session: Session, leases: List[Lease]) -> List[LeaseRead
     return items
 
 
+MAX_BATCH_PROPERTY_IDS = 50
+
+
+def _parse_property_ids(raw: Optional[str]) -> Optional[List[uuid.UUID]]:
+    """解析逗号分隔的房源 id 列表。
+
+    格式非法或超量时直接 422：批量筛选若被静默忽略，前端会以为「这些房源都没租约」，
+    把在租房源错误显示成「无租约」，属于很难发现的静默错误。
+    """
+    if not raw or not raw.strip():
+        return None
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    if len(parts) > MAX_BATCH_PROPERTY_IDS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"property_ids 最多 {MAX_BATCH_PROPERTY_IDS} 个",
+        )
+    try:
+        return [uuid.UUID(p) for p in parts]
+    except ValueError:
+        raise HTTPException(status_code=422, detail="property_ids 含非法 UUID")
+
+
 def lease_filter_conditions(
     session: Session,
     user: User,
@@ -242,6 +265,7 @@ def lease_filter_conditions(
     keyword: Optional[str] = None,
     date_from: Optional[date_type] = None,
     date_to: Optional[date_type] = None,
+    property_ids: Optional[List[uuid.UUID]] = None,
 ) -> list:
     """租约筛选条件（列表与导出共用，两处口径必须完全一致）。
 
@@ -255,6 +279,10 @@ def lease_filter_conditions(
         conditions.append(Lease.status == status)
     if property_id:
         conditions.append(Lease.property_id == property_id)
+    # 批量房源筛选：列表页需要一次取回整页房源的租约以补齐租客姓名，
+    # 否则前端只能逐条请求（每页 10 个房源 = 10 次请求），故支持一次批量过滤。
+    if property_ids:
+        conditions.append(Lease.property_id.in_(property_ids))
     if tenant_id:
         conditions.append(Lease.tenant_id == tenant_id)
     if property_type:
@@ -311,6 +339,10 @@ def list_leases(
     ),
     date_from: Optional[date_type] = Query(None, description="合同起始日 ≥ date_from"),
     date_to: Optional[date_type] = Query(None, description="合同起始日 ≤ date_to"),
+    property_ids: Optional[str] = Query(
+        None,
+        description="批量房源筛选：逗号分隔的房源 UUID，最多 50 个（列表页一次取回整页租约）",
+    ),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -331,6 +363,7 @@ def list_leases(
         keyword=keyword,
         date_from=date_from,
         date_to=date_to,
+        property_ids=_parse_property_ids(property_ids),
     )
     stmt = (
         select(Lease).where(*conditions).order_by(Lease.created_at.desc())

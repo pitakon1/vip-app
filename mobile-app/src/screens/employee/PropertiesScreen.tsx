@@ -1,7 +1,7 @@
 /**
  * 房源台账：搜索 + 状态/排序筛选 + 结果统计 + 房源卡片（租客信息）+ 加载更多
  * 原型：employee-mobile-properties.html（房源浏览 · 台账）
- * 数据源：/properties（分页）、/properties/{id}/leases（租客姓名）
+ * 数据源：/properties（分页）、/leases?property_ids=（批量取整页租客姓名）
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -24,7 +24,7 @@ import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import { propertiesApi } from '@/services/api';
+import { leasesApi, propertiesApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import RegionPicker, { type RegionSelection } from '@/components/RegionPicker';
@@ -211,20 +211,36 @@ export default function PropertiesScreen() {
           setVacantTotal(typeof vd?.total === 'number' ? vd.total : null);
         }
 
-        // 在租房源补充租客姓名（接口 /properties/{id}/leases 是租客姓名的唯一来源）
+        // 在租房源补充租客姓名：一次批量取回整页房源的租约，再按房源聚合。
+        // 此前逐条请求 /properties/{id}/leases，每页 10 个房源就是 10 次请求。
         const rentedIds = pageItems.filter((p) => p.status === 'rented').map((p) => p.id);
         if (rentedIds.length > 0) {
-          const leaseRes = await Promise.allSettled(
-            rentedIds.map((id) => propertiesApi.leases(id)),
-          );
           const next: Record<string, string> = {};
-          leaseRes.forEach((r, idx) => {
-            if (r.status !== 'fulfilled') return;
-            const d = r.value.data as { items?: { tenant_name?: string | null; status?: string | null }[] };
-            const active =
-              (d?.items ?? []).find((l) => l.status === 'active') ?? (d?.items ?? [])[0];
-            if (active?.tenant_name) next[rentedIds[idx]] = active.tenant_name;
-          });
+          try {
+            const res = await leasesApi.list({
+              property_ids: rentedIds.join(','),
+              page: 1,
+              page_size: 100,
+            });
+            const leases = (res.data?.items ?? []) as {
+              property_id?: string;
+              tenant_name?: string | null;
+              status?: string | null;
+            }[];
+            const byProperty: Record<string, typeof leases> = {};
+            leases.forEach((l) => {
+              if (!l.property_id) return;
+              if (!byProperty[l.property_id]) byProperty[l.property_id] = [];
+              byProperty[l.property_id].push(l);
+            });
+            Object.keys(byProperty).forEach((pid) => {
+              const list = byProperty[pid];
+              const primary = list.find((l) => l.status === 'active') ?? list[0];
+              if (primary?.tenant_name) next[pid] = primary.tenant_name;
+            });
+          } catch {
+            // 租客姓名属附加信息，批量失败不应影响房源列表本身展示
+          }
           setTenantMap((prev) => (targetPage === 1 ? next : { ...prev, ...next }));
         } else if (targetPage === 1) {
           setTenantMap({});
