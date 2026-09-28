@@ -372,13 +372,6 @@
   },
   {
     "methods": [
-      "GET"
-    ],
-    "path": "/api/v1/payments/channels",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
       "POST"
     ],
     "path": "/api/v1/payments",
@@ -806,6 +799,104 @@
   },
   {
     "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/attendance/admin/records/{employee_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/attendance/groups",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/attendance/groups",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/attendance/groups/{group_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/attendance/groups/{group_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/attendance/groups/{group_id}/members",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/attendance/groups/{group_id}/members",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/attendance/groups/{group_id}/members/{employee_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/attendance/groups/me/rules",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/attendance/leave-requests",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/attendance/leave-requests",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/attendance/leave-requests/{leave_id}/approve",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/attendance/leave-requests/{leave_id}/cancel",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/attendance/admin/summary",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
       "GET"
     ],
     "path": "/api/v1/commissions/me",
@@ -823,34 +914,6 @@
       "POST"
     ],
     "path": "/api/v1/commissions/{commission_id}/approve",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "GET"
-    ],
-    "path": "/api/v1/tenants/me",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "PATCH"
-    ],
-    "path": "/api/v1/tenants/me",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "GET"
-    ],
-    "path": "/api/v1/owners/me",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "PATCH"
-    ],
-    "path": "/api/v1/owners/me",
     "type": "APIRoute"
   },
   {
@@ -1373,27 +1436,6 @@
   },
   {
     "methods": [
-      "POST"
-    ],
-    "path": "/api/v1/property-deals/mortgages",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "GET"
-    ],
-    "path": "/api/v1/property-deals/mortgages/mine",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "PATCH"
-    ],
-    "path": "/api/v1/property-deals/mortgages/{mortgage_id}/status",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
       "GET"
     ],
     "path": "/api/v1/brokers",
@@ -1635,13 +1677,6 @@
       "POST"
     ],
     "path": "/api/v1/admin/users/{user_id}/reset-password",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "GET"
-    ],
-    "path": "/api/v1/admin/users/me",
     "type": "APIRoute"
   },
   {
@@ -1933,76 +1968,6 @@
   },
   {
     "methods": [
-      "GET"
-    ],
-    "path": "/api/v1/acn/roles",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "GET"
-    ],
-    "path": "/api/v1/acn/me/contributions",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "GET"
-    ],
-    "path": "/api/v1/acn/properties/{property_id}/profile",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "GET"
-    ],
-    "path": "/api/v1/acn/properties/{property_id}/contributions",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "POST"
-    ],
-    "path": "/api/v1/acn/properties/{property_id}/contributions",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "DELETE"
-    ],
-    "path": "/api/v1/acn/contributions/{contribution_id}",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "POST"
-    ],
-    "path": "/api/v1/acn/split-plans/preview",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "POST"
-    ],
-    "path": "/api/v1/acn/split-plans",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "GET"
-    ],
-    "path": "/api/v1/acn/split-plans",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
-      "GET"
-    ],
-    "path": "/api/v1/acn/split-plans/{plan_id}",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
       "POST"
     ],
     "path": "/api/v1/verifications",
@@ -2048,6 +2013,13 @@
       "POST"
     ],
     "path": "/api/v1/verifications/expire-due",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/uploads/gc",
     "type": "APIRoute"
   },
   {

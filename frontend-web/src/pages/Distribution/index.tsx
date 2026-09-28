@@ -1,27 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { brokerApi, propertyDealApi } from '@/services/api'
 import { useCachedQuery } from '@/lib/queryCache'
 
-const BROKER_TYPE: Record<string, string> = {
-  individual: '独立经纪人',
-  agency: '中介机构',
-  franchise: '加盟商',
-  affiliate: '转介绍影响者',
+const BROKER_TYPE_KEYS: Record<string, string> = {
+  individual: 'distribution.typeIndividual',
+  agency: 'distribution.typeAgency',
+  franchise: 'distribution.typeFranchise',
+  affiliate: 'distribution.typeAffiliate',
 }
 
-const BROKER_LEVEL: Record<string, string> = {
-  silver: '白银',
-  gold: '黄金',
-  platinum: '铂金',
-  franchisor: '加盟总代',
+const BROKER_LEVEL_KEYS: Record<string, string> = {
+  silver: 'distribution.levelSilver',
+  gold: 'distribution.levelGold',
+  platinum: 'distribution.levelPlatinum',
+  franchisor: 'distribution.levelFranchisor',
 }
 
-const BROKER_STATUS: Record<string, { label: string; badge: string }> = {
-  pending: { label: '待审批', badge: 'rent-badge--warning' },
-  active: { label: '已激活', badge: 'rent-badge--success' },
-  suspended: { label: '已暂停', badge: 'rent-badge--error' },
-  terminated: { label: '已终止', badge: 'rent-badge--neutral' },
+const BROKER_STATUS: Record<string, { labelKey: string; badge: string }> = {
+  pending: { labelKey: 'distribution.stPending', badge: 'rent-badge--warning' },
+  active: { labelKey: 'distribution.stActive', badge: 'rent-badge--success' },
+  suspended: { labelKey: 'distribution.stSuspended', badge: 'rent-badge--error' },
+  terminated: { labelKey: 'distribution.stTerminated', badge: 'rent-badge--neutral' },
 }
 
 interface Broker {
@@ -49,47 +50,48 @@ interface Referral {
 }
 
 const TABS = [
-  { key: 'brokers', label: '渠道商' },
-  { key: 'referrals', label: '转介绍记录' },
-  { key: 'split', label: '联合单分成' },
+  { key: 'brokers', labelKey: 'distribution.tabBrokers' },
+  { key: 'referrals', labelKey: 'distribution.tabReferrals' },
+  { key: 'split', labelKey: 'distribution.tabSplit' },
 ]
 
 const shortId = (id?: string) => (id ? String(id).slice(0, 8) : '—')
 
 const Distribution = () => {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('brokers')
   const [brokerCreateOpen, setBrokerCreateOpen] = useState(false)
   return (
     <div className="rent-main">
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">分销体系</h2>
+          <h2 className="rent-page-header__title">{t('distribution.title')}</h2>
           <p className="rent-page-header__subtitle">
-            渠道商登记、定级审批、转介绍裂变与联合单佣金分成
+            {t('distribution.subtitle')}
           </p>
         </div>
         <div className="rent-page-header__actions">
           {activeTab === 'brokers' && (
             <button className="rent-btn rent-btn--primary" type="button" onClick={() => setBrokerCreateOpen(true)}>
-              登记渠道商
+              {t('distribution.registerBroker')}
             </button>
           )}
         </div>
       </div>
 
       <div className="rent-tabs">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.key}
+            key={tab.key}
             type="button"
             className="rent-tab"
-            data-active={activeTab === t.key}
+            data-active={activeTab === tab.key}
             onClick={() => {
-              setActiveTab(t.key)
+              setActiveTab(tab.key)
               setBrokerCreateOpen(false)
             }}
           >
-            {t.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -103,6 +105,7 @@ const Distribution = () => {
 
 /* ===== 渠道商 Tab ===== */
 const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenChange: (v: boolean) => void }) => {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const [level, setLevel] = useState('')
@@ -128,7 +131,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
   const refresh = () => { void brokersQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
-    if (brokersQ.isError) message.error((brokersQ.error as any)?.response?.data?.message || '获取渠道商列表失败')
+    if (brokersQ.isError) message.error((brokersQ.error as any)?.response?.data?.message || t('distribution.errFetchBrokers'))
   }, [brokersQ.isError, brokersQ.error])
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
@@ -136,7 +139,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
   const handleCreate = async () => {
     if (!form.partner_name) {
-      message.error('请填写渠道商名称')
+      message.error(t('distribution.errPartnerName'))
       return
     }
     setSubmitting(true)
@@ -150,11 +153,11 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
         country: form.country || 'TH',
         base_rate: form.base_rate ? Number(form.base_rate) : 0,
       })
-      message.success('渠道商已登记（待审批）')
+      message.success(t('distribution.msgRegistered'))
       onOpenChange(false)
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '登记失败')
+      message.error(e?.response?.data?.message || t('distribution.errRegisterFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -168,11 +171,11 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
         level: approveForm.level,
         base_rate: approveForm.base_rate ? Number(approveForm.base_rate) : 0,
       })
-      message.success('已审批并定级')
+      message.success(t('distribution.msgApproved'))
       setApproveBroker(null)
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '审批失败')
+      message.error(e?.response?.data?.message || t('distribution.errApproveFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -181,10 +184,10 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
   const handleSuspend = async (b: Broker) => {
     try {
       await brokerApi.suspend(b.id)
-      message.success('渠道商已暂停')
+      message.success(t('distribution.msgSuspended'))
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '暂停失败')
+      message.error(e?.response?.data?.message || t('distribution.errSuspendFailed'))
     }
   }
 
@@ -210,7 +213,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
   const statCards = [
     {
-      label: '渠道商总数',
+      label: t('distribution.statTotal'),
       value: String(total),
       iconBg: 'rgba(20,184,166,0.1)',
       iconColor: 'var(--rent-primary)',
@@ -222,7 +225,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       ),
     },
     {
-      label: '待审批（当前页）',
+      label: t('distribution.statPending'),
       value: String(statusCounts.pending),
       iconBg: 'rgba(217,119,6,0.12)',
       iconColor: 'var(--state-warning)',
@@ -233,7 +236,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       ),
     },
     {
-      label: '已激活（当前页）',
+      label: t('distribution.statActive'),
       value: String(statusCounts.active),
       iconBg: 'rgba(22,163,74,0.1)',
       iconColor: 'var(--state-success)',
@@ -244,7 +247,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       ),
     },
     {
-      label: '已暂停（当前页）',
+      label: t('distribution.statSuspended'),
       value: String(statusCounts.suspended),
       iconBg: 'rgba(220,38,38,0.1)',
       iconColor: 'var(--state-error)',
@@ -278,51 +281,51 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <input type="text" placeholder="搜索分销商名称" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
+            <input type="text" placeholder={t('distribution.searchPlaceholder')} value={keyword} onChange={(e) => setKeyword(e.target.value)} />
           </div>
         </div>
-        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 120 }} aria-label="等级" value={level} onChange={(e) => { setLevel(e.target.value); setPage(1) }}>
-          <option value="">全部等级</option>
-          {Object.keys(BROKER_LEVEL).map((k) => <option key={k} value={k}>{BROKER_LEVEL[k]}</option>)}
+        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 120 }} aria-label={t('distribution.ariaLevel')} value={level} onChange={(e) => { setLevel(e.target.value); setPage(1) }}>
+          <option value="">{t('distribution.optAllLevels')}</option>
+          {Object.keys(BROKER_LEVEL_KEYS).map((k) => <option key={k} value={k}>{t(BROKER_LEVEL_KEYS[k])}</option>)}
         </select>
-        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 130 }} aria-label="状态" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
-          <option value="">全部状态</option>
-          {Object.keys(BROKER_STATUS).map((k) => <option key={k} value={k}>{BROKER_STATUS[k].label}</option>)}
+        <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 130 }} aria-label={t('distribution.ariaStatus')} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
+          <option value="">{t('distribution.optAllStatus')}</option>
+          {Object.keys(BROKER_STATUS).map((k) => <option key={k} value={k}>{t(BROKER_STATUS[k].labelKey)}</option>)}
         </select>
       </div>
 
       <div className="rent-card">
-        <div className="rent-card__header"><h3 className="rent-card__title">分销商列表</h3><span className="rent-badge rent-badge--neutral">共 {total} 条</span></div>
+        <div className="rent-card__header"><h3 className="rent-card__title">{t('distribution.listTitle')}</h3><span className="rent-badge rent-badge--neutral">{t('distribution.totalCount', { count: total })}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
           {loading ? (
-            <div className="rent-empty rent-text-muted">加载中...</div>
+            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">暂无渠道商</div>
+            <div className="rent-empty rent-text-muted">{t('distribution.emptyBrokers')}</div>
           ) : visibleItems.length === 0 ? (
-            <div className="rent-empty rent-text-muted">没有匹配的渠道商</div>
+            <div className="rent-empty rent-text-muted">{t('distribution.emptyNoMatch')}</div>
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
-                <thead><tr><th>名称</th><th>类型</th><th>等级</th><th>状态</th><th>邀请码</th><th>地区</th><th style={{ textAlign: 'right' }}>费率%</th><th>操作</th></tr></thead>
+                <thead><tr><th>{t('distribution.thName')}</th><th>{t('distribution.thType')}</th><th>{t('distribution.thLevel')}</th><th>{t('common.status')}</th><th>{t('distribution.thInviteCode')}</th><th>{t('distribution.thRegion')}</th><th style={{ textAlign: 'right' }}>{t('distribution.thRate')}</th><th>{t('common.action')}</th></tr></thead>
                 <tbody>
                   {visibleItems.map((b) => {
                     const st = BROKER_STATUS[b.status || 'pending'] || BROKER_STATUS.pending
                     return (
                       <tr key={b.id}>
                         <td>{b.partner_name}</td>
-                        <td>{BROKER_TYPE[b.broker_type || ''] || '—'}</td>
-                        <td>{b.level ? BROKER_LEVEL[b.level] : '—'}</td>
-                        <td><span className={`rent-badge ${st.badge}`}>{st.label}</span></td>
+                        <td>{b.broker_type && BROKER_TYPE_KEYS[b.broker_type] ? t(BROKER_TYPE_KEYS[b.broker_type]) : '—'}</td>
+                        <td>{b.level && BROKER_LEVEL_KEYS[b.level] ? t(BROKER_LEVEL_KEYS[b.level]) : '—'}</td>
+                        <td><span className={`rent-badge ${st.badge}`}>{t(st.labelKey)}</span></td>
                         <td><span className="rent-mono">{b.invite_code || '—'}</span></td>
                         <td>{b.country || '—'}</td>
                         <td className="rent-num">{b.base_rate ?? 0}</td>
                         <td>
                           <div className="rent-flex rent-gap-2">
                             {b.status === 'pending' && (
-                              <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => openApprove(b)}>审批定级</button>
+                              <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => openApprove(b)}>{t('distribution.btnApprove')}</button>
                             )}
                             {(b.status === 'active' || b.status === 'terminated') && (
-                              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => handleSuspend(b)}>暂停</button>
+                              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => handleSuspend(b)}>{t('distribution.btnSuspend')}</button>
                             )}
                             <span className="rent-text-muted rent-text-sm">#{shortId(b.id)}</span>
                           </div>
@@ -336,11 +339,11 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
           )}
           <div className="rent-pagination" style={{ marginTop: 14, padding: '0 22px 16px' }}>
             <span className="rent-pagination__info">
-              共 {total} 条 · 每页 10 条{kw ? ` · 当前页匹配 ${visibleItems.length} 条` : ''}
+              {t('distribution.pageInfo', { total })}{kw ? t('distribution.pageMatched', { count: visibleItems.length }) : ''}
             </span>
-            <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>上一页</button>
+            <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>{t('distribution.ariaPrev')}</button>
             <span className="rent-pagination__info">{page}</span>
-            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>下一页</button>
+            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>{t('distribution.ariaNext')}</button>
           </div>
         </div>
       </div>
@@ -348,31 +351,31 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       {createOpen && (
         <div className="rent-modal-backdrop" onClick={() => onOpenChange(false)}>
           <div className="rent-modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
-            <div className="rent-modal__header"><h3 className="rent-card__title">登记渠道商</h3></div>
+            <div className="rent-modal__header"><h3 className="rent-card__title">{t('distribution.registerBroker')}</h3></div>
             <div className="rent-modal__body">
               <div className="rent-form-row">
-                <div className="rent-form-group" style={{ flex: 1 }}><label className="rent-form-label">渠道商名称 *</label><input className="rent-form-input" value={form.partner_name} onChange={setField('partner_name')} /></div>
+                <div className="rent-form-group" style={{ flex: 1 }}><label className="rent-form-label">{t('distribution.labelPartnerName')}</label><input className="rent-form-input" value={form.partner_name} onChange={setField('partner_name')} /></div>
               </div>
               <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">类型</label>
+                <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelType')}</label>
                   <select className="rent-form-select" value={form.broker_type} onChange={setField('broker_type')}>
-                    {Object.keys(BROKER_TYPE).map((k) => <option key={k} value={k}>{BROKER_TYPE[k]}</option>)}
+                    {Object.keys(BROKER_TYPE_KEYS).map((k) => <option key={k} value={k}>{t(BROKER_TYPE_KEYS[k])}</option>)}
                   </select>
                 </div>
-                <div className="rent-form-group"><label className="rent-form-label">国家/地区</label><input className="rent-form-input" value={form.country} onChange={setField('country')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelCountry')}</label><input className="rent-form-input" value={form.country} onChange={setField('country')} /></div>
               </div>
               <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">联系人</label><input className="rent-form-input" value={form.contact_name} onChange={setField('contact_name')} /></div>
-                <div className="rent-form-group"><label className="rent-form-label">电话</label><input className="rent-form-input" value={form.contact_phone} onChange={setField('contact_phone')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelContact')}</label><input className="rent-form-input" value={form.contact_name} onChange={setField('contact_name')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelPhone')}</label><input className="rent-form-input" value={form.contact_phone} onChange={setField('contact_phone')} /></div>
               </div>
               <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">邮箱</label><input className="rent-form-input" value={form.contact_email} onChange={setField('contact_email')} /></div>
-                <div className="rent-form-group"><label className="rent-form-label">默认费率%</label><input className="rent-form-input" type="number" value={form.base_rate} onChange={setField('base_rate')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelEmail')}</label><input className="rent-form-input" value={form.contact_email} onChange={setField('contact_email')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelDefaultRate')}</label><input className="rent-form-input" type="number" value={form.base_rate} onChange={setField('base_rate')} /></div>
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => onOpenChange(false)}>取消</button>
-              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? '登记中...' : '登记'}</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => onOpenChange(false)}>{t('common.cancel')}</button>
+              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? t('distribution.registering') : t('distribution.btnRegister')}</button>
             </div>
           </div>
         </div>
@@ -381,21 +384,21 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       {approveBroker && (
         <div className="rent-modal-backdrop" onClick={() => setApproveBroker(null)}>
           <div className="rent-modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
-            <div className="rent-modal__header"><h3 className="rent-card__title">审批定级 · {approveBroker.partner_name}</h3></div>
+            <div className="rent-modal__header"><h3 className="rent-card__title">{t('distribution.approveTitle', { name: approveBroker.partner_name })}</h3></div>
             <div className="rent-modal__body">
               <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">等级</label>
+                <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelLevel')}</label>
                   <select className="rent-form-select" value={approveForm.level} onChange={setApproveField('level')}>
-                    {Object.keys(BROKER_LEVEL).map((k) => <option key={k} value={k}>{BROKER_LEVEL[k]}</option>)}
+                    {Object.keys(BROKER_LEVEL_KEYS).map((k) => <option key={k} value={k}>{t(BROKER_LEVEL_KEYS[k])}</option>)}
                   </select>
                 </div>
-                <div className="rent-form-group"><label className="rent-form-label">费率%</label><input className="rent-form-input" type="number" value={approveForm.base_rate} onChange={setApproveField('base_rate')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelRate')}</label><input className="rent-form-input" type="number" value={approveForm.base_rate} onChange={setApproveField('base_rate')} /></div>
               </div>
-              <div className="rent-form-hint">审批后将激活该渠道商并生成邀请码。</div>
+              <div className="rent-form-hint">{t('distribution.hintApprove')}</div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setApproveBroker(null)}>取消</button>
-              <button className="rent-btn rent-btn--primary" onClick={handleApprove} disabled={submitting}>{submitting ? '审批中...' : '确认审批'}</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setApproveBroker(null)}>{t('common.cancel')}</button>
+              <button className="rent-btn rent-btn--primary" onClick={handleApprove} disabled={submitting}>{submitting ? t('distribution.approving') : t('distribution.btnConfirmApprove')}</button>
             </div>
           </div>
         </div>
@@ -406,6 +409,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
 /* ===== 转介绍记录 Tab ===== */
 const ReferralsTab = () => {
+  const { t } = useTranslation()
   const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ invite_code: '', referred_name: '', referred_phone: '' })
@@ -424,14 +428,14 @@ const ReferralsTab = () => {
   const refresh = () => { void referralsQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
-    if (referralsQ.isError) message.error((referralsQ.error as any)?.response?.data?.message || '获取转介绍记录失败')
+    if (referralsQ.isError) message.error((referralsQ.error as any)?.response?.data?.message || t('distribution.errFetchReferrals'))
   }, [referralsQ.isError, referralsQ.error])
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
   const handleCreate = async () => {
     if (!form.invite_code) {
-      message.error('请填写邀请码')
+      message.error(t('distribution.errInviteCode'))
       return
     }
     setSubmitting(true)
@@ -442,12 +446,12 @@ const ReferralsTab = () => {
         referred_phone: form.referred_phone || undefined,
         source: 'link',
       })
-      message.success('转介绍已记录')
+      message.success(t('distribution.msgReferralCreated'))
       setCreateOpen(false)
       setForm({ invite_code: '', referred_name: '', referred_phone: '' })
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '记录失败')
+      message.error(e?.response?.data?.message || t('distribution.errRecordFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -456,22 +460,22 @@ const ReferralsTab = () => {
   return (
     <>
       <div className="rent-filter-bar">
-        <span className="rent-text-muted">当前用户作为推荐人的转介绍记录</span>
+        <span className="rent-text-muted">{t('distribution.referralsHint')}</span>
         <div style={{ flex: 1 }} />
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setCreateOpen(true)}>+ 记录转介绍</button>
+        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setCreateOpen(true)}>{t('distribution.btnRecordReferral')}</button>
       </div>
 
       <div className="rent-card">
-        <div className="rent-card__header"><h3 className="rent-card__title">转介绍记录</h3><span className="rent-badge rent-badge--neutral">{items.length} 条</span></div>
+        <div className="rent-card__header"><h3 className="rent-card__title">{t('distribution.listTitleReferrals')}</h3><span className="rent-badge rent-badge--neutral">{t('distribution.itemsCount', { count: items.length })}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
           {loading ? (
-            <div className="rent-empty rent-text-muted">加载中...</div>
+            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">暂无转介绍记录</div>
+            <div className="rent-empty rent-text-muted">{t('distribution.emptyReferrals')}</div>
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
-                <thead><tr><th>邀请码</th><th>被推荐人</th><th>电话</th><th>渠道</th><th>状态</th><th>日期</th></tr></thead>
+                <thead><tr><th>{t('distribution.thInviteCode')}</th><th>{t('distribution.thReferred')}</th><th>{t('distribution.thPhone')}</th><th>{t('distribution.thChannel')}</th><th>{t('common.status')}</th><th>{t('distribution.thDate')}</th></tr></thead>
                 <tbody>
                   {items.map((r) => (
                     <tr key={r.id}>
@@ -493,19 +497,19 @@ const ReferralsTab = () => {
       {createOpen && (
         <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
           <div className="rent-modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
-            <div className="rent-modal__header"><h3 className="rent-card__title">记录转介绍</h3></div>
+            <div className="rent-modal__header"><h3 className="rent-card__title">{t('distribution.modalRecordReferral')}</h3></div>
             <div className="rent-modal__body">
               <div className="rent-form-row">
-                <div className="rent-form-group" style={{ flex: 1 }}><label className="rent-form-label">邀请码 *</label><input className="rent-form-input" value={form.invite_code} onChange={setField('invite_code')} /></div>
+                <div className="rent-form-group" style={{ flex: 1 }}><label className="rent-form-label">{t('distribution.labelInviteCode')}</label><input className="rent-form-input" value={form.invite_code} onChange={setField('invite_code')} /></div>
               </div>
               <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">被推荐人</label><input className="rent-form-input" value={form.referred_name} onChange={setField('referred_name')} /></div>
-                <div className="rent-form-group"><label className="rent-form-label">电话</label><input className="rent-form-input" value={form.referred_phone} onChange={setField('referred_phone')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelReferred')}</label><input className="rent-form-input" value={form.referred_name} onChange={setField('referred_name')} /></div>
+                <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelPhone')}</label><input className="rent-form-input" value={form.referred_phone} onChange={setField('referred_phone')} /></div>
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>取消</button>
-              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? '记录中...' : '记录'}</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>{t('common.cancel')}</button>
+              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? t('distribution.recording') : t('distribution.btnRecord')}</button>
             </div>
           </div>
         </div>
@@ -516,6 +520,7 @@ const ReferralsTab = () => {
 
 /* ===== 联合单分成 Tab ===== */
 const SplitTab = () => {
+  const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<string>('')
   const [form, setForm] = useState<any>({ deal_id: '', commission_total: '', currency: 'THB', participants: [{ role: 'agent', rate: '100', kind: 'user_id', subject: '' }] })
@@ -558,7 +563,7 @@ const SplitTab = () => {
 
   const handleSubmit = async () => {
     if (!form.deal_id || !form.commission_total) {
-      message.error('请选择成交并填写佣金总额')
+      message.error(t('distribution.errDealRequired'))
       return
     }
     setSubmitting(true)
@@ -572,11 +577,11 @@ const SplitTab = () => {
       const payload = res.data ?? {}
       const splits = payload.splits ?? []
       const sum = splits.reduce((acc: number, s: any) => acc + Number(s.rate || 0), 0)
-      if (sum > 100) message.warning('提醒：分成比例合计超过 100%')
+      if (sum > 100) message.warning(t('distribution.warnRateOver100'))
       setResult(JSON.stringify(payload, null, 2))
-      message.success('联合单分成已登记')
+      message.success(t('distribution.msgSplitCreated'))
     } catch (e: any) {
-      message.error(e?.response?.data?.message || '分成登记失败')
+      message.error(e?.response?.data?.message || t('distribution.errSplitFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -584,50 +589,50 @@ const SplitTab = () => {
 
   return (
     <div className="rent-card">
-      <div className="rent-card__header"><h3 className="rent-card__title">联合单分成登记</h3></div>
+      <div className="rent-card__header"><h3 className="rent-card__title">{t('distribution.splitTitle')}</h3></div>
       <div className="rent-card__body">
         <div className="rent-form-row">
           <div className="rent-form-group" style={{ flex: 1 }}>
-            <label className="rent-form-label">关联成交 *</label>
+            <label className="rent-form-label">{t('distribution.labelDeal')}</label>
             <select className="rent-form-select" value={form.deal_id} onChange={setField('deal_id')}>
-              <option value="">请选择成交</option>
-              {deals.map((d) => <option key={d.id} value={d.id}>成交 {shortId(d.id)} · {d.currency || '-'}{Number(d.sale_price || 0).toLocaleString()}</option>)}
+              <option value="">{t('distribution.optSelectDeal')}</option>
+              {deals.map((d) => <option key={d.id} value={d.id}>{t('distribution.dealOption', { id: shortId(d.id), currency: d.currency || '-', amount: Number(d.sale_price || 0).toLocaleString() })}</option>)}
             </select>
           </div>
         </div>
         <div className="rent-form-row">
-          <div className="rent-form-group"><label className="rent-form-label">佣金总额 *</label><input className="rent-form-input" type="number" value={form.commission_total} onChange={setField('commission_total')} /></div>
-          <div className="rent-form-group"><label className="rent-form-label">币种</label><input className="rent-form-input" value={form.currency} onChange={setField('currency')} /></div>
+          <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelCommissionTotal')}</label><input className="rent-form-input" type="number" value={form.commission_total} onChange={setField('commission_total')} /></div>
+          <div className="rent-form-group"><label className="rent-form-label">{t('distribution.labelCurrency')}</label><input className="rent-form-input" value={form.currency} onChange={setField('currency')} /></div>
         </div>
 
-        <label className="rent-form-label">参与分成（rate 为 0-100 的百分比）</label>
+        <label className="rent-form-label">{t('distribution.labelParticipants')}</label>
         {form.participants.map((p: any, idx: number) => (
           <div className="rent-form-row" key={idx} style={{ marginBottom: 8 }}>
-            <select className="rent-form-select" style={{ width: 120, minWidth: 120 }} aria-label="角色" value={p.role} onChange={(e) => updateParticipant(idx, 'role', e.target.value)}>
-              <option value="agent">经纪人</option>
-              <option value="employee">员工</option>
-              <option value="broker">渠道商</option>
-              <option value="referral">转介绍</option>
+            <select className="rent-form-select" style={{ width: 120, minWidth: 120 }} aria-label={t('distribution.ariaRole')} value={p.role} onChange={(e) => updateParticipant(idx, 'role', e.target.value)}>
+              <option value="agent">{t('distribution.roleAgent')}</option>
+              <option value="employee">{t('distribution.roleEmployee')}</option>
+              <option value="broker">{t('distribution.roleBroker')}</option>
+              <option value="referral">{t('distribution.roleReferral')}</option>
             </select>
-            <select className="rent-form-select" style={{ width: 130, minWidth: 130 }} aria-label="类型" value={p.kind} onChange={(e) => updateParticipant(idx, 'kind', e.target.value)}>
-              <option value="user_id">用户ID</option>
-              <option value="employee_id">员工ID</option>
-              <option value="partner_id">渠道商ID</option>
+            <select className="rent-form-select" style={{ width: 130, minWidth: 130 }} aria-label={t('distribution.ariaKind')} value={p.kind} onChange={(e) => updateParticipant(idx, 'kind', e.target.value)}>
+              <option value="user_id">{t('distribution.kindUserId')}</option>
+              <option value="employee_id">{t('distribution.kindEmployeeId')}</option>
+              <option value="partner_id">{t('distribution.kindPartnerId')}</option>
             </select>
-            <input className="rent-form-input" style={{ flex: 1 }} placeholder="参与人 ID" value={p.subject} onChange={(e) => updateParticipant(idx, 'subject', e.target.value)} />
+            <input className="rent-form-input" style={{ flex: 1 }} placeholder={t('distribution.placeholderSubject')} value={p.subject} onChange={(e) => updateParticipant(idx, 'subject', e.target.value)} />
             <input className="rent-form-input" style={{ width: 90, minWidth: 90 }} type="number" placeholder="rate%" value={p.rate} onChange={(e) => updateParticipant(idx, 'rate', e.target.value)} />
-            <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => removeParticipant(idx)}>移除</button>
+            <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => removeParticipant(idx)}>{t('distribution.btnRemove')}</button>
           </div>
         ))}
-        <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={addParticipant}>+ 添加参与人</button>
+        <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={addParticipant}>{t('distribution.btnAddParticipant')}</button>
 
         <div className="rent-flex rent-gap-2" style={{ marginTop: 16 }}>
-          <button className="rent-btn rent-btn--primary" onClick={handleSubmit} disabled={submitting}>{submitting ? '提交中...' : '提交分成'}</button>
+          <button className="rent-btn rent-btn--primary" onClick={handleSubmit} disabled={submitting}>{submitting ? t('common.submitting') : t('distribution.btnSubmitSplit')}</button>
         </div>
 
         {result && (
           <div className="rent-card" style={{ marginTop: 16 }}>
-            <div className="rent-card__header"><h3 className="rent-card__title">登记结果</h3></div>
+            <div className="rent-card__header"><h3 className="rent-card__title">{t('distribution.resultTitle')}</h3></div>
             <div className="rent-card__body"><pre className="rent-text-sm" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{result}</pre></div>
           </div>
         )}

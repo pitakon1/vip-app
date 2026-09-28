@@ -1,9 +1,12 @@
-"""产权成交、定金(Iscrow)托管、按揭申请路由（买卖交易闭环）。
+"""产权成交、定金(Iscrow)托管路由（买卖交易闭环）。
+
+按揭申请已整体下线（平台不做按揭这类金融业务），相关的模型/接口/前端入口
+均已移除；历史 `mortgage_applications` 表由迁移 0026 删除。
 
 ## 鉴权口径（修复：此前多个端点只校验「已登录」）
 
 - `create` / `update_status` / `create_escrow` / `release_escrow` /
-  `refund_escrow` / `update_mortgage_status` 是**平台作业 / 资金动作**，限员工。
+  `refund_escrow` 是**平台作业 / 资金动作**，限员工。
 - `list` / `get` / `list_escrows` 走 `deal_visibility_conditions()` /
   `can_view_deal()`：员工全量；租客仅本人为买方或经办人的成交；
   业主额外可见本人名下房源的成交（卖方）。不可见统一 404。
@@ -33,8 +36,6 @@ from app.models import (
     PropertyDealStatus,
     Escrow,
     EscrowStatus,
-    MortgageApplication,
-    MortgageStatus,
     SaleListing,
     SaleListingStatus,
 )
@@ -71,33 +72,6 @@ _DEAL_STATUS_TRANSITIONS: dict[PropertyDealStatus, set] = {
     PropertyDealStatus.cancelled: set(),
 }
 
-# 按揭状态合法流转白名单：仅允许按审批流程前进，终态（disbursed/rejected）
-# 不可再翻转（此前 PATCH 直接写任意状态，已放款/已拒单可被改回 applied 重新走流程）
-_MORTGAGE_STATUS_TRANSITIONS: dict[MortgageStatus, set] = {
-    MortgageStatus.applied: {
-        MortgageStatus.under_review,
-        MortgageStatus.pre_approved,
-        MortgageStatus.approved,
-        MortgageStatus.rejected,
-    },
-    MortgageStatus.under_review: {
-        MortgageStatus.pre_approved,
-        MortgageStatus.approved,
-        MortgageStatus.rejected,
-    },
-    MortgageStatus.pre_approved: {
-        MortgageStatus.approved,
-        MortgageStatus.rejected,
-    },
-    MortgageStatus.approved: {
-        MortgageStatus.disbursed,
-        MortgageStatus.rejected,
-    },
-    MortgageStatus.disbursed: set(),
-    MortgageStatus.rejected: set(),
-}
-
-
 
 def _get_visible_deal(session: Session, user: User, deal_id: uuid.UUID) -> PropertyDeal:
     """取成交并做归属校验；不可见时统一 404（不回显「存在但你没权限」）。"""
@@ -123,15 +97,6 @@ class EscrowIn(BaseModel):
     deal_id: uuid.UUID
     amount: float = Field(gt=0)
     currency: str = "THB"
-
-
-class MortgageIn(BaseModel):
-    buyer_user_id: Optional[uuid.UUID] = None
-    deal_id: Optional[uuid.UUID] = None
-    bank: str
-    loan_amount: float = Field(gt=0)
-    currency: str = "THB"
-    term_months: int = 360
 
 
 class PropertyDealOut(BaseModel):
@@ -166,21 +131,6 @@ class EscrowOut(BaseModel):
     status: Optional[str] = None
     deposited_at: Optional[str] = None
     released_at: Optional[str] = None
-
-
-class MortgageOut(BaseModel):
-    """按揭申请响应。"""
-
-    model_config = ConfigDict(extra="allow")
-
-    id: Optional[str] = None
-    bank: Optional[str] = None
-    loan_amount: Optional[float] = None
-    currency: Optional[str] = None
-    term_months: Optional[int] = None
-    status: Optional[str] = None
-    status_at: Optional[str] = None
-    created_at: Optional[str] = None
 
 
 def _deal_dict(d: PropertyDeal) -> dict:
@@ -402,97 +352,3 @@ def refund_escrow(
     session.commit()
     session.refresh(escrow)
     return {"id": str(escrow.id), "status": escrow.status.value}
-
-
-@router.post("/mortgages")
-def create_mortgage(
-    req: MortgageIn,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
-):
-    """提交按揭申请。
-
-    非员工只能以**本人**为买方提交（不接受 payload 里的 `buyer_user_id`，
-    否则可替他人发起贷款申请）；如带 `deal_id`，须能看见该成交。
-    """
-    if req.deal_id is not None:
-        _get_visible_deal(session, user, req.deal_id)
-    if user.role in STAFF_ROLES:
-        buyer_user_id = req.buyer_user_id or user.id
-    else:
-        buyer_user_id = user.id
-    mortgage = MortgageApplication(
-        deal_id=req.deal_id,
-        buyer_user_id=buyer_user_id,
-        bank=req.bank,
-        loan_amount=req.loan_amount,
-        currency=req.currency,
-        term_months=req.term_months,
-        status=MortgageStatus.applied,
-        status_at=datetime.utcnow(),
-    )
-    session.add(mortgage)
-    session.commit()
-    session.refresh(mortgage)
-    return {
-        "id": str(mortgage.id),
-        "bank": mortgage.bank,
-        "loan_amount": mortgage.loan_amount,
-        "currency": mortgage.currency,
-        "status": mortgage.status.value,
-        "status_at": mortgage.status_at.isoformat() if mortgage.status_at else None,
-    }
-
-
-@router.get("/mortgages/mine", response_model=List[MortgageOut])
-def my_mortgages(
-    session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
-):
-    morts = session.exec(
-        select(MortgageApplication)
-        .where(MortgageApplication.buyer_user_id == user.id, MortgageApplication.deleted_at.is_(None))
-        .order_by(MortgageApplication.created_at.desc())
-    ).all()
-    return [
-        {
-            "id": str(m.id),
-            "bank": m.bank,
-            "loan_amount": m.loan_amount,
-            "currency": m.currency,
-            "term_months": m.term_months,
-            "status": m.status.value,
-            "status_at": m.status_at.isoformat() if m.status_at else None,
-            "created_at": m.created_at.isoformat() if m.created_at else None,
-        }
-        for m in morts
-    ]
-
-
-@router.patch("/mortgages/{mortgage_id}/status")
-def update_mortgage_status(
-    mortgage_id: uuid.UUID,
-    status: MortgageStatus,
-    session: Session = Depends(get_session),
-    user: User = Depends(require_employee),
-):
-    """按揭状态审批。需员工。
-
-    修复前：直接写入任意状态，已放款/已拒单的申请可被翻回 applied 重新走流程，
-    也可跳过审查直接 disbursed。现在按白名单推进，非法跳转一律 409。
-    """
-    m = session.get(MortgageApplication, mortgage_id)
-    if not m:
-        raise HTTPException(status_code=404, detail="Mortgage not found")
-    allowed = _MORTGAGE_STATUS_TRANSITIONS.get(m.status, set())
-    if status not in allowed:
-        raise HTTPException(
-            status_code=409,
-            detail=f"非法状态流转：{m.status.value} → {status.value}",
-        )
-    m.status = status
-    m.status_at = datetime.utcnow()
-    session.add(m)
-    session.commit()
-    session.refresh(m)
-    return {"id": str(m.id), "status": m.status.value}

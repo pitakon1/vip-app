@@ -10,6 +10,7 @@ import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import { usePropertyStatusMap, usePropertyTypeMap } from '@/lib/enumLabels'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import GoogleMapView, { type MapMarker } from '@/components/GoogleMap'
 import { METRO_LINES } from '@/data/locationMetro'
@@ -155,23 +156,10 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   // 「小区」筛选已移除：小区维度改由顶部搜索框承接（后端 q 已 OR 匹配小区名），
   // 少一个筛选入口，也避免与「区域」两个空间维度互相打架。
 
-  // 选项
-  const statusLabelMap = useMemo<Record<string, string>>(() => ({
-    vacant: t('propertyStatus.vacant'),
-    rented: t('propertyStatus.rented'),
-    reserved: t('propertyStatus.reserved'),
-    maintenance: t('propertyStatus.maintenance'),
-  }), [t])
+  // 选项（枚举 → 文案映射统一收敛到 lib/enumLabels）
+  const statusLabelMap = usePropertyStatusMap()
 
-  const propertyTypeMap = useMemo<Record<string, string>>(() => ({
-    apartment: t('propertyType.apartment'),
-    condo: t('propertyType.condo'),
-    villa: t('propertyType.villa'),
-    house: t('propertyType.house'),
-    shop: t('propertyType.shop'),
-    commercial: t('propertyType.commercial'),
-    office: t('propertyType.office'),
-  }), [t])
+  const propertyTypeMap = usePropertyTypeMap()
 
   // 已选区域/地铁的展示文案（chip 标题，对齐贝壳：未选=「区域」，已选=具体城区/站点）
   const distNode = (key: string) => cityDistricts.find((d) => d.key === key)

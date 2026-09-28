@@ -12,11 +12,11 @@ from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, serialize_user
+from app.core.auth import serialize_user
 from app.core.rbac import require_permission, get_user_permissions
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.security import get_password_hash
-from app.schemas.user import AccountMeOut, UserAdminOut
+from app.schemas.user import UserAdminOut
 from app.models import (
     Employee,
     Lead,
@@ -386,20 +386,3 @@ def reset_password(
     session.add(u)
     session.commit()
     return {"id": str(u.id), "ok": True}
-
-
-@router.get("/me", response_model=AccountMeOut)
-def my_account(
-    session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
-):
-    """当前账号信息与权限点（前端菜单与按钮级控制）。"""
-    perms = get_user_permissions(session, user)
-    return {
-        "id": str(user.id),
-        "email": user.email,
-        "full_name": user.full_name,
-        "role": user.role.value,
-        "is_active": user.is_active,
-        "permissions": sorted(perms),
-    }

@@ -42,15 +42,6 @@ const ESCROW_STATUS: Record<string, { label: string; badge: string }> = {
   refunded_buyer: { label: 'saleDeals.escrowRefundedBuyer', badge: 'rent-badge--neutral' },
 }
 
-const MORTGAGE_STATUS: Record<string, { label: string; badge: string }> = {
-  applied: { label: 'saleDeals.mortApplied', badge: 'rent-badge--info' },
-  under_review: { label: 'saleDeals.mortUnderReview', badge: 'rent-badge--warning' },
-  pre_approved: { label: 'saleDeals.mortPreApproved', badge: 'rent-badge--info' },
-  approved: { label: 'saleDeals.mortApproved', badge: 'rent-badge--success' },
-  disbursed: { label: 'saleDeals.mortDisbursed', badge: 'rent-badge--success' },
-  rejected: { label: 'saleDeals.mortRejected', badge: 'rent-badge--error' },
-}
-
 const fmtMoney = (v?: number) =>
   Number(v || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -82,13 +73,11 @@ interface Deal {
 }
 
 interface Escrow { id: string; deal_id?: string; amount?: number; currency?: string; status?: string; deposited_at?: string }
-interface Mortgage { id: string; bank?: string; loan_amount?: number; currency?: string; term_months?: number; status?: string; status_at?: string }
 
 const TABS = [
   { key: 'listing', label: 'saleDeals.tabListing' },
   { key: 'deal', label: 'saleDeals.tabDeal' },
   { key: 'escrow', label: 'saleDeals.tabEscrow' },
-  { key: 'mortgage', label: 'saleDeals.tabMortgage' },
 ]
 
 const SaleDeals = () => {
@@ -129,7 +118,6 @@ const SaleDeals = () => {
       {activeTab === 'listing' && <ListingTab createOpen={listingCreateOpen} onOpenChange={setListingCreateOpen} />}
       {activeTab === 'deal' && <DealTab />}
       {activeTab === 'escrow' && <EscrowTab />}
-      {activeTab === 'mortgage' && <MortgageTab />}
     </div>
   )
 }
@@ -808,163 +796,6 @@ const EscrowTab = () => {
             <div className="rent-modal__footer">
               <button className="rent-btn rent-btn--secondary" onClick={() => setRegisterOpen(false)}>{t('common.cancel')}</button>
               <button className="rent-btn rent-btn--primary" onClick={handleRegister} disabled={submitting}>{submitting ? t('saleDeals.btnRegistering') : t('saleDeals.btnRegister')}</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  )
-}
-
-/* ===== 按揭 Tab ===== */
-const MortgageTab = () => {
-  const { t } = useTranslation()
-  const [deals, setDeals] = useState<Deal[]>([])
-  const [createOpen, setCreateOpen] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState<any>({ bank: '', loan_amount: '', currency: 'THB', term_months: '360', deal_id: '', buyer_user_id: '' })
-
-  // 按揭列表：缓存优先渲染 + 后台刷新
-  const mortgagesQ = useCachedQuery<Mortgage[]>({
-    queryKey: ['my-mortgages'],
-    cacheKey: 'my-mortgages',
-    queryFn: async () => {
-      const res = await propertyDealApi.myMortgages()
-      return res.data ?? []
-    },
-  })
-  const items = mortgagesQ.data ?? []
-  const loading = mortgagesQ.isPending && !mortgagesQ.data
-  const refresh = () => { void mortgagesQ.refetch({ cancelRefetch: false }) }
-
-  useEffect(() => {
-    if (mortgagesQ.isError) message.error((mortgagesQ.error as any)?.response?.data?.message || t('saleDeals.errFetchMortgages'))
-  }, [mortgagesQ.isError, mortgagesQ.error])
-
-  const loadDeals = async () => {
-    try {
-      const res = await propertyDealApi.list({ page: 1, pageSize: 100 })
-      const payload = res.data?.data ?? res.data
-      setDeals(payload?.items ?? [])
-    } catch { /* 忽略 */ }
-  }
-
-  const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
-
-  const handleCreate = async () => {
-    if (!form.bank || !form.loan_amount) {
-      message.error(t('saleDeals.errBankAmountRequired'))
-      return
-    }
-    setSubmitting(true)
-    try {
-      await propertyDealApi.createMortgage({
-        bank: form.bank,
-        loan_amount: Number(form.loan_amount),
-        currency: form.currency || 'THB',
-        term_months: Number(form.term_months || 360),
-        deal_id: form.deal_id || undefined,
-        buyer_user_id: form.buyer_user_id || undefined,
-      })
-      message.success(t('saleDeals.msgMortgageSubmitted'))
-      setCreateOpen(false)
-      setForm({ bank: '', loan_amount: '', currency: 'THB', term_months: '360', deal_id: '', buyer_user_id: '' })
-      refresh()
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || t('saleDeals.errSubmitFailed'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const approve = async (id: string, status: string) => {
-    try {
-      await propertyDealApi.updateMortgageStatus(id, status)
-      message.success(t('saleDeals.msgMortgageUpdated'))
-      refresh()
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || t('saleDeals.errApproveFailed'))
-    }
-  }
-
-  return (
-    <>
-      <div className="rent-filter-bar">
-        <span className="rent-text-muted">{t('saleDeals.mortgagesOwned')}</span>
-        <div style={{ flex: 1 }} />
-        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => { loadDeals(); setCreateOpen(true) }}>{t('saleDeals.btnSubmitApplication')}</button>
-      </div>
-
-      <div className="rent-card">
-        <div className="rent-card__header"><h3 className="rent-card__title">{t('saleDeals.cardMortgages')}</h3><span className="rent-badge rent-badge--neutral">{t('saleDeals.countUnit', { count: items.length })}</span></div>
-        <div className="rent-card__body" style={{ padding: 0 }}>
-          {loading ? (
-            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
-          ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">{t('saleDeals.emptyMortgages')}</div>
-          ) : (
-            <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
-              <table className="rent-table">
-                <thead><tr><th>{t('saleDeals.colBank')}</th><th style={{ textAlign: 'right' }}>{t('saleDeals.colLoanAmount')}</th><th>{t('saleDeals.colCurrency')}</th><th>{t('saleDeals.colTerm')}</th><th>{t('saleDeals.colStatus')}</th><th>{t('saleDeals.colAction')}</th></tr></thead>
-                <tbody>
-                  {items.map((m) => {
-                    const st = MORTGAGE_STATUS[m.status || 'applied'] || MORTGAGE_STATUS.applied
-                    const pending = m.status === 'applied' || m.status === 'under_review' || m.status === 'pre_approved'
-                    return (
-                      <tr key={m.id}>
-                        <td>{m.bank || '—'}</td>
-                        <td className="rent-num">{fmtMoney(m.loan_amount)}</td>
-                        <td>{m.currency || '—'}</td>
-                        <td>{m.term_months ?? '—'}</td>
-                        <td><span className={`rent-badge ${st.badge}`}>{t(st.label)}</span></td>
-                        <td>
-                          {pending && (
-                            <div className="rent-flex rent-gap-2">
-                              <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => approve(m.id, 'approved')}>{t('saleDeals.btnApprove')}</button>
-                              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => approve(m.id, 'rejected')}>{t('saleDeals.btnReject')}</button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {createOpen && (
-        <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
-          <div className="rent-modal" style={{ width: 460 }} onClick={(e) => e.stopPropagation()}>
-            <div className="rent-modal__header"><h3 className="rent-card__title">{t('saleDeals.modalMortgage')}</h3></div>
-            <div className="rent-modal__body">
-              <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.labelBank')}</label><input className="rent-form-input" value={form.bank} onChange={setField('bank')} /></div>
-                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.labelLoanAmount')}</label><input className="rent-form-input" type="number" value={form.loan_amount} onChange={setField('loan_amount')} /></div>
-              </div>
-              <div className="rent-form-row">
-                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.colCurrency')}</label><input className="rent-form-input" value={form.currency} onChange={setField('currency')} /></div>
-                <div className="rent-form-group"><label className="rent-form-label">{t('saleDeals.colTerm')}</label><input className="rent-form-input" type="number" value={form.term_months} onChange={setField('term_months')} /></div>
-              </div>
-              <div className="rent-form-row">
-                <div className="rent-form-group" style={{ flex: 1 }}>
-                  <label className="rent-form-label">{t('saleDeals.labelLinkedDeal')}</label>
-                  <select className="rent-form-select" value={form.deal_id} onChange={setField('deal_id')}>
-                    <option value="">{t('saleDeals.optNoLink')}</option>
-                    {deals.map((d) => <option key={d.id} value={d.id}>{t('saleDeals.dealOption', { id: shortId(d.id) })}</option>)}
-                  </select>
-                </div>
-                <div className="rent-form-group" style={{ flex: 1 }}>
-                  <label className="rent-form-label">{t('saleDeals.labelBuyerId')}</label>
-                  <input className="rent-form-input" value={form.buyer_user_id} onChange={setField('buyer_user_id')} />
-                </div>
-              </div>
-            </div>
-            <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setCreateOpen(false)}>{t('common.cancel')}</button>
-              <button className="rent-btn rent-btn--primary" onClick={handleCreate} disabled={submitting}>{submitting ? t('common.submitting') : t('saleDeals.btnSubmit')}</button>
             </div>
           </div>
         </div>

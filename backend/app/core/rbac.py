@@ -46,6 +46,7 @@ PERMISSION_DEFS: dict[str, list[tuple[str, str, str]]] = {
     ],
     "review": [
         ("review:trip", "外勤申请审批", "审批通过/驳回外勤申请"),
+        ("review:leave", "请假审批", "审批通过/驳回员工请假申请"),
         ("review:maintenance", "报修工单审核", "受理/分派/完结报修工单"),
         ("review:service", "服务订单审核", "受理/流转增值服务订单"),
         ("review:contract", "合同审批", "合同签约/审阅流转"),

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { message, Spin, Empty, Alert, Button } from 'antd'
 import { employeesApi } from '@/services/api'
 import { downloadReport } from '@/lib/download'
@@ -42,7 +43,8 @@ const TONE_RGB: Record<Tone, string> = {
   warning: '217,119,6',
 }
 
-const ALL_DEPTS = '全部部门'
+// 「全部部门」筛选哨兵值（仅内部比较用，展示文案取 employeeContacts.allDepts）
+const ALL_DEPTS = '__all__'
 
 // 内联 SVG 图标（照抄设计稿）
 const IconPhone = ({ size = 14 }: { size?: number }) => (
@@ -76,6 +78,7 @@ const IconLine = ({ size = 16 }: { size?: number }) => (
 )
 
 const Contacts = () => {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [data, setData] = useState<EmployeeContact[]>([])
@@ -97,11 +100,11 @@ const Contacts = () => {
       setData([])
       setDepartments([])
       setLoadFailed(true)
-      message.error('获取员工通讯录失败，请稍后重试')
+      message.error(t('employeeContacts.errLoad'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     fetchData()
@@ -138,9 +141,11 @@ const Contacts = () => {
         name,
         count,
         tone: TONES[i % TONES.length],
-        delta: `占比 ${data.length ? Math.round((count / data.length) * 100) : 0}%`,
+        delta: t('employeeContacts.deptShare', {
+          pct: data.length ? Math.round((count / data.length) * 100) : 0,
+        }),
       }))
-  }, [data])
+  }, [data, t])
 
   const handleCopy = async (text: string, label: string) => {
     if (!text) return
@@ -158,9 +163,9 @@ const Contacts = () => {
         document.execCommand('copy')
         document.body.removeChild(textarea)
       }
-      message.success(`已复制${label}：${text}`)
+      message.success(t('employeeContacts.msgCopied', { label, text }))
     } catch {
-      message.error('复制失败，请手动复制')
+      message.error(t('employeeContacts.errCopy'))
     }
   }
 
@@ -173,16 +178,16 @@ const Contacts = () => {
         department === ALL_DEPTS ? {} : { department },
         'employees.csv',
       )
-      message.success('通讯录已导出')
+      message.success(t('employeeContacts.msgExported'))
     } catch {
-      message.error('导出失败，请稍后重试')
+      message.error(t('employeeContacts.exportFailed'))
     } finally {
       setExporting(false)
     }
   }
 
   const handleAdd = () => {
-    message.info('请联系 HR 添加新同事')
+    message.info(t('employeeContacts.msgContactHr'))
   }
 
   // 头像/徽章色调按部门在真实部门清单中的次序取用
@@ -196,8 +201,8 @@ const Contacts = () => {
       {/* Page Header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">同事通讯录</h2>
-          <p className="rent-page-header__subtitle">查看同事联系方式，快速沟通协作</p>
+          <h2 className="rent-page-header__title">{t('employeeContacts.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('employeeContacts.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <button className="rent-btn rent-btn--secondary" onClick={handleExport} disabled={exporting}>
@@ -206,14 +211,14 @@ const Contacts = () => {
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            {exporting ? '导出中...' : '导出通讯录'}
+            {exporting ? t('employeeContacts.exporting') : t('employeeContacts.export')}
           </button>
           <button className="rent-btn rent-btn--primary" onClick={handleAdd}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            添加同事
+            {t('employeeContacts.addColleague')}
           </button>
         </div>
       </div>
@@ -223,8 +228,8 @@ const Contacts = () => {
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
-          message="获取员工通讯录失败"
-          action={<Button size="small" onClick={() => fetchData()}>重试</Button>}
+          message={t('employeeContacts.errLoadShort')}
+          action={<Button size="small" onClick={() => fetchData()}>{t('common.retry')}</Button>}
         />
       )}
 
@@ -239,7 +244,7 @@ const Contacts = () => {
                 onChange={(e) => setDepartment(e.target.value)}
               >
                 <option key={ALL_DEPTS} value={ALL_DEPTS}>
-                  {ALL_DEPTS}
+                  {t('employeeContacts.allDepts')}
                 </option>
                 {departments.map((d) => (
                   <option key={d} value={d}>
@@ -258,14 +263,14 @@ const Contacts = () => {
               </svg>
               <input
                 type="text"
-                placeholder="按姓名或电话搜索"
+                placeholder={t('employeeContacts.phSearch')}
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
               />
             </div>
           </div>
           <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
-            <span className="rent-text-sm rent-text-muted">共 {visible.length} 位同事</span>
+            <span className="rent-text-sm rent-text-muted">{t('employeeContacts.colleaguesCount', { count: visible.length })}</span>
           </div>
         </div>
       </div>
@@ -311,7 +316,7 @@ const Contacts = () => {
                 </div>
               </div>
               <div className="rent-stat-card__value">
-                {d.count} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>人</span>
+                {d.count} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('employeeContacts.unitPeople')}</span>
               </div>
               <div className="rent-stat-card__delta rent-stat-card__delta--up">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -326,9 +331,9 @@ const Contacts = () => {
 
       {/* Contact Cards */}
       {loading ? (
-        <div className="rent-empty rent-mb-5"><Spin size="small" /> 加载中...</div>
+        <div className="rent-empty rent-mb-5"><Spin size="small" /> {t('common.loading')}</div>
       ) : visible.length === 0 ? (
-        <div className="rent-empty rent-mb-5"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无员工联系方式" /></div>
+        <div className="rent-empty rent-mb-5"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('employeeContacts.empty')} /></div>
       ) : (
         <div className="rent-grid rent-grid--auto rent-mb-5">
           {visible.map((e) => {
@@ -355,8 +360,8 @@ const Contacts = () => {
                     <button
                       className="rent-icon-btn"
                       style={{ width: 30, height: 30, background: 'var(--rent-primary)', borderColor: 'var(--rent-primary)', color: 'var(--rent-primary-foreground)' }}
-                      onClick={() => handleCopy(e.phone || '', '手机号')}
-                      title="复制手机号"
+                      onClick={() => handleCopy(e.phone || '', t('employeeContacts.labelPhone'))}
+                      title={t('employeeContacts.copyPhone')}
                     >
                       <IconPhone size={14} />
                     </button>
@@ -364,12 +369,12 @@ const Contacts = () => {
                   <div className="rent-contact-social">
                     <a
                       href={waLink || '#'}
-                      title={e.phone ? `WhatsApp：${e.phone}` : 'WhatsApp'}
+                      title={e.phone ? t('employeeContacts.whatsappTitle', { phone: e.phone }) : 'WhatsApp'}
                       className="rent-contact-social__btn rent-contact-social__btn--wa"
                       onClick={(ev) => {
                         if (!waLink) {
                           ev.preventDefault()
-                          handleCopy(e.phone || '', '手机号')
+                          handleCopy(e.phone || '', t('employeeContacts.labelPhone'))
                         }
                       }}
                       target={waLink ? '_blank' : undefined}
@@ -379,18 +384,18 @@ const Contacts = () => {
                     </a>
                     <a
                       href="#"
-                      title={e.wechat ? `微信号：${e.wechat}` : 'WeChat'}
+                      title={e.wechat ? t('employeeContacts.wechatTitle', { id: e.wechat }) : 'WeChat'}
                       className="rent-contact-social__btn rent-contact-social__btn--wc"
                       onClick={(ev) => {
                         ev.preventDefault()
-                        handleCopy(e.wechat || '', '微信号')
+                        handleCopy(e.wechat || '', t('employeeContacts.labelWechat'))
                       }}
                     >
                       <IconWc size={16} />
                     </a>
                     <a
                       href={lineLink || '#'}
-                      title={e.line ? `Line：${e.line}` : 'Line'}
+                      title={e.line ? t('employeeContacts.lineTitle', { id: e.line }) : 'Line'}
                       className="rent-contact-social__btn rent-contact-social__btn--line"
                       onClick={(ev) => {
                         if (!lineLink) {
@@ -410,12 +415,12 @@ const Contacts = () => {
                     onClick={(ev) => {
                       if (!e.email) {
                         ev.preventDefault()
-                        handleCopy(e.email || '', '邮箱')
+                        handleCopy(e.email || '', t('employeeContacts.labelEmail'))
                       }
                     }}
                   >
                     <IconMsg size={14} />
-                    发送消息
+                    {t('employeeContacts.msgSend')}
                   </a>
                 </div>
               </div>
@@ -427,19 +432,19 @@ const Contacts = () => {
       {/* Emergency Contacts */}
       <div className="rent-card">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">紧急联系人</h3>
+          <h3 className="rent-card__title">{t('employeeContacts.emergency')}</h3>
           <span className="rent-badge rent-badge--error">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
               <line x1="12" y1="9" x2="12" y2="13" />
               <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
-            7×24 应急
+            {t('employeeContacts.emergencyBadge')}
           </span>
         </div>
         <div className="rent-card__body">
           <div className="rent-empty" style={{ padding: '24px 0' }}>
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂未配置紧急联系人信息" />
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('employeeContacts.emergencyEmpty')} />
           </div>
         </div>
       </div>

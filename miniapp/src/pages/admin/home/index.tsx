@@ -21,6 +21,9 @@ const fmtMoney = (v?: number, currency = 'THB') =>
 
 const fmtDate = (v?: string) => (v ? String(v).slice(5, 10) : '-')
 
+/** 数据源不可用时的占位符：显示「—」而不是 0，避免把请求失败读成经营为零。 */
+const DASH = '—'
+
 const monthLabel = (key: string, suffix: string) => {
   const m = Number(String(key).split('-')[1])
   return m ? `${m}${suffix}` : key
@@ -35,46 +38,59 @@ export default function AdminHomePage() {
   // 对账合计（received/receivable/overdue），用于欠租占比条（对齐 App 口径）
   const [reconTotals, setReconTotals] = useState<any>({})
   const [loading, setLoading] = useState(true)
+  /**
+   * 加载失败的区块名。接口失败与「真的没有数据」必须区分开：
+   * 此前所有请求都是 `.catch(() => {})`，接口挂了页面会静默显示一片 0 和「暂无动态」，
+   * 管理端会误以为经营正常，属于最难发现的静默失效。
+   */
+  const [failedParts, setFailedParts] = useState<string[]>([])
+
+  const markFailed = (part: string) =>
+    setFailedParts((prev) => (prev.includes(part) ? prev : [...prev, part]))
 
   const fetchAll = async () => {
     setLoading(true)
+    setFailedParts([])
     // 各区块互不阻塞：任一接口失败只影响对应卡片
     const tasks = [
-      dashboardApi.summary().then((r: any) => setSummary(r?.data ?? r)).catch(() => {}),
+      dashboardApi
+        .summary()
+        .then((r: any) => setSummary(r?.data ?? r))
+        .catch(() => markFailed('summary')),
       dashboardApi
         .trend({ months: 7 })
         .then((r: any) => {
           const d = r?.data ?? r
           setTrend(d?.series || [])
         })
-        .catch(() => {}),
+        .catch(() => markFailed('trend')),
       dashboardApi
         .recentPayments()
         .then((r: any) => {
           const d = r?.data ?? r
           setRecent(d?.items || [])
         })
-        .catch(() => {}),
+        .catch(() => markFailed('recent')),
       leasesApi
         .list({ page: 1, page_size: 1, status: 'active' })
         .then((r: any) => {
           const d = r?.data ?? r
           setCounts((c) => ({ ...c, leases: Number(d?.total || 0) }))
         })
-        .catch(() => {}),
+        .catch(() => markFailed('counts')),
       employeesApi
         .list({ page: 1, page_size: 1 })
         .then((r: any) => {
           const d = r?.data ?? r
           setCounts((c) => ({ ...c, employees: Number(d?.total || 0) }))
         })
-        .catch(() => {}),
+        .catch(() => markFailed('counts')),
       request({ url: '/review-center/todos', method: 'GET' })
         .then((r: any) => {
           const d = r?.data ?? r
           setCounts((c) => ({ ...c, todos: Number(d?.total || 0) }))
         })
-        .catch(() => {}),
+        .catch(() => markFailed('counts')),
       dashboardApi
         .financialReconciliation()
         .then((r: any) => {
@@ -85,7 +101,7 @@ export default function AdminHomePage() {
           const count = d?.records_total ?? (d?.records || []).length
           setCounts((c) => ({ ...c, reconDiff: Number(count || 0) }))
         })
-        .catch(() => {}),
+        .catch(() => markFailed('recon')),
       // 欠租：待收且已过缴费截止日
       request({ url: '/payments', method: 'GET', data: { page: 1, page_size: 100, status: 'pending' } })
         .then((r: any) => {
@@ -96,11 +112,13 @@ export default function AdminHomePage() {
           ).length
           setCounts((c) => ({ ...c, overdue }))
         })
-        .catch(() => {})
+        .catch(() => markFailed('recon'))
     ]
     await Promise.all(tasks)
     setLoading(false)
   }
+
+  const failedSet = useMemo(() => new Set(failedParts), [failedParts])
 
   useDidShow(() => {
     fetchAll()
@@ -126,7 +144,7 @@ export default function AdminHomePage() {
         icon: 'calendar' as IconKey,
         title: tr('home.expiringTitle'),
         desc: tr('home.expiringDesc'),
-        value: tr('home.countUnit', { n: num(summary?.expiring_leases ?? 0) }),
+        value: failedSet.has('summary') ? DASH : tr('home.countUnit', { n: num(summary?.expiring_leases ?? 0) }),
         url: '/pages/admin/leases/index',
         bar: ratio(num(summary?.expiring_leases ?? 0), total)
       },
@@ -139,7 +157,7 @@ export default function AdminHomePage() {
           p: Math.round(ratio(overdueAmt, totalBilling) * 100),
           n: num(summary?.upcoming_payments)
         }),
-        value: fmtMoney(overdueAmt),
+        value: failedSet.has('recon') ? DASH : fmtMoney(overdueAmt),
         url: '/pages/admin/payments/index',
         bar: ratio(overdueAmt, totalBilling)
       },
@@ -149,71 +167,72 @@ export default function AdminHomePage() {
         icon: 'home' as IconKey,
         title: tr('home.vacancyTitle'),
         desc: tr('home.vacancyDesc', { v: vacant, t: total }),
-        value: `${vacancyRate}%`,
+        value: failedSet.has('summary') ? DASH : `${vacancyRate}%`,
         url: '/pages/admin/properties/index',
         bar: ratio(vacant, total)
       }
     ]
-  }, [summary, reconTotals])
+  }, [summary, reconTotals, failedSet])
 
   // 经营指标（原型四卡）
   const metrics = [
     {
       key: 'revenue',
       label: 'home.metricRevenue',
-      value: fmtMoney(summary?.monthly_revenue),
+      value: failedSet.has('summary') ? DASH : fmtMoney(summary?.monthly_revenue),
       tone: 'primary'
     },
     {
       key: 'occupancy',
       label: 'home.metricOccupancy',
-      value: `${Number(summary?.occupancy_rate || 0)}%`,
+      value: failedSet.has('summary') ? DASH : `${Number(summary?.occupancy_rate || 0)}%`,
       tone: 'success'
     },
     {
       key: 'leases',
       label: 'home.metricLeases',
-      value: String(counts.leases),
+      value: failedSet.has('counts') ? DASH : String(counts.leases),
       tone: 'info'
     },
     {
       key: 'employees',
       label: 'home.metricEmployees',
-      value: String(counts.employees),
+      value: failedSet.has('counts') ? DASH : String(counts.employees),
       tone: 'primary'
     }
   ]
 
   // 待办汇总（与风险预警口径区分：这里只放「待处理动作」）
-  const todos: Array<{ key: string; label: string; value: number; url?: string }> = [
+  const todos: Array<{ key: string; label: string; value: string | number; url?: string }> = [
     {
       key: 'review',
       label: 'home.todoReview',
-      value: counts.todos,
+      value: failedSet.has('counts') ? DASH : counts.todos,
       url: '/pages/admin/review-center/index'
     },
     {
       key: 'recon',
       label: 'home.todoRecon',
-      value: counts.reconDiff,
+      value: failedSet.has('recon') ? DASH : counts.reconDiff,
       // 与 App 管理端一致：对账差异去收款管理页逐笔核对
       url: '/pages/admin/payments/index'
     },
     {
       key: 'upcoming',
       label: 'home.todoUpcoming',
-      value: Number(summary?.upcoming_payments || 0),
+      value: failedSet.has('summary') ? DASH : Number(summary?.upcoming_payments || 0),
       url: '/pages/admin/payments/index'
     }
   ]
 
-  // 快捷入口（对齐原型 5 格）
+  // 快捷入口（对齐原型 5 格 + 考勤管理入口）
   const shortcuts: { key: string; label: string; icon: IconKey; url: string }[] = [
     { key: 'properties', label: 'home.scProperties', icon: 'home', url: '/pages/admin/properties/index' },
     { key: 'crm', label: 'home.scCrm', icon: 'user', url: '/pages/admin/crm/index' },
     { key: 'leases', label: 'home.scLeases', icon: 'doc', url: '/pages/admin/leases/index' },
     { key: 'payments', label: 'home.scPayments', icon: 'money', url: '/pages/admin/payments/index' },
-    { key: 'listings', label: 'home.scListings', icon: 'clipboard', url: '/pages/staff/listing-edit/index' }
+    { key: 'listings', label: 'home.scListings', icon: 'clipboard', url: '/pages/staff/listing-edit/index' },
+    { key: 'attendance', label: 'home.scAttendance', icon: 'calendar', url: '/pages/admin/attendance-manage/index' }
   ]
 
   const go = (url: string) => Taro.navigateTo({ url })
@@ -223,6 +242,14 @@ export default function AdminHomePage() {
   return (
     <View className='adm-home'>
       <ScrollView scrollY className='adm-scroll'>
+        {/* 部分区块加载失败时给出明确提示，避免把接口故障读成「经营为零」 */}
+        {failedParts.length > 0 && !loading && (
+          <View className='adm-alert' onClick={fetchAll}>
+            <Text className='adm-alert__text'>{tr('common.loadFailed')}</Text>
+            <Text className='adm-alert__action'>{tr('common.tapRetry')}</Text>
+          </View>
+        )}
+
         {/* ===== 1. 风险预警 ===== */}
         <View className='adm-risks'>
           {risks.map((r) => (
@@ -265,8 +292,10 @@ export default function AdminHomePage() {
             <Text className='adm-card__extra'>{tr('home.trendRange')}</Text>
           </View>
           {trend.length === 0 ? (
-            <View className='adm-state'>
-              <Text className='adm-state__text'>{tr('home.trendEmpty')}</Text>
+            <View className='adm-state' onClick={failedSet.has('trend') ? fetchAll : undefined}>
+              <Text className='adm-state__text'>
+                {failedSet.has('trend') ? tr('common.loadFailed') : tr('home.trendEmpty')}
+              </Text>
             </View>
           ) : (
             <View className='adm-chart'>
@@ -334,7 +363,13 @@ export default function AdminHomePage() {
             <StateBlock
               loading={loading}
               empty={!loading}
-              text={loading ? tr('pub.loading') : tr('home.noActivity')}
+              text={
+                loading
+                  ? tr('pub.loading')
+                  : failedSet.has('recent')
+                    ? tr('common.loadFailed')
+                    : tr('home.noActivity')
+              }
             />
           )}
           {recent.slice(0, 4).map((p, i) => (

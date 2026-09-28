@@ -40,7 +40,7 @@ const Chat = () => {
     chatApi
       .conversations()
       .then((res) => setConvs(res.data || []))
-      .catch(() => message.warning('会话列表加载失败'))
+      .catch(() => message.warning(t('chat.loadConvsFailed')))
     authApi
       .me()
       .then((res) => setMyId(res?.data?.id || res?.data?.user?.id || ''))
@@ -54,7 +54,7 @@ const Chat = () => {
     chatApi
       .messages(id)
       .then((res) => setMsgs(res.data || []))
-      .catch(() => message.warning('消息加载失败'))
+      .catch(() => message.warning(t('chat.loadMsgsFailed')))
 
     wsRef.current?.close()
     const ws = new WebSocket(chatApi.wsUrl(id))
@@ -115,20 +115,20 @@ const Chat = () => {
     <div className="rent-main">
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">咨询会话</h2>
-          <p className="rent-page-header__subtitle">客户 / 房东直接咨询工作人员 · 实时聊天</p>
+          <h2 className="rent-page-header__title">{t('chat.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('chat.subtitle')}</p>
         </div>
       </div>
 
       <div className="rent-chat">
         {/* 会话列表 */}
         <aside className="rent-chat__side">
-          <div className="rent-chat__side-head">会话列表</div>
+          <div className="rent-chat__side-head">{t('chat.convList')}</div>
           <div className="rent-chat__list">
             {loading ? (
-              <div className="rent-empty rent-p-4">加载中...</div>
+              <div className="rent-empty rent-p-4">{t('common.loading')}</div>
             ) : convs.length === 0 ? (
-              <div className="rent-empty rent-p-4">暂无会话</div>
+              <div className="rent-empty rent-p-4">{t('chat.emptyConvs')}</div>
             ) : (
               convs.map((c) => (
                 <div
@@ -139,7 +139,7 @@ const Chat = () => {
                   <div className="rent-chat__item-title">{c.title}</div>
                   <div className="rent-chat__item-meta">
                     {c.entity_type ? `${c.entity_type} · ` : ''}
-                    {c.participant_ids.length} 人
+                    {t('chat.peopleCount', { n: c.participant_ids.length })}
                   </div>
                 </div>
               ))
@@ -150,12 +150,12 @@ const Chat = () => {
         {/* 消息面板 */}
         <section className="rent-chat__main">
           {!activeId ? (
-            <div className="rent-empty rent-chat__placeholder">选择左侧会话开始咨询</div>
+            <div className="rent-empty rent-chat__placeholder">{t('chat.pickConv')}</div>
           ) : (
             <>
               <div className="rent-chat__msgs" ref={listRef}>
                 {msgs.length === 0 ? (
-                  <div className="rent-empty rent-p-6">暂无消息，打个招呼吧</div>
+                  <div className="rent-empty rent-p-6">{t('chat.emptyMsgs')}</div>
                 ) : (
                   msgs.map((m, i) => {
                     const mine = m.sender_id === 'me' || (!!myId && m.sender_id === myId)
@@ -178,7 +178,7 @@ const Chat = () => {
                   }}
                 />
                 <button className="rent-btn rent-btn--primary" onClick={handleSend}>
-                  发送
+                  {t('chat.send')}
                 </button>
               </div>
             </>

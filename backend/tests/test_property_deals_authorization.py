@@ -349,33 +349,3 @@ def test_release_refund_require_staff(api):
         .status_code
         == 200
     )
-
-
-# ------------------------------------------------------------ 按揭：不得替他人申请
-def test_non_staff_mortgage_buyer_is_forced_to_self(api):
-    """非员工提交按揭时，payload 里的 buyer_user_id 被忽略，一律记为本人。"""
-    buyer = api.mk_user(UserRole.tenant)
-    seller = api.mk_user(UserRole.owner)
-    agent = api.mk_user(UserRole.agent)
-    victim = api.mk_user(UserRole.tenant)
-    deal_id, _ = _seed(
-        api.engine, buyer=buyer, seller_owner_user=seller, agent=agent
-    )
-
-    r = api.login(buyer).post(
-        "/api/v1/property-deals/mortgages",
-        json={
-            "deal_id": str(deal_id),
-            "buyer_user_id": str(victim.id),  # 试图替他人申请
-            "bank": "KBANK",
-            "loan_amount": 3_000_000,
-            "currency": "THB",
-        },
-    )
-    assert r.status_code == 200, r.text
-
-    mine = api.login(buyer).get("/api/v1/property-deals/mortgages/mine")
-    assert len(mine.json()) == 1, "应记在本人名下"
-
-    victim_view = api.login(victim).get("/api/v1/property-deals/mortgages/mine")
-    assert victim_view.json() == [], "不得替他人发起按揭"

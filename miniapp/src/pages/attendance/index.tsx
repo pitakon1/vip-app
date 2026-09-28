@@ -36,6 +36,7 @@ const TRIP_STATUS: Record<string, { label: string; cls: string }> = {
 const ATT_STATUS: Record<string, string> = {
   present: 'att.stPresent',
   late: 'att.stLate',
+  early_out: 'att.stEarlyOut',
   absent: 'att.stAbsent',
   leave: 'att.stLeave',
   field_work: 'att.stFieldWork'
@@ -44,9 +45,45 @@ const ATT_STATUS: Record<string, string> = {
 const ATT_BADGE: Record<string, string> = {
   present: 'a-badge--success',
   late: 'a-badge--warning',
+  early_out: 'a-badge--warning',
   absent: 'a-badge--error',
   leave: 'a-badge--neutral',
   field_work: 'a-badge--neutral'
+}
+
+// ===== 员工自助：请假（P1-b）与我的考勤规则（对齐 Web 端 Employee/Attendance）=====
+const LEAVE_TYPES = ['annual', 'sick', 'personal', 'unpaid', 'maternity', 'other']
+const LEAVE_TYPE_KEY: Record<string, string> = {
+  annual: 'att.ltAnnual',
+  sick: 'att.ltSick',
+  personal: 'att.ltPersonal',
+  unpaid: 'att.ltUnpaid',
+  maternity: 'att.ltMaternity',
+  other: 'att.ltOther'
+}
+const LEAVE_STATUS_KEY: Record<string, string> = {
+  pending: 'att.lsPending',
+  approved: 'att.lsApproved',
+  rejected: 'att.lsRejected',
+  cancelled: 'att.lsCancelled'
+}
+const LEAVE_TONE: Record<string, string> = {
+  pending: 'a-badge--warning',
+  approved: 'a-badge--success',
+  rejected: 'a-badge--error',
+  cancelled: 'a-badge--neutral'
+}
+
+// 我的请假记录（GET /attendance/leave-requests，后端按角色只返回本人申请）
+interface LeaveRow {
+  id: string
+  leave_type?: string
+  start_date?: string
+  end_date?: string
+  days?: number | null
+  reason?: string | null
+  status?: string
+  reply_note?: string | null
 }
 
 // 从时间戳取 HH:MM（后端返回完整 datetime）
@@ -113,6 +150,15 @@ export default function AttendancePage() {
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  // 我的考勤规则（考勤组 or 全局兜底）
+  const [myRule, setMyRule] = useState<any | null>(null)
+  // 请假：申请表单 + 我的请假记录
+  const [showLeaveForm, setShowLeaveForm] = useState(false)
+  const [leaveTypeIdx, setLeaveTypeIdx] = useState(0)
+  const [leaveForm, setLeaveForm] = useState({ start: todayStr(), end: todayStr(), reason: '' })
+  const [leaveSubmitting, setLeaveSubmitting] = useState(false)
+  const [leaves, setLeaves] = useState<LeaveRow[]>([])
+
   const getLoc = async (): Promise<{ latitude: number; longitude: number } | null> => {
     try {
       const loc = await Taro.getLocation({ type: 'gcj02' })
@@ -178,6 +224,87 @@ export default function AttendancePage() {
     }
   }
 
+  // 我的生效考勤规则（后端按「显式成员 → 部门 → 默认组 → 全局配置」解析）
+  const loadMyRule = async () => {
+    try {
+      const res: any = await attendanceApi.myRule()
+      setMyRule(res?.data ?? res ?? null)
+    } catch (err) {
+      console.error('[Attendance] 获取考勤规则失败', err)
+      setMyRule(null)
+      Taro.showToast({ title: t('att.ruleLoadFailed'), icon: 'none' })
+    }
+  }
+
+  // 我的请假记录（后端按角色只返回本人申请）
+  const loadLeaves = async () => {
+    try {
+      const res: any = await attendanceApi.leaveRequests()
+      setLeaves(pickList(res) as unknown as LeaveRow[])
+    } catch (err) {
+      console.error('[Attendance] 获取请假记录失败', err)
+      setLeaves([])
+      Taro.showToast({ title: t('att.leaveLoadFailed'), icon: 'none' })
+    }
+  }
+
+  // 请假天数由后端按自然日自动计算，前端只做展示预览
+  const leaveDaysPreview = useMemo(() => {
+    const s = new Date(leaveForm.start).getTime()
+    const e = new Date(leaveForm.end).getTime()
+    if (!s || !e || e < s) return 0
+    return Math.round((e - s) / 86400000) + 1
+  }, [leaveForm.start, leaveForm.end])
+
+  const submitLeave = async () => {
+    if (leaveForm.start < todayStr()) {
+      Taro.showToast({ title: t('att.leaveStartPast'), icon: 'none' })
+      return
+    }
+    if (leaveForm.end < leaveForm.start) {
+      Taro.showToast({ title: t('att.leaveEndBeforeStart'), icon: 'none' })
+      return
+    }
+    if (!leaveForm.reason.trim()) {
+      Taro.showToast({ title: t('att.leaveReasonRequired'), icon: 'none' })
+      return
+    }
+    setLeaveSubmitting(true)
+    try {
+      // 不传 days：由后端按自然日口径计算，避免前后端口径不一致
+      await attendanceApi.applyLeave({
+        leave_type: LEAVE_TYPES[leaveTypeIdx],
+        start_date: leaveForm.start,
+        end_date: leaveForm.end,
+        reason: leaveForm.reason.trim()
+      })
+      Taro.showToast({ title: t('att.leaveSubmitted'), icon: 'success' })
+      setShowLeaveForm(false)
+      setLeaveForm({ start: todayStr(), end: todayStr(), reason: '' })
+      setLeaveTypeIdx(0)
+      loadLeaves()
+    } catch (err: any) {
+      Taro.showToast({ title: err?.message || t('att.submitFailed'), icon: 'none' })
+    } finally {
+      setLeaveSubmitting(false)
+    }
+  }
+
+  const cancelLeave = async (id: string) => {
+    const res = await Taro.showModal({
+      title: t('att.leaveCancel'),
+      content: t('att.leaveCancelConfirm')
+    })
+    if (!res.confirm) return
+    try {
+      await attendanceApi.cancelLeave(id)
+      Taro.showToast({ title: t('att.leaveCancelled'), icon: 'success' })
+      loadLeaves()
+    } catch (err: any) {
+      Taro.showToast({ title: err?.message || t('att.leaveCancelFailed'), icon: 'none' })
+    }
+  }
+
   useDidShow(async () => {
     loadFromStorage()
     if (!useAuthStore.getState().token) {
@@ -186,6 +313,8 @@ export default function AttendancePage() {
     }
     await loadToday()
     loadRecords()
+    loadMyRule()
+    loadLeaves()
     getLoc()
   })
 
@@ -504,6 +633,174 @@ export default function AttendancePage() {
                 )}
               </View>
             )}
+          </View>
+
+          {/* 我的考勤规则（考勤组 or 全局兜底） */}
+          <View className='a-mrule'>
+            <View className='a-trip__bar'>
+              <Text className='a-trip__title'>{t('att.myRuleTitle')}</Text>
+            </View>
+            {!myRule ? (
+              <View className='a-rec__empty'>
+                <Text className='a-rec__empty-text'>{t('att.ruleLoadFailed')}</Text>
+              </View>
+            ) : (
+              <>
+                <View className='a-mrule__row'>
+                  <Text className='a-mrule__label'>{t('att.ruleGroup')}</Text>
+                  <Text className='a-mrule__value'>
+                    {myRule.group_id ? myRule.group_name || '—' : t('att.ruleDefault')}
+                  </Text>
+                </View>
+                <View className='a-mrule__row'>
+                  <Text className='a-mrule__label'>{t('att.ruleOffice')}</Text>
+                  <Text className='a-mrule__value'>
+                    {`${myRule.office_lat ?? '--'}, ${myRule.office_lng ?? '--'}`}
+                  </Text>
+                </View>
+                <View className='a-mrule__row'>
+                  <Text className='a-mrule__label'>{t('att.ruleRadius')}</Text>
+                  <Text className='a-mrule__value'>
+                    {t('att.kmValue', { km: myRule.radius_km ?? 0 })}
+                  </Text>
+                </View>
+                <View className='a-mrule__row'>
+                  <Text className='a-mrule__label'>{t('att.ruleShift')}</Text>
+                  <Text className='a-mrule__value'>
+                    {`${myRule.work_start ?? '--'} - ${myRule.work_end ?? '--'}`}
+                  </Text>
+                </View>
+                <View className='a-mrule__row'>
+                  <Text className='a-mrule__label'>{t('att.ruleGrace')}</Text>
+                  <Text className='a-mrule__value'>
+                    {t('att.graceValue', {
+                      late: myRule.late_grace_minutes ?? 0,
+                      early: myRule.early_grace_minutes ?? 0
+                    })}
+                  </Text>
+                </View>
+                <View className='a-mrule__row'>
+                  <Text className='a-mrule__label'>{t('att.ruleTimezone')}</Text>
+                  <Text className='a-mrule__value'>
+                    {`UTC${Number(myRule.utc_offset_hours ?? 0) >= 0 ? '+' : ''}${myRule.utc_offset_hours ?? 0}`}
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* 请假申请 + 我的请假记录 */}
+          <View className='a-leave'>
+            <View className='a-trip__bar'>
+              <Text className='a-trip__title'>{t('att.leaveTitle')}</Text>
+              <Text
+                className='a-trip__link a-trip__link--primary'
+                onClick={() => setShowLeaveForm((v) => !v)}
+              >
+                {t('att.newTrip')}
+              </Text>
+            </View>
+
+            {showLeaveForm && (
+              <View className='a-form'>
+                <View className='a-form__row'>
+                  <Text className='a-form__label'>{t('att.leaveType')}</Text>
+                  <Picker
+                    mode='selector'
+                    range={LEAVE_TYPES.map((k) => t(LEAVE_TYPE_KEY[k]))}
+                    onChange={(e: any) => setLeaveTypeIdx(Number(e.detail.value))}
+                  >
+                    <View className='a-form__value'>
+                      <Text className='a-form__text'>{t(LEAVE_TYPE_KEY[LEAVE_TYPES[leaveTypeIdx]])}</Text>
+                    </View>
+                  </Picker>
+                </View>
+                <View className='a-form__row'>
+                  <Text className='a-form__label'>{t('att.leaveStart')}</Text>
+                  <Picker
+                    mode='date'
+                    value={leaveForm.start}
+                    onChange={(e: any) => setLeaveForm((p) => ({ ...p, start: e.detail.value }))}
+                  >
+                    <View className='a-form__value'>
+                      <Text className='a-form__text'>{leaveForm.start}</Text>
+                    </View>
+                  </Picker>
+                </View>
+                <View className='a-form__row'>
+                  <Text className='a-form__label'>{t('att.leaveEnd')}</Text>
+                  <Picker
+                    mode='date'
+                    value={leaveForm.end}
+                    onChange={(e: any) => setLeaveForm((p) => ({ ...p, end: e.detail.value }))}
+                  >
+                    <View className='a-form__value'>
+                      <Text className='a-form__text'>{leaveForm.end}</Text>
+                    </View>
+                  </Picker>
+                </View>
+                <View className='a-form__row'>
+                  <Text className='a-form__label'>{t('attAdm.days')}</Text>
+                  <View className='a-form__value a-form__value--readonly'>
+                    <Text className='a-form__text'>
+                      {t('att.leaveDaysPreview', { days: leaveDaysPreview })}
+                    </Text>
+                  </View>
+                </View>
+                <View className='a-form__row a-form__row--col'>
+                  <Text className='a-form__label'>{t('att.leaveReason')}</Text>
+                  <Input
+                    className='a-form__input'
+                    value={leaveForm.reason}
+                    placeholder={t('att.leaveReasonPh')}
+                    onInput={(e: any) => setLeaveForm((p) => ({ ...p, reason: e.detail.value }))}
+                  />
+                </View>
+                <View className='a-form__submit' onClick={submitLeave}>
+                  <Text className='a-form__submit-text'>
+                    {leaveSubmitting ? t('common.submitting') : t('att.submit')}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View className='a-trips'>
+              <Text className='a-mrule__list-title'>{t('att.myLeaves')}</Text>
+              {leaves.length === 0 ? (
+                <View className='a-trips__empty'>
+                  <Text className='a-trips__empty-text'>{t('att.noLeaves')}</Text>
+                </View>
+              ) : (
+                leaves.map((row) => (
+                  <View key={row.id} className='a-trips__item'>
+                    <View className='a-trips__top'>
+                      <Text className='a-trips__date'>
+                        {t(LEAVE_TYPE_KEY[row.leave_type || ''] || row.leave_type || '')}
+                      </Text>
+                      <View className={`a-badge ${LEAVE_TONE[row.status || ''] || 'a-badge--neutral'}`}>
+                        <Text>
+                          {LEAVE_STATUS_KEY[row.status || '']
+                            ? t(LEAVE_STATUS_KEY[row.status || ''])
+                            : row.status || '-'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text className='a-trips__reason'>
+                      {`${row.start_date || '-'} ~ ${row.end_date || '-'} · ${t('att.leaveDaysUnit', { days: row.days ?? 0 })}`}
+                    </Text>
+                    {row.reason ? <Text className='a-trips__reply'>{row.reason}</Text> : null}
+                    {row.reply_note ? (
+                      <Text className='a-trips__reply'>{t('att.reply', { note: row.reply_note })}</Text>
+                    ) : null}
+                    {row.status === 'pending' && (
+                      <View className='a-leave__act' onClick={() => cancelLeave(row.id)}>
+                        <Text className='a-leave__act-text'>{t('att.leaveCancel')}</Text>
+                      </View>
+                    )}
+                  </View>
+                ))
+              )}
+            </View>
           </View>
 
           {/* 规则提示 */}

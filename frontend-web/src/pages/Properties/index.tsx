@@ -21,6 +21,7 @@ import {
 } from '@ant-design/icons'
 import { propertiesApi, projectsApi, type QueryParams } from '@/services/api'
 import { downloadReport } from '@/lib/download'
+import { usePropertyStatusMap, usePropertyTypeMap } from '@/lib/enumLabels'
 import useAuthStore from '@/stores/auth'
 import type { Project, Property } from '@/types'
 import { AREA_GROUPS } from '@/data/locationArea'
@@ -194,23 +195,10 @@ const Properties = () => {
   const [coordRows, setCoordRows] = useState<CoordRow[]>([])
   const [coordBusyId, setCoordBusyId] = useState<string | null>(null)
 
-  // 选项
-  const statusLabelMap = useMemo<Record<string, string>>(() => ({
-    vacant: t('propertyStatus.vacant'),
-    rented: t('propertyStatus.rented'),
-    reserved: t('propertyStatus.reserved'),
-    maintenance: t('propertyStatus.maintenance'),
-  }), [t])
+  // 选项（枚举 → 文案映射统一收敛到 lib/enumLabels）
+  const statusLabelMap = usePropertyStatusMap()
 
-  const propertyTypeMap = useMemo<Record<string, string>>(() => ({
-    apartment: t('propertyType.apartment'),
-    condo: t('propertyType.condo'),
-    villa: t('propertyType.villa'),
-    house: t('propertyType.house'),
-    shop: t('propertyType.shop'),
-    commercial: t('propertyType.commercial'),
-    office: t('propertyType.office'),
-  }), [t])
+  const propertyTypeMap = usePropertyTypeMap()
 
   // 导出当前筛选条件下的房源清单（后端生成 CSV，见 /api/v1/exports/properties）
   const handleExport = async () => {

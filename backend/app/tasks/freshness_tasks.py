@@ -1,11 +1,8 @@
 """真房源保鲜定时任务。
 
 `revalidate_listings` 每天跑一次：把保鲜到期仍未复验的上架单自动下架，
-并给「维护人」与「录入人」发复验提醒（ACN 贡献角色的直接用途之一——
-提醒必须发给对这套房负责的人，而不是群发）。
-
-提醒对象取 `PropertyContribution` 里的 maintainer，没有维护人则退到 lister，
-两者都没有则退到房源 `created_by`，保证提醒不会因为角色缺失而消失。
+并给「房源录入人」发复验提醒（ACN 贡献角色已整体下线，不再区分
+maintainer / lister，提醒对象取房源档案的 `created_by`）。
 """
 import uuid
 from datetime import datetime, timezone
@@ -15,47 +12,22 @@ from sqlmodel import Session, select
 from app.celery_app import celery_app
 from app.db import engine
 from app.models import (
-    ACNRole,
     Listing,
     ListingVerificationStatus,
     Notification,
     NotificationChannel,
     NotificationStatus,
     Property,
-    PropertyContribution,
 )
 from app.services import freshness_service
 
 
 def _resolve_owner_users(session: Session, property_id) -> list:
-    """找这套房的负责员工（维护人 → 录入人 → 档案 created_by），去重返回 user_id。"""
-    candidates = []
-    for role in (ACNRole.maintainer, ACNRole.lister):
-        row = session.exec(
-            select(PropertyContribution)
-            .where(
-                PropertyContribution.property_id == property_id,
-                PropertyContribution.role == role,
-                PropertyContribution.status == "active",
-                PropertyContribution.user_id.is_not(None),
-            )
-            .order_by(PropertyContribution.granted_at)
-        ).first()
-        if row and row.user_id:
-            candidates.append(row.user_id)
-        if candidates:
-            break
-
-    if not candidates:
-        prop = session.get(Property, property_id)
-        if prop is not None and prop.created_by:
-            candidates.append(prop.created_by)
-
-    deduped = []
-    for uid in candidates:
-        if uid not in deduped:
-            deduped.append(uid)
-    return deduped
+    """找这套房的负责员工（房源档案 `created_by`），无则返回空列表。"""
+    prop = session.get(Property, property_id)
+    if prop is None or not prop.created_by:
+        return []
+    return [prop.created_by]
 
 
 def _notify_once(

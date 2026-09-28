@@ -30,14 +30,3 @@ class UserAdminOut(BaseModel):
     created_at: Optional[str] = None
     groups: List[str] = Field(default_factory=list)
     employee: Optional[EmployeeBrief] = None
-
-
-class AccountMeOut(BaseModel):
-    """当前账号信息 + 权限点（前端菜单/按钮级控制）。"""
-
-    id: str
-    email: str
-    full_name: str
-    role: str
-    is_active: bool
-    permissions: List[str] = Field(default_factory=list)

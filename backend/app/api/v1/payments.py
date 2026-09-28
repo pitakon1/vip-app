@@ -80,17 +80,6 @@ ALLOWED_RECEIPT_CONTAINERS = {
     "application/pdf",
 }
 
-# 支付渠道目录（供前端展示与推荐）
-CHANNEL_CATALOG: List[dict] = [
-    {"channel": "promptpay", "name": "PromptPay QR", "region": "TH", "type": "qr", "fee": "0.5%", "desc": "泰国本地最普及，扫码即时到账"},
-    {"channel": "stripe", "name": "Stripe", "region": "INTL", "type": "card", "fee": "2.9% + $0.30", "desc": "Visa/Mastercard/Apple Pay/Google Pay"},
-    {"channel": "wechat", "name": "微信支付", "region": "CN", "type": "qr", "fee": "0.6%", "desc": "国内用户首选"},
-    {"channel": "alipay", "name": "支付宝", "region": "CN", "type": "qr", "fee": "0.6%", "desc": "国内用户常用"},
-    {"channel": "wise", "name": "Wise", "region": "INTL", "type": "bank", "fee": "0.5%", "desc": "跨境银行转账"},
-    {"channel": "paypal", "name": "PayPal", "region": "INTL", "type": "wallet", "fee": "3.9% + 固定", "desc": "国际电子钱包"},
-    {"channel": "bank_transfer", "name": "银行转账", "region": "ALL", "type": "bank", "fee": "免费", "desc": "线下转账，上传凭证核销"},
-]
-
 
 class PaymentCreate(BaseModel):
     lease_id: Optional[uuid.UUID] = None
@@ -141,27 +130,6 @@ class ReconcileRequest(BaseModel):
     """财务「核销」入参。"""
 
     note: Optional[str] = None
-
-
-class PaymentChannelItem(BaseModel):
-    """可用支付渠道条目（GET /payments/channels 的 items 元素）。"""
-
-    channel: Optional[str] = None
-    name: Optional[str] = None
-    region: Optional[str] = None
-    type: Optional[str] = None
-    fee: Optional[str] = None
-    desc: Optional[str] = None
-    model_config = ConfigDict(extra="allow")
-
-
-class ChannelsResponse(BaseModel):
-    """支付渠道列表响应。"""
-
-    items: Optional[List[PaymentChannelItem]] = None
-    recommended: Optional[List[str]] = None
-    currency: Optional[str] = None
-    model_config = ConfigDict(extra="allow")
 
 
 class MyPaymentsResponse(BaseModel):
@@ -390,34 +358,6 @@ def list_payments(
 
     stmt = select(Payment).where(*conditions).order_by(Payment.created_at.desc())
     return paginate_query(session, stmt, pagination)
-
-
-@router.get("/channels", response_model=ChannelsResponse)
-def list_channels(
-    currency: str = "THB",
-    user: User = Depends(get_current_user),
-):
-    """可用支付渠道列表，并按币种给出推荐排序。
-
-    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：移动端收银台把渠道
-    写死在本地，未回服务端取排序。
-    """
-    order = {
-        "THB": ["promptpay", "stripe", "bank_transfer", "wechat", "alipay"],
-        "CNY": ["wechat", "alipay", "stripe", "bank_transfer"],
-        "USD": ["stripe", "paypal", "wise", "bank_transfer"],
-        "EUR": ["stripe", "paypal", "wise"],
-    }
-    recommended = order.get(currency.upper(), ["stripe", "paypal", "bank_transfer"])
-
-    catalog = {c["channel"]: c for c in CHANNEL_CATALOG}
-    items = [catalog[r] for r in recommended if r in catalog]
-    # 补齐未推荐但在目录中的渠道
-    for c in CHANNEL_CATALOG:
-        if c["channel"] not in recommended:
-            items.append(c)
-
-    return {"items": items, "recommended": recommended, "currency": currency.upper()}
 
 
 @router.post("")

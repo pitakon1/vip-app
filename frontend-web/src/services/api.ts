@@ -306,6 +306,30 @@ export const attendanceApi = {
   createExternalTrip: (data: RequestBody) => api.post('/attendance/external-trips', data),
   approveExternalTrip: (id: string) =>
     api.post(`/attendance/external-trips/${id}/approve`),
+  // 管理端考勤核对（P0）：全员明细 + 单员工校准
+  adminRecords: (params?: QueryParams) => api.get('/attendance/admin/records', { params }),
+  calibrate: (employeeId: string, data: RequestBody) =>
+    api.patch(`/attendance/admin/records/${employeeId}`, data),
+  // 考勤组（P1-a）：多办公点 / 多班次规则与成员分配
+  groups: () => api.get('/attendance/groups'),
+  createGroup: (data: RequestBody) => api.post('/attendance/groups', data),
+  updateGroup: (id: string, data: RequestBody) => api.patch(`/attendance/groups/${id}`, data),
+  deleteGroup: (id: string) => api.delete(`/attendance/groups/${id}`),
+  groupMembers: (id: string) => api.get(`/attendance/groups/${id}/members`),
+  assignGroupMembers: (id: string, data: RequestBody) =>
+    api.post(`/attendance/groups/${id}/members`, data),
+  removeGroupMember: (id: string, employeeId: string) =>
+    api.delete(`/attendance/groups/${id}/members/${employeeId}`),
+  // 我的生效规则（考勤组 or 全局兜底）
+  myRule: () => api.get('/attendance/groups/me/rules'),
+  // 假勤（P1-b）：申请 / 审批 / 撤销
+  leaveRequests: (params?: QueryParams) => api.get('/attendance/leave-requests', { params }),
+  applyLeave: (data: RequestBody) => api.post('/attendance/leave-requests', data),
+  approveLeave: (id: string, data: RequestBody) =>
+    api.post(`/attendance/leave-requests/${id}/approve`, data),
+  cancelLeave: (id: string) => api.post(`/attendance/leave-requests/${id}/cancel`),
+  // 异常分类统计与趋势（P1-c）
+  summary: (params?: QueryParams) => api.get('/attendance/admin/summary', { params }),
 }
 
 // ===== 四大战略维度（买卖交易 / 分销体系 / 多国市场 / 数据决策）=====
@@ -323,7 +347,7 @@ export const saleListingApi = {
     api.post(`/sale-listings/${id}/valuations`, data),
 }
 
-// 2. 买卖交易闭环：产权成交 + 定金托管 + 按揭
+// 2. 买卖交易闭环：产权成交 + 定金托管
 export const propertyDealApi = {
   list: (params?: QueryParams) => api.get('/property-deals', { params }),
   get: (id: string) => api.get(`/property-deals/${id}`),
@@ -337,12 +361,6 @@ export const propertyDealApi = {
     api.post(`/property-deals/escrows/${id}/release`),
   refundEscrow: (id: string) =>
     api.post(`/property-deals/escrows/${id}/refund`),
-  createMortgage: (data: RequestBody) => api.post('/property-deals/mortgages', data),
-  myMortgages: () => api.get('/property-deals/mortgages/mine'),
-  updateMortgageStatus: (id: string, status: string) =>
-    api.patch(`/property-deals/mortgages/${id}/status`, null, {
-      params: { status },
-    }),
 }
 
 // 3. 分销体系

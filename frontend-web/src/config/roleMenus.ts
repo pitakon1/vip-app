@@ -309,6 +309,11 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           labelKey: 'menu.commissionRules',
           icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
         },
+        {
+          key: '/attendance-manage',
+          labelKey: 'menu.attendanceManage',
+          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2 M3 3l2 2 M21 3l-2 2',
+        },
       ],
     },
     {

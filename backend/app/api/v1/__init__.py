@@ -20,7 +20,6 @@ from .performance import router as performance_router
 from .employees import router as employees_router
 from .attendance import router as attendance_router
 from .commissions import router as commissions_router
-from .tenants import router as tenants_router
 from .owners import router as owners_router
 from .company import router as company_router
 from .billing import router as billing_router
@@ -49,7 +48,6 @@ from .exports import router as exports_router
 from .listings import router as listings_router
 from .dedupe_reviews import router as dedupe_reviews_router
 from .public import router as public_router
-from .acn import router as acn_router
 from .verifications import router as verifications_router
 from .uploads_admin import router as uploads_admin_router
 
@@ -71,7 +69,6 @@ api_router.include_router(performance_router)
 api_router.include_router(employees_router)
 api_router.include_router(attendance_router)
 api_router.include_router(commissions_router)
-api_router.include_router(tenants_router)
 api_router.include_router(owners_router)
 api_router.include_router(company_router)
 api_router.include_router(billing_router)
@@ -100,7 +97,6 @@ api_router.include_router(exports_router)
 api_router.include_router(listings_router)
 api_router.include_router(dedupe_reviews_router)
 api_router.include_router(public_router)
-api_router.include_router(acn_router)
 api_router.include_router(verifications_router)
 api_router.include_router(uploads_admin_router)
 

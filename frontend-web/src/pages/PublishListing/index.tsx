@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { message, Modal, Select } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { listingsApi, ownersApi } from '@/services/api'
 import useAuthStore from '@/stores/auth'
 import './publish.css'
@@ -19,10 +20,10 @@ const LISTING_TYPES = ['apartment', 'condo', 'villa', 'house', 'shop', 'commerci
 
 // 非独家分档说明（客源方 : 房源方）
 const NON_EXCLUSIVE_MAP: Record<SplitOption, { buyer: number; listing: number; desc: string }> = {
-  sp_65_35: { buyer: 65, listing: 35, desc: '客源方经纪人自主匹配房源给客户，独立完成带客成交签约并售后' },
-  sp_50_50: { buyer: 50, listing: 50, desc: '客源方与房源方平均分成，共同协作完成带看与签约' },
-  sp_30_70: { buyer: 30, listing: 70, desc: '房源方主导成交，客源方仅提供线索，按 3:7 分成' },
-  sp_20_80: { buyer: 20, listing: 80, desc: '房源方全流程主导，客源方参与度低，按 2:8 分成' },
+  sp_65_35: { buyer: 65, listing: 35, desc: 'publishListing.descSp6535' },
+  sp_50_50: { buyer: 50, listing: 50, desc: 'publishListing.descSp5050' },
+  sp_30_70: { buyer: 30, listing: 70, desc: 'publishListing.descSp3070' },
+  sp_20_80: { buyer: 20, listing: 80, desc: 'publishListing.descSp2080' },
 }
 
 const initialForm = {
@@ -67,6 +68,7 @@ const initialForm = {
 }
 
 const PublishListing = () => {
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const isStaff = user?.role === 'admin' || user?.role === 'agent' || user?.role === 'employee'
   const [form, setForm] = useState(initialForm)
@@ -91,10 +93,13 @@ const PublishListing = () => {
       const payload = res.data?.data ?? res.data
       const items: any[] = payload?.items ?? []
       setOwnerOptions(
-        items.map((o) => ({
-          value: o.id,
-          label: `${o.name || o.email || o.id}${o.phone ? ` · ${o.phone}` : ''}（在管 ${o.property_count ?? 0} 套）`,
-        })),
+        items.map((o) => {
+          const name = `${o.name || o.email || o.id}${o.phone ? ` · ${o.phone}` : ''}`
+          return {
+            value: o.id,
+            label: t('publishListing.ownerOptionLabel', { name, count: o.property_count ?? 0 }),
+          }
+        }),
       )
     } catch {
       // 接口不可用时给出空列表，由「未选归属业主」的前端拦截提示，避免静默提交失败
@@ -128,12 +133,12 @@ const PublishListing = () => {
 
   const handleSubmit = async () => {
     if (!form.room_number.trim() || !form.address.trim()) {
-      message.warning('请填写房号与地址')
+      message.warning(t('publishListing.msgNeedRoomAddress'))
       return
     }
     // 后端对非 owner 角色强制要求 owner_id，前端先拦，避免一定失败的提交
     if (isStaff && !form.owner_id) {
-      message.warning('请选择归属业主')
+      message.warning(t('publishListing.msgNeedOwner'))
       return
     }
     const payload: Record<string, unknown> = {
@@ -184,7 +189,7 @@ const PublishListing = () => {
       setResultOpen(true)
     } catch (err: any) {
       const detail = err?.response?.data?.detail || err?.response?.data?.message
-      message.error(detail ? `提交失败：${detail}` : '提交失败')
+      message.error(detail ? t('publishListing.msgSubmitFailedDetail', { detail }) : t('publishListing.msgSubmitFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -194,24 +199,24 @@ const PublishListing = () => {
     <div className="rent-main">
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">发布房源</h2>
-          <p className="rent-page-header__subtitle">填写房源信息、上架类型与分佣配置，提交后将进入平台上架审核</p>
+          <h2 className="rent-page-header__title">{t('publishListing.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('publishListing.subtitle')}</p>
         </div>
       </div>
 
       <div className="rent-card rent-mb-5">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">房源档案信息</h3>
+          <h3 className="rent-card__title">{t('publishListing.secProfile')}</h3>
         </div>
         <div className="rent-card__body">
           {isStaff && (
             <div className="rent-form-group">
-              <label className="rent-form-label">归属业主 *</label>
+              <label className="rent-form-label">{t('publishListing.ownerLabel')}</label>
               <Select
                 showSearch
                 allowClear
                 style={{ maxWidth: 420 }}
-                placeholder="搜索业主姓名 / 手机 / 邮箱"
+                placeholder={t('publishListing.ownerPlaceholder')}
                 value={form.owner_id || undefined}
                 loading={ownerLoading}
                 filterOption={false}
@@ -220,75 +225,75 @@ const PublishListing = () => {
                 options={ownerOptions}
               />
               <div className="rent-text-sm rent-text-muted rent-mt-2">
-                员工代业主发布时必须指定归属业主，房源将挂在该业主名下
+                {t('publishListing.ownerHint')}
               </div>
             </div>
           )}
           <div className="rent-form-row">
             <div className="rent-form-group">
-              <label className="rent-form-label">楼盘</label>
-              <input className="rent-form-input" value={form.project_id} placeholder="项目 ID（可选）" onChange={(e) => set({ project_id: e.target.value })} />
+              <label className="rent-form-label">{t('publishListing.lblProject')}</label>
+              <input className="rent-form-input" value={form.project_id} placeholder={t('publishListing.phProjectId')} onChange={(e) => set({ project_id: e.target.value })} />
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">楼栋</label>
+              <label className="rent-form-label">{t('publishListing.lblBuilding')}</label>
               <input className="rent-form-input" value={form.building} onChange={(e) => set({ building: e.target.value })} />
             </div>
           </div>
           <div className="rent-form-row">
             <div className="rent-form-group">
-              <label className="rent-form-label">房号 *</label>
+              <label className="rent-form-label">{t('publishListing.lblRoomNo')}</label>
               <input className="rent-form-input" value={form.room_number} onChange={(e) => set({ room_number: e.target.value })} />
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">楼层</label>
+              <label className="rent-form-label">{t('publishListing.lblFloor')}</label>
               <input className="rent-form-input" type="number" value={form.floor} onChange={(e) => set({ floor: e.target.value })} />
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">户型类型</label>
+              <label className="rent-form-label">{t('publishListing.lblPropertyType')}</label>
               <select className="rent-form-select" value={form.property_type} onChange={(e) => set({ property_type: e.target.value })}>
-                {LISTING_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                {LISTING_TYPES.map((opt) => <option key={opt} value={opt}>{t(`propertyType.${opt}`, { defaultValue: opt })}</option>)}
               </select>
             </div>
           </div>
           <div className="rent-form-group">
-            <label className="rent-form-label">地址 *</label>
+            <label className="rent-form-label">{t('publishListing.lblAddress')}</label>
             <input className="rent-form-input" value={form.address} onChange={(e) => set({ address: e.target.value })} />
           </div>
           <div className="rent-form-row">
             <div className="rent-form-group">
-              <label className="rent-form-label">面积（㎡）</label>
+              <label className="rent-form-label">{t('publishListing.lblSize')}</label>
               <input className="rent-form-input" type="number" value={form.size_sqm} onChange={(e) => set({ size_sqm: e.target.value })} />
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">卧室</label>
+              <label className="rent-form-label">{t('publishListing.lblBedrooms')}</label>
               <input className="rent-form-input" type="number" value={form.bedrooms} onChange={(e) => set({ bedrooms: e.target.value })} />
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">卫生间</label>
+              <label className="rent-form-label">{t('publishListing.lblBathrooms')}</label>
               <input className="rent-form-input" type="number" value={form.bathrooms} onChange={(e) => set({ bathrooms: e.target.value })} />
             </div>
           </div>
           <div className="rent-form-group">
-            <label className="rent-form-label">描述</label>
+            <label className="rent-form-label">{t('publishListing.lblDescription')}</label>
             <textarea className="rent-form-textarea" rows={3} value={form.description} onChange={(e) => set({ description: e.target.value })} />
           </div>
           <div className="rent-form-row">
             <div className="rent-form-group">
-              <label className="rent-form-label">可入住时间</label>
+              <label className="rent-form-label">{t('publishListing.lblAvailableFrom')}</label>
               <input className="rent-form-input" type="date" value={form.available_from} onChange={(e) => set({ available_from: e.target.value })} />
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">视频链接</label>
+              <label className="rent-form-label">{t('publishListing.lblVideoUrl')}</label>
               <input className="rent-form-input" value={form.video_url} onChange={(e) => set({ video_url: e.target.value })} />
             </div>
           </div>
           <div className="rent-form-group">
-            <label className="rent-form-label">照片 URL（每行 / 逗号分隔）</label>
+            <label className="rent-form-label">{t('publishListing.lblPhotos')}</label>
             <textarea className="rent-form-textarea" rows={2} value={form.photos} onChange={(e) => set({ photos: e.target.value })} />
           </div>
           <label className="rent-checkbox">
             <input type="checkbox" checked={form.furnished} onChange={(e) => set({ furnished: e.target.checked })} />
-            <span>带家具</span>
+            <span>{t('publishListing.lblFurnished')}</span>
           </label>
         </div>
       </div>
@@ -296,31 +301,31 @@ const PublishListing = () => {
       {/* 上架类型与价格 */}
       <div className="rent-card rent-mb-5">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">上架类型与价格</h3>
+          <h3 className="rent-card__title">{t('publishListing.secListing')}</h3>
         </div>
         <div className="rent-card__body">
           <div className="rent-tabs rent-mb-4">
             <button className={`rent-tab ${form.listing_type === 'rent' ? 'rent-tab--active' : ''}`} type="button" onClick={() => set({ listing_type: 'rent' })}>
-              <span className="rent-flex rent-gap-2">出租</span>
+              <span className="rent-flex rent-gap-2">{t('publishListing.tabRent')}</span>
             </button>
             <button className={`rent-tab ${form.listing_type === 'sell' ? 'rent-tab--active' : ''}`} type="button" onClick={() => set({ listing_type: 'sell' })}>
-              <span className="rent-flex rent-gap-2">出售</span>
+              <span className="rent-flex rent-gap-2">{t('publishListing.tabSell')}</span>
             </button>
           </div>
           <div className="rent-form-row">
             {form.listing_type === 'rent' ? (
               <div className="rent-form-group">
-                <label className="rent-form-label">月租金 *</label>
+                <label className="rent-form-label">{t('publishListing.lblMonthlyRent')}</label>
                 <input className="rent-form-input" type="number" value={form.monthly_rent} onChange={(e) => set({ monthly_rent: e.target.value })} />
               </div>
             ) : (
               <div className="rent-form-group">
-                <label className="rent-form-label">售价 *</label>
+                <label className="rent-form-label">{t('publishListing.lblAskingPrice')}</label>
                 <input className="rent-form-input" type="number" value={form.asking_price} onChange={(e) => set({ asking_price: e.target.value })} />
               </div>
             )}
             <div className="rent-form-group">
-              <label className="rent-form-label">币种</label>
+              <label className="rent-form-label">{t('publishListing.lblCurrency')}</label>
               <select className="rent-form-select" value={form.currency} onChange={(e) => set({ currency: e.target.value })}>
                 <option value="THB">THB</option>
                 <option value="CNY">CNY</option>
@@ -335,13 +340,13 @@ const PublishListing = () => {
       {/* 分佣配置区（需求核心） */}
       <div className="rent-card rent-mb-5">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">分佣配置</h3>
+          <h3 className="rent-card__title">{t('publishListing.secCommission')}</h3>
         </div>
         <div className="rent-card__body">
           {form.listing_type === 'rent' ? (
             <div className="rent-form-row">
               <div className="rent-form-group">
-                <label className="rent-form-label">出租佣金月数</label>
+                <label className="rent-form-label">{t('publishListing.lblRentalMonths')}</label>
                 <div className="rent-chip-group">
                   {RENTAL_MONTHS.map((m) => (
                     <button
@@ -350,7 +355,7 @@ const PublishListing = () => {
                       className={`rent-chip ${form.rental_commission_months === m ? 'rent-chip--active' : ''}`}
                       onClick={() => set({ rental_commission_months: m })}
                     >
-                      {m} 个月
+                      {t('publishListing.monthsUnit', { n: m })}
                     </button>
                   ))}
                 </div>
@@ -359,7 +364,7 @@ const PublishListing = () => {
           ) : (
             <div className="rent-form-row">
               <div className="rent-form-group">
-                <label className="rent-form-label">出售佣金比例（3% - 6%）</label>
+                <label className="rent-form-label">{t('publishListing.lblSaleRate')}</label>
                 <input
                   className="rent-form-input"
                   type="number"
@@ -375,21 +380,21 @@ const PublishListing = () => {
           )}
 
           <div className="rent-form-group">
-            <label className="rent-form-label">委托方式</label>
+            <label className="rent-form-label">{t('publishListing.lblMandate')}</label>
             <div className="rent-chip-group">
               <button
                 type="button"
                 className={`rent-chip ${form.mandate_type === 'exclusive' ? 'rent-chip--active' : ''}`}
                 onClick={() => set({ mandate_type: 'exclusive' })}
               >
-                独家 / 快速成交
+                {t('publishListing.mandateExclusive')}
               </button>
               <button
                 type="button"
                 className={`rent-chip ${form.mandate_type === 'non_exclusive' ? 'rent-chip--active' : ''}`}
                 onClick={() => set({ mandate_type: 'non_exclusive' })}
               >
-                非独家委托
+                {t('publishListing.mandateNonExclusive')}
               </button>
             </div>
           </div>
@@ -397,7 +402,7 @@ const PublishListing = () => {
           {form.mandate_type === 'exclusive' ? (
             <div className="rent-form-row">
               <div className="rent-form-group">
-                <label className="rent-form-label">客源方可分比例（70% - 100%）</label>
+                <label className="rent-form-label">{t('publishListing.lblBuyerRate')}</label>
                 <input
                   className="rent-form-input"
                   type="number"
@@ -408,13 +413,13 @@ const PublishListing = () => {
                   style={{ maxWidth: 200 }}
                 />
                 <div className="rent-text-sm rent-text-muted rent-mt-2" style={{ color: 'var(--rent-primary)' }}>
-                  客源方 {splitDisplay.buyer}% / 房源方 {splitDisplay.listing}%
+                  {t('publishListing.splitPreview', { buyer: splitDisplay.buyer, listing: splitDisplay.listing })}
                 </div>
               </div>
             </div>
           ) : (
             <div className="rent-form-group">
-              <label className="rent-form-label">分成档位（客源方 : 房源方）</label>
+              <label className="rent-form-label">{t('publishListing.lblSplitTier')}</label>
               <div className="rent-split-list">
                 {(Object.keys(NON_EXCLUSIVE_MAP) as SplitOption[]).map((opt) => {
                   const m = NON_EXCLUSIVE_MAP[opt]
@@ -427,66 +432,66 @@ const PublishListing = () => {
                       onClick={() => set({ split_option: opt })}
                     >
                       <div className="rent-split-card__ratio">{m.buyer}:{m.listing}</div>
-                      <div className="rent-text-sm rent-text-muted">{m.desc}</div>
+                      <div className="rent-text-sm rent-text-muted">{t(m.desc)}</div>
                     </button>
                   )
                 })}
               </div>
             </div>
           )}
-          <div className="rent-text-sm rent-text-muted">当前分成：客源方 {splitDisplay.buyer}% / 房源方 {splitDisplay.listing}%</div>
+          <div className="rent-text-sm rent-text-muted">{t('publishListing.splitCurrent', { buyer: splitDisplay.buyer, listing: splitDisplay.listing })}</div>
         </div>
       </div>
 
       {/* 联系方式 */}
       <div className="rent-card rent-mb-5">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">业主联系方式（选填）</h3>
+          <h3 className="rent-card__title">{t('publishListing.secOwnerContact')}</h3>
         </div>
         <div className="rent-card__body">
           <div className="rent-form-row">
             <div className="rent-form-group">
-              <label className="rent-form-label">姓名</label>
+              <label className="rent-form-label">{t('publishListing.lblName')}</label>
               <input className="rent-form-input" value={form.owner_contact_name} onChange={(e) => set({ owner_contact_name: e.target.value })} />
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">电话</label>
+              <label className="rent-form-label">{t('publishListing.lblPhone')}</label>
               <input className="rent-form-input" value={form.owner_contact_phone} onChange={(e) => set({ owner_contact_phone: e.target.value })} />
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">渠道</label>
+              <label className="rent-form-label">{t('publishListing.lblChannel')}</label>
               <input className="rent-form-input" value={form.owner_contact_channel} onChange={(e) => set({ owner_contact_channel: e.target.value })} />
             </div>
           </div>
           <label className="rent-checkbox">
             <input type="checkbox" checked={form.owner_contact_visible} onChange={(e) => set({ owner_contact_visible: e.target.checked })} />
-            <span>对外展示业主联系方式</span>
+            <span>{t('publishListing.chkOwnerVisible')}</span>
           </label>
         </div>
       </div>
 
       <div className="rent-card rent-mb-5">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">经纪人联系方式</h3>
+          <h3 className="rent-card__title">{t('publishListing.secBrokerContact')}</h3>
         </div>
         <div className="rent-card__body">
           <div className="rent-form-row">
             <div className="rent-form-group">
-              <label className="rent-form-label">公司</label>
+              <label className="rent-form-label">{t('publishListing.lblCompany')}</label>
               <input className="rent-form-input" value={form.broker_company} onChange={(e) => set({ broker_company: e.target.value })} />
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">姓名</label>
+              <label className="rent-form-label">{t('publishListing.lblName')}</label>
               <input className="rent-form-input" value={form.broker_real_name} onChange={(e) => set({ broker_real_name: e.target.value })} />
             </div>
             <div className="rent-form-group">
-              <label className="rent-form-label">电话</label>
+              <label className="rent-form-label">{t('publishListing.lblPhone')}</label>
               <input className="rent-form-input" value={form.broker_phone} onChange={(e) => set({ broker_phone: e.target.value })} />
             </div>
           </div>
           <div className="rent-form-row">
             <div className="rent-form-group">
-              <label className="rent-form-label">微信</label>
+              <label className="rent-form-label">{t('publishListing.lblWechat')}</label>
               <input className="rent-form-input" value={form.broker_wechat} onChange={(e) => set({ broker_wechat: e.target.value })} />
             </div>
             <div className="rent-form-group">
@@ -502,9 +507,9 @@ const PublishListing = () => {
       </div>
 
       <div className="rent-flex rent-gap-3" style={{ justifyContent: 'flex-end' }}>
-        <button className="rent-btn rent-btn--secondary" onClick={() => setForm(initialForm)}>重置</button>
+        <button className="rent-btn rent-btn--secondary" onClick={() => setForm(initialForm)}>{t('publishListing.btnReset')}</button>
         <button className="rent-btn rent-btn--primary" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? '提交中...' : '发布上架'}
+          {submitting ? t('publishListing.submitting') : t('publishListing.btnSubmit')}
         </button>
       </div>
 
@@ -512,7 +517,7 @@ const PublishListing = () => {
         open={resultOpen}
         onCancel={() => setResultOpen(false)}
         footer={null}
-        title="发布结果"
+        title={t('publishListing.resultTitle')}
       >
         {result?.dedupe_state === 'blocked' ? (
           <div className="rent-form-group">
@@ -522,14 +527,14 @@ const PublishListing = () => {
                 <line x1="12" y1="9" x2="12" y2="13" />
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
-              该房源疑似与已有上架单重复，已被阻断进入平台上架审核。
+              {t('publishListing.resultBlocked')}
             </div>
-            <div className="rent-text-sm rent-text-muted rent-mt-2">请勿重复发布，可在「我的上架单」查看处理状态。</div>
+            <div className="rent-text-sm rent-text-muted rent-mt-2">{t('publishListing.resultBlockedHint')}</div>
           </div>
         ) : result && result.dedupe_reviews.length > 0 ? (
           <div className="rent-form-group">
-            <div className="rent-text-bold" style={{ color: 'var(--state-warning)' }}>疑似重复，已进入去重审核队列。</div>
-            <div className="rent-text-sm rent-text-muted rent-mt-2">运营将人工比对确认是否为重复房源。请耐心等待审核结果。</div>
+            <div className="rent-text-bold" style={{ color: 'var(--state-warning)' }}>{t('publishListing.resultReview')}</div>
+            <div className="rent-text-sm rent-text-muted rent-mt-2">{t('publishListing.resultReviewHint')}</div>
           </div>
         ) : (
           <div className="rent-form-group">
@@ -538,9 +543,9 @@ const PublishListing = () => {
                 <circle cx="12" cy="12" r="10" />
                 <path d="m8 12 3 3 5-6" />
               </svg>
-              上架单已提交，当前状态：{result?.status || 'pending'}。
+              {t('publishListing.resultOk', { status: result?.status || 'pending' })}
             </div>
-            <div className="rent-text-sm rent-text-muted rent-mt-2">等待平台上架审核。</div>
+            <div className="rent-text-sm rent-text-muted rent-mt-2">{t('publishListing.resultOkHint')}</div>
           </div>
         )}
       </Modal>

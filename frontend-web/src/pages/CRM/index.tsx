@@ -29,21 +29,22 @@ const statusToColumn: Record<LeadStatus, KanbanColumnKey> = {
   lost: 'new',
 }
 
-const stageLabelMap: Record<LeadStatus, string> = {
-  inquiring: '咨询中',
-  viewing_scheduled: '已约看',
-  negotiating: '谈判中',
-  pending_contract: '待签约',
-  closed: '已成交',
-  new: '新客户',
-  following: '跟进中',
-  converted: '已转化',
-  lost: '已流失',
+/** 阶段枚举 → i18n key（渲染时查表翻译，未知值回落为原始枚举值） */
+const STAGE_LABEL_KEYS: Record<LeadStatus, string> = {
+  inquiring: 'crm.stInquiring',
+  viewing_scheduled: 'crm.stViewingScheduled',
+  negotiating: 'crm.stNegotiating',
+  pending_contract: 'crm.stPendingContract',
+  closed: 'crm.stageClosed',
+  new: 'crm.stNew',
+  following: 'crm.stFollowing',
+  converted: 'crm.stConverted',
+  lost: 'crm.stLost',
 }
 
 const AGENT_COLORS = ['#14b8a6', '#16a34a', '#d97706', '#14b8a6', '#0ea5e9']
 
-/** 后端 LeadStage 枚举的真实取值；stageLabelMap 中的 new/following/converted/lost
+/** 后端 LeadStage 枚举的真实取值；STAGE_LABEL_KEYS 中的 new/following/converted/lost
  *  后端不认（提交即 422），故下拉选项只列这 5 个可写值 */
 const LEAD_STAGE_VALUES: LeadStatus[] = [
   'inquiring',
@@ -52,8 +53,6 @@ const LEAD_STAGE_VALUES: LeadStatus[] = [
   'pending_contract',
   'closed',
 ]
-
-const STAGE_OPTIONS = LEAD_STAGE_VALUES.map((value) => ({ value, label: stageLabelMap[value] }))
 
 const getAgentColor = (name?: string) => {
   if (!name) return AGENT_COLORS[0]
@@ -70,7 +69,7 @@ const CURRENCY_SYMBOL: Record<string, string> = {
   MYR: 'RM',
 }
 
-const formatBudget = (lead: Lead): string => {
+const formatBudget = (lead: Lead, notSetLabel: string): string => {
   const symbol = CURRENCY_SYMBOL[lead.budget_currency || 'THB'] || lead.budget_currency || 'THB'
   const min = lead.budget_min
   const max = lead.budget_max
@@ -79,7 +78,7 @@ const formatBudget = (lead: Lead): string => {
   }
   if (max != null) return `${symbol} ${Number(max).toLocaleString()}`
   if (min != null) return `${symbol} ${Number(min).toLocaleString()}`
-  return '未设定'
+  return notSetLabel
 }
 
 /** 卡片右上角徽标配色：后端线索没有 property_type，这里按真实「来源」渠道着色 */
@@ -224,6 +223,18 @@ const emptyCreateForm: CreateFormValues = {
 const CRM = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
+  // 阶段文案随语言变化，需在组件内查表翻译
+  const stageLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        (Object.keys(STAGE_LABEL_KEYS) as LeadStatus[]).map((k) => [k, t(STAGE_LABEL_KEYS[k])]),
+      ) as Record<LeadStatus, string>,
+    [t],
+  )
+  const stageOptions = useMemo(
+    () => LEAD_STAGE_VALUES.map((value) => ({ value, label: stageLabels[value] })),
+    [stageLabels],
+  )
   const [data, setData] = useState<Lead[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -282,7 +293,7 @@ const CRM = () => {
       setData(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取客户列表失败')
+      message.error(err?.response?.data?.message || t('crm.errFetchList'))
     } finally {
       setLoading(false)
     }
@@ -358,11 +369,11 @@ const CRM = () => {
 
   const handleSubmit = async () => {
     if (!createForm.name.trim()) {
-      message.error('请输入姓名')
+      message.error(t('crm.msgNameRequired'))
       return
     }
     if (!createForm.phone.trim()) {
-      message.error('请输入电话')
+      message.error(t('crm.msgPhoneRequired'))
       return
     }
     try {
@@ -382,35 +393,35 @@ const CRM = () => {
       } as any
       if (createForm.id) {
         await leadsApi.update(createForm.id, payload)
-        message.success('更新成功')
+        message.success(t('crm.msgUpdated'))
       } else {
         await leadsApi.create(payload)
-        message.success('创建成功')
+        message.success(t('crm.msgCreated'))
       }
       setModalOpen(false)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '保存失败')
+      message.error(err?.response?.data?.message || t('crm.errSave'))
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleDelete = async (lead: Lead) => {
-    if (!window.confirm(`确定删除客户「${lead.name}」？该操作不可恢复。`)) return
+    if (!window.confirm(t('crm.confirmDelete', { name: lead.name }))) return
     try {
       await leadsApi.delete(String(lead.id))
-      message.success('已删除')
+      message.success(t('crm.msgDeleted'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '删除失败')
+      message.error(err?.response?.data?.message || t('crm.errDelete'))
     }
   }
 
   // 联系客户：直接拨打
   const handleCall = (lead: Lead) => {
     if (!lead.phone) {
-      message.warning('该客户未留电话')
+      message.warning(t('crm.warnNoPhone'))
       return
     }
     window.location.href = `tel:${lead.phone.replace(/\s/g, '')}`
@@ -421,20 +432,20 @@ const CRM = () => {
     const phone = (lead.phone || '').trim()
     const email = (lead.email || '').trim()
     if (!phone && !email) {
-      message.warning('该客户未留电话/邮箱，无法发消息')
+      message.warning(t('crm.warnNoContact'))
       return
     }
     try {
       const res = await chatApi.createConversation({
-        title: lead.name || '客户咨询',
+        title: lead.name || t('crm.defaultConvTitle'),
         ...(phone ? { participant_phones: [phone] } : {}),
         ...(email ? { participant_emails: [email] } : {}),
       })
       const conv = res.data?.data ?? res.data
-      if (!conv?.id) throw new Error('会话创建失败')
+      if (!conv?.id) throw new Error(t('crm.errConvCreate'))
       navigate(`/chat?id=${conv.id}`)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || err?.response?.data?.detail || '客户未注册账号，请先通过电话/邮箱联系')
+      message.error(err?.response?.data?.message || err?.response?.data?.detail || t('crm.errNoAccount'))
     }
   }
 
@@ -445,7 +456,7 @@ const CRM = () => {
     try {
       const payloads = buildImportPayloads(await file.text())
       if (payloads.length === 0) {
-        message.warning('未解析到有效数据行，请确认 CSV 含「姓名」列')
+        message.warning(t('crm.warnCsvNoRows'))
         return
       }
       const results = await Promise.allSettled(payloads.map((row) => leadsApi.create(row)))
@@ -454,13 +465,13 @@ const CRM = () => {
       if (ok === 0) {
         const first = results.find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined
         const reason = first?.reason?.response?.data?.detail || first?.reason?.response?.data?.message
-        message.error(reason ? `导入失败：${reason}` : '导入失败，请检查文件内容')
+        message.error(reason ? t('crm.importFailedWithReason', { reason }) : t('crm.importFailed'))
         return
       }
-      message.success(`导入成功 ${ok} 条${failed > 0 ? `，失败 ${failed} 条` : ''}`)
+      message.success(failed > 0 ? t('crm.importSuccessPartial', { ok, failed }) : t('crm.importSuccess', { ok }))
       fetchData()
     } catch {
-      message.error('CSV 读取失败，请确认文件为 UTF-8 编码的 .csv')
+      message.error(t('crm.errCsvRead'))
     } finally {
       setImporting(false)
       if (importRef.current) importRef.current.value = ''
@@ -470,17 +481,17 @@ const CRM = () => {
   const handleUpdateStage = async () => {
     if (!currentLead) return
     if (!stageValue) {
-      message.error('请选择阶段')
+      message.error(t('crm.msgStageRequired'))
       return
     }
     try {
       setSubmitting(true)
       await leadsApi.update(String(currentLead.id), { stage: stageValue })
-      message.success('阶段已更新')
+      message.success(t('crm.msgStageUpdated'))
       setStageModalOpen(false)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '更新失败')
+      message.error(err?.response?.data?.message || t('crm.errUpdate'))
     } finally {
       setSubmitting(false)
     }
@@ -505,19 +516,19 @@ const CRM = () => {
           <span className="rent-caption rent-text-muted">{lead.phone || '-'}</span>
         </div>
         <div className="rent-flex rent-flex--between rent-mt-2">
-          <span className="rent-caption rent-text-muted">{isClosed ? '成交价' : '预算'}</span>
+          <span className="rent-caption rent-text-muted">{isClosed ? t('crm.labelDealPrice') : t('crm.labelBudget')}</span>
           {isClosed && dealPrice != null ? (
             <span className="rent-mono rent-text-bold" style={{ color: 'var(--state-success)' }}>
               {CURRENCY_SYMBOL[lead.budget_currency || 'THB'] || lead.budget_currency || 'THB'} {Number(dealPrice).toLocaleString()}
             </span>
           ) : (
-            <span className="rent-mono rent-text-bold">{formatBudget(lead)}</span>
+            <span className="rent-mono rent-text-bold">{formatBudget(lead, t('crm.notSet'))}</span>
           )}
         </div>
         <hr className="rent-divider" style={{ margin: '10px 0' }} />
         <div className="rent-flex rent-flex--between" style={{ alignItems: 'center' }}>
-          <span className="rent-caption rent-text-muted">跟进: {lastFollow || '未跟进'}</span>
-          <div className="rent-avatar rent-avatar--sm" style={{ background: getAgentColor(agent) }} title={agent || '未分配'}>
+          <span className="rent-caption rent-text-muted">{t('crm.followPrefix')}{lastFollow || t('crm.notFollowed')}</span>
+          <div className="rent-avatar rent-avatar--sm" style={{ background: getAgentColor(agent) }} title={agent || t('crm.unassigned')}>
             {getAgentInitial(agent)}
           </div>
         </div>
@@ -530,8 +541,8 @@ const CRM = () => {
       {/* Page Header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">客户管理</h2>
-          <p className="rent-page-header__subtitle">管理客户线索与跟进状态</p>
+          <h2 className="rent-page-header__title">{t('crm.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('crm.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <input
@@ -551,14 +562,14 @@ const CRM = () => {
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            {importing ? '导入中...' : '导入'}
+            {importing ? t('crm.importing') : t('crm.importBtn')}
           </button>
           <button className="rent-btn rent-btn--primary" onClick={openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            新增客户
+            {t('crm.newLead')}
           </button>
         </div>
       </div>
@@ -572,7 +583,7 @@ const CRM = () => {
               <rect x="14" y="3" width="7" height="11" rx="1" />
               <rect x="14" y="18" width="7" height="3" rx="1" />
             </svg>
-            看板视图
+            {t('crm.viewKanban')}
           </span>
         </div>
         <div className="rent-tab" data-active={view === 'list'} onClick={() => setView('list')}>
@@ -585,7 +596,7 @@ const CRM = () => {
               <line x1="3" y1="12" x2="3.01" y2="12" />
               <line x1="3" y1="18" x2="3.01" y2="18" />
             </svg>
-            列表视图
+            {t('crm.viewList')}
           </span>
         </div>
       </div>
@@ -593,7 +604,7 @@ const CRM = () => {
       {loading && (
         <div className="rent-empty">
           <Spin size="small" style={{ marginRight: 8 }} />
-          <span className="rent-text-muted">加载中...</span>
+          <span className="rent-text-muted">{t('common.loading')}</span>
         </div>
       )}
 
@@ -601,7 +612,7 @@ const CRM = () => {
         <>
           {!hasLeads && (
             <div className="rent-empty" style={{ marginBottom: 16 }}>
-              暂无客户线索，点击右上角「新增客户」添加
+              {t('crm.emptyLeads')}
             </div>
           )}
           {/* Kanban Board */}
@@ -628,13 +639,13 @@ const CRM = () => {
             <div className="rent-stat-card">
               <div className="rent-flex rent-flex--between" style={{ alignItems: 'flex-start' }}>
                 <div>
-                  <div className="rent-stat-card__label">线索总数</div>
+                  <div className="rent-stat-card__label">{t('crm.statTotalLeads')}</div>
                   <div className="rent-stat-card__value">{pipelineStats.totalLeads}</div>
                   <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-3)' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    已成交 {pipelineStats.closedCount} 条
+                    {t('crm.closedCount', { count: pipelineStats.closedCount })}
                   </div>
                 </div>
                 <div className="rent-stat-card__icon" style={{ background: 'rgba(20, 184, 166, 0.1)', color: 'var(--rent-primary)' }}>
@@ -647,7 +658,7 @@ const CRM = () => {
             <div className="rent-stat-card">
               <div className="rent-flex rent-flex--between" style={{ alignItems: 'flex-start' }}>
                 <div>
-                  <div className="rent-stat-card__label">转化率</div>
+                  <div className="rent-stat-card__label">{t('crm.statConversion')}</div>
                   <div className="rent-stat-card__value">
                     {pipelineStats.conversionRate}
                     <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>%</span>
@@ -663,7 +674,7 @@ const CRM = () => {
                         <line x1="5" y1="12" x2="19" y2="12" />
                       )}
                     </svg>
-                    转化率 = 已成交 / 线索总数
+                    {t('crm.conversionFormula')}
                   </div>
                 </div>
                 <div className="rent-stat-card__icon" style={{ background: 'rgba(14,165,233,0.1)', color: 'var(--state-info)' }}>
@@ -677,7 +688,7 @@ const CRM = () => {
             <div className="rent-stat-card">
               <div className="rent-flex rent-flex--between" style={{ alignItems: 'flex-start' }}>
                 <div>
-                  <div className="rent-stat-card__label">当前进行中</div>
+                  <div className="rent-stat-card__label">{t('crm.statInProgress')}</div>
                   <div className="rent-stat-card__value">
                     {Math.max(0, pipelineStats.totalLeads - pipelineStats.closedCount)}
                   </div>
@@ -685,7 +696,7 @@ const CRM = () => {
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    含跟进与谈判中
+                    {t('crm.inProgressHint')}
                   </div>
                 </div>
                 <div className="rent-stat-card__icon" style={{ background: 'rgba(22,163,74,0.1)', color: 'var(--state-success)' }}>
@@ -712,8 +723,8 @@ const CRM = () => {
               value={queryParams.stage || ''}
               onChange={(e) => handleStageChange((e.target.value || undefined) as LeadStatus | undefined)}
             >
-              <option value="">全部阶段</option>
-              {STAGE_OPTIONS.map((s) => (
+              <option value="">{t('crm.optAllStages')}</option>
+              {stageOptions.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
@@ -725,7 +736,7 @@ const CRM = () => {
                 </svg>
                 <input
                   type="text"
-                  placeholder="搜索姓名/电话/邮箱"
+                  placeholder={t('crm.searchPlaceholder')}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSearch((e.target as HTMLInputElement).value)
                   }}
@@ -739,13 +750,13 @@ const CRM = () => {
             <table className="rent-table">
               <thead>
                 <tr>
-                  <th>姓名</th>
-                  <th>国籍</th>
-                  <th>联系方式</th>
-                  <th>预算</th>
-                  <th>阶段</th>
-                  <th>分配</th>
-                  <th>操作</th>
+                  <th>{t('crm.thName')}</th>
+                  <th>{t('crm.thNationality')}</th>
+                  <th>{t('crm.thContact')}</th>
+                  <th>{t('crm.labelBudget')}</th>
+                  <th>{t('crm.thStage')}</th>
+                  <th>{t('crm.thAssigned')}</th>
+                  <th>{t('common.action')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -763,33 +774,33 @@ const CRM = () => {
                       <div>{lead.phone || '-'}</div>
                       {lead.email && <div className="rent-text-muted rent-text-sm">{lead.email}</div>}
                     </td>
-                    <td className="rent-num">{formatBudget(lead)}</td>
+                    <td className="rent-num">{formatBudget(lead, t('crm.notSet'))}</td>
                     <td>
                       <span className="rent-badge rent-badge--info">
-                        {stageLabelMap[lead.stage as LeadStatus] || lead.stage}
+                        {stageLabels[lead.stage as LeadStatus] || lead.stage}
                       </span>
                     </td>
                     <td>{lead.assigned_to ? (employeeNameMap[String(lead.assigned_to)] || '—') : '-'}</td>
                     <td>
                       <div className="rent-flex rent-gap-2">
                         <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => handleCall(lead)}>
-                          电话
+                          {t('crm.actCall')}
                         </button>
                         <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => handleChat(lead)}>
-                          发消息
+                          {t('crm.actMessage')}
                         </button>
                         <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openEdit(lead)}>
-                          编辑
+                          {t('common.edit')}
                         </button>
                         <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openEditStage(lead)}>
-                          阶段
+                          {t('crm.thStage')}
                         </button>
                         <button
                           className="rent-btn rent-btn--ghost rent-btn--sm"
                           style={{ color: 'var(--state-error)', borderColor: 'var(--state-error)' }}
                           onClick={() => handleDelete(lead)}
                         >
-                          删除
+                          {t('common.delete')}
                         </button>
                       </div>
                     </td>
@@ -801,10 +812,10 @@ const CRM = () => {
 
           {/* Pagination */}
           <div className="rent-pagination">
-            <span className="rent-pagination__info">共 {total} 条</span>
+            <span className="rent-pagination__info">{t('common.total')} {total} {t('common.items')}</span>
             <button
               className="rent-pagination__btn"
-              aria-label="上一页"
+              aria-label={t('crm.ariaPrev')}
               onClick={() => setQueryParams((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
               disabled={queryParams.page <= 1}
             >
@@ -815,7 +826,7 @@ const CRM = () => {
             <button className="rent-pagination__btn" data-active={true}>{queryParams.page}</button>
             <button
               className="rent-pagination__btn"
-              aria-label="下一页"
+              aria-label={t('crm.ariaNext')}
               onClick={() => setQueryParams((p) => ({ ...p, page: p.page + 1 }))}
               disabled={displayData.length < queryParams.pageSize}
             >
@@ -832,8 +843,8 @@ const CRM = () => {
         <div className="rent-modal-backdrop" onClick={() => setModalOpen(false)}>
           <div className="rent-modal crm-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">{createForm.id ? '编辑线索' : '新增线索'}</h3>
-              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label="关闭" onClick={() => setModalOpen(false)}>
+              <h3 className="rent-card__title">{createForm.id ? t('crm.editLead') : t('crm.newLeadModal')}</h3>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label={t('common.close')} onClick={() => setModalOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -843,64 +854,64 @@ const CRM = () => {
             <div className="rent-modal__body">
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">姓名 *</label>
+                  <label className="rent-form-label">{t('crm.labelName')}</label>
                   <input
                     className="rent-form-input"
                     value={createForm.name}
                     onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
-                    placeholder="请输入姓名"
+                    placeholder={t('crm.phName')}
                   />
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">国籍</label>
+                  <label className="rent-form-label">{t('crm.thNationality')}</label>
                   <input
                     className="rent-form-input"
                     value={createForm.nationality}
                     onChange={(e) => setCreateForm((f) => ({ ...f, nationality: e.target.value }))}
-                    placeholder="请输入国籍"
+                    placeholder={t('crm.phNationality')}
                   />
                 </div>
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">电话 *</label>
+                  <label className="rent-form-label">{t('crm.labelPhone')}</label>
                   <input
                     className="rent-form-input"
                     value={createForm.phone}
                     onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
-                    placeholder="请输入电话"
+                    placeholder={t('crm.phPhone')}
                   />
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">邮箱</label>
+                  <label className="rent-form-label">{t('crm.labelEmail')}</label>
                   <input
                     className="rent-form-input"
                     value={createForm.email}
                     onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                    placeholder="请输入邮箱"
+                    placeholder={t('crm.phEmail')}
                   />
                 </div>
               </div>
               <div className="rent-form-row">
                 <div className="rent-form-group">
-                  <label className="rent-form-label">预算</label>
+                  <label className="rent-form-label">{t('crm.labelBudget')}</label>
                   <input
                     className="rent-form-input"
                     type="number"
                     min={0}
                     value={createForm.budget_max}
                     onChange={(e) => setCreateForm((f) => ({ ...f, budget_max: e.target.value }))}
-                    placeholder="预算"
+                    placeholder={t('crm.labelBudget')}
                   />
                 </div>
                 <div className="rent-form-group">
-                  <label className="rent-form-label">分配给</label>
+                  <label className="rent-form-label">{t('crm.labelAssignedTo')}</label>
                   <select
                     className="rent-form-select"
                     value={createForm.assigned_to}
                     onChange={(e) => setCreateForm((f) => ({ ...f, assigned_to: e.target.value }))}
                   >
-                    <option value="">未分配</option>
+                    <option value="">{t('crm.unassigned')}</option>
                     {employeeOptions.map((e) => (
                       <option key={e.id} value={e.id}>{e.name}</option>
                     ))}
@@ -908,51 +919,51 @@ const CRM = () => {
                 </div>
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">来源</label>
+                <label className="rent-form-label">{t('crm.labelSource')}</label>
                 <input
                   className="rent-form-input"
                   value={createForm.source}
                   onChange={(e) => setCreateForm((f) => ({ ...f, source: e.target.value }))}
-                  placeholder="请输入来源"
+                  placeholder={t('crm.phSource')}
                 />
               </div>
               <div className="rent-form-group">
-                <label className="rent-form-label">阶段</label>
+                <label className="rent-form-label">{t('crm.thStage')}</label>
                 <select
                   className="rent-form-select"
                   value={createForm.stage}
                   onChange={(e) => setCreateForm((f) => ({ ...f, stage: e.target.value as LeadStatus }))}
                 >
-                  {STAGE_OPTIONS.map((s) => (
+                  {stageOptions.map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
               </div>
               <div className="rent-form-group" style={{ marginBottom: 0 }}>
-                <label className="rent-form-label">需求</label>
+                <label className="rent-form-label">{t('crm.labelRequirement')}</label>
                 <textarea
                   className="rent-form-textarea"
                   rows={2}
                   value={createForm.requirement}
                   onChange={(e) => setCreateForm((f) => ({ ...f, requirement: e.target.value }))}
-                  placeholder="请输入客户需求"
+                  placeholder={t('crm.phRequirement')}
                 />
               </div>
               <div className="rent-form-group" style={{ marginBottom: 0 }}>
-                <label className="rent-form-label">备注</label>
+                <label className="rent-form-label">{t('crm.labelNotes')}</label>
                 <textarea
                   className="rent-form-textarea"
                   rows={2}
                   value={createForm.notes}
                   onChange={(e) => setCreateForm((f) => ({ ...f, notes: e.target.value }))}
-                  placeholder="跟进备注 / 补充信息"
+                  placeholder={t('crm.phNotes')}
                 />
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setModalOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</button>
               <button className="rent-btn rent-btn--primary" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? '提交中...' : createForm.id ? '保存' : '确定'}
+                {submitting ? t('common.submitting') : createForm.id ? t('common.save') : t('common.confirm')}
               </button>
             </div>
           </div>
@@ -964,8 +975,8 @@ const CRM = () => {
         <div className="rent-modal-backdrop" onClick={() => setStageModalOpen(false)}>
           <div className="rent-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header">
-              <h3 className="rent-card__title">编辑阶段</h3>
-              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label="关闭" onClick={() => setStageModalOpen(false)}>
+              <h3 className="rent-card__title">{t('crm.editStageTitle')}</h3>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label={t('common.close')} onClick={() => setStageModalOpen(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -974,23 +985,23 @@ const CRM = () => {
             </div>
             <div className="rent-modal__body">
               <div className="rent-form-group" style={{ marginBottom: 0 }}>
-                <label className="rent-form-label">阶段 *</label>
+                <label className="rent-form-label">{t('crm.labelStageRequired')}</label>
                 <select
                   className="rent-form-select"
                   value={stageValue}
                   onChange={(e) => setStageValue(e.target.value as LeadStatus)}
                 >
-                  <option value="">请选择阶段</option>
-                  {STAGE_OPTIONS.map((s) => (
+                  <option value="">{t('crm.msgStageRequired')}</option>
+                  {stageOptions.map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
               </div>
             </div>
             <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setStageModalOpen(false)}>取消</button>
+              <button className="rent-btn rent-btn--secondary" onClick={() => setStageModalOpen(false)}>{t('common.cancel')}</button>
               <button className="rent-btn rent-btn--primary" onClick={handleUpdateStage} disabled={submitting}>
-                {submitting ? '提交中...' : '确定'}
+                {submitting ? t('common.submitting') : t('common.confirm')}
               </button>
             </div>
           </div>

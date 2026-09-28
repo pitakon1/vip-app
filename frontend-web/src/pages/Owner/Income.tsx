@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Spin, Empty, Modal, message } from 'antd'
 import dayjs, { Dayjs } from 'dayjs'
 import {
@@ -70,27 +71,28 @@ const monthKey = (d: string | undefined) => {
 }
 
 // 后端 PaymentStatus：pending/processing/succeeded/failed/refunded/disputed/expired
-const statusBadgeMap: Record<string, { label: string; cls: string }> = {
-  paid: { label: '已收齐', cls: 'rent-badge--success' },
-  succeeded: { label: '已收齐', cls: 'rent-badge--success' },
-  partial: { label: '部分收取', cls: 'rent-badge--warning' },
-  pending: { label: '待收', cls: 'rent-badge--warning' },
-  processing: { label: '处理中', cls: 'rent-badge--info' },
-  unpaid: { label: '未收', cls: 'rent-badge--error' },
-  failed: { label: '未收', cls: 'rent-badge--error' },
-  expired: { label: '已逾期', cls: 'rent-badge--error' },
-  overdue: { label: '已逾期', cls: 'rent-badge--error' },
-  refunded: { label: '已退款', cls: 'rent-badge--neutral' },
-  disputed: { label: '争议中', cls: 'rent-badge--warning' },
+// 状态 -> 徽章样式（文案在组件内按语言解析为 ownerIncome.*）
+const STATUS_BADGE_META: Record<string, { key: string; cls: string }> = {
+  paid: { key: 'ownerIncome.stPaid', cls: 'rent-badge--success' },
+  succeeded: { key: 'ownerIncome.stPaid', cls: 'rent-badge--success' },
+  partial: { key: 'ownerIncome.stPartial', cls: 'rent-badge--warning' },
+  pending: { key: 'ownerIncome.stPending', cls: 'rent-badge--warning' },
+  processing: { key: 'ownerIncome.stProcessing', cls: 'rent-badge--info' },
+  unpaid: { key: 'ownerIncome.stUnpaid', cls: 'rent-badge--error' },
+  failed: { key: 'ownerIncome.stUnpaid', cls: 'rent-badge--error' },
+  expired: { key: 'ownerIncome.stExpired', cls: 'rent-badge--error' },
+  overdue: { key: 'ownerIncome.stExpired', cls: 'rent-badge--error' },
+  refunded: { key: 'ownerIncome.stRefunded', cls: 'rent-badge--neutral' },
+  disputed: { key: 'ownerIncome.stDisputed', cls: 'rent-badge--warning' },
 }
 
-// 筛选面板的状态选项（与明细行状态一致）
-const STATUS_FILTER_OPTIONS: { value: IncomeRow['status'] | 'all'; label: string }[] = [
-  { value: 'all', label: '全部状态' },
-  { value: 'paid', label: '已收齐' },
-  { value: 'partial', label: '部分收取' },
-  { value: 'unpaid', label: '未收' },
-  { value: 'refunded', label: '已退款' },
+// 筛选面板的状态选项（与明细行状态一致，文案在组件内解析）
+const STATUS_FILTER_META: { value: IncomeRow['status'] | 'all'; key: string }[] = [
+  { value: 'all', key: 'ownerIncome.optAllStatus' },
+  { value: 'paid', key: 'ownerIncome.stPaid' },
+  { value: 'partial', key: 'ownerIncome.stPartial' },
+  { value: 'unpaid', key: 'ownerIncome.stUnpaid' },
+  { value: 'refunded', key: 'ownerIncome.stRefunded' },
 ]
 
 // 付款状态 -> 明细行状态
@@ -103,6 +105,7 @@ const rowStatusOf = (status: string): IncomeRow['status'] => {
 }
 
 const Income = () => {
+  const { t } = useTranslation()
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs())
   const [page, setPage] = useState(1)
   const [filterOpen, setFilterOpen] = useState(false)
@@ -111,6 +114,20 @@ const Income = () => {
   const [statusFilter, setStatusFilter] = useState<IncomeRow['status'] | 'all'>('all')
   const [propertyFilter, setPropertyFilter] = useState('all')
   const [exporting, setExporting] = useState(false)
+
+  // 状态徽章文案：按语言解析，未知状态仍回落到原始值（见下方渲染/导出）
+  const statusBadgeMap = useMemo(() => {
+    const map: Record<string, { label: string; cls: string }> = {}
+    Object.entries(STATUS_BADGE_META).forEach(([key, meta]) => {
+      map[key] = { label: t(meta.key), cls: meta.cls }
+    })
+    return map
+  }, [t])
+
+  const statusFilterOptions = useMemo(
+    () => STATUS_FILTER_META.map((o) => ({ value: o.value, label: t(o.key) })),
+    [t],
+  )
 
   const user = useAuthStore((s) => s.user)
   const uid = user?.id ?? 'anon'
@@ -276,7 +293,7 @@ const Income = () => {
         `rent-income-${year}.csv`,
       )
     } catch {
-      message.error('导出失败，请稍后重试')
+      message.error(t('ownerIncome.exportFailed'))
     } finally {
       setExporting(false)
     }
@@ -287,12 +304,22 @@ const Income = () => {
   // 而账单口径是「收入归属月份」（paid_at / due_date），两者对不上。
   const handleDownloadBill = () => {
     if (!tableRows.length) {
-      message.warning('所选月份暂无可下载的账单记录')
+      message.warning(t('ownerIncome.noBillRecords'))
       return
     }
     const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
     const lines = [
-      ['月份', '房产', '租客', '应收', '实收', '差额', '状态'].map(escape).join(','),
+      [
+        t('ownerIncome.thMonth'),
+        t('ownerIncome.thProperty'),
+        t('ownerIncome.thTenant'),
+        t('ownerIncome.csvReceivable'),
+        t('ownerIncome.csvReceived'),
+        t('ownerIncome.csvDiff'),
+        t('common.status'),
+      ]
+        .map(escape)
+        .join(','),
       ...tableRows.map((r) =>
         [
           r.month,
@@ -333,13 +360,13 @@ const Income = () => {
 
   // 趋势图表数据（仅使用真实已收租金，无兜底）
   const trendData = useMemo(() => {
-    const labels = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+    const labels = Array.from({ length: 12 }, (_, i) => t('ownerIncome.monthShort', { n: i + 1 }))
     const data = monthlyTrend.map((b) => b.total)
     return {
       labels,
       datasets: [
         {
-          label: '月度收入 (฿)',
+          label: t('ownerIncome.trendDataset'),
           data,
           backgroundColor: 'rgba(20, 184, 166, 0.85)',
           hoverBackgroundColor: 'rgba(20, 184, 166, 1)',
@@ -348,7 +375,7 @@ const Income = () => {
         },
       ],
     }
-  }, [monthlyTrend])
+  }, [monthlyTrend, t])
 
   const trendOptions = useMemo(
     () => ({
@@ -385,7 +412,7 @@ const Income = () => {
   const propertyIncomeData = useMemo(() => {
     const map = new Map<string, number>()
     payments.forEach((p) => {
-      const key = p.property_name || (p.property_id ? String(p.property_id).slice(0, 8) : '未知')
+      const key = p.property_name || (p.property_id ? String(p.property_id).slice(0, 8) : t('ownerIncome.unknownProperty'))
       map.set(key, (map.get(key) || 0) + Number(p.amount || 0))
     })
     const entries = Array.from(map.entries())
@@ -395,7 +422,7 @@ const Income = () => {
       labels: entries.map((e) => e[0]),
       datasets: [
         {
-          label: '年度收入 (฿)',
+          label: t('ownerIncome.propertyDataset'),
           data: entries.map((e) => e[1]),
           backgroundColor: 'rgba(20, 184, 166, 0.85)',
           hoverBackgroundColor: 'rgba(20, 184, 166, 1)',
@@ -404,7 +431,7 @@ const Income = () => {
         },
       ],
     }
-  }, [payments])
+  }, [payments, t])
 
   const propertyIncomeOptions = useMemo(
     () => ({
@@ -455,15 +482,15 @@ const Income = () => {
       {loading && (
         <div className="owner-loading-bar">
           <Spin size="small" style={{ marginRight: 8 }} />
-          数据加载中…
+          {t('ownerIncome.loadingData')}
         </div>
       )}
 
       {/* Page header */}
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">租金收入</h2>
-          <p className="rent-page-header__subtitle">查看您的房产租金收入、收缴情况与趋势分析</p>
+          <h2 className="rent-page-header__title">{t('ownerIncome.title')}</h2>
+          <p className="rent-page-header__subtitle">{t('ownerIncome.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
           <button
@@ -477,7 +504,7 @@ const Income = () => {
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            {exporting ? '导出中...' : '导出报表'}
+            {exporting ? t('ownerIncome.exporting') : t('ownerIncome.exportReport')}
           </button>
           <button
             type="button"
@@ -490,7 +517,7 @@ const Income = () => {
               <line x1="12" y1="18" x2="12" y2="12" />
               <line x1="9" y1="15" x2="15" y2="15" />
             </svg>
-            下载账单
+            {t('ownerIncome.downloadBill')}
           </button>
         </div>
       </div>
@@ -498,46 +525,46 @@ const Income = () => {
       {/* Summary cards */}
       <div className="rent-grid rent-grid--4 rent-mb-5">
         <div className="rent-stat-card">
-          <div className="rent-stat-card__label">本月收入</div>
+          <div className="rent-stat-card__label">{t('ownerIncome.statMonthly')}</div>
           <div className="rent-stat-card__value">{fmtMoney(monthlyIncomeVal)}</div>
           <div className="rent-stat-card__delta rent-stat-card__delta--up">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="19" x2="12" y2="5" />
               <polyline points="5 12 12 5 19 12" />
             </svg>
-            <span>较上月 +5.2%</span>
+            <span>{t('ownerIncome.deltaVsLastMonth')}</span>
           </div>
         </div>
         <div className="rent-stat-card">
-          <div className="rent-stat-card__label">年度累计</div>
+          <div className="rent-stat-card__label">{t('ownerIncome.statYearly')}</div>
           <div className="rent-stat-card__value">{fmtMoney(yearlyIncomeVal)}</div>
           <div className="rent-stat-card__delta rent-stat-card__delta--up">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="19" x2="12" y2="5" />
               <polyline points="5 12 12 5 19 12" />
             </svg>
-            <span>较去年同期 +12.8%</span>
+            <span>{t('ownerIncome.deltaVsLastYear')}</span>
           </div>
         </div>
         <div className="rent-stat-card">
-          <div className="rent-stat-card__label">平均月租</div>
+          <div className="rent-stat-card__label">{t('ownerIncome.statAvgRent')}</div>
           <div className="rent-stat-card__value">{fmtMoney(avgRentVal)}</div>
           <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-3)' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
-            <span>共 {propertyCount} 套房产</span>
+            <span>{t('ownerIncome.propertiesCount', { count: propertyCount })}</span>
           </div>
         </div>
         <div className="rent-stat-card">
-          <div className="rent-stat-card__label">收缴率</div>
+          <div className="rent-stat-card__label">{t('ownerIncome.statCollectionRate')}</div>
           <div className="rent-stat-card__value">{collectionRate}%</div>
           <div className="rent-stat-card__delta rent-stat-card__delta--up">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            <span>目标 95.0%</span>
+            <span>{t('ownerIncome.targetRate')}</span>
           </div>
         </div>
       </div>
@@ -545,14 +572,14 @@ const Income = () => {
       {/* Monthly income trend chart */}
       <div className="rent-card rent-mb-5">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">月度收入趋势</h3>
+          <h3 className="rent-card__title">{t('ownerIncome.monthlyTrendTitle')}</h3>
           <select
             className="rent-form-select income-year-select"
             value={selectedMonth.format('YYYY')}
             onChange={(e) => setSelectedMonth((prev) => prev.year(Number(e.target.value)))}
           >
             {[dayjs().format('YYYY'), String(Number(dayjs().format('YYYY')) - 1)].map((y) => (
-              <option key={y} value={y}>{y} 年</option>
+              <option key={y} value={y}>{t('ownerIncome.yearLabel', { y })}</option>
             ))}
           </select>
         </div>
@@ -566,7 +593,7 @@ const Income = () => {
       {/* Income detail table */}
       <div className="rent-card rent-mb-5">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">收入明细</h3>
+          <h3 className="rent-card__title">{t('ownerIncome.incomeDetail')}</h3>
           <div className="rent-flex rent-gap-2">
             <select
               className="rent-form-select income-month-select"
@@ -578,12 +605,12 @@ const Income = () => {
               }}
             >
               {[selectedMonth.format('YYYY-MM'), selectedMonth.subtract(1, 'month').format('YYYY-MM')].map((m) => (
-                <option key={m} value={m}>{dayjs(m).format('YYYY 年 M 月')}</option>
+                <option key={m} value={m}>{t('ownerIncome.yearMonthLabel', { y: dayjs(m).format('YYYY'), m: dayjs(m).format('M') })}</option>
               ))}
             </select>
             <button type="button" className="rent-btn rent-btn--secondary rent-btn--sm" onClick={openFilter}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
-              筛选
+              {t('ownerIncome.filterBtn')}
             </button>
           </div>
         </div>
@@ -591,21 +618,21 @@ const Income = () => {
           <table className="rent-table">
             <thead>
               <tr>
-                <th>月份</th>
-                <th>房产</th>
-                <th>租客</th>
-                <th>应收 (฿)</th>
-                <th>实收 (฿)</th>
-                <th>差额 (฿)</th>
-                <th>收缴率</th>
-                <th>状态</th>
+                <th>{t('ownerIncome.thMonth')}</th>
+                <th>{t('ownerIncome.thProperty')}</th>
+                <th>{t('ownerIncome.thTenant')}</th>
+                <th>{t('ownerIncome.thReceivable')}</th>
+                <th>{t('ownerIncome.thReceived')}</th>
+                <th>{t('ownerIncome.thDiff')}</th>
+                <th>{t('ownerIncome.statCollectionRate')}</th>
+                <th>{t('common.status')}</th>
               </tr>
             </thead>
             <tbody>
               {tableRows.length === 0 ? (
                 <tr>
                   <td colSpan={8}>
-                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无收入记录" />
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('ownerIncome.emptyIncome')} />
                   </td>
                 </tr>
               ) : (
@@ -641,13 +668,13 @@ const Income = () => {
         <div className="rent-card__footer">
           <div className="rent-flex rent-flex--between">
             <span className="rent-text-sm rent-text-muted">
-              共 {tableRows.length} 条记录 · 每页 {PAGE_SIZE} 条
+              {t('ownerIncome.recordsInfo', { total: tableRows.length, size: PAGE_SIZE })}
             </span>
             <div className="rent-pagination income-pagination">
               <button
                 type="button"
                 className="rent-pagination__btn"
-                aria-label="上一页"
+                aria-label={t('ownerIncome.ariaPrev')}
                 disabled={safePage <= 1}
                 onClick={() => setPage(Math.max(1, safePage - 1))}
               >
@@ -661,7 +688,7 @@ const Income = () => {
               <button
                 type="button"
                 className="rent-pagination__btn"
-                aria-label="下一页"
+                aria-label={t('ownerIncome.ariaNext')}
                 disabled={safePage >= pageCount}
                 onClick={() => setPage(Math.min(pageCount, safePage + 1))}
               >
@@ -677,8 +704,8 @@ const Income = () => {
       {/* Income by property */}
       <div className="rent-card">
         <div className="rent-card__header">
-          <h3 className="rent-card__title">各房产收入分布</h3>
-          <span className="rent-badge rent-badge--neutral">{selectedMonth.format('YYYY')} 年度累计</span>
+          <h3 className="rent-card__title">{t('ownerIncome.byPropertyTitle')}</h3>
+          <span className="rent-badge rent-badge--neutral">{t('ownerIncome.yearCumulative', { year: selectedMonth.format('YYYY') })}</span>
         </div>
         <div className="rent-card__body">
           <div className="income-chart-box income-chart-box--tall">
@@ -690,45 +717,45 @@ const Income = () => {
       {/* 筛选：状态 / 房产（月份由明细表头的选择器控制） */}
       <Modal
         open={filterOpen}
-        title="筛选收入明细"
-        okText="应用"
-        cancelText="取消"
+        title={t('ownerIncome.filterModalTitle')}
+        okText={t('ownerIncome.apply')}
+        cancelText={t('common.cancel')}
         onOk={applyFilter}
         onCancel={() => setFilterOpen(false)}
         footer={[
           <button key="reset" type="button" className="rent-btn rent-btn--ghost" onClick={resetFilter}>
-            重置
+            {t('ownerIncome.reset')}
           </button>,
           <button key="cancel" type="button" className="rent-btn rent-btn--secondary" onClick={() => setFilterOpen(false)}>
-            取消
+            {t('common.cancel')}
           </button>,
           <button key="ok" type="button" className="rent-btn rent-btn--primary" onClick={applyFilter}>
-            应用
+            {t('ownerIncome.apply')}
           </button>,
         ]}
       >
         <div className="rent-form-group">
-          <label className="rent-form-label" htmlFor="income-filter-status">收款状态</label>
+          <label className="rent-form-label" htmlFor="income-filter-status">{t('ownerIncome.labelPayStatus')}</label>
           <select
             id="income-filter-status"
             className="rent-form-select"
             value={draftStatus}
             onChange={(e) => setDraftStatus(e.target.value as IncomeRow['status'] | 'all')}
           >
-            {STATUS_FILTER_OPTIONS.map((o) => (
+            {statusFilterOptions.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
         </div>
         <div className="rent-form-group">
-          <label className="rent-form-label" htmlFor="income-filter-property">房产</label>
+          <label className="rent-form-label" htmlFor="income-filter-property">{t('ownerIncome.thProperty')}</label>
           <select
             id="income-filter-property"
             className="rent-form-select"
             value={draftProperty}
             onChange={(e) => setDraftProperty(e.target.value)}
           >
-            <option value="all">全部房产</option>
+            <option value="all">{t('ownerIncome.optAllProperties')}</option>
             {propertyOptions.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}

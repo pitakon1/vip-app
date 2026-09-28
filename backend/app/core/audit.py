@@ -1,4 +1,5 @@
 """PDPA 审计日志记录器"""
+import uuid
 from typing import Optional
 from sqlmodel import Session
 import structlog
@@ -7,7 +8,7 @@ logger = structlog.get_logger()
 
 def log_audit(
     session: Session,
-    actor_user_id: str,
+    actor_user_id: Optional[uuid.UUID],
     action: str,
     resource_type: str,
     resource_id: str,
@@ -16,10 +17,13 @@ def log_audit(
     user_agent: Optional[str] = None,
     request_id: Optional[str] = None,
 ):
-    """记录数据访问审计日志（PDPA §27 合规）"""
+    """记录数据访问审计日志（PDPA §27 合规）
+
+    actor_user_id 必须是 uuid.UUID（AuditLog.actor_user_id 为 UUID 列，
+    传 str 会在 flush 时报 `'str' object has no attribute 'hex'`）。
+    """
     from ..models.pdpa import AuditLog
-    import uuid
-    
+
     log_entry = AuditLog(
         id=uuid.uuid4(),
         actor_user_id=actor_user_id,

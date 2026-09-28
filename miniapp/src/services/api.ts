@@ -260,7 +260,37 @@ export const attendanceApi = {
   createExternalTrip: (data: any) => request({ url: '/attendance/external-trips', method: 'POST', data }),
   // 审批外勤申请：后端 payload {action: approved|rejected, reply_note?}
   approveExternalTrip: (id: string, data?: { action?: 'approved' | 'rejected'; reply_note?: string }) =>
-    request({ url: `/attendance/external-trips/${id}/approve`, method: 'POST', data: data ?? {} })
+    request({ url: `/attendance/external-trips/${id}/approve`, method: 'POST', data: data ?? {} }),
+
+  // ===== 对齐 Web 端 attendanceApi：管理端考勤核对 / 考勤组 / 假勤 / 异常报表 =====
+  // 管理端考勤核对（P0）：全员明细 + 单员工校准（改状态 / 补上下班时间 / 备注）
+  adminRecords: (params?: any) => request({ url: `/attendance/admin/records${qs(params)}`, method: 'GET' }),
+  // day 为空（补录）时必须带 status；check_in_time/check_out_time 为 `YYYY-MM-DDTHH:mm:00`
+  calibrate: (employeeId: string, data: any) =>
+    request({ url: `/attendance/admin/records/${employeeId}`, method: 'PATCH', data }),
+  // 考勤组（P1-a）：多办公点 / 多班次规则与成员分配
+  groups: () => request({ url: '/attendance/groups', method: 'GET' }),
+  createGroup: (data: any) => request({ url: '/attendance/groups', method: 'POST', data }),
+  updateGroup: (id: string, data: any) =>
+    request({ url: `/attendance/groups/${id}`, method: 'PATCH', data }),
+  deleteGroup: (id: string) => request({ url: `/attendance/groups/${id}`, method: 'DELETE' }),
+  groupMembers: (id: string) => request({ url: `/attendance/groups/${id}/members`, method: 'GET' }),
+  assignGroupMembers: (id: string, data: { employee_ids: string[] }) =>
+    request({ url: `/attendance/groups/${id}/members`, method: 'POST', data }),
+  removeGroupMember: (id: string, employeeId: string) =>
+    request({ url: `/attendance/groups/${id}/members/${employeeId}`, method: 'DELETE' }),
+  // 我的生效规则（考勤组 or 全局兜底），员工侧
+  myRule: () => request({ url: '/attendance/groups/me/rules', method: 'GET' }),
+  // 假勤（P1-b）：申请 / 审批 / 撤销
+  leaveRequests: (params?: any) =>
+    request({ url: `/attendance/leave-requests${qs(params)}`, method: 'GET' }),
+  applyLeave: (data: any) => request({ url: '/attendance/leave-requests', method: 'POST', data }),
+  approveLeave: (id: string, data: { action: 'approved' | 'rejected'; reply_note?: string | null }) =>
+    request({ url: `/attendance/leave-requests/${id}/approve`, method: 'POST', data }),
+  cancelLeave: (id: string) =>
+    request({ url: `/attendance/leave-requests/${id}/cancel`, method: 'POST' }),
+  // 异常分类统计与趋势（P1-c）
+  summary: (params?: any) => request({ url: `/attendance/admin/summary${qs(params)}`, method: 'GET' })
 }
 
 export const chatApi = {
@@ -307,7 +337,7 @@ export const commissionsApi = {
   mine: (params?: any) => request({ url: `/commissions/me${qs(params)}`, method: 'GET' })
 }
 
-// ============ 买卖交易闭环（挂牌 / 成交 / 托管 / 按揭） ============
+// ============ 买卖交易闭环（挂牌 / 成交 / 托管） ============
 export const saleListingApi = {
   list: (params?: any) => request({ url: `/sale-listings${qs(params)}`, method: 'GET' }),
   valuations: (id: string) => request({ url: `/sale-listings/${id}/valuations`, method: 'GET' })

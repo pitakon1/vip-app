@@ -114,6 +114,15 @@ class Settings(BaseSettings):
     # 考勤基准地址（公司/办公点），由管理员在 /geo/geocode 定位后写入
     ATTENDANCE_OFFICE_LAT: float = 13.7563  # 曼谷默认
     ATTENDANCE_OFFICE_LNG: float = 100.5018
+    # 7.1) 考勤时间基准：判定迟到 / 早退，以及「考勤日」归属。
+    #      时刻一律按「考勤时区」理解（ATTENDANCE_UTC_OFFSET_HOURS），不随服务器本地
+    #      时区漂移：考勤日 = UTC 时刻 + 偏移后的自然日；迟到分界 = 上班时间 + 宽限，
+    #      早退分界 = 下班时间 − 宽限。下班时间早于上班时间时按跨天班次处理。
+    ATTENDANCE_UTC_OFFSET_HOURS: float = 7.0  # 考勤时区偏移（曼谷 UTC+7）
+    ATTENDANCE_WORK_START: str = "09:00"  # 上班时间 "HH:MM"
+    ATTENDANCE_WORK_END: str = "18:00"  # 下班时间 "HH:MM"
+    ATTENDANCE_LATE_GRACE_MINUTES: int = 0  # 迟到宽限（分钟）
+    ATTENDANCE_EARLY_GRACE_MINUTES: int = 0  # 早退宽限（分钟）
 
     # 8) 逾期滞纳金：待缴租金单逾期后按日计提，宽限期内不计提，且有封顶。
     LATE_FEE_ENABLED: bool = True

@@ -42,7 +42,7 @@ export default {
     // 管理端后台：全部低频，独立分包
     {
       root: 'pages/admin',
-      pages: ['home/index', 'properties/index', 'property-detail/index', 'crm/index', 'payments/index', 'leases/index', 'accounts/index', 'permissions/index', 'commission-rules/index', 'review-center/index']
+      pages: ['home/index', 'properties/index', 'property-detail/index', 'crm/index', 'payments/index', 'leases/index', 'accounts/index', 'permissions/index', 'commission-rules/index', 'review-center/index', 'attendance-manage/index']
     },
     // 内部/渠道上架作业
     {

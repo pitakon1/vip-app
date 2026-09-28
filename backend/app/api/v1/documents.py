@@ -394,6 +394,10 @@ def download_document(
 ):
     """下载文档（附带文件名，浏览器按附件处理）。
 
+    调用方：Web 业主端文档页的「下载」按钮（`Owner/Documents.tsx` 用
+    `/documents/{id}/${download ? 'download' : 'file'}` 动态拼接）；
+    孤儿扫描把它列为"疑似动态拼接"，实为在用，不要删。
+
     此前实现是 `RedirectResponse(url=doc.file_url)`，而 file_url 曾被允许由调用方
     任意指定，等于把正规域名出借给外部钓鱼链接做开放重定向；现在一律由服务端
     解析磁盘路径后流式回传，重定向面彻底移除。

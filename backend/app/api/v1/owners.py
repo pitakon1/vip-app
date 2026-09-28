@@ -31,13 +31,6 @@ from app.schemas.owners import AnnualFinancialSummaryOut, OwnerIncomeOut
 router = APIRouter(prefix="/owners", tags=["owners"])
 
 
-class OwnerUpdate(BaseModel):
-    nationality: Optional[str] = None
-    tax_id: Optional[str] = None
-    address: Optional[str] = None
-    contact_preference: Optional[str] = None
-
-
 class MarketingItemOut(BaseModel):
     """`GET /owners/me/marketing` 中的单条可推广房源。"""
 
@@ -121,39 +114,6 @@ def _get_owner(session: Session, user: User) -> Owner:
     ).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner profile not found")
-    return owner
-
-
-@router.get("/me", response_model=Owner)
-def get_my_owner_info(
-    session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
-):
-    """业主个人信息。
-
-    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：业主档案在业主角色
-    首次访问时自动建档（_get_owner），三端都没有「我的资料」页；下面 PATCH 同因。
-    """
-    return _get_owner(session, user)
-
-
-@router.patch("/me")
-def update_my_owner_info(
-    req: OwnerUpdate,
-    session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
-):
-    """更新业主个人信息。
-
-    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：同 GET /owners/me。
-    """
-    owner = _get_owner(session, user)
-    update_data = req.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(owner, key, value)
-    session.add(owner)
-    session.commit()
-    session.refresh(owner)
     return owner
 
 

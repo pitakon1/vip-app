@@ -1,7 +1,7 @@
-"""工单审核中心 API（管理员统一汇聚待办：外勤/报修/服务订单/合同）。
+"""工单审核中心 API（管理员统一汇聚待办：外勤/请假/报修/服务订单/合同）。
 
-审核动作复用各业务既有端点（外勤 approve、报修 PATCH、服务订单 PATCH、合同流转），
-本模块只做聚合查询，便于管理端"待办审核中心"一屏查看。
+审核动作复用各业务既有端点（外勤 approve、请假 approve、报修 PATCH、服务订单 PATCH、
+合同流转），本模块只做聚合查询，便于管理端"待办审核中心"一屏查看。
 """
 from typing import List, Optional
 
@@ -16,6 +16,8 @@ from app.models import (
     ContractStatus,
     Employee,
     ExternalTripApplication,
+    LeaveRequest,
+    LeaveStatus,
     MaintenanceTicket,
     Property,
     ServiceOrder,
@@ -68,6 +70,7 @@ _CONTRACT_PENDING = [
     ContractStatus.sent,
     ContractStatus.partially_signed,
 ]
+_LEAVE_PENDING = [LeaveStatus.pending]
 
 
 @router.get("/todos", response_model=ReviewTodoListOut)
@@ -76,6 +79,7 @@ def review_todos(
     user: User = Depends(
         require_permission(
             "review:trip",
+            "review:leave",
             "review:maintenance",
             "review:service",
             "review:contract",
@@ -119,9 +123,18 @@ def review_todos(
         .order_by(desc(Contract.created_at))
         .limit(30)
     ).all()
+    leaves = session.exec(
+        select(LeaveRequest)
+        .where(
+            LeaveRequest.deleted_at.is_(None),
+            LeaveRequest.status.in_(_LEAVE_PENDING),
+        )
+        .order_by(desc(LeaveRequest.created_at))
+        .limit(30)
+    ).all()
 
     # 申请人/房源显示名缓存
-    trip_emp_ids = [t.employee_id for t in trips]
+    trip_emp_ids = [t.employee_id for t in trips] + [l.employee_id for l in leaves]
     employees = {
         e.id: e
         for e in session.exec(
@@ -130,12 +143,17 @@ def review_todos(
             )
         ).all()
     }
-    # 只查列表实际会用到 user 的 id：外勤的申请人 + 服务订单的下单人
+    # 只查列表实际会用到 user 的 id：外勤/请假的申请人 + 服务订单的下单人
     used_user_ids = {
         emp.user_id
         for t in trips
         if (emp := employees.get(t.employee_id)) and emp.user_id
     }
+    used_user_ids.update(
+        emp.user_id
+        for l in leaves
+        if (emp := employees.get(l.employee_id)) and emp.user_id
+    )
     used_user_ids.update(o.orderer_id for o in orders if o.orderer_id)
     users = {
         u.id: u
@@ -216,9 +234,29 @@ def review_todos(
             }
         )
 
+    for leave in leaves:
+        emp = employees.get(leave.employee_id)
+        applicant = users.get(emp.user_id).full_name if emp and emp.user_id in users else "员工"
+        items.append(
+            {
+                "type": "leave",
+                "id": str(leave.id),
+                "title": (
+                    f"请假申请 · {leave.leave_type.value} · "
+                    f"{leave.start_date.isoformat()} ~ {leave.end_date.isoformat()} · "
+                    f"{leave.days} 天"
+                ),
+                "applicant": applicant,
+                "reason": leave.reason,
+                "status": leave.status.value,
+                "created_at": leave.created_at.isoformat() if leave.created_at else None,
+            }
+        )
+
     items.sort(key=lambda x: x["created_at"] or "", reverse=True)
     summary = {
         "trip": len(trips),
+        "leave": len(leaves),
         "maintenance": len(tickets),
         "service": len(orders),
         "contract": len(contracts),
@@ -229,6 +267,7 @@ def review_todos(
         "items": items,
         "review_endpoints": {
             "trip": "POST /api/v1/attendance/external-trips/{id}/approve",
+            "leave": "POST /api/v1/attendance/leave-requests/{id}/approve",
             "maintenance": "PATCH /api/v1/maintenance-tickets/{id}",
             "service": "PATCH /api/v1/service-orders/{id}/status",
             "contract": "PATCH /api/v1/contracts/{id}",

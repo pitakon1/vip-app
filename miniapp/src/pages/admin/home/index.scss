@@ -15,6 +15,30 @@
   padding: 24rpx 24rpx 0;
 }
 
+/* 部分区块加载失败的提示条（可点重试） */
+.adm-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+  padding: 20rpx 24rpx;
+  background: rgba(var(--error-rgb), 0.1);
+  border-radius: var(--radius-md);
+  border-left: 6rpx solid var(--error);
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--error);
+  }
+
+  &__action {
+    font-size: 26rpx;
+    color: var(--error);
+    font-weight: 600;
+  }
+}
+
 /* ===== 1. 风险预警 ===== */
 .adm-risks {
   display: flex;

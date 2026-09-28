@@ -87,8 +87,9 @@ interface SettingItem {
 }
 
 const APP_COMPANY = 'HaoFang.World';
-// 兜底版本号：真实版本从公开接口 GET /company/info 读取（避免改了后端这里还是旧值）
-const APP_VERSION_FALLBACK = 'v2.4.1';
+// 版本号只认公开接口 GET /company/info 的真实值（与小程序 profile 写法一致）：
+// 取不到就留空、由调用处不渲染，不再回落到写死的 'v2.4.1'——那个值与后端版本
+// 及 app.json 的 0.1.0 都不符，等于对外报一个不存在的版本号。
 
 // C 端（业主+租客）统一「常用功能」宫格：把业主与租客的全部入口放进同一个宫格。
 // 宫格对所有人完全一致，不按角色隐藏；点开无该能力的项时进入「功能暂未开放」空态页。
@@ -158,7 +159,7 @@ export default function ProfileScreen() {
           setAppInfo({ name: info.name, version: info.version });
         })
         .catch(() => {
-          /* 读取失败保留兜底文案 */
+          /* 读取失败则不显示版本号，不伪造版本 */
         });
       if (user) {
         authApi
@@ -234,8 +235,8 @@ export default function ProfileScreen() {
   };
 
   const currentLang = LANG_LABELS[lang];
-  // 公司名/版本走公开接口的实时值，取不到才用兜底常量
-  const versionLabel = appInfo.version ? `v${appInfo.version}` : APP_VERSION_FALLBACK;
+  // 公司名走公开接口实时值；版本号取不到时留空串，调用处据此不渲染（不报假版本）
+  const versionLabel = appInfo.version ? `v${appInfo.version}` : '';
   const companyLabel = appInfo.name || APP_COMPANY;
   // 个人通知偏好摘要（真实值：邮件/推送；原写死的「邮件 · 短信 · 推送」并无短信项）
   const notifySummary =
@@ -280,6 +281,7 @@ export default function ProfileScreen() {
     },
   ];
   const adminBusinessItems: SettingItem[] = [
+    { key: 'attendance', icon: 'time-outline', label: t('profile.attendanceManage'), color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), route: 'AttendanceManage' },
     { key: 'commission', icon: 'settings', label: t('profile.commissionSettings'), color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), route: 'CommissionRules' },
     { key: 'rent-reminder', icon: 'calendar', label: t('profile.rentReminderDays'), value: t('profile.daysAgo', { n: business?.rent_reminder_days ?? 7 }), color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), route: 'AdminBusinessSettings' },
     { key: 'lease-reminder', icon: 'document-text', label: t('profile.leaseReminder'), value: t('profile.daysAgo', { n: business?.lease_reminder_days ?? 30 }), color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), route: 'AdminBusinessSettings' },
@@ -345,7 +347,7 @@ export default function ProfileScreen() {
       key: 'about',
       icon: 'information-circle',
       label: t('profile.about'),
-      value: `${companyLabel} ${versionLabel}`,
+      value: versionLabel ? `${companyLabel} ${versionLabel}` : companyLabel,
       color: colors.ink2,
       bg: colors.surface2,
     },
@@ -831,7 +833,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       )}
 
-      {isAdmin && <Text style={styles.footerText}>{`${companyLabel} ${t('profile.adminConsole')} · ${versionLabel}`}</Text>}
+      {isAdmin && <Text style={styles.footerText}>{`${companyLabel} ${t('profile.adminConsole')}`}{versionLabel ? ` · ${versionLabel}` : ''}</Text>}
     </ScrollView>
   );
 }

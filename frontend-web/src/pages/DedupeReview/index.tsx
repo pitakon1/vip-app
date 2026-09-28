@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Spin, Empty, Modal, Input } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { dedupeApi } from '@/services/api'
@@ -17,9 +17,6 @@ interface DedupeReview {
   created_at: string | null
 }
 
-const MATCH_TYPE_LABEL: Record<string, string> = { exact: '强命中', fuzzy: '相似命中' }
-const STATUS_LABEL: Record<string, string> = { pending: '待审核', merged: '已合并', dismissed: '已驳回' }
-
 const DedupeReview = () => {
   const { t } = useTranslation()
   const [items, setItems] = useState<DedupeReview[]>([])
@@ -32,6 +29,16 @@ const DedupeReview = () => {
   const [modalMode, setModalMode] = useState<'merge' | 'dismiss' | null>(null)
   const pageSize = 10
 
+  // 命中类型 / 状态文案（依赖 i18n，故放在组件内）
+  const matchTypeLabel = useMemo<Record<string, string>>(
+    () => ({ exact: t('dedupeReview.matchExact'), fuzzy: t('dedupeReview.matchFuzzy') }),
+    [t],
+  )
+  const statusLabel = useMemo<Record<string, string>>(
+    () => ({ pending: t('dedupeReview.stPending'), merged: t('dedupeReview.stMerged'), dismissed: t('dedupeReview.stDismissed') }),
+    [t],
+  )
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
@@ -40,7 +47,7 @@ const DedupeReview = () => {
       setItems(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '获取去重审核列表失败')
+      message.error(err?.response?.data?.detail || t('dedupeReview.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -61,15 +68,15 @@ const DedupeReview = () => {
     try {
       if (modalMode === 'merge') {
         await dedupeApi.merge(current.id, note || undefined)
-        message.success('已确认合并，候选上架单已停用')
+        message.success(t('dedupeReview.mergeOk'))
       } else {
         await dedupeApi.dismiss(current.id, note || undefined)
-        message.success('已驳回（判为非重复），继续审核')
+        message.success(t('dedupeReview.dismissOk'))
       }
       setModalMode(null)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || '操作失败')
+      message.error(err?.response?.data?.detail || t('dedupeReview.actionFailed'))
     }
   }
 
@@ -77,32 +84,32 @@ const DedupeReview = () => {
     <div className="rent-main">
       <div className="rent-page-header">
         <div>
-          <h2 className="rent-page-header__title">去重审核队列</h2>
-          <p className="rent-page-header__subtitle">人工比对疑似重复房源，「合并」或「驳回（非重复）」</p>
+          <h2 className="rent-page-header__title">{t('menu.dedupeReview')}</h2>
+          <p className="rent-page-header__subtitle">{t('dedupeReview.subtitle')}</p>
         </div>
       </div>
 
       <div className="rent-filter-bar">
         <select className="rent-form-select" style={{ width: 'auto', minWidth: 130 }} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
-          <option value="">全部状态</option>
-          {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          <option value="">{t('dedupeReview.allStatus')}</option>
+          {Object.entries(statusLabel).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
 
       {loading ? (
-        <div className="rent-empty"><Spin size="small" style={{ marginRight: 8 }} /><span className="rent-text-muted">加载中...</span></div>
+        <div className="rent-empty"><Spin size="small" style={{ marginRight: 8 }} /><span className="rent-text-muted">{t('common.loading')}</span></div>
       ) : (
         <div className="rent-table-wrap">
           <table className="rent-table">
             <thead>
               <tr>
-                <th>候选房源</th>
-                <th>匹配房源</th>
-                <th>匹配键（地址/房号归一化）</th>
-                <th>命中类型</th>
-                <th>相似度</th>
-                <th>状态</th>
-                <th>操作</th>
+                <th>{t('dedupeReview.colCandidate')}</th>
+                <th>{t('dedupeReview.colMatched')}</th>
+                <th>{t('dedupeReview.colMatchKey')}</th>
+                <th>{t('dedupeReview.colMatchType')}</th>
+                <th>{t('dedupeReview.colScore')}</th>
+                <th>{t('common.status')}</th>
+                <th>{t('common.action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -110,26 +117,26 @@ const DedupeReview = () => {
               {items.map((r) => (
                 <tr key={r.id}>
                   <td>
-                    <div className="rent-text-bold">上架单 {r.candidate_listing_id?.slice(0, 8) ?? '-'}</div>
-                    <div className="rent-text-sm rent-text-muted">档案 {r.candidate_property_id?.slice(0, 8) ?? '-'}</div>
+                    <div className="rent-text-bold">{t('dedupeReview.listingShort')} {r.candidate_listing_id?.slice(0, 8) ?? '-'}</div>
+                    <div className="rent-text-sm rent-text-muted">{t('dedupeReview.fileShort')} {r.candidate_property_id?.slice(0, 8) ?? '-'}</div>
                   </td>
                   <td>
-                    <div className="rent-text-bold">档案 {r.matched_property_id?.slice(0, 8) ?? '-'}</div>
-                    {r.matched_listing_id && <div className="rent-text-sm rent-text-muted">上架单 {r.matched_listing_id.slice(0, 8)}</div>}
+                    <div className="rent-text-bold">{t('dedupeReview.fileShort')} {r.matched_property_id?.slice(0, 8) ?? '-'}</div>
+                    {r.matched_listing_id && <div className="rent-text-sm rent-text-muted">{t('dedupeReview.listingShort')} {r.matched_listing_id.slice(0, 8)}</div>}
                   </td>
                   <td><code className="rent-text-sm">{r.match_key || '-'}</code></td>
-                  <td><span className="rent-badge rent-badge--warning">{MATCH_TYPE_LABEL[r.match_type || ''] || r.match_type || '-'}</span></td>
+                  <td><span className="rent-badge rent-badge--warning">{matchTypeLabel[r.match_type || ''] || r.match_type || '-'}</span></td>
                   <td>
                     <span className="rent-text-bold" style={{ color: Number(r.score) >= 0.8 ? 'var(--state-error)' : Number(r.score) >= 0.6 ? 'var(--state-warning)' : undefined }}>
                       {Math.round(Number(r.score || 0) * 100)}%
                     </span>
                   </td>
-                  <td><span className="rent-badge rent-badge--neutral">{STATUS_LABEL[r.status || ''] || r.status}</span></td>
+                  <td><span className="rent-badge rent-badge--neutral">{statusLabel[r.status || ''] || r.status}</span></td>
                   <td>
                     {r.status === 'pending' ? (
                       <div className="rent-flex rent-gap-2">
-                        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => openAction(r, 'merge')}>确认合并</button>
-                        <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openAction(r, 'dismiss')}>驳回</button>
+                        <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => openAction(r, 'merge')}>{t('dedupeReview.btnMerge')}</button>
+                        <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openAction(r, 'dismiss')}>{t('dedupeReview.btnDismiss')}</button>
                       </div>
                     ) : <span className="rent-text-muted">—</span>}
                   </td>
@@ -141,7 +148,7 @@ const DedupeReview = () => {
       )}
 
       <div className="rent-pagination">
-        <span className="rent-pagination__info">共 {total.toLocaleString()} 条</span>
+        <span className="rent-pagination__info">{t('common.total')} {total.toLocaleString()} {t('common.items')}</span>
         <button className="rent-pagination__btn" aria-label={t('dedupeReview.prevPage')} disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</button>
         <span className="rent-pagination__info">{page} / {totalPages}</span>
         <button className="rent-pagination__btn" aria-label={t('dedupeReview.nextPage')} disabled={page >= totalPages} onClick={() => setPage(page + 1)}>›</button>
@@ -151,16 +158,16 @@ const DedupeReview = () => {
         open={!!modalMode}
         onCancel={() => setModalMode(null)}
         onOk={handleAction}
-        okText={modalMode === 'merge' ? '确认合并' : '确认驳回'}
-        cancelText="取消"
-        title={modalMode === 'merge' ? '确认合并（判重复）' : '驳回（判非重复）'}
+        okText={modalMode === 'merge' ? t('dedupeReview.btnMerge') : t('dedupeReview.btnReject')}
+        cancelText={t('common.cancel')}
+        title={modalMode === 'merge' ? t('dedupeReview.titleMerge') : t('dedupeReview.titleDismiss')}
       >
         {current && (
           <div>
-            <p>候选：{current.candidate_listing_id?.slice(0, 8)} ↔ 匹配：{current.matched_property_id?.slice(0, 8)} · 相似度 {Math.round(Number(current.score || 0) * 100)}%</p>
-            <p>匹配键：<code>{current.match_key || '-'}</code></p>
+            <p>{t('dedupeReview.compareLine', { cand: current.candidate_listing_id?.slice(0, 8), matched: current.matched_property_id?.slice(0, 8), score: Math.round(Number(current.score || 0) * 100) })}</p>
+            <p>{t('dedupeReview.matchKeyLabel')}<code>{current.match_key || '-'}</code></p>
             <div className="rent-form-group" style={{ marginTop: 12 }}>
-              <label className="rent-form-label">备注（可选）</label>
+              <label className="rent-form-label">{t('dedupeReview.noteLabel')}</label>
               <Input.TextArea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('dedupeReview.notePlaceholder')} />
             </div>
           </div>

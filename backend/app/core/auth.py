@@ -124,7 +124,6 @@ require_admin = require_role(UserRole.admin)
 require_agent = require_role(UserRole.admin, UserRole.agent)
 require_employee = require_role(UserRole.admin, UserRole.agent, UserRole.employee)
 require_owner = require_role(UserRole.admin, UserRole.owner)
-require_tenant = require_role(UserRole.admin, UserRole.tenant)
 
 # 内部员工角色元组（可看全量数据）；多个路由各自复制过一份，统一从这里取
 STAFF_ROLES = (UserRole.admin, UserRole.agent, UserRole.employee)

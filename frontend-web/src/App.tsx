@@ -75,6 +75,9 @@ const EmployeeAttendance = lazy(() => import('@/pages/Employee/Attendance'))
 const EmployeePerformance = lazy(() => import('@/pages/Employee/Performance'))
 const EmployeeContacts = lazy(() => import('@/pages/Employee/Contacts'))
 
+// 管理端考勤管理（P0 考勤核对 + P1 考勤组/假勤审批/异常报表）
+const AttendanceManage = lazy(() => import('@/pages/AttendanceManage'))
+
 // 系统管理（账号权限体系）
 const SystemUsers = lazy(() => import('@/pages/System/Users'))
 const SystemGroups = lazy(() => import('@/pages/System/Groups'))
@@ -193,6 +196,8 @@ const App = () => {
             <Route path="/system/permissions" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><SystemPermissions /></ProtectedRoute>} />
             <Route path="/system/review-center" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><SystemReview /></ProtectedRoute>} />
             <Route path="/operations" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><Operations /></ProtectedRoute>} />
+            {/* 考勤管理：仅管理员（考勤核对 / 考勤组 / 假勤审批 / 异常报表） */}
+            <Route path="/attendance-manage" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><AttendanceManage /></ProtectedRoute>} />
 
             {/* 房源上架 / 我的上架单 / 经纪人在线签约（经纪人/业主/员工） */}
             <Route path="/publish-listing" element={<ProtectedRoute denyRoles={['tenant']}><PublishListing /></ProtectedRoute>} />

@@ -7,6 +7,7 @@ import api from '@/lib/api'
 import { translateApi, documentsApi } from '@/services/api'
 import { useCachedQuery } from '@/lib/queryCache'
 import { formatMoney } from '@/lib/money'
+import { usePropertyStatusMap, usePropertyTypeMap } from '@/lib/enumLabels'
 import './PropertyDetail.css'
 
 interface PropertyDetail {
@@ -85,23 +86,10 @@ const PropertyDetail = () => {
   // ---- 枚举 → 文案：一律走 i18n ----
   // 此前 propertyType / propertyStatus / orientation / decoration 四组都是模块级
   // 硬编码中文常量，EN/TH 环境进入详情页会整屏漏翻（同文件其它文案早已接了 t()）。
-  // 放到组件内经 useMemo 计算，语言切换时才会跟着刷新。
-  const propertyTypeMap = useMemo<Record<string, string>>(() => ({
-    apartment: t('propertyType.apartment'),
-    condo: t('propertyType.condo'),
-    villa: t('propertyType.villa'),
-    house: t('propertyType.house'),
-    shop: t('propertyType.shop'),
-    commercial: t('propertyType.commercial'),
-    office: t('propertyType.office'),
-  }), [t])
+  // 映射表统一收敛到 lib/enumLabels，语言切换时 useMemo 会跟着刷新。
+  const propertyTypeMap = usePropertyTypeMap()
 
-  const statusLabelMap = useMemo<Record<string, string>>(() => ({
-    vacant: t('propertyStatus.vacant'),
-    rented: t('propertyStatus.rented'),
-    reserved: t('propertyStatus.reserved'),
-    maintenance: t('propertyStatus.maintenance'),
-  }), [t])
+  const statusLabelMap = usePropertyStatusMap()
 
   const leaseStatusMap = useMemo<Record<string, string>>(() => ({
     active: t('leaseStatus.active'),
