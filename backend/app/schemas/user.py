@@ -24,6 +24,9 @@ class UserAdminOut(BaseModel):
     phone: Optional[str] = None
     full_name: str
     role: str
+    user_type: Optional[str] = None
+    partner_id: Optional[str] = None
+    partner_name: Optional[str] = None
     is_active: bool
     is_verified: bool
     last_login_at: Optional[str] = None

@@ -21,6 +21,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
+import { HomeIcon, goMainHome } from '@/components/BeikeHeader';
 import { publicApi, type PublicSchoolDetail } from '@/services/publicApi';
 import {
   curriculumLabel,
@@ -176,6 +177,13 @@ export default function PublicSchoolDetailScreen() {
       >
         <Ionicons name="chevron-back" size={22} color={colors.ink} />
       </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.floatHome, { top: insets.top + 8 }]}
+        onPress={() => goMainHome(navigation)}
+        accessibilityLabel={t('tab.home')}
+      >
+        <HomeIcon size={18} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -230,6 +238,17 @@ const styles = StyleSheet.create({
   floatBack: {
     position: 'absolute',
     left: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...colors.shadow.sm,
+  },
+  floatHome: {
+    position: 'absolute',
+    right: 16,
     width: 36,
     height: 36,
     borderRadius: 18,

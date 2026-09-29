@@ -20,7 +20,9 @@ from app.core.concurrency import ensure_version
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate, paginate_query
 from app.models import (
+    CommissionRole,
     CommissionSettlement,
+    CommissionSplitRule,
     DealType,
     Employee,
     Lease,
@@ -56,12 +58,17 @@ def _resolve_agent(
     return employee.id if employee else None
 
 
-def _create_commission_settlement(
+def _create_commission_settlements(
     session: Session, lease: Lease, deal_type: DealType, agent_id: uuid.UUID
 ) -> None:
-    """系统自动核算业绩：按差异化佣金规则解析费率并生成结算记录。
+    """系统自动核算业绩：按差异化佣金规则解析总费率，再按分佣规则拆成多条结算。
 
-    优先级：员工专属 > 部门 > 分销商 > 全局 > 分销商基础分成 > 默认 1 个月租金。
+    佣金总额 = 月租 × (费率/100)。分佣规则（CommissionSplitRule）按
+    「成交类型 + 角色」定义比例；未配置规则时，整笔佣金落后经办（listing_agent）
+    一人（split_percent=100），与旧行为一致。已配置时按各角色分成比例切开，
+    listing_agent 记到员工、partner_company 记到合作公司。
+
+    费率优先级：员工专属 > 部门 > 分销商 > 全局 > 分销商基础分成 > 默认 1 个月租金。
     """
     from app.services.commission_rates import (
         get_broker_base_rate,
@@ -83,18 +90,66 @@ def _create_commission_settlement(
     # rate 统一为百分比 0-100（规则/broker 如 5 = 5%；fallback=100.0 = 1 个月
     # 租金），除以 100 换算成月租倍数后乘以月租得到佣金
     factor = rate / 100.0
-    session.add(
-        CommissionSettlement(
-            employee_id=agent_id,
-            lease_id=lease.id,
-            deal_type=deal_type,
-            commission_base=lease.monthly_rent,
-            commission_rate=rate,
-            commission_amount=round(lease.monthly_rent * factor, 2),
-            currency=lease.currency,
-            status=SettlementStatus.pending,
+    base = round(lease.monthly_rent * factor, 2)
+
+    # 该租客/经办所属合作公司（经员工 → user → partner）
+    partner_id = None
+    if emp and emp.user_id:
+        owner_user = session.get(User, emp.user_id)
+        partner_id = getattr(owner_user, "partner_id", None) if owner_user else None
+
+    splits = _collect_split_roles(session, deal_type, partner_id)
+    total = sum(p for _, p in splits) or 100.0
+    for role, percent in splits:
+        amount = round(base * percent / total, 2)
+        session.add(
+            CommissionSettlement(
+                employee_id=agent_id if role != CommissionRole.partner_company else None,
+                role=role,
+                partner_id=partner_id if role == CommissionRole.partner_company else None,
+                lease_id=lease.id,
+                deal_type=deal_type,
+                commission_base=lease.monthly_rent,
+                commission_rate=rate,
+                commission_amount=amount,
+                split_percent=percent,
+                currency=lease.currency,
+                status=SettlementStatus.pending,
+            )
         )
-    )
+
+
+def _collect_split_roles(
+    session: Session, deal_type: DealType, partner_id: Optional[uuid.UUID]
+) -> List[tuple]:
+    """按分佣规则解析该笔成交的「角色 → 分成比例」（列表）。
+
+    - 命中 active 规则（deal_type 匹配、生效期内、scope=all 或 by_partner 且
+      partner 匹配）时返回各角色比例；
+    - 未命中任何规则 → 返回默认 single：经办 listing_agent 分 100%。
+    """
+    now = datetime.utcnow()
+    rules = session.exec(
+        select(CommissionSplitRule).where(
+            CommissionSplitRule.is_active == True,  # noqa: E712
+            CommissionSplitRule.deal_type == deal_type.value,
+            CommissionSplitRule.effective_from.is_(None)
+            | (CommissionSplitRule.effective_from <= now),
+            CommissionSplitRule.effective_to.is_(None)
+            | (CommissionSplitRule.effective_to >= now),
+        )
+    ).all()
+    best: dict = {}
+    for r in rules:
+        if r.scope == "by_partner":
+            if r.partner_id and r.partner_id != partner_id:
+                continue
+        # 每个角色取一条（已按创建时间升序，优先保留首次/全局）
+        if r.role.value not in best:
+            best[r.role.value] = r.percent
+    if not best:
+        return [(CommissionRole.listing_agent, 100.0)]
+    return [(CommissionRole(role), percent) for role, percent in best.items()]
 
 
 class LeaseCreate(BaseModel):

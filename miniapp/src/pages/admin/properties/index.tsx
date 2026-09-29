@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react'
-import { View, Text, Input, ScrollView, Picker } from '@tarojs/components'
+import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { propertiesApi, dashboardApi } from '@/services/api'
+import { publicApi, type PublicSchool } from '@/services/publicApi'
 import { fmtMoney as fmtRent } from '@/utils/format'
 import { request } from '@/lib/api'
 import { iconStyle } from '@/utils/icons'
 import { AREA_GROUPS } from '@/data/locationArea'
 import BottomNav from '@/components/BottomNav'
+import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
+import '@/styles/filter-panel.scss'
 import './index.scss'
 
 interface PropertyItem {
@@ -87,14 +90,28 @@ const AREA_OPTIONS = [
 ]
 
 const SORT_OPTIONS = [
+  { key: '', label: 'pub.filterAny' },
   { key: 'latest', label: 'prop.sortLatest' },
   { key: 'price_asc', label: 'prop.sortPriceAsc' },
   { key: 'price_desc', label: 'prop.sortPriceDesc' },
   { key: 'area_desc', label: 'prop.sortAreaDesc' }
 ]
 
+// 学校半径（与 C 端一致）：1 / 3 / 5 / 10 km
+const RADII = [1, 3, 5, 10]
+
+// 筛选 chip：状态 / 房型 / 学校 / 更多 / 区域 / 排序（对齐浏览页）+ 只看视频
+type FilterTab = null | 'region' | 'price' | 'more' | 'sort'
+
 // 统一解析列表响应（Page[Property] / 直接数组 两种形态）
 function pickList(res: any): PropertyItem[] {
+  const d = res?.data ?? res
+  if (Array.isArray(d)) return d
+  if (Array.isArray(d?.items)) return d.items
+  return []
+}
+
+function pickListPublic(res: any): PublicSchool[] {
   const d = res?.data ?? res
   if (Array.isArray(d)) return d
   if (Array.isArray(d?.items)) return d.items
@@ -118,7 +135,14 @@ export default function AdminPropertiesPage() {
   const [areaCustomMax, setAreaCustomMax] = useState('')
   const [region, setRegion] = useState('') // 选中的城区，存「省市:城区」复合键
   const [hasVideo, setHasVideo] = useState(false)
-  const [sort, setSort] = useState('latest')
+  const [sort, setSort] = useState('')
+  // 学校：空间筛选（半径内按距离）
+  const [schoolId, setSchoolId] = useState('')
+  const [schoolName, setSchoolName] = useState('')
+  const [schoolKm, setSchoolKm] = useState(3)
+  const [schools, setSchools] = useState<PublicSchool[]>([])
+  const [schoolKw, setSchoolKw] = useState('')
+  const [openTab, setOpenTab] = useState<FilterTab>(null)
   // 区域面板：国家 → 省市 → 城区 三级下钻（左栏只列国家，右栏先是该国家的省市列表，
   // 点省市后右栏换成它的城区）。此前把国家/省市/城区拍平成一条 Picker 选项，混杂难找。
   const [regionOpen, setRegionOpen] = useState(false)
@@ -145,8 +169,15 @@ export default function AdminPropertiesPage() {
   )
   const regionLabel = useMemo(
     () => allDistricts.find((d) => d.key === region)?.label || t('prop.regionAny'),
-    [region, allDistricts]
+    [region, allDistricts, t]
   )
+  const filteredSchools = schoolKw.trim()
+    ? schools.filter((s) =>
+        `${s.name ?? ''} ${s.name_en ?? ''} ${s.district ?? ''}`
+          .toLowerCase()
+          .includes(schoolKw.trim().toLowerCase())
+      )
+    : schools
 
   const fetchSummary = async () => {
     try {
@@ -162,7 +193,7 @@ export default function AdminPropertiesPage() {
     status: string; q: string; bedrooms: string; priceRange: string;
     priceCustomMin: string; priceCustomMax: string; areaRange: string;
     areaCustomMin: string; areaCustomMax: string; region: string;
-    hasVideo: boolean; sort: string
+    hasVideo: boolean; sort: string; schoolId: string; schoolKm: number
   }> = {}) => {
     const p: Record<string, any> = { page: 1, page_size: PAGE_SIZE, sort: 'latest' }
     const st = over.status ?? status
@@ -177,10 +208,12 @@ export default function AdminPropertiesPage() {
     const rg = over.region ?? region
     const hv = over.hasVideo ?? hasVideo
     const so = over.sort ?? sort
+    const sid = over.schoolId ?? schoolId
+    const skm = over.schoolKm ?? schoolKm
 
     if (q) p.q = q
     if (st) p.status = st
-    if (so !== 'latest') p.sort = so
+    if (so) p.sort = so
     // 房型：单间=>0,0；3室以上/4室以上=>min=key 不设上限
     if (bd !== '') {
       if (bd === '3' || bd === '4') p.bedrooms_min = Number(bd)
@@ -221,6 +254,11 @@ export default function AdminPropertiesPage() {
     }
     // 只看带视频
     if (hv) p.has_video = true
+    // 学校：空间筛选
+    if (sid) {
+      p.school_id = sid
+      p.school_radius_km = skm
+    }
     return p
   }
 
@@ -243,6 +281,14 @@ export default function AdminPropertiesPage() {
     fetchSummary()
     fetchList()
   })
+
+  // 学校清单只为筛选器备选
+  if (schools.length === 0) {
+    publicApi
+      .schools({ page_size: 100 })
+      .then((res: any) => setSchools(pickListPublic(res)))
+      .catch(() => setSchools([]))
+  }
 
   const handleSearch = () => {
     const q = keyword.trim()
@@ -280,25 +326,34 @@ export default function AdminPropertiesPage() {
     setSort(key)
     fetchList({ sort: key })
   }
-  // 区域面板开合：打开时按已选城区回显下钻层级（否则停在省市列表）
-  const toggleRegionPanel = () => {
-    if (regionOpen) {
-      setRegionOpen(false)
-      return
-    }
-    setRegionOpen(true)
-    const g = AREA_GROUPS.find((x) => x.children.some((d) => `${x.cityKey}:${d.key}` === region))
-    if (g) {
-      setAreaCountry(g.country)
-      setAreaDrill(g.cityKey)
-    }
-  }
-  const pickRegion = (key: string) => {
-    setRegion(key)
-    setRegionOpen(false)
+  const pickRegion = (key: string | null) => {
+    setRegion(key || '')
     // 清空区域时一并清掉下钻状态，下次打开回到省市列表
     if (!key) setAreaDrill('')
-    fetchList({ region: key })
+    fetchList({ region: key || '' })
+  }
+  const toggleSchool = (school: PublicSchool) => {
+    if (schoolId === school.id) {
+      setSchoolId('')
+      setSchoolName('')
+      fetchList({ schoolId: '' })
+    } else {
+      setSchoolId(school.id)
+      setSchoolName(school.name ?? '')
+      fetchList({ schoolId: school.id })
+    }
+    setOpenTab(null)
+  }
+  const resetMore = () => {
+    setBedrooms('')
+    setPriceRange('')
+    setPriceCustomMin('')
+    setPriceCustomMax('')
+    setAreaRange('')
+    setAreaCustomMin('')
+    setAreaCustomMax('')
+    fetchList({ bedrooms: '', priceRange: '', areaRange: '' })
+    setOpenTab(null)
   }
   const toggleHasVideo = () => {
     setHasVideo(!hasVideo)
@@ -329,6 +384,27 @@ export default function AdminPropertiesPage() {
     })
   }
 
+  const labels: Record<string, string> = {
+    region: regionLabel,
+    sort: t(sort ? (SORT_OPTIONS.find((o) => o.key === sort)?.label || 'pub.filterAny') : 'prop.sortLabel'),
+    price: t(priceRange === 'custom'
+      ? (priceCustomMin || priceCustomMax ? `${priceCustomMin || '…'} - ${priceCustomMax || '…'}` : 'prop.custom')
+      : (priceRange ? (PRICE_OPTIONS.find((o) => o.key === priceRange)?.label || 'prop.priceAny') : 'pub.filterPrice'))
+  }
+  const activeSet: Record<string, boolean> = {
+    region: !!region,
+    sort: !!sort,
+    price: !!(priceRange || priceCustomMin || priceCustomMax),
+    more: !!(status || bedrooms !== '' || schoolId || areaRange || areaCustomMin || areaCustomMax || hasVideo)
+  }
+
+  const tabs: { key: Exclude<FilterTab, null>; label: string; active: boolean }[] = [
+    { key: 'region', label: labels.region, active: activeSet.region },
+    { key: 'price', label: labels.price, active: activeSet.price },
+    { key: 'more', label: t('pub.filterMore'), active: activeSet.more },
+    { key: 'sort', label: labels.sort, active: activeSet.sort }
+  ]
+
   const stats = [
     { key: 'total', label: 'prop.statTotal', value: summary?.total_properties, tone: 'primary' },
     { key: 'vacant', label: 'prop.statVacant', value: summary?.vacant, tone: 'warning' },
@@ -338,187 +414,252 @@ export default function AdminPropertiesPage() {
 
   return (
     <View className='ap-page'>
-      {/* 搜索栏 */}
-      <View className='ap-search'>
-        <Input
-          className='ap-search__input'
-          value={keyword}
-          placeholder={t('prop.searchPlaceholder')}
-          confirmType='search'
-          onInput={(e: any) => setKeyword(e.detail.value)}
-          onConfirm={handleSearch}
-        />
-        <View className='ap-search__btn' onClick={handleSearch}>
-          <Text className='ap-search__btn-text'>{t('common.search')}</Text>
-        </View>
-      </View>
-
-      {/* 状态筛选 */}
-      <ScrollView scrollX className='ap-chips'>
-        {FILTERS.map((f) => (
-          <View
-            key={f.key || 'all'}
-            className={`ap-chip ${status === f.key ? 'ap-chip--active' : ''}`}
-            onClick={() => changeStatus(f.key)}
-          >
-            <Text className='ap-chip__text'>{t(f.label)}</Text>
+      <ShellHeader title={t('nav.properties')} />
+      {/* 搜索 + 筛选区（对齐浏览页：pb-search-wrap > pb-search / pb-filters / pb-panel） */}
+      <View className='pb-search-wrap'>
+        <View className='pb-search'>
+          <Input
+            className='pb-search__input'
+            value={keyword}
+            placeholder={t('prop.searchPlaceholder')}
+            placeholderStyle='color:#98a1ab'
+            confirmType='search'
+            onInput={(e: any) => setKeyword(e.detail.value)}
+            onConfirm={handleSearch}
+          />
+          <View className='pb-search__btn' onClick={handleSearch}>
+            <Text className='pb-search__btn-text'>{t('common.search')}</Text>
           </View>
-        ))}
-      </ScrollView>
-
-      {/* 高级筛选：区域 / 房型 / 价格 / 面积 / 排序 */}
-      <ScrollView scrollX className='ap-chips ap-filter'>
-        {/* 区域：改成国家→省市→城区下钻面板（原生 Picker 塞不下近百个选项） */}
-        <View className={`ap-chip ${region ? 'ap-chip--active' : ''}`} onClick={toggleRegionPanel}>
-          <Text className='ap-chip__text'>{regionLabel}</Text>
-          <Text className='ap-chip__caret'>{regionOpen ? '▴' : '▾'}</Text>
         </View>
-        {[
-          { opts: BEDROOM_OPTIONS, value: bedrooms, onChange: changeBedrooms },
-          { opts: PRICE_OPTIONS, value: priceRange, onChange: changePriceRange },
-          { opts: AREA_OPTIONS, value: areaRange, onChange: changeAreaRange },
-          { opts: SORT_OPTIONS, value: sort, onChange: changeSort }
-        ].map((g, idx) => {
-          const activeIdx = Math.max(0, g.opts.findIndex((o) => o.key === g.value))
-          return (
-            <Picker
-              key={idx}
-              mode='selector'
-              range={g.opts.map((o) => t(o.label))}
-              value={activeIdx}
-              onChange={(e: any) => g.onChange(g.opts[Number(e.detail.value)].key)}
+
+        {/* 单行筛选 tab：区域 / 价格 / 更多 / 排序（对齐 App 图二，纯文字+下划线） */}
+        <View className='pb-filters'>
+          {tabs.map((tb) => (
+            <View
+              key={tb.key}
+              className={`pb-tab ${openTab === tb.key ? 'pb-tab--open' : ''} ${tb.active ? 'pb-tab--active' : ''}`}
+              onClick={() => {
+                if (openTab === tb.key) { setOpenTab(null); return }
+                if (tb.key === 'region') { setRegionOpen(true); setAreaDrill('') }
+                setOpenTab(tb.key)
+              }}
             >
-              <View className={`ap-chip ${g.value !== g.opts[0].key ? 'ap-chip--active' : ''}`}>
-                <Text className='ap-chip__text'>{t(g.opts[activeIdx].label)}</Text>
-                <Text className='ap-chip__caret'>▾</Text>
-              </View>
-            </Picker>
-          )
-        })}
-        {/* 只看带视频 */}
-        <View
-          className={`ap-chip ${hasVideo ? 'ap-chip--active' : ''}`}
-          onClick={toggleHasVideo}
-        >
-          <Text className='ap-chip__text'>{t('prop.onlyVideo')}</Text>
-          <Text className='ap-chip__caret'>{hasVideo ? '✓' : ''}</Text>
+              <Text className='pb-tab__text'>{tb.label}</Text>
+              <Text className='pb-tab__arrow'>{openTab === tb.key ? '▲' : '▼'}</Text>
+            </View>
+          ))}
         </View>
-      </ScrollView>
 
-      {/* 区域下钻面板：左栏国家 / 右栏省市或城区（链家式两栏） */}
-      {regionOpen && (
-        <View className='ap-region'>
-          <View className='filter-region-twocol'>
-            <ScrollView scrollY className='filter-region-twocol__left'>
-              {countryList.map((c) => (
-                <View
-                  key={c}
-                  className={`loc-col-item ${areaCountry === c ? 'loc-col-item--active' : ''}`}
-                  onClick={() => {
-                    setAreaCountry(c)
-                    setAreaDrill('')
-                  }}
-                >
-                  <Text>{c}</Text>
-                </View>
-              ))}
-            </ScrollView>
-            <ScrollView scrollY className='filter-region-twocol__right'>
-              {activeAreaGroup ? (
-                <>
-                  <View className='filter-region-drill-head' onClick={() => setAreaDrill('')}>
-                    <Text className='filter-region-drill-head__back'>← {areaCountry}</Text>
-                    <Text className='loc-group__title loc-group__title--flat'>
-                      {activeAreaGroup.cityLabel}
-                    </Text>
+        {openTab !== null && (
+          <View className='pb-panel'>
+            {openTab === 'sort' && (
+              <View className='pb-panel__chips'>
+                {SORT_OPTIONS.map((o) => (
+                  <View
+                    key={o.key}
+                    className={`pb-opt ${sort === o.key ? 'pb-opt--active' : ''}`}
+                    onClick={() => { changeSort(o.key); setOpenTab(null) }}
+                  >
+                    <Text>{t(o.label)}</Text>
                   </View>
-                  <View className='ap-region__chips'>
+                ))}
+              </View>
+            )}
+
+            {openTab === 'price' && (
+              <>
+                <View className='pb-panel__chips'>
+                  {PRICE_OPTIONS.map((o) => (
                     <View
-                      className={`ap-chip ${!region ? 'ap-chip--active' : ''}`}
-                      onClick={() => pickRegion('')}
+                      key={o.key}
+                      className={`pb-opt ${priceRange === o.key ? 'pb-opt--active' : ''}`}
+                      onClick={() => changePriceRange(o.key)}
                     >
-                      <Text className='ap-chip__text'>{t('pub.filterAny')}</Text>
+                      <Text>{t(o.label)}</Text>
                     </View>
-                    {activeAreaGroup.children.map((d) => {
-                      const key = `${activeAreaGroup.cityKey}:${d.key}`
-                      return (
-                        <View
-                          key={d.key}
-                          className={`ap-chip ${region === key ? 'ap-chip--active' : ''}`}
-                          onClick={() => pickRegion(key)}
-                        >
-                          <Text className='ap-chip__text'>{d.label}</Text>
-                        </View>
-                      )
-                    })}
+                  ))}
+                </View>
+                {priceRange === 'custom' && (
+                  <View className='pb-range'>
+                    <Input className='pb-range__input' type='number' value={priceCustomMin} onInput={(e: any) => changePriceCustom('min', e.detail.value)} placeholder={t('prop.min')} />
+                    <Text className='pb-range__sep'>-</Text>
+                    <Input className='pb-range__input' type='number' value={priceCustomMax} onInput={(e: any) => changePriceCustom('max', e.detail.value)} placeholder={t('prop.max')} />
                   </View>
-                </>
-              ) : (
-                <>
-                  <Text className='loc-group__title loc-group__title--flat'>{areaCountry}</Text>
-                  <View className='ap-region__chips'>
-                    {countryGroups.map((g) => (
+                )}
+                <View className='pb-panel__actions'>
+                  <View className='pb-act pb-act--ghost' onClick={resetMore}>
+                    <Text>{t('pub.reset')}</Text>
+                  </View>
+                  <View className='pb-act pb-act--primary' onClick={() => setOpenTab(null)}>
+                    <Text>{t('pub.apply')}</Text>
+                  </View>
+                </View>
+              </>
+            )}
+
+            {openTab === 'more' && (
+              <>
+                <View className='pb-group-label'>{t('prop.statusLabel')}</View>
+                <View className='pb-panel__chips'>
+                  {FILTERS.map((o) => (
+                    <View
+                      key={o.key || 'all'}
+                      className={`pb-opt ${status === o.key ? 'pb-opt--active' : ''}`}
+                      onClick={() => changeStatus(o.key)}
+                    >
+                      <Text>{t(o.label)}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View className='pb-group-label'>{t('pub.filterBeds')}</View>
+                <View className='pb-panel__chips'>
+                  {BEDROOM_OPTIONS.map((o) => (
+                    <View
+                      key={o.key}
+                      className={`pb-opt ${bedrooms === o.key ? 'pb-opt--active' : ''}`}
+                      onClick={() => changeBedrooms(o.key)}
+                    >
+                      <Text>{t(o.label)}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View className='pb-group-label'>{t('pub.filterArea')}</View>
+                <View className='pb-panel__chips'>
+                  {AREA_OPTIONS.map((o) => (
+                    <View
+                      key={o.key}
+                      className={`pb-opt ${areaRange === o.key ? 'pb-opt--active' : ''}`}
+                      onClick={() => changeAreaRange(o.key)}
+                    >
+                      <Text>{t(o.label)}</Text>
+                    </View>
+                  ))}
+                </View>
+                {areaRange === 'custom' && (
+                  <View className='pb-range'>
+                    <Input className='pb-range__input' type='number' value={areaCustomMin} onInput={(e: any) => changeAreaCustom('min', e.detail.value)} placeholder={t('prop.minArea')} />
+                    <Text className='pb-range__sep'>-</Text>
+                    <Input className='pb-range__input' type='number' value={areaCustomMax} onInput={(e: any) => changeAreaCustom('max', e.detail.value)} placeholder={t('prop.maxArea')} />
+                  </View>
+                )}
+
+                {/* 只看带视频（收进更多面板） */}
+                <View className='pb-opt pb-opt--row' onClick={toggleHasVideo}>
+                  <Text>{t('prop.onlyVideo')}</Text>
+                  {hasVideo && <Text className='pb-opt__check'>✓</Text>}
+                </View>
+
+                <View className='pb-group-label'>{t('pub.filterSchool')}</View>
+                <View className='pb-school'>
+                  <View className='pb-panel__chips'>
+                    {RADII.map((km) => (
                       <View
-                        key={g.cityKey}
-                        className={`ap-chip ${areaDrill === g.cityKey ? 'ap-chip--active' : ''}`}
-                        onClick={() => setAreaDrill(g.cityKey)}
+                        key={km}
+                        className={`pb-opt ${schoolKm === km ? 'pb-opt--active' : ''}`}
+                        onClick={() => { setSchoolKm(km); fetchList({ schoolKm: km }) }}
                       >
-                        <Text className='ap-chip__text'>{g.cityLabel}</Text>
+                        <Text>{km}km</Text>
                       </View>
                     ))}
                   </View>
-                </>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      )}
+                  <View className='pb-search pb-search--sm'>
+                    <Input
+                      className='pb-search__input'
+                      value={schoolKw}
+                      onInput={(e: any) => setSchoolKw(e.detail.value)}
+                      placeholder={t('pub.schoolSearchPlaceholder')}
+                    />
+                  </View>
+                  <ScrollView scrollY className='pb-school__list'>
+                    {filteredSchools.length === 0 ? (
+                      <View className='pb-state__desc'>{t('pub.schoolFilterEmpty')}</View>
+                    ) : (
+                      filteredSchools.map((s) => (
+                        <View
+                          key={s.id}
+                          className={`pb-opt pb-opt--row ${schoolId === s.id ? 'pb-opt--active' : ''}`}
+                          onClick={() => toggleSchool(s)}
+                        >
+                          <Text>{s.name}</Text>
+                          {schoolId === s.id && <Text className='pb-opt__check'>✓</Text>}
+                        </View>
+                      ))
+                    )}
+                  </ScrollView>
+                </View>
 
-      {/* 自定义输入：仅在对应区间选择「自定义」时显示 */}
-      {(priceRange === 'custom' || areaRange === 'custom') && (
-        <View className='ap-custom'>
-          {priceRange === 'custom' && (
-            <View className='ap-custom__group'>
-              <Text className='ap-custom__name'>{t('prop.priceWan')}</Text>
-              <Input
-                className='ap-custom__input'
-                type='number'
-                placeholder={t('prop.min')}
-                value={priceCustomMin}
-                onInput={(e: any) => changePriceCustom('min', e.detail.value)}
-              />
-              <Text className='ap-custom__sep'>-</Text>
-              <Input
-                className='ap-custom__input'
-                type='number'
-                placeholder={t('prop.max')}
-                value={priceCustomMax}
-                onInput={(e: any) => changePriceCustom('max', e.detail.value)}
-              />
-            </View>
-          )}
-          {areaRange === 'custom' && (
-            <View className='ap-custom__group'>
-              <Text className='ap-custom__name'>{t('prop.areaShort')}</Text>
-              <Input
-                className='ap-custom__input'
-                type='number'
-                placeholder={t('prop.minArea')}
-                value={areaCustomMin}
-                onInput={(e: any) => changeAreaCustom('min', e.detail.value)}
-              />
-              <Text className='ap-custom__sep'>-</Text>
-              <Input
-                className='ap-custom__input'
-                type='number'
-                placeholder={t('prop.maxArea')}
-                value={areaCustomMax}
-                onInput={(e: any) => changeAreaCustom('max', e.detail.value)}
-              />
-            </View>
-          )}
-        </View>
-      )}
+                <View className='pb-panel__actions'>
+                  <View className='pb-act pb-act--ghost' onClick={resetMore}>
+                    <Text>{t('pub.reset')}</Text>
+                  </View>
+                  <View className='pb-act pb-act--primary' onClick={() => setOpenTab(null)}>
+                    <Text>{t('pub.apply')}</Text>
+                  </View>
+                </View>
+              </>
+            )}
+
+            {openTab === 'region' && regionOpen && (
+              <View className='pb-region'>
+                <View className='pb-region__cols'>
+                  <View className='pb-region__col pb-region__col--countries'>
+                    {countryList.map((c) => (
+                      <View
+                        key={c}
+                        className={`pb-region__line ${areaCountry === c ? 'pb-region__line--active' : ''}`}
+                        onClick={() => { setAreaCountry(c); setAreaDrill('') }}
+                      >
+                        <Text>{c}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View className='pb-region__col'>
+                    {activeAreaGroup ? (
+                      <>
+                        <View className='pb-region__head'>
+                          <Text className='pb-region__back' onClick={() => setAreaDrill('')}>← {areaCountry}</Text>
+                          <Text className='pb-region__title'>{activeAreaGroup.cityLabel}</Text>
+                        </View>
+                        <View className='pb-panel__chips'>
+                          <View className={`pb-opt ${region === '' ? 'pb-opt--active' : ''}`} onClick={() => pickRegion(null)}>
+                            <Text>{t('pub.filterAny')}</Text>
+                          </View>
+                          {activeAreaGroup.children.map((d) => (
+                            <View
+                              key={d.key}
+                              className={`pb-opt ${region === `${activeAreaGroup.cityKey}:${d.key}` ? 'pb-opt--active' : ''}`}
+                              onClick={() => pickRegion(`${activeAreaGroup.cityKey}:${d.key}`)}
+                            >
+                              <Text>{d.label}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <Text className='pb-region__title'>{areaCountry}</Text>
+                        <View className='pb-panel__chips'>
+                          {countryGroups.map((g) => (
+                            <View
+                              key={g.cityKey}
+                              className={`pb-opt ${areaDrill === g.cityKey ? 'pb-opt--active' : ''}`}
+                              onClick={() => setAreaDrill(g.cityKey)}
+                            >
+                              <Text>{g.cityLabel}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </>
+                    )}
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
 
       {/* 统计（来源：/dashboard/summary） */}
       <View className='ap-stats'>

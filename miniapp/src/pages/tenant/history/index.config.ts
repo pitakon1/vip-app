@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '浏览记录', navigationStyle: 'custom' }

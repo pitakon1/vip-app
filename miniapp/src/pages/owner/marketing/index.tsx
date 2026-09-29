@@ -9,6 +9,7 @@ import './index.scss'
 import { useI18n } from '@/i18n'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 
 interface VacantItem {
@@ -356,6 +357,7 @@ export default function OwnerMarketingPage() {
 
   return (
     <View className='owner-marketing-page'>
+      <ShellHeader title={t('nav.marketing')} />
       <View className='page-container'>
         <Text className='page-title'>{t('mkt.title')}</Text>
         <Text className='page-subtitle'>{t('mkt.subtitle')}</Text>

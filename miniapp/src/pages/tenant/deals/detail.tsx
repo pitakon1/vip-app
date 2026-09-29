@@ -5,6 +5,7 @@ import { propertyDealApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import { useI18n } from '@/i18n'
+import ShellHeader from '@/components/ShellHeader'
 import './detail.scss'
 
 const fmtDate = (x?: string) => (x ? String(x).slice(0, 10) : '—')
@@ -50,6 +51,7 @@ export default function TenantDealDetailPage() {
   if (!loading && !deal) {
     return (
       <View className='tenant-deal-detail-page'>
+        <ShellHeader title={t('nav.dealDetail')} />
         <View className='page-container'>
           <View className='empty-tip'>
             <Text>{t('deals.notFound')}</Text>
@@ -59,7 +61,11 @@ export default function TenantDealDetailPage() {
     )
   }
   if (!deal) {
-    return <View className='tenant-deal-detail-page' />
+    return (
+      <View className='tenant-deal-detail-page'>
+        <ShellHeader title={t('nav.dealDetail')} />
+      </View>
+    )
   }
 
   const meta = DEAL_STATUS[String(deal?.status ?? '')] ?? DEAL_STATUS.drafted
@@ -76,6 +82,7 @@ export default function TenantDealDetailPage() {
 
   return (
     <View className='tenant-deal-detail-page'>
+      <ShellHeader title={t('nav.dealDetail')} />
       <View className='page-container'>
         {/* 金额卡 */}
         <View className='card'>

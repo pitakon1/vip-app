@@ -3,7 +3,7 @@
 集中导入所有 SQLModel 表模型与枚举，便于 Alembic 自动发现元数据。
 """
 from .base import TimestampMixin
-from .user import User, UserRole
+from .user import User, UserRole, UserType
 from .verification_code import VerificationCode
 from .project import Project, Tenure
 from .school import School, SchoolStage, SchoolCurriculum
@@ -46,7 +46,9 @@ from .service_package import (
     ServicePackageStatus,
 )
 from .attendance import (
+    AppealStatus,
     Attendance,
+    AttendanceAppeal,
     AttendanceGroup,
     AttendanceGroupMember,
     AttendanceStatus,
@@ -58,6 +60,9 @@ from .commission_settlement import (
     CommissionSettlement,
     DealType,
     SettlementStatus,
+    CommissionRole,
+    CommissionSplitRule,
+    SplitRuleScope,
 )
 from .event import Event, EventStatus
 from .pdpa import (
@@ -74,6 +79,7 @@ from .contract import (
     Contract,
     ContractStatus,
     ContractKind,
+    ContractSource,
     ContractParty,
     SignerRole,
     SignatureRecord,
@@ -81,6 +87,7 @@ from .contract import (
 from .backup import BackupJob, BackupStatus, BackupType
 from .external_trip import ExternalTripApplication, TripStatus
 from .viewing_appointment import ViewingAppointment, ViewingStatus
+from .user_calendar_event import UserCalendarEvent
 from .commission_rule import CommissionRule, CommissionRuleScope
 from .favorite import Favorite
 from .price_alert import PriceAlert
@@ -121,6 +128,7 @@ from .market_data import (
     ChurnSignal,
 )
 from .rbac import Permission, RolePermission, UserGroup, UserGroupMember
+from .partner import Partner, PartnerStatus
 from .company_profile import CompanyProfile
 from .verification import (
     PropertyVerification,
@@ -138,6 +146,7 @@ __all__ = [
     "TimestampMixin",
     "User",
     "UserRole",
+    "UserType",
     "VerificationCode",
     "Project",
     "Tenure",
@@ -189,12 +198,17 @@ __all__ = [
     "AttendanceStatus",
     "AttendanceGroup",
     "AttendanceGroupMember",
+    "AppealStatus",
+    "AttendanceAppeal",
     "LeaveRequest",
     "LeaveStatus",
     "LeaveType",
     "CommissionSettlement",
     "DealType",
     "SettlementStatus",
+    "CommissionRole",
+    "CommissionSplitRule",
+    "SplitRuleScope",
     "Event",
     "EventStatus",
     "Consent",
@@ -211,6 +225,7 @@ __all__ = [
     "Contract",
     "ContractStatus",
     "ContractKind",
+    "ContractSource",
     "ContractParty",
     "SignerRole",
     "SignatureRecord",
@@ -221,6 +236,7 @@ __all__ = [
     "TripStatus",
     "ViewingAppointment",
     "ViewingStatus",
+    "UserCalendarEvent",
     "CommissionRule",
     "CommissionRuleScope",
     "Favorite",
@@ -255,6 +271,8 @@ __all__ = [
     "RolePermission",
     "UserGroup",
     "UserGroupMember",
+    "Partner",
+    "PartnerStatus",
     "CompanyProfile",
     "PropertyVerification",
     "VerificationMethod",

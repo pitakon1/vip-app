@@ -27,6 +27,7 @@ import { recordHistory } from '@/utils/browseHistory'
 import { useI18n } from '@/i18n'
 import useAuthStore from '@/stores/auth'
 import PublicInquiryForm from '@/components/PublicInquiryForm'
+import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 
 export default function PublicListingDetailPage() {
@@ -87,6 +88,7 @@ export default function PublicListingDetailPage() {
   if (loading) {
     return (
       <View className='pub-page'>
+        <ShellHeader title={t('pub.listing')} />
         <View className='pub-loading'>{t('pub.loading')}</View>
       </View>
     )
@@ -95,6 +97,7 @@ export default function PublicListingDetailPage() {
   if (!data) {
     return (
       <View className='pub-page'>
+        <ShellHeader title={t('pub.listing')} />
         <View className='pub-empty'>{t('pub.listingNotFound')}</View>
       </View>
     )
@@ -148,6 +151,7 @@ export default function PublicListingDetailPage() {
 
   return (
     <View className='pub-page'>
+      <ShellHeader title={t('pub.listing')} />
       {/* 相册：横滑翻页 */}
       {photos.length > 0 ? (
         <ScrollView className='pub-gallery' scrollX pagingEnabled>

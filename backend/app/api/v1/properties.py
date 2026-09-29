@@ -40,6 +40,7 @@ from app.models import (
 )
 from app.core.logging import get_logger
 from app.providers.geo import haversine_km, lat_lng_bounds
+from app.services import dedupe_service
 from app.services.price_alert import notify_if_price_dropped
 from app.services.search import relevance_score, resolve_sort
 
@@ -563,6 +564,21 @@ def create_property(
     # 记录创建人（房源归属人）。写权限与列表可见性都以它为准：管理员全量，
     # 销售/经纪只能看到并操作自己录入的房源。此处由服务端写入，不接受客户端传参。
     payload["created_by"] = user.id
+    # 防重复建档：房源管理「新增」仅限全新房源。命中系统已有档案（同楼盘+楼栋+房号
+    # 或 自由地址+房号 归一化哈希）直接 409 拒绝，不复用、不新建。
+    dedupe = dedupe_service.resolve(
+        session,
+        project_id=payload.get("project_id"),
+        building=payload.get("building"),
+        room_number=payload["room_number"],
+        address=payload.get("address") or "",
+    )
+    if dedupe["existing"] is not None:
+        raise HTTPException(status_code=409, detail="该房源已存在于系统中，请勿重复建档")
+    # 未命中：把去重定位字段一并落库，与列表查/发布链路的唯一口径保持一致
+    payload["dedupe_type"] = dedupe["dedupe_type"]
+    payload["dedupe_key"] = dedupe["dedupe_key"]
+    payload["address_norm"] = dedupe["address_norm"]
     prop = Property(**payload)
     session.add(prop)
     session.commit()

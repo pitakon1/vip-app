@@ -6,6 +6,7 @@ import { fmtMoney } from '@/utils/format'
 import { request } from '@/lib/api'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -106,6 +107,7 @@ export default function AdminPropertyDetailPage() {
   if (!loading && !detail) {
     return (
       <View className='apd-page'>
+        <ShellHeader title={t('nav.propertyDetail')} />
         <View className='apd-state'>
           <View className='icon-svg' style={iconStyle('home', 72)} />
           <Text className='apd-state__text'>{id ? t('prop.notFoundDeleted') : t('prop.missingParam')}</Text>
@@ -117,16 +119,7 @@ export default function AdminPropertyDetailPage() {
 
   return (
     <View className='apd-page'>
-      {/* 返回条（对齐原型 header 的返回按钮） */}
-      <View className='apd-nav'>
-        <View className='apd-nav__back' onClick={() => Taro.redirectTo({ url: '/pages/admin/properties/index' })}>
-          <Text className='apd-nav__back-icon'>‹</Text>
-          <Text className='apd-nav__back-text'>{t('prop.listing')}</Text>
-        </View>
-        <Text className='apd-nav__title'>{t('prop.detailTitle')}</Text>
-        <View className='apd-nav__placeholder' />
-      </View>
-
+      <ShellHeader title={t('nav.propertyDetail')} />
       <ScrollView scrollY scrollIntoView={scrollTarget} className='apd-scroll'>
         {/* 头图占位 + 类型徽章 */}
         <View className='apd-hero'>

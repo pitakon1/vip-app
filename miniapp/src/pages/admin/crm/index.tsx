@@ -305,7 +305,12 @@ export default function AdminCrmPage() {
                 </View>
 
                 <View className='crm-card__actions'>
-                  <View className='crm-act' onClick={() => chatCustomer(l)}>{t('crm.sendMsg')}</View>
+                  <View className='crm-act crm-act--ghost' onClick={() => callPhone(l.phone)}>
+                    <Text>{t('pub.call')}</Text>
+                  </View>
+                  <View className='crm-act crm-act--ghost' onClick={() => chatCustomer(l)}>
+                    <Text>{t('crm.sendMsg')}</Text>
+                  </View>
                   <View className='crm-act' onClick={() => openEdit(l)}>{t('crm.edit')}</View>
                   <View className='crm-act crm-act--del' onClick={() => remove(l)}>{t('crm.delete')}</View>
                 </View>

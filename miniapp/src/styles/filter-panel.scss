@@ -1,0 +1,315 @@
+/* =========================================================
+   房源筛选面板 · 公共样式（property-browse 基准）
+   =========================================================
+   三个房源列表页（浏览 property-browse / 员工房源台账 / 管理员房源）
+   的搜索 + 筛选区统一使用本文件定义的 .pb-* 类，保证逐像素一致。
+   改动前请确认三处 index.scss 不再各自定义同名私有类。
+   ========================================================= */
+
+/* ===== 搜索与筛选容器 ===== */
+.pb-search-wrap {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 20rpx 24rpx 16rpx;
+}
+
+.pb-search {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+
+  &__input {
+    flex: 1;
+    height: 76rpx;
+    background: var(--surface-2);
+    border-radius: var(--radius-full);
+    padding: 0 28rpx;
+    font-size: 26rpx;
+    color: var(--ink);
+  }
+
+  &__btn {
+    height: 76rpx;
+    padding: 0 32rpx;
+    border-radius: var(--radius-full);
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &:active {
+      opacity: 0.85;
+    }
+
+    &-text {
+      font-size: 26rpx;
+      font-weight: 600;
+      color: var(--primary-foreground);
+    }
+  }
+}
+
+.pb-filters {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+}
+
+/* 单行纯文字筛选 tab：无背景、无边框、无圆角胶囊；选中/展开用底部主色短下划线指示 */
+.pb-tab {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  height: 96rpx;
+  font-size: 26rpx;
+  color: var(--ink-2);
+  font-weight: 500;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 48rpx;
+    height: 4rpx;
+    border-radius: 2rpx;
+    background: transparent;
+  }
+
+  &--active,
+  &--open {
+    color: var(--primary);
+    font-weight: 600;
+
+    &::after {
+      background: var(--primary);
+    }
+
+    .pb-tab__arrow {
+      color: var(--primary);
+    }
+  }
+
+  &__text {
+    font-size: 26rpx;
+  }
+
+  &__arrow {
+    font-size: 20rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* ===== 下拉面板 ===== */
+.pb-panel {
+  margin-top: 16rpx;
+  padding: 20rpx;
+  background: var(--surface-2);
+  border-radius: var(--radius-lg);
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16rpx;
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.pb-opt {
+  padding: 14rpx 28rpx;
+  border-radius: var(--radius-full);
+  background: var(--card);
+  border: 1px solid var(--line);
+
+  &--active {
+    background: var(--primary);
+    border-color: var(--primary);
+
+    text {
+      color: var(--primary-foreground);
+      font-weight: 600;
+    }
+  }
+
+  &--row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: var(--radius-md);
+    padding: 14rpx 20rpx;
+    margin-bottom: 12rpx;
+  }
+
+  &__check {
+    font-size: 26rpx;
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  text {
+    font-size: 24rpx;
+    color: var(--ink-2);
+  }
+}
+
+/* ===== 分组标题（下拉面板内） ===== */
+.pb-group-label {
+  font-size: 24rpx;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin: 8rpx 0 14rpx;
+  padding: 0 4rpx;
+}
+
+/* ===== 自定义区间输入 ===== */
+.pb-range {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin-top: 20rpx;
+
+  &__input {
+    flex: 1;
+    height: 72rpx;
+    padding: 0 20rpx;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    font-size: 26rpx;
+    color: var(--ink);
+  }
+
+  &__sep {
+    font-size: 26rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* ===== 面板底部操作（重置 / 确定） ===== */
+.pb-panel__actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.pb-act {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76rpx;
+  border-radius: var(--radius-md);
+
+  text {
+    font-size: 28rpx;
+    font-weight: 600;
+  }
+
+  &--ghost {
+    background: var(--card);
+    border: 1px solid var(--line);
+
+    text {
+      color: var(--ink-2);
+    }
+  }
+
+  &--primary {
+    background: var(--primary);
+
+    text {
+      color: var(--primary-foreground);
+    }
+  }
+}
+
+/* ===== 学校筛选面板 ===== */
+.pb-school {
+  &__list {
+    max-height: 480rpx;
+    margin-top: 20rpx;
+  }
+}
+
+.pb-state__desc {
+  font-size: 24rpx;
+  color: var(--ink-3);
+}
+
+.pb-search--sm {
+  margin-top: 20rpx;
+  height: 68rpx;
+  background: var(--card);
+  border: 1px solid var(--line);
+
+  .pb-search__input {
+    height: 68rpx;
+  }
+}
+
+/* ===== 区域内（国家 → 省市 → 城区 三级下钻）===== */
+.pb-region {
+  &__cols {
+    display: flex;
+    height: 520rpx;
+  }
+
+  &__col {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+
+    &--countries {
+      flex: 0 0 144rpx;
+      border-right: 1px solid var(--line);
+      margin-right: 20rpx;
+    }
+  }
+
+  &__line {
+    padding: 22rpx 16rpx;
+    border-radius: var(--radius-md);
+
+    text {
+      font-size: 26rpx;
+      color: var(--ink-2);
+    }
+
+    &--active {
+      background: rgba(var(--primary-rgb), 0.1);
+
+      text {
+        color: var(--primary);
+        font-weight: 700;
+      }
+    }
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8rpx 4rpx 16rpx;
+  }
+
+  &__back {
+    font-size: 26rpx;
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  &__title {
+    font-size: 26rpx;
+    color: var(--ink);
+    font-weight: 700;
+  }
+}

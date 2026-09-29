@@ -130,3 +130,35 @@ class LeaveRequest(TimestampMixin, table=True):
     approved_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     approved_at: Optional[datetime] = None
     reply_note: Optional[str] = Field(default=None, max_length=255)
+
+
+class AppealStatus(str, Enum):
+    """打卡异常申诉状态。
+
+    取值长度不得超过 8：字段由 SQLModel 按枚举值最大长度推导为 VARCHAR(8)
+    （最长取值 rejected 为 8 个字符），新增更长取值会与既有库表结构漂移。
+    """
+
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
+class AttendanceAppeal(TimestampMixin, table=True):
+    """打卡异常申诉：员工对某天迟到/早退/缺勤记录发起申诉，管理员审批。
+
+    设计约定：审批通过**不改 Attendance.status**，只留痕。避免与管理员校准
+    `/admin/records/{id}` 对 status 的双写冲突；申诉本质是独立可审计记录。
+    attendance_id 可空——无打卡记录时（如缺勤）按 date 申诉。
+    """
+
+    __tablename__ = "attendance_appeals"
+
+    employee_id: uuid.UUID = Field(foreign_key="employees.id", index=True)
+    attendance_id: Optional[uuid.UUID] = Field(default=None, foreign_key="attendances.id")
+    date: date_type = Field(index=True)
+    reason: str = Field(default="", max_length=500)
+    status: AppealStatus = Field(default=AppealStatus.pending, index=True)
+    approved_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    approved_at: Optional[datetime] = None
+    reply_note: Optional[str] = Field(default=None, max_length=255)

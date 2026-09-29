@@ -1,1 +1,1 @@
-export default { navigationBarTitleText: '我的上架单' }
+export default { navigationBarTitleText: '我的上架单', navigationStyle: 'custom' }

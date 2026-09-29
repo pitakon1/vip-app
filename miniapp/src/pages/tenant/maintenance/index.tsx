@@ -8,6 +8,7 @@ import { iconStyle } from '@/utils/icons'
 import StateBlock from '@/components/StateBlock'
 import type { MaintenanceTicket, MaintenanceStatus, MaintenancePriority } from '@/types'
 import './index.scss'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 
 // 键名与后端 TicketStatus 对齐（open/assigned/in_progress/resolved/closed）。
@@ -229,6 +230,7 @@ export default function TenantMaintenancePage() {
 
   return (
     <View className='tenant-maintenance-page'>
+      <ShellHeader title={t('nav.maintenance')} />
       <View className='page-container'>
         <View className='stat-row'>
           <View className='stat-item'>

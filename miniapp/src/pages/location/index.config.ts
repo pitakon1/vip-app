@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '选择位置', navigationStyle: 'custom' }

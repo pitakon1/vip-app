@@ -158,3 +158,8 @@
   font-weight: 500;
   color: var(--rent-ink-3);
 }
+
+.attAdm-chart {
+  height: 300px;
+  position: relative;
+}

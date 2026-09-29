@@ -1,18 +1,19 @@
 import { useMemo, useState } from 'react'
-import { View, Text } from '@tarojs/components'
+import { View, Text, Input, Picker, Switch, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
-import { employeesApi, viewingsApi, leasesApi, propertiesApi } from '@/services/api'
+import { employeesApi, viewingsApi, leasesApi, propertiesApi, calendarEventsApi } from '@/services/api'
 import './index.scss'
 import { useI18n } from '@/i18n'
+import ShellHeader from '@/components/ShellHeader'
 
 /* =========================================================
    员工端 日历/日程排期（对齐 App CalendarScreen）
    月历视图 + 列表视图 ｜ 今日待跟进 ｜ 本月重点 ｜ 下月到期预告 ｜ 近期带看
-   事件来源：带看 viewingsApi / 租金应收 employeesApi.workbench / 合同 leasesApi
+   事件来源：带看 viewingsApi / 租金应收 employeesApi.workbench / 合同 leasesApi / 自定义 calendarEventsApi
    ========================================================= */
 
-type EventKind = 'viewing' | 'rent' | 'contract'
+type EventKind = 'viewing' | 'rent' | 'contract' | 'user'
 
 interface CalEvent {
   id: string
@@ -29,7 +30,8 @@ const buildKindMeta = (
 ): Record<EventKind, { label: string; color: string; bg: string }> => ({
   viewing: { label: t('cal.kindViewing'), color: 'var(--primary)', bg: 'rgba(var(--primary-rgb), 0.12)' },
   rent: { label: t('cal.kindRent'), color: 'var(--warning)', bg: 'rgba(var(--warning-rgb), 0.12)' },
-  contract: { label: t('cal.kindContract'), color: 'var(--info, #0ea5e9)', bg: 'rgba(14, 165, 233, 0.12)' }
+  contract: { label: t('cal.kindContract'), color: 'var(--info, #0ea5e9)', bg: 'rgba(14, 165, 233, 0.12)' },
+  user: { label: t('cal.kindUser'), color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.12)' }
 })
 
 const buildWeekdays = (t: (k: string, p?: Record<string, string | number>) => string): string[] =>
@@ -73,6 +75,13 @@ interface ReceivableItem {
   currency?: string | null
   due_date?: string | null
   is_overdue?: boolean
+}
+
+interface UserEventItem {
+  id: string
+  title?: string | null
+  start_at?: string | null
+  all_day?: boolean
 }
 
 function pickList(res: any): any[] {
@@ -131,8 +140,16 @@ export default function EmployeeCalendarPage() {
   const [viewings, setViewings] = useState<ViewingItem[]>([])
   const [leases, setLeases] = useState<LeaseItem[]>([])
   const [receivables, setReceivables] = useState<ReceivableItem[]>([])
+  const [userEvents, setUserEvents] = useState<UserEventItem[]>([])
   const [propNames, setPropNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  // 添加事件表单（弹层）
+  const [addOpen, setAddOpen] = useState(false)
+  const [evText, setEvText] = useState('')
+  const [evDate, setEvDate] = useState(keyOf(now))
+  const [evTime, setEvTime] = useState('09:00')
+  const [evAllDay, setEvAllDay] = useState(false)
+  const [saving, setSaving] = useState(false)
   const KIND_META = buildKindMeta(t)
   const WEEKDAYS = buildWeekdays(t)
   const MONTH_NAMES = buildMonthNames(t)
@@ -140,12 +157,13 @@ export default function EmployeeCalendarPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const [meRes, vwRes, lsRes, wbRes, pvRes]: any[] = await Promise.all([
+      const [meRes, vwRes, lsRes, wbRes, pvRes, evRes]: any[] = await Promise.all([
         employeesApi.me().catch(() => ({ data: {} })),
         viewingsApi.list({ page_size: 100 }).catch(() => ({ data: { items: [] } })),
         leasesApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: { items: [] } })),
         employeesApi.workbench().catch(() => ({ data: {} })),
-        propertiesApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: { items: [] } }))
+        propertiesApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: { items: [] } })),
+        calendarEventsApi.list().catch(() => ({ data: { items: [] } }))
       ])
 
       const pv = pickList(pvRes)
@@ -169,6 +187,9 @@ export default function EmployeeCalendarPage() {
       const pending: ReceivableItem[] = recv?.pending ?? []
       const overdue: ReceivableItem[] = recv?.overdue ?? []
       setReceivables([...pending, ...overdue])
+
+      // 员工自定义事件
+      setUserEvents(pickList(evRes) as UserEventItem[])
     } catch (e) {
       console.error('[EmployeeCalendar] 加载失败', e)
     } finally {
@@ -240,8 +261,24 @@ export default function EmployeeCalendarPage() {
       })
     })
 
+    // 员工自定义事件（来自 /calendar-events）
+    userEvents.forEach((u) => {
+      if (!u.start_at) return
+      const d = new Date(u.start_at)
+      if (Number.isNaN(d.getTime())) return
+      list.push({
+        id: `user-${u.id}`,
+        kind: 'user',
+        title: u.title || t('cal.kindUser'),
+        sub: t('cal.kindUser'),
+        date: d,
+        timeLabel: u.all_day ? t('cal.allDay') : hhmm(u.start_at),
+        statusLabel: u.all_day ? t('cal.allDay') : undefined
+      })
+    })
+
     return list.sort((a, b) => a.date.getTime() - b.date.getTime())
-  }, [viewings, receivables, leases, propNames, today])
+  }, [viewings, receivables, leases, propNames, today, userEvents])
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, CalEvent[]> = {}
@@ -324,13 +361,51 @@ export default function EmployeeCalendarPage() {
     d.getMonth() === selectedDate.getMonth() &&
     d.getDate() === selectedDate.getDate()
 
+  // ===== 添加自定义事件 =====
+  const openAdd = () => {
+    setEvText('')
+    setEvDate(keyOf(selectedDate))
+    setEvTime('09:00')
+    setEvAllDay(false)
+    setAddOpen(true)
+  }
+
+  const closeAdd = () => setAddOpen(false)
+
+  const submitEvent = async () => {
+    const title = (evText || '').trim()
+    if (!title) {
+      Taro.showToast({ title: t('cal.eventText'), icon: 'none' })
+      return
+    }
+    const startAt = evAllDay ? `${evDate}T00:00:00` : `${evDate}T${evTime}:00`
+    setSaving(true)
+    try {
+      await calendarEventsApi.create({ title, start_at: startAt, all_day: evAllDay })
+      setAddOpen(false)
+      Taro.showToast({ title: t('cal.save'), icon: 'success' })
+      load()
+    } catch (err) {
+      console.error('[EmployeeCalendar] 添加事件失败', err)
+      Taro.showToast({ title: t('common.saveFailed'), icon: 'none' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const renderEventItem = (e: CalEvent) => {
     const meta = KIND_META[e.kind]
     return (
       <View key={e.id} className='cal-follow-item'>
         <View className='cal-follow-item__icon' style={{ background: meta.bg }}>
           <Text className='cal-follow-item__icon-text' style={{ color: meta.color }}>
-            {e.kind === 'viewing' ? t('cal.iconViewing') : e.kind === 'rent' ? t('cal.iconRent') : t('cal.iconContract')}
+            {e.kind === 'viewing'
+              ? t('cal.iconViewing')
+              : e.kind === 'rent'
+              ? t('cal.iconRent')
+              : e.kind === 'user'
+              ? t('cal.iconUser')
+              : t('cal.iconContract')}
           </Text>
         </View>
         <View className='cal-follow-item__body'>
@@ -373,6 +448,7 @@ export default function EmployeeCalendarPage() {
 
   return (
     <View className='cal-page'>
+      <ShellHeader title={t('nav.calendar')} />
       <View className='page-container'>
         {/* 顶部月份导航 */}
         <View className='cal-header'>
@@ -383,8 +459,13 @@ export default function EmployeeCalendarPage() {
             <Text className='cal-header__month'>{MONTH_NAMES[currentMonth]}</Text>
             <Text className='cal-header__year'>{currentYear}</Text>
           </View>
-          <View className='cal-nav-btn' hoverClass='cal-nav-btn--hover' onClick={nextMonth}>
-            <Text className='cal-nav-btn__text'>›</Text>
+          <View className='cal-header__right'>
+            <View className='cal-nav-btn' hoverClass='cal-nav-btn--hover' onClick={nextMonth}>
+              <Text className='cal-nav-btn__text'>›</Text>
+            </View>
+            <View className='cal-add-btn' hoverClass='cal-add-btn--hover' onClick={() => openAdd()}>
+              <Text className='cal-add-btn__text'>+ {t('cal.addEvent')}</Text>
+            </View>
           </View>
         </View>
 
@@ -454,11 +535,17 @@ export default function EmployeeCalendarPage() {
                   <Text className='cal-today-btn__text'>{t('cal.today')}</Text>
                 </View>
                 <View className='cal-legend'>
-                  {(['rent', 'contract', 'viewing'] as EventKind[]).map((k) => (
+                  {(['rent', 'contract', 'viewing', 'user'] as EventKind[]).map((k) => (
                     <View key={k} className='cal-legend__item'>
                       <View className='cal-legend__dot' style={{ background: KIND_META[k].color }} />
                       <Text className='cal-legend__label'>
-                        {k === 'rent' ? t('cal.rentDue') : k === 'contract' ? t('cal.contractDue') : t('cal.viewingCollect')}
+                        {k === 'rent'
+                          ? t('cal.rentDue')
+                          : k === 'contract'
+                          ? t('cal.contractDue')
+                          : k === 'user'
+                          ? t('cal.kindUser')
+                          : t('cal.viewingCollect')}
                       </Text>
                     </View>
                   ))}
@@ -620,6 +707,60 @@ export default function EmployeeCalendarPage() {
           </View>
         )}
       </View>
+
+      {/* 添加事件弹层 */}
+      {addOpen && (
+        <View className='cal-modal-mask' onClick={closeAdd}>
+          <View className='cal-modal-sheet' onClick={(e) => e.stopPropagation()}>
+            <Text className='cal-modal-sheet__title'>{t('cal.addEvent')}</Text>
+
+            <View className='cal-modal-field'>
+              <Text className='cal-modal-field__label'>{t('cal.eventText')}</Text>
+              <Input
+                className='cal-modal-field__input'
+                value={evText}
+                maxlength={100}
+                placeholder={t('cal.eventText')}
+                onInput={(e) => setEvText(e.detail.value)}
+              />
+            </View>
+
+            <View className='cal-modal-field'>
+              <Text className='cal-modal-field__label'>{t('cal.eventTime')}</Text>
+              <View className='cal-modal-field__row'>
+                <Picker mode='date' value={evDate} onChange={(e) => setEvDate(e.detail.value)}>
+                  <View className='cal-modal-picker'>
+                    <Text className='cal-modal-picker__text'>{evDate}</Text>
+                    <Text className='cal-modal-picker__arrow'>▼</Text>
+                  </View>
+                </Picker>
+                {!evAllDay && (
+                  <Picker mode='time' value={evTime} onChange={(e) => setEvTime(e.detail.value)}>
+                    <View className='cal-modal-picker'>
+                      <Text className='cal-modal-picker__text'>{evTime}</Text>
+                      <Text className='cal-modal-picker__arrow'>▼</Text>
+                    </View>
+                  </Picker>
+                )}
+              </View>
+            </View>
+
+            <View className='cal-modal-field cal-modal-field--row'>
+              <Text className='cal-modal-field__label'>{t('cal.allDay')}</Text>
+              <Switch checked={evAllDay} color='var(--primary)' onChange={(e) => setEvAllDay(e.detail.value)} />
+            </View>
+
+            <View className='cal-modal-actions'>
+              <Button className='cal-modal-btn cal-modal-btn--ghost' onClick={closeAdd}>
+                {t('common.cancel')}
+              </Button>
+              <Button className='cal-modal-btn cal-modal-btn--primary' disabled={saving} onClick={submitEvent}>
+                {t('cal.save')}
+              </Button>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   )
 }

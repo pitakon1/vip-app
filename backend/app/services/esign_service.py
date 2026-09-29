@@ -10,7 +10,7 @@ import html as html_mod
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Protocol
 
 from app.config import settings
 
@@ -198,3 +198,44 @@ def generate_contract(counters: Dict[str, Any], language: str = "zh", kind: str 
         "document_hash": digest,
         "file_path": str(file),
     }
+
+
+class SignProvider(Protocol):
+    """电子签服务提供方接口。
+
+    本期只落地平台自研实现 `InHouseProvider`；预留该接口是为了后续可接入
+    第三方电子签（如 e签宝 / DocuSign）而不改动业务侧调用点。
+    """
+
+    name: str
+
+    def render_signature(self, name: str, stamp: str) -> str:
+        """生成手写感签名 SVG。"""
+        ...
+
+    def sign_digest(self, data: str) -> str:
+        """对内容做可离线复验的数字签名。"""
+        ...
+
+
+class InHouseProvider:
+    """平台自研电子签：HMAC-SHA256 摘要 + SVG 手写签名。"""
+
+    name = "in_house"
+
+    def render_signature(self, name: str, stamp: str) -> str:
+        return signature_svg(name, stamp)
+
+    def sign_digest(self, data: str) -> str:
+        return sign_digest(data)
+
+
+_DEFAULT_PROVIDER: Optional[SignProvider] = None
+
+
+def get_sign_provider() -> SignProvider:
+    """取当前电子签提供方（默认平台自研）。"""
+    global _DEFAULT_PROVIDER
+    if _DEFAULT_PROVIDER is None:
+        _DEFAULT_PROVIDER = InHouseProvider()
+    return _DEFAULT_PROVIDER

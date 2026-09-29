@@ -1,1 +1,1 @@
-export default { navigationBarTitleText: '合同签署' }
+export default { navigationBarTitleText: '合同签署', navigationStyle: 'custom' }

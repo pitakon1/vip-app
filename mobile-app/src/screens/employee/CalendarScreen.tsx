@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,30 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import BeikeHeader from '@/components/BeikeHeader';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import { employeesApi, viewingsApi, leasesApi, propertiesApi } from '@/services/api';
+import {
+  employeesApi,
+  viewingsApi,
+  leasesApi,
+  propertiesApi,
+  calendarEventsApi,
+} from '@/services/api';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
-type EventKind = 'viewing' | 'rent' | 'contract';
+type EventKind = 'viewing' | 'rent' | 'contract' | 'user';
 
 interface CalEvent {
   id: string;
@@ -47,6 +61,12 @@ const KIND_META: Record<EventKind, { label: string; color: string; bg: string; i
     color: colors.info,
     bg: colors.alpha(colors.infoRgb, 0.12),
     icon: 'document-text-outline',
+  },
+  user: {
+    label: '自定义',
+    color: colors.success,
+    bg: colors.alpha(colors.successRgb, 0.12),
+    icon: 'calendar-outline',
   },
 };
 
@@ -94,6 +114,15 @@ interface ReceivableItem {
   is_overdue?: boolean;
 }
 
+interface CalendarEventItem {
+  id: string;
+  title?: string | null;
+  note?: string | null;
+  start_at?: string | null;
+  end_at?: string | null;
+  all_day?: boolean;
+}
+
 interface WorkbenchSummary {
   lease_count?: number;
   pending_receivable?: number;
@@ -136,6 +165,58 @@ const generateMonthDays = (year: number, month: number) => {
   return days;
 };
 
+// —— 滚轮式时间选择器（纯 JS，无原生依赖）——
+const WHEEL_ITEM = 40;
+const WHEEL_ROWS = 5;
+const WHEEL_HEIGHT = WHEEL_ITEM * WHEEL_ROWS;
+
+function Wheel({
+  items,
+  index,
+  onIndex,
+}: {
+  items: string[];
+  index: number;
+  onIndex: (i: number) => void;
+}) {
+  const ref = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const y = Math.max(0, Math.min(index, items.length - 1)) * WHEEL_ITEM;
+    ref.current?.scrollTo({ y, animated: false });
+  }, [items, index]);
+
+  // 停稳后吸附到最近一格
+  const snap = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    let i = Math.round(e.nativeEvent.contentOffset.y / WHEEL_ITEM);
+    i = Math.max(0, Math.min(items.length - 1, i));
+    ref.current?.scrollTo({ y: i * WHEEL_ITEM, animated: true });
+    onIndex(i);
+  };
+
+  return (
+    <View style={styles.wheelBox}>
+      <ScrollView
+        ref={ref}
+        snapToInterval={WHEEL_ITEM}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        showsVerticalScrollIndicator={false}
+        onMomentumScrollEnd={snap}
+        onScrollEndDrag={snap}
+        contentContainerStyle={styles.wheelInner}
+      >
+        {items.map((t, i) => (
+          <View key={i} style={styles.wheelItemBox}>
+            <Text style={[styles.wheelItem, i === index && styles.wheelItemActive]}>{t}</Text>
+          </View>
+        ))}
+      </ScrollView>
+      <View pointerEvents="none" style={styles.wheelCenter} />
+    </View>
+  );
+}
+
 export default function CalendarScreen() {
   const navigation = useNavigation<any>();
   const now = new Date();
@@ -147,18 +228,28 @@ export default function CalendarScreen() {
   const [viewings, setViewings] = useState<ViewingItem[]>([]);
   const [leases, setLeases] = useState<LeaseItem[]>([]);
   const [receivables, setReceivables] = useState<ReceivableItem[]>([]);
+  const [userEvents, setUserEvents] = useState<CalendarEventItem[]>([]);
   const [summary, setSummary] = useState<WorkbenchSummary>({});
   const [propNames, setPropNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // 「添加自定义事件」弹窗
+  const [modalVisible, setModalVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventDate, setEventDate] = useState<Date>(now);
+  const [eventHour, setEventHour] = useState(now.getHours());
+  const [eventMinute, setEventMinute] = useState(now.getMinutes());
+
   const load = useCallback(async () => {
-    const [meRes, vwRes, lsRes, wbRes, pvRes] = await Promise.allSettled([
+    const [meRes, vwRes, lsRes, wbRes, pvRes, ceRes] = await Promise.allSettled([
       employeesApi.mine(),
       viewingsApi.list({ pageSize: 100 }),
       leasesApi.list({ page: 1, page_size: 100 }),
       employeesApi.workbench(),
       propertiesApi.list({ page: 1, page_size: 100 }),
+      calendarEventsApi.list({ page: 1, page_size: 100 }),
     ]);
 
     if (pvRes.status === 'fulfilled') {
@@ -191,6 +282,12 @@ export default function CalendarScreen() {
       const pending: ReceivableItem[] = d?.receivables?.pending ?? [];
       const overdue: ReceivableItem[] = d?.receivables?.overdue ?? [];
       setReceivables([...pending, ...overdue]);
+    }
+
+    if (ceRes.status === 'fulfilled') {
+      const raw = ceRes.value.data as any;
+      const items = Array.isArray(raw) ? raw : raw?.items ?? [];
+      setUserEvents(items as CalendarEventItem[]);
     }
 
     setLoading(false);
@@ -266,8 +363,22 @@ export default function CalendarScreen() {
       });
     });
 
+    userEvents.forEach((u) => {
+      if (!u.start_at) return;
+      const d = new Date(u.start_at);
+      if (Number.isNaN(d.getTime())) return;
+      list.push({
+        id: `user-${u.id}`,
+        kind: 'user',
+        title: u.title || '自定义事件',
+        sub: u.note || '自定义日程',
+        date: d,
+        timeLabel: hhmm(u.start_at),
+      });
+    });
+
     return list.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [viewings, receivables, leases, leaseName, today]);
+  }, [viewings, receivables, leases, userEvents, leaseName, today]);
 
   // 今日待跟进（逾期/7 日内到期/今日带看）
   const todayFollowUps = useMemo(() => {
@@ -372,6 +483,46 @@ export default function CalendarScreen() {
     d.getMonth() === selectedDate.getMonth() &&
     d.getDate() === selectedDate.getDate();
 
+  // —— 添加自定义事件 ——
+  const openModal = () => {
+    setEventTitle('');
+    setEventDate(selectedDate);
+    setEventHour(selectedDate.getHours());
+    // 分钟吸附到最近的 0/15/30/45 档
+    const nearest =
+      minuteOptions.reduce((a, b) =>
+        Math.abs(b - selectedDate.getMinutes()) < Math.abs(a - selectedDate.getMinutes()) ? b : a,
+        minuteOptions[0]
+      );
+    setEventMinute(nearest);
+    setModalVisible(true);
+  };
+
+  const saveEvent = useCallback(async () => {
+    const title = eventTitle.trim();
+    if (!title || saving) return;
+    const d = new Date(eventDate);
+    d.setHours(eventHour, eventMinute, 0, 0);
+    setSaving(true);
+    try {
+      await calendarEventsApi.create({ title, start_at: d.toISOString() });
+      setModalVisible(false);
+      setEventTitle('');
+      setSaving(false);
+      load();
+    } catch {
+      setSaving(false);
+    }
+  }, [eventTitle, saving, eventDate, eventHour, eventMinute, load]);
+
+  // 当前事件所在月份的「日」滚轮选项
+  const dayOptions = useMemo(() => {
+    const totalDays = new Date(eventDate.getFullYear(), eventDate.getMonth() + 1, 0).getDate();
+    return Array.from({ length: totalDays }, (_, i) => `${eventDate.getMonth() + 1}月${i + 1}日`);
+  }, [eventDate]);
+
+  const minuteOptions = [0, 15, 30, 45];
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -379,6 +530,28 @@ export default function CalendarScreen() {
       </View>
     );
   }
+
+  // 删除自定义日程（user 事件）：剥离 user- 前缀取真实 id
+  const confirmDelete = (e: CalEvent) => {
+    if (e.kind !== 'user') return;
+    const realId = e.id.replace(/^user-/, '');
+    Alert.alert('删除日程', `确定删除「${e.title}」吗？`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: () => {
+          calendarEventsApi
+            .remove(realId)
+            .then(() => {
+              load();
+              Alert.alert('已删除', '自定义日程已删除');
+            })
+            .catch(() => Alert.alert('删除失败', '请稍后重试'));
+        },
+      },
+    ]);
+  };
 
   const renderEventItem = (e: CalEvent) => {
     const meta = KIND_META[e.kind];
@@ -410,12 +583,23 @@ export default function CalendarScreen() {
             <Text style={styles.followActionText}>{e.actionLabel}</Text>
           </TouchableOpacity>
         ) : null}
+        {e.kind === 'user' ? (
+          <TouchableOpacity
+            style={styles.followDelete}
+            activeOpacity={0.7}
+            onPress={() => confirmDelete(e)}
+            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.error} />
+          </TouchableOpacity>
+        ) : null}
       </View>
     );
   };
 
   return (
     <View style={styles.container}>
+      <BeikeHeader title="我的日程" />
       {/* 顶部月份导航 */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.navBtn} onPress={prevMonth}>
@@ -497,11 +681,11 @@ export default function CalendarScreen() {
                   <Text style={styles.todayBtnText}>今天</Text>
                 </TouchableOpacity>
                 <View style={styles.legendRow}>
-                  {(['rent', 'contract', 'viewing'] as EventKind[]).map((k) => (
+                  {(['rent', 'contract', 'viewing', 'user'] as EventKind[]).map((k) => (
                     <View key={k} style={styles.legendItem}>
                       <View style={[styles.legendDot, { backgroundColor: KIND_META[k].color }]} />
                       <Text style={styles.legendLabel}>
-                        {k === 'rent' ? '租金到期' : k === 'contract' ? '合同到期' : '带看 / 催收'}
+                        {k === 'rent' ? '租金' : k === 'contract' ? '合同' : k === 'viewing' ? '带看' : '自定义'}
                       </Text>
                     </View>
                   ))}
@@ -712,6 +896,90 @@ export default function CalendarScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* 添加自定义事件入口 */}
+      <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={openModal}>
+        <Ionicons name="add" size={26} color={colors.primaryForeground} />
+      </TouchableOpacity>
+
+      {/* 添加自定义事件弹窗 */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>添加自定义事件</Text>
+
+            <TextInput
+              style={styles.eventInput}
+              value={eventTitle}
+              onChangeText={setEventTitle}
+              placeholder="事件内容，如：跟进客户 / 续签沟通"
+              placeholderTextColor={colors.ink3}
+              maxLength={60}
+            />
+
+            <Text style={styles.modalLabel}>日期与时间</Text>
+            <View style={styles.wheelRow}>
+              <View style={styles.wheelCol}>
+                <Text style={styles.wheelColLabel}>日期</Text>
+                <Wheel
+                  items={dayOptions}
+                  index={Math.max(0, eventDate.getDate() - 1)}
+                  onIndex={(i) =>
+                    setEventDate(new Date(eventDate.getFullYear(), eventDate.getMonth(), i + 1))
+                  }
+                />
+              </View>
+              <View style={styles.wheelCol}>
+                <Text style={styles.wheelColLabel}>时</Text>
+                <Wheel
+                  items={Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))}
+                  index={eventHour}
+                  onIndex={setEventHour}
+                />
+              </View>
+              <View style={styles.wheelCol}>
+                <Text style={styles.wheelColLabel}>分</Text>
+                <Wheel
+                  items={minuteOptions.map((m) => String(m).padStart(2, '0'))}
+                  index={Math.max(0, minuteOptions.indexOf(eventMinute))}
+                  onIndex={(i) => setEventMinute(minuteOptions[i])}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.eventPreview}>
+              时间：{eventDate.getMonth() + 1}月{eventDate.getDate()}日{' '}
+              {String(eventHour).padStart(2, '0')}:{String(eventMinute).padStart(2, '0')}
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                activeOpacity={0.8}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSave, (saving || !eventTitle.trim()) && styles.modalSaveDisabled]}
+                activeOpacity={0.85}
+                disabled={saving || !eventTitle.trim()}
+                onPress={saveEvent}
+              >
+                <Text style={styles.modalSaveText}>{saving ? '保存中…' : '保存'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -833,6 +1101,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
   },
   followActionText: { fontSize: 12, fontWeight: '700', color: colors.primary },
+  followDelete: {
+    marginLeft: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+  },
 
   /* 月历卡片 */
   calendarCard: {
@@ -1032,4 +1309,96 @@ const styles = StyleSheet.create({
   },
   expireBadgeWarn: { backgroundColor: colors.alpha(colors.errorRgb, 0.1) },
   expireBadgeText: { fontSize: 11, fontWeight: '600', color: colors.ink2 },
+
+  /* 添加事件悬浮按钮 */
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 28,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...colors.shadow.primary,
+  },
+
+  /* 添加事件弹窗 */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(28, 39, 51, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: colors.radius.xxl,
+    borderTopRightRadius: colors.radius.xxl,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 28,
+  },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, marginBottom: 14 },
+  eventInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.surface2,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.ink,
+  },
+  modalLabel: { fontSize: 13, fontWeight: '600', color: colors.ink2, marginTop: 16, marginBottom: 8 },
+
+  /* 滚轮式时间选择器 */
+  wheelRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  wheelCol: { flex: 1, alignItems: 'center' },
+  wheelColLabel: { fontSize: 11, fontWeight: '600', color: colors.ink3, marginBottom: 6 },
+  wheelBox: {
+    height: WHEEL_HEIGHT,
+    width: '100%',
+    overflow: 'hidden',
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  wheelInner: { paddingVertical: (WHEEL_HEIGHT - WHEEL_ITEM) / 2 },
+  wheelItemBox: { height: WHEEL_ITEM, justifyContent: 'center', alignItems: 'center' },
+  wheelItem: { fontSize: 15, fontWeight: '500', color: colors.ink2 },
+  wheelItemActive: { fontWeight: '700', color: colors.primary, fontSize: 17 },
+  wheelCenter: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    top: (WHEEL_HEIGHT - WHEEL_ITEM) / 2,
+    height: WHEEL_ITEM,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
+  },
+  eventPreview: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink,
+    marginTop: 16,
+  },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  modalCancel: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface2,
+  },
+  modalCancelText: { fontSize: 15, fontWeight: '600', color: colors.ink2 },
+  modalSave: {
+    flex: 2,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.primary,
+  },
+  modalSaveText: { fontSize: 15, fontWeight: '600', color: colors.primaryForeground },
+  modalSaveDisabled: { opacity: 0.5 },
 });

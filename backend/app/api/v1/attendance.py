@@ -18,10 +18,11 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.audit import log_audit
 from app.core.auth import require_admin, require_employee, require_role
+from app.core.rbac import require_permission
 from app.models import (
-    Attendance, AttendanceGroup, AttendanceGroupMember, AttendanceStatus, Employee,
-    ExternalTripApplication, LeaveRequest, LeaveStatus, LeaveType, TripStatus, User,
-    UserRole,
+    AppealStatus, Attendance, AttendanceAppeal, AttendanceGroup, AttendanceGroupMember,
+    AttendanceStatus, Employee, ExternalTripApplication, LeaveRequest, LeaveStatus,
+    LeaveType, Partner, TripStatus, User, UserRole,
 )
 from app.config import settings
 from app.providers.geo import geo_provider, is_within_radius
@@ -114,6 +115,9 @@ class AttendanceAdminRecord(BaseModel):
     email: Optional[str] = None
     department: Optional[str] = None
     employee_code: Optional[str] = None
+    # 归属合作公司（平台员工为空），用于「按公司分组」展示
+    partner_id: Optional[str] = None
+    partner_name: Optional[str] = None
     days: Optional[List[AttendanceDayRow]] = None
 
 
@@ -126,6 +130,7 @@ class AttendanceAdminRecordsOut(BaseModel):
     total_employees: Optional[int] = None
     summary: Optional[Dict[str, int]] = None
     department: Optional[str] = None
+    partner_id: Optional[str] = None
     records: Optional[List[AttendanceAdminRecord]] = None
 
 
@@ -138,6 +143,19 @@ def _get_employee(session: Session, user: User) -> Employee:
     if not employee:
         raise HTTPException(status_code=404, detail="Employee profile not found")
     return employee
+
+
+def _get_employee_opt(session: Session, user: User) -> Optional[Employee]:
+    """容错取当前用户的员工档案；无档案返回 None（不抛 404）。
+
+    用于只读聚合类端点（如今日考勤概览）：admin/agent 等角色允许访问
+    工作台但没有 Employee 档案时，应返回空状态而非报错。
+    """
+    return session.exec(
+        select(Employee).where(
+            Employee.user_id == user.id, Employee.deleted_at.is_(None)
+        )
+    ).first()
 
 
 def _approved_trip_today(session: Session, employee_id, today) -> bool:
@@ -474,7 +492,29 @@ def today_attendance(
     user: User = Depends(require_employee),
 ):
     """今日考勤状态 + 定位半径信息（含生效考勤组的办公点与作息）。"""
-    employee = _get_employee(session, user)
+    employee = _get_employee_opt(session, user)
+    today, _, _ = _attendance_now(8)
+    if employee is None:
+        # 无员工档案（如 admin/agent 测试账号仅浏览工作台）：返回空状态而非 404，
+        # 避免前端「加载今日考勤失败」。
+        return {
+            "checked_in": False,
+            "checked_out": False,
+            "status": None,
+            "check_in_time": None,
+            "check_out_time": None,
+            "check_in_location": None,
+            "check_out_location": None,
+            "radius_km": None,
+            "office": None,
+            "work_start": None,
+            "work_end": None,
+            "group_id": None,
+            "group_name": None,
+            "utc_offset_hours": 7,
+            "late_grace_minutes": 0,
+            "early_grace_minutes": 0,
+        }
     rule = _resolve_rules(session, employee)
     today, _, _ = _attendance_now(rule.utc_offset_hours)
     attendance = session.exec(
@@ -650,18 +690,83 @@ def approve_external_trip(
 # ---------------------------------------------------------------------------
 # 管理员考勤核对：查看全部员工的考勤记录与汇总
 # ---------------------------------------------------------------------------
+def _partner_user_ids(session: Session, partner_id: uuid.UUID) -> List[uuid.UUID]:
+    """合作公司旗下的账号 id 集合（公司成员通过 User.partner_id 归属）。"""
+    return list(
+        session.exec(
+            select(User.id).where(
+                User.partner_id == partner_id, User.deleted_at.is_(None)
+            )
+        ).all()
+    )
+
+
+def _partner_name_map(
+    session: Session, partner_ids: set[uuid.UUID]
+) -> Dict[uuid.UUID, str]:
+    if not partner_ids:
+        return {}
+    return {
+        p.id: p.name
+        for p in session.exec(
+            select(Partner).where(Partner.id.in_(partner_ids))
+        ).all()
+    }
+
+
+def _resolve_scope_partner(
+    session: Session, user: User, partner_id: Optional[uuid.UUID]
+) -> tuple[Optional[uuid.UUID], Optional[List[uuid.UUID]]]:
+    """解析考勤查询的合作公司作用域。
+
+    返回 `(effective_partner_id, company_user_ids)`：
+    - 平台管理员：`effective = 传入的 partner_id`（None 表示不限公司）；
+    - 合作公司管理员：强制覆盖为 `current.partner_id`，显式请求其它公司一律 403，
+      避免跨公司越权查看考勤。
+    """
+    if user.role == UserRole.admin:
+        if partner_id is None:
+            return None, None
+        return partner_id, _partner_user_ids(session, partner_id)
+    if user.role != UserRole.partner_admin:
+        raise HTTPException(status_code=403, detail="Permission denied")
+    if not user.partner_id:
+        raise HTTPException(
+            status_code=403, detail="Account is not bound to any partner company"
+        )
+    if partner_id is not None and partner_id != user.partner_id:
+        raise HTTPException(
+            status_code=403, detail="Cannot view another partner company's attendance"
+        )
+    return user.partner_id, _partner_user_ids(session, user.partner_id)
+
+
+def _scope_emp_conditions(
+    company_user_ids: Optional[List[uuid.UUID]],
+) -> list:
+    """把公司作用域翻译成 Employee 过滤条件（无范围时返回空列表）。"""
+    if company_user_ids is None:
+        return []
+    if not company_user_ids:
+        # 公司下暂无成员：用恒假条件保证返回空集，而不是全量
+        return [Employee.user_id.is_(None)]
+    return [Employee.user_id.in_(company_user_ids)]
+
+
 @router.get("/admin/records", response_model=AttendanceAdminRecordsOut)
 def admin_attendance_records(
     start_date: date | None = None,
     end_date: date | None = None,
     department: str | None = None,
+    partner_id: uuid.UUID | None = None,
     session: Session = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_permission("attendance:partner:view")),
 ):
-    """考勤核对：按日期区间（默认当天）返回全员考勤明细与汇总。
+    """考勤核对：按日期区间（默认当天）返回考勤明细与汇总。
 
-    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：管理端「考勤核对」
-    报表页尚未做；员工自助考勤走 /attendance/me。管理员改状态/补时间走
+    作用域：平台管理员可查看全部或按 `partner_id` 过滤；
+    合作公司管理员强制限定本公司（见 `_resolve_scope_partner`）。
+    员工自助考勤走 /attendance/me；管理员改状态/补时间走
     PATCH /attendance/admin/records/{employee_id}。
     """
     today, _, _ = _attendance_now()
@@ -672,9 +777,12 @@ def admin_attendance_records(
     if (end - start).days > 92:
         raise HTTPException(status_code=400, detail="Date range too large (max 92 days)")
 
+    scope_partner_id, company_user_ids = _resolve_scope_partner(session, user, partner_id)
+
     emp_conditions = [Employee.deleted_at.is_(None), Employee.is_active.is_(True)]
     if department:
         emp_conditions.append(Employee.department == department)
+    emp_conditions.extend(_scope_emp_conditions(company_user_ids))
     employees = session.exec(
         select(Employee).where(*emp_conditions).order_by(Employee.department, Employee.employee_code)
     ).all()
@@ -693,6 +801,10 @@ def admin_attendance_records(
     by_employee: dict[uuid.UUID, list] = {}
     for a in atts:
         by_employee.setdefault(a.employee_id, []).append(a)
+
+    partner_names = _partner_name_map(
+        session, {u.partner_id for u in users.values() if u.partner_id}
+    )
 
     status_totals: dict[str, int] = {s.value: 0 for s in AttendanceStatus}
     records = []
@@ -721,6 +833,8 @@ def admin_attendance_records(
                 "email": u.email if u else None,
                 "department": e.department,
                 "employee_code": e.employee_code,
+                "partner_id": str(u.partner_id) if u and u.partner_id else None,
+                "partner_name": partner_names.get(u.partner_id) if u and u.partner_id else None,
                 "days": record_days,
             }
         )
@@ -731,6 +845,7 @@ def admin_attendance_records(
         "total_employees": len(records),
         "summary": status_totals,
         "department": department,
+        "partner_id": str(scope_partner_id) if scope_partner_id else None,
         "records": records,
     }
 
@@ -1508,6 +1623,199 @@ def cancel_leave(
 
 
 # ---------------------------------------------------------------------------
+# P1-d 打卡异常申诉：员工对某天迟到/早退/缺勤记录发起申诉，管理员审批。
+# 设计约定：审批通过不改 Attendance.status，只留痕，避免与校准双写冲突。
+# ---------------------------------------------------------------------------
+class AppealIn(BaseModel):
+    """申诉入参：date 必填、reason 必填；attendance_id 可空（缺勤时按 date 申诉）。"""
+
+    date: date
+    attendance_id: Optional[uuid.UUID] = None
+    reason: str = ""
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_required(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("reason is required")
+        return v.strip()
+
+    @field_validator("date")
+    @classmethod
+    def _not_past(cls, v: date) -> date:
+        # 与外勤/请假同口径：按考勤时区判「今天」，避免服务器异地时区误判
+        if v < _attendance_now()[0]:
+            raise ValueError("date must not be in the past")
+        return v
+
+
+class AppealActionIn(BaseModel):
+    """申诉审批动作：action 必填（approved / rejected）。"""
+
+    action: Literal["approved", "rejected"]
+    reply_note: Optional[str] = None
+
+
+class AppealOut(BaseModel):
+    """申诉条目。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    employee_id: Optional[str] = None
+    name: Optional[str] = None
+    department: Optional[str] = None
+    attendance_id: Optional[str] = None
+    date: Optional[str] = None
+    reason: Optional[str] = None
+    status: Optional[str] = None
+    reply_note: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_at: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+def _appeal_out(
+    appeal: AttendanceAppeal, employee: Optional[Employee], user: Optional[User]
+) -> dict:
+    return {
+        "id": str(appeal.id),
+        "employee_id": str(appeal.employee_id),
+        "name": user.full_name if user else None,
+        "department": employee.department if employee else None,
+        "attendance_id": str(appeal.attendance_id) if appeal.attendance_id else None,
+        "date": appeal.date.isoformat(),
+        "reason": appeal.reason,
+        "status": appeal.status.value,
+        "reply_note": appeal.reply_note,
+        "approved_by": str(appeal.approved_by) if appeal.approved_by else None,
+        "approved_at": appeal.approved_at.isoformat() if appeal.approved_at else None,
+        "created_at": appeal.created_at.isoformat() if appeal.created_at else None,
+    }
+
+
+@router.post("/appeals", response_model=AppealOut)
+def apply_appeal(
+    payload: AppealIn,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """提交打卡异常申诉。同员工+同天已有待审/已批申诉时 409，避免重复申诉。"""
+    employee = _get_employee(session, user)
+    overlap = session.exec(
+        select(AttendanceAppeal).where(
+            AttendanceAppeal.employee_id == employee.id,
+            AttendanceAppeal.deleted_at.is_(None),
+            AttendanceAppeal.status.in_([AppealStatus.pending, AppealStatus.approved]),
+            AttendanceAppeal.date == payload.date,
+        )
+    ).first()
+    if overlap:
+        raise HTTPException(
+            status_code=409,
+            detail="An appeal for this date is already pending or approved",
+        )
+    appeal = AttendanceAppeal(
+        employee_id=employee.id,
+        attendance_id=payload.attendance_id,
+        date=payload.date,
+        reason=payload.reason,
+        status=AppealStatus.pending,
+    )
+    session.add(appeal)
+    session.commit()
+    session.refresh(appeal)
+    return _appeal_out(appeal, employee, user)
+
+
+@router.get("/appeals", response_model=List[AppealOut])
+def list_appeals(
+    status: Optional[AppealStatus] = None,
+    employee_id: Optional[uuid.UUID] = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """申诉列表。管理员/代理看全员（可按状态、员工筛），员工只看自己。"""
+    conditions = [AttendanceAppeal.deleted_at.is_(None)]
+    if user.role in (UserRole.admin, UserRole.agent):
+        if status is not None:
+            conditions.append(AttendanceAppeal.status == status)
+        if employee_id is not None:
+            conditions.append(AttendanceAppeal.employee_id == employee_id)
+    else:
+        conditions.append(AttendanceAppeal.employee_id == _get_employee(session, user).id)
+        if status is not None:
+            conditions.append(AttendanceAppeal.status == status)
+
+    appeals = session.exec(
+        select(AttendanceAppeal).where(*conditions).order_by(AttendanceAppeal.created_at.desc())
+    ).all()
+    if not appeals:
+        return []
+    employees = {
+        e.id: e
+        for e in session.exec(
+            select(Employee).where(Employee.id.in_([a.employee_id for a in appeals]))
+        ).all()
+    }
+    users = {
+        u.id: u
+        for u in session.exec(
+            select(User).where(User.id.in_([e.user_id for e in employees.values()]))
+        ).all()
+    } if employees else {}
+    return [
+        _appeal_out(
+            a,
+            employees.get(a.employee_id),
+            users.get(employees[a.employee_id].user_id)
+            if a.employee_id in employees
+            else None,
+        )
+        for a in appeals
+    ]
+
+
+@router.post("/appeals/{appeal_id}/approve", response_model=AppealOut)
+def approve_appeal(
+    appeal_id: uuid.UUID,
+    payload: AppealActionIn,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_role(UserRole.admin, UserRole.agent)),
+):
+    """审批打卡异常申诉（admin/agent）。审批不改 Attendance.status，只留痕。"""
+    appeal = session.get(AttendanceAppeal, appeal_id)
+    if not appeal or appeal.deleted_at:
+        raise HTTPException(status_code=404, detail="Appeal not found")
+    if appeal.status != AppealStatus.pending:
+        raise HTTPException(
+            status_code=409, detail=f"Appeal already {appeal.status.value} (final)"
+        )
+    appeal.status = (
+        AppealStatus.approved if payload.action == "approved" else AppealStatus.rejected
+    )
+    appeal.approved_by = user.id
+    appeal.approved_at = datetime.utcnow()
+    appeal.reply_note = payload.reply_note
+    session.add(appeal)
+    session.commit()
+    session.refresh(appeal)
+    log_audit(
+        session,
+        actor_user_id=user.id,
+        action="attendance.appeal_review",
+        resource_type="attendance_appeal",
+        resource_id=str(appeal.id),
+    )
+    employee = session.get(Employee, appeal.employee_id)
+    approver = session.exec(
+        select(User).where(User.id == appeal.approved_by)
+    ).first()
+    session.refresh(appeal)
+    return _appeal_out(appeal, employee, approver)
+
+
+# ---------------------------------------------------------------------------
 # P1-c 异常分类统计与报表（迟到/早退/缺勤/外勤分类 + 趋势）
 # ---------------------------------------------------------------------------
 class AttendanceSummaryTotals(BaseModel):
@@ -1536,11 +1844,42 @@ class AttendanceSummaryOut(BaseModel):
 
     range: Optional[AttendanceDateRange] = None
     department: Optional[str] = None
+    partner_id: Optional[str] = None
     total_employees: Optional[int] = None
     totals: Optional[AttendanceSummaryTotals] = None
     employees: Optional[List[Dict[str, Any]]] = None
     departments: Optional[List[Dict[str, Any]]] = None
     daily: Optional[List[Dict[str, Any]]] = None
+
+
+class AttendanceCompanyRow(BaseModel):
+    """按合作公司分组的考勤汇总条目。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    partner_id: Optional[str] = None
+    partner_name: Optional[str] = None
+    member_count: Optional[int] = None
+    present: Optional[int] = None
+    late: Optional[int] = None
+    early_out: Optional[int] = None
+    absent: Optional[int] = None
+    leave: Optional[int] = None
+    field_work: Optional[int] = None
+    abnormal: Optional[int] = None
+    attended: Optional[int] = None
+    expected: Optional[int] = None
+    attendance_rate: Optional[float] = None
+
+
+class AttendanceCompaniesOut(BaseModel):
+    """按合作公司分组的考勤汇总响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    range: Optional[Dict[str, int]] = None
+    total_partners: Optional[int] = None
+    companies: Optional[List[AttendanceCompanyRow]] = None
 
 
 def _count_bucket(row: dict, bucket: dict) -> None:
@@ -1614,13 +1953,15 @@ def admin_attendance_summary(
     start_date: date | None = None,
     end_date: date | None = None,
     department: str | None = None,
+    partner_id: uuid.UUID | None = None,
     session: Session = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_permission("attendance:partner:view")),
 ):
     """考勤异常分类统计（按员工 / 部门 / 逐日三类视图）。
 
     口径：迟到与早退按明细（metadata_ 的分钟数）计数，同一天两项可同时命中；
     异常合计 = 迟到 + 早退 + 缺勤；出勤率 = 有出勤事实的天数 /（工作日 × 员工数）。
+    作用域同 /admin/records：平台管理员可按公司过滤，合作公司管理员限本公司。
     """
     today, _, _ = _attendance_now()
     start = start_date or today.replace(day=1)
@@ -1630,9 +1971,12 @@ def admin_attendance_summary(
     if (end - start).days > 92:
         raise HTTPException(status_code=400, detail="Date range too large (max 92 days)")
 
+    scope_partner_id, company_user_ids = _resolve_scope_partner(session, user, partner_id)
+
     emp_conditions = [Employee.deleted_at.is_(None), Employee.is_active.is_(True)]
     if department:
         emp_conditions.append(Employee.department == department)
+    emp_conditions.extend(_scope_emp_conditions(company_user_ids))
     employees = session.exec(
         select(Employee).where(*emp_conditions).order_by(Employee.department, Employee.employee_code)
     ).all()
@@ -1716,9 +2060,120 @@ def admin_attendance_summary(
     return {
         "range": {"start": start.isoformat(), "end": end.isoformat(), "days": (end - start).days + 1},
         "department": department,
+        "partner_id": str(scope_partner_id) if scope_partner_id else None,
         "total_employees": len(employees),
         "totals": totals_out,
         "employees": employee_rows,
         "departments": department_rows,
         "daily": daily_rows,
+    }
+
+
+@router.get("/admin/companies", response_model=AttendanceCompaniesOut)
+def admin_attendance_companies(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_permission("attendance:partner:view")),
+):
+    """按合作公司分组的考勤汇总。
+
+    每个合作公司一行：成员数、各状态天数、异常合计、应出勤与出勤率。
+    平台管理员看到全部启用中的合作公司；合作公司管理员只看到本公司
+    （作用域由 `_resolve_scope_partner` 强制覆盖）。
+    """
+    today, _, _ = _attendance_now()
+    start = start_date or today.replace(day=1)
+    end = end_date or today
+    if start > end:
+        start, end = end, start
+    if (end - start).days > 92:
+        raise HTTPException(status_code=400, detail="Date range too large (max 92 days)")
+
+    scope_partner_id, company_user_ids = _resolve_scope_partner(session, user, None)
+
+    # 待统计的公司集合：平台管理员=全部启用公司（或按 scope 过滤）；公司管理员=本公司
+    partner_conditions = [Partner.deleted_at.is_(None), Partner.is_active.is_(True)]
+    if scope_partner_id:
+        partner_conditions.append(Partner.id == scope_partner_id)
+    partners = session.exec(
+        select(Partner).where(*partner_conditions).order_by(Partner.name)
+    ).all()
+
+    # 全量员工 → 按公司分组（employee → user → partner_id）
+    emp_conditions = [Employee.deleted_at.is_(None), Employee.is_active.is_(True)]
+    emp_conditions.extend(_scope_emp_conditions(company_user_ids))
+    employees = session.exec(select(Employee).where(*emp_conditions)).all()
+    emp_user_ids = [e.user_id for e in employees]
+    users = (
+        {
+            u.id: u
+            for u in session.exec(select(User).where(User.id.in_(emp_user_ids))).all()
+        }
+        if emp_user_ids
+        else {}
+    )
+    emps_by_partner: dict[Optional[uuid.UUID], list] = {}
+    for e in employees:
+        u = users.get(e.user_id)
+        emps_by_partner.setdefault(u.partner_id if u else None, []).append(e)
+
+    records = session.exec(
+        select(Attendance).where(
+            Attendance.deleted_at.is_(None),
+            Attendance.date >= start,
+            Attendance.date <= end,
+        )
+    ).all()
+
+    atts_by_emp: dict[uuid.UUID, list] = {}
+    for r in records:
+        atts_by_emp.setdefault(r.employee_id, []).append(r)
+
+    workdays = _workdays_between(start, end)
+
+    def _company_row(
+        pid: Optional[uuid.UUID], name: Optional[str], emps: list
+    ) -> dict:
+        bucket = _empty_bucket()
+        for e in emps:
+            for r in atts_by_emp.get(e.id, []):
+                _count_bucket(
+                    {
+                        "status": r.status,
+                        "metadata_": r.metadata_,
+                        "check_in_time": r.check_in_time,
+                    },
+                    bucket,
+                )
+        out = _finish_bucket(bucket)
+        expected = workdays * len(emps)
+        out["expected"] = expected
+        out["attendance_rate"] = (
+            round(bucket["attended"] / expected * 100, 1) if expected else 0.0
+        )
+        return {
+            "partner_id": str(pid) if pid else None,
+            "partner_name": name,
+            "member_count": len(emps),
+            **out,
+        }
+
+    rows = [
+        _company_row(p.id, p.name, emps_by_partner.get(p.id, [])) for p in partners
+    ]
+    # 平台员工（无归属公司）单列一行，避免「按公司」视图漏掉平台自有员工。
+    # partner_name 留空，由前端按 i18n 渲染「未归属公司」文案。
+    if company_user_ids is None and emps_by_partner.get(None):
+        rows.append(_company_row(None, None, emps_by_partner[None]))
+
+    return {
+        "range": {
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "days": (end - start).days + 1,
+            "workdays": workdays,
+        },
+        "total_partners": len(rows),
+        "companies": rows,
     }

@@ -10,12 +10,20 @@ interface Account {
   phone?: string
   full_name: string
   role: string
+  user_type?: 'platform' | 'partner'
+  partner_id?: string
+  partner_name?: string
   is_active: boolean
   is_verified: boolean
   last_login_at?: string
   created_at?: string
   groups: string[]
   employee?: { employee_code?: string; department?: string; position?: string }
+}
+
+interface PartnerOption {
+  id: string
+  name: string
 }
 
 const ROLE_BADGE: Record<string, string> = {
@@ -40,7 +48,7 @@ const Users = () => {
   const [data, setData] = useState<Account[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [query, setQuery] = useState<{ page: number; page_size: number; role?: string; keyword?: string }>({
+  const [query, setQuery] = useState<{ page: number; page_size: number; role?: string; user_type?: string; keyword?: string }>({
     page: 1,
     page_size: 20,
   })
@@ -51,12 +59,32 @@ const Users = () => {
   const [pwdTarget, setPwdTarget] = useState<Account | null>(null)
   const [pwdForm] = Form.useForm()
   const [saving, setSaving] = useState(false)
+  const [partnerOptions, setPartnerOptions] = useState<PartnerOption[]>([])
+  const formUserType = Form.useWatch('user_type', form)
+  const [partnerLoading, setPartnerLoading] = useState(false)
+
+  const loadPartners = useCallback(async () => {
+    setPartnerLoading(true)
+    try {
+      const res = await api.get('/admin/partners', { params: { page_size: 100 } })
+      const payload = res.data?.data ?? res.data
+      setPartnerOptions((payload?.items ?? []).map((p: any) => ({ id: p.id, name: p.name })))
+    } catch {
+      setPartnerOptions([])
+    } finally {
+      setPartnerLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (formUserType === 'partner') loadPartners()
+  }, [formUserType, loadPartners])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const res = await api.get('/admin/users', {
-        params: { page: query.page, page_size: query.page_size, role: query.role, keyword: query.keyword },
+        params: { page: query.page, page_size: query.page_size, role: query.role, user_type: query.user_type, keyword: query.keyword },
       })
       const payload = res.data?.data ?? res.data
       setData(payload?.items ?? [])
@@ -75,7 +103,7 @@ const Users = () => {
   const openCreate = () => {
     setEditing(null)
     form.resetFields()
-    form.setFieldsValue({ role: 'employee', password: '123456' })
+    form.setFieldsValue({ role: 'employee', user_type: 'platform', password: '123456' })
     setModalOpen(true)
   }
 
@@ -248,6 +276,17 @@ const Users = () => {
         <select
           className="rent-filter-select rent-form-select"
           style={{ width: 'auto' }}
+          aria-label={t('systemUsers.ariaUserType')}
+          value={query.user_type || ''}
+          onChange={(e) => setQuery((q) => ({ ...q, page: 1, user_type: e.target.value || undefined }))}
+        >
+          <option value="">{t('systemUsers.optAllUserTypes')}</option>
+          <option value="platform">{t('userType.platform')}</option>
+          <option value="partner">{t('userType.partner')}</option>
+        </select>
+        <select
+          className="rent-filter-select rent-form-select"
+          style={{ width: 'auto' }}
           aria-label={t('systemUsers.ariaRole')}
           value={query.role || ''}
           onChange={(e) => setQuery((q) => ({ ...q, page: 1, role: e.target.value || undefined }))}
@@ -277,6 +316,7 @@ const Users = () => {
                   <th>{t('systemUsers.thName')}</th>
                   <th>{t('systemUsers.thAccount')}</th>
                   <th>{t('systemUsers.thRole')}</th>
+                  <th>{t('systemUsers.thSource')}</th>
                   <th>{t('systemUsers.thGroups')}</th>
                   <th>{t('common.status')}</th>
                   <th>{t('systemUsers.thLastLogin')}</th>
@@ -286,14 +326,14 @@ const Users = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="rent-loading-row">
+                    <td colSpan={8} className="rent-loading-row">
                       <Spin size="small" style={{ marginRight: 8 }} />
                       {t('common.loading')}
                     </td>
                   </tr>
                 ) : data.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="rent-empty">
                         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('systemUsers.empty')} />
                       </div>
@@ -318,6 +358,16 @@ const Users = () => {
                         <span className={`rent-badge ${ROLE_BADGE[row.role] || 'rent-badge--neutral'}`}>
                           {ROLE_LABEL[row.role] ? t(ROLE_LABEL[row.role]) : row.role}
                         </span>
+                      </td>
+                      <td>
+                        <div>
+                          <span className={`rent-badge ${row.user_type === 'partner' ? 'rent-badge--warning' : 'rent-badge--info'}`}>
+                            {row.user_type === 'partner' ? t('userType.partner') : t('userType.platform')}
+                          </span>
+                        </div>
+                        {row.user_type === 'partner' && (
+                          <div className="rent-text-sm rent-text-muted">{row.partner_name || row.partner_id || '—'}</div>
+                        )}
                       </td>
                       <td>
                         {(row.groups ?? []).length > 0 ? (
@@ -428,6 +478,29 @@ const Users = () => {
           <Form.Item name="role" label={t('systemUsers.labelRole')} rules={[{ required: true }]}>
             <Select options={Object.entries(ROLE_LABEL).map(([v, l]) => ({ value: v, label: t(l) }))} />
           </Form.Item>
+          {!editing && (
+            <>
+              <Form.Item name="user_type" label={t('systemUsers.labelUserType')}>
+                <Select
+                  options={[
+                    { value: 'platform', label: t('userType.platform') },
+                    { value: 'partner', label: t('userType.partner') },
+                  ]}
+                />
+              </Form.Item>
+              {formUserType === 'partner' && (
+                <Form.Item name="partner_id" label={t('systemUsers.labelPartner')} rules={[{ required: true, message: t('systemUsers.errPartnerRequired') }]}>
+                  <Select
+                    showSearch
+                    optionFilterProp="label"
+                    loading={partnerLoading}
+                    placeholder={t('systemUsers.placeholderSelectPartner')}
+                    options={partnerOptions.map((p) => ({ value: p.id, label: p.name }))}
+                  />
+                </Form.Item>
+              )}
+            </>
+          )}
           <Form.Item name="department" label={t('systemUsers.labelDept')}>
             <Input placeholder={t('systemUsers.placeholderDept')} />
           </Form.Item>

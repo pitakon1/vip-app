@@ -4,6 +4,7 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { contractsApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
 import { useI18n } from '@/i18n'
+import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 
 const unwrap = (d: any): any => d?.data ?? d ?? {}
@@ -59,6 +60,7 @@ export default function StaffContractPage() {
 
   return (
     <View className='ct-page'>
+      <ShellHeader title={t('nav.contract')} />
       {loading && !contract ? (
         <View className='ct-state'><Text className='ct-state__text'>{t('pub.loading')}</Text></View>
       ) : (

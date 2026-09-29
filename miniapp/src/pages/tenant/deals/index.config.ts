@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '交易订单', navigationStyle: 'custom' }

@@ -4,6 +4,7 @@ import Taro from '@tarojs/taro'
 import { attendanceApi, employeesApi } from '@/services/api'
 import { MAX_PAGE_SIZE } from '@/lib/api'
 import { useI18n } from '@/i18n'
+import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 
 /**
@@ -466,6 +467,7 @@ export default function AttendanceManagePage() {
 
   return (
     <View className='am-page'>
+      <ShellHeader title={t('nav.attendanceManage')} />
       {/* 顶部横向胶囊页签 */}
       <ScrollView scrollX className='am-tabs' showScrollbar={false}>
         <View className='am-tabs__inner'>

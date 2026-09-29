@@ -6,6 +6,7 @@ import { MAX_PAGE_SIZE } from '@/lib/api'
 import useAuthStore from '@/stores/auth'
 import type { User } from '@/types'
 import { useI18n } from '@/i18n'
+import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 
 /** 适用对象（对齐 Web 端 CommissionRules） */
@@ -262,6 +263,7 @@ export default function CommissionRulesPage() {
 
   return (
     <View className='cr-page'>
+      <ShellHeader title={t('nav.commissionRules')} />
       <View className='cr-page__hint'>
         {t('comm.hint')}
       </View>

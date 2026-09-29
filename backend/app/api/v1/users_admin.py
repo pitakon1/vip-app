@@ -20,10 +20,12 @@ from app.schemas.user import UserAdminOut
 from app.models import (
     Employee,
     Lead,
+    Partner,
     User,
     UserGroup,
     UserGroupMember,
     UserRole,
+    UserType,
 )
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
@@ -55,14 +57,14 @@ class ResetPassword(BaseModel):
 
 def _batch_extras(
     session: Session, user_ids: list[uuid.UUID]
-) -> tuple[dict, dict]:
-    """批量取员工档案与分组名。
+) -> tuple[dict, dict, dict]:
+    """批量取员工档案、分组名与合作公司名。
 
     原实现对每个用户各查 2~3 次（列表 20 条即 40~60 次查询，N+1），
-    这里改为按 id 批量 `in_()` + join，固定 2 次查询。
+    这里改为按 id 批量 `in_()` + join，固定几次查询。
     """
     if not user_ids:
-        return {}, {}
+        return {}, {}, {}
 
     employees = session.exec(
         select(Employee).where(
@@ -80,10 +82,31 @@ def _batch_extras(
     for uid, name in rows:
         groups_map.setdefault(uid, []).append(name)
 
-    return emp_map, groups_map
+    # 合作公司名（归属展示）
+    users = session.exec(
+        select(User).where(User.id.in_(user_ids))
+    ).all()
+    partner_ids = {u.partner_id for u in users if u.partner_id}
+    partners = (
+        {
+            p.id: p.name
+            for p in session.exec(
+                select(Partner).where(Partner.id.in_(partner_ids))
+            ).all()
+        }
+        if partner_ids
+        else {}
+    )
+    partners_map: dict[uuid.UUID, str] = {
+        u.id: partners.get(u.partner_id) for u in users if u.partner_id
+    }
+
+    return emp_map, groups_map, partners_map
 
 
-def _serialize_user(u: User, emp_map: dict, groups_map: dict) -> dict:
+def _serialize_user(
+    u: User, emp_map: dict, groups_map: dict, partners_map: dict
+) -> dict:
     emp = emp_map.get(u.id)
     data = serialize_user(u)
     data.update(
@@ -91,6 +114,9 @@ def _serialize_user(u: User, emp_map: dict, groups_map: dict) -> dict:
         is_verified=u.is_verified,
         last_login_at=u.last_login_at.isoformat() if u.last_login_at else None,
         created_at=u.created_at.isoformat() if u.created_at else None,
+        user_type=u.user_type.value if u.user_type else None,
+        partner_id=str(u.partner_id) if u.partner_id else None,
+        partner_name=partners_map.get(u.id),
         groups=groups_map.get(u.id, []),
         employee=(
             {
@@ -107,22 +133,28 @@ def _serialize_user(u: User, emp_map: dict, groups_map: dict) -> dict:
 
 def _serialize_one(session: Session, u: User) -> dict:
     """单用户序列化（创建/编辑后返回）。"""
-    emp_map, groups_map = _batch_extras(session, [u.id])
-    return _serialize_user(u, emp_map, groups_map)
+    emp_map, groups_map, partners_map = _batch_extras(session, [u.id])
+    return _serialize_user(u, emp_map, groups_map, partners_map)
 
 
 @router.get("", response_model=Page[UserAdminOut])
 def list_users(
     pagination: PaginationParams = Depends(),
     role: Optional[UserRole] = None,
+    user_type: Optional[UserType] = None,
+    partner_id: Optional[uuid.UUID] = None,
     keyword: Optional[str] = None,
     session: Session = Depends(get_session),
     user: User = Depends(require_permission("account:list")),
 ):
-    """账号列表（分页/角色/关键词过滤）。"""
+    """账号列表（分页/角色/来源/归属/关键词过滤）。"""
     conditions = [User.deleted_at.is_(None)]
     if role:
         conditions.append(User.role == role)
+    if user_type:
+        conditions.append(User.user_type == user_type)
+    if partner_id:
+        conditions.append(User.partner_id == partner_id)
     if keyword:
         kw = f"%{keyword}%"
         conditions.append(
@@ -134,8 +166,10 @@ def list_users(
         .order_by(User.created_at.desc())
     )
     page = paginate_query(session, stmt, pagination)
-    emp_map, groups_map = _batch_extras(session, [u.id for u in page.items])
-    page.items = [_serialize_user(u, emp_map, groups_map) for u in page.items]
+    emp_map, groups_map, partners_map = _batch_extras(
+        session, [u.id for u in page.items]
+    )
+    page.items = [_serialize_user(u, emp_map, groups_map, partners_map) for u in page.items]
     return page
 
 
@@ -145,7 +179,12 @@ def create_user(
     session: Session = Depends(get_session),
     user: User = Depends(require_permission("account:create")),
 ):
-    """后台开通账号（agent/employee 自动创建员工档案）。"""
+    """后台开通账号（agent/employee 自动创建员工档案；partner_admin 走合作公司开通）。"""
+    if req.role == UserRole.partner_admin:
+        raise HTTPException(
+            status_code=400,
+            detail="partner_admin must be created via a partner company",
+        )
     existing = session.exec(select(User).where(User.email == req.email)).first()
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -158,6 +197,7 @@ def create_user(
         full_name=req.full_name,
         hashed_password=get_password_hash(req.password),
         role=req.role,
+        user_type=UserType.platform,
         is_active=True,
         is_verified=True,
     )
@@ -227,6 +267,20 @@ def update_user(
             raise HTTPException(
                 status_code=400, detail="Cannot change your own role to admin"
             )
+        # 提权为合作公司管理员：仅平台管理员可授予，且目标需已归属某公司
+        if new_role == UserRole.partner_admin:
+            perms = get_user_permissions(session, admin)
+            if "partner:manage" not in perms:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied. Required permissions: ['partner:manage']",
+                )
+            if not u.partner_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot promote a user without a partner company",
+                )
+            u.user_type = UserType.partner
         u.role = new_role
 
     new_email = data.get("email")

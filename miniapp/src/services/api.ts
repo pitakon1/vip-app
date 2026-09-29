@@ -135,6 +135,15 @@ export const viewingsApi = {
   list: (params?: any) => request({ url: '/viewings', method: 'GET', data: params })
 }
 
+// ============ 员工自定义日历事件 ============
+export const calendarEventsApi = {
+  list: (params?: any) => request({ url: '/calendar-events', method: 'GET', data: params }),
+  create: (data: any) => request({ url: '/calendar-events', method: 'POST', data }),
+  update: (id: string, data: any) =>
+    request({ url: `/calendar-events/${id}`, method: 'PATCH', data }),
+  remove: (id: string) => request({ url: `/calendar-events/${id}`, method: 'DELETE' })
+}
+
 export const documentsApi = {
   list: (params?: any) => request({ url: '/documents', method: 'GET', data: params })
 }
@@ -232,6 +241,28 @@ export const adminUsersApi = {
   deleteUser: (id: string) => request({ url: `/admin/users/${id}`, method: 'DELETE' })
 }
 
+// 管理端：合作公司（平台管理员维护合作方，含开通 / 编辑 / 启停 / 指定管理员）
+export const adminPartnersApi = {
+  list: (params?: any) => request({ url: '/admin/partners', method: 'GET', data: params }),
+  create: (data: any) => request({ url: '/admin/partners', method: 'POST', data }),
+  update: (id: string, data: any) =>
+    request({ url: `/admin/partners/${id}`, method: 'PATCH', data }),
+  deactivate: (id: string) => request({ url: `/admin/partners/${id}/deactivate`, method: 'POST' }),
+  activate: (id: string) => request({ url: `/admin/partners/${id}/activate`, method: 'POST' })
+}
+
+// 合作公司管理员侧：本公司成员 / 绩效 / 房源
+export const partnerApi = {
+  members: () => request({ url: '/partner/members', method: 'GET' }),
+  createMember: (data: any) => request({ url: '/partner/members', method: 'POST', data }),
+  pullInMember: (userId: string) =>
+    request({ url: `/partner/members/${userId}/pull-in`, method: 'POST' }),
+  removeMember: (userId: string) =>
+    request({ url: `/partner/members/${userId}`, method: 'DELETE' }),
+  performance: () => request({ url: '/partner/performance', method: 'GET' }),
+  properties: () => request({ url: '/partner/properties', method: 'GET' })
+}
+
 // 管理端：角色权限配置（权限点分组 + 各角色已分配；可编辑保存，保存后即时生效）
 export const adminPermissionsApi = {
   list: () => request({ url: '/admin/permissions', method: 'GET' }),
@@ -289,6 +320,12 @@ export const attendanceApi = {
     request({ url: `/attendance/leave-requests/${id}/approve`, method: 'POST', data }),
   cancelLeave: (id: string) =>
     request({ url: `/attendance/leave-requests/${id}/cancel`, method: 'POST' }),
+  // 打卡异常申诉（P1-d）
+  appeals: (params?: any) =>
+    request({ url: `/attendance/appeals${qs(params)}`, method: 'GET' }),
+  applyAppeal: (data: any) => request({ url: '/attendance/appeals', method: 'POST', data }),
+  approveAppeal: (id: string, data: { action: 'approved' | 'rejected'; reply_note?: string | null }) =>
+    request({ url: `/attendance/appeals/${id}/approve`, method: 'POST', data }),
   // 异常分类统计与趋势（P1-c）
   summary: (params?: any) => request({ url: `/attendance/admin/summary${qs(params)}`, method: 'GET' })
 }
@@ -305,9 +342,47 @@ export const chatApi = {
 }
 
 export const contractsApi = {
+  list: (params?: any) => request({ url: `/contracts${qs(params)}`, method: 'GET' }),
   get: (id: string) => request({ url: `/contracts/${id}`, method: 'GET' }),
-  sign: (id: string, partyId: string) =>
-    request({ url: `/contracts/${id}/sign`, method: 'POST', data: { party_id: partyId } })
+  generate: (data: any) => request({ url: '/contracts/generate', method: 'POST', data }),
+  addParty: (id: string, data: any) =>
+    request({ url: `/contracts/${id}/parties`, method: 'POST', data }),
+  sign: (id: string, partyId: string, signatureSvg?: string) =>
+    request({
+      url: `/contracts/${id}/sign`,
+      method: 'POST',
+      data: { party_id: partyId, ...(signatureSvg ? { signature_svg: signatureSvg } : {}) }
+    }),
+  // 编辑合同（员工）：改 title / content_html
+  updateContract: (id: string, data: any) =>
+    request({ url: `/contracts/${id}`, method: 'PATCH', data }),
+  // 上传电子合同（multipart，字段名 file）：挂到合同并标 source=uploaded
+  uploadFile: (id: string, filePath: string) => {
+    const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
+    return Taro.uploadFile({
+      url: `${baseURL}/contracts/${id}/upload`,
+      filePath,
+      name: 'file',
+      header: { Authorization: `Bearer ${Taro.getStorageSync('token')}` }
+    })
+  },
+  // 生成免登录签署链接（员工）
+  createShareLink: (id: string, partyId: string, expiresInDays?: number) =>
+    request({
+      url: `/contracts/${id}/share-link`,
+      method: 'POST',
+      data: { party_id: partyId, ...(expiresInDays ? { expires_in_days: expiresInDays } : {}) }
+    }),
+  // 推送签署通知（员工）
+  sendContract: (id: string, data: any = {}) =>
+    request({ url: `/contracts/${id}/send`, method: 'POST', data }),
+  // 作废（员工）
+  voidContract: (id: string, reason?: string) =>
+    request({
+      url: `/contracts/${id}/void`,
+      method: 'POST',
+      data: reason ? { reason } : {}
+    })
 }
 
 export const translateApi = {
@@ -327,14 +402,30 @@ const qs = (params?: any) => {
 }
 
 // ============ 员工业绩与佣金 ============
-// 业绩：本月汇总 / 历史月度
+// 业绩：本月汇总 / 历史月度 / 全员追踪 / 合作公司分佣 / 排行榜
 export const performanceApi = {
-  me: (params?: any) => request({ url: `/performance/me${qs(params)}`, method: 'GET' })
+  me: (params?: any) => request({ url: `/performance/me${qs(params)}`, method: 'GET' }),
+  agents: (params?: any) => request({ url: `/performance/agents${qs(params)}`, method: 'GET' }),
+  partners: (params?: any) => request({ url: `/performance/partners${qs(params)}`, method: 'GET' }),
+  leaderboard: (params?: any) =>
+    request({ url: `/performance/leaderboard${qs(params)}`, method: 'GET' })
 }
 
-// 我的佣金结算明细
+// 我的佣金结算明细 / 管理端分佣结算记录
 export const commissionsApi = {
-  mine: (params?: any) => request({ url: `/commissions/me${qs(params)}`, method: 'GET' })
+  mine: (params?: any) => request({ url: `/commissions/me${qs(params)}`, method: 'GET' }),
+  settlements: (params?: any) =>
+    request({ url: `/commissions/settlements${qs(params)}`, method: 'GET' })
+}
+
+// 管理端：分佣拆分规则（deal_type/role/scope/by_partner/is_active/effective 区间）
+export const commissionSplitRulesApi = {
+  list: (params?: any) => request({ url: `/commission-split-rules${qs(params)}`, method: 'GET' }),
+  create: (data: any) => request({ url: '/commission-split-rules', method: 'POST', data }),
+  update: (id: string, data: any) =>
+    request({ url: `/commission-split-rules/${id}`, method: 'PATCH', data }),
+  remove: (id: string) =>
+    request({ url: `/commission-split-rules/${id}`, method: 'DELETE' })
 }
 
 // ============ 买卖交易闭环（挂牌 / 成交 / 托管） ============
@@ -382,13 +473,17 @@ export default {
   attendanceApi,
   performanceApi,
   commissionsApi,
+  commissionSplitRulesApi,
   chatApi,
   contractsApi,
   translateApi,
   viewingsApi,
+  calendarEventsApi,
   employeesApi,
   dashboardApi,
   adminUsersApi,
+  adminPartnersApi,
+  partnerApi,
   commissionRulesApi,
   saleListingApi,
   propertyDealApi,

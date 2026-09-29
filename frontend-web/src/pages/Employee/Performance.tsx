@@ -1,11 +1,33 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Spin, Empty } from 'antd'
+import { message, Spin, Empty, Tabs } from 'antd'
 import dayjs, { Dayjs } from 'dayjs'
-import api from '@/lib/api'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+} from 'chart.js'
+import { Line } from 'react-chartjs-2'
 import { formatMoney } from '@/lib/money'
 import { downloadReport } from '@/lib/download'
+import { performanceApi, commissionsApi } from '@/services/api'
+import { chartTheme } from '@/lib/chartTheme'
 import { useTranslation } from 'react-i18next'
 import './performance.css'
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+)
 
 // 成交明细（系统按佣金结算自动核算）
 interface CommissionRow {
@@ -50,6 +72,18 @@ interface MonthPerf {
   deals: number
 }
 
+// 员工业绩追踪 / 合作公司业绩行
+interface PerfRow {
+  [key: string]: any
+  employee_id?: string
+  employee_name?: string
+  partner_id?: string
+  partner_name?: string
+  total_commission: number
+  total_revenue: number
+  deals: number
+}
+
 // 业绩/佣金一律泰铢口径（后端 base currency 为 THB）。
 // 此前写死 'RM'：`formatMoney` 只加币种符号、不做汇率换算，所以显示出来的
 // "RM 28,400" 其实是 28,400 泰铢——符号错了、数字也没换。
@@ -81,12 +115,20 @@ const Performance = () => {
   const [summary, setSummary] = useState<PerfSummary | null>(null)
   const [monthly, setMonthly] = useState<MonthPerf[]>([])
   const [month, setMonth] = useState<Dayjs>(dayjs())
+  const [agents, setAgents] = useState<PerfRow[]>([])
+  const [partners, setPartners] = useState<PerfRow[]>([])
+  const [agentsLoading, setAgentsLoading] = useState(false)
+  const [partnersLoading, setPartnersLoading] = useState(false)
+  // 员工业绩追踪排序：'total_commission' | 'total_revenue' | 'deals' | 'deal_type'
+  const [agentSort, setAgentSort] = useState('total_commission')
+  // 员工业绩追踪排序方向
+  const [agentOrder, setAgentOrder] = useState<'asc' | 'desc'>('desc')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     // 业绩汇总：系统按佣金结算自动核算
     try {
-      const pRes = await api.get('/performance/me')
+      const pRes = await performanceApi.me()
       setSummary(pRes.data?.summary ?? null)
       setMonthly(Array.isArray(pRes.data?.monthly) ? pRes.data.monthly : [])
     } catch {
@@ -95,7 +137,7 @@ const Performance = () => {
     }
     // 成交明细：我的佣金结算
     try {
-      const res = await api.get('/commissions/me', { params: { pageSize: 100 } })
+      const res = await commissionsApi.me({ pageSize: 100 })
       const payload = res.data?.data ?? res.data
       setData(payload?.items ?? [])
     } catch {
@@ -105,9 +147,39 @@ const Performance = () => {
     }
   }, [])
 
+  // 员工业绩追踪（全员），本地排序
+  const fetchAgents = useCallback(async () => {
+    setAgentsLoading(true)
+    try {
+      const res = await performanceApi.agents({ page_size: 500 })
+      const payload = res.data?.data ?? res.data
+      setAgents(Array.isArray(payload) ? payload : payload?.items ?? [])
+    } catch {
+      setAgents([])
+    } finally {
+      setAgentsLoading(false)
+    }
+  }, [])
+
+  // 合作公司业绩 / 分佣汇总
+  const fetchPartners = useCallback(async () => {
+    setPartnersLoading(true)
+    try {
+      const res = await performanceApi.partners()
+      const payload = res.data?.data ?? res.data
+      setPartners(Array.isArray(payload) ? payload : payload?.items ?? [])
+    } catch {
+      setPartners([])
+    } finally {
+      setPartnersLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchData()
-  }, [fetchData])
+    fetchAgents()
+    fetchPartners()
+  }, [fetchData, fetchAgents, fetchPartners])
 
   const s = summary
 
@@ -150,6 +222,109 @@ const Performance = () => {
       })),
     [data, t],
   )
+
+  // 最近12个月业绩趋势（营收 / 佣金 双指标）
+  const trendChartData = useMemo(() => {
+    const m = monthly.length ? monthly : []
+    const labels = m.map((r) => t('employeePerformance.monthNum', { m: r.month }))
+    return {
+      labels,
+      datasets: [
+        {
+          label: t('employeePerformance.trendRevenue'),
+          data: m.map((r) => r.revenue),
+          borderColor: chartTheme.primary,
+          backgroundColor: 'rgba(20, 184, 166, 0.08)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 2,
+          pointBackgroundColor: '#14b8a6',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+        },
+        {
+          label: t('employeePerformance.trendCommission'),
+          data: m.map((r) => r.commission),
+          borderColor: 'var(--state-warning)',
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.3,
+          borderWidth: 2,
+          pointBackgroundColor: 'var(--state-warning)',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+        },
+      ],
+    }
+  }, [monthly, t])
+
+  const trendChartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' as const },
+      plugins: {
+        legend: {
+          position: 'top' as const,
+          labels: { usePointStyle: true, boxWidth: 8, color: chartTheme.ink3, font: { size: 12 } },
+        },
+        tooltip: {
+          backgroundColor: '#1c2733',
+          titleColor: '#e8edf5',
+          bodyColor: '#e8edf5',
+          borderColor: chartTheme.tooltipBorder,
+          borderWidth: 1,
+          padding: 12,
+          cornerRadius: 8,
+          callbacks: {
+            label: (ctx: any) => `${ctx.dataset.label}: ${fmtMoney(Number(ctx.parsed.y))}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: chartTheme.ink3, font: { size: 12 } },
+          border: { display: false },
+        },
+        y: {
+          grid: { color: chartTheme.line },
+          ticks: { color: chartTheme.ink3, font: { size: 12 } },
+          border: { display: false },
+        },
+      },
+    }),
+    [t],
+  )
+
+  // 员工业绩追踪（全员）：点击表头排序
+  const sortedAgents = useMemo(() => {
+    const list = agents.map((a) => ({ ...a }))
+    list.sort((x, y) => {
+      let dx = Number(x[agentSort]) || 0
+      let dy = Number(y[agentSort]) || 0
+      // 名称类降序按字母序
+      if (agentSort === 'employee_name') {
+        dx = String(x.employee_name || '').localeCompare(String(y.employee_name || ''))
+        dy = String(y.employee_name || '').localeCompare(String(x.employee_name || ''))
+      }
+      return agentOrder === 'asc' ? dx - dy : dy - dx
+    })
+    return list
+  }, [agents, agentSort, agentOrder])
+
+  const sortBy = (key: string) => {
+    if (agentSort === key) {
+      setAgentOrder((o) => (o === 'desc' ? 'asc' : 'desc'))
+    } else {
+      setAgentSort(key)
+      setAgentOrder('desc')
+    }
+  }
 
   // 各月结算状态：取该月佣金结算中最「未完成」的状态（待结算 > 已审核 > 已发放）
   const monthStatus = useMemo(() => {
@@ -231,6 +406,14 @@ const Performance = () => {
         </div>
       </div>
 
+      <Tabs
+        defaultActiveKey="my"
+        items={[
+          {
+            key: 'my',
+            label: t('employeePerformance.tabMy'),
+            children: (
+              <>
       {/* KPI Cards */}
       <div className="rent-grid rent-grid--4 rent-mb-5">
         <div className="rent-stat-card">
@@ -313,6 +496,25 @@ const Performance = () => {
             </svg>
             {t('employeePerformance.monthCommissionNote', { amount: fmtMoney(s?.month_commission ?? 0) })}
           </div>
+        </div>
+      </div>
+
+      {/* 最近12个月业绩趋势（营收 / 佣金） */}
+      <div className="rent-card rent-mb-5">
+        <div className="rent-card__header">
+          <h3 className="rent-card__title">{t('employeePerformance.trendTitle')}</h3>
+          <span className="rent-text-sm rent-text-muted">{t('employeePerformance.trendSubtitle')}</span>
+        </div>
+        <div className="rent-card__body">
+          {monthly.length === 0 ? (
+            <div className="rent-empty" style={{ padding: '32px 0' }}>
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('employeePerformance.emptyRecords')} />
+            </div>
+          ) : (
+            <div style={{ height: 260 }}>
+              <Line data={trendChartData} options={trendChartOptions} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -548,6 +750,129 @@ const Performance = () => {
           )}
         </div>
       </div>
+              </>
+            ),
+          },
+          {
+            key: 'agents',
+            label: t('employeePerformance.tabAgents'),
+            children: (
+              <div className="rent-card">
+                <div className="rent-card__header">
+                  <h3 className="rent-card__title">{t('employeePerformance.agentsTitle')}</h3>
+                  <span className="rent-text-sm rent-text-muted">{t('employeePerformance.agentsHint')}</span>
+                </div>
+                <div className="rent-card__body" style={{ padding: 0 }}>
+                  {agentsLoading ? (
+                    <div className="rent-empty" style={{ padding: '32px 0' }}>
+                      <Spin size="small" style={{ marginRight: 8 }} />
+                      {t('common.loading')}
+                    </div>
+                  ) : sortedAgents.length === 0 ? (
+                    <div className="rent-empty" style={{ padding: '32px 0' }}>
+                      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('employeePerformance.emptyAgents')} />
+                    </div>
+                  ) : (
+                    <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+                      <table className="rent-table">
+                        <thead>
+                          <tr>
+                            <th>
+                              <button className="perf-sort-btn" onClick={() => sortBy('employee_name')}>
+                                {t('employeePerformance.thAgent')}
+                                {agentSort === 'employee_name' && <span>{agentOrder === 'asc' ? '↑' : '↓'}</span>}
+                              </button>
+                            </th>
+                            <th>
+                              <button className="perf-sort-btn" onClick={() => sortBy('total_commission')}>
+                                {t('employeePerformance.agtCommission')}
+                                {agentSort === 'total_commission' && <span>{agentOrder === 'asc' ? '↑' : '↓'}</span>}
+                              </button>
+                            </th>
+                            <th>
+                              <button className="perf-sort-btn" onClick={() => sortBy('total_revenue')}>
+                                {t('employeePerformance.agtRevenue')}
+                                {agentSort === 'total_revenue' && <span>{agentOrder === 'asc' ? '↑' : '↓'}</span>}
+                              </button>
+                            </th>
+                            <th>
+                              <button className="perf-sort-btn" onClick={() => sortBy('deals')}>
+                                {t('employeePerformance.agtDeals')}
+                                {agentSort === 'deals' && <span>{agentOrder === 'asc' ? '↑' : '↓'}</span>}
+                              </button>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedAgents.map((a) => (
+                            <tr key={a.employee_id || a.employee_name}>
+                              <td style={{ fontWeight: 600 }}>{a.employee_name || '—'}</td>
+                              <td className="rent-table__mono rent-text-bold" style={{ color: 'var(--state-success)' }}>
+                                {fmtMoney(Number(a.total_commission) || 0)}
+                              </td>
+                              <td className="rent-table__mono">{fmtMoney(Number(a.total_revenue) || 0)}</td>
+                              <td>{a.deals ?? 0}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: 'partners',
+            label: t('employeePerformance.tabPartners'),
+            children: (
+              <div className="rent-card">
+                <div className="rent-card__header">
+                  <h3 className="rent-card__title">{t('employeePerformance.partnersTitle')}</h3>
+                  <span className="rent-text-sm rent-text-muted">{t('employeePerformance.partnersHint')}</span>
+                </div>
+                <div className="rent-card__body" style={{ padding: 0 }}>
+                  {partnersLoading ? (
+                    <div className="rent-empty" style={{ padding: '32px 0' }}>
+                      <Spin size="small" style={{ marginRight: 8 }} />
+                      {t('common.loading')}
+                    </div>
+                  ) : partners.length === 0 ? (
+                    <div className="rent-empty" style={{ padding: '32px 0' }}>
+                      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('employeePerformance.emptyPartners')} />
+                    </div>
+                  ) : (
+                    <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+                      <table className="rent-table">
+                        <thead>
+                          <tr>
+                            <th>{t('employeePerformance.thPartner')}</th>
+                            <th>{t('employeePerformance.agtCommission')}</th>
+                            <th>{t('employeePerformance.agtRevenue')}</th>
+                            <th>{t('employeePerformance.agtDeals')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {partners.map((p) => (
+                            <tr key={p.partner_id || p.partner_name}>
+                              <td style={{ fontWeight: 600 }}>{p.partner_name || '—'}</td>
+                              <td className="rent-table__mono rent-text-bold" style={{ color: 'var(--state-success)' }}>
+                                {fmtMoney(Number(p.total_commission) || 0)}
+                              </td>
+                              <td className="rent-table__mono">{fmtMoney(Number(p.total_revenue) || 0)}</td>
+                              <td>{p.deals ?? 0}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   )
 }

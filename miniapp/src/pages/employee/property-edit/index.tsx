@@ -3,6 +3,7 @@ import { View, Text, Input, Textarea, Picker, Switch, Button, ScrollView, Image 
 import Taro, { useRouter } from '@tarojs/taro'
 import { propertiesApi } from '@/services/api'
 import { useI18n } from '@/i18n'
+import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 
 const STATUS_META: { key: string; label: string }[] = [
@@ -206,6 +207,7 @@ export default function EmployeePropertyEditPage() {
   if (loading && !form) {
     return (
       <View className='pe-page'>
+        <ShellHeader title={t('nav.propertyEdit')} />
         <View className='pe-state'>
           <Text className='pe-state__text'>{t('pub.loading')}</Text>
         </View>
@@ -216,6 +218,7 @@ export default function EmployeePropertyEditPage() {
   if (!form) {
     return (
       <View className='pe-page'>
+        <ShellHeader title={t('nav.propertyEdit')} />
         <View className='pe-state'>
           <Text className='pe-state__text'>{t('prop.notFound')}</Text>
         </View>
@@ -225,16 +228,7 @@ export default function EmployeePropertyEditPage() {
 
   return (
     <View className='pe-page'>
-      {/* 顶部条 */}
-      <View className='pe-nav'>
-        <View className='pe-nav__back' onClick={() => Taro.navigateBack()}>
-          <Text className='pe-nav__back-icon'>‹</Text>
-          <Text className='pe-nav__back-text'>{t('common.back')}</Text>
-        </View>
-        <Text className='pe-nav__title'>{t('prop.editTitle')}</Text>
-        <View className='pe-nav__placeholder' />
-      </View>
-
+      <ShellHeader title={t('nav.propertyEdit')} />
       <ScrollView scrollY className='pe-scroll'>
         {/* 房源信息 */}
         <View className='pe-card'>

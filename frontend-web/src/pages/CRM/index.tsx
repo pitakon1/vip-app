@@ -532,6 +532,26 @@ const CRM = () => {
             {getAgentInitial(agent)}
           </div>
         </div>
+        <hr className="rent-divider" style={{ margin: '10px 0' }} />
+        {/* 卡片操作区：电话 / 发消息 / 编辑 / 删除（与列表行一致，stopPropagation 避免触发卡片弹窗） */}
+        <div className="rent-flex rent-gap-2" onClick={(e) => e.stopPropagation()}>
+          <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => handleCall(lead)}>
+            {t('crm.actCall')}
+          </button>
+          <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => handleChat(lead)}>
+            {t('crm.actMessage')}
+          </button>
+          <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openEdit(lead)}>
+            {t('common.edit')}
+          </button>
+          <button
+            className="rent-btn rent-btn--ghost rent-btn--sm"
+            style={{ color: 'var(--state-error)', borderColor: 'var(--state-error)' }}
+            onClick={() => handleDelete(lead)}
+          >
+            {t('common.delete')}
+          </button>
+        </div>
       </div>
     )
   }

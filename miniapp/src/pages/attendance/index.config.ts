@@ -1,1 +1,1 @@
-export default { navigationBarTitleText: '考勤打卡' }
+export default { navigationBarTitleText: '考勤打卡', navigationStyle: 'custom' }

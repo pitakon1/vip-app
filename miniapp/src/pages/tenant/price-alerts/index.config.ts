@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '降价提醒', navigationStyle: 'custom' }

@@ -57,6 +57,11 @@ PERMISSION_DEFS: dict[str, list[tuple[str, str, str]]] = {
     "commission": [
         ("commission:manage", "佣金规则配置", "配置佣金比例规则"),
     ],
+    "partner": [
+        ("partner:manage", "合作公司管理", "平台创建/编辑/启停合作公司并指定管理员"),
+        ("partner:member:manage", "本司成员管理", "合作公司管理员维护本公司员工/拉入经纪人"),
+        ("attendance:partner:view", "本公司考勤查看", "合作公司管理员查看本公司员工考勤"),
+    ],
 }
 
 FLAT_PERMISSIONS: list[tuple[str, str, str]] = [
@@ -84,6 +89,11 @@ DEFAULT_ROLE_PERMISSIONS: dict[UserRole, list[str]] = {
     UserRole.employee: ["data:view"],
     UserRole.owner: [],
     UserRole.tenant: [],
+    UserRole.partner_admin: [
+        "partner:member:manage",
+        "data:view",
+        "attendance:partner:view",
+    ],
 }
 
 

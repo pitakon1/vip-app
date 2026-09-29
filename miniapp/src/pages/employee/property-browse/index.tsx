@@ -3,10 +3,11 @@ import { View, Text, Input, Image, Picker, ScrollView } from '@tarojs/components
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { propertiesApi, favoritesApi, viewingsApi } from '@/services/api'
+import { publicApi, type PublicSchool } from '@/services/publicApi'
 import { AREA_GROUPS } from '@/data/locationArea'
 import BottomNav from '@/components/BottomNav'
-import { usePaginatedList } from '@/hooks/usePaginatedList'
 import { useI18n } from '@/i18n'
+import '@/styles/filter-panel.scss'
 import './index.scss'
 
 interface Property {
@@ -41,31 +42,62 @@ const TYPE_LABELS: Record<string, string> = {
 
 const PAGE_SIZE = 10
 
-// 筛选 Tab（区域 / 租金 / 户型 / 排序）
-type FilterTab = null | 'region' | 'price' | 'layout' | 'sort'
+// 单行筛选 tab：区域 / 价格 / 更多 / 排序（对齐 App 图二）；状态 / 房型 / 户型 / 面积 / 学校收进「更多」
+type FilterTab = null | 'region' | 'price' | 'more' | 'sort'
 
-const PRICE_PRESETS = [
-  { key: '', label: 'pub.filterAny', min: 0, max: Infinity },
-  { key: 'u3000', label: '≤3000', min: 0, max: 3000 },
-  { key: '3-6', label: '3000-6000', min: 3000, max: 6000 },
-  { key: '6-10', label: '6000-10000', min: 6000, max: 10000 },
-  { key: 'g10', label: '≥10000', min: 10000, max: Infinity }
+const STATUS_OPTIONS = [
+  { key: '', label: 'common.all' },
+  { key: 'rented', label: 'prop.statusRented' },
+  { key: 'vacant', label: 'prop.statusVacant' },
+  { key: 'renewing', label: 'prop.statusRenewing' },
+  { key: 'maintenance', label: 'prop.statusMaintenance' }
 ]
 
-const BEDROOM_OPTIONS = [
+const TYPE_OPTIONS = [
   { key: '', label: 'pub.filterAny' },
-  { key: '1', label: 'prop.layout1' },
-  { key: '2', label: 'prop.layout2' },
-  { key: '3', label: 'prop.layout3' },
-  { key: '4', label: 'prop.layout4' }
+  { key: 'apartment', label: 'prop.typeApartment' },
+  { key: 'house', label: 'prop.typeVilla' },
+  { key: 'shop', label: 'prop.typeCommercial' },
+  { key: 'office', label: 'prop.typeOffice' }
 ]
 
 const SORT_OPTIONS = [
-  { key: 'default', label: 'prop.sortDefault' },
-  { key: 'price_asc', label: 'prop.sortRentAsc' },
-  { key: 'price_desc', label: 'prop.sortRentDesc' },
+  { key: '', label: 'pub.filterAny' },
+  { key: 'latest', label: 'prop.sortLatest' },
+  { key: 'price_asc', label: 'prop.sortPriceAsc' },
+  { key: 'price_desc', label: 'prop.sortPriceDesc' },
   { key: 'area_desc', label: 'prop.sortAreaDesc' }
 ]
+
+const BED_OPTIONS = [
+  { key: '', label: 'prop.bedroomAny' },
+  { key: '0', label: 'prop.bedroom0' },
+  { key: '1', label: 'prop.bedroom1' },
+  { key: '2', label: 'prop.bedroom2' },
+  { key: '3', label: 'prop.bedroom3' },
+  { key: '4', label: 'prop.bedroom4' }
+]
+
+const PRICE_OPTIONS = [
+  { key: '', label: 'prop.priceAny' },
+  { key: 'u3', label: 'prop.priceU3' },
+  { key: '3-5', label: 'prop.price35' },
+  { key: '5-8', label: 'prop.price58' },
+  { key: 'g8', label: 'prop.priceG8' },
+  { key: 'custom', label: 'prop.custom' }
+]
+
+const AREA_OPTIONS = [
+  { key: '', label: 'prop.areaAny' },
+  { key: '0-50', label: '≤50㎡' },
+  { key: '50-100', label: '50-100㎡' },
+  { key: '100-150', label: '100-150㎡' },
+  { key: '150-200', label: '150-200㎡' },
+  { key: '200+', label: '≥200㎡' },
+  { key: 'custom', label: 'prop.custom' }
+]
+
+const RADII = [1, 3, 5, 10]
 
 function pickList(res: any): Property[] {
   if (Array.isArray(res)) return res
@@ -75,18 +107,17 @@ function pickList(res: any): Property[] {
   return []
 }
 
+function pickListPublic(res: any): PublicSchool[] {
+  const d = res?.data ?? res
+  if (Array.isArray(d)) return d
+  if (Array.isArray(d?.items)) return d.items
+  return []
+}
+
 const formatRent = (v?: number, currency?: string) => {
   const sym: Record<string, string> = { CNY: '¥', THB: '฿', USD: '$', EUR: '€' }
   return `${sym[currency || 'THB'] || '฿'}${Number(v || 0).toLocaleString()}`
 }
-
-const matchLocation = (item: Property, kws: string[]): boolean =>
-  kws.some((k) =>
-    [item.address, item.room_number, item.building]
-      .filter(Boolean)
-      .map((v) => String(v).toLowerCase())
-      .some((v) => v.includes(k))
-  )
 
 const pad = (n: number) => String(n).padStart(2, '0')
 // 默认预约时间：下一个整点
@@ -101,47 +132,70 @@ const defaultSlot = () => {
 export default function EmployeePropertyBrowsePage() {
   const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
-  const {
-    list,
-    loading,
-    loadingMore,
-    hasMore,
-    error,
-    fetch: fetchList,
-    fetchMore
-  } = usePaginatedList<Property>({
-    pageSize: PAGE_SIZE,
-    fetcher: async (p, ps, params) => {
-      const res: any = await propertiesApi.list({
-        page: p,
-        page_size: ps,
-        ...((params as any)?.q ? { q: (params as any).q } : {})
-      })
-      return pickList(res)
-    },
-    onError: () => Taro.showToast({ title: t('prop.loadFailed'), icon: 'none' })
-  })
+  const [listings, setListings] = useState<Property[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
 
-  const [openTab, setOpenTab] = useState<FilterTab>(null)
-  const [districtKey, setDistrictKey] = useState('')
-  // 区域面板：国家 → 省市 → 城区 三级下钻（左栏只列国家，右栏先是该国家的省市列表，
-  // 点省市后右栏换成它的城区）。此前所有国家的城区平铺在一列，混杂难找。
+  // 筛选状态（全部下推后端做真·服务端筛选）
+  const [status, setStatus] = useState('')
+  const [type, setType] = useState('')
+  const [sort, setSort] = useState('')
+  const [bedrooms, setBedrooms] = useState('')
+  const [priceRange, setPriceRange] = useState('')
+  const [priceCustomMin, setPriceCustomMin] = useState('')
+  const [priceCustomMax, setPriceCustomMax] = useState('')
+  const [areaRange, setAreaRange] = useState('')
+  const [areaCustomMin, setAreaCustomMin] = useState('')
+  const [areaCustomMax, setAreaCustomMax] = useState('')
+  // 区域：国家 → 省市 → 城区 三级下钻
+  const [region, setRegion] = useState('')
+  const [regionOpen, setRegionOpen] = useState(false)
   const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country)
-  const [areaDrill, setAreaDrill] = useState<string>('') // 已下钻的省市 cityKey，空 = 停在省市列表
-  const [priceKey, setPriceKey] = useState('')
-  const [bedroomKey, setBedroomKey] = useState('')
-  const [sortKey, setSortKey] = useState('default')
+  const [areaDrill, setAreaDrill] = useState<string>('')
+  // 学校：空间筛选
+  const [schoolId, setSchoolId] = useState('')
+  const [schoolName, setSchoolName] = useState('')
+  const [schoolKm, setSchoolKm] = useState(3)
+  const [schools, setSchools] = useState<PublicSchool[]>([])
+  const [schoolKw, setSchoolKw] = useState('')
+
+  const [openTab, setOpenTab] = useState<FilterTab>(null)
 
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
   const [favPending, setFavPending] = useState<Set<string>>(new Set())
 
-  // 预约带看（真实写接口）：展开的表单 + 表单字段
+  // 预约带看（真实写接口）
   const [bookingId, setBookingId] = useState<string>('')
   const [visitorName, setVisitorName] = useState('')
   const [slot, setSlot] = useState(defaultSlot())
+
+  const allDistricts = useMemo(
+    () => AREA_GROUPS.flatMap((g) => g.children.map((d) => ({ ...d, key: `${g.cityKey}:${d.key}` }))),
+    []
+  )
+  const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), [])
+  const countryGroups = useMemo(
+    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
+    [areaCountry]
+  )
+  const activeAreaGroup = useMemo(() => AREA_GROUPS.find((g) => g.cityKey === areaDrill), [areaDrill])
+  const regionLabel = useMemo(
+    () => allDistricts.find((d) => d.key === region)?.label || t('prop.regionAny'),
+    [region, allDistricts, t]
+  )
+  const filteredSchools = schoolKw.trim()
+    ? schools.filter((s) =>
+        `${s.name ?? ''} ${s.name_en ?? ''} ${s.district ?? ''}`
+          .toLowerCase()
+          .includes(schoolKw.trim().toLowerCase())
+      )
+    : schools
 
   const fetchFavorites = async () => {
     try {
@@ -163,10 +217,152 @@ export default function EmployeePropertyBrowsePage() {
     fetchFavorites()
   })
 
+  if (schools.length === 0) {
+    publicApi
+      .schools({ page_size: 100 })
+      .then((res: any) => setSchools(pickListPublic(res)))
+      .catch(() => setSchools([]))
+  }
+
+  // 由筛选 state 构建后端查询参数（服务端过滤以保证正确分页）
+  const buildParams = (over: Partial<{
+    q: string; status: string; type: string; sort: string; bedrooms: string;
+    priceRange: string; priceCustomMin: string; priceCustomMax: string;
+    areaRange: string; areaCustomMin: string; areaCustomMax: string;
+    region: string; schoolId: string; schoolKm: number
+  }> = {}) => {
+    const p: Record<string, any> = { page: 1, page_size: PAGE_SIZE, sort: 'latest' }
+    const q = over.q ?? query
+    const st = over.status ?? status
+    const tp = over.type ?? type
+    const so = over.sort ?? sort
+    const bd = over.bedrooms ?? bedrooms
+    const pr = over.priceRange ?? priceRange
+    const pcMin = over.priceCustomMin ?? priceCustomMin
+    const pcMax = over.priceCustomMax ?? priceCustomMax
+    const ar = over.areaRange ?? areaRange
+    const acMin = over.areaCustomMin ?? areaCustomMin
+    const acMax = over.areaCustomMax ?? areaCustomMax
+    const rg = over.region ?? region
+    const sid = over.schoolId ?? schoolId
+    const skm = over.schoolKm ?? schoolKm
+
+    if (q) p.q = q
+    if (st) p.status = st
+    if (tp) p.property_type = tp
+    if (so) p.sort = so
+    if (bd !== '') {
+      if (bd === '3' || bd === '4') p.bedrooms_min = Number(bd)
+      else { p.bedrooms_min = Number(bd); p.bedrooms_max = Number(bd) }
+    }
+    if (pr) {
+      if (pr === 'custom') {
+        if (pcMin) p.price_min = Number(pcMin) * 10000
+        if (pcMax) p.price_max = Number(pcMax) * 10000
+      } else if (pr === 'u3') {
+        p.price_max = 30000
+      } else if (pr === 'g8') {
+        p.price_min = 80000
+      } else {
+        const [mn, mx] = pr.split('-').map(Number)
+        if (!Number.isNaN(mn)) p.price_min = mn * 10000
+        if (!Number.isNaN(mx)) p.price_max = mx * 10000
+      }
+    }
+    if (ar) {
+      if (ar === 'custom') {
+        if (acMin) p.area_min = Number(acMin)
+        if (acMax) p.area_max = Number(acMax)
+      } else if (ar === '200+') {
+        p.area_min = 200
+      } else {
+        const [mn, mx] = ar.split('-').map(Number)
+        if (!Number.isNaN(mn)) p.area_min = mn
+        if (!Number.isNaN(mx)) p.area_max = mx
+      }
+    }
+    if (rg) {
+      const node = allDistricts.find((d) => d.key === rg)
+      if (node && node.kws.length) p.keywords = node.kws
+    }
+    if (sid) {
+      p.school_id = sid
+      p.school_radius_km = skm
+    }
+    return p
+  }
+
+  const fetchList = async (nextPage: number, over: Parameters<typeof buildParams>[0] = {}) => {
+    const isRefresh = nextPage <= 1
+    if (isRefresh) setLoading(true)
+    else setLoadingMore(true)
+    setError(false)
+    try {
+      const params = buildParams(over)
+      if (!isRefresh) params.page = nextPage
+      const res: any = await propertiesApi.list(params)
+      const items = pickList(res)
+      setListings((prev) => (isRefresh ? items : [...prev, ...items]))
+      setPage(nextPage)
+      setHasMore(items.length >= PAGE_SIZE)
+    } catch (err) {
+      console.error('[PropertyBrowse] 获取房源失败', err)
+      if (isRefresh) setError(true)
+      Taro.showToast({ title: t('prop.loadFailed'), icon: 'none' })
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+    }
+  }
+
   const onSearch = () => {
     const q = keyword.trim()
     setQuery(q)
     fetchList(1, { q })
+  }
+
+  const setWrapper = (key: keyof Parameters<typeof buildParams>[0], val: any) => {
+    if (key === 'q') setQuery(val)
+    else {
+      const setters: Record<string, (v: any) => void> = {
+        status: setStatus, type: setType, sort: setSort, bedrooms: setBedrooms,
+        priceRange: setPriceRange, priceCustomMin: setPriceCustomMin, priceCustomMax: setPriceCustomMax,
+        areaRange: setAreaRange, areaCustomMin: setAreaCustomMin, areaCustomMax: setAreaCustomMax,
+        region: setRegion, schoolId: setSchoolId, schoolKm: setSchoolKm
+      }
+      setters[key]?.(val)
+    }
+    fetchList(1, { [key]: val } as any)
+  }
+
+  const pickRegion = (key: string | null) => {
+    setRegion(key || '')
+    fetchList(1, { region: key || '' })
+  }
+
+  const toggleSchool = (school: PublicSchool) => {
+    if (schoolId === school.id) {
+      setSchoolId('')
+      setSchoolName('')
+      fetchList(1, { schoolId: '' })
+    } else {
+      setSchoolId(school.id)
+      setSchoolName(school.name ?? '')
+      fetchList(1, { schoolId: school.id })
+    }
+    setOpenTab(null)
+  }
+
+  const resetMore = () => {
+    setBedrooms('')
+    setPriceRange('')
+    setPriceCustomMin('')
+    setPriceCustomMax('')
+    setAreaRange('')
+    setAreaCustomMin('')
+    setAreaCustomMax('')
+    fetchList(1, { bedrooms: '', priceRange: '', areaRange: '' })
+    setOpenTab(null)
   }
 
   // 收藏切换（真实接口，失败回滚）
@@ -231,78 +427,25 @@ export default function EmployeePropertyBrowsePage() {
     }
   }
 
-  const allDistricts = useMemo(() => AREA_GROUPS.flatMap((g) => g.children), [])
-  // 左栏国家清单（按 AREA_GROUPS 出现顺序去重，保持业务顺序）
-  const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), [])
-  // 右栏未下钻时的数据源：当前国家下的省市
-  const countryGroups = useMemo(
-    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
-    [areaCountry]
-  )
-  // 右栏已下钻时的数据源：该省市的城区
-  const activeAreaGroup = useMemo(
-    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
-    [areaDrill]
-  )
-  const activeKws = useMemo(() => {
-    const node = allDistricts.find((d) => d.key === districtKey)
-    return node ? node.kws : []
-  }, [districtKey, allDistricts])
-  const regionLabel = allDistricts.find((d) => d.key === districtKey)?.label || 'prop.filterRegion'
-  const priceLabel = PRICE_PRESETS.find((p) => p.key === priceKey)?.label || 'prop.filterRent'
-  const bedroomLabel = BEDROOM_OPTIONS.find((b) => b.key === bedroomKey)?.label || 'prop.filterLayout'
-  const sortLabel = SORT_OPTIONS.find((s) => s.key === sortKey)?.label || 'prop.sortLabel'
-
-  const visible = useMemo(() => {
-    const preset = PRICE_PRESETS.find((p) => p.key === priceKey) || PRICE_PRESETS[0]
-    const filtered = list.filter((it) => {
-      const rent = Number(it.monthly_rent || 0)
-      if (activeKws.length && !matchLocation(it, activeKws)) return false
-      if (preset.min && rent < preset.min) return false
-      if (preset.max !== Infinity && rent > preset.max) return false
-      if (bedroomKey && Number(it.bedrooms || 0) < Number(bedroomKey === '4' ? 4 : bedroomKey))
-        return false
-      return true
-    })
-    switch (sortKey) {
-      case 'price_asc':
-        return filtered.sort((a, b) => Number(a.monthly_rent || 0) - Number(b.monthly_rent || 0))
-      case 'price_desc':
-        return filtered.sort((a, b) => Number(b.monthly_rent || 0) - Number(a.monthly_rent || 0))
-      case 'area_desc':
-        return filtered.sort((a, b) => Number(b.size_sqm || 0) - Number(a.size_sqm || 0))
-      default:
-        return filtered
-    }
-  }, [list, activeKws, priceKey, bedroomKey, sortKey])
-
-  // 筛选面板开合：打开区域面板时按已选城区回显下钻层级（否则停在省市列表）
-  const toggleTab = (key: Exclude<FilterTab, null>) => {
-    if (openTab === key) {
-      setOpenTab(null)
-      return
-    }
-    setOpenTab(key)
-    if (key === 'region' && districtKey) {
-      const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtKey))
-      if (g) {
-        setAreaCountry(g.country)
-        setAreaDrill(g.cityKey)
-      }
-    }
+  const labels: Record<string, string> = {
+    region: regionLabel,
+    sort: t(sort ? (SORT_OPTIONS.find((o) => o.key === sort)?.label || 'pub.filterAny') : 'prop.sortLabel'),
+    price: t(priceRange === 'custom'
+      ? (priceCustomMin || priceCustomMax ? `${priceCustomMin || '…'} - ${priceCustomMax || '…'}` : 'prop.custom')
+      : (priceRange ? (PRICE_OPTIONS.find((o) => o.key === priceRange)?.label || 'prop.priceAny') : 'pub.filterPrice'))
   }
-  // 选择城区：实时单选并收起面板；选「不限」时一并清掉下钻状态
-  const pickDistrict = (key: string) => {
-    setDistrictKey(key)
-    if (!key) setAreaDrill('')
-    setOpenTab(null)
+  const activeSet: Record<string, boolean> = {
+    region: !!region,
+    sort: !!sort,
+    price: !!(priceRange || priceCustomMin || priceCustomMax),
+    more: !!(status || type || schoolId || bedrooms !== '' || areaRange || areaCustomMin || areaCustomMax)
   }
 
   const tabs: { key: Exclude<FilterTab, null>; label: string; active: boolean }[] = [
-    { key: 'region', label: t(districtKey ? regionLabel : 'prop.filterRegion'), active: !!districtKey },
-    { key: 'price', label: t(priceKey ? priceLabel : 'prop.filterRent'), active: !!priceKey },
-    { key: 'layout', label: t(bedroomKey ? bedroomLabel : 'prop.filterLayout'), active: !!bedroomKey },
-    { key: 'sort', label: t(sortKey !== 'default' ? sortLabel : 'prop.sortLabel'), active: sortKey !== 'default' }
+    { key: 'region', label: labels.region, active: activeSet.region },
+    { key: 'price', label: labels.price, active: activeSet.price },
+    { key: 'more', label: t('pub.filterMore'), active: activeSet.more },
+    { key: 'sort', label: labels.sort, active: activeSet.sort }
   ]
 
   // 由真实字段派生标签，无对应字段则不展示
@@ -333,138 +476,237 @@ export default function EmployeePropertyBrowsePage() {
             <Text className='pb-search__btn-text'>{t('common.search')}</Text>
           </View>
         </View>
+
+        {/* 单行筛选 tab：区域 / 价格 / 更多 / 排序（对齐 App 图二，纯文字+下划线） */}
         <View className='pb-filters'>
-          {tabs.map((tab) => (
+          {tabs.map((tb) => (
             <View
-              key={tab.key}
-              className={`pb-chip ${openTab === tab.key ? 'pb-chip--open' : ''} ${
-                tab.active ? 'pb-chip--active' : ''
-              }`}
-              onClick={() => toggleTab(tab.key)}
+              key={tb.key}
+              className={`pb-tab ${openTab === tb.key ? 'pb-tab--open' : ''} ${tb.active ? 'pb-tab--active' : ''}`}
+              onClick={() => {
+                if (openTab === tb.key) { setOpenTab(null); return }
+                if (tb.key === 'region') { setRegionOpen(true); setAreaDrill(''); }
+                setOpenTab(tb.key)
+              }}
             >
-              <Text className='pb-chip__text'>{tab.label}</Text>
-              <Text className='pb-chip__arrow'>{openTab === tab.key ? '▲' : '▼'}</Text>
+              <Text className='pb-tab__text'>{tb.label}</Text>
+              <Text className='pb-tab__arrow'>{openTab === tb.key ? '▲' : '▼'}</Text>
             </View>
           ))}
         </View>
 
-        {/* 下拉面板 */}
         {openTab !== null && (
           <View className='pb-panel'>
-            {openTab === 'region' && (
-              // 链家式两栏 + 国家→省市→城区三级下钻：左栏只列国家，
-              // 右栏先是该国家的省市列表，点省市后右栏换成它的城区 chips
-              <View className='filter-region-twocol'>
-                <ScrollView scrollY className='filter-region-twocol__left'>
-                  {countryList.map((c) => (
-                    <View
-                      key={c}
-                      className={`loc-col-item ${areaCountry === c ? 'loc-col-item--active' : ''}`}
-                      onClick={() => {
-                        setAreaCountry(c)
-                        setAreaDrill('')
-                      }}
-                    >
-                      <Text>{c}</Text>
-                    </View>
-                  ))}
-                </ScrollView>
-                <ScrollView scrollY className='filter-region-twocol__right'>
-                  {activeAreaGroup ? (
-                    <>
-                      <View className='filter-region-drill-head' onClick={() => setAreaDrill('')}>
-                        <Text className='filter-region-drill-head__back'>← {areaCountry}</Text>
-                        <Text className='loc-group__title loc-group__title--flat'>
-                          {activeAreaGroup.cityLabel}
-                        </Text>
-                      </View>
-                      <View className='pb-panel__chips'>
-                        <View
-                          className={`pb-opt ${!districtKey ? 'pb-opt--active' : ''}`}
-                          onClick={() => pickDistrict('')}
-                        >
-                          <Text>{t('pub.filterAny')}</Text>
-                        </View>
-                        {activeAreaGroup.children.map((d) => (
-                          <View
-                            key={d.key}
-                            className={`pb-opt ${districtKey === d.key ? 'pb-opt--active' : ''}`}
-                            onClick={() => pickDistrict(d.key)}
-                          >
-                            <Text>{d.label}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </>
-                  ) : (
-                    <>
-                      <Text className='loc-group__title loc-group__title--flat'>{areaCountry}</Text>
-                      <View className='pb-panel__chips'>
-                        {countryGroups.map((g) => (
-                          <View
-                            key={g.cityKey}
-                            className={`pb-opt ${areaDrill === g.cityKey ? 'pb-opt--active' : ''}`}
-                            onClick={() => setAreaDrill(g.cityKey)}
-                          >
-                            <Text>{g.cityLabel}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </>
-                  )}
-                </ScrollView>
+            {openTab === 'sort' && (
+              <View className='pb-panel__chips'>
+                {SORT_OPTIONS.map((o) => (
+                  <View
+                    key={o.key}
+                    className={`pb-opt ${sort === o.key ? 'pb-opt--active' : ''}`}
+                    onClick={() => { setSort(o.key); fetchList(1, { sort: o.key } as any); setOpenTab(null) }}
+                  >
+                    <Text>{t(o.label)}</Text>
+                  </View>
+                ))}
               </View>
             )}
 
             {openTab === 'price' && (
-              <View className='pb-panel__chips'>
-                {PRICE_PRESETS.map((p) => (
-                  <View
-                    key={p.key}
-                    className={`pb-opt ${priceKey === p.key ? 'pb-opt--active' : ''}`}
-                    onClick={() => {
-                      setPriceKey(p.key)
-                      setOpenTab(null)
-                    }}
-                  >
-                    <Text>{t(p.label)}</Text>
+              <>
+                <View className='pb-panel__chips'>
+                  {PRICE_OPTIONS.map((o) => (
+                    <View
+                      key={o.key}
+                      className={`pb-opt ${priceRange === o.key ? 'pb-opt--active' : ''}`}
+                      onClick={() => setWrapper('priceRange', o.key)}
+                    >
+                      <Text>{t(o.label)}</Text>
+                    </View>
+                  ))}
+                </View>
+                {priceRange === 'custom' && (
+                  <View className='pb-range'>
+                    <Input className='pb-range__input' type='number' value={priceCustomMin} onInput={(e: any) => setWrapper('priceCustomMin', e.detail.value)} placeholder={t('prop.min')} />
+                    <Text className='pb-range__sep'>-</Text>
+                    <Input className='pb-range__input' type='number' value={priceCustomMax} onInput={(e: any) => setWrapper('priceCustomMax', e.detail.value)} placeholder={t('prop.max')} />
                   </View>
-                ))}
-              </View>
+                )}
+                <View className='pb-panel__actions'>
+                  <View className='pb-act pb-act--ghost' onClick={resetMore}>
+                    <Text>{t('pub.reset')}</Text>
+                  </View>
+                  <View className='pb-act pb-act--primary' onClick={() => setOpenTab(null)}>
+                    <Text>{t('pub.apply')}</Text>
+                  </View>
+                </View>
+              </>
             )}
 
-            {openTab === 'layout' && (
-              <View className='pb-panel__chips'>
-                {BEDROOM_OPTIONS.map((b) => (
-                  <View
-                    key={b.key}
-                    className={`pb-opt ${bedroomKey === b.key ? 'pb-opt--active' : ''}`}
-                    onClick={() => {
-                      setBedroomKey(b.key)
-                      setOpenTab(null)
-                    }}
-                  >
-                    <Text>{t(b.label)}</Text>
+            {openTab === 'more' && (
+              <>
+                <View className='pb-group-label'>{t('prop.statusLabel')}</View>
+                <View className='pb-panel__chips'>
+                  {STATUS_OPTIONS.map((o) => (
+                    <View
+                      key={o.key}
+                      className={`pb-opt ${status === o.key ? 'pb-opt--active' : ''}`}
+                      onClick={() => setWrapper('status', o.key)}
+                    >
+                      <Text>{t(o.label)}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View className='pb-group-label'>{t('prop.typeLabel')}</View>
+                <View className='pb-panel__chips'>
+                  {TYPE_OPTIONS.map((o) => (
+                    <View
+                      key={o.key}
+                      className={`pb-opt ${type === o.key ? 'pb-opt--active' : ''}`}
+                      onClick={() => setWrapper('type', o.key)}
+                    >
+                      <Text>{t(o.label)}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View className='pb-group-label'>{t('pub.filterBeds')}</View>
+                <View className='pb-panel__chips'>
+                  {BED_OPTIONS.map((o) => (
+                    <View
+                      key={o.key}
+                      className={`pb-opt ${bedrooms === o.key ? 'pb-opt--active' : ''}`}
+                      onClick={() => setWrapper('bedrooms', o.key)}
+                    >
+                      <Text>{t(o.label)}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View className='pb-group-label'>{t('pub.filterArea')}</View>
+                <View className='pb-panel__chips'>
+                  {AREA_OPTIONS.map((o) => (
+                    <View
+                      key={o.key}
+                      className={`pb-opt ${areaRange === o.key ? 'pb-opt--active' : ''}`}
+                      onClick={() => setWrapper('areaRange', o.key)}
+                    >
+                      <Text>{t(o.label)}</Text>
+                    </View>
+                  ))}
+                </View>
+                {areaRange === 'custom' && (
+                  <View className='pb-range'>
+                    <Input className='pb-range__input' type='number' value={areaCustomMin} onInput={(e: any) => setWrapper('areaCustomMin', e.detail.value)} placeholder={t('prop.minArea')} />
+                    <Text className='pb-range__sep'>-</Text>
+                    <Input className='pb-range__input' type='number' value={areaCustomMax} onInput={(e: any) => setWrapper('areaCustomMax', e.detail.value)} placeholder={t('prop.maxArea')} />
                   </View>
-                ))}
-              </View>
+                )}
+
+                <View className='pb-group-label'>{t('pub.filterSchool')}</View>
+                <View className='pb-school'>
+                  <View className='pb-panel__chips'>
+                    {RADII.map((km) => (
+                      <View
+                        key={km}
+                        className={`pb-opt ${schoolKm === km ? 'pb-opt--active' : ''}`}
+                        onClick={() => setWrapper('schoolKm', km)}
+                      >
+                        <Text>{km}km</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View className='pb-search pb-search--sm'>
+                    <Input
+                      className='pb-search__input'
+                      value={schoolKw}
+                      onInput={(e: any) => setSchoolKw(e.detail.value)}
+                      placeholder={t('pub.schoolSearchPlaceholder')}
+                    />
+                  </View>
+                  <ScrollView scrollY className='pb-school__list'>
+                    {filteredSchools.length === 0 ? (
+                      <View className='pb-state__desc'>{t('pub.schoolFilterEmpty')}</View>
+                    ) : (
+                      filteredSchools.map((s) => (
+                        <View
+                          key={s.id}
+                          className={`pb-opt pb-opt--row ${schoolId === s.id ? 'pb-opt--active' : ''}`}
+                          onClick={() => toggleSchool(s)}
+                        >
+                          <Text>{s.name}</Text>
+                          {schoolId === s.id && <Text className='pb-opt__check'>✓</Text>}
+                        </View>
+                      ))
+                    )}
+                  </ScrollView>
+                </View>
+
+                <View className='pb-panel__actions'>
+                  <View className='pb-act pb-act--ghost' onClick={resetMore}>
+                    <Text>{t('pub.reset')}</Text>
+                  </View>
+                  <View className='pb-act pb-act--primary' onClick={() => setOpenTab(null)}>
+                    <Text>{t('pub.apply')}</Text>
+                  </View>
+                </View>
+              </>
             )}
 
-            {openTab === 'sort' && (
-              <View className='pb-panel__list'>
-                {SORT_OPTIONS.map((s) => (
-                  <View
-                    key={s.key}
-                    className={`pb-sort ${sortKey === s.key ? 'pb-sort--active' : ''}`}
-                    onClick={() => {
-                      setSortKey(s.key)
-                      setOpenTab(null)
-                    }}
-                  >
-                    <Text className='pb-sort__text'>{t(s.label)}</Text>
-                    {sortKey === s.key && <Text className='pb-sort__check'>✓</Text>}
+            {openTab === 'region' && regionOpen && (
+              <View className='pb-region'>
+                <View className='pb-region__cols'>
+                  <View className='pb-region__col pb-region__col--countries'>
+                    {countryList.map((c) => (
+                      <View
+                        key={c}
+                        className={`pb-region__line ${areaCountry === c ? 'pb-region__line--active' : ''}`}
+                        onClick={() => { setAreaCountry(c); setAreaDrill('') }}
+                      >
+                        <Text>{c}</Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
+                  <View className='pb-region__col'>
+                    {activeAreaGroup ? (
+                      <>
+                        <View className='pb-region__head'>
+                          <Text className='pb-region__back' onClick={() => setAreaDrill('')}>← {areaCountry}</Text>
+                          <Text className='pb-region__title'>{activeAreaGroup.cityLabel}</Text>
+                        </View>
+                        <View className='pb-panel__chips'>
+                          <View className={`pb-opt ${region === '' ? 'pb-opt--active' : ''}`} onClick={() => pickRegion(null)}>
+                            <Text>{t('pub.filterAny')}</Text>
+                          </View>
+                          {activeAreaGroup.children.map((d) => (
+                            <View
+                              key={d.key}
+                              className={`pb-opt ${region === `${activeAreaGroup.cityKey}:${d.key}` ? 'pb-opt--active' : ''}`}
+                              onClick={() => pickRegion(`${activeAreaGroup.cityKey}:${d.key}`)}
+                            >
+                              <Text>{d.label}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <Text className='pb-region__title'>{areaCountry}</Text>
+                        <View className='pb-panel__chips'>
+                          {countryGroups.map((g) => (
+                            <View
+                              key={g.cityKey}
+                              className={`pb-opt ${areaDrill === g.cityKey ? 'pb-opt--active' : ''}`}
+                              onClick={() => setAreaDrill(g.cityKey)}
+                            >
+                              <Text>{g.cityLabel}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </>
+                    )}
+                  </View>
+                </View>
               </View>
             )}
           </View>
@@ -473,33 +715,33 @@ export default function EmployeePropertyBrowsePage() {
 
       <View className='pb-body'>
         <Text className='pb-count'>
-          {t('prop.countTotal')} <Text className='pb-count__num'>{visible.length}</Text>{' '}
+          {t('prop.countTotal')} <Text className='pb-count__num'>{listings.length}</Text>{' '}
           {t('prop.countListingsSuffix')}
         </Text>
 
-        {loading && visible.length === 0 ? (
+        {loading && listings.length === 0 ? (
           <View className='pb-state pb-state--loading'>
             <View className='pb-state__spinner' />
             <Text className='pb-state__title'>{t('common.loading')}</Text>
           </View>
-        ) : error && visible.length === 0 ? (
+        ) : error && listings.length === 0 ? (
           <View className='pb-state'>
             <Text className='pb-state__title'>{t('common.loadFailed')}</Text>
             <View className='pb-retry' onClick={() => fetchList(1)}>
               <Text className='pb-retry__text'>{t('common.tapRetry')}</Text>
             </View>
           </View>
-        ) : visible.length === 0 ? (
+        ) : listings.length === 0 ? (
           <View className='pb-state'>
             <Text className='pb-state__title'>{t('prop.emptyNoMatch')}</Text>
             <Text className='pb-state__desc'>{t('prop.emptyFiltered')}</Text>
           </View>
         ) : (
-          visible.map((p) => {
+          listings.map((p) => {
             const photo = Array.isArray(p.photos) && p.photos.length ? p.photos[0] : ''
             const isFav = favSet.has(String(p.id))
             return (
-              <View key={p.id} className='pb-card'>
+              <View key={p.id} className='pb-card' hoverClass='pb-card--hover'>
                 <View className='pb-card__thumb'>
                   {photo ? (
                     <Image className='pb-card__photo' src={photo} mode='aspectFill' lazyLoad />
@@ -513,7 +755,7 @@ export default function EmployeePropertyBrowsePage() {
                     <Text className='pb-fav__text'>{isFav ? t('prop.favOn') : t('prop.fav')}</Text>
                   </View>
                   <View className='pb-card__type'>
-                    <Text>{t(TYPE_LABELS[p.property_type || ''] || 'prop.listing')}</Text>
+                    <Text>{t(TYPE_LABELS[String(p.property_type || '').toLowerCase()] || 'prop.listing')}</Text>
                   </View>
                 </View>
 
@@ -605,8 +847,8 @@ export default function EmployeePropertyBrowsePage() {
         )}
 
         {/* 加载更多 */}
-        {hasMore && visible.length > 0 && (
-          <View className='pb-more' onClick={fetchMore}>
+        {hasMore && listings.length > 0 && (
+          <View className='pb-more' onClick={() => fetchList(page + 1)}>
             <Text className='pb-more__text'>
               {loadingMore ? t('common.loadingMore') : t('prop.loadMoreListings')}
             </Text>

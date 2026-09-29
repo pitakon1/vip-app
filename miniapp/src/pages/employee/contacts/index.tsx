@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { employeesApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -152,6 +153,7 @@ export default function EmployeeContactsPage() {
 
   return (
     <View className='c-page'>
+      <ShellHeader title={t('nav.contacts')} />
       <View className='page-container'>
         {/* 搜索 */}
         <View className='c-search'>

@@ -27,6 +27,8 @@ import { notify, notifyError } from '@/utils/feedback';
 import api from '@/lib/api';
 import { authApi, employeesApi, usersAdminApi } from '@/services/api';
 import { useI18n } from '@/i18n';
+import { useAuthStore } from '@/stores/auth';
+import PartnerMemberManager from '@/components/PartnerMemberManager';
 
 interface EmployeeRow {
   id: string;
@@ -42,6 +44,10 @@ interface EmployeeRow {
   is_active?: boolean;
   status?: string | null;
   broker_id?: string | null;
+  // 账号来源/归属（/admin/users 账号口径：user_type 平台或合作，partner_name 所在公司）
+  user_type?: string | null;
+  partner_id?: string | null;
+  partner_name?: string | null;
 }
 
 interface LeaderRow {
@@ -53,6 +59,10 @@ interface LeaderRow {
 type StatusFilter = 'all' | 'active' | 'inactive' | 'probation';
 /** 状态筛选（文案走 i18n：acc.filter.*） */
 const FILTERS: StatusFilter[] = ['all', 'active', 'inactive', 'probation'];
+
+/** 账号来源筛选（文案走 i18n：userType.filter.*） */
+type UserTypeFilter = 'all' | 'platform' | 'partner';
+const USER_TYPE_FILTERS: UserTypeFilter[] = ['all', 'platform', 'partner'];
 
 const PROBATION_DAYS = 90; // 后端无试用期字段，按入职 90 天内视为试用期
 const DAY_MS = 86400000;
@@ -72,6 +82,8 @@ const STATUS_META: Record<string, { color: string; rgb: string }> = {
 export default function AdminUsersScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
+  // 登录角色：平台管理员走 /admin /employees；合作公司管理员走 /partner/members 成员视图
+  const isPartnerAdmin = useAuthStore((state) => state.user?.role) === 'partner_admin';
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [total, setTotal] = useState(0);
   const [perfMap, setPerfMap] = useState<Record<string, LeaderRow>>({});
@@ -83,6 +95,7 @@ export default function AdminUsersScreen() {
   const [pwdError, setPwdError] = useState('');
   const [kw, setKw] = useState('');
   const [filter, setFilter] = useState<StatusFilter>('all');
+  const [userType, setUserType] = useState<UserTypeFilter>('all');
   const [meId, setMeId] = useState<string | null>(null);
 
   // 修改账号角色（后端 PATCH /admin/users/{id}）。此前 App 端只能建号时定死 employee，
@@ -142,7 +155,7 @@ export default function AdminUsersScreen() {
 
   const fetchData = useCallback(async () => {
     const [empRes, leadRes, meRes] = await Promise.allSettled([
-      employeesApi.list({ page: 1, page_size: 100 }),
+      employeesApi.list({ page: 1, page_size: 100, user_type: userType === 'all' ? undefined : userType }),
       employeesApi.leaderboard(),
       authApi.me(),
     ]);
@@ -179,7 +192,7 @@ export default function AdminUsersScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [t]);
+  }, [t, userType]);
 
   useFocusEffect(
     useCallback(() => {
@@ -368,6 +381,15 @@ export default function AdminUsersScreen() {
               <Text style={styles.deptLine} numberOfLines={1}>
                 {[item.position, item.department].filter(Boolean).join(' · ') || t('acc.noDept')}
               </Text>
+              {item.user_type || item.partner_name ? (
+                <View style={styles.sourceRow}>
+                  <Ionicons name="business-outline" size={13} color={colors.ink3} />
+                  <Text style={styles.sourceText} numberOfLines={1}>
+                    {t(`userType.label.${item.user_type === 'partner' ? 'partner' : 'platform'}`)}
+                    {item.partner_name ? ` · ${item.partner_name}` : ''}
+                  </Text>
+                </View>
+              ) : null}
               {!!item.phone && (
                 <View style={styles.contactRow}>
                   <Ionicons name="call-outline" size={13} color={colors.ink3} />
@@ -428,6 +450,15 @@ export default function AdminUsersScreen() {
     },
     [perfMap, maxPerf, meId, t],
   );
+
+  // 合作公司管理员：本屏退化为「本公司成员管理」（/partner/members），而非平台 /admin/users
+  if (isPartnerAdmin) {
+    return (
+      <View style={[styles.partnerWrap, { paddingTop: insets.top }]}>
+        <PartnerMemberManager />
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -511,6 +542,22 @@ export default function AdminUsersScreen() {
           >
             <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>
               {t(`acc.filter.${f}`)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* 账号来源筛选（平台/合作） */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
+        {USER_TYPE_FILTERS.map((f) => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.chip, userType === f && styles.chipActive]}
+            activeOpacity={0.7}
+            onPress={() => setUserType(f)}
+          >
+            <Text style={[styles.chipText, userType === f && styles.chipTextActive]}>
+              {t(`userType.filter.${f}`)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -745,6 +792,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  partnerWrap: { flex: 1, backgroundColor: colors.background },
 
   /* ===== 概览统计 ===== */
   statRow: { flexDirection: 'row', gap: 10, marginHorizontal: 20, marginTop: 12 },
@@ -833,6 +881,8 @@ const styles = StyleSheet.create({
   roleText: { fontSize: 11, fontWeight: '600' },
   contactRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   contactText: { fontSize: 12, color: colors.ink2, fontVariant: ['tabular-nums'] },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  sourceText: { fontSize: 12, color: colors.ink2, flexShrink: 1 },
 
   /* ===== 业绩 ===== */
   perfRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 12 },

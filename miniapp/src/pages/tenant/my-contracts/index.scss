@@ -1,0 +1,248 @@
+/* 租客 / 业主「我的合同」签署页（只读 + 本人未签则签署） */
+.mc-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24rpx 24rpx 120rpx;
+  box-sizing: border-box;
+}
+
+.mc-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-bottom: 20rpx;
+
+  &__title {
+    font-size: 36rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  &__desc {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}
+
+.mc-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12rpx;
+    margin-bottom: 14rpx;
+  }
+
+  &__title {
+    flex: 1;
+    font-size: 30rpx;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+    flex-wrap: wrap;
+    margin-top: 10rpx;
+  }
+
+  &__divider {
+    height: 1px;
+    background: var(--line);
+    margin: 16rpx 0;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10rpx;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__row-label {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+
+  &__row-value {
+    font-size: 24rpx;
+    color: var(--ink);
+    max-width: 60%;
+    text-align: right;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+.mc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 16rpx;
+  border-radius: var(--radius-full);
+  font-size: 22rpx;
+  font-weight: 600;
+
+  &--default {
+    background: var(--surface-2);
+    color: var(--ink-2);
+  }
+
+  &--primary {
+    background: rgba(var(--primary-rgb), 0.12);
+    color: var(--primary);
+  }
+
+  &--warning {
+    background: rgba(var(--warning-rgb), 0.14);
+    color: var(--warning);
+  }
+
+  &--success {
+    background: rgba(var(--success-rgb), 0.14);
+    color: var(--success);
+  }
+
+  &--error {
+    background: rgba(var(--error-rgb), 0.1);
+    color: var(--error);
+  }
+}
+
+/* ===== 详情 ===== */
+.mc-detail {
+  &__section {
+    margin-top: 28rpx;
+  }
+
+  &__section-title {
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 16rpx;
+  }
+}
+
+.mc-party {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  padding: 20rpx;
+  margin-bottom: 16rpx;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10rpx;
+  }
+
+  &__id {
+    display: flex;
+    align-items: center;
+    gap: 10rpx;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  &__self {
+    font-size: 20rpx;
+    color: var(--success);
+    background: rgba(var(--success-rgb), 0.14);
+    padding: 2rpx 12rpx;
+    border-radius: var(--radius-full);
+  }
+
+  &__meta {
+    font-size: 24rpx;
+    color: var(--ink-3);
+    margin-top: 4rpx;
+  }
+}
+
+.mc-content {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  padding: 20rpx;
+  max-height: 600rpx;
+  overflow: hidden;
+
+  &__inner {
+    font-size: 24rpx;
+    color: var(--ink-2);
+    line-height: 1.7;
+  }
+}
+
+/* ===== 签署按钮 ===== */
+.mc-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--card);
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.06);
+  z-index: 50;
+}
+
+.mc-sign {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  height: 92rpx;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  box-shadow: var(--shadow-primary);
+
+  &--done {
+    background: var(--success);
+  }
+
+  &__text {
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--primary-foreground);
+  }
+}
+
+.mc-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  padding: 120rpx 0;
+
+  &__text {
+    font-size: 28rpx;
+    color: var(--ink-3);
+  }
+
+  &__desc {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}

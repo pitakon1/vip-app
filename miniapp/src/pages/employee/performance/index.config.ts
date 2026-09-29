@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '业绩', navigationStyle: 'custom' }

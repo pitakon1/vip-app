@@ -1,4 +1,4 @@
-export type UserRole = 'agent' | 'owner' | 'tenant' | 'employee' | 'admin';
+export type UserRole = 'agent' | 'owner' | 'tenant' | 'employee' | 'admin' | 'partner_admin';
 
 export type PropertyStatus = 'vacant' | 'rented' | 'renewing' | 'maintenance';
 

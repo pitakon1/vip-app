@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '角色权限', navigationStyle: 'custom' }

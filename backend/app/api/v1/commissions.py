@@ -8,7 +8,14 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.auth import require_admin, require_employee
 from app.core.pagination import Page, PaginationParams, paginate_query
-from app.models import CommissionSettlement, Employee, SettlementStatus, User
+from app.models import (
+    CommissionRole,
+    CommissionSettlement,
+    Employee,
+    Partner,
+    SettlementStatus,
+    User,
+)
 
 router = APIRouter(prefix="/commissions", tags=["commissions"])
 
@@ -68,6 +75,37 @@ def list_commissions(
         conditions.append(CommissionSettlement.status == status)
     if employee_id:
         conditions.append(CommissionSettlement.employee_id == employee_id)
+
+    stmt = (
+        select(CommissionSettlement)
+        .where(*conditions)
+        .order_by(CommissionSettlement.created_at.desc())
+    )
+    return paginate_query(session, stmt, pagination)
+
+
+@router.get("/settlements", response_model=Page[CommissionSettlement])
+def list_settlements(
+    pagination: PaginationParams = Depends(),
+    status: SettlementStatus | None = None,
+    role: CommissionRole | None = None,
+    partner_id: uuid.UUID | None = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    """分佣结算记录（admin 权限）。
+
+    每笔成交（lease_id）可能拆成多条按角色（listing_agent / client_agent /
+    handler / partner_company / platform）的结算，用于把业绩/提成追踪到每个
+    经纪、销售与合作公司。支持按状态、角色、合作公司过滤。
+    """
+    conditions = [CommissionSettlement.deleted_at.is_(None)]
+    if status:
+        conditions.append(CommissionSettlement.status == status)
+    if role:
+        conditions.append(CommissionSettlement.role == role)
+    if partner_id:
+        conditions.append(CommissionSettlement.partner_id == partner_id)
 
     stmt = (
         select(CommissionSettlement)

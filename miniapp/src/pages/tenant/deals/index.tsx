@@ -5,6 +5,7 @@ import { propertyDealApi, saleListingApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import StateBlock from '@/components/StateBlock'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -68,6 +69,7 @@ export default function TenantDealsPage() {
 
   return (
     <View className='tenant-deals-page'>
+      <ShellHeader title={t('nav.deals')} />
       <View className='page-container'>
         <View className='card card--list'>
           {loading && deals.length === 0 && (

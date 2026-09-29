@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { message, Spin, Empty, Alert, Button } from 'antd'
+import { message, Spin, Empty, Alert, Button, DatePicker, Input } from 'antd'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import { attendanceApi, geoApi } from '@/services/api'
@@ -152,6 +152,12 @@ const Attendance = () => {
     end_date: dayjs().format('YYYY-MM-DD'),
     reason: '',
   })
+  // 打卡异常申诉（P1-d）
+  const [appealDate, setAppealDate] = useState<dayjs.Dayjs | null>(dayjs())
+  const [appealReason, setAppealReason] = useState('')
+  const [appealSubmitting, setAppealSubmitting] = useState(false)
+  const [appeals, setAppeals] = useState<any[]>([])
+  const [appealsLoading, setAppealsLoading] = useState(false)
 
   // 状态文案 / 星期文案（依赖 i18n，故放在组件内）
   const statusLabelMap = useMemo<Record<AttendanceStatus, string>>(
@@ -266,6 +272,20 @@ const Attendance = () => {
     loadMyRule()
     loadLeaves()
   }, [loadMyRule, loadLeaves])
+
+  // 我的打卡异常申诉（后端按角色只返回本人的申诉）
+  const loadAppeals = useCallback(() => {
+    setAppealsLoading(true)
+    attendanceApi
+      .appeals()
+      .then((res) => setAppeals(res.data ?? []))
+      .catch(() => setAppeals([]))
+      .finally(() => setAppealsLoading(false))
+  }, [])
+
+  useEffect(() => {
+    loadAppeals()
+  }, [loadAppeals])
 
   // 加载今日考勤状态（含定位半径信息）；状态一并取后端判定，前端只负责展示
   useEffect(() => {
@@ -414,6 +434,27 @@ const Attendance = () => {
       })
       .catch(() => message.error(t('attendance.errLeaveApply')))
       .finally(() => setLeaveSubmitting(false))
+  }
+
+  const handleAppealSubmit = () => {
+    if (!appealReason.trim()) {
+      message.error(t('att.errAppealReason'))
+      return
+    }
+    setAppealSubmitting(true)
+    attendanceApi
+      .applyAppeal({
+        date: (appealDate ?? dayjs()).format('YYYY-MM-DD'),
+        reason: appealReason.trim(),
+      })
+      .then(() => {
+        message.success(t('att.appealSubmitted'))
+        setAppealReason('')
+        setAppealDate(dayjs())
+        loadAppeals()
+      })
+      .catch(() => message.error(t('att.errAppeal')))
+      .finally(() => setAppealSubmitting(false))
   }
 
   const handleLeaveCancel = (id: string) => {
@@ -636,7 +677,7 @@ const Attendance = () => {
               {gpsStatus === 'denied'
                 ? t('attendance.gpsDenied')
                 : geoInfo
-                  ? `${t('attendance.geoDistance', { km: geoInfo.distance_km })}${geoInfo.address ? ` · ${geoInfo.address}` : ''}`
+                  ? `${geoInfo.within_radius ? t('att.inRange') : t('att.outOfRange')} · ${t('attendance.geoDistance', { km: geoInfo.distance_km })}${geoInfo.address ? ` · ${geoInfo.address}` : ''}`
                   : t('attendance.geoHint')}
             </div>
           </div>
@@ -1112,6 +1153,99 @@ const Attendance = () => {
                             </button>
                           )}
                         </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 打卡异常申诉（P1-d）：提交申诉 + 我的申诉记录 */}
+      <div className="rent-grid rent-grid--2">
+        <div className="rent-card">
+          <div className="rent-card__header">
+            <h3 className="rent-card__title">{t('att.appeal')}</h3>
+            <span className="rent-caption">{t('att.appealSubmit')}</span>
+          </div>
+          <div className="rent-card__body">
+            <div className="rent-field rent-mb-4">
+              <label className="rent-label">{t('att.appealDate')}</label>
+              <DatePicker
+                value={appealDate}
+                onChange={(d) => setAppealDate(d)}
+                style={{ width: '100%' }}
+                format="YYYY-MM-DD"
+              />
+            </div>
+            <div className="rent-field rent-mb-4">
+              <label className="rent-label">{t('att.appealReason')}</label>
+              <Input.TextArea
+                rows={3}
+                placeholder={t('att.appealPlaceholder')}
+                value={appealReason}
+                onChange={(e) => setAppealReason(e.target.value)}
+              />
+            </div>
+            <div className="rent-flex" style={{ justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={handleAppealSubmit} loading={appealSubmitting}>
+                {t('att.appealSubmit')}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="rent-card">
+          <div className="rent-card__header">
+            <h3 className="rent-card__title">{t('att.appealList')}</h3>
+          </div>
+          <div className="rent-card__body" style={{ padding: 0 }}>
+            <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="rent-table">
+                <thead>
+                  <tr>
+                    <th>{t('attendance.thDate')}</th>
+                    <th>{t('att.appealReason')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{t('attAdm.replyNote')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {appealsLoading ? (
+                    <tr>
+                      <td colSpan={4}>
+                        <div className="rent-empty">
+                          <Spin size="small" style={{ marginRight: 8 }} />
+                          {t('common.loading')}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : appeals.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>
+                        <div className="rent-empty">
+                          <Empty
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            description={t('att.noAppeal')}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    appeals.map((row) => (
+                      <tr key={row.id}>
+                        <td className="rent-table__mono">{String(row.date ?? '').slice(0, 10)}</td>
+                        <td className="rent-text-sm">{row.reason}</td>
+                        <td>
+                          <span
+                            className={`rent-badge rent-badge--${leaveStatusTone[row.status as LeaveStatus]}`}
+                          >
+                            {leaveStatusLabelMap[row.status as LeaveStatus] ?? row.status}
+                          </span>
+                        </td>
+                        <td className="rent-text-sm">{row.reply_note || '—'}</td>
                       </tr>
                     ))
                   )}

@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
+import BeikeHeader from '@/components/BeikeHeader';
 import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
 import {
   CURRICULUM_OPTIONS,
@@ -30,8 +31,6 @@ import {
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { Badge, Chip } from './PublicFilterChip';
-import PublicBackRow from './PublicBackRow';
-
 const PAGE_SIZE = 30;
 
 export default function PublicSchoolsScreen() {
@@ -92,12 +91,9 @@ export default function PublicSchoolsScreen() {
   }, [fetchPage]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
-      <View style={styles.backWrap}>
-        <PublicBackRow />
-      </View>
+    <View style={styles.container}>
+      <BeikeHeader title={t('pub.schoolsTitle')} />
       <View style={styles.header}>
-        <Text style={styles.title}>{t('pub.schoolsTitle')}</Text>
         <Text style={styles.hint}>{t('pub.schoolsHint')}</Text>
         <TextInput
           style={styles.search}

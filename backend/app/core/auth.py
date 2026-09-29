@@ -205,6 +205,16 @@ def property_visibility_conditions(session: Session, user: User) -> list:
     """
     if user.role == UserRole.admin:
         return []
+    if user.role == UserRole.partner_admin and user.partner_id:
+        # 合作公司管理员仅可见本公司经纪人的房源（责任人保留为经纪人本人）
+        return [
+            Property.created_by.in_(
+                select(User.id).where(
+                    User.partner_id == user.partner_id,
+                    User.deleted_at.is_(None),
+                )
+            )
+        ]
     if user.role in (UserRole.agent, UserRole.employee):
         return [Property.created_by == user.id]
     if user.role == UserRole.owner:
@@ -228,6 +238,19 @@ def can_view_property(session: Session, user: User, prop) -> bool:
 
     if user.role == UserRole.admin:
         return True
+    if user.role == UserRole.partner_admin and user.partner_id:
+        member_ids = {
+            u.id
+            for u in session.exec(
+                select(User.id).where(
+                    User.partner_id == user.partner_id,
+                    User.deleted_at.is_(None),
+                )
+            ).all()
+        }
+        return _same_id(_field("created_by"), user.id) or bool(
+            _field("created_by") in member_ids
+        )
     if user.role in (UserRole.agent, UserRole.employee):
         return _same_id(_field("created_by"), user.id)
     if user.role == UserRole.owner:

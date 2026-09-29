@@ -95,6 +95,8 @@ const PUBLIC_PREFIX_ROUTES = [
   '/communities',
   '/community/',
   '/properties/detail',
+  // 公共签署页（客户 /sign/:token 匿名访问，token 即访客身份）
+  '/sign/',
 ]
 
 api.interceptors.response.use(

@@ -66,6 +66,18 @@ def _dt(value: Optional[datetime]) -> str:
     return value.strftime("%Y-%m-%d %H:%M:%S") if value else ""
 
 
+def _merge_employee_filters(*filters):
+    """把多个 Employee 过滤条件按 AND 合并（None 视为「不限制」）。"""
+    from sqlalchemy import and_
+
+    active = [f for f in filters if f is not None]
+    if not active:
+        return None
+    if len(active) == 1:
+        return active[0]
+    return and_(*active)
+
+
 def _get_employee_or_404(session: Session, user: User) -> Employee:
     """取当前用户的员工档案（无档案则 404，与 /performance/me 口径一致）。"""
     employee = session.exec(
@@ -485,10 +497,17 @@ def export_attendance(
     start_date: Optional[date_type] = None,
     end_date: Optional[date_type] = None,
     department: Optional[str] = Query(None, description="仅 admin 可用"),
+    partner_id: Optional[uuid.UUID] = Query(
+        None, description="合作公司过滤；合作公司管理员强制限本公司"
+    ),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """导出考勤明细（admin 可按日期区间/部门导出全员，其余员工只看自己）。"""
+    """导出考勤明细。
+
+    作用域：admin 可按日期区间/部门/合作公司导出；合作公司管理员强制本公司；
+    其余员工只看自己。
+    """
     today = date_type.today()
     start = start_date or today
     end = end_date or today
@@ -504,8 +523,24 @@ def export_attendance(
     if user.role == UserRole.admin:
         if department:
             employee_filter = Employee.department == department
+        if partner_id:
+            employee_filter = _merge_employee_filters(
+                employee_filter,
+                Employee.user_id.in_(
+                    select(User.id).where(
+                        User.partner_id == partner_id, User.deleted_at.is_(None)
+                    )
+                ),
+            )
+    elif user.role == UserRole.partner_admin:
+        # 合作公司管理员强制限本公司（显式传其它公司一律忽略，避免越权导出）
+        employee_filter = Employee.user_id.in_(
+            select(User.id).where(
+                User.partner_id == user.partner_id, User.deleted_at.is_(None)
+            )
+        )
     else:
-        # 非 admin 强制只看自己，忽略 department 入参
+        # 其余角色强制只看自己，忽略 department / partner_id 入参
         employee_filter = Employee.id == _get_employee_or_404(session, user).id
 
     stmt = select(Attendance)

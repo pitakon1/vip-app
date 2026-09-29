@@ -14,6 +14,8 @@ import { photoUrl } from '@/lib/publicSite'
 import { fmtMoney as money } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import StateBlock from '@/components/StateBlock'
+import ShellHeader from '@/components/ShellHeader'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface FavItem {
@@ -30,6 +32,7 @@ interface FavItem {
 
 export default function FavoritesPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
+  const { t } = useI18n()
   const [items, setItems] = useState<FavItem[]>([])
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -88,6 +91,7 @@ export default function FavoritesPage() {
 
   return (
     <View className='fav-page'>
+      <ShellHeader title={t('nav.favorites')} />
       <View className='page-container'>
         {loading && items.length === 0 && (
           <StateBlock loading text='加载中...' />

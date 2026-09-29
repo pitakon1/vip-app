@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '合同管理', navigationStyle: 'custom' }

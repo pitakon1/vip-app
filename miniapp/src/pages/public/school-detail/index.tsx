@@ -17,6 +17,7 @@ import {
 } from '@/lib/publicSite'
 import PublicListingItem from '@/components/PublicListingItem'
 import PublicInquiryForm from '@/components/PublicInquiryForm'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -55,6 +56,7 @@ export default function PublicSchoolDetailPage() {
   if (loading) {
     return (
       <View className='pub-page'>
+        <ShellHeader title={t('pub.schoolsTitle')} />
         <View className='pub-loading'>{t('pub.loading')}</View>
       </View>
     )
@@ -63,6 +65,7 @@ export default function PublicSchoolDetailPage() {
   if (!school) {
     return (
       <View className='pub-page'>
+        <ShellHeader title={t('pub.schoolsTitle')} />
         <View className='pub-empty'>{t('pub.schoolNotFound')}</View>
       </View>
     )
@@ -73,6 +76,7 @@ export default function PublicSchoolDetailPage() {
 
   return (
     <View className='pub-page'>
+      <ShellHeader title={t('pub.schoolsTitle')} />
       {photos.length > 0 ? (
         <Image className='pub-cover' src={photos[0]} mode='aspectFill' />
       ) : null}

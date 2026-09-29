@@ -1,1 +1,1 @@
-export default { navigationBarTitleText: '联系方式' }
+export default { navigationBarTitleText: '联系方式', navigationStyle: 'custom' }

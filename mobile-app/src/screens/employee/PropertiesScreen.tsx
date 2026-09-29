@@ -21,6 +21,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
+import { filterStyles } from '@/theme/filterStyles';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
@@ -110,8 +111,8 @@ export default function PropertiesScreen() {
   const [schoolKm, setSchoolKm] = useState<number>(3);
   const [schools, setSchools] = useState<PublicSchool[]>([]);
   const [schoolKw, setSchoolKw] = useState('');
-  const [schoolOpen, setSchoolOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  // 链家式单行筛选栏：当前展开的下拉 Tab（'region' | 'price' | 'sort' | 'more' | null）
+  const [openTab, setOpenTab] = useState<string | null>(null);
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [areaMin, setAreaMin] = useState('');
@@ -293,12 +294,37 @@ export default function PropertiesScreen() {
     };
   }, [tenantMap]);
 
-  // ---- C 端维度辅助 ----
-  const moreCount = useMemo(
-    () =>
-      (priceMin ? 1 : 0) + (priceMax ? 1 : 0) + (areaMin ? 1 : 0) + (areaMax ? 1 : 0) + (bedsMin ? 1 : 0),
-    [priceMin, priceMax, areaMin, areaMax, bedsMin],
+  // ---- 链家式单行筛选栏（对齐租客端）：区域 / 价格 / 更多 / 排序 ----
+  const tabRegionActive = !!region;
+  const tabPriceActive = !!(priceMin || priceMax);
+  const tabSortActive = sort !== 'latest';
+  const tabMoreActive = !!(status !== '' || bedsMin || schoolId);
+  const filterTabs = useMemo(
+    () => [
+      { key: 'region', label: '区域', active: tabRegionActive, badge: 0 },
+      { key: 'price', label: '价格', active: tabPriceActive, badge: 0 },
+      {
+        key: 'more',
+        label: '更多',
+        active: tabMoreActive,
+        badge: [status !== '' ? 1 : 0, bedsMin ? 1 : 0, schoolId ? 1 : 0].filter(Boolean).length,
+      },
+      { key: 'sort', label: '排序', active: tabSortActive, badge: 0 },
+    ],
+    [tabRegionActive, tabPriceActive, tabSortActive, tabMoreActive, status, bedsMin, schoolId, region],
   );
+  const toggleTab = (key: string) => setOpenTab((cur) => (cur === key ? null : key));
+  const resetPrice = () => {
+    setPriceMin('');
+    setPriceMax('');
+  };
+  const resetMore = () => {
+    setStatus('');
+    setBedsMin('');
+    setSchoolId('');
+    setSchoolKm(3);
+    setSchoolKw('');
+  };
   const filteredSchools = useMemo(() => {
     const kw = schoolKw.trim().toLowerCase();
     if (!kw) return schools;
@@ -308,14 +334,6 @@ export default function PropertiesScreen() {
         (s.name_en ?? '').toLowerCase().includes(kw),
     );
   }, [schools, schoolKw]);
-  const resetCEFilters = useCallback(() => {
-    setSchoolId('');
-    setPriceMin('');
-    setPriceMax('');
-    setAreaMin('');
-    setAreaMax('');
-    setBedsMin('');
-  }, []);
 
   const renderCard = (p: PropertyItem) => {
     const st = p.status ?? 'vacant';
@@ -434,85 +452,224 @@ export default function PropertiesScreen() {
         ) : null}
       </View>
 
-      {/* 状态筛选 */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-        style={styles.chipScroll}
-      >
-        {STATUS_FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f.key}
-            activeOpacity={0.7}
-            onPress={() => setStatus(f.key)}
-            style={[styles.chip, status === f.key && styles.chipActive]}
-          >
-            <Text style={[styles.chipText, status === f.key && styles.chipTextActive]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* 区域 + 排序 */}
-      <View style={styles.filterBar}>
-        <RegionPicker value={region} onChange={setRegion} />
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-        style={styles.chipScroll}
-      >
-        {SORTS.map((s) => (
-          <TouchableOpacity
-            key={s.key}
-            activeOpacity={0.7}
-            onPress={() => setSort(s.key)}
-            style={[styles.sortChip, sort === s.key && styles.sortChipActive]}
-          >
-            <Text style={[styles.sortChipText, sort === s.key && styles.sortChipTextActive]}>
-              {s.label}
-            </Text>
-            {sort === s.key ? (
-              <Ionicons name="chevron-down" size={12} color={colors.primary} />
-            ) : null}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* C 端维度：学校 / 更多（与 C 端找房口径一致） */}
-      <View style={styles.ceFilterRow}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setSchoolOpen(true)}
-          style={[styles.ceChip, schoolId ? styles.ceChipActive : null]}
+      {/* ---- 链家式单行筛选栏 + 顶部下拉面板（对齐租客端 ListingsScreen）---- */}
+      <View style={styles.filterZone}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterTabsRow}
+          contentContainerStyle={styles.filterTabsContent}
         >
-          <Text style={[styles.ceChipText, schoolId ? styles.ceChipTextActive : null]}>
-            学校{schoolId ? ' · 已选' : ''}
-          </Text>
-          <Ionicons name="chevron-down" size={12} color={schoolId ? colors.primary : colors.ink2} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setMoreOpen(true)}
-          style={[styles.ceChip, moreCount > 0 ? styles.ceChipActive : null]}
-        >
-          <Text style={[styles.ceChipText, moreCount > 0 ? styles.ceChipTextActive : null]}>
-            更多{moreCount > 0 ? ` · ${moreCount}` : ''}
-          </Text>
-          <Ionicons name="chevron-down" size={12} color={moreCount > 0 ? colors.primary : colors.ink2} />
-        </TouchableOpacity>
-        {(schoolId || moreCount > 0) ? (
-          <TouchableOpacity activeOpacity={0.7} onPress={resetCEFilters} style={styles.ceReset}>
-            <Text style={styles.ceResetText}>重置</Text>
-          </TouchableOpacity>
-        ) : null}
+          {filterTabs.map((tb) => (
+            <TouchableOpacity
+              key={tb.key}
+              style={[
+                styles.filterTab,
+                openTab === tb.key && styles.filterTabOpen,
+                tb.active && styles.filterTabActive,
+              ]}
+              onPress={() => toggleTab(tb.key)}
+              activeOpacity={0.7}
+            >
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.filterTabLabel,
+                  (openTab === tb.key || tb.active) && styles.filterTabLabelActive,
+                ]}
+              >
+                {tb.label}
+              </Text>
+              {tb.badge > 0 && (
+                <View style={styles.filterTabBadge}>
+                  <Text style={styles.filterTabBadgeText}>{tb.badge}</Text>
+                </View>
+              )}
+              <Ionicons
+                name={openTab === tb.key ? 'chevron-up' : 'chevron-down'}
+                size={14}
+                color={tb.active || openTab === tb.key ? colors.primary : colors.ink3}
+              />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {openTab !== null && (
+          <View style={styles.dropPanel}>
+            {openTab === 'region' && (
+              <>
+                <View style={styles.regionHolder}>
+                  <RegionPicker value={region} onChange={setRegion} />
+                </View>
+                <View style={styles.panelActions}>
+                  <TouchableOpacity style={styles.resetBtn} onPress={() => setRegion(null)} activeOpacity={0.7}>
+                    <Text style={styles.resetText}>重置</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
+                    <Text style={styles.confirmText}>确定</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+            {openTab === 'price' && (
+              <>
+                <Text style={styles.dropGroupTitle}>租金（THB/月）</Text>
+                <View style={styles.ceRangeRow}>
+                  <TextInput
+                    style={styles.ceInput}
+                    value={priceMin}
+                    onChangeText={setPriceMin}
+                    placeholder="最低"
+                    placeholderTextColor={colors.ink3}
+                    keyboardType="numeric"
+                  />
+                  <Text style={styles.ceRangeSep}>—</Text>
+                  <TextInput
+                    style={styles.ceInput}
+                    value={priceMax}
+                    onChangeText={setPriceMax}
+                    placeholder="最高"
+                    placeholderTextColor={colors.ink3}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.panelActions}>
+                  <TouchableOpacity style={styles.resetBtn} onPress={resetPrice} activeOpacity={0.7}>
+                    <Text style={styles.resetText}>重置</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
+                    <Text style={styles.confirmText}>确定</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+            {openTab === 'sort' && (
+              <>
+                <View style={styles.dropSort}>
+                  {SORTS.map((o) => (
+                    <TouchableOpacity
+                      key={o.key}
+                      style={styles.dropSortItem}
+                      activeOpacity={0.7}
+                      onPress={() => setSort(o.key)}
+                    >
+                      <Text style={[styles.dropSortText, sort === o.key && styles.dropSortTextActive]}>
+                        {o.label}
+                      </Text>
+                      {sort === o.key ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.panelActions}>
+                  <TouchableOpacity style={styles.resetBtn} onPress={() => setSort('latest')} activeOpacity={0.7}>
+                    <Text style={styles.resetText}>重置</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
+                    <Text style={styles.confirmText}>确定</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+            {openTab === 'more' && (
+              <>
+                <ScrollView style={styles.dropBodyTall} keyboardShouldPersistTaps="handled">
+                  <Text style={styles.dropGroupTitle}>房源状态</Text>
+                  <View style={styles.filterGroup}>
+                    {STATUS_FILTERS.map((f) => (
+                      <TouchableOpacity
+                        key={f.key}
+                        style={[styles.optChip, status === f.key && styles.optChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() => setStatus(f.key)}
+                      >
+                        <Text style={[styles.optChipText, status === f.key && styles.optChipTextActive]}>
+                          {f.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={styles.dropGroupTitle}>户型</Text>
+                  <View style={styles.filterGroup}>
+                    <TouchableOpacity
+                      style={[styles.optChip, bedsMin === '' && styles.optChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => setBedsMin('')}
+                    >
+                      <Text style={[styles.optChipText, bedsMin === '' && styles.optChipTextActive]}>不限</Text>
+                    </TouchableOpacity>
+                    {['1', '2', '3'].map((b) => (
+                      <TouchableOpacity
+                        key={b}
+                        style={[styles.optChip, bedsMin === b && styles.optChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() => setBedsMin(b)}
+                      >
+                        <Text style={[styles.optChipText, bedsMin === b && styles.optChipTextActive]}>
+                          {b}卧及以上
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={styles.dropGroupTitle}>学校 · 距离</Text>
+                  <View style={styles.filterGroup}>
+                    {SCHOOL_RADIUS_OPTIONS.map((km) => (
+                      <TouchableOpacity
+                        key={km}
+                        style={[styles.optChip, schoolKm === km && styles.optChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() => setSchoolKm(km)}
+                      >
+                        <Text style={[styles.optChipText, schoolKm === km && styles.optChipTextActive]}>
+                          {km}km
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TextInput
+                    style={styles.dropSearch}
+                    value={schoolKw}
+                    onChangeText={setSchoolKw}
+                    placeholder="搜索学校名称"
+                    placeholderTextColor={colors.ink3}
+                    returnKeyType="search"
+                  />
+                  <View style={styles.filterGroup}>
+                    {filteredSchools.map((s) => (
+                      <TouchableOpacity
+                        key={s.id}
+                        style={[styles.optChip, schoolId === s.id && styles.optChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() => setSchoolId(s.id)}
+                      >
+                        <Text
+                          style={[styles.optChipText, schoolId === s.id && styles.optChipTextActive]}
+                          numberOfLines={1}
+                        >
+                          {s.name || s.name_en}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  {schools.length > 0 && filteredSchools.length === 0 && (
+                    <Text style={styles.dropEmpty}>未找到相关学校</Text>
+                  )}
+                </ScrollView>
+                <View style={styles.panelActions}>
+                  <TouchableOpacity style={styles.resetBtn} onPress={resetMore} activeOpacity={0.7}>
+                    <Text style={styles.resetText}>重置</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
+                    <Text style={styles.confirmText}>确定</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        )}
       </View>
 
       {/* 结果统计 */}
-      <Text style={styles.countRow}>
+      <Text style={filterStyles.count}>
         共 <Text style={styles.countStrong}>{total}</Text> 套
         {vacantTotal !== null ? (
           <>
@@ -551,174 +708,7 @@ export default function PropertiesScreen() {
       }
     />
 
-      {/* 按学校找房（C 端维度下拉面板） */}
-      <Modal visible={schoolOpen} transparent animationType="fade" onRequestClose={() => setSchoolOpen(false)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setSchoolOpen(false)}>
-          <TouchableOpacity style={[styles.panel, { paddingBottom: insets.bottom + 12 }]} activeOpacity={1} onPress={() => {}}>
-            <View style={styles.panelHead}>
-              <Text style={styles.panelTitle}>按学校找房</Text>
-              <TouchableOpacity onPress={() => setSchoolOpen(false)} hitSlop={8}>
-                <Ionicons name="close" size={20} color={colors.ink2} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.ceGroup}>
-              <Text style={styles.ceGroupLabel}>距离</Text>
-              <View style={styles.ceChips}>
-                {SCHOOL_RADIUS_OPTIONS.map((km) => (
-                  <TouchableOpacity
-                    key={km}
-                    activeOpacity={0.7}
-                    onPress={() => setSchoolKm(km)}
-                    style={[styles.ceChipSmall, schoolKm === km ? styles.ceChipSmallActive : null]}
-                  >
-                    <Text style={[styles.ceChipSmallText, schoolKm === km ? styles.ceChipSmallTextActive : null]}>
-                      {km}km
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-            <View style={styles.panelSearch}>
-              <Ionicons name="search" size={14} color={colors.ink3} />
-              <TextInput
-                style={styles.panelSearchInput}
-                value={schoolKw}
-                onChangeText={setSchoolKw}
-                placeholder="搜索学校名称"
-                placeholderTextColor={colors.ink3}
-              />
-            </View>
-            <ScrollView style={styles.schoolList} keyboardShouldPersistTaps="handled">
-              {filteredSchools.length === 0 ? (
-                <Text style={styles.schoolEmpty}>未找到相关学校</Text>
-              ) : (
-                filteredSchools.map((s) => {
-                  const active = schoolId === s.id;
-                  return (
-                    <TouchableOpacity
-                      key={s.id}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        setSchoolId(active ? '' : s.id);
-                        setSchoolOpen(false);
-                      }}
-                      style={styles.schoolRow}
-                    >
-                      <Text style={[styles.schoolRowName, active && styles.schoolRowActive]} numberOfLines={1}>
-                        {s.name || s.name_en}
-                      </Text>
-                      {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </ScrollView>
-            <View style={styles.panelFooter}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => {
-                  setSchoolId('');
-                  setSchoolOpen(false);
-                }}
-                style={styles.ceGhost}
-              >
-                <Text style={styles.ceGhostText}>重置</Text>
-              </TouchableOpacity>
-              <TouchableOpacity activeOpacity={0.7} onPress={() => setSchoolOpen(false)} style={styles.ceApply}>
-                <Text style={styles.ceApplyText}>完成</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* 更多筛选：价格 / 面积 / 卧室（C 端维度） */}
-      <Modal visible={moreOpen} transparent animationType="fade" onRequestClose={() => setMoreOpen(false)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setMoreOpen(false)}>
-          <TouchableOpacity style={[styles.panel, { paddingBottom: insets.bottom + 12 }]} activeOpacity={1} onPress={() => {}}>
-            <View style={styles.panelHead}>
-              <Text style={styles.panelTitle}>更多筛选</Text>
-              <TouchableOpacity onPress={() => setMoreOpen(false)} hitSlop={8}>
-                <Ionicons name="close" size={20} color={colors.ink2} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.ceGroup}>
-              <Text style={styles.ceGroupLabel}>租金（THB/月）</Text>
-              <View style={styles.ceRangeRow}>
-                <TextInput
-                  style={styles.ceInput}
-                  value={priceMin}
-                  onChangeText={setPriceMin}
-                  placeholder="最低"
-                  placeholderTextColor={colors.ink3}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.ceRangeSep}>—</Text>
-                <TextInput
-                  style={styles.ceInput}
-                  value={priceMax}
-                  onChangeText={setPriceMax}
-                  placeholder="最高"
-                  placeholderTextColor={colors.ink3}
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-            <View style={styles.ceGroup}>
-              <Text style={styles.ceGroupLabel}>面积（㎡）</Text>
-              <View style={styles.ceRangeRow}>
-                <TextInput
-                  style={styles.ceInput}
-                  value={areaMin}
-                  onChangeText={setAreaMin}
-                  placeholder="最小"
-                  placeholderTextColor={colors.ink3}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.ceRangeSep}>—</Text>
-                <TextInput
-                  style={styles.ceInput}
-                  value={areaMax}
-                  onChangeText={setAreaMax}
-                  placeholder="最大"
-                  placeholderTextColor={colors.ink3}
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-            <View style={styles.ceGroup}>
-              <Text style={styles.ceGroupLabel}>卧室</Text>
-              <TextInput
-                style={styles.ceInputSingle}
-                value={bedsMin}
-                onChangeText={setBedsMin}
-                placeholder="至少 N 间"
-                placeholderTextColor={colors.ink3}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={styles.panelFooter}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => {
-                  setPriceMin('');
-                  setPriceMax('');
-                  setAreaMin('');
-                  setAreaMax('');
-                  setBedsMin('');
-                }}
-                style={styles.ceGhost}
-              >
-                <Text style={styles.ceGhostText}>重置</Text>
-              </TouchableOpacity>
-              <TouchableOpacity activeOpacity={0.7} onPress={() => setMoreOpen(false)} style={styles.ceApply}>
-                <Text style={styles.ceApplyText}>应用</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-    </>
+      </>
   );
 }
 
@@ -744,39 +734,135 @@ const styles = StyleSheet.create({
   chipScroll: { marginTop: colors.spacing.md },
   chipRow: { gap: colors.spacing.sm, paddingHorizontal: colors.spacing.lg },
   filterBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: colors.spacing.lg, marginTop: colors.spacing.md },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.surface2,
+  // 状态筛选 chip：与 C 端浏览页筛选 chip 同一套排版语言
+  chip: { ...filterStyles.chip },
+  chipActive: { ...filterStyles.chipActive },
+  chipText: { ...filterStyles.chipText },
+  chipTextActive: { ...filterStyles.chipTextActive },
+
+  // 下拉面板内选项 chip：与 C 端浏览页筛选 chip 同源
+  optChip: { ...filterStyles.chip },
+  optChipActive: { ...filterStyles.chipActive },
+  optChipText: { ...filterStyles.chipText },
+  optChipTextActive: { ...filterStyles.chipTextActive },
+
+  // 链家式单行筛选栏 + 顶部下拉面板（对齐租客端 ListingsScreen）
+  filterZone: { position: 'relative' },
+  filterTabsRow: {
+    flexGrow: 0,
+    marginHorizontal: 12,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.md,
+    overflow: 'hidden',
   },
-  chipActive: { backgroundColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  chipTextActive: { color: colors.primaryForeground, fontWeight: '600' },
-  sortChip: {
+  filterTabsContent: { flexGrow: 1 },
+  filterTab: {
+    flexGrow: 1,
+    flexShrink: 0,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: colors.radius.full,
+    justifyContent: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    position: 'relative',
     backgroundColor: colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
   },
-  sortChipActive: { borderColor: colors.primary, backgroundColor: colors.alpha(colors.primaryRgb, 0.08) },
-  sortChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  sortChipTextActive: { color: colors.primary, fontWeight: '600' },
+  filterTabOpen: { backgroundColor: colors.surface2 },
+  filterTabActive: { borderBottomWidth: 2, borderBottomColor: colors.primary },
+  filterTabLabel: { fontSize: 13, color: colors.ink2, fontWeight: '500', maxWidth: 92 },
+  filterTabLabelActive: { color: colors.primary, fontWeight: '600' },
+  filterTabBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  filterTabBadgeText: { color: colors.primaryForeground, fontSize: 11, fontWeight: '600' },
+  dropPanel: {
+    marginHorizontal: 0,
+    marginTop: 6,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    shadowColor: colors.ink,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  dropBody: { flexGrow: 0, maxHeight: 260 },
+  // 「更多」面板多组条件：内容区限高滚动，操作行常驻底部
+  dropBodyTall: { flexGrow: 0, maxHeight: 300 },
+  dropSearch: {
+    minHeight: 44,
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 10,
+  },
+  dropEmpty: { fontSize: 13, color: colors.ink3, paddingVertical: 12 },
+  dropGroupTitle: { fontSize: 12, color: colors.ink2, marginBottom: 8, marginTop: 4 },
+  filterGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  dropSort: { paddingVertical: 4 },
+  dropSortItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  dropSortText: { fontSize: 14, color: colors.ink },
+  dropSortTextActive: { color: colors.primary, fontWeight: '600' },
+  // 区域面板内触发控件容器
+  regionHolder: { flexDirection: 'row', alignItems: 'center' },
+  // 贝壳式底部操作条：重置=浅灰块、确定=主色块，等宽、直角小圆角
+  panelActions: { flexDirection: 'row', gap: 12, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12 },
+  resetBtn: {
+    flex: 1,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 6,
+    backgroundColor: colors.surface2,
+  },
+  resetText: { fontSize: 15, color: colors.ink, fontWeight: '500' },
+  confirmBtn: {
+    flex: 1,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 6,
+    backgroundColor: colors.primary,
+  },
+  confirmText: { fontSize: 15, color: colors.primaryForeground, fontWeight: '600' },
 
-  countRow: {
-    fontSize: 13,
-    color: colors.ink3,
-    marginHorizontal: colors.spacing.lg,
-    marginTop: colors.spacing.lg,
-    marginBottom: colors.spacing.sm,
+  sortChip: {
+    flexDirection: 'row',
+    gap: 4,
+    ...filterStyles.chip,
   },
-  countStrong: { fontSize: 14, fontWeight: '700', color: colors.ink },
-  countVacant: { fontSize: 14, fontWeight: '700', color: colors.info },
+  sortChipActive: { ...filterStyles.chipActive },
+  sortChipText: { ...filterStyles.chipText },
+  sortChipTextActive: { ...filterStyles.chipTextActive },
+
+  // 结果数行：与 C 端浏览页 count 同源（字号/间距/水平内边距一致）；保留「空置」附加信息
+  countRow: { ...filterStyles.count },
+  countStrong: { fontSize: colors.fontSize.sm, fontWeight: '700', color: colors.ink },
+  countVacant: { fontSize: colors.fontSize.sm, fontWeight: '700', color: colors.info },
 
   listItem: { paddingHorizontal: colors.spacing.md, marginBottom: colors.spacing.md },
   listFooter: { paddingHorizontal: colors.spacing.md },
@@ -859,40 +945,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: colors.spacing.lg,
     marginTop: colors.spacing.md,
   },
+  // C 端维度筛选行（学校 / 更多）：chip 与 C 端浏览页同源
   ceChip: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    ...filterStyles.chip,
   },
-  ceChipActive: { borderColor: colors.primary, backgroundColor: colors.alpha(colors.primaryRgb, 0.08) },
-  ceChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  ceChipTextActive: { color: colors.primary, fontWeight: '600' },
+  ceChipActive: { ...filterStyles.chipActive },
+  ceChipText: { ...filterStyles.chipText },
+  ceChipTextActive: { ...filterStyles.chipTextActive },
   ceReset: { marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 6 },
   ceResetText: { fontSize: 13, color: colors.ink3 },
 
-  /* ---- 下拉面板 ---- */
-  overlay: { flex: 1, backgroundColor: colors.alpha('0, 0, 0', 0.35), justifyContent: 'flex-end' },
-  panel: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: colors.radius.xl,
-    borderTopRightRadius: colors.radius.xl,
-    paddingHorizontal: colors.spacing.lg,
-    paddingTop: colors.spacing.lg,
-    maxHeight: '78%',
+  /* ---- 底部弹层（复刻 C 端浏览页 modalMask / modalSheet / sheetHeader 系列）---- */
+  filterMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  filterSheet: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: colors.radius.xxl,
+    borderTopRightRadius: colors.radius.xxl,
+    padding: colors.spacing.lg,
   },
-  panelHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: colors.spacing.md,
-  },
-  panelTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sheetTitle: { fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.ink },
+  sheetClose: { fontSize: colors.fontSize.base, color: colors.ink2 },
+  fieldLabel: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: colors.spacing.md, marginBottom: colors.spacing.sm },
+
   panelSearch: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -921,15 +998,11 @@ const styles = StyleSheet.create({
   ceGroup: { marginBottom: colors.spacing.md },
   ceGroupLabel: { fontSize: 13, color: colors.ink2, fontWeight: '600', marginBottom: 8 },
   ceChips: { flexDirection: 'row', gap: colors.spacing.sm },
-  ceChipSmall: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.surface2,
-  },
-  ceChipSmallActive: { backgroundColor: colors.primary },
-  ceChipSmallText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  ceChipSmallTextActive: { color: colors.primaryForeground, fontWeight: '600' },
+  // 面板内小 chip（距离 / 学校项）：与 C 端浏览页 chip 同源
+  ceChipSmall: { ...filterStyles.chip },
+  ceChipSmallActive: { ...filterStyles.chipActive },
+  ceChipSmallText: { ...filterStyles.chipText },
+  ceChipSmallTextActive: { ...filterStyles.chipTextActive },
   ceRangeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   ceRangeSep: { fontSize: 14, color: colors.ink3 },
   ceInput: {
@@ -950,26 +1023,26 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
 
-  /* ---- 面板底部按钮 ---- */
-  panelFooter: {
-    flexDirection: 'row',
-    gap: colors.spacing.md,
-    marginTop: colors.spacing.md,
-  },
-  ceGhost: {
+  /* ---- 弹层底部操作按钮（复刻 C 端浏览页 sheetActions / sheetReset / sheetApply）---- */
+  sheetActions: { flexDirection: 'row', gap: colors.spacing.md, marginTop: colors.spacing.lg },
+  sheetReset: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: 11,
-    borderRadius: colors.radius.lg,
+    height: 46,
+    borderRadius: colors.radius.md,
     backgroundColor: colors.surface2,
-  },
-  ceGhostText: { fontSize: 14, fontWeight: '600', color: colors.ink2 },
-  ceApply: {
-    flex: 2,
     alignItems: 'center',
-    paddingVertical: 11,
-    borderRadius: colors.radius.lg,
-    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    marginTop: colors.spacing.lg,
   },
-  ceApplyText: { fontSize: 14, fontWeight: '700', color: colors.primaryForeground },
+  sheetResetText: { fontSize: colors.fontSize.base, color: colors.ink2 },
+  sheetApply: {
+    flex: 1,
+    height: 46,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: colors.spacing.lg,
+  },
+  sheetApplyText: { fontSize: colors.fontSize.base, fontWeight: '700', color: colors.primaryForeground },
 });

@@ -1,1 +1,1 @@
-export default { navigationBarTitleText: '聊天会话' }
+export default { navigationBarTitleText: '聊天会话', navigationStyle: 'custom' }

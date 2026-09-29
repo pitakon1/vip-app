@@ -42,7 +42,7 @@ export default {
     // 管理端后台：全部低频，独立分包
     {
       root: 'pages/admin',
-      pages: ['home/index', 'properties/index', 'property-detail/index', 'crm/index', 'payments/index', 'leases/index', 'accounts/index', 'permissions/index', 'commission-rules/index', 'review-center/index', 'attendance-manage/index']
+      pages: ['home/index', 'properties/index', 'property-detail/index', 'crm/index', 'payments/index', 'leases/index', 'contracts/index', 'accounts/index', 'permissions/index', 'commission-rules/index', 'review-center/index', 'attendance-manage/index', 'partners/index', 'partner-members/index', 'partner-attendance/index']
     },
     // 内部/渠道上架作业
     {
@@ -54,10 +54,10 @@ export default {
       root: 'pages/chat',
       pages: ['list/index', 'detail/index']
     },
-    // 租客低频：租约详情 / 交易订单
+    // 租客低频：租约详情 / 交易订单 / 我的合同
     {
       root: 'pages/tenant',
-      pages: ['leases/detail', 'deals/index', 'deals/detail']
+      pages: ['leases/detail', 'deals/index', 'deals/detail', 'my-contracts/index']
     }
   ],
   window: {

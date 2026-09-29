@@ -3,6 +3,8 @@ import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../stores/auth';
 import { useI18n } from '../i18n';
+import colors from '../theme/colors';
+import { BeikeBackButton, BeikeHomeButton } from '../components/BeikeHeader';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -32,7 +34,10 @@ export type RootStackParamList = {
   OwnerMarketing: undefined;
   AdminUsers: undefined;
   AdminPermissions: undefined;
+  AdminProperties: undefined;
   AdminPropertyDetail: { id: string };
+  /** 合作公司管理员聚合页（成员 / 绩效 / 本公司房源） */
+  PartnerHub: undefined;
   // mode: 'create' 为新增房源；带 id/initial 为编辑
   PropertyEdit:
     | { id?: string; initial?: any; mode?: 'create' }
@@ -70,9 +75,31 @@ export type RootStackParamList = {
   Favorites: undefined;
   History: undefined;
   PriceAlerts: undefined;
+  /** 电子合同：员工/管理端管理页 */
+  Contracts: undefined;
+  /** 电子合同：租客/业主「我的合同」签署页 */
+  MyContracts: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// 贝壳风 Stack 顶栏默认项：全部非 Tab 子页统一 [返回‹] [居中标题] [返回主页⌂]
+const shellHeaderOptions = {
+  headerShown: false,
+  headerStyle: { backgroundColor: colors.surface },
+  headerShadowVisible: false,
+  headerTintColor: colors.ink,
+  headerBackVisible: false,
+  headerBackTitle: '',
+  headerTitleAlign: 'center' as const,
+  headerTitleStyle: {
+    color: colors.ink,
+    fontSize: colors.fontSize.lg,
+    fontWeight: '600' as const,
+  },
+  headerLeft: () => <BeikeBackButton />,
+  headerRight: () => <BeikeHomeButton />,
+};
 
 function ScreenFallback() {
   return (
@@ -122,7 +149,9 @@ const PerformanceScreen = lazyScreen(() => import('../screens/employee/Performan
 const PropertiesScreen = lazyScreen(() => import('../screens/employee/PropertiesScreen'));
 const CalendarScreen = lazyScreen(() => import('../screens/employee/CalendarScreen'));
 const AdminUsersScreen = lazyScreen(() => import('../screens/admin/AdminUsersScreen'));
+const PartnerHubScreen = lazyScreen(() => import('../screens/admin/PartnerHubScreen'));
 const AdminPermissionsScreen = lazyScreen(() => import('../screens/admin/PermissionsScreen'));
+const AdminPropertiesScreen = lazyScreen(() => import('../screens/admin/PropertiesScreen'));
 const AdminPropertyDetailScreen = lazyScreen(() => import('../screens/admin/PropertyDetailScreen'));
 const PropertyEditScreen = lazyScreen(() => import('../screens/admin/PropertyEditScreen'));
 const AdminLeasesScreen = lazyScreen(() => import('../screens/admin/LeasesScreen'));
@@ -159,6 +188,8 @@ const MyOrderDetailScreen = lazyScreen(() => import('../screens/settings/MyOrder
 const FavoritesScreen = lazyScreen(() => import('../screens/tenant/FavoritesScreen'));
 const HistoryScreen = lazyScreen(() => import('../screens/tenant/HistoryScreen'));
 const PriceAlertsScreen = lazyScreen(() => import('../screens/tenant/PriceAlertsScreen'));
+const ContractsScreen = lazyScreen(() => import('../screens/contracts/ContractsScreen'));
+const MyContractsScreen = lazyScreen(() => import('../screens/contracts/MyContractsScreen'));
 
 export function RootNavigator() {
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -169,7 +200,7 @@ export function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={shellHeaderOptions}>
       {/*
         未登录与登录共用同一套导航：Main（底部 Tab）恒在，首页/找房等浏览内容
         对所有人开放；只有点击需要身份的动作（收藏/消息/我的业务）才由页面自行
@@ -195,8 +226,10 @@ export function RootNavigator() {
       <Stack.Screen name="CommissionRules" component={CommissionRulesScreen} options={{ headerShown: true, title: '佣金设置' }} />
       <Stack.Screen name="Performance" component={PerformanceScreen} options={{ headerShown: true, title: '我的业绩' }} />
       <Stack.Screen name="EmployeeProperties" component={PropertiesScreen} options={{ headerShown: true, title: '房源管理' }} />
+      <Stack.Screen name="AdminProperties" component={AdminPropertiesScreen} options={{ headerShown: true, title: '房源管理' }} />
       <Stack.Screen name="Calendar" component={CalendarScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ headerShown: true, title: t('acc.title') }} />
+      <Stack.Screen name="PartnerHub" component={PartnerHubScreen} options={{ headerShown: true, title: t('partner.title') }} />
       <Stack.Screen name="AdminPermissions" component={AdminPermissionsScreen} options={{ headerShown: true, title: t('perm.entry') }} />
       <Stack.Screen name="Contacts" component={ContactScreen} options={{ headerShown: true, title: '同事通讯录' }} />
       <Stack.Screen name="OwnerHome" component={OwnerHomeScreen} options={{ headerShown: true, title: '资产管理' }} />
@@ -243,6 +276,8 @@ export function RootNavigator() {
       <Stack.Screen name="Favorites" component={FavoritesScreen} options={{ headerShown: true, title: '我的关注' }} />
       <Stack.Screen name="History" component={HistoryScreen} options={{ headerShown: true, title: '浏览历史' }} />
       <Stack.Screen name="PriceAlerts" component={PriceAlertsScreen} options={{ headerShown: true, title: '降价提醒' }} />
+      <Stack.Screen name="Contracts" component={ContractsScreen} options={{ headerShown: true, title: t('contract.manage') }} />
+      <Stack.Screen name="MyContracts" component={MyContractsScreen} options={{ headerShown: true, title: t('contract.my') }} />
     </Stack.Navigator>
   );
 }

@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '合作公司', navigationStyle: 'custom' }

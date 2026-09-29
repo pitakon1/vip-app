@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RemoteImage from '@/components/RemoteImage';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
+import { HomeIcon, goMainHome } from '@/components/BeikeHeader';
 import { publicApi, type PublicListing, type PublicListingDetail } from '@/services/publicApi';
 import { priceAlertsApi, viewingsApi } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
@@ -610,6 +611,14 @@ export default function PublicListingDetailScreen() {
       >
         <Ionicons name="chevron-back" size={22} color={colors.ink} />
       </TouchableOpacity>
+      {/* ---- 悬浮返回主页 ---- */}
+      <TouchableOpacity
+        style={[styles.floatHome, { top: insets.top + 8 }]}
+        onPress={() => goMainHome(navigation)}
+        accessibilityLabel={t('tab.home')}
+      >
+        <HomeIcon size={18} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -755,6 +764,17 @@ const styles = StyleSheet.create({
   floatBack: {
     position: 'absolute',
     left: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...colors.shadow.sm,
+  },
+  floatHome: {
+    position: 'absolute',
+    right: 16,
     width: 36,
     height: 36,
     borderRadius: 18,

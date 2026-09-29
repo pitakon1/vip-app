@@ -6,6 +6,7 @@ import { MAX_PAGE_SIZE } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
@@ -194,6 +195,7 @@ export default function AdminLeasesPage() {
 
   return (
     <View className='ale-page'>
+      <ShellHeader title={t('nav.leasesAdmin')} />
       {/* 搜索栏 */}
       <View className='ale-search'>
         <Input

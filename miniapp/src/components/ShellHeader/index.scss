@@ -1,0 +1,67 @@
+/* =========================================================
+   贝壳风顶部标题栏（ShellHeader）
+   自绘：状态栏安全区 + [返回‹] [居中标题] [返回主页⌂]
+   ========================================================= */
+
+.shell-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 88rpx;
+  padding: 0 24rpx;
+  background: var(--bg);
+  border-bottom: 1rpx solid var(--line);
+
+  &__btn {
+    width: 64rpx;
+    height: 64rpx;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 4rpx 14rpx rgba(28, 39, 51, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &--hover {
+      opacity: 0.82;
+    }
+  }
+
+  /* 左指向 chevron（两笔边框旋转合成，复用设计令牌 ink） */
+  &__chev {
+    width: 20rpx;
+    height: 20rpx;
+    border-left: 4rpx solid var(--ink);
+    border-bottom: 4rpx solid var(--ink);
+    transform: rotate(45deg);
+    margin-right: 6rpx;
+  }
+
+  &__btn--home {
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 40rpx 40rpx;
+  }
+
+  &__title {
+    flex: 1;
+    text-align: center;
+    font-size: 32rpx;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin: 0 16rpx;
+  }
+
+  &__spacer {
+    width: 64rpx;
+    flex-shrink: 0;
+  }
+
+  &__spacer--flex {
+    flex: 1;
+  }
+}

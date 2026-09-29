@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { employeesApi, adminUsersApi } from '@/services/api'
+import { MAX_PAGE_SIZE } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
 import useAuthStore from '@/stores/auth'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
@@ -39,6 +41,13 @@ const FILTERS: { key: string; i18nKey: string }[] = [
   { key: 'probation', i18nKey: 'probation' }
 ]
 
+/** 来源筛选：platform（平台）/ partner（合作公司），空 key 表示全部（文案走 i18n：userType.*） */
+const USER_TYPE_FILTERS: { key: string; i18nKey: string }[] = [
+  { key: '', i18nKey: 'all' },
+  { key: 'platform', i18nKey: 'platform' },
+  { key: 'partner', i18nKey: 'partner' }
+]
+
 const PAGE_SIZE = 100
 
 /** 可分配的员工账号角色（与 Web 账号管理的角色口径一致，此处只列员工侧角色） */
@@ -63,10 +72,18 @@ export default function AdminEmployeesPage() {
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('')
-  // 员工业绩（来源：/employees/leaderboard，按佣金结算累计核算）
-  const [perfMap, setPerfMap] = useState<Record<string, { amount: number; deals: number }>>({})
+  const [userTypeFilter, setUserTypeFilter] = useState('')
+  // 账号来源/归属（来自 /admin/users 的 user_type + partner_name，按 user_id 关联员工）
+  const [userMetaMap, setUserMetaMap] = useState<
+    Record<string, { user_type?: string; partner_name?: string; role?: string }>
+  >({})
   // 当前登录账号 id（禁止删除自己）
   const currentUserId = useAuthStore((s) => s.user)?.id ?? null
+  // 登录角色：平台管理员走下方正常员工管理；合作公司管理员直接进入本公司成员视图
+  const currentRole =
+    (useAuthStore((s) => s.user) as any | null)?.role ?? ''
+  // 员工业绩（来源：/employees/leaderboard，按佣金结算累计核算）
+  const [perfMap, setPerfMap] = useState<Record<string, { amount: number; deals: number }>>({})
 
   const remove = async (e: EmployeeItem) => {
     if (!e.user_id) return
@@ -156,10 +173,35 @@ export default function AdminEmployeesPage() {
     }
   }
 
+  const fetchUserMeta = async () => {
+    try {
+      const res: any = await adminUsersApi.list({ page: 1, page_size: MAX_PAGE_SIZE })
+      const d = res?.data ?? res
+      const items: any[] = Array.isArray(d) ? d : d?.items || []
+      const map: Record<string, { user_type?: string; partner_name?: string }> = {}
+      items.forEach((u) => {
+        if (u?.id != null) {
+          map[String(u.id)] = { user_type: u.user_type, partner_name: u.partner_name }
+        }
+      })
+      setUserMetaMap(map)
+    } catch (error) {
+      console.error('[AdminEmployees] 获取账号来源失败', error)
+    }
+  }
+
   useDidShow(() => {
     fetchEmployees()
     fetchPerformance()
+    fetchUserMeta()
   })
+
+  // 合作公司管理员：账号管理即本公司成员视图，跳转到成员管理页
+  useEffect(() => {
+    if (currentRole === 'partner_admin') {
+      Taro.redirectTo({ url: '/pages/admin/partner-members/index' })
+    }
+  }, [currentRole])
 
   const handleSearch = () => setQuery(keyword.trim())
 
@@ -169,6 +211,12 @@ export default function AdminEmployeesPage() {
   const visible = useMemo(() => {
     const kw = query.toLowerCase()
     return list.filter((e) => {
+      const meta = e.user_id != null ? userMetaMap[String(e.user_id)] : undefined
+      if (
+        userTypeFilter &&
+        (meta?.user_type || (e.user_id != null ? 'platform' : '')) !== userTypeFilter
+      )
+        return false
       if (filter === 'active' && (e.is_active === false || e.status === 'inactive')) return false
       if (filter === 'inactive' && !(e.is_active === false || e.status === 'inactive')) return false
       if (filter === 'probation' && !isProbation(e)) return false
@@ -177,7 +225,7 @@ export default function AdminEmployeesPage() {
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(kw))
     })
-  }, [list, filter, query])
+  }, [list, filter, userTypeFilter, userMetaMap, query])
 
   const stats = useMemo(() => {
     const monthPrefix = monthPrefixOf(new Date())
@@ -201,8 +249,19 @@ export default function AdminEmployeesPage() {
     Taro.makePhoneCall({ phoneNumber: phone }).catch(() => {})
   }
 
+  /** 员工是否应展示合作公司归属行：无绑定账号一律按平台处理，不渲染来源行 */
+  const sourceMeta = (e: EmployeeItem) => {
+    if (e.user_id == null) return null
+    const meta = userMetaMap[String(e.user_id)]
+    return {
+      userType: meta?.user_type || 'platform',
+      partnerName: meta?.partner_name || ''
+    }
+  }
+
   return (
     <View className='ac-page'>
+      <ShellHeader title={t('nav.accounts')} />
       {/* 统计 2×2 */}
       <View className='ac-stats-row'>
         <View className='ac-stat-card'>
@@ -259,6 +318,19 @@ export default function AdminEmployeesPage() {
         ))}
       </ScrollView>
 
+      {/* 来源筛选 */}
+      <ScrollView scrollX className='ac-chips'>
+        {USER_TYPE_FILTERS.map((f) => (
+          <View
+            key={f.key || 'all'}
+            className={`ac-chip ${userTypeFilter === f.key ? 'ac-chip--active' : ''}`}
+            onClick={() => setUserTypeFilter(f.key)}
+          >
+            <Text className='ac-chip__text'>{t(`userType.${f.i18nKey}`)}</Text>
+          </View>
+        ))}
+      </ScrollView>
+
       <View className='ac-section-head'>
         <Text className='ac-section-head__title'>{t('acc.listTitle')}</Text>
         <Text className='ac-section-head__count'>{t('acc.countPeople', { n: visible.length })}</Text>
@@ -307,6 +379,22 @@ export default function AdminEmployeesPage() {
               <Text className='ac-card__position'>
                 {[e.position, e.department].filter(Boolean).join(' · ') || t('acc.noPosition')}
               </Text>
+
+              {/* 来源/归属：平台 or 合作公司 */}
+              {sourceMeta(e) && (
+                <View className='ac-card__company'>
+                  <Text className={`ac-company-tag ac-company-tag--${sourceMeta(e)!.userType}`}>
+                    {t(
+                      sourceMeta(e)!.userType === 'partner'
+                        ? 'userType.partner'
+                        : 'userType.platform'
+                    )}
+                  </Text>
+                  {sourceMeta(e)!.userType === 'partner' && sourceMeta(e)!.partnerName && (
+                    <Text className='ac-card__company-name'>{sourceMeta(e)!.partnerName}</Text>
+                  )}
+                </View>
+              )}
 
               {!!e.phone && (
                 <View className='ac-card__phone' onClick={() => callPhone(e.phone)}>

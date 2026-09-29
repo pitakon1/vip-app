@@ -134,6 +134,14 @@ export const viewingsApi = {
     api.patch(`/viewings/${id}`, data),
 };
 
+// 员工日历·自定义事件（前端 web 无关，仅移动端使用）
+export const calendarEventsApi = {
+  list: (params?: any) => api.get('/calendar-events', { params }),
+  create: (data: any) => api.post('/calendar-events', data),
+  update: (id: string, data: any) => api.patch(`/calendar-events/${id}`, data),
+  remove: (id: string) => api.delete(`/calendar-events/${id}`),
+};
+
 export const documentsApi = {
   list: (params?: any) => api.get('/documents', { params }),
 };
@@ -225,6 +233,11 @@ export const attendanceApi = {
   applyLeave: (data: any) => api.post('/attendance/leave-requests', data),
   approveLeave: (id: string, data: any) => api.post(`/attendance/leave-requests/${id}/approve`, data),
   cancelLeave: (id: string) => api.post(`/attendance/leave-requests/${id}/cancel`),
+  // 打卡异常申诉（P1-d）
+  appeals: (params?: any) => api.get('/attendance/appeals', { params }),
+  applyAppeal: (data: any) => api.post('/attendance/appeals', data),
+  approveAppeal: (id: string, data: any) =>
+    api.post(`/attendance/appeals/${id}/approve`, data),
   // 异常分类统计与趋势（P1-c）
   summary: (params?: any) => api.get('/attendance/admin/summary', { params }),
 };
@@ -238,6 +251,26 @@ export const employeesApi = {
 
 export const performanceApi = {
   mine: () => api.get('/performance/me'),
+  // 全员业绩追踪（提成/分佣口径）
+  agents: (params?: any) => api.get('/performance/agents', { params }),
+  // 合作公司分佣汇总（employees 可见）
+  partners: (params?: any) => api.get('/performance/partners', { params }),
+  // 排行榜
+  leaderboard: (params?: any) => api.get('/performance/leaderboard', { params }),
+};
+
+// 佣金结算（我的结算明细 / 管理端分佣结算记录）
+export const commissionsApi = {
+  mine: (params?: any) => api.get('/commissions/me', { params }),
+  settlements: (params?: any) => api.get('/commissions/settlements', { params }),
+};
+
+// 管理端：分佣拆分规则（deal_type/role/scope/by_partner/is_active/effective 区间）
+export const commissionSplitRulesApi = {
+  list: (params?: any) => api.get('/commission-split-rules', { params }),
+  create: (data: any) => api.post('/commission-split-rules', data),
+  update: (id: string, data: any) => api.patch(`/commission-split-rules/${id}`, data),
+  remove: (id: string) => api.delete(`/commission-split-rules/${id}`),
 };
 
 // v1.8 新增增强接口
@@ -261,7 +294,30 @@ export const contractsApi = {
   get: (id: string) => api.get(`/contracts/${id}`),
   generate: (data: any) => api.post('/contracts/generate', data),
   addParty: (id: string, data: any) => api.post(`/contracts/${id}/parties`, data),
-  sign: (id: string, partyId: string) => api.post(`/contracts/${id}/sign`, { party_id: partyId }),
+  sign: (id: string, partyId: string, signatureSvg?: string) =>
+    api.post(`/contracts/${id}/sign`, {
+      party_id: partyId,
+      ...(signatureSvg ? { signature_svg: signatureSvg } : {}),
+    }),
+  // 编辑合同（员工）：改 title / content_html
+  updateContract: (id: string, data: any) => api.patch(`/contracts/${id}`, data),
+  // 上传电子合同（multipart，字段名 file）：挂到合同并标 source=uploaded
+  uploadFile: (id: string, file: any) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post(`/contracts/${id}/upload`, fd);
+  },
+  // 生成免登录签署链接（员工）
+  createShareLink: (id: string, partyId: string, expiresInDays?: number) =>
+    api.post(`/contracts/${id}/share-link`, {
+      party_id: partyId,
+      ...(expiresInDays ? { expires_in_days: expiresInDays } : {}),
+    }),
+  // 推送签署通知（员工）
+  sendContract: (id: string, data: any = {}) => api.post(`/contracts/${id}/send`, data),
+  // 作废（员工）
+  voidContract: (id: string, reason?: string) =>
+    api.post(`/contracts/${id}/void`, reason ? { reason } : {}),
 };
 
 export const geoApi = {
@@ -349,6 +405,26 @@ export const usersAdminApi = {
   // 导致账号建好后角色无法修改，只能删了重建。
   update: (id: string, data: any) => api.patch(`/admin/users/${id}`, data),
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
+};
+
+// 管理端：合作公司（Partners）管理。公盘平台管理员维护合作公司档案（入驻/启停/归属管理员）。
+export const partnersAdminApi = {
+  list: (params?: any) => api.get('/admin/partners', { params }),
+  create: (data: any) => api.post('/admin/partners', data),
+  update: (id: string, data: any) => api.patch(`/admin/partners/${id}`, data),
+  deactivate: (id: string) => api.post(`/admin/partners/${id}/deactivate`),
+  activate: (id: string) => api.post(`/admin/partners/${id}/activate`),
+};
+
+// 合作公司管理员（role=partner_admin）本公司侧能力：成员 / 绩效 / 房源
+export const partnerAdminApi = {
+  members: () => api.get('/partner/members'),
+  createMember: (data: any) => api.post('/partner/members', data),
+  // 拉入经纪人：把平台已有账号（user_id）归属到本公司，跨公司已归属会 409
+  pullIn: (userId: string) => api.post(`/partner/members/${userId}/pull-in`),
+  removeMember: (userId: string) => api.delete(`/partner/members/${userId}`),
+  performance: () => api.get('/partner/performance'),
+  properties: () => api.get('/partner/properties'),
 };
 
 // 管理端：角色权限配置（权限点分组 + 各角色已分配；可编辑保存，保存后即时生效）

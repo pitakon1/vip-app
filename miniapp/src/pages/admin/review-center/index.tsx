@@ -15,6 +15,7 @@ import useAuthStore from '@/stores/auth'
 import { attendanceApi, maintenanceApi, serviceOrdersApi } from '@/services/api'
 import { request } from '@/lib/api'
 import StateBlock from '@/components/StateBlock'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -132,6 +133,7 @@ export default function AdminReviewCenterPage() {
 
   return (
     <View className='review-page'>
+      <ShellHeader title={t('nav.reviewCenter')} />
       <View className='page-container'>
         <View className='review-stats'>
           {Object.keys(TYPE_META).map((k) => (
@@ -223,7 +225,7 @@ export default function AdminReviewCenterPage() {
                   {r.type === 'contract' && (
                     <View
                       className='btn btn--sm btn--secondary'
-                      onClick={() => Taro.navigateTo({ url: '/pages/admin/leases/index' })}
+                      onClick={() => Taro.navigateTo({ url: '/pages/admin/contracts/index' })}
                     >
                       <Text>{t('review.goContracts')}</Text>
                     </View>

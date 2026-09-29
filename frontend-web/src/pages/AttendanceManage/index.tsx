@@ -1,10 +1,23 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Modal, Empty, Spin, Popconfirm } from 'antd'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+  Legend,
+} from 'chart.js'
+import { Bar } from 'react-chartjs-2'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import { attendanceApi, employeesApi } from '@/services/api'
+import useAuthStore from '@/stores/auth'
 import { downloadReport } from '@/lib/download'
+import { chartTheme, token } from '@/lib/chartTheme'
 import './attendanceAdmin.css'
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 /**
  * 管理端「考勤管理」（对标企业微信考勤应用，四个页签）：
@@ -101,7 +114,9 @@ const fmtTime = (v: string | null) => (v ? dayjs(v).format('HH:mm') : '--:--')
 
 const AttendanceManage = () => {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<'records' | 'groups' | 'leave' | 'report'>('records')
+  const [tab, setTab] = useState<
+    'records' | 'groups' | 'leave' | 'report' | 'appeal' | 'companies'
+  >('records')
 
   // 状态文案 / 请假文案（依赖 i18n）
   const statusLabel = useMemo(
@@ -139,19 +154,65 @@ const AttendanceManage = () => {
     [t],
   )
 
+  // 合作公司管理员的作用域由后端强制为「本公司」（partner_id 参数被服务端覆盖）。
+  // 后端仅对 partner_admin 放开 records / report / companies 三个端点，考勤组 / 假勤
+  // / 申诉仍是 require_admin，因此这里同步隐藏其无权访问的 tab 与校准操作。
+  const isPartnerAdmin = useAuthStore((s) => s.user?.role) === 'partner_admin'
+
   const tabs = useMemo(
-    () => [
-      { key: 'records' as const, label: t('attAdm.tabRecords') },
-      { key: 'groups' as const, label: t('attAdm.tabGroups') },
-      { key: 'leave' as const, label: t('attAdm.tabLeave') },
-      { key: 'report' as const, label: t('attAdm.tabReport') },
-    ],
+    () =>
+      [
+        { key: 'records' as const, label: t('attAdm.tabRecords') },
+        { key: 'companies' as const, label: t('attAdm.tabCompanies') },
+        { key: 'groups' as const, label: t('attAdm.tabGroups') },
+        { key: 'leave' as const, label: t('attAdm.tabLeave') },
+        { key: 'report' as const, label: t('attAdm.tabReport') },
+        { key: 'appeal' as const, label: t('attAdm.appealReview') },
+      ].filter(
+        (item) =>
+          !isPartnerAdmin ||
+          item.key === 'records' ||
+          item.key === 'companies' ||
+          item.key === 'report',
+      ),
+    [t, isPartnerAdmin],
+  )
+
+  // ------------------------------------------- 合作公司（分组维度，共用）
+  // 数据源用 /attendance/admin/companies：平台管理员拿到全部启用公司，
+  // 合作公司管理员只拿到本公司（后端强制作用域），因此下拉天然权限安全。
+  const [companyOptions, setCompanyOptions] = useState<
+    { id: string; name: string | null }[]
+  >([])
+
+  useEffect(() => {
+    attendanceApi
+      .adminCompanies()
+      .then((res) => {
+        const rows: any[] = res.data?.companies ?? []
+        setCompanyOptions(
+          rows
+            .filter((r) => r.partner_id)
+            .map((r) => ({ id: r.partner_id as string, name: r.partner_name as string | null })),
+        )
+      })
+      .catch(() => {
+        /* 无合作公司权限时忽略，不阻塞页面 */
+      })
+  }, [])
+
+  const companyLabel = useCallback(
+    (name: string | null) => name || t('attAdm.unassignedCompany'),
     [t],
   )
+
+  // 合作公司管理员的作用域由后端强制为「本公司」，无需再提供公司筛选
+  const showCompanyPicker = !isPartnerAdmin && companyOptions.length > 0
 
   // ---------------------------------------------------------------- 核对
   const [range, setRange] = useState({ start: dayjs().format('YYYY-MM-DD'), end: dayjs().format('YYYY-MM-DD') })
   const [recordsDept, setRecordsDept] = useState('')
+  const [recordsPartner, setRecordsPartner] = useState('')
   const [summary, setSummary] = useState<Record<string, number>>({})
   const [records, setRecords] = useState<EmployeeRecord[]>([])
   const [loadingRecords, setLoadingRecords] = useState(false)
@@ -164,6 +225,7 @@ const AttendanceManage = () => {
         start_date: range.start,
         end_date: range.end,
         ...(recordsDept ? { department: recordsDept } : {}),
+        ...(recordsPartner ? { partner_id: recordsPartner } : {}),
       })
       .then((res) => {
         setRecords(res.data?.records ?? [])
@@ -171,7 +233,7 @@ const AttendanceManage = () => {
       })
       .catch(() => message.error(t('attAdm.errRecords')))
       .finally(() => setLoadingRecords(false))
-  }, [range.start, range.end, recordsDept, t])
+  }, [range.start, range.end, recordsDept, recordsPartner, t])
 
   useEffect(() => {
     if (tab === 'records') loadRecords()
@@ -234,7 +296,12 @@ const AttendanceManage = () => {
     try {
       await downloadReport(
         '/exports/attendance',
-        { start_date: range.start, end_date: range.end, ...(recordsDept ? { department: recordsDept } : {}) },
+        {
+          start_date: range.start,
+          end_date: range.end,
+          ...(recordsDept ? { department: recordsDept } : {}),
+          ...(recordsPartner ? { partner_id: recordsPartner } : {}),
+        },
         'attendance-admin.csv',
       )
       message.success(t('attendance.msgExported'))
@@ -430,12 +497,56 @@ const AttendanceManage = () => {
     }
   }
 
+  // ---------------------------------------------------------------- 申诉审批
+  const APPEAL_STATUSES: ('pending' | 'approved' | 'rejected')[] = ['pending', 'approved', 'rejected']
+  const [appealFilter, setAppealFilter] = useState<'' | 'pending' | 'approved' | 'rejected'>('')
+  const [appeals, setAppeals] = useState<any[]>([])
+  const [loadingAppeals, setLoadingAppeals] = useState(false)
+  const [appealReview, setAppealReview] = useState<{
+    appeal: any
+    action: 'approved' | 'rejected'
+  } | null>(null)
+  const [appealNote, setAppealNote] = useState('')
+
+  const loadAppeals = useCallback(() => {
+    setLoadingAppeals(true)
+    attendanceApi
+      .appeals(appealFilter ? { status: appealFilter } : undefined)
+      .then((res) => setAppeals(res.data ?? []))
+      .catch(() => message.error(t('attAdm.errAppealReview')))
+      .finally(() => setLoadingAppeals(false))
+  }, [appealFilter, t])
+
+  useEffect(() => {
+    if (tab === 'appeal') loadAppeals()
+  }, [tab, loadAppeals])
+
+  const submitAppealReview = async () => {
+    if (!appealReview) return
+    setSaving(true)
+    try {
+      await attendanceApi.approveAppeal(appealReview.appeal.id, {
+        action: appealReview.action,
+        reply_note: appealNote || null,
+      })
+      message.success(t('attAdm.msgAppealReviewed'))
+      setAppealReview(null)
+      setAppealNote('')
+      loadAppeals()
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || t('attAdm.errAppealReview'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // ---------------------------------------------------------------- 报表
   const [reportRange, setReportRange] = useState({
     start: dayjs().startOf('month').format('YYYY-MM-DD'),
     end: dayjs().format('YYYY-MM-DD'),
   })
   const [reportDept, setReportDept] = useState('')
+  const [reportPartner, setReportPartner] = useState('')
   const [report, setReport] = useState<any | null>(null)
   const [loadingReport, setLoadingReport] = useState(false)
 
@@ -446,15 +557,37 @@ const AttendanceManage = () => {
         start_date: reportRange.start,
         end_date: reportRange.end,
         ...(reportDept ? { department: reportDept } : {}),
+        ...(reportPartner ? { partner_id: reportPartner } : {}),
       })
       .then((res) => setReport(res.data))
       .catch(() => message.error(t('attAdm.errReport')))
       .finally(() => setLoadingReport(false))
-  }, [reportRange.start, reportRange.end, reportDept, t])
+  }, [reportRange.start, reportRange.end, reportDept, reportPartner, t])
 
   useEffect(() => {
     if (tab === 'report') loadReport()
   }, [tab, loadReport])
+
+  // -------------------------------------------------- 按合作公司汇总
+  const [companyRange, setCompanyRange] = useState({
+    start: dayjs().startOf('month').format('YYYY-MM-DD'),
+    end: dayjs().format('YYYY-MM-DD'),
+  })
+  const [companyRows, setCompanyRows] = useState<any[]>([])
+  const [loadingCompanies, setLoadingCompanies] = useState(false)
+
+  const loadCompanies = useCallback(() => {
+    setLoadingCompanies(true)
+    attendanceApi
+      .adminCompanies({ start_date: companyRange.start, end_date: companyRange.end })
+      .then((res) => setCompanyRows(res.data?.companies ?? []))
+      .catch(() => message.error(t('attAdm.errCompanies')))
+      .finally(() => setLoadingCompanies(false))
+  }, [companyRange.start, companyRange.end, t])
+
+  useEffect(() => {
+    if (tab === 'companies') loadCompanies()
+  }, [tab, loadCompanies])
 
   const deptOptions = useMemo(
     () => [...new Set(records.map((r) => r.department).filter(Boolean))] as string[],
@@ -466,6 +599,73 @@ const AttendanceManage = () => {
     const rows: any[] = report?.daily ?? []
     return Math.max(1, ...rows.map((d) => d.abnormal ?? 0))
   }, [report])
+
+  // 迟到/早退 逐日柱状图数据
+  const dailyTrend = useMemo(() => {
+    const rows: any[] = report?.daily ?? []
+    return {
+      labels: rows.map((d: any) => String(d.date).slice(5)),
+      late: rows.map((d: any) => d.late ?? 0),
+      earlyOut: rows.map((d: any) => d.early_out ?? 0),
+    }
+  }, [report])
+
+  const dailyChartData = useMemo(
+    () => ({
+      labels: dailyTrend.labels,
+      datasets: [
+        {
+          label: t('attAdm.lateChart'),
+          data: dailyTrend.late,
+          backgroundColor: token('--state-warning', '#f59e0b'),
+          borderRadius: 4,
+          maxBarThickness: 16,
+        },
+        {
+          label: t('attAdm.earlyOutChart'),
+          data: dailyTrend.earlyOut,
+          backgroundColor: chartTheme.primary,
+          borderRadius: 4,
+          maxBarThickness: 16,
+        },
+      ],
+    }),
+    [dailyTrend, t],
+  )
+
+  const dailyChartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: chartTheme.legend, boxWidth: 10, boxHeight: 10 } },
+        tooltip: {
+          backgroundColor: '#1c2733',
+          titleColor: '#e8edf5',
+          bodyColor: '#e8edf5',
+          borderColor: chartTheme.tooltipBorder,
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 8,
+          displayColors: false,
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: chartTheme.ink3, font: { size: 11 } },
+          border: { display: false },
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: chartTheme.line },
+          ticks: { color: chartTheme.ink3, font: { size: 11 }, precision: 0 },
+          border: { display: false },
+        },
+      },
+    }),
+    [],
+  )
 
   return (
     <div className="rent-main">
@@ -528,11 +728,34 @@ const AttendanceManage = () => {
                   <option key={d} value={d} />
                 ))}
               </datalist>
+              {showCompanyPicker && (
+                <>
+                  <label className="rent-label">{t('attAdm.company')}</label>
+                  <select
+                    className="rent-input"
+                    value={recordsPartner}
+                    onChange={(e) => setRecordsPartner(e.target.value)}
+                  >
+                    <option value="">{t('common.all')}</option>
+                    {companyOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {companyLabel(c.name)}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
               <button className="rent-btn rent-btn--primary" onClick={loadRecords}>
                 {t('common.search')}
               </button>
-              {recordsDept && (
-                <button className="rent-btn rent-btn--ghost" onClick={() => setRecordsDept('')}>
+              {(recordsDept || recordsPartner) && (
+                <button
+                  className="rent-btn rent-btn--ghost"
+                  onClick={() => {
+                    setRecordsDept('')
+                    setRecordsPartner('')
+                  }}
+                >
                   {t('common.reset')}
                 </button>
               )}
@@ -630,12 +853,14 @@ const AttendanceManage = () => {
                                 >
                                   {open ? t('attAdm.collapse') : t('attAdm.expand')}
                                 </button>
-                                <button
-                                  className="rent-btn rent-btn--ghost rent-btn--sm"
-                                  onClick={() => openCalibrate(emp, null)}
-                                >
-                                  {t('attAdm.calibrate')}
-                                </button>
+                                {!isPartnerAdmin && (
+                                  <button
+                                    className="rent-btn rent-btn--ghost rent-btn--sm"
+                                    onClick={() => openCalibrate(emp, null)}
+                                  >
+                                    {t('attAdm.calibrate')}
+                                  </button>
+                                )}
                               </td>
                             </tr>
                             {open && (
@@ -683,12 +908,14 @@ const AttendanceManage = () => {
                                                 : '—'}
                                             </td>
                                             <td>
-                                              <button
-                                                className="rent-btn rent-btn--ghost rent-btn--sm"
-                                                onClick={() => openCalibrate(emp, d)}
-                                              >
-                                                {t('attAdm.calibrate')}
-                                              </button>
+                                              {!isPartnerAdmin && (
+                                                <button
+                                                  className="rent-btn rent-btn--ghost rent-btn--sm"
+                                                  onClick={() => openCalibrate(emp, d)}
+                                                >
+                                                  {t('attAdm.calibrate')}
+                                                </button>
+                                              )}
                                             </td>
                                           </tr>
                                         ))}
@@ -701,6 +928,118 @@ const AttendanceManage = () => {
                           </Fragment>
                         )
                       })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ------------------------------------------------ 按合作公司 */}
+      {tab === 'companies' && (
+        <>
+          <div className="rent-card rent-mb-5">
+            <div className="rent-card__body attAdm-filter">
+              <label className="rent-label">{t('attAdm.dateRange')}</label>
+              <input
+                className="rent-input"
+                type="date"
+                value={companyRange.start}
+                onChange={(e) => setCompanyRange((p) => ({ ...p, start: e.target.value }))}
+              />
+              <span className="attAdm-filter__sep">~</span>
+              <input
+                className="rent-input"
+                type="date"
+                value={companyRange.end}
+                onChange={(e) => setCompanyRange((p) => ({ ...p, end: e.target.value }))}
+              />
+              <button className="rent-btn rent-btn--primary" onClick={loadCompanies}>
+                {t('common.search')}
+              </button>
+            </div>
+          </div>
+
+          <div className="rent-card">
+            <div className="rent-card__header">
+              <h3 className="rent-card__title">{t('attAdm.companiesTitle')}</h3>
+              <span className="rent-caption">{t('attAdm.companiesHint')}</span>
+            </div>
+            <div className="rent-card__body" style={{ padding: 0 }}>
+              <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+                <table className="rent-table">
+                  <thead>
+                    <tr>
+                      <th>{t('attAdm.thCompany')}</th>
+                      <th>{t('attAdm.thMembers')}</th>
+                      <th>{t('attendance.stPresent')}</th>
+                      <th>{t('attendance.stLate')}</th>
+                      <th>{t('attendance.stEarlyOut')}</th>
+                      <th>{t('attendance.stAbsent')}</th>
+                      <th>{t('attAdm.thAbnormal')}</th>
+                      <th>{t('attAdm.kpiRate')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingCompanies ? (
+                      <tr>
+                        <td colSpan={8}>
+                          <div className="rent-empty">
+                            <Spin size="small" style={{ marginRight: 8 }} />
+                            {t('common.loading')}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : companyRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={8}>
+                          <div className="rent-empty">
+                            <Empty
+                              image={Empty.PRESENTED_IMAGE_SIMPLE}
+                              description={t('common.noData')}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      companyRows.map((row) => (
+                        <tr key={row.partner_id ?? 'unassigned'}>
+                          <td className="rent-text-bold">{companyLabel(row.partner_name)}</td>
+                          <td>{row.member_count ?? 0}</td>
+                          <td>{row.present ?? 0}</td>
+                          <td>
+                            {row.late > 0 ? (
+                              <span className="rent-badge rent-badge--warning">{row.late}</span>
+                            ) : (
+                              <span className="rent-badge rent-badge--neutral">0</span>
+                            )}
+                          </td>
+                          <td>
+                            {row.early_out > 0 ? (
+                              <span className="rent-badge rent-badge--warning">{row.early_out}</span>
+                            ) : (
+                              <span className="rent-badge rent-badge--neutral">0</span>
+                            )}
+                          </td>
+                          <td>
+                            {row.absent > 0 ? (
+                              <span className="rent-badge rent-badge--error">{row.absent}</span>
+                            ) : (
+                              <span className="rent-badge rent-badge--neutral">0</span>
+                            )}
+                          </td>
+                          <td>
+                            {row.abnormal > 0 ? (
+                              <span className="rent-badge rent-badge--warning">{row.abnormal}</span>
+                            ) : (
+                              <span className="rent-badge rent-badge--neutral">0</span>
+                            )}
+                          </td>
+                          <td>{row.attendance_rate ?? 0}%</td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
@@ -951,6 +1290,120 @@ const AttendanceManage = () => {
         </>
       )}
 
+      {/* ------------------------------------------------ 申诉审批 */}
+      {tab === 'appeal' && (
+        <>
+          <div className="rent-card rent-mb-5">
+            <div className="rent-card__body attAdm-filter">
+              <label className="rent-label">{t('common.status')}</label>
+              <select
+                className="rent-input"
+                value={appealFilter}
+                onChange={(e) =>
+                  setAppealFilter(e.target.value as '' | 'pending' | 'approved' | 'rejected')
+                }
+              >
+                <option value="">{t('common.all')}</option>
+                {APPEAL_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {leaveStatusLabel[s]}
+                  </option>
+                ))}
+              </select>
+              <button className="rent-btn rent-btn--primary" onClick={loadAppeals}>
+                {t('common.search')}
+              </button>
+            </div>
+          </div>
+
+          <div className="rent-card">
+            <div className="rent-card__header">
+              <h3 className="rent-card__title">{t('attAdm.appealReview')}</h3>
+            </div>
+            <div className="rent-card__body" style={{ padding: 0 }}>
+              <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+                <table className="rent-table">
+                  <thead>
+                    <tr>
+                      <th>{t('attAdm.thEmployee')}</th>
+                      <th>{t('attAdm.thDepartment')}</th>
+                      <th>{t('attAdm.appealDate')}</th>
+                      <th>{t('attAdm.thReason')}</th>
+                      <th>{t('common.status')}</th>
+                      <th>{t('attAdm.replyNote')}</th>
+                      <th>{t('common.action')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingAppeals ? (
+                      <tr>
+                        <td colSpan={7}>
+                          <div className="rent-empty">
+                            <Spin size="small" style={{ marginRight: 8 }} />
+                            {t('common.loading')}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : appeals.length === 0 ? (
+                      <tr>
+                        <td colSpan={7}>
+                          <div className="rent-empty">
+                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('att.noAppeal')} />
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      appeals.map((a) => (
+                        <tr key={a.id}>
+                          <td className="rent-text-bold">{a.name || '—'}</td>
+                          <td>{a.department || '—'}</td>
+                          <td className="rent-table__mono">{String(a.date ?? '').slice(0, 10)}</td>
+                          <td className="rent-text-sm">{a.reason}</td>
+                          <td>
+                            <span
+                              className={`rent-badge rent-badge--${leaveStatusTone[a.status as LeaveStatus]}`}
+                            >
+                              {leaveStatusLabel[a.status as LeaveStatus] ?? a.status}
+                            </span>
+                          </td>
+                          <td className="rent-text-sm">{a.reply_note || '—'}</td>
+                          <td>
+                            {a.status === 'pending' ? (
+                              <>
+                                <button
+                                  className="rent-btn rent-btn--ghost rent-btn--sm"
+                                  onClick={() => {
+                                    setAppealReview({ appeal: a, action: 'approved' })
+                                    setAppealNote('')
+                                  }}
+                                >
+                                  {t('attAdm.approve')}
+                                </button>
+                                <button
+                                  className="rent-btn rent-btn--ghost rent-btn--sm attAdm-danger"
+                                  onClick={() => {
+                                    setAppealReview({ appeal: a, action: 'rejected' })
+                                    setAppealNote('')
+                                  }}
+                                >
+                                  {t('attAdm.reject')}
+                                </button>
+                              </>
+                            ) : (
+                              <span className="rent-text-muted">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ------------------------------------------------ 报表 */}
       {tab === 'report' && (
         <>
@@ -977,6 +1430,23 @@ const AttendanceManage = () => {
                 value={reportDept}
                 onChange={(e) => setReportDept(e.target.value)}
               />
+              {showCompanyPicker && (
+                <>
+                  <label className="rent-label">{t('attAdm.company')}</label>
+                  <select
+                    className="rent-input"
+                    value={reportPartner}
+                    onChange={(e) => setReportPartner(e.target.value)}
+                  >
+                    <option value="">{t('common.all')}</option>
+                    {companyOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {companyLabel(c.name)}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
               <button className="rent-btn rent-btn--primary" onClick={loadReport}>
                 {t('common.search')}
               </button>
@@ -1032,6 +1502,24 @@ const AttendanceManage = () => {
                     {t('attendance.stLeave')} {totals?.leave ?? 0} · {t('attendance.stField')}{' '}
                     {totals?.field_work ?? 0}
                   </div>
+                </div>
+              </div>
+
+              <div className="rent-card rent-mb-5">
+                <div className="rent-card__header">
+                  <h3 className="rent-card__title">{t('attAdm.trendTitle')}</h3>
+                  <span className="rent-text-sm rent-text-muted">
+                    {t('attAdm.attendRate')}：{totals?.attendance_rate ?? 0}%
+                  </span>
+                </div>
+                <div className="rent-card__body">
+                  {dailyTrend.labels.length === 0 ? (
+                    <div className="rent-empty">{t('common.noData')}</div>
+                  ) : (
+                    <div className="attAdm-chart">
+                      <Bar data={dailyChartData} options={dailyChartOptions} />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1487,6 +1975,41 @@ const AttendanceManage = () => {
                 placeholder={t('attAdm.phReplyNote')}
                 value={replyNote}
                 onChange={(e) => setReplyNote(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 申诉审批弹窗 */}
+      <Modal
+        open={!!appealReview}
+        title={appealReview?.action === 'approved' ? t('attAdm.approve') : t('attAdm.reject')}
+        onCancel={() => setAppealReview(null)}
+        onOk={submitAppealReview}
+        confirmLoading={saving}
+        okText={t('common.confirm')}
+        cancelText={t('common.cancel')}
+        destroyOnClose
+      >
+        {appealReview && (
+          <div className="attAdm-form">
+            <div className="rent-text-sm rent-text-muted rent-mb-4">
+              {appealReview.appeal.name} · {appealReview.appeal.department || '—'} ·{' '}
+              {String(appealReview.appeal.date ?? '').slice(0, 10)}
+            </div>
+            <div className="rent-field">
+              <label className="rent-label">{t('attAdm.thReason')}</label>
+              <div className="rent-text-sm">{appealReview.appeal.reason}</div>
+            </div>
+            <div className="rent-field">
+              <label className="rent-label">{t('attAdm.replyNote')}</label>
+              <textarea
+                className="rent-textarea"
+                rows={3}
+                placeholder={t('attAdm.phReplyNote')}
+                value={appealNote}
+                onChange={(e) => setAppealNote(e.target.value)}
               />
             </div>
           </div>

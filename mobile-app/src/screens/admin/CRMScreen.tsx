@@ -17,15 +17,17 @@ import {
   FlatList,
   Modal,
   Alert,
+  Linking,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import colors from '../../theme/colors';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
 import { notify, notifyError } from '../../utils/feedback';
-import { leadsApi } from '../../services/api';
+import { chatApi, leadsApi } from '../../services/api';
 import { useI18n } from '../../i18n';
 import { useRefreshList } from '../../hooks/useRefreshList';
 import { useCrmLeads, type Lead } from '@/hooks/useCrmLeads';
@@ -131,6 +133,49 @@ export default function AdminCRMScreen() {
 
   const { loading, refreshControl } = useRefreshList(load);
 
+  const navigation = useNavigation<any>();
+
+  // 联系客户：直接拨打
+  const callCustomer = (l: Lead) => {
+    const phone = (l.phone || '').trim();
+    if (!phone) {
+      Alert.alert(t('crm.contactCustomer'), t('crm.noPhone'));
+      return;
+    }
+    Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => {
+      Alert.alert(t('crm.contactCustomer'), t('crm.callFail'));
+    });
+  };
+
+  // 联系客户：App 内发消息（按手机号/邮箱解析客户账号并创建/进入会话）
+  const chatCustomer = async (l: Lead) => {
+    const phone = (l.phone || '').trim();
+    const email = (l.email || '').trim();
+    if (!phone && !email) {
+      Alert.alert(t('crm.contactCustomer'), t('crm.noContactInfo'));
+      return;
+    }
+    try {
+      const res = await chatApi.createConversation({
+        title: l.name?.trim() || '客户咨询',
+        ...(phone ? { participant_phones: [phone] } : {}),
+        ...(email ? { participant_emails: [email] } : {}),
+      });
+      const conv = res.data?.data ?? res.data;
+      navigation.navigate('ChatDetail', {
+        conversationId: conv?.id,
+        title: conv?.title ?? l.name ?? '会话',
+      });
+    } catch (e: any) {
+      Alert.alert(
+        t('crm.cannotSend'),
+        e?.response?.data?.detail ||
+          e?.response?.data?.message ||
+          t('crm.notRegistered'),
+      );
+    }
+  };
+
   const visibleLeads = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
     if (!kw) return leads;
@@ -208,6 +253,14 @@ export default function AdminCRMScreen() {
           </View>
 
           <View style={styles.leadActions}>
+            <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => callCustomer(l)}>
+              <Ionicons name="call-outline" size={14} color={colors.primary} />
+              <Text style={[styles.leadActionText, { color: colors.primary }]}>{t('crm.actionCall')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => chatCustomer(l)}>
+              <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primary} />
+              <Text style={[styles.leadActionText, { color: colors.primary }]}>{t('crm.actionMessage')}</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => openEdit(l)}>
               <Ionicons name="create-outline" size={14} color={colors.primary} />
               <Text style={[styles.leadActionText, { color: colors.primary }]}>{t('crm.actionEdit')}</Text>
@@ -220,7 +273,7 @@ export default function AdminCRMScreen() {
         </View>
       );
     },
-    [nameMap, t],
+    [nameMap, t, callCustomer, chatCustomer],
   );
 
   if (loading) {

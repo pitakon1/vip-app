@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '编辑房源', navigationStyle: 'custom' }

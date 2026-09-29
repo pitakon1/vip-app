@@ -42,20 +42,24 @@ const FUNC_BY_ROLE: Partial<Record<UserRole, FuncEntry[]>> = {
   agent: [
     { key: 'contacts', labelKey: 'profile.contacts', icon: 'people', navigate: 'Contacts' },
     { key: 'attendance', labelKey: 'profile.attendance', icon: 'location', navigate: 'Attendance' },
-    { key: 'properties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'EmployeeProperties' },
-    { key: 'myListings', labelKey: 'profile.myListings', icon: 'list', navigate: 'MyListings' },
+    { key: 'manageProperties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'EmployeeProperties' },
     { key: 'brokerAgreement', labelKey: 'profile.brokerAgreement', icon: 'document-text', navigate: 'BrokerAgreement' },
+    { key: 'contracts', labelKey: 'profile.contracts', icon: 'document-text', navigate: 'Contracts' },
   ],
   employee: [
     { key: 'contacts', labelKey: 'profile.contacts', icon: 'people', navigate: 'Contacts' },
     { key: 'attendance', labelKey: 'profile.attendance', icon: 'location', navigate: 'Attendance' },
-    { key: 'properties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'EmployeeProperties' },
-    { key: 'myListings', labelKey: 'profile.myListings', icon: 'list', navigate: 'MyListings' },
+    { key: 'manageProperties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'EmployeeProperties' },
+    { key: 'contracts', labelKey: 'profile.contracts', icon: 'document-text', navigate: 'Contracts' },
   ],
-  // 管理员：对齐管理端设置原型（员工管理入口；不含考勤与聊天）
+  // 管理员：对齐管理端设置原型（员工管理入口；房源管理走 AdminProperties；不含考勤与聊天）
   admin: [
     { key: 'employees', labelKey: 'profile.employees', icon: 'people', navigate: 'AdminUsers' },
-    { key: 'myListings', labelKey: 'profile.myListings', icon: 'list', navigate: 'MyListings' },
+    { key: 'manageProperties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'AdminProperties' },
+  ],
+  // 合作公司管理员：本公司聚合页（成员/绩效/房源）
+  partner_admin: [
+    { key: 'partnerHub', labelKey: 'partner.title', icon: 'business', navigate: 'PartnerHub' },
   ],
 };
 
@@ -103,6 +107,8 @@ const C_FUNC_GRID: Array<FuncEntry & { cap: 'owner' | 'tenant' | 'both' }> = [
   { key: 'payments', labelKey: 'profile.payments', icon: 'card', navigate: 'Payments', cap: 'tenant', needKey: 'profile.needPayments' },
   { key: 'maintenance', labelKey: 'profile.maintenance', icon: 'build', navigate: 'TenantMaintenance', cap: 'tenant', needKey: 'profile.needMaintenance' },
   { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'TenantServices', cap: 'tenant', needKey: 'profile.needServices' },
+  // 通用能力项（电子合同签署：租客与业主共用「我的合同」）
+  { key: 'myContracts', labelKey: 'profile.contracts', icon: 'document-text', navigate: 'MyContracts', cap: 'both' },
   // 通用能力项（文档中心：租客与业主的租房文档/我的文档合并）
   { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'Documents', cap: 'both', needKey: 'profile.needDocuments' },
   // C 端关注/浏览历史：登录即可用，不按业主/租客能力门槛（需登录 → 未登录先进 Login）
@@ -133,7 +139,10 @@ export default function ProfileScreen() {
   const isAdmin = user?.role === 'admin';
   const isOwner = canManageProperty;
   // 员工端：经纪人 / 员工 / 管理员均提供「我的」账户与设置自助区块
-  const isStaff = isAdmin || user?.role === 'agent' || user?.role === 'employee';
+  const isStaff =
+    isAdmin || user?.role === 'agent' || user?.role === 'employee' || user?.role === 'partner_admin';
+  // 合作公司管理员：本公司管理入口
+  const isPartnerAdmin = user?.role === 'partner_admin';
 
   // 管理端「系统设置 / 业务设置」两区块的真实值。
   // 此前时区写死 'UTC+8'、通知写死 '邮件 · 短信 · 推送'、提醒天数写死 '7/30 天前'，
@@ -355,7 +364,9 @@ export default function ProfileScreen() {
 
   // 当前角色的常用功能（员工端用）；C 端 (业主/租客) 走统一的 C_FUNC_VISIBLE 宫格
   const entries =
-    user?.role === 'agent' || user?.role === 'employee' ? FUNC_BY_ROLE[user.role] ?? [] : [];
+    user?.role === 'agent' || user?.role === 'employee' || user?.role === 'partner_admin'
+      ? FUNC_BY_ROLE[user.role] ?? []
+      : [];
   // C 端统一宫格：所有人显示全部入口（不按角色隐藏）；点开无能力的项进「功能暂未开放」空态页
   const cFuncs = C_FUNC_VISIBLE();
 
@@ -654,6 +665,22 @@ export default function ProfileScreen() {
               <Text style={styles.arrow}>›</Text>
             </TouchableOpacity>
           </Card>
+
+          {/* 电子合同管理入口（员工/管理端共用） */}
+          <TouchableOpacity
+            style={styles.employeeEntry}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('Contracts')}
+          >
+            <View style={styles.employeeIcon}>
+              <Ionicons name="document-text" size={18} color={colors.primary} />
+            </View>
+            <View style={styles.employeeInfo}>
+              <Text style={styles.employeeTitle}>{t('profile.contracts')}</Text>
+              <Text style={styles.employeeDesc}>{t('contract.entryManageDesc')}</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
 
           {/* 合同管理入口 */}
           <TouchableOpacity

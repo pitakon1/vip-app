@@ -15,6 +15,8 @@ export const colors = {
   primaryForeground: '#ffffff',
   sidebarActive: '#d9f2ee',
   accent: '#0d9488',
+  // 中性墨色的 rgb 三元组，供 colors.alpha() 生成半透明浮层（贝壳风返回/首页按钮底）
+  inkRgb: '28, 39, 51',
 
   // ---- 语义色 ----
   background: '#fbf9f6',

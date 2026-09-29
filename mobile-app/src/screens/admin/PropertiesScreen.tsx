@@ -23,6 +23,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
+import { filterStyles } from '@/theme/filterStyles';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
@@ -121,9 +122,6 @@ const sortOptions = (t: TFunc): { key: string; label: string }[] => [
   { key: 'area_desc', label: t('prop.sort.areaDesc') },
 ];
 
-const optionLabel = (opts: { key: string; label: string }[], key: string, fallback: string) =>
-  opts.find((o) => o.key === key)?.label ?? fallback;
-
 // 房源标题：优先「小区名 · 房号」（与 C 端一致），缺小区名时回退房号·楼栋
 const adminTitle = (p: PropertyItem, t: TFunc) =>
   p.project_name
@@ -180,7 +178,8 @@ export default function AdminPropertiesScreen() {
   const [metroLine, setMetroLine] = useState<string>(METRO_LINES[0].key);
   const [metroSel, setMetroSel] = useState<string[]>([]);
   const [metroDraft, setMetroDraft] = useState<string[]>([]);
-  const [activeFilter, setActiveFilter] = useState('');
+  // 链家式单行筛选栏：当前展开的下拉 Tab（'region' | 'price' | 'sort' | 'more' | null）
+  const [openTab, setOpenTab] = useState<string | null>(null);
   // C 端维度：学校（空间筛选，与 C 端找房口径一致）
   const [schoolId, setSchoolId] = useState('');
   const [schoolKm, setSchoolKm] = useState<number>(3);
@@ -499,53 +498,67 @@ export default function AdminPropertiesScreen() {
     );
   }, [schools, schoolKw]);
 
-  // 单行筛选栏 Tab 展示数据（对齐 C 端：未选中时只显示维度名，选中后显示当前取值）
-  const filterTabs = useMemo(() => {
-    const districtLabel = allDistricts.find((d) => d.key === districtSel)?.label;
-    return [
+  // ---- 链家式单行筛选栏（对齐租客端 ListingsScreen）：区域 / 价格 / 更多 / 排序 四个等宽 Tab ----
+  const tabRegionActive = !!(districtSel || metroSel.length);
+  const tabPriceActive = !!priceRange;
+  const tabMoreActive = !!(status || bedrooms !== '' || areaRange || schoolId);
+  const tabSortActive = sort !== 'default';
+  const filterTabs = useMemo(
+    () => [
+      { key: 'region', label: t('prop.area'), active: tabRegionActive, badge: 0 },
+      { key: 'price', label: t('adm.psFilterPrice'), active: tabPriceActive, badge: 0 },
       {
-        key: 'location',
-        label: districtLabel || (metroSel.length ? t('prop.metroCount', { n: metroSel.length }) : t('prop.area')),
-        active: !!(districtSel || metroSel.length),
+        key: 'more',
+        label: t('pub.filterMore'),
+        active: tabMoreActive,
+        badge: [status ? 1 : 0, bedrooms !== '' ? 1 : 0, areaRange ? 1 : 0, schoolId ? 1 : 0].filter(Boolean)
+          .length,
       },
-      {
-        key: 'price',
-        label: priceRange
-          ? priceRange === 'custom'
-            ? t('prop.custom')
-            : optionLabel(PRICE_OPTIONS, priceRange, t('adm.psFilterPrice'))
-          : t('adm.psFilterPrice'),
-        active: !!priceRange,
-      },
-      {
-        key: 'bedrooms',
-        label:
-          bedrooms !== ''
-            ? optionLabel(BEDROOM_OPTIONS, bedrooms, t('adm.psFilterLayout'))
-            : t('adm.psFilterLayout'),
-        active: bedrooms !== '',
-      },
-      {
-        key: 'area',
-        label: areaRange
-          ? areaRange === 'custom'
-            ? t('prop.custom')
-            : optionLabel(AREA_OPTIONS, areaRange, t('adm.psFilterArea'))
-          : t('adm.psFilterArea'),
-        active: !!areaRange,
-      },
-      {
-        key: 'school',
-        label: schoolId ? t('adm.psSchoolSelected') : t('adm.psFilterSchool'),
-        active: !!schoolId,
-      },
-      {
-        key: 'sort',
-        label: sort !== 'default' ? optionLabel(SORT_OPTIONS, sort, t('adm.psFilterSort')) : t('adm.psFilterSort'),
-        active: sort !== 'default',
-      },
-    ] as { key: string; label: string; active: boolean }[];
-  }, [districtSel, metroSel.length, priceRange, bedrooms, areaRange, schoolId, sort, PRICE_OPTIONS, BEDROOM_OPTIONS, AREA_OPTIONS, SORT_OPTIONS, t]);
+      { key: 'sort', label: t('adm.psFilterSort'), active: tabSortActive, badge: 0 },
+    ],
+    [t, tabRegionActive, tabPriceActive, tabMoreActive, tabSortActive, status, bedrooms, areaRange, schoolId],
+  );
+
+  const toggleTab = (key: string) => {
+    if (openTab === key) {
+      setOpenTab(null);
+      return;
+    }
+    if (key === 'region') {
+      if (locTab === 'area') echoAreaDrill();
+      else setMetroDraft(metroSel);
+    }
+    setOpenTab(key);
+  };
+
+  // 区域面板：重置 / 确定
+  const resetRegion = () => {
+    setDistrictSel(null);
+    setAreaDrill('');
+    setMetroSel([]);
+    setMetroDraft([]);
+  };
+  const applyRegion = () => {
+    if (locTab === 'metro') setMetroSel(metroDraft);
+    setOpenTab(null);
+  };
+  // 价格面板重置
+  const resetPrice = () => {
+    setPriceRange('');
+    setPriceCustomMin('');
+    setPriceCustomMax('');
+  };
+  // 「更多」面板重置（状态 / 户型 / 面积 / 学校）
+  const resetMore = () => {
+    setStatus('');
+    setBedrooms('');
+    setAreaRange('');
+    setAreaCustomMin('');
+    setAreaCustomMax('');
+    setSchoolId('');
+    setSchoolKm(3);
+    setSchoolKw('');
+  };
 
   const renderPropertyCard = (p: PropertyItem) => {
     const type = TYPE_META[p.property_type ?? 'apartment'] ?? TYPE_META.apartment;
@@ -703,385 +716,417 @@ export default function AdminPropertiesScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 状态筛选 */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
-        {CHIPS.map((c) => (
-          <TouchableOpacity
-            key={c.key || 'all'}
-            style={[styles.chip, status === c.key && styles.chipActive]}
-            activeOpacity={0.7}
-            onPress={() => setStatus(c.key)}
-          >
-            <Text style={[styles.chipText, status === c.key && styles.chipTextActive]}>{c.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* 单行筛选栏（对齐 C 端：宽度够时等分铺满，不够时横向滚动；点击从顶部下拉面板展开） */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterTabsRow}
-        contentContainerStyle={styles.filterTabsContent}
-      >
-        {filterTabs.map((tb) => (
-          <TouchableOpacity
-            key={tb.key}
-            style={[
-              styles.filterTab,
-              activeFilter === tb.key && styles.filterTabOpen,
-              tb.active && styles.filterTabActive,
-            ]}
-            activeOpacity={0.7}
-            onPress={() => {
-              if (activeFilter === tb.key) {
-                setActiveFilter('');
-                return;
-              }
-              // 打开区域面板时回显已选城区所在的省市
-              if (tb.key === 'location') echoAreaDrill();
-              setActiveFilter(tb.key);
-            }}
-          >
-            <Text
-              numberOfLines={1}
+      {/* ---- 链家式单行筛选栏 + 顶部下拉面板（对齐租客端 ListingsScreen）---- */}
+      <View style={styles.filterZone}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterTabsRow}
+          contentContainerStyle={styles.filterTabsContent}
+        >
+          {filterTabs.map((tb) => (
+            <TouchableOpacity
+              key={tb.key}
               style={[
-                styles.filterTabLabel,
-                (activeFilter === tb.key || tb.active) && styles.filterTabLabelActive,
+                styles.filterTab,
+                openTab === tb.key && styles.filterTabOpen,
+                tb.active && styles.filterTabActive,
               ]}
-            >
-              {tb.label}
-            </Text>
-            <Ionicons
-              name={activeFilter === tb.key ? 'chevron-up' : 'chevron-down'}
-              size={14}
-              color={tb.active || activeFilter === tb.key ? colors.primary : colors.ink3}
-            />
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* 顶部下拉面板（对齐 C 端：紧贴 Tab 栏下方、通栏直角带投影；未展开时 display:none） */}
-      <View style={[styles.dropPanel, activeFilter === '' && styles.dropPanelHidden]}>
-      {/* 展开的筛选项 */}
-      {activeFilter === 'bedrooms' && (
-        <View style={styles.optRow}>
-          {BEDROOM_OPTIONS.map((o) => (
-            <TouchableOpacity
-              key={o.key || 'any'}
-              style={[styles.optChip, bedrooms === o.key && styles.optChipActive]}
+              onPress={() => toggleTab(tb.key)}
               activeOpacity={0.7}
-              onPress={() => setBedrooms(o.key)}
             >
-              <Text style={[styles.optChipText, bedrooms === o.key && styles.optChipTextActive]}>{o.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {activeFilter === 'price' && (
-        <View style={styles.optRow}>
-          {PRICE_OPTIONS.map((o) => (
-            <TouchableOpacity
-              key={o.key || 'any'}
-              style={[styles.optChip, priceRange === o.key && styles.optChipActive]}
-              activeOpacity={0.7}
-              onPress={() => setPriceRange(o.key)}
-            >
-              <Text style={[styles.optChipText, priceRange === o.key && styles.optChipTextActive]}>{o.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-      {activeFilter === 'price' && priceRange === 'custom' && (
-        <View style={styles.customRow}>
-          <Text style={styles.customLabel}>{t('adm.psMin')}</Text>
-          <TextInput
-            style={styles.customInput}
-            value={priceCustomMin}
-            onChangeText={setPriceCustomMin}
-            keyboardType="numeric"
-            placeholder={t('adm.psEg3')}
-            placeholderTextColor={colors.ink3}
-          />
-          <Text style={styles.customSep}>-</Text>
-          <Text style={styles.customLabel}>{t('adm.psMax')}</Text>
-          <TextInput
-            style={styles.customInput}
-            value={priceCustomMax}
-            onChangeText={setPriceCustomMax}
-            keyboardType="numeric"
-            placeholder={t('adm.psEg8')}
-            placeholderTextColor={colors.ink3}
-          />
-          <Text style={styles.customLabel}>{t('adm.psWanPerMonth')}</Text>
-        </View>
-      )}
-
-      {activeFilter === 'area' && (
-        <View style={styles.optRow}>
-          {AREA_OPTIONS.map((o) => (
-            <TouchableOpacity
-              key={o.key || 'any'}
-              style={[styles.optChip, areaRange === o.key && styles.optChipActive]}
-              activeOpacity={0.7}
-              onPress={() => setAreaRange(o.key)}
-            >
-              <Text style={[styles.optChipText, areaRange === o.key && styles.optChipTextActive]}>{o.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-      {activeFilter === 'area' && areaRange === 'custom' && (
-        <View style={styles.customRow}>
-          <Text style={styles.customLabel}>{t('adm.psMinArea')}</Text>
-          <TextInput
-            style={styles.customInput}
-            value={areaCustomMin}
-            onChangeText={setAreaCustomMin}
-            keyboardType="numeric"
-            placeholder={t('adm.psEg60')}
-            placeholderTextColor={colors.ink3}
-          />
-          <Text style={styles.customSep}>-</Text>
-          <Text style={styles.customLabel}>{t('adm.psMaxArea')}</Text>
-          <TextInput
-            style={styles.customInput}
-            value={areaCustomMax}
-            onChangeText={setAreaCustomMax}
-            keyboardType="numeric"
-            placeholder={t('adm.psEg120')}
-            placeholderTextColor={colors.ink3}
-          />
-        </View>
-      )}
-
-      {activeFilter === 'sort' && (
-        <View style={styles.optRow}>
-          {SORT_OPTIONS.map((o) => (
-            <TouchableOpacity
-              key={o.key}
-              style={[styles.optChip, sort === o.key && styles.optChipActive]}
-              activeOpacity={0.7}
-              onPress={() => setSort(o.key)}
-            >
-              <Text style={[styles.optChipText, sort === o.key && styles.optChipTextActive]}>{o.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* 位置筛选（对齐租客端「区域 | 地铁」） */}
-      {activeFilter === 'location' && (
-        <View>
-          <View style={styles.customRow}>
-            {(['area', 'metro'] as const).map((tb) => (
-              <TouchableOpacity
-                key={tb}
-                style={[styles.locTabChip, locTab === tb && styles.locTabChipActive]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (tb === 'metro') setMetroDraft(metroSel);
-                  else echoAreaDrill();
-                  setLocTab(tb);
-                }}
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.filterTabLabel,
+                  (openTab === tb.key || tb.active) && styles.filterTabLabelActive,
+                ]}
               >
-                <Text style={[styles.locTabText, locTab === tb && styles.locTabTextActive]}>
-                  {tb === 'area' ? t('prop.area') : t('list.metro')}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                {tb.label}
+              </Text>
+              {tb.badge > 0 && (
+                <View style={styles.filterTabBadge}>
+                  <Text style={styles.filterTabBadgeText}>{tb.badge}</Text>
+                </View>
+              )}
+              <Ionicons
+                name={openTab === tb.key ? 'chevron-up' : 'chevron-down'}
+                size={14}
+                color={tb.active || openTab === tb.key ? colors.primary : colors.ink3}
+              />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
-          {locTab === 'area' ? (
-            // 国家 → 省市 → 城区 三级下钻：左栏只列国家，右栏先是该国家的省市列表，
-            // 点省市后右栏换成它的城区 chips（顶部「返回」回到省市列表）。
-            // 此前把国家/省市平铺在同一列，用户要在混杂的长列表里找城市。
-            <View style={styles.locArea}>
-              <ScrollView style={[styles.locAreaCol, { width: areaLeftWidth, flexGrow: 0, flexShrink: 0 }]} nestedScrollEnabled showsVerticalScrollIndicator={false}>
-                {countryList.map((c) => (
-                  <TouchableOpacity
-                    key={c}
-                    style={[styles.locAreaColItem, areaCountry === c && styles.locAreaColItemActive]}
-                    activeOpacity={0.7}
-                    onPress={() => pickAreaCountry(c)}
-                  >
-                    <Text style={[styles.locAreaColText, areaCountry === c && styles.locAreaColTextActive]}>
-                      {c}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <ScrollView style={styles.locAreaBody} nestedScrollEnabled showsVerticalScrollIndicator={false}>
-                {activeAreaGroup ? (
-                  <>
-                    <View style={styles.locAreaHead}>
-                      <TouchableOpacity
-                        style={styles.locAreaBack}
-                        activeOpacity={0.7}
-                        onPress={() => setAreaDrill('')}
-                      >
-                        <Ionicons name="chevron-back" size={12} color={colors.ink3} />
-                        <Text style={styles.locAreaBackText}>{areaCountry}</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.locAreaHeadTitle}>{activeAreaGroup.cityLabel}</Text>
-                    </View>
-                    <View style={styles.locAreaChips}>
-                      <TouchableOpacity
-                        style={[styles.optChip, districtSel === null && styles.optChipActive]}
-                        activeOpacity={0.7}
-                        onPress={() => setDistrictSel(null)}
-                      >
-                        <Text style={[styles.optChipText, districtSel === null && styles.optChipTextActive]}>{t('common.any')}</Text>
-                      </TouchableOpacity>
-                      {activeAreaGroup.children.map((d) => (
+        {openTab !== null && (
+          <View style={styles.dropPanel}>
+            {/* 区域：区域 | 地铁 Tab + 国家→省市→城区 三级下钻 */}
+            {openTab === 'region' && (
+              <>
+                <View style={styles.locSheetHeader}>
+                  {(['area', 'metro'] as const).map((tab) => (
+                    <TouchableOpacity
+                      key={tab}
+                      style={[styles.locTabChip, locTab === tab && styles.locTabChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        if (tab === 'metro') setMetroDraft(metroSel);
+                        else echoAreaDrill();
+                        setLocTab(tab);
+                      }}
+                    >
+                      <Text style={[styles.locTabText, locTab === tab && styles.locTabTextActive]}>
+                        {tab === 'area' ? t('regionFilter.title') : t('list.metro')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {locTab === 'area' ? (
+                  <View style={styles.locArea}>
+                    <ScrollView
+                      style={[styles.locAreaCol, { width: areaLeftWidth, flexGrow: 0, flexShrink: 0 }]}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {countryList.map((c) => (
                         <TouchableOpacity
-                          key={d.key}
-                          style={[styles.optChip, districtSel === d.key && styles.optChipActive]}
+                          key={c}
+                          style={[styles.locAreaColItem, areaCountry === c && styles.locAreaColItemActive]}
                           activeOpacity={0.7}
-                          onPress={() => setDistrictSel(d.key)}
+                          onPress={() => pickAreaCountry(c)}
                         >
-                          <Text style={[styles.optChipText, districtSel === d.key && styles.optChipTextActive]}>{d.label}</Text>
+                          <Text style={[styles.locAreaColText, areaCountry === c && styles.locAreaColTextActive]}>
+                            {c}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                    <ScrollView style={styles.locAreaBody} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                      {activeAreaGroup ? (
+                        <>
+                          <View style={styles.locAreaHead}>
+                            <TouchableOpacity
+                              style={styles.locAreaBack}
+                              activeOpacity={0.7}
+                              onPress={() => setAreaDrill('')}
+                            >
+                              <Ionicons name="chevron-back" size={12} color={colors.ink3} />
+                              <Text style={styles.locAreaBackText}>{areaCountry}</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.locAreaHeadTitle}>{activeAreaGroup.cityLabel}</Text>
+                          </View>
+                          <View style={styles.locAreaChips}>
+                            <TouchableOpacity
+                              style={[styles.optChip, districtSel === null && styles.optChipActive]}
+                              activeOpacity={0.7}
+                              onPress={() => setDistrictSel(null)}
+                            >
+                              <Text style={[styles.optChipText, districtSel === null && styles.optChipTextActive]}>
+                                {t('common.any')}
+                              </Text>
+                            </TouchableOpacity>
+                            {activeAreaGroup.children.map((d) => (
+                              <TouchableOpacity
+                                key={d.key}
+                                style={[styles.optChip, districtSel === d.key && styles.optChipActive]}
+                                activeOpacity={0.7}
+                                onPress={() => setDistrictSel(d.key)}
+                              >
+                                <Text style={[styles.optChipText, districtSel === d.key && styles.optChipTextActive]}>
+                                  {d.label}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={styles.locAreaHeadTitle}>{areaCountry}</Text>
+                          <View style={styles.locAreaChips}>
+                            {countryGroups.map((g) => (
+                              <TouchableOpacity
+                                key={g.cityKey}
+                                style={[styles.optChip, areaDrill === g.cityKey && styles.optChipActive]}
+                                activeOpacity={0.7}
+                                onPress={() => setAreaDrill(g.cityKey)}
+                              >
+                                <Text style={[styles.optChipText, areaDrill === g.cityKey && styles.optChipTextActive]}>
+                                  {g.cityLabel}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </>
+                      )}
+                    </ScrollView>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.dropGroupTitle}>{t('adm.psMetroLine')}</Text>
+                    <View style={[styles.filterGroup, styles.locLineRow]}>
+                      {METRO_LINES.map((l) => (
+                        <TouchableOpacity
+                          key={l.key}
+                          style={[styles.optChip, metroLine === l.key && styles.optChipActive]}
+                          activeOpacity={0.7}
+                          onPress={() => setMetroLine(l.key)}
+                        >
+                          <Text style={[styles.optChipText, metroLine === l.key && styles.optChipTextActive]}>
+                            {l.cityLabel} · {l.name}
+                          </Text>
                         </TouchableOpacity>
                       ))}
                     </View>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.locAreaHeadTitle}>{areaCountry}</Text>
-                    <View style={styles.locAreaChips}>
-                      {countryGroups.map((g) => (
+                    <Text style={styles.dropGroupTitle}>
+                      {metroDraft.length
+                        ? t('adm.psStationSelected', { n: metroDraft.length })
+                        : t('adm.psStation')}
+                    </Text>
+                    <View style={styles.filterGroup}>
+                      {METRO_LINES.find((l) => l.key === metroLine)?.stations.map((s) => (
                         <TouchableOpacity
-                          key={g.cityKey}
-                          style={[styles.optChip, areaDrill === g.cityKey && styles.optChipActive]}
+                          key={s.name}
+                          style={[styles.optChip, metroDraft.includes(s.name) && styles.optChipActive]}
                           activeOpacity={0.7}
-                          onPress={() => setAreaDrill(g.cityKey)}
+                          onPress={() =>
+                            setMetroDraft((d) => (d.includes(s.name) ? d.filter((x) => x !== s.name) : [...d, s.name]))
+                          }
                         >
-                          <Text style={[styles.optChipText, areaDrill === g.cityKey && styles.optChipTextActive]}>
-                            {g.cityLabel}
+                          <Text style={[styles.optChipText, metroDraft.includes(s.name) && styles.optChipTextActive]}>
+                            {s.name}
                           </Text>
                         </TouchableOpacity>
                       ))}
                     </View>
                   </>
                 )}
-              </ScrollView>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.locGroupLabel}>{t('adm.psMetroLine')}</Text>
-              <View style={[styles.optRow, styles.locLineRow]}>
-                {METRO_LINES.map((l) => (
-                  <TouchableOpacity
-                    key={l.key}
-                    style={[styles.optChip, metroLine === l.key && styles.optChipActive]}
-                    activeOpacity={0.7}
-                    onPress={() => setMetroLine(l.key)}
-                  >
-                    <Text style={[styles.optChipText, metroLine === l.key && styles.optChipTextActive]}>
-                      {l.cityLabel} · {l.name}
-                    </Text>
+                <View style={styles.panelActions}>
+                  <TouchableOpacity style={styles.resetBtn} onPress={resetRegion} activeOpacity={0.7}>
+                    <Text style={styles.resetText}>{t('pub.reset')}</Text>
                   </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={styles.locGroupLabel}>
-                {metroDraft.length
-                  ? t('adm.psStationSelected', { n: metroDraft.length })
-                  : t('adm.psStation')}
-              </Text>
-              <View style={styles.optRow}>
-                {METRO_LINES.find((l) => l.key === metroLine)?.stations.map((s) => (
-                  <TouchableOpacity
-                    key={s.name}
-                    style={[styles.optChip, metroDraft.includes(s.name) && styles.optChipActive]}
-                    activeOpacity={0.7}
-                    onPress={() =>
-                      setMetroDraft((d) => (d.includes(s.name) ? d.filter((x) => x !== s.name) : [...d, s.name]))
-                    }
-                  >
-                    <Text style={[styles.optChipText, metroDraft.includes(s.name) && styles.optChipTextActive]}>{s.name}</Text>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={applyRegion} activeOpacity={0.7}>
+                    <Text style={styles.confirmText}>{t('common.confirm')}</Text>
                   </TouchableOpacity>
-                ))}
-              </View>
-              <View style={styles.customRow}>
-                <TouchableOpacity style={styles.optChip} activeOpacity={0.7} onPress={() => setMetroDraft([])}>
-                  <Text style={styles.optChipText}>{t('adm.psClear')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.optChip, styles.locConfirmBtn]} activeOpacity={0.7} onPress={() => setMetroSel(metroDraft)}>
-                  <Text style={styles.optChipText}>{t('common.confirm')}</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-        </View>
-      )}
-
-      {/* 学校（C 端维度：按学校 + 半径找房） */}
-      {activeFilter === 'school' && (
-        <View style={styles.schoolPanel}>
-          <Text style={styles.locGroupLabel}>{t('adm.psDistance')}</Text>
-          <View style={styles.optRow}>
-            {SCHOOL_RADIUS_OPTIONS.map((kmv) => (
-              <TouchableOpacity
-                key={kmv}
-                style={[styles.optChip, schoolKm === kmv && styles.optChipActive]}
-                activeOpacity={0.7}
-                onPress={() => setSchoolKm(kmv)}
-              >
-                <Text style={[styles.optChipText, schoolKm === kmv && styles.optChipTextActive]}>
-                  {kmv}km
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={styles.schoolSearch}>
-            <Ionicons name="search" size={14} color={colors.ink3} />
-            <TextInput
-              style={styles.schoolSearchInput}
-              value={schoolKw}
-              onChangeText={setSchoolKw}
-              placeholder={t('prop.searchSchool')}
-              placeholderTextColor={colors.ink3}
-            />
-          </View>
-          <ScrollView style={styles.schoolList} keyboardShouldPersistTaps="handled">
-            {filteredSchools.length === 0 ? (
-              <Text style={styles.schoolEmpty}>{t('adm.psNoSchool')}</Text>
-            ) : (
-              filteredSchools.map((s) => {
-                const active = schoolId === s.id;
-                return (
-                  <TouchableOpacity
-                    key={s.id}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      setSchoolId(s.id);
-                      setActiveFilter('');
-                    }}
-                    style={styles.schoolRow}
-                  >
-                    <Text style={[styles.schoolRowName, active && styles.schoolRowActive]} numberOfLines={1}>
-                      {s.name || s.name_en}
-                    </Text>
-                    {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
-                  </TouchableOpacity>
-                );
-              })
+                </View>
+              </>
             )}
-          </ScrollView>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              setSchoolId('');
-              setActiveFilter('');
-            }}
-            style={styles.schoolReset}
-          >
-            <Text style={styles.schoolResetText}>{t('adm.psClearSchool')}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+
+            {/* 价格：快捷区间 + 自定义 */}
+            {openTab === 'price' && (
+              <>
+                <Text style={styles.dropGroupTitle}>{t('list.quickSelect')}</Text>
+                <View style={styles.filterGroup}>
+                  {PRICE_OPTIONS.map((o) => (
+                    <TouchableOpacity
+                      key={o.key || 'any'}
+                      style={[styles.optChip, priceRange === o.key && styles.optChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => setPriceRange(o.key)}
+                    >
+                      <Text style={[styles.optChipText, priceRange === o.key && styles.optChipTextActive]}>
+                        {o.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {priceRange === 'custom' && (
+                  <View style={styles.customRow}>
+                    <Text style={styles.customLabel}>{t('adm.psMin')}</Text>
+                    <TextInput
+                      style={styles.customInput}
+                      value={priceCustomMin}
+                      onChangeText={setPriceCustomMin}
+                      keyboardType="numeric"
+                      placeholder={t('adm.psEg3')}
+                      placeholderTextColor={colors.ink3}
+                    />
+                    <Text style={styles.customSep}>-</Text>
+                    <Text style={styles.customLabel}>{t('adm.psMax')}</Text>
+                    <TextInput
+                      style={styles.customInput}
+                      value={priceCustomMax}
+                      onChangeText={setPriceCustomMax}
+                      keyboardType="numeric"
+                      placeholder={t('adm.psEg8')}
+                      placeholderTextColor={colors.ink3}
+                    />
+                    <Text style={styles.customLabel}>{t('adm.psWanPerMonth')}</Text>
+                  </View>
+                )}
+                <View style={styles.panelActions}>
+                  <TouchableOpacity style={styles.resetBtn} onPress={resetPrice} activeOpacity={0.7}>
+                    <Text style={styles.resetText}>{t('pub.reset')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
+                    <Text style={styles.confirmText}>{t('common.confirm')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* 排序 */}
+            {openTab === 'sort' && (
+              <>
+                <View style={styles.dropSort}>
+                  {SORT_OPTIONS.map((o) => (
+                    <TouchableOpacity
+                      key={o.key}
+                      style={styles.dropSortItem}
+                      activeOpacity={0.7}
+                      onPress={() => setSort(o.key)}
+                    >
+                      <Text style={[styles.dropSortText, sort === o.key && styles.dropSortTextActive]}>
+                        {o.label}
+                      </Text>
+                      {sort === o.key ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.panelActions}>
+                  <TouchableOpacity style={styles.resetBtn} onPress={() => setSort('default')} activeOpacity={0.7}>
+                    <Text style={styles.resetText}>{t('pub.reset')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
+                    <Text style={styles.confirmText}>{t('common.confirm')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* 更多：状态 / 户型 / 面积 / 学校 */}
+            {openTab === 'more' && (
+              <>
+                <ScrollView style={styles.dropBodyTall} keyboardShouldPersistTaps="handled">
+                  <Text style={styles.dropGroupTitle}>{t('list.propertyStatus')}</Text>
+                  <View style={styles.filterGroup}>
+                    {CHIPS.map((c) => (
+                      <TouchableOpacity
+                        key={c.key || 'all'}
+                        style={[styles.optChip, status === c.key && styles.optChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() => setStatus(c.key)}
+                      >
+                        <Text style={[styles.optChipText, status === c.key && styles.optChipTextActive]}>
+                          {c.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={styles.dropGroupTitle}>{t('adm.psFilterLayout')}</Text>
+                  <View style={styles.filterGroup}>
+                    {BEDROOM_OPTIONS.map((o) => (
+                      <TouchableOpacity
+                        key={o.key || 'any'}
+                        style={[styles.optChip, bedrooms === o.key && styles.optChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() => setBedrooms(o.key)}
+                      >
+                        <Text style={[styles.optChipText, bedrooms === o.key && styles.optChipTextActive]}>
+                          {o.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={styles.dropGroupTitle}>{t('adm.psFilterArea')}</Text>
+                  <View style={styles.filterGroup}>
+                    {AREA_OPTIONS.map((o) => (
+                      <TouchableOpacity
+                        key={o.key || 'any'}
+                        style={[styles.optChip, areaRange === o.key && styles.optChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() => setAreaRange(o.key)}
+                      >
+                        <Text style={[styles.optChipText, areaRange === o.key && styles.optChipTextActive]}>
+                          {o.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  {areaRange === 'custom' && (
+                    <View style={styles.customRow}>
+                      <Text style={styles.customLabel}>{t('adm.psMinArea')}</Text>
+                      <TextInput
+                        style={styles.customInput}
+                        value={areaCustomMin}
+                        onChangeText={setAreaCustomMin}
+                        keyboardType="numeric"
+                        placeholder={t('adm.psEg60')}
+                        placeholderTextColor={colors.ink3}
+                      />
+                      <Text style={styles.customSep}>-</Text>
+                      <Text style={styles.customLabel}>{t('adm.psMaxArea')}</Text>
+                      <TextInput
+                        style={styles.customInput}
+                        value={areaCustomMax}
+                        onChangeText={setAreaCustomMax}
+                        keyboardType="numeric"
+                        placeholder={t('adm.psEg120')}
+                        placeholderTextColor={colors.ink3}
+                      />
+                    </View>
+                  )}
+                  <Text style={styles.dropGroupTitle}>{t('list.schoolDistance')}</Text>
+                  <View style={styles.filterGroup}>
+                    {SCHOOL_RADIUS_OPTIONS.map((kmv) => (
+                      <TouchableOpacity
+                        key={kmv}
+                        style={[styles.optChip, schoolKm === kmv && styles.optChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() => setSchoolKm(kmv)}
+                      >
+                        <Text style={[styles.optChipText, schoolKm === kmv && styles.optChipTextActive]}>
+                          {kmv}km
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TextInput
+                    style={styles.dropSearch}
+                    value={schoolKw}
+                    onChangeText={setSchoolKw}
+                    placeholder={t('prop.searchSchool')}
+                    placeholderTextColor={colors.ink3}
+                    returnKeyType="search"
+                  />
+                  <View style={styles.filterGroup}>
+                    {filteredSchools.map((s) => (
+                      <TouchableOpacity
+                        key={s.id}
+                        style={[styles.optChip, schoolId === s.id && styles.optChipActive]}
+                        activeOpacity={0.7}
+                        onPress={() => setSchoolId(s.id)}
+                      >
+                        <Text
+                          style={[styles.optChipText, schoolId === s.id && styles.optChipTextActive]}
+                          numberOfLines={1}
+                        >
+                          {s.name || s.name_en}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  {schools.length > 0 && filteredSchools.length === 0 && (
+                    <Text style={styles.dropEmpty}>{t('adm.psNoSchool')}</Text>
+                  )}
+                </ScrollView>
+                <View style={styles.panelActions}>
+                  <TouchableOpacity style={styles.resetBtn} onPress={resetMore} activeOpacity={0.7}>
+                    <Text style={styles.resetText}>{t('pub.reset')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
+                    <Text style={styles.confirmText}>{t('common.confirm')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        )}
       </View>
+
+      {/* ---- 结果计数行（对齐租客端 count）---- */}
+      <Text style={filterStyles.count}>{t('pub.totalCount', { n: total })}</Text>
+
+      
 
       {/* 统计行 */}
       <View style={styles.statRow}>
@@ -1244,31 +1289,27 @@ const styles = StyleSheet.create({
   addBtnText: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
 
   chipScroll: { flexGrow: 0, marginBottom: 12 },
-  chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: colors.radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  chipTextActive: { color: '#fff', fontWeight: '600' },
+  chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
+  // 状态筛选 chip：尺寸/圆角/字号/选中态与 C 端浏览页筛选 chip 一致
+  chip: { ...filterStyles.chip },
+  chipActive: { ...filterStyles.chipActive },
+  chipText: { ...filterStyles.chipText },
+  chipTextActive: { ...filterStyles.chipTextActive },
 
-  // 贝壳式单行 Tab 筛选栏 + 顶部下拉面板（视觉与 C 端找房页一致）
+  // 区域面板顶部的「区域 | 地铁」小 Tab 行
+  locSheetHeader: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+
+  // 链家式单行筛选栏 + 顶部下拉面板（对齐租客端 ListingsScreen）
+  filterZone: { position: 'relative' },
   filterTabsRow: {
     flexGrow: 0,
     marginHorizontal: 12,
-    marginBottom: 12,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.md,
     overflow: 'hidden',
   },
   filterTabsContent: { flexGrow: 1 },
   filterTab: {
-    // flexGrow + flexShrink:0：宽度够时等分铺满，不够时按内容撑开并触发横向滚动
     flexGrow: 1,
     flexShrink: 0,
     minHeight: 44,
@@ -1278,23 +1319,31 @@ const styles = StyleSheet.create({
     gap: 3,
     paddingHorizontal: 10,
     paddingVertical: 12,
+    position: 'relative',
     backgroundColor: colors.surface,
   },
   filterTabOpen: { backgroundColor: colors.surface2 },
-  filterTabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
-  },
-  filterTabLabel: {
-    fontSize: 13,
-    color: colors.ink2,
-    fontWeight: '500',
-    maxWidth: 92,
-  },
+  filterTabActive: { borderBottomWidth: 2, borderBottomColor: colors.primary },
+  filterTabLabel: { fontSize: 13, color: colors.ink2, fontWeight: '500', maxWidth: 92 },
   filterTabLabelActive: { color: colors.primary, fontWeight: '600' },
+  filterTabBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  filterTabBadgeText: { color: colors.primaryForeground, fontSize: 11, fontWeight: '600' },
   dropPanel: {
-    marginBottom: 12,
+    marginHorizontal: 0,
+    marginTop: 6,
     backgroundColor: colors.surface,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,
@@ -1304,7 +1353,87 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
   },
-  dropPanelHidden: { display: 'none' },
+  dropBody: { flexGrow: 0, maxHeight: 260 },
+  // 「更多」面板多组条件：内容区限高滚动，操作行常驻底部
+  dropBodyTall: { flexGrow: 0, maxHeight: 300 },
+  dropSearch: {
+    minHeight: 44,
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 10,
+  },
+  dropEmpty: { fontSize: 13, color: colors.ink3, paddingVertical: 12 },
+  dropGroupTitle: { fontSize: 12, color: colors.ink2, marginBottom: 8, marginTop: 4 },
+  filterGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  dropSort: { paddingVertical: 4 },
+  dropSortItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  dropSortText: { fontSize: 14, color: colors.ink },
+  dropSortTextActive: { color: colors.primary, fontWeight: '600' },
+  // 贝壳式底部操作条：重置=浅灰块、确定=主色块，等宽、直角小圆角
+  panelActions: { flexDirection: 'row', gap: 12, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12 },
+  resetBtn: {
+    flex: 1,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 6,
+    backgroundColor: colors.surface2,
+  },
+  resetText: { fontSize: 15, color: colors.ink, fontWeight: '500' },
+  confirmBtn: {
+    flex: 1,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 6,
+    backgroundColor: colors.primary,
+  },
+  confirmText: { fontSize: 15, color: colors.primaryForeground, fontWeight: '600' },
+
+  // 底部弹层（复刻 C 端浏览页 modalMask / modalSheet / sheetHeader 系列）
+  filterMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  filterSheet: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: colors.radius.xxl,
+    borderTopRightRadius: colors.radius.xxl,
+    padding: colors.spacing.lg,
+  },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sheetTitle: { fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.ink },
+  sheetClose: { fontSize: colors.fontSize.base, color: colors.ink2 },
+  fieldLabel: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 16, marginBottom: 8 },
+  sheetActions: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  sheetReset: {
+    flex: 1,
+    height: 46,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  sheetResetText: { fontSize: colors.fontSize.base, color: colors.ink2 },
+  sheetApply: {
+    flex: 1,
+    height: 46,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  sheetApplyText: { fontSize: colors.fontSize.base, fontWeight: '700', color: colors.primaryForeground },
 
   /* 学校筛选项（C 端维度） */
   schoolPanel: { marginBottom: 4 },
@@ -1350,17 +1479,11 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 4,
   },
-  optChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: colors.radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  optChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  optChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  optChipTextActive: { color: '#fff', fontWeight: '600' },
+  // 下拉面板内选项 chip：与 C 端浏览页筛选 chip 同一套排版语言
+  optChip: { ...filterStyles.chip },
+  optChipActive: { ...filterStyles.chipActive },
+  optChipText: { ...filterStyles.chipText },
+  optChipTextActive: { ...filterStyles.chipTextActive },
 
   customRow: {
     flexDirection: 'row',
@@ -1383,17 +1506,11 @@ const styles = StyleSheet.create({
   },
 
   // 位置筛选（区域 | 地铁）
-  locTabChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: colors.radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  locTabChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  locTabText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  locTabTextActive: { color: '#fff', fontWeight: '600' },
+  // 位置 Tab（区域 | 地铁）chip：与 C 端浏览页筛选 chip 同源
+  locTabChip: { ...filterStyles.chip },
+  locTabChipActive: { ...filterStyles.chipActive },
+  locTabText: { ...filterStyles.chipText },
+  locTabTextActive: { ...filterStyles.chipTextActive },
   locGroupLabel: {
     fontSize: 12,
     color: colors.ink3,

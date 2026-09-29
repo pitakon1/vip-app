@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { message, Alert, Button } from 'antd'
-import { commissionRulesApi, employeesApi } from '@/services/api'
+import { message, Alert, Button, Tabs, Empty, Spin, Modal, Form, Select, InputNumber, Switch, Popconfirm } from 'antd'
+import { commissionRulesApi, employeesApi, commissionSplitRulesApi } from '@/services/api'
 import api from '@/lib/api'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
@@ -9,6 +9,47 @@ import './commission-rules.css'
 
 type DealType = 'new_rental' | 'renewal' | 'management'
 type Scope = 'all_employees' | 'by_department' | 'by_employee' | 'by_broker'
+
+// 分佣拆分规则（对应后端 /commission-split-rules）
+type SplitRole = 'listing_agent' | 'client_agent' | 'handler' | 'partner_company' | 'platform'
+type SplitScope = 'all' | 'by_partner'
+
+interface SplitRule {
+  id: string
+  deal_type: DealType
+  role: SplitRole
+  percent: number
+  scope: SplitScope
+  partner_id?: string
+  is_active: boolean
+  effective_from?: string
+  effective_to?: string
+  created_at?: string
+}
+
+interface SplitForm {
+  deal_type: DealType
+  role: SplitRole
+  percent: number
+  scope: SplitScope
+  partner_id: string
+  is_active: boolean
+  effective_from?: string
+  effective_to?: string
+}
+
+// 佣金角色文案
+const ROLE_LABELS: Record<string, string> = {
+  listing_agent: 'commissionSplit.role.listingAgent',
+  client_agent: 'commissionSplit.role.clientAgent',
+  handler: 'commissionSplit.role.handler',
+  partner_company: 'commissionSplit.role.partnerCompany',
+  platform: 'commissionSplit.role.platform',
+}
+const SCOPE_LABELS: Record<string, string> = {
+  all: 'commissionSplit.scope.all',
+  by_partner: 'commissionSplit.scope.byPartner',
+}
 
 interface CommissionRule {
   id: string
@@ -162,6 +203,121 @@ const CommissionRules = () => {
   const [form, setForm] = useState<FormState>(emptyForm())
   const [page, setPage] = useState(1)
 
+  // 分佣拆分规则（admin）：/commission-split-rules
+  const [splitRules, setSplitRules] = useState<SplitRule[]>([])
+  const [splitLoading, setSplitLoading] = useState(false)
+  const [splitError, setSplitError] = useState(false)
+  const [splitModalOpen, setSplitModalOpen] = useState(false)
+  const [splitEditId, setSplitEditId] = useState<string | null>(null)
+  const [splitSaving, setSplitSaving] = useState(false)
+  const [splitForm] = Form.useForm<SplitForm>()
+  const [partners, setPartners] = useState<{ id: string; name: string }[]>([])
+
+  const fetchSplitRules = useCallback(async () => {
+    setSplitLoading(true)
+    setSplitError(false)
+    try {
+      const res = await commissionSplitRulesApi.list({ page_size: 200 })
+      const payload = res.data?.data ?? res.data
+      setSplitRules(payload?.items ?? payload ?? [])
+    } catch {
+      setSplitRules([])
+      setSplitError(true)
+    } finally {
+      setSplitLoading(false)
+    }
+  }, [])
+
+  // 合作公司下拉（admin）：/admin/partners
+  const fetchPartners = useCallback(async () => {
+    try {
+      const res = await api.get('/admin/partners', { params: { page_size: 100 } })
+      const payload = res.data?.data ?? res.data
+      setPartners((payload?.items ?? payload ?? []).map((p: any) => ({ id: String(p.id), name: p.name || p.partner_name || '—' })))
+    } catch {
+      setPartners([])
+    }
+  }, [])
+
+  const openSplitCreate = () => {
+    setSplitEditId(null)
+    splitForm.resetFields()
+    splitForm.setFieldsValue({ deal_type: 'new_rental', role: 'listing_agent', scope: 'all', is_active: true, percent: 0 })
+    setSplitModalOpen(true)
+  }
+
+  const openSplitEdit = (rule: SplitRule) => {
+    setSplitEditId(rule.id)
+    splitForm.setFieldsValue({
+      deal_type: rule.deal_type,
+      role: rule.role,
+      percent: rule.percent ?? 0,
+      scope: rule.scope,
+      partner_id: rule.partner_id || undefined,
+      is_active: rule.is_active,
+      effective_from: rule.effective_from,
+      effective_to: rule.effective_to,
+    })
+    setSplitModalOpen(true)
+  }
+
+  const handleSplitSubmit = async () => {
+    try {
+      const values = await splitForm.validateFields()
+      setSplitSaving(true)
+      const payload: any = {
+        deal_type: values.deal_type,
+        role: values.role,
+        percent: Number(values.percent) || 0,
+        scope: values.scope,
+        is_active: values.is_active,
+        effective_from: values.effective_from || undefined,
+        effective_to: values.effective_to || undefined,
+      }
+      if (values.scope === 'by_partner') {
+        if (!values.partner_id) {
+          message.error(t('commissionSplit.errPartner'))
+          return
+        }
+        payload.partner_id = values.partner_id
+      }
+      if (splitEditId) {
+        await commissionSplitRulesApi.update(splitEditId, payload)
+        message.success(t('commissionSplit.updated'))
+      } else {
+        await commissionSplitRulesApi.create(payload)
+        message.success(t('commissionSplit.created'))
+      }
+      setSplitModalOpen(false)
+      void fetchSplitRules()
+    } catch (err: any) {
+      if (err?.errorFields) return
+      message.error(err?.response?.data?.message || err?.response?.data?.detail || t('commissionSplit.saveFailed'))
+    } finally {
+      setSplitSaving(false)
+    }
+  }
+
+  const handleSplitToggle = async (rule: SplitRule) => {
+    try {
+      await commissionSplitRulesApi.update(rule.id, { is_active: !rule.is_active })
+      message.success(rule.is_active ? t('commissionSplit.ruleDisabled') : t('commissionSplit.ruleEnabled'))
+      void fetchSplitRules()
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || t('commissionSplit.opFailed'))
+    }
+  }
+
+  const handleSplitDelete = async (rule: SplitRule) => {
+    try {
+      await commissionSplitRulesApi.remove(rule.id)
+      message.success(t('commissionSplit.deleted'))
+      void fetchSplitRules()
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || t('commissionSplit.deleteFailed'))
+    }
+  }
+
   // 规则列表：缓存优先渲染 + 后台刷新（与其余页面策略一致）
   const rulesQ = useCachedQuery<CommissionRule[]>({
     queryKey: ['commission-rules', 'list'],
@@ -213,6 +369,12 @@ const CommissionRules = () => {
       message.error((rulesQ.error as any)?.response?.data?.message || t('commissionRules.fetchFailed'))
     }
   }, [rulesQ.isError, rulesQ.error, t])
+
+  // 分佣拆分规则加载 + 合作公司下拉
+  useEffect(() => {
+    void fetchSplitRules()
+    void fetchPartners()
+  }, [fetchSplitRules, fetchPartners])
 
   // 前端本地分页（规则量小，保持现有接口不变）
   const pageSize = 10
@@ -364,6 +526,14 @@ const CommissionRules = () => {
         </div>
       </div>
 
+      <Tabs
+        defaultActiveKey="fees"
+        items={[
+          {
+            key: 'fees',
+            label: t('commissionSplit.tabFees'),
+            children: (
+              <>
       {loadFailed && !loading && (
         <Alert
           type="warning"
@@ -474,6 +644,188 @@ const CommissionRules = () => {
       <div className="rent-form-hint" style={{ marginTop: 12 }}>
         {t('commissionRules.rulesHint')}
       </div>
+              </>
+            ),
+          },
+          {
+            key: 'split',
+            label: t('commissionSplit.tabSplit'),
+            children: (
+              <div className="rent-card">
+                <div className="rent-card__header">
+                  <h3 className="rent-card__title">{t('commissionSplit.title')}</h3>
+                  <span className="rent-text-sm rent-text-muted">{t('commissionSplit.subtitle')}</span>
+                  <Button type="primary" size="small" style={{ marginLeft: 'auto' }} onClick={openSplitCreate}>
+                    {t('commissionSplit.addRule')}
+                  </Button>
+                </div>
+                <div className="rent-card__body" style={{ padding: 0 }}>
+                  {splitError && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      style={{ margin: 16 }}
+                      message={t('commissionSplit.errFetch')}
+                      action={<Button size="small" onClick={() => fetchSplitRules()}>{t('common.retry')}</Button>}
+                    />
+                  )}
+                  {!splitError && splitLoading && (
+                    <div className="rent-empty" style={{ padding: '32px 0' }}>
+                      <Spin size="small" style={{ marginRight: 8 }} />
+                      {t('common.loading')}
+                    </div>
+                  )}
+                  {!splitError && !splitLoading && (
+                    <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+                      <table className="rent-table">
+                        <thead>
+                          <tr>
+                            <th>{t('commissionSplit.colDealType')}</th>
+                            <th>{t('commissionSplit.colRole')}</th>
+                            <th>{t('commissionSplit.colPercent')}</th>
+                            <th>{t('commissionSplit.colScope')}</th>
+                            <th>{t('commissionSplit.colEffective')}</th>
+                            <th>{t('commissionSplit.colStatus')}</th>
+                            <th>{t('commissionRules.colAction')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {splitRules.length === 0 ? (
+                            <tr>
+                              <td colSpan={7}>
+                                <div className="rent-empty">
+                                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('commissionSplit.empty')} />
+                                </div>
+                              </td>
+                            </tr>
+                          ) : (
+                            splitRules.map((rule) => {
+                              const scopeText = SCOPE_LABELS[rule.scope] ? t(SCOPE_LABELS[rule.scope]) : rule.scope
+                              const partnerName = rule.scope === 'by_partner'
+                                ? (partners.find((p) => p.id === rule.partner_id)?.name || rule.partner_id || '—')
+                                : ''
+                              const eff = [rule.effective_from, rule.effective_to]
+                                .filter((x) => !!x)
+                                .map((x) => String(x).replace('T', ' ').slice(0, 10))
+                              return (
+                                <tr key={rule.id}>
+                                  <td>{t(`commissionRules.dealType.${rule.deal_type}`)}</td>
+                                  <td>
+                                    <div style={{ fontWeight: 600 }}>
+                                      {ROLE_LABELS[rule.role] ? t(ROLE_LABELS[rule.role]) : rule.role}
+                                    </div>
+                                  </td>
+                                  <td className="cr-rate">{Number(rule.percent)}%</td>
+                                  <td>
+                                    <div>{scopeText}</div>
+                                    {rule.scope === 'by_partner' && (
+                                      <div className="rent-text-sm rent-text-muted">{partnerName}</div>
+                                    )}
+                                  </td>
+                                  <td className="rent-text-sm rent-text-muted">
+                                    {eff.length ? eff.join(' ~ ') : '—'}
+                                  </td>
+                                  <td>
+                                    <span className={`rent-badge ${rule.is_active ? 'rent-badge--success' : 'rent-badge--neutral'}`}>
+                                      {rule.is_active ? t('commissionRules.active') : t('commissionRules.inactive')}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <div className="rent-flex rent-gap-2">
+                                      <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openSplitEdit(rule)}>{t('common.edit')}</button>
+                                      <button
+                                        className="rent-btn rent-btn--ghost rent-btn--sm"
+                                        onClick={() => handleSplitToggle(rule)}
+                                      >
+                                        {rule.is_active ? t('commissionRules.inactive') : t('commissionRules.active')}
+                                      </button>
+                                      <Popconfirm
+                                        title={t('commissionSplit.deleteConfirm')}
+                                        okText={t('common.delete')}
+                                        okButtonProps={{ danger: true }}
+                                        onConfirm={() => handleSplitDelete(rule)}
+                                      >
+                                        <button
+                                          className="rent-btn rent-btn--ghost rent-btn--sm"
+                                          style={{ color: 'var(--state-error)', borderColor: 'var(--state-error)' }}
+                                        >
+                                          {t('common.delete')}
+                                        </button>
+                                      </Popconfirm>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ),
+          },
+        ]}
+      />
+
+      {/* 分佣拆分规则 Modal */}
+      <Modal
+        title={splitEditId ? t('commissionSplit.editTitle') : t('commissionSplit.createTitle')}
+        open={splitModalOpen}
+        onCancel={() => !splitSaving && setSplitModalOpen(false)}
+        onOk={() => handleSplitSubmit()}
+        confirmLoading={splitSaving}
+        destroyOnClose
+      >
+        <Form form={splitForm} layout="vertical">
+          <Form.Item name="deal_type" label={t('commissionSplit.labelDealType')} rules={[{ required: true }]}>
+            <Select
+              options={[
+                { value: 'new_rental', label: t('commissionRules.dealType.new_rental') },
+                { value: 'renewal', label: t('commissionRules.dealType.renewal') },
+                { value: 'management', label: t('commissionRules.dealType.management') },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="role" label={t('commissionSplit.labelRole')} rules={[{ required: true }]}>
+            <Select
+              options={Object.entries(ROLE_LABELS).map(([k, v]) => ({ value: k, label: t(v) }))}
+            />
+          </Form.Item>
+          <Form.Item name="percent" label={t('commissionSplit.labelPercent')} rules={[{ required: true, type: 'number' }]}>
+            <InputNumber min={0} max={100} step={0.1} style={{ width: '100%' }} addonAfter="%" />
+          </Form.Item>
+          <Form.Item name="scope" label={t('commissionSplit.labelScope')} rules={[{ required: true }]}>
+            <Select
+              options={[
+                { value: 'all', label: t('commissionSplit.scope.all') },
+                { value: 'by_partner', label: t('commissionSplit.scope.byPartner') },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, cur) => prev.scope !== cur.scope}
+          >
+            {() => (
+              splitForm.getFieldValue('scope') === 'by_partner' ? (
+                <Form.Item name="partner_id" label={t('commissionSplit.labelPartner')} rules={[{ required: true, message: t('commissionSplit.errPartner') }]}>
+                  <Select
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder={t('commissionSplit.placeholderPartner')}
+                    options={partners.map((p) => ({ value: p.id, label: p.name }))}
+                  />
+                </Form.Item>
+              ) : null
+            )}
+          </Form.Item>
+          <Form.Item name="is_active" label={t('commissionSplit.labelActive')} valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       {/* Modal */}
       {modalOpen && (

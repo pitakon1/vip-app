@@ -20,14 +20,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RemoteImage from '@/components/RemoteImage';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
+import BeikeHeader from '@/components/BeikeHeader';
 import { publicApi, unwrapPage, type PublicProject } from '@/services/publicApi';
 import { convertFromThb, loadRates, tenureLabel, type TFunction } from '@/lib/publicSite';
 import { fmtMoney } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { Badge } from './PublicFilterChip';
-import PublicBackRow from './PublicBackRow';
-
 const PAGE_SIZE = 30;
 
 export default function PublicCommunitiesScreen() {
@@ -83,12 +82,9 @@ export default function PublicCommunitiesScreen() {
   }, [fetchPage]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
-      <View style={styles.backWrap}>
-        <PublicBackRow />
-      </View>
+    <View style={styles.container}>
+      <BeikeHeader title={t('pub.communitiesTitle')} />
       <View style={styles.header}>
-        <Text style={styles.title}>{t('pub.communitiesTitle')}</Text>
         <Text style={styles.hint}>{t('pub.communitiesHint')}</Text>
         <TextInput
           style={styles.search}

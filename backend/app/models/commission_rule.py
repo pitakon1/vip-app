@@ -19,6 +19,7 @@ class CommissionRuleScope(str, Enum):
     by_department = "by_department"
     by_employee = "by_employee"
     by_broker = "by_broker"  # 按分销商（渠道商）差异化定价
+    by_partner = "by_partner"  # 按合作公司差异化定价
 
 
 class CommissionRule(TimestampMixin, table=True):

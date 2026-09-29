@@ -8,6 +8,7 @@ import { fmtMoney as money } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import { AREA_GROUPS } from '@/data/locationArea'
 import BottomNav from '@/components/BottomNav'
+import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import RegionPicker, { type RegionSelection } from '@/components/RegionPicker'
 import './index.scss'
@@ -547,6 +548,7 @@ export default function OwnerPropertiesPage() {
 
   return (
     <View className='op-page'>
+      <ShellHeader title={t('nav.properties')} />
       <View className='page-container'>
         {/* 页头：标题 + 委托挂牌 */}
         <View className='page-header'>

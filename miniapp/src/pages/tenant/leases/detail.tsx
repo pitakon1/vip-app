@@ -5,6 +5,7 @@ import { leasesApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import { useI18n } from '@/i18n'
+import ShellHeader from '@/components/ShellHeader'
 import './detail.scss'
 
 const fmtDate = (x?: string) => (x ? String(x).slice(0, 10) : '—')
@@ -70,6 +71,7 @@ export default function TenantLeaseDetailPage() {
   if (!loading && !lease) {
     return (
       <View className='tenant-lease-detail-page'>
+        <ShellHeader title={t('nav.leaseDetail')} />
         <View className='page-container'>
           <View className='empty-tip'>
             <Text>{t('tenantLease.notFound')}</Text>
@@ -79,7 +81,11 @@ export default function TenantLeaseDetailPage() {
     )
   }
   if (!lease) {
-    return <View className='tenant-lease-detail-page' />
+    return (
+      <View className='tenant-lease-detail-page'>
+        <ShellHeader title={t('nav.leaseDetail')} />
+      </View>
+    )
   }
 
   const meta = LEASE_STATUS[String(lease?.status ?? '')] ?? LEASE_STATUS.pending
@@ -93,6 +99,7 @@ export default function TenantLeaseDetailPage() {
 
   return (
     <View className='tenant-lease-detail-page'>
+      <ShellHeader title={t('nav.leaseDetail')} />
       <View className='page-container'>
         {/* 租期卡 */}
         <View className='card'>

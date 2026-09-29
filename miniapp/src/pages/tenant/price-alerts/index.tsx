@@ -13,6 +13,7 @@ import { photoUrl } from '@/lib/publicSite'
 import { fmtMoney as money } from '@/utils/format'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
+import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 
 interface AlertItem {
@@ -54,7 +55,6 @@ export default function PriceAlertsPage() {
   }
 
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: t('priceAlert.title') })
     loadFromStorage()
     if (!useAuthStore.getState().token) {
       Taro.redirectTo({ url: '/pages/login/index' })
@@ -90,6 +90,7 @@ export default function PriceAlertsPage() {
 
   return (
     <View className='alert-page'>
+      <ShellHeader title={t('nav.priceAlerts')} />
       <View className='page-container'>
         {loading && items.length === 0 && (
           <StateBlock loading text={t('common.loading')} />

@@ -25,13 +25,16 @@ from .company import router as company_router
 from .billing import router as billing_router
 from .chat import router as chat_router
 from .contracts import router as contracts_router
+from .contract_sign_public import router as contract_sign_public_router
 from .ai import router as ai_router
 from .backup import router as backup_router
 from .geo import router as geo_router
 from .translate import router as translate_router
 from .viewings import router as viewings_router
+from .calendar_events import router as calendar_events_router
 from .audit import router as audit_router
 from .commission_rules import router as commission_rules_router
+from .commission_split_rules import router as commission_split_rules_router
 from .favorites import router as favorites_router
 from .price_alerts import router as price_alerts_router
 from .sale_listings import router as sale_listings_router
@@ -41,6 +44,8 @@ from .markets import router as markets_router
 from .market_data import router as market_data_router
 from .users_admin import router as users_admin_router
 from .user_groups import router as user_groups_router
+from .partners_admin import router as partners_admin_router
+from .partner_members import router as partner_members_router
 from .permissions_admin import router as permissions_admin_router
 from .review_center import router as review_center_router
 from .operations import router as operations_router
@@ -74,13 +79,16 @@ api_router.include_router(company_router)
 api_router.include_router(billing_router)
 api_router.include_router(chat_router)
 api_router.include_router(contracts_router)
+api_router.include_router(contract_sign_public_router)
 api_router.include_router(ai_router)
 api_router.include_router(backup_router)
 api_router.include_router(geo_router)
 api_router.include_router(translate_router)
 api_router.include_router(viewings_router)
+api_router.include_router(calendar_events_router)
 api_router.include_router(audit_router)
 api_router.include_router(commission_rules_router)
+api_router.include_router(commission_split_rules_router)
 api_router.include_router(favorites_router)
 api_router.include_router(price_alerts_router)
 api_router.include_router(sale_listings_router)
@@ -90,6 +98,8 @@ api_router.include_router(markets_router)
 api_router.include_router(market_data_router)
 api_router.include_router(users_admin_router)
 api_router.include_router(user_groups_router)
+api_router.include_router(partners_admin_router)
+api_router.include_router(partner_members_router)
 api_router.include_router(permissions_admin_router)
 api_router.include_router(review_center_router)
 api_router.include_router(operations_router)

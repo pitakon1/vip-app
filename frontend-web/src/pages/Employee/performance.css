@@ -138,3 +138,23 @@
   border-radius: 3px;
   display: inline-block;
 }
+
+/* ===== 业绩子视图：可排序表头 ===== */
+.perf-sort-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rent-ink-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.perf-sort-btn:hover {
+  color: var(--rent-primary);
+}
+.perf-sort-btn span {
+  color: var(--rent-primary);
+}

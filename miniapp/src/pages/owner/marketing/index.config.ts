@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '营销中心', navigationStyle: 'custom' }

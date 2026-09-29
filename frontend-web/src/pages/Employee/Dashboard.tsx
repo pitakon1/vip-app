@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Spin, Empty, Alert, Button } from 'antd'
+import { message, Spin, Empty, Alert, Button, Modal, Input, DatePicker, TimePicker, Checkbox, Popconfirm } from 'antd'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
+import { calendarEventsApi, leadsApi } from '@/services/api'
 import './dashboard.css'
 
 interface SummaryData {
@@ -107,6 +108,15 @@ const Dashboard = () => {
   const [viewings, setViewings] = useState<any[]>([])
   const [pendingReceivable, setPendingReceivable] = useState(0)
   const [loadFailed, setLoadFailed] = useState(false)
+  // 「我的日程」自定义事件
+  const [userEvents, setUserEvents] = useState<any[]>([])
+
+  // 添加日程弹窗状态
+  const [calModalOpen, setCalModalOpen] = useState(false)
+  const [calTitle, setCalTitle] = useState('')
+  const [calStart, setCalStart] = useState<dayjs.Dayjs | null>(dayjs())
+  const [calAllDay, setCalAllDay] = useState(false)
+  const [savingCal, setSavingCal] = useState(false)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -116,7 +126,7 @@ const Dashboard = () => {
         anyFailed = true
         return { data: {} }
       }
-      const [sumRes, leadsRes, wbRes, vwRes, pfRes] = await Promise.all([
+      const [sumRes, leadsRes, wbRes, vwRes, pfRes, calRes] = await Promise.all([
         api.get('/dashboard/summary').catch(markFailed),
         api.get('/leads', { params: { pageSize: 50 } }).catch(() => {
           anyFailed = true
@@ -128,6 +138,7 @@ const Dashboard = () => {
           return { data: { items: [] } }
         }),
         api.get('/performance/me').catch(markFailed),
+        calendarEventsApi.list().catch(() => ({ data: { items: [] } })),
       ])
 
       const sumPayload = sumRes.data?.data ?? sumRes.data
@@ -145,6 +156,11 @@ const Dashboard = () => {
 
       const vwPayload = vwRes.data?.data ?? vwRes.data
       setViewings(vwPayload?.items ?? [])
+
+      // 我的日程：不标记 anyFailed，失败仅置空，不拖垮整个工作台
+      const calPayload = calRes.data?.data ?? calRes.data
+      const calList = Array.isArray(calPayload) ? calPayload : calPayload?.items
+      setUserEvents(Array.isArray(calList) ? calList : [])
       setLoadFailed(anyFailed)
     } catch (err: any) {
       setLoadFailed(true)
@@ -183,6 +199,71 @@ const Dashboard = () => {
     .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
 
   const hotLeads = leads.filter((l) => ['negotiating', 'pending_contract'].includes(l.stage))
+
+  // 我的日程：添加 / 删除
+  const reloadEvents = async () => {
+    try {
+      const res = await calendarEventsApi.list()
+      const payload = res.data?.data ?? res.data
+      const list = Array.isArray(payload) ? payload : payload?.items
+      setUserEvents(Array.isArray(list) ? list : [])
+    } catch {
+      /* 静默失败，保持现状 */
+    }
+  }
+
+  const openCalModal = () => {
+    setCalTitle('')
+    setCalStart(dayjs())
+    setCalAllDay(false)
+    setCalModalOpen(true)
+  }
+
+  const handleSaveCal = async () => {
+    if (!calTitle.trim()) {
+      message.warning(t('employeeDashboard.calEventText'))
+      return
+    }
+    const start = calStart?.isValid()
+      ? (calAllDay ? calStart.startOf('day') : calStart)
+      : dayjs()
+    setSavingCal(true)
+    try {
+      await calendarEventsApi.create({
+        title: calTitle.trim(),
+        start_at: start.toISOString(),
+        all_day: calAllDay,
+      })
+      message.success(t('employeeDashboard.calSaved'))
+      setCalModalOpen(false)
+      await reloadEvents()
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || t('employeeDashboard.fetchFailed'))
+    } finally {
+      setSavingCal(false)
+    }
+  }
+
+  const handleDeleteCal = async (id: string) => {
+    try {
+      await calendarEventsApi.remove(id)
+      message.success(t('employeeDashboard.calDelete'))
+      await reloadEvents()
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || t('employeeDashboard.fetchFailed'))
+    }
+  }
+
+  // 删除线索（业务数据），成功后局部刷新该列表
+  const handleDeleteLead = async (id: string) => {
+    try {
+      await leadsApi.delete(id)
+      message.success(t('employeeDashboard.leadDeleted'))
+      setLeads((prev) => prev.filter((l) => l.id !== id))
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || t('employeeDashboard.fetchFailed'))
+    }
+  }
 
   return (
     <div className="rent-main">
@@ -270,6 +351,48 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {/* 我的日程：自定义事件 */}
+          <div className="rent-card">
+            <div className="rent-card__header">
+              <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
+                <h3 className="rent-card__title">{t('employeeDashboard.calEventsTitle')}</h3>
+                <span className="rent-badge rent-badge--primary">{t('employeeDashboard.calEventsCount', { n: userEvents.length })}</span>
+              </div>
+              <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={openCalModal}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                {t('employeeDashboard.calAddEvent')}
+              </button>
+            </div>
+            <div className="rent-card__body">
+              {userEvents.length === 0 ? (
+                <div className="rent-empty">
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('employeeDashboard.calEmpty')} />
+                </div>
+              ) : (
+                userEvents.map((item) => (
+                  <div key={item.id} className="rent-wb-timeline-item">
+                    <div className="rent-wb-time">
+                      <div className="rent-wb-time__range" style={{ color: 'var(--rent-primary)' }}>
+                        {toHHmm(item.start_at)}
+                      </div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }} className="rent-text-bold">
+                      {item.title || '-'}
+                    </div>
+                    <Popconfirm
+                      title={t('employeeDashboard.calDelete')}
+                      okText={t('employeeDashboard.calDelete')}
+                      cancelText={t('common.cancel')}
+                      onConfirm={() => handleDeleteCal(item.id)}
+                    >
+                      <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm">{t('employeeDashboard.calDelete')}</button>
+                    </Popconfirm>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* 待跟进客户 */}
           <div className="rent-card">
             <div className="rent-card__header">
@@ -319,9 +442,19 @@ const Dashboard = () => {
                               </span>
                             </td>
                             <td>
-                              <Link to="/crm" className={`rent-btn rent-btn--sm ${closed ? 'rent-btn--ghost' : 'rent-btn--primary'}`}>
-                                {closed ? t('employeeDashboard.view') : t('employeeDashboard.followUp')}
-                              </Link>
+                              <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
+                                <Link to="/crm" className={`rent-btn rent-btn--sm ${closed ? 'rent-btn--ghost' : 'rent-btn--primary'}`}>
+                                  {closed ? t('employeeDashboard.view') : t('employeeDashboard.followUp')}
+                                </Link>
+                                <Popconfirm
+                                  title={t('employeeDashboard.deleteLeadConfirm')}
+                                  okText={t('employeeDashboard.calDelete')}
+                                  cancelText={t('common.cancel')}
+                                  onConfirm={() => handleDeleteLead(f.id)}
+                                >
+                                  <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm">{t('employeeDashboard.deleteLead')}</button>
+                                </Popconfirm>
+                              </div>
                             </td>
                           </tr>
                         )
@@ -438,6 +571,55 @@ const Dashboard = () => {
         </div>
 
       </div>
+
+      {/* 我的日程：添加事件弹窗 */}
+      <Modal
+        open={calModalOpen}
+        title={t('employeeDashboard.calAddEvent')}
+        onCancel={() => setCalModalOpen(false)}
+        onOk={handleSaveCal}
+        okText={t('employeeDashboard.calSave')}
+        cancelText={t('common.cancel')}
+        confirmLoading={savingCal}
+        destroyOnClose
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 8 }}>
+          <div>
+            <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 6 }}>{t('employeeDashboard.calEventText')}</div>
+            <Input
+              value={calTitle}
+              onChange={(e) => setCalTitle(e.target.value)}
+              placeholder={t('employeeDashboard.calEventText')}
+              maxLength={200}
+              onPressEnter={handleSaveCal}
+            />
+          </div>
+          <div>
+            <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 6 }}>{t('employeeDashboard.calEventTime')}</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <DatePicker
+                format="YYYY-MM-DD"
+                value={calStart}
+                onChange={(v) =>
+                  setCalStart((prev) => (v ? v.hour(prev?.hour() ?? 9).minute(prev?.minute() ?? 0).second(0) : null))
+                }
+                disabledDate={(d) => d && d.isBefore(dayjs().startOf('day'))}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <TimePicker
+                format="HH:mm"
+                minuteStep={5}
+                value={calStart}
+                onChange={(v) => setCalStart((prev) => (v ? v.second(0) : prev))}
+                style={{ width: 104 }}
+              />
+            </div>
+          </div>
+          <Checkbox checked={calAllDay} onChange={(e) => setCalAllDay(e.target.checked)}>
+            {t('employeeDashboard.calAllDay')}
+          </Checkbox>
+        </div>
+      </Modal>
     </div>
   )
 }

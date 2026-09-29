@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '租约管理', navigationStyle: 'custom' }

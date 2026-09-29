@@ -15,6 +15,7 @@ import { convertFromThb, loadRates, tenureLabel } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
 import { useI18n } from '@/i18n'
 import PublicListingItem from '@/components/PublicListingItem'
+import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 
 /** 空值不渲染该行；数字转字符串。 */
@@ -55,6 +56,7 @@ export default function PublicCommunityDetailPage() {
   if (loading) {
     return (
       <View className='pub-page'>
+        <ShellHeader title={t('pub.communityListings')} />
         <View className='pub-loading'>{t('pub.loading')}</View>
       </View>
     )
@@ -63,6 +65,7 @@ export default function PublicCommunityDetailPage() {
   if (!project) {
     return (
       <View className='pub-page'>
+        <ShellHeader title={t('pub.communityListings')} />
         <View className='pub-empty'>{t('pub.communityNotFound')}</View>
       </View>
     )
@@ -94,6 +97,7 @@ export default function PublicCommunityDetailPage() {
 
   return (
     <View className='pub-page'>
+      <ShellHeader title={t('pub.communityListings')} />
       {project.cover ? (
         <Image className='pub-cover' src={project.cover} mode='aspectFill' />
       ) : null}

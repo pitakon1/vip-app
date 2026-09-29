@@ -11,6 +11,7 @@ import { getHistory, clearHistory, type BrowseHistoryItem } from '@/utils/browse
 import { photoUrl } from '@/lib/publicSite'
 import { fmtMoney as money } from '@/utils/format'
 import { useI18n } from '@/i18n'
+import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 
 export default function BrowseHistoryPage() {
@@ -18,7 +19,6 @@ export default function BrowseHistoryPage() {
   const [items, setItems] = useState<BrowseHistoryItem[]>([])
 
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: t('history.title') })
     setItems(getHistory())
   })
 
@@ -37,6 +37,7 @@ export default function BrowseHistoryPage() {
 
   return (
     <View className='history-page'>
+      <ShellHeader title={t('nav.history')} />
       <View className='page-container'>
         {items.length > 0 && (
           <View className='history-bar' onClick={clearAll}>

@@ -5,6 +5,7 @@ import { leasesApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import StateBlock from '@/components/StateBlock'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -57,7 +58,6 @@ export default function TenantLeasesPage() {
   const leases = data ?? []
 
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: t('tenantLease.listTitle') })
     loadFromStorage()
     if (!useAuthStore.getState().token) {
       Taro.redirectTo({ url: '/pages/login/index' })
@@ -68,6 +68,7 @@ export default function TenantLeasesPage() {
 
   return (
     <View className='tenant-leases-page'>
+      <ShellHeader title={t('nav.leases')} />
       <View className='page-container'>
         <View className='card card--list'>
           {loading && leases.length === 0 && (

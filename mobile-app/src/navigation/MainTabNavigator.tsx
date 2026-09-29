@@ -13,14 +13,17 @@ import TenantListingsScreen from '../screens/tenant/ListingsScreen';
 
 // 员工端页面
 import EmployeeHomeScreen from '../screens/employee/HomeScreen';
-import EmployeePropertyBrowseScreen from '../screens/employee/PropertyBrowseScreen';
 import CRMScreen from '../screens/employee/CRMScreen';
 
 // 管理端页面
 import AdminHomeScreen from '../screens/admin/HomeScreen';
-import AdminPropertiesScreen from '../screens/admin/PropertiesScreen';
 import AdminPaymentsScreen from '../screens/admin/PaymentsScreen';
 import AdminCRMScreen from '../screens/admin/CRMScreen';
+import AdminPropertiesScreen from '../screens/admin/PropertiesScreen';
+import PartnerHubScreen from '../screens/admin/PartnerHubScreen';
+
+// 房源浏览（只读）：员工/经纪端底部「房源」Tab 指向该只读浏览页
+import EmployeePropertyBrowseScreen from '../screens/employee/PropertyBrowseScreen';
 
 // 公共：消息（聊天）
 import ChatListScreen from '../screens/chat/ChatListScreen';
@@ -49,25 +52,30 @@ const C_TABS: TabDef[] = [
 ];
 
 const ROLE_TABS: Record<UserRole, TabDef[]> = {
-  // 管理端 首页 / 房源 / 客户 / 收款 / 我的
+  // 合作公司管理员：聚合页（成员/绩效/本公司房源）+ 我的
+  partner_admin: [
+    { name: 'PartnerHome', component: PartnerHubScreen, icon: 'home', labelKey: 'tab.home' },
+    { name: 'PartnerProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
+  ],
+  // 管理端 首页 / 房源(管理，含增删改查) / 客户 / 收款 / 我的
   admin: [
     { name: 'AdminHome', component: AdminHomeScreen, icon: 'home', labelKey: 'tab.home' },
-    { name: 'AdminProperties', component: AdminPropertiesScreen, icon: 'business', labelKey: 'tab.properties' },
+    { name: 'Properties', component: AdminPropertiesScreen, icon: 'business', labelKey: 'tab.properties' },
     { name: 'AdminCRM', component: AdminCRMScreen, icon: 'people', labelKey: 'tab.customers' },
     { name: 'AdminPayments', component: AdminPaymentsScreen, icon: 'card', labelKey: 'tab.payments' },
     { name: 'AdminProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
   ],
-  // 员工/经纪端 首页 / 房源 / 客户 / 消息 / 我的（业绩已并入首页图表，通讯录移至「我的」内）
+  // 员工/经纪端 首页 / 房源(浏览) / 客户 / 消息 / 我的（业绩已并入首页图表，通讯录移至「我的」内）
   employee: [
     { name: 'EmployeeHome', component: EmployeeHomeScreen, icon: 'home', labelKey: 'tab.home' },
-    { name: 'EmployeePropertyBrowse', component: EmployeePropertyBrowseScreen, icon: 'business', labelKey: 'tab.properties' },
+    { name: 'Properties', component: EmployeePropertyBrowseScreen, icon: 'business', labelKey: 'tab.properties' },
     { name: 'EmployeeCRM', component: CRMScreen, icon: 'people', labelKey: 'tab.customers' },
     { name: 'EmployeeChat', component: ChatListScreen, icon: 'chatbubbles', labelKey: 'tab.messages' },
     { name: 'EmployeeProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
   ],
   agent: [
     { name: 'EmployeeHome', component: EmployeeHomeScreen, icon: 'home', labelKey: 'tab.home' },
-    { name: 'EmployeePropertyBrowse', component: EmployeePropertyBrowseScreen, icon: 'business', labelKey: 'tab.properties' },
+    { name: 'Properties', component: EmployeePropertyBrowseScreen, icon: 'business', labelKey: 'tab.properties' },
     { name: 'EmployeeCRM', component: CRMScreen, icon: 'people', labelKey: 'tab.customers' },
     { name: 'EmployeeChat', component: ChatListScreen, icon: 'chatbubbles', labelKey: 'tab.messages' },
     { name: 'EmployeeProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },

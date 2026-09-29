@@ -7,6 +7,7 @@ import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 import { useI18n } from '@/i18n'
 
@@ -333,6 +334,7 @@ export default function OwnerPropertyDetailPage() {
 
   return (
     <View className='owner-property-detail-page'>
+      <ShellHeader title={t('nav.propertyDetail')} />
       <View className='page-container'>
         {loading && !property && (
           <View className='empty-state'>

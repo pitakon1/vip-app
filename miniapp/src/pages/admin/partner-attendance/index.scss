@@ -1,0 +1,136 @@
+/* 管理端 · 合作公司考勤汇总（合作公司管理员侧，作用域由后端强制为本公司） */
+.pa-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24rpx 24rpx 80rpx;
+  box-sizing: border-box;
+}
+
+/* 日期区间筛选 */
+.pa-filter-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+}
+
+.pa-filter-label {
+  display: block;
+  font-size: 24rpx;
+  color: var(--ink-3);
+  margin-bottom: 12rpx;
+}
+
+.pa-filter {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+
+  &__pick {
+    height: 76rpx;
+    padding: 0 24rpx;
+    display: flex;
+    align-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  &__pick-text {
+    font-size: 28rpx;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__sep {
+    font-size: 26rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* 统计卡 */
+.pa-stats-row {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 20rpx;
+}
+
+.pa-stat-card {
+  flex: 1;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+
+  &__value {
+    display: block;
+    font-size: 40rpx;
+    font-weight: 700;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__label {
+    display: block;
+    margin-top: 6rpx;
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* 区间标题 */
+.pa-range {
+  display: block;
+  margin: 8rpx 0 16rpx;
+  font-size: 24rpx;
+  color: var(--ink-3);
+}
+
+/* 区块标题 */
+.pa-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 8rpx 0 16rpx;
+
+  &__title {
+    font-size: 32rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  &__count {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* 成员考勤列表 */
+.pa-agent {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 20rpx 24rpx;
+  margin-bottom: 16rpx;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16rpx;
+  }
+
+  &__name {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  &__meta {
+    display: block;
+    margin-top: 6rpx;
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}

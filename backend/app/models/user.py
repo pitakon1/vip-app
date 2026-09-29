@@ -2,6 +2,7 @@
 
 对应设计文档中的用户/账号体系，统一管理后台、中介、业主、租客等角色的登录账号。
 """
+import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -19,6 +20,14 @@ class UserRole(str, Enum):
     owner = "owner"
     tenant = "tenant"
     employee = "employee"
+    partner_admin = "partner_admin"  # 合作公司管理员
+
+
+class UserType(str, Enum):
+    """账号来源类型：平台员工 / 合作伙伴员工。"""
+
+    platform = "platform"
+    partner = "partner"
 
 
 class User(TimestampMixin, table=True):
@@ -36,6 +45,10 @@ class User(TimestampMixin, table=True):
     hashed_password: str
     full_name: str
     role: UserRole = Field(default=UserRole.tenant, index=True)
+    # 账号来源类型：平台员工(platform) / 合作伙伴员工(partner)
+    user_type: UserType = Field(default=UserType.platform, index=True)
+    # 归属合作公司（合作公司管理员及其旗下经纪人挂到此字段）
+    partner_id: Optional[uuid.UUID] = Field(default=None, foreign_key="partners.id", index=True)
     is_active: bool = Field(default=True)
     is_verified: bool = Field(default=False)
     preferred_language: str = Field(default="zh", max_length=5)  # zh/en/th

@@ -202,8 +202,34 @@ export const contractsApi = {
   get: (id: string) => api.get(`/contracts/${id}`),
   generate: (data: RequestBody) => api.post('/contracts/generate', data),
   addParty: (id: string, data: RequestBody) => api.post(`/contracts/${id}/parties`, data),
-  sign: (id: string, partyId: string, name?: string) =>
-    api.post(`/contracts/${id}/sign`, { party_id: partyId, ...(name ? { name } : {}) }),
+  // data={title?, content_html?}
+  updateContract: (id: string, data: RequestBody) => api.patch(`/contracts/${id}`, data),
+  uploadFile: (id: string, file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/contracts/${id}/upload`, fd)
+  },
+  createShareLink: (id: string, partyId: string, expiresInDays?: number) =>
+    api.post(`/contracts/${id}/share-link`, { party_id: partyId, expires_in_days: expiresInDays }),
+  sendContract: (id: string, body?: RequestBody) =>
+    api.post(`/contracts/${id}/send`, body || {}),
+  voidContract: (id: string, reason?: string) =>
+    api.post(`/contracts/${id}/void`, { reason }),
+  // signatureSvg 为手写签名导出的 <svg> 字符串；不传时由后端代生成签名
+  sign: (id: string, partyId: string, signatureSvg?: string) =>
+    api.post(`/contracts/${id}/sign`, {
+      party_id: partyId,
+      ...(signatureSvg ? { signature_svg: signatureSvg } : {}),
+    }),
+}
+
+// 公共签署（匿名访问 /public/contract-sign，无鉴权，token 即访客身份）
+export const contractsPublicApi = {
+  get: (token: string) => api.get(`/public/contract-sign/${token}`),
+  fileUrl: (token: string) => `/api/v1/public/contract-sign/${token}/file`,
+  // data={name, id_number?, phone?, signature_svg?}
+  submit: (token: string, data: RequestBody) =>
+    api.post(`/public/contract-sign/${token}`, data),
 }
 
 // 房源上架单（发布房源 + 分佣配置 + 审核 / 下架）
@@ -287,12 +313,47 @@ export const financialApi = {
   trend: (params?: QueryParams) => api.get('/dashboard/trend', { params }),
 }
 
+// 员工工作台「我的日程」自定义事件
+export const calendarEventsApi = {
+  list: (params?: QueryParams) => api.get('/calendar-events', { params }),
+  create: (data: RequestBody) => api.post('/calendar-events', data),
+  update: (id: string, data: RequestBody) => api.patch(`/calendar-events/${id}`, data),
+  remove: (id: string) => api.delete(`/calendar-events/${id}`),
+}
+
 // 佣金规则配置
 export const commissionRulesApi = {
   list: (params?: QueryParams) => api.get('/commission-rules', { params }),
   create: (data: RequestBody) => api.post('/commission-rules', data),
   update: (id: string, data: RequestBody) => api.patch(`/commission-rules/${id}`, data),
   delete: (id: string) => api.delete(`/commission-rules/${id}`),
+}
+
+// ===== 管理端 v2.0：业绩可追踪到经纪/销售（提成与分佣）=====
+
+// 业绩（系统按佣金结算自动核算）
+export const performanceApi = {
+  me: () => api.get('/performance/me'),
+  leaderboard: (params?: QueryParams) => api.get('/performance/leaderboard', { params }),
+  // 全员业绩追踪：每个经纪/销售的佣金 / 营收 / 成交
+  agents: (params?: QueryParams) => api.get('/performance/agents', { params }),
+  // 合作公司业绩 / 分佣汇总
+  partners: () => api.get('/performance/partners'),
+}
+
+// 佣金结算（分佣记录）
+export const commissionsApi = {
+  me: (params?: QueryParams) => api.get('/commissions/me', { params }),
+  // 分佣结算记录（admin）：role / status / partner_id 过滤，含 split_percent
+  settlements: (params?: QueryParams) => api.get('/commissions/settlements', { params }),
+}
+
+// 分佣拆分规则（admin CRUD）：按成交类型 + 角色配置分成比例
+export const commissionSplitRulesApi = {
+  list: (params?: QueryParams) => api.get('/commission-split-rules', { params }),
+  create: (data: RequestBody) => api.post('/commission-split-rules', data),
+  update: (id: string, data: RequestBody) => api.patch(`/commission-split-rules/${id}`, data),
+  remove: (id: string) => api.delete(`/commission-split-rules/${id}`),
 }
 
 // 7. GPS 考勤（500KM 半径 + 外勤申请）
@@ -328,8 +389,15 @@ export const attendanceApi = {
   approveLeave: (id: string, data: RequestBody) =>
     api.post(`/attendance/leave-requests/${id}/approve`, data),
   cancelLeave: (id: string) => api.post(`/attendance/leave-requests/${id}/cancel`),
+  // 打卡异常申诉（P1-d）
+  appeals: (params?: QueryParams) => api.get('/attendance/appeals', { params }),
+  applyAppeal: (data: RequestBody) => api.post('/attendance/appeals', data),
+  approveAppeal: (id: string, data: RequestBody) =>
+    api.post(`/attendance/appeals/${id}/approve`, data),
   // 异常分类统计与趋势（P1-c）
   summary: (params?: QueryParams) => api.get('/attendance/admin/summary', { params }),
+  // 按合作公司分组的考勤汇总（平台管理员看全部，合作公司管理员限本公司）
+  adminCompanies: (params?: QueryParams) => api.get('/attendance/admin/companies', { params }),
 }
 
 // ===== 四大战略维度（买卖交易 / 分销体系 / 多国市场 / 数据决策）=====

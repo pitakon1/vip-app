@@ -19,6 +19,8 @@ const Schools = lazy(() => import('@/pages/Schools'))
 const SchoolDetail = lazy(() => import('@/pages/SchoolDetail'))
 const Communities = lazy(() => import('@/pages/Communities'))
 const CommunityDetail = lazy(() => import('@/pages/CommunityDetail'))
+// 公共签署页（客户用 H5，匿名可访问）
+const Sign = lazy(() => import('@/pages/Sign'))
 
 // 管理端页面
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
@@ -55,6 +57,7 @@ const OwnerIncome = lazy(() => import('@/pages/Owner/Income'))
 const OwnerServices = lazy(() => import('@/pages/Owner/Services'))
 const OwnerPayments = lazy(() => import('@/pages/Owner/Payments'))
 const OwnerMarketing = lazy(() => import('@/pages/Owner/Marketing'))
+const OwnerContracts = lazy(() => import('@/pages/Owner/Contracts'))
 
 // 租客端页面
 const TenantDashboard = lazy(() => import('@/pages/Tenant/Dashboard'))
@@ -68,6 +71,7 @@ const TenantLeases = lazy(() => import('@/pages/Tenant/Leases'))
 const TenantLeaseDetail = lazy(() => import('@/pages/Tenant/LeaseDetail'))
 const TenantDeals = lazy(() => import('@/pages/Tenant/Deals'))
 const TenantDealDetail = lazy(() => import('@/pages/Tenant/DealDetail'))
+const TenantContracts = lazy(() => import('@/pages/Tenant/Contracts'))
 
 // 员工端页面
 const EmployeeDashboard = lazy(() => import('@/pages/Employee/Dashboard'))
@@ -80,10 +84,14 @@ const AttendanceManage = lazy(() => import('@/pages/AttendanceManage'))
 
 // 系统管理（账号权限体系）
 const SystemUsers = lazy(() => import('@/pages/System/Users'))
+const SystemPartners = lazy(() => import('@/pages/System/Partners'))
 const SystemGroups = lazy(() => import('@/pages/System/Groups'))
 const SystemPermissions = lazy(() => import('@/pages/System/Permissions'))
 const SystemReview = lazy(() => import('@/pages/System/ReviewCenter'))
 const Operations = lazy(() => import('@/pages/Operations'))
+
+// 合作公司（partner_admin）页面：本公司成员视图
+const PartnerMembers = lazy(() => import('@/pages/Partner/Members'))
 
 const Company = lazy(() => import('@/pages/Company'))
 
@@ -102,6 +110,8 @@ const RoleRedirect = () => {
     case 'employee':
     case 'agent':
       return <Navigate to="/employee/dashboard" replace />
+    case 'partner_admin':
+      return <Navigate to="/partner/members" replace />
     default:
       return <Navigate to="/dashboard" replace />
   }
@@ -141,6 +151,8 @@ const App = () => {
           <Route path="/community/:id" element={<CommunityDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          {/* 公共签署页：客户持链接即可匿名签署，无需登录 */}
+          <Route path="/sign/:token" element={<Sign />} />
 
           {/* ===== 管理端 + 员工端（B端 · 侧边栏后台）===== */}
           <Route
@@ -183,6 +195,7 @@ const App = () => {
             <Route path="/owner/payments" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerPayments /></ProtectedRoute>} />
             <Route path="/owner/marketing" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerMarketing /></ProtectedRoute>} />
             <Route path="/owner/my" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerMy /></ProtectedRoute>} />
+            <Route path="/owner/contracts" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerContracts /></ProtectedRoute>} />
 
             {/* 员工端路由：仅员工/管理员 */}
             <Route path="/employee/dashboard" element={<ProtectedRoute denyRoles={['tenant','owner','agent']}><EmployeeDashboard /></ProtectedRoute>} />
@@ -191,13 +204,19 @@ const App = () => {
             <Route path="/employee/contacts" element={<ProtectedRoute denyRoles={['tenant','owner','agent']}><EmployeeContacts /></ProtectedRoute>} />
 
             {/* 系统管理：仅管理员（工单审核/账号管理需 admin 角色） */}
-            <Route path="/system/users" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><SystemUsers /></ProtectedRoute>} />
-            <Route path="/system/groups" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><SystemGroups /></ProtectedRoute>} />
-            <Route path="/system/permissions" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><SystemPermissions /></ProtectedRoute>} />
-            <Route path="/system/review-center" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><SystemReview /></ProtectedRoute>} />
-            <Route path="/operations" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><Operations /></ProtectedRoute>} />
-            {/* 考勤管理：仅管理员（考勤核对 / 考勤组 / 假勤审批 / 异常报表） */}
+            <Route path="/system/users" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemUsers /></ProtectedRoute>} />
+            <Route path="/system/partners" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemPartners /></ProtectedRoute>} />
+            <Route path="/system/groups" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemGroups /></ProtectedRoute>} />
+            <Route path="/system/permissions" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemPermissions /></ProtectedRoute>} />
+            <Route path="/system/review-center" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemReview /></ProtectedRoute>} />
+            <Route path="/operations" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><Operations /></ProtectedRoute>} />
+            {/* 考勤管理：管理员看全量；合作公司管理员看本公司（后端按 partner 作用域强制收敛） */}
             <Route path="/attendance-manage" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><AttendanceManage /></ProtectedRoute>} />
+
+            {/* 合作公司成员管理：仅 partner_admin（本公司成员/绩效/房源，不走平台全量接口） */}
+            <Route path="/partner/members" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><PartnerMembers /></ProtectedRoute>} />
+            {/* 合作公司考勤：仅 partner_admin（本公司考勤汇总，复用考勤管理页的公司作用域模式） */}
+            <Route path="/partner/attendance" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><AttendanceManage /></ProtectedRoute>} />
 
             {/* 房源上架 / 我的上架单 / 经纪人在线签约（经纪人/业主/员工） */}
             <Route path="/publish-listing" element={<ProtectedRoute denyRoles={['tenant']}><PublishListing /></ProtectedRoute>} />
@@ -229,6 +248,7 @@ const App = () => {
             <Route path="/tenant/leases/:id" element={<TenantLeaseDetail />} />
             <Route path="/tenant/deals" element={<TenantDeals />} />
             <Route path="/tenant/deals/:id" element={<TenantDealDetail />} />
+            <Route path="/tenant/contracts" element={<TenantContracts />} />
           </Route>
 
           {/* ===== 404 兜底（未匹配路径）===== */}

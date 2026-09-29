@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     #    签名时 fail closed 直接报错，避免用公开的示例密钥签出"看起来有效"的合同。
     CONTRACT_SIGNING_SECRET: str = ""
     CONTRACT_OUTPUT_DIR: str = "./contracts"
+    # 免登录签署链接的站点前缀（用于把 /sign/{token} 拼成可点开的绝对地址）。
+    # 留空时只返回相对路径，由前端自行补全 origin。
+    PUBLIC_WEB_BASE_URL: str = ""
 
     # 3) AI 应用预留接口（OpenAI 兼容 /chat/completions）
     OPENAI_API_KEY: str = ""

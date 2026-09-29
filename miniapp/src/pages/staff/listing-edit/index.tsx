@@ -5,6 +5,7 @@ import useAuthStore from '@/stores/auth'
 import { listingApi, brokerApi, ownerApi } from '@/services/api'
 import './index.scss'
 import { useI18n } from '@/i18n'
+import ShellHeader from '@/components/ShellHeader'
 
 // 房源类型（后端 Property.property_type）
 const buildPropertyTypes = (
@@ -342,6 +343,7 @@ export default function StaffListingEditPage() {
   if (loading) {
     return (
       <View className='le-page'>
+        <ShellHeader title={t('nav.listingEdit')} />
         <View className='le-state'><Text className='le-state__text'>{t('common.loading')}</Text></View>
       </View>
     )
@@ -349,6 +351,7 @@ export default function StaffListingEditPage() {
 
   return (
     <View className='le-page'>
+      <ShellHeader title={t('nav.listingEdit')} />
       <ScrollView scrollY className='le-scroll'>
         {/* 房源信息 */}
         <View className='le-card'>

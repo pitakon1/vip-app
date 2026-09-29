@@ -172,6 +172,25 @@ interface LeaveReq {
   reply_note?: string | null;
 }
 
+type AppealStatus = 'pending' | 'approved' | 'rejected';
+
+interface AppealReq {
+  id: string;
+  date: string;
+  reason: string;
+  status: AppealStatus;
+  reply_note?: string | null;
+}
+
+const APPEAL_STATUS_META: Record<
+  AppealStatus,
+  { labelKey: string; color: string; bg: string }
+> = {
+  pending: { labelKey: 'att.appealStatus.pending', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
+  approved: { labelKey: 'att.appealStatus.approved', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
+  rejected: { labelKey: 'att.appealStatus.rejected', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.12) },
+};
+
 const DATE_HINT = 'YYYY-MM-DD';
 const isDateStr = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v.trim());
 
@@ -207,6 +226,12 @@ export default function AttendanceScreen() {
   const [leaveReason, setLeaveReason] = useState('');
   const [submittingLeave, setSubmittingLeave] = useState(false);
 
+  // 打卡异常申诉（提交表单 + 我的申诉列表）
+  const [appeals, setAppeals] = useState<AppealReq[]>([]);
+  const [appealDate, setAppealDate] = useState(() => dayjs().format('YYYY-MM-DD'));
+  const [appealReason, setAppealReason] = useState('');
+  const [submittingAppeal, setSubmittingAppeal] = useState(false);
+
   // 外勤登记（默认收起）
   const [tripOpen, setTripOpen] = useState(false);
   const [tripDate, setTripDate] = useState(() => dayjs().format('YYYY-MM-DD'));
@@ -220,11 +245,12 @@ export default function AttendanceScreen() {
   }, []);
 
   const load = useCallback(async () => {
-    const [todayRes, recordsRes, ruleRes, leaveRes] = await Promise.allSettled([
+    const [todayRes, recordsRes, ruleRes, leaveRes, appealRes] = await Promise.allSettled([
       attendanceApi.today(),
       api.get('/attendance/me'),
       attendanceApi.myRule(),
       attendanceApi.leaveRequests(),
+      attendanceApi.appeals(),
     ]);
     if (todayRes.status === 'rejected') {
       notifyError('加载今日考勤失败', todayRes.reason);
@@ -243,6 +269,11 @@ export default function AttendanceScreen() {
     setLeaves(
       leaveRes.status === 'fulfilled' && Array.isArray(leaveRes.value.data)
         ? (leaveRes.value.data as LeaveReq[])
+        : [],
+    );
+    setAppeals(
+      appealRes.status === 'fulfilled' && Array.isArray(appealRes.value.data)
+        ? (appealRes.value.data as AppealReq[])
         : [],
     );
   }, []);
@@ -361,6 +392,31 @@ export default function AttendanceScreen() {
         { text: '撤销', style: 'destructive', onPress: doCancel },
       ],
     );
+  };
+
+  const submitAppeal = async () => {
+    if (!isDateStr(appealDate)) {
+      notify('日期格式不正确', `请使用 ${DATE_HINT}`);
+      return;
+    }
+    if (!appealReason.trim()) {
+      notify(t('att.appealReason'), t('att.appealPlaceholder'));
+      return;
+    }
+    setSubmittingAppeal(true);
+    try {
+      await attendanceApi.applyAppeal({
+        date: appealDate,
+        reason: appealReason.trim(),
+      });
+      notify(t('att.appealSubmitted'), undefined);
+      setAppealReason('');
+      await load();
+    } catch (err) {
+      notifyError(t('att.appealSubmit'), err);
+    } finally {
+      setSubmittingAppeal(false);
+    }
   };
 
   const monthRecords = useMemo(
@@ -622,8 +678,8 @@ export default function AttendanceScreen() {
   const locPill: { label: string; color: string; bg: string } | null = (() => {
     if (gpsStatus !== 'ok' || withinRadius == null) return null;
     return withinRadius
-      ? { label: '在打卡范围内', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) }
-      : { label: '超出范围', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) };
+      ? { label: t('att.inRange'), color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) }
+      : { label: t('att.outOfRange'), color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) };
   })();
 
   const inBadge = !checkedIn
@@ -879,10 +935,25 @@ export default function AttendanceScreen() {
               const rec = calendar.byDate.get(dateKey);
               const isToday = dayjs().isSame(calendar.start.date(d), 'day');
               const meta = rec ? STATUS_META[rec.status] : null;
+              const isRest = calendar.start.date(d).day() === 0 || calendar.start.date(d).day() === 6;
               return (
                 <View key={dateKey} style={styles.calCell}>
-                  <View style={[styles.calDayWrap, isToday && styles.calDayToday]}>
-                    <Text style={[styles.calDayText, isToday && styles.calDayTextToday]}>{d}</Text>
+                  <View
+                    style={[
+                      styles.calDayWrap,
+                      isToday && styles.calDayToday,
+                      !isToday && isRest && styles.calDayRest,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.calDayText,
+                        isToday && styles.calDayTextToday,
+                        !isToday && isRest && styles.calDayTextRest,
+                      ]}
+                    >
+                      {d}
+                    </Text>
                     {meta ? (
                       <View style={[styles.calDot, { backgroundColor: meta.color }]} />
                     ) : null}
@@ -898,6 +969,14 @@ export default function AttendanceScreen() {
                 <Text style={styles.legendText}>{STATUS_META[s].label}</Text>
               </View>
             ))}
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
+              <Text style={styles.legendText}>{t('att.workday')}</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: colors.surface2 }]} />
+              <Text style={styles.legendText}>{t('att.restday')}</Text>
+            </View>
           </View>
         </View>
 
@@ -1186,6 +1265,74 @@ export default function AttendanceScreen() {
             })
           )}
         </View>
+
+        {/* ⑨-2 打卡异常申诉 */}
+        <Text style={styles.sectionTitle}>{t('att.appeal')}</Text>
+
+        {/* 提交申诉表单 */}
+        <View style={styles.leaveFormCard}>
+          <Text style={styles.formLabel}>{t('att.appealDate')}</Text>
+          <TextInput
+            style={styles.formInput}
+            value={appealDate}
+            onChangeText={setAppealDate}
+            placeholder={DATE_HINT}
+            placeholderTextColor={colors.ink3}
+            maxLength={10}
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.formLabel}>{t('att.appealReason')}</Text>
+          <TextInput
+            style={[styles.formInput, styles.formTextarea]}
+            value={appealReason}
+            onChangeText={setAppealReason}
+            placeholder={t('att.appealPlaceholder')}
+            placeholderTextColor={colors.ink3}
+            multiline
+          />
+
+          <TouchableOpacity
+            style={[styles.submitBtn, submittingAppeal && styles.submitBtnDisabled]}
+            onPress={submitAppeal}
+            disabled={submittingAppeal}
+            activeOpacity={0.85}
+          >
+            {submittingAppeal ? (
+              <ActivityIndicator size="small" color={colors.primaryForeground} />
+            ) : (
+              <Text style={styles.submitBtnText}>{t('att.appealSubmit')}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* 我的申诉列表 */}
+        <Text style={styles.sectionTitle}>{t('att.appealList')}</Text>
+        <View style={styles.listCard}>
+          {appeals.length === 0 ? (
+            <EmptyState icon="clipboard-outline" title={t('att.noAppeal')} />
+          ) : (
+            appeals.map((a, idx) => {
+              const meta = APPEAL_STATUS_META[a.status] ?? APPEAL_STATUS_META.pending;
+              return (
+                <View key={a.id ?? idx} style={[styles.leaveRow, idx === 0 && styles.leaveRowFirst]}>
+                  <View style={styles.leaveBody}>
+                    <Text style={styles.leaveTitle}>{a.date}</Text>
+                    {a.reason ? <Text style={styles.leaveSub}>事由：{a.reason}</Text> : null}
+                    {a.reply_note ? (
+                      <Text style={styles.leaveSub}>批注：{a.reply_note}</Text>
+                    ) : null}
+                  </View>
+                  <View style={[styles.leaveBadge, { backgroundColor: meta.bg }]}>
+                    <Text style={[styles.leaveBadgeText, { color: meta.color }]}>
+                      {t(meta.labelKey)}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
           </>
         )}
       </ScrollView>
@@ -1433,6 +1580,8 @@ const styles = StyleSheet.create({
   },
   calDayText: { fontSize: colors.fontSize.sm, color: colors.ink2, fontWeight: '600' },
   calDayTextToday: { color: colors.primary, fontWeight: '800' },
+  calDayRest: { backgroundColor: colors.surface2 },
+  calDayTextRest: { color: colors.ink3 },
   calDot: { width: 5, height: 5, borderRadius: 2.5, marginTop: 3 },
   legendRow: {
     flexDirection: 'row',

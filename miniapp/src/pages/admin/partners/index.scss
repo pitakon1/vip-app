@@ -1,0 +1,366 @@
+/* 管理端 · 合作公司管理（平台侧） */
+.pn-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24rpx 24rpx 80rpx;
+  box-sizing: border-box;
+}
+
+/* 顶部操作条 */
+.pn-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.pn-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+
+  &__input {
+    flex: 1;
+    height: 80rpx;
+    padding: 0 28rpx;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-full);
+    font-size: 28rpx;
+    color: var(--ink);
+    box-sizing: border-box;
+  }
+
+  &__btn {
+    flex-shrink: 0;
+    height: 80rpx;
+    padding: 0 32rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary);
+    border-radius: var(--radius-full);
+  }
+
+  &__btn-text {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: var(--primary-foreground);
+  }
+}
+
+.pn-add {
+  flex-shrink: 0;
+  height: 80rpx;
+  padding: 0 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-full);
+
+  &__text {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary);
+  }
+}
+
+/* 状态筛选 */
+.pn-chips {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  margin-bottom: 20rpx;
+}
+
+.pn-chip {
+  flex-shrink: 0;
+  height: 60rpx;
+  padding: 0 28rpx;
+  margin-right: 16rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+
+  &--active {
+    background: rgba(var(--primary-rgb), 0.1);
+    border-color: var(--primary);
+  }
+
+  &--active .pn-chip__text {
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--ink-2);
+  }
+}
+
+/* 新建/编辑表单面板 */
+.pn-form {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+
+  &__title {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 20rpx;
+  }
+
+  &__row {
+    margin-bottom: 20rpx;
+  }
+
+  &__label {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-3);
+    margin-bottom: 8rpx;
+  }
+
+  &__input {
+    height: 76rpx;
+    padding: 0 24rpx;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    font-size: 28rpx;
+    color: var(--ink);
+    box-sizing: border-box;
+  }
+
+  &__pick {
+    height: 76rpx;
+    padding: 0 24rpx;
+    display: flex;
+    align-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  &__pick-text {
+    font-size: 28rpx;
+    color: var(--ink);
+  }
+
+  &__pick-placeholder {
+    font-size: 28rpx;
+    color: var(--ink-3);
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16rpx;
+    margin-top: 8rpx;
+  }
+}
+
+.pn-btn {
+  flex-shrink: 0;
+  height: 68rpx;
+  padding: 0 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+
+  &--ghost {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+  }
+
+  &--ghost .pn-btn__text {
+    color: var(--ink-2);
+  }
+
+  &--primary {
+    background: var(--primary);
+  }
+
+  &--primary .pn-btn__text {
+    color: var(--primary-foreground);
+    font-weight: 600;
+  }
+
+  &--disabled {
+    opacity: 0.6;
+  }
+
+  &__text {
+    font-size: 28rpx;
+  }
+}
+
+/* 区块标题 */
+.pn-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+
+  &__title {
+    font-size: 32rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  &__count {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* 合作公司卡片 */
+.pn-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+
+  &--dim {
+    opacity: 0.8;
+  }
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16rpx;
+    margin-bottom: 16rpx;
+  }
+
+  &__head-left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__license {
+    display: block;
+    margin-top: 4rpx;
+    font-size: 22rpx;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__meta {
+    padding: 16rpx 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  &__meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10rpx;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__meta-label {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+
+  &__meta-value {
+    font-size: 26rpx;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+
+    &--link {
+      color: var(--primary);
+    }
+  }
+
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16rpx;
+    padding-top: 16rpx;
+  }
+
+  &__foot-members {
+    font-size: 24rpx;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__foot-date {
+    font-size: 22rpx;
+    color: var(--ink-3);
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16rpx;
+    margin-top: 20rpx;
+    padding-top: 20rpx;
+    border-top: 1px solid var(--line);
+  }
+}
+
+.pn-act {
+  height: 56rpx;
+  padding: 0 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  border-radius: var(--radius-full);
+
+  &--edit {
+    color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.1);
+  }
+
+  &--warn {
+    color: var(--warning);
+    background: rgba(var(--warning-rgb), 0.1);
+  }
+}
+
+/* 状态 */
+.pn-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  padding: 120rpx 0;
+
+  &__text {
+    font-size: 28rpx;
+    color: var(--ink-3);
+  }
+}

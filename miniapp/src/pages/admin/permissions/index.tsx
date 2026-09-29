@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { adminPermissionsApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -106,6 +107,7 @@ export default function AdminPermissionsPage() {
 
   return (
     <View className='pm-page'>
+      <ShellHeader title={t('nav.permissions')} />
       {/* 角色切换 */}
       <ScrollView scrollX className='pm-roles'>
         {ROLE_KEYS.map((key) => (

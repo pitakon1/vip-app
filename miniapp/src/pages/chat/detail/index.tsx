@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Input } from '@tarojs/components'
 import Taro, { useDidShow, useUnload, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { authApi, chatApi } from '@/services/api'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -121,6 +122,7 @@ export default function ChatDetailPage() {
 
   return (
     <View className='chat-detail-page'>
+      <ShellHeader title={t('chat.detailTitle')} />
       <ScrollView scrollY className='message-list' scrollWithAnimation>
         {messages.length === 0 && (
           <View className='empty-state'>

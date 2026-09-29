@@ -38,6 +38,13 @@ class SignerRole(str, Enum):
     witness = "witness"
 
 
+class ContractSource(str, Enum):
+    """合同来源：平台生成 / 经纪人上传自有电子合同。"""
+
+    generated = "generated"
+    uploaded = "uploaded"
+
+
 class ContractParty(TimestampMixin, table=True):
     """合同签署方。"""
 
@@ -53,6 +60,11 @@ class ContractParty(TimestampMixin, table=True):
     signed: bool = Field(default=False)
     signed_at: Optional[datetime] = None
     signature: Optional[str] = None  # 签名 SVG / base64
+    # 免登录签署链接令牌（未注册客户走此通道）；签署后清空，一次性使用
+    sign_token: Optional[str] = Field(default=None, index=True, unique=True)
+    sign_token_expires_at: Optional[datetime] = None
+    declined_at: Optional[datetime] = None
+    decline_reason: Optional[str] = None
 
 
 class Contract(TimestampMixin, table=True):
@@ -66,6 +78,10 @@ class Contract(TimestampMixin, table=True):
     kind: ContractKind = Field(
         default=ContractKind.lease, index=True, description="合同/协议类型"
     )
+    source: ContractSource = Field(
+        default=ContractSource.generated, index=True, description="平台生成/经纪人上传"
+    )
+    created_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     language: str = "zh"  # 生成语言
     content_html: str = ""  # 渲染后的合同 HTML
     status: ContractStatus = Field(default=ContractStatus.draft, index=True)

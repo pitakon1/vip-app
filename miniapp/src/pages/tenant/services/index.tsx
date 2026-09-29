@@ -7,6 +7,7 @@ import { useSwrCache } from '@/hooks/useSwrCache'
 import type { ServiceItem } from '@/types'
 import { iconStyle } from '@/utils/icons'
 import StateBlock from '@/components/StateBlock'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -133,6 +134,7 @@ export default function TenantServicesPage() {
 
   return (
     <View className='tenant-services-page'>
+      <ShellHeader title={t('nav.services')} />
       <View className='page-container'>
         <View className='svc-hero'>
           <Text className='svc-hero-label'>{t('svc.heroLabel')}</Text>

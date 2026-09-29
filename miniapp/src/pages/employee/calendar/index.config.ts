@@ -1,1 +1,1 @@
-export default { navigationBarTitleText: '日程排期' }
+export default { navigationBarTitleText: '日程排期', navigationStyle: 'custom' }

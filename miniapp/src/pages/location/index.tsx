@@ -9,9 +9,12 @@ import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import { useLocationStore, LOCATION_GROUPS } from '@/stores/location'
 import { iconStyle } from '@/utils/icons'
+import ShellHeader from '@/components/ShellHeader'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 export default function LocationPage() {
+  const { t } = useI18n()
   const selection = useLocationStore((s) => s.selection)
   const select = useLocationStore((s) => s.select)
 
@@ -48,6 +51,7 @@ export default function LocationPage() {
 
   return (
     <View className='loc-page'>
+      <ShellHeader title={t('nav.location')} />
       {/* 顶部搜索 */}
       <View className='loc-search'>
         <View className='loc-search__box'>

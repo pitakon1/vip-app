@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -27,6 +27,8 @@ import type { Project, Property } from '@/types'
 import { AREA_GROUPS } from '@/data/locationArea'
 import { METRO_LINES } from '@/data/locationMetro'
 import './properties.css'
+// 复用 C 端浏览页的筛选面板样式（.rent-loc-panel* / .rent-loc-popover / .rent-price-custom 等），实现完全复刻
+import '@/pages/PublicListings/public-listings.css'
 
 // ==================== 常量 ====================
 
@@ -46,6 +48,94 @@ const bannerColorFor = (seed: string) => {
 }
 
 const formatRent = (v: any) => Number(v || 0).toLocaleString()
+
+// ==================== C 端风格筛选 chip（对齐 PublicListings 单行筛选栏 + 顶部下拉面板） ====================
+
+// 贝壳风单行筛选项：纯文字 + 下拉箭头（无背景无边框、无胶囊底色）
+// 选中/展开态 = 主色文字 + 底部主色下划线（唯一选中指示），点击下方展开顶部下拉面板
+function FilterTab({
+  label,
+  active,
+  open,
+  onOpenChange,
+  children,
+}: {
+  label: React.ReactNode
+  active: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  children: React.ReactNode
+}) {
+  const shown = active || open
+  return (
+    <Popover
+      trigger="click"
+      placement="bottomLeft"
+      open={open}
+      onOpenChange={onOpenChange}
+      overlayClassName="rent-loc-popover"
+      content={children}
+    >
+      <button
+        type="button"
+        className={`pf-tab${shown ? ' pf-tab--active' : ''}${open ? ' pf-tab--open' : ''}`}
+      >
+        {label}
+        <span className="pf-tab__chevron">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+        </span>
+      </button>
+    </Popover>
+  )
+}
+
+// 复刻 C 端浏览页「户型/状态」单选面板（rent-quick-panel：chips + 重置/确定）
+function OptGrid<T extends string>({
+  title,
+  options,
+  value,
+  onPick,
+  onReset,
+  onClose,
+}: {
+  title: React.ReactNode
+  options: { key: T; label: string }[]
+  value: T
+  onPick: (key: T) => void
+  onReset: () => void
+  onClose: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="rent-loc-panel rent-quick-panel">
+      <div className="rent-loc-panel__body">
+        <div className="rent-loc-panel__group-title">{title}</div>
+        <div className="rent-loc-panel__chips">
+          {options.map((o) => (
+            <button
+              key={o.key}
+              type="button"
+              className={`rent-loc-panel__chip${value === o.key ? ' rent-loc-panel__chip--active' : ''}`}
+              onClick={() => onPick(o.key)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="rent-loc-panel__footer">
+        <div className="rent-loc-panel__actions">
+          <button type="button" className="rent-loc-panel__btn rent-loc-panel__btn--ghost" onClick={onReset}>
+            {t('common.reset')}
+          </button>
+          <button type="button" className="rent-loc-panel__btn rent-loc-panel__btn--primary" onClick={onClose}>
+            {t('common.confirm')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // 前端排序 key → 后端 sort 参数
 const SORT_MAP: Record<string, string> = {
@@ -566,13 +656,13 @@ const Properties = () => {
   })()
 
   const locPanelContent = (
-    <div className="prop-loc-panel">
-      <div className="prop-loc-panel__tabs">
+    <div className="rent-loc-panel">
+      <div className="rent-loc-panel__tabs">
         {(['area', 'metro'] as const).map((tab) => (
           <button
             key={tab}
             type="button"
-            className={`prop-loc-panel__tab ${locTab === tab ? 'prop-loc-panel__tab--active' : ''}`}
+            className={`rent-loc-panel__tab ${locTab === tab ? 'rent-loc-panel__tab--active' : ''}`}
             onClick={() => setLocTab(tab)}
           >
             <LocIcon kind={tab} />
@@ -582,36 +672,36 @@ const Properties = () => {
       </div>
 
       {locTab === 'area' ? (
-        <div className="prop-loc-panel__area">
-          <div className="prop-loc-panel__lines">
+        <div className="rent-loc-panel__area">
+          <div className="rent-loc-panel__lines">
             {countryList.map((c) => (
               <button
                 key={c}
                 type="button"
-                className={`prop-loc-panel__line ${areaCountry === c ? 'prop-loc-panel__line--active' : ''}`}
+                className={`rent-loc-panel__line ${areaCountry === c ? 'rent-loc-panel__line--active' : ''}`}
                 onClick={() => { setAreaCountry(c); setAreaDrill('') }}
               >
                 {c}
               </button>
             ))}
           </div>
-          <div className="prop-loc-panel__stations">
+          <div className="rent-loc-panel__stations">
             {activeAreaGroup ? (
               <>
-                <div className="prop-loc-panel__stations-head">
+                <div className="rent-loc-panel__stations-head">
                   <button
                     type="button"
-                    className="prop-loc-panel__back"
+                    className="rent-loc-panel__back"
                     onClick={() => setAreaDrill('')}
                   >
                     ← {areaCountry}
                   </button>
-                  <span className="prop-loc-panel__stations-title">{activeAreaGroup.cityLabel}</span>
+                  <span className="rent-loc-panel__stations-title">{activeAreaGroup.cityLabel}</span>
                 </div>
-                <div className="prop-loc-panel__chips">
+                <div className="rent-loc-panel__chips">
                   <button
                     type="button"
-                    className={`prop-loc-panel__chip ${districtSel === null ? 'prop-loc-panel__chip--active' : ''}`}
+                    className={`rent-loc-panel__chip ${districtSel === null ? 'rent-loc-panel__chip--active' : ''}`}
                     onClick={() => applyDistrict(null)}
                   >
                     {t('propertiesPage.anyDistrict')}
@@ -620,7 +710,7 @@ const Properties = () => {
                     <button
                       key={d.key}
                       type="button"
-                      className={`prop-loc-panel__chip ${districtSel === d.key ? 'prop-loc-panel__chip--active' : ''}`}
+                      className={`rent-loc-panel__chip ${districtSel === d.key ? 'rent-loc-panel__chip--active' : ''}`}
                       onClick={() => applyDistrict(d.key)}
                     >
                       {d.label}
@@ -630,13 +720,13 @@ const Properties = () => {
               </>
             ) : (
               <>
-                <div className="prop-loc-panel__stations-title">{areaCountry}</div>
-                <div className="prop-loc-panel__chips">
+                <div className="rent-loc-panel__stations-title">{areaCountry}</div>
+                <div className="rent-loc-panel__chips">
                   {countryGroups.map((g) => (
                     <button
                       key={g.cityKey}
                       type="button"
-                      className={`prop-loc-panel__chip ${areaDrill === g.cityKey ? 'prop-loc-panel__chip--active' : ''}`}
+                      className={`rent-loc-panel__chip ${areaDrill === g.cityKey ? 'rent-loc-panel__chip--active' : ''}`}
                       onClick={() => setAreaDrill(g.cityKey)}
                     >
                       {g.cityLabel}
@@ -648,55 +738,272 @@ const Properties = () => {
           </div>
         </div>
       ) : (
-        <div className="prop-loc-panel__metro">
-          <div className="prop-loc-panel__lines">
+        <div className="rent-loc-panel__metro">
+          <div className="rent-loc-panel__lines">
             {METRO_LINES.map((l) => (
               <button
                 key={l.key}
                 type="button"
-                className={`prop-loc-panel__line ${metroLine === l.key ? 'prop-loc-panel__line--active' : ''}`}
+                className={`rent-loc-panel__line ${metroLine === l.key ? 'rent-loc-panel__line--active' : ''}`}
                 onClick={() => setMetroLine(l.key)}
               >
                 {l.cityLabel} · {l.name}
               </button>
             ))}
           </div>
-          <div className="prop-loc-panel__stations">
-            <div className="prop-loc-panel__stations-title">{activeLine ? `${activeLine.cityLabel} · ${activeLine.name}` : ''}</div>
-            <div className="prop-loc-panel__chips">
+          <div className="rent-loc-panel__stations">
+            <div className="rent-loc-panel__stations-title">{activeLine ? `${activeLine.cityLabel} · ${activeLine.name}` : ''}</div>
+            <div className="rent-loc-panel__chips">
               {activeLine?.stations.map((s) => (
                 <button
                   key={s.name}
                   type="button"
-                  className={`prop-loc-panel__chip ${metroDraft.includes(s.name) ? 'prop-loc-panel__chip--active' : ''}`}
+                  className={`rent-loc-panel__chip ${metroDraft.includes(s.name) ? 'rent-loc-panel__chip--active' : ''}`}
                   onClick={() => toggleStation(s.name)}
                 >
                   {s.name}
                 </button>
               ))}
-              {activeLine && !activeLine.stations.length && <span className="prop-loc-panel__empty">{t('propertiesPage.none')}</span>}
+              {activeLine && !activeLine.stations.length && <span className="rent-loc-panel__empty">{t('propertiesPage.none')}</span>}
             </div>
           </div>
         </div>
       )}
 
-      <div className="prop-loc-panel__footer">
+      <div className="rent-loc-panel__footer">
         {locTab === 'metro' && (
-          <span className="prop-loc-panel__count">{t('propertiesPage.selectedLabel')} <strong>{metroDraft.length}</strong></span>
+          <span className="rent-loc-panel__count">{t('propertiesPage.selectedLabel')} <strong>{metroDraft.length}</strong></span>
         )}
-        <div className="prop-loc-panel__actions">
+        <div className="rent-loc-panel__actions">
           <button
             type="button"
-            className="prop-loc-panel__btn prop-loc-panel__btn--ghost"
+            className="rent-loc-panel__btn rent-loc-panel__btn--ghost"
             onClick={() => (locTab === 'metro' ? clearMetroDraft() : resetLoc())}
           >
             {t('common.reset')}
           </button>
           <button
             type="button"
-            className="prop-loc-panel__btn prop-loc-panel__btn--primary"
+            className="rent-loc-panel__btn rent-loc-panel__btn--primary"
             onClick={() => (locTab === 'metro' ? confirmMetro() : setLocOpen(false))}
           >
+            {t('common.confirm')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  // ==================== C 端筛选选项（chip → 下拉面板） ====================
+
+  // 当前打开的筛选 chip（单开）
+  const [filterOpen, setFilterOpen] = useState('')
+
+  const currentOptLabel = (opts: { key: string; label: string }[], value: string, fallback: string) =>
+    opts.find((o) => o.key === value)?.label ?? fallback
+
+  const STATUS_OPTS = [
+    { key: '', label: t('propertiesPage.optAllStatus') },
+    { key: 'rented', label: statusLabelMap.rented },
+    { key: 'vacant', label: statusLabelMap.vacant },
+    { key: 'maintenance', label: statusLabelMap.maintenance },
+  ]
+  const TYPE_OPTS = [
+    { key: '', label: t('propertiesPage.optAllTypes') },
+    { key: 'apartment', label: propertyTypeMap.apartment },
+    { key: 'villa', label: propertyTypeMap.villa },
+    { key: 'shop', label: propertyTypeMap.shop },
+    { key: 'office', label: propertyTypeMap.office },
+  ]
+  const BED_OPTS = [
+    { key: '', label: t('propertiesPage.optAnyBedrooms') },
+    { key: '0', label: t('propertiesPage.optStudio') },
+    { key: '1', label: t('propertiesPage.optBedroomsN', { n: 1 }) },
+    { key: '2', label: t('propertiesPage.optBedroomsN', { n: 2 }) },
+    { key: '3', label: t('propertiesPage.optBedroomsN', { n: 3 }) },
+    { key: '4', label: t('propertiesPage.optBedrooms4Plus') },
+  ]
+  const PRICE_OPTS = [
+    { key: '', label: t('propertiesPage.optAnyPrice') },
+    { key: '0-5000', label: t('propertiesPage.priceBelow5000') },
+    { key: '5000-10000', label: '5000-10000' },
+    { key: '10000-20000', label: '10000-20000' },
+    { key: '20000-50000', label: '20000-50000' },
+    { key: '50000+', label: t('propertiesPage.priceAbove50000') },
+    { key: 'custom', label: t('propertiesPage.customPrice') },
+  ]
+  const AREA_OPTS = [
+    { key: '', label: t('propertiesPage.optAnyArea') },
+    { key: '0-50', label: t('propertiesPage.areaBelow50') },
+    { key: '50-100', label: '50-100㎡' },
+    { key: '100-200', label: '100-200㎡' },
+    { key: '200+', label: t('propertiesPage.areaAbove200') },
+    { key: 'custom', label: t('propertiesPage.customArea') },
+  ]
+  const SORT_OPTS = [
+    { key: 'created', label: t('propertiesPage.sortLatest') },
+    { key: 'rent-asc', label: t('propertiesPage.sortRentAsc') },
+    { key: 'rent-desc', label: t('propertiesPage.sortRentDesc') },
+  ]
+
+  // 价格/面积面板（复刻 C 端 rent-price-panel：快捷区间 chips + 自定义输入 + 重置/确定）
+  const renderRangePanel = (kind: 'price' | 'area') => {
+    const isPrice = kind === 'price'
+    const opts = isPrice ? PRICE_OPTS : AREA_OPTS
+    const value = isPrice ? priceRange : areaRange
+    const setRange = isPrice ? setPriceRange : setAreaRange
+    const min = isPrice ? priceCustomMin : areaCustomMin
+    const max = isPrice ? priceCustomMax : areaCustomMax
+    const setMin = isPrice ? setPriceCustomMin : setAreaCustomMin
+    const setMax = isPrice ? setPriceCustomMax : setAreaCustomMax
+    const reset = () => { setMin(''); setMax(''); setRange(''); setFilterOpen('') }
+    const close = () => setFilterOpen('')
+    const title = isPrice ? t('propertiesPage.customPrice') : t('propertiesPage.customArea')
+    return (
+      <div className="rent-loc-panel rent-price-panel">
+        <div className="rent-loc-panel__body">
+          <div className="rent-loc-panel__group">
+            <div className="rent-loc-panel__group-title">{isPrice ? t('priceRange.quick') : t('browse.filterArea')}</div>
+            <div className="rent-loc-panel__chips">
+              {opts.map((o) => (
+                <button
+                  key={o.key}
+                  type="button"
+                  className={`rent-loc-panel__chip${value === o.key ? ' rent-loc-panel__chip--active' : ''}`}
+                  onClick={() => { setRange(o.key); if (o.key !== 'custom') setFilterOpen('') }}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {value === 'custom' && (
+            <div className="rent-loc-panel__group">
+              <div className="rent-loc-panel__group-title">{title}</div>
+              <div className="rent-price-custom">
+                <input
+                  className="rent-price-custom__input"
+                  type="number"
+                  min={0}
+                  value={min}
+                  placeholder={t(isPrice ? 'propertiesPage.minPrice' : 'propertiesPage.minArea')}
+                  onChange={(e) => setMin(e.target.value)}
+                />
+                <span className="rent-price-custom__divider">{isPrice ? t('priceRange.to') : '-'}</span>
+                <input
+                  className="rent-price-custom__input"
+                  type="number"
+                  min={0}
+                  value={max}
+                  placeholder={t(isPrice ? 'propertiesPage.maxPrice' : 'propertiesPage.maxArea')}
+                  onChange={(e) => setMax(e.target.value)}
+                />
+                <span className="rent-price-custom__unit">{isPrice ? t('priceRange.perMonth') : '㎡'}</span>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="rent-loc-panel__footer">
+          <div className="rent-loc-panel__actions">
+            <button type="button" className="rent-loc-panel__btn rent-loc-panel__btn--ghost" onClick={reset}>
+              {t('common.reset')}
+            </button>
+            <button type="button" className="rent-loc-panel__btn rent-loc-panel__btn--primary" onClick={close}>
+              {t('common.confirm')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 「更多」汇总面板：把 状态 / 类型 / 面积 三个筛选项收纳进这一个下拉层
+  const morePanelContent = (
+    <div className="rent-loc-panel">
+      <div className="rent-loc-panel__body">
+        <div className="rent-loc-panel__group">
+          <div className="rent-loc-panel__group-title">{t('browse.filterStatus')}</div>
+          <div className="rent-loc-panel__chips">
+            {STATUS_OPTS.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                className={`rent-loc-panel__chip${status === o.key ? ' rent-loc-panel__chip--active' : ''}`}
+                onClick={() => setStatus(o.key)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="rent-loc-panel__group">
+          <div className="rent-loc-panel__group-title">{t('propertiesPage.optAllTypes')}</div>
+          <div className="rent-loc-panel__chips">
+            {TYPE_OPTS.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                className={`rent-loc-panel__chip${propertyType === o.key ? ' rent-loc-panel__chip--active' : ''}`}
+                onClick={() => setPropertyType(o.key)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="rent-loc-panel__group">
+          <div className="rent-loc-panel__group-title">{t('browse.filterArea')}</div>
+          <div className="rent-loc-panel__chips">
+            {AREA_OPTS.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                className={`rent-loc-panel__chip${areaRange === o.key ? ' rent-loc-panel__chip--active' : ''}`}
+                onClick={() => setAreaRange(o.key)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {areaRange === 'custom' && (
+          <div className="rent-loc-panel__group">
+            <div className="rent-loc-panel__group-title">{t('propertiesPage.customArea')}</div>
+            <div className="rent-price-custom">
+              <input
+                className="rent-price-custom__input"
+                type="number"
+                min={0}
+                value={areaCustomMin}
+                placeholder={t('propertiesPage.minArea')}
+                onChange={(e) => setAreaCustomMin(e.target.value)}
+              />
+              <span className="rent-price-custom__divider">-</span>
+              <input
+                className="rent-price-custom__input"
+                type="number"
+                min={0}
+                value={areaCustomMax}
+                placeholder={t('propertiesPage.maxArea')}
+                onChange={(e) => setAreaCustomMax(e.target.value)}
+              />
+              <span className="rent-price-custom__unit">㎡</span>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="rent-loc-panel__footer">
+        <div className="rent-loc-panel__actions">
+          <button
+            type="button"
+            className="rent-loc-panel__btn rent-loc-panel__btn--ghost"
+            onClick={() => {
+              setStatus(''); setPropertyType(''); setAreaRange(''); setAreaCustomMin(''); setAreaCustomMax(''); setFilterOpen('')
+            }}
+          >
+            {t('common.reset')}
+          </button>
+          <button type="button" className="rent-loc-panel__btn rent-loc-panel__btn--primary" onClick={() => setFilterOpen('')}>
             {t('common.confirm')}
           </button>
         </div>
@@ -733,127 +1040,80 @@ const Properties = () => {
         </div>
       </div>
 
-      {/* Filter Bar（对齐原型：搜索 + 状态 + 类型 + 排序） */}
-      <div className="rent-filter-bar">
-        <div className="rent-search rent-filter-bar__search">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input
-            type="text"
-            placeholder={t('property.searchPlaceholder')}
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-          />
-        </div>
-        <Popover
-          trigger="click"
-          open={locOpen}
-          onOpenChange={onLocOpenChange}
-          placement="bottomLeft"
-          overlayClassName="prop-loc-popover"
-          content={locPanelContent}
-        >
-          <button
-            type="button"
-            className={`prop-loc-btn ${activeLocationKw.length ? 'prop-loc-btn--active' : ''}`}
+      {/* 贝壳风单行筛选栏：顶部搜索框 + 单行 text+chevron Tab（区域/价格/户型/更多/排序）+ 只看视频 | 结果计数 */}
+      <div className="pf-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          type="text"
+          placeholder={t('property.searchPlaceholder')}
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+        />
+      </div>
+      <div className="pf-bar">
+        <div className="pf-bar__tabs">
+          <FilterTab label={locLabel} active={!!activeLocationKw.length} open={locOpen} onOpenChange={onLocOpenChange}>
+            {locPanelContent}
+          </FilterTab>
+          <FilterTab
+            label={priceRange ? currentOptLabel(PRICE_OPTS, priceRange, t('browse.filterPrice')) : t('browse.filterPrice')}
+            active={!!priceRange}
+            open={filterOpen === 'price'}
+            onOpenChange={(o) => setFilterOpen(o ? 'price' : '')}
           >
-            <LocIcon kind={metroSel.length ? 'metro' : 'area'} />
-            {locLabel}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9" /></svg>
-          </button>
-        </Popover>
-        <select className="rent-form-select rent-filter-bar__select" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">{t('propertiesPage.optAllStatus')}</option>
-          <option value="rented">{statusLabelMap.rented}</option>
-          <option value="vacant">{statusLabelMap.vacant}</option>
-          <option value="maintenance">{statusLabelMap.maintenance}</option>
-        </select>
-        <select className="rent-form-select rent-filter-bar__select" value={propertyType} onChange={(e) => setPropertyType(e.target.value)}>
-          <option value="">{t('propertiesPage.optAllTypes')}</option>
-          <option value="apartment">{propertyTypeMap.apartment}</option>
-          <option value="villa">{propertyTypeMap.villa}</option>
-          <option value="shop">{propertyTypeMap.shop}</option>
-          <option value="office">{propertyTypeMap.office}</option>
-        </select>
-        <select className="rent-form-select rent-filter-bar__select" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)}>
-          <option value="">{t('propertiesPage.optAnyBedrooms')}</option>
-          <option value="0">{t('propertiesPage.optStudio')}</option>
-          <option value="1">{t('propertiesPage.optBedroomsN', { n: 1 })}</option>
-          <option value="2">{t('propertiesPage.optBedroomsN', { n: 2 })}</option>
-          <option value="3">{t('propertiesPage.optBedroomsN', { n: 3 })}</option>
-          <option value="4">{t('propertiesPage.optBedrooms4Plus')}</option>
-        </select>
-        <select className="rent-form-select rent-filter-bar__select" value={priceRange} onChange={(e) => setPriceRange(e.target.value)}>
-          <option value="">{t('propertiesPage.optAnyPrice')}</option>
-          <option value="0-5000">{t('propertiesPage.priceBelow5000')}</option>
-          <option value="5000-10000">5000-10000</option>
-          <option value="10000-20000">10000-20000</option>
-          <option value="20000-50000">20000-50000</option>
-          <option value="50000+">{t('propertiesPage.priceAbove50000')}</option>
-          <option value="custom">{t('propertiesPage.customPrice')}</option>
-        </select>
-        {priceRange === 'custom' && (
-          <div className="rent-filter-bar__custom">
-            <input
-              className="rent-filter-bar__custom-input"
-              type="number"
-              min={0}
-              value={priceCustomMin}
-              placeholder={t('propertiesPage.minPrice')}
-              onChange={(e) => setPriceCustomMin(e.target.value)}
+            {renderRangePanel('price')}
+          </FilterTab>
+          <FilterTab
+            label={bedrooms !== '' ? currentOptLabel(BED_OPTS, bedrooms, t('browse.filterRoom')) : t('browse.filterRoom')}
+            active={bedrooms !== ''}
+            open={filterOpen === 'bedrooms'}
+            onOpenChange={(o) => setFilterOpen(o ? 'bedrooms' : '')}
+          >
+            <OptGrid
+              title={t('browse.filterRoom')}
+              options={BED_OPTS}
+              value={bedrooms}
+              onPick={(k) => { setBedrooms(k); setFilterOpen('') }}
+              onReset={() => { setBedrooms(''); setFilterOpen('') }}
+              onClose={() => setFilterOpen('')}
             />
-            <span className="rent-filter-bar__custom-sep">-</span>
-            <input
-              className="rent-filter-bar__custom-input"
-              type="number"
-              min={0}
-              value={priceCustomMax}
-              placeholder={t('propertiesPage.maxPrice')}
-              onChange={(e) => setPriceCustomMax(e.target.value)}
+          </FilterTab>
+          <FilterTab
+            label={t('browse.filterMore')}
+            active={!!status || !!propertyType || !!areaRange}
+            open={filterOpen === 'more'}
+            onOpenChange={(o) => setFilterOpen(o ? 'more' : '')}
+          >
+            {morePanelContent}
+          </FilterTab>
+          <FilterTab
+            label={sort !== 'created' ? currentOptLabel(SORT_OPTS, sort, t('browse.filterSort')) : t('browse.filterSort')}
+            active={sort !== 'created'}
+            open={filterOpen === 'sort'}
+            onOpenChange={(o) => setFilterOpen(o ? 'sort' : '')}
+          >
+            <OptGrid
+              title={t('browse.filterSort')}
+              options={SORT_OPTS}
+              value={sort}
+              onPick={(k) => { setSort(k); setFilterOpen('') }}
+              onReset={() => { setSort('created'); setFilterOpen('') }}
+              onClose={() => setFilterOpen('')}
             />
-          </div>
-        )}
-        <select className="rent-form-select rent-filter-bar__select" value={areaRange} onChange={(e) => setAreaRange(e.target.value)}>
-          <option value="">{t('propertiesPage.optAnyArea')}</option>
-          <option value="0-50">{t('propertiesPage.areaBelow50')}</option>
-          <option value="50-100">50-100㎡</option>
-          <option value="100-200">100-200㎡</option>
-          <option value="200+">{t('propertiesPage.areaAbove200')}</option>
-          <option value="custom">{t('propertiesPage.customArea')}</option>
-        </select>
-        {areaRange === 'custom' && (
-          <div className="rent-filter-bar__custom">
-            <input
-              className="rent-filter-bar__custom-input"
-              type="number"
-              min={0}
-              value={areaCustomMin}
-              placeholder={t('propertiesPage.minArea')}
-              onChange={(e) => setAreaCustomMin(e.target.value)}
-            />
-            <span className="rent-filter-bar__custom-sep">-</span>
-            <input
-              className="rent-filter-bar__custom-input"
-              type="number"
-              min={0}
-              value={areaCustomMax}
-              placeholder={t('propertiesPage.maxArea')}
-              onChange={(e) => setAreaCustomMax(e.target.value)}
-            />
-          </div>
-        )}
-        <select className="rent-form-select rent-filter-bar__select" value={sort} onChange={(e) => setSort(e.target.value)}>
-          <option value="created">{t('propertiesPage.sortLatest')}</option>
-          <option value="rent-asc">{t('propertiesPage.sortRentAsc')}</option>
-          <option value="rent-desc">{t('propertiesPage.sortRentDesc')}</option>
-        </select>
+          </FilterTab>
+        </div>
         <button
           type="button"
-          className={`prop-video-btn ${onlyVideo ? 'prop-video-btn--active' : ''}`}
+          className="pf-video"
+          data-active={onlyVideo}
           onClick={() => setOnlyVideo((v) => !v)}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="14" height="14" rx="2" /><polygon points="22 7 16 11 16 13 22 17 22 7" /></svg>
           {t('propertiesPage.onlyVideo')}
         </button>
+      </div>
+      <div className="pf-count">
+        {t('common.total')} <strong>{total}</strong> {t('property.units')}
       </div>
 
       {/* Property Card Grid（对齐原型 rent-grid--auto） */}

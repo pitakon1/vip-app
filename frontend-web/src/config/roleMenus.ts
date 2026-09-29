@@ -178,11 +178,6 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22',
         },
         {
-          key: '/listings',
-          labelKey: 'menu.propertySearch',
-          icon: 'M21 21l-4.35-4.35M17 11a6 6 0 1 1-12 0 6 6 0 0 1 12 0z',
-        },
-        {
           key: '/crm',
           labelKey: 'menu.leads',
           icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0',
@@ -201,16 +196,6 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           key: '/contracts',
           labelKey: 'menu.contracts',
           icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 13l2 2 4-4',
-        },
-        {
-          key: '/publish-listing',
-          labelKey: 'menu.publishListing',
-          icon: 'M12 5v14M5 12h14',
-        },
-        {
-          key: '/my-listings',
-          labelKey: 'menu.myListings',
-          icon: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
         },
         {
           key: '/broker-agreements',
@@ -325,6 +310,11 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0 M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
         },
         {
+          key: '/system/partners',
+          labelKey: 'menu.coopPartners',
+          icon: 'M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01',
+        },
+        {
           key: '/system/groups',
           labelKey: 'menu.userGroups',
           icon: 'M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M18 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M3 21v-1a5 5 0 0 1 5-5 5 5 0 0 1 5 5v1 M21 16.5V21 M19.5 18.75h3',
@@ -367,13 +357,33 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
       ],
     },
   ],
+  partner_admin: [
+    {
+      labelKey: 'menu.section.partner',
+      items: [
+        {
+          key: '/partner/members',
+          labelKey: 'menu.partnerMembers',
+          mobileLabelKey: 'menu.partnerMembers',
+          icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0',
+        },
+        {
+          key: '/partner/attendance',
+          labelKey: 'menu.partnerAttendance',
+          mobileLabelKey: 'menu.partnerAttendance',
+          icon: 'M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+        },
+      ],
+    },
+  ],
 }
 
 /** 移动端底部 Tab 展示白名单（自上而下）。未列出的菜单项只在侧边栏展示。 */
 export const ROLE_MOBILE_KEYS: Record<string, string[]> = {
   owner: ['/owner/dashboard', '/owner/income', '/owner/marketing', '/owner/services', '/owner/my'],
   tenant: ['/tenant/dashboard', '/tenant/payments', '/tenant/documents', '/tenant/services', '/tenant/maintenance'],
-  agent: ['/employee/dashboard', '/properties', '/listings', '/employee/attendance', '/employee/performance', '/employee/contacts'],
-  employee: ['/employee/dashboard', '/properties', '/listings', '/employee/attendance', '/employee/performance', '/employee/contacts'],
+  agent: ['/employee/dashboard', '/properties', '/employee/attendance', '/employee/performance', '/employee/contacts'],
+  employee: ['/employee/dashboard', '/properties', '/employee/attendance', '/employee/performance', '/employee/contacts'],
   admin: ['/dashboard', '/properties', '/crm', '/payments', '/settings'],
+  partner_admin: ['/partner/members'],
 }

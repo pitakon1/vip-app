@@ -71,6 +71,7 @@ const roleBrandKey: Record<string, string> = {
   owner: 'owner',
   tenant: 'tenant',
   employee: 'employee',
+  partner_admin: 'partner_admin',
 }
 
 const MainLayout = () => {
@@ -83,7 +84,7 @@ const MainLayout = () => {
   // 兜底为空角色而不是 admin：user 缺失（本地缓存被清、令牌与用户不同步）时
   // 不应拿到管理端菜单，菜单构建的 default 分支返回空即可。
   const role = user?.role || ''
-  const isConsumer = role !== 'admin' && role !== 'agent'
+  const isConsumer = role !== 'admin' && role !== 'agent' && role !== 'partner_admin'
   const sections = useMemo(() => buildSections(role, t), [role, t])
   const mobileTabs = useMemo(() => buildMobileTabs(role, t), [role, t])
 

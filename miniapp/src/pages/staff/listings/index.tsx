@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { listingApi, authApi } from '@/services/api'
 import StateBlock from '@/components/StateBlock'
+import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 import { useI18n } from '@/i18n'
 
@@ -112,6 +113,7 @@ export default function StaffListingsPage() {
 
   return (
     <View className='st-page'>
+      <ShellHeader title={t('nav.listings')} />
       <View className='st-tabs'>
         <View
           className={`st-tab ${tab === 'mine' ? 'st-tab--active' : ''}`}

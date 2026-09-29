@@ -107,3 +107,6 @@ taste-skill/
 /.workbuddy/
 rental-full-draft/_*
 rental-full-draft/**/_archive-*/
+
+# ===== 本地启动脚本 =====
+/_start_metro.bat

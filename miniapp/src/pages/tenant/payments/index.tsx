@@ -7,6 +7,7 @@ import { fmtMoney as formatMoney } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import StateBlock from '@/components/StateBlock'
 import './index.scss'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 
 interface Payment {
@@ -189,6 +190,7 @@ export default function TenantPaymentsPage() {
 
   return (
     <View className='tenant-payments-page'>
+      <ShellHeader title={t('nav.payments')} />
       <View className='page-container'>
         {pending.length > 0 && (
           <View className='pay-banner'>

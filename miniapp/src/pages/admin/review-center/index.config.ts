@@ -1,0 +1,1 @@
+export default { navigationBarTitleText: '工单审核', navigationStyle: 'custom' }

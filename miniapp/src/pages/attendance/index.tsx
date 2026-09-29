@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { attendanceApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -72,6 +73,27 @@ const LEAVE_TONE: Record<string, string> = {
   approved: 'a-badge--success',
   rejected: 'a-badge--error',
   cancelled: 'a-badge--neutral'
+}
+
+// ===== 员工自助：打卡异常申诉（GET /attendance/appeals） =====
+// 申诉条目：{ id, employee_id, date, reason, status: pending|approved|rejected, reply_note, created_at }
+interface AppealRow {
+  id: string
+  date?: string
+  reason?: string | null
+  status?: string
+  reply_note?: string | null
+}
+
+const APPEAL_STATUS_KEY: Record<string, string> = {
+  pending: 'att.appealStatus.pending',
+  approved: 'att.appealStatus.approved',
+  rejected: 'att.appealStatus.rejected'
+}
+const APPEAL_TONE: Record<string, string> = {
+  pending: 'a-badge--warning',
+  approved: 'a-badge--success',
+  rejected: 'a-badge--error'
 }
 
 // 我的请假记录（GET /attendance/leave-requests，后端按角色只返回本人申请）
@@ -158,6 +180,13 @@ export default function AttendancePage() {
   const [leaveForm, setLeaveForm] = useState({ start: todayStr(), end: todayStr(), reason: '' })
   const [leaveSubmitting, setLeaveSubmitting] = useState(false)
   const [leaves, setLeaves] = useState<LeaveRow[]>([])
+
+  // 打卡异常申诉：申请表单 + 我的申诉记录
+  const [showAppealForm, setShowAppealForm] = useState(false)
+  const [appealDate, setAppealDate] = useState(todayStr())
+  const [appealReason, setAppealReason] = useState('')
+  const [appealSubmitting, setAppealSubmitting] = useState(false)
+  const [appeals, setAppeals] = useState<AppealRow[]>([])
 
   const getLoc = async (): Promise<{ latitude: number; longitude: number } | null> => {
     try {
@@ -248,6 +277,36 @@ export default function AttendancePage() {
     }
   }
 
+  // 我的打卡异常申诉
+  const loadAppeals = async () => {
+    try {
+      const res: any = await attendanceApi.appeals()
+      setAppeals(pickList(res) as unknown as AppealRow[])
+    } catch (err) {
+      console.error('[Attendance] 获取申诉记录失败', err)
+      setAppeals([])
+    }
+  }
+
+  const submitAppeal = async () => {
+    if (!appealReason.trim()) {
+      Taro.showToast({ title: t('att.appealPlaceholder'), icon: 'none' })
+      return
+    }
+    setAppealSubmitting(true)
+    try {
+      await attendanceApi.applyAppeal({ date: appealDate, reason: appealReason.trim() })
+      Taro.showToast({ title: t('att.appealSubmitted'), icon: 'success' })
+      setShowAppealForm(false)
+      setAppealReason('')
+      loadAppeals()
+    } catch (err: any) {
+      Taro.showToast({ title: err?.message || t('att.submitFailed'), icon: 'none' })
+    } finally {
+      setAppealSubmitting(false)
+    }
+  }
+
   // 请假天数由后端按自然日自动计算，前端只做展示预览
   const leaveDaysPreview = useMemo(() => {
     const s = new Date(leaveForm.start).getTime()
@@ -315,6 +374,7 @@ export default function AttendancePage() {
     loadRecords()
     loadMyRule()
     loadLeaves()
+    loadAppeals()
     getLoc()
   })
 
@@ -412,6 +472,7 @@ export default function AttendancePage() {
 
   return (
     <View className='a-page'>
+      <ShellHeader title={t('nav.attendance')} />
       <View className='page-container'>
         <ScrollView scrollY className='a-scroll'>
           {/* 打卡卡：日期 + 实时时钟 + 打卡按钮 + 今日状态 */}
@@ -797,6 +858,78 @@ export default function AttendancePage() {
                         <Text className='a-leave__act-text'>{t('att.leaveCancel')}</Text>
                       </View>
                     )}
+                  </View>
+                ))
+              )}
+            </View>
+          </View>
+
+          {/* 打卡异常申诉 + 我的申诉记录 */}
+          <View className='a-leave'>
+            <View className='a-trip__bar'>
+              <Text className='a-trip__title'>{t('att.appeal')}</Text>
+              <Text
+                className='a-trip__link a-trip__link--primary'
+                onClick={() => setShowAppealForm((v) => !v)}
+              >
+                {t('att.appealSubmit')}
+              </Text>
+            </View>
+
+            {showAppealForm && (
+              <View className='a-form'>
+                <View className='a-form__row'>
+                  <Text className='a-form__label'>{t('att.appealDate')}</Text>
+                  <Picker
+                    mode='date'
+                    value={appealDate}
+                    onChange={(e: any) => setAppealDate(e.detail.value)}
+                  >
+                    <View className='a-form__value'>
+                      <Text className='a-form__text'>{appealDate}</Text>
+                    </View>
+                  </Picker>
+                </View>
+                <View className='a-form__row a-form__row--col'>
+                  <Text className='a-form__label'>{t('att.appealReason')}</Text>
+                  <Input
+                    className='a-form__input'
+                    value={appealReason}
+                    placeholder={t('att.appealPlaceholder')}
+                    onInput={(e: any) => setAppealReason(e.detail.value)}
+                  />
+                </View>
+                <View className='a-form__submit' onClick={submitAppeal}>
+                  <Text className='a-form__submit-text'>
+                    {appealSubmitting ? t('common.submitting') : t('att.appealSubmit')}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View className='a-trips'>
+              <Text className='a-mrule__list-title'>{t('att.appealList')}</Text>
+              {appeals.length === 0 ? (
+                <View className='a-trips__empty'>
+                  <Text className='a-trips__empty-text'>{t('att.noAppeal')}</Text>
+                </View>
+              ) : (
+                appeals.map((row) => (
+                  <View key={row.id} className='a-trips__item'>
+                    <View className='a-trips__top'>
+                      <Text className='a-trips__date'>{row.date || '-'}</Text>
+                      <View className={`a-badge ${APPEAL_TONE[row.status || ''] || 'a-badge--neutral'}`}>
+                        <Text>
+                          {APPEAL_STATUS_KEY[row.status || '']
+                            ? t(APPEAL_STATUS_KEY[row.status || ''])
+                            : row.status || '-'}
+                        </Text>
+                      </View>
+                    </View>
+                    {row.reason ? <Text className='a-trips__reason'>{row.reason}</Text> : null}
+                    {row.reply_note ? (
+                      <Text className='a-trips__reply'>{t('att.reply', { note: row.reply_note })}</Text>
+                    ) : null}
                   </View>
                 ))
               )}

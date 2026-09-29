@@ -38,6 +38,8 @@ const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey; ca
   { key: 'services', label: '增值服务', url: '/pages/tenant/services/index', icon: 'clipboard', cap: 'tenant', need: '租入房源或添加房源后即可购买' },
   // 通用能力项（文档中心：租房文档 + 我的文档 合并）
   { key: 'documents', label: '文档中心', url: '/pages/tenant/documents/index', icon: 'doc', cap: 'both', need: '租入房源或添加房源后即可查看' },
+  // 电子合同（业主/租客签署）
+  { key: 'myContracts', label: '我的合同', url: '/pages/tenant/my-contracts/index', icon: 'doc', cap: 'both', need: '他人发给您的电子合同可在此查看并签署' },
   // C 端关注/浏览历史/降价提醒：登录即可用，不按业主/租客能力门槛（未登录先进登录；对齐 App）
   { key: 'favorites', label: '我的关注', url: '/pages/tenant/favorites/index', icon: 'heart', cap: 'any', need: '' },
   { key: 'history', label: '浏览历史', url: '/pages/tenant/history/index', icon: 'calendar', cap: 'any', need: '' },
@@ -80,7 +82,8 @@ const OWNER_SETTING_ROWS: Array<RowEntry & { badge?: boolean }> = [
 const STAFF_ROWS: RowEntry[] = [
   { key: 'contacts', label: '通讯录', desc: '同事与部门通讯录', url: '/pages/employee/contacts/index', icon: 'user' },
   { key: 'attendance', label: '考勤打卡', desc: '上下班 GPS 定位打卡', url: '/pages/attendance/index', icon: 'calendar' },
-  { key: 'manageProperties', label: '房源管理', desc: '我的房源与上下架管理', url: '/pages/employee/properties/index', icon: 'home' }
+  { key: 'manageProperties', label: '房源管理', desc: '我的房源与上下架管理', url: '/pages/employee/properties/index', icon: 'home' },
+  { key: 'contracts', label: '电子合同', desc: '生成、签署与归档电子合同', url: '/pages/admin/contracts/index', icon: 'doc' }
 ]
 
 // 角色文案（与原型顶部身份标签一致）
@@ -830,6 +833,26 @@ export default function ProfilePage() {
           </View>
 
           {renderAccountSections()}
+
+          <View className='section-title'>
+            <Text>常用入口</Text>
+          </View>
+          <View className='panel panel--list'>
+            {renderRow({
+              key: 'manageProperties',
+              label: '房源管理',
+              desc: '新增/编辑房源与上架',
+              icon: 'home',
+              url: '/pages/admin/properties/index'
+            })}
+            {renderRow({
+              key: 'contracts',
+              label: '电子合同',
+              desc: '生成、签署与归档电子合同',
+              icon: 'doc',
+              url: '/pages/admin/contracts/index'
+            })}
+          </View>
 
           <View className='section-title'>
             <Text>业务设置</Text>

@@ -48,12 +48,15 @@ export default function LoginPage() {
   }, [])
 
   const goHome = (user: User) => {
-    const role: UserRole = user.role
-    const homePath = {
-      owner: '/pages/owner/home/index',
-      tenant: '/pages/tenant/home/index',
-      admin: '/pages/admin/home/index',
-    }[role] || '/pages/employee/home/index'
+    const role = user.role as string
+    // 合作公司管理员没有平台管理端首页，落到本公司聚合页（成员/绩效/考勤/房源）
+    const homePath =
+      {
+        owner: '/pages/owner/home/index',
+        tenant: '/pages/tenant/home/index',
+        admin: '/pages/admin/home/index',
+        partner_admin: '/pages/admin/partner-members/index',
+      }[role] || '/pages/employee/home/index'
     setTimeout(() => {
       Taro.redirectTo({ url: homePath })
     }, 400)

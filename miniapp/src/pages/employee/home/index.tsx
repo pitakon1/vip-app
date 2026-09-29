@@ -242,9 +242,9 @@ export default function EmployeeHomePage() {
       </View>
 
       <View className='emp-content'>
-        {/* 房源上架入口（对齐 App：移除独立 workbench，直达发布房源） */}
+        {/* 房源上架入口（发布/委托已并入「房源管理」，直达可编辑管理列表） */}
         <View className='emp-section'>
-          <View className='emp-quick' onClick={() => Taro.navigateTo({ url: '/pages/staff/listing-edit/index' })}>
+          <View className='emp-quick' onClick={() => Taro.navigateTo({ url: '/pages/employee/properties/index' })}>
             <View className='emp-quick__icon'>
               <Text className='emp-quick__icon-text'>{t('home.iconPublish')}</Text>
             </View>

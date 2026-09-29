@@ -8,6 +8,7 @@ import type { Document } from '@/types'
 import './index.scss'
 import StateBlock from '@/components/StateBlock'
 import { iconStyle } from '@/utils/icons'
+import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 
 const buildTypeMap = (
@@ -161,6 +162,7 @@ export default function TenantDocumentsPage() {
 
   return (
     <View className='tenant-documents-page'>
+      <ShellHeader title={t('nav.documents')} />
       <View className='page-container'>
         <ScrollView scrollX className='doc-tabs'>
           <View className='doc-tabs-inner'>
