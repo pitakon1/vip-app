@@ -49,6 +49,9 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     department: Optional[str] = None
     position: Optional[str] = None
+    # 合作公司归属：提供值 = 划入/换公司（对象存在且激活）；传 null = 移出公司。
+    # 未提供（字段不在请求体）时不做改动。需权限 partner:manage。
+    partner_id: Optional[uuid.UUID] = None
 
 
 class ResetPassword(BaseModel):
@@ -220,6 +223,49 @@ def create_user(
     return _serialize_one(session, new_user)
 
 
+def _apply_partner_assignment(
+    session: Session, admin: User, u: User, partner_change: Optional[uuid.UUID]
+) -> None:
+    """平台管理员把账号划入 / 换到 / 移出某个合作公司（需权限 partner:manage）。
+
+    - 传 UUID：目标公司须存在且激活，设置归属并把 user_type 置为 partner。
+    - 传 None：移出公司。若目标为该公司管理员（Partner.admin_user_id），先清空其
+      管理员位并把角色降回 agent；清空归属且 user_type 置回 platform。
+    """
+    perms = get_user_permissions(session, admin)
+    if "partner:manage" not in perms:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Required permissions: ['partner:manage']",
+        )
+    if u.id == admin.id:  # 禁止平台管理员把自己划入合作公司（会脱离平台管理）
+        raise HTTPException(status_code=400, detail="Cannot assign yourself to a company")
+
+    if partner_change is None:
+        if not u.partner_id:
+            return
+        if u.role == UserRole.partner_admin:
+            p = session.exec(
+                select(Partner).where(Partner.id == u.partner_id)
+            ).first()
+            if p and p.admin_user_id and str(p.admin_user_id) == str(u.id):
+                p.admin_user_id = None
+                session.add(p)
+            u.role = UserRole.agent
+        u.user_type = UserType.platform
+        u.partner_id = None
+        session.add(u)
+        return
+
+    partner = session.get(Partner, partner_change)
+    if not partner or partner.deleted_at or not partner.is_active:
+        raise HTTPException(status_code=400, detail="Partner company is not active")
+    u.partner_id = partner_change
+    if u.user_type != UserType.partner:
+        u.user_type = UserType.partner
+    session.add(u)
+
+
 @router.patch("/{user_id}")
 def update_user(
     user_id: uuid.UUID,
@@ -246,6 +292,12 @@ def update_user(
     new_role = data.pop("role", None)
     department = data.pop("department", None)
     position = data.pop("position", None)
+    # partner_id 用哨兵区分「未提供」与「显式传 null 移出公司」
+    _MISSING = object()
+    partner_change = data.pop("partner_id", _MISSING)
+
+    if partner_change is not _MISSING:
+        _apply_partner_assignment(session, admin, u, partner_change)
 
     if is_active_change is not None:
         if u.id == admin.id and is_active_change is False:
