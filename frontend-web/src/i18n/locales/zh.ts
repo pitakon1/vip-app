@@ -3635,6 +3635,21 @@ const zh = {
     fLanguage: "合同语言",
     langZh: "中文",
     generate: "生成合同",
+    // 房屋买卖合同（purchase）字段
+    fpSeller: "出卖方",
+    fpBuyer: "买受方",
+    fpProperty: "标的房屋",
+    fpRoom: "房号",
+    fpArea: "面积（㎡）",
+    fpTotal: "房屋总价（元）",
+    fpDown: "定金（元）",
+    fpDelivery: "交付时间",
+    // 经纪人协议（broker）字段
+    fbName: "经纪人姓名",
+    fbCompany: "所属公司",
+    fbPhone: "联系电话",
+    fbChannel: "联系方式（微信/LINE）",
+    fbId: "证件号",
     listTitle: "合同列表",
     thTitle: "标题",
     thLanguage: "语言",
@@ -4131,6 +4146,15 @@ const zh = {
     deleteLead: "删除线索",
     deleteLeadConfirm: "删除后不可恢复，确定删除该线索？",
     leadDeleted: "线索已删除",
+  },
+  // 合同模板（生成合同时选择）
+  contract: {
+    formTemplate: "合同模板",
+    tmpl: {
+      lease: "租赁合同",
+      purchase: "房屋买卖合同",
+      broker: "经纪人协议",
+    },
   },
 }
 

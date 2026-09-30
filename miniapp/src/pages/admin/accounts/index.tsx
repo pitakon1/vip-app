@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { View, Text, Input, ScrollView, Picker } from '@tarojs/components'
+import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { employeesApi, adminUsersApi, adminPartnersApi } from '@/services/api'
+import { employeesApi, adminUsersApi } from '@/services/api'
 import { MAX_PAGE_SIZE } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
 import useAuthStore from '@/stores/auth'
@@ -73,12 +73,10 @@ export default function AdminEmployeesPage() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('')
   const [userTypeFilter, setUserTypeFilter] = useState('')
-  // 账号来源/归属（来自 /admin/users 的 user_type + partner_name + partner_id，按 user_id 关联员工）
+  // 账号来源/归属（来自 /admin/users 的 user_type + partner_name，按 user_id 关联员工）
   const [userMetaMap, setUserMetaMap] = useState<
-    Record<string, { user_type?: string; partner_name?: string; partner_id?: string | null; role?: string }>
+    Record<string, { user_type?: string; partner_name?: string; role?: string }>
   >({})
-  // 可用合作公司（/admin/partners），用于「归属公司」下拉
-  const [partners, setPartners] = useState<{ id: string; name: string }[]>([])
   // 当前登录账号 id（禁止删除自己）
   const currentUserId = useAuthStore((s) => s.user)?.id ?? null
   // 登录角色：平台管理员走下方正常员工管理；合作公司管理员直接进入本公司成员视图
@@ -180,10 +178,10 @@ export default function AdminEmployeesPage() {
       const res: any = await adminUsersApi.list({ page: 1, page_size: MAX_PAGE_SIZE })
       const d = res?.data ?? res
       const items: any[] = Array.isArray(d) ? d : d?.items || []
-      const map: Record<string, { user_type?: string; partner_name?: string; partner_id?: string | null }> = {}
+      const map: Record<string, { user_type?: string; partner_name?: string }> = {}
       items.forEach((u) => {
         if (u?.id != null) {
-          map[String(u.id)] = { user_type: u.user_type, partner_name: u.partner_name, partner_id: u.partner_id }
+          map[String(u.id)] = { user_type: u.user_type, partner_name: u.partner_name }
         }
       })
       setUserMetaMap(map)
@@ -192,22 +190,10 @@ export default function AdminEmployeesPage() {
     }
   }
 
-  const fetchPartners = async () => {
-    try {
-      const res: any = await adminPartnersApi.list({ page: 1, page_size: MAX_PAGE_SIZE })
-      const d = res?.data ?? res
-      const items: { id: string; name: string }[] = Array.isArray(d) ? d : d?.items || []
-      setPartners(items)
-    } catch (error) {
-      console.error('[AdminEmployees] 获取合作公司列表失败', error)
-    }
-  }
-
   useDidShow(() => {
     fetchEmployees()
     fetchPerformance()
     fetchUserMeta()
-    fetchPartners()
   })
 
   // 合作公司管理员：账号管理即本公司成员视图，跳转到成员管理页
@@ -269,43 +255,7 @@ export default function AdminEmployeesPage() {
     const meta = userMetaMap[String(e.user_id)]
     return {
       userType: meta?.user_type || 'platform',
-      partnerName: meta?.partner_name || '',
-      partnerId: meta?.partner_id ?? ''
-    }
-  }
-
-  // 「归属公司」下拉选项：首位为「无/平台」，其后为可用合作公司
-  const companyOptions = useMemo(
-    () => [{ id: '', name: t('acc.platformEmployee') }, ...partners],
-    [partners, t]
-  )
-
-  // 当前员工在公司下拉中的索引：已归属按 partner_id 匹配，否则为「平台」
-  const companyIndex = (e: EmployeeItem) => {
-    const meta = sourceMeta(e)
-    const idx = companyOptions.findIndex((o) => (o.id ? o.id === String(meta?.partnerId || '') : !meta?.partnerId))
-    return idx >= 0 ? idx : 0
-  }
-
-  /**
-   * 归属公司变更（PATCH /admin/users/{id} 传 partner_id）：
-   * 选中平台=移出（partner_id:null，回到 platform）；选中某公司=划入/换公司（partner_id:UUID，user_type 变 partner）。
-   */
-  const assignCompany = async (e: EmployeeItem, index: number) => {
-    const opt = companyOptions[index]
-    if (!opt || !e.user_id) return
-    const current = sourceMeta(e)?.partnerId
-    if ((opt.id || '') === String(current || '')) return // 未变更
-    try {
-      await adminUsersApi.update(e.user_id, { partner_id: opt.id ? opt.id : null })
-      Taro.showToast({
-        title: t('acc.companyUpdated', { name: e.full_name || t('acc.unnamed') }),
-        icon: 'success'
-      })
-      fetchUserMeta()
-      fetchEmployees()
-    } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('acc.companyChangeFailed'), icon: 'none' })
+      partnerName: meta?.partner_name || ''
     }
   }
 
@@ -476,14 +426,6 @@ export default function AdminEmployeesPage() {
                   <View className='ac-act ac-act--role' onClick={() => changeRole(e)}>
                     {t('acc.changeRole')}
                   </View>
-                  <Picker
-                    mode='selector'
-                    range={companyOptions.map((o) => o.name)}
-                    value={companyIndex(e)}
-                    onChange={(ev: any) => assignCompany(e, Number(ev.detail.value))}
-                  >
-                    <View className='ac-act ac-act--role'>{t('acc.attrCompany')}</View>
-                  </Picker>
                   {String(e.user_id) !== String(currentUserId) && (
                     <View className='ac-act ac-act--del' onClick={() => remove(e)}>{t('acc.deleteAccount')}</View>
                   )}

@@ -12,7 +12,7 @@ from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import serialize_user
+from app.core.auth import require_admin, serialize_user
 from app.core.rbac import require_permission, get_user_permissions
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.security import get_password_hash
@@ -39,6 +39,7 @@ class UserCreate(BaseModel):
     phone: Optional[str] = None
     department: Optional[str] = None
     position: Optional[str] = None
+    partner_id: Optional[uuid.UUID] = None
 
 
 class UserUpdate(BaseModel):
@@ -49,13 +50,16 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     department: Optional[str] = None
     position: Optional[str] = None
-    # 合作公司归属：提供值 = 划入/换公司（对象存在且激活）；传 null = 移出公司。
-    # 未提供（字段不在请求体）时不做改动。需权限 partner:manage。
-    partner_id: Optional[uuid.UUID] = None
 
 
 class ResetPassword(BaseModel):
     new_password: str
+
+
+class AssignPartnerRequest(BaseModel):
+    """平台管理员把账号分配到指定合作公司；partner_id=null 表示移回平台员工。"""
+
+    partner_id: Optional[uuid.UUID] = None
 
 
 def _batch_extras(
@@ -182,17 +186,28 @@ def create_user(
     session: Session = Depends(get_session),
     user: User = Depends(require_permission("account:create")),
 ):
-    """后台开通账号（agent/employee 自动创建员工档案；partner_admin 走合作公司开通）。"""
-    if req.role == UserRole.partner_admin:
-        raise HTTPException(
-            status_code=400,
-            detail="partner_admin must be created via a partner company",
-        )
+    """后台开通账号（agent/employee 自动创建员工档案；partner_admin 需指定所属公司）。"""
     existing = session.exec(select(User).where(User.email == req.email)).first()
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
     if not req.password or len(req.password) < 6:
         raise HTTPException(status_code=400, detail="Password too short (min 6)")
+
+    # 合作公司归属：传了 partner_id 即设为合作伙伴员工并校验公司存在；
+    # 合作公司管理员强制要求归属某公司，否则 400。
+    user_type = UserType.platform
+    partner_id = None
+    if req.partner_id is not None:
+        partner = session.get(Partner, req.partner_id)
+        if not partner or partner.deleted_at:
+            raise HTTPException(status_code=404, detail="Partner not found")
+        partner_id = req.partner_id
+        user_type = UserType.partner
+    if req.role == UserRole.partner_admin and partner_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="partner_admin requires a partner company",
+        )
 
     new_user = User(
         email=req.email,
@@ -200,7 +215,8 @@ def create_user(
         full_name=req.full_name,
         hashed_password=get_password_hash(req.password),
         role=req.role,
-        user_type=UserType.platform,
+        user_type=user_type,
+        partner_id=partner_id,
         is_active=True,
         is_verified=True,
     )
@@ -221,49 +237,6 @@ def create_user(
     session.commit()
     session.refresh(new_user)
     return _serialize_one(session, new_user)
-
-
-def _apply_partner_assignment(
-    session: Session, admin: User, u: User, partner_change: Optional[uuid.UUID]
-) -> None:
-    """平台管理员把账号划入 / 换到 / 移出某个合作公司（需权限 partner:manage）。
-
-    - 传 UUID：目标公司须存在且激活，设置归属并把 user_type 置为 partner。
-    - 传 None：移出公司。若目标为该公司管理员（Partner.admin_user_id），先清空其
-      管理员位并把角色降回 agent；清空归属且 user_type 置回 platform。
-    """
-    perms = get_user_permissions(session, admin)
-    if "partner:manage" not in perms:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied. Required permissions: ['partner:manage']",
-        )
-    if u.id == admin.id:  # 禁止平台管理员把自己划入合作公司（会脱离平台管理）
-        raise HTTPException(status_code=400, detail="Cannot assign yourself to a company")
-
-    if partner_change is None:
-        if not u.partner_id:
-            return
-        if u.role == UserRole.partner_admin:
-            p = session.exec(
-                select(Partner).where(Partner.id == u.partner_id)
-            ).first()
-            if p and p.admin_user_id and str(p.admin_user_id) == str(u.id):
-                p.admin_user_id = None
-                session.add(p)
-            u.role = UserRole.agent
-        u.user_type = UserType.platform
-        u.partner_id = None
-        session.add(u)
-        return
-
-    partner = session.get(Partner, partner_change)
-    if not partner or partner.deleted_at or not partner.is_active:
-        raise HTTPException(status_code=400, detail="Partner company is not active")
-    u.partner_id = partner_change
-    if u.user_type != UserType.partner:
-        u.user_type = UserType.partner
-    session.add(u)
 
 
 @router.patch("/{user_id}")
@@ -292,12 +265,6 @@ def update_user(
     new_role = data.pop("role", None)
     department = data.pop("department", None)
     position = data.pop("position", None)
-    # partner_id 用哨兵区分「未提供」与「显式传 null 移出公司」
-    _MISSING = object()
-    partner_change = data.pop("partner_id", _MISSING)
-
-    if partner_change is not _MISSING:
-        _apply_partner_assignment(session, admin, u, partner_change)
 
     if is_active_change is not None:
         if u.id == admin.id and is_active_change is False:
@@ -471,6 +438,32 @@ def activate_user(
     session.add(u)
     session.commit()
     return {"id": str(u.id), "is_active": True}
+
+
+@router.post("/{user_id}/assign-partner", response_model=UserAdminOut)
+def assign_partner(
+    user_id: uuid.UUID,
+    req: AssignPartnerRequest,
+    session: Session = Depends(get_session),
+    admin: User = Depends(require_admin),
+):
+    """把任一账号分配到指定合作公司；req.partner_id=null 则移出公司回到平台员工。"""
+    u = session.get(User, user_id)
+    if not u or u.deleted_at:
+        raise HTTPException(status_code=404, detail="User not found")
+    if req.partner_id is not None:
+        partner = session.get(Partner, req.partner_id)
+        if not partner or partner.deleted_at:
+            raise HTTPException(status_code=404, detail="Partner not found")
+        u.user_type = UserType.partner
+        u.partner_id = req.partner_id
+    else:
+        u.user_type = UserType.platform
+        u.partner_id = None
+    session.add(u)
+    session.commit()
+    session.refresh(u)
+    return _serialize_one(session, u)
 
 
 @router.post("/{user_id}/reset-password")

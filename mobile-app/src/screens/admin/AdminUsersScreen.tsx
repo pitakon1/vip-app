@@ -25,10 +25,11 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { notify, notifyError } from '@/utils/feedback';
 import api from '@/lib/api';
-import { authApi, employeesApi, usersAdminApi, partnersAdminApi } from '@/services/api';
+import { authApi, employeesApi, usersAdminApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
 import PartnerMemberManager from '@/components/PartnerMemberManager';
+import PartnerSearchPicker from '@/components/PartnerSearchPicker';
 
 interface EmployeeRow {
   id: string;
@@ -69,6 +70,8 @@ const DAY_MS = 86400000;
 
 /** 可分配的员工账号角色（与 Web 账号管理的角色口径一致，此处只列员工侧角色） */
 const ROLE_KEYS = ['employee', 'agent', 'admin'] as const;
+/** 新建账号时额外的可选角色：合作公司管理员（需同时指定所属公司） */
+const CREATE_ROLE_KEYS = [...ROLE_KEYS, 'partner_admin'] as const;
 
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
@@ -105,18 +108,14 @@ export default function AdminUsersScreen() {
   const [roleLoading, setRoleLoading] = useState(false);
   const [roleSaving, setRoleSaving] = useState(false);
 
-  // 归属公司（平台管理员把账号划入/移出合作公司）。PATCH /admin/users/{id} 传 partner_id：
-  // 传 UUID=划入/换公司；传 null=移出回到平台；不传=不改。划入后 user_type 变 partner，移出回 platform。
-  const [partnerTarget, setPartnerTarget] = useState<EmployeeRow | null>(null);
-  const [partnerOptions, setPartnerOptions] = useState<{ id: string; name: string }[]>([]);
-  const [partnerPick, setPartnerPick] = useState(''); // '' 代表「无/平台」
-  const [partnerLoading, setPartnerLoading] = useState(false);
-  const [partnerSaving, setPartnerSaving] = useState(false);
+  // 把账号分配到合作公司（POST /admin/users/{id}/assign-partner）
+  const [assignTarget, setAssignTarget] = useState<EmployeeRow | null>(null);
+  const [assignSaving, setAssignSaving] = useState(false);
 
   // 新建员工账号
   const [showCreate, setShowCreate] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
-  const [formErr, setFormErr] = useState<{ full_name?: string; email?: string; password?: string }>({});
+  const [formErr, setFormErr] = useState<{ full_name?: string; email?: string; password?: string; partner_id?: string }>({});
   const [form, setForm] = useState({
     full_name: '',
     email: '',
@@ -124,9 +123,10 @@ export default function AdminUsersScreen() {
     position: '',
     password: '123456',
     role: 'employee',
+    partner_id: '',
   });
   const openCreate = () => {
-    setForm({ full_name: '', email: '', department: '', position: '', password: '123456', role: 'employee' });
+    setForm({ full_name: '', email: '', department: '', position: '', password: '123456', role: 'employee', partner_id: '' });
     setFormErr({});
     setShowCreate(true);
   };
@@ -139,6 +139,7 @@ export default function AdminUsersScreen() {
       err.email = t('acc.emailInvalid');
     }
     if (!form.password || form.password.length < 6) err.password = t('acc.initPwdError');
+    if (form.role === 'partner_admin' && !form.partner_id) err.partner_id = t('acc.partnerRequired');
     setFormErr(err);
     if (Object.keys(err).length > 0) return;
     setCreateSaving(true);
@@ -150,6 +151,7 @@ export default function AdminUsersScreen() {
         department: form.department.trim() || undefined,
         position: form.position.trim() || undefined,
         password: form.password,
+        ...(form.role === 'partner_admin' ? { partner_id: form.partner_id } : {}),
       });
       notify(t('acc.success'), t('acc.created'));
       setShowCreate(false);
@@ -162,11 +164,8 @@ export default function AdminUsersScreen() {
   };
 
   const fetchData = useCallback(async () => {
-    // 账号归属可靠数据源：/admin/users（含 partner_name/user_type），与员工档案按 user_id 合并。
-    // /employees 可能不含归属字段，故以 /admin/users 回填归属；平台/合作筛选在客户端进行。
-    const [empRes, userRes, leadRes, meRes] = await Promise.allSettled([
-      employeesApi.list({ page: 1, page_size: 100 }),
-      usersAdminApi.list({ page: 1, page_size: 100 }),
+    const [empRes, leadRes, meRes] = await Promise.allSettled([
+      employeesApi.list({ page: 1, page_size: 100, user_type: userType === 'all' ? undefined : userType }),
       employeesApi.leaderboard(),
       authApi.me(),
     ]);
@@ -184,23 +183,6 @@ export default function AdminUsersScreen() {
       if (empRes.status === 'fulfilled') {
         const d = (empRes.value as any)?.data ?? {};
         const items = (d.items ?? d ?? []) as EmployeeRow[];
-        // 按 user_id 回填账号归属（user_type=platform|partner / partner_id / partner_name）
-        if (userRes.status === 'fulfilled') {
-          const ud = (userRes.value as any)?.data ?? {};
-          const uitems = (ud.items ?? ud ?? []) as any[];
-          const accMap = uitems.reduce<Record<string, any>>((acc, u) => {
-            if (u?.id) acc[String(u.id)] = u;
-            return acc;
-          }, {});
-          items.forEach((emp) => {
-            const acc = emp.user_id ? accMap[String(emp.user_id)] : undefined;
-            if (acc) {
-              emp.user_type = acc.user_type ?? emp.user_type;
-              emp.partner_id = acc.partner_id ?? emp.partner_id;
-              emp.partner_name = acc.partner_name ?? emp.partner_name;
-            }
-          });
-        }
         setEmployees(items);
         setTotal(typeof d.total === 'number' ? d.total : items.length);
       } else {
@@ -220,7 +202,7 @@ export default function AdminUsersScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [t]);
+  }, [t, userType]);
 
   useFocusEffect(
     useCallback(() => {
@@ -330,43 +312,28 @@ export default function AdminUsersScreen() {
     }
   };
 
-  /** 打开「归属公司」弹层：加载可用合作公司（/admin/partners），含「无/平台」选项用于移出 */
-  const openPartner = async (emp: EmployeeRow) => {
+  /** 打开「分配公司」弹层 */
+  const openAssign = async (emp: EmployeeRow) => {
     if (!emp.user_id) {
       notifyError(t('acc.cannotOperate'), { message: t('acc.noBoundAccount') });
       return;
     }
-    setPartnerTarget(emp);
-    setPartnerPick(emp.partner_id ?? '');
-    setPartnerOptions([]);
-    setPartnerLoading(true);
-    try {
-      const { data } = await partnersAdminApi.list({ page: 1, page_size: 100 });
-      const d = (data as any)?.data ?? data;
-      const items: { id: string; name: string }[] = (d?.items ?? d ?? []) as { id: string; name: string }[];
-      setPartnerOptions(items);
-    } catch (e: any) {
-      notifyError(t('acc.opFailed'), e);
-    } finally {
-      setPartnerLoading(false);
-    }
+    setAssignTarget(emp);
   };
 
-  /** 归属公司保存：划入（partner_id=UUID）/ 换公司 / 移出（partner_id=null）。划入后 user_type 变 partner */
-  const doSavePartner = async () => {
-    if (!partnerTarget?.user_id) return;
-    setPartnerSaving(true);
+  /** 把账号分配到某公司；partnerId=null 表示移回平台员工 */
+  const doAssign = async (partnerId: string | null, name = '') => {
+    if (!assignTarget?.user_id) return;
+    setAssignSaving(true);
     try {
-      await usersAdminApi.update(partnerTarget.user_id, {
-        partner_id: partnerPick ? partnerPick : null,
-      });
-      notify(t('acc.success'), t('acc.companyUpdated', { name: partnerTarget.full_name || t('acc.title') }));
-      setPartnerTarget(null);
+      await usersAdminApi.assignPartner(assignTarget.user_id, partnerId);
+      notify(t('acc.success'), partnerId ? t('acc.assigned', { name }) : t('acc.movedToPlatform'));
+      setAssignTarget(null);
       fetchData();
     } catch (e: any) {
-      notifyError(t('acc.opFailed'), e);
+      notifyError(t('acc.assignFailed'), e);
     } finally {
-      setPartnerSaving(false);
+      setAssignSaving(false);
     }
   };
 
@@ -408,9 +375,7 @@ export default function AdminUsersScreen() {
           : filter === 'inactive'
             ? !e.is_active
             : isProbation(e);
-    // 归属筛选（平台/合作）在客户端进行，依据回填后的 user_type
-    const hitType = userType === 'all' ? true : e.user_type === userType;
-    return hitKw && hitStatus && hitType;
+    return hitKw && hitStatus;
   });
 
   // 业绩进度以团队最高累计佣金为参照（后端无目标值，故展示团队占比而非目标完成率）
@@ -503,9 +468,9 @@ export default function AdminUsersScreen() {
               </TouchableOpacity>
             ) : null}
             {item.user_id ? (
-              <TouchableOpacity style={styles.actionLink} activeOpacity={0.7} onPress={() => openPartner(item)}>
+              <TouchableOpacity style={styles.actionLink} activeOpacity={0.7} onPress={() => openAssign(item)}>
                 <Ionicons name="business-outline" size={14} color={colors.primary} />
-                <Text style={styles.actionText}>{t('acc.attrCompany')}</Text>
+                <Text style={styles.actionText}>{t('acc.assignCompany')}</Text>
               </TouchableOpacity>
             ) : null}
             <TouchableOpacity style={styles.actionLink} activeOpacity={0.7} onPress={() => toggleActive(item)}>
@@ -748,7 +713,7 @@ export default function AdminUsersScreen() {
             {!!formErr.email && <Text style={styles.fieldError}>{formErr.email}</Text>}
             <Text style={styles.modalLabel}>{t('acc.role')}</Text>
             <View style={styles.roleChipRow}>
-              {ROLE_KEYS.map((key) => (
+              {CREATE_ROLE_KEYS.map((key) => (
                 <TouchableOpacity
                   key={key}
                   style={[styles.roleChip, form.role === key && styles.roleChipActive]}
@@ -761,6 +726,22 @@ export default function AdminUsersScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+            {form.role === 'partner_admin' && (
+              <>
+                <Text style={styles.modalLabel}>{t('acc.createPartner')}</Text>
+                {!!formErr.partner_id && <Text style={styles.fieldError}>{formErr.partner_id}</Text>}
+                <PartnerSearchPicker
+                  placeholder={t('acc.searchPartnerPlaceholder')}
+                  onSelect={(id) => {
+                    setForm((f) => ({ ...f, partner_id: id }));
+                    if (formErr.partner_id) setFormErr((e) => ({ ...e, partner_id: undefined }));
+                  }}
+                  onQueryEdited={() => {
+                    if (form.partner_id) setForm((f) => ({ ...f, partner_id: '' }));
+                  }}
+                />
+              </>
+            )}
             <Text style={styles.modalLabel}>{t('acc.deptOptional')}</Text>
             <TextInput
               style={styles.modalInput}
@@ -861,87 +842,45 @@ export default function AdminUsersScreen() {
         </View>
       </Modal>
 
-      {/* 归属公司（平台管理员把账号划入/移出合作公司） */}
+      {/* 分配公司（POST /admin/users/{id}/assign-partner） */}
       <Modal
-        visible={!!partnerTarget}
+        visible={!!assignTarget}
         transparent
         animationType="fade"
-        onRequestClose={() => setPartnerTarget(null)}
+        onRequestClose={() => setAssignTarget(null)}
       >
         <View style={styles.modalMask}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>
-              {t('acc.attrCompanyTitle', { name: partnerTarget?.full_name || t('acc.title') })}
+              {t('acc.assignCompanyTitle', { name: assignTarget?.full_name || t('acc.title') })}
             </Text>
             <Text style={styles.modalLabel}>{t('acc.currentCompany')}</Text>
-            <View style={styles.curCompanyBox}>
-              <Ionicons name="business-outline" size={16} color={colors.primary} />
-              <Text style={styles.curCompanyText}>
-                {partnerTarget?.partner_name || t('acc.platformEmployee')}
-              </Text>
-            </View>
-            <Text style={styles.modalLabel}>{t('acc.selectCompany')}</Text>
-            {partnerLoading ? (
-              <Text style={styles.partnerEmpty}>{t('acc.loading')}</Text>
-            ) : (
-              <ScrollView style={styles.partnerList} nestedScrollEnabled>
-                <TouchableOpacity
-                  style={[styles.partnerItem, partnerPick === '' && styles.partnerItemActive]}
-                  activeOpacity={0.7}
-                  onPress={() => setPartnerPick('')}
-                >
-                  <Ionicons
-                    name="business-outline"
-                    size={16}
-                    color={partnerPick === '' ? colors.primary : colors.ink2}
-                  />
-                  <Text
-                    style={[styles.partnerItemText, partnerPick === '' && styles.partnerItemTextActive]}
-                    numberOfLines={1}
-                  >
-                    {t('acc.platformEmployee')}
-                  </Text>
-                </TouchableOpacity>
-                {partnerOptions.length === 0 ? (
-                  <Text style={styles.partnerEmpty}>{t('acc.noCompanies')}</Text>
-                ) : (
-                  partnerOptions.map((p) => {
-                    const active = partnerPick === p.id && !!p.id;
-                    return (
-                      <TouchableOpacity
-                        key={p.id}
-                        style={[styles.partnerItem, active && styles.partnerItemActive]}
-                        activeOpacity={0.7}
-                        onPress={() => setPartnerPick(p.id)}
-                      >
-                        <Ionicons name="business-outline" size={16} color={active ? colors.primary : colors.ink2} />
-                        <Text style={[styles.partnerItemText, active && styles.partnerItemTextActive]} numberOfLines={1}>
-                          {p.name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })
-                )}
-              </ScrollView>
-            )}
-            <Text style={styles.roleHint}>{t('acc.companyHint')}</Text>
+            <Text style={styles.assignCurrent}>
+              {assignTarget?.partner_name || t('acc.noCompany')}
+            </Text>
+            <Text style={styles.modalLabel}>{t('acc.chooseCompany')}</Text>
+            <PartnerSearchPicker
+              placeholder={t('acc.searchPartnerPlaceholder')}
+              disabled={assignSaving}
+              onSelect={(id, name) => doAssign(id, name)}
+            />
+            <TouchableOpacity
+              style={styles.assignMoveOut}
+              activeOpacity={0.7}
+              disabled={assignSaving}
+              onPress={() => doAssign(null)}
+            >
+              <Ionicons name="person-outline" size={16} color={colors.ink2} />
+              <Text style={styles.assignMoveOutText}>{t('acc.moveToPlatform')}</Text>
+            </TouchableOpacity>
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalCancel]}
                 activeOpacity={0.7}
-                onPress={() => setPartnerTarget(null)}
+                onPress={() => setAssignTarget(null)}
                 accessibilityRole="button"
               >
                 <Text style={styles.modalCancelText}>{t('acc.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalOk, (partnerSaving || partnerLoading) && styles.modalBtnDisabled]}
-                activeOpacity={0.7}
-                disabled={partnerSaving || partnerLoading}
-                onPress={doSavePartner}
-                accessibilityRole="button"
-              >
-                <Text style={styles.modalOkText}>{partnerSaving ? t('acc.saving') : t('acc.save')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1100,29 +1039,32 @@ const styles = StyleSheet.create({
   roleChipActive: { backgroundColor: colors.sidebarActive, borderColor: colors.primary },
   roleChipText: { fontSize: 13, color: colors.ink2 },
   roleChipTextActive: { color: colors.primary, fontWeight: '700' },
+  companyChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   roleHint: { fontSize: 12, color: colors.ink3, marginBottom: 16 },
-  curCompanyBox: {
+  assignCurrent: { fontSize: 13, color: colors.ink, fontWeight: '600', marginBottom: 14 },
+  assignList: { marginBottom: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' },
+  assignOption: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.surface2,
-    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
-  curCompanyText: { fontSize: 14, color: colors.ink, flexShrink: 1 },
-  partnerList: { maxHeight: 260, marginBottom: 8 },
-  partnerItem: {
+  assignOptionText: { flex: 1, fontSize: 14, color: colors.ink },
+  assignEmpty: { fontSize: 12, color: colors.ink3, marginBottom: 16 },
+  assignMoveOut: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 16,
     paddingVertical: 11,
-    paddingHorizontal: 10,
-    borderRadius: 10,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface2,
   },
-  partnerItemActive: { backgroundColor: colors.sidebarActive },
-  partnerItemText: { fontSize: 14, color: colors.ink2, flexShrink: 1 },
-  partnerItemTextActive: { color: colors.primary, fontWeight: '700' },
-  partnerEmpty: { fontSize: 12, color: colors.ink3, paddingVertical: 14, textAlign: 'center' },
+  assignMoveOutText: { fontSize: 13, color: colors.ink2, fontWeight: '600' },
 });

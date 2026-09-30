@@ -118,7 +118,12 @@ def list_members(
             )
         ).all()
     } if user_ids else {}
-    return [_serialize_member(u, emp_map.get(u.id)) for u in users]
+    p = session.get(Partner, current.partner_id)
+    partner_name = p.name if p else None
+    rows = [_serialize_member(u, emp_map.get(u.id)) for u in users]
+    for r in rows:
+        r["partner_name"] = partner_name
+    return rows
 
 
 @router.post("/members", status_code=201, response_model=MemberOut)

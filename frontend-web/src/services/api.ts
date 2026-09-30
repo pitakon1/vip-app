@@ -200,6 +200,8 @@ export const chatApi = {
 export const contractsApi = {
   list: (params?: QueryParams) => api.get('/contracts', { params }),
   get: (id: string) => api.get(`/contracts/${id}`),
+  // 可用合同模板：GET /contracts/templates → [{kind, title}]
+  listTemplates: () => api.get('/contracts/templates'),
   generate: (data: RequestBody) => api.post('/contracts/generate', data),
   addParty: (id: string, data: RequestBody) => api.post(`/contracts/${id}/parties`, data),
   // data={title?, content_html?}

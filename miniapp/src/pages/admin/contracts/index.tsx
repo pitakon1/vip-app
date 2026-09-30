@@ -49,17 +49,45 @@ const ROLE_META: Record<string, string> = {
   agent: 'contract.roleAgent'
 }
 
-const emptyGen = {
-  landlord_name: '',
-  tenant_name: '',
-  property_address: '',
-  room_number: '',
-  monthly_rent: '',
-  deposit: '',
-  term_months: '',
-  start_date: '',
-  language: 'zh'
+// 各模板的填充字段（与后端 esign_service.py 渲染函数 counters 保持一致）
+// lease → render_contract_html；purchase → render_purchase_html；broker → render_broker_protocol_html
+const TMPL_FIELDS: Record<string, { key: string; labelKey: string; numeric?: boolean }[]> = {
+  lease: [
+    { key: 'landlord_name', labelKey: 'contract.landlord' },
+    { key: 'tenant_name', labelKey: 'contract.tenant' },
+    { key: 'landlord_id_number', labelKey: 'contract.landlordId' },
+    { key: 'tenant_id_number', labelKey: 'contract.tenantId' },
+    { key: 'property_address', labelKey: 'contract.property' },
+    { key: 'room_number', labelKey: 'contract.room' },
+    { key: 'monthly_rent', labelKey: 'contract.rent', numeric: true },
+    { key: 'deposit', labelKey: 'contract.deposit', numeric: true },
+    { key: 'start_date', labelKey: 'contract.startDate' },
+    { key: 'term_months', labelKey: 'contract.term', numeric: true }
+  ],
+  purchase: [
+    { key: 'seller_name', labelKey: 'contract.sellerName' },
+    { key: 'seller_id_number', labelKey: 'contract.sellerId' },
+    { key: 'buyer_name', labelKey: 'contract.buyerName' },
+    { key: 'buyer_id_number', labelKey: 'contract.buyerId' },
+    { key: 'property_name', labelKey: 'contract.propertyName' },
+    { key: 'room_number', labelKey: 'contract.room' },
+    { key: 'property_area', labelKey: 'contract.area', numeric: true },
+    { key: 'total_price', labelKey: 'contract.totalPrice', numeric: true },
+    { key: 'price_per_sqm', labelKey: 'contract.pricePerSqm', numeric: true },
+    { key: 'down_payment', labelKey: 'contract.downPayment', numeric: true },
+    { key: 'delivery_date', labelKey: 'contract.deliveryDate' }
+  ],
+  broker: [
+    { key: 'broker_name', labelKey: 'contract.brokerName' },
+    { key: 'broker_company', labelKey: 'contract.brokerCompany' },
+    { key: 'broker_phone', labelKey: 'contract.brokerPhone' },
+    { key: 'broker_channel', labelKey: 'contract.brokerChannel' },
+    { key: 'broker_id_number', labelKey: 'contract.brokerId' }
+  ]
 }
+
+const emptyGen: Record<string, string> = { language: 'zh', kind: 'lease' }
+;(Object.values(TMPL_FIELDS).flat() as { key: string }[]).forEach((f) => { emptyGen[f.key] = '' })
 
 export default function AdminContractsPage() {
   const { t } = useI18n()
@@ -72,8 +100,9 @@ export default function AdminContractsPage() {
 
   // 弹层开关
   const [showGen, setShowGen] = useState(false)
-  const [genForm, setGenForm] = useState({ ...emptyGen })
+  const [genForm, setGenForm] = useState<Record<string, string>>({ ...emptyGen })
   const [genBusy, setGenBusy] = useState(false)
+  const [tmplList, setTmplList] = useState<any[]>([])
 
   const [showParty, setShowParty] = useState(false)
   const [partyForm, setPartyForm] = useState({ name: '', email: '', role: 'tenant' })
@@ -103,6 +132,13 @@ export default function AdminContractsPage() {
     } finally {
       setLoading(false)
     }
+    try {
+      const r: any = await contractsApi.listTemplates()
+      const td = unwrap(r)
+      setTmplList(Array.isArray(td) ? td : [])
+    } catch (error) {
+      console.error('[AdminContracts] 获取合同模板失败', error)
+    }
   }, [t])
 
   useDidShow(() => {
@@ -128,17 +164,13 @@ export default function AdminContractsPage() {
   /* ===== 生成合同 ===== */
   const submitGenerate = async () => {
     setGenBusy(true)
+    const kind = genForm.kind || 'lease'
     const counters: any = {}
-    if (genForm.landlord_name) counters.landlord_name = genForm.landlord_name
-    if (genForm.tenant_name) counters.tenant_name = genForm.tenant_name
-    if (genForm.property_address) counters.property_address = genForm.property_address
-    if (genForm.room_number) counters.room_number = genForm.room_number
-    if (genForm.monthly_rent) counters.monthly_rent = genForm.monthly_rent
-    if (genForm.deposit) counters.deposit = genForm.deposit
-    if (genForm.term_months) counters.term_months = genForm.term_months
-    if (genForm.start_date) counters.start_date = genForm.start_date
+    ;(TMPL_FIELDS[kind] || []).forEach((f) => {
+      if (genForm[f.key]) counters[f.key] = genForm[f.key]
+    })
     try {
-      await contractsApi.generate({ counters, language: genForm.language, kind: 'lease' })
+      await contractsApi.generate({ counters, language: genForm.language, kind })
       Taro.showToast({ title: t('contract.generateDone'), icon: 'success' })
       setShowGen(false)
       setGenForm({ ...emptyGen })
@@ -487,37 +519,34 @@ export default function AdminContractsPage() {
             </View>
             <ScrollView scrollY>
               <View className='ac-field'>
-                <Text className='ac-field__label'>{t('contract.landlord')}</Text>
-                <Input className='ac-field__input' value={genForm.landlord_name} placeholder={t('contract.landlord')} onInput={(e: any) => setGenForm({ ...genForm, landlord_name: e.detail.value })} />
+                <Text className='ac-field__label'>{t('contract.formTemplate')}</Text>
+                <View className='ac-lang-row'>
+                  {(tmplList.length ? tmplList : [{ kind: 'lease' }, { kind: 'purchase' }, { kind: 'broker' }]).map((tmpl: any) => {
+                    const k = tmpl.kind
+                    return (
+                      <View
+                        key={k}
+                        className={`ac-chip ${genForm.kind === k ? 'ac-chip--active' : ''}`}
+                        onClick={() => setGenForm({ ...genForm, kind: k })}
+                      >
+                        <Text className='ac-chip__text'>{t(`contract.tmpl.${k}`)}</Text>
+                      </View>
+                    )
+                  })}
+                </View>
               </View>
-              <View className='ac-field'>
-                <Text className='ac-field__label'>{t('contract.tenant')}</Text>
-                <Input className='ac-field__input' value={genForm.tenant_name} placeholder={t('contract.tenant')} onInput={(e: any) => setGenForm({ ...genForm, tenant_name: e.detail.value })} />
-              </View>
-              <View className='ac-field'>
-                <Text className='ac-field__label'>{t('contract.property')}</Text>
-                <Input className='ac-field__input' value={genForm.property_address} placeholder={t('contract.property')} onInput={(e: any) => setGenForm({ ...genForm, property_address: e.detail.value })} />
-              </View>
-              <View className='ac-field'>
-                <Text className='ac-field__label'>{t('contract.room')}</Text>
-                <Input className='ac-field__input' value={genForm.room_number} placeholder={t('contract.room')} onInput={(e: any) => setGenForm({ ...genForm, room_number: e.detail.value })} />
-              </View>
-              <View className='ac-field'>
-                <Text className='ac-field__label'>{t('contract.rent')}</Text>
-                <Input className='ac-field__input' value={genForm.monthly_rent} type='number' placeholder={t('contract.rent')} onInput={(e: any) => setGenForm({ ...genForm, monthly_rent: e.detail.value })} />
-              </View>
-              <View className='ac-field'>
-                <Text className='ac-field__label'>{t('contract.deposit')}</Text>
-                <Input className='ac-field__input' value={genForm.deposit} type='number' placeholder={t('contract.deposit')} onInput={(e: any) => setGenForm({ ...genForm, deposit: e.detail.value })} />
-              </View>
-              <View className='ac-field'>
-                <Text className='ac-field__label'>{t('contract.term')}</Text>
-                <Input className='ac-field__input' value={genForm.term_months} type='number' placeholder={t('contract.term')} onInput={(e: any) => setGenForm({ ...genForm, term_months: e.detail.value })} />
-              </View>
-              <View className='ac-field'>
-                <Text className='ac-field__label'>{t('contract.startDate')}</Text>
-                <Input className='ac-field__input' value={genForm.start_date} placeholder='YYYY-MM-DD' onInput={(e: any) => setGenForm({ ...genForm, start_date: e.detail.value })} />
-              </View>
+              {(TMPL_FIELDS[genForm.kind || 'lease'] || []).map((f) => (
+                <View className='ac-field' key={f.key}>
+                  <Text className='ac-field__label'>{t(f.labelKey)}</Text>
+                  <Input
+                    className='ac-field__input'
+                    value={genForm[f.key]}
+                    type={f.numeric ? 'number' : 'text'}
+                    placeholder={t(f.labelKey)}
+                    onInput={(e: any) => setGenForm({ ...genForm, [f.key]: e.detail.value })}
+                  />
+                </View>
+              ))}
               <View className='ac-field'>
                 <Text className='ac-field__label'>{t('contract.language')}</Text>
                 <View className='ac-lang-row'>

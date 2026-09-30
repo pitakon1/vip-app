@@ -292,6 +292,8 @@ export const chatApi = {
 export const contractsApi = {
   list: (params?: any) => api.get('/contracts', { params }),
   get: (id: string) => api.get(`/contracts/${id}`),
+  // 合同模板列表 [{kind,title}]（lease/purchase/broker），员工可见
+  listTemplates: () => api.get('/contracts/templates'),
   generate: (data: any) => api.post('/contracts/generate', data),
   addParty: (id: string, data: any) => api.post(`/contracts/${id}/parties`, data),
   sign: (id: string, partyId: string, signatureSvg?: string) =>
@@ -405,6 +407,9 @@ export const usersAdminApi = {
   // 导致账号建好后角色无法修改，只能删了重建。
   update: (id: string, data: any) => api.patch(`/admin/users/${id}`, data),
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
+  // 平台管理员把账号分配到指定合作公司；partner_id=null 表示移回平台员工
+  assignPartner: (id: string, partnerId: string | null) =>
+    api.post(`/admin/users/${id}/assign-partner`, { partner_id: partnerId ?? null }),
 };
 
 // 管理端：合作公司（Partners）管理。公盘平台管理员维护合作公司档案（入驻/启停/归属管理员）。

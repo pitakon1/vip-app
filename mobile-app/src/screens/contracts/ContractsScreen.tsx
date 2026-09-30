@@ -81,6 +81,52 @@ const ROLE_META: Record<string, string> = {
   agent: 'contract.roleAgent',
 };
 
+// 字段展示元数据：labelKey 为 i18n key，numeric 表示数字键盘。
+// 字段名与后端模板渲染函数 render_contract_html / render_purchase_html /
+// render_broker_protocol_html 的 counters 取参保持一致。
+const FIELD_META: Record<string, { labelKey: string; numeric?: boolean }> = {
+  // lease（租赁合同）
+  landlord_name: { labelKey: 'contract.landlord' },
+  tenant_name: { labelKey: 'contract.tenant' },
+  property_address: { labelKey: 'contract.property' },
+  room_number: { labelKey: 'contract.room' },
+  monthly_rent: { labelKey: 'contract.rent', numeric: true },
+  deposit: { labelKey: 'contract.deposit', numeric: true },
+  term_months: { labelKey: 'contract.term', numeric: true },
+  start_date: { labelKey: 'contract.startDate' },
+  // purchase（房屋买卖合同）
+  seller_name: { labelKey: 'contract.sellerName' },
+  seller_id_number: { labelKey: 'contract.sellerId' },
+  buyer_name: { labelKey: 'contract.buyerName' },
+  buyer_id_number: { labelKey: 'contract.buyerId' },
+  property_name: { labelKey: 'contract.propertyName' },
+  property_area: { labelKey: 'contract.area', numeric: true },
+  total_price: { labelKey: 'contract.totalPrice', numeric: true },
+  price_per_sqm: { labelKey: 'contract.pricePerSqm', numeric: true },
+  down_payment: { labelKey: 'contract.downPayment', numeric: true },
+  delivery_date: { labelKey: 'contract.deliveryDate' },
+  // broker（经纪人协议）
+  broker_name: { labelKey: 'contract.brokerName' },
+  broker_company: { labelKey: 'contract.brokerCompany' },
+  broker_phone: { labelKey: 'contract.brokerPhone' },
+  broker_channel: { labelKey: 'contract.brokerChannel' },
+  broker_id_number: { labelKey: 'contract.brokerId' },
+};
+
+// 各模板(kind)应填写的字段组，与 FIELD_META / 后端渲染参数一致。
+const KIND_FIELDS: Record<string, string[]> = {
+  lease: ['landlord_name', 'tenant_name', 'property_address', 'room_number', 'monthly_rent', 'deposit', 'term_months', 'start_date'],
+  purchase: ['seller_name', 'seller_id_number', 'buyer_name', 'buyer_id_number', 'property_name', 'room_number', 'property_area', 'total_price', 'price_per_sqm', 'down_payment', 'delivery_date'],
+  broker: ['broker_name', 'broker_company', 'broker_phone', 'broker_channel', 'broker_id_number'],
+};
+
+const KIND_ORDER: string[] = ['lease', 'purchase', 'broker'];
+
+const FALLBACK_TEMPLATES = KIND_ORDER.map((kind) => ({
+  kind,
+  title: `contract.tmpl.${kind}`,
+}));
+
 interface ContractItem {
   id: string;
   title?: string;
@@ -104,17 +150,12 @@ export default function ContractsScreen() {
 
   // 生成表单
   const [showGenerate, setShowGenerate] = useState(false);
-  const [genForm, setGenForm] = useState({
-    landlord_name: '',
-    tenant_name: '',
-    property_address: '',
-    room_number: '',
-    monthly_rent: '',
-    deposit: '',
-    term_months: '',
-    start_date: '',
-    language: 'zh',
-  });
+  const [templates, setTemplates] = useState<{ kind: string; title: string }[]>([]);
+  const [genKind, setGenKind] = useState('lease');
+  const [genLang, setGenLang] = useState('zh');
+  const [genForm, setGenForm] = useState<Record<string, string>>(() =>
+    Object.fromEntries(Object.keys(FIELD_META).map((f) => [f, '' as string]))
+  );
   const [generating, setGenerating] = useState(false);
 
   // 追加签署方
@@ -155,6 +196,27 @@ export default function ContractsScreen() {
     void load();
   }, [load]);
 
+  // 加载合同模板类型（后端 /contracts/templates）；失败时回退内置三模板
+  useEffect(() => {
+    (async () => {
+      try {
+        const res: any = await contractsApi.listTemplates();
+        const data = Array.isArray(res?.data) ? res.data : null;
+        if (data && data.length) {
+          setTemplates(data);
+          if (!data.some((item: any) => item.kind === genKind) && data[0]) {
+            setGenKind(data[0].kind);
+          }
+        } else {
+          setTemplates(FALLBACK_TEMPLATES);
+        }
+      } catch {
+        setTemplates(FALLBACK_TEMPLATES);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const openDetail = useCallback(async (id: string) => {
     setDetailLoading(true);
     try {
@@ -181,17 +243,13 @@ export default function ContractsScreen() {
   /* ===== 生成合同 ===== */
   const submitGenerate = async () => {
     setGenerating(true);
+    const kind = genKind;
     const counters: any = {};
-    if (genForm.landlord_name) counters.landlord_name = genForm.landlord_name;
-    if (genForm.tenant_name) counters.tenant_name = genForm.tenant_name;
-    if (genForm.property_address) counters.property_address = genForm.property_address;
-    if (genForm.room_number) counters.room_number = genForm.room_number;
-    if (genForm.monthly_rent) counters.monthly_rent = genForm.monthly_rent;
-    if (genForm.deposit) counters.deposit = genForm.deposit;
-    if (genForm.term_months) counters.term_months = genForm.term_months;
-    if (genForm.start_date) counters.start_date = genForm.start_date;
+    (KIND_FIELDS[kind] ?? []).forEach((f) => {
+      if (genForm[f]) counters[f] = genForm[f];
+    });
     try {
-      await contractsApi.generate({ counters, language: genForm.language, kind: 'lease' });
+      await contractsApi.generate({ counters, language: genLang, kind });
       notify(t('contract.generateDone'));
       setShowGenerate(false);
       await load(true);
@@ -499,22 +557,46 @@ export default function ContractsScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled">
-              <TextInput style={styles.input} placeholder={t('contract.landlord')} value={genForm.landlord_name} onChangeText={(v) => setGenForm({ ...genForm, landlord_name: v })} placeholderTextColor={colors.ink3} />
-              <TextInput style={styles.input} placeholder={t('contract.tenant')} value={genForm.tenant_name} onChangeText={(v) => setGenForm({ ...genForm, tenant_name: v })} placeholderTextColor={colors.ink3} />
-              <TextInput style={styles.input} placeholder={t('contract.property')} value={genForm.property_address} onChangeText={(v) => setGenForm({ ...genForm, property_address: v })} placeholderTextColor={colors.ink3} />
-              <TextInput style={styles.input} placeholder={t('contract.room')} value={genForm.room_number} onChangeText={(v) => setGenForm({ ...genForm, room_number: v })} placeholderTextColor={colors.ink3} />
-              <TextInput style={styles.input} placeholder={t('contract.rent')} keyboardType="numeric" value={genForm.monthly_rent} onChangeText={(v) => setGenForm({ ...genForm, monthly_rent: v })} placeholderTextColor={colors.ink3} />
-              <TextInput style={styles.input} placeholder={t('contract.deposit')} keyboardType="numeric" value={genForm.deposit} onChangeText={(v) => setGenForm({ ...genForm, deposit: v })} placeholderTextColor={colors.ink3} />
-              <TextInput style={styles.input} placeholder={t('contract.term')} keyboardType="numeric" value={genForm.term_months} onChangeText={(v) => setGenForm({ ...genForm, term_months: v })} placeholderTextColor={colors.ink3} />
-              <TextInput style={styles.input} placeholder={t('contract.startDate')} value={genForm.start_date} onChangeText={(v) => setGenForm({ ...genForm, start_date: v })} placeholderTextColor={colors.ink3} />
+              <Text style={styles.fieldSectionTitle}>{t('contract.formTemplate')}</Text>
+              <View style={styles.langRow}>
+                {(templates.length ? templates : FALLBACK_TEMPLATES).map((item) => {
+                  const active = genKind === item.kind;
+                  return (
+                    <TouchableOpacity
+                      key={item.kind}
+                      style={[styles.chip, active && styles.chipActive]}
+                      activeOpacity={0.8}
+                      onPress={() => setGenKind(item.kind)}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {t(`contract.tmpl.${item.kind}`)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {(KIND_FIELDS[genKind] ?? []).map((f) => {
+                const meta = FIELD_META[f];
+                return (
+                  <TextInput
+                    key={f}
+                    style={styles.input}
+                    placeholder={t(meta.labelKey)}
+                    keyboardType={meta.numeric ? 'numeric' : 'default'}
+                    value={genForm[f]}
+                    onChangeText={(v) => setGenForm({ ...genForm, [f]: v })}
+                    placeholderTextColor={colors.ink3}
+                  />
+                );
+              })}
               <View style={styles.langRow}>
                 {LANG_OPTIONS.map((opt) => {
-                  const active = genForm.language === opt.value;
+                  const active = genLang === opt.value;
                   return (
                     <TouchableOpacity
                       key={opt.value}
                       style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => setGenForm({ ...genForm, language: opt.value })}
+                      onPress={() => setGenLang(opt.value)}
                     >
                       <Text style={[styles.chipText, active && styles.chipTextActive]}>{opt.label}</Text>
                     </TouchableOpacity>
@@ -762,6 +844,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   textArea: { minHeight: 160 },
+  fieldSectionTitle: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginBottom: 8 },
   langRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   chip: {
     paddingHorizontal: 16,

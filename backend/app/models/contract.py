@@ -27,6 +27,8 @@ class ContractKind(str, Enum):
     """合同/协议类型。"""
 
     lease = "lease"  # 房屋租赁合同
+    purchase = "purchase"  # 房屋买卖合同
+    broker = "broker"  # 经纪人协议（通用入口，渲染为房源上架协议主体）
     broker_distributor = "broker_distributor"  # 《平台经纪人分销协议》(客源分销经纪人)
     listing_agent = "listing_agent"  # 《房源经纪人上架房源协议》(房源上架经纪人)
 

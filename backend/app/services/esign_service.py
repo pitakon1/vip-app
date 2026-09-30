@@ -129,6 +129,75 @@ def render_contract_html(counters: Dict[str, Any]) -> str:
 </body></html>"""
 
 
+def render_purchase_html(counters: Dict[str, Any]) -> str:
+    """渲染房屋买卖合同 HTML。
+
+    counters 需含买受方/出卖方/标的房屋/房价/交付时间等字段：
+    seller_*（出卖方）、buyer_*（买受方）、property_*（标的房屋）、
+    total_price/price_per_sqm（房价）、down_payment（定金）、delivery_date（交付时间）。
+    布局与租赁模板（render_contract_html）保持一致：表格 + 折行条款 + 双方签字栏。
+    """
+    c = counters or {}
+    now = datetime.utcnow().strftime("%Y-%m-%d")
+    rows = [
+        ("合同编号", _esc(c.get("contract_no", uuid.uuid4().hex[:8].upper()))),
+        ("签署日期", _esc(now)),
+        ("出卖方", _esc(c.get("seller_name", ""))),
+        ("出卖方证件号", _esc(c.get("seller_id_number", ""))),
+        ("买受方", _esc(c.get("buyer_name", ""))),
+        ("买受方证件号", _esc(c.get("buyer_id_number", ""))),
+        ("标的房屋", _esc(c.get("property_name", "") or c.get("property_address", ""))),
+        ("房号", _esc(c.get("room_number", ""))),
+        ("面积(㎡)", _esc(c.get("property_area", ""))),
+        ("房屋总价(元)", _esc(c.get("total_price", ""))),
+        ("单价(元/㎡)", _esc(c.get("price_per_sqm", ""))),
+        ("定金(元)", _esc(c.get("down_payment", ""))),
+        ("交付时间", _esc(c.get("delivery_date", ""))),
+    ]
+    trs = _table_rows(rows)
+    clauses = [
+        "出卖方保证对标的房屋享有合法所有权或处分权，产权清晰，无查封、抵押或其他权利瑕疵。",
+        "标的房屋所有权自交付后依法转移至买受方；买受方按约定取得相应产权凭证。",
+        "双方确认房屋总价及税费负担按合同约定执行，一方违约须承担相应违约责任。",
+        "买受方应按约定支付定金与尾款，逾期付款的按合同约定承担逾期责任。",
+        "房屋应按约定的交付时间按现状移交，配套钥匙与相关证照一并交付。",
+        "本合同经买卖双方电子签名后正式生效，具有同等法律效力。",
+    ]
+    lis = "\n".join(f"<li>{o}</li>" for o in clauses)
+    return f"""<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8">
+<title>{_esc(c.get('title','房屋买卖合同'))}</title></head><body>
+<h1 style="text-align:center">{_esc(c.get('title','房屋买卖合同'))}</h1>
+<p>本合同由出卖方与买受方本着平等自愿原则协商订立，就标的房屋买卖事宜达成如下协议。</p>
+<table style="border-collapse:collapse;width:100%">{trs}</table>
+<h3>条款</h3><ol>
+{lis}
+</ol>
+<p style="margin-top:40px">出卖方(签名)：<span style="display:inline-block;width:200px"></span>
+买受方(签名)：<span style="display:inline-block;width:200px"></span></p>
+</body></html>"""
+
+
+# 内置合同模板注册表：(kind → (模板展示名, 渲染函数, 渲染关键参数))
+# 供 /contracts/templates 读取生成模板列表，并按 kind 分发到对应渲染器。
+_TEMPLATE_REGISTRY: Dict[str, Any] = {
+    "lease": ("租赁合同", render_contract_html, {}),
+    "purchase": ("房屋买卖合同", render_purchase_html, {}),
+    "broker": ("经纪人协议", render_broker_protocol_html, {"kind": "listing_agent"}),
+}
+
+
+def list_templates() -> list:
+    """返回可用合同模板列表（kind + 展示名 title）。
+
+    title 为模板展示名（中文，前端可按需 i18n 覆盖）。列表按注册顺序返回，
+    即：lease → purchase → broker。
+    """
+    return [
+        {"kind": kind, "title": title}
+        for kind, (title, _render, _kw) in _TEMPLATE_REGISTRY.items()
+    ]
+
+
 def content_hash(content: str) -> str:
     """合同全文 SHA-256（用于完整性审计）。"""
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
@@ -181,6 +250,13 @@ def generate_contract(counters: Dict[str, Any], language: str = "zh", kind: str 
     elif kind == "broker_distributor":
         html_content = render_broker_protocol_html(counters, kind)
         title = "平台经纪人分销协议"
+    elif kind == "purchase":
+        html_content = render_purchase_html(counters)
+        title = counters.get("title", "房屋买卖合同")
+    elif kind == "broker":
+        # 顶层「经纪人协议」模板：复用房源经纪人上架协议主体展示
+        html_content = render_broker_protocol_html(counters, "listing_agent")
+        title = counters.get("title", "经纪人协议")
     else:
         html_content = render_contract_html(counters)
         title = counters.get("title", "房屋租赁合同")

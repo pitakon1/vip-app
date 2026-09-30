@@ -1,8 +1,54 @@
 import { useEffect, useRef, useState } from 'react'
-import { message, Modal } from 'antd'
+import { message, Modal, Segmented } from 'antd'
+import { FileTextOutlined, HomeOutlined, TeamOutlined } from '@ant-design/icons'
 import { contractsApi } from '@/services/api'
 import { useTranslation } from 'react-i18next'
 import './contracts.css'
+
+interface TemplateOption {
+  kind: string
+  title: string
+}
+
+interface FieldDef {
+  key: string
+  label: string
+  type?: 'number' | 'date'
+}
+
+// 合同模板 → 需填写的 counters 字段（key 与后端 esign_service 渲染函数保持一致）
+const templateKindFields: Record<string, FieldDef[]> = {
+  lease: [
+    { key: 'landlord_name', label: 'contracts.fLandlord' },
+    { key: 'tenant_name', label: 'contracts.fTenant' },
+    { key: 'property_address', label: 'contracts.fProperty' },
+    { key: 'monthly_rent', label: 'contracts.fRent', type: 'number' },
+    { key: 'term_months', label: 'contracts.fMonths', type: 'number' },
+  ],
+  purchase: [
+    { key: 'seller_name', label: 'contracts.fpSeller' },
+    { key: 'buyer_name', label: 'contracts.fpBuyer' },
+    { key: 'property_address', label: 'contracts.fpProperty' },
+    { key: 'room_number', label: 'contracts.fpRoom' },
+    { key: 'property_area', label: 'contracts.fpArea', type: 'number' },
+    { key: 'total_price', label: 'contracts.fpTotal', type: 'number' },
+    { key: 'down_payment', label: 'contracts.fpDown', type: 'number' },
+    { key: 'delivery_date', label: 'contracts.fpDelivery', type: 'date' },
+  ],
+  broker: [
+    { key: 'broker_name', label: 'contracts.fbName' },
+    { key: 'broker_company', label: 'contracts.fbCompany' },
+    { key: 'broker_phone', label: 'contracts.fbPhone' },
+    { key: 'broker_channel', label: 'contracts.fbChannel' },
+    { key: 'broker_id_number', label: 'contracts.fbId' },
+  ],
+}
+
+const templateIcons: Record<string, React.ReactNode> = {
+  lease: <HomeOutlined />,
+  purchase: <FileTextOutlined />,
+  broker: <TeamOutlined />,
+}
 
 interface Contract {
   id: string
@@ -51,13 +97,16 @@ const Contracts = () => {
   const { t } = useTranslation()
   const [contracts, setContracts] = useState<Contract[]>([])
   const [detail, setDetail] = useState<{ contract?: Contract; parties: Party[] }>({ parties: [] })
-  const [form, setForm] = useState({
-    landlord: '张三',
-    tenant: '李四',
-    property: '曼谷 · Sukhumvit 38 号公寓',
-    rent: '25000',
-    months: '12',
-    language: 'zh',
+  const [templates, setTemplates] = useState<TemplateOption[] | null>(null)
+  const [kind, setKind] = useState('lease')
+  const [language, setLanguage] = useState('zh')
+  // 生成表单字段值：key 即后端 counters 字段名
+  const [form, setForm] = useState<Record<string, string>>({
+    landlord_name: '张三',
+    tenant_name: '李四',
+    property_address: '曼谷 · Sukhumvit 38 号公寓',
+    monthly_rent: '25000',
+    term_months: '12',
   })
 
   // 上传电子合同
@@ -84,18 +133,26 @@ const Contracts = () => {
   }
   useEffect(loadList, [])
 
+  // 加载可用模板列表；失败时静默回退到内置三端默认项
+  useEffect(() => {
+    contractsApi
+      .listTemplates()
+      .then((res) => setTemplates(Array.isArray(res.data) ? res.data : null))
+      .catch(() => setTemplates(null))
+  }, [])
+
   const handleGenerate = () => {
+    const counters: Record<string, unknown> = { currency: 'THB' }
+    for (const f of templateKindFields[kind] || []) {
+      const v = form[f.key]
+      if (v === '' || v == null) continue
+      counters[f.key] = f.type === 'number' ? Number(v) : v
+    }
     contractsApi
       .generate({
-        language: form.language,
-        counters: {
-          landlord_name: form.landlord,
-          tenant_name: form.tenant,
-          property: form.property,
-          monthly_rent: Number(form.rent),
-          months: Number(form.months),
-          currency: 'THB',
-        },
+        language,
+        kind,
+        counters,
       })
       .then(() => {
         message.success(t('contracts.msgGenerated'))
@@ -266,6 +323,22 @@ const Contracts = () => {
 
   const canEdit = detail.contract?.can_edit
 
+  // 模板选择（选项来自后端列表，失败时回退内置三端）
+  const tmplSource =
+    templates && templates.length
+      ? templates
+      : ['lease', 'purchase', 'broker'].map((k) => ({ kind: k, title: k }))
+  const tmplOptions = tmplSource.map((tp) => ({
+    value: tp.kind,
+    label: (
+      <span>
+        {templateIcons[tp.kind]}
+        <span style={{ marginLeft: 6 }}>{t(`contract.tmpl.${tp.kind}`)}</span>
+      </span>
+    ),
+  }))
+  const tmplFields = templateKindFields[kind] || []
+
   return (
     <div className="rent-main">
       <div className="rent-page-header">
@@ -281,32 +354,32 @@ const Contracts = () => {
           <span className="rent-text-sm rent-text-muted">{t('contracts.genHint')}</span>
         </div>
         <div className="rent-card__body">
+          <div className="rent-field rent-mb-3">
+            <label className="rent-label">{t('contract.formTemplate')}</label>
+            <Segmented
+              options={tmplOptions}
+              value={kind}
+              onChange={(v) => setKind(v as string)}
+              block
+            />
+          </div>
           <div className="rent-grid rent-grid--3 rent-mb-3">
-            <div className="rent-field">
-              <label className="rent-label">{t('contracts.fLandlord')}</label>
-              <input className="rent-input" value={form.landlord} onChange={(e) => setForm({ ...form, landlord: e.target.value })} />
-            </div>
-            <div className="rent-field">
-              <label className="rent-label">{t('contracts.fTenant')}</label>
-              <input className="rent-input" value={form.tenant} onChange={(e) => setForm({ ...form, tenant: e.target.value })} />
-            </div>
-            <div className="rent-field">
-              <label className="rent-label">{t('contracts.fProperty')}</label>
-              <input className="rent-input" value={form.property} onChange={(e) => setForm({ ...form, property: e.target.value })} />
-            </div>
+            {tmplFields.map((f) => (
+              <div className="rent-field" key={f.key}>
+                <label className="rent-label">{t(f.label)}</label>
+                <input
+                  className="rent-input"
+                  type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
+                  value={form[f.key] ?? ''}
+                  onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                />
+              </div>
+            ))}
           </div>
           <div className="rent-grid rent-grid--3 rent-mb-3">
             <div className="rent-field">
-              <label className="rent-label">{t('contracts.fRent')}</label>
-              <input className="rent-input" type="number" value={form.rent} onChange={(e) => setForm({ ...form, rent: e.target.value })} />
-            </div>
-            <div className="rent-field">
-              <label className="rent-label">{t('contracts.fMonths')}</label>
-              <input className="rent-input" type="number" value={form.months} onChange={(e) => setForm({ ...form, months: e.target.value })} />
-            </div>
-            <div className="rent-field">
               <label className="rent-label">{t('contracts.fLanguage')}</label>
-              <select className="rent-input" value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })}>
+              <select className="rent-input" value={language} onChange={(e) => setLanguage(e.target.value)}>
                 <option value="zh">{t('contracts.langZh')}</option>
                 <option value="en">English</option>
                 <option value="th">ไทย</option>

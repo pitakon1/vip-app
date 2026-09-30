@@ -192,6 +192,17 @@ def generate_contract(
     }
 
 
+@router.get("/templates")
+def list_contract_templates(user: User = Depends(require_employee)):
+    """可用合同模板列表（kind → 展示名）。限员工访问，与生成合同同权限。
+
+    从 esign_service 内置模板注册表动态生成，示例：
+    [{kind: "lease", title: "租赁合同"}, {kind: "purchase", title: "房屋买卖合同"},
+     {kind: "broker", title: "经纪人协议"}]
+    """
+    return esign_service.list_templates()
+
+
 @router.post("/{contract_id}/parties")
 def add_party(
     contract_id: uuid.UUID,

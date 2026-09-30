@@ -343,6 +343,8 @@ export const chatApi = {
 
 export const contractsApi = {
   list: (params?: any) => request({ url: `/contracts${qs(params)}`, method: 'GET' }),
+  // 可选合同模板（kind + 展示名），供生成表单的「模板类型」单选
+  listTemplates: () => request({ url: '/contracts/templates', method: 'GET' }),
   get: (id: string) => request({ url: `/contracts/${id}`, method: 'GET' }),
   generate: (data: any) => request({ url: '/contracts/generate', method: 'POST', data }),
   addParty: (id: string, data: any) =>

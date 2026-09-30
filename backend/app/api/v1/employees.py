@@ -29,6 +29,7 @@ from app.models import (
     TicketStatus,
     User,
     UserRole,
+    Partner,
 )
 
 router = APIRouter(prefix="/employees", tags=["employees"])
@@ -236,6 +237,15 @@ def list_employees(
         if user_ids
         else {}
     )
+    partner_ids = {u.partner_id for u in users.values() if u.partner_id}
+    partner_names = (
+        {
+            p.id: p.name
+            for p in session.exec(select(Partner).where(Partner.id.in_(partner_ids))).all()
+        }
+        if partner_ids
+        else {}
+    )
     enriched = [
         {
             **e.model_dump(),
@@ -243,6 +253,10 @@ def list_employees(
             "email": users.get(e.user_id).email if users.get(e.user_id) else None,
             "employee_no": e.employee_code,
             "status": "active" if e.is_active else "inactive",
+            # 账号来源/归属：平台员工(platform) 或合作伙伴员工(partner)；所属合作公司名
+            "user_type": users.get(e.user_id).user_type.value if users.get(e.user_id) and users.get(e.user_id).user_type else None,
+            "partner_id": str(users.get(e.user_id).partner_id) if users.get(e.user_id) and users.get(e.user_id).partner_id else None,
+            "partner_name": partner_names.get(users.get(e.user_id).partner_id) if users.get(e.user_id) and users.get(e.user_id).partner_id else None,
         }
         for e in page.items
     ]

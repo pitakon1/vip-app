@@ -179,6 +179,12 @@ export default function PartnerMemberManager({ style }: { style?: object }) {
             {[item.email, item.phone].filter(Boolean).join(' · ') || t('member.noContact')}
           </Text>
           {!!item.position && <Text style={styles.subLine2} numberOfLines={1}>{t('member.position')}: {item.position}</Text>}
+          {!!item.partner_name && (
+            <View style={styles.companyRow}>
+              <Ionicons name="business-outline" size={13} color={colors.ink3} />
+              <Text style={styles.companyText} numberOfLines={1}>{item.partner_name}</Text>
+            </View>
+          )}
         </View>
       </View>
       <View style={styles.actionRow}>
@@ -418,6 +424,8 @@ const styles = StyleSheet.create({
   roleText: { fontSize: 11, fontWeight: '600' },
   subLine: { fontSize: 12, color: colors.ink2, marginTop: 3, fontVariant: ['tabular-nums'] },
   subLine2: { fontSize: 12, color: colors.ink2, marginTop: 2 },
+  companyRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+  companyText: { fontSize: 12, color: colors.ink2, flexShrink: 1 },
   actionRow: {
     flexDirection: 'row',
     marginTop: 12,
