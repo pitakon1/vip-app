@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { chatWsUrl, request } from '@/lib/api'
+import { chatWsUrl, currentToken, request } from '@/lib/api'
 
 // 全局注入的 API 地址（构建期由 Taro 注入，同 lib/api.ts 的 use）
 declare const API_BASE: string
@@ -394,7 +394,16 @@ export const contractsApi = {
       url: `/contracts/${id}/void`,
       method: 'POST',
       data: reason ? { reason } : {}
-    })
+    }),
+  // PDF 页图（站内鉴权）：返回可直接给 <Image src> 使用的地址。
+  // 小程序的 <Image>/previewImage 无法自定义 Authorization 头，故复用后端
+  // 「文件类接口支持 query token」的既有口径（同 lib/api.ts 的 documentFileUrl）。
+  pdfPageUrl: (id: string, page: number) => {
+    const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
+    const token = currentToken()
+    const query = token ? `?token=${encodeURIComponent(token)}` : ''
+    return `${baseURL}/contracts/${id}/pdf-pages/${page}${query}`
+  }
 }
 
 export const translateApi = {

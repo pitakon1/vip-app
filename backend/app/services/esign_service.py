@@ -114,19 +114,32 @@ def render_contract_html(counters: Dict[str, Any]) -> str:
         f"<td style='padding:6px 12px;border:1px solid #e6eaf0'>{v}</td></tr>"
         for k, v in rows
     )
+    terms = [
+        f"1.1 甲方出租给乙方的房屋坐落于：{_esc(c.get('property_address', ''))}（房号：{_esc(c.get('room_number', ''))}）。",
+        "1.2 该房屋建筑面积 ______ 平方米，户型为 ______ 室 ______ 厅 ______ 卫 ______ 厨，朝向为 ______。",
+        "1.3 该房屋所有权人为 ______，甲方为该房屋的 □所有权人 □使用权人 □其他。",
+        "2. 租赁用途：该房屋租赁用途为居住。乙方承诺遵守国家及本市有关房屋使用与物业管理规定，未经甲方书面同意不得擅自变更用途。",
+        f"3. 租赁期限：自 {_esc(c.get('start_date', ''))} 起，共计 {_esc(c.get('term_months', ''))} 个月。租赁期限不得超过二十年，超过部分无效。",
+        f"4. 租金及支付方式：该房屋每月租金为人民币 {_esc(c.get('monthly_rent', ''))} 元（大写：____________ 元整）；租金 □按月 □按季 □按年 支付，乙方于每期开始前 ______ 日内支付。",
+        f"5. 房屋租赁保证金（押金）：乙方于签订本合同时向甲方支付押金人民币 {_esc(c.get('deposit', ''))} 元。租赁期满或合同解除后，乙方结清费用且无违约的，甲方应于 ______ 日内原额无息退还押金。",
+        "6. 房屋交付与返还：甲方应于合同成立之日起将房屋按约定条件交付乙方；租赁期满乙方应按原状返还房屋及附属设备设施，双方办理交接与费用结算。",
+        "7. 维修责任：租赁期内房屋及附属设施的自然损耗由甲方负责维修；因乙方使用不当造成的损坏由乙方负责修复或赔偿。",
+        "8. 转租：除双方另有书面约定外，未经甲方书面同意，乙方不得转租、转借该房屋。",
+        "9. 违约责任：甲方无故提前解除合同的，应赔偿乙方相当于 ______ 个月租金的违约金；乙方无故提前解约或逾期 ______ 日未付租金的，甲方有权解除合同，乙方应承担相当于 ______ 个月租金的违约责任，可从押金中扣除。",
+        "10. 争议解决：本合同履行中发生争议，双方应协商解决；协商不成的，提交有管辖权的人民法院处理。",
+        "11. 其他约定：本合同自双方签署之日起生效，一式 ______ 份，甲乙双方各执 ______ 份。",
+    ]
+    lis = "\n".join(f"<li>{t}</li>" for t in terms)
     return f"""<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8">
-<title>{_esc(c.get('title','租赁合同'))}</title></head><body>
-<h1 style="text-align:center">{_esc(c.get('title','房屋租赁合同'))}</h1>
-<p>本合同由甲方(业主)与乙方(租客)本着平等自愿原则协商订立。</p>
+<title>{_esc(c.get('title','城镇房屋租赁合同'))}</title></head><body>
+<h1 style="text-align:center">{_esc(c.get('title','城镇房屋租赁合同'))}</h1>
+<p>甲方（出租人）：{_esc(c.get('landlord_name', ''))}　证件号码：{_esc(c.get('landlord_id_number', ''))}　联系电话：____________</p>
+<p>乙方（承租人）：{_esc(c.get('tenant_name', ''))}　证件号码：{_esc(c.get('tenant_id_number', ''))}　联系电话：____________</p>
+<p>根据《中华人民共和国民法典》及其他相关法律法规的规定，甲、乙双方在平等、自愿的基础上，经友好协商，达成如下协议。</p>
 <table style="border-collapse:collapse;width:100%">{trs}</table>
-<h3>条款</h3><ol>
-<li>乙方应按月足额支付租金；逾期需按约定支付滞纳金。</li>
-<li>押金在合同届满并结清费用后无息退还。</li>
-<li>物业设备损坏由责任方负责承担维修费用。</li>
-<li>本合同经甲乙双方电子签名后正式生效，具有同等法律效力。</li>
-</ol>
-<p style="margin-top:40px">甲方(签名)：<span style="display:inline-block;width:200px"></span>
-乙方(签名)：<span style="display:inline-block;width:200px"></span></p>
+<h3>条款</h3><ol>{lis}</ol>
+<p style="margin-top:40px">甲方(出租人)签名：<span style="display:inline-block;width:200px"></span>
+乙方(承租人)签名：<span style="display:inline-block;width:200px"></span></p>
 </body></html>"""
 
 
@@ -188,15 +201,21 @@ _TEMPLATE_REGISTRY: Dict[str, Any] = {
 
 
 def list_templates() -> list:
-    """返回可用合同模板列表（kind + 展示名 title）。
+    """返回可用合同模板列表（kind + 展示名 title + 范本正文 content_html）。
 
-    title 为模板展示名（中文，前端可按需 i18n 覆盖）。列表按注册顺序返回，
-    即：lease → purchase → broker。
+    title 为模板展示名（中文，前端可按需 i18n 覆盖），content_html 为用空字段
+    渲染出的标准范本（含完整的正式条款与签字栏），供前端在生成前预览"合同样例"。
+    列表按注册顺序返回，即：lease → purchase → broker。
     """
-    return [
-        {"kind": kind, "title": title}
-        for kind, (title, _render, _kw) in _TEMPLATE_REGISTRY.items()
-    ]
+    items: List[Dict[str, Any]] = []
+    for kind, (title, render, kw) in _TEMPLATE_REGISTRY.items():
+        try:
+            # 空 counters 渲染出的即为该模板的标准范本正文
+            content = render({}, **kw)
+        except Exception:  # noqa: BLE001  单个模板渲染失败不阻塞其余模板
+            content = ""
+        items.append({"kind": kind, "title": title, "content_html": content})
+    return items
 
 
 def content_hash(content: str) -> str:
@@ -340,12 +359,31 @@ def generate_contract(counters: Dict[str, Any], language: str = "zh", kind: str 
     file = base / f"contract_{uuid.uuid4().hex[:12]}.html"
     file.write_text(html_content, encoding="utf-8")
 
+    # 同时产出可签署的同行 PDF（供 kaifangqian->Python 引擎做定位签署）。
+    # 渲染失败不阻断 HTML 流程：PDF 路径留空，后续仍可按原 SVG/HMAC 链路签署。
+    pdf_path = None
+    try:
+        from app.services import kaifang_sign_service
+
+        _kind = kind
+        if _kind in ("listing_agent", "broker_distributor"):
+            _kind = "broker"
+        pdf_bytes = kaifang_sign_service.get_engine().render_contract_pdf(
+            counters, kind=_kind
+        )
+        pdf_file = base / f"contract_{uuid.uuid4().hex[:12]}.pdf"
+        pdf_file.write_bytes(pdf_bytes)
+        pdf_path = str(pdf_file)
+    except Exception:  # noqa: BLE001  引擎缺失/异常时回退，不阻塞合同生成
+        pdf_path = None
+
     return {
         "title": title,
         "language": language,
         "content_html": html_content,
         "document_hash": digest,
         "file_path": str(file),
+        "pdf_path": pdf_path,
     }
 
 

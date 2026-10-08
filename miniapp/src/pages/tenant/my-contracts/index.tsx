@@ -8,7 +8,7 @@
  * 文本走 i18n 三语。
  */
 import { useCallback, useState } from 'react'
-import { View, Text, ScrollView, Canvas } from '@tarojs/components'
+import { View, Text, ScrollView, Canvas, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { contractsApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
@@ -60,6 +60,12 @@ const FIELD_TYPE_META: Record<string, string> = {
 
 const CANVAS_ID = 'mcSignCanvas'
 
+// 页面百分比坐标：非法/越界值回退到默认，防止越界撑爆页图容器（x/y/w/h 均为页面百分比 0-100）
+const pct = (v: any, min: number, max: number, def: number) => {
+  const n = typeof v === 'number' ? v : Number.parseFloat(String(v ?? ''))
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def
+}
+
 const isRealNameError = (e: any) =>
   typeof e?.message === 'string' && e.message.toUpperCase().includes('REAL_NAME_REQUIRED')
 
@@ -73,6 +79,9 @@ export default function MyContractsPage() {
   // 当前正在签署的签署区（null = 弹层关闭）
   const [signTarget, setSignTarget] = useState<any | null>(null)
   const [signing, setSigning] = useState(false)
+  // PDF 页图预览：pdf_available 为真时以页图作为签署画布
+  const [pdfAvailable, setPdfAvailable] = useState(false)
+  const [pdfNumPages, setPdfNumPages] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -99,6 +108,8 @@ export default function MyContractsPage() {
       const res: any = await contractsApi.get(id)
       const d = unwrap(res)
       setDetail({ ...d, content_html: d.content_html || '' })
+      setPdfAvailable(!!d?.pdf_available)
+      setPdfNumPages(Number(d?.pdf_page_count) || 0)
     } catch (error) {
       console.error('[MyContracts] 加载合同失败', error)
       Taro.showToast({ title: t('contract.loadFail'), icon: 'none' })
@@ -330,15 +341,65 @@ export default function MyContractsPage() {
                 )}
               </View>
 
-              {!!detail?.content_html && (
+              {/* ===== PDF 页图签署画布（pdf_available 时优先） ===== */}
+              {pdfAvailable && pdfNumPages > 0 ? (
                 <View className='mc-detail__section'>
                   <Text className='mc-detail__section-title'>{t('contract.content')}</Text>
-                  <View className='mc-content'>
-                    <View className='mc-content__inner'>
-                      <Text userSelect>{String(detail.content_html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')}</Text>
-                    </View>
+                  <View className='mc-pages'>
+                    {Array.from({ length: pdfNumPages }, (_, i) => {
+                      const page = i + 1
+                      const fields = Array.isArray(detail?.sign_fields)
+                        ? detail.sign_fields.filter((f: any) => pct(f?.page, 1, pdfNumPages, 1) === page)
+                        : []
+                      return (
+                        <View key={page} className='mc-page-item'>
+                          <Text className='mc-page-item__no'>
+                            {t('contract.page')} {page}
+                          </Text>
+                          <View className='mc-page-item__canvas'>
+                            <Image
+                              className='mc-page-item__img'
+                              src={contractsApi.pdfPageUrl(detail.id, page)}
+                              mode='widthFix'
+                            />
+                            {fields.map((f: any, idx: number) => {
+                              const mine = String(f?.party_id) === String(myParty?.id)
+                              const clickable = mine && !f?.signed
+                              return (
+                                <View
+                                  key={f?.id ?? idx}
+                                  className={`mc-page-item__field ${mine ? 'mc-page-item__field--mine' : ''} ${f?.signed ? 'mc-page-item__field--done' : ''}`}
+                                  style={{
+                                    left: `${pct(f?.x, 0, 100, 8)}%`,
+                                    top: `${pct(f?.y, 0, 100, 40)}%`,
+                                    width: `${pct(f?.w, 2, 100, 16)}%`,
+                                    height: `${pct(f?.h, 1, 100, 5)}%`
+                                  }}
+                                  onClick={() => clickable && onFieldTap(f)}
+                                >
+                                  <Text className='mc-page-item__field-label'>
+                                    {f?.signed ? t('contract.signed') : mine ? t('contract.tapToSign') : partyName(f?.party_id)}
+                                  </Text>
+                                </View>
+                              )
+                            })}
+                          </View>
+                        </View>
+                      )
+                    })}
                   </View>
                 </View>
+              ) : (
+                !!detail?.content_html && (
+                  <View className='mc-detail__section'>
+                    <Text className='mc-detail__section-title'>{t('contract.content')}</Text>
+                    <View className='mc-content'>
+                      <View className='mc-content__inner'>
+                        <Text userSelect>{String(detail.content_html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')}</Text>
+                      </View>
+                    </View>
+                  </View>
+                )
               )}
             </View>
           )}

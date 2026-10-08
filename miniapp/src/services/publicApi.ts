@@ -15,6 +15,9 @@
  */
 import { request } from '@/lib/api'
 
+// 全局注入的 API 地址（构建期由 Taro 注入，同 lib/api.ts 的 use）
+declare const API_BASE: string
+
 /** 公开房源卡片。价格已由后端统一成 `price`（租=月租、售=挂牌价）。 */
 export interface PublicListing {
   id: string
@@ -260,4 +263,13 @@ export const publicApi = {
   /** 匿名留资（后端限流；至少留一种联系方式） */
   inquiry: (data: PublicInquiryPayload) =>
     request<any>({ url: `${PUBLIC}/inquiries`, method: 'POST', data })
+}
+
+/**
+ * 免登录电子合同签署：PDF 页图地址（无鉴权，直接给 <Image src> 使用）。
+ * 对应后端 `GET /public/contract-sign/{token}/pdf-pages/{page}`。
+ */
+export function publicContractSignPdfUrl(signToken: string, page: number): string {
+  const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
+  return `${baseURL}${PUBLIC}/contract-sign/${encodeURIComponent(signToken)}/pdf-pages/${page}`
 }

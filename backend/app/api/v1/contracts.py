@@ -41,6 +41,7 @@ from fastapi import (
 )
 from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
+from starlette.responses import FileResponse
 
 from app.config import settings
 from app.core.auth import (
@@ -48,9 +49,10 @@ from app.core.auth import (
     can_view_contract,
     contract_visibility_conditions,
     get_current_user,
+    get_current_user_allow_query_token,
     require_employee,
 )
-from app.core.uploads import save_upload
+from app.core.uploads import resolve_stored_path, save_upload
 from app.db import get_session
 from app.models import (
     Notification,
@@ -174,6 +176,7 @@ def generate_contract(
         content_html=meta["content_html"],
         document_hash=meta["document_hash"],
         file_path=meta["file_path"],
+        pdf_path=meta.get("pdf_path"),
         counters=counters,
         status=ContractStatus.draft,
     )
@@ -709,6 +712,76 @@ def _sanitize_signature_svg(raw: str) -> str:
     return value
 
 
+def _pdf_signature_stamp(contract, party, method, field) -> tuple:
+    """决定要盖到 PDF 上的图片与位置。
+
+    返回 (img_bytes, page, x, y, w, h, reason)：
+    - company_seal → 公司公章（公司名）盖章；
+    - 其余（手写/私章/日期）→ 用引擎把手写姓名/日期渲染为 PNG。
+    未放置签署区字段时退回整页签名栏默认坐标。
+    """
+    from app.services import kaifang_sign_service
+
+    eng = kaifang_sign_service.get_engine()
+    is_seal = method == SignMethod.company_seal
+    if is_seal:
+        company = (party.name or "电子签章").strip()
+        img = eng.make_seal(f"{company}专用章", "合同专用")
+    elif method == SignMethod.date:
+        img = eng.make_handwrite(datetime.utcnow().strftime("%Y-%m-%d"))
+    else:
+        img = eng.make_handwrite(party.name or "签名")
+    if field is not None:
+        page = max(1, int(getattr(field, "page", 1) or 1))
+        x = float(getattr(field, "x", 0) or 0)
+        y = float(getattr(field, "y", 0) or 0)
+        w = float(getattr(field, "w", 0) or 0) or 20.0
+        h = float(getattr(field, "h", 0) or 0) or 8.0
+    else:
+        page, x, y, w, h = 1, 55.0, 90.0, 24.0, 9.0
+    reason = f"{party.name} 电子签署"
+    return img, page, x, y, w, h, reason
+
+
+def _apply_pdf_signature(session, contract, party, *, field, method) -> None:
+    """用 kaifangqian->Python 引擎对合同 PDF 做定位签署并写回存档。
+
+    - 基线：优先取 `signed_pdf_path`（之前已签过），否则取 `pdf_path`；
+    - 把盖章/签名 PNG 盖到字段坐标 → pyhanko 增量数字签名 → 写回新版 signed_pdf_path；
+    - 任一环节异常或没有 PDF 均保持静默（不阻断签名留痕）。
+    """
+    from pathlib import Path
+
+    from app.config import settings
+
+    base = Path(getattr(contract, "signed_pdf_path", None) or getattr(contract, "pdf_path", None))
+    if not base or not Path(base).exists():
+        return
+    if getattr(contract, "signed_pdf_path", None) == getattr(contract, "pdf_path", None):
+        signed_exists = False
+    else:
+        signed_exists = bool(getattr(contract, "signed_pdf_path", None) and Path(contract.signed_pdf_path).exists())
+    src_path = Path(contract.signed_pdf_path if signed_exists else contract.pdf_path)
+    if not src_path.exists():
+        return
+    try:
+        from app.services import kaifang_sign_service
+
+        eng = kaifang_sign_service.get_engine()
+        img, page, x, y, w, h, reason = _pdf_signature_stamp(contract, party, method, field)
+        signed = eng.sign_pdf(
+            src_path.read_bytes(), img, page=page, x=x, y=y, w=w, h=h, reason=reason
+        )
+        out_dir = Path(settings.CONTRACT_OUTPUT_DIR)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out = out_dir / f"contract_{contract.id.hex[:12]}.signed.pdf"
+        out.write_bytes(signed)
+        contract.signed_pdf_path = str(out)
+        session.add(contract)
+    except Exception:  # noqa: BLE001  引擎异常不影响签名留痕
+        pass
+
+
 def _apply_signature(
     session: Session,
     contract: Contract,
@@ -729,6 +802,8 @@ def _apply_signature(
       不传 `field_id` 时沿用旧链路（整方一次性签署）；
     - 状态推进：sent → partially_signed →（所有 required 归属字段签署完成）signed；
     - 经纪人协议为「平台单方预签」类：经纪乙方签署后平台甲方自动同意。
+    - 合同存在引擎 PDF（pdf_path/signed_pdf_path）时，同时用 kaifangqian->Python
+      引擎在该字段坐标处盖手写签名/公章并做增量数字签名（写回 signed_pdf_path）。
     """
     name = party.name
     stamp = contract.title or contract.id
@@ -738,7 +813,8 @@ def _apply_signature(
         f"{contract.document_hash}|{party.id}|{name}|{sig_svg}"
     )
 
-    # 按字段签署：校验归属 + 未签
+    # --- 引擎 PDF 定位签署（可选，有 PDF 才执行；失败回退不阻断留痕） ---
+    field = None
     if field_id is not None:
         field = session.get(ContractSignField, field_id)
         if not field or field.contract_id != contract.id:
@@ -750,6 +826,11 @@ def _apply_signature(
         field.signed = True
         field.signed_at = datetime.utcnow()
         session.add(field)
+
+    _apply_pdf_signature(
+        session, contract, party, field=field,
+        method=method or party.sign_method or SignMethod.personal_handwrite,
+    )
 
     party.signed = True
     party.signed_at = datetime.utcnow()
@@ -917,6 +998,95 @@ def sign_contract(
     }
 
 
+@router.post("/{contract_id}/sign-self")
+def sign_self(
+    contract_id: uuid.UUID,
+    payload: dict,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """签署方在 PDF 页图任意位置「落区并签」的合并接口（法大大式自由拖签）。
+
+    payload: {party_id, page, x, y, w, h, method, signature_svg?}
+    - 身份绑定与 /sign 一致：非员工只能签**自己**那一方；
+    - x/y 为页宽高百分比(0-100)，w/h 百分比(>0)，按该坐标**新建**本人签区
+      （field_type=method，required=False）随后立即签署并盖到 PDF；
+    - 不发明文姓名：姓名一律取服务端 `party.name`。
+    """
+    import math
+
+    contract = _get_visible_contract(session, user, contract_id)
+    if contract.status == ContractStatus.voided:
+        raise HTTPException(status_code=409, detail="Contract already voided")
+    party = _get_party(session, contract_id, payload.get("party_id"))
+
+    if user.role not in STAFF_ROLES and party.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not a party of this contract")
+    if party.signed:
+        raise HTTPException(status_code=409, detail="Party already signed")
+
+    # 兼容「签区字段类型」与「签署方式」两种字符串：signature→手写、seal→公章、date→日期
+    _method_map = {
+        "signature": SignMethod.personal_handwrite,
+        "personal_handwrite": SignMethod.personal_handwrite,
+        "personal_seal": SignMethod.personal_seal,
+        "seal": SignMethod.company_seal,
+        "company_seal": SignMethod.company_seal,
+        "date": SignMethod.date,
+    }
+    method = _method_map.get(str(payload.get("method", "")), SignMethod.personal_handwrite)
+
+    page = max(1, int(payload.get("page", 1) or 1))
+    x = min(100.0, max(0.0, float(payload.get("x", 0) or 0)))
+    y = min(100.0, max(0.0, float(payload.get("y", 0) or 0)))
+    w = min(100.0, max(1.0, float(payload.get("w", 0) or 0) or 20.0))
+    h = min(100.0, max(1.0, float(payload.get("h", 0) or 0) or 8.0))
+
+    # 落区字段类型映射：company_seal→seal，date→date，其余 signature
+    ft = {
+        SignMethod.company_seal: SignFieldType.seal,
+        SignMethod.date: SignFieldType.date,
+    }.get(method, SignFieldType.signature)
+
+    field = ContractSignField(
+        contract_id=contract.id,
+        party_id=party.id,
+        field_type=ft,
+        page=page,
+        x=x,
+        y=y,
+        w=w,
+        h=h,
+        required=False,
+        created_by=user.id,
+    )
+    session.add(field)
+    session.flush()  # 取 field.id 供签署/落章定位
+
+    raw_svg = payload.get("signature_svg")
+    sig_svg = _sanitize_signature_svg(raw_svg) if raw_svg else None
+
+    sig_hash = _apply_signature(
+        session,
+        contract,
+        party,
+        signer_user_id=user.id,
+        ip=(request.client.host if request.client else None),
+        signature_svg=sig_svg,
+        field_id=field.id,
+        method=method,
+    )
+    session.commit()
+    return {
+        "party_id": str(party.id),
+        "signed": True,
+        "field_id": str(field.id),
+        "signature_hash": sig_hash,
+        "contract_status": contract.status.value,
+    }
+
+
 def _activate_broker_role_if_agreement(session: Session, contract: Contract) -> None:
     """经纪人协议全部签署后，激活对应业务侧。幂等：仅当协议为 signed 且尚未激活。
 
@@ -987,6 +1157,109 @@ def list_contracts(
     ]
 
 
+@router.get("/preview/{preview_token}")
+def preview_contract_file(
+    preview_token: str,
+    session: Session = Depends(get_session),
+):
+    """凭短令牌返回合同原始文件（无鉴权，令牌 15 分钟过期）。
+
+    三端直接在 iframe/浏览器/下载器里打开，规避浏览器无法带 Bearer 头的问题。
+    仅返回落盘原件，不暴露合同 id；令牌无效/过期分别 404/410。
+    """
+    contract = session.exec(
+        select(Contract).where(Contract.preview_token == preview_token)
+    ).first()
+    if not contract or contract.deleted_at:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    if contract.preview_token_expires_at is not None and (
+        contract.preview_token_expires_at < datetime.utcnow()
+    ):
+        raise HTTPException(status_code=410, detail="Preview link expired")
+    if not contract.file_path:
+        raise HTTPException(status_code=404, detail="Contract file not found")
+    path = resolve_stored_path(
+        contract.file_path,
+        UPLOAD_DIR,
+        STORED_URL_PREFIX,
+        not_found_message="Contract file not found on disk",
+    )
+    return FileResponse(path)
+
+
+@router.get("/{contract_id}/file-url")
+def get_contract_file_url(
+    contract_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """生成 15 分钟有效期的合同原件一次性预览 URL（限员工）。
+
+    复用详情端点的可见性校验确认当前用户能看这份合同；拿不到合同或
+    `file_path` 为空时 404。返回相对 URL，前端补 origin 后交给三端打开。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    if not contract.file_path:
+        raise HTTPException(status_code=404, detail="Contract file not found")
+    token = secrets.token_urlsafe(24)
+    contract.preview_token = token
+    contract.preview_token_expires_at = datetime.utcnow() + timedelta(minutes=15)
+    session.add(contract)
+    session.commit()
+    return {"url": f"/api/v1/contracts/preview/{token}"}
+
+
+def _resolve_contract_pdf(contract: Contract) -> Optional[Path]:
+    """返回合同引擎 PDF 的落盘路径（优先已签存档，其次原始 PDF）。"""
+    from app.services import kaifang_sign_service  # noqa: F401  仅用于路径语义
+
+    for attr in ("signed_pdf_path", "pdf_path"):
+        v = getattr(contract, attr, None)
+        if v and Path(v).exists():
+            return Path(v)
+    return None
+
+
+@router.get("/{contract_id}/pdf")
+def get_contract_pdf(
+    contract_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user_allow_query_token),
+):
+    """合同引擎 PDF 原件/已签件（可见者访问，浏览器内嵌预览）。
+
+    鉴权兼容 `Authorization` 头与 `?token=`（供 App/小程序 `<Image>` 加载）。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    p = _resolve_contract_pdf(contract)
+    if not p:
+        raise HTTPException(status_code=404, detail="Contract PDF not found")
+    return FileResponse(p, media_type="application/pdf")
+
+
+@router.get("/{contract_id}/pdf-pages/{page}")
+def get_contract_pdf_page(
+    contract_id: uuid.UUID,
+    page: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user_allow_query_token),
+):
+    """合同引擎 PDF 第 N 页渲染为 PNG（供前端页图预览 / 拖拽定位签署）。"""
+    from fastapi.responses import Response
+
+    contract = _get_visible_contract(session, user, contract_id)
+    p = _resolve_contract_pdf(contract)
+    if not p:
+        raise HTTPException(status_code=404, detail="Contract PDF not found")
+    from app.services import kaifang_sign_service
+
+    try:
+        png = kaifang_sign_service.get_engine().page_image(p.read_bytes(), page=page)
+    except IndexError:
+        raise HTTPException(status_code=404, detail="Page out of range")
+    return Response(content=png, media_type="image/png")
+
+
 @router.get("/{contract_id}", response_model=ContractDetailResponse)
 def get_contract(
     contract_id: uuid.UUID,
@@ -1014,6 +1287,7 @@ def get_contract(
         "document_hash": contract.document_hash,
         "content_html": contract.content_html,
         "file_path": contract.file_path,
+        "pdf_available": _resolve_contract_pdf(contract) is not None,
         "can_edit": is_staff
         and contract.status
         not in (ContractStatus.signed, ContractStatus.completed, ContractStatus.voided),
@@ -1114,6 +1388,22 @@ def build_verify_report(
             }
         )
 
+    # ---- kaifangqian->Python 引擎内嵌 PDF 签名核验（有已签 PDF 时） ----
+    engine_report = None
+    if getattr(contract, "signed_pdf_path", None):
+        from pathlib import Path
+
+        p = Path(contract.signed_pdf_path)
+        if p.exists():
+            try:
+                from app.services import kaifang_sign_service
+
+                engine_report = kaifang_sign_service.get_engine().verify_pdf(
+                    p.read_bytes()
+                )
+            except Exception:  # noqa: BLE001
+                engine_report = None
+
     return {
         "contract_id": str(contract.id),
         "title": contract.title,
@@ -1125,6 +1415,7 @@ def build_verify_report(
         "tampered": tampered,
         "sign_types_summary": sign_types,
         "signatures": sig_list,
+        "pdf_signature": engine_report,  # 引擎内嵌数字签名验签结果
         "verified": not tampered and bool(sig_list),
     }
 

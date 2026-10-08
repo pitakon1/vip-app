@@ -23,7 +23,7 @@ import {
   Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
@@ -46,6 +46,38 @@ const stripHtml = (html?: string) =>
     .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ')
     .trim();
+
+// 上传合同允许的扩展名 → MIME（与后端 ALLOWED_DOCUMENT_TYPES / save_upload 白名单一致）
+const EXT_MIME: Record<string, string> = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+};
+
+// 由选中文档构造上传文件对象 { uri, name, type }：name 需带正确扩展名
+const resolveUploadFile = (asset: any) => {
+  const rawName = asset?.name || '';
+  const extMatch = /\.([A-Za-z0-9]+)$/.exec(rawName);
+  const ext = extMatch ? extMatch[1].toLowerCase() : '';
+  let mime = asset?.mimeType || '';
+  if (!mime) {
+    const uriExt = /\.([A-Za-z0-9]+)$/.exec(asset?.uri || '')?.[1]?.toLowerCase() || '';
+    mime = EXT_MIME[uriExt] || EXT_MIME[ext] || '';
+  }
+  const resolvedExt = ext || Object.keys(EXT_MIME).find((k) => EXT_MIME[k] === mime) || '';
+  const name = rawName || (resolvedExt ? `contract.${resolvedExt}` : 'contract');
+  const finalName = /\.[A-Za-z0-9]+$/.test(name) ? name : `${name}.${resolvedExt || ''}`.replace(/\.$/, '');
+  return {
+    uri: asset?.uri,
+    name: finalName,
+    type: mime || 'application/octet-stream',
+  } as any;
+};
 
 const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '-');
 
@@ -131,7 +163,7 @@ const KIND_FIELDS: Record<string, string[]> = {
 
 const KIND_ORDER: string[] = ['lease', 'purchase', 'broker'];
 
-const FALLBACK_TEMPLATES = KIND_ORDER.map((kind) => ({
+const FALLBACK_TEMPLATES: { kind: string; title: string; content_html?: string }[] = KIND_ORDER.map((kind) => ({
   kind,
   title: `contract.tmpl.${kind}`,
 }));
@@ -159,7 +191,7 @@ export default function ContractsScreen() {
 
   // 生成表单
   const [showGenerate, setShowGenerate] = useState(false);
-  const [templates, setTemplates] = useState<{ kind: string; title: string }[]>([]);
+  const [templates, setTemplates] = useState<{ kind: string; title: string; content_html?: string }[]>([]);
   const [genKind, setGenKind] = useState('lease');
   const [genLang, setGenLang] = useState('zh');
   const [genForm, setGenForm] = useState<Record<string, string>>(() =>
@@ -385,13 +417,14 @@ export default function ContractsScreen() {
         party_id: fieldForm.party_id,
         field_type: fieldForm.type,
         page: Number(fieldForm.page) || 1,
-        x: (Number(fieldForm.x) || 0) / 100,
-        y: (Number(fieldForm.y) || 0) / 100,
+        // 签署区坐标统一为页面百分比(0-100)
+        x: Number(fieldForm.x) || 0,
+        y: Number(fieldForm.y) || 0,
       },
     ]);
   };
 
-  // 默认布局：按文档位置错开摆放未签署方的签名位
+  // 默认布局：按文档位置错开摆放未签署方的签名位（百分比 0-100）
   const applyDefaultLayout = async () => {
     const targets = parties.filter((p: any) => !p?.signed && !!p?.id);
     if (!targets.length) {
@@ -402,8 +435,8 @@ export default function ContractsScreen() {
       party_id: String(p.id),
       field_type: 'signature',
       page: 1,
-      x: i % 2 === 0 ? 0.25 : 0.65,
-      y: 0.55 + (i % 2) * 0.25 + Math.floor(i / 2) * 0.12,
+      x: i % 2 === 0 ? 25 : 65,
+      y: 55 + (i % 2) * 25 + Math.floor(i / 2) * 12,
     }));
     await commitFields(fields);
   };
@@ -482,17 +515,20 @@ export default function ContractsScreen() {
   const handleUpload = async () => {
     if (!detail?.id) return;
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.9,
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/gif',
+        ],
+        copyToCacheDirectory: true,
       });
       if (result.canceled || !result.assets?.[0]) return;
-      const asset = result.assets[0];
-      const file = {
-        uri: asset.uri,
-        name: asset.fileName ?? `contract${/\.(jpe?g|png|webp|gif)$/i.exec(asset.uri)?.[0] ?? '.jpg'}`,
-        type: asset.mimeType ?? 'image/jpeg',
-      } as any;
+      const file = resolveUploadFile(result.assets[0]);
       setBusyAction('upload');
       await contractsApi.uploadFile(detail.id, file);
       notify(t('contract.uploadDone'));
@@ -507,6 +543,12 @@ export default function ContractsScreen() {
   const canEdit = !!detail?.can_edit;
   const parties: any[] = Array.isArray(detail?.parties) ? detail.parties : [];
   const signFields: any[] = Array.isArray(detail?.sign_fields) ? detail.sign_fields : [];
+  // 当前选中模板的范本正文（后端用空字段渲染出的标准样张），无 content_html 时展示内置字段表样例
+  const genPreviewHtml =
+    (templates.length ? templates : FALLBACK_TEMPLATES).find((item) => item.kind === genKind)?.content_html || '';
+  const genPreviewText = genPreviewHtml
+    ? stripHtml(genPreviewHtml)
+    : (KIND_FIELDS[genKind] ?? []).map((f) => `· ${t(FIELD_META[f].labelKey)}: ____`).join('\n');
 
   const renderSource = (source?: string) => {
     const meta = SOURCE_META[source ?? ''] ?? SOURCE_META.generated;
@@ -601,7 +643,7 @@ export default function ContractsScreen() {
             {t(meta.labelKey)} · {party?.name || t('contract.unknown')}
           </Text>
           <Text style={styles.fieldMeta}>
-            {t('contract.page')} {f?.page ?? 1} · {t('contract.coordX')} {Math.round(((f?.x ?? 0) as number) * 100)} · {t('contract.coordY')} {Math.round(((f?.y ?? 0) as number) * 100)}
+            {t('contract.page')} {f?.page ?? 1} · {t('contract.coordX')} {Math.round((f?.x ?? 0) as number)} · {t('contract.coordY')} {Math.round((f?.y ?? 0) as number)}
           </Text>
           {!!f?.signed_at && (
             <Text style={styles.fieldMeta}>
@@ -739,6 +781,12 @@ export default function ContractsScreen() {
                     </TouchableOpacity>
                   );
                 })}
+              </View>
+              <View style={styles.genPreviewBox}>
+                <Text style={styles.genPreviewTitle}>{t('contract.templatePreview')}</Text>
+                <ScrollView style={styles.genPreviewScroll} nestedScrollEnabled>
+                  <Text style={styles.genPreviewText} selectable>{genPreviewText}</Text>
+                </ScrollView>
               </View>
               {(KIND_FIELDS[genKind] ?? []).map((f) => {
                 const meta = FIELD_META[f];
@@ -1178,6 +1226,25 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 13, color: colors.ink2 },
   chipTextActive: { color: colors.primaryForeground, fontWeight: '700' },
+  /* 生成合同：范本预览 */
+  genPreviewBox: {
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  genPreviewTitle: {
+    backgroundColor: colors.surface2,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.ink3,
+  },
+  genPreviewScroll: { maxHeight: 300, paddingHorizontal: 12 },
+  genPreviewText: { fontSize: 13, color: colors.ink2, lineHeight: 20, paddingVertical: 10 },
 
   /* 详情 */
   detailWrap: { flex: 1, backgroundColor: colors.background },

@@ -4,7 +4,14 @@
  * 由父级随 sign 请求提交。文本走 i18n。
  */
 import React, { useRef, useState } from 'react';
-import { PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  LayoutChangeEvent,
+  PanResponder,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { GestureResponderEvent, PanResponderGestureState } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -22,11 +29,15 @@ interface Props {
   /** 标题（可选），通常由父级传入签署方姓名 */
   title?: string;
   height?: number;
+  /** 嵌入式（如叠在 PDF 签署框内）：画布铺满父容器、隐藏标题与清空按钮 */
+  fill?: boolean;
+  /** 是否显示「清空」按钮，默认显示；嵌入 PDF 时由父级统一管理可传 false */
+  showClear?: boolean;
 }
 
 const STROKE_COLORS = [colors.primary, colors.error, colors.success];
 
-const toSvg = (strokes: Point[][]) => {
+const toSvg = (strokes: Point[][], w: number, h: number) => {
   if (!strokes.length) return '';
   const paths: string[] = [];
   strokes.forEach((pts, i) => {
@@ -45,15 +56,32 @@ const toSvg = (strokes: Point[][]) => {
       `<path d="${d}" stroke="${color}" stroke-width="3" stroke-linecap="round" fill="none"/>`,
     );
   });
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 150" width="300" height="150">${paths.join('')}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${paths.join('')}</svg>`;
 };
 
-export default function SignaturePad({ onResult, title, height = 200 }: Props) {
+export default function SignaturePad({
+  onResult,
+  title,
+  height = 200,
+  fill = false,
+  showClear = true,
+}: Props) {
   const { t } = useI18n();
   const strokesRef = useRef<Point[][]>([]);
+  const sizeRef = useRef({ width: 300, height: 150 });
+  const [size, setSize] = useState(sizeRef.current);
   const [version, setVersion] = useState(0);
 
   const touch = () => setVersion((v) => v + 1);
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height: h } = e.nativeEvent.layout;
+    if (width > 0 && h > 0) {
+      // 动态适配画布尺寸：SVG 以实际渲染宽高为坐标系，保证坐标按 % 换算后不拉伸
+      sizeRef.current = { width, height: h };
+      setSize(sizeRef.current);
+    }
+  };
 
   const penResponder = useRef(
     PanResponder.create({
@@ -76,7 +104,7 @@ export default function SignaturePad({ onResult, title, height = 200 }: Props) {
 
   React.useEffect(() => {
     // 仅在有内容时回传，避免初始空串误清空父级
-    if (version > 0) onResult(toSvg(strokesRef.current));
+    if (version > 0) onResult(toSvg(strokesRef.current, sizeRef.current.width, sizeRef.current.height));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version]);
 
@@ -89,10 +117,15 @@ export default function SignaturePad({ onResult, title, height = 200 }: Props) {
   };
 
   return (
-    <View style={styles.wrap}>
-      {!!title && <Text style={styles.title}>{title}</Text>}
-      <View {...penResponder.panHandlers} style={[styles.canvas, { height }]} collapsable={false}>
-        <Svg width="100%" height="100%">
+    <View style={[styles.wrap, fill && styles.wrapFill]}>
+      {!!title && !fill && <Text style={styles.title}>{title}</Text>}
+      <View
+        {...penResponder.panHandlers}
+        onLayout={onLayout}
+        style={[styles.canvas, fill && styles.canvasFill, !fill && { height }]}
+        collapsable={false}
+      >
+        <Svg width="100%" height="100%" viewBox={`0 0 ${size.width} ${size.height}`}>
           {strokes.map((pts, i) => {
             const color = STROKE_COLORS[i % STROKE_COLORS.length];
             if (pts.length === 1) {
@@ -107,16 +140,19 @@ export default function SignaturePad({ onResult, title, height = 200 }: Props) {
         </Svg>
         {strokes.length === 0 ? <Text style={styles.hint}>{t('contract.signHere')}</Text> : null}
       </View>
-      <TouchableOpacity style={styles.clearBtn} activeOpacity={0.85} onPress={clear}>
-        <Ionicons name="refresh-outline" size={15} color={colors.primary} />
-        <Text style={styles.clearText}>{t('contract.clear')}</Text>
-      </TouchableOpacity>
+      {showClear && !fill && (
+        <TouchableOpacity style={styles.clearBtn} activeOpacity={0.85} onPress={clear}>
+          <Ionicons name="refresh-outline" size={15} color={colors.primary} />
+          <Text style={styles.clearText}>{t('contract.clear')}</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: 6 },
+  wrapFill: { flex: 1 },
   title: { fontSize: 13, color: colors.ink3, marginBottom: 6 },
   canvas: {
     borderWidth: 1,
@@ -128,6 +164,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  canvasFill: { flex: 1 },
   hint: { position: 'absolute', fontSize: 12, color: colors.ink3 },
   clearBtn: {
     flexDirection: 'row',

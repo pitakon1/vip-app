@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { View, Text, ScrollView, RichText } from '@tarojs/components'
+import { View, Text, ScrollView, RichText, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { contractsApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
@@ -9,6 +9,12 @@ import './index.scss'
 
 const unwrap = (d: any): any => d?.data ?? d ?? {}
 
+// 页面百分比坐标：非法/越界值回退到默认，防止越界撑爆页图容器（x/y/w/h 均为页面百分比 0-100）
+const pct = (v: any, min: number, max: number, def: number) => {
+  const n = typeof v === 'number' ? v : Number.parseFloat(String(v ?? ''))
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def
+}
+
 export default function StaffContractPage() {
   const { t } = useI18n()
   const router = useRouter()
@@ -16,6 +22,9 @@ export default function StaffContractPage() {
   const [contract, setContract] = useState<any>(null)
   const [loading, setLoading] = useState(!!id)
   const [signing, setSigning] = useState(false)
+  // PDF 页图预览：pdf_available 为真时以页图作为签署画布
+  const [pdfAvailable, setPdfAvailable] = useState(false)
+  const [pdfNumPages, setPdfNumPages] = useState(0)
 
   const load = useCallback(() => {
     if (!id) return
@@ -25,6 +34,8 @@ export default function StaffContractPage() {
       .then((res: any) => {
         const d = unwrap(res)
         setContract({ ...d, content_html: d.content_html || '' })
+        setPdfAvailable(!!d?.pdf_available)
+        setPdfNumPages(Number(d?.pdf_page_count) || 0)
       })
       .catch((err) => {
         console.error('[Contract] 加载合同失败', err)
@@ -88,9 +99,42 @@ export default function StaffContractPage() {
             </View>
           </View>
           <ScrollView scrollY className='ct-scroll'>
-            <View className='ct-content'>
-              <RichText nodes={contract?.content_html || ''} />
-            </View>
+            {/* pdf_available 时用页图作为签署画布，叠加待签署的经纪人群 */}
+            {pdfAvailable && pdfNumPages > 0 ? (
+              <View className='ct-pages'>
+                {Array.from({ length: pdfNumPages }, (_, i) => {
+                  const page = i + 1
+                  return (
+                    <View key={page} className='ct-page-item'>
+                      <Text className='ct-page-item__no'>{t('contract.page')} {page}</Text>
+                      <View className='ct-page-item__canvas'>
+                        <Image className='ct-page-item__img' src={contractsApi.pdfPageUrl(id, page)} mode='widthFix' />
+                        {agentFields.map((f: any, idx: number) =>
+                          pct(f?.page, 1, pdfNumPages, 1) === page ? (
+                            <View
+                              key={f?.id ?? idx}
+                              className='ct-page-item__field'
+                              style={{
+                                left: `${pct(f?.x, 0, 100, 8)}%`,
+                                top: `${pct(f?.y, 0, 100, 40)}%`,
+                                width: `${pct(f?.w, 2, 100, 16)}%`,
+                                height: `${pct(f?.h, 1, 100, 5)}%`
+                              }}
+                            >
+                              <Text className='ct-page-item__field-label'>{t('lease.signSelf')}</Text>
+                            </View>
+                          ) : null
+                        )}
+                      </View>
+                    </View>
+                  )
+                })}
+              </View>
+            ) : (
+              <View className='ct-content'>
+                <RichText nodes={contract?.content_html || ''} />
+              </View>
+            )}
           </ScrollView>
           <View className='ct-footer'>
             <View className={`ct-sign ${signed ? 'ct-sign--done' : ''}`} onClick={handleSign}>

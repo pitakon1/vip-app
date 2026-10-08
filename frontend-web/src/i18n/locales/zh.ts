@@ -3731,11 +3731,13 @@ const zh = {
     // 签署框放置（发起方/员工）
     placeFields: "放置签署框",
     placeHint: "先选类型与归属方，再点击正文放置",
+    page: "第 {{n}} 页",
     fieldType: "签署框类型",
     fieldAssignee: "归属签署方",
     anyParty: "任意签署方",
     fieldList: "已放置的签署框",
     noFields: "尚未放置签署框",
+    errPdfLoad: "PDF 页图加载失败，请重试",
     saveFields: "保存签署框",
     msgFieldsSaved: "签署框已保存",
     errFieldsSave: "保存签署框失败",
@@ -4220,6 +4222,7 @@ const zh = {
   // 合同模板（生成合同时选择）
   contract: {
     formTemplate: "合同模板",
+    templatePreview: "合同范本预览",
     tmpl: {
       lease: "租赁合同",
       purchase: "房屋买卖合同",

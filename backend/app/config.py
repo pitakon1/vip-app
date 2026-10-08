@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     #    签名时 fail closed 直接报错，避免用公开的示例密钥签出"看起来有效"的合同。
     CONTRACT_SIGNING_SECRET: str = ""
     CONTRACT_OUTPUT_DIR: str = "./contracts"
+    # kaifangqian->Python 电子签引擎：持久化 CA 身份目录（生成 CA 私钥/证书/PKCS12），
+    # 使合同可跨重启稳定验签；PFX 口令用于保护证书导出文件。
+    SIGN_ENGINE_CERT_DIR: str = "./sign-engine"
+    SIGN_ENGINE_PFX_PASS: str = "kfq-engine"
     # 免登录签署链接的站点前缀（用于把 /sign/{token} 拼成可点开的绝对地址）。
     # 留空时只返回相对路径，由前端自行补全 origin。
     PUBLIC_WEB_BASE_URL: str = ""

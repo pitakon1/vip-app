@@ -224,6 +224,11 @@ export const contractsApi = {
   // 删除未签署的签署区字段
   deleteSignField: (id: string, fieldId: string) =>
     api.delete(`/contracts/${id}/sign-fields/${fieldId}`),
+  // PDF 页图（PNG，需 Bearer）：以 blob → objectURL 返回，供 <img> 直接渲染
+  pdfPage: (id: string, page: number) =>
+    fetchPdfPageUrl(`/contracts/${id}/pdf-pages/${page}`),
+  // 完整 PDF 下载/查看 URL（带 Bearer，需在请求层附加 token）
+  pdfFileUrl: (id: string) => `/api/v1/contracts/${id}/pdf`,
   // 登录态按字段签署：opts={fieldId?, method?, partyId?, signatureSvg?}
   // method ∈ personal_handwrite / personal_seal / company_seal / date
   sign: (
@@ -262,6 +267,11 @@ export const contractsPublicApi = {
   ) => api.post(`/public/contract-sign/${token}/verify-identity`, data),
   // 公开验签：GET /public/contract-sign/{token}/verify
   verify: (token: string) => api.get(`/public/contract-sign/${token}/verify`),
+  // 公共签署 PDF 页图（无鉴权，token 即身份）：可直接作 <img src>
+  pdfPageUrl: (token: string, page: number) =>
+    `/api/v1/public/contract-sign/${token}/pdf-pages/${page}`,
+  // 公共签署完整 PDF（URL，无鉴权）
+  pdfFileUrl: (token: string) => `/api/v1/public/contract-sign/${token}/pdf`,
 }
 
 // 房源上架单（发布房源 + 分佣配置 + 审核 / 下架）
@@ -516,4 +526,18 @@ export const marketDataApi = {
     api.post(`/market-data/churn-signals/${id}/assign`, data ?? {}),
   resolveChurnSignal: (id: string) =>
     api.post(`/market-data/churn-signals/${id}/resolve`),
+}
+
+/**
+ * 拉取带鉴权的 PDF 页图（PNG），以 objectURL 返回。
+ * 页图按百分比坐标叠加渲染，这里仅负责把二进制转成可直接给 <img> 用的 src。
+ * caller 负责在不再使用时 URL.revokeObjectURL 释放。
+ */
+export async function fetchPdfPageUrl(pagePath: string): Promise<string> {
+  const token = localStorage.getItem('token')
+  const resp = await fetch(`/api/v1${pagePath}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!resp.ok) throw new Error(`PDF page ${pagePath} -> ${resp.status}`)
+  return URL.createObjectURL(await resp.blob())
 }

@@ -1,4 +1,4 @@
-import api, { API_BASE_URL } from '@/lib/api';
+import api, { API_BASE_URL, contractPdfPageUrl, publicContractSignPdfPageUrl } from '@/lib/api';
 import { tokenStorage } from '@/lib/storage';
 
 export const authApi = {
@@ -300,6 +300,9 @@ export const contractsApi = {
   // 手写时附带 signature_svg。method 与后端 sign_method 枚举一致。
   sign: (id: string, data: { field_id: string; method: string; signature_svg?: string }) =>
     api.post(`/contracts/${id}/sign`, data),
+  // 签署方自由拖签：在 PDF 任意位置「落区并签」（无需预置签署框）
+  signSelf: (id: string, data: { party_id: string; page: number; x: number; y: number; w: number; h: number; method: string; signature_svg?: string }) =>
+    api.post(`/contracts/${id}/sign-self`, data),
   // 管理端维护签署区：批量新增 / 删除未签签署框
   saveSignFields: (id: string, fields: any[]) =>
     api.post(`/contracts/${id}/sign-fields`, { fields }),
@@ -307,6 +310,10 @@ export const contractsApi = {
     api.delete(`/contracts/${id}/sign-fields/${fieldId}`),
   // 验签报告（员工）
   verify: (id: string) => api.get(`/contracts/${id}/verify`),
+  // PDF 页图地址：站内合同（带登录 Bearer 的 ?token=），返回可用于 <Image> 的 URL
+  pdfPageUrl: (id: string, page: number) => contractPdfPageUrl(id, page),
+  // PDF 页图地址：免登录签署链路（无鉴权，凭签署 token）
+  publicPdfPageUrl: (signToken: string, page: number) => publicContractSignPdfPageUrl(signToken, page),
   // 编辑合同（员工）：改 title / content_html
   updateContract: (id: string, data: any) => api.patch(`/contracts/${id}`, data),
   // 上传电子合同（multipart，字段名 file）：挂到合同并标 source=uploaded

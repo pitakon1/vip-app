@@ -129,3 +129,26 @@ export async function documentFileUrl(
   if (!token) return null;
   return `${API_BASE_URL}/documents/${id}/${mode}?token=${encodeURIComponent(token)}`;
 }
+
+/**
+ * 站内合同的 PDF 页图地址（鉴权链路）。
+ *
+ * RN 的 `<Image>` 无法附加 `Authorization` 请求头，因此复用后端为文件类接口开放的
+ * `?token=` 查询串；页图以名称命名的页面即其本身坐标空间，落库仍按 %（0-100）。
+ * 调用方不要把这个地址写入日志或持久化。
+ */
+export async function contractPdfPageUrl(
+  contractId: string,
+  page: number,
+): Promise<string | null> {
+  const token = await tokenStorage.get();
+  if (!token) return null;
+  return `${API_BASE_URL}/contracts/${contractId}/pdf-pages/${page}?token=${encodeURIComponent(token)}`;
+}
+
+/**
+ * 免登录签署合同的 PDF 页图地址（公开链路，无鉴权，凭签署 token）。
+ */
+export function publicContractSignPdfPageUrl(signToken: string, page: number): string {
+  return `${API_BASE_URL}/public/contract-sign/${encodeURIComponent(signToken)}/pdf-pages/${page}`;
+}

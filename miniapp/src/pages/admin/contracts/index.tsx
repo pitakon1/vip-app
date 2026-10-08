@@ -8,7 +8,7 @@
  * 功能图标一律 SVG；文本全部走 i18n 三语。
  */
 import { useCallback, useState } from 'react'
-import { View, Text, ScrollView, Input, Textarea } from '@tarojs/components'
+import { View, Text, ScrollView, Input, Textarea, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { contractsApi } from '@/services/api'
 import { iconStyle, type IconKey } from '@/utils/icons'
@@ -130,13 +130,16 @@ export default function AdminContractsPage() {
 
   // 签署区（法大大风格）
   const [showField, setShowField] = useState(false)
+  const [pdfNumPages, setPdfNumPages] = useState(0)
   const [fieldForm, setFieldForm] = useState({
     partyId: '',
     fieldType: 'signature',
     page: '1',
-    x: '300',
-    y: '800'
+    x: '',
+    y: ''
   })
+  const [fieldPage, setFieldPage] = useState(1)
+  const [mark, setMark] = useState<{ x: string; y: string }>({ x: '', y: '' })
   const [fieldBusy, setFieldBusy] = useState(false)
   // 验签报告
   const [verifyReport, setVerifyReport] = useState<any | null>(null)
@@ -173,6 +176,7 @@ export default function AdminContractsPage() {
     try {
       const res: any = await contractsApi.get(id)
       const d = unwrap(res)
+      setPdfNumPages(Number((d as any)?.pdf_page_count) || 0)
       setDetail({ ...d, content_html: d.content_html || '' })
     } catch (error) {
       console.error('[AdminContracts] 加载合同失败', error)
@@ -243,6 +247,30 @@ export default function AdminContractsPage() {
   }
 
   /* ===== 签署区（法大大风格） ===== */
+  const openField = () => {
+    setShowField(true)
+    setFieldPage(1)
+    setMark({ x: '', y: '' })
+    setFieldForm({ partyId: '', fieldType: 'signature', page: '1', x: '', y: '' })
+  }
+
+  // 在正文 / 页图上点按落框：把触点坐标换算为页面百分比，直接落库无需手填坐标
+  const onTapPlace = (e: any) => {
+    const touch = (e?.touches && e?.touches[0]) || e?.changedTouches?.[0] || null
+    if (!touch || touch.pageX == null) return
+    const pageInstance = Taro.getCurrentInstance()?.page
+    const q = (pageInstance ? Taro.createSelectorQuery().in(pageInstance) : Taro.createSelectorQuery())
+    q.select('#signfield-canvas').boundingClientRect((rect: any) => {
+      if (!rect || !rect.width || !rect.height) return
+      const x = ((touch.pageX - rect.left) / rect.width) * 100
+      const y = ((touch.pageY - rect.top) / rect.height) * 100
+      const xf = Math.max(0, Math.min(100, x)).toFixed(1)
+      const yf = Math.max(0, Math.min(100, y)).toFixed(1)
+      setMark({ x: xf, y: yf })
+      setFieldForm((prev) => ({ ...prev, page: String(fieldPage), x: xf, y: yf }))
+    }).exec()
+  }
+
   const submitAddField = async () => {
     if (!detail?.id || !fieldForm.partyId || !fieldForm.fieldType) {
       Taro.showToast({ title: t('contract.insert'), icon: 'none' })
@@ -251,8 +279,8 @@ export default function AdminContractsPage() {
     setFieldBusy(true)
     try {
       const page = Number(fieldForm.page) || 1
-      const x = Number(fieldForm.x) || 300
-      const y = Number(fieldForm.y) || 800
+      const x = Number(fieldForm.x) || 50
+      const y = Number(fieldForm.y) || 50
       await contractsApi.saveSignFields(detail.id, [
         {
           party_id: fieldForm.partyId,
@@ -260,14 +288,15 @@ export default function AdminContractsPage() {
           page,
           x,
           y,
-          w: fieldForm.fieldType === 'date' ? 150 : 200,
-          h: fieldForm.fieldType === 'date' ? 60 : 90,
+          // 页面百分比坐标：x/y/w/h 统一为 0-100 的百分比
+          w: fieldForm.fieldType === 'date' ? 16 : 24,
+          h: fieldForm.fieldType === 'date' ? 3 : 5,
           required: true
         }
       ])
       Taro.showToast({ title: t('contract.fieldSaved'), icon: 'success' })
       setShowField(false)
-      setFieldForm({ partyId: '', fieldType: 'signature', page: '1', x: '300', y: '800' })
+      setFieldForm({ partyId: '', fieldType: 'signature', page: '1', x: '', y: '' })
       await openDetail(detail.id)
     } catch (e: any) {
       Taro.showToast({ title: e?.message || t('contract.saveFields'), icon: 'none' })
@@ -283,7 +312,7 @@ export default function AdminContractsPage() {
       const parties = Array.isArray(detail.parties) ? detail.parties.filter((p: any) => !p?.signed && p?.id) : []
       const fields: any[] = parties.flatMap((p: any, i: number) => {
         const base = String(p.id)
-        const y = 600 + i * 200
+        const y = 55 + i * 15
         const type =
           p?.sign_method === 'seal'
             ? 'seal'
@@ -291,8 +320,9 @@ export default function AdminContractsPage() {
               ? 'date'
               : 'signature'
         return [
-          { party_id: base, field_type: type, page: 1, x: 300, y, w: 200, h: 90, required: true },
-          { party_id: base, field_type: 'date', page: 1, x: 520, y, w: 150, h: 60, required: true }
+          // 页面百分比坐标：x/y/w/h 统一为 0-100 的百分比
+          { party_id: base, field_type: type, page: 1, x: 30, y, w: 24, h: 5, required: true },
+          { party_id: base, field_type: 'date', page: 1, x: 56, y, w: 14, h: 3, required: true }
         ]
       })
       if (!fields.length) {
@@ -444,6 +474,13 @@ export default function AdminContractsPage() {
   const canEdit = !!detail?.can_edit
   const detailId = detail?.id as string | undefined
 
+  // 当前选中模板的范本正文（后端用空字段渲染出的标准样张）
+  const genTemplateSource = tmplList.length ? tmplList : [{ kind: 'lease' }, { kind: 'purchase' }, { kind: 'broker' }]
+  const genPreviewHtml = genTemplateSource.find((x: any) => x.kind === genForm.kind)?.content_html || ''
+  const genPreviewText = genPreviewHtml
+    ? stripHtml(genPreviewHtml)
+    : (TMPL_FIELDS[genForm.kind || 'lease'] || []).map((f) => `· ${t(f.labelKey)}: ____`).join('\n')
+
   const renderBadge = (cls: string, text: string) => (
     <Text className={`ac-badge ${cls}`}>{text}</Text>
   )
@@ -569,7 +606,7 @@ export default function AdminContractsPage() {
                       : renderBadge('ac-badge--warning', t('contract.unsigned'))}
                   </View>
                   <Text className='ac-party__meta'>
-                    {t('contract.page')} {f?.page ?? 1} · X {f?.x ?? '-'} · Y {f?.y ?? '-'}
+                    {t('contract.page')} {f?.page ?? 1}
                   </Text>
                   {isSigned && f?.signed_at ? (
                     <Text className='ac-party__meta'>{t('contract.signedAt')}：{fmtDate(f.signed_at)}</Text>
@@ -595,7 +632,7 @@ export default function AdminContractsPage() {
             <>
               <Text className='ac-detail__section-title'>{t('contract.manage')}</Text>
               <View className='ac-detail__actions'>
-                <View className='ac-btn ac-btn--ghost' onClick={() => setShowField(true)}>
+                <View className='ac-btn ac-btn--ghost' onClick={openField}>
                   <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.addSignField')}</Text>
                 </View>
                 <View className={`ac-btn ac-btn--ghost ${fieldBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!fieldBusy) void submitDefaultLayout() }}>
@@ -704,6 +741,12 @@ export default function AdminContractsPage() {
                     )
                   })}
                 </View>
+              </View>
+              <View className='ac-preview'>
+                <Text className='ac-preview__title'>{t('contract.templatePreview')}</Text>
+                <ScrollView scrollY className='ac-preview__box'>
+                  <Text userSelect>{genPreviewText}</Text>
+                </ScrollView>
               </View>
               {(TMPL_FIELDS[genForm.kind || 'lease'] || []).map((f) => (
                 <View className='ac-field' key={f.key}>
@@ -867,17 +910,44 @@ export default function AdminContractsPage() {
                   ))}
                 </View>
               </View>
+              {/* 可视化落框：在正文 / 页图上点按即可定位，无需手填坐标 */}
               <View className='ac-field'>
-                <Text className='ac-field__label'>{t('contract.page')}</Text>
-                <Input className='ac-field__input' type='number' value={fieldForm.page} onInput={(e: any) => setFieldForm({ ...fieldForm, page: e.detail.value })} />
-              </View>
-              <View className='ac-field'>
-                <Text className='ac-field__label'>{t('contract.posX')}</Text>
-                <Input className='ac-field__input' type='number' value={fieldForm.x} onInput={(e: any) => setFieldForm({ ...fieldForm, x: e.detail.value })} />
-              </View>
-              <View className='ac-field'>
-                <Text className='ac-field__label'>{t('contract.posY')}</Text>
-                <Input className='ac-field__input' type='number' value={fieldForm.y} onInput={(e: any) => setFieldForm({ ...fieldForm, y: e.detail.value })} />
+                <Text className='ac-field__label'>
+                  {t('contract.tapToPlace')}{mark.x ? ` · ${t('contract.page')} ${fieldPage} · X${mark.x} · Y${mark.y}` : ''}
+                </Text>
+                <View
+                  id='signfield-canvas'
+                  className='ac-field-canvas'
+                  onClick={onTapPlace}
+                >
+                  {pdfNumPages > 0 ? (
+                    <Image
+                      src={contractsApi.pdfPageUrl(detail.id, fieldPage)}
+                      mode='widthFix'
+                      className='ac-field-canvas__img'
+                    />
+                  ) : (
+                    <Text className='ac-field-canvas__html' userSelect>
+                      {stripHtml(detail.content_html)}
+                    </Text>
+                  )}
+                  {mark.x !== '' && (
+                    <View
+                      className='ac-field-canvas__mark'
+                      style={{ left: `${mark.x}%`, top: `${mark.y}%` }}
+                    />
+                  )}
+                </View>
+                {pdfNumPages > 1 && (
+                  <View className='ac-lang-row' style={{ marginTop: 8 }}>
+                    <View className={`ac-chip ${fieldPage <= 1 ? 'ac-chip--disabled' : ''}`} onClick={() => { if (fieldPage > 1) setFieldPage((p) => p - 1) }}>
+                      <Text className='ac-chip__text'>{t('contract.prevPage')}</Text>
+                    </View>
+                    <View className={`ac-chip ${fieldPage >= pdfNumPages ? 'ac-chip--disabled' : ''}`} onClick={() => { if (fieldPage < pdfNumPages) setFieldPage((p) => p + 1) }}>
+                      <Text className='ac-chip__text'>{t('contract.nextPage')}</Text>
+                    </View>
+                  </View>
+                )}
               </View>
             </ScrollView>
             <View className={`ac-submit ${fieldBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!fieldBusy) void submitAddField() }}>

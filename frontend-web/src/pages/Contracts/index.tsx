@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { message, Modal, Segmented } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { FileTextOutlined, HomeOutlined, TeamOutlined } from '@ant-design/icons'
-import { contractsApi } from '@/services/api'
+import { contractsApi, fetchPdfPageUrl } from '@/services/api'
 import { useTranslation } from 'react-i18next'
 import './contracts.css'
 
 interface TemplateOption {
   kind: string
   title: string
+  content_html?: string
 }
 
 interface FieldDef {
@@ -62,6 +63,8 @@ interface Contract {
   source?: string
   file_path?: string
   can_edit?: boolean
+  pdf_available?: boolean
+  pdf_page_count?: number
 }
 
 interface Party {
@@ -148,7 +151,9 @@ const Contracts = () => {
   const [fields, setFields] = useState<SignField[]>([])
   const [fieldType, setFieldType] = useState('signature')
   const [fieldParty, setFieldParty] = useState('')
-  const previewRef = useRef<HTMLDivElement>(null)
+  // PDF 页图（pdf_available 时作为放置背景，逐页叠加）
+  const [pdfPages, setPdfPages] = useState<string[]>([])
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   // 上传电子合同
   const [uploading, setUploading] = useState(false)
@@ -248,6 +253,8 @@ const Contracts = () => {
           source: data.source,
           file_path: data.file_path,
           can_edit: data.can_edit,
+          pdf_available: data.pdf_available,
+          pdf_page_count: data.pdf_page_count,
         },
         parties: (data.parties || []).map((p: any) => ({
           id: p.id,
@@ -280,22 +287,39 @@ const Contracts = () => {
     })
   }
 
-  // 打开签署框编辑器：初始化签名方选择为第一个未签方
+  // 打开签署框编辑器：初始化签名方选择为第一个未签方；若合同有 PDF 则逐页加载页图
   const openPreview = () => {
     if (!detail.contract) return
     setPreviewOpen(true)
     setFields([...(detail.signFields || [])])
     const firstPending = detail.parties.find((p) => !p.signed)
     setFieldParty(firstPending?.id || detail.parties[0]?.id || '')
+    loadPdfPages()
+  }
+
+  // pdF 页图加载：按 pdf_page_count 逐页 fetch blob → objectURL（关闭时释放）
+  const loadPdfPages = () => {
+    setPdfPages([])
+    const c = detail.contract
+    const n = c?.pdf_page_count || 0
+    if (!c?.pdf_available || n <= 0) return
+    setPdfLoading(true)
+    Promise.all(
+      Array.from({ length: n }, (_, i) => contractsApi.pdfPage(c.id, i + 1)),
+    )
+      .then(setPdfPages)
+      .catch(() => message.warning(t('contracts.errPdfLoad')))
+      .finally(() => setPdfLoading(false))
   }
 
   // 在预览上点击添加一个未持久化的签署框（点击前选取 field_type 与归属方）
-  const placeField = (e: React.MouseEvent) => {
-    const box = previewRef.current
+  // 坐标一律存页面宽高的百分比(0-100)：x/y/w/h 由点击位置相对当前页容器换算。
+  const placeField = (e: React.MouseEvent, page = 1) => {
+    const box = e.currentTarget as HTMLElement
     if (!box) return
     const rect = box.getBoundingClientRect()
-    const x = Math.max(0, Math.round(e.clientX - rect.left))
-    const y = Math.max(0, Math.round(e.clientY - rect.top))
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
     let fw = 140
     let fh = 48
     if (fieldType === 'seal') {
@@ -305,17 +329,19 @@ const Contracts = () => {
       fw = 110
       fh = 32
     }
-    // 点击处作为签署框中心 → 换算左上角
+    const w = (fw / rect.width) * 100
+    const h = (fh / rect.height) * 100
+    // 点击处作为签署框中心 → 换算左上角（百分比）
     setFields((prev) => [
       ...prev,
       {
         party_id: fieldParty || null,
         field_type: fieldType,
-        page: 1,
-        x: Math.round(x - fw / 2),
-        y: Math.round(y - fh / 2),
-        w: fw,
-        h: fh,
+        page,
+        x: Math.max(0, x - w / 2),
+        y: Math.max(0, y - h / 2),
+        w,
+        h,
         required: true,
         signed: false,
       },
@@ -370,6 +396,36 @@ const Contracts = () => {
 
   const partyName = (partyId: string | null) =>
     detail.parties.find((p) => p.id === partyId)?.name || t('contracts.anyParty')
+
+  const pdfAvailable = !!detail.contract?.pdf_available
+
+  // 已放置签署框的覆盖层渲染（坐标均为页面宽高百分比）
+  const renderField = (f: SignField, i: number) => (
+    <div
+      key={f.id || `tmp-${i}`}
+      className={f.signed ? 'rent-field-placed rent-field-placed--signed' : 'rent-field-placed'}
+      style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="rent-field-placed__tag">
+        {f.signed ? '✓' : ''}
+        {t(`contracts.fType_${f.field_type || 'signature'}`) || f.field_type}
+      </div>
+      <div className="rent-field-placed__party">{partyName(f.party_id)}</div>
+      {!f.signed && (
+        <button
+          className="rent-field-placed__del"
+          title={t('common.delete')}
+          onClick={(e) => {
+            e.stopPropagation()
+            deleteField(f)
+          }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  )
 
   // 复制签署链接
   const handleCopyLink = async (partyId: string) => {
@@ -472,10 +528,10 @@ const Contracts = () => {
   const canEdit = detail.contract?.can_edit
 
   // 模板选择（选项来自后端列表，失败时回退内置三端）
-  const tmplSource =
+  const tmplSource: TemplateOption[] =
     templates && templates.length
       ? templates
-      : ['lease', 'purchase', 'broker'].map((k) => ({ kind: k, title: k }))
+      : (['lease', 'purchase', 'broker'] as const).map((k) => ({ kind: k, title: k }))
   const tmplOptions = tmplSource.map((tp) => ({
     value: tp.kind,
     label: (
@@ -486,6 +542,8 @@ const Contracts = () => {
     ),
   }))
   const tmplFields = templateKindFields[kind] || []
+  // 当前选中模板的范本正文（后端用空字段渲染出的标准样张）
+  const tmplPreviewHtml = tmplSource.find((tp) => tp.kind === kind)?.content_html || ''
 
   return (
     <div className="rent-main">
@@ -511,6 +569,18 @@ const Contracts = () => {
               block
             />
           </div>
+          {tmplPreviewHtml && (
+            <div className="rent-contract-preview rent-mb-3">
+              <div className="rent-contract-preview__title">{t('contract.templatePreview')}</div>
+              <div className="rent-contract-preview__box">
+                <div
+                  className="rent-contract-html"
+                  style={{ lineHeight: 1.8, fontSize: 14, wordBreak: 'break-word' }}
+                  dangerouslySetInnerHTML={{ __html: String(tmplPreviewHtml) }}
+                />
+              </div>
+            </div>
+          )}
           <div className="rent-grid rent-grid--3 rent-mb-3">
             {tmplFields.map((f) => (
               <div className="rent-field" key={f.key}>
@@ -781,7 +851,11 @@ const Contracts = () => {
         okText={t('contracts.saveFields')}
         cancelText={t('common.cancel')}
         onOk={saveFields}
-        onCancel={() => setPreviewOpen(false)}
+        onCancel={() => {
+          pdfPages.forEach((u) => URL.revokeObjectURL(u))
+          setPdfPages([])
+          setPreviewOpen(false)
+        }}
       >
         <div className="rent-field" style={{ marginBottom: 12 }}>
           <label className="rent-label">{t('contracts.fieldType')}</label>
@@ -804,8 +878,7 @@ const Contracts = () => {
           </select>
         </div>
         <div
-          ref={previewRef}
-          onClick={placeField}
+          onClick={(e) => placeField(e, 1)}
           style={{
             position: 'relative',
             border: '1px solid var(--rent-line, #e6eaf0)',
@@ -815,37 +888,33 @@ const Contracts = () => {
             cursor: 'crosshair',
           }}
         >
-          <div
-            className="rent-contract-html"
-            style={{ width: 800, lineHeight: 1.9, fontSize: 14, wordBreak: 'break-word' }}
-            dangerouslySetInnerHTML={{ __html: String(detail.contract?.content_html || detail.contract?.title || '') }}
-          />
-          {fields.map((f, i) => (
-            <div
-              key={f.id || `tmp-${i}`}
-              className={f.signed ? 'rent-field-placed rent-field-placed--signed' : 'rent-field-placed'}
-              style={{ left: f.x, top: f.y, width: f.w, height: f.h }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="rent-field-placed__tag">
-                {f.signed ? '✓' : ''}
-                {t(`contracts.fType_${f.field_type || 'signature'}`) || f.field_type}
-              </div>
-              <div className="rent-field-placed__party">{partyName(f.party_id)}</div>
-              {!f.signed && (
-                <button
-                  className="rent-field-placed__del"
-                  title={t('common.delete')}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    deleteField(f)
-                  }}
+          {pdfAvailable ? (
+            pdfLoading ? (
+              <div className="rent-text-sm rent-text-muted" style={{ padding: 8 }}>{t('common.loading')}</div>
+            ) : pdfPages.length === 0 ? (
+              <div className="rent-text-sm rent-text-muted" style={{ padding: 8 }}>{t('contracts.errPdfLoad')}</div>
+            ) : (
+              pdfPages.map((url, pi) => (
+                <div
+                  key={pi}
+                  onClick={(e) => placeField(e, pi + 1)}
+                  style={{ position: 'relative', background: '#fff' }}
                 >
-                  ×
-                </button>
-              )}
-            </div>
-          ))}
+                  <img src={url} alt={`page ${pi + 1}`} style={{ display: 'block', width: '100%' }} />
+                  {fields.filter((f) => f.page === pi + 1).map((f, i) => renderField(f, i))}
+                </div>
+              ))
+            )
+          ) : (
+            <>
+              <div
+                className="rent-contract-html"
+                style={{ width: 800, maxWidth: '100%', margin: '0 auto', lineHeight: 1.9, fontSize: 14, wordBreak: 'break-word' }}
+                dangerouslySetInnerHTML={{ __html: String(detail.contract?.content_html || detail.contract?.title || '') }}
+              />
+              {fields.filter((f) => f.page === 1).map((f, i) => renderField(f, i))}
+            </>
+          )}
           {fields.length === 0 && (
             <div className="rent-text-sm rent-text-muted" style={{ padding: 8 }}>{t('contracts.noFields')}</div>
           )}
@@ -864,7 +933,7 @@ const Contracts = () => {
                     {t(`contracts.fType_${f.field_type || 'signature'}`) || f.field_type}
                   </span>
                   <span className="rent-text-sm rent-text-muted" style={{ marginLeft: 8 }}>
-                    {partyName(f.party_id)} · ({f.x}, {f.y}) {f.w}×{f.h}
+                    {partyName(f.party_id)} · {t('contracts.page', { n: f.page ?? 1 })}
                   </span>
                   {f.signed && (
                     <span className="rent-badge rent-badge--success" style={{ marginLeft: 8 }}>{t('contracts.stSigned')}</span>

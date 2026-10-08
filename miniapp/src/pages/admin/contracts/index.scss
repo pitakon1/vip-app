@@ -286,6 +286,33 @@
   }
 }
 
+/* ===== 生成合同：范本预览 ===== */
+.ac-preview {
+  margin-bottom: 20rpx;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+
+  &__title {
+    display: block;
+    font-size: 24rpx;
+    font-weight: 600;
+    color: var(--ink-2);
+    background: var(--surface-2);
+    padding: 12rpx 20rpx;
+    border-bottom: 1px solid var(--line);
+  }
+
+  &__box {
+    max-height: 440rpx;
+    padding: 16rpx 20rpx;
+    font-size: 24rpx;
+    color: var(--ink-2);
+    line-height: 1.7;
+    background: var(--card);
+  }
+}
+
 /* ===== 底部弹层（生成 / 追加 / 编辑 / 作废） ===== */
 .ac-mask {
   position: fixed;
@@ -364,9 +391,43 @@
   border: 1px solid var(--line);
 
   &--active { background: var(--primary); border-color: var(--primary); }
+  &--disabled { opacity: 0.35; }
 
   &__text { font-size: 26rpx; color: var(--ink-2); }
   &--active &__text { color: var(--primary-foreground); font-weight: 600; }
+}
+
+// 可视化落框画布：点按正文/页图定位签署区，不手填坐标
+.ac-field-canvas {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 16rpx);
+  overflow: hidden;
+  background: #fff;
+
+  &__img { display: block; width: 100%; min-height: 200rpx; }
+  &__html {
+    display: block;
+    padding: 24rpx 28rpx;
+    font-size: 26rpx;
+    line-height: 1.8;
+    color: var(--ink);
+    word-break: break-word;
+  }
+  &__mark {
+    position: absolute;
+    width: 56rpx;
+    height: 56rpx;
+    margin-left: -28rpx;
+    margin-top: -28rpx;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 22%, transparent);
+    border: 2rpx solid var(--primary);
+    border-radius: var(--radius-full);
+  }
 }
 
 .ac-submit {

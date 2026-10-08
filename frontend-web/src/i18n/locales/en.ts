@@ -3717,11 +3717,13 @@ const en: import('./zh').Translation = {
     no: "No",
     placeFields: "Place sign fields",
     placeHint: "Choose a type & assignee, then click the document to place",
+    page: "Page {{n}}",
     fieldType: "Field type",
     fieldAssignee: "Assign to",
     anyParty: "Any party",
     fieldList: "Placed fields",
     noFields: "No sign fields placed",
+    errPdfLoad: "Failed to load PDF page image, please retry",
     saveFields: "Save fields",
     msgFieldsSaved: "Sign fields saved",
     errFieldsSave: "Failed to save sign fields",
@@ -4202,6 +4204,7 @@ const en: import('./zh').Translation = {
   },
   contract: {
     formTemplate: "Contract Template",
+    templatePreview: "Contract Template Preview",
     tmpl: {
       lease: "Lease Agreement",
       purchase: "Property Purchase Contract",

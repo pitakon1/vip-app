@@ -3717,11 +3717,13 @@ const th: import('./zh').Translation = {
     no: "ไม่",
     placeFields: "วางช่องลงนาม",
     placeHint: "เลือกประเภทและผู้ลงนาม แล้วคลิกที่เนื้อหาเพื่อวาง",
+    page: "หน้า {{n}}",
     fieldType: "ประเภทช่อง",
     fieldAssignee: "ผู้ลงนาม",
     anyParty: "ผู้ลงนามใดก็ได้",
     fieldList: "ช่องที่วางแล้ว",
     noFields: "ยังไม่ได้วางช่องลงนาม",
+    errPdfLoad: "โหลดภาพหน้า PDF ไม่สำเร็จ กรุณาลองใหม่",
     saveFields: "บันทึกช่อง",
     msgFieldsSaved: "บันทึกช่องลงนามแล้ว",
     errFieldsSave: "บันทึกช่องลงนามไม่สำเร็จ",
@@ -4202,6 +4204,7 @@ const th: import('./zh').Translation = {
   },
   contract: {
     formTemplate: "แม่แบบสัญญา",
+    templatePreview: "ตัวอย่างแม่แบบสัญญา",
     tmpl: {
       lease: "สัญญาเช่า",
       purchase: "สัญญาซื้อขายอสังหาริมทรัพย์",

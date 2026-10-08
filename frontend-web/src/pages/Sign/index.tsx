@@ -42,6 +42,8 @@ interface ContractDoc {
   real_name_verified?: boolean
   sign_fields?: SignField[]
   expires_at?: string | null
+  pdf_available?: boolean
+  pdf_page_count?: number
   [k: string]: unknown
 }
 
@@ -403,6 +405,62 @@ const Sign = () => {
                 </a>
               </div>
             </div>
+          ) : doc?.pdf_available ? (
+            <div style={{ overflowX: 'auto' }}>
+              {Array.from({ length: doc.pdf_page_count || 1 }, (_, i) => i + 1).map((pg) => (
+                <div
+                  key={pg}
+                  style={{ position: 'relative', width: PREVIEW_W, maxWidth: '100%', margin: '0 auto' }}
+                >
+                  <img
+                    src={contractsPublicApi.pdfPageUrl(token, pg)}
+                    alt={`page ${pg}`}
+                    style={{ width: '100%', display: 'block', border: '1px solid var(--rent-line, #dfe5ea)' }}
+                  />
+                  {signFields
+                    .filter((f) => f.page === pg)
+                    .map((f) =>
+                      f.signed ? (
+                        <div
+                          key={f.id}
+                          style={{
+                            position: 'absolute',
+                            left: `${f.x}%`,
+                            top: `${f.y}%`,
+                            width: `${f.w}%`,
+                            height: `${f.h}%`,
+                            border: '2px solid #10b981',
+                            borderRadius: 6,
+                            background: 'rgba(16,185,129,0.10)',
+                            boxSizing: 'border-box',
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          <div style={{ position: 'absolute', top: -18, left: 0, fontSize: 11, color: '#10b981', background: '#fff', padding: '0 4px', border: '1px solid #10b981', borderRadius: 4, whiteSpace: 'nowrap' }}>
+                            ✓ {t('contracts.stSigned')}
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          key={f.id}
+                          className="rent-sign-slot"
+                          onClick={() => openSignPanel(f)}
+                          style={{
+                            position: 'absolute',
+                            left: `${f.x}%`,
+                            top: `${f.y}%`,
+                            width: `${f.w}%`,
+                            height: `${f.h}%`,
+                          }}
+                        />
+                      ),
+                    )}
+                </div>
+              ))}
+              <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>
+                ↓ {t('contracts.placeHintPublic', { n: pendingFields.length })}
+              </div>
+            </div>
           ) : doc?.content_html ? (
             <div style={{ overflowX: 'auto' }}>
               <div style={{ position: 'relative', width: PREVIEW_W, maxWidth: '100%', margin: '0 auto' }}>
@@ -417,10 +475,10 @@ const Sign = () => {
                       key={f.id}
                       style={{
                         position: 'absolute',
-                        left: f.x,
-                        top: f.y,
-                        width: f.w,
-                        height: f.h,
+                        left: `${f.x}%`,
+                        top: `${f.y}%`,
+                        width: `${f.w}%`,
+                        height: `${f.h}%`,
                         border: '2px solid #10b981',
                         borderRadius: 6,
                         background: 'rgba(16,185,129,0.10)',
@@ -439,10 +497,10 @@ const Sign = () => {
                       onClick={() => openSignPanel(f)}
                       style={{
                         position: 'absolute',
-                        left: f.x,
-                        top: f.y,
-                        width: f.w,
-                        height: f.h,
+                        left: `${f.x}%`,
+                        top: `${f.y}%`,
+                        width: `${f.w}%`,
+                        height: `${f.h}%`,
                       }}
                     />
                   ),

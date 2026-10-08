@@ -8,6 +8,27 @@
   background: #fbfcfd;
 }
 
+/* 生成合同：范本预览（内滚动只读框） */
+.rent-contract-preview {
+  border: 1px solid var(--rent-line, #e6eaf0);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.rent-contract-preview__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rent-ink2, #5b6472);
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-bottom: 1px solid var(--rent-line, #e6eaf0);
+}
+.rent-contract-preview__box {
+  max-height: 380px;
+  overflow: auto;
+  padding: 14px 16px;
+  background: #fff;
+}
+
 /* 签署区放置框（预览上的绝对定位覆盖层） */
 .rent-field-placed {
   position: absolute;

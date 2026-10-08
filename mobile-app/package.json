@@ -40,6 +40,7 @@
     "expo-asset": "~11.0.5",
     "expo-auth-session": "~6.0.3",
     "expo-device": "~7.0.0",
+    "expo-document-picker": "~13.0.3",
     "expo-font": "~13.0.4",
     "expo-image": "~2.0.7",
     "expo-image-picker": "~16.0.0",

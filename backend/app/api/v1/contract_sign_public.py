@@ -139,6 +139,8 @@ def get_sign_page(
         "file_url": f"/api/v1/public/contract-sign/{token}/file"
         if contract.file_path
         else None,
+        "pdf_available": _pdf_path(contract) is not None,
+        "pdf_page_count": _pdf_page_count(contract),
         "language": contract.language,
         "party_name_masked": _mask_name(party.name),
         "party_role": party.role.value,
@@ -175,6 +177,57 @@ def get_sign_file(
         not_found_message="Contract file not found on disk",
     )
     return FileResponse(path)
+
+
+def _pdf_path(contract) -> Optional[str]:
+    """合同引擎 PDF 落盘路径（优先已签存档，其次原始 PDF）。"""
+    from pathlib import Path
+
+    for attr in ("signed_pdf_path", "pdf_path"):
+        v = getattr(contract, attr, None)
+        if v and Path(v).exists():
+            return v
+    return None
+
+
+def _pdf_page_count(contract) -> Optional[int]:
+    path = _pdf_path(contract)
+    if not path:
+        return None
+    try:
+        from app.services import kaifang_sign_service
+
+        return kaifang_sign_service.get_engine().page_count(
+            Path(path).read_bytes()
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
+@router.get("/{token}/pdf-pages/{page}")
+def get_sign_pdf_page(
+    token: str,
+    page: int,
+    session: Session = Depends(get_session),
+):
+    """待签署合同的引擎 PDF 第 N 页渲染为 PNG（免登录，供页图预览/拖拽签署）。"""
+    from fastapi.responses import Response
+    from pathlib import Path
+
+    party = _resolve_party(session, token)
+    contract = session.get(Contract, party.contract_id)
+    path = _pdf_path(contract)
+    if not path:
+        raise HTTPException(status_code=404, detail="Contract PDF not found")
+    from app.services import kaifang_sign_service
+
+    try:
+        png = kaifang_sign_service.get_engine().page_image(
+            Path(path).read_bytes(), page=page
+        )
+    except IndexError:
+        raise HTTPException(status_code=404, detail="Page out of range")
+    return Response(content=png, media_type="image/png")
 
 
 @router.get("/{token}/verify")

@@ -113,6 +113,14 @@ class Contract(TimestampMixin, table=True):
     signed_at: Optional[datetime] = None
     file_path: Optional[str] = None  # 生成的合同文件
     document_hash: Optional[str] = None  # 全文 SHA-256
+    # kaifangqian->Python 引擎产物：可签署的合同 PDF 原件、已签署的 PDF 存档
+    pdf_path: Optional[str] = Field(default=None, description="引擎生成的合同 PDF 路径")
+    signed_pdf_path: Optional[str] = Field(
+        default=None, description="引擎完成定位签署后的 PDF 存档路径"
+    )
+    # 合同原件一次性预览令牌（15 分钟），供无鉴权预览接口取回原始文件
+    preview_token: Optional[str] = Field(default=None, index=True, unique=True)
+    preview_token_expires_at: Optional[datetime] = None
     counters: Optional[Dict[str, Any]] = Field(
         default=None, sa_column=Column(JSON, nullable=True)
     )
