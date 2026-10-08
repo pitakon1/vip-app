@@ -14,6 +14,9 @@
 - 上传的合同文件（PDF 等）同样只经本模块带令牌校验的读取接口分发，
   不经静态托管。
 """
+import hashlib
+import re
+import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -25,16 +28,35 @@ from sqlmodel import Session, select
 from app.core.rate_limit import AUTH_LIMIT, limiter
 from app.core.uploads import resolve_stored_path
 from app.db import get_session
-from app.models import Contract, ContractStatus, ContractParty
+from app.models import (
+    Contract,
+    ContractStatus,
+    ContractParty,
+    ContractSignField,
+    SignMethod,
+)
+
+from .auth import (
+    _is_valid_email,
+    _is_valid_phone,
+    _send_code,
+    _issue_otp,
+    _consume_otp,
+)
 
 from .contracts import (
     STORED_URL_PREFIX,
     UPLOAD_DIR,
     _apply_signature,
     _sanitize_signature_svg,
+    _serialize_sign_field,
+    build_verify_report,
 )
 
 router = APIRouter(prefix="/public/contract-sign", tags=["contract-sign"])
+
+# 中国大陆身份证号：18 位数字 + 末位可 X/x
+_ID_RE = re.compile(r"^\d{17}[\dXx]$")
 
 
 def _mask_name(name: str) -> str:
@@ -94,6 +116,20 @@ def get_sign_page(
     """查看待签署合同（免登录）。"""
     party = _resolve_party(session, token)
     contract = session.get(Contract, party.contract_id)
+
+    # 该签署方可签的签署区：未签署，且归属当前 party 或其任意（party_id IS NULL）
+    fields = session.exec(
+        select(ContractSignField).where(
+            ContractSignField.contract_id == contract.id,
+            ContractSignField.signed.is_(False),
+        )
+    ).all()
+    sign_fields = [
+        _serialize_sign_field(f)
+        for f in fields
+        if f.party_id is None or f.party_id == party.id
+    ]
+
     return {
         "contract_id": str(contract.id),
         "title": contract.title,
@@ -106,6 +142,16 @@ def get_sign_page(
         "language": contract.language,
         "party_name_masked": _mask_name(party.name),
         "party_role": party.role.value,
+        "real_name_verified": _has_real_name(party),
+        "party": {
+            "id": str(party.id),
+            "name": party.name,
+            "sign_method": party.sign_method.value
+            if party.sign_method
+            else SignMethod.personal_handwrite.value,
+            "real_name_verified": _has_real_name(party),
+        },
+        "sign_fields": sign_fields,
         "expires_at": party.sign_token_expires_at.isoformat()
         if party.sign_token_expires_at
         else None,
@@ -131,6 +177,154 @@ def get_sign_file(
     return FileResponse(path)
 
 
+@router.get("/{token}/verify")
+def verify_sign_public(
+    token: str,
+    session: Session = Depends(get_session),
+):
+    """公开验签：凭签署令牌核验合同与序号。返回与站内 verify 相同的摘要与记录。
+
+    仅提供核验信息（tampered、逐条 signature_success），不暴露脱敏外的更多 PII；
+    覆盖同 token 对应的合同。
+    """
+    party = _resolve_party(session, token)
+    contract = session.get(Contract, party.contract_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    report = build_verify_report(session, contract)
+    # 公开路径不带作废合同状态，转为只读核验信息
+    return report
+
+
+def _mask_contact(contact: str) -> str:
+    """手机号/邮箱脱敏，用于回显。"""
+    value = (contact or "").strip()
+    if not value:
+        return ""
+    if "@" in value:
+        local, _, domain = value.partition("@")
+        if len(local) <= 1:
+            head = local
+            tail = "*"
+        else:
+            head = local[0]
+            tail = "*" * (len(local) - 1)
+        return f"{head}{tail}@{domain}"
+    # 手机号：保留前 3 后 4
+    digits = value
+    if len(digits) >= 7:
+        return f"{digits[:3]}****{digits[-4:]}"
+    return "*" * len(digits)
+
+
+def _has_real_name(party: ContractParty) -> bool:
+    """是否已完成实名认证。"""
+    return bool(party.real_name_verified_at)
+
+
+class RealNameVerifyOut(BaseModel):
+    real_name_verified_at: Optional[str] = None
+    name: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
+
+
+@router.post("/{token}/send-code")
+@limiter.limit(AUTH_LIMIT)
+def send_real_name_code(
+    token: str,
+    payload: dict,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    """向签署方联系方式发送实名验证码（免登录）。
+
+    body: { contact: str } 手机号或邮箱。复用 auth 的 OTP 发码链路
+    （_issue_otp + _send_code + VerificationCode 表）。
+    """
+    party = _resolve_party(session, token)
+    if _has_real_name(party):
+        raise HTTPException(status_code=409, detail="Already verified")
+    if party.signed:
+        raise HTTPException(status_code=409, detail="Already signed")
+
+    contact = (payload.get("contact") or "").strip()
+    if not contact:
+        raise HTTPException(status_code=400, detail="contact is required")
+    if "@" in contact:
+        if not _is_valid_email(contact):
+            raise HTTPException(status_code=400, detail="Invalid email address")
+        channel = "email"
+    else:
+        if not _is_valid_phone(contact):
+            raise HTTPException(status_code=400, detail="Invalid phone number")
+        channel = "sms"
+
+    code = _issue_otp(session, contact, channel)
+    sent = _send_code(contact, channel, code)
+    if not sent:
+        raise HTTPException(status_code=503, detail="Code delivery unavailable")
+
+    return {"sent": True, "to_masked": _mask_contact(contact)}
+
+
+@router.post("/{token}/verify-identity")
+@limiter.limit(AUTH_LIMIT)
+def verify_identity(
+    token: str,
+    payload: dict,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    """实名认证提交（免登录）。
+
+    body: { name, id_number, contact, code }
+    - code 校验复用 auth `_consume_otp`（VerificationCode 表，次数/有效期上限）。
+    - 通过后写入 party.name/id_number/phone|email，置 real_name_verified_at=now，
+      并落证件号 SHA-256 到 real_name_hash。
+    """
+    party = _resolve_party(session, token)
+    if _has_real_name(party):
+        raise HTTPException(status_code=409, detail="Already verified")
+    if party.signed:
+        raise HTTPException(status_code=409, detail="Already signed")
+
+    name = (payload.get("name") or "").strip()
+    id_number = (payload.get("id_number") or "").strip()
+    contact = (payload.get("contact") or "").strip()
+    code = (payload.get("code") or "").strip()
+
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    if not id_number:
+        raise HTTPException(status_code=400, detail="id_number is required")
+    if not re.fullmatch(r"[A-Za-z\u4e00-\u9fa5·.\s]{2,40}", name):
+        raise HTTPException(status_code=400, detail="Invalid name")
+    if not _ID_RE.match(id_number):
+        raise HTTPException(status_code=400, detail="Invalid id_number format")
+    if not contact:
+        raise HTTPException(status_code=400, detail="contact is required")
+    if not code:
+        raise HTTPException(status_code=400, detail="code is required")
+
+    # 校验验证码（不匹配/过期/超次数抛 400）
+    _consume_otp(session, contact, code)
+
+    party.name = name
+    party.id_number = id_number
+    if "@" in contact:
+        party.email = contact
+    else:
+        party.phone = contact
+    party.real_name_verified_at = datetime.utcnow()
+    party.real_name_hash = hashlib.sha256(id_number.encode("utf-8")).hexdigest()
+    session.add(party)
+    session.commit()
+    return {
+        "real_name_verified_at": party.real_name_verified_at.isoformat(),
+        "name": party.name,
+    }
+
+
 @router.post("/{token}")
 @limiter.limit(AUTH_LIMIT)
 def submit_signature(
@@ -147,6 +341,10 @@ def submit_signature(
     party = _resolve_party(session, token)
     contract = session.get(Contract, party.contract_id)
 
+    # P3 强制实名：未登录签署方须先完成实名认证才能签署
+    if not _has_real_name(party):
+        raise HTTPException(status_code=403, detail="REAL_NAME_REQUIRED")
+
     name = (payload.get("name") or "").strip()
     if name:
         party.name = name
@@ -160,6 +358,21 @@ def submit_signature(
     raw_svg = payload.get("signature_svg")
     sig_svg = _sanitize_signature_svg(raw_svg) if raw_svg else None
 
+    # 按字段签署：可选 field_id
+    field_id = None
+    if payload.get("field_id"):
+        try:
+            field_id = uuid.UUID(str(payload["field_id"]))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=400, detail="Invalid field_id")
+
+    method = None
+    if payload.get("method"):
+        try:
+            method = SignMethod(str(payload["method"]))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid method")
+
     sig_hash = _apply_signature(
         session,
         contract,
@@ -168,10 +381,13 @@ def submit_signature(
         signer_user_id=party.user_id,
         ip=(request.client.host if request.client else None),
         signature_svg=sig_svg,
+        field_id=field_id,
+        method=method,
     )
     return {
         "signed": True,
         "signature_hash": sig_hash,
+        "field_id": str(field_id) if field_id else None,
         "party_name": party.name,
         "contract_status": contract.status.value,
     }

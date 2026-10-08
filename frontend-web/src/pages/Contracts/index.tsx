@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { message, Modal, Segmented } from 'antd'
+import { useNavigate } from 'react-router-dom'
 import { FileTextOutlined, HomeOutlined, TeamOutlined } from '@ant-design/icons'
 import { contractsApi } from '@/services/api'
 import { useTranslation } from 'react-i18next'
@@ -56,6 +57,7 @@ interface Contract {
   status: string
   language?: string
   document_hash?: string
+  content_html?: string
   created_at?: string
   source?: string
   file_path?: string
@@ -73,6 +75,37 @@ interface Party {
   declined_at?: string
   decline_reason?: string
   sign_url?: string
+  sign_method?: string
+  real_name_verified?: boolean
+}
+
+// 签署区字段（与后端 SignFieldType / GET /contracts/{id} sign_fields 一致）
+interface SignField {
+  id?: string
+  party_id: string | null
+  field_type: string // signature | seal | date
+  page: number
+  x: number
+  y: number
+  w: number
+  h: number
+  required: boolean
+  signed: boolean
+  signed_at?: string | null
+}
+
+// 放置签署框时可选的 field_type（手写签名 / 公章 / 日期）
+const FIELD_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'signature', label: 'fieldSig' },
+  { value: 'seal', label: 'fieldSeal' },
+  { value: 'date', label: 'fieldDate' },
+]
+
+// 可选 field_type → 签署 method（后端 SignMethod）；seal 走公司章
+const FIELD_METHOD: Record<string, string> = {
+  signature: 'personal_handwrite',
+  seal: 'company_seal',
+  date: 'date',
 }
 
 const statusLabel: Record<string, string> = {
@@ -95,8 +128,9 @@ const UPLOAD_ACCEPT = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.gif'
 
 const Contracts = () => {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [contracts, setContracts] = useState<Contract[]>([])
-  const [detail, setDetail] = useState<{ contract?: Contract; parties: Party[] }>({ parties: [] })
+  const [detail, setDetail] = useState<{ contract?: Contract; parties: Party[]; signFields?: SignField[] }>({ parties: [], signFields: [] })
   const [templates, setTemplates] = useState<TemplateOption[] | null>(null)
   const [kind, setKind] = useState('lease')
   const [language, setLanguage] = useState('zh')
@@ -108,6 +142,13 @@ const Contracts = () => {
     monthly_rent: '25000',
     term_months: '12',
   })
+
+  // 签署框放置（发起方/员工）：预览 + 拖放签署区
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [fields, setFields] = useState<SignField[]>([])
+  const [fieldType, setFieldType] = useState('signature')
+  const [fieldParty, setFieldParty] = useState('')
+  const previewRef = useRef<HTMLDivElement>(null)
 
   // 上传电子合同
   const [uploading, setUploading] = useState(false)
@@ -203,6 +244,7 @@ const Contracts = () => {
           status: data.status,
           language: data.language,
           document_hash: data.document_hash,
+          content_html: data.content_html,
           source: data.source,
           file_path: data.file_path,
           can_edit: data.can_edit,
@@ -218,10 +260,116 @@ const Contracts = () => {
           declined_at: p.declined_at,
           decline_reason: p.decline_reason,
           sign_url: p.sign_url,
+          sign_method: p.sign_method,
+          real_name_verified: !!p.real_name_verified_at,
+        })),
+        signFields: (data.sign_fields || []).map((f: any) => ({
+          id: f.id,
+          party_id: f.party_id,
+          field_type: f.field_type,
+          page: f.page,
+          x: f.x,
+          y: f.y,
+          w: f.w,
+          h: f.h,
+          required: f.required,
+          signed: f.signed,
+          signed_at: f.signed_at,
         })),
       })
     })
   }
+
+  // 打开签署框编辑器：初始化签名方选择为第一个未签方
+  const openPreview = () => {
+    if (!detail.contract) return
+    setPreviewOpen(true)
+    setFields([...(detail.signFields || [])])
+    const firstPending = detail.parties.find((p) => !p.signed)
+    setFieldParty(firstPending?.id || detail.parties[0]?.id || '')
+  }
+
+  // 在预览上点击添加一个未持久化的签署框（点击前选取 field_type 与归属方）
+  const placeField = (e: React.MouseEvent) => {
+    const box = previewRef.current
+    if (!box) return
+    const rect = box.getBoundingClientRect()
+    const x = Math.max(0, Math.round(e.clientX - rect.left))
+    const y = Math.max(0, Math.round(e.clientY - rect.top))
+    let fw = 140
+    let fh = 48
+    if (fieldType === 'seal') {
+      fw = 110
+      fh = 110
+    } else if (fieldType === 'date') {
+      fw = 110
+      fh = 32
+    }
+    // 点击处作为签署框中心 → 换算左上角
+    setFields((prev) => [
+      ...prev,
+      {
+        party_id: fieldParty || null,
+        field_type: fieldType,
+        page: 1,
+        x: Math.round(x - fw / 2),
+        y: Math.round(y - fh / 2),
+        w: fw,
+        h: fh,
+        required: true,
+        signed: false,
+      },
+    ])
+  }
+
+  // 保存签署框：新增 + 改动一并 upsert
+  const saveFields = () => {
+    if (!detail.contract) return
+    if (fields.length === 0) {
+      message.warning(t('contracts.noFields'))
+      return
+    }
+    contractsApi
+      .saveSignFields(detail.contract.id, fields as unknown as Record<string, unknown>[])
+      .then((res: any) => {
+        message.success(t('contracts.msgFieldsSaved'))
+        const saved = res?.data?.sign_fields
+        if (Array.isArray(saved)) {
+          setDetail((d) => ({ ...d, signFields: saved as SignField[] }))
+          setFields(saved as SignField[])
+        }
+      })
+      .catch((err: any) => {
+        const d = err?.response?.data?.detail
+        message.error(d || t('contracts.errFieldsSave'))
+      })
+  }
+
+  // 删除未签署框
+  const deleteField = (f: SignField) => {
+    if (!detail.contract) return
+    if (f.id) {
+      contractsApi
+        .deleteSignField(detail.contract.id, f.id)
+        .then(() => {
+          setFields((prev) => prev.filter((x) => x.id !== f.id))
+          setDetail((d) => ({
+            ...d,
+            signFields: (d.signFields || []).filter((x) => x.id !== f.id),
+          }))
+        })
+        .catch((err: any) => {
+          const d = err?.response?.data?.detail
+          message.error(d || t('contracts.errFieldsDel'))
+        })
+    } else {
+      // 未保存的临时框直接移除
+      setFields((prev) => prev.filter((x) => x !== f))
+    }
+  }
+
+  const partyName = (partyId: string | null) =>
+    detail.parties.find((p) => p.id === partyId)?.name || t('contracts.anyParty')
 
   // 复制签署链接
   const handleCopyLink = async (partyId: string) => {
@@ -533,6 +681,9 @@ const Contracts = () => {
                 <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={handleSend}>
                   {t('contracts.sendNotice')}
                 </button>
+                <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={openPreview}>
+                  {t('contracts.placeFields')}
+                </button>
                 <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={openEdit}>
                   {t('contracts.edit')}
                 </button>
@@ -544,6 +695,11 @@ const Contracts = () => {
                 </button>
               </div>
             )}
+            <div className="rent-flex" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => navigate(`/verify?id=${detail.contract!.id}`)}>
+                {t('contracts.verify')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -614,6 +770,114 @@ const Contracts = () => {
         <div className="rent-field">
           <label className="rent-label">{t('contracts.voidReason')}</label>
           <textarea className="rent-input" rows={3} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} />
+        </div>
+      </Modal>
+
+      {/* 签署框放置编辑器（发起方/员工）：预览 + 点击放置 + 列表删除 */}
+      <Modal
+        open={previewOpen}
+        title={t('contracts.placeFields')}
+        width={960}
+        okText={t('contracts.saveFields')}
+        cancelText={t('common.cancel')}
+        onOk={saveFields}
+        onCancel={() => setPreviewOpen(false)}
+      >
+        <div className="rent-field" style={{ marginBottom: 12 }}>
+          <label className="rent-label">{t('contracts.fieldType')}</label>
+          <Segmented
+            block
+            options={FIELD_TYPE_OPTIONS.map((o) => ({ value: o.value, label: t(o.label) }))}
+            value={fieldType}
+            onChange={(v) => setFieldType(v as string)}
+          />
+        </div>
+        <div className="rent-field" style={{ marginBottom: 12 }}>
+          <label className="rent-label">{t('contracts.fieldAssignee')} · {t('contracts.placeHint')}</label>
+          <select className="rent-input" value={fieldParty} onChange={(e) => setFieldParty(e.target.value)}>
+            <option value="">{t('contracts.anyParty')}</option>
+            {detail.parties.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}（{p.role}）
+              </option>
+            ))}
+          </select>
+        </div>
+        <div
+          ref={previewRef}
+          onClick={placeField}
+          style={{
+            position: 'relative',
+            border: '1px solid var(--rent-line, #e6eaf0)',
+            maxHeight: 480,
+            overflow: 'auto',
+            background: '#fff',
+            cursor: 'crosshair',
+          }}
+        >
+          <div
+            className="rent-contract-html"
+            style={{ width: 800, lineHeight: 1.9, fontSize: 14, wordBreak: 'break-word' }}
+            dangerouslySetInnerHTML={{ __html: String(detail.contract?.content_html || detail.contract?.title || '') }}
+          />
+          {fields.map((f, i) => (
+            <div
+              key={f.id || `tmp-${i}`}
+              className={f.signed ? 'rent-field-placed rent-field-placed--signed' : 'rent-field-placed'}
+              style={{ left: f.x, top: f.y, width: f.w, height: f.h }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="rent-field-placed__tag">
+                {f.signed ? '✓' : ''}
+                {t(`contracts.fType_${f.field_type || 'signature'}`) || f.field_type}
+              </div>
+              <div className="rent-field-placed__party">{partyName(f.party_id)}</div>
+              {!f.signed && (
+                <button
+                  className="rent-field-placed__del"
+                  title={t('common.delete')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    deleteField(f)
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+          {fields.length === 0 && (
+            <div className="rent-text-sm rent-text-muted" style={{ padding: 8 }}>{t('contracts.noFields')}</div>
+          )}
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <div className="rent-text-bold" style={{ marginBottom: 6 }}>{t('contracts.fieldList')}</div>
+          {fields.length === 0 ? (
+            <div className="rent-text-sm rent-text-muted">{t('contracts.noFields')}</div>
+          ) : (
+            fields.map((f, i) => (
+              <div key={f.id || `row-${i}`} className="rent-contract-party" style={{ marginBottom: 6 }}>
+                <div>
+                  <span className="rent-text-bold">
+                    {f.signed ? `✓ ` : ''}
+                    {t(`contracts.fType_${f.field_type || 'signature'}`) || f.field_type}
+                  </span>
+                  <span className="rent-text-sm rent-text-muted" style={{ marginLeft: 8 }}>
+                    {partyName(f.party_id)} · ({f.x}, {f.y}) {f.w}×{f.h}
+                  </span>
+                  {f.signed && (
+                    <span className="rent-badge rent-badge--success" style={{ marginLeft: 8 }}>{t('contracts.stSigned')}</span>
+                  )}
+                </div>
+                {!f.signed && (
+                  <button className="rent-btn rent-btn--danger rent-btn--sm" onClick={() => deleteField(f)}>
+                    {t('contracts.deleteField')}
+                  </button>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </Modal>
     </div>

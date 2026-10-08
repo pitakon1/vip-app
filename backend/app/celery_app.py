@@ -44,6 +44,7 @@ celery_app.conf.update(
         "daily_payment_report": {"queue": "default"},
         "daily_backup_sync": {"queue": "maintenance"},
         "revalidate_listings": {"queue": "notification"},
+        "check_expiring_contract_signers": {"queue": "notification"},
     },
     task_default_queue="default",
 )
@@ -85,6 +86,10 @@ celery_app.conf.beat_schedule = {
     'revalidate-listings': {
         'task': 'revalidate_listings',
         'schedule': crontab(hour=10, minute=0),  # 每天 10:00 真房源保鲜复验
+    },
+    'check-expiring-contract-signers': {
+        'task': 'check_expiring_contract_signers',
+        'schedule': crontab(hour=9, minute=15),  # 每天 9:15 合同到期催签
     },
 }
 

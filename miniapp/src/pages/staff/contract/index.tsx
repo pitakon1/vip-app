@@ -43,11 +43,27 @@ export default function StaffContractPage() {
     : null
   const signed = !!agentParty?.signed
 
+  // 经纪人在本合同上待签署的签署区（法大大风格：按 field 逐项签署）
+  const agentFields = Array.isArray(contract?.sign_fields)
+    ? contract.sign_fields.filter(
+        (f: any) => String(f?.party_id) === String(agentParty?.id) && !f?.signed
+      )
+    : []
+  const targetField = agentFields[0]
+
   const handleSign = async () => {
-    if (!agentParty || signed || signing) return
+    if (!agentParty || signed || signing || !targetField?.id) {
+      if (agentParty && !signed && !targetField?.id) {
+        Taro.showToast({ title: t('lease.contractFallback'), icon: 'none' })
+      }
+      return
+    }
     setSigning(true)
     try {
-      await contractsApi.sign(id, agentParty.id)
+      await contractsApi.sign(id, {
+        fieldId: String(targetField.id),
+        method: String(targetField.field_type || 'signature')
+      })
       Taro.showToast({ title: t('lease.signSuccess'), icon: 'success' })
       load()
       setTimeout(() => Taro.navigateBack(), 800)

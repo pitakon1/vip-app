@@ -47,6 +47,24 @@ class ContractSource(str, Enum):
     uploaded = "uploaded"
 
 
+class SignFieldType(str, Enum):
+    """签署区字段类型。"""
+
+    signature = "signature"  # 手写签名
+    hand_stamp = "hand_stamp"  # 手章/私人印章
+    seal = "seal"  # 公司公章
+    date = "date"  # 日期
+
+
+class SignMethod(str, Enum):
+    """签署行为所使用的签署方式。"""
+
+    personal_handwrite = "personal_handwrite"  # 个人手写签名
+    personal_seal = "personal_seal"  # 个人印章/手章
+    company_seal = "company_seal"  # 公司盖章
+    date = "date"  # 日期
+
+
 class ContractParty(TimestampMixin, table=True):
     """合同签署方。"""
 
@@ -59,6 +77,11 @@ class ContractParty(TimestampMixin, table=True):
     id_number: Optional[str] = None
     phone: Optional[str] = None
     role: SignerRole = Field(default=SignerRole.tenant)
+    sign_method: SignMethod = Field(
+        default=SignMethod.personal_handwrite, description="该签署方默认签署方式"
+    )
+    real_name_verified_at: Optional[datetime] = None  # 实名认证完成时间（P3 用）
+    real_name_hash: Optional[str] = None  # 证件号 SHA-256（十六进制），避免明文留存
     signed: bool = Field(default=False)
     signed_at: Optional[datetime] = None
     signature: Optional[str] = None  # 签名 SVG / base64
@@ -95,6 +118,30 @@ class Contract(TimestampMixin, table=True):
     )
 
 
+class ContractSignField(TimestampMixin, table=True):
+    """合同签署区字段（签字/盖章/日期占位）。
+
+    坐标以文档百分比(0-100)存储，由前端在渲染画面上拖放置入。
+    """
+
+    __tablename__ = "contract_sign_fields"
+
+    contract_id: uuid.UUID = Field(foreign_key="contracts.id", index=True)
+    party_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="contract_parties.id", index=True
+    )  # 归属签署方；None 表示任意签署人可签
+    field_type: SignFieldType = Field(default=SignFieldType.signature)
+    page: int = 1
+    x: float = 0.0
+    y: float = 0.0
+    w: float = 0.0
+    h: float = 0.0
+    required: bool = Field(default=True)
+    signed: bool = Field(default=False)
+    signed_at: Optional[datetime] = None
+    created_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+
+
 class SignatureRecord(TimestampMixin, table=True):
     """签名留痕（审计）。"""
 
@@ -102,6 +149,10 @@ class SignatureRecord(TimestampMixin, table=True):
 
     contract_id: uuid.UUID = Field(foreign_key="contracts.id", index=True)
     party_id: uuid.UUID = Field(foreign_key="contract_parties.id")
+    field_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="contract_sign_fields.id", index=True
+    )
+    method: SignMethod = Field(default=SignMethod.personal_handwrite)
     signer_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     signer_name: str
     signature_svg: Optional[str] = None

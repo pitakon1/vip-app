@@ -81,7 +81,10 @@ from .contract import (
     ContractKind,
     ContractSource,
     ContractParty,
+    ContractSignField,
     SignerRole,
+    SignFieldType,
+    SignMethod,
     SignatureRecord,
 )
 from .backup import BackupJob, BackupStatus, BackupType
@@ -227,7 +230,10 @@ __all__ = [
     "ContractKind",
     "ContractSource",
     "ContractParty",
+    "ContractSignField",
     "SignerRole",
+    "SignFieldType",
+    "SignMethod",
     "SignatureRecord",
     "BackupJob",
     "BackupStatus",

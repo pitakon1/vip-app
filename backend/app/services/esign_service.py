@@ -7,6 +7,7 @@
 import hashlib
 import hmac
 import html as html_mod
+import math
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -238,6 +239,78 @@ def signature_svg(name: str, stamp: str) -> str:
 <text x='20' y='76' font-size='13' fill='#64748b'>SIG-{uid}</text></svg>"""
 
 
+def make_seal_svg(company_name: str, org_code: str) -> str:
+    """生成圆形红色公章 SVG。
+
+    - 外圈圆环 + 椭圆环；
+    - 公司名沿圆周环绕（公司名过长时换成两圈，缩短字距）；
+    - 正下方五角星 + 底部编号（org_code 末 6 位）。
+
+    所有文本通过 `_esc` 转义，SVG 中不含任何 script/href/on* 属性，
+    可安全在页面内联展示。
+    """
+    name = _esc(company_name or "")
+    code = _esc((org_code or "")[-6:])
+
+    # 圆内文字每字摆放角度；一圈 12 字，两圈时第一圈 12 / 第二圈剩余。
+    chars = [c for c in (name or "") if c.strip()]
+    # 每字符沿圆周旋转的度数（正数顺时针 → 文字朝向圆心外侧，可读性较好）
+    def _letters(offset_deg: float, radius: float, letters, start_deg: float = 90.0):
+        nodes = []
+        n = len(letters)
+        for i, ch in enumerate(letters):
+            angle = start_deg + (360.0 / n) * i + offset_deg
+            x = 130 + radius * math.cos(math.radians(angle))
+            y = 130 + radius * math.sin(math.radians(angle))
+            rot = angle + 90.0  # 让文字沿切线方向、正面朝外
+            nodes.append(
+                f"<text x='{x:.3f}' y='{y:.3f}' text-anchor='middle' "
+                f"font-size='20' font-family='SimSun, serif' transform='rotate({rot:.2f} {x:.3f} {y:.3f})' "
+                f"fill='#c0392b'>{ch}</text>"
+            )
+        return "\n".join(nodes)
+
+    ring_svg = "".join(
+        [
+            f"<circle cx='130' cy='130' r='{r}' fill='none' stroke='#c0392b' "
+            f"stroke-width='{w}'/>"
+            for r, w in ((118, 6.0), (96, 2.5))
+        ]
+    )
+
+    if len(chars) <= 24:
+        # 单圈：全部沿半径较大圆环绕（半径 88）
+        texts = _letters(0.0, 88.0, chars[:24])
+    else:
+        # 超长：两圈。第一圈 12 个字（圆环内侧），第二圈其余字。
+        first = chars[:12]
+        rest = chars[12:]
+        inner = _letters(0.0, 62.0, first)
+        outer_rest = _letters(0.0, 90.0, rest[:24])
+        texts = f"{inner}\n{outer_rest}"
+
+    star = (
+        "<polygon points='"
+        + " ".join(
+            f"{130 + 10 * math.sin(math.radians(2 * math.pi * i / 5 + math.pi / 2)):.3f},"
+            f"{130 + 10 * math.cos(math.radians(2 * math.pi * i / 5 + math.pi / 2)):.3f}"
+            for i in range(6)
+        )
+        + "' fill='#c0392b' transform='translate(0 34)'/>"
+    )
+
+    footer = (
+        f"<text x='130' y='212' text-anchor='middle' font-size='16' "
+        f"font-family='SimSun, serif' fill='#c0392b'>{code}</text>"
+    )
+
+    return (
+        "<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260' "
+        "viewBox='0 0 260 260'>"
+        f"{ring_svg}<g>{texts}</g>{star}{footer}</svg>"
+    )
+
+
 def generate_contract(counters: Dict[str, Any], language: str = "zh", kind: str = "lease") -> Dict[str, Any]:
     """生成合同：渲染 + 哈希 + 落盘。返回元数据（不涉及签署）。
 
@@ -289,6 +362,10 @@ class SignProvider(Protocol):
         """生成手写感签名 SVG。"""
         ...
 
+    def render_seal(self, company_name: str, org_code: str) -> str:
+        """生成公司公章 SVG。InHouse 用 make_seal_svg；第三方可替换。"""
+        ...
+
     def sign_digest(self, data: str) -> str:
         """对内容做可离线复验的数字签名。"""
         ...
@@ -301,6 +378,9 @@ class InHouseProvider:
 
     def render_signature(self, name: str, stamp: str) -> str:
         return signature_svg(name, stamp)
+
+    def render_seal(self, company_name: str, org_code: str) -> str:
+        return make_seal_svg(company_name, org_code)
 
     def sign_digest(self, data: str) -> str:
         return sign_digest(data)

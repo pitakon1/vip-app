@@ -1,0 +1,19 @@
+/* 公共签署页：待签覆盖框 + 进度行 */
+.rent-sign-slot {
+  box-sizing: border-box;
+  border: 2px dashed #ef4444;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.12);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.rent-sign-slot:hover {
+  background: rgba(239, 68, 68, 0.24);
+}
+.rent-sign-slot__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}

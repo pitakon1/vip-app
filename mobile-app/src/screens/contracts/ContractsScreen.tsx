@@ -81,6 +81,15 @@ const ROLE_META: Record<string, string> = {
   agent: 'contract.roleAgent',
 };
 
+// 签署区类型（field_type）元数据：与后端 sign_method / 签署区枚举一致
+const SIGN_TYPE_META: Record<string, { labelKey: string; icon: IoniconName }> = {
+  signature: { labelKey: 'contract.signType.signature', icon: 'create-outline' },
+  seal: { labelKey: 'contract.signType.seal', icon: 'business-outline' },
+  date: { labelKey: 'contract.signType.date', icon: 'calendar-outline' },
+};
+
+const SIGN_TYPES: string[] = ['signature', 'seal', 'date'];
+
 // 字段展示元数据：labelKey 为 i18n key，numeric 表示数字键盘。
 // 字段名与后端模板渲染函数 render_contract_html / render_purchase_html /
 // render_broker_protocol_html 的 counters 取参保持一致。
@@ -162,6 +171,21 @@ export default function ContractsScreen() {
   const [showParty, setShowParty] = useState(false);
   const [partyForm, setPartyForm] = useState({ name: '', email: '', role: 'tenant' });
   const [partyBusy, setPartyBusy] = useState(false);
+
+  // 添加签署区（法大大风格）
+  const [showAddFields, setShowAddFields] = useState(false);
+  const [fieldForm, setFieldForm] = useState({
+    party_id: '',
+    type: 'signature',
+    page: '1',
+    x: '50',
+    y: '40',
+  });
+  const [fieldsBusy, setFieldsBusy] = useState<string | boolean>(false);
+
+  // 验签
+  const [verifyData, setVerifyData] = useState<any>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
 
   // 编辑
   const [showEdit, setShowEdit] = useState(false);
@@ -321,6 +345,97 @@ export default function ContractsScreen() {
     }
   };
 
+  /* ===== 添加签署区（法大大风格）===== */
+  const openAddFields = () => {
+    // 默认选中第一个未签署方
+    const target = parties.find((p: any) => !p?.signed && !!p?.id) ?? parties[0];
+    setFieldForm({
+      party_id: String(target?.id ?? ''),
+      type: 'signature',
+      page: '1',
+      x: '50',
+      y: '40',
+    });
+    setShowAddFields(true);
+  };
+
+  const commitFields = async (fields: any[]) => {
+    if (!detail?.id || !fields.length) return;
+    setFieldsBusy(true);
+    try {
+      await contractsApi.saveSignFields(detail.id, fields);
+      notify(t('contract.createFieldsDone'));
+      setShowAddFields(false);
+      await openDetail(detail.id);
+    } catch (e) {
+      notifyError(t('contract.createFieldsDone'), e);
+    } finally {
+      setFieldsBusy(false);
+    }
+  };
+
+  // 表单式添加单个签署区
+  const submitField = async () => {
+    if (!fieldForm.party_id) {
+      notify(t('contract.insert'));
+      return;
+    }
+    await commitFields([
+      {
+        party_id: fieldForm.party_id,
+        field_type: fieldForm.type,
+        page: Number(fieldForm.page) || 1,
+        x: (Number(fieldForm.x) || 0) / 100,
+        y: (Number(fieldForm.y) || 0) / 100,
+      },
+    ]);
+  };
+
+  // 默认布局：按文档位置错开摆放未签署方的签名位
+  const applyDefaultLayout = async () => {
+    const targets = parties.filter((p: any) => !p?.signed && !!p?.id);
+    if (!targets.length) {
+      notify(t('contract.insert'));
+      return;
+    }
+    const fields = targets.map((p: any, i: number) => ({
+      party_id: String(p.id),
+      field_type: 'signature',
+      page: 1,
+      x: i % 2 === 0 ? 0.25 : 0.65,
+      y: 0.55 + (i % 2) * 0.25 + Math.floor(i / 2) * 0.12,
+    }));
+    await commitFields(fields);
+  };
+
+  const removeField = async (fieldId: string) => {
+    if (!detail?.id) return;
+    setFieldsBusy(`ff-${fieldId}`);
+    try {
+      await contractsApi.deleteSignField(detail.id, fieldId);
+      notify(t('contract.deleteFieldsDone'));
+      await openDetail(detail.id);
+    } catch (e) {
+      notifyError(t('contract.deleteFieldsDone'), e);
+    } finally {
+      setFieldsBusy(false);
+    }
+  };
+
+  /* ===== 验签 ===== */
+  const doVerify = async () => {
+    if (!detail?.id) return;
+    setVerifyLoading(true);
+    try {
+      const res: any = await contractsApi.verify(detail.id);
+      setVerifyData(res?.data ?? {});
+    } catch (e) {
+      notifyError(t('contract.verifyError'), e);
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
   /* ===== 编辑 ===== */
   const openEditor = () => {
     setEditForm({ title: detail?.title ?? '', content_html: detail?.content_html ?? '' });
@@ -391,6 +506,7 @@ export default function ContractsScreen() {
 
   const canEdit = !!detail?.can_edit;
   const parties: any[] = Array.isArray(detail?.parties) ? detail.parties : [];
+  const signFields: any[] = Array.isArray(detail?.sign_fields) ? detail.sign_fields : [];
 
   const renderSource = (source?: string) => {
     const meta = SOURCE_META[source ?? ''] ?? SOURCE_META.generated;
@@ -465,6 +581,55 @@ export default function ContractsScreen() {
             </TouchableOpacity>
           </View>
         ) : null}
+      </View>
+    );
+  };
+
+  const renderSignField = (f: any, idx: number) => {
+    const meta = SIGN_TYPE_META[f?.field_type ?? 'signature'] ?? SIGN_TYPE_META.signature;
+    const party = parties.find((p: any) => String(p?.id) === String(f?.party_id));
+    const signed = !!f?.signed;
+    const statusColor = signed ? colors.success : colors.warning;
+    const statusBg = signed
+      ? colors.alpha(colors.successRgb, 0.12)
+      : colors.alpha(colors.warningRgb, 0.12);
+    return (
+      <View key={f?.id ?? idx} style={styles.fieldCard}>
+        <Ionicons name={meta.icon} size={18} color={colors.primary} />
+        <View style={styles.fieldBody}>
+          <Text style={styles.fieldName} numberOfLines={1}>
+            {t(meta.labelKey)} · {party?.name || t('contract.unknown')}
+          </Text>
+          <Text style={styles.fieldMeta}>
+            {t('contract.page')} {f?.page ?? 1} · {t('contract.coordX')} {Math.round(((f?.x ?? 0) as number) * 100)} · {t('contract.coordY')} {Math.round(((f?.y ?? 0) as number) * 100)}
+          </Text>
+          {!!f?.signed_at && (
+            <Text style={styles.fieldMeta}>
+              {t('contract.signedAt')}：{fmtDate(f.signed_at)}
+            </Text>
+          )}
+        </View>
+        <View style={styles.fieldRight}>
+          <View style={[styles.badge, { backgroundColor: statusBg }]}>
+            <Text style={[styles.badgeText, { color: statusColor }]}>
+              {t(signed ? 'contract.fieldDone' : 'contract.fieldPending')}
+            </Text>
+          </View>
+          {canEdit && !signed && !!f?.id && (
+            <TouchableOpacity
+              style={styles.miniDelBtn}
+              activeOpacity={0.8}
+              disabled={fieldsBusy === `ff-${f.id}`}
+              onPress={() => removeField(String(f.id))}
+            >
+              {fieldsBusy === `ff-${f.id}` ? (
+                <ActivityIndicator size="small" color={colors.error} />
+              ) : (
+                <Ionicons name="trash-outline" size={15} color={colors.error} />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
   };
@@ -648,12 +813,30 @@ export default function ContractsScreen() {
                 <Text style={styles.partyNone}>{t('contract.empty')}</Text>
               )}
 
+              <Text style={styles.sectionTitle}>{t('contract.signFields')}</Text>
+              {signFields.length ? (
+                <>
+                  <Text style={styles.fieldsTip}>{t('contract.fieldsTip')}</Text>
+                  <View style={styles.fieldsList}>{signFields.map(renderSignField)}</View>
+                </>
+              ) : (
+                <Text style={styles.partyNone}>{t('contract.noSignFields')}</Text>
+              )}
+
               {canEdit ? (
                 <>
                   <View style={styles.actionWrap}>
                     <TouchableOpacity style={[styles.actionBtn, busyAction === 'send' && styles.btnDisabled]} onPress={handleSend} disabled={busyAction === 'send'}>
                       <Ionicons name="paper-plane-outline" size={16} color={colors.primary} />
                       <Text style={styles.actionBtnText}>{t('contract.sendNotice')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtn} onPress={openAddFields}>
+                      <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+                      <Text style={styles.actionBtnText}>{t('contract.addSignField')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtn} onPress={doVerify}>
+                      <Ionicons name="shield-checkmark-outline" size={16} color={colors.primary} />
+                      <Text style={styles.actionBtnText}>{t('contract.verify')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.actionBtn} onPress={() => setShowParty(true)}>
                       <Ionicons name="person-add-outline" size={16} color={colors.primary} />
@@ -764,6 +947,144 @@ export default function ContractsScreen() {
             <TouchableOpacity style={[styles.primaryBtn, styles.dangerBtn, voidBusy && styles.btnDisabled]} activeOpacity={0.85} disabled={voidBusy} onPress={doVoid}>
               {voidBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.dangerBtnText}>{t('contract.void')}</Text>}
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ===== 添加签署区 ===== */}
+      <Modal visible={showAddFields} animationType="slide" transparent onRequestClose={() => setShowAddFields(false)}>
+        <View style={styles.modalMask}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>{t('contract.addSignField')}</Text>
+              <TouchableOpacity onPress={() => setShowAddFields(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.ink2} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={styles.fieldSectionTitle}>{t('contract.fieldSelectParty')}</Text>
+              <View style={styles.langRow}>
+                {parties.filter((p: any) => !!p?.id).map((p: any) => {
+                  const active = fieldForm.party_id === String(p.id);
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[styles.chip, active && styles.chipActive]}
+                      activeOpacity={0.8}
+                      onPress={() => setFieldForm({ ...fieldForm, party_id: String(p.id) })}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
+                        {p?.name || t('contract.unknown')}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={styles.fieldSectionTitle}>{t('contract.signFieldType')}</Text>
+              <View style={styles.langRow}>
+                {SIGN_TYPES.map((type) => {
+                  const active = fieldForm.type === type;
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      style={[styles.chip, active && styles.chipActive]}
+                      activeOpacity={0.8}
+                      onPress={() => setFieldForm({ ...fieldForm, type })}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {t(SIGN_TYPE_META[type].labelKey)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={styles.fieldSectionTitle}>{t('contract.fieldPosTitle')}</Text>
+              <View style={styles.coordRow}>
+                <TextInput
+                  style={[styles.input, styles.coordInput]}
+                  placeholder={t('contract.page')}
+                  keyboardType="numeric"
+                  value={fieldForm.page}
+                  onChangeText={(v) => setFieldForm({ ...fieldForm, page: v })}
+                  placeholderTextColor={colors.ink3}
+                />
+                <TextInput
+                  style={[styles.input, styles.coordInput]}
+                  placeholder={t('contract.coordX')}
+                  keyboardType="numeric"
+                  value={fieldForm.x}
+                  onChangeText={(v) => setFieldForm({ ...fieldForm, x: v })}
+                  placeholderTextColor={colors.ink3}
+                />
+                <TextInput
+                  style={[styles.input, styles.coordInput]}
+                  placeholder={t('contract.coordY')}
+                  keyboardType="numeric"
+                  value={fieldForm.y}
+                  onChangeText={(v) => setFieldForm({ ...fieldForm, y: v })}
+                  placeholderTextColor={colors.ink3}
+                />
+              </View>
+              <TouchableOpacity style={styles.defaultBtn} activeOpacity={0.8} onPress={applyDefaultLayout}>
+                <Ionicons name="grid-outline" size={15} color={colors.primary} />
+                <Text style={styles.defaultBtnText}>{t('contract.defaultLayout')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.primaryBtn, !!fieldsBusy && styles.btnDisabled]}
+                activeOpacity={0.85}
+                disabled={!!fieldsBusy}
+                onPress={submitField}
+              >
+                {!!fieldsBusy ? (
+                  <ActivityIndicator color={colors.primaryForeground} />
+                ) : (
+                  <Text style={styles.primaryBtnText}>{t('contract.confirm')}</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ===== 验签报告 ===== */}
+      <Modal visible={!!verifyData} animationType="slide" transparent onRequestClose={() => setVerifyData(null)}>
+        <View style={styles.modalMask}>
+          <View style={[styles.modalCard, styles.modalCardTall]}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>{t('contract.verifyTitle')}</Text>
+              <TouchableOpacity onPress={() => setVerifyData(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.ink2} />
+              </TouchableOpacity>
+            </View>
+            {verifyLoading ? (
+              <View style={styles.center}><LoadingState label={t('contract.verify')} /></View>
+            ) : (
+              <ScrollView>
+                {verifyData?.tampered != null && (
+                  <View style={[styles.badge, { alignSelf: 'flex-start', marginBottom: 12, backgroundColor: verifyData.tampered ? colors.alpha(colors.errorRgb, 0.12) : colors.alpha(colors.successRgb, 0.12) }]}>
+                    <Text style={[styles.badgeText, { color: verifyData.tampered ? colors.error : colors.success }]}>
+                      {t(verifyData.tampered ? 'contract.verifyTampered' : 'contract.verifyIntact')}
+                    </Text>
+                  </View>
+                )}
+                {verifyData?.document_hash != null && field(t('contract.verifyDocumentHash'), String(verifyData.document_hash))}
+                {!!verifyData?.sign_types_summary && field(t('contract.verifySignTypes'), String(verifyData.sign_types_summary))}
+                <Text style={styles.sectionTitle}>{t('contract.verifySignatures')}</Text>
+                {Array.isArray(verifyData?.signatures) && verifyData.signatures.length ? (
+                  verifyData.signatures.map((sig: any, idx: number) => (
+                    <View key={idx} style={styles.partyCard}>
+                      {field(t('contract.verifyMethod'), String(sig?.method ?? '-'))}
+                      {field(t('contract.verifySignedAt'), fmtDate(sig?.signed_at))}
+                      {field(t('contract.verifyIp'), String(sig?.ip ?? '-'))}
+                      {field(t('contract.verifyHash'), String(sig?.signature_hash ?? '-'))}
+                      {field(t('contract.verifySigResultId'), t(sig?.signature_success ? 'contract.verifyOk' : 'contract.verifyFail'))}
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.partyNone}>{t('contract.noSignFields')}</Text>
+                )}
+              </ScrollView>
+            )}
           </View>
         </View>
       </Modal>
@@ -916,4 +1237,38 @@ const styles = StyleSheet.create({
   voidHint: { fontSize: 14, color: colors.ink2, marginBottom: 12 },
   dangerBtn: { backgroundColor: colors.error },
   dangerBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  /* 签署区 */
+  fieldsTip: { fontSize: 12, color: colors.ink3, marginBottom: 8 },
+  fieldsList: { gap: 8, marginBottom: 4 },
+  fieldCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    padding: 12,
+  },
+  fieldBody: { flex: 1, minWidth: 0 },
+  fieldName: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  fieldMeta: { fontSize: 12, color: colors.ink3, marginTop: 2 },
+  fieldRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  miniDelBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  coordRow: { flexDirection: 'row', gap: 8 },
+  coordInput: { flex: 1 },
+  defaultBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+    marginBottom: 14,
+  },
+  defaultBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
 });

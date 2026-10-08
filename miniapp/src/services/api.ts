@@ -349,12 +349,22 @@ export const contractsApi = {
   generate: (data: any) => request({ url: '/contracts/generate', method: 'POST', data }),
   addParty: (id: string, data: any) =>
     request({ url: `/contracts/${id}/parties`, method: 'POST', data }),
-  sign: (id: string, partyId: string, signatureSvg?: string) =>
+  // 电子合同法大大风格签署：按签署区（field）签名。method ∈ signature(手写)|seal(公章)|date(日期)。
+  // 未实名外部 party 会拒绝（403 REAL_NAME_REQUIRED）。
+  sign: (id: string, opts: { fieldId: string; method: string }) =>
     request({
       url: `/contracts/${id}/sign`,
       method: 'POST',
-      data: { party_id: partyId, ...(signatureSvg ? { signature_svg: signatureSvg } : {}) }
+      data: { field_id: opts.fieldId, method: opts.method }
     }),
+  // 保存/创建签署区（员工）：一次性提交需创建的 fields 数组
+  saveSignFields: (id: string, fields: any[]) =>
+    request({ url: `/contracts/${id}/sign-fields`, method: 'POST', data: { fields } }),
+  // 删除签署区（员工）
+  deleteSignField: (id: string, fieldId: string) =>
+    request({ url: `/contracts/${id}/sign-fields/${fieldId}`, method: 'DELETE' }),
+  // 验签报告（员工）
+  verify: (id: string) => request({ url: `/contracts/${id}/verify`, method: 'GET' }),
   // 编辑合同（员工）：改 title / content_html
   updateContract: (id: string, data: any) =>
     request({ url: `/contracts/${id}`, method: 'PATCH', data }),

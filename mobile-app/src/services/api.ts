@@ -296,11 +296,17 @@ export const contractsApi = {
   listTemplates: () => api.get('/contracts/templates'),
   generate: (data: any) => api.post('/contracts/generate', data),
   addParty: (id: string, data: any) => api.post(`/contracts/${id}/parties`, data),
-  sign: (id: string, partyId: string, signatureSvg?: string) =>
-    api.post(`/contracts/${id}/sign`, {
-      party_id: partyId,
-      ...(signatureSvg ? { signature_svg: signatureSvg } : {}),
-    }),
+  // 法大大风格签署：按「签署区 sign_field」签署，body 传 field_id + method（signature/seal/date），
+  // 手写时附带 signature_svg。method 与后端 sign_method 枚举一致。
+  sign: (id: string, data: { field_id: string; method: string; signature_svg?: string }) =>
+    api.post(`/contracts/${id}/sign`, data),
+  // 管理端维护签署区：批量新增 / 删除未签签署框
+  saveSignFields: (id: string, fields: any[]) =>
+    api.post(`/contracts/${id}/sign-fields`, { fields }),
+  deleteSignField: (id: string, fieldId: string) =>
+    api.delete(`/contracts/${id}/sign-fields/${fieldId}`),
+  // 验签报告（员工）
+  verify: (id: string) => api.get(`/contracts/${id}/verify`),
   // 编辑合同（员工）：改 title / content_html
   updateContract: (id: string, data: any) => api.patch(`/contracts/${id}`, data),
   // 上传电子合同（multipart，字段名 file）：挂到合同并标 source=uploaded

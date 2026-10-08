@@ -57,7 +57,7 @@ from app.models import (
     NotificationChannel,
     NotificationStatus,
     User, Contract, ContractStatus, ContractKind, ContractSource, ContractParty,
-    SignerRole, SignatureRecord,
+    SignerRole, SignatureRecord, ContractSignField, SignFieldType, SignMethod,
 )
 from app.providers.notification.base import (
     NotificationChannel as ProviderChannel,
@@ -242,6 +242,133 @@ def add_party(
         "role": party.role.value,
         "signed": party.signed,
     }
+
+
+@router.post("/{contract_id}/sign-fields")
+def upsert_sign_fields(
+    contract_id: uuid.UUID,
+    payload: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """批量放置/更新签署区字段。payload: {fields: [{id?, party_id, field_type, page, x, y, w, h, required?}]}
+
+    限员工调用（合同管理与放置动作）。已签署的字段禁止改位置/归属。
+    校验 party_id 归属该合同、field_type 合法。逐个 add+flush（SQLite 不依赖 bulk upsert）。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    _require_editable(contract)
+
+    raw_fields = payload.get("fields") or []
+    if not isinstance(raw_fields, list) or not raw_fields:
+        raise HTTPException(status_code=400, detail="fields is required")
+
+    # 预取合同全部签署方，用于归属校验
+    parties = session.exec(
+        select(ContractParty).where(ContractParty.contract_id == contract_id)
+    ).all()
+    party_ids = {p.id for p in parties}
+
+    result_ids = []
+    for item in raw_fields:
+        if not isinstance(item, dict):
+            raise HTTPException(status_code=400, detail="Invalid field item")
+
+        # field_type 合法性
+        raw_type = str(item.get("field_type", "signature"))
+        try:
+            field_type = SignFieldType(raw_type)
+        except ValueError:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid field_type: {raw_type}"
+            )
+
+        # party_id：可空；若给则须归属该合同
+        party_id = None
+        raw_party = item.get("party_id")
+        if raw_party:
+            try:
+                party_id = uuid.UUID(str(raw_party))
+            except (ValueError, TypeError, AttributeError):
+                raise HTTPException(status_code=400, detail="Invalid party_id")
+            if party_id not in party_ids:
+                raise HTTPException(status_code=404, detail="Party not found")
+
+        try:
+            page = int(item.get("page", 1))
+            x = float(item.get("x", 0.0))
+            y = float(item.get("y", 0.0))
+            w = float(item.get("w", 0.0))
+            h = float(item.get("h", 0.0))
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid coordinates")
+        required = bool(item.get("required", True))
+
+        raw_id = item.get("id")
+        if raw_id:
+            try:
+                field_id = uuid.UUID(str(raw_id))
+            except (ValueError, TypeError, AttributeError):
+                raise HTTPException(status_code=400, detail="Invalid field id")
+            field = session.get(ContractSignField, field_id)
+            if not field or field.contract_id != contract_id:
+                raise HTTPException(status_code=404, detail="Sign field not found")
+            if field.signed:
+                raise HTTPException(
+                    status_code=409, detail="Cannot edit a signed field"
+                )
+            field.field_type = field_type
+            field.party_id = party_id
+            field.page = page
+            field.x = x
+            field.y = y
+            field.w = w
+            field.h = h
+            field.required = required
+        else:
+            field = ContractSignField(
+                contract_id=contract_id,
+                party_id=party_id,
+                field_type=field_type,
+                page=page,
+                x=x,
+                y=y,
+                w=w,
+                h=h,
+                required=required,
+                created_by=user.id,
+            )
+            session.add(field)
+        session.add(field)
+        session.flush()  # 逐个 flush，拿回 id
+        result_ids.append(field.id)
+
+    session.commit()
+    # 返回该合同新 sign_fields 列表
+    return {
+        "contract_id": str(contract_id),
+        "sign_fields": _get_sign_fields(session, contract_id, user),
+    }
+
+
+@router.delete("/{contract_id}/sign-fields/{field_id}")
+def delete_sign_field(
+    contract_id: uuid.UUID,
+    field_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """删除未签署的签署区字段。限员工调用。"""
+    contract = _get_visible_contract(session, user, contract_id)
+    _require_editable(contract)
+    field = session.get(ContractSignField, field_id)
+    if not field or field.contract_id != contract_id:
+        raise HTTPException(status_code=404, detail="Sign field not found")
+    if field.signed:
+        raise HTTPException(status_code=409, detail="Cannot delete a signed field")
+    session.delete(field)
+    session.commit()
+    return {"deleted": True, "id": str(field_id)}
 
 
 def _sign_url(token: str) -> str:
@@ -454,6 +581,19 @@ def send_contract(
                 )
             )
             delivered.append("email" if result.success else "email_failed")
+        if "sms" in channels and party.phone:
+            result = notification_router.send(
+                NotificationMessage(
+                    channel=ProviderChannel.SMS,
+                    recipient=party.phone,
+                    title="合同待签署",
+                    content=content,
+                    metadata={"contract_id": str(contract.id), "sign_url": url},
+                    related_entity_type="contract",
+                    related_entity_id=str(contract.id),
+                )
+            )
+            delivered.append("sms" if result.success else "sms_failed")
         results.append(
             {
                 "party_id": str(party.id),
@@ -508,6 +648,34 @@ def _get_party(session: Session, contract_id: uuid.UUID, party_id_raw) -> Contra
     return party
 
 
+def _serialize_sign_field(f: ContractSignField) -> dict:
+    """签署区字段序列化（供详情/列表返回）。"""
+    return {
+        "id": str(f.id),
+        "contract_id": str(f.contract_id),
+        "party_id": str(f.party_id) if f.party_id else None,
+        "field_type": f.field_type.value if f.field_type else SignFieldType.signature.value,
+        "page": f.page,
+        "x": f.x,
+        "y": f.y,
+        "w": f.w,
+        "h": f.h,
+        "required": f.required,
+        "signed": f.signed,
+        "signed_at": f.signed_at.isoformat() if f.signed_at else None,
+    }
+
+
+def _get_sign_fields(session: Session, contract_id: uuid.UUID, user: User) -> list:
+    """按合同取全部签署区字段（序列化）。"""
+    rows = session.exec(
+        select(ContractSignField)
+        .where(ContractSignField.contract_id == contract_id)
+        .order_by(ContractSignField.page, ContractSignField.y, ContractSignField.x)
+    ).all()
+    return [_serialize_sign_field(r) for r in rows]
+
+
 def _sanitize_signature_svg(raw: str) -> str:
     """校验客户端提交的签名 SVG。
 
@@ -549,14 +717,18 @@ def _apply_signature(
     signer_user_id: Optional[uuid.UUID],
     ip: Optional[str],
     signature_svg: Optional[str] = None,
+    field_id: Optional[uuid.UUID] = None,
+    method: Optional[SignMethod] = None,
 ) -> str:
     """写入签名 + 留痕，并推进合同状态机。返回签名哈希。
 
     - 签名姓名一律取服务端 `party.name`（不接受客户端传入）；
     - 一次性签署令牌在用完后清空；
-    - 状态推进：sent → partially_signed →（全部签署）signed；
-    - 经纪人协议（listing_agent / broker_distributor）为「平台单方预签」类：
-      经纪乙方签署后，平台甲方自动同意，使协议达到 signed 并激活对应业务侧。
+    - **按字段签署**：若传 `field_id`，校验该字段归属（party 归属）且未 signed，
+      签署后写 field.signed=True/signed_at，并将 field_id/method 写入本次 SignatureRecord；
+      不传 `field_id` 时沿用旧链路（整方一次性签署）；
+    - 状态推进：sent → partially_signed →（所有 required 归属字段签署完成）signed；
+    - 经纪人协议为「平台单方预签」类：经纪乙方签署后平台甲方自动同意。
     """
     name = party.name
     stamp = contract.title or contract.id
@@ -565,6 +737,20 @@ def _apply_signature(
     sig_hash = provider.sign_digest(
         f"{contract.document_hash}|{party.id}|{name}|{sig_svg}"
     )
+
+    # 按字段签署：校验归属 + 未签
+    if field_id is not None:
+        field = session.get(ContractSignField, field_id)
+        if not field or field.contract_id != contract.id:
+            raise HTTPException(status_code=404, detail="Sign field not found")
+        if field.party_id is not None and field.party_id != party.id:
+            raise HTTPException(status_code=403, detail="Field not assigned to this party")
+        if field.signed:
+            raise HTTPException(status_code=409, detail="Sign field already signed")
+        field.signed = True
+        field.signed_at = datetime.utcnow()
+        session.add(field)
+
     party.signed = True
     party.signed_at = datetime.utcnow()
     party.signature = sig_svg
@@ -575,6 +761,8 @@ def _apply_signature(
         SignatureRecord(
             contract_id=contract.id,
             party_id=party.id,
+            field_id=field_id,
+            method=method or party.sign_method or SignMethod.personal_handwrite,
             signer_user_id=signer_user_id,
             signer_name=name,
             signature_svg=sig_svg,
@@ -588,21 +776,61 @@ def _apply_signature(
         select(ContractParty).where(ContractParty.contract_id == contract.id)
     ).all()
     fully_signed = bool(parties and all(p.signed for p in parties))
+
+    # 按字段口径完成判定：所有「已归属必签字段」都 signed 才算合同签署完成
+    sign_fields = session.exec(
+        select(ContractSignField).where(ContractSignField.contract_id == contract.id)
+    ).all()
+    required_fields = [f for f in sign_fields if f.required and f.party_id is not None]
+    fields_done = bool(required_fields) and all(f.signed for f in required_fields)
+    if fully_signed and fields_done:
+        pass  # 合同完成
+    else:
+        # 字段存在但未全部完成 → 不算完成（仅当存在归属必签字段时收紧）
+        if required_fields and not fields_done:
+            fully_signed = False
+
     if not fully_signed and contract.kind in (
         ContractKind.listing_agent,
         ContractKind.broker_distributor,
     ):
+        # 平台单方预签：把其余未签方自动标记为已签（且视为完成了归属字段）
         for p in parties:
             if not p.signed:
                 p.signed = True
                 p.signed_at = datetime.utcnow()
                 session.add(p)
+        for f in required_fields:
+            if not f.signed:
+                f.signed = True
+                f.signed_at = datetime.utcnow()
+                session.add(f)
         session.commit()
         fully_signed = True
 
     if fully_signed:
         contract.status = ContractStatus.signed
         contract.signed_at = datetime.utcnow()
+        contract.document_hash = esign_service.content_hash(contract.content_html)
+        # 整份合同落一条总览 SignatureRecord（若尚无）
+        existing_overview = session.exec(
+            select(SignatureRecord).where(
+                SignatureRecord.contract_id == contract.id,
+                SignatureRecord.field_id.is_(None),
+            )
+        ).first()
+        if existing_overview is None:
+            session.add(
+                SignatureRecord(
+                    contract_id=contract.id,
+                    party_id=party.id,
+                    method=method or party.sign_method or SignMethod.personal_handwrite,
+                    signer_user_id=signer_user_id,
+                    signer_name="__overview__",
+                    signature_hash=contract.document_hash,
+                    ip=ip,
+                )
+            )
     elif any(p.signed for p in parties):
         contract.status = ContractStatus.partially_signed
     else:
@@ -642,8 +870,34 @@ def sign_contract(
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
 
+    # P3 强制实名：登录态签署。
+    # - 未绑定用户的外部签署方（员工代签）须先走公开端验证码实名；
+    # - 已绑定登录用户的签署方，其身份经平台登录态可信，首次签署自动置为
+    #   内部认证（real_name_verified_at=now，来源=internal），避免重复过验证码。
+    if not party.real_name_verified_at:
+        if party.user_id is not None:
+            party.real_name_verified_at = datetime.utcnow()
+            session.add(party)
+        else:
+            raise HTTPException(status_code=403, detail="REAL_NAME_REQUIRED")
+
     raw_svg = payload.get("signature_svg")
     sig_svg = _sanitize_signature_svg(raw_svg) if raw_svg else None
+
+    field_id = None
+    if payload.get("field_id"):
+        try:
+            field_id = uuid.UUID(str(payload["field_id"]))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=400, detail="Invalid field_id")
+
+    method = None
+    if payload.get("method"):
+        try:
+            method = SignMethod(str(payload["method"]))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid method")
+
     sig_hash = _apply_signature(
         session,
         contract,
@@ -651,8 +905,16 @@ def sign_contract(
         signer_user_id=user.id,
         ip=(request.client.host if request.client else None),
         signature_svg=sig_svg,
+        field_id=field_id,
+        method=method,
     )
-    return {"party_id": str(party.id), "signed": True, "signature_hash": sig_hash}
+    return {
+        "party_id": str(party.id),
+        "signed": True,
+        "field_id": str(field_id) if field_id else None,
+        "signature_hash": sig_hash,
+        "contract_status": contract.status.value,
+    }
 
 
 def _activate_broker_role_if_agreement(session: Session, contract: Contract) -> None:
@@ -764,6 +1026,10 @@ def get_contract(
                 "phone": p.phone,
                 "role": p.role.value,
                 "signed": p.signed,
+                "sign_method": p.sign_method.value if p.sign_method else SignMethod.personal_handwrite.value,
+                "real_name_verified_at": p.real_name_verified_at.isoformat()
+                if p.real_name_verified_at
+                else None,
                 "signed_at": p.signed_at.isoformat() if p.signed_at else None,
                 "declined_at": p.declined_at.isoformat() if p.declined_at else None,
                 "decline_reason": p.decline_reason,
@@ -780,4 +1046,95 @@ def get_contract(
             }
             for p in parties
         ],
+        "sign_fields": _get_sign_fields(session, contract_id, user),
     }
+
+
+def build_verify_report(
+    session: Session,
+    contract: Contract,
+) -> dict:
+    """构建合同验签报告（供站内与公开验签共用）。
+
+    口径：
+    - content_sha256 = 复算当前 content_html；
+    - sign_digest = 现有 HMAC 摘要（对当前 document_hash 做 HMAC-SHA256）；
+    - tampered = 复算 content_sha256 != document_hash；
+    - signatures = SignatureRecord 逐条，按时间升序；每条复算其 signature_hash 比对。
+    """
+    provider = esign_service.get_sign_provider()
+    recomputed = esign_service.content_hash(contract.content_html or "")
+    sign_digest = provider.sign_digest(str(contract.document_hash or ""))
+    tampered = bool(contract.document_hash) and recomputed != contract.document_hash
+
+    signatures = session.exec(
+        select(SignatureRecord)
+        .where(SignatureRecord.contract_id == contract.id)
+        .order_by(SignatureRecord.created_at.asc())
+    ).all()
+
+    sign_types = {}
+    sig_list = []
+    for rec in signatures:
+        method = rec.method.value if rec.method else SignMethod.personal_handwrite.value
+        sign_types[method] = sign_types.get(method, 0) + 1
+
+        field = session.get(ContractSignField, rec.field_id) if rec.field_id else None
+        # 复算该签名哈希：与 _apply_signature 一致
+        recomputed_hash = None
+        if rec.signature_hash and rec.signer_name and rec.signature_svg:
+            try:
+                recomputed_hash = provider.sign_digest(
+                    f"{contract.document_hash}|{rec.party_id}|"
+                    f"{rec.signer_name}|{rec.signature_svg}"
+                )
+            except Exception:
+                recomputed_hash = None
+
+        sig_list.append(
+            {
+                "party_name": rec.signer_name,
+                "role": None,
+                "method": method,
+                "signed_at": rec.created_at.isoformat() if rec.created_at else None,
+                "ip": rec.ip,
+                "signature_hash": rec.signature_hash,
+                "signature_success": bool(
+                    recomputed_hash and recomputed_hash == rec.signature_hash
+                ),
+                "field_id": str(rec.field_id) if rec.field_id else None,
+                "signer_user_id": str(rec.signer_user_id)
+                if rec.signer_user_id
+                else None,
+                "x": field.x if field else None,
+                "y": field.y if field else None,
+                "w": field.w if field else None,
+                "h": field.h if field else None,
+                "page": field.page if field else None,
+            }
+        )
+
+    return {
+        "contract_id": str(contract.id),
+        "title": contract.title,
+        "kind": contract.kind.value if contract.kind else "lease",
+        "status": contract.status.value if contract.status else None,
+        "document_hash": contract.document_hash,
+        "content_sha256": recomputed,
+        "sign_digest": sign_digest,
+        "tampered": tampered,
+        "sign_types_summary": sign_types,
+        "signatures": sig_list,
+        "verified": not tampered and bool(sig_list),
+    }
+
+
+@router.get("/{contract_id}/verify")
+def verify_contract(
+    contract_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """验签报告（员工可访问）。详见 `build_verify_report`。"""
+    contract = _get_visible_contract(session, user, contract_id)
+    return build_verify_report(session, contract)

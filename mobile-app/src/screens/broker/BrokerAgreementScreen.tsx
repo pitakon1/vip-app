@@ -78,6 +78,7 @@ export default function BrokerAgreementScreen() {
       const detail: any = await contractsApi.get(cid);
       const d = detail?.data;
       const parties = Array.isArray(d?.parties) ? (d.parties as any[]) : [];
+      const signFields = Array.isArray(d?.sign_fields) ? (d.sign_fields as any[]) : [];
       // 经纪人自己作为签署方（role=agent / witness 为平台甲方），取当前用户对应方
       const self = parties.find((p) => p?.role === 'agent');
       const partyId = self?.id ?? parties[parties.length - 1]?.id;
@@ -85,7 +86,18 @@ export default function BrokerAgreementScreen() {
         notify('请重试', '未找到您的签署位');
         return;
       }
-      await contractsApi.sign(cid, String(partyId));
+      // 法大大风格：按「签署区」签署，取该签署方第一个待签字段
+      const target =
+        signFields.find((f) => String(f?.party_id) === String(partyId) && !f?.signed) ??
+        signFields.find((f) => String(f?.party_id) === String(partyId));
+      if (!target?.id) {
+        notify('请重试', '未找到您的签署位');
+        return;
+      }
+      await contractsApi.sign(cid, {
+        field_id: String(target.id),
+        method: target?.field_type || 'signature',
+      });
       notify('签署成功', '协议已在线签署，相关权限已激活');
       await load();
     } catch (e: any) {

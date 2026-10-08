@@ -18,6 +18,21 @@ interface Party {
   signed?: boolean
   email?: string
   phone?: string
+  real_name_verified?: boolean
+}
+
+interface SignField {
+  id: string
+  party_id?: string | null
+  field_type: string
+  signed: boolean
+}
+
+// 签署区 field_type → method
+const FIELD_METHOD: Record<string, string> = {
+  signature: 'personal_handwrite',
+  seal: 'company_seal',
+  date: 'date',
 }
 
 const statusMeta: Record<string, { text: string; cls: string }> = {
@@ -33,7 +48,7 @@ const OwnerContracts = () => {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const [list, setList] = useState<ContractRow[]>([])
-  const [detail, setDetail] = useState<{ contract?: ContractRow; parties: Party[] }>({ parties: [] })
+  const [detail, setDetail] = useState<{ contract?: ContractRow; parties: Party[]; signFields: SignField[] }>({ parties: [], signFields: [] })
   const [openId, setOpenId] = useState<string | null>(null)
 
   const load = () => {
@@ -59,6 +74,13 @@ const OwnerContracts = () => {
             signed: p.signed,
             email: p.email,
             phone: p.phone,
+            real_name_verified: !!p.real_name_verified_at,
+          })),
+          signFields: (d.sign_fields || []).map((f: any) => ({
+            id: f.id,
+            party_id: f.party_id,
+            field_type: f.field_type,
+            signed: f.signed,
           })),
         })
       })
@@ -74,15 +96,29 @@ const OwnerContracts = () => {
 
   const handleSign = (partyId: string) => {
     if (!detail.contract) return
+    const party = detail.parties.find((p) => p.id === partyId)
+    if (party?.signed) return
+    const pendingField = detail.signFields.find(
+      (f) => f.party_id === partyId && !f.signed,
+    )
+    const method = FIELD_METHOD[pendingField?.field_type || 'signature']
     contractsApi
-      .sign(detail.contract.id, partyId)
+      .sign(detail.contract.id, {
+        partyId,
+        ...(pendingField ? { fieldId: pendingField.id, method } : {}),
+      })
       .then(() => {
         message.success(t('contracts.msgSigned'))
         handleOpen(detail.contract!.id)
       })
       .catch((err: any) => {
+        const status = err?.response?.status
         const d = err?.response?.data?.detail
-        message.error(d || t('contracts.errSign'))
+        if (status === 403 && d === 'REAL_NAME_REQUIRED') {
+          message.error(t('contracts.realNameFirst'))
+        } else {
+          message.error(d || t('contracts.errSign'))
+        }
       })
   }
 

@@ -213,25 +213,55 @@ export const contractsApi = {
   },
   createShareLink: (id: string, partyId: string, expiresInDays?: number) =>
     api.post(`/contracts/${id}/share-link`, { party_id: partyId, expires_in_days: expiresInDays }),
+  // channels 支持 ["in_app","email","sms"]；sms 需签署方有 phone
   sendContract: (id: string, body?: RequestBody) =>
     api.post(`/contracts/${id}/send`, body || {}),
   voidContract: (id: string, reason?: string) =>
     api.post(`/contracts/${id}/void`, { reason }),
-  // signatureSvg 为手写签名导出的 <svg> 字符串；不传时由后端代生成签名
-  sign: (id: string, partyId: string, signatureSvg?: string) =>
+  // 批量放置/更新签署区字段：fields=[{id?, party_id, field_type, page, x, y, w, h, required?}] → 返回该合同 sign_fields
+  saveSignFields: (id: string, fields: Record<string, unknown>[]) =>
+    api.post(`/contracts/${id}/sign-fields`, { fields }),
+  // 删除未签署的签署区字段
+  deleteSignField: (id: string, fieldId: string) =>
+    api.delete(`/contracts/${id}/sign-fields/${fieldId}`),
+  // 登录态按字段签署：opts={fieldId?, method?, partyId?, signatureSvg?}
+  // method ∈ personal_handwrite / personal_seal / company_seal / date
+  sign: (
+    id: string,
+    opts: {
+      fieldId?: string
+      method?: string
+      partyId?: string
+      signatureSvg?: string
+    } = {},
+  ) =>
     api.post(`/contracts/${id}/sign`, {
-      party_id: partyId,
-      ...(signatureSvg ? { signature_svg: signatureSvg } : {}),
+      ...(opts.partyId ? { party_id: opts.partyId } : {}),
+      ...(opts.fieldId ? { field_id: opts.fieldId } : {}),
+      ...(opts.method ? { method: opts.method } : {}),
+      ...(opts.signatureSvg ? { signature_svg: opts.signatureSvg } : {}),
     }),
+  // 验签报告（员工）：GET /contracts/{id}/verify
+  verify: (id: string) => api.get(`/contracts/${id}/verify`),
 }
 
 // 公共签署（匿名访问 /public/contract-sign，无鉴权，token 即访客身份）
 export const contractsPublicApi = {
   get: (token: string) => api.get(`/public/contract-sign/${token}`),
   fileUrl: (token: string) => `/api/v1/public/contract-sign/${token}/file`,
-  // data={name, id_number?, phone?, signature_svg?}
+  // data={name, id_number?, phone?, signature_svg?, field_id?, method?}
   submit: (token: string, data: RequestBody) =>
     api.post(`/public/contract-sign/${token}`, data),
+  // 实名认证第一步：向 contact（手机号/邮箱）发送验证码
+  sendCode: (token: string, contact: string) =>
+    api.post(`/public/contract-sign/${token}/send-code`, { contact }),
+  // 实名认证第二步：提交 name/id_number/contact/code，通过后回写 real_name_verified
+  verifyIdentity: (
+    token: string,
+    data: { name: string; id_number: string; contact: string; code: string },
+  ) => api.post(`/public/contract-sign/${token}/verify-identity`, data),
+  // 公开验签：GET /public/contract-sign/{token}/verify
+  verify: (token: string) => api.get(`/public/contract-sign/${token}/verify`),
 }
 
 // 房源上架单（发布房源 + 分佣配置 + 审核 / 下架）

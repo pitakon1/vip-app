@@ -1,12 +1,14 @@
 /**
- * 租客 / 业主「我的合同」签署页（只读为主）。
+ * 租客 / 业主「我的合同」签署页（法大大风格：按签署区逐项签署）。
  *
  * 列出当前用户可见的合同（contractsApi.list：本人作为签署方或挂在本人租约下）。
- * 详情页展示签署方；仅当「当前用户是签署方且尚未签署」时显示「签署」按钮。
- * 非本人或已签署只读展示。文本走 i18n 三语。
+ * 详情展示签署方与签署区（sign_fields）；归属本人生效、且未签署的签署区可点击签署：
+ * 手写 → 画布签名；公章 → 加盖公司章；日期 → 自动填写。未实名 party 先弹「需完成身份核验」，
+ * 后端 403 REAL_NAME_REQUIRED 亦作同样提示。全部本人签署区完成显示成功。
+ * 文本走 i18n 三语。
  */
 import { useCallback, useState } from 'react'
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView, Canvas } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { contractsApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
@@ -19,6 +21,12 @@ import './index.scss'
 const unwrap = (d: any): any => d?.data ?? d ?? {}
 
 const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '-')
+
+const today = () => {
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
 
 // 后端 ContractStatus / ContractSource 文案映射（key 需在 i18n 三语有值）
 const STATUS_META: Record<string, string> = {
@@ -43,6 +51,18 @@ const ROLE_META: Record<string, string> = {
   agent: 'contract.roleAgent'
 }
 
+// 签署区类型（法大大风格：手写 / 公章 / 日期）
+const FIELD_TYPE_META: Record<string, string> = {
+  signature: 'contract.field.signature',
+  seal: 'contract.field.seal',
+  date: 'contract.field.date'
+}
+
+const CANVAS_ID = 'mcSignCanvas'
+
+const isRealNameError = (e: any) =>
+  typeof e?.message === 'string' && e.message.toUpperCase().includes('REAL_NAME_REQUIRED')
+
 export default function MyContractsPage() {
   const { t } = useI18n()
   const user = useAuthStore((s) => s.user)
@@ -50,6 +70,8 @@ export default function MyContractsPage() {
   const [loading, setLoading] = useState(true)
   const [detail, setDetail] = useState<any>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  // 当前正在签署的签署区（null = 弹层关闭）
+  const [signTarget, setSignTarget] = useState<any | null>(null)
   const [signing, setSigning] = useState(false)
 
   const load = useCallback(async () => {
@@ -85,29 +107,87 @@ export default function MyContractsPage() {
     }
   }
 
-  // 当前用户对应且未签署的签署方（本人 = party.user_id 命中或 email 命中）
-  const myPendingParty = Array.isArray(detail?.parties)
-    ? detail.parties.find(
-        (p: any) =>
-          !p?.signed &&
-          (String(p?.user_id ?? '') === String(user?.id ?? '') ||
-            String(p?.email ?? '').toLowerCase() === String(user?.email ?? '').toLowerCase())
-      )
+  const isSelfParty = (p: any) =>
+    String(p?.user_id ?? '') === String(user?.id ?? '') ||
+    String(p?.email ?? '').toLowerCase() === String(user?.email ?? '').toLowerCase()
+
+  // 当前用户对应的签署方（可能有多个，取第一个匹配项）
+  const myParty = Array.isArray(detail?.parties)
+    ? detail.parties.find((p: any) => isSelfParty(p)) || null
     : null
 
-  const handleSign = async () => {
-    if (!detail?.id || !myPendingParty?.id || signing) return
+  // 本人生效的签署区
+  const myFields = Array.isArray(detail?.sign_fields)
+    ? detail.sign_fields.filter((f: any) => String(f?.party_id) === String(myParty?.id))
+    : []
+  const pendingMyFields = myFields.filter((f: any) => !f?.signed)
+  const allMineSigned = myFields.length > 0 && pendingMyFields.length === 0
+
+  const partyName = (partyId?: string) =>
+    (Array.isArray(detail?.parties) ? detail.parties.find((p: any) => String(p?.id) === String(partyId)) : null)?.name || t('contract.unknown')
+
+  const onFieldTap = (f: any) => {
+    if (!f?.id || f?.signed || signing) return
+    // 未实名外部 party：先提示需完成身份核验
+    if (!myParty?.real_name_verified) {
+      Taro.showToast({ title: t('contract.realNameRequired'), icon: 'none' })
+      return
+    }
+    setSignTarget(f)
+  }
+
+  const doSign = async () => {
+    if (!detail?.id || !signTarget?.id || signing) return
+    const fieldId = String(signTarget.id)
+    const method = String(signTarget.field_type || 'signature')
     setSigning(true)
     try {
-      await contractsApi.sign(detail.id, String(myPendingParty?.id))
+      await contractsApi.sign(detail.id, { fieldId, method })
       Taro.showToast({ title: t('contract.signDone'), icon: 'success' })
+      setSignTarget(null)
       await openDetail(detail.id)
       await load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.signSelf'), icon: 'none' })
+      if (isRealNameError(e)) {
+        Taro.showToast({ title: t('contract.realNameRequired'), icon: 'none' })
+      } else {
+        Taro.showToast({ title: e?.message || t('contract.signSelf'), icon: 'none' })
+      }
     } finally {
       setSigning(false)
     }
+  }
+
+  const clearCanvas = () => {
+    const ctx = Taro.createCanvasContext(CANVAS_ID)
+    ctx.clearRect(0, 0, 9999, 9999)
+    ctx.draw()
+  }
+
+  const startDraw = (e: any) => {
+    const ctx = Taro.createCanvasContext(CANVAS_ID)
+    ctx.setStrokeStyle('#1f2937')
+    ctx.setLineWidth(4)
+    ctx.setLineCap('round')
+    ctx.setLineJoin('round')
+    const t = e?.touches?.[0]
+    ctx.beginPath()
+    ctx.moveTo(t?.x ?? 0, t?.y ?? 0)
+    ctx.stroke()
+    ctx.draw(true)
+  }
+
+  const moveDraw = (e: any) => {
+    const t = e?.touches?.[0]
+    if (!t) return
+    const ctx = Taro.createCanvasContext(CANVAS_ID)
+    ctx.setStrokeStyle('#1f2937')
+    ctx.setLineWidth(4)
+    ctx.setLineCap('round')
+    ctx.setLineJoin('round')
+    ctx.lineTo(t.x, t.y)
+    ctx.stroke()
+    ctx.draw(true)
   }
 
   return (
@@ -162,9 +242,7 @@ export default function MyContractsPage() {
                 <Text className='mc-detail__section-title'>{t('contract.parties')}</Text>
                 {Array.isArray(detail?.parties) && detail.parties.length
                   ? detail.parties.map((p: any, idx: number) => {
-                      const isSelf =
-                        String(p?.user_id ?? '') === String(user?.id ?? '') ||
-                        String(p?.email ?? '').toLowerCase() === String(user?.email ?? '').toLowerCase()
+                      const isSelf = isSelfParty(p)
                       const statusText = p?.signed
                         ? t('contract.signed')
                         : p?.declined_at
@@ -203,15 +281,53 @@ export default function MyContractsPage() {
                               {t('contract.signedAt')}：{fmtDate(p.signed_at)}
                             </Text>
                           ) : null}
-                          {!!p?.decline_reason ? (
-                            <Text className='mc-party__meta'>
-                              {t('contract.declineReason')}：{p.decline_reason}
-                            </Text>
+                          {p?.real_name_verified === false && isSelf ? (
+                            <Text className='mc-party__meta mc-party__meta--warn'>{t('contract.realNameRequired')}</Text>
                           ) : null}
                         </View>
                       )
                     })
                   : <Text className='mc-state__text'>{t('contract.empty')}</Text>}
+              </View>
+
+              {/* ===== 签署区（法大大风格） ===== */}
+              <View className='mc-detail__section'>
+                <Text className='mc-detail__section-title'>{t('contract.signFields')}</Text>
+                {Array.isArray(detail?.sign_fields) && detail.sign_fields.length ? (
+                  detail.sign_fields.map((f: any, idx: number) => {
+                    const mine = String(f?.party_id) === String(myParty?.id)
+                    const clickable = mine && !f?.signed
+                    return (
+                      <View
+                        key={f?.id ?? idx}
+                        className={`mc-field ${mine ? 'mc-field--mine' : ''} ${f?.signed ? 'mc-field--done' : ''}`}
+                        onClick={() => clickable && onFieldTap(f)}
+                      >
+                        <View className='mc-field__head'>
+                          <View className='mc-field__id'>
+                            <Text className='mc-field__type'>{t(FIELD_TYPE_META[f?.field_type] || 'contract.field.signature')}</Text>
+                            <Text className='mc-field__party'>{partyName(f?.party_id)}</Text>
+                          </View>
+                          {f?.signed ? (
+                            <Text className='mc-badge mc-badge--success'>{t('contract.signed')}</Text>
+                          ) : clickable ? (
+                            <Text className='mc-badge mc-badge--warning'>{t('contract.tapToSign')}</Text>
+                          ) : (
+                            <Text className='mc-badge mc-badge--default'>{t('contract.unsigned')}</Text>
+                          )}
+                        </View>
+                        <Text className='mc-field__meta'>
+                          {t('contract.page')} {f?.page ?? 1} · X {f?.x ?? '-'} · Y {f?.y ?? '-'}
+                        </Text>
+                        {f?.signed && f?.signed_at ? (
+                          <Text className='mc-field__meta'>{t('contract.signedAt')}：{fmtDate(f.signed_at)}</Text>
+                        ) : null}
+                      </View>
+                    )
+                  })
+                ) : (
+                  <Text className='mc-state__text'>{t('contract.empty')}</Text>
+                )}
               </View>
 
               {!!detail?.content_html && (
@@ -270,24 +386,84 @@ export default function MyContractsPage() {
       {detail && (
         <View className='mc-footer'>
           <View
-            className={`mc-sign ${signing ? 'mc-sign--busy' : ''}`}
+            className={`mc-sign ${allMineSigned ? 'mc-sign--done' : ''}`}
             onClick={() => {
-              if (!myPendingParty || signing) return
-              void handleSign()
+              if (!pendingMyFields.length && !allMineSigned) return
+              if (allMineSigned) {
+                Taro.showToast({ title: t('contract.completedToast'), icon: 'none' })
+              } else {
+                Taro.showToast({ title: t('contract.tapToSign'), icon: 'none' })
+              }
             }}
           >
             <Text className='mc-sign__text'>
-              {myPendingParty
-                ? signing
-                  ? t('pub.loading')
-                  : t('contract.signSelf')
-                : detail?.status === 'voided'
-                  ? t('contract.status.voided')
-                  : t('contract.signed')}
+              {allMineSigned
+                ? t('contract.completedToast')
+                : pendingMyFields.length
+                  ? signing
+                    ? t('contract.signing')
+                    : t('contract.signRegion')
+                  : detail?.status === 'voided'
+                    ? t('contract.status.voided')
+                    : t('contract.unsigned')}
             </Text>
-            {(myPendingParty || signing) && (
+            {allMineSigned && (
               <View className='icon-svg' style={{ ...iconStyle('check', 30), marginLeft: '4rpx' }} />
             )}
+          </View>
+        </View>
+      )}
+
+      {/* ===== 签署弹层 ===== */}
+      {signTarget && (
+        <View className='mc-mask' onClick={() => { if (!signing) setSignTarget(null) }}>
+          <View className='mc-sheet' onClick={(e) => { if (typeof e === 'object') e.stopPropagation?.() }}>
+            <View className='mc-sheet__head'>
+              <Text className='mc-sheet__title'>
+                {t(FIELD_TYPE_META[signTarget?.field_type] || 'contract.field.signature')}
+              </Text>
+              <View className='mc-sheet__close' onClick={() => { if (!signing) setSignTarget(null) }}>
+                <View className='icon-svg' style={iconStyle('close', 30)} />
+              </View>
+            </View>
+
+            {signTarget?.field_type === 'signature' ? (
+              <>
+                <View className='mc-canvas-box'>
+                  <Canvas
+                    canvasId={CANVAS_ID}
+                    id={CANVAS_ID}
+                    className='mc-canvas'
+                    onTouchStart={startDraw}
+                    onTouchMove={moveDraw}
+                    onTouchEnd={() => {}}
+                  />
+                </View>
+                <View className='mc-sheet__actions'>
+                  <View className='mc-btn mc-btn--ghost' onClick={clearCanvas}>
+                    <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.clear')}</Text>
+                  </View>
+                </View>
+              </>
+            ) : signTarget?.field_type === 'date' ? (
+              <View className='mc-seal-wrap'>
+                <View className='mc-date-box'>
+                  <Text className='mc-date-text'>{today()}</Text>
+                </View>
+                <Text className='mc-sheet__hint'>{t('contract.autoDate')}</Text>
+              </View>
+            ) : (
+              <View className='mc-seal-wrap'>
+                <View className='mc-seal'>
+                  <Text className='mc-seal__text'>{partyName(signTarget?.party_id)}</Text>
+                  <Text className='mc-seal__sub'>{t('contract.sealSigner')}</Text>
+                </View>
+              </View>
+            )}
+
+            <View className={`mc-sheet__submit ${signing ? 'mc-sheet__submit--busy' : ''}`} onClick={() => { if (!signing) void doSign() }}>
+              <Text className='mc-sheet__submit-text'>{signing ? t('contract.signing') : t('contract.confirmSign')}</Text>
+            </View>
           </View>
         </View>
       )}

@@ -98,6 +98,8 @@ const Company = lazy(() => import('@/pages/Company'))
 // v1.8 增强页面
 const Chat = lazy(() => import('@/pages/Chat'))
 const Contracts = lazy(() => import('@/pages/Contracts'))
+// 合同验签页（员工查看验签报告；公开 token 亦可在登录态下核验）
+const Verify = lazy(() => import('@/pages/Verify'))
 
 // 根据角色重定向到对应首页
 const RoleRedirect = () => {
@@ -174,6 +176,7 @@ const App = () => {
             <Route path="/payments" element={<ProtectedRoute denyRoles={['tenant']}><Payments /></ProtectedRoute>} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/contracts" element={<ProtectedRoute denyRoles={['tenant']}><Contracts /></ProtectedRoute>} />
+            <Route path="/verify" element={<ProtectedRoute denyRoles={['tenant']}><Verify /></ProtectedRoute>} />
             <Route path="/employees" element={<ProtectedRoute denyRoles={['tenant']}><Employees /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute denyRoles={['tenant']}><Settings /></ProtectedRoute>} />
             <Route path="/viewings" element={<ProtectedRoute denyRoles={['tenant']}><Viewings /></ProtectedRoute>} />

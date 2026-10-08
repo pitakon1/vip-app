@@ -100,7 +100,7 @@ const BrokerAgreements = () => {
     if (!detail) return
     setSigning(true)
     try {
-      await contractsApi.sign(detail.id, party.id)
+      await contractsApi.sign(detail.id, { partyId: party.id })
       message.success(t('brokerAgreements.signOk'))
       const detailRes = await contractsApi.get(detail.id)
       const data = detailRes.data?.data ?? detailRes.data

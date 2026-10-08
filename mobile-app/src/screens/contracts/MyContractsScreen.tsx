@@ -21,12 +21,19 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import SignaturePad from '@/components/SignaturePad';
 import { contractsApi } from '@/services/api';
 import { notify, notifyError } from '@/utils/feedback';
 import { useAuthStore } from '@/stores/auth';
 import { useI18n } from '@/i18n';
 
 const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '-');
+
+const SIGN_TYPE_META: Record<string, { labelKey: string; icon: string }> = {
+  signature: { labelKey: 'contract.signType.signature', icon: 'create-outline' },
+  seal: { labelKey: 'contract.signType.seal', icon: 'business-outline' },
+  date: { labelKey: 'contract.signType.date', icon: 'calendar-outline' },
+};
 
 const SOURCE_META: Record<string, { labelKey: string; color: string; bg: string; icon: string }> = {
   generated: { labelKey: 'contract.sourceGenerated', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), icon: 'document-text-outline' },
@@ -60,6 +67,10 @@ export default function MyContractsScreen() {
 
   const [detail, setDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // 签署交互：当前正在签署的 field + 手写 SVG 结果
+  const [signField, setSignField] = useState<any>(null);
+  const [signatureSvg, setSignatureSvg] = useState('');
   const [signing, setSigning] = useState(false);
 
   const load = useCallback(async (silent = false) => {
@@ -95,32 +106,88 @@ export default function MyContractsScreen() {
     }
   }, [t]);
 
+  // 当前用户对应的签署方（party.user_id 命中或 email 命中）
+  const myParty = Array.isArray(detail?.parties)
+    ? detail.parties.find(
+        (p: any) =>
+          String(p?.user_id ?? '') === String(user?.id ?? '') ||
+          String(p?.email ?? '').toLowerCase() === String(user?.email ?? '').toLowerCase(),
+      )
+    : null;
+
+  const signFields: any[] = Array.isArray(detail?.sign_fields) ? detail.sign_fields : [];
+  const myFields = signFields.filter(
+    (f: any) => !!myParty && String(f?.party_id) === String(myParty?.id),
+  );
+  const myPendingFields = myFields.filter((f: any) => !f?.signed);
+  const mySignedFields = myFields.filter((f: any) => !!f?.signed);
+  const needsRealName = !!myParty && !myParty?.real_name_verified;
+  const remountPad = signField?.id ?? 'signature-pad';
+
   const handleSign = async () => {
-    if (!detail?.id) return;
-    const party = myPendingParty;
-    if (!party?.id || signing) return;
+    if (!detail?.id || !signField || signing) return;
+    const method = signField?.field_type || 'signature';
     setSigning(true);
     try {
-      await contractsApi.sign(detail.id, String(party.id));
-      notify(t('contract.signDone'));
+      await contractsApi.sign(detail.id, {
+        field_id: String(signField.id),
+        method,
+        ...(method === 'signature' && signatureSvg ? { signature_svg: signatureSvg } : {}),
+      });
+      notify(t('contract.signSingleDone'));
+      setSignField(null);
+      setSignatureSvg('');
       await openDetail(detail.id);
       await load(true);
-    } catch (e) {
-      notifyError(t('contract.signSelf'), e);
+    } catch (e: any) {
+      if (e?.response?.status === 403) {
+        notifyError(t('contract.realNameDenied'), e);
+      } else {
+        notifyError(t('contract.signSelf'), e);
+      }
     } finally {
       setSigning(false);
     }
   };
 
-  // 当前用户对应且未签署的签署方（本人 = party.user_id 命中或 email 命中）
-  const myPendingParty = Array.isArray(detail?.parties)
-    ? detail.parties.find(
-        (p: any) =>
-          !p?.signed &&
-          (String(p?.user_id ?? '') === String(user?.id ?? '') ||
-            String(p?.email ?? '').toLowerCase() === String(user?.email ?? '').toLowerCase()),
-      )
-    : null;
+  const openSignField = (f: any) => {
+    setSignatureSvg('');
+    setSignField(f);
+  };
+
+  // 渲染待签署 / 已签署的字段行
+  const renderSignField = (f: any, signed: boolean, idx: number) => {
+    const meta = SIGN_TYPE_META[f?.field_type ?? 'signature'] ?? SIGN_TYPE_META.signature;
+    return (
+      <TouchableOpacity
+        key={f?.id ?? idx}
+        style={styles.fieldCard}
+        activeOpacity={0.8}
+        disabled={signed}
+        onPress={() => openSignField(f)}
+      >
+        <Ionicons name={meta.icon as any} size={18} color={signed ? colors.success : colors.primary} />
+        <View style={styles.fieldBody}>
+          <Text style={styles.fieldTitle}>{t(meta.labelKey)}</Text>
+          {!!f?.page && (
+            <Text style={styles.fieldMeta}>
+              {t('contract.page')} {f.page}
+            </Text>
+          )}
+          {!!f?.signed_at && (
+            <Text style={styles.fieldMeta}>
+              {t('contract.signedAt')}：{fmtDate(f.signed_at)}
+            </Text>
+          )}
+        </View>
+        {signed ? (
+          <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+        ) : (
+          <Ionicons name="chevron-forward" size={18} color={colors.ink3} />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const renderSource = (source?: string) => {
     const meta = SOURCE_META[source ?? ''] ?? SOURCE_META.generated;
@@ -251,22 +318,86 @@ export default function MyContractsScreen() {
                   })
                 : <Text style={styles.partyNone}>{t('contract.empty')}</Text>}
 
-              {!!myPendingParty || signing ? (
-                <TouchableOpacity
-                  style={[styles.signBtn, signing && styles.btnDisabled]}
-                  activeOpacity={0.85}
-                  disabled={signing}
-                  onPress={handleSign}
-                >
-                  {signing ? (
-                    <ActivityIndicator color={colors.primaryForeground} />
+              {/* 我的签署区 */}
+              <Text style={styles.sectionTitle}>{t('contract.signFields')}</Text>
+              {myFields.length ? (
+                <>
+                  <Text style={styles.sectionSub}>{t('contract.myPendingSign')}</Text>
+                  {myPendingFields.length ? (
+                    myPendingFields.map((f: any, i: number) => renderSignField(f, false, i))
                   ) : (
-                    <Text style={styles.signBtnText}>{t('contract.signSelf')}</Text>
+                    <Text style={styles.partyNone}>{t('contract.noSignFields')}</Text>
                   )}
-                </TouchableOpacity>
-              ) : null}
+                  {!!mySignedFields.length && (
+                    <>
+                      <Text style={styles.sectionSub}>{t('contract.fieldDone')}</Text>
+                      {mySignedFields.map((f: any, i: number) => renderSignField(f, true, i))}
+                    </>
+                  )}
+                </>
+              ) : (
+                <Text style={styles.partyNone}>{t('contract.noSignFields')}</Text>
+              )}
+
+              {!!myPendingFields.length && (
+                <View style={styles.doneBanner}>
+                  <Ionicons name="thumbs-up-outline" size={16} color={colors.success} />
+                  <Text style={styles.doneBannerText}>{t('contract.signYourFieldsHint')}</Text>
+                </View>
+              )}
             </ScrollView>
           )}
+        </View>
+      </Modal>
+
+      {/* 签署弹窗（手写 / 公章 / 日期） */}
+      <Modal visible={!!signField} animationType="slide" transparent onRequestClose={() => setSignField(null)}>
+        <View style={styles.modalMask}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>{t('contract.signingTitle')}</Text>
+              <TouchableOpacity onPress={() => { setSignField(null); setSignatureSvg(''); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.ink2} />
+              </TouchableOpacity>
+            </View>
+            {needsRealName && (
+              <View style={styles.realNameBanner}>
+                <Ionicons name="person-circle-outline" size={16} color={colors.warning} />
+                <Text style={styles.realNameBannerText}>{t('contract.realNameNotice')}</Text>
+              </View>
+            )}
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {(signField?.field_type || 'signature') === 'signature' ? (
+                <SignaturePad
+                  key={remountPad}
+                  title={myParty?.name || t('contract.unknown')}
+                  onResult={setSignatureSvg}
+                />
+              ) : (signField?.field_type || 'signature') === 'seal' ? (
+                <View style={styles.typeBox}>
+                  <Ionicons name="business-outline" size={32} color={colors.primary} />
+                  <Text style={styles.typeBoxText}>{t('contract.sealSign')}</Text>
+                </View>
+              ) : (
+                <View style={styles.typeBox}>
+                  <Ionicons name="calendar-outline" size={32} color={colors.primary} />
+                  <Text style={styles.typeBoxText}>{t('contract.dateSign')}</Text>
+                </View>
+              )}
+              <TouchableOpacity
+                style={[styles.signBtn, signing && styles.btnDisabled]}
+                activeOpacity={0.85}
+                disabled={signing}
+                onPress={handleSign}
+              >
+                {signing ? (
+                  <ActivityIndicator color={colors.primaryForeground} />
+                ) : (
+                  <Text style={styles.signBtnText}>{t('contract.confirmSign')}</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
         </View>
       </Modal>
     </View>
@@ -319,4 +450,64 @@ const styles = StyleSheet.create({
   signBtn: { marginTop: 20, height: 50, borderRadius: colors.radius.lg, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...colors.shadow.primary },
   signBtnText: { fontSize: 16, fontWeight: '700', color: colors.primaryForeground },
   btnDisabled: { opacity: 0.6 },
+
+  /* 签署区 */
+  sectionSub: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginBottom: 8, marginTop: 4 },
+  fieldCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    padding: 12,
+    marginBottom: 8,
+  },
+  fieldBody: { flex: 1, minWidth: 0 },
+  fieldTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  fieldMeta: { fontSize: 12, color: colors.ink3, marginTop: 2 },
+  doneBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    padding: 10,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.alpha(colors.successRgb, 0.1),
+    marginTop: 4,
+  },
+  doneBannerText: { flex: 1, fontSize: 12, color: colors.success },
+
+  /* 签署弹窗 */
+  modalMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
+    padding: 20,
+    paddingBottom: 32,
+    maxHeight: '90%',
+  },
+  modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
+  realNameBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    padding: 12,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.alpha(colors.warningRgb, 0.12),
+    marginBottom: 14,
+  },
+  realNameBannerText: { flex: 1, fontSize: 13, color: colors.ink },
+  typeBox: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 32,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface2,
+  },
+  typeBoxText: { fontSize: 14, color: colors.ink2 },
 });

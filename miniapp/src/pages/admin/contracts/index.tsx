@@ -49,6 +49,15 @@ const ROLE_META: Record<string, string> = {
   agent: 'contract.roleAgent'
 }
 
+// 签署区类型（法大大风格：手写 / 公章 / 日期）
+const FIELD_TYPE_META: Record<string, string> = {
+  signature: 'contract.field.signature',
+  seal: 'contract.field.seal',
+  date: 'contract.field.date'
+}
+
+const FIELD_TYPES = ['signature', 'seal', 'date'] as const
+
 // 各模板的填充字段（与后端 esign_service.py 渲染函数 counters 保持一致）
 // lease → render_contract_html；purchase → render_purchase_html；broker → render_broker_protocol_html
 const TMPL_FIELDS: Record<string, { key: string; labelKey: string; numeric?: boolean }[]> = {
@@ -118,6 +127,20 @@ export default function AdminContractsPage() {
 
   // 动作级繁忙（link-send / send / upload）
   const [busyAct, setBusyAct] = useState<string | null>(null)
+
+  // 签署区（法大大风格）
+  const [showField, setShowField] = useState(false)
+  const [fieldForm, setFieldForm] = useState({
+    partyId: '',
+    fieldType: 'signature',
+    page: '1',
+    x: '300',
+    y: '800'
+  })
+  const [fieldBusy, setFieldBusy] = useState(false)
+  // 验签报告
+  const [verifyReport, setVerifyReport] = useState<any | null>(null)
+  const [verifyLoading, setVerifyLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -209,13 +232,109 @@ export default function AdminContractsPage() {
     if (!detail?.id) return
     setBusyAct('send')
     try {
-      await contractsApi.sendContract(detail.id, {})
+      await contractsApi.sendContract(detail.id, { channel: 'sms' })
       Taro.showToast({ title: t('contract.sendDone'), icon: 'success' })
       await openDetail(detail.id)
     } catch (e: any) {
       Taro.showToast({ title: e?.message || t('contract.sendNotice'), icon: 'none' })
     } finally {
       setBusyAct(null)
+    }
+  }
+
+  /* ===== 签署区（法大大风格） ===== */
+  const submitAddField = async () => {
+    if (!detail?.id || !fieldForm.partyId || !fieldForm.fieldType) {
+      Taro.showToast({ title: t('contract.insert'), icon: 'none' })
+      return
+    }
+    setFieldBusy(true)
+    try {
+      const page = Number(fieldForm.page) || 1
+      const x = Number(fieldForm.x) || 300
+      const y = Number(fieldForm.y) || 800
+      await contractsApi.saveSignFields(detail.id, [
+        {
+          party_id: fieldForm.partyId,
+          field_type: fieldForm.fieldType,
+          page,
+          x,
+          y,
+          w: fieldForm.fieldType === 'date' ? 150 : 200,
+          h: fieldForm.fieldType === 'date' ? 60 : 90,
+          required: true
+        }
+      ])
+      Taro.showToast({ title: t('contract.fieldSaved'), icon: 'success' })
+      setShowField(false)
+      setFieldForm({ partyId: '', fieldType: 'signature', page: '1', x: '300', y: '800' })
+      await openDetail(detail.id)
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.saveFields'), icon: 'none' })
+    } finally {
+      setFieldBusy(false)
+    }
+  }
+
+  const submitDefaultLayout = async () => {
+    if (!detail?.id) return
+    setFieldBusy(true)
+    try {
+      const parties = Array.isArray(detail.parties) ? detail.parties.filter((p: any) => !p?.signed && p?.id) : []
+      const fields: any[] = parties.flatMap((p: any, i: number) => {
+        const base = String(p.id)
+        const y = 600 + i * 200
+        const type =
+          p?.sign_method === 'seal'
+            ? 'seal'
+            : p?.sign_method === 'date'
+              ? 'date'
+              : 'signature'
+        return [
+          { party_id: base, field_type: type, page: 1, x: 300, y, w: 200, h: 90, required: true },
+          { party_id: base, field_type: 'date', page: 1, x: 520, y, w: 150, h: 60, required: true }
+        ]
+      })
+      if (!fields.length) {
+        Taro.showToast({ title: t('contract.empty'), icon: 'none' })
+        return
+      }
+      await contractsApi.saveSignFields(detail.id, fields)
+      Taro.showToast({ title: t('contract.fieldSaved'), icon: 'success' })
+      setShowField(false)
+      await openDetail(detail.id)
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.saveFields'), icon: 'none' })
+    } finally {
+      setFieldBusy(false)
+    }
+  }
+
+  const handleDeleteField = async (fieldId: string) => {
+    if (!detail?.id) return
+    setBusyAct(`del-${fieldId}`)
+    try {
+      await contractsApi.deleteSignField(detail.id, fieldId)
+      Taro.showToast({ title: t('contract.fieldDeleted'), icon: 'none' })
+      await openDetail(detail.id)
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.deleteField'), icon: 'none' })
+    } finally {
+      setBusyAct(null)
+    }
+  }
+
+  /* ===== 验签 ===== */
+  const handleVerify = async () => {
+    if (!detail?.id) return
+    setVerifyLoading(true)
+    try {
+      const res: any = await contractsApi.verify(detail.id)
+      setVerifyReport(unwrap(res))
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.verify'), icon: 'none' })
+    } finally {
+      setVerifyLoading(false)
     }
   }
 
@@ -352,6 +471,9 @@ export default function AdminContractsPage() {
     </View>
   )
 
+  const partyName = (partyId?: string) =>
+    (Array.isArray(detail?.parties) ? detail.parties.find((p: any) => String(p?.id) === String(partyId)) : null)?.name || t('contract.unknown')
+
   return (
     <View className='ac-page'>
       <ShellHeader title={t('contract.manage')} />
@@ -430,15 +552,63 @@ export default function AdminContractsPage() {
               })
             : <Text className='ac-state__text'>{t('contract.empty')}</Text>}
 
+          {/* ===== 签署区（法大大风格） ===== */}
+          <Text className='ac-detail__section-title'>{t('contract.signFields')}</Text>
+          {Array.isArray(detail?.sign_fields) && detail.sign_fields.length ? (
+            detail.sign_fields.map((f: any, idx: number) => {
+              const isSigned = !!f?.signed
+              return (
+                <View key={f?.id ?? idx} className='ac-party'>
+                  <View className='ac-party__head'>
+                    <View className='ac-party__id'>
+                      <Text className='ac-party__name'>{partyName(f?.party_id)}</Text>
+                      {renderBadge('ac-badge--primary', t(FIELD_TYPE_META[f?.field_type] || 'contract.field.signature'))}
+                    </View>
+                    {isSigned
+                      ? renderBadge('ac-badge--success', t('contract.signed'))
+                      : renderBadge('ac-badge--warning', t('contract.unsigned'))}
+                  </View>
+                  <Text className='ac-party__meta'>
+                    {t('contract.page')} {f?.page ?? 1} · X {f?.x ?? '-'} · Y {f?.y ?? '-'}
+                  </Text>
+                  {isSigned && f?.signed_at ? (
+                    <Text className='ac-party__meta'>{t('contract.signedAt')}：{fmtDate(f.signed_at)}</Text>
+                  ) : null}
+                  {canEdit && !isSigned && f?.id ? (
+                    <View className='ac-party__actions'>
+                      <View
+                        className={`ac-btn ac-btn--ghost ${busyAct === `del-${f.id}` ? 'ac-btn--disabled' : ''}`}
+                        onClick={() => handleDeleteField(String(f.id))}
+                      >
+                        <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.deleteField')}</Text>
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+              )
+            })
+          ) : (
+            <Text className='ac-state__text'>{t('contract.empty')}</Text>
+          )}
+
           {canEdit ? (
             <>
               <Text className='ac-detail__section-title'>{t('contract.manage')}</Text>
               <View className='ac-detail__actions'>
+                <View className='ac-btn ac-btn--ghost' onClick={() => setShowField(true)}>
+                  <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.addSignField')}</Text>
+                </View>
+                <View className={`ac-btn ac-btn--ghost ${fieldBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!fieldBusy) void submitDefaultLayout() }}>
+                  <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.defaultLayout')}</Text>
+                </View>
                 <View className={`ac-btn ac-btn--ghost ${busyAct === 'send' ? 'ac-btn--disabled' : ''}`} onClick={handleSend}>
                   <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.sendNotice')}</Text>
                 </View>
                 <View className='ac-btn ac-btn--ghost' onClick={() => setShowParty(true)}>
                   <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.addParty')}</Text>
+                </View>
+                <View className={`ac-btn ac-btn--ghost ${verifyLoading ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!verifyLoading) void handleVerify() }}>
+                  <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.verify')}</Text>
                 </View>
                 <View className='ac-btn ac-btn--ghost' onClick={startEdit}>
                   <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.edit')}</Text>
@@ -654,6 +824,111 @@ export default function AdminContractsPage() {
             <View className={`ac-submit ac-submit--danger ${voidBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!voidBusy) void doVoid() }}>
               <Text className='ac-submit__text'>{voidBusy ? t('pub.loading') : t('contract.void')}</Text>
             </View>
+          </View>
+        </View>
+      )}
+
+      {/* ===== 添加签署区弹层 ===== */}
+      {showField && (
+        <View className='ac-mask' onClick={() => setShowField(false)}>
+          <View className='ac-sheet' onClick={(e) => { if (typeof e === 'object') e.stopPropagation?.() }}>
+            <View className='ac-sheet__head'>
+              <Text className='ac-sheet__title'>{t('contract.addSignField')}</Text>
+              <View className='ac-sheet__close' onClick={() => setShowField(false)}>
+                <View className='icon-svg' style={iconStyle('close', 30)} />
+              </View>
+            </View>
+            <ScrollView scrollY>
+              <View className='ac-field'>
+                <Text className='ac-field__label'>{t('contract.parties')}</Text>
+                <View className='ac-lang-row'>
+                  {(Array.isArray(detail?.parties) ? detail.parties : []).map((p: any) => (
+                    <View
+                      key={p?.id}
+                      className={`ac-chip ${fieldForm.partyId === String(p?.id) ? 'ac-chip--active' : ''}`}
+                      onClick={() => setFieldForm({ ...fieldForm, partyId: String(p?.id) })}
+                    >
+                      <Text className='ac-chip__text'>{p?.name || t('contract.unknown')}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View className='ac-field'>
+                <Text className='ac-field__label'>{t('contract.fieldType')}</Text>
+                <View className='ac-lang-row'>
+                  {FIELD_TYPES.map((ft) => (
+                    <View
+                      key={ft}
+                      className={`ac-chip ${fieldForm.fieldType === ft ? 'ac-chip--active' : ''}`}
+                      onClick={() => setFieldForm({ ...fieldForm, fieldType: ft })}
+                    >
+                      <Text className='ac-chip__text'>{t(FIELD_TYPE_META[ft])}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View className='ac-field'>
+                <Text className='ac-field__label'>{t('contract.page')}</Text>
+                <Input className='ac-field__input' type='number' value={fieldForm.page} onInput={(e: any) => setFieldForm({ ...fieldForm, page: e.detail.value })} />
+              </View>
+              <View className='ac-field'>
+                <Text className='ac-field__label'>{t('contract.posX')}</Text>
+                <Input className='ac-field__input' type='number' value={fieldForm.x} onInput={(e: any) => setFieldForm({ ...fieldForm, x: e.detail.value })} />
+              </View>
+              <View className='ac-field'>
+                <Text className='ac-field__label'>{t('contract.posY')}</Text>
+                <Input className='ac-field__input' type='number' value={fieldForm.y} onInput={(e: any) => setFieldForm({ ...fieldForm, y: e.detail.value })} />
+              </View>
+            </ScrollView>
+            <View className={`ac-submit ${fieldBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!fieldBusy) void submitAddField() }}>
+              <Text className='ac-submit__text'>{fieldBusy ? t('pub.loading') : t('contract.saveFields')}</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* ===== 验签报告弹层 ===== */}
+      {verifyReport && (
+        <View className='ac-mask' onClick={() => setVerifyReport(null)}>
+          <View className='ac-sheet' onClick={(e) => { if (typeof e === 'object') e.stopPropagation?.() }}>
+            <View className='ac-sheet__head'>
+              <Text className='ac-sheet__title'>{t('contract.report')}</Text>
+              <View className='ac-sheet__close' onClick={() => setVerifyReport(null)}>
+                <View className='icon-svg' style={iconStyle('close', 30)} />
+              </View>
+            </View>
+            <ScrollView scrollY>
+              {field(
+                t('contract.tampered'),
+                verifyReport?.tampered ? t('contract.yes') : t('contract.no')
+              )}
+              {verifyReport?.document_hash
+                ? field(t('contract.documentHash'), String(verifyReport.document_hash), true)
+                : null}
+              {verifyReport?.sign_types_summary !== undefined && verifyReport?.sign_types_summary !== null
+                ? field(t('contract.signTypesSummary'), String(verifyReport.sign_types_summary), true)
+                : null}
+              <Text className='ac-detail__section-title'>{t('contract.signTypesSummary')}</Text>
+              {Array.isArray(verifyReport?.signatures) && verifyReport.signatures.length ? (
+                verifyReport.signatures.map((s: any, i: number) => (
+                  <View className='ac-party' key={i}>
+                    <View className='ac-party__head'>
+                      <View className='ac-party__id'>
+                        <Text className='ac-party__name'>{t(FIELD_TYPE_META[s?.method] || 'contract.field.signature')}</Text>
+                      </View>
+                      {s?.signature_success
+                        ? renderBadge('ac-badge--success', t('contract.signatureSuccess'))
+                        : renderBadge('ac-badge--error', t('contract.signatureFailed'))}
+                    </View>
+                    {s?.signed_at ? <Text className='ac-party__meta'>{t('contract.signedAt')}：{fmtDate(s.signed_at)}</Text> : null}
+                    {s?.ip ? <Text className='ac-party__meta'>{t('contract.signatureIp')}：{String(s.ip)}</Text> : null}
+                    {s?.signature_hash ? <Text className='ac-party__meta' selectable>{t('contract.signatureHash')}：{String(s.signature_hash)}</Text> : null}
+                  </View>
+                ))
+              ) : (
+                <Text className='ac-state__text'>{t('contract.empty')}</Text>
+              )}
+            </ScrollView>
           </View>
         </View>
       )}
