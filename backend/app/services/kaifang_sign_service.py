@@ -226,6 +226,27 @@ class KaifangSignEngine:
         img.save(out, "PNG")
         return out.getvalue()
 
+    # ---- 印模印章：把扫描的真实印章抠成透明底图（对应开放签「印模生成」） ----
+    def make_imprint_seal(self, image_bytes: bytes) -> bytes:
+        """扫描的真实章（白纸盖章）→ 自动透明化抠图 → 透明底印章 PNG。
+
+        以「近白背景」为透明，其余保留为印章本体。
+        """
+        if isinstance(image_bytes, memoryview):
+            image_bytes = image_bytes.tobytes()
+        src_img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+        src_img.thumbnail((800, 800))  # 限制尺寸，保证逐像素抠图性能
+        gray = src_img.convert("L")
+        # 白纸背景：亮度 > 200 → alpha=0；印章本体 → alpha=255
+        alpha = gray.point(lambda p: 0 if p > 200 else 255, mode="L")
+        src_img.putalpha(alpha)
+        bbox = src_img.getbbox()
+        if bbox:
+            src_img = src_img.crop(bbox)
+        out = io.BytesIO()
+        src_img.save(out, "PNG")
+        return out.getvalue()
+
     def render_contract_pdf(self, counters: Dict[str, Any], kind: str = "lease") -> bytes:
         """把内置合同模板渲染为 PDF 字节。
 
@@ -417,6 +438,31 @@ class KaifangSignEngine:
             return pix.tobytes("png")
         finally:
             doc.close()
+
+    def search_text(self, pdf_bytes: bytes, keyword: str) -> list:
+        """在 PDF 中查找关键字全部出现位置，返回页面百分比坐标（对应开放签「关键字签署」）。
+
+        返回 [{page, x, y, w, h, text}]，其中 x/y/w/h 均为 0-100 百分比
+        （以该页左上角为原点、印章/签名区左上角基准）。
+        """
+        import fitz
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        hits = []
+        try:
+            for pno in range(doc.page_count):
+                page = doc[pno]
+                for r in page.search_for(keyword):
+                    hits.append({
+                        "page": pno + 1,
+                        "x": round(r.x0 / page.rect.width * 100, 2),
+                        "y": round(r.y0 / page.rect.height * 100, 2),
+                        "w": round((r.x1 - r.x0) / page.rect.width * 100, 2),
+                        "h": round((r.y1 - r.y0) / page.rect.height * 100, 2),
+                        "text": keyword,
+                    })
+        finally:
+            doc.close()
+        return hits
 
     def verify_pdf(self, pdf_bytes: bytes) -> list:
         """校验 PDF 内嵌签名，返回每一条签名的完好性/可信性/签署主体。"""

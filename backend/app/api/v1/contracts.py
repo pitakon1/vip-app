@@ -52,6 +52,11 @@ from app.core.auth import (
     get_current_user_allow_query_token,
     require_employee,
 )
+from .auth import (
+    _consume_otp,
+    _issue_otp,
+    _send_code,
+)
 from app.core.uploads import resolve_stored_path, save_upload
 from app.db import get_session
 from app.models import (
@@ -392,11 +397,11 @@ def _issue_sign_token(party: ContractParty, expires_in_days: int) -> str:
 
 
 def _require_editable(contract: Contract) -> None:
-    """已签署/已作废的合同不允许再改内容或作废。"""
+    """已签署/已作废/已拒签的合同不允许再改内容或作废。"""
     if contract.status in (ContractStatus.signed, ContractStatus.completed):
         raise HTTPException(status_code=409, detail="Contract already signed")
-    if contract.status == ContractStatus.voided:
-        raise HTTPException(status_code=409, detail="Contract already voided")
+    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+        raise HTTPException(status_code=409, detail="Contract already finalized")
 
 
 @router.patch("/{contract_id}")
@@ -637,6 +642,232 @@ def void_contract(
     session.commit()
     session.refresh(contract)
     return {"id": str(contract.id), "status": contract.status.value}
+
+
+def _mask_contact(contact: str) -> str:
+    """手机号/邮箱脱敏，用于回显。"""
+    value = (contact or "").strip()
+    if not value:
+        return ""
+    if "@" in value:
+        local, _, domain = value.partition("@")
+        head = local[0] if len(local) >= 1 else ""
+        tail = "*" * max(1, len(local) - 1)
+        return f"{head}{tail}@{domain}"
+    digits = value
+    if len(digits) >= 7:
+        return f"{digits[:3]}****{digits[-4:]}"
+    return "*" * len(digits)
+
+
+def _party_contact(session: Session, party: ContractParty, user: Optional[User]) -> str:
+    """解析签署方用于意愿验证的联系方式：签署方手机/邮箱，其次登录账号联系方式。"""
+    if party.phone or party.email:
+        return (party.phone or party.email or "").strip()
+    if user is not None:
+        return (getattr(user, "phone", None) or getattr(user, "email", None) or "").strip()
+    return ""
+
+
+def _send_sign_intent_code(
+    session: Session, party: ContractParty, user: Optional[User]
+) -> str:
+    """向签署方联系方式下发「签署意愿验证码」，返回脱敏联系方式。"""
+    contact = _party_contact(session, party, user)
+    if not contact:
+        raise HTTPException(status_code=400, detail="No verifiable contact for this party")
+    channel = "email" if "@" in contact else "sms"
+    code = _issue_otp(session, contact, channel)
+    if not _send_code(contact, channel, code):
+        # 发码失败（多为未配短信/邮件凭据）：作废未消费的码，避免被撞库
+        raise HTTPException(status_code=503, detail="Code delivery unavailable")
+    return _mask_contact(contact)
+
+
+def _verify_sign_intent(
+    session: Session, party: ContractParty, user: Optional[User], code: Optional[str]
+) -> None:
+    """签署意愿二次验证：校验签署方收到的验证码。
+
+    - 无可用联系方式时无法验证（跳过，避免硬锁）；
+    - 有联系方式但未传 code 时给出明确提示；
+    - 校验失败/过期/超次数交由 `_consume_otp` 抛 4xx。
+    """
+    contact = _party_contact(session, party, user)
+    if not contact:
+        return
+    if not code:
+        raise HTTPException(status_code=400, detail="SIGN_INTENT_CODE_REQUIRED")
+    _consume_otp(session, contact, code)
+
+
+@router.post("/{contract_id}/sign-code")
+def send_sign_intent_code(
+    contract_id: uuid.UUID,
+    payload: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """为签署方下发「签署意愿验证码」（签前二次确认）。payload: {party_id}
+
+    与外端请求/身份认证分开——这是签署行为的独立意愿确认，随签署提交一起校验。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+        raise HTTPException(status_code=409, detail="Contract not signable")
+    party = _get_party(session, contract_id, payload.get("party_id"))
+    if user.role not in STAFF_ROLES and party.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not a party of this contract")
+    if party.signed:
+        raise HTTPException(status_code=409, detail="Party already signed")
+    masked = _send_sign_intent_code(session, party, user)
+    return {"sent": True, "to_masked": masked}
+
+
+@router.post("/{contract_id}/decline")
+def decline_contract(
+    contract_id: uuid.UUID,
+    payload: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """拒签：签署方拒签并填写原因。payload: {party_id, reason}
+
+    行为对齐开放签「拒签」：拒签方置 declined_at/decline_reason；
+    若再无其他必签未签方 → 合同状态置为 rejected（签署流程终止，不可恢复）。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+        raise HTTPException(status_code=409, detail="Contract not signable")
+    party = _get_party(session, contract_id, payload.get("party_id"))
+    if user.role not in STAFF_ROLES and party.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not a party of this contract")
+    if party.signed:
+        raise HTTPException(status_code=409, detail="Party already signed")
+    reason = (payload.get("reason") or "").strip()
+    if len(reason) > 2000:
+        raise HTTPException(status_code=400, detail="Reason too long")
+
+    party.declined_at = datetime.utcnow()
+    party.decline_reason = reason or None
+    session.add(party)
+    session.flush()
+
+    # 其他必签未签方（含任意归属、未拒签、未签）
+    remaining = session.exec(
+        select(ContractParty).where(
+            ContractParty.contract_id == contract.id,
+            ContractParty.id != party.id,
+            ContractParty.signed.is_(False),
+            ContractParty.declined_at.is_(None),
+        )
+    ).all()
+    if not remaining:
+        contract.status = ContractStatus.rejected
+        session.add(contract)
+    session.commit()
+    return {
+        "party_id": str(party.id),
+        "declined": True,
+        "contract_status": contract.status.value,
+        "reason": reason,
+    }
+
+
+@router.post("/{contract_id}/keyword-search")
+def keyword_sign_search(
+    contract_id: uuid.UUID,
+    payload: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """关键字签署：在合同 PDF 中查找关键字出现位置。payload: {keyword}
+
+    返回命中位置的页面百分比坐标候选，供「添加签署区」用关键字定位落框。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    keyword = (payload.get("keyword") or "").strip()
+    if not keyword:
+        raise HTTPException(status_code=400, detail="keyword is required")
+
+    from pathlib import Path
+
+    base = Path(getattr(contract, "pdf_path", None) or "")
+    if not base.exists():
+        base = Path(getattr(contract, "signed_pdf_path", None) or "")
+    if not base.exists():
+        raise HTTPException(status_code=404, detail="Contract PDF not found")
+
+    hits = kaifang_sign_service.get_engine().search_text(base.read_bytes(), keyword)
+    return {"keyword": keyword, "count": len(hits), "hits": hits}
+
+
+@router.post("/{contract_id}/keyword-fields")
+def keyword_sign_fields(
+    contract_id: uuid.UUID,
+    payload: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """关键字签署：按第一个（或指定 index）命中位置创建签署区字段。payload:
+    {keyword, party_id?, field_type?, index?}
+
+    字段坐标以页面百分比落库（与拖拽落框一致，required 保持默认 true）。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    _require_editable(contract)
+
+    from pathlib import Path
+
+    base = Path(getattr(contract, "pdf_path", None) or "")
+    if not base.exists():
+        base = Path(getattr(contract, "signed_pdf_path", None) or "")
+    if not base.exists():
+        raise HTTPException(status_code=404, detail="Contract PDF not found")
+
+    keyword = (payload.get("keyword") or "").strip()
+    if not keyword:
+        raise HTTPException(status_code=400, detail="keyword is required")
+    hits = kaifang_sign_service.get_engine().search_text(base.read_bytes(), keyword)
+    if not hits:
+        raise HTTPException(status_code=404, detail="Keyword not found in contract")
+
+    index = max(0, int(payload.get("index", 0) or 0))
+    if index >= len(hits):
+        raise HTTPException(status_code=400, detail="Index out of range")
+    hit = hits[index]
+
+    try:
+        field_type = SignFieldType(payload.get("field_type", "signature"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid field_type")
+
+    party_id = None
+    if payload.get("party_id"):
+        try:
+            party_id = uuid.UUID(str(payload["party_id"]))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=400, detail="Invalid party_id")
+
+    # 签名框建议尺寸：宽度取关键字宽，高度取等宽（印章/签名稍宽大）
+    w = max(hit["w"], 12.0)
+    h = max(hit["h"], 8.0)
+    field = ContractSignField(
+        contract_id=contract.id,
+        party_id=party_id,
+        field_type=field_type,
+        page=hit["page"],
+        x=hit["x"],
+        y=hit["y"],
+        w=w,
+        h=h,
+        required=True,
+        created_by=user.id,
+    )
+    session.add(field)
+    session.commit()
+    session.refresh(field)
+    return {"field": _serialize_sign_field(field), "keyword": keyword, "hit": hit}
 
 
 def _get_party(session: Session, contract_id: uuid.UUID, party_id_raw) -> ContractParty:
@@ -941,8 +1172,8 @@ def sign_contract(
     - IP 取真实请求来源，不再信任客户端自报。
     """
     contract = _get_visible_contract(session, user, contract_id)
-    if contract.status == ContractStatus.voided:
-        raise HTTPException(status_code=409, detail="Contract already voided")
+    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+        raise HTTPException(status_code=409, detail="Contract already finalized")
     party = _get_party(session, contract_id, payload.get("party_id"))
 
     if user.role not in STAFF_ROLES and party.user_id != user.id:
@@ -950,6 +1181,11 @@ def sign_contract(
         raise HTTPException(status_code=403, detail="Not a party of this contract")
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
+    if party.declined_at:
+        raise HTTPException(status_code=409, detail="Party already declined")
+
+    # 签前意愿二次验证：签署方需提供已下发的验证码
+    _verify_sign_intent(session, party, user, payload.get("code"))
 
     # P3 强制实名：登录态签署。
     # - 未绑定用户的外部签署方（员工代签）须先走公开端验证码实名；
@@ -1017,14 +1253,19 @@ def sign_self(
     import math
 
     contract = _get_visible_contract(session, user, contract_id)
-    if contract.status == ContractStatus.voided:
-        raise HTTPException(status_code=409, detail="Contract already voided")
+    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+        raise HTTPException(status_code=409, detail="Contract already finalized")
     party = _get_party(session, contract_id, payload.get("party_id"))
 
     if user.role not in STAFF_ROLES and party.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not a party of this contract")
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
+    if party.declined_at:
+        raise HTTPException(status_code=409, detail="Party already declined")
+
+    # 签前意愿二次验证：签署方需提供已下发的验证码
+    _verify_sign_intent(session, party, user, payload.get("code"))
 
     # 兼容「签区字段类型」与「签署方式」两种字符串：signature→手写、seal→公章、date→日期
     _method_map = {

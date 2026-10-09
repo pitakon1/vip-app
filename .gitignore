@@ -54,6 +54,8 @@ backend/contracts/
 backend/celerybeat-schedule*
 # 电子签引擎工作目录：签名 CA 私钥/证书/pfx，绝不能入库
 backend/sign-engine/
+# 电子签引擎自检/端到端测试产物（非源码）
+contract-templates/
 
 # ===== 日志 =====
 logs/

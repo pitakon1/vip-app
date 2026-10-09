@@ -229,8 +229,9 @@ export const contractsApi = {
     fetchPdfPageUrl(`/contracts/${id}/pdf-pages/${page}`),
   // 完整 PDF 下载/查看 URL（带 Bearer，需在请求层附加 token）
   pdfFileUrl: (id: string) => `/api/v1/contracts/${id}/pdf`,
-  // 登录态按字段签署：opts={fieldId?, method?, partyId?, signatureSvg?}
+  // 登录态按字段签署：opts={fieldId?, method?, partyId?, signatureSvg?, code?}
   // method ∈ personal_handwrite / personal_seal / company_seal / date
+  // code 为签前「签署意愿二次验证码」（POST /sign-code 下发），有联系方式时必传
   sign: (
     id: string,
     opts: {
@@ -238,6 +239,7 @@ export const contractsApi = {
       method?: string
       partyId?: string
       signatureSvg?: string
+      code?: string
     } = {},
   ) =>
     api.post(`/contracts/${id}/sign`, {
@@ -245,18 +247,49 @@ export const contractsApi = {
       ...(opts.fieldId ? { field_id: opts.fieldId } : {}),
       ...(opts.method ? { method: opts.method } : {}),
       ...(opts.signatureSvg ? { signature_svg: opts.signatureSvg } : {}),
+      ...(opts.code ? { code: opts.code } : {}),
     }),
+  // 签前下发「签署意愿验证码」（payload: {party_id}）→ {sent, to_masked}
+  signCode: (id: string, partyId: string) =>
+    api.post(`/contracts/${id}/sign-code`, { party_id: partyId }),
+  // 站内拒签（payload: {party_id, reason}）→ {party_id, declined, contract_status, reason}
+  decline: (id: string, partyId: string, reason: string) =>
+    api.post(`/contracts/${id}/decline`, { party_id: partyId, reason }),
+  // 关键字签署：查找关键字在 PDF 中的命中位置（payload: {keyword}）→ {count, hits}
+  keywordSearch: (id: string, keyword: string) =>
+    api.post(`/contracts/${id}/keyword-search`, { keyword }),
+  // 关键字签署：按命中位置创建签署区字段（payload: {keyword, party_id?, field_type?, index?}）
+  keywordFields: (id: string, data: RequestBody) =>
+    api.post(`/contracts/${id}/keyword-fields`, data),
   // 验签报告（员工）：GET /contracts/{id}/verify
   verify: (id: string) => api.get(`/contracts/${id}/verify`),
+}
+
+// 个人签名/印章资产库（「我的签名 / 印章」，仅本人可读写删）
+export const signAssetsApi = {
+  // GET /sign-assets?asset_type=handwrite|seal → SignAsset[]
+  list: (params?: QueryParams) => api.get('/sign-assets', { params }),
+  // 保存签名/印章（payload: {name, asset_type, source, data_url}）
+  create: (data: RequestBody) => api.post('/sign-assets', data),
+  // 印模印章：上传真实印章扫描图 → 自动透明抠图入库（payload: {name, image_base64}）
+  imprint: (data: RequestBody) => api.post('/sign-assets/imprint', data),
+  remove: (id: string) => api.delete(`/sign-assets/${id}`),
 }
 
 // 公共签署（匿名访问 /public/contract-sign，无鉴权，token 即访客身份）
 export const contractsPublicApi = {
   get: (token: string) => api.get(`/public/contract-sign/${token}`),
   fileUrl: (token: string) => `/api/v1/public/contract-sign/${token}/file`,
-  // data={name, id_number?, phone?, signature_svg?, field_id?, method?}
+  // data={name, id_number?, phone?, signature_svg?, field_id?, method?, code?}
+  // code 为签前「签署意愿验证码」（POST /send-sign-code 下发），有联系方式时必传
   submit: (token: string, data: RequestBody) =>
     api.post(`/public/contract-sign/${token}`, data),
+  // 签前下发「签署意愿验证码」（免登录，无 body）→ {sent, to_masked}
+  sendSignCode: (token: string) =>
+    api.post(`/public/contract-sign/${token}/send-sign-code`, {}),
+  // 免登录拒签（body: {reason}）→ {declined, contract_status, reason}
+  decline: (token: string, reason: string) =>
+    api.post(`/public/contract-sign/${token}/decline`, { reason }),
   // 实名认证第一步：向 contact（手机号/邮箱）发送验证码
   sendCode: (token: string, contact: string) =>
     api.post(`/public/contract-sign/${token}/send-code`, { contact }),

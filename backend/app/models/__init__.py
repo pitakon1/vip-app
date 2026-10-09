@@ -86,6 +86,9 @@ from .contract import (
     SignFieldType,
     SignMethod,
     SignatureRecord,
+    SignAsset,
+    SignAssetType,
+    SignAssetSource,
 )
 from .backup import BackupJob, BackupStatus, BackupType
 from .external_trip import ExternalTripApplication, TripStatus
@@ -235,6 +238,9 @@ __all__ = [
     "SignFieldType",
     "SignMethod",
     "SignatureRecord",
+    "SignAsset",
+    "SignAssetType",
+    "SignAssetSource",
     "BackupJob",
     "BackupStatus",
     "BackupType",

@@ -10,7 +10,7 @@
 import { useCallback, useState } from 'react'
 import { View, Text, ScrollView, Input, Textarea, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { contractsApi } from '@/services/api'
+import { contractsApi, signAssetsApi } from '@/services/api'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import ShellHeader from '@/components/ShellHeader'
 import BottomNav from '@/components/BottomNav'
@@ -32,6 +32,7 @@ const STATUS_META: Record<string, string> = {
   sent: 'contract.status.sent',
   partially_signed: 'contract.status.partially_signed',
   signed: 'contract.status.signed',
+  rejected: 'contract.status.rejected',
   voided: 'contract.status.voided',
   completed: 'contract.status.completed'
 }
@@ -144,6 +145,20 @@ export default function AdminContractsPage() {
   // 验签报告
   const [verifyReport, setVerifyReport] = useState<any | null>(null)
   const [verifyLoading, setVerifyLoading] = useState(false)
+
+  // ===== 关键字签署 =====
+  const [showKeyword, setShowKeyword] = useState(false)
+  const [keywordForm, setKeywordForm] = useState({ keyword: '', partyId: '', fieldType: 'signature' })
+  const [kwHits, setKwHits] = useState<any[]>([])
+  const [kwHitCount, setKwHitCount] = useState(0)
+  const [kwBusy, setKwBusy] = useState(false)
+  const [kwPlacing, setKwPlacing] = useState(false)
+
+  // ===== 拒签 =====
+  const [showDecline, setShowDecline] = useState(false)
+  const [declinePartyId, setDeclinePartyId] = useState('')
+  const [declineReason, setDeclineReason] = useState('')
+  const [declineBusy, setDeclineBusy] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -340,6 +355,88 @@ export default function AdminContractsPage() {
     }
   }
 
+  /* ===== 关键字签署 ===== */
+  const openKeyword = () => {
+    setShowKeyword(true)
+    setKeywordForm({ keyword: '', partyId: '', fieldType: 'signature' })
+    setKwHits([])
+    setKwHitCount(0)
+  }
+
+  const doKeywordSearch = async () => {
+    if (!detail?.id || !keywordForm.keyword.trim()) {
+      Taro.showToast({ title: t('contract.searchKeyword'), icon: 'none' })
+      return
+    }
+    setKwBusy(true)
+    try {
+      const res: any = await contractsApi.keywordSearch(detail.id, keywordForm.keyword.trim())
+      const d = unwrap(res)
+      const hits: any[] = Array.isArray(d?.hits) ? d.hits : []
+      setKwHits(hits)
+      setKwHitCount(Number(d?.count) || hits.length)
+      if (!hits.length) Taro.showToast({ title: t('contract.noKeywordMatch'), icon: 'none' })
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.searchKeyword'), icon: 'none' })
+    } finally {
+      setKwBusy(false)
+    }
+  }
+
+  // 关键字签署：按命中 index 建字段（不向用户暴露裸坐标，仅用命中项定位页）
+  const placeKeywordField = async (idx: number) => {
+    if (!detail?.id || !keywordForm.partyId || !keywordForm.fieldType) {
+      Taro.showToast({ title: t('contract.insert'), icon: 'none' })
+      return
+    }
+    setKwPlacing(true)
+    try {
+      await contractsApi.keywordFields(detail.id, {
+        keyword: keywordForm.keyword.trim(),
+        party_id: keywordForm.partyId,
+        field_type: keywordForm.fieldType,
+        index: idx
+      })
+      Taro.showToast({ title: t('contract.fieldPlaced'), icon: 'success' })
+      setShowKeyword(false)
+      await openDetail(detail.id)
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.createField'), icon: 'none' })
+    } finally {
+      setKwPlacing(false)
+    }
+  }
+
+  /* ===== 拒签 ===== */
+  const openDecline = () => {
+    setDeclinePartyId('')
+    setDeclineReason('')
+    setShowDecline(true)
+  }
+
+  const doDecline = async () => {
+    if (!detail?.id || !declinePartyId) {
+      Taro.showToast({ title: t('contract.parties'), icon: 'none' })
+      return
+    }
+    if (!declineReason.trim()) {
+      Taro.showToast({ title: t('contract.declineReasonRequired'), icon: 'none' })
+      return
+    }
+    setDeclineBusy(true)
+    try {
+      await contractsApi.decline(detail.id, declinePartyId, declineReason.trim())
+      Taro.showToast({ title: t('contract.declineDone'), icon: 'none' })
+      setShowDecline(false)
+      closeDetail()
+      await load()
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.decline'), icon: 'none' })
+    } finally {
+      setDeclineBusy(false)
+    }
+  }
+
   const handleDeleteField = async (fieldId: string) => {
     if (!detail?.id) return
     setBusyAct(`del-${fieldId}`)
@@ -493,7 +590,7 @@ export default function AdminContractsPage() {
     const cls =
       s === 'signed' || s === 'completed'
         ? 'ac-badge--success'
-        : s === 'voided'
+        : s === 'voided' || s === 'rejected'
           ? 'ac-badge--error'
           : s === 'draft'
             ? 'ac-badge--default'
@@ -635,6 +732,9 @@ export default function AdminContractsPage() {
                 <View className='ac-btn ac-btn--ghost' onClick={openField}>
                   <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.addSignField')}</Text>
                 </View>
+                <View className='ac-btn ac-btn--ghost' onClick={openKeyword}>
+                  <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.keywordSign')}</Text>
+                </View>
                 <View className={`ac-btn ac-btn--ghost ${fieldBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!fieldBusy) void submitDefaultLayout() }}>
                   <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.defaultLayout')}</Text>
                 </View>
@@ -655,6 +755,9 @@ export default function AdminContractsPage() {
                 </View>
                 <View className='ac-btn ac-btn--danger-outline' onClick={() => setShowVoid(true)}>
                   <Text className='ac-btn__text ac-btn__text--danger'>{t('contract.void')}</Text>
+                </View>
+                <View className='ac-btn ac-btn--danger-outline' onClick={openDecline}>
+                  <Text className='ac-btn__text ac-btn__text--danger'>{t('contract.decline')}</Text>
                 </View>
               </View>
             </>
@@ -866,6 +969,127 @@ export default function AdminContractsPage() {
             </View>
             <View className={`ac-submit ac-submit--danger ${voidBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!voidBusy) void doVoid() }}>
               <Text className='ac-submit__text'>{voidBusy ? t('pub.loading') : t('contract.void')}</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* ===== 关键字签署弹层 ===== */}
+      {showKeyword && (
+        <View className='ac-mask' onClick={() => setShowKeyword(false)}>
+          <View className='ac-sheet' onClick={(e) => { if (typeof e === 'object') e.stopPropagation?.() }}>
+            <View className='ac-sheet__head'>
+              <Text className='ac-sheet__title'>{t('contract.keywordSign')}</Text>
+              <View className='ac-sheet__close' onClick={() => setShowKeyword(false)}>
+                <View className='icon-svg' style={iconStyle('close', 30)} />
+              </View>
+            </View>
+            <ScrollView scrollY>
+              <View className='ac-field'>
+                <Text className='ac-field__label'>{t('contract.parties')}</Text>
+                <View className='ac-lang-row'>
+                  {(Array.isArray(detail?.parties) ? detail.parties : []).map((p: any) => (
+                    <View
+                      key={p?.id}
+                      className={`ac-chip ${keywordForm.partyId === String(p?.id) ? 'ac-chip--active' : ''}`}
+                      onClick={() => setKeywordForm({ ...keywordForm, partyId: String(p?.id) })}
+                    >
+                      <Text className='ac-chip__text'>{p?.name || t('contract.unknown')}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View className='ac-field'>
+                <Text className='ac-field__label'>{t('contract.fieldType')}</Text>
+                <View className='ac-lang-row'>
+                  {FIELD_TYPES.map((ft) => (
+                    <View
+                      key={ft}
+                      className={`ac-chip ${keywordForm.fieldType === ft ? 'ac-chip--active' : ''}`}
+                      onClick={() => setKeywordForm({ ...keywordForm, fieldType: ft })}
+                    >
+                      <Text className='ac-chip__text'>{t(FIELD_TYPE_META[ft])}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View className='ac-field'>
+                <Text className='ac-field__label'>{t('contract.searchKeyword')}</Text>
+                <View className='ac-lang-row'>
+                  <Input
+                    className='ac-field__input'
+                    value={keywordForm.keyword}
+                    placeholder={t('contract.keywordPlaceholder')}
+                    onInput={(e: any) => setKeywordForm({ ...keywordForm, keyword: e.detail.value })}
+                  />
+                  <View className={`ac-chip ${kwBusy ? 'ac-chip--disabled' : ''}`} onClick={() => { if (!kwBusy) void doKeywordSearch() }}>
+                    <Text className='ac-chip__text'>{t('contract.search')}</Text>
+                  </View>
+                </View>
+              </View>
+              {kwHits.length > 0 && (
+                <Text className='ac-hint'>{t('contract.keywordHit', { n: kwHitCount })}</Text>
+              )}
+              {kwHits.map((h: any, idx: number) => (
+                <View key={idx} className='ac-party'>
+                  <View className='ac-party__head'>
+                    <View className='ac-party__id'>
+                      <Text className='ac-party__name'>
+                        {t('contract.hitOnPage', { page: h?.page ?? 1 })}
+                      </Text>
+                    </View>
+                    <View
+                      className={`ac-chip ${kwPlacing ? 'ac-chip--disabled' : ''}`}
+                      onClick={() => { if (!kwPlacing) void placeKeywordField(idx) }}
+                    >
+                      <Text className='ac-chip__text'>{t('contract.createField')}</Text>
+                    </View>
+                  </View>
+                  {h?.text ? (
+                    <Text className='ac-party__meta' numberOfLines={1} userSelect>{String(h.text)}</Text>
+                  ) : null}
+                </View>
+              ))}
+            </ScrollView>
+            <View className={`ac-submit ${kwBusy || kwPlacing ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!kwBusy && !kwPlacing) setShowKeyword(false) }}>
+              <Text className='ac-submit__text'>{t('common.back')}</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* ===== 拒签弹层 ===== */}
+      {showDecline && (
+        <View className='ac-mask' onClick={() => setShowDecline(false)}>
+          <View className='ac-sheet' onClick={(e) => { if (typeof e === 'object') e.stopPropagation?.() }}>
+            <View className='ac-sheet__head'>
+              <Text className='ac-sheet__title'>{t('contract.declineTitle')}</Text>
+              <View className='ac-sheet__close' onClick={() => setShowDecline(false)}>
+                <View className='icon-svg' style={iconStyle('close', 30)} />
+              </View>
+            </View>
+            <ScrollView scrollY>
+              <View className='ac-field'>
+                <Text className='ac-field__label'>{t('contract.parties')}</Text>
+                <View className='ac-lang-row'>
+                  {(Array.isArray(detail?.parties) ? detail.parties : []).map((p: any) => (
+                    <View
+                      key={p?.id}
+                      className={`ac-chip ${declinePartyId === String(p?.id) ? 'ac-chip--active' : ''}`}
+                      onClick={() => setDeclinePartyId(String(p?.id))}
+                    >
+                      <Text className='ac-chip__text'>{p?.name || t('contract.unknown')}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <Text className='ac-hint'>{t('contract.declineConfirm')}</Text>
+              <View className='ac-field'>
+                <Input className='ac-field__input' value={declineReason} placeholder={t('contract.declineReasonRequired')} onInput={(e: any) => setDeclineReason(e.detail.value)} />
+              </View>
+            </ScrollView>
+            <View className={`ac-submit ac-submit--danger ${declineBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!declineBusy) void doDecline() }}>
+              <Text className='ac-submit__text'>{declineBusy ? t('pub.loading') : t('contract.decline')}</Text>
             </View>
           </View>
         </View>

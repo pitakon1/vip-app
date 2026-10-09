@@ -298,11 +298,24 @@ export const contractsApi = {
   addParty: (id: string, data: any) => api.post(`/contracts/${id}/parties`, data),
   // 法大大风格签署：按「签署区 sign_field」签署，body 传 field_id + method（signature/seal/date），
   // 手写时附带 signature_svg。method 与后端 sign_method 枚举一致。
-  sign: (id: string, data: { field_id: string; method: string; signature_svg?: string }) =>
+  // 签署意愿二次验证（开放签对齐）：须带 code（未带后端返回 400 SIGN_INTENT_CODE_REQUIRED）。
+  sign: (id: string, data: { field_id: string; method: string; signature_svg?: string; code?: string }) =>
     api.post(`/contracts/${id}/sign`, data),
-  // 签署方自由拖签：在 PDF 任意位置「落区并签」（无需预置签署框）
-  signSelf: (id: string, data: { party_id: string; page: number; x: number; y: number; w: number; h: number; method: string; signature_svg?: string }) =>
+  // 签署方自由拖签：在 PDF 任意位置「落区并签」（无需预置签署框）。同样须带 code。
+  signSelf: (id: string, data: { party_id: string; page: number; x: number; y: number; w: number; h: number; method: string; signature_svg?: string; code?: string }) =>
     api.post(`/contracts/${id}/sign-self`, data),
+  // 签署意愿二次验证：签前向签署方发送验证码（返回脱敏联系方式 to_masked）
+  signCode: (id: string, partyId: string) =>
+    api.post(`/contracts/${id}/sign-code`, { party_id: partyId }),
+  // 站内拒签（员工/签署方可拒签指定签署方）
+  decline: (id: string, partyId: string, reason: string) =>
+    api.post(`/contracts/${id}/decline`, { party_id: partyId, reason }),
+  // 关键字签署：在 PDF 里检索关键字命中位置（坐标 0-100 百分比，返回后按语义化「第N页」展示）
+  keywordSearch: (id: string, keyword: string) =>
+    api.post(`/contracts/${id}/keyword-search`, { keyword }),
+  // 关键字签署：基于命中位置建立签署字段（party_id / field_type / index 可选）
+  keywordFields: (id: string, data: { keyword: string; party_id?: string; field_type?: string; index?: number }) =>
+    api.post(`/contracts/${id}/keyword-fields`, data),
   // 管理端维护签署区：批量新增 / 删除未签签署框
   saveSignFields: (id: string, fields: any[]) =>
     api.post(`/contracts/${id}/sign-fields`, { fields }),
@@ -333,6 +346,29 @@ export const contractsApi = {
   // 作废（员工）
   voidContract: (id: string, reason?: string) =>
     api.post(`/contracts/${id}/void`, reason ? { reason } : {}),
+};
+
+// 签名资产库「我的签名/印章」（本人）：asset_type=handwrite(手写签名)|seal(印章)
+export interface SignAsset {
+  id: string;
+  name: string;
+  asset_type: 'handwrite' | 'seal';
+  source: 'drew' | 'upload' | 'imprint';
+  data_url: string;
+  created_at?: string;
+}
+
+export const signAssetsApi = {
+  // 我的签名/印章列表（可按类型过滤）
+  list: (assetType?: string) =>
+    api.get('/sign-assets', { params: assetType ? { asset_type: assetType } : {} }),
+  // 新建签名/印章资产（手写签名走 source=drew，data_url 为 data:image/... 数据 URL）
+  create: (data: { name: string; asset_type: string; source: string; data_url: string }) =>
+    api.post('/sign-assets', data),
+  // 印模盖章：上传扫描印章原图（raw base64），后端自动透明抠图生成印章资产
+  imprint: (data: { name: string; image_base64: string }) =>
+    api.post('/sign-assets/imprint', data),
+  remove: (id: string) => api.delete(`/sign-assets/${id}`),
 };
 
 export const geoApi = {

@@ -26,6 +26,7 @@ from .billing import router as billing_router
 from .chat import router as chat_router
 from .contracts import router as contracts_router
 from .contract_sign_public import router as contract_sign_public_router
+from .sign_assets import router as sign_assets_router
 from .ai import router as ai_router
 from .backup import router as backup_router
 from .geo import router as geo_router
@@ -80,6 +81,7 @@ api_router.include_router(billing_router)
 api_router.include_router(chat_router)
 api_router.include_router(contracts_router)
 api_router.include_router(contract_sign_public_router)
+api_router.include_router(sign_assets_router)
 api_router.include_router(ai_router)
 api_router.include_router(backup_router)
 api_router.include_router(geo_router)

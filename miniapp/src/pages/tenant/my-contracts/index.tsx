@@ -7,10 +7,10 @@
  * 后端 403 REAL_NAME_REQUIRED 亦作同样提示。全部本人签署区完成显示成功。
  * 文本走 i18n 三语。
  */
-import { useCallback, useState } from 'react'
-import { View, Text, ScrollView, Canvas, Image } from '@tarojs/components'
+import { useCallback, useEffect, useState } from 'react'
+import { View, Text, ScrollView, Canvas, Image, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { contractsApi } from '@/services/api'
+import { contractsApi, signAssetsApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
 import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
@@ -34,6 +34,7 @@ const STATUS_META: Record<string, string> = {
   sent: 'contract.status.sent',
   partially_signed: 'contract.status.partially_signed',
   signed: 'contract.status.signed',
+  rejected: 'contract.status.rejected',
   voided: 'contract.status.voided',
   completed: 'contract.status.completed'
 }
@@ -82,6 +83,32 @@ export default function MyContractsPage() {
   // PDF 页图预览：pdf_available 为真时以页图作为签署画布
   const [pdfAvailable, setPdfAvailable] = useState(false)
   const [pdfNumPages, setPdfNumPages] = useState(0)
+
+  // ===== 签署意愿二次验证 =====
+  const [intentCode, setIntentCode] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
+  const [codeCooldown, setCodeCooldown] = useState(0)
+  const [codeBusy, setCodeBusy] = useState(false)
+
+  // ===== 拒签 =====
+  const [showDecline, setShowDecline] = useState(false)
+  const [declineReason, setDeclineReason] = useState('')
+  const [declineBusy, setDeclineBusy] = useState(false)
+
+  // ===== 签名资产库（本人可复用） =====
+  const [signAssets, setSignAssets] = useState<any[]>([])
+  const [selectedAssetId, setSelectedAssetId] = useState('')
+
+  // 打开签署弹层时按签署类型加载签名库
+  useEffect(() => {
+    if (!signTarget) {
+      setSignAssets([])
+      setSelectedAssetId('')
+      return
+    }
+    loadSignAssets()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signTarget])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -137,6 +164,17 @@ export default function MyContractsPage() {
   const partyName = (partyId?: string) =>
     (Array.isArray(detail?.parties) ? detail.parties.find((p: any) => String(p?.id) === String(partyId)) : null)?.name || t('contract.unknown')
 
+  // 加载本人签名资产库（按签署类型过滤：签名 → handwrite，公章/日期 → seal）
+  const loadSignAssets = useCallback(() => {
+    const type = signTarget?.field_type === 'signature' ? 'handwrite' : 'seal'
+    signAssetsApi
+      .list(type)
+      .then((res: any) => {
+        setSignAssets(Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [])
+      })
+      .catch(() => setSignAssets([]))
+  }, [signTarget?.field_type])
+
   const onFieldTap = (f: any) => {
     if (!f?.id || f?.signed || signing) return
     // 未实名外部 party：先提示需完成身份核验
@@ -144,28 +182,99 @@ export default function MyContractsPage() {
       Taro.showToast({ title: t('contract.realNameRequired'), icon: 'none' })
       return
     }
+    setIntentCode('')
+    setCodeSent(false)
+    setCodeCooldown(0)
     setSignTarget(f)
   }
+
+  // 签署意愿二次验证：向后端申请下发签署验证码（本人 party）
+  const sendIntentCode = async () => {
+    if (!detail?.id || !myParty?.id) {
+      Taro.showToast({ title: t('contract.partyRequired'), icon: 'none' })
+      return
+    }
+    setCodeBusy(true)
+    try {
+      await contractsApi.signCode(detail.id, String(myParty.id))
+      setCodeSent(true)
+      setCodeCooldown(60)
+      Taro.showToast({ title: t('contract.codeSentTo'), icon: 'success' })
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.getCode'), icon: 'none' })
+    } finally {
+      setCodeBusy(false)
+    }
+  }
+
+  // 倒计时：让「获取/重新发送」按钮显示剩余秒数
+  useEffect(() => {
+    if (codeCooldown <= 0) return
+    const timer = setTimeout(() => setCodeCooldown((c) => Math.max(0, c - 1)), 1000)
+    return () => clearTimeout(timer)
+  }, [codeCooldown])
 
   const doSign = async () => {
     if (!detail?.id || !signTarget?.id || signing) return
     const fieldId = String(signTarget.id)
     const method = String(signTarget.field_type || 'signature')
+    // 签署意愿二次验证：未带验证码的签署请求会被后端拒绝（SIGN_INTENT_CODE_REQUIRED）
+    if (!intentCode.trim() || !codeSent) {
+      Taro.showToast({ title: t('contract.sendCodeFirst'), icon: 'none' })
+      return
+    }
     setSigning(true)
     try {
-      await contractsApi.sign(detail.id, { fieldId, method })
+      await contractsApi.sign(detail.id, {
+        fieldId,
+        method,
+        code: intentCode.trim(),
+        partyId: String(myParty?.id ?? '')
+      })
       Taro.showToast({ title: t('contract.signDone'), icon: 'success' })
       setSignTarget(null)
+      setIntentCode('')
+      setCodeSent(false)
+      setCodeCooldown(0)
       await openDetail(detail.id)
       await load()
     } catch (e: any) {
       if (isRealNameError(e)) {
         Taro.showToast({ title: t('contract.realNameRequired'), icon: 'none' })
       } else {
-        Taro.showToast({ title: e?.message || t('contract.signSelf'), icon: 'none' })
+        Taro.showToast({ title: e?.message || t('contract.confirmSignCode'), icon: 'none' })
       }
     } finally {
       setSigning(false)
+    }
+  }
+
+  // ===== 拒签（本人） =====
+  const openDecline = () => {
+    setDeclineReason('')
+    setShowDecline(true)
+  }
+
+  const doDecline = async () => {
+    if (!detail?.id || !myParty?.id) {
+      Taro.showToast({ title: t('contract.partyRequired'), icon: 'none' })
+      return
+    }
+    if (!declineReason.trim()) {
+      Taro.showToast({ title: t('contract.declineReasonRequired'), icon: 'none' })
+      return
+    }
+    setDeclineBusy(true)
+    try {
+      await contractsApi.decline(detail.id, String(myParty.id), declineReason.trim())
+      Taro.showToast({ title: t('contract.declineDone'), icon: 'none' })
+      setShowDecline(false)
+      await openDetail(detail.id)
+      await load()
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.decline'), icon: 'none' })
+    } finally {
+      setDeclineBusy(false)
     }
   }
 
@@ -446,6 +555,11 @@ export default function MyContractsPage() {
 
       {detail && (
         <View className='mc-footer'>
+          {myParty && !myParty?.signed && !myParty?.declined_at && pendingMyFields.length > 0 && (
+            <View className={`mc-btn mc-btn--ghost mc-footer__decline ${declineBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!declineBusy) openDecline() }}>
+              <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.decline')}</Text>
+            </View>
+          )}
           <View
             className={`mc-sign ${allMineSigned ? 'mc-sign--done' : ''}`}
             onClick={() => {
@@ -522,8 +636,78 @@ export default function MyContractsPage() {
               </View>
             )}
 
+            {/* 签名库复用：展示本人可用签名/印章，选择后作为本次签署对象 */}
+            <View className='mc-sheet__assets'>
+              <Text className='mc-sheet__hint'>{t('contract.chooseFromLibrary')}</Text>
+              {signAssets.length ? (
+                <View className='mc-asset-row'>
+                  {signAssets.map((a: any) => (
+                    <Image
+                      key={a?.id}
+                      className={`mc-asset ${selectedAssetId === String(a?.id) ? 'mc-asset--active' : ''}`}
+                      src={a?.data_url}
+                      mode='aspectFit'
+                      onClick={() => setSelectedAssetId(String(a?.id))}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <Text className='mc-sheet__hint mc-sheet__hint--muted'>{t('contract.emptyAsset')}</Text>
+              )}
+            </View>
+
+            {/* 签署意愿二次验证：发码 → 输入验证码 → 带 code 签署 */}
+            <View className='mc-sheet__verify'>
+              <Text className='mc-sheet__hint'>{t('contract.verifyCode')}</Text>
+              <Text className='mc-sheet__hint mc-sheet__hint--muted'>{t('contract.verifyDesc')}</Text>
+              <View className='mc-verify-row'>
+                <Input
+                  className='mc-verify-input'
+                  placeholder={t('contract.codePlaceholder')}
+                  value={intentCode}
+                  onInput={(e: any) => setIntentCode(e.detail.value)}
+                />
+                <View
+                  className={`mc-btn ${codeBusy || codeCooldown > 0 ? 'mc-btn--disabled' : ''}`}
+                  onClick={() => { if (!codeBusy && codeCooldown <= 0) void sendIntentCode() }}
+                >
+                  <Text className='mc-btn__text'>
+                    {codeCooldown > 0
+                      ? t('contract.codeCooldown', { n: codeCooldown })
+                      : (codeSent ? t('contract.resendCode') : t('contract.getCode'))}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
             <View className={`mc-sheet__submit ${signing ? 'mc-sheet__submit--busy' : ''}`} onClick={() => { if (!signing) void doSign() }}>
               <Text className='mc-sheet__submit-text'>{signing ? t('contract.signing') : t('contract.confirmSign')}</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* ===== 拒签弹层 ===== */}
+      {showDecline && (
+        <View className='mc-mask' onClick={() => { if (!declineBusy) setShowDecline(false) }}>
+          <View className='mc-sheet' onClick={(e) => { if (typeof e === 'object') e.stopPropagation?.() }}>
+            <View className='mc-sheet__head'>
+              <Text className='mc-sheet__title'>{t('contract.declineTitle')}</Text>
+              <View className='mc-sheet__close' onClick={() => { if (!declineBusy) setShowDecline(false) }}>
+                <View className='icon-svg' style={iconStyle('close', 30)} />
+              </View>
+            </View>
+            <Text className='mc-sheet__hint'>{t('contract.declineConfirm')}</Text>
+            <View className='mc-sheet__verify'>
+              <Input
+                className='mc-verify-input'
+                placeholder={t('contract.declineReasonRequired')}
+                value={declineReason}
+                onInput={(e: any) => setDeclineReason(e.detail.value)}
+              />
+            </View>
+            <View className={`mc-sheet__submit ${declineBusy ? 'mc-sheet__submit--busy' : ''}`} onClick={() => { if (!declineBusy) void doDecline() }}>
+              <Text className='mc-sheet__submit-text'>{declineBusy ? t('pub.loading') : t('contract.decline')}</Text>
             </View>
           </View>
         </View>

@@ -85,10 +85,12 @@ def _resolve_party(session: Session, token: str) -> ContractParty:
         raise HTTPException(status_code=410, detail="Link expired")
     if party.signed:
         raise HTTPException(status_code=409, detail="Already signed")
+    if party.declined_at:
+        raise HTTPException(status_code=409, detail="Already declined")
     contract = session.get(Contract, party.contract_id)
     if not contract or contract.deleted_at:
         raise HTTPException(status_code=404, detail="Contract not found")
-    if contract.status == ContractStatus.voided:
+    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
         raise HTTPException(status_code=409, detail="Contract voided")
     return party
 
@@ -378,6 +380,70 @@ def verify_identity(
     }
 
 
+def _sign_contact(party) -> str:
+    """该签署方用于意愿验证的联系方式（手机/邮箱）。"""
+    return (party.phone or party.email or "").strip()
+
+
+@router.post("/{token}/send-sign-code")
+@limiter.limit(AUTH_LIMIT)
+def send_sign_intent_code(
+    token: str,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    """签署前下发「签署意愿验证码」（免登录）。body: {} 或 {contact}
+    复用 auth OTP 链路，随提交签署一起校验。
+    """
+    party = _resolve_party(session, token)
+    contact = _sign_contact(party)
+    if not contact:
+        raise HTTPException(status_code=400, detail="No verifiable contact for this party")
+    channel = "email" if "@" in contact else "sms"
+    code = _issue_otp(session, contact, channel)
+    if not _send_code(contact, channel, code):
+        raise HTTPException(status_code=503, detail="Code delivery unavailable")
+    return {"sent": True, "to_masked": _mask_contact(contact)}
+
+
+@router.post("/{token}/decline")
+@limiter.limit(AUTH_LIMIT)
+def decline_contract(
+    token: str,
+    payload: dict,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    """拒签（免登录）。body: {reason}
+
+    拒签方置 declined_at/decline_reason；无其他必签未签方 → 合同置 rejected。
+    """
+    party = _resolve_party(session, token)
+    contract = session.get(Contract, party.contract_id)
+    reason = (payload.get("reason") or "").strip()
+    if len(reason) > 2000:
+        raise HTTPException(status_code=400, detail="Reason too long")
+
+    party.declined_at = datetime.utcnow()
+    party.decline_reason = reason or None
+    session.add(party)
+    session.flush()
+
+    remaining = session.exec(
+        select(ContractParty).where(
+            ContractParty.contract_id == contract.id,
+            ContractParty.id != party.id,
+            ContractParty.signed.is_(False),
+            ContractParty.declined_at.is_(None),
+        )
+    ).all()
+    if not remaining:
+        contract.status = ContractStatus.rejected
+        session.add(contract)
+    session.commit()
+    return {"declined": True, "contract_status": contract.status.value, "reason": reason}
+
+
 @router.post("/{token}")
 @limiter.limit(AUTH_LIMIT)
 def submit_signature(
@@ -386,10 +452,10 @@ def submit_signature(
     request: Request,
     session: Session = Depends(get_session),
 ):
-    """提交签署。payload: {name, id_number?, phone?, signature_svg?}
+    """提交签署。payload: {name, id_number?, phone?, signature_svg?, code}
 
     `signature_svg` 由客户端手写画布生成；未提供时用服务端渲染的签名替身
-    （与站内签署口径一致）。
+    （与站内签署口径一致）。`code` 为签前意愿二次验证码，必传（有手机/邮箱时）。
     """
     party = _resolve_party(session, token)
     contract = session.get(Contract, party.contract_id)
@@ -397,6 +463,14 @@ def submit_signature(
     # P3 强制实名：未登录签署方须先完成实名认证才能签署
     if not _has_real_name(party):
         raise HTTPException(status_code=403, detail="REAL_NAME_REQUIRED")
+
+    # 签前意愿二次验证：有手机/邮箱时须校验验证码
+    contact = _sign_contact(party)
+    if contact:
+        code = (payload.get("code") or "").strip()
+        if not code:
+            raise HTTPException(status_code=400, detail="SIGN_INTENT_CODE_REQUIRED")
+        _consume_otp(session, contact, code)
 
     name = (payload.get("name") or "").strip()
     if name:

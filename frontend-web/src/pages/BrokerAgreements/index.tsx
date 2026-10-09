@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { message, Modal, Spin, Steps } from 'antd'
+import { Button, Input, message, Modal, Spin, Steps } from 'antd'
 import { brokerApi, brokerAgreementsApi, contractsApi } from '@/services/api'
 import './agreements.css'
 
@@ -37,6 +37,12 @@ const BrokerAgreements = () => {
   const [detail, setDetail] = useState<ContractDetail | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [signing, setSigning] = useState(false)
+  // 签前意愿验证（对齐开放签）
+  const [pendingParty, setPendingParty] = useState<ContractParty | null>(null)
+  const [intentOpen, setIntentOpen] = useState(false)
+  const [intentCode, setIntentCode] = useState('')
+  const [codeSentTo, setCodeSentTo] = useState<string | null>(null)
+  const [sendingCode, setSendingCode] = useState(false)
 
   // 协议文案随语言切换重建（角色/键仍是固定枚举）
   const agreementItems = useMemo(
@@ -96,11 +102,39 @@ const BrokerAgreements = () => {
     }
   }
 
+  const requestIntentCode = async () => {
+    if (!detail || !pendingParty || sendingCode) return
+    setSendingCode(true)
+    try {
+      const r = await contractsApi.signCode(detail.id, pendingParty.id)
+      setCodeSentTo(r.data?.to_masked)
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || t('contracts.errCode'))
+    } finally {
+      setSendingCode(false)
+    }
+  }
+
   const handleSignParty = async (party: ContractParty) => {
     if (!detail) return
+    setPendingParty(party)
+    setIntentCode('')
+    setCodeSentTo(null)
+    setIntentOpen(true)
+    // 打开即自动发码
+    await requestIntentCode()
+  }
+
+  const confirmIntentSign = async () => {
+    if (!detail || !pendingParty) return
+    if (!intentCode.trim()) {
+      message.warning(t('contracts.intentCodeBlank'))
+      return
+    }
     setSigning(true)
     try {
-      await contractsApi.sign(detail.id, { partyId: party.id })
+      await contractsApi.sign(detail.id, { partyId: pendingParty.id, code: intentCode.trim() })
+      setIntentOpen(false)
       message.success(t('brokerAgreements.signOk'))
       const detailRes = await contractsApi.get(detail.id)
       const data = detailRes.data?.data ?? detailRes.data
@@ -209,6 +243,34 @@ const BrokerAgreements = () => {
             </div>
           </div>
         )}
+      </Modal>
+      <Modal
+        open={intentOpen}
+        onCancel={() => setIntentOpen(false)}
+        width={420}
+        title={t('contracts.intentTitle')}
+        okText={t('contracts.intentConfirm')}
+        cancelText={t('common.cancel')}
+        okButtonProps={{ loading: signing }}
+        onOk={confirmIntentSign}
+      >
+        <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 12 }}>{t('contracts.intentDesc')}</div>
+        {pendingParty && (
+          <div className="rent-text-sm" style={{ marginBottom: 12 }}>
+            {t('brokerAgreements.signParty', { name: pendingParty.name })}
+            {codeSentTo && <span className="rent-text-muted"> · {t('contracts.intentTo', { contact: codeSentTo })}</span>}
+          </div>
+        )}
+        <Input.Password
+          value={intentCode}
+          onChange={(e) => setIntentCode(e.target.value)}
+          placeholder={t('contracts.verifyCodePlaceholder')}
+          autoComplete="one-time-code"
+          style={{ marginBottom: 12 }}
+        />
+        <Button type="link" size="small" loading={sendingCode} onClick={requestIntentCode} style={{ paddingLeft: 0 }}>
+          {t('contracts.resend')}
+        </Button>
       </Modal>
     </div>
   )

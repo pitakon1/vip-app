@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { message, Modal, Segmented } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { FileTextOutlined, HomeOutlined, TeamOutlined } from '@ant-design/icons'
-import { contractsApi, fetchPdfPageUrl } from '@/services/api'
+import { contractsApi, signAssetsApi, fetchPdfPageUrl } from '@/services/api'
 import { useTranslation } from 'react-i18next'
 import './contracts.css'
 
@@ -97,6 +97,26 @@ interface SignField {
   signed_at?: string | null
 }
 
+// 关键字签署命中项（与 POST /keyword-search 返回的 hit 一致；坐标一律语义化展示）
+interface KeywordHit {
+  page: number
+  x: number
+  y: number
+  w: number
+  h: number
+  text?: string
+}
+
+// 签名/印章资产（与 signAssetsApi 返回一致）
+interface SignAsset {
+  id: string
+  name: string
+  asset_type: string // handwrite | seal
+  source: string // drew | upload | imprint
+  data_url: string
+  created_at?: string
+}
+
 // 放置签署框时可选的 field_type（手写签名 / 公章 / 日期）
 const FIELD_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: 'signature', label: 'fieldSig' },
@@ -119,6 +139,7 @@ const statusLabel: Record<string, string> = {
   completed: 'contracts.stCompleted',
   voided: 'contracts.stVoided',
   expired: 'contracts.stExpired',
+  rejected: 'contracts.stRejected',
 }
 
 const sourceLabel: Record<string, string> = {
@@ -155,6 +176,24 @@ const Contracts = () => {
   const [pdfPages, setPdfPages] = useState<string[]>([])
   const [pdfLoading, setPdfLoading] = useState(false)
 
+  // 关键字签署（在放置签署框编辑器内）
+  const [keywordInput, setKeywordInput] = useState('')
+  const [keywordHits, setKeywordHits] = useState<KeywordHit[]>([])
+  const [keywordCount, setKeywordCount] = useState(0)
+  const [keywordSearching, setKeywordSearching] = useState(false)
+
+  // 拒签
+  const [declineOpen, setDeclineOpen] = useState(false)
+  const [declineParty, setDeclineParty] = useState('')
+  const [declineReason, setDeclineReason] = useState('')
+
+  // 我的签名/印章资产库
+  const [sigLibOpen, setSigLibOpen] = useState(false)
+  const [sigAssets, setSigAssets] = useState<SignAsset[]>([])
+  const [sigAssetType, setSigAssetType] = useState('handwrite')
+  const [sigAssetName, setSigAssetName] = useState('')
+  const [sigUploading, setSigUploading] = useState(false)
+
   // 上传电子合同
   const [uploading, setUploading] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
@@ -170,6 +209,7 @@ const Contracts = () => {
   const [voidReason, setVoidReason] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const sigFileRef = useRef<HTMLInputElement>(null)
 
   const loadList = () => {
     contractsApi
@@ -527,6 +567,165 @@ const Contracts = () => {
 
   const canEdit = detail.contract?.can_edit
 
+  // 关键字签署：在 PDF 中查找关键字命中位置
+  const handleKeywordSearch = () => {
+    if (!detail.contract) return
+    const kw = keywordInput.trim()
+    if (!kw) {
+      message.warning(t('contracts.keywordBlank'))
+      return
+    }
+    setKeywordSearching(true)
+    setKeywordHits([])
+    contractsApi
+      .keywordSearch(detail.contract.id, kw)
+      .then((res: any) => {
+        const hits = res?.data?.hits
+        setKeywordHits(Array.isArray(hits) ? hits : [])
+        setKeywordCount(res?.data?.count ?? (Array.isArray(hits) ? hits.length : 0))
+      })
+      .catch((err: any) => {
+        if (err?.response?.status === 404) setKeywordHits([])
+        message.error(err?.response?.data?.detail || t('contracts.keywordSearchFail'))
+      })
+      .finally(() => setKeywordSearching(false))
+  }
+
+  // 关键字签署：按命中位置（index）创建签署区字段
+  const handleKeywordPlace = (index: number) => {
+    if (!detail.contract) return
+    contractsApi
+      .keywordFields(detail.contract.id, {
+        keyword: keywordInput.trim(),
+        party_id: fieldParty || undefined,
+        field_type: fieldType,
+        index,
+      })
+      .then((res: any) => {
+        const f = res?.data?.field
+        if (!f) throw new Error('no field')
+        const newField: SignField = {
+          id: f.id,
+          party_id: f.party_id ?? null,
+          field_type: f.field_type || fieldType,
+          page: f.page,
+          x: f.x,
+          y: f.y,
+          w: f.w,
+          h: f.h,
+          required: !!f.required,
+          signed: !!f.signed,
+          signed_at: f.signed_at ?? null,
+        }
+        setFields((prev) => [...prev, newField])
+        setDetail((d) => ({ ...d, signFields: [...(d.signFields || []), newField] }))
+        message.success(t('contracts.keywordFieldCreated'))
+      })
+      .catch((err: any) => {
+        message.error(err?.response?.data?.detail || t('contracts.keywordFieldFail'))
+      })
+  }
+
+  // 拒签：打开弹窗（选择签署方 + 填写原因）
+  const openDecline = (partyId: string) => {
+    setDeclineParty(partyId)
+    setDeclineReason('')
+    setDeclineOpen(true)
+  }
+
+  const handleDecline = () => {
+    if (!detail.contract) return
+    if (!declineParty) {
+      message.warning(t('contracts.declinePickParty'))
+      return
+    }
+    contractsApi
+      .decline(detail.contract.id, declineParty, declineReason.trim())
+      .then(() => {
+        message.success(t('contracts.declined'))
+        setDeclineOpen(false)
+        setDeclineReason('')
+        // 刷新合同详情（签约方拒签态 +（可能）合同状态 rejected）
+        handleOpen(detail.contract!.id)
+        loadList()
+      })
+      .catch((err: any) => {
+        message.error(err?.response?.data?.detail || t('contracts.declineFail'))
+      })
+  }
+
+  // 签名资产库：载入列表
+  const loadSignAssets = () => {
+    signAssetsApi
+      .list()
+      .then((res) => setSigAssets(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setSigAssets([]))
+  }
+
+  const openSigLib = () => {
+    setSigAssetType('handwrite')
+    setSigAssetName('')
+    loadSignAssets()
+    setSigLibOpen(true)
+  }
+
+  // 文件 → base64（不含 data: 头的裸串，供印模接口）
+  const fileToRawBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const r = new FileReader()
+      r.onload = () => {
+        const dataUrl = String(r.result || '')
+        resolve(dataUrl.substring(dataUrl.indexOf(',') + 1))
+      }
+      r.onerror = reject
+      r.readAsDataURL(file)
+    })
+
+  // 处理签名资产上传：seal → 印模盖章接口（自动透明抠图）；handwrite → 直接保存 data_url
+  const handleSigFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    const name = sigAssetName.trim() || (sigAssetType === 'seal' ? t('contracts.mySeal') : t('contracts.mySign'))
+    setSigUploading(true)
+    try {
+      if (sigAssetType === 'seal') {
+        const imageBase64 = await fileToRawBase64(f)
+        await signAssetsApi.imprint({ name, image_base64: imageBase64 })
+      } else {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const r = new FileReader()
+          r.onload = () => resolve(String(r.result || ''))
+          r.onerror = reject
+          r.readAsDataURL(f)
+        })
+        await signAssetsApi.create({ name, asset_type: 'handwrite', source: 'upload', data_url: dataUrl })
+      }
+      message.success(t('contracts.sigSaved'))
+      setSigAssetName('')
+      loadSignAssets()
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || t('contracts.sigSaveFail'))
+    } finally {
+      setSigUploading(false)
+    }
+  }
+
+  const handleSigRemove = (asset: SignAsset) => {
+    signAssetsApi
+      .remove(asset.id)
+      .then(() => {
+        setSigAssets((prev) => prev.filter((a) => a.id !== asset.id))
+        message.success(t('contracts.sigRemoved'))
+      })
+      .catch((err: any) => message.error(err?.response?.data?.detail || t('contracts.sigSaveFail')))
+  }
+
+  const sigAssetTypeLabel = (t2: string) =>
+    t2 === 'seal' ? t('contracts.mySeal') : t('contracts.mySign')
+  const sigSourceLabel = (s: string) =>
+    s === 'imprint' ? t('contracts.srcImprint') : s === 'upload' ? t('contracts.srcUpload') : t('contracts.srcDrew')
+
   // 模板选择（选项来自后端列表，失败时回退内置三端）
   const tmplSource: TemplateOption[] =
     templates && templates.length
@@ -741,6 +940,11 @@ const Contracts = () => {
                           {t('contracts.copyLink')}
                         </button>
                       )}
+                      {!p.signed && !p.declined_at && canEdit && (
+                        <button className="rent-btn rent-btn--danger rent-btn--sm" onClick={() => openDecline(p.id)}>
+                          {t('contracts.decline')}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -753,6 +957,9 @@ const Contracts = () => {
                 </button>
                 <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={openPreview}>
                   {t('contracts.placeFields')}
+                </button>
+                <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={openSigLib}>
+                  {t('contracts.mySignLib')}
                 </button>
                 <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={openEdit}>
                   {t('contracts.edit')}
@@ -877,6 +1084,47 @@ const Contracts = () => {
             ))}
           </select>
         </div>
+
+        {/* 关键字签署：输入关键字定位命中位置，点击后按该位置建签署区字段 */}
+        <div className="rent-field" style={{ marginBottom: 12 }}>
+          <label className="rent-label">{t('contracts.keywordSign')}</label>
+          <div className="rent-flex" style={{ gap: 8 }}>
+            <input
+              className="rent-input"
+              value={keywordInput}
+              placeholder={t('contracts.keywordPlaceholder')}
+              onChange={(e) => setKeywordInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleKeywordSearch() }}
+            />
+            <button className="rent-btn rent-btn--ghost rent-btn--sm" disabled={keywordSearching} onClick={handleKeywordSearch}>
+              {keywordSearching ? t('common.loading') : t('contracts.searchKeyword')}
+            </button>
+          </div>
+        </div>
+        {keywordHits.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 6 }}>
+              {t('contracts.keywordHitsFound', { n: keywordCount })}
+            </div>
+            <div style={{ maxHeight: 140, overflow: 'auto', border: '1px solid var(--rent-line, #e6eaf0)', borderRadius: 8, padding: 8 }}>
+              {keywordHits.map((hit, i) => (
+                <button
+                  key={`${hit.page}-${i}`}
+                  type="button"
+                  className="rent-btn rent-btn--ghost rent-btn--sm"
+                  style={{ margin: '0 6px 6px 0' }}
+                  onClick={() => handleKeywordPlace(i)}
+                >
+                  {t('contracts.keywordHitItem', { page: hit.page })}
+                  {hit.text ? ` · ${hit.text}` : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {keywordHits.length === 0 && keywordInput.trim() !== '' && !keywordSearching && (
+          <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 12 }}>{t('contracts.keywordNoHit')}</div>
+        )}
         <div
           onClick={(e) => placeField(e, 1)}
           style={{
@@ -947,6 +1195,93 @@ const Contracts = () => {
               </div>
             ))
           )}
+        </div>
+      </Modal>
+
+      {/* 拒签弹窗：选择签署方 + 填写原因 */}
+      <Modal
+        open={declineOpen}
+        title={t('contracts.declineTitle')}
+        okText={t('contracts.decline')}
+        okButtonProps={{ danger: true }}
+        cancelText={t('common.cancel')}
+        onOk={handleDecline}
+        onCancel={() => setDeclineOpen(false)}
+      >
+        <div className="rent-field" style={{ marginBottom: 12 }}>
+          <label className="rent-label">{t('contracts.fieldAssignee')}</label>
+          <select className="rent-input" value={declineParty} onChange={(e) => setDeclineParty(e.target.value)}>
+            {detail.parties.filter((p) => !p.signed && !p.declined_at).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}（{p.role}）
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="rent-field">
+          <label className="rent-label">{t('contracts.declineReason')}</label>
+          <textarea className="rent-input" rows={3} value={declineReason} onChange={(e) => setDeclineReason(e.target.value)} />
+        </div>
+      </Modal>
+
+      {/* 我的签名/印章资产库：列表 + 上传签名/印模 */}
+      <Modal
+        open={sigLibOpen}
+        title={t('contracts.mySignLib')}
+        width={720}
+        okText={t('common.close')}
+        okButtonProps={{ style: { display: 'none' } }}
+        cancelText={t('common.close')}
+        onCancel={() => setSigLibOpen(false)}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.myAssets')}</div>
+          {sigAssets.length === 0 ? (
+            <div className="rent-text-sm rent-text-muted">{t('contracts.noSigAssets')}</div>
+          ) : (
+            <div className="rent-grid rent-grid--3" style={{ gap: 12 }}>
+              {sigAssets.map((a) => (
+                <div key={a.id} className="rent-contract-party" style={{ padding: 8, alignItems: 'center' }}>
+                  <img src={a.data_url} alt={a.name} style={{ width: 72, height: 72, objectFit: 'contain', background: '#fff', border: '1px solid var(--rent-line, #e6eaf0)', borderRadius: 8 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="rent-text-sm rent-text-bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
+                    <div className="rent-text-sm rent-text-muted">
+                      {sigAssetTypeLabel(a.asset_type)} · {sigSourceLabel(a.source)}
+                    </div>
+                    <button className="rent-btn rent-btn--danger rent-btn--sm" onClick={() => handleSigRemove(a)}>
+                      {t('contracts.deleteField')}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rent-field" style={{ marginBottom: 12 }}>
+          <label className="rent-label">{t('contracts.sigAddTitle')}</label>
+          <Segmented
+            block
+            options={[
+              { value: 'handwrite', label: t('contracts.mySign') },
+              { value: 'seal', label: t('contracts.mySeal') },
+            ]}
+            value={sigAssetType}
+            onChange={(v) => setSigAssetType(v as string)}
+          />
+        </div>
+        <div className="rent-field" style={{ marginBottom: 12 }}>
+          <label className="rent-label">{t('contracts.sigName')}</label>
+          <input className="rent-input" value={sigAssetName} placeholder={sigAssetType === 'seal' ? t('contracts.mySeal') : t('contracts.mySign')} onChange={(e) => setSigAssetName(e.target.value)} />
+        </div>
+        <div className="rent-flex" style={{ gap: 8, alignItems: 'center' }}>
+          <button className="rent-btn rent-btn--primary rent-btn--sm" disabled={sigUploading} onClick={() => sigFileRef.current?.click()}>
+            {sigUploading ? t('common.loading') : t('contracts.sigPickFile')}
+          </button>
+          <span className="rent-text-sm rent-text-muted">
+            {sigAssetType === 'seal' ? t('contracts.sealImprintHint') : t('contracts.signUploadHint')}
+          </span>
+          <input ref={sigFileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={handleSigFile} />
         </div>
       </Modal>
     </div>

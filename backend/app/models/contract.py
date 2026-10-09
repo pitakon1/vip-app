@@ -21,6 +21,22 @@ class ContractStatus(str, Enum):
     signed = "signed"
     completed = "completed"
     voided = "voided"
+    rejected = "rejected"  # 被拒签：至少一方拒签，签署流程终止
+
+
+class SignAssetType(str, Enum):
+    """签名资产类型。"""
+
+    handwrite = "handwrite"  # 手写签名
+    seal = "seal"  # 印章
+
+
+class SignAssetSource(str, Enum):
+    """签名资产来源。"""
+
+    drew = "drew"  # 手写面板绘制
+    upload = "upload"  # 直接上传图片
+    imprint = "imprint"  # 印模：扫描真实章自动透明抠图
 
 
 class ContractKind(str, Enum):
@@ -166,3 +182,19 @@ class SignatureRecord(TimestampMixin, table=True):
     signature_svg: Optional[str] = None
     signature_hash: Optional[str] = None
     ip: Optional[str] = None
+
+
+class SignAsset(TimestampMixin, table=True):
+    """个人签名/印章资产库（「我的签名」）。
+
+    - handwrite：手写签名面板生成的签名；seal：印章（系统生成/印模抠图/上传）。
+    - 归属当前登录用户，签署时可从本库取用复用。
+    """
+
+    __tablename__ = "sign_assets"
+
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    name: str
+    asset_type: SignAssetType = Field(default=SignAssetType.handwrite)
+    source: SignAssetSource = Field(default=SignAssetSource.drew)
+    data_url: str  # base64 data URL（PNG），手写签名或印章（透明底）图

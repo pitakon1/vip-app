@@ -206,6 +206,44 @@ const Sign = () => {
   const [sendLoading, setSendLoading] = useState(false)
   const [pendingSign, setPendingSign] = useState<() => void>(() => () => {})
 
+  // 签署意愿二次验证（签前发码、签署提交必须带 code）+ 拒签
+  const [intentOpen, setIntentOpen] = useState(false)
+  const [intentCode, setIntentCode] = useState('')
+  const [intentMasked, setIntentMasked] = useState('')
+  const [intentSending, setIntentSending] = useState(false)
+  const [intentCountdown, setIntentCountdown] = useState(0)
+  const [declineOpen, setDeclineOpen] = useState(false)
+  const [declineReason, setDeclineReason] = useState('')
+  const [declined, setDeclined] = useState(false)
+  const pendingSigRef = useRef<{ field: SignField; svg?: string } | null>(null)
+  const intentTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // 卸载时清理重发定时器
+  useEffect(
+    () => () => {
+      if (intentTimerRef.current) clearInterval(intentTimerRef.current)
+    },
+    [],
+  )
+  // 重发倒计时驱动
+  useEffect(() => {
+    if (intentCountdown <= 0) {
+      if (intentTimerRef.current) {
+        clearInterval(intentTimerRef.current)
+        intentTimerRef.current = null
+      }
+      return
+    }
+    const timer = setInterval(() => {
+      setIntentCountdown((c) => (c <= 1 ? 0 : c - 1))
+    }, 1000)
+    intentTimerRef.current = timer
+    return () => {
+      if (intentTimerRef.current) clearInterval(intentTimerRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intentCountdown > 0])
+
   const fileUrl = useMemo(() => contractsPublicApi.fileUrl(token), [token])
 
   useEffect(() => {
@@ -238,8 +276,8 @@ const Sign = () => {
     setSignature('')
   }
 
-  // 执行一次签署 POST
-  const doSign = async (field: SignField, svg?: string) => {
+  // 执行一次签署 POST（code 为签前「签署意愿验证码」，有联系方式时必传）
+  const doSign = async (field: SignField, svg?: string, code?: string) => {
     setSigning(true)
     try {
       const method =
@@ -252,6 +290,7 @@ const Sign = () => {
         field_id: field.id,
         method,
         ...(svg ? { signature_svg: svg } : {}),
+        ...(code ? { code } : {}),
       })
       const data = res?.data || {}
       const othersDone = signFields.every((x) => x.id === field.id || x.signed)
@@ -269,14 +308,21 @@ const Sign = () => {
       const status = err?.response?.status
       const detail = err?.response?.data?.detail
       if (status === 403 && detail === 'REAL_NAME_REQUIRED') {
-        // 触发实名认证，完成后回签该字段
-        setPendingSign(() => () => doSign(field, svg))
+        // 触发实名认证，完成后回签该字段（携带同一意愿验证码）
+        setPendingSign(() => () => doSign(field, svg, code))
         setRealOpen(true)
         setRealStep('send')
         message.warning(t('contracts.realNameRequired'))
       } else if (status === 410) setFail('expired')
       else if (status === 409) setFail('signed')
-      else message.error(err?.response?.data?.detail || t('contracts.errGenericSubmit'))
+      else if (status === 400 && detail === 'SIGN_INTENT_CODE_REQUIRED') {
+        // 未带验证码：重新打开意愿验证弹窗
+        pendingSigRef.current = { field, svg: svg ?? undefined }
+        setIntentCode('')
+        setIntentMasked('')
+        setIntentOpen(true)
+        message.warning(t('contracts.intentRequired'))
+      } else message.error(err?.response?.data?.detail || t('contracts.errGenericSubmit'))
     } finally {
       setSigning(false)
     }
@@ -290,10 +336,62 @@ const Sign = () => {
       message.warning(t('contracts.blankSign'))
       return
     }
+    // 签名前先做「签署意愿二次验证」：发码 → 输入验证码 → 提交时携带 code
+    pendingSigRef.current = { field: activeField, svg: ft === 'signature' ? signature : undefined }
+    setIntentCode('')
+    setIntentMasked('')
+    setIntentOpen(true)
+    sendIntentCode()
+  }
+
+  // 获取签署意愿验证码
+  const sendIntentCode = async () => {
+    setIntentSending(true)
     try {
-      await doSign(activeField, ft === 'signature' ? signature : undefined)
-    } catch {
-      /* doSign 内部已处理错误 */
+      const res: any = await contractsPublicApi.sendSignCode(token)
+      setIntentMasked(res?.data?.to_masked || '')
+      setIntentCountdown(60)
+      message.success(t('contracts.codeSent'))
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      if (detail === 'No verifiable contact for this party') {
+        // 无联系方式：跳出意愿验证，直接签署
+        setIntentOpen(false)
+        const p = pendingSigRef.current
+        if (p) await doSign(p.field, p.svg)
+      } else {
+        message.error(detail || t('contracts.errCode'))
+      }
+    } finally {
+      setIntentSending(false)
+    }
+  }
+
+  // 确认意愿验证并提交签署
+  const confirmIntent = async () => {
+    const p = pendingSigRef.current
+    if (!p) return
+    if (!intentCode.trim()) {
+      message.warning(t('contracts.intentCodeBlank'))
+      return
+    }
+    await doSign(p.field, p.svg, intentCode.trim())
+    // doSign 成功时会关闭签署面板；此处同步关闭意向弹窗
+    setIntentOpen(false)
+  }
+
+  // 拒签
+  const confirmDecline = async () => {
+    if (!declineReason.trim()) {
+      message.warning(t('contracts.declineReasonBlank'))
+      return
+    }
+    try {
+      await contractsPublicApi.decline(token, declineReason.trim())
+      setDeclineOpen(false)
+      setDeclined(true)
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || t('contracts.declineFail'))
     }
   }
 
@@ -348,7 +446,7 @@ const Sign = () => {
   const today = new Date()
   const dateText = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
-  // 过期 / 已签署 / 通用错误
+  // 逾期
   if (fail) {
     return (
       <div style={pageStyle}>
@@ -357,6 +455,20 @@ const Sign = () => {
             <div className="rent-text-bold" style={{ fontSize: 18, marginBottom: 8 }}>
               {fail === 'expired' ? t('contracts.errLinkExpired') : fail === 'signed' ? t('contracts.errAlreadySigned') : t('contracts.errGetContract')}
             </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 已拒签
+  if (declined) {
+    return (
+      <div style={pageStyle}>
+        <div className="rent-card">
+          <div className="rent-card__body" style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <div className="rent-text-bold" style={{ fontSize: 18, marginBottom: 8 }}>{t('contracts.declinedTitle')}</div>
+            <div className="rent-text-sm rent-text-muted">{t('contracts.declinedDesc')}</div>
           </div>
         </div>
       </div>
@@ -535,6 +647,11 @@ const Sign = () => {
               </div>
             ))
           )}
+          <div className="rent-flex" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
+            <button type="button" className="rent-btn rent-btn--danger rent-btn--sm" onClick={() => setDeclineOpen(true)}>
+              {t('contracts.decline')}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -604,6 +721,64 @@ const Sign = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* 签署意愿二次验证弹窗 */}
+      <Modal
+        open={intentOpen}
+        title={t('contracts.intentTitle')}
+        okText={t('contracts.intentConfirm')}
+        cancelText={t('common.cancel')}
+        confirmLoading={signing}
+        onOk={confirmIntent}
+        onCancel={() => setIntentOpen(false)}
+        maskClosable={false}
+      >
+        <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 12 }}>{t('contracts.intentDesc')}</div>
+        {intentMasked && (
+          <div className="rent-text-sm" style={{ marginBottom: 12, color: 'var(--rent-text-muted, #6b7280)' }}>
+            {t('contracts.intentTo', { contact: intentMasked })}
+          </div>
+        )}
+        <div className="rent-flex" style={{ gap: 8, alignItems: 'center' }}>
+          <input
+            className="rent-input"
+            value={intentCode}
+            placeholder={t('contracts.verifyCodePlaceholder')}
+            onChange={(e) => setIntentCode(e.target.value)}
+          />
+          <button
+            type="button"
+            className="rent-btn rent-btn--ghost rent-btn--sm"
+            disabled={intentSending || intentCountdown > 0}
+            onClick={sendIntentCode}
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            {intentSending
+              ? t('common.loading')
+              : intentCountdown > 0
+                ? t('contracts.resendIn', { s: intentCountdown })
+                : intentMasked
+                  ? t('contracts.resend')
+                  : t('contracts.getCode')}
+          </button>
+        </div>
+      </Modal>
+
+      {/* 拒签弹窗 */}
+      <Modal
+        open={declineOpen}
+        title={t('contracts.declineTitle')}
+        okText={t('contracts.decline')}
+        okButtonProps={{ danger: true }}
+        cancelText={t('common.cancel')}
+        onOk={confirmDecline}
+        onCancel={() => setDeclineOpen(false)}
+      >
+        <div className="rent-field">
+          <label className="rent-label">{t('contracts.declineReason')}</label>
+          <textarea className="rent-input" rows={3} value={declineReason} placeholder={t('contracts.declineReasonPlaceholder')} onChange={(e) => setDeclineReason(e.target.value)} />
+        </div>
       </Modal>
     </div>
   )

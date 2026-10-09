@@ -27,6 +27,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import SignAssetPicker from '@/components/SignAssetPicker';
 import { contractsApi } from '@/services/api';
 import { notify, notifyError } from '@/utils/feedback';
 import { useI18n } from '@/i18n';
@@ -101,6 +102,7 @@ const STATUS_META: Record<string, { color: string; bg: string }> = {
   sent: { color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
   partially_signed: { color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
   signed: { color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
+  rejected: { color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
   voided: { color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
   completed: { color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
 };
@@ -230,6 +232,22 @@ export default function ContractsScreen() {
   const [voidBusy, setVoidBusy] = useState(false);
 
   const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  // 关键字签署
+  const [kwKeyword, setKwKeyword] = useState('');
+  const [kwHits, setKwHits] = useState<any[]>([]);
+  const [kwCount, setKwCount] = useState(0);
+  const [kwSearchBusy, setKwSearchBusy] = useState(false);
+  const [kwBusyIdx, setKwBusyIdx] = useState<number | null>(null);
+
+  // 拒签
+  const [showDecline, setShowDecline] = useState(false);
+  const [declinePartyId, setDeclinePartyId] = useState('');
+  const [declineReason, setDeclineReason] = useState('');
+  const [declineBusy, setDeclineBusy] = useState(false);
+
+  // 签名库（复用弹窗）
+  const [showLibrary, setShowLibrary] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -469,6 +487,69 @@ export default function ContractsScreen() {
     }
   };
 
+  /* ===== 关键字签署：检索命中位置（坐标 0-100 百分比，页面仅展示语义「第N页」）=*/
+  const doKeywordSearch = async () => {
+    if (!detail?.id || !kwKeyword.trim()) {
+      notify(t('contract.insert'));
+      return;
+    }
+    setKwSearchBusy(true);
+    try {
+      const res: any = await contractsApi.keywordSearch(detail.id, kwKeyword.trim());
+      const data = res?.data ?? {};
+      const hits = Array.isArray(data?.hits) ? data.hits : [];
+      setKwHits(hits);
+      setKwCount(Number(data?.count ?? hits.length));
+    } catch (e) {
+      notifyError(t('contract.keywordSign'), e);
+    } finally {
+      setKwSearchBusy(false);
+    }
+  };
+
+  // 在某个命中位置建立签署位（语义化展示第N页，不暴露 x/y 坐标）
+  const createKeywordField = async (index: number) => {
+    if (!detail?.id || !fieldForm.party_id) {
+      notify(t('contract.insert'));
+      return;
+    }
+    setKwBusyIdx(index);
+    try {
+      await contractsApi.keywordFields(detail.id, {
+        keyword: kwKeyword.trim(),
+        party_id: fieldForm.party_id,
+        field_type: fieldForm.type,
+        index,
+      });
+      notify(t('contract.keywordFieldCreated'));
+      setKwHits([]);
+      setKwKeyword('');
+      await openDetail(detail.id);
+    } catch (e) {
+      notifyError(t('contract.keywordFieldCreated'), e);
+    } finally {
+      setKwBusyIdx(null);
+    }
+  };
+
+  /* ===== 站内拒签（选签署方 + 原因）===== */
+  const confirmDecline = async () => {
+    if (!detail?.id || !declinePartyId) return;
+    setDeclineBusy(true);
+    try {
+      await contractsApi.decline(detail.id, declinePartyId, declineReason.trim());
+      notify(t('contract.declineDone'));
+      setShowDecline(false);
+      setDeclineReason('');
+      await openDetail(detail.id);
+      await load(true);
+    } catch (e) {
+      notifyError(t('contract.declineDone'), e);
+    } finally {
+      setDeclineBusy(false);
+    }
+  };
+
   /* ===== 编辑 ===== */
   const openEditor = () => {
     setEditForm({ title: detail?.title ?? '', content_html: detail?.content_html ?? '' });
@@ -643,7 +724,7 @@ export default function ContractsScreen() {
             {t(meta.labelKey)} · {party?.name || t('contract.unknown')}
           </Text>
           <Text style={styles.fieldMeta}>
-            {t('contract.page')} {f?.page ?? 1} · {t('contract.coordX')} {Math.round((f?.x ?? 0) as number)} · {t('contract.coordY')} {Math.round((f?.y ?? 0) as number)}
+            {t('contract.hitOnPage', { page: f?.page ?? 1 })}
           </Text>
           {!!f?.signed_at && (
             <Text style={styles.fieldMeta}>
@@ -898,6 +979,23 @@ export default function ContractsScreen() {
                       <Ionicons name="cloud-upload-outline" size={16} color={colors.primary} />
                       <Text style={styles.actionBtnText}>{t('contract.upload')}</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => setShowLibrary(true)}>
+                      <Ionicons name="albums-outline" size={16} color={colors.primary} />
+                      <Text style={styles.actionBtnText}>{t('contract.signAssets')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.actionDanger]}
+                      onPress={() => {
+                        const target =
+                          parties.find((p: any) => !p?.signed && !p?.declined_at && !!p?.id) ?? parties[0];
+                        setDeclinePartyId(String(target?.id ?? ''));
+                        setDeclineReason('');
+                        setShowDecline(true);
+                      }}
+                    >
+                      <Ionicons name="close-circle-outline" size={16} color={colors.error} />
+                      <Text style={[styles.actionBtnText, { color: colors.error }]}>{t('contract.decline')}</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity style={[styles.actionBtn, styles.actionDanger]} onPress={() => setShowVoid(true)}>
                       <Ionicons name="trash-outline" size={16} color={colors.error} />
                       <Text style={[styles.actionBtnText, { color: colors.error }]}>{t('contract.void')}</Text>
@@ -1077,6 +1175,54 @@ export default function ContractsScreen() {
                 <Ionicons name="grid-outline" size={15} color={colors.primary} />
                 <Text style={styles.defaultBtnText}>{t('contract.defaultLayout')}</Text>
               </TouchableOpacity>
+
+              {/* 关键字签署：检索命中位置 → 在此建立签署位（展示语义「第N页」，不暴露裸坐标） */}
+              <Text style={styles.fieldSectionTitle}>{t('contract.keywordSign')}</Text>
+              <View style={styles.keywordSearchRow}>
+                <TextInput
+                  style={[styles.input, styles.keywordInput]}
+                  placeholder={t('contract.keywordPh')}
+                  value={kwKeyword}
+                  onChangeText={setKwKeyword}
+                  placeholderTextColor={colors.ink3}
+                />
+                <TouchableOpacity
+                  style={[styles.keywordSearchBtn, kwSearchBusy && styles.btnDisabled]}
+                  activeOpacity={0.8}
+                  disabled={kwSearchBusy}
+                  onPress={doKeywordSearch}
+                >
+                  {kwSearchBusy ? (
+                    <ActivityIndicator size="small" color={colors.primaryForeground} />
+                  ) : (
+                    <Text style={styles.keywordSearchBtnText}>{t('contract.searchKeyword')}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+              {kwCount > 0 && (
+                <Text style={styles.keywordCount}>{t('contract.keywordHits', { n: kwCount })}</Text>
+              )}
+              {kwHits.map((hit, idx) => (
+                <View key={idx} style={styles.keywordHitRow}>
+                  <Ionicons name="location-outline" size={15} color={colors.primary} />
+                  <Text style={styles.keywordHitText}>
+                    {t('contract.hitOnPage', { page: hit?.page ?? 1 })}：{hit?.text ?? ''}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.keywordAddBtn}
+                    activeOpacity={0.8}
+                    disabled={kwBusyIdx === idx}
+                    onPress={() => createKeywordField(idx)}
+                  >
+                    {kwBusyIdx === idx ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Ionicons name={fieldForm.type === 'seal' ? 'business-outline' : 'create-outline'} size={15} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ))}
+
               <TouchableOpacity
                 style={[styles.primaryBtn, !!fieldsBusy && styles.btnDisabled]}
                 activeOpacity={0.85}
@@ -1136,6 +1282,70 @@ export default function ContractsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ===== 拒签（选签署方 + 原因）===== */}
+      <Modal visible={showDecline} animationType="fade" transparent onRequestClose={() => setShowDecline(false)}>
+        <View style={styles.modalMask}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>{t('contract.declineTitle')}</Text>
+              <TouchableOpacity onPress={() => setShowDecline(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.ink2} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.fieldSectionTitle}>{t('contract.fieldSelectParty')}</Text>
+            <View style={styles.langRow}>
+              {parties.filter((p: any) => !!p?.id && !p?.signed && !p?.declined_at).map((p: any) => {
+                const active = declinePartyId === String(p.id);
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    style={[styles.chip, active && styles.chipActive]}
+                    activeOpacity={0.8}
+                    onPress={() => setDeclinePartyId(String(p.id))}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
+                      {p?.name || t('contract.unknown')}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder={t('contract.declineReasonPh')}
+              value={declineReason}
+              onChangeText={setDeclineReason}
+              multiline
+              textAlignVertical="top"
+              placeholderTextColor={colors.ink3}
+            />
+            <TouchableOpacity
+              style={[styles.primaryBtn, styles.declineConfirmBtn, declineBusy && styles.btnDisabled]}
+              activeOpacity={0.85}
+              disabled={declineBusy || !declinePartyId}
+              onPress={confirmDecline}
+            >
+              {declineBusy ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.declineConfirmText}>{t('contract.decline')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ===== 我的签名/印章库（复用弹窗）===== */}
+      <SignAssetPicker
+        visible={showLibrary}
+        onClose={() => setShowLibrary(false)}
+        assetType="handwrite"
+        onSelect={() => {
+          notify(t('contract.assetSaved'));
+          setShowLibrary(false);
+        }}
+      />
     </View>
   );
 }
@@ -1338,4 +1548,35 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   defaultBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+
+  /* 关键字签署 */
+  keywordSearchRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 4 },
+  keywordInput: { flex: 1, marginBottom: 0 },
+  keywordSearchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 92,
+    paddingVertical: 12,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.primary,
+  },
+  keywordSearchBtnText: { fontSize: 14, fontWeight: '700', color: colors.primaryForeground },
+  keywordCount: { fontSize: 12, fontWeight: '700', color: colors.primary, marginTop: 8, marginBottom: 4 },
+  keywordHitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface2,
+    marginBottom: 8,
+  },
+  keywordHitText: { flex: 1, fontSize: 13, color: colors.ink2 },
+  keywordAddBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+
+  /* 拒签确认 */
+  declineConfirmBtn: { backgroundColor: colors.error },
+  declineConfirmText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

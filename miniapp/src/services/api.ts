@@ -351,12 +351,25 @@ export const contractsApi = {
     request({ url: `/contracts/${id}/parties`, method: 'POST', data }),
   // 电子合同法大大风格签署：按签署区（field）签名。method ∈ signature(手写)|seal(公章)|date(日期)。
   // 未实名外部 party 会拒绝（403 REAL_NAME_REQUIRED）。
-  sign: (id: string, opts: { fieldId: string; method: string }) =>
+  // 开通「签署意愿二次验证」后须带 signCode 下发的 code；未实名不带 code 会 400 SIGN_INTENT_CODE_REQUIRED。
+  sign: (id: string, opts: { fieldId: string; method: string; code?: string; partyId?: string }) =>
     request({
       url: `/contracts/${id}/sign`,
       method: 'POST',
-      data: { field_id: opts.fieldId, method: opts.method }
+      data: { field_id: opts.fieldId, method: opts.method, ...(opts.code ? { code: opts.code } : {}), ...(opts.partyId ? { party_id: opts.partyId } : {}) }
     }),
+  // 签署意愿二次验证：向指定签署方（本人）发送签署验证码，签署时必须带 code
+  signCode: (id: string, partyId: string) =>
+    request({ url: `/contracts/${id}/sign-code`, method: 'POST', data: { party_id: partyId } }),
+  // 站内拒签：提出理由后该签署方不再签署（合同状态置为 rejected）
+  decline: (id: string, partyId: string, reason: string) =>
+    request({ url: `/contracts/${id}/decline`, method: 'POST', data: { party_id: partyId, reason } }),
+  // 关键字定位（仅返回命中项所在页，供语义化「第N页」展示，不向用户暴露裸坐标）
+  keywordSearch: (id: string, keyword: string) =>
+    request({ url: `/contracts/${id}/keyword-search`, method: 'POST', data: { keyword } }),
+  // 关键字签署：按命中结果创建签署区（data 含 keyword/party_id/field_type/index）
+  keywordFields: (id: string, data: any) =>
+    request({ url: `/contracts/${id}/keyword-fields`, method: 'POST', data }),
   // 保存/创建签署区（员工）：一次性提交需创建的 fields 数组
   saveSignFields: (id: string, fields: any[]) =>
     request({ url: `/contracts/${id}/sign-fields`, method: 'POST', data: { fields } }),
@@ -404,6 +417,23 @@ export const contractsApi = {
     const query = token ? `?token=${encodeURIComponent(token)}` : ''
     return `${baseURL}/contracts/${id}/pdf-pages/${page}${query}`
   }
+}
+
+// ============ 签名资产库（我的签名 / 印章） ============
+// asset_type: handwrite(手写签名) | seal(印章)；source: drew(手绘) | upload(上传) | imprint(印模)
+export const signAssetsApi = {
+  // asset_type 可选过滤，接口返回本人全部资产
+  list: (assetType?: 'handwrite' | 'seal') =>
+    request({
+      url: `/sign-assets${assetType ? `?asset_type=${encodeURIComponent(assetType)}` : ''}`,
+      method: 'GET'
+    }),
+  create: (data: { name: string; asset_type: string; source: string; data_url: string }) =>
+    request({ url: '/sign-assets', method: 'POST', data }),
+  // 印模盖章：raw base64 的扫描印章图，后端抠透明后入库
+  imprint: (data: { name: string; image_base64: string }) =>
+    request({ url: '/sign-assets/imprint', method: 'POST', data }),
+  remove: (id: string) => request({ url: `/sign-assets/${id}`, method: 'DELETE' })
 }
 
 export const translateApi = {
@@ -497,6 +527,7 @@ export default {
   commissionSplitRulesApi,
   chatApi,
   contractsApi,
+  signAssetsApi,
   translateApi,
   viewingsApi,
   calendarEventsApi,

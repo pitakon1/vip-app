@@ -17,6 +17,7 @@ import {
   Modal,
   ScrollView,
   Image,
+  TextInput,
   PanResponder,
   type PanResponderInstance,
   type DimensionValue,
@@ -29,12 +30,16 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import SignaturePad from '@/components/SignaturePad';
-import { contractsApi } from '@/services/api';
+import SignAssetPicker from '@/components/SignAssetPicker';
+import { contractsApi, type SignAsset } from '@/services/api';
 import { notify, notifyError } from '@/utils/feedback';
 import { useAuthStore } from '@/stores/auth';
 import { useI18n } from '@/i18n';
 
 const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '-');
+
+// 签署意愿二次验证：验证码重发倒计时（秒）
+const RESEND_SECONDS = 60;
 
 const SIGN_TYPE_META: Record<string, { labelKey: string; icon: string }> = {
   signature: { labelKey: 'contract.signType.signature', icon: 'create-outline' },
@@ -52,6 +57,7 @@ const STATUS_META: Record<string, { color: string; bg: string }> = {
   sent: { color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
   partially_signed: { color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
   signed: { color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
+  rejected: { color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
   voided: { color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
   completed: { color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
 };
@@ -93,6 +99,26 @@ export default function MyContractsScreen() {
   const draftRef = useRef<any>(draft);
   draftRef.current = draft;
   const pagePanCache = useRef<Record<number, PanResponderInstance>>({});
+
+  // ===== 对齐开放签：签署意愿二次验证 / 拒签 / 签名库 =====
+  const [intentVisible, setIntentVisible] = useState(false);
+  const [intentToMasked, setIntentToMasked] = useState('');
+  const [intentCode, setIntentCode] = useState('');
+  const [intentCountdown, setIntentCountdown] = useState(0);
+  const [intentBusy, setIntentBusy] = useState(false);
+  const pendingSignRef = useRef<((code: string) => Promise<void>) | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 已通过验证的合同 id → 复用验证码（同一合同内多次签署不再重复发码）
+  const verifiedForRef = useRef<{ contractId: string; code: string } | null>(null);
+
+  const [showDecline, setShowDecline] = useState(false);
+  const [declinePartyId, setDeclinePartyId] = useState('');
+  const [declineReason, setDeclineReason] = useState('');
+  const [declineBusy, setDeclineBusy] = useState(false);
+
+  // 签名库选择弹窗
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [libraryAssetType, setLibraryAssetType] = useState<'handwrite' | 'seal'>('handwrite');
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -195,7 +221,7 @@ export default function MyContractsScreen() {
     };
   }, [detail?.id, detail?.pdf_available, pagesToShow.join(',')]);
 
-  const handleSign = async () => {
+  const handleSign = async (code?: string) => {
     if (!detail?.id || !signField || signing) return;
     const method = signField?.field_type || 'signature';
     setSigning(true);
@@ -203,16 +229,20 @@ export default function MyContractsScreen() {
       await contractsApi.sign(detail.id, {
         field_id: String(signField.id),
         method,
-        ...(method === 'signature' && signatureSvg ? { signature_svg: signatureSvg } : {}),
+        ...(signatureSvg ? { signature_svg: signatureSvg } : {}),
+        ...(code ? { code } : {}),
       });
       notify(t('contract.signSingleDone'));
       setSignField(null);
       setSignatureSvg('');
+      verifiedForRef.current = null;
       await openDetail(detail.id);
       await load(true);
     } catch (e: any) {
       if (e?.response?.status === 403) {
         notifyError(t('contract.realNameDenied'), e);
+      } else if (e?.response?.status === 400) {
+        notifyError(t('contract.intentCodeWrong'), e);
       } else {
         notifyError(t('contract.signSelf'), e);
       }
@@ -332,7 +362,7 @@ export default function MyContractsScreen() {
   };
 
   // 确认签署草稿区（落区并签）
-  const handleSignSelf = async () => {
+  const handleSignSelf = async (code?: string) => {
     if (!detail?.id || !myParty || !draft || signingSel) return;
     setSigningSel(true);
     try {
@@ -345,17 +375,21 @@ export default function MyContractsScreen() {
         w: Number(draft.w) || draftW(ft),
         h: Number(draft.h) || draftH(ft),
         method: ft,
-        ...(ft === 'signature' && signatureSvg ? { signature_svg: signatureSvg } : {}),
+        ...(signatureSvg ? { signature_svg: signatureSvg } : {}),
+        ...(code ? { code } : {}),
       });
       notify(t('contract.signSingleDone'));
       setDraft(null);
       setTool(null);
       setSignatureSvg('');
+      verifiedForRef.current = null;
       await openDetail(detail.id);
       await load(true);
     } catch (e: any) {
       if (e?.response?.status === 403) {
         notifyError(t('contract.realNameDenied'), e);
+      } else if (e?.response?.status === 400) {
+        notifyError(t('contract.intentCodeWrong'), e);
       } else {
         notifyError(t('contract.signSelf'), e);
       }
@@ -364,7 +398,96 @@ export default function MyContractsScreen() {
     }
   };
 
-  // 在 PDF 页图上叠加单个签署框（定位用 %，与后端落库一致）
+  // ===== 签署意愿验证：确认签署前先发码校验，同合同会话内复用已验证码 =====
+  const startSignedFlow = useCallback(
+    (doSign: (code: string) => Promise<void>) => {
+      const cached = verifiedForRef.current;
+      if (cached && cached.contractId === String(detail?.id)) {
+        void doSign(cached.code);
+        return;
+      }
+      pendingSignRef.current = doSign;
+      setIntentToMasked('');
+      setIntentCode('');
+      setIntentCountdown(0);
+      setIntentVisible(true);
+    },
+    [detail?.id],
+  );
+
+  const startResendCountdown = () => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    setIntentCountdown(RESEND_SECONDS);
+    countdownRef.current = setInterval(() => {
+      setIntentCountdown((v) => {
+        if (v <= 1) {
+          if (countdownRef.current) clearInterval(countdownRef.current);
+          return 0;
+        }
+        return v - 1;
+      });
+    }, 1000);
+  };
+
+  // 卸载时清理倒计时定时器
+  useEffect(() => () => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+  }, []);
+
+  const sendIntentCode = async () => {
+    if (!detail?.id || !myParty || intentBusy) return;
+    setIntentBusy(true);
+    try {
+      const res: any = await contractsApi.signCode(detail.id, String(myParty.id));
+      setIntentToMasked(res?.data?.to_masked ?? '');
+      notify(t('contract.codeSent'));
+      startResendCountdown();
+    } catch (e) {
+      notifyError(t('contract.intentFailed'), e);
+    } finally {
+      setIntentBusy(false);
+    }
+  };
+
+  const confirmIntent = async () => {
+    if (!intentCode.trim()) {
+      notify(t('contract.noCode'));
+      return;
+    }
+    setIntentBusy(true);
+    try {
+      if (detail?.id) verifiedForRef.current = { contractId: String(detail.id), code: intentCode.trim() };
+      const fn = pendingSignRef.current;
+      pendingSignRef.current = null;
+      setIntentVisible(false);
+      if (fn) await fn(intentCode.trim());
+    } finally {
+      setIntentBusy(false);
+    }
+  };
+
+  // ===== 站内拒签 =====
+  const confirmDecline = async () => {
+    if (!detail?.id || !declinePartyId) return;
+    setDeclineBusy(true);
+    try {
+      await contractsApi.decline(detail.id, declinePartyId, declineReason.trim());
+      notify(t('contract.declineDone'));
+      setShowDecline(false);
+      setDeclineReason('');
+      await openDetail(detail.id);
+      await load(true);
+    } catch (e) {
+      notifyError(t('contract.declineDone'), e);
+    } finally {
+      setDeclineBusy(false);
+    }
+  };
+
+  // 从签名/印章库选一个用于本次签署
+  const pickLibraryAsset = (asset: SignAsset) => {
+    setSignatureSvg(asset.data_url);
+  };
   const renderFieldOverlay = (f: any) => {
     const active = String(f?.id) === String(signField?.id);
     const ft = f?.field_type || 'signature';
@@ -615,6 +738,21 @@ export default function MyContractsScreen() {
                   <Text style={styles.doneBannerText}>{t('contract.signYourFieldsHint')}</Text>
                 </View>
               )}
+
+              {!!myParty && !myParty?.signed && !myParty?.declined_at && (
+                <TouchableOpacity
+                  style={styles.declineEntry}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setDeclinePartyId(String(myParty.id));
+                    setDeclineReason('');
+                    setShowDecline(true);
+                  }}
+                >
+                  <Ionicons name="close-circle-outline" size={15} color={colors.error} />
+                  <Text style={styles.declineEntryText}>{t('contract.decline')}</Text>
+                </TouchableOpacity>
+              )}
             </ScrollView>
           )}
         </View>
@@ -664,6 +802,17 @@ export default function MyContractsScreen() {
                   <Text style={[styles.pdfTip, !!tool && styles.pdfTipActive]}>
                     {tool ? t('contract.pdfDragHint') : t('contract.pdfSignTip')}
                   </Text>
+                  <TouchableOpacity
+                    style={styles.libraryBtn}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setLibraryAssetType((signField?.field_type || draft?.field_type) === 'seal' ? 'seal' : 'handwrite');
+                      setShowLibrary(true);
+                    }}
+                  >
+                    <Ionicons name="albums-outline" size={15} color={colors.primary} />
+                    <Text style={styles.libraryBtnText}>{t('contract.fromLibrary')}</Text>
+                  </TouchableOpacity>
                   {(() => {
                     const activeFT = signField?.field_type || 'signature';
                     const activeIsSig = activeFT === 'signature';
@@ -715,7 +864,9 @@ export default function MyContractsScreen() {
                           style={[styles.signBtn, (signing || signingSel) && styles.btnDisabled]}
                           activeOpacity={0.85}
                           disabled={signing || signingSel}
-                          onPress={draftMode ? handleSignSelf : handleSign}
+                          onPress={() =>
+                            draftMode ? startSignedFlow(handleSignSelf) : startSignedFlow(handleSign)
+                          }
                         >
                           {(signing || signingSel) ? (
                             <ActivityIndicator color={colors.primaryForeground} />
@@ -752,7 +903,7 @@ export default function MyContractsScreen() {
                     style={[styles.signBtn, signing && styles.btnDisabled]}
                     activeOpacity={0.85}
                     disabled={signing}
-                    onPress={handleSign}
+                    onPress={() => startSignedFlow(handleSign)}
                   >
                     {signing ? (
                       <ActivityIndicator color={colors.primaryForeground} />
@@ -766,6 +917,101 @@ export default function MyContractsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* 签署意愿验证弹窗 */}
+      <Modal visible={intentVisible} animationType="fade" transparent onRequestClose={() => setIntentVisible(false)}>
+        <View style={styles.modalMask}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>{t('contract.intentTitle')}</Text>
+              <TouchableOpacity onPress={() => setIntentVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.ink2} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.intentDesc}>{t('contract.intentDesc')}</Text>
+            {!!intentToMasked && (
+              <Text style={styles.intentNotice}>{t('contract.intentNotice', { to: intentToMasked })}</Text>
+            )}
+            <View style={styles.intentCodeRow}>
+              <TextInput
+                style={[styles.codeInput, !intentToMasked && styles.codeInputDisabled]}
+                placeholder={t('contract.verifyCodePh')}
+                keyboardType="number-pad"
+                value={intentCode}
+                onChangeText={setIntentCode}
+                placeholderTextColor={colors.ink3}
+                editable={!!intentToMasked}
+              />
+              {intentCountdown > 0 ? (
+                <View style={styles.resendWait}>
+                  <Text style={styles.resendWaitText}>{t('contract.codeResendAfter', { n: intentCountdown })}</Text>
+                </View>
+              ) : (
+                <TouchableOpacity style={[styles.resendBtn, intentBusy && styles.btnDisabled]} activeOpacity={0.8} disabled={intentBusy} onPress={sendIntentCode}>
+                  <Ionicons name="refresh-outline" size={15} color={colors.primary} />
+                  <Text style={styles.resendBtnText}>{t('contract.sendIntentCode')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity
+              style={[styles.signBtn, intentBusy && styles.btnDisabled]}
+              activeOpacity={0.85}
+              disabled={intentBusy}
+              onPress={confirmIntent}
+            >
+              {intentBusy ? (
+                <ActivityIndicator color={colors.primaryForeground} />
+              ) : (
+                <Text style={styles.signBtnText}>{t('contract.confirmSign')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 拒签弹窗 */}
+      <Modal visible={showDecline} animationType="fade" transparent onRequestClose={() => setShowDecline(false)}>
+        <View style={styles.modalMask}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>{t('contract.declineTitle')}</Text>
+              <TouchableOpacity onPress={() => setShowDecline(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.ink2} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.intentDesc}>{t('contract.declineHint')}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={t('contract.declineReasonPh')}
+              value={declineReason}
+              onChangeText={setDeclineReason}
+              multiline
+              placeholderTextColor={colors.ink3}
+            />
+            <TouchableOpacity
+              style={[styles.signBtn, declineBusy && styles.btnDisabled, styles.declineBtn]}
+              activeOpacity={0.85}
+              disabled={declineBusy}
+              onPress={confirmDecline}
+            >
+              {declineBusy ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={[styles.signBtnText, { color: '#fff' }]}>{t('contract.decline')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 我的签名/印章库 */}
+      <SignAssetPicker
+        visible={showLibrary}
+        onClose={() => setShowLibrary(false)}
+        assetType={libraryAssetType}
+        onSelect={pickLibraryAsset}
+        pendingDrawnSvg={signatureSvg.startsWith('<svg') ? signatureSvg : undefined}
+      />
     </View>
   );
 }
@@ -843,6 +1089,81 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   doneBannerText: { flex: 1, fontSize: 12, color: colors.success },
+
+  /* 拒签入口 */
+  declineEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 11,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.error,
+    backgroundColor: colors.surface,
+  },
+  declineEntryText: { fontSize: 14, fontWeight: '700', color: colors.error },
+
+  /* 签名库入口（签署弹窗内） */
+  libraryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    marginBottom: 12,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  libraryBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+
+  /* 签署意愿验证 */
+  intentDesc: { fontSize: 14, color: colors.ink2, marginBottom: 14 },
+  intentNotice: { fontSize: 13, color: colors.primary, marginBottom: 14 },
+  intentCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  codeInput: {
+    flex: 1,
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.ink,
+  },
+  codeInputDisabled: { opacity: 0.6 },
+  input: {
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.ink,
+    marginBottom: 12,
+  },
+  resendBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  resendBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  resendWait: {
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface2,
+    justifyContent: 'center',
+  },
+  resendWaitText: { fontSize: 12, color: colors.ink3 },
+  declineBtn: { backgroundColor: colors.error },
 
   /* 签署弹窗 */
   modalMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
