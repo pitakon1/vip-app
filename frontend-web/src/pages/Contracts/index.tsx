@@ -181,6 +181,8 @@ const Contracts = () => {
   const [keywordHits, setKeywordHits] = useState<KeywordHit[]>([])
   const [keywordCount, setKeywordCount] = useState(0)
   const [keywordSearching, setKeywordSearching] = useState(false)
+  // 双栏放置编辑器：签署方式（指定位置 / 关键字）
+  const [previewMode, setPreviewMode] = useState<'position' | 'keyword'>('position')
 
   // 拒签
   const [declineOpen, setDeclineOpen] = useState(false)
@@ -662,8 +664,8 @@ const Contracts = () => {
       .catch(() => setSigAssets([]))
   }
 
-  const openSigLib = () => {
-    setSigAssetType('handwrite')
+  const openSigLib = (type: string = 'handwrite') => {
+    setSigAssetType(type)
     setSigAssetName('')
     loadSignAssets()
     setSigLibOpen(true)
@@ -958,7 +960,7 @@ const Contracts = () => {
                 <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={openPreview}>
                   {t('contracts.placeFields')}
                 </button>
-                <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={openSigLib}>
+                <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openSigLib('handwrite')}>
                   {t('contracts.mySignLib')}
                 </button>
                 <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={openEdit}>
@@ -1054,7 +1056,7 @@ const Contracts = () => {
       <Modal
         open={previewOpen}
         title={t('contracts.placeFields')}
-        width={960}
+        width={1160}
         okText={t('contracts.saveFields')}
         cancelText={t('common.cancel')}
         onOk={saveFields}
@@ -1063,138 +1065,224 @@ const Contracts = () => {
           setPdfPages([])
           setPreviewOpen(false)
         }}
+        styles={{ body: { maxHeight: '75vh', overflow: 'auto' } }}
       >
-        <div className="rent-field" style={{ marginBottom: 12 }}>
-          <label className="rent-label">{t('contracts.fieldType')}</label>
-          <Segmented
-            block
-            options={FIELD_TYPE_OPTIONS.map((o) => ({ value: o.value, label: t(o.label) }))}
-            value={fieldType}
-            onChange={(v) => setFieldType(v as string)}
-          />
-        </div>
-        <div className="rent-field" style={{ marginBottom: 12 }}>
-          <label className="rent-label">{t('contracts.fieldAssignee')} · {t('contracts.placeHint')}</label>
-          <select className="rent-input" value={fieldParty} onChange={(e) => setFieldParty(e.target.value)}>
-            <option value="">{t('contracts.anyParty')}</option>
-            {detail.parties.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}（{p.role}）
-              </option>
-            ))}
-          </select>
-        </div>
+        <div className="kf-layout">
+          {/* 左：签署配置 */}
+          <aside className="kf-config">
+            {/* 签署方式：指定位置 / 关键字 */}
+            <div className="rent-card">
+              <div className="rent-card__body">
+                <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.signMethod')}</div>
+                <Segmented
+                  block
+                  value={previewMode}
+                  onChange={(v) => setPreviewMode(v as 'position' | 'keyword')}
+                  options={[
+                    { value: 'position', label: t('contracts.methodPosition') },
+                    { value: 'keyword', label: t('contracts.methodKeyword') },
+                  ]}
+                />
+              </div>
+            </div>
 
-        {/* 关键字签署：输入关键字定位命中位置，点击后按该位置建签署区字段 */}
-        <div className="rent-field" style={{ marginBottom: 12 }}>
-          <label className="rent-label">{t('contracts.keywordSign')}</label>
-          <div className="rent-flex" style={{ gap: 8 }}>
-            <input
-              className="rent-input"
-              value={keywordInput}
-              placeholder={t('contracts.keywordPlaceholder')}
-              onChange={(e) => setKeywordInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleKeywordSearch() }}
-            />
-            <button className="rent-btn rent-btn--ghost rent-btn--sm" disabled={keywordSearching} onClick={handleKeywordSearch}>
-              {keywordSearching ? t('common.loading') : t('contracts.searchKeyword')}
-            </button>
-          </div>
-        </div>
-        {keywordHits.length > 0 && (
-          <div style={{ marginBottom: 12 }}>
-            <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 6 }}>
-              {t('contracts.keywordHitsFound', { n: keywordCount })}
-            </div>
-            <div style={{ maxHeight: 140, overflow: 'auto', border: '1px solid var(--rent-line, #e6eaf0)', borderRadius: 8, padding: 8 }}>
-              {keywordHits.map((hit, i) => (
-                <button
-                  key={`${hit.page}-${i}`}
-                  type="button"
-                  className="rent-btn rent-btn--ghost rent-btn--sm"
-                  style={{ margin: '0 6px 6px 0' }}
-                  onClick={() => handleKeywordPlace(i)}
-                >
-                  {t('contracts.keywordHitItem', { page: hit.page })}
-                  {hit.text ? ` · ${hit.text}` : ''}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {keywordHits.length === 0 && keywordInput.trim() !== '' && !keywordSearching && (
-          <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 12 }}>{t('contracts.keywordNoHit')}</div>
-        )}
-        <div
-          onClick={(e) => placeField(e, 1)}
-          style={{
-            position: 'relative',
-            border: '1px solid var(--rent-line, #e6eaf0)',
-            maxHeight: 480,
-            overflow: 'auto',
-            background: '#fff',
-            cursor: 'crosshair',
-          }}
-        >
-          {pdfAvailable ? (
-            pdfLoading ? (
-              <div className="rent-text-sm rent-text-muted" style={{ padding: 8 }}>{t('common.loading')}</div>
-            ) : pdfPages.length === 0 ? (
-              <div className="rent-text-sm rent-text-muted" style={{ padding: 8 }}>{t('contracts.errPdfLoad')}</div>
+            {previewMode === 'position' ? (
+              <div className="rent-card">
+                <div className="rent-card__body">
+                  <div className="rent-field" style={{ marginBottom: 12 }}>
+                    <label className="rent-label">{t('contracts.fieldType')}</label>
+                    <Segmented
+                      block
+                      options={FIELD_TYPE_OPTIONS.map((o) => ({ value: o.value, label: t(o.label) }))}
+                      value={fieldType}
+                      onChange={(v) => setFieldType(v as string)}
+                    />
+                  </div>
+                  <div className="rent-field">
+                    <label className="rent-label">{t('contracts.fieldAssignee')}</label>
+                    <select className="rent-input" value={fieldParty} onChange={(e) => setFieldParty(e.target.value)}>
+                      <option value="">{t('contracts.anyParty')}</option>
+                      {detail.parties.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}（{p.role}）</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.placeHint')}</div>
+                </div>
+              </div>
             ) : (
-              pdfPages.map((url, pi) => (
-                <div
-                  key={pi}
-                  onClick={(e) => placeField(e, pi + 1)}
-                  style={{ position: 'relative', background: '#fff' }}
-                >
-                  <img src={url} alt={`page ${pi + 1}`} style={{ display: 'block', width: '100%' }} />
-                  {fields.filter((f) => f.page === pi + 1).map((f, i) => renderField(f, i))}
+              <div className="rent-card">
+                <div className="rent-card__body">
+                  <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.keywordSign')}</div>
+                  <div className="rent-flex" style={{ gap: 8 }}>
+                    <input
+                      className="rent-input"
+                      value={keywordInput}
+                      placeholder={t('contracts.keywordPlaceholder')}
+                      onChange={(e) => setKeywordInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleKeywordSearch() }}
+                    />
+                    <button className="rent-btn rent-btn--ghost rent-btn--sm" disabled={keywordSearching} onClick={handleKeywordSearch}>
+                      {keywordSearching ? t('common.loading') : t('contracts.searchKeyword')}
+                    </button>
+                  </div>
+                  {keywordHits.length > 0 ? (
+                    <div style={{ marginTop: 8 }}>
+                      <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 6 }}>
+                        {t('contracts.keywordHitsFound', { n: keywordCount })}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {keywordHits.map((hit, i) => (
+                          <button
+                            key={`${hit.page}-${i}`}
+                            type="button"
+                            className="rent-btn rent-btn--ghost rent-btn--sm"
+                            onClick={() => handleKeywordPlace(i)}
+                          >
+                            {t('contracts.keywordHitItem', { page: hit.page })}
+                            {hit.text ? ` · ${hit.text}` : ''}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : keywordInput.trim() !== '' && !keywordSearching ? (
+                    <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.keywordNoHit')}</div>
+                  ) : null}
                 </div>
-              ))
-            )
-          ) : (
-            <>
-              <div
-                className="rent-contract-html"
-                style={{ width: 800, maxWidth: '100%', margin: '0 auto', lineHeight: 1.9, fontSize: 14, wordBreak: 'break-word' }}
-                dangerouslySetInnerHTML={{ __html: String(detail.contract?.content_html || detail.contract?.title || '') }}
-              />
-              {fields.filter((f) => f.page === 1).map((f, i) => renderField(f, i))}
-            </>
-          )}
-          {fields.length === 0 && (
-            <div className="rent-text-sm rent-text-muted" style={{ padding: 8 }}>{t('contracts.noFields')}</div>
-          )}
-        </div>
+              </div>
+            )}
 
-        <div style={{ marginTop: 12 }}>
-          <div className="rent-text-bold" style={{ marginBottom: 6 }}>{t('contracts.fieldList')}</div>
-          {fields.length === 0 ? (
-            <div className="rent-text-sm rent-text-muted">{t('contracts.noFields')}</div>
-          ) : (
-            fields.map((f, i) => (
-              <div key={f.id || `row-${i}`} className="rent-contract-party" style={{ marginBottom: 6 }}>
-                <div>
-                  <span className="rent-text-bold">
-                    {f.signed ? `✓ ` : ''}
-                    {t(`contracts.fType_${f.field_type || 'signature'}`) || f.field_type}
-                  </span>
-                  <span className="rent-text-sm rent-text-muted" style={{ marginLeft: 8 }}>
-                    {partyName(f.party_id)} · {t('contracts.page', { n: f.page ?? 1 })}
-                  </span>
-                  {f.signed && (
-                    <span className="rent-badge rent-badge--success" style={{ marginLeft: 8 }}>{t('contracts.stSigned')}</span>
-                  )}
-                </div>
-                {!f.signed && (
-                  <button className="rent-btn rent-btn--danger rent-btn--sm" onClick={() => deleteField(f)}>
-                    {t('contracts.deleteField')}
-                  </button>
+            {/* 电子印章资产块 */}
+            <div className="rent-card">
+              <div className="rent-card__body">
+                <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.sealAsset')}</div>
+                {sigAssets.filter((a) => a.asset_type === 'seal').length ? (
+                  <div className="kf-parties">
+                    {sigAssets.filter((a) => a.asset_type === 'seal').map((a) => (
+                      <div key={a.id} className="kf-party">
+                        <img src={a.data_url} alt={a.name} style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', border: '1px solid var(--rent-line, #e6eaf0)', borderRadius: 6 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="rent-text-sm rent-text-bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
+                          <div className="rent-text-sm rent-text-muted">{sigSourceLabel(a.source)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="kf-asset-empty">
+                    <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 8 }}>{t('contracts.sealEmpty')}</div>
+                    <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => openSigLib('seal')}>{t('contracts.makeSeal')}</button>
+                  </div>
                 )}
               </div>
-            ))
-          )}
+            </div>
+
+            {/* 手写签名资产块 */}
+            <div className="rent-card">
+              <div className="rent-card__body">
+                <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.signAsset')}</div>
+                {sigAssets.filter((a) => a.asset_type === 'handwrite').length ? (
+                  <div className="kf-parties">
+                    {sigAssets.filter((a) => a.asset_type === 'handwrite').map((a) => (
+                      <div key={a.id} className="kf-party">
+                        <img src={a.data_url} alt={a.name} style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', border: '1px solid var(--rent-line, #e6eaf0)', borderRadius: 6 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="rent-text-sm rent-text-bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
+                          <div className="rent-text-sm rent-text-muted">{sigSourceLabel(a.source)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="kf-asset-empty">
+                    <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 8 }}>{t('contracts.signEmpty')}</div>
+                    <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => openSigLib('handwrite')}>{t('contracts.setSign')}</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+
+          {/* 右：文档区 */}
+          <main className="kf-doc">
+            <div className="rent-card">
+              <div className="rent-card__body">
+                <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.docArea')}</div>
+                <div
+                  onClick={(e) => placeField(e, 1)}
+                  style={{
+                    position: 'relative',
+                    border: '1px solid var(--rent-line, #e6eaf0)',
+                    maxHeight: 520,
+                    overflow: 'auto',
+                    background: '#fff',
+                    cursor: 'crosshair',
+                  }}
+                >
+                  {pdfAvailable ? (
+                    pdfLoading ? (
+                      <div className="rent-text-sm rent-text-muted" style={{ padding: 8 }}>{t('common.loading')}</div>
+                    ) : pdfPages.length === 0 ? (
+                      <div className="rent-text-sm rent-text-muted" style={{ padding: 8 }}>{t('contracts.errPdfLoad')}</div>
+                    ) : (
+                      pdfPages.map((url, pi) => (
+                        <div
+                          key={pi}
+                          onClick={(e) => placeField(e, pi + 1)}
+                          style={{ position: 'relative', background: '#fff' }}
+                        >
+                          <img src={url} alt={`page ${pi + 1}`} style={{ display: 'block', width: '100%' }} />
+                          {fields.filter((f) => f.page === pi + 1).map((f, i) => renderField(f, i))}
+                        </div>
+                      ))
+                    )
+                  ) : (
+                    <>
+                      <div
+                        className="rent-contract-html"
+                        style={{ width: 800, maxWidth: '100%', margin: '0 auto', lineHeight: 1.9, fontSize: 14, wordBreak: 'break-word' }}
+                        dangerouslySetInnerHTML={{ __html: String(detail.contract?.content_html || detail.contract?.title || '') }}
+                      />
+                      {fields.filter((f) => f.page === 1).map((f, i) => renderField(f, i))}
+                    </>
+                  )}
+                  {fields.length === 0 && (
+                    <div className="rent-text-sm rent-text-muted" style={{ padding: 8 }}>{t('contracts.noFields')}</div>
+                  )}
+                </div>
+
+                {/* 字段列表 */}
+                <div style={{ marginTop: 12 }}>
+                  <div className="rent-text-bold" style={{ marginBottom: 6 }}>{t('contracts.fieldList')}</div>
+                  {fields.length === 0 ? (
+                    <div className="rent-text-sm rent-text-muted">{t('contracts.noFields')}</div>
+                  ) : (
+                    fields.map((f, i) => (
+                      <div key={f.id || `row-${i}`} className="rent-contract-party" style={{ marginBottom: 6 }}>
+                        <div>
+                          <span className="rent-text-bold">
+                            {f.signed ? '✓ ' : ''}
+                            {t(`contracts.fType_${f.field_type || 'signature'}`) || f.field_type}
+                          </span>
+                          <span className="rent-text-sm rent-text-muted" style={{ marginLeft: 8 }}>
+                            {partyName(f.party_id)} · {t('contracts.page', { n: f.page ?? 1 })}
+                          </span>
+                          {f.signed && (
+                            <span className="rent-badge rent-badge--success" style={{ marginLeft: 8 }}>{t('contracts.stSigned')}</span>
+                          )}
+                        </div>
+                        {!f.signed && (
+                          <button className="rent-btn rent-btn--danger rent-btn--sm" onClick={() => deleteField(f)}>
+                            {t('contracts.deleteField')}
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </main>
         </div>
       </Modal>
 

@@ -7,7 +7,7 @@
  * 只读字段由后端返回，`can_edit` 为 false 时仅展示、隐藏全部写操作。
  * 功能图标一律 SVG（Ionicons），长列表用 FlatList；文本全部走 i18n 三语。
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,14 @@ import {
   ScrollView,
   Clipboard,
   Platform,
+  Image,
+  PanResponder,
+  useWindowDimensions,
+  type PanResponderInstance,
+  type LayoutChangeEvent,
+  type GestureResponderEvent,
+  type PanResponderGestureState,
+  type DimensionValue,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -28,7 +36,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import SignAssetPicker from '@/components/SignAssetPicker';
-import { contractsApi } from '@/services/api';
+import { contractsApi, signAssetsApi } from '@/services/api';
 import { notify, notifyError } from '@/utils/feedback';
 import { useI18n } from '@/i18n';
 
@@ -248,6 +256,114 @@ export default function ContractsScreen() {
 
   // 签名库（复用弹窗）
   const [showLibrary, setShowLibrary] = useState(false);
+
+  // ===== 开放签双栏「放置/管理签署区」：左配置栏 + 右文档区 =====
+  const [signMethod, setSignMethod] = useState<'position' | 'keyword'>('position');
+  const [sealAsset, setSealAsset] = useState<any>(null);
+  const [signAsset, setSignAsset] = useState<any>(null);
+  // 文档页图（用于落区预览）
+  const [docUrls, setDocUrls] = useState<Record<number, string>>({});
+  const pageSizesRef = useRef<Record<number, { w: number; h: number }>>({});
+  const placePanCache = useRef<Record<number, PanResponderInstance>>({});
+  const isWide = useWindowDimensions().width >= 720;
+
+  const loadAssetLib = useCallback(async () => {
+    try {
+      const [sealsRes, signsRes]: any = await Promise.all([
+        signAssetsApi.list('seal'),
+        signAssetsApi.list('handwrite'),
+      ]);
+      const toList = (d: any) => {
+        const data = d?.data;
+        return Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
+      };
+      setSealAsset(toList(sealsRes)[0] ?? null);
+      setSignAsset(toList(signsRes)[0] ?? null);
+    } catch {
+      // 库加载失败不阻塞
+    }
+  }, []);
+
+  // 打开「放置签署区」：加载页图 + 资产库
+  const openStudioFields = () => {
+    const target = parties.find((p: any) => !p?.signed && !!p?.id) ?? parties[0];
+    setFieldForm({ party_id: String(target?.id ?? ''), type: 'signature', page: '1', x: '50', y: '40' });
+    setSignMethod('position');
+    setKwKeyword('');
+    setKwHits([]);
+    setKwCount(0);
+    setShowAddFields(true);
+  };
+
+  // 文档页图加载（放置在页图上的示意框）
+  useEffect(() => {
+    if (!showAddFields || !detail?.pdf_available || !detail?.id) {
+      setDocUrls({});
+      return;
+    }
+    let cancelled = false;
+    const cnt = Number(detail?.pdf_page_count) || 1;
+    (async () => {
+      const map: Record<number, string> = {};
+      for (let p = 1; p <= cnt; p++) {
+        try {
+          const url = await contractsApi.pdfPageUrl(detail.id, p);
+          if (cancelled) return;
+          if (url) map[p] = url;
+        } catch {
+          // 跳过单页
+        }
+      }
+      if (!cancelled) setDocUrls(map);
+    })();
+    if (cnt > 0) void loadAssetLib();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAddFields, detail?.id, detail?.pdf_available]);
+
+  const onDocPageLayout = (page: number) => (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    pageSizesRef.current[page] = { w: width, h: height };
+  };
+
+  // 员工在页图上拖动游标落区（换算0-100%坐标，不暴露给用户）
+  const getPlacePan = useCallback((page: number) => {
+    if (placePanCache.current[page]) return placePanCache.current[page];
+    const pan = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt: GestureResponderEvent) => {
+        setFieldForm((f) => ({ ...f, page: String(page), x: String(evt.nativeEvent.locationX), y: String(evt.nativeEvent.locationY) }));
+      },
+      onPanResponderMove: (evt: GestureResponderEvent) => {
+        setFieldForm((f) => ({ ...f, x: String(evt.nativeEvent.locationX), y: String(evt.nativeEvent.locationY) }));
+      },
+      onPanResponderRelease: (evt: GestureResponderEvent) => {
+        const size = pageSizesRef.current[page];
+        if (!size) return;
+        setFieldForm((f) => {
+          const pctX = Math.max(0, Math.min(100, (Number(evt.nativeEvent.locationX) / size.w) * 100));
+          const pctY = Math.max(0, Math.min(100, (Number(evt.nativeEvent.locationY) / size.h) * 100));
+          return { ...f, page: String(page), x: String(Number(pctX.toFixed(1))), y: String(Number(pctY.toFixed(1))) };
+        });
+      },
+      onPanResponderTerminate: () => {},
+    });
+    placePanCache.current[page] = pan;
+    return pan;
+  }, []);
+
+  // 命中某项 → 在该页以命中坐标落区（百分比），并用命中类型提示
+  const placeKeywordHitStaff = (hit: any) => {
+    setFieldForm((f) => ({
+      ...f,
+      page: String(hit?.page ?? 1),
+      x: String(Number(hit?.x ?? 50)),
+      y: String(Number(hit?.y ?? 40)),
+    }));
+  };
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -959,7 +1075,7 @@ export default function ContractsScreen() {
                       <Ionicons name="paper-plane-outline" size={16} color={colors.primary} />
                       <Text style={styles.actionBtnText}>{t('contract.sendNotice')}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionBtn} onPress={openAddFields}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={openStudioFields}>
                       <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
                       <Text style={styles.actionBtnText}>{t('contract.addSignField')}</Text>
                     </TouchableOpacity>
@@ -1098,17 +1214,22 @@ export default function ContractsScreen() {
       </Modal>
 
       {/* ===== 添加签署区 ===== */}
-      <Modal visible={showAddFields} animationType="slide" transparent onRequestClose={() => setShowAddFields(false)}>
-        <View style={styles.modalMask}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>{t('contract.addSignField')}</Text>
-              <TouchableOpacity onPress={() => setShowAddFields(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close" size={22} color={colors.ink2} />
-              </TouchableOpacity>
+      <Modal visible={showAddFields} animationType="slide" onRequestClose={() => setShowAddFields(false)}>
+        <View style={styles.studio}>
+          <View style={styles.studioHead}>
+            <TouchableOpacity onPress={() => setShowAddFields(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="chevron-back" size={24} color={colors.ink} />
+            </TouchableOpacity>
+            <View style={styles.studioHeadTitle}>
+              <Text style={styles.studioTitle} numberOfLines={1}>{t('contract.addSignField')}</Text>
             </View>
-            <ScrollView keyboardShouldPersistTaps="handled">
-              <Text style={styles.fieldSectionTitle}>{t('contract.fieldSelectParty')}</Text>
+            <View style={{ width: 32 }} />
+          </View>
+
+          {/* 左配置栏 */}
+          <View style={isWide ? styles.studioBodyRow : styles.studioStackFlex}>
+            <ScrollView style={styles.studioCfgCol} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.studioCfgContent}>
+              <Text style={styles.cfgSectionTitle}>{t('contract.fieldSelectParty')}</Text>
               <View style={styles.langRow}>
                 {parties.filter((p: any) => !!p?.id).map((p: any) => {
                   const active = fieldForm.party_id === String(p.id);
@@ -1126,102 +1247,151 @@ export default function ContractsScreen() {
                   );
                 })}
               </View>
-              <Text style={styles.fieldSectionTitle}>{t('contract.signFieldType')}</Text>
-              <View style={styles.langRow}>
-                {SIGN_TYPES.map((type) => {
-                  const active = fieldForm.type === type;
-                  return (
-                    <TouchableOpacity
-                      key={type}
-                      style={[styles.chip, active && styles.chipActive]}
-                      activeOpacity={0.8}
-                      onPress={() => setFieldForm({ ...fieldForm, type })}
-                    >
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                        {t(SIGN_TYPE_META[type].labelKey)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              <Text style={styles.fieldSectionTitle}>{t('contract.fieldPosTitle')}</Text>
-              <View style={styles.coordRow}>
-                <TextInput
-                  style={[styles.input, styles.coordInput]}
-                  placeholder={t('contract.page')}
-                  keyboardType="numeric"
-                  value={fieldForm.page}
-                  onChangeText={(v) => setFieldForm({ ...fieldForm, page: v })}
-                  placeholderTextColor={colors.ink3}
-                />
-                <TextInput
-                  style={[styles.input, styles.coordInput]}
-                  placeholder={t('contract.coordX')}
-                  keyboardType="numeric"
-                  value={fieldForm.x}
-                  onChangeText={(v) => setFieldForm({ ...fieldForm, x: v })}
-                  placeholderTextColor={colors.ink3}
-                />
-                <TextInput
-                  style={[styles.input, styles.coordInput]}
-                  placeholder={t('contract.coordY')}
-                  keyboardType="numeric"
-                  value={fieldForm.y}
-                  onChangeText={(v) => setFieldForm({ ...fieldForm, y: v })}
-                  placeholderTextColor={colors.ink3}
-                />
-              </View>
-              <TouchableOpacity style={styles.defaultBtn} activeOpacity={0.8} onPress={applyDefaultLayout}>
-                <Ionicons name="grid-outline" size={15} color={colors.primary} />
-                <Text style={styles.defaultBtnText}>{t('contract.defaultLayout')}</Text>
-              </TouchableOpacity>
 
-              {/* 关键字签署：检索命中位置 → 在此建立签署位（展示语义「第N页」，不暴露裸坐标） */}
-              <Text style={styles.fieldSectionTitle}>{t('contract.keywordSign')}</Text>
-              <View style={styles.keywordSearchRow}>
-                <TextInput
-                  style={[styles.input, styles.keywordInput]}
-                  placeholder={t('contract.keywordPh')}
-                  value={kwKeyword}
-                  onChangeText={setKwKeyword}
-                  placeholderTextColor={colors.ink3}
-                />
-                <TouchableOpacity
-                  style={[styles.keywordSearchBtn, kwSearchBusy && styles.btnDisabled]}
-                  activeOpacity={0.8}
-                  disabled={kwSearchBusy}
-                  onPress={doKeywordSearch}
-                >
-                  {kwSearchBusy ? (
-                    <ActivityIndicator size="small" color={colors.primaryForeground} />
-                  ) : (
-                    <Text style={styles.keywordSearchBtnText}>{t('contract.searchKeyword')}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-              {kwCount > 0 && (
-                <Text style={styles.keywordCount}>{t('contract.keywordHits', { n: kwCount })}</Text>
-              )}
-              {kwHits.map((hit, idx) => (
-                <View key={idx} style={styles.keywordHitRow}>
-                  <Ionicons name="location-outline" size={15} color={colors.primary} />
-                  <Text style={styles.keywordHitText}>
-                    {t('contract.hitOnPage', { page: hit?.page ?? 1 })}：{hit?.text ?? ''}
-                  </Text>
+              <Text style={styles.cfgSectionTitle}>{t('contract.signMethod')}</Text>
+              <View style={styles.segRow}>
+                {(['position', 'keyword'] as const).map((m) => (
                   <TouchableOpacity
-                    style={styles.keywordAddBtn}
+                    key={m}
+                    style={[styles.segItem, signMethod === m && styles.segItemOn]}
                     activeOpacity={0.8}
-                    disabled={kwBusyIdx === idx}
-                    onPress={() => createKeywordField(idx)}
+                    onPress={() => setSignMethod(m)}
                   >
-                    {kwBusyIdx === idx ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    ) : (
-                      <Ionicons name={fieldForm.type === 'seal' ? 'business-outline' : 'create-outline'} size={15} color={colors.primary} />
-                    )}
+                    <Text style={[styles.segText, signMethod === m && styles.segTextOn]}>
+                      {m === 'position' ? t('contract.signMethodPosition') : t('contract.signMethodKeyword')}
+                    </Text>
                   </TouchableOpacity>
-                </View>
-              ))}
+                ))}
+              </View>
+
+              {signMethod === 'position' && (
+                <>
+                  <Text style={styles.cfgSectionTitle}>{t('contract.signFieldType')}</Text>
+                  <View style={styles.langRow}>
+                    {SIGN_TYPES.map((type) => {
+                      const active = fieldForm.type === type;
+                      return (
+                        <TouchableOpacity
+                          key={type}
+                          style={[styles.chip, active && styles.chipActive]}
+                          activeOpacity={0.8}
+                          onPress={() => setFieldForm({ ...fieldForm, type })}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {t(SIGN_TYPE_META[type].labelKey)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* 印章 / 手写签名资产参考块 */}
+                  <Text style={styles.cfgSectionTitle}>{t('contract.mySeals')}</Text>
+                  <View style={styles.assetBox}>
+                    {sealAsset?.data_url ? (
+                      <>
+                        <Image source={{ uri: sealAsset.data_url }} style={styles.assetThumb} resizeMode="contain" />
+                        <View style={styles.assetInfo}>
+                          <Text style={styles.assetName} numberOfLines={1}>{sealAsset.name || t('contract.mySeals')}</Text>
+                          <Text style={styles.assetMeta}>{t('contract.assetPickedSeal')}</Text>
+                        </View>
+                        <TouchableOpacity style={styles.assetAct} activeOpacity={0.8} onPress={() => { setShowLibrary(true); }}>
+                          <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <View style={styles.assetEmpty}>
+                        <Ionicons name="business-outline" size={18} color={colors.ink3} />
+                        <Text style={styles.assetEmptyText}>{t('contract.sealNotMade')}</Text>
+                        <TouchableOpacity style={styles.assetMakeBtn} activeOpacity={0.8} onPress={() => setShowLibrary(true)}>
+                          <Text style={styles.assetMakeText}>{t('contract.makeSeal')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.cfgSectionTitle}>{t('contract.mySigns')}</Text>
+                  <View style={styles.assetBox}>
+                    {signAsset?.data_url ? (
+                      <>
+                        <Image source={{ uri: signAsset.data_url }} style={styles.assetThumb} resizeMode="contain" />
+                        <View style={styles.assetInfo}>
+                          <Text style={styles.assetName} numberOfLines={1}>{signAsset.name || t('contract.mySigns')}</Text>
+                          <Text style={styles.assetMeta}>{t('contract.assetPickedSign')}</Text>
+                        </View>
+                        <TouchableOpacity style={styles.assetAct} activeOpacity={0.8} onPress={() => setShowLibrary(true)}>
+                          <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <View style={styles.assetEmpty}>
+                        <Ionicons name="create-outline" size={18} color={colors.ink3} />
+                        <Text style={styles.assetEmptyText}>{t('contract.signNotMade')}</Text>
+                        <TouchableOpacity style={styles.assetPickBtn} activeOpacity={0.8} onPress={() => setShowLibrary(true)}>
+                          <Text style={styles.assetPickText}>{t('contract.fromLibrary')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.cfgSectionTitle}>{t('contract.placeOnDocHint')}</Text>
+                  <TouchableOpacity style={styles.defaultBtn} activeOpacity={0.8} onPress={applyDefaultLayout}>
+                    <Ionicons name="grid-outline" size={15} color={colors.primary} />
+                    <Text style={styles.defaultBtnText}>{t('contract.defaultLayout')}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {signMethod === 'keyword' && (
+                <>
+                  <Text style={styles.cfgSectionTitle}>{t('contract.keywordSign')}</Text>
+                  <View style={styles.keywordSearchRow}>
+                    <TextInput
+                      style={[styles.input, styles.keywordInput]}
+                      placeholder={t('contract.keywordPh')}
+                      value={kwKeyword}
+                      onChangeText={setKwKeyword}
+                      placeholderTextColor={colors.ink3}
+                    />
+                    <TouchableOpacity
+                      style={[styles.keywordSearchBtn, kwSearchBusy && styles.btnDisabled]}
+                      activeOpacity={0.8}
+                      disabled={kwSearchBusy}
+                      onPress={doKeywordSearch}
+                    >
+                      {kwSearchBusy ? (
+                        <ActivityIndicator size="small" color={colors.primaryForeground} />
+                      ) : (
+                        <Text style={styles.keywordSearchBtnText}>{t('contract.searchKeyword')}</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  {kwCount > 0 && <Text style={styles.keywordCount}>{t('contract.keywordHits', { n: kwCount })}</Text>}
+                  {kwHits.map((hit, idx) => (
+                    <View key={idx} style={styles.keywordHitRow}>
+                      <Ionicons name="location-outline" size={15} color={colors.primary} />
+                      <Text style={styles.keywordHitText}>
+                        {t('contract.hitOnPage', { page: hit?.page ?? 1 })}：{hit?.text ?? ''}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.keywordAddBtn}
+                        activeOpacity={0.8}
+                        disabled={kwBusyIdx === idx}
+                        onPress={() => {
+                          placeKeywordHitStaff(hit);
+                          createKeywordField(idx);
+                        }}
+                      >
+                        {kwBusyIdx === idx ? (
+                          <ActivityIndicator size="small" color={colors.primary} />
+                        ) : (
+                          <Ionicons name={fieldForm.type === 'seal' ? 'business-outline' : 'create-outline'} size={15} color={colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </>
+              )}
 
               <TouchableOpacity
                 style={[styles.primaryBtn, !!fieldsBusy && styles.btnDisabled]}
@@ -1235,6 +1405,72 @@ export default function ContractsScreen() {
                   <Text style={styles.primaryBtnText}>{t('contract.confirm')}</Text>
                 )}
               </TouchableOpacity>
+            </ScrollView>
+
+            {/* 右栏文档区 */}
+            <ScrollView style={styles.studioDocCol} contentContainerStyle={styles.studioDocContent}>
+              {detail?.pdf_available ? (
+                <>
+                  <View style={styles.docPlaceTip}>
+                    <Ionicons name="hand-left-outline" size={15} color={colors.primary} />
+                    <Text style={styles.docPlaceTipText}>
+                      {signMethod === 'keyword' ? t('contract.kwPlaceTip') : t('contract.dragHintOnDoc')}
+                    </Text>
+                  </View>
+                  {Object.keys(docUrls).length ? (
+                    Object.keys(docUrls)
+                      .map(Number)
+                      .sort((a, b) => a - b)
+                      .map((page) => {
+                        const active = Number(fieldForm.page) === page;
+                        return (
+                          <View
+                            key={page}
+                            style={[styles.pdfPageWrap, active && styles.pdfPageWrapActive]}
+                            onLayout={onDocPageLayout(page)}
+                            {...getPlacePan(page).panHandlers}
+                          >
+                            <Image source={{ uri: docUrls[page] }} style={styles.pdfPageImage} resizeMode="stretch" />
+                            {active && (
+                              <View
+                                style={{
+                                  position: 'absolute',
+                                  left: `${Number(fieldForm.x) || 0}%` as DimensionValue,
+                                  top: `${Number(fieldForm.y) || 0}%` as DimensionValue,
+                                  width: fieldForm.type === 'signature' ? ('22%' as DimensionValue) : ('13%' as DimensionValue),
+                                  height: fieldForm.type === 'signature' ? ('8%' as DimensionValue) : ('6%' as DimensionValue),
+                                  borderWidth: 1.5,
+                                  borderStyle: 'dashed',
+                                  borderColor: colors.primary,
+                                  backgroundColor: colors.alpha(colors.primaryRgb, 0.14),
+                                  borderRadius: 6,
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <Ionicons
+                                  name={SIGN_TYPE_META[fieldForm.type]?.icon ?? 'create-outline'}
+                                  size={14}
+                                  color={colors.primary}
+                                />
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })
+                  ) : (
+                    <View style={styles.pdfLoading}>
+                      <ActivityIndicator color={colors.primary} />
+                    </View>
+                  )}
+                </>
+              ) : (
+                <View style={styles.noPdfBox}>
+                  <Ionicons name="document-outline" size={30} color={colors.ink3} />
+                  <Text style={styles.noPdfText}>{t('contract.noPdfPreview')}</Text>
+                  <Text style={styles.noPdfText}>{t('contract.placeByFormHint')}</Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -1579,4 +1815,106 @@ const styles = StyleSheet.create({
   /* 拒签确认 */
   declineConfirmBtn: { backgroundColor: colors.error },
   declineConfirmText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  /* ===== 双栏「放置/管理签署区」 ===== */
+  studio: { flex: 1, backgroundColor: colors.background },
+  studioHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    height: 50,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  studioHeadTitle: { flex: 1, minWidth: 0 },
+  studioTitle: { fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.ink },
+  studioBodyRow: { flex: 1, flexDirection: 'row' },
+  studioStackFlex: { flex: 1 },
+  studioCfgCol: { width: 340, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: colors.border, backgroundColor: colors.background },
+  studioCfgContent: { padding: colors.spacing.md, paddingBottom: 48 },
+  studioDocCol: { flex: 1, backgroundColor: colors.surface2 },
+  studioDocContent: { padding: colors.spacing.md, paddingBottom: 48 },
+  cfgSectionTitle: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginTop: 16, marginBottom: 8 },
+
+  /* 签署方式分段切换 */
+  segRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  segItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  segItemOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  segText: { fontSize: 13, color: colors.ink2, fontWeight: '600' },
+  segTextOn: { color: colors.primaryForeground, fontWeight: '700' },
+
+  /* 资产块 */
+  assetBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
+    borderRadius: colors.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  assetThumb: { width: 40, height: 40, borderRadius: colors.radius.sm, backgroundColor: colors.surface2 },
+  assetInfo: { flex: 1, minWidth: 0 },
+  assetName: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  assetMeta: { fontSize: 11, color: colors.ink3, marginTop: 2 },
+  assetAct: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  assetEmpty: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 6 },
+  assetEmptyText: { fontSize: 12, color: colors.ink3, textAlign: 'center' },
+  assetMakeBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: colors.radius.md, backgroundColor: colors.primary },
+  assetMakeText: { fontSize: 12, fontWeight: '700', color: colors.primaryForeground },
+  assetPickBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: colors.radius.md, borderWidth: 1, borderColor: colors.primary },
+  assetPickText: { fontSize: 12, fontWeight: '700', color: colors.primary },
+
+  /* 右栏文档区 */
+  pdfPageWrap: {
+    position: 'relative',
+    marginBottom: 16,
+    borderRadius: colors.radius.md,
+    overflow: 'hidden',
+    backgroundColor: colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  pdfPageWrapActive: { borderColor: colors.primary, borderWidth: 1.5 },
+  pdfPageImage: { width: '100%', aspectRatio: 210 / 297, backgroundColor: colors.surface2 },
+  pdfLoading: {
+    width: '100%',
+    aspectRatio: 210 / 297,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docPlaceTip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.sidebarActive,
+  },
+  docPlaceTipText: { flex: 1, fontSize: 13, color: colors.primary, fontWeight: '600' },
+  noPdfBox: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 60,
+    borderRadius: colors.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  noPdfText: { fontSize: 13, color: colors.ink3 },
 });

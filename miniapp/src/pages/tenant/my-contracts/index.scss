@@ -600,3 +600,254 @@
   background: var(--card);
   font-size: 28rpx;
 }
+
+/* ===== 开放签：签署配置栏 + 文档区 ===== */
+.mc-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.mc-config {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+
+  &__title {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 16rpx;
+  }
+
+  &__label {
+    display: block;
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--ink-2);
+    margin: 20rpx 0 12rpx;
+  }
+
+  &__hint {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-3);
+    margin-top: 8rpx;
+
+    &--warn { color: var(--warning); }
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    flex-wrap: wrap;
+  }
+}
+
+.mc-party {
+  &--active {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.06);
+  }
+
+  &__main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  &__role { font-size: 22rpx; color: var(--ink-3); margin-top: 4rpx; }
+}
+
+/* 复用 mc-party（签署方列表）以横向布局 */
+.mc-party {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 18rpx;
+}
+
+.mc-seg {
+  display: flex;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  padding: 6rpx;
+
+  &__item {
+    flex: 1;
+    height: 64rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-full);
+
+    &--active { background: var(--card); box-shadow: var(--shadow-sm); }
+  }
+
+  &__text { font-size: 26rpx; color: var(--ink-2); }
+  &__text--active { color: var(--primary); font-weight: 700; }
+}
+
+.mc-assets__empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  padding: 16rpx 18rpx;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.mc-asset-line {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 14rpx 18rpx;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.mc-asset-thumb {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+
+.mc-asset-name {
+  font-size: 24rpx;
+  color: var(--ink-2);
+  max-width: 200rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mc-maker {
+  margin-top: 12rpx;
+  padding: 16rpx;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.mc-signbox {
+  width: 100%;
+  height: 260rpx;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  overflow: hidden;
+  margin-bottom: 12rpx;
+
+  &__canvas { width: 100%; height: 100%; }
+}
+
+.mc-kw {
+  &__input {
+    flex: 1;
+    min-width: 0;
+    height: 68rpx;
+    padding: 0 20rpx;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--card);
+    font-size: 26rpx;
+  }
+
+  &__hit {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    padding: 14rpx 18rpx;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    margin-top: 12rpx;
+    background: var(--card);
+  }
+
+  &__hit-page { font-size: 26rpx; font-weight: 600; color: var(--primary); }
+}
+
+.mc-btn--disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.mc-sign--disabled { opacity: 0.55; }
+
+/* ===== 文档区 ===== */
+.mc-doc {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 180rpx;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16rpx;
+  }
+
+  &__title { font-size: 30rpx; font-weight: 700; color: var(--ink); }
+
+  &__canvas {
+    position: relative;
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--surface-2);
+  }
+
+  &__img { display: block; width: 100%; }
+
+  &__text {
+    padding: 20rpx;
+    font-size: 26rpx;
+    line-height: 1.8;
+    color: var(--ink);
+    word-break: break-all;
+  }
+
+  &__field {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4rpx;
+    border: 2rpx solid rgba(var(--error-rgb), 0.7);
+    background: rgba(var(--error-rgb), 0.08);
+    border-radius: 8rpx;
+    overflow: hidden;
+
+    &--mine {
+      border-color: rgba(var(--primary-rgb), 0.9);
+      background: rgba(var(--primary-rgb), 0.12);
+    }
+
+    &--done {
+      border-color: rgba(var(--success-rgb), 0.7);
+      background: rgba(var(--success-rgb), 0.12);
+    }
+
+    &--active {
+      border: 4rpx solid var(--primary);
+      background: rgba(var(--primary-rgb), 0.2);
+      z-index: 2;
+    }
+  }
+
+  &__field-label {
+    font-size: 20rpx;
+    line-height: 1.1;
+    color: var(--ink);
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}

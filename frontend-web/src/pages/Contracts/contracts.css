@@ -8,6 +8,67 @@
   background: #fbfcfd;
 }
 
+/* ===== 开放签风格：左「签署配置」+ 右「文档区」双栏（管理端放置编辑器复用） ===== */
+.kf-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.kf-config {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 4px;
+}
+.kf-config .rent-card {
+  margin-bottom: 0;
+}
+.kf-doc {
+  min-width: 0;
+}
+.kf-asset-empty {
+  border: 1.5px dashed var(--rent-line, #dfe5ea);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+}
+.kf-asset-thumb {
+  width: 100%;
+  height: 72px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid var(--rent-line, #e6eaf0);
+  border-radius: 8px;
+}
+.kf-parties {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kf-party {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--rent-line, #e6eaf0);
+  border-radius: 8px;
+  background: #fff;
+}
+/* 窄屏：左栏折叠到上方 */
+@media (max-width: 900px) {
+  .kf-layout {
+    grid-template-columns: 1fr;
+  }
+  .kf-config {
+    order: 1;
+  }
+  .kf-doc {
+    order: 2;
+  }
+}
+
 /* 生成合同：范本预览（内滚动只读框） */
 .rent-contract-preview {
   border: 1px solid var(--rent-line, #e6eaf0);

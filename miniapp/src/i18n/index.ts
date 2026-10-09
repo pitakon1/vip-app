@@ -1826,6 +1826,15 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'contract.partyRequired': '缺少签署方信息',
     'contract.confirmSignCode': '确认签署',
     'contract.signWithCode': '签署并提交',
+    'contract.positionSign': '指定位置签署',
+    'contract.makeSeal': '制作印章',
+    'contract.drawSignature': '手写签名',
+    'contract.sealUnmade': '未制作印章·请先制作印章',
+    'contract.configTitle': '签署配置',
+    'contract.docArea': '文档',
+    'contract.signFor': '为 {name} 签署',
+    'contract.chgAsset': '更换',
+    'contract.esignOpen': '放签区',
   },
   en: {
     'pub.tabListings': 'Homes',
@@ -3612,6 +3621,15 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'contract.partyRequired': 'Missing party info',
     'contract.confirmSignCode': 'Confirm signing',
     'contract.signWithCode': 'Sign & submit',
+    'contract.positionSign': 'Sign at position',
+    'contract.makeSeal': 'Create seal',
+    'contract.drawSignature': 'Handwrite signature',
+    'contract.sealUnmade': 'No seal yet · create one first',
+    'contract.configTitle': 'Signing setup',
+    'contract.docArea': 'Document',
+    'contract.signFor': 'Sign for {name}',
+    'contract.chgAsset': 'Change',
+    'contract.esignOpen': 'Place fields',
   },
   th: {
     'pub.tabListings': 'ค้นหา',
@@ -5395,8 +5413,17 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'contract.partyRequired': 'ไม่มีข้อมูลคู่สัญญา',
     'contract.confirmSignCode': 'ยืนยันการลงนาม',
     'contract.signWithCode': 'ลงนามและส่ง',
+    'contract.positionSign': 'ลงนามตามตำแหน่ง',
+    'contract.makeSeal': 'สร้างตราประทับ',
+    'contract.drawSignature': 'ลายเซ็นมือ',
+    'contract.sealUnmade': 'ยังไม่มีตราประทับ · กรุณาสร้างก่อน',
+    'contract.configTitle': 'การตั้งค่าการลงนาม',
+    'contract.docArea': 'เอกสาร',
+    'contract.signFor': 'ลงนามให้ {name}',
+    'contract.chgAsset': 'เปลี่ยน',
+    'contract.esignOpen': 'วางช่องลงนาม',
   },
-}
+};
 
 function readStorage(): AppLang {
   try {

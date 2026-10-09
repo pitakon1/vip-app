@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { message, Modal } from 'antd'
+import { message, Modal, Segmented } from 'antd'
 import { contractsPublicApi } from '@/services/api'
 import { useTranslation } from 'react-i18next'
 import './sign.css'
@@ -217,6 +217,23 @@ const Sign = () => {
   const [declined, setDeclined] = useState(false)
   const pendingSigRef = useRef<{ field: SignField; svg?: string } | null>(null)
   const intentTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const sealFileRef = useRef<HTMLInputElement>(null)
+  // 手写弹窗提交模式：'save' 仅保存签名资产；'sign' 保存并签署当前所选字段
+  const signModalModeRef = useRef<'save' | 'sign'>('save')
+
+  // 开放签双栏布局：签署方式 / 当前预览页 / 单次印章资产
+  const [mode, setMode] = useState<'position' | 'keyword'>('position')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [sealMade, setSealMade] = useState(false)
+  const [sealImg, setSealImg] = useState('') // 单次印章图（上传）或空（系统章）
+  const [sealModalOpen, setSealModalOpen] = useState(false)
+  const [signModalOpen, setSignModalOpen] = useState(false)
+
+  // 当前预览页：随已选签署字段所在页自动跳转
+  useEffect(() => {
+    if (activeField) setCurrentPage(activeField.page)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeField?.id])
 
   // 卸载时清理重发定时器
   useEffect(
@@ -270,10 +287,26 @@ const Sign = () => {
 
   const pendingFields = signFields.filter((f) => !f.signed)
 
-  // 打开某字段的签署面板
-  const openSignPanel = (f: SignField) => {
+  // 双栏文档：点按签署框 → 选中该字段（主「签署」按钮据此提交）
+  const selectField = (f: SignField) => {
+    if (f.signed) return
     setActiveField(f)
     setSignature('')
+    setCurrentPage(f.page)
+  }
+
+  // 单次印章：上传图片制作为印章图（仅本地展示，签署仍由服务端按 company_seal 落章）
+  const onSealFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    const r = new FileReader()
+    r.onload = () => {
+      setSealImg(String(r.result || ''))
+      setSealMade(true)
+      setSealModalOpen(false)
+    }
+    r.readAsDataURL(f)
   }
 
   // 执行一次签署 POST（code 为签前「签署意愿验证码」，有联系方式时必传）
@@ -328,16 +361,48 @@ const Sign = () => {
     }
   }
 
-  const confirmSign = async () => {
-    if (!activeField) return
+  // 主「签署」按钮：校验所选字段 + 准备手写签名，随后进入签署意愿验证并提交
+  const signTheSelected = () => {
+    if (!activeField) {
+      message.warning(t('contracts.placeChooseField'))
+      return
+    }
     const ft = activeField.field_type as SignFieldType
-    // 手写签名必须已绘制
     if (ft === 'signature' && !signature.trim()) {
+      // 未设置手写签名 → 打开手写画板（保存后立即签署所选项）
+      pendingSigRef.current = { field: activeField }
+      signModalModeRef.current = 'sign'
+      setSignModalOpen(true)
+      return
+    }
+    startIntent(activeField, ft === 'signature' ? signature : undefined)
+  }
+
+  // 从左侧资产块准备手写签名（仅保存，不立即签署）
+  const openSignPrepare = () => {
+    signModalModeRef.current = 'save'
+    setSignature('')
+    setSignModalOpen(true)
+  }
+
+  // 签名资产块「手写签名」确认后：保存并通过签署意愿验证提交
+  const onSignModalOk = async () => {
+    if (!signature.trim()) {
       message.warning(t('contracts.blankSign'))
       return
     }
-    // 签名前先做「签署意愿二次验证」：发码 → 输入验证码 → 提交时携带 code
-    pendingSigRef.current = { field: activeField, svg: ft === 'signature' ? signature : undefined }
+    const mode = signModalModeRef.current
+    const field = pendingSigRef.current?.field
+    setSignModalOpen(false)
+    // 'sign' 模式并已选中字段 → 保存后继续签署；否则仅保存签名资产
+    if (mode === 'sign' && field) {
+      startIntent(field, signature)
+    }
+  }
+
+  // 开启一次签署（先做签署意愿二次验证：发码 → 输入验证码 → 提交时携带 code）
+  const startIntent = (field: SignField, svg?: string) => {
+    pendingSigRef.current = { field, svg }
     setIntentCode('')
     setIntentMasked('')
     setIntentOpen(true)
@@ -443,8 +508,7 @@ const Sign = () => {
     }
   }
 
-  const today = new Date()
-  const dateText = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  
 
   // 逾期
   if (fail) {
@@ -498,196 +562,202 @@ const Sign = () => {
     )
   }
 
-  // 覆盖层仍可交互时禁止手写画布穿透
+  // ===== 开放签双栏：左「签署配置」+ 右「文档区」=====
+  const contentHtml = !(doc?.source === 'uploaded' && doc?.file_url) && !doc?.pdf_available && doc?.content_html
+  const pdfCount = doc?.pdf_available ? doc?.pdf_page_count || 1 : 0
+  const page = Math.min(Math.max(currentPage, 1), pdfCount || 1)
+
   return (
     <div style={pageStyle}>
       <div style={{ marginBottom: 16 }}>
         <h2 style={{ fontSize: 20, margin: 0 }}>{doc?.title || ''}</h2>
       </div>
 
-      {/* 原文 + 签署覆盖层（法大大式） */}
-      <div className="rent-card" style={{ marginBottom: 16 }}>
-        <div className="rent-card__body" style={{ padding: doc?.source === 'uploaded' && doc?.file_url ? 0 : 12 }}>
-          {doc?.source === 'uploaded' && doc?.file_url ? (
-            <div>
-              <iframe src={fileUrl} title={doc?.title || 'contract'} style={{ width: '100%', height: 520, border: 'none', background: '#fff' }} />
-              <div style={{ padding: '10px 12px', textAlign: 'right' }}>
-                <a className="rent-btn rent-btn--ghost rent-btn--sm" href={fileUrl} target="_blank" rel="noopener noreferrer" download>
-                  {t('contracts.downloadView')}
-                </a>
+      <div className="kf-layout">
+        {/* ===== 左：签署配置 ===== */}
+        <aside className="kf-config">
+          {/* 1) 签署方 + 拒签 */}
+          <div className="rent-card">
+            <div className="rent-card__body">
+              <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.signers')}</div>
+              <div className="kf-parties">
+                <div className="kf-party kf-party--active">
+                  <div style={{ minWidth: 0 }}>
+                    <div className="rent-text-sm rent-text-bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc?.party_name_masked || '—'}</div>
+                    <div className="rent-text-sm rent-text-muted">{doc?.party_role || ''}</div>
+                  </div>
+                  <span className="rent-badge rent-badge--success">{t('contracts.stPendingSign')}</span>
+                </div>
               </div>
+              <button type="button" className="rent-btn rent-btn--danger rent-btn--sm" style={{ marginTop: 10 }} onClick={() => setDeclineOpen(true)}>
+                {t('contracts.decline')}
+              </button>
             </div>
-          ) : doc?.pdf_available ? (
-            <div style={{ overflowX: 'auto' }}>
-              {Array.from({ length: doc.pdf_page_count || 1 }, (_, i) => i + 1).map((pg) => (
-                <div
-                  key={pg}
-                  style={{ position: 'relative', width: PREVIEW_W, maxWidth: '100%', margin: '0 auto' }}
-                >
-                  <img
-                    src={contractsPublicApi.pdfPageUrl(token, pg)}
-                    alt={`page ${pg}`}
-                    style={{ width: '100%', display: 'block', border: '1px solid var(--rent-line, #dfe5ea)' }}
-                  />
-                  {signFields
-                    .filter((f) => f.page === pg)
-                    .map((f) =>
-                      f.signed ? (
-                        <div
-                          key={f.id}
-                          style={{
-                            position: 'absolute',
-                            left: `${f.x}%`,
-                            top: `${f.y}%`,
-                            width: `${f.w}%`,
-                            height: `${f.h}%`,
-                            border: '2px solid #10b981',
-                            borderRadius: 6,
-                            background: 'rgba(16,185,129,0.10)',
-                            boxSizing: 'border-box',
-                            pointerEvents: 'none',
-                          }}
-                        >
-                          <div style={{ position: 'absolute', top: -18, left: 0, fontSize: 11, color: '#10b981', background: '#fff', padding: '0 4px', border: '1px solid #10b981', borderRadius: 4, whiteSpace: 'nowrap' }}>
-                            ✓ {t('contracts.stSigned')}
+          </div>
+
+          {/* 2) 签署方式 */}
+          <div className="rent-card">
+            <div className="rent-card__body">
+              <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.signMethod')}</div>
+              <Segmented
+                block
+                value={mode}
+                onChange={(v) => setMode(v as 'position' | 'keyword')}
+                options={[
+                  { value: 'position', label: t('contracts.methodPosition') },
+                  { value: 'keyword', label: t('contracts.methodKeyword') },
+                ]}
+              />
+              {mode === 'keyword' && (
+                <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.keywordPublicHint')}</div>
+              )}
+            </div>
+          </div>
+
+          {/* 3) 电子印章（单次） */}
+          <div className="rent-card">
+            <div className="rent-card__body">
+              <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.sealAsset')}</div>
+              {sealMade ? (
+                <div>
+                  {sealImg ? (
+                    <img className="kf-asset-thumb" src={sealImg} alt={t('contracts.sealAsset')} />
+                  ) : (
+                    <CompanySeal name={doc?.party_name_masked || ''} />
+                  )}
+                  <div className="rent-flex" style={{ gap: 8, marginTop: 8 }}>
+                    <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setSealModalOpen(true)}>{t('contracts.sealChange')}</button>
+                    <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => { setSealMade(false); setSealImg('') }}>{t('contracts.sealDelete')}</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="kf-asset-empty">
+                  <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 8 }}>{t('contracts.sealEmpty')}</div>
+                  <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => setSealModalOpen(true)}>{t('contracts.makeSeal')}</button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 3) 手写签名（单次） */}
+          <div className="rent-card">
+            <div className="rent-card__body">
+              <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.signAsset')}</div>
+              {signature.trim() ? (
+                <div>
+                  <div style={{ width: '100%', height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid var(--rent-line, #e6eaf0)', borderRadius: 8, overflow: 'hidden' }} dangerouslySetInnerHTML={{ __html: signature }} />
+                  <div className="rent-flex" style={{ gap: 8, marginTop: 8 }}>
+                    <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={openSignPrepare}>{t('contracts.signResign')}</button>
+                    <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => setSignature('')}>{t('contracts.sealDelete')}</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="kf-asset-empty">
+                  <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 8 }}>{t('contracts.signEmpty')}</div>
+                  <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={openSignPrepare}>{t('contracts.setSign')}</button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 5) 主「签署」按钮 */}
+          <button type="button" className="rent-btn rent-btn--primary rent-btn--lg" style={{ width: '100%' }} onClick={signTheSelected}>
+            {activeField ? `${t('contracts.signNow')} · ${t(`contracts.fType_${activeField.field_type}`) || activeField.field_type}` : t('contracts.placeChooseField')}
+          </button>
+        </aside>
+
+        {/* ===== 右：文档区 ===== */}
+        <main className="kf-doc">
+          <div className="rent-card">
+            <div className="rent-card__body" style={{ padding: doc?.source === 'uploaded' && doc?.file_url ? 0 : 12 }}>
+              {doc?.source === 'uploaded' && doc?.file_url ? (
+                <div>
+                  <iframe src={fileUrl} title={doc?.title || 'contract'} style={{ width: '100%', height: 520, border: 'none', background: '#fff' }} />
+                  <div style={{ padding: '10px 12px', textAlign: 'right' }}>
+                    <a className="rent-btn rent-btn--ghost rent-btn--sm" href={fileUrl} target="_blank" rel="noopener noreferrer" download>{t('contracts.downloadView')}</a>
+                  </div>
+                </div>
+              ) : pdfCount > 0 ? (
+                <div>
+                  {/* 翻页工具栏 */}
+                  <div className="kf-doc__toolbar">
+                    <span className="rent-text-sm rent-text-muted">{t('contracts.pageIndicator', { cur: page, total: pdfCount })}</span>
+                    <span className="kf-page-nav">
+                      <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" disabled={page <= 1} onClick={() => setCurrentPage(page - 1)}>{t('contracts.prevPage')}</button>
+                      <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" disabled={page >= pdfCount} onClick={() => setCurrentPage(page + 1)}>{t('contracts.nextPage')}</button>
+                    </span>
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <div style={{ position: 'relative', width: PREVIEW_W, maxWidth: '100%', margin: '0 auto' }}>
+                      <img src={contractsPublicApi.pdfPageUrl(token, page)} alt={`page ${page}`} style={{ width: '100%', display: 'block', border: '1px solid var(--rent-line, #dfe5ea)' }} />
+                      {signFields.filter((f) => f.page === page).map((f, i) =>
+                        f.signed ? (
+                          <div key={f.id} style={{ position: 'absolute', left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%`, border: '2px solid #10b981', borderRadius: 6, background: 'rgba(16,185,129,0.10)', boxSizing: 'border-box', pointerEvents: 'none' }}>
+                            <div style={{ position: 'absolute', top: -18, left: 0, fontSize: 10, color: '#10b981', background: '#fff', padding: '0 4px', border: '1px solid #10b981', borderRadius: 4, whiteSpace: 'nowrap' }}>✓ {t('contracts.stSigned')}</div>
                           </div>
+                        ) : (
+                          <div key={f.id} className={`rent-sign-slot ${activeField?.id === f.id ? 'kf-slot--selected' : ''}`} onClick={() => selectField(f)} style={{ position: 'absolute', left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }}>
+                            <span style={{ position: 'absolute', top: -16, left: 0, fontSize: 10, background: '#ef4444', color: '#fff', padding: '0 4px', borderRadius: 4, whiteSpace: 'nowrap' }}>{t('contracts.signFieldN', { n: i + 1 })}</span>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                  <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.placeHintPublic', { n: pendingFields.length })}</div>
+                </div>
+              ) : contentHtml ? (
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ position: 'relative', width: PREVIEW_W, maxWidth: '100%', margin: '0 auto' }}>
+                    <div className="rent-contract-html" style={{ width: PREVIEW_W, lineHeight: 1.9, fontSize: 14, wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: String(doc.content_html) }} />
+                    {signFields.map((f, i) =>
+                      f.signed ? (
+                        <div key={f.id} style={{ position: 'absolute', left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%`, border: '2px solid #10b981', borderRadius: 6, background: 'rgba(16,185,129,0.10)', boxSizing: 'border-box', pointerEvents: 'none' }}>
+                          <div style={{ position: 'absolute', top: -18, left: 0, fontSize: 10, color: '#10b981', background: '#fff', padding: '0 4px', border: '1px solid #10b981', borderRadius: 4, whiteSpace: 'nowrap' }}>✓ {t('contracts.stSigned')}</div>
                         </div>
                       ) : (
-                        <div
-                          key={f.id}
-                          className="rent-sign-slot"
-                          onClick={() => openSignPanel(f)}
-                          style={{
-                            position: 'absolute',
-                            left: `${f.x}%`,
-                            top: `${f.y}%`,
-                            width: `${f.w}%`,
-                            height: `${f.h}%`,
-                          }}
-                        />
+                        <div key={f.id} className={`rent-sign-slot ${activeField?.id === f.id ? 'kf-slot--selected' : ''}`} onClick={() => selectField(f)} style={{ position: 'absolute', left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }}>
+                          <span style={{ position: 'absolute', top: -16, left: 0, fontSize: 10, background: '#ef4444', color: '#fff', padding: '0 4px', borderRadius: 4, whiteSpace: 'nowrap' }}>{t('contracts.signFieldN', { n: i + 1 })}</span>
+                        </div>
                       ),
                     )}
+                  </div>
+                  <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.placeHintPublic', { n: pendingFields.length })}</div>
                 </div>
-              ))}
-              <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>
-                ↓ {t('contracts.placeHintPublic', { n: pendingFields.length })}
-              </div>
+              ) : null}
             </div>
-          ) : doc?.content_html ? (
-            <div style={{ overflowX: 'auto' }}>
-              <div style={{ position: 'relative', width: PREVIEW_W, maxWidth: '100%', margin: '0 auto' }}>
-                <div
-                  className="rent-contract-html"
-                  style={{ width: PREVIEW_W, lineHeight: 1.9, fontSize: 14, wordBreak: 'break-word' }}
-                  dangerouslySetInnerHTML={{ __html: String(doc.content_html) }}
-                />
-                {signFields.map((f) =>
-                  f.signed ? (
-                    <div
-                      key={f.id}
-                      style={{
-                        position: 'absolute',
-                        left: `${f.x}%`,
-                        top: `${f.y}%`,
-                        width: `${f.w}%`,
-                        height: `${f.h}%`,
-                        border: '2px solid #10b981',
-                        borderRadius: 6,
-                        background: 'rgba(16,185,129,0.10)',
-                        boxSizing: 'border-box',
-                        pointerEvents: 'none',
-                      }}
-                    >
-                      <div style={{ position: 'absolute', top: -18, left: 0, fontSize: 11, color: '#10b981', background: '#fff', padding: '0 4px', border: '1px solid #10b981', borderRadius: 4, whiteSpace: 'nowrap' }}>
-                        ✓ {t('contracts.stSigned')}
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      key={f.id}
-                      className="rent-sign-slot"
-                      onClick={() => openSignPanel(f)}
-                      style={{
-                        position: 'absolute',
-                        left: `${f.x}%`,
-                        top: `${f.y}%`,
-                        width: `${f.w}%`,
-                        height: `${f.h}%`,
-                      }}
-                    />
-                  ),
-                )}
-              </div>
-              <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>
-                ↓ {t('contracts.placeHintPublic', { n: pendingFields.length })}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {/* 待签进度 */}
-      <div className="rent-card" style={{ marginBottom: 16 }}>
-        <div className="rent-card__body">
-          <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.signProgress')}</div>
-          {signFields.length === 0 ? (
-            <div className="rent-text-sm rent-text-muted">{t('contracts.noFiledOnlyParty')}</div>
-          ) : (
-            signFields.map((f) => (
-              <div key={f.id} className="rent-sign-slot__row">
-                <span className={f.signed ? 'rent-badge rent-badge--success' : 'rent-badge rent-badge--warning'}>
-                  {f.signed ? '✓ ' : ''}
-                  {t(`contracts.fType_${f.field_type || 'signature'}`) || f.field_type}
-                </span>
-                {!f.signed && (
-                  <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => openSignPanel(f)}>
-                    {t('contracts.signThis')}
-                  </button>
-                )}
-              </div>
-            ))
-          )}
-          <div className="rent-flex" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
-            <button type="button" className="rent-btn rent-btn--danger rent-btn--sm" onClick={() => setDeclineOpen(true)}>
-              {t('contracts.decline')}
-            </button>
           </div>
-        </div>
+        </main>
       </div>
 
-      {/* 单个签署面板 */}
+      {/* 手写签名（单次）弹窗 */}
       <Modal
-        open={!!activeField}
-        title={t(`contracts.fType_${activeField?.field_type || 'signature'}`)}
+        open={signModalOpen}
+        title={t('contracts.setSign')}
         okText={t('contracts.confirmSign')}
         cancelText={t('common.cancel')}
-        confirmLoading={signing}
-        onOk={confirmSign}
-        onCancel={() => {
-          setActiveField(null)
-          setSignature('')
-        }}
+        onOk={onSignModalOk}
+        onCancel={() => setSignModalOpen(false)}
       >
-        {activeField && (
-          <div>
-            {activeField.field_type === 'seal' ? (
-              <div style={{ textAlign: 'center' }}>
-                <CompanySeal name={doc?.party_name_masked || ''} />
-                <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.sealConfirmHint')}</div>
-              </div>
-            ) : activeField.field_type === 'date' ? (
-              <div style={{ textAlign: 'center', padding: 16 }}>
-                <div style={{ fontSize: 42, fontWeight: 600 }}>{dateText}</div>
-                <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.dateStampHint')}</div>
-              </div>
-            ) : (
-              <div>
-                <SignCanvas value={signature} onChange={setSignature} />
-                <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.drawHint')}</div>
-              </div>
-            )}
+        <SignCanvas value={signature} onChange={setSignature} />
+        <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.drawHint')}</div>
+      </Modal>
+
+      {/* 单次印章制作弹窗：系统生成 或 上传印模 */}
+      <Modal
+        open={sealModalOpen}
+        title={t('contracts.makeSeal')}
+        footer={null}
+        onCancel={() => setSealModalOpen(false)}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <CompanySeal name={doc?.party_name_masked || ''} />
+          <div className="rent-text-sm rent-text-muted" style={{ margin: '8px 0 12px' }}>{t('contracts.sealSystemHint')}</div>
+          <div className="rent-flex" style={{ justifyContent: 'center', gap: 8 }}>
+            <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => { setSealImg(''); setSealMade(true); setSealModalOpen(false) }}>{t('contracts.sealUseSystem')}</button>
+            <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => sealFileRef.current?.click()}>{t('contracts.sealUpload')}</button>
+            <input ref={sealFileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={onSealFile} />
           </div>
-        )}
+        </div>
       </Modal>
 
       {/* 实名认证弹窗 */}
