@@ -146,4 +146,36 @@
   cursor: pointer;
   font-size: 14px;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rent-field-placed__del svg {
+  display: block;
+}
+
+/* 开放式签名：可拖拽的“待放置签署域”源项 */
+.kf-drag-source {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1.5px dashed var(--rent-primary, #e8823a);
+  border-radius: 8px;
+  background: #fff7f0;
+  color: var(--rent-primary, #e8823a);
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  user-select: none;
+}
+.kf-drag-source:active {
+  cursor: grabbing;
+}
+.kf-drag-source__label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.kf-drag-source__hint {
+  font-size: 11px;
+  opacity: 0.85;
 }

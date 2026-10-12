@@ -8,7 +8,7 @@
  *  提交前完成二次验证（signCode → sign 带 code）。
  * 文本走 i18n 三语。
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, Image, Input, Canvas } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { contractsApi, signAssetsApi } from '@/services/api'
@@ -99,6 +99,12 @@ export default function MyContractsPage() {
   const [assets, setAssets] = useState<any[]>([])
   const [showSealMaker, setShowSealMaker] = useState(false)
   const [sealMakerBusy, setSealMakerBusy] = useState(false)
+  // 印章制作：模板制作（系统生成公章）/ 上传实章（印模抠图）并列切换
+  const [sealMakerMode, setSealMakerMode] = useState<'template' | 'imprint'>('template')
+  const [companyName, setCompanyName] = useState('')
+  const [middleText, setMiddleText] = useState('测试印章')
+  const [generatedSeal, setGeneratedSeal] = useState('')
+  const [genSealBusy, setGenSealBusy] = useState(false)
   const [showSigDraw, setShowSigDraw] = useState(false)
   const [assetBusyId, setAssetBusyId] = useState<string | null>(null)
 
@@ -302,22 +308,81 @@ export default function MyContractsPage() {
     })
   }
 
+  // 模板制作：调后端生成章图并预览
+  const generateTemplateSeal = async () => {
+    if (!companyName.trim()) {
+      Taro.showToast({ title: t('contract.companyNameRequired'), icon: 'none' })
+      return
+    }
+    setGenSealBusy(true)
+    try {
+      const res: any = await signAssetsApi.generateSeal({
+        name: `seal-${Date.now()}`,
+        company_name: companyName.trim(),
+        middle_text: middleText.trim() || '测试印章',
+        size: 300
+      })
+      const d = unwrap(res)
+      const url = d?.data_url || ''
+      if (!url) {
+        Taro.showToast({ title: t('contract.generateSealFailed'), icon: 'none' })
+        return
+      }
+      setGeneratedSeal(url)
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.generateSealFailed'), icon: 'none' })
+    } finally {
+      setGenSealBusy(false)
+    }
+  }
+
+  // 使用生成的模板章：写入签名库并设为当前签署用章
+  const useGeneratedSeal = async () => {
+    if (!generatedSeal) return
+    setGenSealBusy(true)
+    try {
+      await signAssetsApi.create({
+        name: `seal-${Date.now()}`,
+        asset_type: 'seal',
+        source: 'drew',
+        data_url: generatedSeal
+      })
+      Taro.showToast({ title: t('contract.assetSaved'), icon: 'success' })
+      setShowSealMaker(false)
+      await refreshAssets()
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.saveToLibrary'), icon: 'none' })
+    } finally {
+      setGenSealBusy(false)
+    }
+  }
+
+  // 手写签名：按笔画记录（速度加权 1~4px 线宽）+ 单笔撤销 / 整面重写
+  const sigStrokes = useRef<{ pts: { x: number; y: number }[]; w: number }[]>([])
+  const sigCur = useRef<{ pts: { x: number; y: number }[]; dist: number; count: number } | null>(null)
+
   const sigDrawStart = (e: any) => {
+    const tt = e?.touches?.[0]
+    sigCur.current = { pts: [{ x: tt?.x ?? 0, y: tt?.y ?? 0 }], dist: 0, count: 0 }
     const ctx = Taro.createCanvasContext('mcSignCanvas')
     ctx.setStrokeStyle('#1f2937')
     ctx.setLineWidth(4)
     ctx.setLineCap('round')
     ctx.setLineJoin('round')
-    const tt = e?.touches?.[0]
     ctx.beginPath()
-    ctx.moveTo(tt?.x ?? 0, tt?.y ?? 0)
+    ctx.moveTo(sigCur.current.pts[0].x, sigCur.current.pts[0].y)
     ctx.stroke()
     ctx.draw(true)
   }
 
   const sigDrawMove = (e: any) => {
     const tt = e?.touches?.[0]
-    if (!tt) return
+    if (!tt || !sigCur.current) return
+    const last = sigCur.current.pts[sigCur.current.pts.length - 1]
+    // 累计位移与采样数 → 抬手时折算速度加权线宽
+    sigCur.current.dist += Math.hypot(tt.x - last.x, tt.y - last.y)
+    sigCur.current.count += 1
+    sigCur.current.pts.push({ x: tt.x, y: tt.y })
     const ctx = Taro.createCanvasContext('mcSignCanvas')
     ctx.setStrokeStyle('#1f2937')
     ctx.setLineWidth(4)
@@ -328,7 +393,43 @@ export default function MyContractsPage() {
     ctx.draw(true)
   }
 
+  const sigDrawEnd = () => {
+    if (!sigCur.current) return
+    const { dist, count } = sigCur.current
+    const avgSpeed = count > 0 ? dist / count : 0
+    const w = Math.min(4, Math.max(1, 4 - avgSpeed * 0.15)) // 快=细、慢=粗
+    sigStrokes.current.push({ pts: sigCur.current.pts, w })
+    sigCur.current = null
+  }
+
+  // 整面按笔画重绘（撤销后重建）
+  const redrawSig = () => {
+    const ctx = Taro.createCanvasContext('mcSignCanvas')
+    ctx.clearRect(0, 0, 2000, 1000)
+    sigStrokes.current.forEach((s) => {
+      if (!s.pts.length) return
+      ctx.setStrokeStyle('#1f2937')
+      ctx.setLineCap('round')
+      ctx.setLineJoin('round')
+      ctx.setLineWidth(s.w)
+      ctx.beginPath()
+      ctx.moveTo(s.pts[0].x, s.pts[0].y)
+      for (let i = 1; i < s.pts.length; i++) ctx.lineTo(s.pts[i].x, s.pts[i].y)
+      ctx.stroke()
+    })
+    ctx.draw(true)
+  }
+
+  const undoSigCanvas = () => {
+    if (!sigStrokes.current.length) return
+    sigStrokes.current.pop()
+    sigCur.current = null
+    redrawSig()
+  }
+
   const clearSigCanvas = () => {
+    sigStrokes.current = []
+    sigCur.current = null
     const ctx = Taro.createCanvasContext('mcSignCanvas')
     ctx.clearRect(0, 0, 2000, 1000)
     ctx.draw()
@@ -526,10 +627,67 @@ export default function MyContractsPage() {
                   {showSealMaker && (
                     <View className='mc-maker'>
                       <Text className='mc-config__label'>{t('contract.makeSeal')}</Text>
-                      <View className='mc-config__row'>
-                        <View className={`mc-btn mc-btn--ghost ${sealMakerBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!sealMakerBusy) makeSeal() }}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{sealMakerBusy ? t('pub.loading') : t('contract.uploadSeal')}</Text>
+
+                      <View className='mc-seg' style={{ marginBottom: '12rpx' }}>
+                        <View
+                          className={`mc-seg__item ${sealMakerMode === 'template' ? 'mc-seg__item--active' : ''}`}
+                          onClick={() => setSealMakerMode('template')}
+                        >
+                          <Text className={`mc-seg__text ${sealMakerMode === 'template' ? 'mc-seg__text--active' : ''}`}>
+                            {t('contract.sealMakeTemplate')}
+                          </Text>
                         </View>
+                        <View
+                          className={`mc-seg__item ${sealMakerMode === 'imprint' ? 'mc-seg__item--active' : ''}`}
+                          onClick={() => setSealMakerMode('imprint')}
+                        >
+                          <Text className={`mc-seg__text ${sealMakerMode === 'imprint' ? 'mc-seg__text--active' : ''}`}>
+                            {t('contract.sealMakeImprint')}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {sealMakerMode === 'template' ? (
+                        <View>
+                          <Text className='mc-config__label'>{t('contract.companyName')}</Text>
+                          <Input
+                            className='mc-kw__input'
+                            placeholder={t('contract.companyNamePlaceholder')}
+                            value={companyName}
+                            onInput={(e: any) => setCompanyName(e.detail.value)}
+                          />
+                          <Text className='mc-config__label'>{t('contract.middleText')}</Text>
+                          <Input
+                            className='mc-kw__input'
+                            placeholder={t('contract.middleTextPlaceholder')}
+                            value={middleText}
+                            onInput={(e: any) => setMiddleText(e.detail.value)}
+                          />
+                          <Text className='mc-config__label'>{t('contract.sealStyle')}</Text>
+                          <Text className='mc-seal-style'>{t('contract.sealStyleOfficial')}</Text>
+                          <View className='mc-config__row' style={{ marginTop: '12rpx' }}>
+                            <View className={`mc-btn mc-btn--ghost ${genSealBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!genSealBusy) void generateTemplateSeal() }}>
+                              <Text className='mc-btn__text mc-btn__text--ghost'>{genSealBusy ? t('pub.loading') : t('contract.generateSeal')}</Text>
+                            </View>
+                          </View>
+                          {generatedSeal ? (
+                            <View className='mc-config__row' style={{ marginTop: '12rpx' }}>
+                              <Image className='mc-asset-thumb mc-seal-preview' src={generatedSeal} mode='aspectFit' />
+                              <View className={`mc-btn mc-btn--ghost ${genSealBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!genSealBusy) void useGeneratedSeal() }}>
+                                <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.useThisSeal')}</Text>
+                              </View>
+                            </View>
+                          ) : null}
+                        </View>
+                      ) : (
+                        <View className='mc-config__row'>
+                          <View className={`mc-btn mc-btn--ghost ${sealMakerBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!sealMakerBusy) makeSeal() }}>
+                            <Text className='mc-btn__text mc-btn__text--ghost'>{sealMakerBusy ? t('pub.loading') : t('contract.uploadSeal')}</Text>
+                          </View>
+                        </View>
+                      )}
+
+                      <View className='mc-config__row' style={{ marginTop: '12rpx' }}>
                         <View className='mc-btn mc-btn--ghost' onClick={() => setShowSealMaker(false)}>
                           <Text className='mc-btn__text mc-btn__text--ghost'>{t('common.back')}</Text>
                         </View>
@@ -547,10 +705,13 @@ export default function MyContractsPage() {
                           className='mc-signbox__canvas'
                           onTouchStart={sigDrawStart}
                           onTouchMove={sigDrawMove}
-                          onTouchEnd={() => {}}
+                          onTouchEnd={sigDrawEnd}
                         />
                       </View>
                       <View className='mc-config__row'>
+                        <View className='mc-btn mc-btn--ghost' onClick={undoSigCanvas}>
+                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.undoSign')}</Text>
+                        </View>
                         <View className='mc-btn mc-btn--ghost' onClick={clearSigCanvas}>
                           <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.clear')}</Text>
                         </View>

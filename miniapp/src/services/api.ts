@@ -433,6 +433,9 @@ export const signAssetsApi = {
   // 印模盖章：raw base64 的扫描印章图，后端抠透明后入库
   imprint: (data: { name: string; image_base64: string }) =>
     request({ url: '/sign-assets/imprint', method: 'POST', data }),
+  // 系统模板生成公章：body {name, company_name, middle_text, size} → {data_url}（透明底 PNG）
+  generateSeal: (data: { name: string; company_name: string; middle_text: string; size?: number }) =>
+    request({ url: '/sign-assets/generate-seal', method: 'POST', data }),
   remove: (id: string) => request({ url: `/sign-assets/${id}`, method: 'DELETE' })
 }
 

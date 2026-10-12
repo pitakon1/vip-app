@@ -273,6 +273,8 @@ export const signAssetsApi = {
   create: (data: RequestBody) => api.post('/sign-assets', data),
   // 印模印章：上传真实印章扫描图 → 自动透明抠图入库（payload: {name, image_base64}）
   imprint: (data: RequestBody) => api.post('/sign-assets/imprint', data),
+  // 模板制作印章：生成透明底 PNG 章图（payload: {company_name, middle_text, ...} → {data_url}）
+  generateSeal: (data: RequestBody) => api.post('/sign-assets/generate-seal', data),
   remove: (id: string) => api.delete(`/sign-assets/${id}`),
 }
 

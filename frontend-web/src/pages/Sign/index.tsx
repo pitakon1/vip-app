@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { message, Modal, Segmented } from 'antd'
-import { contractsPublicApi } from '@/services/api'
+import { contractsPublicApi, signAssetsApi } from '@/services/api'
 import { useTranslation } from 'react-i18next'
 import './sign.css'
 
@@ -47,12 +47,22 @@ interface ContractDoc {
   [k: string]: unknown
 }
 
-/* 手写签名画布：pointer 绘制多条笔迹，导出为「纯 SVG path 字符串」。 */
+/* 手写签名画布：pointer 绘制多条笔迹，导出为「纯 SVG path 字符串」。
+   线宽随绘制速度加权（1~4px，快=细、慢=粗），对齐开放签签名笔触。
+   支持单条撤销 + 一键重写。 */
 const SignCanvas = ({ value, onChange }: { value: string; onChange: (svg: string) => void }) => {
   const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const strokesRef = useRef<number[][][]>(value ? parseStrokes(value) : [])
+  // 每条笔迹的线宽（与 strokesRef 下标一一对应）
+  const widthsRef = useRef<number[]>(strokesRef.current.map(() => DEFAULT_W))
   const drawingRef = useRef(false)
+  // 当前绘制速度累计（用于在抬手时折算整条笔迹线宽）
+  const speedRef = useRef({ dist: 0, count: 0 })
+
+  const MIN_W = 1
+  const MAX_W = 4
+  const DEFAULT_W = 3
 
   function parseStrokes(svg: string): number[][][] {
     // <path d="M x,y L x,y ..."
@@ -75,11 +85,11 @@ const SignCanvas = ({ value, onChange }: { value: string; onChange: (svg: string
     if (!ctx) return
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H)
     ctx.strokeStyle = '#1f2937'
-    ctx.lineWidth = 3
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-    strokesRef.current.forEach((stroke) => {
+    strokesRef.current.forEach((stroke, si) => {
       if (stroke.length < 2) return
+      ctx.lineWidth = widthsRef.current[si] ?? DEFAULT_W
       ctx.beginPath()
       ctx.moveTo(stroke[0][0], stroke[0][1])
       for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i][0], stroke[i][1])
@@ -89,11 +99,11 @@ const SignCanvas = ({ value, onChange }: { value: string; onChange: (svg: string
 
   const emit = () => {
     const paths = strokesRef.current
-      .filter((s) => s.length >= 2)
-      .map(
-        (s) =>
-          `<path d="M ${s.map((p) => `${p[0]},${p[1]}`).join(' L ')}" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
-      )
+      .map((s, si) => {
+        if (s.length < 2) return ''
+        const w = widthsRef.current[si] ?? DEFAULT_W
+        return `<path d="M ${s.map((p) => `${p[0]},${p[1]}`).join(' L ')}" fill="none" stroke="#1f2937" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`
+      })
       .join('')
     onChange(
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}" width="${CANVAS_W}" height="${CANVAS_H}">${paths}</svg>`,
@@ -117,15 +127,40 @@ const SignCanvas = ({ value, onChange }: { value: string; onChange: (svg: string
     e.preventDefault()
     drawingRef.current = true
     strokesRef.current.push([pointFrom(e.nativeEvent)])
+    speedRef.current = { dist: 0, count: 0 }
     canvasRef.current?.setPointerCapture(e.pointerId)
   }
   const onMove = (e: React.PointerEvent) => {
     if (!drawingRef.current || !strokesRef.current.length) return
-    strokesRef.current[strokesRef.current.length - 1].push(pointFrom(e.nativeEvent))
+    const p = pointFrom(e.nativeEvent)
+    const stroke = strokesRef.current[strokesRef.current.length - 1]
+    const last = stroke[stroke.length - 1]
+    // 累计本段位移与采样数，用于速度加权线宽
+    speedRef.current.dist += Math.hypot(p[0] - last[0], p[1] - last[1])
+    speedRef.current.count += 1
+    stroke.push(p)
     redraw()
     emit()
   }
   const onUp = () => {
+    drawingRef.current = false
+    // 抬手结算：平均速度大(快)则细、慢则粗
+    const { dist, count } = speedRef.current
+    const avgSpeed = count > 0 ? dist / count : 0
+    const w = Math.min(MAX_W, Math.max(MIN_W, MAX_W - avgSpeed * 0.15))
+    if (widthsRef.current.length < strokesRef.current.length) {
+      widthsRef.current.push(w)
+    } else if (widthsRef.current.length === strokesRef.current.length) {
+      widthsRef.current[widthsRef.current.length - 1] = w
+    }
+    redraw()
+    emit()
+  }
+
+  const undo = () => {
+    if (!strokesRef.current.length) return
+    strokesRef.current.pop()
+    widthsRef.current.pop()
     drawingRef.current = false
     redraw()
     emit()
@@ -133,6 +168,7 @@ const SignCanvas = ({ value, onChange }: { value: string; onChange: (svg: string
 
   const clear = () => {
     strokesRef.current = []
+    widthsRef.current = []
     drawingRef.current = false
     redraw()
     onChange('')
@@ -157,9 +193,14 @@ const SignCanvas = ({ value, onChange }: { value: string; onChange: (svg: string
           background: '#fff',
         }}
       />
-      <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={clear} style={{ marginTop: 8 }}>
-        {t('contracts.clearSign')}
-      </button>
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={undo} disabled={!strokesRef.current.length}>
+          {t('contracts.undoSign')}
+        </button>
+        <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={clear}>
+          {t('contracts.clearSign')}
+        </button>
+      </div>
     </div>
   )
 }
@@ -225,8 +266,13 @@ const Sign = () => {
   const [mode, setMode] = useState<'position' | 'keyword'>('position')
   const [currentPage, setCurrentPage] = useState(1)
   const [sealMade, setSealMade] = useState(false)
-  const [sealImg, setSealImg] = useState('') // 单次印章图（上传）或空（系统章）
+  const [sealImg, setSealImg] = useState('') // 单次印章图（模板生成/上传）或空（未制作）
   const [sealModalOpen, setSealModalOpen] = useState(false)
+  const [sealCreateType, setSealCreateType] = useState<'template' | 'imprint'>('template')
+  const [sealCompanyName, setSealCompanyName] = useState('')
+  const [sealMiddleText, setSealMiddleText] = useState(t('contracts.sealMiddleTextDefault'))
+  const [sealPreview, setSealPreview] = useState('') // 模板生成后的章图 data_url 预览
+  const [sealGenerating, setSealGenerating] = useState(false)
   const [signModalOpen, setSignModalOpen] = useState(false)
 
   // 当前预览页：随已选签署字段所在页自动跳转
@@ -307,6 +353,39 @@ const Sign = () => {
       setSealModalOpen(false)
     }
     r.readAsDataURL(f)
+  }
+
+  // 模板制作：调用后端接口生成透明底章图，先在弹窗内预览
+  const onGenerateSealPreview = async () => {
+    if (!sealCompanyName.trim()) {
+      message.warning(t('contracts.sealCompanyRequired'))
+      return
+    }
+    setSealGenerating(true)
+    try {
+      const res: any = await signAssetsApi.generateSeal({
+        company_name: sealCompanyName.trim(),
+        middle_text: sealMiddleText.trim() || t('contracts.sealMiddleTextDefault'),
+      })
+      const dataUrl = res?.data?.data_url
+      if (!dataUrl) {
+        message.error(t('contracts.errGenericSubmit'))
+        return
+      }
+      setSealPreview(dataUrl)
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || t('contracts.errGenericSubmit'))
+    } finally {
+      setSealGenerating(false)
+    }
+  }
+
+  // 预览后「使用此印章」：把生成的章图设置为当前签署用章
+  const usePreviewSeal = () => {
+    if (!sealPreview) return
+    setSealImg(sealPreview)
+    setSealMade(true)
+    setSealModalOpen(false)
   }
 
   // 执行一次签署 POST（code 为签前「签署意愿验证码」，有联系方式时必传）
@@ -742,22 +821,88 @@ const Sign = () => {
         <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.drawHint')}</div>
       </Modal>
 
-      {/* 单次印章制作弹窗：系统生成 或 上传印模 */}
+      {/* 单次印章制作弹窗：模板制作 / 印模上传 两种方式 */}
       <Modal
         open={sealModalOpen}
         title={t('contracts.makeSeal')}
         footer={null}
         onCancel={() => setSealModalOpen(false)}
       >
-        <div style={{ textAlign: 'center' }}>
-          <CompanySeal name={doc?.party_name_masked || ''} />
-          <div className="rent-text-sm rent-text-muted" style={{ margin: '8px 0 12px' }}>{t('contracts.sealSystemHint')}</div>
-          <div className="rent-flex" style={{ justifyContent: 'center', gap: 8 }}>
-            <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => { setSealImg(''); setSealMade(true); setSealModalOpen(false) }}>{t('contracts.sealUseSystem')}</button>
-            <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => sealFileRef.current?.click()}>{t('contracts.sealUpload')}</button>
-            <input ref={sealFileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={onSealFile} />
+        <Segmented
+          block
+          value={sealCreateType}
+          onChange={(v) => setSealCreateType(v as 'template' | 'imprint')}
+          options={[
+            { value: 'template', label: t('contracts.sealTypeTemplate') },
+            { value: 'imprint', label: t('contracts.sealTypeImprint') },
+          ]}
+          style={{ marginBottom: 16 }}
+        />
+
+        {sealCreateType === 'template' ? (
+          <div>
+            <div className="rent-field" style={{ marginBottom: 12 }}>
+              <label className="rent-label">{t('contracts.sealCompanyName')}</label>
+              <input
+                className="rent-input"
+                value={sealCompanyName}
+                placeholder={t('contracts.sealCompanyNamePlaceholder')}
+                onChange={(e) => setSealCompanyName(e.target.value)}
+              />
+            </div>
+            <div className="rent-field" style={{ marginBottom: 12 }}>
+              <label className="rent-label">{t('contracts.sealMiddleText')}</label>
+              <input
+                className="rent-input"
+                value={sealMiddleText}
+                placeholder={t('contracts.sealMiddleTextPlaceholder')}
+                onChange={(e) => setSealMiddleText(e.target.value)}
+              />
+            </div>
+            <div className="rent-field" style={{ marginBottom: 12 }}>
+              <label className="rent-label">{t('contracts.sealStyle')}</label>
+              <div className="rent-flex" style={{ alignItems: 'center', gap: 8 }}>
+                <CompanySeal name={doc?.party_name_masked || ''} />
+                <div style={{ textAlign: 'left' }}>
+                  <div className="rent-text-sm rent-text-bold">{t('contracts.sealStyleOfficial')}</div>
+                  <div className="rent-text-sm rent-text-muted">{t('contracts.sealStyleOnly')}</div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="rent-btn rent-btn--primary rent-btn--block"
+              onClick={onGenerateSealPreview}
+              disabled={sealGenerating}
+              style={{ width: '100%' }}
+            >
+              {sealGenerating ? t('common.loading') : t('contracts.sealGeneratePreview')}
+            </button>
+
+            {sealPreview ? (
+              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                <img className="kf-asset-thumb" src={sealPreview} alt={t('contracts.makeSeal')} style={{ width: 160, height: 160, objectFit: 'contain' }} />
+                <div style={{ marginTop: 12 }}>
+                  <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={usePreviewSeal}>{t('contracts.sealUseThis')}</button>
+                </div>
+              </div>
+            ) : (
+              <div className="rent-text-sm rent-text-muted" style={{ textAlign: 'center', marginTop: 16 }}>{t('contracts.sealSystemHint')}</div>
+            )}
           </div>
-        </div>
+        ) : (
+          <div style={{ textAlign: 'center' }}>
+            <div className="rent-text-sm rent-text-muted" style={{ margin: '8px 0 12px' }}>{t('contracts.sealUploadTip')}</div>
+            <div className="rent-flex" style={{ justifyContent: 'center', gap: 8 }}>
+              <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => sealFileRef.current?.click()}>{t('contracts.sealUpload')}</button>
+              <input ref={sealFileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={onSealFile} />
+            </div>
+            {sealImg && (
+              <img className="kf-asset-thumb" src={sealImg} alt={t('contracts.makeSeal')} style={{ marginTop: 12 }} />
+            )}
+          </div>
+        )}
       </Modal>
 
       {/* 实名认证弹窗 */}

@@ -368,6 +368,10 @@ export const signAssetsApi = {
   // 印模盖章：上传扫描印章原图（raw base64），后端自动透明抠图生成印章资产
   imprint: (data: { name: string; image_base64: string }) =>
     api.post('/sign-assets/imprint', data),
+  // 开放签对齐：系统模板生成公章。body {name, company_name, middle_text, size}，
+  // 返回 {data_url}（透明底 PNG data URL），预览后可用作当前签署用章。
+  generateSeal: (data: { name: string; company_name: string; middle_text: string; size?: number }) =>
+    api.post('/sign-assets/generate-seal', data),
   remove: (id: string) => api.delete(`/sign-assets/${id}`),
 };
 

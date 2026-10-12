@@ -7,7 +7,7 @@
  * 只读字段由后端返回，`can_edit` 为 false 时仅展示、隐藏全部写操作。
  * 功能图标一律 SVG；文本全部走 i18n 三语。
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { View, Text, ScrollView, Input, Textarea, Image, Canvas } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { contractsApi, signAssetsApi } from '@/services/api'
@@ -148,6 +148,11 @@ export default function AdminContractsPage() {
   const [fieldPage, setFieldPage] = useState(1)
   const [mark, setMark] = useState<{ x: string; y: string }>({ x: '', y: '' })
   const [fieldBusy, setFieldBusy] = useState(false)
+  // ===== 拖拽克隆落框（开放签）：待放置签署域 / 已落框移动 =====
+  const [placing, setPlacing] = useState(false)
+  const [dragField, setDragField] = useState<{ id: string; x: number; y: number } | null>(null)
+  const canvasRectRef = useRef<any>(null)
+  const workGestureRef = useRef<{ type: 'place' | 'move'; id?: string; start: { x: number; y: number } } | null>(null)
   // 验签报告
   const [verifyReport, setVerifyReport] = useState<any | null>(null)
   const [verifyLoading, setVerifyLoading] = useState(false)
@@ -161,6 +166,12 @@ export default function AdminContractsPage() {
   const [assets, setAssets] = useState<any[]>([])
   const [showSealMaker, setShowSealMaker] = useState(false)
   const [sealMakerBusy, setSealMakerBusy] = useState(false)
+  // 印章制作：模板制作（系统生成公章）/ 上传实章（印模抠图）并列切换
+  const [sealMakerMode, setSealMakerMode] = useState<'template' | 'imprint'>('template')
+  const [companyName, setCompanyName] = useState('')
+  const [middleText, setMiddleText] = useState('测试印章')
+  const [generatedSeal, setGeneratedSeal] = useState('')
+  const [genSealBusy, setGenSealBusy] = useState(false)
   const [showSigDraw, setShowSigDraw] = useState(false)
   const [sigDrawing, setSigDrawing] = useState(false)
   const [assetBusyId, setAssetBusyId] = useState<string | null>(null)
@@ -685,6 +696,55 @@ export default function AdminContractsPage() {
     })
   }
 
+  // 模板制作：调后端生成章图并预览
+  const generateTemplateSeal = async () => {
+    if (!companyName.trim()) {
+      Taro.showToast({ title: t('contract.companyNameRequired'), icon: 'none' })
+      return
+    }
+    setGenSealBusy(true)
+    try {
+      const res: any = await signAssetsApi.generateSeal({
+        name: `seal-${Date.now()}`,
+        company_name: companyName.trim(),
+        middle_text: middleText.trim() || '测试印章',
+        size: 300
+      })
+      const d = unwrap(res)
+      const url = d?.data_url || ''
+      if (!url) {
+        Taro.showToast({ title: t('contract.generateSealFailed'), icon: 'none' })
+        return
+      }
+      setGeneratedSeal(url)
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.generateSealFailed'), icon: 'none' })
+    } finally {
+      setGenSealBusy(false)
+    }
+  }
+
+  // 使用生成的模板章：写入签名库并设为当前签署用章
+  const useGeneratedSeal = async () => {
+    if (!generatedSeal) return
+    setGenSealBusy(true)
+    try {
+      await signAssetsApi.create({
+        name: `seal-${Date.now()}`,
+        asset_type: 'seal',
+        source: 'drew',
+        data_url: generatedSeal
+      })
+      Taro.showToast({ title: t('contract.assetSaved'), icon: 'success' })
+      setShowSealMaker(false)
+      await refreshAssets()
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.saveToLibrary'), icon: 'none' })
+    } finally {
+      setGenSealBusy(false)
+    }
+  }
+
   const saveSig = () => {
     Taro.canvasToTempFilePath({ canvasId: 'acSignCanvas' })
       .then((res: any) => {
@@ -719,22 +779,32 @@ export default function AdminContractsPage() {
     }
   }
 
+  // 手写签名：按笔画记录（速度加权 1~4px 线宽）+ 单笔撤销 / 整面重写
+  const sigStrokes = useRef<{ pts: { x: number; y: number }[]; w: number }[]>([])
+  const sigCur = useRef<{ pts: { x: number; y: number }[]; dist: number; count: number } | null>(null)
+
   const sigDrawStart = (e: any) => {
+    const t = e?.touches?.[0]
+    sigCur.current = { pts: [{ x: t?.x ?? 0, y: t?.y ?? 0 }], dist: 0, count: 0 }
     const ctx = Taro.createCanvasContext('acSignCanvas')
     ctx.setStrokeStyle('#1f2937')
     ctx.setLineWidth(4)
     ctx.setLineCap('round')
     ctx.setLineJoin('round')
-    const t = e?.touches?.[0]
     ctx.beginPath()
-    ctx.moveTo(t?.x ?? 0, t?.y ?? 0)
+    ctx.moveTo(sigCur.current.pts[0].x, sigCur.current.pts[0].y)
     ctx.stroke()
     ctx.draw(true)
   }
 
   const sigDrawMove = (e: any) => {
     const t = e?.touches?.[0]
-    if (!t) return
+    if (!t || !sigCur.current) return
+    const last = sigCur.current.pts[sigCur.current.pts.length - 1]
+    // 累计位移与采样数 → 抬手时折算速度加权线宽
+    sigCur.current.dist += Math.hypot(t.x - last.x, t.y - last.y)
+    sigCur.current.count += 1
+    sigCur.current.pts.push({ x: t.x, y: t.y })
     const ctx = Taro.createCanvasContext('acSignCanvas')
     ctx.setStrokeStyle('#1f2937')
     ctx.setLineWidth(4)
@@ -745,17 +815,134 @@ export default function AdminContractsPage() {
     ctx.draw(true)
   }
 
+  const sigDrawEnd = () => {
+    if (!sigCur.current) return
+    const { dist, count } = sigCur.current
+    const avgSpeed = count > 0 ? dist / count : 0
+    const w = Math.min(4, Math.max(1, 4 - avgSpeed * 0.15)) // 快=细、慢=粗
+    sigStrokes.current.push({ pts: sigCur.current.pts, w })
+    sigCur.current = null
+  }
+
+  // 整面按笔画重绘（撤销后重建）
+  const redrawSig = () => {
+    const ctx = Taro.createCanvasContext('acSignCanvas')
+    ctx.clearRect(0, 0, 2000, 1000)
+    sigStrokes.current.forEach((s) => {
+      if (!s.pts.length) return
+      ctx.setStrokeStyle('#1f2937')
+      ctx.setLineCap('round')
+      ctx.setLineJoin('round')
+      ctx.setLineWidth(s.w)
+      ctx.beginPath()
+      ctx.moveTo(s.pts[0].x, s.pts[0].y)
+      for (let i = 1; i < s.pts.length; i++) ctx.lineTo(s.pts[i].x, s.pts[i].y)
+      ctx.stroke()
+    })
+    ctx.draw(true)
+  }
+
+  const undoSigCanvas = () => {
+    if (!sigStrokes.current.length) return
+    sigStrokes.current.pop()
+    sigCur.current = null
+    redrawSig()
+  }
+
   const clearSigCanvas = () => {
+    sigStrokes.current = []
+    sigCur.current = null
     const ctx = Taro.createCanvasContext('acSignCanvas')
     ctx.clearRect(0, 0, 2000, 1000)
     ctx.draw()
   }
 
-  const placeWorkspaceField = async () => {
-    if (!detail?.id || !signPartyId || !signFieldType || mark.x === '') {
-      Taro.showToast({ title: t('contract.insert'), icon: 'none' })
+  // 触点坐标 → 画布内页面百分比（0-100），界面上不暴露裸坐标
+  const measureDocCanvas = () =>
+    new Promise<any>((resolve) => {
+      const pageInstance = Taro.getCurrentInstance()?.page
+      const q = pageInstance
+        ? Taro.createSelectorQuery().in(pageInstance as any)
+        : Taro.createSelectorQuery()
+      q.select('#signfield-canvas').boundingClientRect((rect: any) => resolve(rect)).exec()
+    })
+
+  const pctFromTouch = (touch: any, rect: any) => {
+    if (!rect || !rect.width || !rect.height || touch?.pageX == null) return null
+    return {
+      x: Math.max(0, Math.min(100, ((touch.pageX - rect.left) / rect.width) * 100)),
+      y: Math.max(0, Math.min(100, ((touch.pageY - rect.top) / rect.height) * 100))
+    }
+  }
+
+  const fieldContains = (f: any, pt: { x: number; y: number }) => {
+    const x = Number.parseFloat(String(f?.x))
+    const y = Number.parseFloat(String(f?.y))
+    const w = Number.parseFloat(String(f?.w ?? 16))
+    const h = Number.parseFloat(String(f?.h ?? 5))
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false
+    return pt.x >= x - 2 && pt.x <= x + w + 2 && pt.y >= y - 2 && pt.y <= y + h + 2
+  }
+
+  // 按下：命中已落框（未签）签署框→拖动；否则开始放置新的「待放置签署域」
+  const onPlaceStart = async (e: any) => {
+    setMark({ x: '', y: '' })
+    setDragField(null)
+    if (signMode !== 'position' || !signPartyId || !signFieldType) return
+    const touch = e?.touches?.[0] || e?.changedTouches?.[0]
+    if (!touch) return
+    const rect = await measureDocCanvas()
+    canvasRectRef.current = rect
+    const pt = pctFromTouch(touch, rect)
+    if (!pt) return
+    const hit = signDocFields.find((f) => !f?.signed && fieldContains(f, pt))
+    if (hit?.id) {
+      workGestureRef.current = { type: 'move', id: String(hit.id), start: pt }
+      setDragField({ id: String(hit.id), x: Number(pt.x.toFixed(1)), y: Number(pt.y.toFixed(1)) })
+    } else {
+      workGestureRef.current = { type: 'place', start: pt }
+      setPlacing(true)
+      setMark({ x: pt.x.toFixed(1), y: pt.y.toFixed(1) })
+    }
+  }
+
+  const onPlaceMove = (e: any) => {
+    const g = workGestureRef.current
+    if (!g) return
+    const touch = e?.touches?.[0] || e?.changedTouches?.[0]
+    if (!touch) return
+    const pt = pctFromTouch(touch, canvasRectRef.current)
+    if (!pt) return
+    if (g.type === 'place') {
+      setMark({ x: pt.x.toFixed(1), y: pt.y.toFixed(1) })
+    } else if (g.type === 'move' && g.id) {
+      setDragField({ id: g.id, x: Number(pt.x.toFixed(1)), y: Number(pt.y.toFixed(1)) })
+    }
+  }
+
+  // 松手：放置→新建签署框落库（无 id=新增）；拖动→带 id 更新坐标
+  const onPlaceEnd = async (e: any) => {
+    const g = workGestureRef.current
+    workGestureRef.current = null
+    const touch = e?.changedTouches?.[0] || e?.touches?.[0]
+    const pt = pctFromTouch(touch, canvasRectRef.current)
+    if (g?.type === 'place') {
+      setPlacing(false)
+      setMark({ x: '', y: '' })
+      if (pt) await createWorkField(pt.x, pt.y)
       return
     }
+    setDragField(null)
+    if (g?.type === 'move' && g.id && pt) {
+      const f = signDocFields.find((x) => String(x?.id) === g.id)
+      const moved = Math.hypot(pt.x - g.start.x, pt.y - g.start.y) > 0.5
+      if (f && moved) await moveWorkField(f, pt.x, pt.y)
+    }
+  }
+
+  // 新建签署框（POST /sign-fields 无 id = 新增）
+  const createWorkField = async (x: number, y: number) => {
+    if (!detail?.id || !signPartyId || !signFieldType) return
     setFieldBusy(true)
     try {
       await contractsApi.saveSignFields(detail.id, [
@@ -763,19 +950,62 @@ export default function AdminContractsPage() {
           party_id: signPartyId,
           field_type: signFieldType,
           page: fieldPage,
-          x: Number(mark.x),
-          y: Number(mark.y),
+          x: Number(x.toFixed(1)),
+          y: Number(y.toFixed(1)),
           w: signFieldType === 'date' ? 16 : 24,
           h: signFieldType === 'date' ? 3 : 5,
           required: true
         }
       ])
       Taro.showToast({ title: t('contract.fieldSaved'), icon: 'success' })
-      setMark({ x: '', y: '' })
+      setPlacing(false)
       await openDetail(detail.id)
       await refreshAssets()
     } catch (e: any) {
       Taro.showToast({ title: e?.message || t('contract.saveFields'), icon: 'none' })
+    } finally {
+      setFieldBusy(false)
+    }
+  }
+
+  // 拖动已落框签署框位置（POST /sign-fields 带 id = 更新坐标）
+  const moveWorkField = async (f: any, x: number, y: number) => {
+    if (!detail?.id || !f?.id) return
+    setFieldBusy(true)
+    try {
+      await contractsApi.saveSignFields(detail.id, [
+        {
+          id: String(f.id),
+          party_id: f?.party_id,
+          field_type: f?.field_type || signFieldType,
+          page: fieldPage,
+          x: Number(x.toFixed(1)),
+          y: Number(y.toFixed(1)),
+          w: f?.w,
+          h: f?.h,
+          required: f?.required !== false
+        }
+      ])
+      Taro.showToast({ title: t('contract.fieldSaved'), icon: 'success' })
+      setDragField(null)
+      await openDetail(detail.id)
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.saveFields'), icon: 'none' })
+    } finally {
+      setFieldBusy(false)
+    }
+  }
+
+  // 删除已落框签署框（DELETE /sign-fields/{id}）
+  const deleteWorkField = async (id: string) => {
+    if (!detail?.id) return
+    setFieldBusy(true)
+    try {
+      await contractsApi.deleteSignField(detail.id, String(id))
+      Taro.showToast({ title: t('contract.fieldRemoved'), icon: 'none' })
+      await openDetail(detail.id)
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.deleteField'), icon: 'none' })
     } finally {
       setFieldBusy(false)
     }
@@ -805,11 +1035,8 @@ export default function AdminContractsPage() {
   }
 
   const submitWorkspace = async () => {
-    if (signMode === 'position') {
-      void placeWorkspaceField()
-      return
-    }
-    if (kwPlaced) {
+    // 指定位置模式：拖拽松手即自动落框保存，无需此按钮；此处仅处理关键字模式确认
+    if (signMode === 'keyword' && kwPlaced) {
       setWorkspace(false)
       setKwPlaced(false)
       setSignPartyId('')
@@ -817,10 +1044,8 @@ export default function AdminContractsPage() {
     }
   }
 
-  const wpBtnEnabled =
-    signMode === 'position' ? !!signPartyId && !!signFieldType && mark.x !== '' : kwPlaced
-  const wpBtnText =
-    signMode === 'keyword' && kwPlaced ? t('contract.confirm') : t('contract.saveFields')
+  const wpBtnEnabled = signMode === 'keyword' && kwPlaced
+  const wpBtnText = t('contract.confirm')
 
   const signDocFields = Array.isArray(detail?.sign_fields)
     ? detail.sign_fields.filter((f: any) => Number(f?.page) === fieldPage)
@@ -969,14 +1194,71 @@ export default function AdminContractsPage() {
                     )}
                   </View>
 
-                  {/* 制作印章弹层（上传图片 → 印模抠图入库） */}
+                  {/* 制作印章弹层：模板制作（系统公章）/ 上传实章（印模抠图）并列 */}
                   {showSealMaker && (
                     <View className='ac-esign-maker'>
                       <Text className='ac-esign-maker__title'>{t('contract.makeSeal')}</Text>
-                      <View className='ac-esign-row'>
-                        <View className={`ac-btn ac-btn--ghost ${sealMakerBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!sealMakerBusy) makeSeal() }}>
-                          <Text className='ac-btn__text ac-btn__text--ghost'>{sealMakerBusy ? t('pub.loading') : t('contract.uploadSeal')}</Text>
+
+                      <View className='ac-seg' style={{ marginBottom: '12rpx' }}>
+                        <View
+                          className={`ac-seg__item ${sealMakerMode === 'template' ? 'ac-seg__item--active' : ''}`}
+                          onClick={() => setSealMakerMode('template')}
+                        >
+                          <Text className={`ac-seg__text ${sealMakerMode === 'template' ? 'ac-seg__text--active' : ''}`}>
+                            {t('contract.sealMakeTemplate')}
+                          </Text>
                         </View>
+                        <View
+                          className={`ac-seg__item ${sealMakerMode === 'imprint' ? 'ac-seg__item--active' : ''}`}
+                          onClick={() => setSealMakerMode('imprint')}
+                        >
+                          <Text className={`ac-seg__text ${sealMakerMode === 'imprint' ? 'ac-seg__text--active' : ''}`}>
+                            {t('contract.sealMakeImprint')}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {sealMakerMode === 'template' ? (
+                        <View>
+                          <Text className='ac-esign__label'>{t('contract.companyName')}</Text>
+                          <Input
+                            className='ac-esign-kw__input'
+                            placeholder={t('contract.companyNamePlaceholder')}
+                            value={companyName}
+                            onInput={(e: any) => setCompanyName(e.detail.value)}
+                          />
+                          <Text className='ac-esign__label'>{t('contract.middleText')}</Text>
+                          <Input
+                            className='ac-esign-kw__input'
+                            placeholder={t('contract.middleTextPlaceholder')}
+                            value={middleText}
+                            onInput={(e: any) => setMiddleText(e.detail.value)}
+                          />
+                          <Text className='ac-esign__label'>{t('contract.sealStyle')}</Text>
+                          <Text className='ac-seal-style'>{t('contract.sealStyleOfficial')}</Text>
+                          <View className='ac-esign-row' style={{ marginTop: '12rpx' }}>
+                            <View className={`ac-btn ac-btn--ghost ${genSealBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!genSealBusy) void generateTemplateSeal() }}>
+                              <Text className='ac-btn__text ac-btn__text--ghost'>{genSealBusy ? t('pub.loading') : t('contract.generateSeal')}</Text>
+                            </View>
+                          </View>
+                          {generatedSeal ? (
+                            <View className='ac-esign-row' style={{ marginTop: '12rpx' }}>
+                              <Image className='ac-esign-asset__thumb ac-seal-preview' src={generatedSeal} mode='aspectFit' />
+                              <View className={`ac-btn ac-btn--ghost ${genSealBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!genSealBusy) void useGeneratedSeal() }}>
+                                <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.useThisSeal')}</Text>
+                              </View>
+                            </View>
+                          ) : null}
+                        </View>
+                      ) : (
+                        <View className='ac-esign-row'>
+                          <View className={`ac-btn ac-btn--ghost ${sealMakerBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!sealMakerBusy) makeSeal() }}>
+                            <Text className='ac-btn__text ac-btn__text--ghost'>{sealMakerBusy ? t('pub.loading') : t('contract.uploadSeal')}</Text>
+                          </View>
+                        </View>
+                      )}
+
+                      <View className='ac-esign-row' style={{ marginTop: '12rpx' }}>
                         <View className='ac-btn ac-btn--ghost' onClick={() => setShowSealMaker(false)}>
                           <Text className='ac-btn__text ac-btn__text--ghost'>{t('common.back')}</Text>
                         </View>
@@ -995,10 +1277,13 @@ export default function AdminContractsPage() {
                           className='ac-esign-signbox__canvas'
                           onTouchStart={sigDrawStart}
                           onTouchMove={sigDrawMove}
-                          onTouchEnd={() => {}}
+                          onTouchEnd={sigDrawEnd}
                         />
                       </View>
                       <View className='ac-esign-row'>
+                        <View className='ac-btn ac-btn--ghost' onClick={undoSigCanvas}>
+                          <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.undoSign')}</Text>
+                        </View>
                         <View className='ac-btn ac-btn--ghost' onClick={clearSigCanvas}>
                           <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.clear')}</Text>
                         </View>
@@ -1082,7 +1367,9 @@ export default function AdminContractsPage() {
                 <View
                   id='signfield-canvas'
                   className='ac-esign__doc-canvas'
-                  onClick={signMode === 'position' ? onTapPlace : undefined}
+                  onTouchStart={onPlaceStart}
+                  onTouchMove={onPlaceMove}
+                  onTouchEnd={onPlaceEnd}
                 >
                   {pdfNumPages > 0 ? (
                     <Image className='ac-esign__doc-img' src={contractsApi.pdfPageUrl(detail.id, fieldPage)} mode='widthFix' />
@@ -1092,34 +1379,48 @@ export default function AdminContractsPage() {
                   {mark.x !== '' && (
                     <View className='ac-esign__doc-pending' style={{ left: `${mark.x}%`, top: `${mark.y}%` }} />
                   )}
-                  {signDocFields.map((f: any, idx: number) => (
-                    <View
-                      key={f?.id ?? idx}
-                      className='ac-esign__doc-field'
-                      style={{
-                        left: `${clampPct(f?.x, 8)}%`,
-                        top: `${clampPct(f?.y, 40)}%`,
-                        width: `${clampPct(f?.w, 16)}%`,
-                        height: `${clampPct(f?.h, 5)}%`
-                      }}
-                    >
-                      <Text className='ac-esign__doc-field-label'>
-                        {t(FIELD_TYPE_META[f?.field_type] || 'contract.field.signature')}
-                      </Text>
-                    </View>
-                  ))}
+                  {signDocFields.map((f: any, idx: number) => {
+                    const isSigned = !!f?.signed
+                    const dragIt = dragField?.id === String(f?.id)
+                    const lx = dragIt ? String(dragField.x) : clampPct(f?.x, 8)
+                    const ly = dragIt ? String(dragField.y) : clampPct(f?.y, 40)
+                    return (
+                      <View
+                        key={f?.id ?? idx}
+                        className={`ac-esign__doc-field ${dragIt ? 'ac-esign__doc-field--drag' : ''}`}
+                        style={{
+                          left: `${lx}%`,
+                          top: `${ly}%`,
+                          width: `${clampPct(f?.w, 16)}%`,
+                          height: `${clampPct(f?.h, 5)}%`
+                        }}
+                      >
+                        <Text className='ac-esign__doc-field-label'>
+                          {t(FIELD_TYPE_META[f?.field_type] || 'contract.field.signature')}
+                        </Text>
+                        {!isSigned && f?.id ? (
+                          <View
+                            className='ac-esign__doc-del'
+                            onClick={(ev: any) => { ev.stopPropagation?.(); void deleteWorkField(String(f.id)) }}
+                          >
+                            <View className='icon-svg' style={iconStyle('close', 20)} />
+                          </View>
+                        ) : null}
+                      </View>
+                    )
+                  })}
                 </View>
-                {signMode === 'position' && mark.x !== '' && (
-                  <Text className='ac-esign__hint'>
-                    {t('contract.page')} {fieldPage} · {t('contract.tapToPlace')}
-                  </Text>
+                {signMode === 'position' && (
+                  <Text className='ac-esign__hint'>{t('contract.dragToPlace')}</Text>
                 )}
               </View>
 
-              {/* 底部主按钮：指定位置先落框才启用；关键字落框后启用 */}
-              <View className={`ac-esign__submit ${fieldBusy || kwPlacing || !wpBtnEnabled ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!fieldBusy && !kwPlacing && wpBtnEnabled) void submitWorkspace() }}>
-                <Text className='ac-esign__submit-text'>{fieldBusy || kwPlacing ? t('pub.loading') : wpBtnText}</Text>
-              </View>
+              {/* 底部主按钮：指定位置可靠拖拽松手自动落框保存；仅关键字模式用此按钮确认 */}
+              {signMode === 'keyword' && (
+                <View className={`ac-esign__submit ${fieldBusy || kwPlacing || !wpBtnEnabled ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!fieldBusy && !kwPlacing && wpBtnEnabled) void submitWorkspace() }}>
+                  <Text className='ac-esign__submit-text'>{fieldBusy || kwPlacing ? t('pub.loading') : wpBtnText}</Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -1627,7 +1928,7 @@ export default function AdminContractsPage() {
               {/* 可视化落框：在正文 / 页图上点按即可定位，无需手填坐标 */}
               <View className='ac-field'>
                 <Text className='ac-field__label'>
-                  {t('contract.tapToPlace')}{mark.x ? ` · ${t('contract.page')} ${fieldPage} · X${mark.x} · Y${mark.y}` : ''}
+                  {t('contract.tapToPlace')}{mark.x !== '' ? ` · ${t('contract.page')} ${fieldPage}` : ''}
                 </Text>
                 <View
                   id='signfield-canvas'

@@ -101,6 +101,39 @@ def create_sign_asset(
     return _serialize(asset)
 
 
+class GenerateSealIn(BaseModel):
+    """系统模板生成公章（对应开放签「模板制作」）。
+
+    company_name 沿顶部环绕（开放签 entpName），middle_text 居中横排（开放签 middleText）。
+    """
+    name: str = "公司公章"
+    company_name: str = ""
+    middle_text: str = "测试印章"
+    size: int = 360
+    model_config = ConfigDict(extra="allow")
+
+
+@router.post("/generate-seal")
+def generate_seal_preview(
+    payload: GenerateSealIn,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """系统模板生成电子公章图，返回透明底 PNG 供前端预览。不落库。
+
+    需保存到「我的印章」时再调用 POST /sign-assets。
+    """
+    try:
+        png = kaifang_sign_service.get_engine().make_seal(
+            (payload.company_name or "").strip(),
+            (payload.middle_text or "").strip(),
+            max(180, min(480, payload.size or 360)),
+        )
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="Failed to generate seal")
+    return {"data_url": _png_data_url(png)}
+
+
 @router.post("/imprint")
 def create_imprint_seal(
     payload: dict,

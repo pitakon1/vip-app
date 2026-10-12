@@ -37,14 +37,15 @@ interface Props {
 
 const STROKE_COLORS = [colors.primary, colors.error, colors.success];
 
-const toSvg = (strokes: Point[][], w: number, h: number) => {
+const toSvg = (strokes: Point[][], widths: number[], w: number, h: number) => {
   if (!strokes.length) return '';
   const paths: string[] = [];
   strokes.forEach((pts, i) => {
     const color = STROKE_COLORS[i % STROKE_COLORS.length];
+    const sw = widths[i] ?? 4;
     if (pts.length === 1) {
       paths.push(
-        `<circle cx="${pts[0].x}" cy="${pts[0].y}" r="2" fill="${color}" stroke="none"/>`,
+        `<circle cx="${pts[0].x}" cy="${pts[0].y}" r="${Math.max(1, sw / 2)}" fill="${color}" stroke="none"/>`,
       );
       return;
     }
@@ -53,7 +54,7 @@ const toSvg = (strokes: Point[][], w: number, h: number) => {
       d += ` L ${pts[k].x} ${pts[k].y}`;
     }
     paths.push(
-      `<path d="${d}" stroke="${color}" stroke-width="3" stroke-linecap="round" fill="none"/>`,
+      `<path d="${d}" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" fill="none"/>`,
     );
   });
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${paths.join('')}</svg>`;
@@ -68,6 +69,9 @@ export default function SignaturePad({
 }: Props) {
   const { t } = useI18n();
   const strokesRef = useRef<Point[][]>([]);
+  const widthsRef = useRef<number[]>([]);
+  // 当前笔速度累计：抬手时折算速度加权线宽（快=细、慢=粗，1~4px）
+  const curSpeed = useRef({ dist: 0, count: 0 });
   const sizeRef = useRef({ width: 300, height: 150 });
   const [size, setSize] = useState(sizeRef.current);
   const [version, setVersion] = useState(0);
@@ -90,28 +94,46 @@ export default function SignaturePad({
       onPanResponderGrant: (evt: GestureResponderEvent) => {
         const { locationX, locationY } = evt.nativeEvent;
         strokesRef.current.push([{ x: locationX, y: locationY }]);
+        curSpeed.current = { dist: 0, count: 0 };
         touch();
       },
       onPanResponderMove: (evt: GestureResponderEvent, _s: PanResponderGestureState) => {
         const { locationX, locationY } = evt.nativeEvent;
         const cur = strokesRef.current;
         if (!cur.length) return;
-        cur[cur.length - 1].push({ x: locationX, y: locationY });
+        const last = cur[cur.length - 1];
+        const prev = last[last.length - 1];
+        curSpeed.current.dist += Math.hypot(locationX - prev.x, locationY - prev.y);
+        curSpeed.current.count += 1;
+        last.push({ x: locationX, y: locationY });
         touch();
+      },
+      onPanResponderRelease: () => {
+        const { dist, count } = curSpeed.current;
+        const avgSpeed = count > 0 ? dist / count : 0;
+        const w = Math.min(4, Math.max(1, 4 - avgSpeed * 0.15)); // 快=细、慢=粗
+        widthsRef.current.push(w);
       },
     }),
   ).current;
 
   React.useEffect(() => {
     // 仅在有内容时回传，避免初始空串误清空父级
-    if (version > 0) onResult(toSvg(strokesRef.current, sizeRef.current.width, sizeRef.current.height));
+    if (version > 0) onResult(toSvg(strokesRef.current, widthsRef.current, sizeRef.current.width, sizeRef.current.height));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version]);
 
   const strokes = strokesRef.current;
 
+  const undo = () => {
+    strokesRef.current.pop();
+    widthsRef.current.pop();
+    touch();
+  };
+
   const clear = () => {
     strokesRef.current = [];
+    widthsRef.current = [];
     touch();
     onResult('');
   };
@@ -128,23 +150,37 @@ export default function SignaturePad({
         <Svg width="100%" height="100%" viewBox={`0 0 ${size.width} ${size.height}`}>
           {strokes.map((pts, i) => {
             const color = STROKE_COLORS[i % STROKE_COLORS.length];
+            const sw = widthsRef.current[i] ?? 4;
             if (pts.length === 1) {
-              return <Circle key={i} cx={pts[0].x} cy={pts[0].y} r={2} fill={color} />;
+              return <Circle key={i} cx={pts[0].x} cy={pts[0].y} r={Math.max(1, sw / 2)} fill={color} />;
             }
             let d = `M ${pts[0].x} ${pts[0].y}`;
             for (let k = 1; k < pts.length; k++) d += ` L ${pts[k].x} ${pts[k].y}`;
             return (
-              <Path key={i} d={d} stroke={color} strokeWidth={3} strokeLinecap="round" fill="none" />
+              <Path key={i} d={d} stroke={color} strokeWidth={sw} strokeLinecap="round" fill="none" />
             );
           })}
         </Svg>
         {strokes.length === 0 ? <Text style={styles.hint}>{t('contract.signHere')}</Text> : null}
       </View>
       {showClear && !fill && (
-        <TouchableOpacity style={styles.clearBtn} activeOpacity={0.85} onPress={clear}>
-          <Ionicons name="refresh-outline" size={15} color={colors.primary} />
-          <Text style={styles.clearText}>{t('contract.clear')}</Text>
-        </TouchableOpacity>
+        <View style={styles.btnRow}>
+          <TouchableOpacity
+            style={[styles.ghostBtn, !strokes.length && styles.ghostBtnDisabled]}
+            activeOpacity={0.85}
+            onPress={undo}
+            disabled={!strokes.length}
+          >
+            <Ionicons name="arrow-undo-outline" size={15} color={colors.primary} />
+            <Text style={[styles.ghostText, !strokes.length && styles.ghostTextDisabled]}>
+              {t('contract.undoSign')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.ghostBtn} activeOpacity={0.85} onPress={clear}>
+            <Ionicons name="refresh-outline" size={15} color={colors.primary} />
+            <Text style={styles.ghostText}>{t('contract.clear')}</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -166,16 +202,25 @@ const styles = StyleSheet.create({
   },
   canvasFill: { flex: 1 },
   hint: { position: 'absolute', fontSize: 12, color: colors.ink3 },
-  clearBtn: {
+  btnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  ghostBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 10,
     paddingVertical: 10,
     borderRadius: colors.radius.md,
     borderWidth: 1,
     borderColor: colors.primary,
   },
-  clearText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  ghostBtnDisabled: {
+    borderColor: colors.line,
+  },
+  ghostText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  ghostTextDisabled: { color: colors.ink3 },
 });

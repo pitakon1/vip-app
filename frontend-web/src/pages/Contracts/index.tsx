@@ -212,6 +212,19 @@ const Contracts = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sigFileRef = useRef<HTMLInputElement>(null)
+  // 开放式签名：已落框签署框“拖动改位”的会话上下文（坐标均为页面百分比）
+  const movingRef = useRef<{
+    ix: number
+    cx: number
+    cy: number
+    w: number
+    h: number
+    sx: number
+    sy: number
+    lx: number
+    ly: number
+    moved: boolean
+  } | null>(null)
 
   const loadList = () => {
     contractsApi
@@ -354,40 +367,130 @@ const Contracts = () => {
       .finally(() => setPdfLoading(false))
   }
 
-  // 在预览上点击添加一个未持久化的签署框（点击前选取 field_type 与归属方）
-  // 坐标一律存页面宽高的百分比(0-100)：x/y/w/h 由点击位置相对当前页容器换算。
-  const placeField = (e: React.MouseEvent, page = 1) => {
-    const box = e.currentTarget as HTMLElement
-    if (!box) return
-    const rect = box.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
+  // 由拖放位置换算成签署框：x/y/w/h 均为页面宽高的百分比(0-100)，落点作为框中心。
+  const createFieldBox = (el: HTMLElement, clientX: number, clientY: number, type: string, party: string, page: number): SignField => {
+    const rect = el.getBoundingClientRect()
+    const x = ((clientX - rect.left) / rect.width) * 100
+    const y = ((clientY - rect.top) / rect.height) * 100
     let fw = 140
     let fh = 48
-    if (fieldType === 'seal') {
+    if (type === 'seal') {
       fw = 110
       fh = 110
-    } else if (fieldType === 'date') {
+    } else if (type === 'date') {
       fw = 110
       fh = 32
     }
     const w = (fw / rect.width) * 100
     const h = (fh / rect.height) * 100
-    // 点击处作为签署框中心 → 换算左上角（百分比）
-    setFields((prev) => [
-      ...prev,
-      {
-        party_id: fieldParty || null,
-        field_type: fieldType,
-        page,
-        x: Math.max(0, x - w / 2),
-        y: Math.max(0, y - h / 2),
-        w,
-        h,
-        required: true,
-        signed: false,
-      },
-    ])
+    return {
+      party_id: party || null,
+      field_type: type,
+      page,
+      x: Math.max(0, x - w / 2),
+      y: Math.max(0, y - h / 2),
+      w,
+      h,
+      required: true,
+      signed: false,
+    }
+  }
+
+  // 开放式签名“拖拽克隆”落框：从侧栏可拖拽源项拖到文档某页释放 → 新建签署框并 POST 无 id 新增落库。
+  const placeFieldDrop = (e: React.DragEvent, page: number) => {
+    e.preventDefault()
+    const box = e.currentTarget as HTMLElement
+    if (!box || !detail.contract) return
+    const f = createFieldBox(box, e.clientX, e.clientY, fieldType, fieldParty, page)
+    // 先入本地显示，POST 成功后回写带 id 的字段
+    setFields((prev) => [...prev, f])
+    contractsApi
+      .saveSignFields(detail.contract.id, [f] as unknown as Record<string, unknown>[])
+      .then((res: any) => {
+        const saved = res?.data?.sign_fields
+        if (Array.isArray(saved) && saved[0]) {
+          const nf = saved[0] as SignField
+          setFields((prev) => prev.map((x) => (x === f ? nf : x)))
+          setDetail((d) => {
+            const existing = d.signFields || []
+            const idx = existing.findIndex((x) => x.id === nf.id)
+            const next = idx >= 0 ? existing.map((x, i) => (i === idx ? nf : x)) : [...existing, nf]
+            return { ...d, signFields: next }
+          })
+        }
+      })
+      .catch((err: any) => message.error(err?.response?.data?.detail || t('contracts.errFieldsSave')))
+  }
+
+  // 已落框签署框的“拖动改位”：pointer 事件实时改位置，松手后带 id POST /sign-fields 更新 x/y。
+  const onFieldDown = (e: React.PointerEvent, f: SignField, i: number) => {
+    if (f.signed) return
+    e.stopPropagation()
+    const el = e.currentTarget as HTMLElement
+    const parent = el.offsetParent as HTMLElement | null
+    if (!parent) return
+    const rect = parent.getBoundingClientRect()
+    movingRef.current = {
+      ix: i,
+      cx: e.clientX,
+      cy: e.clientY,
+      w: rect.width,
+      h: rect.height,
+      sx: f.x,
+      sy: f.y,
+      lx: f.x,
+      ly: f.y,
+      moved: false,
+    }
+    try {
+      el.setPointerCapture(e.pointerId)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const onFieldMove = (e: React.PointerEvent, f: SignField, i: number) => {
+    const m = movingRef.current
+    if (!m || m.ix !== i) return
+    const dx = ((e.clientX - m.cx) / m.w) * 100
+    const dy = ((e.clientY - m.cy) / m.h) * 100
+    const nx = Math.min(100 - f.w, Math.max(0, m.sx + dx))
+    const ny = Math.min(100 - f.h, Math.max(0, m.sy + dy))
+    if (Math.abs(nx - m.lx) > 0.001 || Math.abs(ny - m.ly) > 0.001) {
+      m.moved = true
+      m.lx = nx
+      m.ly = ny
+      setFields((prev) => prev.map((x, xi) => (xi === i ? { ...x, x: nx, y: ny } : x)))
+    }
+  }
+
+  const onFieldUp = (e: React.PointerEvent, f: SignField, i: number) => {
+    const m = movingRef.current
+    if (!m || m.ix !== i) return
+    movingRef.current = null
+    if (!m.moved || !f.id || !detail.contract) return
+    contractsApi
+      .saveSignFields(detail.contract.id, [
+        {
+          id: f.id,
+          party_id: f.party_id,
+          field_type: f.field_type,
+          page: f.page,
+          x: m.lx,
+          y: m.ly,
+          w: f.w,
+          h: f.h,
+          required: f.required,
+        },
+      ] as unknown as Record<string, unknown>[])
+      .then((res: any) => {
+        const saved = res?.data?.sign_fields
+        if (Array.isArray(saved) && saved[0]) {
+          const nf = saved[0] as SignField
+          setFields((prev) => prev.map((x, xi) => (xi === i ? nf : x)))
+        }
+      })
+      .catch((err: any) => message.error(err?.response?.data?.detail || t('contracts.errFieldsSave')))
   }
 
   // 保存签署框：新增 + 改动一并 upsert
@@ -448,6 +551,9 @@ const Contracts = () => {
       className={f.signed ? 'rent-field-placed rent-field-placed--signed' : 'rent-field-placed'}
       style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }}
       onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => onFieldDown(e, f, i)}
+      onPointerMove={(e) => onFieldMove(e, f, i)}
+      onPointerUp={(e) => onFieldUp(e, f, i)}
     >
       <div className="rent-field-placed__tag">
         {f.signed ? '✓' : ''}
@@ -458,12 +564,15 @@ const Contracts = () => {
         <button
           className="rent-field-placed__del"
           title={t('common.delete')}
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()
             deleteField(f)
           }}
         >
-          ×
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
         </button>
       )}
     </div>
@@ -1108,6 +1217,13 @@ const Contracts = () => {
                     </select>
                   </div>
                   <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.placeHint')}</div>
+                  {/* 待放置签署域：可拖拽源项，拖到文档释放处落框 */}
+                  <div className="kf-drag-source" draggable title={t('contracts.dragToDoc')}>
+                    <span className="kf-drag-source__label">{t(`contracts.fType_${fieldType}`) || fieldType}</span>
+                    <span className="kf-drag-source__hint">
+                      {fieldParty ? partyName(fieldParty) : t('contracts.anyParty')} · {t('contracts.dragSource')}
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1209,14 +1325,14 @@ const Contracts = () => {
               <div className="rent-card__body">
                 <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.docArea')}</div>
                 <div
-                  onClick={(e) => placeField(e, 1)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => placeFieldDrop(e, 1)}
                   style={{
                     position: 'relative',
                     border: '1px solid var(--rent-line, #e6eaf0)',
                     maxHeight: 520,
                     overflow: 'auto',
                     background: '#fff',
-                    cursor: 'crosshair',
                   }}
                 >
                   {pdfAvailable ? (
@@ -1228,10 +1344,11 @@ const Contracts = () => {
                       pdfPages.map((url, pi) => (
                         <div
                           key={pi}
-                          onClick={(e) => placeField(e, pi + 1)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => placeFieldDrop(e, pi + 1)}
                           style={{ position: 'relative', background: '#fff' }}
                         >
-                          <img src={url} alt={`page ${pi + 1}`} style={{ display: 'block', width: '100%' }} />
+                          <img src={url} alt={`page ${pi + 1}`} style={{ display: 'block', width: '100%', pointerEvents: 'none' }} />
                           {fields.filter((f) => f.page === pi + 1).map((f, i) => renderField(f, i))}
                         </div>
                       ))

@@ -55,6 +55,12 @@ export default function SignAssetPicker({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState('');
+  // —— 印章制作方式：template(系统模板生成公章) | imprint(上传实章/印模) ——
+  const [makeMode, setMakeMode] = useState<'template' | 'imprint'>('imprint');
+  const [companyName, setCompanyName] = useState('');
+  const [middleText, setMiddleText] = useState('');
+  const [generatedUrl, setGeneratedUrl] = useState('');
+  const [generating, setGenerating] = useState(false);
 
   const load = useCallback(async () => {
     if (!visible) return;
@@ -70,14 +76,62 @@ export default function SignAssetPicker({
     }
   }, [visible, assetType, t]);
 
+  const middleTextDefault = () => t('contract.middleTextDefault');
+
   useEffect(() => {
     if (visible) {
       setName('');
+      // 重置模板制作表单（默认中心文字取「测试印章」占位文案）
+      setCompanyName('');
+      setMiddleText(middleTextDefault());
+      setGeneratedUrl('');
       void load();
     } else {
       setAssets([]);
     }
-  }, [visible, load]);
+  }, [visible, load, t]);
+
+  // 模板制作：调开放签对齐的生成公章接口，出透明底 PNG data URL 并本地预览
+  const generateTemplateSeal = async () => {
+    const cn = companyName.trim();
+    if (!cn) {
+      notify(t('contract.companyNameRequired'));
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res: any = await signAssetsApi.generateSeal({
+        name: cn,
+        company_name: cn,
+        middle_text: middleText.trim() || middleTextDefault(),
+        size: 260,
+      });
+      const url = res?.data?.data_url;
+      if (!url) {
+        notify(t('contract.generateSealFail'));
+        return;
+      }
+      setGeneratedUrl(url);
+      notify(t('contract.generateSealDone'));
+    } catch (e) {
+      notifyError(t('contract.generateSealFail'), e);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // 「使用此印章」：把生成的公章 data_url 作为当前印章回传父级用于签署
+  const useGeneratedSeal = () => {
+    if (!generatedUrl) return;
+    onSelect({
+      id: '',
+      name: companyName.trim() || t('contract.mySeals'),
+      asset_type: 'seal',
+      source: 'imprint',
+      data_url: generatedUrl,
+    });
+    onClose();
+  };
 
   const pickSealScan = async () => {
     try {
@@ -164,21 +218,104 @@ export default function SignAssetPicker({
             />
 
             {assetType === 'seal' && (
-              <TouchableOpacity
-                style={[styles.addBtn, busy && styles.btnDisabled]}
-                activeOpacity={0.8}
-                disabled={busy}
-                onPress={pickSealScan}
-              >
-                {busy ? (
-                  <ActivityIndicator color={colors.primary} />
+              <>
+                {/* 制作印章：模板制作 / 印模上传 并列切换 */}
+                <View style={styles.modeTabs}>
+                  <TouchableOpacity
+                    style={[styles.modeTab, makeMode === 'template' && styles.modeTabActive]}
+                    activeOpacity={0.8}
+                    onPress={() => setMakeMode('template')}
+                  >
+                    <Text style={[styles.modeTabText, makeMode === 'template' && styles.modeTabTextActive]}>
+                      {t('contract.templateMode')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modeTab, makeMode === 'imprint' && styles.modeTabActive]}
+                    activeOpacity={0.8}
+                    onPress={() => setMakeMode('imprint')}
+                  >
+                    <Text style={[styles.modeTabText, makeMode === 'imprint' && styles.modeTabTextActive]}>
+                      {t('contract.imprintMode')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {makeMode === 'template' ? (
+                  <View>
+                    <Text style={styles.fieldLabel}>{t('contract.companyName')}</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder={t('contract.companyNamePh')}
+                      value={companyName}
+                      onChangeText={setCompanyName}
+                      placeholderTextColor={colors.ink3}
+                    />
+                    <Text style={styles.fieldLabel}>{t('contract.middleText')}</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder={t('contract.middleTextPh')}
+                      value={middleText}
+                      onChangeText={setMiddleText}
+                      placeholderTextColor={colors.ink3}
+                    />
+                    <Text style={styles.fieldLabel}>{t('contract.sealStyle')}</Text>
+                    <View style={styles.styleChip}>
+                      <Text style={styles.styleChipText}>{t('contract.sealStyleGongzhang')}</Text>
+                    </View>
+
+                    {!!generatedUrl && (
+                      <View style={styles.previewWrap}>
+                        <Image source={{ uri: generatedUrl }} style={styles.previewImg} resizeMode="contain" />
+                      </View>
+                    )}
+
+                    <TouchableOpacity
+                      style={[styles.addBtn, (generating || busy) && styles.btnDisabled]}
+                      activeOpacity={0.8}
+                      disabled={generating || busy}
+                      onPress={generateTemplateSeal}
+                    >
+                      {generating ? (
+                        <ActivityIndicator color={colors.primary} />
+                      ) : (
+                        <>
+                          <Ionicons name="color-wand-outline" size={15} color={colors.primary} />
+                          <Text style={styles.addBtnText}>{t('contract.generatePreview')}</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+
+                    {!!generatedUrl && (
+                      <TouchableOpacity
+                        style={[styles.useBtn, busy && styles.btnDisabled]}
+                        activeOpacity={0.8}
+                        disabled={busy}
+                        onPress={useGeneratedSeal}
+                      >
+                        <Ionicons name="checkmark-circle-outline" size={15} color="#fff" />
+                        <Text style={styles.useBtnText}>{t('contract.useThisSeal')}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 ) : (
-                  <>
-                    <Ionicons name="cloud-upload-outline" size={15} color={colors.primary} />
-                    <Text style={styles.addBtnText}>{t('contract.uploadSealScan')}</Text>
-                  </>
+                  <TouchableOpacity
+                    style={[styles.addBtn, busy && styles.btnDisabled]}
+                    activeOpacity={0.8}
+                    disabled={busy}
+                    onPress={pickSealScan}
+                  >
+                    {busy ? (
+                      <ActivityIndicator color={colors.primary} />
+                    ) : (
+                      <>
+                        <Ionicons name="cloud-upload-outline" size={15} color={colors.primary} />
+                        <Text style={styles.addBtnText}>{t('contract.uploadSealScan')}</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
+              </>
             )}
 
             {assetType === 'handwrite' && !!pendingDrawnSvg && (
@@ -286,6 +423,53 @@ const styles = StyleSheet.create({
   },
   addBtnText: { fontSize: 14, fontWeight: '700', color: colors.primary },
   btnDisabled: { opacity: 0.6 },
+  modeTabs: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  modeTab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  modeTabActive: { borderColor: colors.primary, backgroundColor: colors.surface },
+  modeTabText: { fontSize: 14, fontWeight: '600', color: colors.ink3 },
+  modeTabTextActive: { color: colors.primary },
+  fieldLabel: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginBottom: 6, marginTop: 2 },
+  styleChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface2,
+    marginBottom: 14,
+  },
+  styleChipText: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  previewWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.md,
+    paddingVertical: 18,
+    marginBottom: 14,
+  },
+  previewImg: { width: 132, height: 132 },
+  useBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.primary,
+    marginBottom: 14,
+  },
+  useBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
   sectionLabel: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginBottom: 8 },
   center: { paddingVertical: 24, alignItems: 'center' },
   assetRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
