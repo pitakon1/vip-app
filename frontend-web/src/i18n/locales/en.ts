@@ -3795,6 +3795,7 @@ const en: import('./zh').Translation = {
     declineFail: "Failed to decline",
     declinePickParty: "Please select a party",
     keywordSign: "Keyword signing",
+    keywordDefault: "Default keyword",
     keywordPlaceholder: "Type a keyword (e.g. Party A, rent) and press Enter to search",
     searchKeyword: "Search keyword",
     keywordSearchFail: "Keyword search failed",

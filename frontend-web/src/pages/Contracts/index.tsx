@@ -682,6 +682,14 @@ const Contracts = () => {
 
   const canEdit = detail.contract?.can_edit
 
+  // 关键字签署默认词：回填对应签署方式的关键字占位（须与合同正文文字一致，故固定字面量而非按 UI 语言翻译）
+  const DEFAULT_KEYWORD_BY_TYPE: Record<string, string> = {
+    seal: '电子印章盖章处',
+    signature: '个人手写签名处',
+    date: '签署日期',
+  }
+  const setDefaultKeyword = () => setKeywordInput(DEFAULT_KEYWORD_BY_TYPE[fieldType] || '电子印章盖章处')
+
   // 关键字签署：在 PDF 中查找关键字命中位置
   const handleKeywordSearch = () => {
     if (!detail.contract) return
@@ -1255,6 +1263,9 @@ const Contracts = () => {
                       onChange={(e) => setKeywordInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleKeywordSearch() }}
                     />
+                    <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={setDefaultKeyword}>
+                      {t('contracts.keywordDefault')}
+                    </button>
                     <button className="rent-btn rent-btn--ghost rent-btn--sm" disabled={keywordSearching} onClick={handleKeywordSearch}>
                       {keywordSearching ? t('common.loading') : t('contracts.searchKeyword')}
                     </button>

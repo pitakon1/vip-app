@@ -3812,6 +3812,7 @@ const zh = {
     declineFail: "拒签失败",
     declinePickParty: "请选择签署方",
     keywordSign: "关键字签署",
+    keywordDefault: "默认关键字",
     keywordPlaceholder: "输入关键字（如：甲方、租金），按回车搜索",
     searchKeyword: "搜索关键字",
     keywordSearchFail: "关键字搜索失败",

@@ -31,6 +31,13 @@ const FIELD_TYPE_META: Record<string, string> = {
 
 const FIELD_TYPES = ['signature', 'seal', 'date'] as const
 
+// 「默认关键字」回填字面量：须匹配合同正文文字，故固定中文，不随 UI 语言翻译
+const KEYWORD_DEFAULT_LITERAL: Record<string, string> = {
+  signature: '个人手写签名处',
+  seal: '电子印章盖章处',
+  date: '签署日期'
+}
+
 export default function StaffContractPage() {
   const { t } = useI18n()
   const router = useRouter()
@@ -980,6 +987,9 @@ export default function StaffContractPage() {
                       placeholder={t('contract.keywordPlaceholder')}
                       onInput={(e: any) => setKeyword(e.detail.value)}
                     />
+                    <View className='ct-btn' onClick={() => setKeyword(KEYWORD_DEFAULT_LITERAL[signFieldType] || KEYWORD_DEFAULT_LITERAL.signature)}>
+                      <Text className='ct-btn__text'>{t('contract.keywordDefault')}</Text>
+                    </View>
                     <View className={`ct-btn ${kwBusy ? 'ct-btn--disabled' : ''}`} onClick={() => { if (!kwBusy) void doKeywordSearch() }}>
                       <Text className='ct-btn__text'>{t('contract.search')}</Text>
                     </View>

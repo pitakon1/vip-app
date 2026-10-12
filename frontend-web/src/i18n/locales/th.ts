@@ -3795,6 +3795,7 @@ const th: import('./zh').Translation = {
     declineFail: "ปฏิเสธไม่สำเร็จ",
     declinePickParty: "กรุณาเลือกผู้ลงนาม",
     keywordSign: "ลงนามด้วยคำค้น",
+    keywordDefault: "คำค้นเริ่มต้น",
     keywordPlaceholder: "พิมพ์คำค้น (เช่น ฝ่าย ก, ค่าเช่า) แล้วกด Enter เพื่อค้นหา",
     searchKeyword: "ค้นหาคำค้น",
     keywordSearchFail: "ค้นหาคำค้นไม่สำเร็จ",

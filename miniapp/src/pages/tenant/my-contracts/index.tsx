@@ -54,6 +54,13 @@ const FIELD_TYPE_META: Record<string, string> = {
   date: 'contract.field.date'
 }
 
+// 「默认关键字」回填字面量：须匹配合同正文文字，故固定中文，不随 UI 语言翻译
+const KEYWORD_DEFAULT_LITERAL: Record<string, string> = {
+  signature: '个人手写签名处',
+  seal: '电子印章盖章处',
+  date: '签署日期'
+}
+
 // 页面百分比坐标：非法/越界值回退到默认，防止越界撑爆页图容器（x/y/w/h 均为页面百分比 0-100）
 const pct = (v: any, min: number, max: number, def: number) => {
   const n = typeof v === 'number' ? v : Number.parseFloat(String(v ?? ''))
@@ -861,6 +868,9 @@ export default function MyContractsPage() {
                           placeholder={t('contract.keywordPlaceholder')}
                           onInput={(e: any) => setKeyword(e.detail.value)}
                         />
+                        <View className='mc-btn mc-btn--ghost' onClick={() => setKeyword(KEYWORD_DEFAULT_LITERAL.signature)}>
+                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.keywordDefault')}</Text>
+                        </View>
                         <View className={`mc-btn mc-btn--ghost ${kwBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!kwBusy) void doKeywordSearch() }}>
                           <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.search')}</Text>
                         </View>

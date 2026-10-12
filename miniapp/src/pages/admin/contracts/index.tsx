@@ -65,6 +65,13 @@ const FIELD_TYPE_META: Record<string, string> = {
 
 const FIELD_TYPES = ['signature', 'seal', 'date'] as const
 
+// 「默认关键字」回填字面量：须匹配合同正文文字，故固定中文，不随 UI 语言翻译
+const KEYWORD_DEFAULT_LITERAL: Record<string, string> = {
+  signature: '个人手写签名处',
+  seal: '电子印章盖章处',
+  date: '签署日期'
+}
+
 // 各模板的填充字段（与后端 esign_service.py 渲染函数 counters 保持一致）
 // lease → render_contract_html；purchase → render_purchase_html；broker → render_broker_protocol_html
 const TMPL_FIELDS: Record<string, { key: string; labelKey: string; numeric?: boolean }[]> = {
@@ -1499,6 +1506,9 @@ export default function AdminContractsPage() {
                         placeholder={t('contract.keywordPlaceholder')}
                         onInput={(e: any) => setKeywordForm({ ...keywordForm, keyword: e.detail.value })}
                       />
+                      <View className='ac-btn ac-btn--ghost' onClick={() => setKeywordForm({ ...keywordForm, keyword: KEYWORD_DEFAULT_LITERAL[signFieldType] || KEYWORD_DEFAULT_LITERAL.signature })}>
+                        <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.keywordDefault')}</Text>
+                      </View>
                       <View className={`ac-btn ac-btn--ghost ${kwBusy ? 'ac-btn--disabled' : ''}`} onClick={() => { if (!kwBusy) void doKeywordSearch() }}>
                         <Text className='ac-btn__text ac-btn__text--ghost'>{t('contract.search')}</Text>
                       </View>
