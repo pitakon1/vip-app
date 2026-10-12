@@ -268,6 +268,14 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'contract.generateSealDone': '公章已生成',
     'contract.useThisSeal': '使用此印章',
     'contract.companyNameRequired': '请先输入企业名称',
+    // —— 印模上传裁剪/旋转/缩放 ——
+    'contract.cropSeal': '裁剪印章',
+    'contract.cropHint': '拖动方框选择印章区域，可旋转缩放',
+    'contract.rotateSeal': '旋转',
+    'contract.zoomIn': '放大',
+    'contract.zoomOut': '缩小',
+    'contract.applyCrop': '确认裁剪',
+    'contract.cancelCrop': '取消',
     // —— 开放签双栏签署台（指定位置/关键字） ——
     'contract.signMethod': '签署方式',
     'contract.signMethodPosition': '指定位置',
@@ -2139,6 +2147,14 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'contract.generateSealDone': 'Company seal generated',
     'contract.useThisSeal': 'Use this seal',
     'contract.companyNameRequired': 'Please enter the company name',
+    // —— imprint upload crop / rotate / zoom ——
+    'contract.cropSeal': 'Crop seal',
+    'contract.cropHint': 'Drag the square to select the seal area; rotate & zoom available',
+    'contract.rotateSeal': 'Rotate',
+    'contract.zoomIn': 'Zoom in',
+    'contract.zoomOut': 'Zoom out',
+    'contract.applyCrop': 'Apply crop',
+    'contract.cancelCrop': 'Cancel',
     // —— Open-sign 2-column signing studio (position / keyword) ——
     'contract.signMethod': 'Signing method',
     'contract.signMethodPosition': 'Specified spot',
@@ -3978,6 +3994,14 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'contract.generateSealDone': 'สร้างตราบริษัทเรียบร้อย',
     'contract.useThisSeal': 'ใช้ตรานี้',
     'contract.companyNameRequired': 'กรุณากรอกชื่อบริษัทก่อน',
+    // —— อัปโหลดตราสแกน: ครอบ/หมุน/ซูม ——
+    'contract.cropSeal': 'ครอบตรา',
+    'contract.cropHint': 'ลากสี่เหลี่ยมเพื่อเลือกพื้นที่ตรา หมุนและซูมได้',
+    'contract.rotateSeal': 'หมุน',
+    'contract.zoomIn': 'ซูมเข้า',
+    'contract.zoomOut': 'ซูมออก',
+    'contract.applyCrop': 'ยืนยันการครอบ',
+    'contract.cancelCrop': 'ยกเลิก',
     // —— สตูดิโอเซ็นสองคอลัมน์ (กำหนดตำแหน่ง / คำค้น) ——
     'contract.signMethod': 'วิธีลงนาม',
     'contract.signMethodPosition': 'กำหนดตำแหน่ง',

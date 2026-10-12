@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { FileTextOutlined, HomeOutlined, TeamOutlined } from '@ant-design/icons'
 import { contractsApi, signAssetsApi, fetchPdfPageUrl } from '@/services/api'
 import { useTranslation } from 'react-i18next'
+import SealCropperModal from '@/components/SealCropperModal'
 import './contracts.css'
 
 interface TemplateOption {
@@ -195,6 +196,9 @@ const Contracts = () => {
   const [sigAssetType, setSigAssetType] = useState('handwrite')
   const [sigAssetName, setSigAssetName] = useState('')
   const [sigUploading, setSigUploading] = useState(false)
+  // 印模的裁剪弹窗状态
+  const [sealCropOpen, setSealCropOpen] = useState(false)
+  const [sealCropSrc, setSealCropSrc] = useState('')
 
   // 上传电子合同
   const [uploading, setUploading] = useState(false)
@@ -780,38 +784,51 @@ const Contracts = () => {
     setSigLibOpen(true)
   }
 
-  // 文件 → base64（不含 data: 头的裸串，供印模接口）
-  const fileToRawBase64 = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const r = new FileReader()
-      r.onload = () => {
-        const dataUrl = String(r.result || '')
-        resolve(dataUrl.substring(dataUrl.indexOf(',') + 1))
-      }
-      r.onerror = reject
-      r.readAsDataURL(file)
-    })
-
-  // 处理签名资产上传：seal → 印模盖章接口（自动透明抠图）；handwrite → 直接保存 data_url
+  // 处理签名资产上传：seal → 先打开裁剪弹窗；handwrite → 直接保存 data_url
   const handleSigFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     e.target.value = ''
     if (!f) return
+    if (sigAssetType === 'seal') {
+      // 印模：读取为 data_url，先进入裁剪弹窗
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(String(r.result || ''))
+        r.onerror = reject
+        r.readAsDataURL(f)
+      })
+      setSealCropSrc(dataUrl)
+      setSealCropOpen(true)
+      return
+    }
     const name = sigAssetName.trim() || (sigAssetType === 'seal' ? t('contracts.mySeal') : t('contracts.mySign'))
     setSigUploading(true)
     try {
-      if (sigAssetType === 'seal') {
-        const imageBase64 = await fileToRawBase64(f)
-        await signAssetsApi.imprint({ name, image_base64: imageBase64 })
-      } else {
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const r = new FileReader()
-          r.onload = () => resolve(String(r.result || ''))
-          r.onerror = reject
-          r.readAsDataURL(f)
-        })
-        await signAssetsApi.create({ name, asset_type: 'handwrite', source: 'upload', data_url: dataUrl })
-      }
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(String(r.result || ''))
+        r.onerror = reject
+        r.readAsDataURL(f)
+      })
+      await signAssetsApi.create({ name, asset_type: 'handwrite', source: 'upload', data_url: dataUrl })
+      message.success(t('contracts.sigSaved'))
+      setSigAssetName('')
+      loadSignAssets()
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || t('contracts.sigSaveFail'))
+    } finally {
+      setSigUploading(false)
+    }
+  }
+
+  // 印模裁剪确认：裁剪出的 data_url 去掉 data: 前缀得 raw base64 → 交给透明度抠图接口入库
+  const onSealCropOk = async (dataUrl: string) => {
+    const imageBase64 = dataUrl.substring(dataUrl.indexOf(',') + 1)
+    setSealCropOpen(false)
+    const name = sigAssetName.trim() || t('contracts.mySeal')
+    setSigUploading(true)
+    try {
+      await signAssetsApi.imprint({ name, image_base64: imageBase64 })
       message.success(t('contracts.sigSaved'))
       setSigAssetName('')
       loadSignAssets()
@@ -1489,6 +1506,14 @@ const Contracts = () => {
           <input ref={sigFileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={handleSigFile} />
         </div>
       </Modal>
+
+      {/* 印模上传裁剪弹窗 */}
+      <SealCropperModal
+        open={sealCropOpen}
+        src={sealCropSrc}
+        onOk={onSealCropOk}
+        onCancel={() => setSealCropOpen(false)}
+      />
     </div>
   )
 }

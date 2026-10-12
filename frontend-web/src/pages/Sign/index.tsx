@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { message, Modal, Segmented } from 'antd'
 import { contractsPublicApi, signAssetsApi } from '@/services/api'
 import { useTranslation } from 'react-i18next'
+import SealCropperModal from '@/components/SealCropperModal'
 import './sign.css'
 
 /** 画布逻辑尺寸（签名导出 SVG 的 viewBox 基准），CSS 端等比缩放占满宽度 */
@@ -269,6 +270,9 @@ const Sign = () => {
   const [sealImg, setSealImg] = useState('') // 单次印章图（模板生成/上传）或空（未制作）
   const [sealModalOpen, setSealModalOpen] = useState(false)
   const [sealCreateType, setSealCreateType] = useState<'template' | 'imprint'>('template')
+  // 印模上传：先打开裁剪弹窗，确认后得到裁剪图 data_url 设回 preview/use
+  const [sealCropOpen, setSealCropOpen] = useState(false)
+  const [sealCropSrc, setSealCropSrc] = useState('')
   const [sealCompanyName, setSealCompanyName] = useState('')
   const [sealMiddleText, setSealMiddleText] = useState(t('contracts.sealMiddleTextDefault'))
   const [sealPreview, setSealPreview] = useState('') // 模板生成后的章图 data_url 预览
@@ -341,18 +345,25 @@ const Sign = () => {
     setCurrentPage(f.page)
   }
 
-  // 单次印章：上传图片制作为印章图（仅本地展示，签署仍由服务端按 company_seal 落章）
+  // 单次印章：上传图片 → 先打开裁剪弹窗，确认后设回 sealImg（仅本地展示，签署仍由服务端按 company_seal 落章）
   const onSealFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     e.target.value = ''
     if (!f) return
     const r = new FileReader()
     r.onload = () => {
-      setSealImg(String(r.result || ''))
-      setSealMade(true)
-      setSealModalOpen(false)
+      setSealCropSrc(String(r.result || ''))
+      setSealCropOpen(true)
     }
     r.readAsDataURL(f)
+  }
+
+  // 裁剪弹窗确认：用裁剪后的正方形 PNG(data_url) 作为当前印章预览
+  const onSealCropOk = (dataUrl: string) => {
+    setSealImg(dataUrl)
+    setSealMade(true)
+    setSealCropOpen(false)
+    setSealModalOpen(false)
   }
 
   // 模板制作：调用后端接口生成透明底章图，先在弹窗内预览
@@ -904,6 +915,14 @@ const Sign = () => {
           </div>
         )}
       </Modal>
+
+      {/* 印模上传裁剪弹窗 */}
+      <SealCropperModal
+        open={sealCropOpen}
+        src={sealCropSrc}
+        onOk={onSealCropOk}
+        onCancel={() => setSealCropOpen(false)}
+      />
 
       {/* 实名认证弹窗 */}
       <Modal

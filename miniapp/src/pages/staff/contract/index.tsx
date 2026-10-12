@@ -84,6 +84,17 @@ export default function StaffContractPage() {
   const [showSigDraw, setShowSigDraw] = useState(false)
   const [assetBusyId, setAssetBusyId] = useState<string | null>(null)
 
+  // ===== 印模裁剪：方形选区 + 旋转（选区坐标仅内部计算，界面不显示裸数字） =====
+  const [showSealCrop, setShowSealCrop] = useState(false)
+  const [sealCropPath, setSealCropPath] = useState('')
+  const [sealImgMeta, setSealImgMeta] = useState<{ w: number; h: number }>({ w: 1, h: 1 })
+  const [sealRotate, setSealRotate] = useState(0)
+  const [sealCropSel, setSealCropSel] = useState<{ x: number; y: number; s: number }>({ x: 0.1, y: 0.1, s: 0.8 })
+  const [sealAreaPx, setSealAreaPx] = useState(300)
+  const [sealCropBusy, setSealCropBusy] = useState(false)
+  const sealCropRectRef = useRef<any>(null)
+  const sealCropDragRef = useRef<{ startX: number; startY: number; ox: number; oy: number; s: number } | null>(null)
+
   useEffect(() => {
     if (codeCooldown <= 0) return
     const timer = setTimeout(() => setCodeCooldown((c) => Math.max(0, c - 1)), 1000)
@@ -265,26 +276,140 @@ export default function StaffContractPage() {
   }
 
   // ===== 签名资产：制作印章 / 手写签名 =====
+  // 印模：选图 → 方形裁剪+旋转 → 导出 base64 → imprint
   const makeSeal = () => {
     Taro.chooseImage({ count: 1, sizeType: ['original'], sourceType: ['album', 'camera'] }).then(async (res) => {
       const path = res?.tempFilePaths?.[0]
       if (!path) return
-      setSealMakerBusy(true)
       try {
-        const fs: any = Taro.getFileSystemManager()
-        const b64 = await new Promise<string>((resolve, reject) =>
-          fs.readFile({ filePath: path, encoding: 'base64', success: (r: any) => resolve(r?.data || ''), fail: reject })
-        )
-        await signAssetsApi.imprint({ name: `seal-${Date.now()}`, image_base64: b64 })
-        Taro.showToast({ title: t('contract.imprintDone'), icon: 'success' })
-        setShowSealMaker(false)
-        await refreshAssets()
-      } catch (e: any) {
-        Taro.showToast({ title: e?.message || t('contract.imprintStamp'), icon: 'none' })
-      } finally {
-        setSealMakerBusy(false)
+        const info = await Taro.getImageInfo({ src: path })
+        setSealImgMeta({ w: info?.width || 1, h: info?.height || 1 })
+        setSealRotate(0)
+        setSealCropPath(path)
+        setShowSealCrop(true)
+      } catch {
+        // 读图失败时回退仍可进入裁剪面板（用默认元数据）
+        setSealRotate(0)
+        setSealCropPath(path)
+        setShowSealCrop(true)
       }
     })
+  }
+
+  // 测量裁剪方形框（px），用于展示图与原图坐标换算
+  const measureSealCropArea = () =>
+    new Promise<any>((resolve) => {
+      const pageInstance = Taro.getCurrentInstance()?.page
+      const q = pageInstance
+        ? Taro.createSelectorQuery().in(pageInstance as any)
+        : Taro.createSelectorQuery()
+      q.select('#ctCropArea').boundingClientRect((rect: any) => resolve(rect)).exec()
+    })
+
+  // 进入面板后测量并给出居中的默认方形选区
+  useEffect(() => {
+    if (!showSealCrop) return
+    let alive = true
+    const timer = setTimeout(async () => {
+      const rect = await measureSealCropArea()
+      if (!alive) return
+      const L = rect?.width || 300
+      sealCropRectRef.current = rect
+      setSealAreaPx(L)
+      const { w, h } = sealImgMeta
+      const scale = Math.max(L / Math.max(1, w), L / Math.max(1, h))
+      const visLen = Math.min(L / scale, L)
+      const s = Math.max(0.5, visLen / L)
+      setSealCropSel({ x: (1 - s) / 2, y: (1 - s) / 2, s })
+    }, 60)
+    return () => { alive = false; clearTimeout(timer) }
+  }, [showSealCrop])
+
+  const rotateSeal = (deg: number) => setSealRotate((r) => (r + deg + 360) % 360)
+
+  const cancelSealCrop = () => {
+    setShowSealCrop(false)
+    setSealCropPath('')
+    setSealRotate(0)
+    sealCropDragRef.current = null
+  }
+
+  const onSealCropStart = (e: any) => {
+    const touch = e?.touches?.[0]
+    const rect = sealCropRectRef.current
+    if (!touch || !rect) return
+    sealCropDragRef.current = {
+      startX: touch.pageX,
+      startY: touch.pageY,
+      ox: sealCropSel.x,
+      oy: sealCropSel.y,
+      s: sealCropSel.s
+    }
+  }
+
+  const onSealCropMove = (e: any) => {
+    const g = sealCropDragRef.current
+    const touch = e?.touches?.[0]
+    const rect = sealCropRectRef.current
+    if (!g || !touch || !rect?.width) return
+    const dx = (touch.pageX - g.startX) / rect.width
+    const dy = (touch.pageY - g.startY) / rect.height
+    // 选区坐标仅内部计算，越界回退到合法范围
+    setSealCropSel({
+      x: Math.max(0, Math.min(1 - g.s, g.ox + dx)),
+      y: Math.max(0, Math.min(1 - g.s, g.oy + dy)),
+      s: g.s
+    })
+  }
+
+  const onSealCropEnd = () => { sealCropDragRef.current = null }
+
+  // 确认：把原图按旋转角绘制到方形 Canvas（取中心方形裁切）→ 导出 → base64 → imprint
+  const confirmSealCrop = async () => {
+    if (!sealCropPath || sealCropBusy) return
+    setSealCropBusy(true)
+    const EXPORT = 800
+    try {
+      const rect = sealCropRectRef.current
+      const L = rect?.width || sealAreaPx || 300
+      const { w, h } = sealImgMeta
+      const scale = Math.max(L / Math.max(1, w), L / Math.max(1, h))
+      const visW = L / scale
+      const { x, y, s } = sealCropSel
+      const srcSize = s * visW
+      const srcX = (w - visW) / 2 + (x * L) / scale
+      const srcY = (h - visW) / 2 + (y * L) / scale
+      const ctx = Taro.createCanvasContext('ctCropExport')
+      ctx.clearRect(0, 0, EXPORT, EXPORT)
+      ctx.translate(EXPORT / 2, EXPORT / 2)
+      ctx.rotate((sealRotate * Math.PI) / 180)
+      ctx.drawImage(sealCropPath, srcX, srcY, srcSize, srcSize, -EXPORT / 2, -EXPORT / 2, EXPORT, EXPORT)
+      const temp = await new Promise<string>((resolve, reject) => {
+        ctx.draw(false, () => {
+          Taro.canvasToTempFilePath({
+            canvasId: 'ctCropExport',
+            destWidth: EXPORT,
+            destHeight: EXPORT,
+            success: (r: any) => resolve(r?.tempFilePath || ''),
+            fail: () => reject(new Error('export-fail'))
+          })
+        })
+      })
+      if (!temp) return
+      const fs: any = Taro.getFileSystemManager()
+      const b64 = await new Promise<string>((resolve, reject) =>
+        fs.readFile({ filePath: temp, encoding: 'base64', success: (r: any) => resolve(r?.data || ''), fail: reject })
+      )
+      await signAssetsApi.imprint({ name: `seal-${Date.now()}`, image_base64: b64 })
+      Taro.showToast({ title: t('contract.imprintDone'), icon: 'success' })
+      setShowSealCrop(false)
+      setShowSealMaker(false)
+      await refreshAssets()
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || t('contract.imprintStamp'), icon: 'none' })
+    } finally {
+      setSealCropBusy(false)
+    }
   }
 
   // 模板制作：调后端生成章图并预览
@@ -978,6 +1103,74 @@ export default function StaffContractPage() {
                 <View className='icon-svg' style={{ ...iconStyle('check', 30), marginLeft: '8rpx' }} />
               )}
             </View>
+          </View>
+        </View>
+      )}
+
+      {/* ===== 印模方形裁剪弹层 ===== */}
+      {showSealCrop && (
+        <View className='ct-mask'>
+          <View className='ct-sheet'>
+            <View className='ct-sheet__head'>
+              <Text className='ct-sheet__title'>{t('contract.cropSeal')}</Text>
+              <View className='ct-sheet__close' onClick={cancelSealCrop}>
+                <View className='icon-svg' style={iconStyle('close', 30)} />
+              </View>
+            </View>
+
+            <View
+              id='ctCropArea'
+              className='ct-signbox'
+              style={{ position: 'relative', width: '100%', height: `${sealAreaPx}px`, touchAction: 'none' }}
+              onTouchStart={onSealCropStart}
+              onTouchMove={onSealCropMove}
+              onTouchEnd={onSealCropEnd}
+              onTouchCancel={onSealCropEnd}
+            >
+              <Image
+                className='ct-crop-img'
+                src={sealCropPath}
+                mode='aspectFill'
+                style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }}
+              />
+              <View
+                className='ct-crop-sel'
+                style={{
+                  position: 'absolute',
+                  left: `${sealCropSel.x * 100}%`,
+                  top: `${sealCropSel.y * 100}%`,
+                  width: `${sealCropSel.s * 100}%`,
+                  height: `${sealCropSel.s * 100}%`,
+                  border: '4rpx solid var(--primary)',
+                  boxSizing: 'border-box',
+                  background: 'rgba(20,184,166,0.08)'
+                }}
+              />
+            </View>
+
+            <View className='ct-config__row' style={{ marginTop: '12rpx' }}>
+              <View className='ct-btn' onClick={() => rotateSeal(-90)}>
+                <Text className='ct-btn__text'>{t('contract.rotateSeal')}</Text>
+              </View>
+              <View className='ct-btn' onClick={() => rotateSeal(90)}>
+                <Text className='ct-btn__text'>{t('contract.rotateSeal')}</Text>
+              </View>
+            </View>
+
+            <View className='ct-config__row' style={{ marginTop: '12rpx' }}>
+              <View className={`ct-btn ${sealCropBusy ? 'ct-btn--disabled' : ''}`} onClick={() => { if (!sealCropBusy) void confirmSealCrop() }}>
+                <Text className='ct-btn__text'>{sealCropBusy ? t('pub.loading') : t('contract.applyCrop')}</Text>
+              </View>
+              <View className='ct-btn' onClick={cancelSealCrop}>
+                <Text className='ct-btn__text'>{t('common.back')}</Text>
+              </View>
+            </View>
+
+            <Canvas
+              canvasId='ctCropExport'
+              id='ctCropExport'
+              style={{ position: 'absolute', left: '-9999rpx', top: 0, width: '800px', height: '800px' }}
+            />
           </View>
         </View>
       )}
