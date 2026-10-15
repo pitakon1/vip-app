@@ -521,3 +521,70 @@ def test_generate_seal_preview_returns_png(api):
     )
     assert r.status_code == 200, r.text
     assert r.json()["data_url"].startswith("data:image/png;base64,")
+
+
+# --------------------------------------------------------------------------- 签署方归属（邮箱绑定）
+def test_email_bound_party_can_view_and_sign(api):
+    """员工建单只填邮箱（App 端「追加签署方」即 name/email/role，不传 user_id）时，
+    该客户登录后必须能在「我的合同」看到本合同并本人签署。
+
+    回归背景：可见性/签署权只认 `party.user_id`，导致这类签署方查详情 404、
+    签署 403——App「我的合同」的邮箱匹配形同虚设，签署流程整体死路。
+    """
+    staff = api.mk_user(UserRole.employee)
+    tenant = api.mk_user(UserRole.tenant)
+    client = api.login(staff)
+
+    cid = _generate(client)
+    r = client.post(
+        f"/api/v1/contracts/{cid}/parties",
+        json={"name": "张三", "email": tenant.email, "role": "tenant"},
+    )
+    assert r.status_code == 200, r.text
+    party_id = r.json()["id"]
+
+    tclient = api.login(tenant)
+    detail = tclient.get(f"/api/v1/contracts/{cid}")
+    assert detail.status_code == 200, f"本人应能看到自己的合同: {detail.text}"
+    assert party_id in [p["id"] for p in detail.json()["parties"]]
+    # 未实名的签署方：本人签署时由后端按登录态内部认证，不应被 REAL_NAME 拦下
+    assert detail.json()["parties"][0]["real_name_verified_at"] is None
+
+    rb = tclient.post(
+        f"/api/v1/contracts/{cid}/sign-batch",
+        json={
+            "party_id": party_id,
+            "items": [{"page": 1, "x": 20, "y": 60, "w": 22, "h": 8,
+                       "method": "personal_handwrite",
+                       "image_data_url": _png_stamp()}],
+        },
+    )
+    assert rb.status_code == 200, rb.text
+
+
+def test_unbound_party_cannot_be_signed_by_others(api):
+    """邮箱不对应任何平台账号的外部签署方：他人越权签署仍须被拒。"""
+    staff = api.mk_user(UserRole.employee)
+    stranger = api.mk_user(UserRole.tenant)
+    client = api.login(staff)
+
+    cid = _generate(client)
+    r = client.post(
+        f"/api/v1/contracts/{cid}/parties",
+        json={"name": "外部客户B", "email": "outsider@nowhere.local", "role": "tenant"},
+    )
+    assert r.status_code == 200, r.text
+    outsider_pid = r.json()["id"]
+
+    sclient = api.login(stranger)
+    assert sclient.get(f"/api/v1/contracts/{cid}").status_code == 404
+    rb = sclient.post(
+        f"/api/v1/contracts/{cid}/sign-batch",
+        json={
+            "party_id": outsider_pid,
+            "items": [{"page": 1, "x": 20, "y": 60, "w": 22, "h": 8,
+                       "method": "personal_handwrite",
+                       "image_data_url": _png_stamp()}],
+        },
+    )
+    assert rb.status_code in (403, 404), f"越权签署应被拒: {rb.status_code} {rb.text}"

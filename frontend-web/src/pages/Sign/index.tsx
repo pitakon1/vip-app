@@ -73,6 +73,17 @@ const svgToPngDataUrl = (svg: string, w: number, h: number): Promise<string> =>
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
   })
 
+/* 手写笔迹线宽区间（快=细、慢=粗，对齐开放签笔触）。
+   必须放在模块作用域：此前它们声明在组件体内、却在 `useRef` 那行之前被引用，
+   于是 `widthsRef` 的初始化实参 `strokesRef.current.map(() => DEFAULT_W)` 在
+   每次重渲染时都会命中「暂时性死区」——空画布时 map 不回调所以侥幸不报错，
+   一旦落笔有笔迹，emit()→父组件 setState→重渲染，map 回调被调用即抛
+   `Cannot access 'DEFAULT_W' before initialization`，整页被错误边界接管。
+   即：用户画下第一笔，签名页就崩。 */
+const MIN_W = 1
+const MAX_W = 4
+const DEFAULT_W = 3
+
 /* 手写签名画布：pointer 绘制多条笔迹，导出为「纯 SVG path 字符串」。
    线宽随绘制速度加权（1~4px，快=细、慢=粗），对齐开放签签名笔触。
    支持单条撤销 + 一键重写。 */
@@ -85,10 +96,6 @@ const SignCanvas = ({ value, onChange }: { value: string; onChange: (svg: string
   const drawingRef = useRef(false)
   // 当前绘制速度累计（用于在抬手时折算整条笔迹线宽）
   const speedRef = useRef({ dist: 0, count: 0 })
-
-  const MIN_W = 1
-  const MAX_W = 4
-  const DEFAULT_W = 3
 
   function parseStrokes(svg: string): number[][][] {
     // <path d="M x,y L x,y ..."
@@ -290,6 +297,8 @@ const Sign = () => {
   const [realName, setRealName] = useState('')
   const [idNumber, setIdNumber] = useState('')
   const [sendLoading, setSendLoading] = useState(false)
+  // 本地联调回显的明文验证码（后端仅 DEBUG + OTP_DEV_CODE_ECHO 时下发，生产恒为 null）
+  const [devCode, setDevCode] = useState('')
   const pendingRetryRef = useRef<(() => void) | null>(null)
   // 实名认证通过后记下的手机号（匿名签署提交时作为 phone 一并上报）
   const [signerPhone, setSignerPhone] = useState('')
@@ -502,17 +511,37 @@ const Sign = () => {
         ...(p.signatureSvg ? { signature_svg: p.signatureSvg } : {}),
         image_data_url: p.imageDataUrl,
       }))
-      // 场景分流：登录态走站内 sign-batch；匿名访客走公开 token 端点（token 即身份，不再传 code）
-      const res: any = authToken
-        ? await contractsApi.signBatch(doc.contract_id, {
+      // 场景分流：优先走站内 sign-batch，把签名归属到登录账号。但本页是**免登录**签署页：
+      // 持链者未必是该签署方本人，浏览器里也可能残留过期令牌。这两种情况下站内端点会
+      // 返回 401（令牌失效）或 403「Not a party of this contract」（登录的不是本人），
+      // 而 token 端点不依赖登录态。此前没有兜底，外部签署人只会看到一句
+      // "Invalid authentication credentials"、整个签署流程走不通。
+      const publicPayload = {
+        name: (doc.party.name || '').trim(),
+        ...(signerPhone ? { phone: signerPhone } : {}),
+        items,
+      }
+      let res: any
+      if (authToken) {
+        try {
+          res = await contractsApi.signBatch(doc.contract_id, {
             partyId: doc.party.id,
             items,
           })
-        : await contractsPublicApi.signByToken(token, {
-            name: (doc.party.name || '').trim(),
-            ...(signerPhone ? { phone: signerPhone } : {}),
-            items,
-          })
+        } catch (inner: any) {
+          const st = inner?.response?.status
+          const dt = inner?.response?.data?.detail
+          // 实名缺口必须上抛给下方统一处理（弹实名弹窗），不能被兜底吞掉
+          if (st === 403 && dt === 'REAL_NAME_REQUIRED') throw inner
+          if (st === 401 || st === 403) {
+            res = await contractsPublicApi.signByToken(token, publicPayload)
+          } else {
+            throw inner
+          }
+        }
+      } else {
+        res = await contractsPublicApi.signByToken(token, publicPayload)
+      }
       const data = res?.data || {}
       setResult({ signed: true, contract_status: data.contract_status })
       setPhase('done')
@@ -542,7 +571,8 @@ const Sign = () => {
     }
     setSendLoading(true)
     try {
-      await contractsPublicApi.sendCode(token, contact.trim())
+      const res: any = await contractsPublicApi.sendCode(token, contact.trim())
+      setDevCode(res?.data?.dev_code || '')
       message.success(t('contracts.codeSent'))
       setRealStep('verify')
     } catch (err: any) {
@@ -979,6 +1009,12 @@ const Sign = () => {
             <div className="rent-field">
               <label className="rent-label">{t('contracts.verifyCode')}（{contact}）</label>
               <input className="rent-input" value={code} placeholder={t('contracts.verifyCodePlaceholder')} onChange={(e) => setCode(e.target.value)} />
+              {/* 本地联调用：后端仅在 DEBUG + OTP_DEV_CODE_ECHO 时下发 dev_code */}
+              {devCode ? (
+                <div style={{ marginTop: 6, fontSize: 'var(--rent-fs-xs)', color: 'var(--rent-muted-foreground)' }}>
+                  {t('contracts.devCodeHint')}{devCode}
+                </div>
+              ) : null}
             </div>
           </div>
         )}

@@ -87,9 +87,13 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const original = error.config as RetriableConfig | undefined;
+    // 凭据类接口（登录/注册/刷新）自身返回 401 表示「凭据错误」，
+    // 既不该静默续期，也不该触发全局登出——否则用户输错一次密码，
+    // 已登录的会话会被一并清掉，且失败原因更容易被误导。
+    const isCredentialCall = /\/auth\/(login|register|refresh)/.test(original?.url ?? '');
     // 访问令牌过期先静默续期再重放原请求，否则用户每次到期都会被弹回登录页、
     // 丢掉当前操作。此前没有任何续期逻辑，登录时拿到的 refresh_token 也从未落盘。
-    if (error.response?.status === 401 && original && !original._retried) {
+    if (error.response?.status === 401 && original && !original._retried && !isCredentialCall) {
       original._retried = true;
       try {
         refreshing = refreshing ?? refreshAccessToken().finally(() => { refreshing = null; });
@@ -101,7 +105,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isCredentialCall) {
       // 通过 zustand store 重置认证状态，RootNavigator 会自动切换到登录页。
       // 登出内部会一并清掉 token 与用户态缓存，这里不必再单独 remove。
       useAuthStore.getState().logout();

@@ -51,6 +51,7 @@ from app.core.auth import (
     contract_visibility_conditions,
     get_current_user,
     get_current_user_allow_query_token,
+    party_belongs_to_user,
     require_employee,
 )
 from .auth import (
@@ -233,11 +234,20 @@ def add_party(
         user_id_u = uuid.UUID(str(user_id_raw)) if user_id_raw else None
     except (ValueError, TypeError, AttributeError):
         raise HTTPException(status_code=400, detail="Invalid user_id")
+
+    email = (payload.get("email") or "").strip()
+    # 未显式指定归属用户时，按邮箱自动绑定平台账号：否则该签署方在「我的合同」里
+    # 既不可见也签不了（可见性、签署权、内部实名三处都按 user_id/邮箱归属判定）。
+    if user_id_u is None and email:
+        bound = session.exec(select(User).where(User.email == email)).first()
+        if bound:
+            user_id_u = bound.id
+
     party = ContractParty(
         contract_id=contract_id,
         user_id=user_id_u,
         name=payload.get("name", ""),
-        email=payload.get("email", ""),
+        email=email,
         id_number=payload.get("id_number"),
         phone=payload.get("phone"),
         role=role,
@@ -305,10 +315,12 @@ def upsert_sign_fields(
 
         try:
             page = int(item.get("page", 1))
-            x = float(item.get("x", 0.0))
-            y = float(item.get("y", 0.0))
-            w = float(item.get("w", 0.0))
-            h = float(item.get("h", 0.0))
+            x = min(100.0, max(0.0, float(item.get("x", 0.0) or 0.0)))
+            y = min(100.0, max(0.0, float(item.get("y", 0.0) or 0.0)))
+            # 尺寸兜底：缺省/0 会在前端渲染成 0×0 的隐形签署框（看不见也点不到），
+            # 与 /sign-self、/sign-batch 保持同一口径（默认 20×8 页面百分比）。
+            w = min(100.0, max(1.0, float(item.get("w", 0.0) or 0.0) or 20.0))
+            h = min(100.0, max(1.0, float(item.get("h", 0.0) or 0.0) or 8.0))
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="Invalid coordinates")
         required = bool(item.get("required", True))
@@ -717,7 +729,7 @@ def send_sign_intent_code(
     if contract.status in (ContractStatus.voided, ContractStatus.rejected):
         raise HTTPException(status_code=409, detail="Contract not signable")
     party = _get_party(session, contract_id, payload.get("party_id"))
-    if user.role not in STAFF_ROLES and party.user_id != user.id:
+    if user.role not in STAFF_ROLES and not party_belongs_to_user(party, user):
         raise HTTPException(status_code=403, detail="Not a party of this contract")
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
@@ -741,7 +753,7 @@ def decline_contract(
     if contract.status in (ContractStatus.voided, ContractStatus.rejected):
         raise HTTPException(status_code=409, detail="Contract not signable")
     party = _get_party(session, contract_id, payload.get("party_id"))
-    if user.role not in STAFF_ROLES and party.user_id != user.id:
+    if user.role not in STAFF_ROLES and not party_belongs_to_user(party, user):
         raise HTTPException(status_code=403, detail="Not a party of this contract")
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
@@ -1244,8 +1256,14 @@ def sign_contract(
     # - 已绑定登录用户的签署方，其身份经平台登录态可信，首次签署自动置为
     #   内部认证（real_name_verified_at=now，来源=internal），避免重复过验证码。
     if not party.real_name_verified_at:
-        if party.user_id is not None:
+        # 实名口径：已绑定登录用户的签署方（user_id 命中或邮箱命中）身份经平台登录态
+        # 可信，首次签署直接置为内部认证并回写 user_id（员工代签沿用同一口径）；
+        # 未绑定账号的外部签署方必须走公开端
+        # `/public/contract-sign/{token}/send-code` + `verify-identity` 完成实名。
+        if party.user_id is not None or party_belongs_to_user(party, user):
             party.real_name_verified_at = datetime.utcnow()
+            if party.user_id is None:
+                party.user_id = user.id
             session.add(party)
         else:
             raise HTTPException(status_code=403, detail="REAL_NAME_REQUIRED")
@@ -1309,7 +1327,7 @@ def sign_self(
         raise HTTPException(status_code=409, detail="Contract already finalized")
     party = _get_party(session, contract_id, payload.get("party_id"))
 
-    if user.role not in STAFF_ROLES and party.user_id != user.id:
+    if user.role not in STAFF_ROLES and not party_belongs_to_user(party, user):
         raise HTTPException(status_code=403, detail="Not a party of this contract")
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
@@ -1318,6 +1336,16 @@ def sign_self(
 
     # 签前意愿二次验证：签署方需提供已下发的验证码
     _verify_sign_intent(session, party, user, payload.get("code"))
+
+    # P3 强制实名：与 /sign、/sign-batch 同一口径（已绑定 user_id 或归属本账号 → 内部认证）
+    if not party.real_name_verified_at:
+        if party.user_id is not None or party_belongs_to_user(party, user):
+            party.real_name_verified_at = datetime.utcnow()
+            if party.user_id is None:
+                party.user_id = user.id
+            session.add(party)
+        else:
+            raise HTTPException(status_code=403, detail="REAL_NAME_REQUIRED")
 
     # 兼容「签区字段类型」与「签署方式」两种字符串：signature→手写、seal→公章、date→日期
     _method_map = {
@@ -1423,7 +1451,7 @@ def sign_batch(
         raise HTTPException(status_code=409, detail="Contract already finalized")
     party = _get_party(session, contract_id, payload.get("party_id"))
 
-    if user.role not in STAFF_ROLES and party.user_id != user.id:
+    if user.role not in STAFF_ROLES and not party_belongs_to_user(party, user):
         raise HTTPException(status_code=403, detail="Not a party of this contract")
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
@@ -1442,8 +1470,14 @@ def sign_batch(
 
     # P3 强制实名：登录态签署，口径与 /sign 完全一致
     if not party.real_name_verified_at:
-        if party.user_id is not None:
+        # 实名口径：已绑定登录用户的签署方（user_id 命中或邮箱命中）身份经平台登录态
+        # 可信，首次签署直接置为内部认证并回写 user_id（员工代签沿用同一口径）；
+        # 未绑定账号的外部签署方必须走公开端
+        # `/public/contract-sign/{token}/send-code` + `verify-identity` 完成实名。
+        if party.user_id is not None or party_belongs_to_user(party, user):
             party.real_name_verified_at = datetime.utcnow()
+            if party.user_id is None:
+                party.user_id = user.id
             session.add(party)
         else:
             raise HTTPException(status_code=403, detail="REAL_NAME_REQUIRED")
@@ -1696,6 +1730,24 @@ def _resolve_contract_pdf(contract: Contract) -> Optional[Path]:
     return None
 
 
+def _contract_pdf_page_count(contract: Contract) -> Optional[int]:
+    """合同引擎 PDF 的页数。
+
+    三端前端都按 `pdf_page_count` 逐页渲染文档背景（翻页/多页落框），
+    详情响应若不回该字段，前端会退化成「永远只有第 1 页」。
+    无 PDF 或引擎不可用时返回 None（前端按 1 页降级）。
+    """
+    path = _resolve_contract_pdf(contract)
+    if not path:
+        return None
+    try:
+        from app.services import kaifang_sign_service
+
+        return kaifang_sign_service.get_engine().page_count(path.read_bytes())
+    except Exception:  # noqa: BLE001  引擎异常不应让详情接口整体失败
+        return None
+
+
 @router.get("/{contract_id}/pdf")
 def get_contract_pdf(
     contract_id: uuid.UUID,
@@ -1764,6 +1816,7 @@ def get_contract(
         "content_html": contract.content_html,
         "file_path": contract.file_path,
         "pdf_available": _resolve_contract_pdf(contract) is not None,
+        "pdf_page_count": _contract_pdf_page_count(contract),
         "can_edit": is_staff
         and contract.status
         not in (ContractStatus.signed, ContractStatus.completed, ContractStatus.voided),

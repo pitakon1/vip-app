@@ -290,6 +290,8 @@ export default function RegisterScreen() {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
                 onFocus={() => setFocused('password')}
                 onBlur={() => setFocused(null)}
                 accessibilityLabel="密码"
@@ -301,6 +303,8 @@ export default function RegisterScreen() {
                 value={confirm}
                 onChangeText={setConfirm}
                 secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
                 onFocus={() => setFocused('confirm')}
                 onBlur={() => setFocused(null)}
                 accessibilityLabel="确认密码"

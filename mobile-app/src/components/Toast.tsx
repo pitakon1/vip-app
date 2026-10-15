@@ -6,6 +6,26 @@ import colors from '@/theme/colors';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
+/**
+ * web 端把 Toast 挂到 document.body 顶层。
+ *
+ * react-native-web 的 Modal 会 createPortal 到 document.body 且自身 zIndex=9999，
+ * 而 Toast 原本挂在 App 根视图内、zIndex 同为 9999 —— 同层级下 DOM 顺序靠后的
+ * Modal 会盖住 Toast，导致「弹窗内的失败/早退提示全部不可见」。
+ * 这里用 react-dom 的 createPortal 把 Toast 提到 body 顶层并给更高层级，彻底压住 Modal。
+ */
+const createPortalImpl: ((node: React.ReactNode, container: Element) => React.ReactPortal) | null =
+  (() => {
+    if (Platform.OS !== 'web') return null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const rd = require('react-dom');
+      return typeof rd?.createPortal === 'function' ? rd.createPortal : null;
+    } catch {
+      return null;
+    }
+  })();
+
 export type ToastType = 'success' | 'error' | 'info';
 
 export interface ToastOptions {
@@ -122,47 +142,56 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <View style={styles.root}>
       {children}
-      {shown && item ? (
-        <Animated.View
-          pointerEvents="box-none"
-          style={[
-            styles.host,
-            {
-              top: insets.top + 8,
-              opacity: anim,
-              transform: [
-                {
-                  translateY: anim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [12, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <View style={styles.card}>
-            <Ionicons name={meta.icon} size={22} color={meta.color} />
-            <View style={styles.body}>
-              <Text style={styles.title} numberOfLines={2}>
-                {item.title}
-              </Text>
-              {!!item.message && (
-                <Text style={styles.message} numberOfLines={8}>
-                  {item.message}
-                </Text>
-              )}
-              {!!item.actionLabel && (
-                <TouchableOpacity style={styles.action} onPress={handleAction} activeOpacity={0.7}>
-                  <Text style={styles.actionText}>{item.actionLabel}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </Animated.View>
-      ) : null}
+      {renderHost()}
     </View>
   );
+
+  // Toast 浮层本体（web 端经 portal 提升层级，native 直接挂在根视图内）
+  function renderHost() {
+    if (!(shown && item)) return null;
+    const node = (
+      <Animated.View
+        pointerEvents="box-none"
+        style={[
+          styles.host,
+          {
+            top: insets.top + 8,
+            opacity: anim,
+            transform: [
+              {
+                translateY: anim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [12, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={styles.card}>
+          <Ionicons name={meta.icon} size={22} color={meta.color} />
+          <View style={styles.body}>
+            <Text style={styles.title} numberOfLines={2}>
+              {item.title}
+            </Text>
+            {!!item.message && (
+              <Text style={styles.message} numberOfLines={8}>
+                {item.message}
+              </Text>
+            )}
+            {!!item.actionLabel && (
+              <TouchableOpacity style={styles.action} onPress={handleAction} activeOpacity={0.7}>
+                <Text style={styles.actionText}>{item.actionLabel}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Animated.View>
+    );
+    const portal = createPortalImpl;
+    const domBody = portal && typeof document !== 'undefined' ? document.body : null;
+    return portal && domBody ? portal(node, domBody) : node;
+  }
 }
 
 const styles = StyleSheet.create({
@@ -171,7 +200,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: colors.spacing.md,
     right: colors.spacing.md,
-    zIndex: 9999,
+    // web 端需压过 react-native-web Modal 的 9999，故用极大值
+    zIndex: Platform.OS === 'web' ? 2147483000 : 9999,
     elevation: 12,
   },
   card: {

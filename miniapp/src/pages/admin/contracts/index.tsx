@@ -65,6 +65,14 @@ const FIELD_TYPE_META: Record<string, string> = {
 
 const FIELD_TYPES = ['signature', 'seal', 'date'] as const
 
+// 验签报告中的签署方式（SignatureRecord.method）→ i18n key
+const VERIFY_METHOD_META: Record<string, string> = {
+  personal_handwrite: 'contract.methodPersonalHandwrite',
+  personal_seal: 'contract.methodPersonalSeal',
+  company_seal: 'contract.methodCompanySeal',
+  date: 'contract.methodDate'
+}
+
 // 「默认关键字」回填字面量：须匹配合同正文文字，故固定中文，不随 UI 语言翻译
 const KEYWORD_DEFAULT_LITERAL: Record<string, string> = {
   signature: '个人手写签名处',
@@ -2191,7 +2199,15 @@ export default function AdminContractsPage() {
                 ? field(t('contract.documentHash'), String(verifyReport.document_hash), true)
                 : null}
               {verifyReport?.sign_types_summary !== undefined && verifyReport?.sign_types_summary !== null
-                ? field(t('contract.signTypesSummary'), String(verifyReport.sign_types_summary), true)
+                ? field(
+                    t('contract.signTypesSummary'),
+                    verifyReport.sign_types_summary && typeof verifyReport.sign_types_summary === 'object'
+                      ? Object.entries(verifyReport.sign_types_summary as Record<string, number>)
+                          .map(([m, n]) => `${VERIFY_METHOD_META[m] ? t(VERIFY_METHOD_META[m]) : m} × ${n}`)
+                          .join('、') || '-'
+                      : String(verifyReport.sign_types_summary),
+                    true
+                  )
                 : null}
               <Text className='ac-detail__section-title'>{t('contract.signTypesSummary')}</Text>
               {Array.isArray(verifyReport?.signatures) && verifyReport.signatures.length ? (
@@ -2199,7 +2215,7 @@ export default function AdminContractsPage() {
                   <View className='ac-party' key={i}>
                     <View className='ac-party__head'>
                       <View className='ac-party__id'>
-                        <Text className='ac-party__name'>{t(FIELD_TYPE_META[s?.method] || 'contract.field.signature')}</Text>
+                        <Text className='ac-party__name'>{t(VERIFY_METHOD_META[s?.method] || FIELD_TYPE_META[s?.method] || 'contract.field.signature')}</Text>
                       </View>
                       {s?.signature_success
                         ? renderBadge('ac-badge--success', t('contract.signatureSuccess'))
@@ -2211,7 +2227,7 @@ export default function AdminContractsPage() {
                   </View>
                 ))
               ) : (
-                <Text className='ac-state__text'>{t('contract.empty')}</Text>
+                <Text className='ac-state__text'>{t('contract.verifyNoSig')}</Text>
               )}
             </ScrollView>
           </View>

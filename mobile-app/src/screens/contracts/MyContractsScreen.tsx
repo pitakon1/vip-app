@@ -205,7 +205,14 @@ export default function MyContractsScreen() {
   );
   const myPendingFields = myFields.filter((f: any) => !f?.signed);
   const mySignedFields = myFields.filter((f: any) => !!f?.signed);
-  const needsRealName = !!myParty && !myParty?.real_name_verified;
+  // 实名口径与后端一致：后端签名接口返回字段是 real_name_verified_at（此前误读成
+  // real_name_verified 恒为 undefined，导致任何签署方的「签署」按钮都被永久禁掉）；
+  // 且归属本账号（user_id 命中或邮箱命中）的签署方由后端按登录态内部认证，前端无需再拦。
+  const boundToMe =
+    !!myParty &&
+    (String(myParty.user_id ?? '') === String(user?.id ?? '') ||
+      String(myParty.email ?? '').toLowerCase() === String(user?.email ?? '').toLowerCase());
+  const needsRealName = !!myParty && !myParty?.real_name_verified_at && !boundToMe;
   // 签署台展示/可拖放的页：有 PDF 时整本；无 PDF 时降级为单页「正文」背景
   const studioPages: number[] = (() => {
     if (!detail?.pdf_available) return [1];

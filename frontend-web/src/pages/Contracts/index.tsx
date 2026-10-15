@@ -589,7 +589,10 @@ const Contracts = () => {
       const res = await contractsApi.createShareLink(detail.contract.id, partyId)
       const { url } = res.data || {}
       if (!url) throw new Error('no url')
-      await navigator.clipboard.writeText(url)
+      // 后端未配 PUBLIC_WEB_BASE_URL 时返回相对路径（/sign/:token），
+      // 直接复制出去客户打不开，这里补上当前站点 origin 再进剪贴板。
+      const full = /^https?:/.test(url) ? url : `${window.location.origin}${url}`
+      await navigator.clipboard.writeText(full)
       message.success(t('contracts.msgLinkCopied'))
     } catch {
       message.error(t('contracts.errCopyLink'))

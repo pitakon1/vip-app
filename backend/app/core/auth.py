@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy import false, or_
+from sqlalchemy import false, func, or_
 from sqlmodel import Session, select
 from .security import decode_access_token
 from ..db import get_session
@@ -260,6 +260,31 @@ def can_view_property(session: Session, user: User, prop) -> bool:
     return False
 
 
+def party_belongs_to_user(party: ContractParty, user: User) -> bool:
+    """签署方是否归属于该登录用户：user_id 命中，或邮箱命中（大小写不敏感）。
+
+    员工建单时常只填客户邮箱（App 端「追加签署方」即 name/email/role），
+    并不显式绑 user_id。若只认 user_id，该签署方既看不到合同、也签不了，
+    「我的合同」形同虚设；故邮箱命中同样视为归属。
+    """
+    if party.user_id is not None and party.user_id == user.id:
+        return True
+    pe = (party.email or "").strip().lower()
+    ue = (user.email or "").strip().lower()
+    return bool(pe and ue and pe == ue)
+
+
+def _party_match_clause(user: User):
+    """「本人是签署方」的查询条件（单条 OR 子句）：user_id 命中，或邮箱命中。"""
+    email = (user.email or "").strip().lower()
+    if not email:
+        return ContractParty.user_id == user.id
+    return or_(
+        ContractParty.user_id == user.id,
+        func.lower(ContractParty.email) == email,
+    )
+
+
 def contract_visibility_conditions(session: Session, user: User) -> list:
     """合同可见性 → 查询条件（与租约/房源同一口径）。
 
@@ -276,7 +301,7 @@ def contract_visibility_conditions(session: Session, user: User) -> list:
     if user.role not in (UserRole.owner, UserRole.tenant):
         return [false()]
 
-    as_party = select(ContractParty.contract_id).where(ContractParty.user_id == user.id)
+    as_party = select(ContractParty.contract_id).where(_party_match_clause(user))
     lease_conds = lease_visibility_conditions(session, user)
     conditions = [Contract.id.in_(as_party)]
     if lease_conds:
@@ -291,11 +316,11 @@ def can_view_contract(session: Session, user: User, contract: Contract) -> bool:
     if user.role not in (UserRole.owner, UserRole.tenant):
         return False
 
-    # 1) 本人是签署方
+    # 1) 本人是签署方（user_id 命中或邮箱命中）
     party = session.exec(
         select(ContractParty).where(
             ContractParty.contract_id == contract.id,
-            ContractParty.user_id == user.id,
+            _party_match_clause(user),
         )
     ).first()
     if party:

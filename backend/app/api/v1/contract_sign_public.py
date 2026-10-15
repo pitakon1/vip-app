@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
+from app.config import settings
 from app.core.rate_limit import AUTH_LIMIT, limiter
 from app.core.uploads import resolve_stored_path
 from app.db import get_session
@@ -318,10 +319,18 @@ def send_real_name_code(
 
     code = _issue_otp(session, contact, channel)
     sent = _send_code(contact, channel, code)
-    if not sent:
+    # 与登录 OTP（auth.request_otp）保持同一口径：未配短信/邮件凭据时本应 503，
+    # 但本地联调（DEBUG + OTP_DEV_CODE_ECHO 同时为真）必须放行并回显明文码，
+    # 否则免登录实名的发码步骤在开发环境是死路一条，公开签署流程点不下去。
+    echo_dev_code = bool(settings.DEBUG and settings.OTP_DEV_CODE_ECHO)
+    if not sent and not echo_dev_code:
         raise HTTPException(status_code=503, detail="Code delivery unavailable")
 
-    return {"sent": True, "to_masked": _mask_contact(contact)}
+    return {
+        "sent": True,
+        "to_masked": _mask_contact(contact),
+        "dev_code": code if echo_dev_code else None,
+    }
 
 
 @router.post("/{token}/verify-identity")

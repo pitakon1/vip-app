@@ -187,6 +187,24 @@ const SIGN_TYPE_META: Record<string, { labelKey: string; icon: IoniconName }> = 
 
 const SIGN_TYPES: string[] = ['signature', 'seal', 'date'];
 
+// 验签报告中的签署方式（SignatureRecord.method）→ i18n key
+const VERIFY_METHOD_LABEL: Record<string, string> = {
+  personal_handwrite: 'contract.methodPersonalHandwrite',
+  personal_seal: 'contract.methodPersonalSeal',
+  company_seal: 'contract.methodCompanySeal',
+  date: 'contract.methodDate',
+};
+
+// 签署方式摘要（后端返回 {method: count}）→ 可读文本；非字典时原样输出
+const fmtSignTypesSummary = (t: (k: string) => string, summary: any): string => {
+  if (!summary || typeof summary !== 'object') return String(summary ?? '');
+  return (
+    Object.entries(summary as Record<string, number>)
+      .map(([m, n]) => `${VERIFY_METHOD_LABEL[m] ? t(VERIFY_METHOD_LABEL[m]) : m} × ${n}`)
+      .join('、') || '-'
+  );
+};
+
 // 字段展示元数据：labelKey 为 i18n key，numeric 表示数字键盘。
 // 字段名与后端模板渲染函数 render_contract_html / render_purchase_html /
 // render_broker_protocol_html 的 counters 取参保持一致。
@@ -435,27 +453,32 @@ export default function ContractsScreen() {
     pageSizesRef.current[page] = { w: width, h: height };
   };
 
-  // 员工在页图上拖动游标落区（换算0-100%坐标，不暴露给用户）
+  // 员工在页图上点按 / 拖动落区：坐标一律换算成 0-100 百分比（不暴露给用户）
   const getPlacePan = useCallback((page: number) => {
     if (placePanCache.current[page]) return placePanCache.current[page];
+    // 相对页图的坐标必须先除以页图尺寸换算成百分比再写进 fieldForm：
+    // 该字段会被当成百分比渲染（left: `${x}%`），直接把像素值写进去会让预览框
+    // 飞到页图外、再被 pdfPageWrap 的 overflow:hidden 裁掉——表现为「点了没反应」。
+    const place = (evt: GestureResponderEvent) => {
+      const size = pageSizesRef.current[page];
+      const lx = Number(evt.nativeEvent.locationX);
+      const ly = Number(evt.nativeEvent.locationY);
+      if (!size?.w || !size?.h || !Number.isFinite(lx) || !Number.isFinite(ly)) return;
+      const pctX = Math.max(0, Math.min(100, (lx / size.w) * 100));
+      const pctY = Math.max(0, Math.min(100, (ly / size.h) * 100));
+      setFieldForm((f) => ({
+        ...f,
+        page: String(page),
+        x: String(Number(pctX.toFixed(1))),
+        y: String(Number(pctY.toFixed(1))),
+      }));
+    };
     const pan = PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt: GestureResponderEvent) => {
-        setFieldForm((f) => ({ ...f, page: String(page), x: String(evt.nativeEvent.locationX), y: String(evt.nativeEvent.locationY) }));
-      },
-      onPanResponderMove: (evt: GestureResponderEvent) => {
-        setFieldForm((f) => ({ ...f, x: String(evt.nativeEvent.locationX), y: String(evt.nativeEvent.locationY) }));
-      },
-      onPanResponderRelease: (evt: GestureResponderEvent) => {
-        const size = pageSizesRef.current[page];
-        if (!size) return;
-        setFieldForm((f) => {
-          const pctX = Math.max(0, Math.min(100, (Number(evt.nativeEvent.locationX) / size.w) * 100));
-          const pctY = Math.max(0, Math.min(100, (Number(evt.nativeEvent.locationY) / size.h) * 100));
-          return { ...f, page: String(page), x: String(Number(pctX.toFixed(1))), y: String(Number(pctY.toFixed(1))) };
-        });
-      },
+      onPanResponderGrant: place,
+      onPanResponderMove: place,
+      onPanResponderRelease: place,
       onPanResponderTerminate: () => {},
     });
     placePanCache.current[page] = pan;
@@ -653,14 +676,18 @@ export default function ContractsScreen() {
       notify(t('contract.needPartyFirst'));
       return;
     }
+    const isSign = fieldForm.type === 'signature';
     await commitFields([
       {
         party_id: fieldForm.party_id,
         field_type: fieldForm.type,
         page: Number(fieldForm.page) || 1,
-        // 签署区坐标统一为页面百分比(0-100)
+        // 签署区坐标与尺寸统一为页面百分比(0-100)，尺寸与右栏落框预览保持一致，
+        // 否则缺省 w/h 会存成 0×0，签署框在文档上不可见也点不到。
         x: Number(fieldForm.x) || 0,
         y: Number(fieldForm.y) || 0,
+        w: isSign ? 22 : 13,
+        h: isSign ? 8 : 6,
       },
     ]);
   };
@@ -678,6 +705,8 @@ export default function ContractsScreen() {
       page: 1,
       x: i % 2 === 0 ? 25 : 65,
       y: 55 + (i % 2) * 25 + Math.floor(i / 2) * 12,
+      w: 22,
+      h: 8,
     }));
     await commitFields(fields);
   };
@@ -1625,12 +1654,12 @@ export default function ContractsScreen() {
                   </View>
                 )}
                 {verifyData?.document_hash != null && field(t('contract.verifyDocumentHash'), String(verifyData.document_hash))}
-                {!!verifyData?.sign_types_summary && field(t('contract.verifySignTypes'), String(verifyData.sign_types_summary))}
+                {!!verifyData?.sign_types_summary && field(t('contract.verifySignTypes'), fmtSignTypesSummary(t, verifyData.sign_types_summary))}
                 <Text style={styles.sectionTitle}>{t('contract.verifySignatures')}</Text>
                 {Array.isArray(verifyData?.signatures) && verifyData.signatures.length ? (
                   verifyData.signatures.map((sig: any, idx: number) => (
                     <View key={idx} style={styles.partyCard}>
-                      {field(t('contract.verifyMethod'), String(sig?.method ?? '-'))}
+                      {field(t('contract.verifyMethod'), sig?.method ? (VERIFY_METHOD_LABEL[sig.method] ? t(VERIFY_METHOD_LABEL[sig.method]) : String(sig.method)) : '-')}
                       {field(t('contract.verifySignedAt'), fmtDate(sig?.signed_at))}
                       {field(t('contract.verifyIp'), String(sig?.ip ?? '-'))}
                       {field(t('contract.verifyHash'), String(sig?.signature_hash ?? '-'))}
@@ -1638,7 +1667,7 @@ export default function ContractsScreen() {
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.partyNone}>{t('contract.noSignFields')}</Text>
+                  <Text style={styles.partyNone}>{t('contract.verifyNoSig')}</Text>
                 )}
               </ScrollView>
             )}

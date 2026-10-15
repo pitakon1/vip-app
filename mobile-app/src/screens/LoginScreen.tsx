@@ -226,6 +226,10 @@ export default function LoginScreen() {
                   if (passwordError) setPasswordError('');
                 }}
                 secureTextEntry
+                // 密码框必须关掉自动首字母大写/自动纠错：RN 的 autoCapitalize 默认 'sentences'，
+                // 手机键盘会把首字母自动大写、输入法还会改写字母，导致用户「明明输对了却登录失败」。
+                autoCapitalize="none"
+                autoCorrect={false}
                 textContentType="password"
               />
               {!!passwordError && <Text style={styles.fieldError}>{passwordError}</Text>}
