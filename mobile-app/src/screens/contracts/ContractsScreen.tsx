@@ -35,6 +35,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import { SvgXml } from 'react-native-svg';
 import SignAssetPicker from '@/components/SignAssetPicker';
 import SignaturePad from '@/components/SignaturePad';
 import { contractsApi, signAssetsApi } from '@/services/api';
@@ -90,6 +91,59 @@ const resolveUploadFile = (asset: any) => {
 };
 
 const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '-');
+
+/**
+ * 资产缩略图：RN 的 <Image> 渲染不了 SVG data URL（历史签名资产就是 svg），
+ * 故按前缀分流——SVG 走 react-native-svg 的 <SvgXml>，其余（PNG data URL / http）仍走 <Image>。
+ */
+function AssetThumb({ uri, style }: { uri?: string | null; style?: any }) {
+  if (!uri) return null;
+  if (uri.startsWith('data:image/svg+xml')) {
+    const sep = uri.indexOf(',');
+    let xml = '';
+    if (sep >= 0) {
+      try {
+        xml = decodeURIComponent(uri.slice(sep + 1));
+      } catch {
+        xml = '';
+      }
+    }
+    if (!xml) return null;
+    return (
+      <View style={style}>
+        <SvgXml xml={xml} width="100%" height="100%" />
+      </View>
+    );
+  }
+  return <Image source={{ uri }} style={style} resizeMode="contain" />;
+}
+
+/**
+ * 把 SignaturePad 画板的 <Svg> 实例导成 PNG data URL。
+ * react-native-svg 的 toDataURL 是回调式（web/原生都实现），且图片解码失败时可能不回调，
+ * 所以加一个超时兜底，避免 await 永久挂起；失败时返回空串由调用方回退 SVG。
+ */
+const exportPadPng = (ref: { current: any }) =>
+  new Promise<string>((resolve) => {
+    const inst: any = ref.current;
+    if (!inst || typeof inst.toDataURL !== 'function') {
+      resolve('');
+      return;
+    }
+    let done = false;
+    const finish = (v: string) => {
+      if (!done) {
+        done = true;
+        resolve(v);
+      }
+    };
+    try {
+      inst.toDataURL((b64: string) => finish(b64 ? `data:image/png;base64,${b64}` : ''));
+      setTimeout(() => finish(''), 1500);
+    } catch {
+      finish('');
+    }
+  });
 
 const SOURCE_META: Record<string, { labelKey: string; color: string; bg: string; icon: IoniconName }> = {
   generated: {
@@ -261,6 +315,8 @@ export default function ContractsScreen() {
   const [libAssetType, setLibAssetType] = useState<'seal' | 'handwrite'>('seal');
   const [signMakeVisible, setSignMakeVisible] = useState(false);
   const [signDraftSvg, setSignDraftSvg] = useState('');
+  // 手写签名画板的 <Svg> 实例：用于「使用该签名」时导出 PNG（RN <Image> 不支持 SVG）
+  const signSvgRef = useRef<any>(null);
 
   // ===== 开放签双栏「放置/管理签署区」：左配置栏 + 右文档区 =====
   const [signMethod, setSignMethod] = useState<'position' | 'keyword'>('position');
@@ -319,7 +375,9 @@ export default function ContractsScreen() {
       notify(t('contract.signNotMade'));
       return;
     }
-    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    // 优先导出 PNG 入库（RN <Image> 只能渲染位图）；导出不可用时回退 SVG，由 AssetThumb 用 SvgXml 展示
+    const png = await exportPadPng(signSvgRef);
+    const dataUrl = png || `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
     try {
       const res: any = await signAssetsApi.create({
         name: t('contract.mySigns'),
@@ -327,7 +385,7 @@ export default function ContractsScreen() {
         source: 'drew',
         data_url: dataUrl,
       });
-      const created = res?.data?.id ? res.data : null;
+      const created = res?.data?.id ? res.data : res?.id ? res : null;
       setSignAsset(
         created ?? {
           id: '',
@@ -592,7 +650,7 @@ export default function ContractsScreen() {
   // 表单式添加单个签署区
   const submitField = async () => {
     if (!fieldForm.party_id) {
-      notify(t('contract.insert'));
+      notify(t('contract.needPartyFirst'));
       return;
     }
     await commitFields([
@@ -611,7 +669,7 @@ export default function ContractsScreen() {
   const applyDefaultLayout = async () => {
     const targets = parties.filter((p: any) => !p?.signed && !!p?.id);
     if (!targets.length) {
-      notify(t('contract.insert'));
+      notify(t('contract.needPartyFirst'));
       return;
     }
     const fields = targets.map((p: any, i: number) => ({
@@ -1275,6 +1333,24 @@ export default function ContractsScreen() {
             <View style={{ width: 32 }} />
           </View>
 
+          {!parties.length ? (
+            <View style={styles.studioEmpty}>
+              <Ionicons name="person-add-outline" size={30} color={colors.ink3} />
+              <Text style={styles.studioEmptyTitle}>{t('contract.needPartyFirst')}</Text>
+              <TouchableOpacity
+                style={styles.studioEmptyBtn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  setShowAddFields(false);
+                  setShowParty(true);
+                }}
+              >
+                <Ionicons name="person-add-outline" size={16} color={colors.primaryForeground} />
+                <Text style={styles.studioEmptyBtnText}>{t('contract.addParty')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
           {/* 左配置栏 */}
           <View style={isWide ? styles.studioBodyRow : styles.studioStackFlex}>
             <ScrollView style={styles.studioCfgCol} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.studioCfgContent}>
@@ -1339,7 +1415,7 @@ export default function ContractsScreen() {
                   <View style={styles.assetBox}>
                     {sealAsset?.data_url ? (
                       <>
-                        <Image source={{ uri: sealAsset.data_url }} style={styles.assetThumb} resizeMode="contain" />
+                        <AssetThumb uri={sealAsset.data_url} style={styles.assetThumb} />
                         <View style={styles.assetInfo}>
                           <Text style={styles.assetName} numberOfLines={1}>{sealAsset.name || t('contract.mySeals')}</Text>
                           <Text style={styles.assetMeta}>{t('contract.assetPickedSeal')}</Text>
@@ -1363,7 +1439,7 @@ export default function ContractsScreen() {
                   <View style={styles.assetBox}>
                     {signAsset?.data_url ? (
                       <>
-                        <Image source={{ uri: signAsset.data_url }} style={styles.assetThumb} resizeMode="contain" />
+                        <AssetThumb uri={signAsset.data_url} style={styles.assetThumb} />
                         <View style={styles.assetInfo}>
                           <Text style={styles.assetName} numberOfLines={1}>{signAsset.name || t('contract.mySigns')}</Text>
                           <Text style={styles.assetMeta}>{t('contract.assetPickedSign')}</Text>
@@ -1522,6 +1598,8 @@ export default function ContractsScreen() {
               )}
             </ScrollView>
           </View>
+            </>
+          )}
         </View>
       </Modal>
 
@@ -1658,6 +1736,7 @@ export default function ContractsScreen() {
             <SignaturePad
               key={String(signMakeVisible)}
               onResult={setSignDraftSvg}
+              svgRef={signSvgRef}
             />
             <View style={styles.drawPadActions}>
               <TouchableOpacity
@@ -1931,6 +2010,19 @@ const styles = StyleSheet.create({
   },
   studioHeadTitle: { flex: 1, minWidth: 0 },
   studioTitle: { fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.ink },
+  // 「无签署方」空状态：确认按钮会因无签署方而无法提交，这里给出直达入口
+  studioEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
+  studioEmptyTitle: { fontSize: colors.fontSize.base, color: colors.ink2, textAlign: 'center' },
+  studioEmptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: colors.radius.md,
+  },
+  studioEmptyBtnText: { fontSize: colors.fontSize.base, fontWeight: '700', color: colors.primaryForeground },
   studioBodyRow: { flex: 1, flexDirection: 'row' },
   studioStackFlex: { flex: 1 },
   studioCfgCol: { width: 340, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: colors.border, backgroundColor: colors.background },
