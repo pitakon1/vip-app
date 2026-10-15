@@ -29,6 +29,15 @@ interface Report {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+// 后端时间戳统一为 naive UTC（无时区后缀）。直接 new Date() 会按本地时区解析，
+// 东八区下展示会偏移 8 小时；此处先补 'Z' 归一为 UTC，再按用户本地时区格式化。
+const fmtTs = (x?: string) => {
+  if (!x) return '-'
+  const s = /[zZ]|[+-]\d{2}:?\d{2}$/.test(x) ? x : `${x}Z`
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? String(x) : d.toLocaleString()
+}
+
 const Verify = () => {
   const { t } = useTranslation()
   const [params] = useSearchParams()
@@ -150,7 +159,7 @@ const Verify = () => {
                       <tr key={i}>
                         <td>{s.party_name || '-'}</td>
                         <td>{t(`contracts.method_${s.method}`) || s.method}</td>
-                        <td>{s.signed_at ? new Date(s.signed_at).toLocaleString() : '-'}</td>
+                        <td>{fmtTs(s.signed_at)}</td>
                         <td>{s.ip || '-'}</td>
                         <td>
                           {s.signature_success ? (
@@ -172,7 +181,7 @@ const Verify = () => {
       <style>{`
         .rent-verify-row{display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px dashed var(--rent-line,#eef2f5)}
         .rent-verify-row>span{width:170px;flex-shrink:0;color:var(--rent-ink-3,#64748b);font-size:13px}
-        .rent-verify-code{word-break:break-all;font-size:12px;color:#2563eb}
+        .rent-verify-code{word-break:break-all;font-size:12px;color:#14b8a6}
       `}</style>
     </div>
   )

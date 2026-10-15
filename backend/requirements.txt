@@ -18,3 +18,7 @@ python-dotenv==1.0.1
 structlog==24.4.0
 prometheus-client==0.21.1
 slowapi==0.1.9
+# 电子签引擎（app/services/kaifang_sign_service.py 的页图渲染 / 文本检索 / 页数统计）。
+# 注意：PyMuPDF 以 AGPL-3.0 授权（OSI 认可的开源许可，但属强网络copyleft），
+# 对外提供 SaaS 时需评估合规；此处显式声明避免依赖隐式漏装。
+PyMuPDF==1.28.2

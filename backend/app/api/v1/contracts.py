@@ -1779,6 +1779,9 @@ def get_contract_pdf_page(
     p = _resolve_contract_pdf(contract)
     if not p:
         raise HTTPException(status_code=404, detail="Contract PDF not found")
+    # 页号从 1 起：page=0 / 负数会被引擎解释为「从末页倒推」，返回 200 与真实页图。
+    if page < 1:
+        raise HTTPException(status_code=404, detail="Page out of range")
     from app.services import kaifang_sign_service
 
     try:

@@ -1383,6 +1383,8 @@ export default function ContractsScreen() {
           {/* 左配置栏 */}
           <View style={isWide ? styles.studioBodyRow : styles.studioStackFlex}>
             <ScrollView style={styles.studioCfgCol} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.studioCfgContent}>
+              <Text style={styles.fieldsTip}>{t('contract.fieldPresetTip')}</Text>
+
               <Text style={styles.cfgSectionTitle}>{t('contract.fieldSelectParty')}</Text>
               <View style={styles.langRow}>
                 {parties.filter((p: any) => !!p?.id).map((p: any) => {
@@ -1401,6 +1403,15 @@ export default function ContractsScreen() {
                   );
                 })}
               </View>
+
+              {/* 已保存的签署区：此前编辑器只显示「本次待放置的那一个框」，
+                  保存过的签署区在左栏与右栏都无处可见，用户以为没保存成功。 */}
+              <Text style={styles.cfgSectionTitle}>{t('contract.existingFields')}</Text>
+              {signFields.length ? (
+                <View style={styles.fieldsList}>{signFields.map(renderSignField)}</View>
+              ) : (
+                <Text style={styles.partyNone}>{t('contract.noSignFields')}</Text>
+              )}
 
               <Text style={styles.cfgSectionTitle}>{t('contract.signMethod')}</Text>
               <View style={styles.segRow}>
@@ -1577,6 +1588,15 @@ export default function ContractsScreen() {
                       .sort((a, b) => a - b)
                       .map((page) => {
                         const active = Number(fieldForm.page) === page;
+                        // 该页已保存的签署区：一律渲染成虚线框 + 归属姓名标签。
+                        // 此前右栏只画「本次待放置的那一个草稿框」，保存过的签署区在文档上
+                        // 完全不可见，用户以为「加了签署区、加了姓名」没生效。
+                        const pageFields = signFields.filter(
+                          (f: any) => (Number(f?.page) || 1) === page,
+                        );
+                        const draftParty = parties.find(
+                          (p: any) => String(p?.id) === String(fieldForm.party_id),
+                        );
                         return (
                           <View
                             key={page}
@@ -1585,28 +1605,66 @@ export default function ContractsScreen() {
                             {...getPlacePan(page).panHandlers}
                           >
                             <Image source={{ uri: docUrls[page] }} style={styles.pdfPageImage} resizeMode="stretch" />
+                            {pageFields.map((f: any, i: number) => {
+                              const meta = SIGN_TYPE_META[f?.field_type ?? 'signature'] ?? SIGN_TYPE_META.signature;
+                              const owner = parties.find((p: any) => String(p?.id) === String(f?.party_id));
+                              const signed = !!f?.signed;
+                              return (
+                                <View
+                                  key={f?.id ?? `f-${page}-${i}`}
+                                  pointerEvents="none"
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${Number(f?.x) || 0}%` as DimensionValue,
+                                    top: `${Number(f?.y) || 0}%` as DimensionValue,
+                                    width: `${Number(f?.w) || 20}%` as DimensionValue,
+                                    height: `${Number(f?.h) || 8}%` as DimensionValue,
+                                    borderWidth: 1.5,
+                                    borderStyle: 'dashed',
+                                    borderColor: signed ? colors.success : colors.primary,
+                                    backgroundColor: colors.alpha(
+                                      signed ? colors.successRgb : colors.primaryRgb,
+                                      0.14,
+                                    ),
+                                    borderRadius: 6,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  <Text style={styles.fieldTag} numberOfLines={2}>
+                                    {t(meta.labelKey)} · {owner?.name || t('contract.unknown')}
+                                  </Text>
+                                </View>
+                              );
+                            })}
                             {active && (
                               <View
+                                pointerEvents="none"
                                 style={{
                                   position: 'absolute',
                                   left: `${Number(fieldForm.x) || 0}%` as DimensionValue,
                                   top: `${Number(fieldForm.y) || 0}%` as DimensionValue,
                                   width: fieldForm.type === 'signature' ? ('22%' as DimensionValue) : ('13%' as DimensionValue),
                                   height: fieldForm.type === 'signature' ? ('8%' as DimensionValue) : ('6%' as DimensionValue),
-                                  borderWidth: 1.5,
-                                  borderStyle: 'dashed',
-                                  borderColor: colors.primary,
-                                  backgroundColor: colors.alpha(colors.primaryRgb, 0.14),
+                                  borderWidth: 2,
+                                  borderStyle: 'solid',
+                                  borderColor: colors.warning,
+                                  backgroundColor: colors.alpha(colors.warningRgb, 0.16),
                                   borderRadius: 6,
                                   alignItems: 'center',
                                   justifyContent: 'center',
+                                  overflow: 'hidden',
                                 }}
                               >
                                 <Ionicons
                                   name={SIGN_TYPE_META[fieldForm.type]?.icon ?? 'create-outline'}
                                   size={14}
-                                  color={colors.primary}
+                                  color={colors.warning}
                                 />
+                                <Text style={[styles.fieldTag, { color: colors.warning }]} numberOfLines={1}>
+                                  {draftParty?.name || t('contract.unknown')}
+                                </Text>
                               </View>
                             )}
                           </View>
@@ -2110,6 +2168,8 @@ const styles = StyleSheet.create({
   },
   pdfPageWrapActive: { borderColor: colors.primary, borderWidth: 1.5 },
   pdfPageImage: { width: '100%', aspectRatio: 210 / 297, backgroundColor: colors.surface2 },
+  // 文档上签署框内的类型 · 归属姓名小字标签
+  fieldTag: { fontSize: 9, lineHeight: 12, color: colors.primary, fontWeight: '700', textAlign: 'center' },
   pdfLoading: {
     width: '100%',
     aspectRatio: 210 / 297,

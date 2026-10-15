@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { message, Modal, Segmented } from 'antd'
 import { contractsApi, contractsPublicApi, signAssetsApi } from '@/services/api'
@@ -13,9 +13,12 @@ const CANVAS_H = 140
 
 // 文档区预览基准宽度（坐标一律为页面宽高百分比，界面上从不展示裸数字）
 const PREVIEW_W = 800
-// 落框默认尺寸（页面宽高百分比；A4 竖版下近似保持印章/签名的原始比例）
-const SEAL_BOX = { w: 12, h: 8.5 }
+// 落框默认尺寸（页面宽高百分比；A4 竖版下近似保持印章/签名的原始比例）。
+// 与 App / 小程序统一为同一组数值（印章宽 16% ≈ A4 下正方形，签名 24×8）。
+const SEAL_BOX = { w: 16, h: 11.3 }
 const SIGN_BOX = { w: 24, h: 8 }
+// 点按（未拖拽）时的默认落点：页面中部偏下，靠近常见签署位置
+const TAP_DROP = { x: 30, y: 74 }
 
 type Phase = 'loading' | 'ready' | 'done'
 type FailType = 'expired' | 'signed' | 'generic' | null
@@ -34,7 +37,20 @@ interface ContractDoc {
   pdf_available?: boolean
   pdf_page_count?: number
   party?: { id?: string; name?: string; sign_method?: string; real_name_verified?: boolean }
+  /** 管理端（或关键字）预置的签署区，坐标同为页面百分比 */
+  sign_fields?: SignField[]
   [k: string]: unknown
+}
+
+/** 预置签署区（由发起方在「放置签署框」里落好，签署页直接点它即签） */
+interface SignField {
+  id?: string
+  field_type?: string
+  page?: number
+  x: number
+  y: number
+  w: number
+  h: number
 }
 
 /** 已落框成品（本地坐标 + 成品图；签署时一次性原子提交给 sign-batch） */
@@ -45,9 +61,19 @@ interface Placed {
   y: number
   w: number
   h: number
-  method: 'company_seal' | 'personal_handwrite'
-  imageDataUrl: string
+  method: 'company_seal' | 'personal_handwrite' | 'date'
+  /** date 类不需要图片，由后端渲染当天日期 */
+  imageDataUrl?: string
   signatureSvg?: string
+}
+
+/** 指针交互（鼠标/触屏/触控笔统一）进行中的拖拽态 */
+interface DragState {
+  kind: TrayKind | null
+  key: number | null
+  startX: number
+  startY: number
+  moved: boolean
 }
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
@@ -273,6 +299,13 @@ const Sign = () => {
   const [placed, setPlaced] = useState<Placed[]>([])
   const placedKeyRef = useRef(0)
 
+  // 指针拖拽（鼠标 + 触屏 + 触控笔统一走 pointer 事件；HTML5 拖拽在触屏浏览器不触发，
+  // 此前公开签署页在手机上无法落章，签署按钮永久置灰）。浮层用于给出手指/光标跟随反馈。
+  const [ghost, setGhost] = useState<{ kind: TrayKind; x: number; y: number } | null>(null)
+  const [movingKey, setMovingKey] = useState<number | null>(null)
+  const dragRef = useRef<DragState>({ kind: null, key: null, startX: 0, startY: 0, moved: false })
+  const currentPageRef = useRef(1)
+
   // 印章制作弹窗（模板生成 / 印模上传）
   const [sealModalOpen, setSealModalOpen] = useState(false)
   const [sealCreateType, setSealCreateType] = useState<'template' | 'imprint'>('template')
@@ -406,44 +439,45 @@ const Sign = () => {
     }
   }
 
-  // ===== 拖拽落框（原生 HTML5 drag，从托盘克隆 / 落框改位） =====
-  const onTrayDragStart = (kind: TrayKind) => (e: React.DragEvent) => {
-    e.dataTransfer.setData('text/plain', `new:${kind}`)
-    e.dataTransfer.effectAllowed = 'copy'
+  // ===== 落章（指针事件，鼠标 / 触屏 / 触控笔通用）=====
+  // 此前用 HTML5 draggable + dragstart/drop 实现「从托盘拖到文档」，但触屏浏览器
+  // 不触发这些事件，公开签署链接（多在手机聊天里打开）根本无法落章，底部「签署」
+  // 按钮因 placed.length === 0 永久置灰。改走 pointer 事件，并补「点按即落章」路径，
+  // 使桌面与移动端行为一致（对齐 App / 小程序的触摸手势）。
+  const pushPlaced = (p: Omit<Placed, 'key'>) => {
+    placedKeyRef.current += 1
+    setPlaced((prev) => [...prev, { ...p, key: placedKeyRef.current }])
   }
 
-  const onPlacedDragStart = (key: number) => (e: React.DragEvent) => {
-    e.dataTransfer.setData('text/plain', `move:${key}`)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-
-  const addPlaced = (kind: TrayKind, px: number, py: number) => {
-    if (kind === 'seal') {
-      if (!seal) return
-      const { w, h } = SEAL_BOX
-      placedKeyRef.current += 1
-      setPlaced((prev) => [
-        ...prev,
-        {
-          key: placedKeyRef.current,
-          page: currentPage,
-          x: clamp(px - w / 2, 0, 100 - w),
-          y: clamp(py - h / 2, 0, 100 - h),
-          w,
-          h,
-          method: 'company_seal',
-          imageDataUrl: seal.dataUrl,
-        },
-      ])
-    } else {
+  const addPlaced = useCallback(
+    (kind: TrayKind, px: number, py: number, box?: { w: number; h: number }) => {
+      if (kind === 'seal') {
+        if (!seal) return
+        const { w, h } = box || SEAL_BOX
+        placedKeyRef.current += 1
+        setPlaced((prev) => [
+          ...prev,
+          {
+            key: placedKeyRef.current,
+            page: currentPageRef.current,
+            x: clamp(px - w / 2, 0, 100 - w),
+            y: clamp(py - h / 2, 0, 100 - h),
+            w,
+            h,
+            method: 'company_seal',
+            imageDataUrl: seal.dataUrl,
+          },
+        ])
+        return
+      }
       if (!signature) return
-      const { w, h } = SIGN_BOX
+      const { w, h } = box || SIGN_BOX
       placedKeyRef.current += 1
       setPlaced((prev) => [
         ...prev,
         {
           key: placedKeyRef.current,
-          page: currentPage,
+          page: currentPageRef.current,
           x: clamp(px - w / 2, 0, 100 - w),
           y: clamp(py - h / 2, 0, 100 - h),
           w,
@@ -453,44 +487,122 @@ const Sign = () => {
           signatureSvg: signature.svg,
         },
       ])
-    }
-  }
+    },
+    [seal, signature],
+  )
+  // 窗口级 pointer 监听器在 mount 时一次性注册（见下方 effect），运行时需拿到
+  // 「最新一版」的 addPlaced（其闭包捕获了当前已制作的 seal / signature）。
+  // 用 ref 做转发：每次渲染都把最新函数写回，监听器永远调用到最新实现。
+  const addPlacedRef = useRef(addPlaced)
+  addPlacedRef.current = addPlaced
 
-  const movePlaced = (key: number, px: number, py: number) => {
-    setPlaced((prev) =>
-      prev.map((p) =>
-        p.key === key
-          ? {
-              ...p,
-              page: currentPage,
-              x: clamp(px - p.w / 2, 0, 100 - p.w),
-              y: clamp(py - p.h / 2, 0, 100 - p.h),
-            }
-          : p,
-      ),
-    )
+  // 点预置签署区：按该签署区自身的坐标与尺寸落章 —— 发起方布置在哪里，就签在哪里
+  const signOnField = (f: SignField) => {
+    const w = f.w > 0 ? f.w : 20
+    const h = f.h > 0 ? f.h : 8
+    if (f.field_type === 'date') {
+      pushPlaced({ page: f.page || 1, x: f.x, y: f.y, w, h, method: 'date' })
+      return
+    }
+    if (f.field_type === 'seal') {
+      if (!seal) {
+        message.warning(t('contracts.tapMakeSeal'))
+        return
+      }
+      addPlaced('seal', f.x + w / 2, f.y + h / 2, { w, h })
+      return
+    }
+    if (!signature) {
+      message.warning(t('contracts.tapSign'))
+      return
+    }
+    addPlaced('sign', f.x + w / 2, f.y + h / 2, { w, h })
   }
 
   const removePlaced = (key: number) => {
     setPlaced((prev) => prev.filter((p) => p.key !== key))
   }
 
-  const onDocDragOver = (e: React.DragEvent) => {
+  // 托盘条目 / 已落框：pointerdown 启动拖拽，在 window 上跟踪 move / up，
+  // 保证手指或光标移出元素范围后仍能顺畅跟手并正确落点。
+  const beginCarry = (kind: TrayKind) => (e: React.PointerEvent) => {
     e.preventDefault()
-    e.dataTransfer.dropEffect = 'copy'
+    dragRef.current = { kind, key: null, startX: e.clientX, startY: e.clientY, moved: false }
+    setGhost({ kind, x: e.clientX, y: e.clientY })
   }
 
-  const onDocDrop = (e: React.DragEvent) => {
+  const beginMove = (key: number) => (e: React.PointerEvent) => {
     e.preventDefault()
-    if (!docRef.current) return
-    const data = e.dataTransfer.getData('text/plain')
-    const rect = docRef.current.getBoundingClientRect()
-    const px = ((e.clientX - rect.left) / rect.width) * 100
-    const py = ((e.clientY - rect.top) / rect.height) * 100
-    if (data === 'new:seal') addPlaced('seal', px, py)
-    else if (data === 'new:sign') addPlaced('sign', px, py)
-    else if (data.startsWith('move:')) movePlaced(Number(data.slice(5)), px, py)
+    dragRef.current = { kind: null, key, startX: e.clientX, startY: e.clientY, moved: false }
+    setMovingKey(key)
   }
+
+  useEffect(() => {
+    currentPageRef.current = currentPage
+  }, [currentPage])
+
+  // 窗口级 pointer 监听器：**必须 mount 时一次性注册**。
+  // 若把「是否正在拖拽」作为依赖并在空状态下 early-return，则 pointerdown → React
+  // 重渲染 → effect 重跑 之间存在一个提交间隙；浏览器合成点击 / 快速点按的
+  // pointerup 往往就在同一 tick 内到达，此时监听器尚未挂上 —— 结果「点一下印章条目」
+  // 静默失效（托盘高亮闪一下、文档区却什么都没落）。改为常驻监听 + dragRef 读态。
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const d = dragRef.current
+      if (!d.kind && d.key === null) return
+      if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 6) d.moved = true
+      if (d.kind) setGhost({ kind: d.kind, x: e.clientX, y: e.clientY })
+      if (d.key !== null && docRef.current) {
+        const rect = docRef.current.getBoundingClientRect()
+        if (!rect.width || !rect.height) return
+        const px = ((e.clientX - rect.left) / rect.width) * 100
+        const py = ((e.clientY - rect.top) / rect.height) * 100
+        setPlaced((prev) =>
+          prev.map((p) =>
+            p.key === d.key
+              ? {
+                  ...p,
+                  page: currentPageRef.current,
+                  x: clamp(px - p.w / 2, 0, 100 - p.w),
+                  y: clamp(py - p.h / 2, 0, 100 - p.h),
+                }
+              : p,
+          ),
+        )
+      }
+    }
+    const onUp = (e: PointerEvent) => {
+      const d = dragRef.current
+      if (d.kind) {
+        const rect = docRef.current?.getBoundingClientRect()
+        const inside =
+          !!rect &&
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        if (inside && rect.width && rect.height) {
+          const px = ((e.clientX - rect.left) / rect.width) * 100
+          const py = ((e.clientY - rect.top) / rect.height) * 100
+          addPlacedRef.current(d.kind, px, py)
+        } else if (!d.moved) {
+          // 纯点按（未拖动）：落到默认签署位置，避免「拖不动就完全签不了」
+          addPlacedRef.current(d.kind, TAP_DROP.x, TAP_DROP.y)
+        }
+      }
+      dragRef.current = { kind: null, key: null, startX: 0, startY: 0, moved: false }
+      setGhost(null)
+      setMovingKey(null)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [])
 
   // ===== 底部【签署】：一次性原子提交全部落框 =====
   const submitPlaced = async () => {
@@ -509,7 +621,8 @@ const Sign = () => {
         h: round2(p.h),
         method: p.method,
         ...(p.signatureSvg ? { signature_svg: p.signatureSvg } : {}),
-        image_data_url: p.imageDataUrl,
+        // date 类不传图，由后端按当天日期渲染；其余类型必须带成品图
+        ...(p.imageDataUrl ? { image_data_url: p.imageDataUrl } : {}),
       }))
       // 场景分流：优先走站内 sign-batch，把签名归属到登录账号。但本页是**免登录**签署页：
       // 持链者未必是该签署方本人，浏览器里也可能残留过期令牌。这两种情况下站内端点会
@@ -619,11 +732,8 @@ const Sign = () => {
   }
 
   // 拒签
+  // 理由与后端口径一致：后端允许空理由（reason or None），不强制必填
   const confirmDecline = async () => {
-    if (!declineReason.trim()) {
-      message.warning(t('contracts.declineReasonBlank'))
-      return
-    }
     try {
       await contractsPublicApi.decline(token, declineReason.trim())
       setDeclineOpen(false)
@@ -689,32 +799,66 @@ const Sign = () => {
   const pdfCount = doc?.pdf_available ? doc?.pdf_page_count || 1 : 0
   const page = Math.min(Math.max(currentPage, 1), pdfCount || 1)
   const pageItems = placed.filter((p) => p.page === page)
+  // 发起方预置的签署区（本签署方可见、未签的那部分）。点击即按该区坐标落章。
+  const pageFields = (doc?.sign_fields || []).filter((f) => (f.page || 1) === page)
 
-  // 落框成品渲染（可拖动改位 + ✕ 删除；不展示任何坐标数字）
+  // 落框成品渲染（可按住改位 + ✕ 删除；不展示任何坐标数字）
   const renderPlaced = (p: Placed) => (
     <div
       key={p.key}
-      className="kf-placed"
-      draggable
-      onDragStart={onPlacedDragStart(p.key)}
-      style={{ left: `${p.x}%`, top: `${p.y}%`, width: `${p.w}%`, height: `${p.h}%` }}
+      className={`kf-placed${movingKey === p.key ? ' kf-placed--moving' : ''}`}
+      onPointerDown={beginMove(p.key)}
+      title={t('contracts.movePlaced')}
+      style={{ left: `${p.x}%`, top: `${p.y}%`, width: `${p.w}%`, height: `${p.h}%`, touchAction: 'none' }}
     >
-      <img src={p.imageDataUrl} alt="" draggable={false} />
+      {p.imageDataUrl ? (
+        <img src={p.imageDataUrl} alt="" draggable={false} />
+      ) : (
+        // date 类：不落图，展示当天日期样式（后端按同日渲染进 PDF）
+        <span className="kf-placed__date">{new Date().toISOString().slice(0, 10)}</span>
+      )}
       <button
         type="button"
         className="kf-placed__del"
         draggable={false}
         title={t('contracts.removePlaced')}
-        onClick={() => removePlaced(p.key)}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          removePlaced(p.key)
+        }}
       >
         ×
       </button>
     </div>
   )
 
+  // 预置签署区渲染：虚线框 + 类型标签，点一下即签在该区（对齐 e签宝/法大大「点签署区即签」）
+  const renderField = (f: SignField) => {
+    // 已被落章覆盖（坐标一致）时不再重复显示虚线框
+    const covered = placed.some(
+      (p) => p.page === (f.page || 1) && Math.abs(p.x - f.x) < 1 && Math.abs(p.y - f.y) < 1,
+    )
+    if (covered) return null
+    const type = f.field_type || 'signature'
+    return (
+      <button
+        key={f.id || `${type}-${f.x}-${f.y}`}
+        type="button"
+        className="kf-field"
+        onClick={() => signOnField(f)}
+        title={t('contracts.fieldTapToSign')}
+        style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }}
+      >
+        {t(`contracts.fType_${type}`)}
+      </button>
+    )
+  }
+
   // 托盘条目（开放签式整行交互）：
   //   未制作 → 整行可点，点一下直接弹出手写签名板 / 印章制作弹窗（不再依赖小「制作」按钮）；
-  //   已制作 → 整行即拖拽源，按住条目拖到文档任意位置松手即落章，右侧仅留一个小「重做/更换」图标按钮。
+  //   已制作 → 整行可按（鼠标/手指）拖到文档任意位置松手即落章；纯点按（不拖）也会落在
+  //            默认签署位置，保证触屏用户不会「拖不动就签不了」；右侧留一个小「重做/更换」。
   const renderTrayItem = (kind: TrayKind) => {
     const made = kind === 'seal' ? !!seal : !!signature
     const thumb = kind === 'seal' ? seal?.dataUrl : signature?.png
@@ -743,7 +887,13 @@ const Sign = () => {
       )
     }
     return (
-      <div className="kf-tray-item kf-tray-item--made" key={kind} draggable onDragStart={onTrayDragStart(kind)} title={t('contracts.dragStampHint')}>
+      <div
+        className={`kf-tray-item kf-tray-item--made${ghost?.kind === kind ? ' kf-tray-item--carrying' : ''}`}
+        key={kind}
+        onPointerDown={beginCarry(kind)}
+        title={t('contracts.dragStampHint')}
+        style={{ touchAction: 'none' }}
+      >
         <div className="kf-tray-item__name">{label}</div>
         <div className="kf-tray-item__thumb">
           <img src={thumb} alt={label} draggable={false} />
@@ -754,6 +904,7 @@ const Sign = () => {
           className="kf-tray-item__redo"
           draggable={false}
           title={kind === 'seal' ? t('contracts.changeSeal') : t('contracts.resignSign')}
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={openMake}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -800,10 +951,9 @@ const Sign = () => {
                       ref={docRef}
                       className="kf-stage"
                       style={{ width: PREVIEW_W, maxWidth: '100%', margin: '0 auto' }}
-                      onDragOver={onDocDragOver}
-                      onDrop={onDocDrop}
                     >
                       <img className="kf-stage__bg" src={contractsPublicApi.pdfPageUrl(token, page)} alt={`page ${page}`} draggable={false} />
+                      {pageFields.map(renderField)}
                       {pageItems.map(renderPlaced)}
                     </div>
                   </div>
@@ -814,10 +964,9 @@ const Sign = () => {
                     ref={docRef}
                     className="kf-stage"
                     style={{ width: PREVIEW_W, maxWidth: '100%', margin: '0 auto' }}
-                    onDragOver={onDocDragOver}
-                    onDrop={onDocDrop}
                   >
                     <div className="rent-contract-html" style={{ width: PREVIEW_W, lineHeight: 1.9, fontSize: 14, wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: String(doc.content_html) }} />
+                    {(doc?.sign_fields || []).map(renderField)}
                     {placed.map(renderPlaced)}
                   </div>
                 </div>
@@ -874,6 +1023,13 @@ const Sign = () => {
           {t('contracts.signNow')}
         </button>
       </div>
+
+      {/* 拖拽浮层：跟手反馈（落点是否在文档区一眼可见；纯点按路径不会出现） */}
+      {ghost && (
+        <div className="kf-ghost" style={{ left: ghost.x, top: ghost.y }}>
+          <img src={ghost.kind === 'seal' ? seal?.dataUrl : signature?.png} alt="" draggable={false} />
+        </div>
+      )}
 
       {/* 手写签名制作弹窗 */}
       <Modal

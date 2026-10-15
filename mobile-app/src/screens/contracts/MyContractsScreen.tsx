@@ -18,13 +18,8 @@ import {
   ScrollView,
   Image,
   TextInput,
-  PanResponder,
   useWindowDimensions,
-  type PanResponderInstance,
-  type DimensionValue,
   type LayoutChangeEvent,
-  type GestureResponderEvent,
-  type PanResponderGestureState,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
@@ -49,10 +44,10 @@ const stripHtml = (html?: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-// 签署台落框：一枚印章/签名（页面百分比坐标）
+// 签署台落框：一枚印章/签名/日期章（页面百分比坐标）
 interface Stamp {
   id: string;
-  kind: 'seal' | 'handwrite';
+  kind: 'seal' | 'handwrite' | 'date';
   page: number;
   x: number;
   y: number;
@@ -115,10 +110,8 @@ export default function MyContractsScreen() {
   const [makeSignVisible, setMakeSignVisible] = useState(false);
   const [signDraftSvg, setSignDraftSvg] = useState('');
   const signSvgRef = useRef<any>(null);
-  // 拖放落框：已放置的签章（页面百分比坐标）
+  // 点击预置签署区后落在该区的签章（页面百分比坐标）
   const [stamps, setStamps] = useState<Stamp[]>([]);
-  // 从托盘拖拽时的浮层预览（窗口坐标）
-  const [ghost, setGhost] = useState<{ x: number; y: number; kind: 'seal' | 'handwrite' } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const stampsRef = useRef(stamps);
@@ -127,13 +120,7 @@ export default function MyContractsScreen() {
   sealMadeRef.current = sealMade;
   const signMadeRef = useRef(signMade);
   signMadeRef.current = signMade;
-  const ghostKindRef = useRef<'seal' | 'handwrite' | null>(null);
   const pageSizesRef = useRef<Record<number, { w: number; h: number }>>({});
-  // 各页在窗口中的矩形（拖拽命中用）
-  const pageRectsRef = useRef<Record<number, { x: number; y: number; w: number; h: number }>>({});
-  const pageRefs = useRef<Record<number, any>>({});
-  const stampPanCache = useRef<Record<string, PanResponderInstance>>({});
-  const stampAnchorRef = useRef<Stamp | null>(null);
 
   const [showDecline, setShowDecline] = useState(false);
   const [declinePartyId, setDeclinePartyId] = useState('');
@@ -142,19 +129,17 @@ export default function MyContractsScreen() {
 
   const isWide = useWindowDimensions().width >= 720;
 
-  // 打开签署台（每次进入重置本次制作/拖放内容）
+  // 打开签署台（每次进入重置本次制作/落章内容）
   const openStudio = useCallback(() => {
     setSealMade(null);
     setSignMade(null);
     setStamps([]);
-    setGhost(null);
     setStudioVisible(true);
   }, []);
 
   const closeStudio = () => {
     setStudioVisible(false);
     setStamps([]);
-    setGhost(null);
   };
 
   const load = useCallback(async (silent = false) => {
@@ -190,29 +175,44 @@ export default function MyContractsScreen() {
     }
   }, [t]);
 
-  // 当前用户对应的签署方（party.user_id 命中或 email 命中）
-  const myParty = Array.isArray(detail?.parties)
-    ? detail.parties.find(
-        (p: any) =>
-          String(p?.user_id ?? '') === String(user?.id ?? '') ||
-          String(p?.email ?? '').toLowerCase() === String(user?.email ?? '').toLowerCase(),
-      )
-    : null;
+  // 当前用户对应的签署方：一级按账号归属（user_id 命中或邮箱命中）。
+  // 发起方在 App 里「追加签署方」时常常只填姓名、不给邮箱也不绑账号，严格匹配会把
+  // 本人当成旁观者 —— myParty 为空 → myFields 为空 → 本人一条签署区都看不到。
+  // 故补两级兜底：姓名一致；以及全合同只有一个签署方（本人可见的合同必属本人）。
+  const myParty = useMemo(() => {
+    const ps: any[] = Array.isArray(detail?.parties) ? detail.parties : [];
+    const uid = String(user?.id ?? '');
+    const mail = String(user?.email ?? '').trim().toLowerCase();
+    const uname = String(user?.name ?? '').trim().toLowerCase();
+    const direct = ps.find(
+      (p: any) =>
+        (!!p?.user_id && String(p.user_id) === uid) ||
+        (!!mail && String(p?.email ?? '').trim().toLowerCase() === mail),
+    );
+    if (direct) return direct;
+    if (uname) {
+      const byName = ps.find(
+        (p: any) => String(p?.name ?? '').trim().toLowerCase() === uname,
+      );
+      if (byName) return byName;
+    }
+    return ps.length === 1 ? ps[0] : null;
+  }, [detail, user?.id, user?.email, user?.name]);
 
   const signFields: any[] = Array.isArray(detail?.sign_fields) ? detail.sign_fields : [];
   const myFields = signFields.filter(
-    (f: any) => !!myParty && String(f?.party_id) === String(myParty?.id),
+    (f: any) =>
+      !!myParty &&
+      (String(f?.party_id) === String(myParty?.id) || f?.party_id == null),
   );
   const myPendingFields = myFields.filter((f: any) => !f?.signed);
   const mySignedFields = myFields.filter((f: any) => !!f?.signed);
-  // 实名口径与后端一致：后端签名接口返回字段是 real_name_verified_at（此前误读成
-  // real_name_verified 恒为 undefined，导致任何签署方的「签署」按钮都被永久禁掉）；
-  // 且归属本账号（user_id 命中或邮箱命中）的签署方由后端按登录态内部认证，前端无需再拦。
-  const boundToMe =
-    !!myParty &&
-    (String(myParty.user_id ?? '') === String(user?.id ?? '') ||
-      String(myParty.email ?? '').toLowerCase() === String(user?.email ?? '').toLowerCase());
-  const needsRealName = !!myParty && !myParty?.real_name_verified_at && !boundToMe;
+  // 实名口径：后端签名接口返回的字段是 real_name_verified_at（此前误读成
+  // real_name_verified 恒为 undefined，导致任何签署方的「签署」按钮都被永久禁掉）。
+  // 前端不再按实名预先禁用按钮 —— 归属本账号的签署方由后端按登录态内部认证；
+  // 真正未绑定的签署方（无 user_id 且邮箱对不上）会在提交时被后端以
+  // 403 REAL_NAME_REQUIRED 拦截，前端只需把该错误提示出来。
+  const needsRealName = false;
   // 签署台展示/可拖放的页：有 PDF 时整本；无 PDF 时降级为单页「正文」背景
   const studioPages: number[] = (() => {
     if (!detail?.pdf_available) return [1];
@@ -245,137 +245,51 @@ export default function MyContractsScreen() {
     };
   }, [studioVisible, detail?.id, detail?.pdf_available, studioPages.join(',')]);
 
-  // 页面百分比尺寸记录 + 记录窗口矩形（拖拽命中用）
+  // 页面百分比尺寸记录（无 PDF 时正文降级背景同样按页面比例渲染落章）
   const onPageLayout = (page: number) => (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     pageSizesRef.current[page] = { w: width, h: height };
-    const r = pageRefs.current[page];
-    if (r && typeof r.measureInWindow === 'function') {
-      r.measureInWindow((x: number, y: number, w: number, h: number) => {
-        if (w > 0 && h > 0) pageRectsRef.current[page] = { x, y, w, h };
-      });
-    }
   };
 
-  // 松手落框：把成品图放到落点所在页的百分比坐标（界面不露裸坐标）
-  const dropStamp = useCallback((kind: 'seal' | 'handwrite', px: number, py: number) => {
-    const rects = pageRectsRef.current;
-    const pages = Object.keys(rects).map(Number).sort((a, b) => a - b);
-    let page = pages.find((p) => {
-      const r = rects[p];
-      return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
-    });
-    if (page == null && pages.length === 1) page = pages[0];
-    if (page == null) return;
-    const r = rects[page];
-    const relX = Math.max(0, Math.min(1, (px - r.x) / r.w));
-    const relY = Math.max(0, Math.min(1, (py - r.y) / r.h));
-    const wPct = kind === 'seal' ? 16 : 24;
-    const ar = kind === 'seal' ? 1 : signMadeRef.current?.ar || 2.5;
-    const h = Math.max(2, Math.min(60, (wPct * (r.w / r.h)) / ar));
-    const x = Math.max(0, Math.min(100 - wPct, relX * 100 - wPct / 2));
-    const y = Math.max(0, Math.min(100 - h, relY * 100 - h / 2));
-    const st: Stamp = {
-      id: `st-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      kind,
-      page,
-      x,
-      y,
-      w: wPct,
-      h,
-    };
-    if (kind === 'seal') st.imgUri = sealMadeRef.current?.dataUrl;
-    else st.svg = signMadeRef.current?.svg;
-    setStamps((prev) => [...prev, st]);
+  // 打开手写签名板（托盘未就绪时点按、或点击预置签名区缺签名时）
+  const openSignMaker = useCallback(() => {
+    setSignDraftSvg('');
+    setMakeSignVisible(true);
   }, []);
 
-  // 从托盘开始拖拽：显示浮层预览并测量各页窗口位置
-  const beginTrayDrag = useCallback((kind: 'seal' | 'handwrite', e: GestureResponderEvent) => {
-    ghostKindRef.current = kind;
-    setGhost({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY, kind });
-    Object.keys(pageRefs.current).forEach((k) => {
-      const page = Number(k);
-      const r = pageRefs.current[page];
-      if (r && typeof r.measureInWindow === 'function') {
-        r.measureInWindow((x: number, y: number, w: number, h: number) => {
-          if (w > 0 && h > 0) pageRectsRef.current[page] = { x, y, w, h };
-        });
+  // 点按发起方预置的签署区即签：落章坐标与尺寸严格取该签署区自身的值。
+  // 签署方不能自行添加签署区、也不能自由拖框改位（对齐 e签宝、法大大）。
+  const signOnField = (f: any) => {
+    if (!myParty || f?.signed) return;
+    const type: string = f?.field_type ?? 'signature';
+    const page = Number(f?.page) || 1;
+    const x = Number(f?.x) || 0;
+    const y = Number(f?.y) || 0;
+    const w = Number(f?.w) > 0 ? Number(f.w) : type === 'seal' ? 13 : 22;
+    const h = Number(f?.h) > 0 ? Number(f.h) : type === 'seal' ? 6 : 8;
+    const id = `st-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    if (type === 'date') {
+      // 日期章由后端按签署当日渲染，前端只占位
+      setStamps((prev) => [...prev, { id, kind: 'date', page, x, y, w, h }]);
+      return;
+    }
+    if (type === 'seal') {
+      const dataUrl = sealMadeRef.current?.dataUrl;
+      if (!dataUrl) {
+        notify(t('contract.makeAssetFirstSeal'));
+        setMakeSealVisible(true);
+        return;
       }
-    });
-  }, []);
-
-  const moveTrayDrag = useCallback((e: GestureResponderEvent) => {
-    setGhost((g) => (g ? { ...g, x: e.nativeEvent.pageX, y: e.nativeEvent.pageY } : g));
-  }, []);
-
-  const endTrayDrag = useCallback(
-    (e: GestureResponderEvent) => {
-      const kind = ghostKindRef.current;
-      ghostKindRef.current = null;
-      setGhost(null);
-      if (kind) dropStamp(kind, e.nativeEvent.pageX, e.nativeEvent.pageY);
-    },
-    [dropStamp],
-  );
-
-  const cancelTrayDrag = useCallback(() => {
-    ghostKindRef.current = null;
-    setGhost(null);
-  }, []);
-
-  // 两个托盘条目的拖拽手柄响应（已制作才可拖）
-  const sealTrayPan = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => !!sealMadeRef.current,
-        onMoveShouldSetPanResponder: () => !!sealMadeRef.current,
-        onPanResponderGrant: (e) => beginTrayDrag('seal', e),
-        onPanResponderMove: (e) => moveTrayDrag(e),
-        onPanResponderRelease: (e) => endTrayDrag(e),
-        onPanResponderTerminate: cancelTrayDrag,
-      }),
-    [beginTrayDrag, moveTrayDrag, endTrayDrag, cancelTrayDrag],
-  );
-  const signTrayPan = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => !!signMadeRef.current,
-        onMoveShouldSetPanResponder: () => !!signMadeRef.current,
-        onPanResponderGrant: (e) => beginTrayDrag('handwrite', e),
-        onPanResponderMove: (e) => moveTrayDrag(e),
-        onPanResponderRelease: (e) => endTrayDrag(e),
-        onPanResponderTerminate: cancelTrayDrag,
-      }),
-    [beginTrayDrag, moveTrayDrag, endTrayDrag, cancelTrayDrag],
-  );
-
-  // 已落框：拖动改位（页面百分比坐标系）
-  const getStampPan = (st: Stamp): PanResponderInstance => {
-    if (stampPanCache.current[st.id]) return stampPanCache.current[st.id];
-    const pan = PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        stampAnchorRef.current = stampsRef.current.find((s) => s.id === st.id) ?? null;
-      },
-      onPanResponderMove: (_e: GestureResponderEvent, g: PanResponderGestureState) => {
-        const a = stampAnchorRef.current;
-        if (!a || a.id !== st.id) return;
-        const size = pageSizesRef.current[a.page];
-        if (!size || !size.w || !size.h) return;
-        const nx = Math.max(0, Math.min(100 - a.w, a.x + (g.dx / size.w) * 100));
-        const ny = Math.max(0, Math.min(100 - a.h, a.y + (g.dy / size.h) * 100));
-        setStamps((prev) => prev.map((s) => (s.id === a.id ? { ...s, x: nx, y: ny } : s)));
-      },
-      onPanResponderRelease: () => {
-        stampAnchorRef.current = null;
-      },
-      onPanResponderTerminate: () => {
-        stampAnchorRef.current = null;
-      },
-    });
-    stampPanCache.current[st.id] = pan;
-    return pan;
+      setStamps((prev) => [...prev, { id, kind: 'seal', page, x, y, w, h, imgUri: dataUrl }]);
+      return;
+    }
+    const svg = signMadeRef.current?.svg;
+    if (!svg) {
+      notify(t('contract.makeAssetFirstSign'));
+      openSignMaker();
+      return;
+    }
+    setStamps((prev) => [...prev, { id, kind: 'handwrite', page, x, y, w, h, svg }]);
   };
 
   const removeStamp = (id: string) => setStamps((prev) => prev.filter((s) => s.id !== id));
@@ -418,6 +332,10 @@ export default function MyContractsScreen() {
     setSubmitting(true);
     try {
       const items = placed.map((s) => {
+        if (s.kind === 'date') {
+          // 日期章不带图，后端按签署当日渲染
+          return { page: s.page, x: s.x, y: s.y, w: s.w, h: s.h, method: 'date' };
+        }
         if (s.kind === 'seal') {
           return {
             page: s.page,
@@ -477,6 +395,11 @@ export default function MyContractsScreen() {
   // 渲染待签署 / 已签署的字段行
   const renderSignField = (f: any, signed: boolean, idx: number) => {
     const meta = SIGN_TYPE_META[f?.field_type ?? 'signature'] ?? SIGN_TYPE_META.signature;
+    // 归属姓名：发起方放置签署区时指定的签署方（此前条目只显示类型与页码，
+    // 用户看不到「这个签署区是谁的」，故补上归属姓名）
+    const owner = (detail?.parties ?? []).find(
+      (p: any) => String(p?.id) === String(f?.party_id),
+    );
     return (
       <TouchableOpacity
         key={f?.id ?? idx}
@@ -487,12 +410,16 @@ export default function MyContractsScreen() {
       >
         <Ionicons name={meta.icon as any} size={18} color={signed ? colors.success : colors.primary} />
         <View style={styles.fieldBody}>
-          <Text style={styles.fieldTitle}>{t(meta.labelKey)}</Text>
+          <Text style={styles.fieldTitle}>
+            {t(meta.labelKey)}
+            {owner?.name ? ` · ${owner.name}` : ''}
+          </Text>
           {!!f?.page && (
             <Text style={styles.fieldMeta}>
               {t('contract.page')} {f.page}
             </Text>
           )}
+          {!signed && <Text style={styles.fieldMeta}>{t('contract.tapFieldToSign')}</Text>}
           {!!f?.signed_at && (
             <Text style={styles.fieldMeta}>
               {t('contract.signedAt')}：{fmtDate(f.signed_at)}
@@ -548,19 +475,12 @@ export default function MyContractsScreen() {
     </TouchableOpacity>
   );
 
-  // ===== 签署台右栏：文档区（PDF 页图 / 正文降级 + 已落签章）=====
+  // ===== 签署台右栏：文档区（PDF 页图 / 正文降级 + 预置签署区 + 已落签章）=====
   const renderDocs = () => (
     <>
       <Text style={[styles.pdfTip, styles.pdfTipActive]}>{t('contract.dragStampHint')}</Text>
       {studioPages.map((page) => (
-        <View
-          key={page}
-          ref={(r) => {
-            pageRefs.current[page] = r;
-          }}
-          style={styles.pdfPageWrap}
-          onLayout={onPageLayout(page)}
-        >
+        <View key={page} style={styles.pdfPageWrap} onLayout={onPageLayout(page)}>
           {detail?.pdf_available ? (
             pdfUrls[page] ? (
               <Image source={{ uri: pdfUrls[page] }} style={styles.pdfPageImage} resizeMode="stretch" />
@@ -577,6 +497,47 @@ export default function MyContractsScreen() {
             </View>
           )}
           <View style={styles.pdfPageOverlay} pointerEvents="box-none">
+            {/* 发起方预置、归属本人的签署区：虚线框 + 类型，点一下即签在该区
+                （签署方不能自行添加签署区，只能点预置框完成签署） */}
+            {myFields
+              .filter((f: any) => (Number(f?.page) || 1) === page)
+              .map((f: any, i: number) => {
+                const signed = !!f?.signed;
+                const covered = stamps.some(
+                  (s) =>
+                    s.page === page &&
+                    Math.abs(s.x - (Number(f?.x) || 0)) < 1 &&
+                    Math.abs(s.y - (Number(f?.y) || 0)) < 1,
+                );
+                if (covered) return null;
+                const meta = SIGN_TYPE_META[f?.field_type ?? 'signature'] ?? SIGN_TYPE_META.signature;
+                const w = Number(f?.w) > 0 ? Number(f.w) : 22;
+                const h = Number(f?.h) > 0 ? Number(f.h) : 8;
+                return (
+                  <TouchableOpacity
+                    key={f?.id ?? `mf-${page}-${i}`}
+                    activeOpacity={0.8}
+                    disabled={signed || !myParty}
+                    onPress={() => signOnField(f)}
+                    style={[
+                      styles.fieldOverlay,
+                      { left: `${Number(f?.x) || 0}%`, top: `${Number(f?.y) || 0}%`, width: `${w}%`, height: `${h}%` },
+                      signed && styles.fieldOverlaySigned,
+                    ]}
+                  >
+                    {signed ? (
+                      <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                    ) : (
+                      <>
+                        <Ionicons name={meta.icon as any} size={13} color={colors.primary} />
+                        <Text style={styles.overlayWaitText} numberOfLines={1}>
+                          {t('contract.tapFieldToSign')}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             {stamps
               .filter((s) => s.page === page)
               .map((s) => (
@@ -587,8 +548,10 @@ export default function MyContractsScreen() {
                     { left: `${s.x}%`, top: `${s.y}%`, width: `${s.w}%`, height: `${s.h}%` },
                   ]}
                 >
-                  <View style={StyleSheet.absoluteFill} {...getStampPan(s).panHandlers}>
-                    {s.kind === 'seal' ? (
+                  <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                    {s.kind === 'date' ? (
+                      <Text style={styles.stampDate}>{new Date().toISOString().slice(0, 10)}</Text>
+                    ) : s.kind === 'seal' ? (
                       s.imgUri ? (
                         <Image source={{ uri: s.imgUri }} style={styles.stampImg} resizeMode="contain" />
                       ) : null
@@ -607,18 +570,15 @@ export default function MyContractsScreen() {
     </>
   );
 
-  // 托盘条目（开放签式整行交互）：
-  //   未制作 → 整行可点，点一下直接弹出手写签名板 / 印章制作（无需再找小按钮）；
-  //   已制作 → 整行即拖拽源，手指按在条目上立刻浮出签章，拖到文档松手即落章。
+  // 托盘条目（签署元素）：
+  //   未制作 → 整行可点，点一下直接弹出手写签名板 / 印章制作；
+  //   已制作 → 只作「签署元素已就绪」的展示（带更换入口）——落章位置一律来自
+  //            发起方预置的签署区，签署方不能自由拖框/自行添加签署区。
   const renderTrayItem = (kind: 'seal' | 'handwrite', compact = false) => {
     const ready = kind === 'seal' ? !!sealMade : !!signMade;
-    const pan = kind === 'seal' ? sealTrayPan : signTrayPan;
     const openMaker = () => {
       if (kind === 'seal') setMakeSealVisible(true);
-      else {
-        setSignDraftSvg('');
-        setMakeSignVisible(true);
-      }
+      else openSignMaker();
     };
     const thumb =
       kind === 'seal' ? (
@@ -657,13 +617,13 @@ export default function MyContractsScreen() {
     }
     return (
       <View style={[styles.trayItem, styles.trayItemReady, compact && styles.trayItemCompact]}>
-        <View style={styles.trayDragZone} {...pan.panHandlers}>
+        <View style={styles.trayDragZone}>
           <View style={[styles.trayThumb, compact && styles.trayThumbCompact]}>{thumb}</View>
           <View style={styles.trayBody}>
             <Text style={styles.trayName} numberOfLines={1}>{label}</Text>
             {!compact && <Text style={styles.trayStatus} numberOfLines={1}>{hintText}</Text>}
           </View>
-          <Ionicons name="move-outline" size={compact ? 16 : 18} color={colors.primary} />
+          <Ionicons name="checkmark-circle-outline" size={compact ? 16 : 18} color={colors.primary} />
         </View>
         <TouchableOpacity
           style={styles.trayRedo}
@@ -917,7 +877,10 @@ export default function MyContractsScreen() {
                   )}
                 </>
               ) : (
-                <Text style={styles.partyNone}>{t('contract.noSignFields')}</Text>
+                <>
+                  <Text style={styles.partyNone}>{t('contract.noSignFields')}</Text>
+                  <Text style={styles.fieldsTip}>{t('contract.fieldPresetTip')}</Text>
+                </>
               )}
 
               {!!myPendingFields.length && (
@@ -1031,18 +994,6 @@ export default function MyContractsScreen() {
               {renderDock()}
             </>
           )}
-          {/* 拖拽浮层预览（窗口坐标，跟随手指；松手即在落点渲染成品图） */}
-          {!!ghost && (
-            <View pointerEvents="none" style={[styles.ghost, { left: ghost.x - 34, top: ghost.y - 34 }]}>
-              {ghost.kind === 'seal' ? (
-                sealMade?.dataUrl ? (
-                  <Image source={{ uri: sealMade.dataUrl }} style={styles.ghostImg} resizeMode="contain" />
-                ) : null
-              ) : signMade?.svg ? (
-                <SvgXml xml={signMade.svg} width="100%" height="100%" />
-              ) : null}
-            </View>
-          )}
         </View>
       </Modal>
 
@@ -1129,6 +1080,7 @@ const styles = StyleSheet.create({
   partyMeta: { fontSize: 13, color: colors.ink2, marginTop: 3 },
   partyDecline: { color: colors.error },
   partyNone: { fontSize: 13, color: colors.ink3 },
+  fieldsTip: { fontSize: 12, lineHeight: 18, color: colors.ink3, marginTop: 6 },
   signBtn: { marginTop: 20, height: 50, borderRadius: colors.radius.lg, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...colors.shadow.primary },
   signBtnText: { fontSize: 16, fontWeight: '700', color: colors.primaryForeground },
   btnDisabled: { opacity: 0.6 },
@@ -1544,6 +1496,7 @@ const styles = StyleSheet.create({
   /* 已落签章（成品图，含删除角标） */
   stampBox: { position: 'absolute' },
   stampImg: { width: '100%', height: '100%' },
+  stampDate: { width: '100%', height: '100%', textAlign: 'center', textAlignVertical: 'center', fontSize: 11, color: colors.ink },
   stampDel: {
     position: 'absolute',
     top: -8,
@@ -1555,17 +1508,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  /* 拖拽浮层预览 */
-  ghost: {
-    position: 'absolute',
-    width: 68,
-    height: 68,
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 0.9,
-    zIndex: 20,
-  },
-  ghostImg: { width: 64, height: 64 },
   /* 无 PDF 时的正文降级背景 */
   bodyPage: {
     padding: 14,

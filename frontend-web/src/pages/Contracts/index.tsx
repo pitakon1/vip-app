@@ -582,6 +582,29 @@ const Contracts = () => {
     </div>
   )
 
+  // 写剪贴板：优先 Clipboard API；非安全上下文（http 局域网 IP，真机联调常见）下
+  // navigator.clipboard 不存在，会直接抛错导致「复制签署链接」必失败，兜底用
+  // 隐藏 textarea + execCommand（该命令在 http 下仍可用）。
+  const copyText = async (text: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return
+    }
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.top = '-9999px'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    try {
+      if (!document.execCommand('copy')) throw new Error('execCommand-copy-failed')
+    } finally {
+      document.body.removeChild(ta)
+    }
+  }
+
   // 复制签署链接
   const handleCopyLink = async (partyId: string) => {
     if (!detail.contract) return
@@ -592,7 +615,7 @@ const Contracts = () => {
       // 后端未配 PUBLIC_WEB_BASE_URL 时返回相对路径（/sign/:token），
       // 直接复制出去客户打不开，这里补上当前站点 origin 再进剪贴板。
       const full = /^https?:/.test(url) ? url : `${window.location.origin}${url}`
-      await navigator.clipboard.writeText(full)
+      await copyText(full)
       message.success(t('contracts.msgLinkCopied'))
     } catch {
       message.error(t('contracts.errCopyLink'))

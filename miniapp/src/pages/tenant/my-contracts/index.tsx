@@ -50,8 +50,8 @@ const ROLE_META: Record<string, string> = {
   agent: 'contract.roleAgent'
 }
 
-// 落章方式（后端 method）：电子印章 / 手写签名
-type SignMethod = 'company_seal' | 'personal_handwrite'
+// 落章方式（后端 method）：电子印章 / 手写签名 / 日期（日期由后端按当天渲染，不带图）
+type SignMethod = 'company_seal' | 'personal_handwrite' | 'date'
 
 interface PlacedItem {
   key: string
@@ -61,14 +61,16 @@ interface PlacedItem {
   y: number
   w: number
   h: number
-  dataUrl: string
+  /** date 类不带图，其余类型必须带成品图 */
+  dataUrl?: string
   svg?: string
 }
 
 // 落框默认尺寸（页面百分比）：公章近方形、手写签名扁长，适配 A4 竖版视觉比例
 const ITEM_SIZE: Record<SignMethod, { w: number; h: number }> = {
-  company_seal: { w: 18, h: 13 },
-  personal_handwrite: { w: 26, h: 10 }
+  company_seal: { w: 16, h: 11.3 },
+  personal_handwrite: { w: 24, h: 8 },
+  date: { w: 20, h: 6 }
 }
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
@@ -232,7 +234,8 @@ export default function MyContractsPage() {
   }, [detail?.id, fieldPage, pdfAvailable])
 
   // ===== 托盘拖拽 → 文档落章 =====
-  const trayData = (method: SignMethod) => (method === 'company_seal' ? madeSealData : madeSigData)
+  const trayData = (method: SignMethod) =>
+    method === 'company_seal' ? madeSealData : method === 'personal_handwrite' ? madeSigData : ''
 
   const onTrayTouchStart = (method: SignMethod) => (e: any) => {
     const data = trayData(method)
@@ -274,23 +277,47 @@ export default function MyContractsPage() {
     addPlaced(g.method, pt.x, pt.y)
   }
 
-  // 在落点渲染成品图（以指尖为落框中心）
-  const addPlaced = (method: SignMethod, x: number, y: number) => {
+  // 在落点渲染成品图（以指尖为落框中心）；box 覆盖用于「点预置签署区即签」按该区尺寸落章
+  const addPlaced = (method: SignMethod, x: number, y: number, box?: { w: number; h: number }, page?: number) => {
     const data = trayData(method)
-    if (!data) return
-    const size = ITEM_SIZE[method]
+    // date 类不带图；印章 / 签名必须有成品图才能落
+    if (method !== 'date' && !data) return
+    const size = box || ITEM_SIZE[method]
     const item: PlacedItem = {
       key: `${method}-${Date.now()}-${placedItems.length}`,
       method,
-      page: fieldPage,
+      page: page ?? fieldPage,
       x: r2(clamp(x - size.w / 2, 0, 100 - size.w)),
       y: r2(clamp(y - size.h / 2, 0, 100 - size.h)),
       w: size.w,
       h: size.h,
-      dataUrl: data,
+      ...(method === 'date' ? {} : { dataUrl: data }),
       svg: method === 'personal_handwrite' ? sigMadeLocal?.svg || '' : ''
     }
     setPlacedItems((prev) => [...prev, item])
+  }
+
+  // 点预置签署区即签：发起方把签署区布在哪里，就签在哪里（兼容 date/seal/signature 三类）
+  const signOnField = (f: any) => {
+    const type = String(f?.field_type || 'signature')
+    const w = Number(f?.w) > 0 ? Number(f.w) : ITEM_SIZE.company_seal.w
+    const h = Number(f?.h) > 0 ? Number(f.h) : ITEM_SIZE.company_seal.h
+    const cx = Number(f?.x || 0) + w / 2
+    const cy = Number(f?.y || 0) + h / 2
+    const pg = Number(f?.page) || 1
+    if (type === 'date') {
+      addPlaced('date', cx, cy, { w, h }, pg)
+      return
+    }
+    const method: SignMethod = type === 'seal' ? 'company_seal' : 'personal_handwrite'
+    if (!trayData(method)) {
+      Taro.showToast({
+        title: method === 'company_seal' ? t('contract.tapMakeSeal') : t('contract.tapSign'),
+        icon: 'none'
+      })
+      return
+    }
+    addPlaced(method, cx, cy, { w, h }, pg)
   }
 
   // ===== 落框拖动改位 / 删除 =====
@@ -379,10 +406,7 @@ export default function MyContractsPage() {
       Taro.showToast({ title: t('contract.partyRequired'), icon: 'none' })
       return
     }
-    if (!declineReason.trim()) {
-      Taro.showToast({ title: t('contract.declineReasonRequired'), icon: 'none' })
-      return
-    }
+    // 拒签理由与后端口径一致：后端允许空理由（reason or None），不强制必填
     setDeclineBusy(true)
     try {
       await contractsApi.decline(detail.id, String(myParty.id), declineReason.trim())
@@ -782,6 +806,12 @@ export default function MyContractsPage() {
 
   const canSign = !!myParty?.id && !alreadySigned
   const pageItems = placedItems.filter((it) => it.page === fieldPage)
+  // 本人名下、尚未签署的预置签署区（发起方在管理端布好的框）：点一下即按该区坐标签在该处。
+  // 此前小程序完全没有渲染 sign_fields，与 App 端「我的签署区」不一致。
+  const myPendingFields = (Array.isArray(detail?.sign_fields) ? detail.sign_fields : []).filter(
+    (f: any) => !!myParty && String(f?.party_id) === String(myParty?.id) && !f?.signed
+  )
+  const pageFields = myPendingFields.filter((f: any) => (Number(f?.page) || 1) === fieldPage)
 
   // 托盘条目（开放签式整行交互）：
   //   未制作 → 整行点一下直接打开手写签名板 / 印章制作（不再有小「制作」按钮）；
@@ -902,6 +932,30 @@ export default function MyContractsPage() {
                     : <Text className='mc-config__hint'>{t('contract.empty')}</Text>}
                 </View>
 
+                {/* 我的签署区（与 App 端一致）：列出本人待签的预置签署区，点一下跳到该页并直接签在该处 */}
+                {!!myPendingFields.length && (
+                  <View className='mc-config'>
+                    <Text className='mc-config__title'>{t('contract.signFields')}</Text>
+                    {myPendingFields.map((f: any, i: number) => {
+                      const type = String(f?.field_type || 'signature')
+                      const pg = Number(f?.page) || 1
+                      return (
+                        <View
+                          key={f?.id ?? `field-row-${i}`}
+                          className='mc-fieldrow'
+                          onClick={() => {
+                            if (pg !== fieldPage) setFieldPage(pg)
+                            signOnField(f)
+                          }}
+                        >
+                          <Text className='mc-fieldrow__label'>{t(`contract.field.${type}`)}</Text>
+                          <Text className='mc-fieldrow__meta'>{t('contract.page')} {pg}</Text>
+                        </View>
+                      )
+                    })}
+                  </View>
+                )}
+
                 {/* ===== 文档区 ===== */}
                 <View className='mc-doc'>
                   <View className='mc-doc__head'>
@@ -930,6 +984,24 @@ export default function MyContractsPage() {
                       </View>
                     )}
 
+                    {/* 预置签署区：虚线框 + 类型标签，点一下即签在该区 */}
+                    {pageFields.map((f: any, idx: number) => (
+                      <View
+                        key={f?.id ?? `field-${idx}`}
+                        className='mc-field'
+                        style={{
+                          left: `${f?.x}%`,
+                          top: `${f?.y}%`,
+                          width: `${f?.w}%`,
+                          height: `${f?.h}%`
+                        }}
+                        catchMove
+                        onClick={() => signOnField(f)}
+                      >
+                        <Text className='mc-field__label'>{t(`contract.field.${f?.field_type || 'signature'}`)}</Text>
+                      </View>
+                    ))}
+
                     {/* 落章成品图（当前页） */}
                     {pageItems.map((it) => (
                       <View
@@ -947,7 +1019,12 @@ export default function MyContractsPage() {
                         onTouchEnd={onItemTouchEnd}
                         onTouchCancel={onItemTouchEnd}
                       >
-                        <Image className='mc-placed__img' src={it.dataUrl} mode='aspectFit' />
+                        {it.dataUrl ? (
+                          <Image className='mc-placed__img' src={it.dataUrl} mode='aspectFit' />
+                        ) : (
+                          /* date 类不落图，由后端按当天日期渲染进 PDF */
+                          <Text className='mc-placed__date'>{new Date().toISOString().slice(0, 10)}</Text>
+                        )}
                         <View
                           className='mc-placed__del'
                           onClick={(ev: any) => { ev.stopPropagation?.(); removePlaced(it.key) }}

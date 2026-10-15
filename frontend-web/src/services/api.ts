@@ -256,6 +256,10 @@ export const contractsApi = {
     id: string,
     body: { partyId: string; items: Record<string, unknown>[] },
   ) => api.post(`/contracts/${id}/sign-batch`, { party_id: body.partyId, items: body.items }),
+  // 签前「签署意愿二次验证码」下发（payload: {party_id}）→ {sent, to_masked}
+  // 与 App 端 contractsApi.signCode 对齐；该验证步骤默认不启用，仅当签署时主动传 code 才校验。
+  signCode: (id: string, partyId: string) =>
+    api.post(`/contracts/${id}/sign-code`, { party_id: partyId }),
   // 站内拒签（payload: {party_id, reason}）→ {party_id, declined, contract_status, reason}
   decline: (id: string, partyId: string, reason: string) =>
     api.post(`/contracts/${id}/decline`, { party_id: partyId, reason }),

@@ -74,8 +74,8 @@
   background: #fff;
 }
 .kf-party--active {
-  border-color: var(--rent-primary, #2563eb);
-  box-shadow: 0 0 0 1px var(--rent-primary, #2563eb);
+  border-color: var(--rent-primary, #14b8a6);
+  box-shadow: 0 0 0 1px var(--rent-primary, #14b8a6);
 }
 
 /* ===== 文档区落点容器：拖拽克隆落章/落签名 ===== */
@@ -85,7 +85,7 @@
   transition: outline 0.15s;
 }
 .kf-stage:hover {
-  outline: 1px dashed var(--rent-primary, #2563eb);
+  outline: 1px dashed var(--rent-primary, #14b8a6);
   outline-offset: 2px;
 }
 .kf-stage__bg {
@@ -102,10 +102,17 @@
   cursor: move;
   border: 1px solid transparent;
   border-radius: 4px;
+  touch-action: none;
 }
 .kf-placed:hover {
-  border-color: var(--rent-primary, #2563eb);
-  background: rgba(37, 99, 235, 0.06);
+  border-color: var(--rent-primary, #14b8a6);
+  background: rgba(20, 184, 166, 0.08);
+}
+/* 拖动中：抬升层级，避免被相邻落框遮住 */
+.kf-placed--moving {
+  z-index: 5;
+  border-color: var(--rent-primary, #14b8a6);
+  background: rgba(20, 184, 166, 0.1);
 }
 .kf-placed img {
   width: 100%;
@@ -113,6 +120,18 @@
   object-fit: contain;
   pointer-events: none;
   user-select: none;
+}
+/* 日期类落框（不落图，由后端按当天日期渲染进 PDF） */
+.kf-placed__date {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 12px;
+  color: var(--rent-ink-2, #374151);
+  pointer-events: none;
+  white-space: nowrap;
 }
 .kf-placed__del {
   position: absolute;
@@ -130,8 +149,32 @@
   cursor: pointer;
   display: none;
 }
-.kf-placed:hover .kf-placed__del {
+.kf-placed:hover .kf-placed__del,
+.kf-placed--moving .kf-placed__del {
   display: block;
+}
+
+/* 预置签署区（发起方在管理端布好的待签框）：点一下即按该区坐标签署 */
+.kf-field {
+  position: absolute;
+  box-sizing: border-box;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1.1;
+  color: var(--rent-primary, #14b8a6);
+  background: rgba(20, 184, 166, 0.08);
+  border: 1px dashed var(--rent-primary, #14b8a6);
+  border-radius: 4px;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.kf-field:hover {
+  background: rgba(20, 184, 166, 0.18);
 }
 
 /* ===== 签署方组件托盘 ===== */
@@ -156,9 +199,16 @@
   cursor: pointer;
   border-style: dashed;
 }
-/* 已制作：整行即拖拽源 */
+/* 已制作：整行即拖拽源（触屏需要 touch-action:none 才能接管 pointer 手势） */
 .kf-tray-item--made {
-  border-color: var(--rent-primary, #2563eb);
+  border-color: var(--rent-primary, #14b8a6);
+  touch-action: none;
+}
+/* 拖动中：整条高亮，配合跟手浮层给出反馈 */
+.kf-tray-item--carrying {
+  border-color: var(--rent-primary, #14b8a6);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.25);
+  opacity: 0.85;
 }
 .kf-tray-item__name {
   font-size: 13px;
@@ -188,7 +238,7 @@
 }
 .kf-tray-item__ready {
   margin-top: 6px;
-  color: var(--rent-primary, #2563eb);
+  color: var(--rent-primary, #14b8a6);
 }
 /* 已制作条目右侧的小「重做/更换」图标按钮 */
 .kf-tray-item__redo {
@@ -208,8 +258,8 @@
   cursor: pointer;
 }
 .kf-tray-item__redo:hover {
-  color: var(--rent-primary, #2563eb);
-  border-color: var(--rent-primary, #2563eb);
+  color: var(--rent-primary, #14b8a6);
+  border-color: var(--rent-primary, #14b8a6);
 }
 
 /* 版本角标：仅用于自证设备已加载新 bundle */
@@ -231,6 +281,27 @@
   margin-top: 16px;
   padding: 12px 0;
   background: var(--rent-canvas, #f5f7fa);
+}
+
+/* 拖拽跟手浮层：跟随光标/手指，半透明便于观察落点（fixed 用窗口坐标） */
+.kf-ghost {
+  position: fixed;
+  z-index: 9999;
+  width: 88px;
+  height: 62px;
+  margin: -31px 0 0 -44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.kf-ghost img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* 窄屏：右栏折叠到下方 */

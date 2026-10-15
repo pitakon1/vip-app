@@ -1010,6 +1010,66 @@
     box-shadow: var(--shadow-sm);
     z-index: 4;
   }
+
+  /* 日期类落框：不落图，由后端按当天日期渲染进 PDF */
+  &__date {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 22rpx;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+}
+
+/* ===== 预置签署区（发起方在管理端布好的待签框）：点一下即签在该处 ===== */
+.mc-field {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8rpx;
+  border: 2rpx dashed var(--primary);
+  border-radius: 8rpx;
+  background: rgba(var(--primary-rgb), 0.08);
+  overflow: hidden;
+  z-index: 2;
+
+  &__label {
+    font-size: 20rpx;
+    line-height: 1.1;
+    color: var(--primary);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+}
+
+/* 我的签署区列表行 */
+.mc-fieldrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-top: 12rpx;
+  border: 1px solid var(--line);
+  border-radius: 16rpx;
+  background: var(--card);
+
+  &__label {
+    flex: 1;
+    font-size: 26rpx;
+    color: var(--ink);
+  }
+
+  &__meta {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
 }
 
 .mc-maker-preview {

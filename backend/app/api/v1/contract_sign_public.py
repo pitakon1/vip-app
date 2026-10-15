@@ -31,6 +31,7 @@ from app.core.uploads import resolve_stored_path
 from app.db import get_session
 from app.models import (
     Contract,
+    ContractSource,
     ContractStatus,
     ContractParty,
     ContractSignField,
@@ -141,8 +142,11 @@ def get_sign_page(
         "kind": contract.kind.value if contract.kind else "lease",
         "source": contract.source.value if contract.source else "generated",
         "content_html": contract.content_html,
+        # 仅上传型合同才有可由 /{token}/file 读出的原始文件；生成型合同的 file_path 是
+        # 引擎产物（如 contracts/contract_xxx.html），不在 /uploads/contracts/ 下，
+        # 此前无条件回填导致「返回了 file_url 但 /file 一定 400」的自相矛盾。
         "file_url": f"/api/v1/public/contract-sign/{token}/file"
-        if contract.file_path
+        if contract.file_path and contract.source == ContractSource.uploaded
         else None,
         "pdf_available": _pdf_path(contract) is not None,
         "pdf_page_count": _pdf_page_count(contract),
@@ -224,6 +228,10 @@ def get_sign_pdf_page(
     path = _pdf_path(contract)
     if not path:
         raise HTTPException(status_code=404, detail="Contract PDF not found")
+    # 页号从 1 起：page=0 / 负数此前会被引擎解释为「从末页倒推」，返回 200 与真实页图，
+    # 与「越界即 404」的口径矛盾。
+    if page < 1:
+        raise HTTPException(status_code=404, detail="Page out of range")
     from app.services import kaifang_sign_service
 
     try:
