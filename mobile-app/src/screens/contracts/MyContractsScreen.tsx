@@ -5,7 +5,7 @@
  * 详情页展示签署方；仅当「当前用户是签署方且尚未签署」时显示「签署」按钮。
  * 非本人或已签署只读展示。文本走 i18n 三语。
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -32,15 +32,35 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import SignaturePad from '@/components/SignaturePad';
 import SignAssetPicker from '@/components/SignAssetPicker';
-import { contractsApi, signAssetsApi, type SignAsset } from '@/services/api';
+import { SvgXml } from 'react-native-svg';
+import { contractsApi } from '@/services/api';
 import { notify, notifyError } from '@/utils/feedback';
 import { useAuthStore } from '@/stores/auth';
 import { useI18n } from '@/i18n';
 
 const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '-');
 
-// 签署意愿二次验证：验证码重发倒计时（秒）
-const RESEND_SECONDS = 60;
+// 合同正文纯文本（无 PDF 页图时作为降级背景）
+const stripHtml = (html?: string) =>
+  (html || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+// 签署台落框：一枚印章/签名（页面百分比坐标）
+interface Stamp {
+  id: string;
+  kind: 'seal' | 'handwrite';
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  imgUri?: string;
+  svg?: string;
+}
 
 const SIGN_TYPE_META: Record<string, { labelKey: string; icon: string }> = {
   signature: { labelKey: 'contract.signType.signature', icon: 'create-outline' },
@@ -82,169 +102,59 @@ export default function MyContractsScreen() {
   const [detail, setDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  // 签署交互：当前正在签署的 field + 手写 SVG 结果
-  const [signField, setSignField] = useState<any>(null);
-  const [signatureSvg, setSignatureSvg] = useState('');
-  const [signing, setSigning] = useState(false);
-  // PDF 页图预览：页号 → 可被 <Image> 加载的 URL；padEpoch 用于「重签」时重挂载画布
+  // PDF 页图预览：页号 → 可被 <Image> 加载的 URL
   const [pdfUrls, setPdfUrls] = useState<Record<number, string>>({});
-  const [padEpoch, setPadEpoch] = useState(0);
 
-  // 自由拖签：托盘当前工具 + 正在放置/签署的草稿区 + 各页渲染尺寸
-  const [tool, setTool] = useState<'signature' | 'seal' | 'date' | null>(null);
-  const [draft, setDraft] = useState<any>(null); // {page,x,y,w,h,field_type}
-  const [signingSel, setSigningSel] = useState(false);
-  const toolRef = useRef(tool);
-  toolRef.current = tool;
+  // ===== 开放签式单屏签署台：左栏签署方 + 签章托盘，右栏文档区 =====
+  const [studioVisible, setStudioVisible] = useState(false);
+  // 已制作的签章（托盘两项）：印章为 PNG data URL；手写签名为 SVG（+尽力而为的 PNG）
+  const [sealMade, setSealMade] = useState<{ dataUrl: string } | null>(null);
+  const [signMade, setSignMade] = useState<{ svg: string; ar: number; pngUrl?: string } | null>(null);
+  // 制作弹窗（印章复用 SignAssetPicker；手写复用 SignaturePad）
+  const [makeSealVisible, setMakeSealVisible] = useState(false);
+  const [makeSignVisible, setMakeSignVisible] = useState(false);
+  const [signDraftSvg, setSignDraftSvg] = useState('');
+  const signSvgRef = useRef<any>(null);
+  // 拖放落框：已放置的签章（页面百分比坐标）
+  const [stamps, setStamps] = useState<Stamp[]>([]);
+  // 从托盘拖拽时的浮层预览（窗口坐标）
+  const [ghost, setGhost] = useState<{ x: number; y: number; kind: 'seal' | 'handwrite' } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const stampsRef = useRef(stamps);
+  stampsRef.current = stamps;
+  const sealMadeRef = useRef(sealMade);
+  sealMadeRef.current = sealMade;
+  const signMadeRef = useRef(signMade);
+  signMadeRef.current = signMade;
+  const ghostKindRef = useRef<'seal' | 'handwrite' | null>(null);
   const pageSizesRef = useRef<Record<number, { w: number; h: number }>>({});
-  const draftRef = useRef<any>(draft);
-  draftRef.current = draft;
-  const pagePanCache = useRef<Record<number, PanResponderInstance>>({});
-
-  // ===== 对齐开放签：签署意愿二次验证 / 拒签 / 签名库 =====
-  const [intentVisible, setIntentVisible] = useState(false);
-  const [intentToMasked, setIntentToMasked] = useState('');
-  const [intentCode, setIntentCode] = useState('');
-  const [intentCountdown, setIntentCountdown] = useState(0);
-  const [intentBusy, setIntentBusy] = useState(false);
-  const pendingSignRef = useRef<((code: string) => Promise<void>) | null>(null);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // 已通过验证的合同 id → 复用验证码（同一合同内多次签署不再重复发码）
-  const verifiedForRef = useRef<{ contractId: string; code: string } | null>(null);
+  // 各页在窗口中的矩形（拖拽命中用）
+  const pageRectsRef = useRef<Record<number, { x: number; y: number; w: number; h: number }>>({});
+  const pageRefs = useRef<Record<number, any>>({});
+  const stampPanCache = useRef<Record<string, PanResponderInstance>>({});
+  const stampAnchorRef = useRef<Stamp | null>(null);
 
   const [showDecline, setShowDecline] = useState(false);
   const [declinePartyId, setDeclinePartyId] = useState('');
   const [declineReason, setDeclineReason] = useState('');
   const [declineBusy, setDeclineBusy] = useState(false);
 
-  // 签名库选择弹窗
-  const [showLibrary, setShowLibrary] = useState(false);
-  const [libraryAssetType, setLibraryAssetType] = useState<'handwrite' | 'seal'>('handwrite');
-
-  // ===== 开放签双栏「签署台」：左侧配置栏 + 右侧文档区 =====
-  const [studioVisible, setStudioVisible] = useState(false);
-  const [signMethod, setSignMethod] = useState<'position' | 'keyword'>('position');
-  // 当前使用的印章/手写签名资产
-  const [sealAsset, setSealAsset] = useState<SignAsset | null>(null);
-  const [signAsset, setSignAsset] = useState<SignAsset | null>(null);
-  const [assetLoading, setAssetLoading] = useState(false);
-  // 关键字模式
-  const [kwKeyword, setKwKeyword] = useState('');
-  const [kwHits, setKwHits] = useState<any[]>([]);
-  const [kwCount, setKwCount] = useState(0);
-  const [kwSearchBusy, setKwSearchBusy] = useState(false);
-  const [kwBusyIdx, setKwBusyIdx] = useState<number | null>(null);
-  // 手写签名临时画板
-  const [showDrawPad, setShowDrawPad] = useState(false);
-
   const isWide = useWindowDimensions().width >= 720;
 
-  // 打开签署台：沿用 detail + signField + draft 等既有签署状态
-  const openStudio = useCallback((f?: any) => {
-    setSignatureSvg('');
-    setSignField(f ?? null);
-    setDraft(null);
-    setTool(null);
-    setSignMethod('position');
-    setKwKeyword('');
-    setKwHits([]);
-    setKwCount(0);
+  // 打开签署台（每次进入重置本次制作/拖放内容）
+  const openStudio = useCallback(() => {
+    setSealMade(null);
+    setSignMade(null);
+    setStamps([]);
+    setGhost(null);
     setStudioVisible(true);
   }, []);
 
-  const loadAssets = useCallback(async () => {
-    if (!studioVisible) return;
-    setAssetLoading(true);
-    try {
-      const [sealRes, signRes]: any = await Promise.all([
-        signAssetsApi.list('seal'),
-        signAssetsApi.list('handwrite'),
-      ]);
-      const toList = (d: any) => {
-        const data = d?.data;
-        return Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-      };
-      const seals: SignAsset[] = toList(sealRes);
-      const signs: SignAsset[] = toList(signRes);
-      setSealAsset(seals[0] ?? null);
-      setSignAsset(signs[0] ?? null);
-    } catch {
-      // 资产加载失败不阻塞签署
-    } finally {
-      setAssetLoading(false);
-    }
-  }, [studioVisible]);
-
-  useEffect(() => {
-    if (studioVisible) void loadAssets();
-  }, [studioVisible, loadAssets]);
-
   const closeStudio = () => {
     setStudioVisible(false);
-    setSignField(null);
-    setDraft(null);
-    setSignatureSvg('');
-    setTool(null);
-    setKwHits([]);
-    setKwCount(0);
-  };
-
-  // 关键字检索（签署方视角：用于「落区」定位）
-  const doKeywordSearchMy = async () => {
-    if (!detail?.id || !kwKeyword.trim()) {
-      notify(t('contract.insert'));
-      return;
-    }
-    setKwSearchBusy(true);
-    try {
-      const res: any = await contractsApi.keywordSearch(detail.id, kwKeyword.trim());
-      const data = res?.data ?? {};
-      const hits = Array.isArray(data?.hits) ? data.hits : [];
-      setKwHits(hits);
-      setKwCount(Number(data?.count ?? hits.length));
-    } catch (e) {
-      notifyError(t('contract.keywordSign'), e);
-    } finally {
-      setKwSearchBusy(false);
-    }
-  };
-
-  // 命中某项 → 在文档该页「落框」（用命中坐标 0-100%，不暴露给用户）
-  const placeKeywordHit = (hit: any) => {
-    const ft = tool ?? (sealAsset && !signAsset ? 'seal' : 'signature');
-    const page = Number(hit?.page) || 1;
-    const w = draftW(ft);
-    const h = draftH(ft);
-    setSignatureSvg(
-      (ft === 'seal' && sealAsset?.data_url) || (ft === 'signature' && signAsset?.data_url) || '',
-    );
-    setDraft({
-      page,
-      x: Number(hit?.x ?? 50),
-      y: Number(hit?.y ?? 40),
-      w,
-      h,
-      field_type: ft,
-    });
-  };
-
-  const useSealAsset = (a: SignAsset) => {
-    setSealAsset(a);
-    setTool('seal');
-    setSignatureSvg(a.data_url);
-  };
-  const useSignAsset = (a: SignAsset) => {
-    setSignAsset(a);
-    setTool('signature');
-    setSignatureSvg(a.data_url);
-  };
-  const clearSeal = () => {
-    setSealAsset(null);
-    setSignatureSvg('');
-  };
-  const clearSign = () => {
-    setSignAsset(null);
-    setSignatureSvg('');
+    setStamps([]);
+    setGhost(null);
   };
 
   const load = useCallback(async (silent = false) => {
@@ -296,43 +206,23 @@ export default function MyContractsScreen() {
   const myPendingFields = myFields.filter((f: any) => !f?.signed);
   const mySignedFields = myFields.filter((f: any) => !!f?.signed);
   const needsRealName = !!myParty && !myParty?.real_name_verified;
-  const remountPad = signField?.id ?? 'signature-pad';
-
-  // PDF 可签时：涉及「我」的签署框所在的页面列表（升序、去重）
-  const myFieldPages: number[] = (() => {
-    if (!detail?.pdf_available) return [];
-    const pages = [...myPendingFields, ...mySignedFields]
-      .map((f: any) => Number(f?.page) || 1)
-      .filter((p: number) => p > 0);
-    return [...new Set(pages)].sort((a: number, b: number) => a - b);
-  })();
-
-  // 页图展示范围：无「我的」签署框时也需整本 PDF 可拖签 → 回退到全部页
-  const pagesToShow: number[] = (() => {
-    if (myFieldPages.length) return myFieldPages;
+  // 签署台展示/可拖放的页：有 PDF 时整本；无 PDF 时降级为单页「正文」背景
+  const studioPages: number[] = (() => {
+    if (!detail?.pdf_available) return [1];
     const cnt = Number(detail?.pdf_page_count) || 1;
     return Array.from({ length: Math.max(1, cnt) }, (_, i) => i + 1);
   })();
 
-  // 取某一页上「我」的所有签署框（待签 + 已签），用于叠加定位
-  const fieldsOnPage = useCallback(
-    (page: number) =>
-      [...myPendingFields, ...mySignedFields].filter(
-        (f: any) => (Number(f?.page) || 1) === page,
-      ),
-    [myPendingFields, mySignedFields],
-  );
-
-  // 加载需要展示的页图 URL（站内合同带 ?token=）
+  // 加载签署台需要展示的页图 URL（站内合同带 ?token=）
   useEffect(() => {
-    if (!detail?.pdf_available || !detail?.id) {
+    if (!studioVisible || !detail?.pdf_available || !detail?.id) {
       setPdfUrls({});
       return;
     }
     let cancelled = false;
     (async () => {
       const map: Record<number, string> = {};
-      for (const p of pagesToShow) {
+      for (const p of studioPages) {
         try {
           const url = await contractsApi.pdfPageUrl(detail.id, p);
           if (cancelled) return;
@@ -346,259 +236,216 @@ export default function MyContractsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [detail?.id, detail?.pdf_available, pagesToShow.join(',')]);
+  }, [studioVisible, detail?.id, detail?.pdf_available, studioPages.join(',')]);
 
-  const handleSign = async (code?: string) => {
-    if (!detail?.id || !signField || signing) return;
-    const method = signField?.field_type || 'signature';
-    setSigning(true);
-    try {
-      await contractsApi.sign(detail.id, {
-        field_id: String(signField.id),
-        method,
-        ...(signatureSvg ? { signature_svg: signatureSvg } : {}),
-        ...(code ? { code } : {}),
-      });
-      notify(t('contract.signSingleDone'));
-      setSignField(null);
-      setSignatureSvg('');
-      verifiedForRef.current = null;
-      await openDetail(detail.id);
-      await load(true);
-    } catch (e: any) {
-      if (e?.response?.status === 403) {
-        notifyError(t('contract.realNameDenied'), e);
-      } else if (e?.response?.status === 400) {
-        notifyError(t('contract.intentCodeWrong'), e);
-      } else {
-        notifyError(t('contract.signSelf'), e);
-      }
-    } finally {
-      setSigning(false);
-    }
-  };
-
-  const openSignField = (f: any) => {
-    setSignatureSvg('');
-    setSignField(f);
-    if (detail?.pdf_available) {
-      setStudioVisible(true);
-      setDraft(null);
-      setTool(null);
-      setSignMethod('position');
-      setKwKeyword('');
-      setKwHits([]);
-      setKwCount(0);
-    }
-  };
-
-  // 页面百分比尺寸换算：x/y/w/h 均为 0-100 的百分比。缺失时按类型给默认框大小。
-  const fieldBox = (f: any) => {
-    const ft = f?.field_type || 'signature';
-    const defaultW = ft === 'signature' ? 22 : 13;
-    const defaultH = ft === 'signature' ? 8 : 6;
-    return {
-      left: `${Number(f?.x) || 0}%` as DimensionValue,
-      top: `${Number(f?.y) || 0}%` as DimensionValue,
-      width: `${f?.w != null ? Number(f.w) : defaultW}%` as DimensionValue,
-      height: `${f?.h != null ? Number(f.h) : defaultH}%` as DimensionValue,
-    };
-  };
-
-  // ===== 自由拖签（法大大式）：从顶部托盘选签名/公章/日期，拖到 PDF 任意位置落区并签 =====
-  const draftW = (ft?: string | null) => (ft === 'seal' || ft === 'date' ? 13 : 22);
-  const draftH = (ft?: string | null) => (ft === 'seal' || ft === 'date' ? 6 : 8);
-
-  // 屏幕触点到「第 page 页容器」的相对 px → 换算为 %，写回 draft
-  const placeDraftAt = useCallback((page: number, relXpx: number, relYpx: number, ft: string) => {
-    const size = pageSizesRef.current[page];
-    if (!size || !size.w || !size.h) return;
-    const wPct = draftW(ft);
-    const hPct = draftH(ft);
-    const bw = (size.w * wPct) / 100;
-    const bh = (size.h * hPct) / 100;
-    let x = ((relXpx - bw / 2) / size.w) * 100;
-    let y = (page === 1 ? (relYpx - bh / 2) / size.h : (relYpx - bh / 2) / size.h) * 100;
-    // 翻转：触点在顶部时 y 小；RN locationY 从顶向下，PDF 落章也按顶部起算，直接映射即可
-    x = Math.max(0, Math.min(100 - wPct, x));
-    y = Math.max(0, Math.min(100 - hPct, y));
-    setDraft({ page, x, y, w: Number(wPct.toFixed(1)), h: Number(hPct.toFixed(1)), field_type: ft });
-  }, []);
-
-  const panAnchorRef = useRef<{ page: number; sx: number; sy: number } | null>(null);
-
-  // 某一页的拖拽响应：按该页容器内位置换算 %；每页独立闭包 page
-  const getPagePan = useCallback(
-    (page: number) => {
-      if (pagePanCache.current[page]) return pagePanCache.current[page];
-      const pan = PanResponder.create({
-        onStartShouldSetPanResponder: () => toolRef.current != null,
-        onMoveShouldSetPanResponder: () => toolRef.current != null,
-        onPanResponderGrant: (evt: GestureResponderEvent) => {
-          panAnchorRef.current = {
-            page,
-            sx: evt.nativeEvent.locationX,
-            sy: evt.nativeEvent.locationY,
-          };
-          // 落一个即时预览框（跟随手指）
-          const ft = toolRef.current || 'signature';
-          placeDraftAt(page, evt.nativeEvent.locationX, evt.nativeEvent.locationY, ft);
-        },
-        onPanResponderMove: (_e: GestureResponderEvent, g: PanResponderGestureState) => {
-          const a = panAnchorRef.current;
-          const ft = toolRef.current;
-          if (!a || a.page !== page || !ft) return;
-          placeDraftAt(page, a.sx + g.dx, a.sy + g.dy, ft);
-        },
-        onPanResponderRelease: () => {
-          const ft = toolRef.current;
-          panAnchorRef.current = null;
-          setTool(null); // 结束放置模式；draft 保留供签署
-          if (ft) setSigningSel(true);
-        },
-        onPanResponderTerminate: () => {
-          panAnchorRef.current = null;
-          setTool(null);
-        },
-      });
-      pagePanCache.current[page] = pan;
-      return pan;
-    },
-    [placeDraftAt],
-  );
-
+  // 页面百分比尺寸记录 + 记录窗口矩形（拖拽命中用）
   const onPageLayout = (page: number) => (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     pageSizesRef.current[page] = { w: width, h: height };
-  };
-
-  // 在页面上渲染的草稿签署框（拖放后待签署）
-  const renderDraftOverlay = (page: number) => {
-    if (!draft || Number(draft.page) !== page) return null;
-    const ft = draft.field_type || 'signature';
-    const meta = SIGN_TYPE_META[ft] ?? SIGN_TYPE_META.signature;
-    return (
-      <View style={[styles.fieldOverlay, styles.draftOverlay, fieldBox(draft)]}>
-        {ft === 'signature' ? (
-          <SignaturePad
-            key={`draft-${padEpoch}`}
-            fill
-            showClear={false}
-            title={myParty?.name}
-            onResult={setSignatureSvg}
-          />
-        ) : (
-          <View style={styles.overlayType}>
-            <Ionicons name={meta.icon as any} size={16} color={colors.primary} />
-            <Text style={styles.overlayTypeText}>{t(meta.labelKey)}</Text>
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  // 确认签署草稿区（落区并签）
-  const handleSignSelf = async (code?: string) => {
-    if (!detail?.id || !myParty || !draft || signingSel) return;
-    setSigningSel(true);
-    try {
-      const ft = draft.field_type || 'signature';
-      await contractsApi.signSelf(detail.id, {
-        party_id: String(myParty.id),
-        page: Number(draft.page) || 1,
-        x: Number(draft.x) || 0,
-        y: Number(draft.y) || 0,
-        w: Number(draft.w) || draftW(ft),
-        h: Number(draft.h) || draftH(ft),
-        method: ft,
-        ...(signatureSvg ? { signature_svg: signatureSvg } : {}),
-        ...(code ? { code } : {}),
+    const r = pageRefs.current[page];
+    if (r && typeof r.measureInWindow === 'function') {
+      r.measureInWindow((x: number, y: number, w: number, h: number) => {
+        if (w > 0 && h > 0) pageRectsRef.current[page] = { x, y, w, h };
       });
-      notify(t('contract.signSingleDone'));
-      setDraft(null);
-      setTool(null);
-      setSignatureSvg('');
-      verifiedForRef.current = null;
-      await openDetail(detail.id);
-      await load(true);
-    } catch (e: any) {
-      if (e?.response?.status === 403) {
-        notifyError(t('contract.realNameDenied'), e);
-      } else if (e?.response?.status === 400) {
-        notifyError(t('contract.intentCodeWrong'), e);
-      } else {
-        notifyError(t('contract.signSelf'), e);
-      }
-    } finally {
-      setSigningSel(false);
     }
   };
 
-  // ===== 签署意愿验证：确认签署前先发码校验，同合同会话内复用已验证码 =====
-  const startSignedFlow = useCallback(
-    (doSign: (code: string) => Promise<void>) => {
-      const cached = verifiedForRef.current;
-      if (cached && cached.contractId === String(detail?.id)) {
-        void doSign(cached.code);
-        return;
-      }
-      pendingSignRef.current = doSign;
-      setIntentToMasked('');
-      setIntentCode('');
-      setIntentCountdown(0);
-      setIntentVisible(true);
-    },
-    [detail?.id],
-  );
-
-  const startResendCountdown = () => {
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    setIntentCountdown(RESEND_SECONDS);
-    countdownRef.current = setInterval(() => {
-      setIntentCountdown((v) => {
-        if (v <= 1) {
-          if (countdownRef.current) clearInterval(countdownRef.current);
-          return 0;
-        }
-        return v - 1;
-      });
-    }, 1000);
-  };
-
-  // 卸载时清理倒计时定时器
-  useEffect(() => () => {
-    if (countdownRef.current) clearInterval(countdownRef.current);
+  // 松手落框：把成品图放到落点所在页的百分比坐标（界面不露裸坐标）
+  const dropStamp = useCallback((kind: 'seal' | 'handwrite', px: number, py: number) => {
+    const rects = pageRectsRef.current;
+    const pages = Object.keys(rects).map(Number).sort((a, b) => a - b);
+    let page = pages.find((p) => {
+      const r = rects[p];
+      return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+    });
+    if (page == null && pages.length === 1) page = pages[0];
+    if (page == null) return;
+    const r = rects[page];
+    const relX = Math.max(0, Math.min(1, (px - r.x) / r.w));
+    const relY = Math.max(0, Math.min(1, (py - r.y) / r.h));
+    const wPct = kind === 'seal' ? 16 : 24;
+    const ar = kind === 'seal' ? 1 : signMadeRef.current?.ar || 2.5;
+    const h = Math.max(2, Math.min(60, (wPct * (r.w / r.h)) / ar));
+    const x = Math.max(0, Math.min(100 - wPct, relX * 100 - wPct / 2));
+    const y = Math.max(0, Math.min(100 - h, relY * 100 - h / 2));
+    const st: Stamp = {
+      id: `st-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      kind,
+      page,
+      x,
+      y,
+      w: wPct,
+      h,
+    };
+    if (kind === 'seal') st.imgUri = sealMadeRef.current?.dataUrl;
+    else st.svg = signMadeRef.current?.svg;
+    setStamps((prev) => [...prev, st]);
   }, []);
 
-  const sendIntentCode = async () => {
-    if (!detail?.id || !myParty || intentBusy) return;
-    setIntentBusy(true);
-    try {
-      const res: any = await contractsApi.signCode(detail.id, String(myParty.id));
-      setIntentToMasked(res?.data?.to_masked ?? '');
-      notify(t('contract.codeSent'));
-      startResendCountdown();
-    } catch (e) {
-      notifyError(t('contract.intentFailed'), e);
-    } finally {
-      setIntentBusy(false);
-    }
+  // 从托盘开始拖拽：显示浮层预览并测量各页窗口位置
+  const beginTrayDrag = useCallback((kind: 'seal' | 'handwrite', e: GestureResponderEvent) => {
+    ghostKindRef.current = kind;
+    setGhost({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY, kind });
+    Object.keys(pageRefs.current).forEach((k) => {
+      const page = Number(k);
+      const r = pageRefs.current[page];
+      if (r && typeof r.measureInWindow === 'function') {
+        r.measureInWindow((x: number, y: number, w: number, h: number) => {
+          if (w > 0 && h > 0) pageRectsRef.current[page] = { x, y, w, h };
+        });
+      }
+    });
+  }, []);
+
+  const moveTrayDrag = useCallback((e: GestureResponderEvent) => {
+    setGhost((g) => (g ? { ...g, x: e.nativeEvent.pageX, y: e.nativeEvent.pageY } : g));
+  }, []);
+
+  const endTrayDrag = useCallback(
+    (e: GestureResponderEvent) => {
+      const kind = ghostKindRef.current;
+      ghostKindRef.current = null;
+      setGhost(null);
+      if (kind) dropStamp(kind, e.nativeEvent.pageX, e.nativeEvent.pageY);
+    },
+    [dropStamp],
+  );
+
+  const cancelTrayDrag = useCallback(() => {
+    ghostKindRef.current = null;
+    setGhost(null);
+  }, []);
+
+  // 两个托盘条目的拖拽手柄响应（已制作才可拖）
+  const sealTrayPan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !!sealMadeRef.current,
+        onMoveShouldSetPanResponder: () => !!sealMadeRef.current,
+        onPanResponderGrant: (e) => beginTrayDrag('seal', e),
+        onPanResponderMove: (e) => moveTrayDrag(e),
+        onPanResponderRelease: (e) => endTrayDrag(e),
+        onPanResponderTerminate: cancelTrayDrag,
+      }),
+    [beginTrayDrag, moveTrayDrag, endTrayDrag, cancelTrayDrag],
+  );
+  const signTrayPan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !!signMadeRef.current,
+        onMoveShouldSetPanResponder: () => !!signMadeRef.current,
+        onPanResponderGrant: (e) => beginTrayDrag('handwrite', e),
+        onPanResponderMove: (e) => moveTrayDrag(e),
+        onPanResponderRelease: (e) => endTrayDrag(e),
+        onPanResponderTerminate: cancelTrayDrag,
+      }),
+    [beginTrayDrag, moveTrayDrag, endTrayDrag, cancelTrayDrag],
+  );
+
+  // 已落框：拖动改位（页面百分比坐标系）
+  const getStampPan = (st: Stamp): PanResponderInstance => {
+    if (stampPanCache.current[st.id]) return stampPanCache.current[st.id];
+    const pan = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        stampAnchorRef.current = stampsRef.current.find((s) => s.id === st.id) ?? null;
+      },
+      onPanResponderMove: (_e: GestureResponderEvent, g: PanResponderGestureState) => {
+        const a = stampAnchorRef.current;
+        if (!a || a.id !== st.id) return;
+        const size = pageSizesRef.current[a.page];
+        if (!size || !size.w || !size.h) return;
+        const nx = Math.max(0, Math.min(100 - a.w, a.x + (g.dx / size.w) * 100));
+        const ny = Math.max(0, Math.min(100 - a.h, a.y + (g.dy / size.h) * 100));
+        setStamps((prev) => prev.map((s) => (s.id === a.id ? { ...s, x: nx, y: ny } : s)));
+      },
+      onPanResponderRelease: () => {
+        stampAnchorRef.current = null;
+      },
+      onPanResponderTerminate: () => {
+        stampAnchorRef.current = null;
+      },
+    });
+    stampPanCache.current[st.id] = pan;
+    return pan;
   };
 
-  const confirmIntent = async () => {
-    if (!intentCode.trim()) {
-      notify(t('contract.noCode'));
+  const removeStamp = (id: string) => setStamps((prev) => prev.filter((s) => s.id !== id));
+
+  // 手写签名制作完成：回填托盘（尽力导出 PNG，失败则仅提交 SVG）
+  const useSignDraft = () => {
+    const svg = signDraftSvg;
+    if (!svg || !svg.startsWith('<svg')) {
+      notify(t('contract.signNotMade'));
       return;
     }
-    setIntentBusy(true);
+    const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg);
+    const ar = m && parseFloat(m[2]) > 0 ? parseFloat(m[1]) / parseFloat(m[2]) : 2.5;
+    setSignMade({ svg, ar });
     try {
-      if (detail?.id) verifiedForRef.current = { contractId: String(detail.id), code: intentCode.trim() };
-      const fn = pendingSignRef.current;
-      pendingSignRef.current = null;
-      setIntentVisible(false);
-      if (fn) await fn(intentCode.trim());
+      const ref: any = signSvgRef.current;
+      if (ref && typeof ref.toDataURL === 'function') {
+        ref.toDataURL((b64: string) => {
+          if (b64) {
+            setSignMade((prev) =>
+              prev && prev.svg === svg ? { ...prev, pngUrl: `data:image/png;base64,${b64}` } : prev,
+            );
+          }
+        });
+      }
+    } catch {
+      // 导出 PNG 不可用时仅提交 SVG
+    }
+    setMakeSignVisible(false);
+  };
+
+  // 底部【签署】：一次性原子提交全部落框（无意愿验证码步骤）
+  const submitBatch = async () => {
+    if (!detail?.id || !myParty || submitting) return;
+    const placed = stampsRef.current;
+    if (!placed.length) {
+      notify(t('contract.needStampFirst'));
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const items = placed.map((s) => {
+        if (s.kind === 'seal') {
+          return {
+            page: s.page,
+            x: s.x,
+            y: s.y,
+            w: s.w,
+            h: s.h,
+            method: 'company_seal',
+            ...(s.imgUri ? { image_data_url: s.imgUri } : {}),
+          };
+        }
+        const png =
+          signMadeRef.current && signMadeRef.current.svg === s.svg ? signMadeRef.current.pngUrl : undefined;
+        return {
+          page: s.page,
+          x: s.x,
+          y: s.y,
+          w: s.w,
+          h: s.h,
+          method: 'personal_handwrite',
+          ...(s.svg ? { signature_svg: s.svg } : {}),
+          ...(png ? { image_data_url: png } : {}),
+        };
+      });
+      await contractsApi.signBatch(detail.id, { party_id: String(myParty.id), items });
+      notify(t('contract.signSingleDone'));
+      setStamps([]);
+      await openDetail(detail.id);
+      await load(true);
+      closeStudio();
+    } catch (e: any) {
+      if (e?.response?.status === 403) notifyError(t('contract.realNameDenied'), e);
+      else notifyError(t('contract.signSelf'), e);
     } finally {
-      setIntentBusy(false);
+      setSubmitting(false);
     }
   };
 
@@ -620,67 +467,6 @@ export default function MyContractsScreen() {
     }
   };
 
-  // 从签名/印章库选一个用于本次签署
-  const renderFieldOverlay = (f: any) => {
-    const active = String(f?.id) === String(signField?.id);
-    const ft = f?.field_type || 'signature';
-    const signed = !!f?.signed;
-    const meta = SIGN_TYPE_META[ft] ?? SIGN_TYPE_META.signature;
-    let inner: React.ReactNode;
-    if (signed) {
-      inner = <Ionicons name="checkmark-circle" size={22} color={colors.success} />;
-    } else if (active && ft === 'signature') {
-      // 在该签署框内直接手写：画布铺满框体（fill），输出 SVG 仍跟随实际坐标
-      inner = (
-        <SignaturePad
-          key={`${String(f?.id)}-${padEpoch}`}
-          fill
-          showClear={false}
-          title={myParty?.name}
-          onResult={setSignatureSvg}
-        />
-      );
-    } else if (active) {
-      inner = (
-        <View style={styles.overlayType}>
-          <Ionicons
-            name={meta.icon as any}
-            size={16}
-            color={signed ? colors.success : colors.primary}
-          />
-          <Text style={styles.overlayTypeText}>
-            {t(active && !signed ? 'contract.signHere' : meta.labelKey)}
-          </Text>
-        </View>
-      );
-    } else {
-      // 非当前签署框：可点选以切换当前签署框
-      inner = (
-        <TouchableOpacity
-          style={styles.overlayWait}
-          activeOpacity={0.7}
-          onPress={() => openSignField(f)}
-        >
-          <Text style={styles.overlayWaitText}>{t(meta.labelKey)}</Text>
-        </TouchableOpacity>
-      );
-    }
-    return (
-      <View
-        key={f?.id ?? `${f?.page}-${f?.x}-${f?.y}`}
-        pointerEvents={active ? 'auto' : 'box-only'}
-        style={[
-          styles.fieldOverlay,
-          fieldBox(f),
-          signed && styles.fieldOverlaySigned,
-          active && !signed && styles.fieldOverlayActive,
-        ]}
-      >
-        {inner}
-      </View>
-    );
-  };
-
   // 渲染待签署 / 已签署的字段行
   const renderSignField = (f: any, signed: boolean, idx: number) => {
     const meta = SIGN_TYPE_META[f?.field_type ?? 'signature'] ?? SIGN_TYPE_META.signature;
@@ -690,7 +476,7 @@ export default function MyContractsScreen() {
         style={styles.fieldCard}
         activeOpacity={0.8}
         disabled={signed}
-        onPress={() => openSignField(f)}
+        onPress={() => openStudio()}
       >
         <Ionicons name={meta.icon as any} size={18} color={signed ? colors.success : colors.primary} />
         <View style={styles.fieldBody}>
@@ -755,91 +541,138 @@ export default function MyContractsScreen() {
     </TouchableOpacity>
   );
 
-  // ===== 双栏「签署台」：右栏文档区 =====
-  const renderDocs = () => {
-    if (!detail?.pdf_available) {
-      return (
-        <View style={styles.noPdfBox}>
-          <Ionicons name="document-outline" size={30} color={colors.ink3} />
-          <Text style={styles.noPdfText}>{t('contract.noPdfPreview')}</Text>
-        </View>
-      );
-    }
-    const palette =
-      signMethod === 'position' ? (
-        <View>
-          <View style={styles.paletteRow}>
-            {(['signature', 'seal', 'date'] as const).map((tt) => {
-              const meta = SIGN_TYPE_META[tt] ?? SIGN_TYPE_META.signature;
-              const on = tool === tt;
-              return (
-                <TouchableOpacity
-                  key={tt}
-                  style={[styles.paletteItem, on && styles.paletteItemOn]}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    setTool(on ? null : tt);
-                    if (tt === 'seal' && sealAsset) setSignatureSvg(sealAsset.data_url);
-                    if (tt === 'signature' && signAsset) setSignatureSvg(signAsset.data_url);
-                  }}
-                >
-                  <Ionicons name={meta.icon as any} size={15} color={on ? colors.primaryForeground : colors.primary} />
-                  <Text style={styles.paletteItemText}>{t(meta.labelKey)}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <TouchableOpacity
-            style={styles.libraryBtn}
-            activeOpacity={0.8}
-            onPress={() => {
-              setLibraryAssetType((tool ?? signField?.field_type) === 'seal' ? 'seal' : 'handwrite');
-              setShowLibrary(true);
-            }}
-          >
-            <Ionicons name="albums-outline" size={15} color={colors.primary} />
-            <Text style={styles.libraryBtnText}>{t('contract.fromLibrary')}</Text>
-          </TouchableOpacity>
-          <Text style={[styles.pdfTip, !!tool && styles.pdfTipActive]}>
-            {tool ? t('contract.pdfDragHint') : t('contract.dragHintOnDoc')}
-          </Text>
-        </View>
-      ) : null;
-
-    return (
-      <>
-        {palette}
-        {pagesToShow.map((page, pidx) => (
-          <View
-            key={pidx}
-            style={styles.pdfPageWrap}
-            onLayout={onPageLayout(page)}
-            {...getPagePan(page).panHandlers}
-          >
-            {pdfUrls[page] ? (
-              <>
-                <Image source={{ uri: pdfUrls[page] }} style={styles.pdfPageImage} resizeMode="stretch" />
-                {renderDraftOverlay(page)}
-                <View style={styles.pdfPageOverlay}>{fieldsOnPage(page).map(renderFieldOverlay)}</View>
-              </>
+  // ===== 签署台右栏：文档区（PDF 页图 / 正文降级 + 已落签章）=====
+  const renderDocs = () => (
+    <>
+      <Text style={[styles.pdfTip, styles.pdfTipActive]}>{t('contract.dragStampHint')}</Text>
+      {studioPages.map((page) => (
+        <View
+          key={page}
+          ref={(r) => {
+            pageRefs.current[page] = r;
+          }}
+          style={styles.pdfPageWrap}
+          onLayout={onPageLayout(page)}
+        >
+          {detail?.pdf_available ? (
+            pdfUrls[page] ? (
+              <Image source={{ uri: pdfUrls[page] }} style={styles.pdfPageImage} resizeMode="stretch" />
             ) : (
               <View style={styles.pdfLoading}>
                 <ActivityIndicator color={colors.primary} />
               </View>
-            )}
+            )
+          ) : (
+            <View style={styles.bodyPage}>
+              <Text style={styles.bodyPageText} selectable>
+                {stripHtml(detail?.content_html)}
+              </Text>
+            </View>
+          )}
+          <View style={styles.pdfPageOverlay} pointerEvents="box-none">
+            {stamps
+              .filter((s) => s.page === page)
+              .map((s) => (
+                <View
+                  key={s.id}
+                  style={[
+                    styles.stampBox,
+                    { left: `${s.x}%`, top: `${s.y}%`, width: `${s.w}%`, height: `${s.h}%` },
+                  ]}
+                >
+                  <View style={StyleSheet.absoluteFill} {...getStampPan(s).panHandlers}>
+                    {s.kind === 'seal' ? (
+                      s.imgUri ? (
+                        <Image source={{ uri: s.imgUri }} style={styles.stampImg} resizeMode="contain" />
+                      ) : null
+                    ) : s.svg ? (
+                      <SvgXml xml={s.svg} width="100%" height="100%" />
+                    ) : null}
+                  </View>
+                  <TouchableOpacity style={styles.stampDel} activeOpacity={0.8} onPress={() => removeStamp(s.id)}>
+                    <Ionicons name="close" size={12} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ))}
           </View>
-        ))}
-      </>
+        </View>
+      ))}
+    </>
+  );
+
+  // 托盘条目（开放签式整行交互）：
+  //   未制作 → 整行可点，点一下直接弹出手写签名板 / 印章制作（无需再找小按钮）；
+  //   已制作 → 整行即拖拽源，手指按在条目上立刻浮出签章，拖到文档松手即落章。
+  const renderTrayItem = (kind: 'seal' | 'handwrite', compact = false) => {
+    const ready = kind === 'seal' ? !!sealMade : !!signMade;
+    const pan = kind === 'seal' ? sealTrayPan : signTrayPan;
+    const openMaker = () => {
+      if (kind === 'seal') setMakeSealVisible(true);
+      else {
+        setSignDraftSvg('');
+        setMakeSignVisible(true);
+      }
+    };
+    const thumb =
+      kind === 'seal' ? (
+        ready && sealMade?.dataUrl ? (
+          <Image source={{ uri: sealMade.dataUrl }} style={styles.trayThumbImg} resizeMode="contain" />
+        ) : (
+          <Ionicons name="business-outline" size={compact ? 18 : 20} color={colors.ink3} />
+        )
+      ) : ready && signMade?.svg ? (
+        <SvgXml xml={signMade.svg} width="100%" height="100%" />
+      ) : (
+        <Ionicons name="create-outline" size={compact ? 18 : 20} color={colors.ink3} />
+      );
+    const label = kind === 'seal' ? t('contract.traySeal') : t('contract.traySign');
+    const hintText = ready
+      ? t('contract.readyToDrag')
+      : kind === 'seal'
+      ? t('contract.traySealEmpty')
+      : t('contract.traySignEmpty');
+
+    if (!ready) {
+      return (
+        <TouchableOpacity
+          style={[styles.trayItem, styles.trayItemEmpty, compact && styles.trayItemCompact]}
+          activeOpacity={0.85}
+          onPress={openMaker}
+        >
+          <View style={[styles.trayThumb, compact && styles.trayThumbCompact]}>{thumb}</View>
+          <View style={styles.trayBody}>
+            <Text style={styles.trayName} numberOfLines={1}>{label}</Text>
+            {!compact && <Text style={styles.trayStatus} numberOfLines={1}>{hintText}</Text>}
+          </View>
+          <Ionicons name="add-circle-outline" size={compact ? 18 : 20} color={colors.primary} />
+        </TouchableOpacity>
+      );
+    }
+    return (
+      <View style={[styles.trayItem, styles.trayItemReady, compact && styles.trayItemCompact]}>
+        <View style={styles.trayDragZone} {...pan.panHandlers}>
+          <View style={[styles.trayThumb, compact && styles.trayThumbCompact]}>{thumb}</View>
+          <View style={styles.trayBody}>
+            <Text style={styles.trayName} numberOfLines={1}>{label}</Text>
+            {!compact && <Text style={styles.trayStatus} numberOfLines={1}>{hintText}</Text>}
+          </View>
+          <Ionicons name="move-outline" size={compact ? 16 : 18} color={colors.primary} />
+        </View>
+        <TouchableOpacity
+          style={styles.trayRedo}
+          activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={openMaker}
+        >
+          <Ionicons name="refresh-outline" size={compact ? 15 : 17} color={colors.ink3} />
+        </TouchableOpacity>
+      </View>
     );
   };
 
-  // ===== 双栏「签署台」：左栏签署配置 =====
+  // ===== 单屏「签署台」：左栏签署配置（签署方 + 签章托盘 + 底部签署） =====
   const renderCfg = () => {
-    const canSign =
-      !!detail?.id &&
-      !needsRealName &&
-      (!!draft ||
-        (!!signField && (['seal', 'date'].includes(signField?.field_type) || !!signatureSvg)));
+    const canSign = !!detail?.id && !needsRealName && stamps.length > 0;
     const partyStatusColor = myParty?.signed
       ? colors.success
       : myParty?.declined_at
@@ -881,153 +714,89 @@ export default function MyContractsScreen() {
           </TouchableOpacity>
         )}
 
-        {/* 签署方式分段切换 */
-        }
-        <Text style={styles.cfgSectionTitle}>{t('contract.signMethod')}</Text>
-        <View style={styles.segRow}>
-          {(['position', 'keyword'] as const).map((m) => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.segItem, signMethod === m && styles.segItemOn]}
-              activeOpacity={0.8}
-              onPress={() => setSignMethod(m)}
-            >
-              <Text style={[styles.segText, signMethod === m && styles.segTextOn]}>
-                {m === 'position' ? t('contract.signMethodPosition') : t('contract.signMethodKeyword')}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <Text style={styles.cfgSectionTitle}>{t('contract.traySection')}</Text>
+        {renderTrayItem('seal')}
+        {renderTrayItem('handwrite')}
+        <Text style={styles.trayHint}>{t('contract.dragStampHint')}</Text>
 
-        {/* 指定位置：印章 / 手写签名资产块 */
-        }
-        {signMethod === 'position' && (
-          <>
-            <Text style={styles.cfgSectionTitle}>{t('contract.mySeals')}</Text>
-            <View style={styles.assetBox}>
-              {sealAsset?.data_url ? (
-                <>
-                  <Image source={{ uri: sealAsset.data_url }} style={styles.assetThumb} resizeMode="contain" />
-                  <View style={styles.assetInfo}>
-                    <Text style={styles.assetName} numberOfLines={1}>{sealAsset.name || t('contract.mySeals')}</Text>
-                    <Text style={styles.assetMeta}>{t('contract.assetPickedSeal')}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.assetAct} activeOpacity={0.8} onPress={() => { setLibraryAssetType('seal'); setShowLibrary(true); }}>
-                    <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.assetAct} activeOpacity={0.8} onPress={clearSeal}>
-                    <Ionicons name="trash-outline" size={16} color={colors.error} />
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <View style={styles.assetEmpty}>
-                  <Ionicons name="business-outline" size={18} color={colors.ink3} />
-                  <Text style={styles.assetEmptyText}>{t('contract.sealNotMade')}</Text>
-                  <TouchableOpacity style={styles.assetMakeBtn} activeOpacity={0.8} onPress={() => { setLibraryAssetType('seal'); setShowLibrary(true); }}>
-                    <Text style={styles.assetMakeText}>{t('contract.makeSeal')}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-
-            <Text style={styles.cfgSectionTitle}>{t('contract.mySigns')}</Text>
-            <View style={styles.assetBox}>
-              {signAsset?.data_url ? (
-                <>
-                  <Image source={{ uri: signAsset.data_url }} style={styles.assetThumb} resizeMode="contain" />
-                  <View style={styles.assetInfo}>
-                    <Text style={styles.assetName} numberOfLines={1}>{signAsset.name || t('contract.mySigns')}</Text>
-                    <Text style={styles.assetMeta}>{t('contract.assetPickedSign')}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.assetAct} activeOpacity={0.8} onPress={() => { setLibraryAssetType('handwrite'); setShowLibrary(true); }}>
-                    <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.assetAct} activeOpacity={0.8} onPress={clearSign}>
-                    <Ionicons name="trash-outline" size={16} color={colors.error} />
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <View style={styles.assetEmpty}>
-                  <Ionicons name="create-outline" size={18} color={colors.ink3} />
-                  <Text style={styles.assetEmptyText}>{t('contract.signNotMade')}</Text>
-                  <View style={styles.assetEmptyActs}>
-                    <TouchableOpacity style={styles.assetMakeBtn} activeOpacity={0.8} onPress={() => setShowDrawPad(true)}>
-                      <Text style={styles.assetMakeText}>{t('contract.makeSign')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.assetPickBtn} activeOpacity={0.8} onPress={() => { setLibraryAssetType('handwrite'); setShowLibrary(true); }}>
-                      <Text style={styles.assetPickText}>{t('contract.fromLibrary')}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-            </View>
-          </>
-        )}
-
-        {/* 关键字模式：检索 + 命中列表（语义化第N页，不露坐标） */
-        }
-        {signMethod === 'keyword' && (
-          <>
-            <Text style={styles.cfgSectionTitle}>{t('contract.keywordSign')}</Text>
-            <View style={styles.kwSearchRow}>
-              <TextInput
-                style={[styles.input, styles.kwInput]}
-                placeholder={t('contract.keywordPh')}
-                value={kwKeyword}
-                onChangeText={setKwKeyword}
-                placeholderTextColor={colors.ink3}
-              />
-              <TouchableOpacity
-                style={[styles.kwSearchBtn, kwSearchBusy && styles.btnDisabled]}
-                activeOpacity={0.8}
-                disabled={kwSearchBusy}
-                onPress={doKeywordSearchMy}
-              >
-                {kwSearchBusy ? (
-                  <ActivityIndicator size="small" color={colors.primaryForeground} />
-                ) : (
-                  <Text style={styles.kwSearchText}>{t('contract.searchKeyword')}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-            {!!kwCount && <Text style={styles.kwCount}>{t('contract.keywordHits', { n: kwCount })}</Text>}
-            {kwHits.map((hit, idx) => (
-              <TouchableOpacity
-                key={idx}
-                style={[styles.kwHitRow, kwBusyIdx === idx && styles.btnDisabled]}
-                activeOpacity={0.8}
-                onPress={() => {
-                  setKwBusyIdx(idx);
-                  placeKeywordHit(hit);
-                  setTimeout(() => setKwBusyIdx(null), 400);
-                }}
-              >
-                <Ionicons name="location-outline" size={15} color={colors.primary} />
-                <Text style={styles.kwHitText}>
-                  {t('contract.hitOnPage', { page: hit?.page ?? 1 })} · {hit?.text ?? ''}
-                </Text>
-                <Ionicons name="arrow-forward" size={14} color={colors.primary} />
-              </TouchableOpacity>
-            ))}
-          </>
-        )}
-
-        {/* 底部主签署按钮：指定位置需落框 / 关键字落框后启用，提交前走意愿验证码 */
+        {/* 底部主签署按钮：一次性原子提交全部落框（无意愿验证码） */
         }
         <TouchableOpacity
           style={[
             styles.studioSignBtn,
-            !canSign && styles.studioSignBtnDisabled,
-            (signing || signingSel) && styles.btnDisabled,
+            (!canSign || submitting) && styles.studioSignBtnDisabled,
+            submitting && styles.btnDisabled,
           ]}
           activeOpacity={0.85}
-          disabled={!canSign || signing || signingSel}
-          onPress={() => (draft ? startSignedFlow(handleSignSelf) : startSignedFlow(handleSign))}
+          disabled={!canSign || submitting}
+          onPress={submitBatch}
         >
-          {signing || signingSel ? (
+          {submitting ? (
             <ActivityIndicator color={colors.primaryForeground} />
           ) : (
-            <Text style={styles.studioSignText}>{!canSign ? t('contract.signFirstPlaceBox') : t('contract.sign')}</Text>
+            <Text style={styles.studioSignText}>{t('contract.sign')}</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // ===== 窄屏底部固定栏：文档在上、托盘与签署按钮固定在底部（与文档同屏，边拖边看） =====
+  const renderDock = () => {
+    const canSign = !!detail?.id && !needsRealName && stamps.length > 0;
+    const partyStatusColor = myParty?.signed
+      ? colors.success
+      : myParty?.declined_at
+      ? colors.error
+      : colors.warning;
+    return (
+      <View style={styles.studioDock}>
+        <View style={styles.dockTop}>
+          <Text style={styles.dockParty} numberOfLines={1}>
+            {myParty?.name || t('contract.unknown')}
+            <Text style={[styles.dockPartyStatus, { color: partyStatusColor }]}>
+              {` · ${
+                myParty?.signed
+                  ? t('contract.signed')
+                  : myParty?.declined_at
+                  ? t('contract.declined')
+                  : t('contract.unsigned')
+              }`}
+            </Text>
+          </Text>
+          {!!myParty && !myParty?.signed && !myParty?.declined_at && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={() => {
+                setDeclinePartyId(String(myParty.id));
+                setDeclineReason('');
+                setShowDecline(true);
+              }}
+            >
+              <Text style={styles.dockDecline}>{t('contract.decline')}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={styles.dockTrayRow}>
+          {renderTrayItem('seal', true)}
+          {renderTrayItem('handwrite', true)}
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.studioSignBtn,
+            styles.dockSignBtn,
+            (!canSign || submitting) && styles.studioSignBtnDisabled,
+            submitting && styles.btnDisabled,
+          ]}
+          activeOpacity={0.85}
+          disabled={!canSign || submitting}
+          onPress={submitBatch}
+        >
+          {submitting ? (
+            <ActivityIndicator color={colors.primaryForeground} />
+          ) : (
+            <Text style={styles.studioSignText}>{t('contract.sign')}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -1152,6 +921,13 @@ export default function MyContractsScreen() {
               )}
 
               {!!myParty && !myParty?.signed && !myParty?.declined_at && (
+                <TouchableOpacity style={styles.detailSignBtn} activeOpacity={0.85} onPress={openStudio}>
+                  <Ionicons name="create-outline" size={18} color={colors.primaryForeground} />
+                  <Text style={styles.detailSignBtnText}>{t('contract.sign')}</Text>
+                </TouchableOpacity>
+              )}
+
+              {!!myParty && !myParty?.signed && !myParty?.declined_at && (
                 <TouchableOpacity
                   style={styles.declineEntry}
                   activeOpacity={0.8}
@@ -1170,207 +946,40 @@ export default function MyContractsScreen() {
         </View>
       </Modal>
 
-      {/* 签署弹窗（手写 / 公章 / 日期；非 PDF 合同无页图时的降级签署） */}
-      <Modal visible={!!signField && !studioVisible} animationType="slide" transparent onRequestClose={() => setSignField(null)}>
-        <View style={styles.modalMask}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>{t('contract.signingTitle')}</Text>
-              <TouchableOpacity onPress={() => { setSignField(null); setSignatureSvg(''); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close" size={22} color={colors.ink2} />
-              </TouchableOpacity>
-            </View>
-            {needsRealName && (
-              <View style={styles.realNameBanner}>
-                <Ionicons name="person-circle-outline" size={16} color={colors.warning} />
-                <Text style={styles.realNameBannerText}>{t('contract.realNameNotice')}</Text>
-              </View>
-            )}
-            <ScrollView keyboardShouldPersistTaps="handled">
-              {detail?.pdf_available ? (
-                <>
-                  {/* 自由拖签托盘：选择签名/公章/日期后拖到 PDF 页图任意位置落区并签 */}
-                  <View style={styles.paletteRow}>
-                    {(['signature', 'seal', 'date'] as const).map((tt) => {
-                      const meta = SIGN_TYPE_META[tt] ?? SIGN_TYPE_META.signature;
-                      const on = tool === tt;
-                      const activeToolDraft = draft && draft.field_type === tt;
-                      return (
-                        <TouchableOpacity
-                          key={tt}
-                          style={[styles.paletteItem, (on || activeToolDraft) && styles.paletteItemOn]}
-                          activeOpacity={0.8}
-                          onPress={() => {
-                            setTool(on ? null : tt);
-                            if (on) setSigningSel(false);
-                          }}
-                        >
-                          <Ionicons name={meta.icon as any} size={15} color={on ? colors.primaryForeground : colors.primary} />
-                          <Text style={styles.paletteItemText}>{t(meta.labelKey)}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                  <Text style={[styles.pdfTip, !!tool && styles.pdfTipActive]}>
-                    {tool ? t('contract.pdfDragHint') : t('contract.pdfSignTip')}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.libraryBtn}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      setLibraryAssetType((signField?.field_type || draft?.field_type) === 'seal' ? 'seal' : 'handwrite');
-                      setShowLibrary(true);
-                    }}
-                  >
-                    <Ionicons name="albums-outline" size={15} color={colors.primary} />
-                    <Text style={styles.libraryBtnText}>{t('contract.fromLibrary')}</Text>
-                  </TouchableOpacity>
-                  {(() => {
-                    const activeFT = signField?.field_type || 'signature';
-                    const activeIsSig = activeFT === 'signature';
-                    const pagesContent = pagesToShow.map((page, pidx) => (
-                      <View
-                        key={pidx}
-                        style={styles.pdfPageWrap}
-                        onLayout={onPageLayout(page)}
-                        {...getPagePan(page).panHandlers}
-                      >
-                        {!!pdfUrls[page] ? (
-                          <>
-                            <Image
-                              source={{ uri: pdfUrls[page] }}
-                              style={styles.pdfPageImage}
-                              resizeMode="stretch"
-                            />
-                            {renderDraftOverlay(page)}
-                            <View style={styles.pdfPageOverlay}>
-                              {fieldsOnPage(page).map(renderFieldOverlay)}
-                            </View>
-                          </>
-                        ) : (
-                          <View style={styles.pdfLoading}>
-                            <ActivityIndicator color={colors.primary} />
-                          </View>
-                        )}
-                      </View>
-                    ));
-                    const clearBtn = activeIsSig ? (
-                      <TouchableOpacity
-                        style={styles.clearBtnTxt}
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          setPadEpoch((v) => v + 1);
-                          setSignatureSvg('');
-                        }}
-                      >
-                        <Ionicons name="refresh-outline" size={15} color={colors.primary} />
-                        <Text style={styles.clearBtnTxtText}>{t('contract.clear')}</Text>
-                      </TouchableOpacity>
-                    ) : null;
-                    const draftMode = !!draft;
-                    return (
-                      <>
-                        {pagesContent}
-                        {clearBtn}
-                        <TouchableOpacity
-                          style={[styles.signBtn, (signing || signingSel) && styles.btnDisabled]}
-                          activeOpacity={0.85}
-                          disabled={signing || signingSel}
-                          onPress={() =>
-                            draftMode ? startSignedFlow(handleSignSelf) : startSignedFlow(handleSign)
-                          }
-                        >
-                          {(signing || signingSel) ? (
-                            <ActivityIndicator color={colors.primaryForeground} />
-                          ) : (
-                            <Text style={styles.signBtnText}>
-                              {draftMode ? t('contract.confirmDraftSign') : t('contract.confirmSign')}
-                            </Text>
-                          )}
-                        </TouchableOpacity>
-                      </>
-                    );
-                  })()}
-                </>
-              ) : (
-                <>
-                  {(signField?.field_type || 'signature') === 'signature' ? (
-                    <SignaturePad
-                      key={remountPad}
-                      title={myParty?.name || t('contract.unknown')}
-                      onResult={setSignatureSvg}
-                    />
-                  ) : (signField?.field_type || 'signature') === 'seal' ? (
-                    <View style={styles.typeBox}>
-                      <Ionicons name="business-outline" size={32} color={colors.primary} />
-                      <Text style={styles.typeBoxText}>{t('contract.sealSign')}</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.typeBox}>
-                      <Ionicons name="calendar-outline" size={32} color={colors.primary} />
-                      <Text style={styles.typeBoxText}>{t('contract.dateSign')}</Text>
-                    </View>
-                  )}
-                  <TouchableOpacity
-                    style={[styles.signBtn, signing && styles.btnDisabled]}
-                    activeOpacity={0.85}
-                    disabled={signing}
-                    onPress={() => startSignedFlow(handleSign)}
-                  >
-                    {signing ? (
-                      <ActivityIndicator color={colors.primaryForeground} />
-                    ) : (
-                      <Text style={styles.signBtnText}>{t('contract.confirmSign')}</Text>
-                    )}
-                  </TouchableOpacity>
-                </>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 手写签名画板（制作手写签名：单次使用或存库） */}
-      <Modal visible={showDrawPad} animationType="slide" transparent onRequestClose={() => { setShowDrawPad(false); setSignatureSvg(''); }}>
+      {/* 手写签名制作弹窗（产出 SVG，尽力导出 PNG；完成后回填托盘使其可拖拽） */}
+      <Modal visible={makeSignVisible} animationType="slide" transparent onRequestClose={() => setMakeSignVisible(false)}>
         <View style={styles.modalMask}>
           <View style={styles.modalCard}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>{t('contract.makeSign')}</Text>
-              <TouchableOpacity onPress={() => { setShowDrawPad(false); setSignatureSvg(''); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={() => setMakeSignVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close" size={22} color={colors.ink2} />
               </TouchableOpacity>
             </View>
-            <SignaturePad key={padEpoch} title={myParty?.name || t('contract.unknown')} onResult={setSignatureSvg} />
+            <SignaturePad
+              key={String(makeSignVisible)}
+              title={myParty?.name || t('contract.unknown')}
+              onResult={setSignDraftSvg}
+              svgRef={signSvgRef}
+            />
             <View style={styles.drawPadActions}>
-              <TouchableOpacity
-                style={styles.drawPadUseBtn}
-                activeOpacity={0.85}
-                onPress={() => {
-                  const dataUrl = signatureSvg.startsWith('<svg')
-                    ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(signatureSvg)}`
-                    : signatureSvg;
-                  setSignAsset({ id: '', name: t('contract.oneTimeSign'), asset_type: 'handwrite', source: 'drew', data_url: dataUrl });
-                  setTool('signature');
-                  setShowDrawPad(false);
-                }}
-              >
+              <TouchableOpacity style={styles.drawPadUseBtn} activeOpacity={0.85} onPress={useSignDraft}>
                 <Text style={styles.drawPadUseText}>{t('contract.useThisSign')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.drawPadSaveBtn}
-                activeOpacity={0.85}
-                onPress={() => {
-                  setShowDrawPad(false);
-                  setLibraryAssetType('handwrite');
-                  setShowLibrary(true);
-                }}
-              >
-                <Text style={styles.drawPadSaveText}>{t('contract.addAsset')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      {/* 电子印章制作/选择（复用签名资产库，产出 PNG data_url） */}
+      <SignAssetPicker
+        visible={makeSealVisible}
+        onClose={() => setMakeSealVisible(false)}
+        assetType="seal"
+        onSelect={(asset) => {
+          if (asset?.data_url) setSealMade({ dataUrl: asset.data_url });
+        }}
+      />
 
       {/* ===== 开放签双栏「签署台」：左=签署配置栏，右=文档区 ===== */}
       <Modal visible={studioVisible} animationType="slide" onRequestClose={closeStudio}>
@@ -1382,6 +991,7 @@ export default function MyContractsScreen() {
             <View style={styles.studioHeadTitle}>
               <Text style={styles.studioTitle} numberOfLines={1}>{detail?.title || t('contract.my')}</Text>
             </View>
+            <Text style={styles.studioVer}>v2</Text>
             {renderStatus(detail?.status)}
             <TouchableOpacity onPress={closeStudio} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close" size={22} color={colors.ink2} />
@@ -1403,64 +1013,32 @@ export default function MyContractsScreen() {
               </ScrollView>
             </View>
           ) : (
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.studioStack}>
-              {renderDocs()}
-              {renderCfg()}
-            </ScrollView>
+            <>
+              <ScrollView
+                style={styles.studioDocScroll}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.studioDocContent}
+              >
+                {renderDocs()}
+              </ScrollView>
+              {renderDock()}
+            </>
+          )}
+          {/* 拖拽浮层预览（窗口坐标，跟随手指；松手即在落点渲染成品图） */}
+          {!!ghost && (
+            <View pointerEvents="none" style={[styles.ghost, { left: ghost.x - 34, top: ghost.y - 34 }]}>
+              {ghost.kind === 'seal' ? (
+                sealMade?.dataUrl ? (
+                  <Image source={{ uri: sealMade.dataUrl }} style={styles.ghostImg} resizeMode="contain" />
+                ) : null
+              ) : signMade?.svg ? (
+                <SvgXml xml={signMade.svg} width="100%" height="100%" />
+              ) : null}
+            </View>
           )}
         </View>
       </Modal>
 
-      {/* 签署意愿验证弹窗 */}
-      <Modal visible={intentVisible} animationType="fade" transparent onRequestClose={() => setIntentVisible(false)}>
-        <View style={styles.modalMask}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>{t('contract.intentTitle')}</Text>
-              <TouchableOpacity onPress={() => setIntentVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close" size={22} color={colors.ink2} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.intentDesc}>{t('contract.intentDesc')}</Text>
-            {!!intentToMasked && (
-              <Text style={styles.intentNotice}>{t('contract.intentNotice', { to: intentToMasked })}</Text>
-            )}
-            <View style={styles.intentCodeRow}>
-              <TextInput
-                style={[styles.codeInput, !intentToMasked && styles.codeInputDisabled]}
-                placeholder={t('contract.verifyCodePh')}
-                keyboardType="number-pad"
-                value={intentCode}
-                onChangeText={setIntentCode}
-                placeholderTextColor={colors.ink3}
-                editable={!!intentToMasked}
-              />
-              {intentCountdown > 0 ? (
-                <View style={styles.resendWait}>
-                  <Text style={styles.resendWaitText}>{t('contract.codeResendAfter', { n: intentCountdown })}</Text>
-                </View>
-              ) : (
-                <TouchableOpacity style={[styles.resendBtn, intentBusy && styles.btnDisabled]} activeOpacity={0.8} disabled={intentBusy} onPress={sendIntentCode}>
-                  <Ionicons name="refresh-outline" size={15} color={colors.primary} />
-                  <Text style={styles.resendBtnText}>{t('contract.sendIntentCode')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            <TouchableOpacity
-              style={[styles.signBtn, intentBusy && styles.btnDisabled]}
-              activeOpacity={0.85}
-              disabled={intentBusy}
-              onPress={confirmIntent}
-            >
-              {intentBusy ? (
-                <ActivityIndicator color={colors.primaryForeground} />
-              ) : (
-                <Text style={styles.signBtnText}>{t('contract.confirmSign')}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* 拒签弹窗 */}
       <Modal visible={showDecline} animationType="fade" transparent onRequestClose={() => setShowDecline(false)}>
@@ -1497,17 +1075,6 @@ export default function MyContractsScreen() {
         </View>
       </Modal>
 
-      {/* 我的签名/印章库 */}
-      <SignAssetPicker
-        visible={showLibrary}
-        onClose={() => setShowLibrary(false)}
-        assetType={libraryAssetType}
-        onSelect={(asset) => {
-          if (libraryAssetType === 'seal') useSealAsset(asset);
-          else useSignAsset(asset);
-        }}
-        pendingDrawnSvg={signatureSvg.startsWith('<svg') ? signatureSvg : undefined}
-      />
     </View>
   );
 }
@@ -1781,7 +1348,6 @@ const styles = StyleSheet.create({
   studioCfgContent: { padding: colors.spacing.md, paddingBottom: 48 },
   studioDocCol: { flex: 1, backgroundColor: colors.surface2 },
   studioDocContent: { padding: colors.spacing.md, paddingBottom: 48 },
-  studioStack: { padding: colors.spacing.md, paddingBottom: 48 },
 
   cfg: {},
   cfgSectionTitle: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginTop: 16, marginBottom: 8 },
@@ -1892,6 +1458,114 @@ const styles = StyleSheet.create({
   },
   studioSignBtnDisabled: { backgroundColor: colors.ink3 },
   studioSignText: { fontSize: 16, fontWeight: '700', color: colors.primaryForeground },
+
+  /* 详情页「签署」入口 */
+  detailSignBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 14,
+    height: 48,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.primary,
+    ...colors.shadow.primary,
+  },
+  detailSignBtnText: { fontSize: 15, fontWeight: '700', color: colors.primaryForeground },
+
+  /* 签章托盘 */
+  trayItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
+    marginBottom: 8,
+    borderRadius: colors.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  trayItemEmpty: { backgroundColor: colors.surface2, borderStyle: 'dashed' },
+  trayThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: colors.radius.sm,
+    backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  trayThumbImg: { width: 40, height: 40 },
+  trayBody: { flex: 1, minWidth: 0 },
+  trayName: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  trayStatus: { fontSize: 11, color: colors.ink3, marginTop: 2 },
+  trayItemReady: { borderColor: colors.primary },
+  trayItemCompact: { flex: 1, marginBottom: 0, padding: 8, gap: 8 },
+  trayThumbCompact: { width: 34, height: 34 },
+  trayDragZone: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  trayRedo: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
+  trayHint: { fontSize: 11, color: colors.ink3, lineHeight: 16, marginBottom: 4 },
+
+  /* 窄屏底部固定栏 + 版本角标（角标仅用于自证设备已加载新 bundle） */
+  studioDocScroll: { flex: 1 },
+  studioVer: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.ink3,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    overflow: 'hidden',
+  },
+  studioDock: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 16,
+  },
+  dockTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
+  dockParty: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: '700', color: colors.ink },
+  dockPartyStatus: { fontSize: 12, fontWeight: '700' },
+  dockDecline: { fontSize: 12, fontWeight: '700', color: colors.error },
+  dockTrayRow: { flexDirection: 'row', gap: 8 },
+  dockSignBtn: { marginTop: 10, height: 46 },
+
+  /* 已落签章（成品图，含删除角标） */
+  stampBox: { position: 'absolute' },
+  stampImg: { width: '100%', height: '100%' },
+  stampDel: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /* 拖拽浮层预览 */
+  ghost: {
+    position: 'absolute',
+    width: 68,
+    height: 68,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.9,
+    zIndex: 20,
+  },
+  ghostImg: { width: 64, height: 64 },
+  /* 无 PDF 时的正文降级背景 */
+  bodyPage: {
+    padding: 14,
+    minHeight: 400,
+    backgroundColor: colors.surface,
+  },
+  bodyPageText: { fontSize: 12, lineHeight: 20, color: colors.ink2 },
 
   noPdfBox: {
     alignItems: 'center',

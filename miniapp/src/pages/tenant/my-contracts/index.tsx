@@ -1,11 +1,14 @@
 /**
- * 租客 / 业主「我的合同」签署页（开放签风格：签署配置栏 + 文档区）。
+ * 租客 / 业主「我的合同」签署页（开放签 kaifangqian 1:1 风格：单屏签署台）。
  *
- * 列出当前用户可见的合同（contractsApi.list：本人作为签署方或挂在本人租约下）。
- * 详情以竖向「签署配置栏(上) + 文档区(下)」呈现：
- *  配置栏含签署方列表 / 签署方式分段（指定位置·关键字）/ 印章·签名资产库 / 签署意愿验证码；
- *  文档区用 PDF 页图叠加本人的签署框，点按本人未签签署框即选中为签署对象，
- *  提交前完成二次验证（signCode → sign 带 code）。
+ * 单屏结构：文档区（PDF 逐页图 / 合同正文）+「签署方」托盘（电子印章 / 手写签名）。
+ *   1) 托盘固定两项；未制作 = 灰态 + 制作按钮，点开制作弹窗；
+ *   2) 制作 →「使用」后条目回填缩略图并出现拖拽能力；
+ *   3) 从托盘按住拖到文档任意位置，松手在落点渲染成品图；落框可拖动改位、✕ 删除
+ *      （坐标仅内部按页面百分比计算，界面不暴露任何裸数字）；
+ *   4) 底部【签署】一次性原子提交全部落章项（sign-batch），成功后刷新详情。
+ *
+ * 已移除独立的「签署意愿验证」发码/输码与「手写画板」「签名库」弹层，能力并入托盘 / 制作弹窗。
  * 文本走 i18n 三语。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -47,25 +50,29 @@ const ROLE_META: Record<string, string> = {
   agent: 'contract.roleAgent'
 }
 
-// 签署区类型（法大大风格：手写 / 公章 / 日期）
-const FIELD_TYPE_META: Record<string, string> = {
-  signature: 'contract.field.signature',
-  seal: 'contract.field.seal',
-  date: 'contract.field.date'
+// 落章方式（后端 method）：电子印章 / 手写签名
+type SignMethod = 'company_seal' | 'personal_handwrite'
+
+interface PlacedItem {
+  key: string
+  method: SignMethod
+  page: number
+  x: number
+  y: number
+  w: number
+  h: number
+  dataUrl: string
+  svg?: string
 }
 
-// 「默认关键字」回填字面量：须匹配合同正文文字，故固定中文，不随 UI 语言翻译
-const KEYWORD_DEFAULT_LITERAL: Record<string, string> = {
-  signature: '个人手写签名处',
-  seal: '电子印章盖章处',
-  date: '签署日期'
+// 落框默认尺寸（页面百分比）：公章近方形、手写签名扁长，适配 A4 竖版视觉比例
+const ITEM_SIZE: Record<SignMethod, { w: number; h: number }> = {
+  company_seal: { w: 18, h: 13 },
+  personal_handwrite: { w: 26, h: 10 }
 }
 
-// 页面百分比坐标：非法/越界值回退到默认，防止越界撑爆页图容器（x/y/w/h 均为页面百分比 0-100）
-const pct = (v: any, min: number, max: number, def: number) => {
-  const n = typeof v === 'number' ? v : Number.parseFloat(String(v ?? ''))
-  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def
-}
+const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
+const r2 = (n: number) => Math.round(n * 100) / 100
 
 const isRealNameError = (e: any) =>
   typeof e?.message === 'string' && e.message.toUpperCase().includes('REAL_NAME_REQUIRED')
@@ -78,42 +85,29 @@ export default function MyContractsPage() {
   const [detail, setDetail] = useState<any>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [signing, setSigning] = useState(false)
+
   // PDF 页图预览：pdf_available 为真时以页图作为签署画布
   const [pdfAvailable, setPdfAvailable] = useState(false)
   const [pdfNumPages, setPdfNumPages] = useState(0)
   const [fieldPage, setFieldPage] = useState(1)
 
-  // ===== 开放签「签署配置栏 + 文档区」 =====
-  const [signMode, setSignMode] = useState<'position' | 'keyword'>('position')
-  const [selFieldId, setSelFieldId] = useState('')
-  const [kwHits, setKwHits] = useState<any[]>([])
-  const [kwHitCount, setKwHitCount] = useState(0)
-  const [keyword, setKeyword] = useState('')
-  const [kwBusy, setKwBusy] = useState(false)
-
-  // ===== 签署意愿二次验证 =====
-  const [intentCode, setIntentCode] = useState('')
-  const [codeSent, setCodeSent] = useState(false)
-  const [codeCooldown, setCodeCooldown] = useState(0)
-  const [codeBusy, setCodeBusy] = useState(false)
-
-  // ===== 拒签 =====
-  const [showDecline, setShowDecline] = useState(false)
-  const [declineReason, setDeclineReason] = useState('')
-  const [declineBusy, setDeclineBusy] = useState(false)
-
   // ===== 签名资产库（本人可复用） =====
   const [assets, setAssets] = useState<any[]>([])
+  // 已制作的手写签名（本地保留 SVG + PNG，拖拽时随落章项一并提交）
+  const [sigMadeLocal, setSigMadeLocal] = useState<{ dataUrl: string; svg: string } | null>(null)
+
+  // ===== 制作弹窗：电子印章 =====
   const [showSealMaker, setShowSealMaker] = useState(false)
   const [sealMakerBusy, setSealMakerBusy] = useState(false)
-  // 印章制作：模板制作（系统生成公章）/ 上传实章（印模抠图）并列切换
   const [sealMakerMode, setSealMakerMode] = useState<'template' | 'imprint'>('template')
   const [companyName, setCompanyName] = useState('')
   const [middleText, setMiddleText] = useState('测试印章')
   const [generatedSeal, setGeneratedSeal] = useState('')
   const [genSealBusy, setGenSealBusy] = useState(false)
-  const [showSigDraw, setShowSigDraw] = useState(false)
-  const [assetBusyId, setAssetBusyId] = useState<string | null>(null)
+
+  // ===== 制作弹窗：手写签名 =====
+  const [showSigMaker, setShowSigMaker] = useState(false)
+  const [sigUseBusy, setSigUseBusy] = useState(false)
 
   // ===== 印模裁剪：方形选区 + 旋转（选区坐标仅内部计算，界面不显示裸数字） =====
   const [showSealCrop, setShowSealCrop] = useState(false)
@@ -125,6 +119,24 @@ export default function MyContractsPage() {
   const [sealCropBusy, setSealCropBusy] = useState(false)
   const sealCropRectRef = useRef<any>(null)
   const sealCropDragRef = useRef<{ startX: number; startY: number; ox: number; oy: number; s: number } | null>(null)
+
+  // ===== 拖拽落章（托盘 → 文档 / 落框改位） =====
+  const [placedItems, setPlacedItems] = useState<PlacedItem[]>([])
+  const [dragging, setDragging] = useState(false)
+  const [movingKey, setMovingKey] = useState('')
+  const [overDoc, setOverDoc] = useState(false)
+  const [dragGhost, setDragGhost] = useState<{ method: SignMethod; x: number; y: number; dataUrl: string } | null>(null)
+  const docRectRef = useRef<any>(null)
+  const gestureRef = useRef<
+    | { type: 'tray'; method: SignMethod }
+    | { type: 'move'; key: string; offX: number; offY: number }
+    | null
+  >(null)
+
+  // ===== 拒签 =====
+  const [showDecline, setShowDecline] = useState(false)
+  const [declineReason, setDeclineReason] = useState('')
+  const [declineBusy, setDeclineBusy] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -153,7 +165,8 @@ export default function MyContractsPage() {
       setDetail({ ...d, content_html: d.content_html || '' })
       setPdfAvailable(!!d?.pdf_available)
       setPdfNumPages(Number(d?.pdf_page_count) || 0)
-      setSelFieldId('')
+      setFieldPage(1)
+      setPlacedItems([])
       refreshAssets()
     } catch (error) {
       console.error('[MyContracts] 加载合同失败', error)
@@ -171,21 +184,16 @@ export default function MyContractsPage() {
   const myParty = Array.isArray(detail?.parties)
     ? detail.parties.find((p: any) => isSelfParty(p)) || null
     : null
-
-  // 本人生效、且未签署的签署区
-  const myFields = Array.isArray(detail?.sign_fields)
-    ? detail.sign_fields.filter((f: any) => String(f?.party_id) === String(myParty?.id))
-    : []
-  const pendingMyFields = myFields.filter((f: any) => !f?.signed)
-  const activeField =
-    pendingMyFields.find((f: any) => String(f?.id) === String(selFieldId)) || pendingMyFields[0] || null
-  const allMineSigned = myFields.length > 0 && pendingMyFields.length === 0
-  const alreadySigned = !!myParty?.signed || myParty?.declined_at
+  const alreadySigned = !!myParty?.signed || !!myParty?.declined_at
 
   const sealAssets = assets.filter((a: any) => a?.asset_type === 'seal')
   const sigAssets = assets.filter((a: any) => a?.asset_type === 'handwrite')
   const currentSeal = (sealAssets.length ? sealAssets[sealAssets.length - 1] : null) || null
   const currentSig = (sigAssets.length ? sigAssets[sigAssets.length - 1] : null) || null
+
+  // 托盘两项的成品图（image_data_url）
+  const madeSealData = currentSeal?.data_url || ''
+  const madeSigData = sigMadeLocal?.dataUrl || currentSig?.data_url || ''
 
   const refreshAssets = useCallback(() => {
     signAssetsApi
@@ -196,51 +204,157 @@ export default function MyContractsPage() {
       .catch(() => setAssets([]))
   }, [])
 
-  // 签署意愿二次验证：向本人下发验证码
-  const sendIntentCode = async () => {
-    if (!detail?.id || !myParty?.id) {
-      Taro.showToast({ title: t('contract.partyRequired'), icon: 'none' })
-      return
-    }
-    setCodeBusy(true)
-    try {
-      await contractsApi.signCode(detail.id, String(myParty.id))
-      setCodeSent(true)
-      setCodeCooldown(60)
-      Taro.showToast({ title: t('contract.codeSentTo'), icon: 'success' })
-    } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.getCode'), icon: 'none' })
-    } finally {
-      setCodeBusy(false)
-    }
+  // ===== 文档区尺寸测量（拖拽落点换算为页面百分比） =====
+  const measureDoc = () =>
+    new Promise<any>((resolve) => {
+      const pageInstance = Taro.getCurrentInstance()?.page
+      const q = pageInstance
+        ? Taro.createSelectorQuery().in(pageInstance as any)
+        : Taro.createSelectorQuery()
+      q.select('#mcDocCanvas').boundingClientRect((rect: any) => resolve(rect)).exec()
+    })
+
+  const pctFromPoint = (pageX: number, pageY: number, rect: any) => {
+    if (!rect || !rect.width || !rect.height || pageX == null || pageY == null) return null
+    const x = ((pageX - rect.left) / rect.width) * 100
+    const y = ((pageY - rect.top) / rect.height) * 100
+    if (x < 0 || x > 100 || y < 0 || y > 100) return null
+    return { x, y }
   }
 
-  // 倒计时：让「获取/重新发送」按钮显示剩余秒数
+  // 打开详情 / 翻页后预测量文档区位置（页面布局稳定后再测）
   useEffect(() => {
-    if (codeCooldown <= 0) return
-    const timer = setTimeout(() => setCodeCooldown((c) => Math.max(0, c - 1)), 1000)
+    if (!detail?.id) return
+    const timer = setTimeout(() => {
+      void measureDoc().then((rect) => { docRectRef.current = rect })
+    }, 400)
     return () => clearTimeout(timer)
-  }, [codeCooldown])
+  }, [detail?.id, fieldPage, pdfAvailable])
 
-  const resetIntent = () => {
-    setIntentCode('')
-    setCodeSent(false)
-    setCodeCooldown(0)
+  // ===== 托盘拖拽 → 文档落章 =====
+  const trayData = (method: SignMethod) => (method === 'company_seal' ? madeSealData : madeSigData)
+
+  const onTrayTouchStart = (method: SignMethod) => (e: any) => {
+    const data = trayData(method)
+    if (!data) return
+    const touch = e?.touches?.[0] || e?.changedTouches?.[0]
+    if (!touch) return
+    gestureRef.current = { type: 'tray', method }
+    setDragging(true)
+    setDragGhost({ method, x: touch.pageX, y: touch.pageY, dataUrl: data })
+    void measureDoc().then((rect) => {
+      docRectRef.current = rect
+      setOverDoc(!!pctFromPoint(touch.pageX, touch.pageY, rect))
+    })
   }
 
-  const doSign = async () => {
-    if (!detail?.id || !activeField?.id || !myParty?.id || signing) return
-    const fieldId = String(activeField.id)
-    const method = String(activeField.field_type || 'signature')
-    if (!intentCode.trim() || !codeSent) {
-      Taro.showToast({ title: t('contract.sendCodeFirst'), icon: 'none' })
+  const onTrayTouchMove = (e: any) => {
+    const g = gestureRef.current
+    if (!g || g.type !== 'tray') return
+    const touch = e?.touches?.[0]
+    if (!touch) return
+    setDragGhost((prev) => (prev ? { ...prev, x: touch.pageX, y: touch.pageY } : prev))
+    setOverDoc(!!pctFromPoint(touch.pageX, touch.pageY, docRectRef.current))
+  }
+
+  const onTrayTouchEnd = async (e: any) => {
+    const g = gestureRef.current
+    gestureRef.current = null
+    setDragging(false)
+    setDragGhost(null)
+    setOverDoc(false)
+    if (!g || g.type !== 'tray') return
+    const touch = e?.changedTouches?.[0] || e?.touches?.[0]
+    if (!touch) return
+    // 始终重新测量文档区（防止拖拽期间页面滚动导致落点偏移）
+    const rect = await measureDoc()
+    docRectRef.current = rect
+    const pt = pctFromPoint(touch.pageX, touch.pageY, rect)
+    if (!pt) return
+    addPlaced(g.method, pt.x, pt.y)
+  }
+
+  // 在落点渲染成品图（以指尖为落框中心）
+  const addPlaced = (method: SignMethod, x: number, y: number) => {
+    const data = trayData(method)
+    if (!data) return
+    const size = ITEM_SIZE[method]
+    const item: PlacedItem = {
+      key: `${method}-${Date.now()}-${placedItems.length}`,
+      method,
+      page: fieldPage,
+      x: r2(clamp(x - size.w / 2, 0, 100 - size.w)),
+      y: r2(clamp(y - size.h / 2, 0, 100 - size.h)),
+      w: size.w,
+      h: size.h,
+      dataUrl: data,
+      svg: method === 'personal_handwrite' ? sigMadeLocal?.svg || '' : ''
+    }
+    setPlacedItems((prev) => [...prev, item])
+  }
+
+  // ===== 落框拖动改位 / 删除 =====
+  const onItemTouchStart = (key: string) => (e: any) => {
+    const touch = e?.touches?.[0]
+    const item = placedItems.find((it) => it.key === key)
+    if (!touch || !item) return
+    const rect = docRectRef.current
+    let offX = 0
+    let offY = 0
+    if (rect?.width && rect?.height) {
+      offX = ((touch.pageX - rect.left) / rect.width) * 100 - item.x
+      offY = ((touch.pageY - rect.top) / rect.height) * 100 - item.y
+    }
+    gestureRef.current = { type: 'move', key, offX, offY }
+    setMovingKey(key)
+    void measureDoc().then((r) => { docRectRef.current = r })
+  }
+
+  const onItemTouchMove = (e: any) => {
+    const g = gestureRef.current
+    if (!g || g.type !== 'move') return
+    const touch = e?.touches?.[0]
+    if (!touch) return
+    const pt = pctFromPoint(touch.pageX, touch.pageY, docRectRef.current)
+    if (!pt) return
+    setPlacedItems((prev) =>
+      prev.map((it) =>
+        it.key === g.key
+          ? { ...it, x: r2(clamp(pt.x - g.offX, 0, 100 - it.w)), y: r2(clamp(pt.y - g.offY, 0, 100 - it.h)) }
+          : it
+      )
+    )
+  }
+
+  const onItemTouchEnd = () => {
+    gestureRef.current = null
+    setMovingKey('')
+  }
+
+  const removePlaced = (key: string) => setPlacedItems((prev) => prev.filter((it) => it.key !== key))
+
+  // ===== 一次性原子提交（sign-batch） =====
+  const doSignBatch = async () => {
+    if (!detail?.id || !myParty?.id || signing) return
+    if (!placedItems.length) {
+      Taro.showToast({ title: t('contract.signNeedPlace'), icon: 'none' })
       return
     }
     setSigning(true)
     try {
-      await contractsApi.sign(detail.id, { fieldId, method, code: intentCode.trim(), partyId: String(myParty.id) })
+      const items = placedItems.map((it) => ({
+        page: it.page,
+        x: it.x,
+        y: it.y,
+        w: it.w,
+        h: it.h,
+        method: it.method,
+        ...(it.svg ? { signature_svg: it.svg } : {}),
+        ...(it.dataUrl ? { image_data_url: it.dataUrl } : {})
+      }))
+      await contractsApi.signBatch(detail.id, { party_id: String(myParty.id), items })
       Taro.showToast({ title: t('contract.signDone'), icon: 'success' })
-      resetIntent()
+      setPlacedItems([])
       await openDetail(detail.id)
       await load()
     } catch (e: any) {
@@ -251,26 +365,6 @@ export default function MyContractsPage() {
       }
     } finally {
       setSigning(false)
-    }
-  }
-
-  // 关键字签署（可选）：按命中在文档建字段后再签
-  const doKeywordSearch = async () => {
-    if (!detail?.id || !keyword.trim()) {
-      Taro.showToast({ title: t('contract.searchKeyword'), icon: 'none' })
-      return
-    }
-    setKwBusy(true)
-    try {
-      const res: any = await contractsApi.keywordSearch(detail.id, keyword.trim())
-      const d = unwrap(res)
-      const hits: any[] = Array.isArray(d?.hits) ? d.hits : []
-      setKwHits(hits)
-      setKwHitCount(Number(d?.count) || hits.length)
-    } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.searchKeyword'), icon: 'none' })
-    } finally {
-      setKwBusy(false)
     }
   }
 
@@ -303,7 +397,12 @@ export default function MyContractsPage() {
     }
   }
 
-  // ===== 签名资产：制作印章 / 手写签名 =====
+  // ===== 电子印章制作 =====
+  const openSealMaker = () => {
+    setGeneratedSeal('')
+    setShowSealMaker(true)
+  }
+
   // 印模：选图 → 方形裁剪+旋转 → 导出 base64 → imprint
   const makeSeal = () => {
     Taro.chooseImage({ count: 1, sizeType: ['original'], sourceType: ['album', 'camera'] }).then(async (res) => {
@@ -468,7 +567,7 @@ export default function MyContractsPage() {
     }
   }
 
-  // 使用生成的模板章：写入签名库并设为当前签署用章
+  // 使用生成的模板章：写入签名库并设为当前签署用章（托盘回填缩略图）
   const useGeneratedSeal = async () => {
     if (!generatedSeal) return
     setGenSealBusy(true)
@@ -489,9 +588,15 @@ export default function MyContractsPage() {
     }
   }
 
-  // 手写签名：按笔画记录（速度加权 1~4px 线宽）+ 单笔撤销 / 整面重写
+  // ===== 手写签名：按笔画记录（速度加权 1~4px 线宽）+ 单笔撤销 / 整面重写 =====
   const sigStrokes = useRef<{ pts: { x: number; y: number }[]; w: number }[]>([])
   const sigCur = useRef<{ pts: { x: number; y: number }[]; dist: number; count: number } | null>(null)
+
+  const openSigMaker = () => {
+    sigStrokes.current = []
+    sigCur.current = null
+    setShowSigMaker(true)
+  }
 
   const sigDrawStart = (e: any) => {
     const tt = e?.touches?.[0]
@@ -567,50 +672,157 @@ export default function MyContractsPage() {
     ctx.draw()
   }
 
-  const saveSig = () => {
-    Taro.canvasToTempFilePath({ canvasId: 'mcSignCanvas' })
-      .then((res: any) => {
-        const path = res?.tempFilePath
-        if (!path) return
-        const fs: any = Taro.getFileSystemManager()
-        fs.readFile({ filePath: path, encoding: 'base64', success: (fi: any) => {
-          const b64 = fi?.data || ''
-          signAssetsApi
-            .create({ name: `sig-${Date.now()}`, asset_type: 'handwrite', source: 'drew', data_url: `data:image/png;base64,${b64}` })
-            .then(() => {
-              Taro.showToast({ title: t('contract.assetSaved'), icon: 'success' })
-              setShowSigDraw(false)
-              refreshAssets()
-            })
-            .catch((e: any) => Taro.showToast({ title: e?.message || t('contract.saveToLibrary'), icon: 'none' }))
-        }, fail: () => {} })
+  // 笔画包围盒（用于 SVG / 离屏 PNG 紧致裁切）
+  const sigBBox = () => {
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    sigStrokes.current.forEach((s) =>
+      s.pts.forEach((p) => {
+        minX = Math.min(minX, p.x)
+        minY = Math.min(minY, p.y)
+        maxX = Math.max(maxX, p.x)
+        maxY = Math.max(maxY, p.y)
       })
-      .catch(() => {})
+    )
+    if (!Number.isFinite(minX)) return null
+    const pad = 6
+    return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad }
   }
 
-  const removeAsset = async (aid: string) => {
-    setAssetBusyId(aid)
+  // 产出 SVG（随落章项 signature_svg 一并提交，作为矢量兜底）
+  const buildSigSvg = (): string => {
+    const bb = sigBBox()
+    if (!bb) return ''
+    const w = bb.maxX - bb.minX
+    const h = bb.maxY - bb.minY
+    const paths = sigStrokes.current
+      .map((s) => {
+        const d = s.pts
+          .map((p, i) => `${i ? 'L' : 'M'}${(p.x - bb.minX).toFixed(1)} ${(p.y - bb.minY).toFixed(1)}`)
+          .join(' ')
+        return `<path d="${d}" stroke="#1f2937" stroke-width="${s.w}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+      })
+      .join('')
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w.toFixed(0)}" height="${h.toFixed(0)}" viewBox="0 0 ${w.toFixed(1)} ${h.toFixed(1)}">${paths}</svg>`
+  }
+
+  // 额外：把签名画到离屏 canvas → 导出 → base64 → data:image/png;base64,... 作为 image_data_url
+  const exportSigPng = async (): Promise<string> => {
+    const bb = sigBBox()
+    if (!bb) return ''
+    const CW = 600
+    const CH = 240
+    const bw = bb.maxX - bb.minX
+    const bh = bb.maxY - bb.minY
+    const scale = Math.min(CW / Math.max(1, bw), CH / Math.max(1, bh))
+    const ox = (CW - bw * scale) / 2
+    const oy = (CH - bh * scale) / 2
+    const ctx = Taro.createCanvasContext('mcSigExport')
+    ctx.clearRect(0, 0, CW, CH)
+    sigStrokes.current.forEach((s) => {
+      if (!s.pts.length) return
+      ctx.setStrokeStyle('#1f2937')
+      ctx.setLineCap('round')
+      ctx.setLineJoin('round')
+      ctx.setLineWidth(Math.max(1, s.w * scale))
+      ctx.beginPath()
+      ctx.moveTo(ox + (s.pts[0].x - bb.minX) * scale, oy + (s.pts[0].y - bb.minY) * scale)
+      for (let i = 1; i < s.pts.length; i++) {
+        ctx.lineTo(ox + (s.pts[i].x - bb.minX) * scale, oy + (s.pts[i].y - bb.minY) * scale)
+      }
+      ctx.stroke()
+    })
+    const temp = await new Promise<string>((resolve) => {
+      ctx.draw(false, () => {
+        Taro.canvasToTempFilePath({
+          canvasId: 'mcSigExport',
+          destWidth: CW,
+          destHeight: CH,
+          success: (r: any) => resolve(r?.tempFilePath || ''),
+          fail: () => resolve('')
+        })
+      })
+    })
+    if (!temp) return ''
+    const fs: any = Taro.getFileSystemManager()
+    const b64 = await new Promise<string>((resolve) =>
+      fs.readFile({ filePath: temp, encoding: 'base64', success: (r: any) => resolve(r?.data || ''), fail: () => resolve('') })
+    )
+    return b64 ? `data:image/png;base64,${b64}` : ''
+  }
+
+  // 使用手写签名：产出 SVG + PNG，回填托盘（并尽力持久化到签名库）
+  const useSignature = async () => {
+    if (sigUseBusy) return
+    if (!sigStrokes.current.length) {
+      Taro.showToast({ title: t('contract.sigDrawEmpty'), icon: 'none' })
+      return
+    }
+    setSigUseBusy(true)
     try {
-      await signAssetsApi.remove(aid)
+      const svg = buildSigSvg()
+      const dataUrl = await exportSigPng()
+      setSigMadeLocal({ dataUrl, svg })
+      if (dataUrl) {
+        signAssetsApi
+          .create({ name: `sig-${Date.now()}`, asset_type: 'handwrite', source: 'drew', data_url: dataUrl })
+          .then(() => refreshAssets())
+          .catch(() => {})
+      }
       Taro.showToast({ title: t('contract.assetSaved'), icon: 'success' })
-      await refreshAssets()
-    } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.removeAsset'), icon: 'none' })
+      setShowSigMaker(false)
+      sigStrokes.current = []
+      sigCur.current = null
     } finally {
-      setAssetBusyId(null)
+      setSigUseBusy(false)
     }
   }
 
-  const canSign = !!activeField?.id && !alreadySigned && !allMineSigned
-  const docFields = Array.isArray(detail?.sign_fields)
-    ? detail.sign_fields.filter((f: any) => pct(f?.page, 1, pdfNumPages, 1) === fieldPage)
-    : []
+  const canSign = !!myParty?.id && !alreadySigned
+  const pageItems = placedItems.filter((it) => it.page === fieldPage)
 
-  const fieldLabel = (f: any) => {
-    const mine = String(f?.party_id) === String(myParty?.id)
-    if (f?.signed) return t('contract.signed')
-    if (mine) return String(f?.id) === String(activeField?.id) ? t('contract.signSelf') : t('contract.tapToSign')
-    return '-'
+  // 托盘条目（开放签式整行交互）：
+  //   未制作 → 整行点一下直接打开手写签名板 / 印章制作（不再有小「制作」按钮）；
+  //   已制作 → 整行即 touch 拖拽源，按在条目上拖到文档任意位置松手即落章，右上小按钮用于重做/更换。
+  const renderTrayItem = (method: SignMethod) => {
+    const made = method === 'company_seal' ? !!madeSealData : !!madeSigData
+    const label = method === 'company_seal' ? t('contract.traySeal') : t('contract.traySignature')
+    const openMaker = () => (method === 'company_seal' ? openSealMaker() : openSigMaker())
+    return (
+      <View
+        key={method}
+        className={`mc-tray-item ${made ? 'mc-tray-item--made' : 'mc-tray-item--empty'} ${dragging && dragGhost?.method === method ? 'mc-tray-item--dragging' : ''}`}
+        catchMove
+        onTouchStart={onTrayTouchStart(method)}
+        onTouchMove={onTrayTouchMove}
+        onTouchEnd={onTrayTouchEnd}
+        onTouchCancel={onTrayTouchEnd}
+        onClick={() => { if (!made) openMaker() }}
+      >
+        <View className='mc-tray-item__thumb'>
+          {made
+            ? <Image className='mc-tray-item__img' src={method === 'company_seal' ? madeSealData : madeSigData} mode='aspectFit' />
+            : <Text className='mc-tray-item__placeholder'>{method === 'company_seal' ? t('contract.sealUnmadeShort') : t('contract.sigUnmadeShort')}</Text>}
+        </View>
+        <Text className='mc-tray-item__name'>{label}</Text>
+        <Text className={`mc-tray-item__hint ${made ? '' : 'mc-tray-item__hint--tap'}`}>
+          {made
+            ? t('contract.readyToDrag')
+            : (method === 'company_seal' ? t('contract.tapMakeSeal') : t('contract.tapSign'))}
+        </Text>
+        {made && (
+          <View
+            className='mc-tray-item__redo'
+            catchMove
+            onClick={(ev: any) => { ev.stopPropagation?.(); openMaker() }}
+          >
+            <View className='icon-svg' style={iconStyle('edit', 26)} />
+          </View>
+        )}
+      </View>
+    )
   }
 
   return (
@@ -618,16 +830,20 @@ export default function MyContractsPage() {
       <ShellHeader title={t('contract.my')} />
 
       {detail ? (
-        /* ===== 详情：签署配置栏 + 文档区 ===== */
+        /* ===== 详情：单屏签署台（托盘 + 文档区） ===== */
         <View className='mc-wrap'>
-          <ScrollView scrollY className='mc-scroll'>
+          <ScrollView scrollY={!dragging && !movingKey} className='mc-scroll'>
             {detailLoading && !detail?.parties ? (
               <StateBlock loading text={t('pub.loading')} />
             ) : (
               <View>
                 <View className='mc-card'>
                   <View className='mc-card__top'>
-                    <Text className='mc-card__title'>{detail?.title || t('contract.unknown')}</Text>
+                    <View className='mc-card__topmain'>
+                      <Text className='mc-card__title'>{detail?.title || t('contract.unknown')}</Text>
+                      {/* v2 角标仅用于自证设备已加载新 bundle */}
+                      <Text className='mc-ver'>v2</Text>
+                    </View>
                     <Text className={`mc-badge ${
                       detail?.status === 'signed' || detail?.status === 'completed'
                         ? 'mc-badge--success'
@@ -654,12 +870,9 @@ export default function MyContractsPage() {
                   </View>
                 </View>
 
-                {/* ===== 签署配置栏（上） ===== */}
+                {/* 签署方（本人高亮）列表 */}
                 <View className='mc-config'>
-                  <Text className='mc-config__title'>{t('contract.configTitle')}</Text>
-
-                  {/* 1. 签署方列表（本人高亮） */}
-                  <Text className='mc-config__label'>{t('contract.parties')}</Text>
+                  <Text className='mc-config__title'>{t('contract.parties')}</Text>
                   {Array.isArray(detail?.parties) && detail.parties.length
                     ? detail.parties.map((p: any, idx: number) => {
                         const isSelf = isSelfParty(p)
@@ -687,235 +900,9 @@ export default function MyContractsPage() {
                         )
                       })
                     : <Text className='mc-config__hint'>{t('contract.empty')}</Text>}
-
-                  {/* 2. 签署方式分段 */}
-                  <Text className='mc-config__label'>{t('contract.fieldType')}</Text>
-                  <View className='mc-seg'>
-                    <View
-                      className={`mc-seg__item ${signMode === 'position' ? 'mc-seg__item--active' : ''}`}
-                      onClick={() => { setSignMode('position'); setSelFieldId('') }}
-                    >
-                      <Text className={`mc-seg__text ${signMode === 'position' ? 'mc-seg__text--active' : ''}`}>
-                        {t('contract.positionSign')}
-                      </Text>
-                    </View>
-                    <View
-                      className={`mc-seg__item ${signMode === 'keyword' ? 'mc-seg__item--active' : ''}`}
-                      onClick={() => { setSignMode('keyword'); setKwHits([]); setKwHitCount(0) }}
-                    >
-                      <Text className={`mc-seg__text ${signMode === 'keyword' ? 'mc-seg__text--active' : ''}`}>
-                        {t('contract.keywordSign')}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* 3. 印章 / 签名资产块 */}
-                  <Text className='mc-config__label'>{t('contract.mySeal')}</Text>
-                  {currentSeal ? (
-                    <View className='mc-asset-line'>
-                      <Image className='mc-asset-thumb' src={currentSeal?.data_url} mode='aspectFit' />
-                      <Text className='mc-asset-name'>{currentSeal?.name || '-'}</Text>
-                      <View className='mc-config__row' style={{ marginLeft: 'auto' }}>
-                        <View className='mc-btn mc-btn--ghost' onClick={() => setShowSealMaker(true)}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.chgAsset')}</Text>
-                        </View>
-                        <View className={`mc-btn mc-btn--ghost ${assetBusyId === currentSeal?.id ? 'mc-btn--disabled' : ''}`} onClick={() => { if (currentSeal?.id && assetBusyId !== currentSeal?.id) void removeAsset(String(currentSeal.id)) }}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.removeAsset')}</Text>
-                        </View>
-                      </View>
-                    </View>
-                  ) : (
-                    <View className='mc-assets__empty'>
-                      <Text className='mc-config__hint'>{t('contract.sealUnmade')}</Text>
-                      <View className='mc-btn mc-btn--ghost' onClick={() => setShowSealMaker(true)}>
-                        <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.makeSeal')}</Text>
-                      </View>
-                    </View>
-                  )}
-
-                  <Text className='mc-config__label'>{t('contract.mySignature')}</Text>
-                  {currentSig ? (
-                    <View className='mc-asset-line'>
-                      <Image className='mc-asset-thumb' src={currentSig?.data_url} mode='aspectFit' />
-                      <Text className='mc-asset-name'>{currentSig?.name || '-'}</Text>
-                      <View className='mc-config__row' style={{ marginLeft: 'auto' }}>
-                        <View className='mc-btn mc-btn--ghost' onClick={() => setShowSigDraw(true)}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.chgAsset')}</Text>
-                        </View>
-                        <View className={`mc-btn mc-btn--ghost ${assetBusyId === currentSig?.id ? 'mc-btn--disabled' : ''}`} onClick={() => { if (currentSig?.id && assetBusyId !== currentSig?.id) void removeAsset(String(currentSig.id)) }}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.removeAsset')}</Text>
-                        </View>
-                      </View>
-                    </View>
-                  ) : (
-                    <View className='mc-assets__empty'>
-                      <Text className='mc-config__hint'>{t('contract.sealUnmade')}</Text>
-                      <View className='mc-btn mc-btn--ghost' onClick={() => setShowSigDraw(true)}>
-                        <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.drawSignature')}</Text>
-                      </View>
-                    </View>
-                  )}
-
-                  {showSealMaker && (
-                    <View className='mc-maker'>
-                      <Text className='mc-config__label'>{t('contract.makeSeal')}</Text>
-
-                      <View className='mc-seg' style={{ marginBottom: '12rpx' }}>
-                        <View
-                          className={`mc-seg__item ${sealMakerMode === 'template' ? 'mc-seg__item--active' : ''}`}
-                          onClick={() => setSealMakerMode('template')}
-                        >
-                          <Text className={`mc-seg__text ${sealMakerMode === 'template' ? 'mc-seg__text--active' : ''}`}>
-                            {t('contract.sealMakeTemplate')}
-                          </Text>
-                        </View>
-                        <View
-                          className={`mc-seg__item ${sealMakerMode === 'imprint' ? 'mc-seg__item--active' : ''}`}
-                          onClick={() => setSealMakerMode('imprint')}
-                        >
-                          <Text className={`mc-seg__text ${sealMakerMode === 'imprint' ? 'mc-seg__text--active' : ''}`}>
-                            {t('contract.sealMakeImprint')}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {sealMakerMode === 'template' ? (
-                        <View>
-                          <Text className='mc-config__label'>{t('contract.companyName')}</Text>
-                          <Input
-                            className='mc-kw__input'
-                            placeholder={t('contract.companyNamePlaceholder')}
-                            value={companyName}
-                            onInput={(e: any) => setCompanyName(e.detail.value)}
-                          />
-                          <Text className='mc-config__label'>{t('contract.middleText')}</Text>
-                          <Input
-                            className='mc-kw__input'
-                            placeholder={t('contract.middleTextPlaceholder')}
-                            value={middleText}
-                            onInput={(e: any) => setMiddleText(e.detail.value)}
-                          />
-                          <Text className='mc-config__label'>{t('contract.sealStyle')}</Text>
-                          <Text className='mc-seal-style'>{t('contract.sealStyleOfficial')}</Text>
-                          <View className='mc-config__row' style={{ marginTop: '12rpx' }}>
-                            <View className={`mc-btn mc-btn--ghost ${genSealBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!genSealBusy) void generateTemplateSeal() }}>
-                              <Text className='mc-btn__text mc-btn__text--ghost'>{genSealBusy ? t('pub.loading') : t('contract.generateSeal')}</Text>
-                            </View>
-                          </View>
-                          {generatedSeal ? (
-                            <View className='mc-config__row' style={{ marginTop: '12rpx' }}>
-                              <Image className='mc-asset-thumb mc-seal-preview' src={generatedSeal} mode='aspectFit' />
-                              <View className={`mc-btn mc-btn--ghost ${genSealBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!genSealBusy) void useGeneratedSeal() }}>
-                                <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.useThisSeal')}</Text>
-                              </View>
-                            </View>
-                          ) : null}
-                        </View>
-                      ) : (
-                        <View className='mc-config__row'>
-                          <View className={`mc-btn mc-btn--ghost ${sealMakerBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!sealMakerBusy) makeSeal() }}>
-                            <Text className='mc-btn__text mc-btn__text--ghost'>{sealMakerBusy ? t('pub.loading') : t('contract.uploadSeal')}</Text>
-                          </View>
-                        </View>
-                      )}
-
-                      <View className='mc-config__row' style={{ marginTop: '12rpx' }}>
-                        <View className='mc-btn mc-btn--ghost' onClick={() => setShowSealMaker(false)}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('common.back')}</Text>
-                        </View>
-                      </View>
-                    </View>
-                  )}
-
-                  {showSigDraw && (
-                    <View className='mc-maker'>
-                      <Text className='mc-config__label'>{t('contract.drawSignature')}</Text>
-                      <View className='mc-signbox'>
-                        <Canvas
-                          canvasId='mcSignCanvas'
-                          id='mcSignCanvas'
-                          className='mc-signbox__canvas'
-                          onTouchStart={sigDrawStart}
-                          onTouchMove={sigDrawMove}
-                          onTouchEnd={sigDrawEnd}
-                        />
-                      </View>
-                      <View className='mc-config__row'>
-                        <View className='mc-btn mc-btn--ghost' onClick={undoSigCanvas}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.undoSign')}</Text>
-                        </View>
-                        <View className='mc-btn mc-btn--ghost' onClick={clearSigCanvas}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.clear')}</Text>
-                        </View>
-                        <View className='mc-btn mc-btn--ghost' onClick={saveSig}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.saveToLibrary')}</Text>
-                        </View>
-                        <View className='mc-btn mc-btn--ghost' onClick={() => setShowSigDraw(false)}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('common.back')}</Text>
-                        </View>
-                      </View>
-                    </View>
-                  )}
-
-                  {/* 4. 关键字模式 */}
-                  {signMode === 'keyword' && (
-                    <View className='mc-kw'>
-                      <Text className='mc-config__label'>{t('contract.searchKeyword')}</Text>
-                      <View className='mc-config__row'>
-                        <Input
-                          className='mc-kw__input'
-                          value={keyword}
-                          placeholder={t('contract.keywordPlaceholder')}
-                          onInput={(e: any) => setKeyword(e.detail.value)}
-                        />
-                        <View className='mc-btn mc-btn--ghost' onClick={() => setKeyword(KEYWORD_DEFAULT_LITERAL.signature)}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.keywordDefault')}</Text>
-                        </View>
-                        <View className={`mc-btn mc-btn--ghost ${kwBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!kwBusy) void doKeywordSearch() }}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.search')}</Text>
-                        </View>
-                      </View>
-                      {kwHitCount > 0 && <Text className='mc-config__hint'>{t('contract.keywordHit', { n: kwHitCount })}</Text>}
-                      {kwHits.map((h: any, idx: number) => (
-                        <View key={idx} className='mc-kw__hit'>
-                          <Text className='mc-kw__hit-page'>{t('contract.hitOnPage', { page: h?.page ?? 1 })}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-
-                  {/* 5. 签署意愿验证码 */}
-                  {canSign && (
-                    <View className='mc-verify'>
-                      <Text className='mc-config__label'>{t('contract.verifyCode')}</Text>
-                      <Text className='mc-config__hint'>{t('contract.verifyDesc')}</Text>
-                      {!myParty?.real_name_verified && (
-                        <Text className='mc-config__hint mc-config__hint--warn'>{t('contract.realNameRequired')}</Text>
-                      )}
-                      <View className='mc-config__row'>
-                        <Input
-                          className='mc-kw__input'
-                          placeholder={t('contract.codePlaceholder')}
-                          value={intentCode}
-                          onInput={(e: any) => setIntentCode(e.detail.value)}
-                        />
-                        <View className={`mc-btn mc-btn--ghost ${codeBusy || codeCooldown > 0 ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!codeBusy && codeCooldown <= 0) void sendIntentCode() }}>
-                          <Text className='mc-btn__text mc-btn__text--ghost'>
-                            {codeCooldown > 0
-                              ? t('contract.codeCooldown', { n: codeCooldown })
-                              : (codeSent ? t('contract.resendCode') : t('contract.getCode'))}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  )}
-
-                  {!myParty && detail?.parties && detail.parties.length > 0 ? (
-                    <Text className='mc-config__hint mc-config__hint--warn'>{t('contract.self')}</Text>
-                  ) : null}
                 </View>
 
-                {/* ===== 文档区（下） ===== */}
+                {/* ===== 文档区 ===== */}
                 <View className='mc-doc'>
                   <View className='mc-doc__head'>
                     <Text className='mc-doc__title'>{t('contract.docArea')}</Text>
@@ -924,74 +911,81 @@ export default function MyContractsPage() {
                         <View className={`mc-btn mc-btn--ghost ${fieldPage <= 1 ? 'mc-btn--disabled' : ''}`} onClick={() => { if (fieldPage > 1) setFieldPage((p) => p - 1) }}>
                           <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.prevPage')}</Text>
                         </View>
+                        <Text className='mc-doc__pageno'>{fieldPage} / {pdfNumPages}</Text>
                         <View className={`mc-btn mc-btn--ghost ${fieldPage >= pdfNumPages ? 'mc-btn--disabled' : ''}`} onClick={() => { if (fieldPage < pdfNumPages) setFieldPage((p) => p + 1) }}>
                           <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.nextPage')}</Text>
                         </View>
                       </View>
                     )}
                   </View>
-                  {pdfAvailable && pdfNumPages > 0 ? (
-                    <View className='mc-doc__canvas'>
+
+                  <View id='mcDocCanvas' className={`mc-doc__canvas ${overDoc ? 'mc-doc__canvas--over' : ''}`}>
+                    {pdfAvailable && pdfNumPages > 0 ? (
                       <Image className='mc-doc__img' src={contractsApi.pdfPageUrl(detail.id, fieldPage)} mode='widthFix' />
-                      {docFields.map((f: any, idx: number) => {
-                        const mine = String(f?.party_id) === String(myParty?.id)
-                        const clickable = mine && !f?.signed && !alreadySigned
-                        return (
-                          <View
-                            key={f?.id ?? idx}
-                            className={`mc-doc__field ${mine ? 'mc-doc__field--mine' : ''} ${f?.signed ? 'mc-doc__field--done' : ''} ${String(f?.id) === String(activeField?.id) ? 'mc-doc__field--active' : ''}`}
-                            style={{
-                              left: `${pct(f?.x, 0, 100, 8)}%`,
-                              top: `${pct(f?.y, 0, 100, 40)}%`,
-                              width: `${pct(f?.w, 2, 100, 16)}%`,
-                              height: `${pct(f?.h, 1, 100, 5)}%`
-                            }}
-                            onClick={() => { if (clickable) { setSelFieldId(String(f?.id)); setSignMode('position') } }}
-                          >
-                            <Text className='mc-doc__field-label'>{fieldLabel(f)}</Text>
-                          </View>
-                        )
-                      })}
-                    </View>
-                  ) : (
-                    !!detail?.content_html && (
+                    ) : (
                       <View className='mc-doc__text'>
-                        <Text userSelect>{String(detail.content_html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')}</Text>
+                        {detail?.content_html
+                          ? <Text userSelect>{String(detail.content_html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')}</Text>
+                          : <Text className='mc-doc__empty'>{detail?.title || t('contract.unknown')}</Text>}
                       </View>
-                    )
-                  )}
+                    )}
+
+                    {/* 落章成品图（当前页） */}
+                    {pageItems.map((it) => (
+                      <View
+                        key={it.key}
+                        className={`mc-placed ${movingKey === it.key ? 'mc-placed--moving' : ''}`}
+                        catchMove
+                        style={{
+                          left: `${it.x}%`,
+                          top: `${it.y}%`,
+                          width: `${it.w}%`,
+                          height: `${it.h}%`
+                        }}
+                        onTouchStart={onItemTouchStart(it.key)}
+                        onTouchMove={onItemTouchMove}
+                        onTouchEnd={onItemTouchEnd}
+                        onTouchCancel={onItemTouchEnd}
+                      >
+                        <Image className='mc-placed__img' src={it.dataUrl} mode='aspectFit' />
+                        <View
+                          className='mc-placed__del'
+                          onClick={(ev: any) => { ev.stopPropagation?.(); removePlaced(it.key) }}
+                        >
+                          <View className='icon-svg' style={iconStyle('close', 22)} />
+                        </View>
+                      </View>
+                    ))}
+                  </View>
                 </View>
               </View>
             )}
           </ScrollView>
 
-          {/* ===== 底部主按钮 + 拒签 ===== */}
-          <View className='mc-footer'>
-            {myParty && !alreadySigned && pendingMyFields.length > 0 && (
-              <View className={`mc-btn mc-btn--ghost mc-footer__decline ${declineBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!declineBusy) openDecline() }}>
-                <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.decline')}</Text>
-              </View>
-            )}
-            <View
-              className={`mc-sign ${allMineSigned ? 'mc-sign--done' : ''} ${!canSign ? 'mc-sign--disabled' : ''}`}
-              onClick={() => {
-                if (allMineSigned) {
-                  Taro.showToast({ title: t('contract.completedToast'), icon: 'none' })
-                  return
-                }
-                if (canSign) void doSign()
-              }}
-            >
-              <Text className='mc-sign__text'>
-                {allMineSigned
-                  ? t('contract.completedToast')
-                  : signing
-                    ? t('contract.signing')
-                    : (canSign ? t('contract.signSelf') : t('contract.tapToSign'))}
-              </Text>
-              {allMineSigned && (
-                <View className='icon-svg' style={{ ...iconStyle('check', 30), marginLeft: '4rpx' }} />
+          {/* ===== 底部固定栏：签章托盘 + 签署按钮（与文档同屏，边拖边看） ===== */}
+          <View className='mc-footer mc-dock'>
+            <View className='mc-dock__tray'>
+              {renderTrayItem('company_seal')}
+              {renderTrayItem('personal_handwrite')}
+            </View>
+            <View className='mc-dock__actions'>
+              {myParty && !alreadySigned && (
+                <View className={`mc-btn mc-btn--ghost mc-footer__decline ${declineBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!declineBusy) openDecline() }}>
+                  <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.decline')}</Text>
+                </View>
               )}
+              <View
+                className={`mc-sign ${!canSign || signing || !placedItems.length ? 'mc-sign--disabled' : ''}`}
+                onClick={() => {
+                  if (alreadySigned) {
+                    Taro.showToast({ title: t('contract.completedToast'), icon: 'none' })
+                    return
+                  }
+                  if (canSign && !signing) void doSignBatch()
+                }}
+              >
+                <Text className='mc-sign__text'>{t('contract.sign')}</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -1032,6 +1026,130 @@ export default function MyContractsPage() {
               </View>
             ))
           )}
+        </View>
+      )}
+
+      {/* 拖拽跟随预览（position: fixed，跟随手指） */}
+      {dragGhost && (
+        <View
+          className='mc-ghost'
+          style={{ left: `${dragGhost.x - 44}px`, top: `${dragGhost.y - 44}px` }}
+        >
+          <Image className='mc-ghost__img' src={dragGhost.dataUrl} mode='aspectFit' />
+        </View>
+      )}
+
+      {/* ===== 制作弹窗：电子印章 ===== */}
+      {showSealMaker && (
+        <View className='mc-mask' onClick={() => setShowSealMaker(false)}>
+          <View className='mc-sheet' onClick={(e) => { if (typeof e === 'object') e.stopPropagation?.() }}>
+            <View className='mc-sheet__head'>
+              <Text className='mc-sheet__title'>{t('contract.makeSeal')}</Text>
+              <View className='mc-sheet__close' onClick={() => setShowSealMaker(false)}>
+                <View className='icon-svg' style={iconStyle('close', 30)} />
+              </View>
+            </View>
+
+            <View className='mc-seg'>
+              <View
+                className={`mc-seg__item ${sealMakerMode === 'template' ? 'mc-seg__item--active' : ''}`}
+                onClick={() => setSealMakerMode('template')}
+              >
+                <Text className={`mc-seg__text ${sealMakerMode === 'template' ? 'mc-seg__text--active' : ''}`}>
+                  {t('contract.sealMakeTemplate')}
+                </Text>
+              </View>
+              <View
+                className={`mc-seg__item ${sealMakerMode === 'imprint' ? 'mc-seg__item--active' : ''}`}
+                onClick={() => setSealMakerMode('imprint')}
+              >
+                <Text className={`mc-seg__text ${sealMakerMode === 'imprint' ? 'mc-seg__text--active' : ''}`}>
+                  {t('contract.sealMakeImprint')}
+                </Text>
+              </View>
+            </View>
+
+            {sealMakerMode === 'template' ? (
+              <View>
+                <Text className='mc-config__label'>{t('contract.companyName')}</Text>
+                <Input
+                  className='mc-kw__input'
+                  placeholder={t('contract.companyNamePlaceholder')}
+                  value={companyName}
+                  onInput={(e: any) => setCompanyName(e.detail.value)}
+                />
+                <Text className='mc-config__label'>{t('contract.middleText')}</Text>
+                <Input
+                  className='mc-kw__input'
+                  placeholder={t('contract.middleTextPlaceholder')}
+                  value={middleText}
+                  onInput={(e: any) => setMiddleText(e.detail.value)}
+                />
+                <Text className='mc-config__label'>{t('contract.sealStyle')}</Text>
+                <Text className='mc-seal-style'>{t('contract.sealStyleOfficial')}</Text>
+                <View className='mc-config__row' style={{ marginTop: '12rpx' }}>
+                  <View className={`mc-btn mc-btn--ghost ${genSealBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!genSealBusy) void generateTemplateSeal() }}>
+                    <Text className='mc-btn__text mc-btn__text--ghost'>{genSealBusy ? t('pub.loading') : t('contract.generateSeal')}</Text>
+                  </View>
+                </View>
+                {generatedSeal ? (
+                  <View className='mc-maker-preview'>
+                    <Image className='mc-asset-thumb mc-seal-preview' src={generatedSeal} mode='aspectFit' />
+                    <View className={`mc-btn mc-btn--ghost ${genSealBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!genSealBusy) void useGeneratedSeal() }}>
+                      <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.useThisSeal')}</Text>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <View className='mc-config__row'>
+                <View className={`mc-btn mc-btn--ghost ${sealMakerBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!sealMakerBusy) makeSeal() }}>
+                  <Text className='mc-btn__text mc-btn__text--ghost'>{sealMakerBusy ? t('pub.loading') : t('contract.uploadSeal')}</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* ===== 制作弹窗：手写签名 ===== */}
+      {showSigMaker && (
+        <View className='mc-mask' onClick={() => setShowSigMaker(false)}>
+          <View className='mc-sheet' onClick={(e) => { if (typeof e === 'object') e.stopPropagation?.() }}>
+            <View className='mc-sheet__head'>
+              <Text className='mc-sheet__title'>{t('contract.drawSignature')}</Text>
+              <View className='mc-sheet__close' onClick={() => setShowSigMaker(false)}>
+                <View className='icon-svg' style={iconStyle('close', 30)} />
+              </View>
+            </View>
+            <View className='mc-signbox'>
+              <Canvas
+                canvasId='mcSignCanvas'
+                id='mcSignCanvas'
+                className='mc-signbox__canvas'
+                onTouchStart={sigDrawStart}
+                onTouchMove={sigDrawMove}
+                onTouchEnd={sigDrawEnd}
+              />
+            </View>
+            <View className='mc-config__row mc-sig-actions'>
+              <View className='mc-btn mc-btn--ghost' onClick={undoSigCanvas}>
+                <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.undoSign')}</Text>
+              </View>
+              <View className='mc-btn mc-btn--ghost' onClick={clearSigCanvas}>
+                <Text className='mc-btn__text mc-btn__text--ghost'>{t('contract.clear')}</Text>
+              </View>
+            </View>
+            <View className={`mc-sheet__submit ${sigUseBusy ? 'mc-sheet__submit--busy' : ''}`} onClick={() => { if (!sigUseBusy) void useSignature() }}>
+              <Text className='mc-sheet__submit-text'>{sigUseBusy ? t('pub.loading') : t('contract.useThis')}</Text>
+            </View>
+            {/* 离屏导出画布（生成 image_data_url 用） */}
+            <Canvas
+              canvasId='mcSigExport'
+              id='mcSigExport'
+              style={{ position: 'absolute', left: '-9999rpx', top: 0, width: '600px', height: '240px' }}
+            />
+          </View>
         </View>
       )}
 

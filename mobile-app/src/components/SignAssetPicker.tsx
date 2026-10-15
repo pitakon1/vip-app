@@ -40,6 +40,8 @@ interface Props {
   pendingDrawnSvg?: string;
   /** 保存手写签名后的提示动作（父级可刷新其签名来源） */
   onSaved?: () => void;
+  /** 可选：传入后弹窗顶部出现「印章 / 手写签名」类型切换（通用「签名资产」入口用） */
+  onAssetTypeChange?: (type: 'seal' | 'handwrite') => void;
 }
 
 const svgToDataUrl = (svg: string) =>
@@ -52,6 +54,7 @@ export default function SignAssetPicker({
   onSelect,
   pendingDrawnSvg,
   onSaved,
+  onAssetTypeChange,
 }: Props) {
   const { t } = useI18n();
   const [assets, setAssets] = useState<SignAsset[]>([]);
@@ -223,6 +226,23 @@ export default function SignAssetPicker({
               <Ionicons name="close" size={22} color={colors.ink2} />
             </TouchableOpacity>
           </View>
+
+          {!!onAssetTypeChange && (
+            <View style={styles.modeTabs}>
+              {(['seal', 'handwrite'] as const).map((tp) => (
+                <TouchableOpacity
+                  key={tp}
+                  style={[styles.modeTab, assetType === tp && styles.modeTabActive]}
+                  activeOpacity={0.8}
+                  onPress={() => onAssetTypeChange(tp)}
+                >
+                  <Text style={[styles.modeTabText, assetType === tp && styles.modeTabTextActive]}>
+                    {tp === 'seal' ? t('contract.mySeals') : t('contract.mySigns')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           <ScrollView keyboardShouldPersistTaps="handled">
             <TextInput

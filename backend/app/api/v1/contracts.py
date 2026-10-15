@@ -24,6 +24,7 @@
 - 未注册客户走 `/public/contract-sign/{token}`（令牌一次性、可过期），
   不经过登录态，签署留痕写真实 IP。
 """
+import base64
 import re
 import secrets
 import uuid
@@ -687,17 +688,17 @@ def _send_sign_intent_code(
 def _verify_sign_intent(
     session: Session, party: ContractParty, user: Optional[User], code: Optional[str]
 ) -> None:
-    """签署意愿二次验证：校验签署方收到的验证码。
+    """签署意愿二次验证（可选用）。
 
-    - 无可用联系方式时无法验证（跳过，避免硬锁）；
-    - 有联系方式但未传 code 时给出明确提示；
-    - 校验失败/过期/超次数交由 `_consume_otp` 抛 4xx。
+    对齐开放签默认交互：该步骤默认不启用，签署流程一步到位。仅当调用方**主动传入
+    code** 时才校验；未传则跳过，不再强制「必须先发码」。无可用联系方式时同样跳过。
+    校验失败/过期/超次数交由 `_consume_otp` 抛 4xx。
     """
+    if not code:
+        return
     contact = _party_contact(session, party, user)
     if not contact:
         return
-    if not code:
-        raise HTTPException(status_code=400, detail="SIGN_INTENT_CODE_REQUIRED")
     _consume_otp(session, contact, code)
 
 
@@ -790,13 +791,12 @@ def keyword_sign_search(
     if not keyword:
         raise HTTPException(status_code=400, detail="keyword is required")
 
-    from pathlib import Path
-
-    base = Path(getattr(contract, "pdf_path", None) or "")
-    if not base.exists():
-        base = Path(getattr(contract, "signed_pdf_path", None) or "")
-    if not base.exists():
+    # 无引擎 PDF（上传型合同）→ 404；不得用 Path("") 兜底（空串等价 "." 会被判存在）
+    base = _resolve_contract_pdf(contract)
+    if not base:
         raise HTTPException(status_code=404, detail="Contract PDF not found")
+
+    from app.services import kaifang_sign_service
 
     hits = kaifang_sign_service.get_engine().search_text(base.read_bytes(), keyword)
     return {"keyword": keyword, "count": len(hits), "hits": hits}
@@ -817,17 +817,16 @@ def keyword_sign_fields(
     contract = _get_visible_contract(session, user, contract_id)
     _require_editable(contract)
 
-    from pathlib import Path
-
-    base = Path(getattr(contract, "pdf_path", None) or "")
-    if not base.exists():
-        base = Path(getattr(contract, "signed_pdf_path", None) or "")
-    if not base.exists():
+    base = _resolve_contract_pdf(contract)
+    if not base:
         raise HTTPException(status_code=404, detail="Contract PDF not found")
 
     keyword = (payload.get("keyword") or "").strip()
     if not keyword:
         raise HTTPException(status_code=400, detail="keyword is required")
+
+    from app.services import kaifang_sign_service
+
     hits = kaifang_sign_service.get_engine().search_text(base.read_bytes(), keyword)
     if not hits:
         raise HTTPException(status_code=404, detail="Keyword not found in contract")
@@ -943,10 +942,11 @@ def _sanitize_signature_svg(raw: str) -> str:
     return value
 
 
-def _pdf_signature_stamp(contract, party, method, field) -> tuple:
+def _pdf_signature_stamp(contract, party, method, field, img_override: Optional[bytes] = None) -> tuple:
     """决定要盖到 PDF 上的图片与位置。
 
     返回 (img_bytes, page, x, y, w, h, reason)：
+    - 传入 `img_override`（用户自制印章/手写签名 PNG）时直接使用，对齐开放签「拖放已制作签章」；
     - company_seal → 公司公章（公司名）盖章；
     - 其余（手写/私章/日期）→ 用引擎把手写姓名/日期渲染为 PNG。
     未放置签署区字段时退回整页签名栏默认坐标。
@@ -954,8 +954,9 @@ def _pdf_signature_stamp(contract, party, method, field) -> tuple:
     from app.services import kaifang_sign_service
 
     eng = kaifang_sign_service.get_engine()
-    is_seal = method == SignMethod.company_seal
-    if is_seal:
+    if img_override:
+        img = img_override
+    elif method == SignMethod.company_seal:
         company = (party.name or "电子签章").strip()
         img = eng.make_seal(f"{company}专用章", "合同专用")
     elif method == SignMethod.date:
@@ -974,7 +975,7 @@ def _pdf_signature_stamp(contract, party, method, field) -> tuple:
     return img, page, x, y, w, h, reason
 
 
-def _apply_pdf_signature(session, contract, party, *, field, method) -> None:
+def _apply_pdf_signature(session, contract, party, *, field, method, img_override: Optional[bytes] = None) -> None:
     """用 kaifangqian->Python 引擎对合同 PDF 做定位签署并写回存档。
 
     - 基线：优先取 `signed_pdf_path`（之前已签过），否则取 `pdf_path`；
@@ -985,21 +986,22 @@ def _apply_pdf_signature(session, contract, party, *, field, method) -> None:
 
     from app.config import settings
 
-    base = Path(getattr(contract, "signed_pdf_path", None) or getattr(contract, "pdf_path", None))
-    if not base or not Path(base).exists():
-        return
-    if getattr(contract, "signed_pdf_path", None) == getattr(contract, "pdf_path", None):
-        signed_exists = False
+    # 基线 PDF：优先已签存档，其次原始引擎 PDF。
+    # 注意必须先判空再构造 Path——上传型合同/引擎渲染失败的合同两者皆空，
+    # 直接 Path(None) 会抛 TypeError 并让签署接口 500。
+    signed_pdf = getattr(contract, "signed_pdf_path", None)
+    plain_pdf = getattr(contract, "pdf_path", None)
+    if signed_pdf and Path(signed_pdf).exists():
+        src_path = Path(signed_pdf)
+    elif plain_pdf and Path(plain_pdf).exists():
+        src_path = Path(plain_pdf)
     else:
-        signed_exists = bool(getattr(contract, "signed_pdf_path", None) and Path(contract.signed_pdf_path).exists())
-    src_path = Path(contract.signed_pdf_path if signed_exists else contract.pdf_path)
-    if not src_path.exists():
-        return
+        return  # 无引擎 PDF：跳过定位盖章，仍走签名留痕
     try:
         from app.services import kaifang_sign_service
 
         eng = kaifang_sign_service.get_engine()
-        img, page, x, y, w, h, reason = _pdf_signature_stamp(contract, party, method, field)
+        img, page, x, y, w, h, reason = _pdf_signature_stamp(contract, party, method, field, img_override)
         signed = eng.sign_pdf(
             src_path.read_bytes(), img, page=page, x=x, y=y, w=w, h=h, reason=reason
         )
@@ -1036,14 +1038,6 @@ def _apply_signature(
     - 合同存在引擎 PDF（pdf_path/signed_pdf_path）时，同时用 kaifangqian->Python
       引擎在该字段坐标处盖手写签名/公章并做增量数字签名（写回 signed_pdf_path）。
     """
-    name = party.name
-    stamp = contract.title or contract.id
-    provider = esign_service.get_sign_provider()
-    sig_svg = signature_svg or provider.render_signature(name, str(stamp))
-    sig_hash = provider.sign_digest(
-        f"{contract.document_hash}|{party.id}|{name}|{sig_svg}"
-    )
-
     # --- 引擎 PDF 定位签署（可选，有 PDF 才执行；失败回退不阻断留痕） ---
     field = None
     if field_id is not None:
@@ -1063,12 +1057,70 @@ def _apply_signature(
         method=method or party.sign_method or SignMethod.personal_handwrite,
     )
 
+    return _finalize_party_signed(
+        session,
+        contract,
+        party,
+        signer_user_id=signer_user_id,
+        ip=ip,
+        signature_svg=signature_svg,
+        method=method or party.sign_method or SignMethod.personal_handwrite,
+        field_id=field_id,
+    )
+
+
+def _finalize_party_signed(
+    session: Session,
+    contract: Contract,
+    party: ContractParty,
+    *,
+    signer_user_id: Optional[uuid.UUID],
+    ip: Optional[str],
+    signature_svg: Optional[str],
+    method: SignMethod,
+    field_id: Optional[uuid.UUID],
+) -> str:
+    """写入签署留痕并推进合同状态机，返回签名哈希。
+
+    `/sign`、`/sign-self`、`/sign-batch` 三条链路共用这一段尾巴，避免状态机分叉：
+    - 签名姓名一律取服务端 `party.name`（不接受客户端传入）；
+    - 一次性签署令牌在用完后清空；
+    - 状态推进：sent → partially_signed →（所有归属必签字段签署完成）signed；
+    - 经纪人协议为「平台单方预签」类：经纪乙方签署后平台甲方自动同意。
+    """
+    name = party.name
+    stamp = contract.title or contract.id
+    provider = esign_service.get_sign_provider()
+    sig_svg = signature_svg or provider.render_signature(name, str(stamp))
+    sig_hash = provider.sign_digest(
+        f"{contract.document_hash}|{party.id}|{name}|{sig_svg}"
+    )
+
     party.signed = True
     party.signed_at = datetime.utcnow()
     party.signature = sig_svg
     party.sign_token = None  # 一次性令牌：签署后立即失效
     party.sign_token_expires_at = None
     session.add(party)
+
+    # 签署动作即视为完成该方**自己名下**仍未签的必签区。
+    # 背景：发起方会预置 required=True 的签署区（归属某方），而开放签式
+    # 「一次性落区并签」里签署方只提交自己拖放的签区（required=False）。
+    # 若预置区始终没人签，下面 fields_done 永远为假，合同会永久卡在
+    # partially_signed（状态机死锁）。因此在这条公共尾巴里把该方遗留的
+    # 必签区一并置为已签，与「该方已签署」的语义保持一致。
+    for own_field in session.exec(
+        select(ContractSignField).where(
+            ContractSignField.contract_id == contract.id,
+            ContractSignField.party_id == party.id,
+            ContractSignField.required.is_(True),
+            ContractSignField.signed.is_(False),
+        )
+    ).all():
+        own_field.signed = True
+        own_field.signed_at = datetime.utcnow()
+        session.add(own_field)
+
     session.add(
         SignatureRecord(
             contract_id=contract.id,
@@ -1326,6 +1378,189 @@ def sign_self(
         "signature_hash": sig_hash,
         "contract_status": contract.status.value,
     }
+
+
+# 单次「落区并签署」最多接受的签署区数量（防滥用）
+MAX_SIGN_BATCH_ITEMS = 20
+
+
+def _decode_image_data_url(raw) -> Optional[bytes]:
+    """解析 `data:image/png;base64,xxx` 形式的签章图片；非法或超限返回 None。"""
+    if not raw or not isinstance(raw, str) or "," not in raw[:120]:
+        return None
+    head, _, b64 = raw.partition(",")
+    if "base64" not in head.lower():
+        return None
+    try:
+        data = base64.b64decode(b64, validate=True)
+    except Exception:  # noqa: BLE001  非 base64 视为未提供图片
+        return None
+    if not data or len(data) > 2_000_000:
+        return None
+    return data
+
+
+@router.post("/{contract_id}/sign-batch")
+def sign_batch(
+    contract_id: uuid.UUID,
+    payload: dict,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """开放签式「一次性落区并签署」：把本次拖放的全部签署区与签章内容**原子提交**。
+
+    payload: {party_id, items:[{page,x,y,w,h,method|field_type,signature_svg?,image_data_url?}]}
+    - 身份绑定与 /sign 一致：非员工只能签**自己**那一方；
+    - 每个 item 新建本人签署区（field_type 由 method 推导，required=False），并按坐标把
+      对应签章图片盖到 PDF；`image_data_url`（用户已制作的印章/手写签名 PNG）优先使用，
+      缺省按类型生成（公章→公司名、日期→当天、手写→签署方姓名）；
+    - 所有 item 处理完后**统一**标记该方已签并推进合同状态——一次提交只产生一次落痕，
+      与开放签 demo 的 `POST /openSign/sign`（坐标 + 签章内容同体提交）语义一致。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+        raise HTTPException(status_code=409, detail="Contract already finalized")
+    party = _get_party(session, contract_id, payload.get("party_id"))
+
+    if user.role not in STAFF_ROLES and party.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not a party of this contract")
+    if party.signed:
+        raise HTTPException(status_code=409, detail="Party already signed")
+    if party.declined_at:
+        raise HTTPException(status_code=409, detail="Party already declined")
+
+    # 签前意愿二次验证（可选，默认不启用，对齐开放签）
+    _verify_sign_intent(session, party, user, payload.get("code"))
+
+    items = payload.get("items")
+    if not isinstance(items, list) or not items:
+        raise HTTPException(status_code=400, detail="No sign items")
+    items = [it for it in items[:MAX_SIGN_BATCH_ITEMS] if isinstance(it, dict)]
+    if not items:
+        raise HTTPException(status_code=400, detail="No valid sign items")
+
+    # P3 强制实名：登录态签署，口径与 /sign 完全一致
+    if not party.real_name_verified_at:
+        if party.user_id is not None:
+            party.real_name_verified_at = datetime.utcnow()
+            session.add(party)
+        else:
+            raise HTTPException(status_code=403, detail="REAL_NAME_REQUIRED")
+
+    created, sig_hash = _sign_batch_core(
+        session,
+        contract,
+        party,
+        items=items,
+        signer_user_id=user.id,
+        ip=(request.client.host if request.client else None),
+        created_by=user.id,
+    )
+    return {
+        "party_id": str(party.id),
+        "signed": True,
+        "fields": created,
+        "signature_hash": sig_hash,
+        "contract_status": contract.status.value,
+    }
+
+
+def _sign_batch_core(
+    session: Session,
+    contract: Contract,
+    party: ContractParty,
+    *,
+    items: List[dict],
+    signer_user_id: Optional[uuid.UUID],
+    ip: Optional[str],
+    created_by: Optional[uuid.UUID],
+) -> tuple:
+    """「一次性落区并签署」共用内核（站内 `/sign-batch` 与免登录公开端共用）。
+
+    逐 item 新建签署区（required=False）并按坐标把签章图盖到 PDF；`image_data_url`
+    优先使用，缺省按类型生成；最后统一落痕并推进状态机，返回 (created, signature_hash)。
+    """
+    _method_map = {
+        "signature": SignMethod.personal_handwrite,
+        "personal_handwrite": SignMethod.personal_handwrite,
+        "personal_seal": SignMethod.personal_seal,
+        "seal": SignMethod.company_seal,
+        "company_seal": SignMethod.company_seal,
+        "date": SignMethod.date,
+    }
+    _ft_map = {
+        SignMethod.company_seal: SignFieldType.seal,
+        SignMethod.date: SignFieldType.date,
+    }
+
+    first_field_id: Optional[uuid.UUID] = None
+    first_method: Optional[SignMethod] = None
+    first_svg: Optional[str] = None
+    created: List[dict] = []
+
+    for it in items:
+        method = _method_map.get(
+            str(it.get("method") or it.get("field_type") or ""),
+            SignMethod.personal_handwrite,
+        )
+        page = max(1, int(it.get("page", 1) or 1))
+        x = min(100.0, max(0.0, float(it.get("x", 0) or 0)))
+        y = min(100.0, max(0.0, float(it.get("y", 0) or 0)))
+        w = min(100.0, max(1.0, float(it.get("w", 0) or 0) or 20.0))
+        h = min(100.0, max(1.0, float(it.get("h", 0) or 0) or 8.0))
+        ft = _ft_map.get(method, SignFieldType.signature)
+
+        field = ContractSignField(
+            contract_id=contract.id,
+            party_id=party.id,
+            field_type=ft,
+            page=page,
+            x=x,
+            y=y,
+            w=w,
+            h=h,
+            required=False,
+            created_by=created_by,
+        )
+        field.signed = True
+        field.signed_at = datetime.utcnow()
+        session.add(field)
+        session.flush()  # 取 field.id 供落章定位
+
+        img = _decode_image_data_url(it.get("image_data_url"))
+        _apply_pdf_signature(session, contract, party, field=field, method=method, img_override=img)
+
+        raw_svg = it.get("signature_svg")
+        svg = _sanitize_signature_svg(raw_svg) if raw_svg else None
+
+        created.append(
+            {
+                "field_id": str(field.id),
+                "field_type": ft.value,
+                "page": page,
+                "x": x,
+                "y": y,
+                "w": w,
+                "h": h,
+            }
+        )
+        if first_field_id is None:
+            first_field_id = field.id
+            first_method = method
+            first_svg = svg
+
+    sig_hash = _finalize_party_signed(
+        session,
+        contract,
+        party,
+        signer_user_id=signer_user_id,
+        ip=ip,
+        signature_svg=first_svg,
+        method=first_method or SignMethod.personal_handwrite,
+        field_id=first_field_id,
+    )
+    return created, sig_hash
 
 
 def _activate_broker_role_if_agreement(session: Session, contract: Contract) -> None:

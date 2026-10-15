@@ -3876,6 +3876,20 @@ const en: import('./zh').Translation = {
     pageIndicator: "Page {{cur}} / {{total}}",
     prevPage: "Prev",
     nextPage: "Next",
+    // Single-screen signing desk: party tool tray + drag-to-place seal/signature
+    trayTitle: "Signing tools",
+    sealNotMade: "No seal yet",
+    signNotMade: "No signature yet",
+    trayDragHint: "Drag a thumbnail onto the document to place it; drag a placement to move it, click × to remove",
+    signNothingPlaced: "Drag a seal or signature onto the document first",
+    removePlaced: "Remove",
+    // Whole-row interaction: tap an unmade item to create; drag a made item onto the doc
+    tapMakeSeal: "Tap to create a seal",
+    tapSign: "Tap to handwrite a signature",
+    readyToDrag: "Ready — hold and drag onto the document",
+    dragStampHint: "Hold a stamp item and drag it anywhere on the document; release to place it",
+    changeSeal: "Change seal",
+    resignSign: "Rewrite signature",
   },
   ownerMarketing: {
     refresh: "Refresh",

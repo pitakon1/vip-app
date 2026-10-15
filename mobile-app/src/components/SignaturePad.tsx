@@ -33,6 +33,8 @@ interface Props {
   fill?: boolean;
   /** 是否显示「清空」按钮，默认显示；嵌入 PDF 时由父级统一管理可传 false */
   showClear?: boolean;
+  /** 可选：把内部 <Svg> 实例透出，供父级调用 toDataURL() 导出 PNG */
+  svgRef?: React.Ref<any>;
 }
 
 const STROKE_COLORS = [colors.primary, colors.error, colors.success];
@@ -66,6 +68,7 @@ export default function SignaturePad({
   height = 200,
   fill = false,
   showClear = true,
+  svgRef,
 }: Props) {
   const { t } = useI18n();
   const strokesRef = useRef<Point[][]>([]);
@@ -147,7 +150,7 @@ export default function SignaturePad({
         style={[styles.canvas, fill && styles.canvasFill, !fill && { height }]}
         collapsable={false}
       >
-        <Svg width="100%" height="100%" viewBox={`0 0 ${size.width} ${size.height}`}>
+        <Svg ref={svgRef} width="100%" height="100%" viewBox={`0 0 ${size.width} ${size.height}`}>
           {strokes.map((pts, i) => {
             const color = STROKE_COLORS[i % STROKE_COLORS.length];
             const sw = widthsRef.current[i] ?? 4;

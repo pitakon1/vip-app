@@ -18,10 +18,10 @@
   margin-bottom: 8px;
 }
 
-/* ===== 开放签风格：左「签署配置」+ 右「文档区」双栏 ===== */
+/* ===== 开放签风格：左「文档区」+ 右「签署方组件托盘」 ===== */
 .kf-layout {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 1fr 320px;
   gap: 16px;
   align-items: start;
 }
@@ -50,12 +50,6 @@
   align-items: center;
   gap: 6px;
 }
-.kf-asset-empty {
-  border: 1.5px dashed var(--rent-line, #dfe5ea);
-  border-radius: 10px;
-  padding: 12px;
-  text-align: center;
-}
 .kf-asset-thumb {
   width: 100%;
   height: 72px;
@@ -83,20 +77,172 @@
   border-color: var(--rent-primary, #2563eb);
   box-shadow: 0 0 0 1px var(--rent-primary, #2563eb);
 }
-.kf-slot--selected {
-  border-color: var(--rent-primary, #2563eb) !important;
-  background: rgba(37, 99, 235, 0.14) !important;
+
+/* ===== 文档区落点容器：拖拽克隆落章/落签名 ===== */
+.kf-stage {
+  position: relative;
+  border-radius: 8px;
+  transition: outline 0.15s;
 }
-/* 窄屏：左栏折叠到上方 */
+.kf-stage:hover {
+  outline: 1px dashed var(--rent-primary, #2563eb);
+  outline-offset: 2px;
+}
+.kf-stage__bg {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--rent-line, #dfe5ea);
+  user-select: none;
+}
+
+/* 已落框成品：可拖动改位 + ✕ 删除 */
+.kf-placed {
+  position: absolute;
+  box-sizing: border-box;
+  cursor: move;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+.kf-placed:hover {
+  border-color: var(--rent-primary, #2563eb);
+  background: rgba(37, 99, 235, 0.06);
+}
+.kf-placed img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+.kf-placed__del {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 20px;
+  height: 20px;
+  line-height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  display: none;
+}
+.kf-placed:hover .kf-placed__del {
+  display: block;
+}
+
+/* ===== 签署方组件托盘 ===== */
+.kf-tray {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kf-tray-item {
+  position: relative;
+  border: 1px solid var(--rent-line, #e6eaf0);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+  cursor: grab;
+}
+.kf-tray-item:active {
+  cursor: grabbing;
+}
+/* 未制作：整行即制作入口，点一下直接弹出制作弹窗 */
+.kf-tray-item--empty {
+  cursor: pointer;
+  border-style: dashed;
+}
+/* 已制作：整行即拖拽源 */
+.kf-tray-item--made {
+  border-color: var(--rent-primary, #2563eb);
+}
+.kf-tray-item__name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.kf-tray-item__state {
+  margin-bottom: 8px;
+}
+.kf-tray-item__thumb {
+  position: relative;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--rent-line, #e6eaf0);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.kf-tray-item__thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+.kf-tray-item__ready {
+  margin-top: 6px;
+  color: var(--rent-primary, #2563eb);
+}
+/* 已制作条目右侧的小「重做/更换」图标按钮 */
+.kf-tray-item__redo {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rent-line, #e6eaf0);
+  border-radius: 6px;
+  background: var(--rent-surface, #fff);
+  color: var(--rent-ink-3, #9ca3af);
+  cursor: pointer;
+}
+.kf-tray-item__redo:hover {
+  color: var(--rent-primary, #2563eb);
+  border-color: var(--rent-primary, #2563eb);
+}
+
+/* 版本角标：仅用于自证设备已加载新 bundle */
+.kf-ver {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--rent-ink-3, #9ca3af);
+  border: 1px solid var(--rent-line, #e6eaf0);
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+/* 底部【签署】固定操作条 */
+.kf-signbar {
+  position: sticky;
+  bottom: 0;
+  margin-top: 16px;
+  padding: 12px 0;
+  background: var(--rent-canvas, #f5f7fa);
+}
+
+/* 窄屏：右栏折叠到下方 */
 @media (max-width: 900px) {
   .kf-layout {
     grid-template-columns: 1fr;
   }
   .kf-config {
     position: static;
-    order: 1;
+    order: 2;
   }
   .kf-doc {
-    order: 2;
+    order: 1;
   }
 }

@@ -36,6 +36,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import SignAssetPicker from '@/components/SignAssetPicker';
+import SignaturePad from '@/components/SignaturePad';
 import { contractsApi, signAssetsApi } from '@/services/api';
 import { notify, notifyError } from '@/utils/feedback';
 import { useI18n } from '@/i18n';
@@ -256,6 +257,10 @@ export default function ContractsScreen() {
 
   // 签名库（复用弹窗）
   const [showLibrary, setShowLibrary] = useState(false);
+  // 资产库当前类型（印章 / 手写签名）；手写签名另有独立画板弹窗
+  const [libAssetType, setLibAssetType] = useState<'seal' | 'handwrite'>('seal');
+  const [signMakeVisible, setSignMakeVisible] = useState(false);
+  const [signDraftSvg, setSignDraftSvg] = useState('');
 
   // ===== 开放签双栏「放置/管理签署区」：左配置栏 + 右文档区 =====
   const [signMethod, setSignMethod] = useState<'position' | 'keyword'>('position');
@@ -293,6 +298,50 @@ export default function ContractsScreen() {
     setKwHits([]);
     setKwCount(0);
     setShowAddFields(true);
+  };
+
+  // 印章入口：打开印章库（模板生成公章 / 印模抠图 / 印章列表）
+  const openSealLib = () => {
+    setLibAssetType('seal');
+    setShowLibrary(true);
+  };
+
+  // 手写签名入口：直接弹出手写签名板（不再打开没有画板的资产列表）
+  const openSignMake = () => {
+    setSignDraftSvg('');
+    setSignMakeVisible(true);
+  };
+
+  // 手写签名板「使用该签名」：入库并回填为当前签署用签名
+  const useSignDraft = async () => {
+    const svg = signDraftSvg;
+    if (!svg || !svg.startsWith('<svg')) {
+      notify(t('contract.signNotMade'));
+      return;
+    }
+    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    try {
+      const res: any = await signAssetsApi.create({
+        name: t('contract.mySigns'),
+        asset_type: 'handwrite',
+        source: 'drew',
+        data_url: dataUrl,
+      });
+      const created = res?.data?.id ? res.data : null;
+      setSignAsset(
+        created ?? {
+          id: '',
+          name: t('contract.mySigns'),
+          asset_type: 'handwrite',
+          source: 'drew',
+          data_url: dataUrl,
+        },
+      );
+      notify(t('contract.assetSaved'));
+      setSignMakeVisible(false);
+    } catch (e) {
+      notifyError(t('contract.addAsset'), e);
+    }
   };
 
   // 文档页图加载（放置在页图上的示意框）
@@ -1095,7 +1144,7 @@ export default function ContractsScreen() {
                       <Ionicons name="cloud-upload-outline" size={16} color={colors.primary} />
                       <Text style={styles.actionBtnText}>{t('contract.upload')}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionBtn} onPress={() => setShowLibrary(true)}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={openSealLib}>
                       <Ionicons name="albums-outline" size={16} color={colors.primary} />
                       <Text style={styles.actionBtnText}>{t('contract.signAssets')}</Text>
                     </TouchableOpacity>
@@ -1295,7 +1344,7 @@ export default function ContractsScreen() {
                           <Text style={styles.assetName} numberOfLines={1}>{sealAsset.name || t('contract.mySeals')}</Text>
                           <Text style={styles.assetMeta}>{t('contract.assetPickedSeal')}</Text>
                         </View>
-                        <TouchableOpacity style={styles.assetAct} activeOpacity={0.8} onPress={() => { setShowLibrary(true); }}>
+                        <TouchableOpacity style={styles.assetAct} activeOpacity={0.8} onPress={openSealLib}>
                           <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
                         </TouchableOpacity>
                       </>
@@ -1303,7 +1352,7 @@ export default function ContractsScreen() {
                       <View style={styles.assetEmpty}>
                         <Ionicons name="business-outline" size={18} color={colors.ink3} />
                         <Text style={styles.assetEmptyText}>{t('contract.sealNotMade')}</Text>
-                        <TouchableOpacity style={styles.assetMakeBtn} activeOpacity={0.8} onPress={() => setShowLibrary(true)}>
+                        <TouchableOpacity style={styles.assetMakeBtn} activeOpacity={0.8} onPress={openSealLib}>
                           <Text style={styles.assetMakeText}>{t('contract.makeSeal')}</Text>
                         </TouchableOpacity>
                       </View>
@@ -1319,7 +1368,7 @@ export default function ContractsScreen() {
                           <Text style={styles.assetName} numberOfLines={1}>{signAsset.name || t('contract.mySigns')}</Text>
                           <Text style={styles.assetMeta}>{t('contract.assetPickedSign')}</Text>
                         </View>
-                        <TouchableOpacity style={styles.assetAct} activeOpacity={0.8} onPress={() => setShowLibrary(true)}>
+                        <TouchableOpacity style={styles.assetAct} activeOpacity={0.8} onPress={openSignMake}>
                           <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
                         </TouchableOpacity>
                       </>
@@ -1327,8 +1376,8 @@ export default function ContractsScreen() {
                       <View style={styles.assetEmpty}>
                         <Ionicons name="create-outline" size={18} color={colors.ink3} />
                         <Text style={styles.assetEmptyText}>{t('contract.signNotMade')}</Text>
-                        <TouchableOpacity style={styles.assetPickBtn} activeOpacity={0.8} onPress={() => setShowLibrary(true)}>
-                          <Text style={styles.assetPickText}>{t('contract.fromLibrary')}</Text>
+                        <TouchableOpacity style={styles.assetPickBtn} activeOpacity={0.8} onPress={openSignMake}>
+                          <Text style={styles.assetPickText}>{t('contract.makeSign')}</Text>
                         </TouchableOpacity>
                       </View>
                     )}
@@ -1572,16 +1621,56 @@ export default function ContractsScreen() {
         </View>
       </Modal>
 
-      {/* ===== 我的签名/印章库（复用弹窗）===== */}
+      {/* ===== 我的签名/印章库（复用弹窗，含印章/手写签名类型切换）===== */}
       <SignAssetPicker
         visible={showLibrary}
         onClose={() => setShowLibrary(false)}
-        assetType="handwrite"
-        onSelect={() => {
+        assetType={libAssetType}
+        onAssetTypeChange={setLibAssetType}
+        onSelect={(asset: any) => {
+          if (asset?.data_url) {
+            if (asset.asset_type === 'seal') setSealAsset(asset);
+            else setSignAsset(asset);
+          }
           notify(t('contract.assetSaved'));
           setShowLibrary(false);
         }}
       />
+
+      {/* ===== 手写签名画板（手写签名入口直接弹出，写完「使用该签名」入库并回填）===== */}
+      <Modal
+        visible={signMakeVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSignMakeVisible(false)}
+      >
+        <View style={styles.modalMask}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>{t('contract.makeSign')}</Text>
+              <TouchableOpacity
+                onPress={() => setSignMakeVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={22} color={colors.ink2} />
+              </TouchableOpacity>
+            </View>
+            <SignaturePad
+              key={String(signMakeVisible)}
+              onResult={setSignDraftSvg}
+            />
+            <View style={styles.drawPadActions}>
+              <TouchableOpacity
+                style={styles.drawPadUseBtn}
+                activeOpacity={0.85}
+                onPress={useSignDraft}
+              >
+                <Text style={styles.drawPadUseText}>{t('contract.useThisSign')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1649,6 +1738,18 @@ const styles = StyleSheet.create({
   modalCardTall: { height: '80%' },
   modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   modalTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
+  // 手写签名画板底部「使用该签名」按钮
+  drawPadActions: { marginTop: 4 },
+  drawPadUseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: 13,
+    borderRadius: colors.radius.md,
+  },
+  drawPadUseText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' },
   input: {
     backgroundColor: colors.surface2,
     borderRadius: colors.radius.md,

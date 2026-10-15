@@ -16,6 +16,7 @@
 import pathlib
 import sys
 import uuid
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -276,7 +277,11 @@ def test_sign_binds_own_party_and_uses_server_name(api):
 
 
 def test_staff_can_sign_on_behalf_but_name_still_server_side(api):
-    """员工可代签未绑定用户的签署方，但签名姓名仍取服务端 party.name。"""
+    """员工可代签未绑定用户的签署方，但签名姓名仍取服务端 party.name。
+
+    合规门控：未绑定用户的线下签署方须先完成实名（此处模拟公开端实名完成），
+    否则签署被 403 REAL_NAME_REQUIRED 拦截。
+    """
     with Session(api.engine) as s:
         contract = Contract(
             title="房屋租赁合同",
@@ -295,6 +300,7 @@ def test_staff_can_sign_on_behalf_but_name_still_server_side(api):
             name="王五（业主）",
             email="",
             role=SignerRole.landlord,
+            real_name_verified_at=datetime.utcnow(),  # 已完成实名（模拟公开端实名）
         )
         s.add(party)
         s.commit()

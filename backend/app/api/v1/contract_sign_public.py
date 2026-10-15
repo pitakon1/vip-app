@@ -45,11 +45,13 @@ from .auth import (
 )
 
 from .contracts import (
+    MAX_SIGN_BATCH_ITEMS,
     STORED_URL_PREFIX,
     UPLOAD_DIR,
     _apply_signature,
     _sanitize_signature_svg,
     _serialize_sign_field,
+    _sign_batch_core,
     build_verify_report,
 )
 
@@ -452,10 +454,12 @@ def submit_signature(
     request: Request,
     session: Session = Depends(get_session),
 ):
-    """提交签署。payload: {name, id_number?, phone?, signature_svg?, code}
+    """提交签署。payload: {name, id_number?, phone?, signature_svg?, code?, items?}
 
-    `signature_svg` 由客户端手写画布生成；未提供时用服务端渲染的签名替身
-    （与站内签署口径一致）。`code` 为签前意愿二次验证码，必传（有手机/邮箱时）。
+    - `signature_svg` 由客户端手写画布生成；未提供时用服务端渲染的签名替身。
+    - 「签署意愿验证码」默认不启用（对齐开放签）：仅当**主动传 code** 时才校验。
+    - `items`（开放签式一次性落区并签）: [{page,x,y,w,h,method,signature_svg?,image_data_url?}]
+      传了就按批量原子提交；不传则沿用旧的单字段签署。
     """
     party = _resolve_party(session, token)
     contract = session.get(Contract, party.contract_id)
@@ -464,12 +468,10 @@ def submit_signature(
     if not _has_real_name(party):
         raise HTTPException(status_code=403, detail="REAL_NAME_REQUIRED")
 
-    # 签前意愿二次验证：有手机/邮箱时须校验验证码
+    # 签前意愿二次验证（可选，默认不启用）
     contact = _sign_contact(party)
-    if contact:
-        code = (payload.get("code") or "").strip()
-        if not code:
-            raise HTTPException(status_code=400, detail="SIGN_INTENT_CODE_REQUIRED")
+    code = (payload.get("code") or "").strip()
+    if contact and code:
         _consume_otp(session, contact, code)
 
     name = (payload.get("name") or "").strip()
@@ -481,6 +483,30 @@ def submit_signature(
         party.phone = str(payload["phone"]).strip()
     if not party.name:
         raise HTTPException(status_code=400, detail="Signer name is required")
+
+    # 开放签式「一次性落区并签署」：items 存在则批量原子提交
+    items = payload.get("items")
+    if isinstance(items, list) and items:
+        clean = [it for it in items[:MAX_SIGN_BATCH_ITEMS] if isinstance(it, dict)]
+        if not clean:
+            raise HTTPException(status_code=400, detail="No valid sign items")
+        created, sig_hash = _sign_batch_core(
+            session,
+            contract,
+            party,
+            items=clean,
+            signer_user_id=party.user_id,
+            ip=(request.client.host if request.client else None),
+            created_by=party.user_id,
+        )
+        return {
+            "signed": True,
+            "signature_hash": sig_hash,
+            "fields": created,
+            "field_id": created[0]["field_id"] if created else None,
+            "party_name": party.name,
+            "contract_status": contract.status.value,
+        }
 
     raw_svg = payload.get("signature_svg")
     sig_svg = _sanitize_signature_svg(raw_svg) if raw_svg else None

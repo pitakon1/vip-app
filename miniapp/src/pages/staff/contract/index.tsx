@@ -67,12 +67,6 @@ export default function StaffContractPage() {
   const [kwBusy, setKwBusy] = useState(false)
   const [kwPlacing, setKwPlacing] = useState(false)
 
-  // ===== 签署意愿二次验证 =====
-  const [intentCode, setIntentCode] = useState('')
-  const [codeSent, setCodeSent] = useState(false)
-  const [codeCooldown, setCodeCooldown] = useState(0)
-  const [codeBusy, setCodeBusy] = useState(false)
-
   // ===== 拒签（经纪人本人） =====
   const [showDecline, setShowDecline] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
@@ -101,12 +95,6 @@ export default function StaffContractPage() {
   const [sealCropBusy, setSealCropBusy] = useState(false)
   const sealCropRectRef = useRef<any>(null)
   const sealCropDragRef = useRef<{ startX: number; startY: number; ox: number; oy: number; s: number } | null>(null)
-
-  useEffect(() => {
-    if (codeCooldown <= 0) return
-    const timer = setTimeout(() => setCodeCooldown((c) => Math.max(0, c - 1)), 1000)
-    return () => clearTimeout(timer)
-  }, [codeCooldown])
 
   const load = useCallback(() => {
     if (!id) return
@@ -160,47 +148,16 @@ export default function StaffContractPage() {
       .catch(() => setAssets([]))
   }, [])
 
-  // 签署意愿二次验证：给本人（agent party）下发验证码
-  const sendIntentCode = async () => {
-    if (!id || !agentParty?.id) {
-      Taro.showToast({ title: t('contract.partyRequired'), icon: 'none' })
-      return
-    }
-    setCodeBusy(true)
-    try {
-      await contractsApi.signCode(id, String(agentParty.id))
-      setCodeSent(true)
-      setCodeCooldown(60)
-      Taro.showToast({ title: t('contract.codeSentTo'), icon: 'success' })
-    } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.getCode'), icon: 'none' })
-    } finally {
-      setCodeBusy(false)
-    }
-  }
-
-  const resetIntent = () => {
-    setIntentCode('')
-    setCodeSent(false)
-    setCodeCooldown(0)
-  }
-
   const handleSign = async () => {
     if (!agentParty || signed || signing || !activeField?.id) return
-    if (!intentCode.trim() || !codeSent) {
-      Taro.showToast({ title: t('contract.sendCodeFirst'), icon: 'none' })
-      return
-    }
     setSigning(true)
     try {
       await contractsApi.sign(id, {
         fieldId: String(activeField.id),
         method: String(activeField.field_type || 'signature'),
-        code: intentCode.trim(),
         partyId: String(agentParty.id)
       })
       Taro.showToast({ title: t('lease.signSuccess'), icon: 'success' })
-      resetIntent()
       load()
       setTimeout(() => Taro.navigateBack(), 800)
     } catch (e: any) {
@@ -1006,28 +963,6 @@ export default function StaffContractPage() {
                 </View>
               )}
 
-              {/* 5. 签署意愿验证码 */}
-              {canSign && (
-                <View className='ct-verify'>
-                  <Text className='ct-config__label'>{t('contract.verifyCode')}</Text>
-                  <Text className='ct-config__hint'>{t('contract.verifyDesc')}</Text>
-                  <View className='ct-config__row'>
-                    <Input
-                      className='ct-kw__input'
-                      placeholder={t('contract.codePlaceholder')}
-                      value={intentCode}
-                      onInput={(e: any) => setIntentCode(e.detail.value)}
-                    />
-                    <View className={`ct-btn ${codeBusy || codeCooldown > 0 ? 'ct-btn--disabled' : ''}`} onClick={() => { if (!codeBusy && codeCooldown <= 0) void sendIntentCode() }}>
-                      <Text className='ct-btn__text'>
-                        {codeCooldown > 0
-                          ? t('contract.codeCooldown', { n: codeCooldown })
-                          : (codeSent ? t('contract.resendCode') : t('contract.getCode'))}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              )}
             </View>
 
             {/* ===== 文档区（下） ===== */}

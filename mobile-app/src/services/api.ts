@@ -304,6 +304,9 @@ export const contractsApi = {
   // 签署方自由拖签：在 PDF 任意位置「落区并签」（无需预置签署框）。同样须带 code。
   signSelf: (id: string, data: { party_id: string; page: number; x: number; y: number; w: number; h: number; method: string; signature_svg?: string; code?: string }) =>
     api.post(`/contracts/${id}/sign-self`, data),
+  // 开放签式单屏签署：一次性原子提交全部落框（印章/手写），无需意愿验证码
+  signBatch: (id: string, data: { party_id: string; items: any[] }) =>
+    api.post(`/contracts/${id}/sign-batch`, data),
   // 签署意愿二次验证：签前向签署方发送验证码（返回脱敏联系方式 to_masked）
   signCode: (id: string, partyId: string) =>
     api.post(`/contracts/${id}/sign-code`, { party_id: partyId }),

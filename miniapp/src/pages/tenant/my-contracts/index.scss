@@ -90,6 +90,26 @@
   }
 }
 
+.mc-card__topmain {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex: 1;
+  min-width: 0;
+}
+
+/* v2 角标：仅用于自证设备已加载新 bundle */
+.mc-ver {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink-3);
+  border: 1px solid var(--line);
+  border-radius: 6rpx;
+  padding: 2rpx 8rpx;
+}
+
 .mc-badge {
   display: inline-flex;
   align-items: center;
@@ -293,12 +313,40 @@
 }
 
 .mc-footer__decline {
-  margin-bottom: 16rpx;
+  margin-bottom: 0;
   height: 72rpx;
 }
 
 .mc-footer__decline.mc-btn--disabled {
   opacity: 0.6;
+}
+
+/* 窄屏底部固定栏：签章托盘 + 签署按钮（与文档同屏，边拖边看） */
+.mc-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.mc-dock__tray {
+  display: flex;
+  gap: 16rpx;
+}
+
+.mc-dock__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+/* 底部栏中的托盘条目略紧凑 */
+.mc-dock .mc-tray-item {
+  padding: 12rpx 10rpx;
+}
+
+.mc-dock .mc-tray-item__thumb {
+  width: 84rpx;
+  height: 84rpx;
 }
 
 .mc-state {
@@ -785,6 +833,196 @@
   &__hit-page { font-size: 26rpx; font-weight: 600; color: var(--primary); }
 }
 
+/* ===== 签署方托盘（单屏签署台） ===== */
+.mc-tray {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 20rpx 24rpx;
+  margin-bottom: 20rpx;
+
+  &__head {
+    display: flex;
+    flex-direction: column;
+    gap: 4rpx;
+    margin-bottom: 16rpx;
+  }
+
+  &__title {
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  &__hint {
+    font-size: 22rpx;
+    color: var(--ink-3);
+  }
+
+  &__items {
+    display: flex;
+    gap: 16rpx;
+  }
+}
+
+.mc-tray-item {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx 12rpx;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--card);
+
+  /* 未制作：整行即制作入口，点一下直接弹出制作（点按态给出手感） */
+  &--empty {
+    border-style: dashed;
+  }
+
+  &--empty:active {
+    background: var(--surface-2);
+  }
+
+  &--made {
+    border-color: rgba(var(--primary-rgb), 0.45);
+    background: rgba(var(--primary-rgb), 0.04);
+  }
+
+  &--dragging {
+    opacity: 0.4;
+  }
+
+  &__thumb {
+    width: 96rpx;
+    height: 96rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+
+  &__img {
+    width: 100%;
+    height: 100%;
+  }
+
+  &__placeholder {
+    font-size: 20rpx;
+    line-height: 1.2;
+    color: var(--ink-3);
+    text-align: center;
+    padding: 0 6rpx;
+  }
+
+  &__name {
+    font-size: 24rpx;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  &__hint {
+    font-size: 20rpx;
+    color: var(--primary);
+  }
+
+  &__hint--tap {
+    color: var(--ink-3);
+    text-align: center;
+  }
+
+  /* 已制作条目右上角的小「重做/更换」图标按钮 */
+  &__redo {
+    position: absolute;
+    top: 6rpx;
+    right: 6rpx;
+    width: 44rpx;
+    height: 44rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+    border-radius: 8rpx;
+    background: var(--card);
+  }
+
+  &__btn {
+    height: 52rpx;
+    padding: 0 20rpx;
+  }
+}
+
+/* 拖拽跟随预览 */
+.mc-ghost {
+  position: fixed;
+  width: 88px;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 200;
+
+  &__img {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* ===== 落章成品图 ===== */
+.mc-placed {
+  position: absolute;
+  box-sizing: border-box;
+  touch-action: none;
+
+  &--moving {
+    opacity: 0.85;
+    z-index: 3;
+  }
+
+  &__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  &__del {
+    position: absolute;
+    right: -16rpx;
+    top: -16rpx;
+    width: 40rpx;
+    height: 40rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-sm);
+    z-index: 4;
+  }
+}
+
+.mc-maker-preview {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 12rpx;
+}
+
+.mc-sig-actions {
+  margin-top: 12rpx;
+}
+
 .mc-btn--disabled {
   opacity: 0.55;
   pointer-events: none;
@@ -798,7 +1036,7 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 24rpx;
-  margin-bottom: 180rpx;
+  margin-bottom: 460rpx;
 
   &__head {
     display: flex;
@@ -826,6 +1064,20 @@
     line-height: 1.8;
     color: var(--ink);
     word-break: break-all;
+    min-height: 420rpx;
+  }
+
+  &__empty {
+    display: block;
+    padding: 180rpx 0;
+    text-align: center;
+    font-size: 26rpx;
+    color: var(--ink-3);
+  }
+
+  &__pageno {
+    font-size: 24rpx;
+    color: var(--ink-3);
   }
 
   &__field {
@@ -866,4 +1118,10 @@
     white-space: nowrap;
     text-overflow: ellipsis;
   }
+}
+
+/* 拖拽悬停：文档区高亮提示可落章 */
+.mc-doc__canvas--over {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4rpx rgba(var(--primary-rgb), 0.25);
 }

@@ -3896,6 +3896,20 @@ const zh = {
     pageIndicator: "第 {{cur}} / {{total}} 页",
     prevPage: "上一页",
     nextPage: "下一页",
+    // 单屏签署台：签署方组件托盘 + 拖放落章/落签名
+    trayTitle: "签署工具",
+    sealNotMade: "未制作印章",
+    signNotMade: "未手写签名",
+    trayDragHint: "按住缩略图拖到文档中的位置落章/落签名；落框可拖动改位，点 × 删除",
+    signNothingPlaced: "请先把印章或签名拖到文档上",
+    removePlaced: "删除",
+    // 开放签式整行交互：未制作整行点一下即制作；已制作整行按住拖拽落章
+    tapMakeSeal: "点一下，直接制作印章",
+    tapSign: "点一下，直接手写签名",
+    readyToDrag: "已就绪，按住拖到文档",
+    dragStampHint: "按住签章条目，拖到文档任意位置松手即落章",
+    changeSeal: "更换印章",
+    resignSign: "重新手写",
   },
   ownerMarketing: {
     refresh: "刷新",

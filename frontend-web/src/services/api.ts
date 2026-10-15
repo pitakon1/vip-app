@@ -249,9 +249,13 @@ export const contractsApi = {
       ...(opts.signatureSvg ? { signature_svg: opts.signatureSvg } : {}),
       ...(opts.code ? { code: opts.code } : {}),
     }),
-  // 签前下发「签署意愿验证码」（payload: {party_id}）→ {sent, to_masked}
-  signCode: (id: string, partyId: string) =>
-    api.post(`/contracts/${id}/sign-code`, { party_id: partyId }),
+  // 开放签式「一次性落区并签署」：把本次拖放的全部签署区与签章内容原子提交。
+  // body: { party_id, items: [{ page, x, y, w, h, method, signature_svg?, image_data_url? }] }
+  // → { party_id, signed, fields, signature_hash, contract_status }
+  signBatch: (
+    id: string,
+    body: { partyId: string; items: Record<string, unknown>[] },
+  ) => api.post(`/contracts/${id}/sign-batch`, { party_id: body.partyId, items: body.items }),
   // 站内拒签（payload: {party_id, reason}）→ {party_id, declined, contract_status, reason}
   decline: (id: string, partyId: string, reason: string) =>
     api.post(`/contracts/${id}/decline`, { party_id: partyId, reason }),
@@ -283,12 +287,22 @@ export const contractsPublicApi = {
   get: (token: string) => api.get(`/public/contract-sign/${token}`),
   fileUrl: (token: string) => `/api/v1/public/contract-sign/${token}/file`,
   // data={name, id_number?, phone?, signature_svg?, field_id?, method?, code?}
-  // code 为签前「签署意愿验证码」（POST /send-sign-code 下发），有联系方式时必传
+  // code 为签前「签署意愿验证码」（POST /send-sign-code 下发）；默认不启用，仅主动传 code 时校验
   submit: (token: string, data: RequestBody) =>
     api.post(`/public/contract-sign/${token}`, data),
-  // 签前下发「签署意愿验证码」（免登录，无 body）→ {sent, to_masked}
-  sendSignCode: (token: string) =>
-    api.post(`/public/contract-sign/${token}/send-sign-code`, {}),
+  // 开放签式「匿名一次性落区并签署」：把拖放的全部签署区与签章内容原子提交（免登录，token 即身份）。
+  // body: { name, phone?, items: [{ page, x, y, w, h, method, signature_svg?, image_data_url? }] }
+  // → { signed, signature_hash, fields, party_name, contract_status }
+  // 传 items 走批量落区并签；无实名（未过实名认证）时后端返回 403 REAL_NAME_REQUIRED
+  signByToken: (
+    token: string,
+    body: { name: string; phone?: string; items: Record<string, unknown>[] },
+  ) =>
+    api.post(`/public/contract-sign/${token}`, {
+      name: body.name,
+      ...(body.phone ? { phone: body.phone } : {}),
+      items: body.items,
+    }),
   // 免登录拒签（body: {reason}）→ {declined, contract_status, reason}
   decline: (token: string, reason: string) =>
     api.post(`/public/contract-sign/${token}/decline`, { reason }),

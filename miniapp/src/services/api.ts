@@ -350,17 +350,18 @@ export const contractsApi = {
   addParty: (id: string, data: any) =>
     request({ url: `/contracts/${id}/parties`, method: 'POST', data }),
   // 电子合同法大大风格签署：按签署区（field）签名。method ∈ signature(手写)|seal(公章)|date(日期)。
-  // 未实名外部 party 会拒绝（403 REAL_NAME_REQUIRED）。
-  // 开通「签署意愿二次验证」后须带 signCode 下发的 code；未实名不带 code 会 400 SIGN_INTENT_CODE_REQUIRED。
-  sign: (id: string, opts: { fieldId: string; method: string; code?: string; partyId?: string }) =>
+  // 未实名外部 party 会拒绝（403 REAL_NAME_REQUIRED）。签署意愿验证已下线，不再传 code。
+  sign: (id: string, opts: { fieldId: string; method: string; partyId?: string }) =>
     request({
       url: `/contracts/${id}/sign`,
       method: 'POST',
-      data: { field_id: opts.fieldId, method: opts.method, ...(opts.code ? { code: opts.code } : {}), ...(opts.partyId ? { party_id: opts.partyId } : {}) }
+      data: { field_id: opts.fieldId, method: opts.method, ...(opts.partyId ? { party_id: opts.partyId } : {}) }
     }),
-  // 签署意愿二次验证：向指定签署方（本人）发送签署验证码，签署时必须带 code
-  signCode: (id: string, partyId: string) =>
-    request({ url: `/contracts/${id}/sign-code`, method: 'POST', data: { party_id: partyId } }),
+  // 开放签风格「签署」：一次性原子提交本签署方的全部落章项（新建签署区 + 盖章 + 标记已签）。
+  // items: [{ page, x, y, w, h, method: company_seal|personal_handwrite|date, signature_svg?, image_data_url? }]
+  // 坐标均为页面百分比（0-100）；image_data_url 优先，缺省后端按类型生成。不传意愿验证 code。
+  signBatch: (id: string, data: { party_id: string; items: any[] }) =>
+    request({ url: `/contracts/${id}/sign-batch`, method: 'POST', data }),
   // 站内拒签：提出理由后该签署方不再签署（合同状态置为 rejected）
   decline: (id: string, partyId: string, reason: string) =>
     request({ url: `/contracts/${id}/decline`, method: 'POST', data: { party_id: partyId, reason } }),
