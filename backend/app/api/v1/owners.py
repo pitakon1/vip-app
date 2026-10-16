@@ -199,14 +199,19 @@ def get_my_income(
     返回 `records`（逐笔：received/pending/overdue）供前端直接渲染，
     同时给出已收、应收、逾期三个金额口径，构成房东管钱看板。
     """
-    owner = _get_owner(session, user)
-
-    properties = session.exec(
-        select(Property).where(
-            Property.owner_id == owner.id,
-            Property.deleted_at.is_(None),
+    # 与 /me/properties 保持一致：admin 未建业主档案时按全量房源聚合。
+    # 否则本接口 404、而「我的房产」已返回全量，同一页两个口径自相矛盾。
+    owner = session.exec(
+        select(Owner).where(
+            Owner.user_id == user.id,
+            Owner.deleted_at.is_(None),
         )
-    ).all()
+    ).first()
+
+    conditions = [Property.deleted_at.is_(None)]
+    if owner:
+        conditions.append(Property.owner_id == owner.id)
+    properties = session.exec(select(Property).where(*conditions)).all()
 
     property_ids = [p.id for p in properties]
     property_by_id = {p.id: p for p in properties}

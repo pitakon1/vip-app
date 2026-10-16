@@ -9,6 +9,22 @@ export const API_BASE_URL: string =
     .process?.env?.EXPO_PUBLIC_API_BASE_URL as string | undefined) ||
   'http://localhost:8000/api/v1';
 
+/* 公开免登录签署页（`/sign/:token`）托管在 Web 站点，不在 App 内。
+   后端 `_sign_url` 在未配置 PUBLIC_WEB_BASE_URL 时只返回相对路径（形如 `/sign/xxx`），
+   App 直接复制给客户是打不开的（同理 Web 端有 absSignUrl、小程序有 toPublicSignUrl）。
+   凡是把签署链接展示/复制出去的地方，都必须先经这里补上站点 origin。 */
+export const PUBLIC_WEB_BASE_URL: string = (
+  ((globalThis as unknown as { process?: { env?: Record<string, string | undefined> } })
+    .process?.env?.EXPO_PUBLIC_PUBLIC_WEB_BASE_URL as string | undefined) || 'http://localhost:3000'
+).replace(/\/+$/, '');
+
+/** 把后端返回的签署链接补成可对外分享的绝对地址。 */
+export const toPublicSignUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${PUBLIC_WEB_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 export const TOKEN_STORAGE_KEY = 'auth_token';
 
 export const apiClient = axios.create({

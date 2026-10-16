@@ -215,7 +215,8 @@ const emptyCreateForm: CreateFormValues = {
   budget_max: '',
   assigned_to: '',
   source: '',
-  stage: 'new',
+  // 默认值必须落在 LEAD_STAGE_VALUES 内：'new' 后端 LeadStage 不认，提交必 422
+  stage: 'inquiring',
   requirement: '',
   notes: '',
 }

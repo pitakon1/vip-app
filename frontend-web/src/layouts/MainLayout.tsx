@@ -98,7 +98,9 @@ const MainLayout = () => {
     const exact = allKeys.find((k) => path === k)
     if (exact) return exact
     const prefix = allKeys.find((k) => path.startsWith(k + '/'))
-    return prefix || allKeys[0] || '/dashboard'
+    // 非菜单路由（/owner/*、/verify、/sign 等）不能回退成第一个菜单项，
+    // 否则顶栏标题会被统一错显为「数据总览」。交回空串由 currentTitle 兜底。
+    return prefix || ''
   }, [location.pathname, allKeys])
 
   const currentTitle = useMemo(() => {

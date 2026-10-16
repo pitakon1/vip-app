@@ -1348,7 +1348,7 @@ const AttendanceManage = () => {
                       <tr>
                         <td colSpan={7}>
                           <div className="rent-empty">
-                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('att.noAppeal')} />
+                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('attendance.noAppeal')} />
                           </div>
                         </td>
                       </tr>

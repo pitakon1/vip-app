@@ -39,6 +39,7 @@ import { SvgXml } from 'react-native-svg';
 import SignAssetPicker from '@/components/SignAssetPicker';
 import SignaturePad from '@/components/SignaturePad';
 import { contractsApi, signAssetsApi } from '@/services/api';
+import { toPublicSignUrl } from '@/lib/api';
 import { notify, notifyError } from '@/utils/feedback';
 import { useI18n } from '@/i18n';
 
@@ -90,7 +91,31 @@ const resolveUploadFile = (asset: any) => {
   } as any;
 };
 
-const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '-');
+/* 后端时间戳统一为 naive UTC（无时区后缀）。此前直接 replace('T',' ') 会把 UTC 当本地
+   时间展示，东八区下比 Web 端早 8 小时；这里先补 'Z' 归一为 UTC，再按用户本地时区格式化。 */
+const fmtDate = (x?: string) => {
+  if (!x) return '-';
+  const raw = String(x);
+  const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : `${raw}Z`;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return raw.replace('T', ' ').slice(0, 16);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/** 合同类型枚举 → i18n key（详情里此前直接打印后端枚举 lease/purchase/broker） */
+const KIND_LABEL_KEYS: Record<string, string> = {
+  lease: 'contract.tmpl.lease',
+  purchase: 'contract.tmpl.purchase',
+  broker: 'contract.tmpl.broker',
+};
+
+/** 后端 file_path 为服务端本地路径（Windows 下自带反斜杠），详情里只展示文件名 */
+const baseName = (p?: string | null) => {
+  if (!p) return '-';
+  const s = String(p).split(/[\\/]/).pop();
+  return s || String(p);
+};
 
 /**
  * 资产缩略图：RN 的 <Image> 渲染不了 SVG data URL（历史签名资产就是 svg），
@@ -591,7 +616,8 @@ export default function ContractsScreen() {
         notifyError(t('contract.linkCopied'), new Error(t('contract.unknown')));
         return;
       }
-      const full = /^https?:/.test(url) ? url : `${url}`;
+      // 后端返回的是相对路径时必须补站点 origin，否则客户拿到的链接打不开
+      const full = toPublicSignUrl(url);
       copyText(full);
       notify(t('contract.linkCopied'), full);
       await openDetail(detail.id);
@@ -1185,9 +1211,16 @@ export default function ContractsScreen() {
                 {renderStatus(detail?.status)}
               </View>
               {field(t('contract.titleLabel'), detail?.title)}
-              {field(t('contract.kind'), detail?.kind)}
+              {field(
+                t('contract.kind'),
+                detail?.kind
+                  ? KIND_LABEL_KEYS[detail.kind]
+                    ? t(KIND_LABEL_KEYS[detail.kind])
+                    : detail.kind
+                  : '-',
+              )}
               {field(t('contract.created_at'), fmtDate(detail?.created_at))}
-              {!!detail?.file_path && field(t('contract.upload'), detail.file_path)}
+              {!!detail?.file_path && field(t('contract.upload'), baseName(detail.file_path))}
 
               <Text style={styles.sectionTitle}>{t('contract.parties')}</Text>
               {detail?.parties?.length ? detail.parties.map(renderParty) : (

@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, Input, Textarea, Image, Canvas } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { contractsApi, signAssetsApi } from '@/services/api'
+import { toPublicSignUrl } from '@/lib/api'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import ShellHeader from '@/components/ShellHeader'
 import BottomNav from '@/components/BottomNav'
@@ -20,7 +21,31 @@ import './index.scss'
 
 const unwrap = (d: any): any => d?.data ?? d ?? {}
 
-const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '-')
+/* 后端时间戳统一为 naive UTC（无时区后缀）。此前直接 replace('T',' ') 会把 UTC 当本地
+   时间展示，东八区下比 Web 端早 8 小时；这里先补 'Z' 归一为 UTC，再按用户本地时区格式化。 */
+const fmtDate = (x?: string) => {
+  if (!x) return '-';
+  const raw = String(x);
+  const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : `${raw}Z`;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return raw.replace('T', ' ').slice(0, 16);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/** 合同类型枚举 → i18n key（详情里此前直接打印后端枚举 lease/purchase/broker） */
+const KIND_LABEL_KEYS: Record<string, string> = {
+  lease: 'contract.tmpl.lease',
+  purchase: 'contract.tmpl.purchase',
+  broker: 'contract.tmpl.broker'
+};
+
+/** 后端 file_path 为服务端本地路径（Windows 下自带反斜杠），详情里只展示文件名 */
+const baseName = (p?: string | null) => {
+  if (!p) return '-';
+  const s = String(p).split(/[\\/]/).pop();
+  return s || String(p);
+};
 
 const stripHtml = (html?: string) =>
   (html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim()
@@ -293,7 +318,8 @@ export default function AdminContractsPage() {
         Taro.showToast({ title: t('contract.linkCopied'), icon: 'none' })
         return
       }
-      await Taro.setClipboardData({ data: String(url) })
+      // 后端返回相对路径时必须补站点前缀，否则客户拿到的是打不开的地址
+      await Taro.setClipboardData({ data: toPublicSignUrl(String(url)) })
       Taro.showToast({ title: t('contract.linkCopied'), icon: 'none' })
       await openDetail(detail.id)
     } catch (e: any) {
@@ -1211,10 +1237,17 @@ export default function AdminContractsPage() {
               </View>
             </View>
             <Text className='ac-card__title'>{detail?.title || t('contract.unknown')}</Text>
-            {field(t('contract.kind'), detail?.kind)}
+            {field(
+              t('contract.kind'),
+              detail?.kind
+                ? KIND_LABEL_KEYS[detail.kind]
+                  ? t(KIND_LABEL_KEYS[detail.kind])
+                  : detail.kind
+                : '-'
+            )}
             {field(t('contract.language'), detail?.language)}
             {field(t('contract.created_at'), fmtDate(detail?.created_at))}
-            {detail?.file_path ? field(t('contract.upload'), detail.file_path, true) : null}
+            {detail?.file_path ? field(t('contract.upload'), baseName(detail.file_path), true) : null}
           </View>
 
           {/* ===== 放签区：签署配置栏(上) + 文档区(下)，开放签风格 ===== */}

@@ -140,31 +140,21 @@ const Income = () => {
       try {
         const res = await api.get('/owners/me/income', { params: { month: monthStr } })
         const iPayload = res.data?.data ?? res.data
-        if (Array.isArray(iPayload?.items)) {
-          const monthTotal = iPayload.items
-            .filter((it: any) => monthKey(it.paid_at || it.due_date) === monthStr)
-            .reduce((s: number, it: any) => s + Number(it.amount || 0), 0)
-          const yearTotal = iPayload.items
-            .filter((it: any) =>
-              String(monthKey(it.paid_at || it.due_date)).startsWith(
-                selectedMonth.format('YYYY'),
-              ),
-            )
-            .reduce((s: number, it: any) => s + Number(it.amount || 0), 0)
-          return {
-            summary: {
-              total_income: yearTotal,
-              monthly_income: monthTotal,
-              pending_amount: 0,
-            },
-            propertyCount: Number(iPayload?.property_count ?? 0),
-          }
-        }
+        // 后端真实口径：total_income / receivable_total / overdue_total / records（逐笔含 month+status）。
+        // 「本月收入」按本月已到账（received）归集，「本月待收」按本月未到账归集。
+        const records: any[] = Array.isArray(iPayload?.records) ? iPayload.records : []
+        const monthRecords = records.filter((it: any) => it?.month === monthStr)
+        const monthlyReceived = monthRecords
+          .filter((it: any) => it?.status === 'received')
+          .reduce((s: number, it: any) => s + Number(it?.amount || 0), 0)
+        const monthlyPending = monthRecords
+          .filter((it: any) => it?.status !== 'received')
+          .reduce((s: number, it: any) => s + Number(it?.amount || 0), 0)
         return {
           summary: {
             total_income: Number(iPayload?.total_income ?? 0),
-            monthly_income: Number(iPayload?.monthly_income ?? 0),
-            pending_amount: Number(iPayload?.pending_amount ?? 0),
+            monthly_income: monthlyReceived,
+            pending_amount: monthlyPending,
           },
           propertyCount: Number(iPayload?.property_count ?? 0),
         }

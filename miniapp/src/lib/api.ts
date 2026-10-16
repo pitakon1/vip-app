@@ -14,6 +14,21 @@ export const MAX_PAGE_SIZE = 100
 /** 刷新令牌存储键。登录成功时必须写入，否则 401 只能强登出。 */
 export const REFRESH_TOKEN_KEY = 'refresh_token'
 
+/* 公开免登录签署页（`/sign/:token`）托管在 Web 站点，不在小程序内。
+   后端 `_sign_url` 在未配置 PUBLIC_WEB_BASE_URL 时只返回相对路径（形如 `/sign/xxx`），
+   小程序直接 setClipboardData 复制出去客户根本打不开（同理 Web 端有 absSignUrl）。
+   凡是把签署链接交给客户的地方，都必须先经这里补全站点前缀。 */
+declare const PUBLIC_WEB_BASE: string | undefined
+export const PUBLIC_WEB_BASE_URL: string = (
+  (typeof PUBLIC_WEB_BASE !== 'undefined' && PUBLIC_WEB_BASE) || 'http://localhost:3000'
+).replace(/\/+$/, '')
+
+export const toPublicSignUrl = (url?: string | null): string => {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url)) return url
+  return `${PUBLIC_WEB_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`
+}
+
 export interface RequestOptions<T = unknown> {
   url: string
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'

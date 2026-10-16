@@ -50,28 +50,30 @@ const Dashboard = () => {
     cacheKey: `owner-dashboard:me:${uid}`,
     queryFn: async () => {
       const [propertiesRes, incomeRes] = await Promise.all([
-        api.get('/owners/me/properties').catch(() => ({ data: { items: [] } })),
+        api.get('/owners/me/properties').catch(() => ({ data: [] })),
         api.get('/owners/me/income').catch(() => ({ data: {} })),
       ])
       const pPayload = propertiesRes.data?.data ?? propertiesRes.data
       const iPayload = incomeRes.data?.data ?? incomeRes.data
-      let income: IncomeSummary = { total_income: 0, monthly_income: 0, pending_amount: 0 }
-      if (Array.isArray(iPayload?.items)) {
-        income = iPayload.items.reduce(
-          (acc: IncomeSummary, it: any) => {
-            acc.total_income = Number(acc.total_income || 0) + Number(it.amount || 0)
-            return acc
-          },
-          { total_income: 0, monthly_income: 0, pending_amount: 0 },
-        )
-      } else {
-        income = {
-          total_income: Number(iPayload?.total_income ?? 0),
-          monthly_income: Number(iPayload?.monthly_income ?? 0),
-          pending_amount: Number(iPayload?.pending_amount ?? 0),
-        }
+      // `/owners/me/properties` 返回裸数组（不是 {items}），两种形态都要兼容
+      const properties: OwnerProperty[] = Array.isArray(pPayload) ? pPayload : (pPayload?.items ?? [])
+      // `/owners/me/income` 的真实口径是 total_income / receivable_total / overdue_total / records。
+      // 页面要展示「本月应收 / 本月已收 / 本月待收」，按 records 的 month + status 就地归集。
+      const thisMonth = dayjs().format('YYYY-MM')
+      const records: any[] = Array.isArray(iPayload?.records) ? iPayload.records : []
+      const monthRecords = records.filter((r) => r?.month === thisMonth)
+      const received = monthRecords
+        .filter((r) => r?.status === 'received')
+        .reduce((s, r) => s + Number(r?.amount || 0), 0)
+      const pending = monthRecords
+        .filter((r) => r?.status !== 'received')
+        .reduce((s, r) => s + Number(r?.amount || 0), 0)
+      const income: IncomeSummary = {
+        total_income: Number(iPayload?.total_income ?? 0),
+        monthly_income: received + pending,
+        pending_amount: pending,
       }
-      return { properties: pPayload?.items ?? [], income }
+      return { properties, income }
     },
   })
   const properties = q.data?.properties ?? []

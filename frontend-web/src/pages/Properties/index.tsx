@@ -550,7 +550,9 @@ const Properties = () => {
   // ==================== 列表项渲染 ====================
 
   const renderListItem = (item: any) => {
-    const projectName = item.project_id || item.building || ''
+    // project_id 是 UUID，直接展示会露出数据库主键；必须经 projects 表解析成项目名称
+    const projectName =
+      (item.project_id && projects.find((p) => p.id === item.project_id)?.name) || item.building || ''
     const title = projectName ? `${projectName} · ${item.room_number || ''}` : (item.address || item.room_number || '—')
     const ptype = propertyTypeMap[item.property_type] || item.property_type || t('propertyType.apartment')
     const statusKey = (item.status || 'vacant').toLowerCase()

@@ -33,7 +33,24 @@ import { notify, notifyError } from '@/utils/feedback';
 import { useAuthStore } from '@/stores/auth';
 import { useI18n } from '@/i18n';
 
-const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '-');
+/* 后端时间戳统一为 naive UTC（无时区后缀）。此前直接 replace('T',' ') 会把 UTC 当本地
+   时间展示，东八区下比 Web 端早 8 小时；这里先补 'Z' 归一为 UTC，再按用户本地时区格式化。 */
+const fmtDate = (x?: string) => {
+  if (!x) return '-';
+  const raw = String(x);
+  const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : `${raw}Z`;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return raw.replace('T', ' ').slice(0, 16);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/** 合同类型枚举 → i18n key（详情里此前直接打印后端枚举 lease/purchase/broker） */
+const KIND_LABEL_KEYS: Record<string, string> = {
+  lease: 'contract.tmpl.lease',
+  purchase: 'contract.tmpl.purchase',
+  broker: 'contract.tmpl.broker',
+};
 
 // 合同正文纯文本（无 PDF 页图时作为降级背景）
 const stripHtml = (html?: string) =>
@@ -825,7 +842,13 @@ export default function MyContractsScreen() {
               </View>
               <View style={styles.fieldRow}>
                 <Text style={styles.fieldLabel}>{t('contract.kind')}</Text>
-                <Text style={styles.fieldValue}>{detail?.kind || '-'}</Text>
+                <Text style={styles.fieldValue}>
+                  {detail?.kind
+                    ? KIND_LABEL_KEYS[detail.kind]
+                      ? t(KIND_LABEL_KEYS[detail.kind])
+                      : detail.kind
+                    : '-'}
+                </Text>
               </View>
               <View style={styles.fieldRow}>
                 <Text style={styles.fieldLabel}>{t('contract.created_at')}</Text>

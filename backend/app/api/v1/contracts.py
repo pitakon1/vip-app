@@ -1883,9 +1883,44 @@ def build_verify_report(
     sig_list = []
     for rec in signatures:
         method = rec.method.value if rec.method else SignMethod.personal_handwrite.value
-        sign_types[method] = sign_types.get(method, 0) + 1
 
         field = session.get(ContractSignField, rec.field_id) if rec.field_id else None
+        # 整份合同总览记录（签署完成时落的一条哨兵记录，无签名图、无签署区）：
+        # 它不是某个签署方的签名，既不该计入签署方式统计，也不该按「复算签名哈希」
+        # 判定——否则它的 signature_svg 为空会被误判成「内容被篡改」，
+        # 与整份合同「验签通过」的结论自相矛盾，且会把内部哨兵名 `__overview__` 露给用户。
+        is_document_record = rec.field_id is None and rec.signer_name == "__overview__"
+
+        if is_document_record:
+            sig_list.append(
+                {
+                    "party_name": None,
+                    "role": "document",
+                    "is_document_record": True,
+                    "method": method,
+                    "signed_at": rec.created_at.isoformat() if rec.created_at else None,
+                    "ip": rec.ip,
+                    "signature_hash": rec.signature_hash,
+                    # 总览记录的完整性 = 落库文档哈希与当前文档哈希一致且未被篡改
+                    "signature_success": bool(
+                        rec.signature_hash and rec.signature_hash == contract.document_hash
+                    )
+                    and not tampered,
+                    "field_id": None,
+                    "signer_user_id": str(rec.signer_user_id)
+                    if rec.signer_user_id
+                    else None,
+                    "x": None,
+                    "y": None,
+                    "w": None,
+                    "h": None,
+                    "page": None,
+                }
+            )
+            continue
+
+        sign_types[method] = sign_types.get(method, 0) + 1
+
         # 复算该签名哈希：与 _apply_signature 一致
         recomputed_hash = None
         if rec.signature_hash and rec.signer_name and rec.signature_svg:
@@ -1901,6 +1936,7 @@ def build_verify_report(
             {
                 "party_name": rec.signer_name,
                 "role": None,
+                "is_document_record": False,
                 "method": method,
                 "signed_at": rec.created_at.isoformat() if rec.created_at else None,
                 "ip": rec.ip,

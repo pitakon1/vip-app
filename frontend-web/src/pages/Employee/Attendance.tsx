@@ -438,7 +438,7 @@ const Attendance = () => {
 
   const handleAppealSubmit = () => {
     if (!appealReason.trim()) {
-      message.error(t('att.errAppealReason'))
+      message.error(t('attendance.errAppealReason'))
       return
     }
     setAppealSubmitting(true)
@@ -448,12 +448,12 @@ const Attendance = () => {
         reason: appealReason.trim(),
       })
       .then(() => {
-        message.success(t('att.appealSubmitted'))
+        message.success(t('attendance.appealSubmitted'))
         setAppealReason('')
         setAppealDate(dayjs())
         loadAppeals()
       })
-      .catch(() => message.error(t('att.errAppeal')))
+      .catch(() => message.error(t('attendance.errAppeal')))
       .finally(() => setAppealSubmitting(false))
   }
 
@@ -677,7 +677,7 @@ const Attendance = () => {
               {gpsStatus === 'denied'
                 ? t('attendance.gpsDenied')
                 : geoInfo
-                  ? `${geoInfo.within_radius ? t('att.inRange') : t('att.outOfRange')} · ${t('attendance.geoDistance', { km: geoInfo.distance_km })}${geoInfo.address ? ` · ${geoInfo.address}` : ''}`
+                  ? `${geoInfo.within_radius ? t('attendance.inRange') : t('attendance.outOfRange')} · ${t('attendance.geoDistance', { km: geoInfo.distance_km })}${geoInfo.address ? ` · ${geoInfo.address}` : ''}`
                   : t('attendance.geoHint')}
             </div>
           </div>
@@ -1167,12 +1167,12 @@ const Attendance = () => {
       <div className="rent-grid rent-grid--2">
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">{t('att.appeal')}</h3>
-            <span className="rent-caption">{t('att.appealSubmit')}</span>
+            <h3 className="rent-card__title">{t('attendance.appeal')}</h3>
+            <span className="rent-caption">{t('attendance.appealSubmit')}</span>
           </div>
           <div className="rent-card__body">
             <div className="rent-field rent-mb-4">
-              <label className="rent-label">{t('att.appealDate')}</label>
+              <label className="rent-label">{t('attAdm.appealDate')}</label>
               <DatePicker
                 value={appealDate}
                 onChange={(d) => setAppealDate(d)}
@@ -1181,17 +1181,17 @@ const Attendance = () => {
               />
             </div>
             <div className="rent-field rent-mb-4">
-              <label className="rent-label">{t('att.appealReason')}</label>
+              <label className="rent-label">{t('attendance.appealReason')}</label>
               <Input.TextArea
                 rows={3}
-                placeholder={t('att.appealPlaceholder')}
+                placeholder={t('attendance.appealPlaceholder')}
                 value={appealReason}
                 onChange={(e) => setAppealReason(e.target.value)}
               />
             </div>
             <div className="rent-flex" style={{ justifyContent: 'flex-end' }}>
               <Button type="primary" onClick={handleAppealSubmit} loading={appealSubmitting}>
-                {t('att.appealSubmit')}
+                {t('attendance.appealSubmit')}
               </Button>
             </div>
           </div>
@@ -1199,7 +1199,7 @@ const Attendance = () => {
 
         <div className="rent-card">
           <div className="rent-card__header">
-            <h3 className="rent-card__title">{t('att.appealList')}</h3>
+            <h3 className="rent-card__title">{t('attendance.appealList')}</h3>
           </div>
           <div className="rent-card__body" style={{ padding: 0 }}>
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
@@ -1207,7 +1207,7 @@ const Attendance = () => {
                 <thead>
                   <tr>
                     <th>{t('attendance.thDate')}</th>
-                    <th>{t('att.appealReason')}</th>
+                    <th>{t('attendance.appealReason')}</th>
                     <th>{t('common.status')}</th>
                     <th>{t('attAdm.replyNote')}</th>
                   </tr>
@@ -1228,7 +1228,7 @@ const Attendance = () => {
                         <div className="rent-empty">
                           <Empty
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            description={t('att.noAppeal')}
+                            description={t('attendance.noAppeal')}
                           />
                         </div>
                       </td>

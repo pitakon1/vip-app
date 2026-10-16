@@ -100,7 +100,8 @@ const Properties = () => {
       try {
         const res = await api.get('/owners/me/properties')
         const payload = res.data?.data ?? res.data
-        return payload?.items ?? []
+        // 该接口返回裸数组，同时兼容 {items} 形态
+        return Array.isArray(payload) ? payload : (payload?.items ?? [])
       } catch (err: any) {
         message.error(err?.response?.data?.message || t('ownerProperties.errFetch'))
         return []

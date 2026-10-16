@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Empty } from 'antd'
 import { useTranslation } from 'react-i18next'
-import { paymentsApi } from '@/services/api'
+import { leasesApi, paymentsApi } from '@/services/api'
 import { downloadReport } from '@/lib/download'
 import type { Payment, PaymentStatus } from '@/types'
 import './payments.css'
@@ -42,6 +42,27 @@ const toDisplayType = (p: Payment): DisplayType => {
   if (explicit) return explicit
   if (p.payment_type === 'refund') return 'refund'
   return 'income'
+}
+
+/* 支付渠道码 → i18n key。后端落库的是枚举码（promptpay / bank_transfer …），
+   筛选下拉已翻译，但表格与详情此前直接打印原始码，两处口径不一致。 */
+const CHANNEL_LABEL_KEYS: Record<string, string> = {
+  promptpay: 'payments.chPromptpay',
+  bank_transfer: 'payments.chBankTransfer',
+  stripe: 'payments.chCreditCard',
+  credit_card: 'payments.chCreditCard',
+  alipay: 'payments.chAlipay',
+  wechat: 'payments.chWechat',
+  wise: 'payments.chWise',
+}
+
+/** 后端日期是带微秒的 ISO 串，表格里直接展示会露出 `2026-09-23T02:49:50.547430`。 */
+const formatDateTime = (value?: string | null): string => {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 interface QueryParams {
@@ -90,6 +111,30 @@ const Payments = () => {
   const [filterMethod, setFilterMethod] = useState<string>('')
   const [filterStart, setFilterStart] = useState<string>('')
   const [filterEnd, setFilterEnd] = useState<string>('')
+
+  // 租约 ID → 租客姓名。后端 /payments 只回 lease_id，直接展示会露出数据库主键；
+  // 这里用 /leases 的 tenant_name 做一次解析，解析不到时显示占位符而非 UUID。
+  const [leaseTenantMap, setLeaseTenantMap] = useState<Record<string, string>>({})
+  useEffect(() => {
+    let cancelled = false
+    leasesApi
+      .list({ pageSize: 100 })
+      .then((res) => {
+        if (cancelled) return
+        const items = res.data?.data?.items ?? res.data?.items ?? []
+        const map: Record<string, string> = {}
+        for (const l of items as any[]) {
+          if (l?.id && l.tenant_name) map[String(l.id)] = String(l.tenant_name)
+        }
+        setLeaseTenantMap(map)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  const resolveTenantName = (p: Payment) =>
+    (p as any).tenant_name || leaseTenantMap[String(p.lease_id ?? '')] || '-'
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -562,13 +607,14 @@ const Payments = () => {
                   const sMeta = statusMeta[ds]
                   const tMeta = typeMeta[dt]
                   const code = (p as any).code || `PMT-${p.id}`
-                  const tenantName = (p as any).tenant_name || p.lease_id || '-'
+                  const tenantName = resolveTenantName(p)
                   // 后端 Lease 无合同号字段：以租约 ID 前 8 位生成可读合同编号
                   const contractCode =
                     (p as any).contract_code ||
                     (p.lease_id ? `LS-${String(p.lease_id).slice(0, 8).toUpperCase()}` : '-')
-                  const date = p.paid_at || p.due_date || '-'
-                  const channel = p.channel || '-'
+                  const date = formatDateTime(p.paid_at || p.due_date)
+                  const channelKey = CHANNEL_LABEL_KEYS[String(p.channel || '')]
+                  const channel = channelKey ? t(channelKey) : (p.channel || '-')
                   const isRefundable = ds === 'overdue'
                   const isConfirmable = ds === 'pending'
                   const feeDue = lateFeeDue(p)
@@ -886,8 +932,8 @@ const Payments = () => {
                   <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.rowAmount')}</span><span>{formatAmount(detail)} {(detail as any).currency || 'THB'}</span></div></div>
                   <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.thType')}</span><span>{t(typeMeta[toDisplayType(detail)].label)}</span></div></div>
                   <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('common.status')}</span><span>{t(statusMeta[toDisplayStatus(detail)].label)}</span></div></div>
-                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.thChannel')}</span><span>{detail.channel || '-'}</span></div></div>
-                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.rowDueDate')}</span><span>{detail.due_date || '-'}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.thChannel')}</span><span>{CHANNEL_LABEL_KEYS[String(detail.channel || '')] ? t(CHANNEL_LABEL_KEYS[String(detail.channel)]) : (detail.channel || '-')}</span></div></div>
+                  <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.rowDueDate')}</span><span>{formatDateTime(detail.due_date)}</span></div></div>
                   <div className="rent-form-group" style={{ marginBottom: 0 }}><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.labelRemark')}</span><span>{detail.description || '-'}</span></div></div>
                 </>
               ) : docData === null ? (

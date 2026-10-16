@@ -119,10 +119,12 @@ interface SignAsset {
 }
 
 // 放置签署框时可选的 field_type（手写签名 / 公章 / 日期）
+// label 必须带 `contracts.` 命名空间：渲染处直接 t(o.label)，
+// 只用裸 key（fieldSig）会查不到词条、界面上暴露原始 key。
 const FIELD_TYPE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'signature', label: 'fieldSig' },
-  { value: 'seal', label: 'fieldSeal' },
-  { value: 'date', label: 'fieldDate' },
+  { value: 'signature', label: 'contracts.fieldSig' },
+  { value: 'seal', label: 'contracts.fieldSeal' },
+  { value: 'date', label: 'contracts.fieldDate' },
 ]
 
 // 可选 field_type → 签署 method（后端 SignMethod）；seal 走公司章
@@ -150,6 +152,13 @@ const sourceLabel: Record<string, string> = {
 
 // 上传白名单（与后端一致）：pdf / word / 常见图片
 const UPLOAD_ACCEPT = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.gif'
+
+/* 把后端返回的签署链接补成绝对地址。
+   后端 `_sign_url` 在未配置 PUBLIC_WEB_BASE_URL 时只返回相对路径 `/sign/:token`，
+   这种链接一旦离开当前浏览器会话（复制粘贴、转发、短信/邮件通知）客户就打不开。
+   因此凡是把签署链接展示或复制出去的地方，都必须先经这里补上站点 origin。 */
+const absSignUrl = (url?: string | null) =>
+  url ? (/^https?:\/\//.test(url) ? url : `${window.location.origin}${url}`) : ''
 
 const Contracts = () => {
   const { t } = useTranslation()
@@ -612,10 +621,7 @@ const Contracts = () => {
       const res = await contractsApi.createShareLink(detail.contract.id, partyId)
       const { url } = res.data || {}
       if (!url) throw new Error('no url')
-      // 后端未配 PUBLIC_WEB_BASE_URL 时返回相对路径（/sign/:token），
-      // 直接复制出去客户打不开，这里补上当前站点 origin 再进剪贴板。
-      const full = /^https?:/.test(url) ? url : `${window.location.origin}${url}`
-      await copyText(full)
+      await copyText(absSignUrl(url))
       message.success(t('contracts.msgLinkCopied'))
     } catch {
       message.error(t('contracts.errCopyLink'))
@@ -1093,7 +1099,7 @@ const Contracts = () => {
                         </div>
                       )}
                       {p.sign_url && (
-                        <div className="rent-text-sm rent-text-muted">url: {p.sign_url}</div>
+                        <div className="rent-text-sm rent-text-muted">url: {absSignUrl(p.sign_url)}</div>
                       )}
                     </div>
                     <div className="rent-flex" style={{ gap: 8, alignItems: 'center' }}>

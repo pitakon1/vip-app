@@ -1877,7 +1877,10 @@ class AttendanceCompaniesOut(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    range: Optional[Dict[str, int]] = None
+    # range 内含 start/end（ISO 日期字符串）与 days/workdays（整数），
+    # 不能用 Dict[str, int]：Pydantic 会把日期字符串按 int 校验并抛
+    # ResponseValidationError，导致该接口一律 500。
+    range: Optional[Dict[str, Any]] = None
     total_partners: Optional[int] = None
     companies: Optional[List[AttendanceCompanyRow]] = None
 

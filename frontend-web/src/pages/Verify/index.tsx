@@ -12,6 +12,8 @@ interface SigRecord {
   signature_hash?: string
   field_id?: string
   signature_success?: boolean
+  /** 整份合同总览记录（非某个签署方的签名），此时 party_name 为空 */
+  is_document_record?: boolean
 }
 
 interface Report {
@@ -157,7 +159,7 @@ const Verify = () => {
                   <tbody>
                     {report.signatures.map((s, i) => (
                       <tr key={i}>
-                        <td>{s.party_name || '-'}</td>
+                        <td>{s.is_document_record ? t('contracts.verifyDocRecord') : (s.party_name || '-')}</td>
                         <td>{t(`contracts.method_${s.method}`) || s.method}</td>
                         <td>{fmtTs(s.signed_at)}</td>
                         <td>{s.ip || '-'}</td>
