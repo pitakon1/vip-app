@@ -562,6 +562,23 @@ export default function HomeScreen() {
   }, [publicQ, userQ, token]);
 
   const goListings = useCallback(() => navigation.navigate('Listings'), [navigation]);
+
+  // 黄金导航栏：5 个「浅色淡底磁贴 + 品牌色线条图标」入口，各跳各自独立分类页
+  // （贝壳式：租房 / 新房 / 二手房 / 商铺办公 / 厂房），文案与图标保持不变。
+  const goldNavItems: {
+    key: string;
+    labelKey: string;
+    icon: IoniconName;
+    color: string;
+    tint: string;
+    onPress: () => void;
+  }[] = [
+    { key: 'rent', labelKey: 'home.goldRent', icon: 'home', color: colors.primary, tint: colors.alpha(colors.primaryRgb, 0.1), onPress: () => navigation.navigate('RentCategory') },
+    { key: 'new', labelKey: 'home.goldNew', icon: 'business', color: colors.warning, tint: colors.alpha(colors.warningRgb, 0.1), onPress: () => navigation.navigate('NewHouse') },
+    { key: 'resale', labelKey: 'home.goldResale', icon: 'swap-horizontal', color: colors.info, tint: colors.alpha(colors.infoRgb, 0.1), onPress: () => navigation.navigate('Resale') },
+    { key: 'commercial', labelKey: 'home.goldCommercial', icon: 'storefront', color: colors.error, tint: colors.alpha(colors.errorRgb, 0.1), onPress: () => navigation.navigate('Commercial') },
+    { key: 'factory', labelKey: 'home.goldFactory', icon: 'cube', color: colors.success, tint: colors.alpha(colors.successRgb, 0.1), onPress: () => navigation.navigate('Factory') },
+  ];
   const openProperty = useCallback(
     // 卡片 id 为公开层挂牌 id：进公开房源详情（匿名可看，含小区/周边学校/经纪人留资）
     (id: string) => navigation.navigate('PublicListingDetail', { id }),
@@ -844,12 +861,35 @@ export default function HomeScreen() {
         </View>
       </TouchableOpacity>
 
+      {/* 黄金导航栏：5 个浅色淡底图标入口
+          - 浅色淡底圆角磁贴 + 同色系线条图标 + 深色文字标签，无卡片外壳、无渐变
+          - 跳转复用找房页已有的 business / filter / is_new_development 参数 */}
+      <View style={styles.goldNav}>
+        {goldNavItems.map((it) => (
+          <TouchableOpacity
+            key={it.key}
+            style={styles.goldNavItem}
+            activeOpacity={0.7}
+            onPress={it.onPress}
+            accessibilityRole="button"
+            accessibilityLabel={t(it.labelKey)}
+          >
+            <View style={[styles.goldNavIcon, { backgroundColor: it.tint }]}>
+              <Ionicons name={it.icon} size={34} color={it.color} />
+            </View>
+            <Text style={styles.goldNavLabel} numberOfLines={1}>
+              {t(it.labelKey)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {/* 3. 双业务 Tab：租房 / 买房 */}
       <View style={styles.bizTabs}>
         {(['rent', 'buy'] as const).map((b) => (
           <TouchableOpacity
             key={b}
-            style={[styles.bizTab, bizTab === b && styles.bizTabActive]}
+            style={styles.bizTab}
             onPress={() => setBizTab(b)}
             activeOpacity={0.7}
           >
@@ -922,21 +962,17 @@ const styles = StyleSheet.create({
   skelLineWide: { height: 14, borderRadius: 7, backgroundColor: colors.muted },
   skelLine: { height: 14, borderRadius: 7, backgroundColor: colors.surface2 },
 
-  /* 双业务 Tab */
+  /* 业务 Tab（租房 / 买房）：对齐参考图的「纯文字 Tab」范式 —— 无胶囊底色、无描边，
+     选中为深墨色加粗、未选中为浅灰；靠间距分隔，间距 ≈ 1.4× 字号（20 ≈ 1.4×15） */
   bizTabs: {
     flexDirection: 'row',
-    gap: colors.spacing.sm,
+    alignItems: 'center',
+    gap: colors.spacing.xl,
     marginBottom: colors.spacing.md,
   },
-  bizTab: {
-    paddingHorizontal: colors.spacing.lg,
-    paddingVertical: colors.spacing.sm,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.surface2,
-  },
-  bizTabActive: { backgroundColor: colors.primary },
-  bizTabText: { fontSize: 14, color: colors.ink2, fontWeight: '600' },
-  bizTabTextActive: { color: colors.primaryForeground, fontWeight: '700' },
+  bizTab: { paddingVertical: colors.spacing.xs },
+  bizTabText: { fontSize: 15, color: colors.ink3, fontWeight: '500' },
+  bizTabTextActive: { color: colors.ink, fontWeight: '700' },
 
   /* 城市标签（固定高度占位，避免数据到达时整行跳变） */
   locationRow: {
@@ -1029,4 +1065,17 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.sm,
   },
   actBadgeText: { fontSize: 12, fontWeight: '600' },
+
+  /* 黄金导航栏：5 列「浅色淡底圆角磁贴 + 同色系彩色图标 + 深色标签」入口
+     （无卡片外壳 / 无渐变）。磁贴尺寸按参考图占满各 1/5 列宽（留小间隙） */
+  goldNav: { flexDirection: 'row', paddingVertical: 12 },
+  goldNavItem: { width: '20%', alignItems: 'center' },
+  goldNavIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: colors.radius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goldNavLabel: { fontSize: 13, color: colors.ink, marginTop: 8 },
 });

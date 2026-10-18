@@ -1,0 +1,499 @@
+/* =========================================================
+   贝壳式分类页外壳（CategoryKit · 小程序）
+   顶部磨砂玻璃栏 + 中段模块 + 筛选（方块选项/顶部下拉）+ 卡片列表 + 底部导航
+   颜色一律取 app.scss 的 CSS 变量，禁渐变、禁硬编码色值
+   ========================================================= */
+
+.ck-hover {
+  opacity: 0.82;
+}
+
+.ck-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--bg);
+}
+
+/* ===== 顶部栏：磨砂玻璃（半透明白 + 模糊），胶囊项 999px ===== */
+.ck-top {
+  flex-shrink: 0;
+  background-color: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1rpx solid var(--line);
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+    height: 88rpx;
+    padding: 0 24rpx;
+  }
+
+  &__back {
+    width: 64rpx;
+    height: 64rpx;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background-color: var(--surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__title {
+    flex: 1;
+    font-size: 36rpx;
+    font-weight: 700;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__row2 {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    padding: 0 24rpx 16rpx;
+  }
+}
+
+.ck-city {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  height: 64rpx;
+  padding: 0 20rpx;
+  border-radius: 999px;
+  background-color: var(--surface-2);
+
+  &__text {
+    max-width: 160rpx;
+    font-size: 26rpx;
+    font-weight: 500;
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__arrow {
+    font-size: 20rpx;
+    color: var(--ink-3);
+  }
+}
+
+.ck-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  height: 64rpx;
+  padding: 0 24rpx;
+  border-radius: 999px;
+  background-color: var(--surface-2);
+
+  &__input {
+    flex: 1;
+    font-size: 28rpx;
+    color: var(--ink);
+  }
+}
+
+/* ===== 滚动区 ===== */
+.ck-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.ck-body {
+  /* 预留固定底部导航高度（112rpx + 安全区），避免内容被遮挡 */
+  padding-bottom: 160rpx;
+}
+
+/* ===== 入口宫格：固定 4 列（25%）对齐小程序「服务宫格」既有规范 ===== */
+.ck-grid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 20rpx 8rpx 4rpx;
+
+  &__item {
+    width: 25%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10rpx;
+    margin-bottom: 24rpx;
+  }
+
+  &__icon {
+    width: 88rpx;
+    height: 88rpx;
+    border-radius: var(--radius-lg);
+    background-color: rgba(var(--primary-rgb), 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__label {
+    font-size: 24rpx;
+    color: var(--ink-2);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* ===== 数据胶囊（新房）===== */
+.ck-capsule {
+  display: flex;
+  align-items: center;
+  margin: 20rpx 24rpx 0;
+  padding: 24rpx 8rpx;
+  background-color: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+
+  &__item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6rpx;
+  }
+
+  &__value {
+    font-size: 40rpx;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+
+  &__label {
+    font-size: 22rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* ===== 纯文字 Tab：选中深墨加粗 / 未选中浅灰，无底色无描边 ===== */
+.ck-tabs {
+  display: flex;
+  white-space: nowrap;
+  padding: 24rpx 24rpx 8rpx;
+}
+
+.ck-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 8rpx 0;
+  margin-right: 48rpx;
+
+  &__text {
+    font-size: 30rpx;
+    font-weight: 500;
+    color: var(--ink-3);
+  }
+
+  &--on .ck-tab__text {
+    color: var(--ink);
+    font-weight: 700;
+  }
+}
+
+/* ===== 行情对比卡 ===== */
+.ck-compare {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 20rpx 24rpx 0;
+  padding: 24rpx;
+  background-color: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+
+  &__side {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__dist {
+    font-size: 26rpx;
+    color: var(--ink-2);
+  }
+
+  &__price {
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+    margin-top: 4rpx;
+  }
+
+  &__vs {
+    font-size: 26rpx;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  &__link {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary);
+  }
+}
+
+/* ===== 服务条 ===== */
+.ck-service {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin: 20rpx 24rpx 0;
+  padding: 20rpx 24rpx;
+  background-color: var(--primary-soft);
+  border-radius: var(--radius-lg);
+
+  &__text {
+    flex: 1;
+    font-size: 28rpx;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__btn {
+    flex-shrink: 0;
+    padding: 10rpx 26rpx;
+    border-radius: 999px;
+    background-color: var(--primary);
+  }
+
+  &__btn-text {
+    font-size: 26rpx;
+    font-weight: 700;
+    color: var(--primary-foreground);
+  }
+}
+
+/* ===== 严选横幅 ===== */
+.ck-banner {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 20rpx 24rpx 0;
+  padding: 24rpx;
+  background-color: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  &__sub {
+    font-size: 24rpx;
+    color: var(--ink-3);
+    margin-top: 6rpx;
+  }
+
+  &__btn {
+    flex-shrink: 0;
+    padding: 12rpx 26rpx;
+    border-radius: 999px;
+    background-color: rgba(var(--primary-rgb), 0.12);
+  }
+
+  &__btn-text {
+    font-size: 26rpx;
+    font-weight: 700;
+    color: var(--primary);
+  }
+}
+
+/* ===== 筛选行 + 顶部下拉面板（方块选项）===== */
+.ck-filter {
+  margin: 20rpx 24rpx 0;
+
+  &__bar {
+    display: flex;
+    align-items: center;
+    background-color: var(--card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6rpx;
+    padding: 22rpx 0;
+    min-width: 0;
+
+    &--on .ck-filter__label {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    &--on .ck-filter__arrow {
+      color: var(--primary);
+    }
+  }
+
+  &__label {
+    font-size: 28rpx;
+    color: var(--ink-2);
+    font-weight: 500;
+    max-width: 150rpx;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__arrow {
+    font-size: 18rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* 下拉面板：内联铺开在筛选行下方（顶部下拉，非底部弹窗） */
+.ck-drop {
+  margin-top: 2rpx;
+  padding: 12rpx 24rpx 20rpx;
+  background-color: var(--card);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  box-shadow: var(--shadow-md);
+
+  &__group {
+    margin-top: 8rpx;
+  }
+
+  &__title {
+    display: block;
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--ink-2);
+    margin: 12rpx 0;
+  }
+
+  &__blocks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16rpx;
+  }
+
+  &__done {
+    margin-top: 20rpx;
+    height: 80rpx;
+    border-radius: var(--radius-md);
+    background-color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__done-text {
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--primary-foreground);
+  }
+}
+
+/* 方块选项（小圆角 + 浅灰底 + 选中态描边），不用胶囊 */
+.ck-block {
+  min-width: 150rpx;
+  padding: 16rpx 24rpx;
+  border: 2rpx solid transparent;
+  border-radius: 10rpx;
+  background-color: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &--on {
+    background-color: var(--sidebar-active);
+    border-color: var(--primary);
+  }
+
+  &--on .ck-block__text {
+    color: var(--primary);
+    font-weight: 700;
+  }
+}
+
+/* 快捷标签（方块样式，与筛选选项一致，不用胶囊） */
+.ck-quick {
+  display: flex;
+  white-space: nowrap;
+  margin-top: 16rpx;
+
+  &__tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 60rpx;
+    padding: 0 24rpx;
+    margin-right: 16rpx;
+    border-radius: 10rpx;
+    background-color: var(--surface-2);
+
+    &--on {
+      background-color: var(--sidebar-active);
+    }
+  }
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--ink-2);
+  }
+
+  &__tag--on .ck-quick__text {
+    color: var(--primary);
+    font-weight: 600;
+  }
+}
+
+.ck-count {
+  display: block;
+  font-size: 24rpx;
+  color: var(--ink-3);
+  padding: 20rpx 24rpx 4rpx;
+}
+
+.ck-more {
+  margin: 8rpx 24rpx 24rpx;
+  height: 80rpx;
+  border-radius: var(--radius-md);
+  background-color: var(--card);
+  border: 2rpx solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &__text {
+    font-size: 28rpx;
+    font-weight: 500;
+    color: var(--primary);
+  }
+}

@@ -136,15 +136,6 @@ export default function MyListingsScreen() {
         </View>
         {/* 操作 */}
         <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('ListingPublish', { id: item.id })}
-            accessibilityRole="button"
-            accessibilityLabel="编辑上架单"
-          >
-            <Text style={styles.actionText}>编辑</Text>
-          </TouchableOpacity>
           {item.status === 'pending' || item.status === 'active' ? (
             <TouchableOpacity
               style={[styles.actionBtn, styles.actionDanger]}

@@ -15,16 +15,26 @@ import {
   ScrollView,
   Animated,
   Platform,
+  Keyboard,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import * as Location from 'expo-location';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { translateApi, favoritesApi } from '@/services/api';
-import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
-import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
+import {
+  publicApi,
+  unwrapPage,
+  type PublicSchool,
+  type PublicDistrict,
+  type PublicMapPoint,
+} from '@/services/publicApi';
+import { SCHOOL_RADIUS_OPTIONS, listingTypeLabel } from '@/lib/publicSite';
 import { fmtMoney as formatRent } from '@/utils/format';
 import { notify, notifyError } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
@@ -61,11 +71,31 @@ interface Listing {
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
-// 业务归属 Tab（对齐原型 rv17-bizbar：整租 / 合租 / 买房）
-type BizKey = 'rent' | 'share' | 'sale';
+// 「附近」排序：用户定位与楼盘坐标间的球面距离（km）；坐标缺失的房源排到最后
+const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }): number => {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+
+// 顶部找房卡「居室」快选：不限 / 1居 / 2居 / 3居+（3居+ = 3 室及以上）
+type HeroBedKey = '' | '1' | '2' | '3p';
+const heroBedOptions = (t: TFunc): { key: HeroBedKey; label: string }[] => [
+  { key: '', label: t('common.any') },
+  { key: '1', label: t('prop.bedroomN', { n: 1 }) },
+  { key: '2', label: t('prop.bedroomN', { n: 2 }) },
+  { key: '3p', label: t('list.bed3plus') },
+];
+
+// 业务归属 Tab（对齐原型 rv17-bizbar：整租 / 买房）
+type BizKey = 'rent' | 'sale';
 const bizTabs = (t: TFunc): { key: BizKey; label: string }[] => [
   { key: 'rent', label: t('list.biz.rent') },
-  { key: 'share', label: t('list.biz.share') },
   { key: 'sale', label: t('list.biz.sale') },
 ];
 
@@ -78,6 +108,7 @@ const propertyTypeFilters = (t: TFunc) => [
   { key: 'house', label: t('prop.type.detached') },
   { key: 'office', label: t('prop.type.office') },
   { key: 'shop', label: t('prop.type.commercial') },
+  { key: 'factory', label: t('prop.type.factory') },
 ];
 
 // 买卖挂牌（真实数据源：GET /sale-listings）
@@ -382,6 +413,7 @@ export default function ListingsScreen() {
   const AMENITY_OPTIONS = useMemo(() => amenityOptions(t), [t]);
   const AREA_PRESETS = useMemo(() => areaPresets(t), [t]);
   const SORT_OPTIONS = useMemo(() => sortOptions(t), [t]);
+  const HERO_BED_OPTIONS = useMemo(() => heroBedOptions(t), [t]);
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -390,6 +422,9 @@ export default function ListingsScreen() {
   // 最近搜索（本地持久化）：焦点态 + 历史词非空时展示 chips
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [searchFocused, setSearchFocused] = useState(false);
+  // 「附近」：按离我最近排序（首次开启时才申请定位权限）
+  const [nearby, setNearby] = useState(false);
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [priceRange, setPriceRange] = useState('');
   const [customMin, setCustomMin] = useState(''); // 自定义最低价（万）
   const [customMax, setCustomMax] = useState(''); // 自定义最高价（万）
@@ -406,11 +441,12 @@ export default function ListingsScreen() {
   type OpenTab = null | 'region' | 'price' | 'more' | 'sort';
   const [openTab, setOpenTab] = useState<OpenTab>(null);
   const [translatingId, setTranslatingId] = useState<string | null>(null);
-  // 业务归属 Tab（整租 / 合租 / 买房）
-  const [biz, setBiz] = useState<BizKey>('rent');
+  // 路由参数（首页黄金导航 business=sale / filter=property_type 直达）
+  const route = useRoute<any>();
+  // 业务归属 Tab（整租 / 买房）：初值支持从路由参数 business 直达
+  const [biz, setBiz] = useState<BizKey>(route.params?.business === 'sale' ? 'sale' : 'rent');
   const [saleListings, setSaleListings] = useState<SaleListing[]>([]);
   const [saleLoading, setSaleLoading] = useState(false);
-  const [saleLoaded, setSaleLoaded] = useState(false);
   const [saleError, setSaleError] = useState(false);
   // 按区域/按地铁（对齐贝壳「区域 | 地铁」双Tab）
   // 城市由全局定位 Store 决定（主页左上角选择国家/城市），找房页只做「区/街道」与地铁（链家式：
@@ -432,12 +468,27 @@ export default function ListingsScreen() {
   const [schoolKw, setSchoolKw] = useState('');
   // 请求序号：连续切换筛选时丢弃先发后到的过期响应
   const listReqSeq = useRef(0);
+  // 列表 ref：点「查看 N 套房源」后回到列表顶部
+  const listRef = useRef<FlatList<any>>(null);
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
-  // 顶部安全区：本页同时作为底部 Tab（无 header）与堆栈页使用，补 insets.top 避免内容顶到状态栏
+  // 顶部安全区：本页同时作为底部 Tab（无 header）与堆栈页（PropertySearch，有原生 header）使用。
+  // 仅 Tab 场景补 insets.top；堆栈场景已由原生 header 让出安全区，再补会多出一条空隙把头部色块顶下去。
   const insets = useSafeAreaInsets();
-  // 支持金刚区分类直达：路由参数 filter 预设房源类型
-  const [filter, setFilter] = useState(route.params?.filter || '');
+  const topInset = navigation.getState()?.type === 'tab' ? insets.top : 0;
+  // 支持金刚区分类直达：路由参数 filter 预设房源类型。可为字符串或数组——
+  // 数组用于「商铺办公」= office+shop 这类一次直达多个类型。筛选改由服务端执行，
+  // 客户端按 50 条本地过滤会在数据量大时漏筛（见 loadListings / loadSaleListings）。
+  const [filterTypes, setFilterTypes] = useState<string[]>(() => {
+    const f = route.params?.filter;
+    if (Array.isArray(f)) return f.filter(Boolean).map(String);
+    return f ? [String(f)] : [];
+  });
+  // 新房/二手房（仅买房业务）：路由参数 is_new_development 直达；undefined=不限
+  const [isNew, setIsNew] = useState<boolean | undefined>(
+    typeof route.params?.is_new_development === 'boolean'
+      ? route.params.is_new_development
+      : undefined,
+  );
   // 收藏集合：propertyId -> 是否已收藏
   const [favSet, setFavSet] = useState<Record<string, boolean>>({});
   const [favLoading, setFavLoading] = useState<Record<string, boolean>>({});
@@ -468,7 +519,17 @@ export default function ListingsScreen() {
             }
           }
         }
-        const params: any = { page: 1, page_size: 50, listing_type: 'rent' };
+        const params: any = {
+          page: 1,
+          page_size: 50,
+          listing_type: 'rent',
+          // 城市作用域：传定位 Store 的 cityKey（后端做 slug 归一化），不传中文 cityLabel
+          ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
+          // 房源类型 / 新房二手房改由服务端过滤：多值数组经 axios paramsSerializer
+          // （indexes:null）序列化为重复键，与 FastAPI 的 List[str] Query 对齐。
+          ...(filterTypes.length ? { property_type: filterTypes } : {}),
+          ...(isNew === undefined ? {} : { is_new_development: isNew }),
+        };
         if (schoolFilter) {
           params.school_id = schoolFilter.id;
           params.school_radius_km = schoolFilter.km;
@@ -499,7 +560,7 @@ export default function ListingsScreen() {
         }
       }
     },
-    [schoolFilter, t],
+    [schoolFilter, t, filterTypes, isNew, locSel.cityKey],
   );
 
   useEffect(() => {
@@ -524,12 +585,19 @@ export default function ListingsScreen() {
     );
   }, [schools, schoolKw]);
 
-  // 买房 Tab：懒加载真实在售挂牌（GET /sale-listings）
+  // 买房 Tab：真实在售挂牌（GET /public/listings?listing_type=sell）
   const loadSaleListings = useCallback(async () => {
     setSaleLoading(true);
     setSaleError(false);
     try {
-      const res = await publicApi.listings({ page: 1, page_size: 50, listing_type: 'sell' });
+      const res = await publicApi.listings({
+        page: 1,
+        page_size: 50,
+        listing_type: 'sell',
+        ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
+        ...(filterTypes.length ? { property_type: filterTypes } : {}),
+        ...(isNew === undefined ? {} : { is_new_development: isNew }),
+      });
       const data = res.data;
       const items = Array.isArray(data)
         ? data
@@ -541,13 +609,13 @@ export default function ListingsScreen() {
       setSaleError(true);
     } finally {
       setSaleLoading(false);
-      setSaleLoaded(true);
     }
-  }, []);
+  }, [filterTypes, isNew, locSel.cityKey]);
 
   useEffect(() => {
-    if (biz === 'sale' && !saleLoaded) loadSaleListings();
-  }, [biz, saleLoaded, loadSaleListings]);
+    // 筛选条件变化时 loadSaleListings 引用会变，此处随之重新拉取（不再只认首次加载）
+    if (biz === 'sale') loadSaleListings();
+  }, [biz, loadSaleListings]);
 
   // 收藏状态：TanStack Query 批量查询（同 key 去重 + 60s 新鲜 + 切换后失效）
   const token = useAuthStore((s) => s.token);
@@ -670,12 +738,18 @@ export default function ListingsScreen() {
     if (kw) saveRecentSearch(kw);
   }, [keyword, saveRecentSearch]);
 
-  // 金刚区分类直达：路由参数变化时同步筛选
+  // 金刚区分类直达：路由参数变化时同步筛选（支持字符串与数组两种形式）
   useEffect(() => {
-    if (route.params?.filter !== undefined) {
-      setFilter(route.params.filter);
-    }
+    const f = route.params?.filter;
+    if (f === undefined) return;
+    setFilterTypes(Array.isArray(f) ? f.filter(Boolean).map(String) : [String(f)]);
   }, [route.params?.filter]);
+
+  // 新房/二手房直达：路由参数变化时同步
+  useEffect(() => {
+    const n = route.params?.is_new_development;
+    if (typeof n === 'boolean') setIsNew(n);
+  }, [route.params?.is_new_development]);
 
   // 首页学校卡片直达：带着学校跳到本页并预选学校筛选。
   // 依赖用 schoolTs（时间戳）而非 schoolId —— 连续点同一所学校也要重新生效。
@@ -689,6 +763,49 @@ export default function ListingsScreen() {
   // ---------- 按区域 / 按地铁（对齐贝壳「区域 | 地铁」） ----------
   // 当前定位城市的城区（区/街道）平铺列表：找房页不出现国家/省市，只留 区/街道 颗粒度
   const cityDistricts = locCity?.children ?? [];
+  // 区域下拉数据源：优先后端真实区域（当前城市 + 当前业务/房型，可显示套数），
+  // 为空回退定位城市静态城区 —— 避免 dev 库稀疏时筛选器变成死界面。
+  const [apiDistricts, setApiDistricts] = useState<PublicDistrict[] | null>(null);
+  const filterTypesKey = filterTypes.join(',');
+  useEffect(() => {
+    let cancelled = false;
+    const types = filterTypesKey ? filterTypesKey.split(',') : [];
+    publicApi
+      .districts({
+        city: locSel.cityKey || undefined,
+        listing_type: biz === 'sale' ? 'sell' : 'rent',
+        ...(types.length ? { property_type: types } : {}),
+      })
+      .then((res: any) => {
+        if (cancelled) return;
+        const body = res?.data?.data ?? res?.data ?? [];
+        setApiDistricts(Array.isArray(body) ? body : []);
+      })
+      .catch(() => {
+        if (!cancelled) setApiDistricts(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [locSel.cityKey, biz, filterTypesKey]);
+
+  const districtList = useMemo(() => {
+    if (apiDistricts && apiDistricts.length) {
+      return apiDistricts.map((d) => ({
+        key: String(d.district),
+        label: d.listing_count > 0 ? `${d.district} (${d.listing_count})` : String(d.district),
+        kws: [String(d.district).toLowerCase()],
+      }));
+    }
+    return cityDistricts.map((c) => ({ key: c.key, label: c.label, kws: c.kws }));
+  }, [apiDistricts, cityDistricts]);
+
+  // 地图找房弹层：App 无原生地图库（Expo Go 不能加载原生地图模块），
+  // 以「视野内房源列表」消费 /public/map-points。
+  const [mapOpen, setMapOpen] = useState(false);
+  const [mapPoints, setMapPoints] = useState<PublicMapPoint[]>([]);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [mapError, setMapError] = useState(false);
   // 地铁仅列当前定位城市的线路
   const cityMetroLines = useMemo(
     () => METRO_LINES.filter((l) => l.cityKey === locSel.cityKey),
@@ -702,7 +819,7 @@ export default function ListingsScreen() {
   // 「城市」不再参与（全局定位决定城市，找房页只做区/街道与地铁）
   const activeLocationKw = useMemo(() => {
     if (districtSel) {
-      const node = locCity?.children.find((d) => d.key === districtSel);
+      const node = districtList.find((d) => d.key === districtSel);
       return node ? node.kws : [];
     }
     if (metroSel.length) {
@@ -710,11 +827,11 @@ export default function ListingsScreen() {
       return stations.filter((s) => metroSel.includes(s.name)).flatMap((s) => s.kws);
     }
     return [];
-  }, [districtSel, metroSel, locCity]);
+  }, [districtSel, metroSel, districtList]);
 
   const regionLabel = useMemo(() => {
     if (districtSel) {
-      const node = locCity?.children.find((d) => d.key === districtSel);
+      const node = districtList.find((d) => d.key === districtSel);
       return node ? node.label : t('regionFilter.title');
     }
     if (metroSel.length) {
@@ -722,7 +839,7 @@ export default function ListingsScreen() {
       return metroSel.length > 1 ? `${first} +${metroSel.length - 1}` : first;
     }
     return t('regionFilter.title');
-  }, [districtSel, metroSel, locCity, t]);
+  }, [districtSel, metroSel, districtList, t]);
 
   // 全局城市作用域：当前定位城市下，房源必须命中该城任一城区关键词（整体过滤，链家式「定位城市看房」）
   const globalCityKw = useMemo(
@@ -771,7 +888,7 @@ export default function ListingsScreen() {
   const moreBadge =
     (schoolId ? 1 : 0) +
     (bedFilter ? 1 : 0) +
-    (filter ? 1 : 0) +
+    (filterTypes.length ? 1 : 0) +
     (hasAreaFilter ? 1 : 0) +
     (statusFilter ? 1 : 0) +
     (orientationSel ? 1 : 0) +
@@ -803,7 +920,8 @@ export default function ListingsScreen() {
       setSchoolId('');
       setSchoolName('');
       setBedFilter('');
-      setFilter('');
+      setFilterTypes([]);
+      setIsNew(undefined);
       setAreaRange('');
       setAreaCustomMin('');
       setAreaCustomMax('');
@@ -872,7 +990,6 @@ export default function ListingsScreen() {
   const filtered = useMemo(
     () =>
       listings.filter((it) => {
-    if (filter && it.property_type !== filter) return false;
     if (statusFilter && it.status !== statusFilter) return false;
     // 朝向
     if (orientationSel && it.orientation !== orientationSel) return false;
@@ -892,11 +1009,13 @@ export default function ListingsScreen() {
         : [];
       if (!amenitySel.some((a) => tags.includes(a))) return false;
     }
-    // 户型（1-4 室精确匹配；5室+ 覆盖 >=5）
+    // 户型（1-4 室精确匹配；5室+ 覆盖 >=5；3居+ 覆盖 >=3）
     if (bedFilter) {
       const beds = Number(it.bedrooms ?? 0);
       if (bedFilter === '5') {
         if (beds < 5) return false;
+      } else if (bedFilter === '3p') {
+        if (beds < 3) return false;
       } else if (beds !== Number(bedFilter)) {
         return false;
       }
@@ -940,12 +1059,27 @@ export default function ListingsScreen() {
     }
     return true;
       }),
-    [listings, filter, statusFilter, bedFilter, orientationSel, floorSel, decorSel, amenitySel, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, keyword, activeLocationKw, globalCityKw, PRICE_RANGES, AREA_PRESETS],
+    [listings, statusFilter, bedFilter, orientationSel, floorSel, decorSel, amenitySel, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, keyword, activeLocationKw, globalCityKw, PRICE_RANGES, AREA_PRESETS],
   );
 
-  // 排序（贝壳式 Tab）
+  // 排序（贝壳式 Tab）；「附近」开启时按离我最近优先，无坐标的房源排到最后
   const sortedData = useMemo(() => {
     const arr = [...filtered];
+    if (nearby && userPos) {
+      const pos = userPos;
+      arr.sort((a, b) => {
+        const da =
+          a.lat != null && a.lng != null
+            ? haversineKm(pos, { lat: a.lat, lng: a.lng })
+            : Infinity;
+        const db =
+          b.lat != null && b.lng != null
+            ? haversineKm(pos, { lat: b.lat, lng: b.lng })
+            : Infinity;
+        return da - db;
+      });
+      return arr;
+    }
     switch (sortKey) {
       case 'price_asc':
         arr.sort((a, b) => (a.monthly_rent ?? 0) - (b.monthly_rent ?? 0));
@@ -960,16 +1094,113 @@ export default function ListingsScreen() {
         break;
     }
     return arr;
-  }, [filtered, sortKey]);
+  }, [filtered, sortKey, nearby, userPos]);
 
-  // 买房 Tab 数据（真实挂牌，仅按关键字过滤）
+  // 买房 Tab 数据（真实挂牌，按关键字 + 居室快选过滤）
   const saleFiltered = useMemo(() => {
-    if (!keyword) return saleListings;
-    const kw = keyword.toLowerCase();
-    return saleListings.filter((s) =>
-      `${s.title ?? ''} ${s.address ?? ''}`.toLowerCase().includes(kw),
-    );
-  }, [saleListings, keyword]);
+    let arr = saleListings;
+    if (bedFilter) {
+      arr = arr.filter((s) => {
+        const n = Number(s.bedrooms ?? 0);
+        return bedFilter === '3p' ? n >= 3 : n === Number(bedFilter);
+      });
+    }
+    if (keyword) {
+      const kw = keyword.toLowerCase();
+      arr = arr.filter((s) =>
+        `${s.title ?? ''} ${s.address ?? ''}`.toLowerCase().includes(kw),
+      );
+    }
+    return arr;
+  }, [saleListings, keyword, bedFilter]);
+
+  // 顶部找房卡「查看 N 套房源」上的套数：与下方列表是同一份数据
+  const visibleCount = biz === 'sale' ? saleFiltered.length : sortedData.length;
+
+  // 「附近」：切换离我最近排序。首次开启才申请定位权限（避免一进页面就弹权限框）
+  const handleToggleNearby = useCallback(async () => {
+    if (nearby) {
+      setNearby(false);
+      return;
+    }
+    let pos = userPos;
+    if (!pos) {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          notify(t('common.hint'), t('list.nearbyDenied'));
+          return;
+        }
+        const cur = await Location.getCurrentPositionAsync({});
+        pos = { lat: cur.coords.latitude, lng: cur.coords.longitude };
+        setUserPos(pos);
+      } catch {
+        notify(t('common.hint'), t('list.nearbyDenied'));
+        return;
+      }
+    }
+    // 当前数据集里一个坐标都没有时排序无从谈起，如实提示而不是假装排好了
+    const src = biz === 'sale' ? saleFiltered : filtered;
+    if (!src.some((it: any) => it.lat != null && it.lng != null)) {
+      notify(t('common.hint'), t('list.nearbyNoData'));
+      return;
+    }
+    setNearby(true);
+  }, [nearby, userPos, biz, saleFiltered, filtered, t]);
+
+  // 「查看 N 套房源」：筛选本就实时生效，这里只收起下拉面板并回到列表顶部
+  const handleViewResults = useCallback(() => {
+    setOpenTab(null);
+    Keyboard.dismiss();
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
+
+  // 地图点位拉取：覆盖全业务（租/售/新房/二手房/商办/厂房），按当前筛选收敛
+  const loadMapPoints = useCallback(async () => {
+    setMapLoading(true);
+    setMapError(false);
+    try {
+      const params: any = {
+        limit: 50,
+        listing_type: biz === 'sale' ? 'sell' : 'rent',
+        ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
+        ...(filterTypes.length ? { property_type: filterTypes } : {}),
+        ...(isNew === undefined ? {} : { is_new_development: isNew }),
+        ...(keyword.trim() ? { q: keyword.trim() } : {}),
+        // 区域仅在拿到真实区域时才作为服务端参数（静态回退 key 不是真实区域名，传了反而空）
+        ...(apiDistricts && apiDistricts.length && districtSel ? { district: districtSel } : {}),
+      };
+      const res = await publicApi.mapPoints(params);
+      const data = res?.data;
+      const items = Array.isArray(data) ? data : (data as any)?.items ?? (data as any)?.data ?? [];
+      setMapPoints(items as PublicMapPoint[]);
+    } catch {
+      setMapPoints([]);
+      setMapError(true);
+    } finally {
+      setMapLoading(false);
+    }
+  }, [biz, locSel.cityKey, filterTypes, isNew, keyword, apiDistricts, districtSel]);
+
+  // 「去地图看」：App 无原生地图库（Expo Go 不能加载原生地图模块），
+  // 以「视野内房源列表」消费 /public/map-points（价格/面积/房型/距离），点行进公开详情。
+  // 真地图需引入原生地图库并做 dev build。
+  const handleGoMap = useCallback(() => {
+    setOpenTab(null);
+    setMapOpen(true);
+    // 非阻塞取定位：拿到就显示距离，拿不到（拒绝/失败）不显示距离，不影响列表
+    if (!userPos) {
+      Location.requestForegroundPermissionsAsync()
+        .then(({ status }) => {
+          if (status !== 'granted') return;
+          return Location.getCurrentPositionAsync({}).then((cur) =>
+            setUserPos({ lat: cur.coords.latitude, lng: cur.coords.longitude }),
+          );
+        })
+        .catch(() => {});
+    }
+    void loadMapPoints();
+  }, [userPos, loadMapPoints]);
 
   // 房源卡片渲染（抽成 memo 组件，仅传必要 props）
   const renderItem = useCallback(
@@ -1051,12 +1282,51 @@ export default function ListingsScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* 搜索栏 */}
-      <View style={styles.searchRow}>
-        <View style={styles.searchBar}>
+    <View style={[styles.container, { paddingTop: topInset }]}>
+      {/* 顶部头部区：浅 teal 实底 + 大标题 + 城市定位（对齐参考图顶部，给卡片留出呼吸间距） */}
+      <View style={styles.heroBand}>
+        <View style={styles.heroBandRow}>
+          <Text style={styles.heroTitle} numberOfLines={2}>{t('list.heroTitle')}</Text>
+          <TouchableOpacity
+            style={styles.heroCityChip}
+            onPress={() => navigation.navigate('LocationPicker')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('home.selectCity')}
+          >
+            <Ionicons name="location" size={13} color={colors.primary} />
+            <Text style={styles.heroCityText} numberOfLines={1}>
+              {locSel.cityLabel || t('home.currentCity')}
+            </Text>
+            <Ionicons name="chevron-down" size={11} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+      {/* 顶部找房卡：业务 Tab（整租 / 买房）嵌入卡顶 / 搜索行（放大镜 + 占位符 + ｜ + 附近）/ 分隔线 / 居室快选 / 查看N套 + 去地图看 */}
+      <View style={styles.heroCard}>
+        {/* 业务 Tab 嵌入卡顶：选中项为白色圆角块（对齐参考图） */}
+        <View style={styles.heroTabs}>
+          {BIZ_TABS.map((b) => (
+            <TouchableOpacity
+              key={b.key}
+              style={[styles.heroTab, biz === b.key && styles.heroTabActive]}
+              onPress={() => {
+                setBiz(b.key);
+                setOpenTab(null);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.heroTabText, biz === b.key && styles.heroTabTextActive]}>
+                {b.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.heroBody}>
+        <View style={styles.heroSearchRow}>
+          <Ionicons name="search-outline" size={18} color={colors.ink3} />
           <TextInput
-            style={styles.searchInput}
+            style={styles.heroSearchInput}
             placeholder={t('list.searchPlaceholder')}
             placeholderTextColor={colors.ink3}
             value={keyword}
@@ -1065,8 +1335,24 @@ export default function ListingsScreen() {
             onFocus={() => setSearchFocused(true)}
             onSubmitEditing={handleSearchSubmit}
           />
+          <View style={styles.heroSearchSplit} />
+          <TouchableOpacity
+            style={styles.heroNearby}
+            onPress={handleToggleNearby}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('list.nearby')}
+          >
+            <Ionicons
+              name="locate-outline"
+              size={16}
+              color={nearby ? colors.primary : colors.ink2}
+            />
+            <Text style={[styles.heroNearbyText, nearby && styles.heroNearbyTextActive]}>
+              {t('list.nearby')}
+            </Text>
+          </TouchableOpacity>
         </View>
-      </View>
       {/* 最近搜索：输入框有焦点且本地有历史词时展示（无历史不渲染） */}
       {searchFocused && recentSearches.length > 0 && (
         <View style={styles.recentWrap}>
@@ -1096,31 +1382,46 @@ export default function ListingsScreen() {
           </View>
         </View>
       )}
-      {/* 业务归属 Tab（整租 / 合租 / 买房）+ 地图入口 */}
-      <View style={styles.bizBar}>
-        {BIZ_TABS.map((b) => (
+        <View style={styles.heroDivider} />
+        {/* 居室快选：不限 / 1居 / 2居 / 3居+（与「更多」面板共用同一个 bedFilter） */}
+        <View style={styles.heroBeds}>
+          {HERO_BED_OPTIONS.map((b) => {
+            const on = bedFilter === b.key;
+            return (
+              <TouchableOpacity
+                key={b.key || 'any'}
+                style={styles.heroBedItem}
+                onPress={() => setBedFilter(b.key)}
+                activeOpacity={0.8}
+              >
+                {on ? (
+                  <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                ) : (
+                  <View style={styles.heroBedCircle} />
+                )}
+                <Text style={[styles.heroBedText, on && styles.heroBedTextActive]}>
+                  {b.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <View style={styles.heroActions}>
           <TouchableOpacity
-            key={b.key}
-            style={[styles.bizItem, biz === b.key && styles.bizItemActive]}
-            onPress={() => {
-              setBiz(b.key);
-              setOpenTab(null);
-            }}
-            activeOpacity={0.8}
+            style={styles.heroPrimary}
+            onPress={handleViewResults}
+            activeOpacity={0.9}
           >
-            <Text style={[styles.bizText, biz === b.key && styles.bizTextActive]}>
-              {b.label}
+            <Text style={styles.heroPrimaryText}>
+              {t('list.viewCount', { n: visibleCount })}
             </Text>
           </TouchableOpacity>
-        ))}
-      </View>
-      {/* 结果计数 */}
-      <View style={styles.resultCount}>
-        <Text style={styles.resultCountText}>
-          {t('list.countPrefix')}<Text style={styles.resultCountNum}>
-            {biz === 'sale' ? saleFiltered.length : biz === 'share' ? 0 : sortedData.length}
-          </Text>{t('list.countSuffix')}
-        </Text>
+          <TouchableOpacity style={styles.heroMapBtn} onPress={handleGoMap} activeOpacity={0.9}>
+            <Ionicons name="location" size={16} color={colors.primary} />
+            <Text style={styles.heroMapText}>{t('list.goMap')}</Text>
+          </TouchableOpacity>
+        </View>
+        </View>
       </View>
       {/* 链家式单行筛选栏（点击后从顶部下拉面板，非底部弹层）—— 买卖挂牌不适用租赁筛选维度 */}
       {biz !== 'sale' && (
@@ -1208,7 +1509,7 @@ export default function ListingsScreen() {
                             {districtSel === null && <View style={styles.keRadioDot} />}
                           </View>
                         </TouchableOpacity>
-                        {cityDistricts.map((d) => (
+                        {districtList.map((d) => (
                           <TouchableOpacity
                             key={d.key}
                             style={styles.keOption}
@@ -1419,10 +1720,10 @@ export default function ListingsScreen() {
                     {PROPERTY_TYPE_FILTERS.map((f) => (
                       <TouchableOpacity
                         key={f.key || 'all'}
-                        style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
-                        onPress={() => setFilter(f.key)}
+                        style={[styles.filterChip, (f.key ? filterTypes.includes(f.key) : !filterTypes.length) && styles.filterChipActive]}
+                        onPress={() => setFilterTypes(f.key ? [f.key] : [])}
                       >
-                        <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
+                        <Text style={[styles.filterText, (f.key ? filterTypes.includes(f.key) : !filterTypes.length) && styles.filterTextActive]}>{f.label}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -1568,9 +1869,10 @@ export default function ListingsScreen() {
       </View>
       </>
       )}
-      {/* 列表：整租=真实租赁房源 / 合租=暂无数据源 / 买房=真实在售挂牌 */}
+      {/* 列表：整租=真实租赁房源 / 买房=真实在售挂牌 */}
       <FlatList
-        data={(biz === 'sale' ? saleFiltered : biz === 'share' ? [] : sortedData) as any[]}
+        ref={listRef}
+        data={(biz === 'sale' ? saleFiltered : sortedData) as any[]}
         keyExtractor={(item) => item.id}
         renderItem={(biz === 'sale' ? renderSaleItem : renderItem) as any}
         contentContainerStyle={[styles.list, respContainer]}
@@ -1610,19 +1912,15 @@ export default function ListingsScreen() {
               ) : (
                 <>
                   <Ionicons
-                    name={biz === 'share' ? 'people-outline' : 'home-outline'}
+                    name="home-outline"
                     size={44}
                     color={colors.ink3}
                   />
                   <Text style={styles.empty}>
-                    {biz === 'share' ? t('list.emptyShare') : t('empty.listings')}
+                    {t('empty.listings')}
                   </Text>
                   <Text style={styles.emptySub}>
-                    {biz === 'share'
-                      ? t('list.shareHint')
-                      : biz === 'sale'
-                      ? t('list.emptySale')
-                      : t('empty.listingsSub')}
+                    {biz === 'sale' ? t('list.emptySale') : t('empty.listingsSub')}
                   </Text>
                 </>
               )}
@@ -1630,6 +1928,112 @@ export default function ListingsScreen() {
           )
         }
       />
+
+      {/* 地图找房弹层：App 无原生地图库（Expo Go 不能加载原生地图模块），
+          以「视野内房源列表」消费 /public/map-points（价格/面积/房型/距离），点行进公开详情。
+          真地图需引入原生地图库并做 dev build。 */}
+      <Modal
+        visible={mapOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMapOpen(false)}
+      >
+        <View style={styles.mapWrap}>
+          <View style={[styles.mapCard, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.mapHead}>
+              <View style={styles.mapHeadText}>
+                <Text style={styles.mapTitle}>{t('map.title')}</Text>
+                <Text style={styles.mapHint}>{t('map.hint')}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setMapOpen(false)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={22} color={colors.ink2} />
+              </TouchableOpacity>
+            </View>
+            {mapLoading ? (
+              <View style={styles.mapCenter}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : mapError ? (
+              <View style={styles.mapCenter}>
+                <Text style={styles.mapEmpty}>{t('loadFailed')}</Text>
+                <TouchableOpacity style={styles.mapRetry} onPress={() => loadMapPoints()} activeOpacity={0.8}>
+                  <Text style={styles.mapRetryText}>{t('retry')}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : mapPoints.length === 0 ? (
+              <View style={styles.mapCenter}>
+                <Text style={styles.mapEmpty}>{t('map.empty')}</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.mapCount}>{t('map.pointCount', { n: mapPoints.length })}</Text>
+                <FlatList
+                  data={mapPoints}
+                  keyExtractor={(item) => item.id}
+                  contentContainerStyle={styles.mapList}
+                  renderItem={({ item }) => {
+                    const price = item.price ?? item.monthly_rent;
+                    const dist =
+                      userPos && item.lat != null && item.lng != null
+                        ? haversineKm(userPos, { lat: item.lat, lng: item.lng })
+                        : null;
+                    return (
+                      <TouchableOpacity
+                        style={styles.mapRow}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          setMapOpen(false);
+                          navigation.navigate('PublicListingDetail', { id: item.id });
+                        }}
+                      >
+                        <View style={styles.mapBody}>
+                          <Text style={styles.mapRowTitle} numberOfLines={1}>
+                            {item.project_name || item.room_number || item.address || t('pub.listingsTitle')}
+                          </Text>
+                          <View style={styles.mapFactRow}>
+                            {item.bedrooms != null ? (
+                              <Text style={styles.mapFact}>{item.bedrooms} BED</Text>
+                            ) : null}
+                            {item.size_sqm != null ? (
+                              <Text style={styles.mapFact}>
+                                {item.size_sqm} {t('pub.sqm')}
+                              </Text>
+                            ) : null}
+                            {item.listing_type ? (
+                              <Text style={styles.mapFact}>{listingTypeLabel(item.listing_type, t)}</Text>
+                            ) : null}
+                          </View>
+                          {item.address ? (
+                            <Text style={styles.mapAddr} numberOfLines={1}>
+                              {item.address}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <View style={styles.mapRight}>
+                          {price != null ? (
+                            <Text style={styles.mapPrice}>{formatRent(price, item.currency || 'THB')}</Text>
+                          ) : null}
+                          {dist != null ? (
+                            <Text style={styles.mapDist}>
+                              {dist.toFixed(1)} {t('pub.km')}
+                            </Text>
+                          ) : (
+                            <Text style={styles.mapNoLoc}>{t('map.noLocation')}</Text>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1637,37 +2041,75 @@ export default function ListingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  searchRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  // 业务归属 Tab（整租 / 合租 / 买房）+ 地图
-  bizBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-  },
-  bizItem: {
-    minHeight: 44,
-    justifyContent: 'center',
+  // 顶部头部区：浅 teal 实色块通栏铺满，内含大标题 + 城市定位胶囊
+  heroBand: {
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 16,
-    paddingVertical: 7,
+    paddingTop: 12,
+    paddingBottom: 30,
+  },
+  heroBandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  heroTitle: {
+    flex: 1,
+    fontSize: 19,
+    lineHeight: 26,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: 0.2,
+  },
+  // 城市胶囊：白底浮在浅 teal 色块上，点击进全局定位选择器
+  heroCityChip: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: colors.radius.full,
+    backgroundColor: colors.surface,
+  },
+  heroCityText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  // 顶部找房卡：业务 Tab（嵌入卡顶）/ 搜索行 / 分隔线 / 居室快选 / 查看N套 + 去地图看
+  // marginTop 为负：卡片上压进色块，形成「卡片浮在头部色块上」的层次（对齐参考图）
+  heroCard: {
+    marginHorizontal: 12,
+    marginTop: -15,
+    marginBottom: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  // 业务 Tab 条：灰底铺满卡顶，选中项为白色圆角块（对齐参考图）
+  heroTabs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
     backgroundColor: colors.surface2,
   },
-  bizItemActive: { backgroundColor: colors.primary },
-  bizText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  bizTextActive: { color: colors.primaryForeground, fontWeight: '600' },
+  heroTab: {
+    flex: 1,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+  },
+  // 选中块：白底 + 轻投影，与卡片主体连成一体
+  heroTabActive: {
+    backgroundColor: colors.surface,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  heroTabText: { fontSize: 14, color: colors.ink2, fontWeight: '500' },
+  heroTabTextActive: { color: colors.text, fontWeight: '700' },
+  heroBody: { paddingHorizontal: 14, paddingVertical: 12 },
+  heroSearchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   mapBtn: {
     marginLeft: 'auto',
     flexDirection: 'row',
@@ -1681,23 +2123,57 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   mapBtnText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
-  resultCount: { paddingHorizontal: 16, paddingBottom: 8 },
-  resultCountText: { fontSize: 12, color: colors.ink2 },
-  resultCountNum: { color: colors.primary, fontWeight: '700', fontSize: 14 },
-  searchInput: {
+  heroSearchInput: {
     flex: 1,
-    minHeight: 44,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: colors.radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
+    minHeight: 40,
+    paddingVertical: 6,
+    fontSize: 15,
     color: colors.text,
   },
+  heroSearchSplit: { width: 1, height: 20, backgroundColor: colors.border },
+  heroNearby: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 10 },
+  heroNearbyText: { fontSize: 14, color: colors.ink2 },
+  heroNearbyTextActive: { color: colors.primary, fontWeight: '600' },
+  heroDivider: { height: 1, backgroundColor: colors.border, marginVertical: 12 },
+  heroBeds: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  heroBedItem: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32 },
+  heroBedCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  heroBedText: { fontSize: 14, color: colors.ink2 },
+  heroBedTextActive: { color: colors.primary, fontWeight: '600' },
+  heroActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  heroPrimary: {
+    flex: 1.6,
+    minHeight: 46,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroPrimaryText: { fontSize: 15, fontWeight: '700', color: colors.primaryForeground },
+  heroMapBtn: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 10,
+    backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  heroMapText: { fontSize: 14, fontWeight: '600', color: colors.primary },
   // 最近搜索：标题行 + 横向换行 chips（无历史词时不渲染该区块）
-  recentWrap: { paddingHorizontal: 12, paddingBottom: 8 },
+  recentWrap: { paddingTop: 10 },
   recentHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1999,18 +2475,21 @@ const styles = StyleSheet.create({
   keRadioDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.surface },
   keBack: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 2 },
   keBackText: { fontSize: 12, color: colors.ink3 },
+  // 筛选项：用方块（对齐图中方格选项，取代原胶囊）
   filterChip: {
-    minHeight: 44,
+    minHeight: 40,
+    minWidth: 76,
+    alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: colors.radius.full,
-    backgroundColor: colors.surface,
+    borderRadius: 6,
+    backgroundColor: colors.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'transparent',
   },
   filterChipActive: {
-    backgroundColor: colors.sidebarActive,
+    backgroundColor: colors.surface,
     borderColor: colors.primary,
   },
   filterText: { fontSize: 13, color: colors.ink2 },
@@ -2086,4 +2565,49 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 40, marginBottom: 8, opacity: 0.6 },
   empty: { fontSize: 15, color: colors.ink2 },
   emptySub: { fontSize: 12, color: colors.ink2, marginTop: 4 },
+  // 地图找房弹层：底部卡片 + 视野内房源列表（App 无原生地图库时的降级形态）
+  mapWrap: { flex: 1, backgroundColor: colors.alpha('0,0,0', 0.45), justifyContent: 'flex-end' },
+  mapCard: {
+    maxHeight: '78%',
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: colors.radius.lg,
+    borderTopRightRadius: colors.radius.lg,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  mapHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  mapHeadText: { flex: 1 },
+  mapTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  mapHint: { fontSize: 12, color: colors.ink3, marginTop: 4 },
+  mapCenter: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  mapEmpty: { fontSize: 14, color: colors.ink2 },
+  mapRetry: {
+    marginTop: 12,
+    paddingHorizontal: 18,
+    height: 38,
+    borderRadius: 6,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapRetryText: { fontSize: 14, color: colors.primaryForeground, fontWeight: '600' },
+  mapCount: { fontSize: 12, color: colors.ink3, marginTop: 12, marginBottom: 4 },
+  mapList: { paddingBottom: 8 },
+  mapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  mapBody: { flex: 1 },
+  mapRowTitle: { fontSize: 15, color: colors.text, fontWeight: '600' },
+  mapFactRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 5 },
+  mapFact: { fontSize: 12, color: colors.ink2 },
+  mapAddr: { fontSize: 12, color: colors.ink3, marginTop: 3 },
+  mapRight: { alignItems: 'flex-end', gap: 4 },
+  mapPrice: { fontSize: 15, color: colors.primary, fontWeight: '700' },
+  mapDist: { fontSize: 12, color: colors.ink2 },
+  mapNoLoc: { fontSize: 11, color: colors.ink3, maxWidth: 96, textAlign: 'right' },
 });

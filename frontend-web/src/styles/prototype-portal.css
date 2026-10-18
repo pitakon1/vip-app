@@ -1467,7 +1467,7 @@ body {
 }
 .rent-filter-bar__count strong { color: var(--rent-primary); font-weight: 700; }
 
-/* ----- 双业务 Tab（整租 / 合租 / 买房） ----- */
+/* ----- 双业务 Tab（整租 / 买房） ----- */
 .rv17-bizbar { display: flex; align-items: center; gap: 2px; }
 .rv17-bizbar__item {
   position: relative;

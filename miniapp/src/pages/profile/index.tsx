@@ -5,6 +5,7 @@ import BottomNav from '@/components/BottomNav'
 import useAuthStore from '@/stores/auth'
 import { authApi, chatApi, companyApi, leasesApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
+import { clearCacheSync } from '@/utils/cache'
 import { iconStyle } from '@/utils/icons'
 import type { IconKey } from '@/utils/icons'
 import { useI18n } from '@/i18n'
@@ -25,25 +26,25 @@ interface RowEntry {
 }
 
 // C 端（业主+租客）统一「常用功能」宫格：全部入口放进同一个宫格，对所有用户完全一致；
-// 业主 = 在平台上添加了房源，租客 = 在平台上租了房子；委托挂牌并入房源管理；点开无该能力的项时给出简洁解锁提示。
-const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey; cap: 'owner' | 'tenant' | 'both' | 'any'; need: string }> = [
-  // 业主能力项（业主 = 在平台上添加了房源；委托挂牌并入房源管理内）
-  { key: 'manageProperties', label: '房源管理', url: '/pages/owner/properties/index', icon: 'home', cap: 'owner', need: '添加房源后即可使用' },
-  { key: 'incomeDetail', label: '收益明细', url: '/pages/owner/income/index', icon: 'chart', cap: 'owner', need: '房源出租产生收益后即可查看' },
-  // 租客能力项（租客 = 在平台上租了房子）
-  { key: 'myLeases', label: '我的租约', url: '/pages/tenant/leases/index', icon: 'doc', cap: 'tenant', need: '租入房源（在租）后即可查看' },
-  { key: 'myDeals', label: '我的交易订单', url: '/pages/tenant/deals/index', icon: 'money', cap: 'tenant', need: '提交看房约谈或认购后即可查看' },
-  { key: 'payments', label: '缴费中心', url: '/pages/tenant/payments/index', icon: 'card', cap: 'tenant', need: '租入房源（在租）后即可缴费' },
-  { key: 'maintenance', label: '服务工单', url: '/pages/tenant/maintenance/index', icon: 'edit', cap: 'tenant', need: '购买增值服务后即可发起' },
-  { key: 'services', label: '增值服务', url: '/pages/tenant/services/index', icon: 'clipboard', cap: 'tenant', need: '租入房源或添加房源后即可购买' },
-  // 通用能力项（文档中心：租房文档 + 我的文档 合并）
-  { key: 'documents', label: '文档中心', url: '/pages/tenant/documents/index', icon: 'doc', cap: 'both', need: '租入房源或添加房源后即可查看' },
+// 业主与租客功能一致——不做能力门槛，登录后即可进入任意入口。
+const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey }> = [
+  // 业主入口（业主 = 在平台上添加了房源；委托挂牌并入房源管理内）
+  { key: 'manageProperties', label: '房源管理', url: '/pages/owner/properties/index', icon: 'home' },
+  { key: 'incomeDetail', label: '收益明细', url: '/pages/owner/income/index', icon: 'chart' },
+  // 租客入口（租客 = 在平台上租了房子）
+  { key: 'myLeases', label: '我的租约', url: '/pages/tenant/leases/index', icon: 'doc' },
+  { key: 'myDeals', label: '我的交易订单', url: '/pages/tenant/deals/index', icon: 'money' },
+  { key: 'payments', label: '缴费中心', url: '/pages/tenant/payments/index', icon: 'card' },
+  { key: 'maintenance', label: '服务工单', url: '/pages/tenant/maintenance/index', icon: 'edit' },
+  { key: 'services', label: '增值服务', url: '/pages/tenant/services/index', icon: 'clipboard' },
+  // 通用入口（文档中心：租房文档 + 我的文档 合并）
+  { key: 'documents', label: '文档中心', url: '/pages/tenant/documents/index', icon: 'doc' },
   // 电子合同（业主/租客签署）
-  { key: 'myContracts', label: '我的合同', url: '/pages/tenant/my-contracts/index', icon: 'doc', cap: 'both', need: '他人发给您的电子合同可在此查看并签署' },
-  // C 端关注/浏览历史/降价提醒：登录即可用，不按业主/租客能力门槛（未登录先进登录；对齐 App）
-  { key: 'favorites', label: '我的关注', url: '/pages/tenant/favorites/index', icon: 'heart', cap: 'any', need: '' },
-  { key: 'history', label: '浏览历史', url: '/pages/tenant/history/index', icon: 'calendar', cap: 'any', need: '' },
-  { key: 'priceAlerts', label: '降价提醒', url: '/pages/tenant/price-alerts/index', icon: 'megaphone', cap: 'any', need: '' }
+  { key: 'myContracts', label: '我的合同', url: '/pages/tenant/my-contracts/index', icon: 'doc' },
+  // C 端关注/浏览历史/降价提醒：登录即可用（未登录先进登录；对齐 App）
+  { key: 'favorites', label: '我的关注', url: '/pages/tenant/favorites/index', icon: 'heart' },
+  { key: 'history', label: '浏览历史', url: '/pages/tenant/history/index', icon: 'calendar' },
+  { key: 'priceAlerts', label: '降价提醒', url: '/pages/tenant/price-alerts/index', icon: 'megaphone' }
 ]
 
 // 管理端 / 业主端「账户设置」：后端无修改密码、绑定手机、绑定邮箱接口
@@ -70,12 +71,22 @@ const BUSINESS_ROWS: RowEntry[] = [
 ]
 
 // 业主端「设置」：对齐 owner-mini-settings.html；右侧值均来自真实数据/用户信息
+// 末尾四项对齐贝壳设置页，均为真实能力（非占位）：权限设置 / 清理缓存 / 检查更新 / 举报与投诉
 const OWNER_SETTING_ROWS: Array<RowEntry & { badge?: boolean }> = [
   { key: 'account', label: '账号与安全', icon: 'user' },
   { key: 'language', label: '语言设置', value: '简体中文', icon: 'clipboard' },
   { key: 'notification', label: '通知提醒', badge: true, icon: 'megaphone' },
   { key: 'help', label: '帮助中心', icon: 'calendar' },
-  { key: 'about', label: '关于我们', icon: 'star' }
+  { key: 'contactSupport', label: '联系客服', icon: 'headsetDark' },
+  { key: 'permissions', label: '权限设置', icon: 'gear' },
+  { key: 'clearCache', label: '清理缓存', icon: 'trash' },
+  { key: 'checkUpdate', label: '检查更新', icon: 'download' },
+  { key: 'report', label: '举报与投诉', icon: 'flag' },
+  { key: 'rate', label: '去评分', icon: 'star' },
+  { key: 'privacyRules', label: '用户隐私规则', icon: 'doc' },
+  // 「关于我们 / 版权信息」均进同一个详情页（页脚即版权与注册号）
+  { key: 'about', label: '关于我们', icon: 'star', url: '/pages/about/index' },
+  { key: 'copyright', label: '版权信息', icon: 'clipboard', url: '/pages/about/index' }
 ]
 
 // 员工 / 代理端：常用入口（客户 / 业绩已在底部导航，不再重复；通讯录移至「我的」）
@@ -171,6 +182,8 @@ export default function ProfilePage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
 
   const [appVersion, setAppVersion] = useState('')
+  // 公司公开资料（/company/info）：客服电话与官网，供「联系客服 / 用户隐私规则」使用
+  const [company, setCompany] = useState<{ phone?: string; website?: string }>({})
   // 管理端「业务设置」真实值（租金/合同提醒天数、自动催缴）
   const [business, setBusiness] = useState<{
     rent_reminder_days?: number
@@ -196,6 +209,8 @@ export default function ProfilePage() {
       const currentRole = useAuthStore.getState().user?.role
       if (currentRole === 'tenant') {
         refresh()
+        // 租客同样需要公司公开资料（联系客服电话 / 隐私规则外链 / 关于我们版本号）
+        loadAppInfo()
       }
       if (currentRole === 'admin') {
         loadAppInfo()
@@ -213,6 +228,7 @@ export default function ProfilePage() {
       const res: any = await companyApi.info()
       const info = res?.data ?? res
       setAppVersion(info?.version || '')
+      setCompany({ phone: info?.phone || '', website: info?.website || '' })
     } catch (error) {
       console.warn('[Profile] 获取版本信息失败', error)
     }
@@ -477,6 +493,71 @@ export default function ProfilePage() {
     }
   }
 
+  /** 检查更新：走微信小程序原生更新机制（非微信端无该能力，给明确提示而非假成功） */
+  const handleCheckUpdate = () => {
+    const um: any = typeof Taro.getUpdateManager === 'function' ? Taro.getUpdateManager() : null
+    if (!um) {
+      Taro.showToast({ title: '当前平台不支持在线更新', icon: 'none' })
+      return
+    }
+    um.onCheckForUpdate((res: any) => {
+      if (!res?.hasUpdate) Taro.showToast({ title: '已是最新版本', icon: 'success' })
+    })
+    um.onUpdateReady(() => {
+      Taro.showModal({
+        title: '发现新版本',
+        content: '新版本已下载完成，重启后生效',
+        confirmText: '立即重启',
+        success: (r) => {
+          if (r.confirm) um.applyUpdate()
+        }
+      })
+    })
+  }
+
+  /** 联系客服：先弹「营业时间 + 呼叫/取消」确认层，确认后真实拨号（电话取自 /company/info） */
+  const handleContactSupport = () => {
+    const phone = (company.phone || '').trim()
+    if (phone.replace(/\D/g, '').length === 0) {
+      Taro.showToast({ title: '客服电话暂未配置', icon: 'none' })
+      return
+    }
+    Taro.showModal({
+      title: '客服热线服务时间 9:00-20:00（周一至周日）',
+      content: phone,
+      confirmText: '呼叫',
+      cancelText: '取消',
+      success: (r) => {
+        if (r.confirm) {
+          Taro.makePhoneCall({ phoneNumber: phone.replace(/[^\d+]/g, '') }).catch(() => undefined)
+        }
+      }
+    })
+  }
+
+  /** 去评分：微信小程序无评分能力，给明确提示而非假成功 */
+  const handleRate = () => {
+    Taro.showModal({
+      title: '去评分',
+      content: '微信小程序暂不支持评分，可在应用商店为 App 评分',
+      showCancel: false,
+      confirmText: '我知道了'
+    })
+  }
+
+  /** 用户隐私规则：小程序无法打开外链，复制官网隐私地址供用户在浏览器查看（不伪造条款正文） */
+  const handlePrivacyRules = () => {
+    const base = (company.website || '').trim().replace(/\/+$/, '')
+    if (!base) {
+      Taro.showToast({ title: '隐私政策链接暂未配置', icon: 'none' })
+      return
+    }
+    const url = /^https?:\/\//i.test(base) ? `${base}/privacy` : `https://${base}/privacy`
+    Taro.setClipboardData({ data: url })
+      .then(() => Taro.showToast({ title: '隐私政策链接已复制，可在浏览器打开', icon: 'none' }))
+      .catch(() => undefined)
+  }
+
   /** 设置/账户行统一点击：已接入的账户·设置项走后端接口，未接入的仍提示未开放 */
   const handleRowPress = (entry: RowEntry) => {
     if (entry.url) {
@@ -497,6 +578,31 @@ export default function ProfilePage() {
       case 'language':
       case 'notify':
         openPrefs()
+        return
+      case 'permissions':
+        // 系统权限（定位 / 相机 / 通知）统一在小程序设置页管理
+        Taro.openSetting({})
+        return
+      case 'clearCache':
+        // 只清页面数据缓存，不触碰登录态与用户偏好
+        clearCacheSync()
+        Taro.showToast({ title: '缓存已清理', icon: 'success' })
+        return
+      case 'checkUpdate':
+        handleCheckUpdate()
+        return
+      case 'contactSupport':
+        handleContactSupport()
+        return
+      case 'rate':
+        handleRate()
+        return
+      case 'privacyRules':
+        handlePrivacyRules()
+        return
+      case 'report':
+        // 复用在线客服会话：违规房源与不良信息在此提交
+        openSupport()
         return
       case 'rent-reminder':
       case 'lease-reminder':
@@ -559,14 +665,16 @@ export default function ProfilePage() {
     return undefined
   }
 
-  // 业主「设置」行：有值时不显示箭头；通知提醒用成功徽章（对齐 owner-mini-settings.html）
+  // 设置行（与 App 客户账号「我的」一致：图标盒 + 文案 + 真实值 + 箭头，箭头始终展示）
   const renderSettingRow = (entry: RowEntry & { badge?: boolean }) => (
     <View
       key={entry.key}
       className='list-row'
       onClick={() => handleRowPress(entry)}
     >
-      <View className='list-row__icon icon-svg' style={iconStyle(entry.icon, 34)} />
+      <View className='list-row__icon'>
+        <View className='icon-svg' style={iconStyle(entry.icon, 32)} />
+      </View>
       <View className='list-row__body'>
         <Text className='list-row__label'>{entry.label}</Text>
       </View>
@@ -578,7 +686,7 @@ export default function ProfilePage() {
       ) : (
         !!entry.value && <Text className='list-row__value'>{entry.value}</Text>
       )}
-      {!entry.value && !entry.badge && <View className='chevron' />}
+      <View className='chevron' />
     </View>
   )
 
@@ -604,7 +712,9 @@ export default function ProfilePage() {
       className='list-row'
       onClick={() => handleRowPress(entry)}
     >
-      <View className='list-row__icon icon-svg' style={iconStyle(entry.icon, 34)} />
+      <View className='list-row__icon'>
+        <View className='icon-svg' style={iconStyle(entry.icon, 32)} />
+      </View>
       <View className='list-row__body'>
         <Text className='list-row__label'>{entry.label}</Text>
         {entry.desc && <Text className='list-row__desc'>{entry.desc}</Text>}
@@ -617,10 +727,8 @@ export default function ProfilePage() {
   /** 管理端 / 业主端：账户设置 + 系统设置 */
   const renderAccountSections = () => (
     <>
-      <View className='section-title'>
-        <Text>账户设置</Text>
-      </View>
       <View className='panel panel--list'>
+        <Text className='panel__caption'>账户设置</Text>
         {ACCOUNT_ROWS.map((entry) => {
           const value =
             entry.key === 'phone' ? phoneValue : entry.key === 'email' ? emailValue : ''
@@ -628,20 +736,18 @@ export default function ProfilePage() {
         })}
       </View>
 
-      <View className='section-title'>
-        <Text>系统设置</Text>
+      <View className='panel panel--list'>
+        <Text className='panel__caption'>系统设置</Text>
+        {SYSTEM_ROWS.map(renderRow)}
       </View>
-      <View className='panel panel--list'>{SYSTEM_ROWS.map(renderRow)}</View>
     </>
   )
 
   /** 管理端 / 业主端：关于 + 「关于小程序」卡片 */
   const renderAboutSection = () => (
     <>
-      <View className='section-title'>
-        <Text>关于</Text>
-      </View>
       <View className='panel panel--list'>
+        <Text className='panel__caption'>关于</Text>
         {renderRow({
           key: 'version',
           label: '版本信息',
@@ -678,68 +784,65 @@ export default function ProfilePage() {
       {/* 顶部操作条：右上角客服入口（对齐贝壳导航栏右上角客服，未登录引导登录） */}
       <View className='profile-topbar'>
         <View className='profile-topbar__support' onClick={openSupport}>
-          <View className='icon-svg' style={iconStyle('headset', 22)} />
+          <View className='icon-svg' style={iconStyle('headsetDark', 44)} />
         </View>
       </View>
 
       {/* ===== C 端（业主/租客）统一「我的」：实底用户卡 + 资产 + 统一宫格 + 统一设置 ===== */}
       {isC && (
         <>
-          {/* 统一用户卡：未登录去掉实底卡外壳，登录/注册直接平铺在页面背景上（对齐贝壳/App） */}
-          <View className={`owner-hero${!user ? ' owner-hero--flat' : ''}`}>
-            {!user ? (
-              /* 贝壳式未登录卡：左侧「登录/注册」大字 + 右侧灰色默认头像，整卡点击进登录页 */
-              <View
-                className='owner-hero__top'
-                onClick={() => Taro.navigateTo({ url: '/pages/login/index' })}
-              >
-                <View className='owner-hero__info'>
-                  <Text className='owner-hero__name'>登录/注册</Text>
-                </View>
-                <View className='avatar avatar--guest'>
-                  <View className='icon-svg' style={iconStyle('user', 28)} />
+          {/* 统一用户卡：与 App 客户账号「我的」同一套样式（白卡 + 品牌色头像 + 角色胶囊 + 掩码手机号） */}
+          {!user ? (
+            /* 未登录：平铺在页面背景上，左侧「登录/注册」大字 + 右侧灰色默认头像，整行点击进登录页 */
+            <View className='guest-card' onClick={() => Taro.navigateTo({ url: '/pages/login/index' })}>
+              <Text className='guest-card__title'>登录/注册</Text>
+              <View className='avatar avatar--guest'>
+                <View className='icon-svg' style={iconStyle('user', 56)} />
+              </View>
+            </View>
+          ) : (
+            <View className='profile-card'>
+              <View className='avatar avatar--lg' onClick={pickAndUploadAvatar}>
+                {user?.avatar_url ? (
+                  <Image className='avatar-img' src={user.avatar_url} mode='aspectFill' />
+                ) : (
+                  <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
+                )}
+                <View className='avatar__badge'>
+                  <View className='icon-svg' style={iconStyle('edit', 20)} />
                 </View>
               </View>
-            ) : (
-              <View className='owner-hero__top'>
-                <View className='avatar' onClick={pickAndUploadAvatar}>
-                  {user?.avatar_url ? (
-                    <Image className='avatar-img' src={user.avatar_url} mode='aspectFill' />
-                  ) : (
-                    <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
-                  )}
-                  <View className='avatar__badge'>
-                    <View className='icon-svg' style={iconStyle('edit', 16)} />
+              <View className='profile-card__body'>
+                <Text className='profile-card__name'>{user?.name || '用户'}</Text>
+                <View className='profile-card__meta-row'>
+                  <View className='role-tag'>
+                    <Text>{ROLE_TEXT[role || ''] || '用户'}</Text>
                   </View>
-                </View>
-                <View className='owner-hero__info'>
-                  <View className='owner-hero__name-row'>
-                    <Text className='owner-hero__name'>{user?.name || '用户'}</Text>
-                    <View className='owner-hero__badge'>
-                      <Text>{ROLE_TEXT[role || ''] || '用户'}</Text>
-                    </View>
-                  </View>
-                  {user?.email && <Text className='owner-hero__email'>{user.email}</Text>}
+                  <Text className='profile-card__meta'>
+                    {user?.phone ? maskPhone(user.phone) : user?.email || '-'}
+                  </Text>
                 </View>
               </View>
-            )}
+            </View>
+          )}
 
-            {/* 租客能力：当前租约条（点击进入「我的租约」列表） */}
-            {isTenant && lease && (
+          {/* 租客能力：当前租约（点击进入「我的租约」列表），与 App 一致以独立卡片行呈现 */}
+          {isTenant && lease && (
+            <View className='panel panel--list'>
               <View
-                className='role-card__strip'
+                className='lease-strip'
                 onClick={() => handleNavigate('/pages/tenant/leases/index')}
               >
-                <Text className='role-card__strip-label'>当前租约</Text>
-                <Text className='role-card__strip-name'>{leaseTitle(lease)}</Text>
-                <View className={`badge role-card__badge ${LEASE_STATUS[lease?.status]?.badge || 'badge--neutral'}`}>
+                <Text className='lease-strip__label'>当前租约</Text>
+                <Text className='lease-strip__name'>{leaseTitle(lease)}</Text>
+                <View className={`badge ${LEASE_STATUS[lease?.status]?.badge || 'badge--neutral'}`}>
                   <View className='bg-dot' />
                   <Text>{LEASE_STATUS[lease?.status]?.text || lease?.status || '—'}</Text>
                 </View>
                 <View className='chevron' />
               </View>
-            )}
-          </View>
+            </View>
+          )}
 
           {/* 常用功能：统一宫格保留胶囊卡片外壳（业主入口 + 租客入口按能力过滤，可并存） */}
           {cGrid.length > 0 && (
@@ -759,22 +862,13 @@ export default function ProfilePage() {
                           Taro.navigateTo({ url: '/pages/login/index' })
                           return
                         }
-                        const ok =
-                          entry.cap === 'any'
-                            ? true
-                            : entry.cap === 'owner'
-                              ? isOwner
-                              : entry.cap === 'tenant'
-                                ? isTenant
-                                : isOwner || isTenant
-                        if (ok && entry.url) {
-                          handleNavigate(entry.url)
-                          return
-                        }
-                        Taro.showToast({ title: entry.need || '功能暂未开放', icon: 'none' })
+                        // 业主/租客功能一致：登录后无条件进入对应页面，不再做能力门槛
+                        if (entry.url) handleNavigate(entry.url)
                       }}
                     >
-                      <View className='service-grid__icon icon-svg' style={iconStyle(entry.icon, 36)} />
+                      <View className='service-grid__icon'>
+                        <View className='icon-svg' style={iconStyle(entry.icon, 40)} />
+                      </View>
                       <Text className='service-grid__label'>{entry.label}</Text>
                     </View>
                   ))}
@@ -783,35 +877,31 @@ export default function ProfilePage() {
             </>
           )}
 
-          {/* 设置（业主/租客统一）；访客态不显示设置/语言/退出登录，对齐 App */}
+          {/* 设置（业主/租客统一：卡片内标题 + 标准设置行，与 App 一致）；访客态不显示设置/语言/退出登录 */}
           {user && (
-            <>
-              <View className='section-title'>
-                <Text>设置</Text>
-              </View>
-              <View className='panel panel--list'>
-                {OWNER_SETTING_ROWS.map((entry) => {
-                  const value =
-                    entry.key === 'account'
-                      ? user?.phone
-                        ? maskPhone(user.phone)
+            <View className='panel panel--list'>
+              <Text className='panel__caption'>设置</Text>
+              {OWNER_SETTING_ROWS.map((entry) => {
+                const value =
+                  entry.key === 'account'
+                    ? user?.phone
+                      ? maskPhone(user.phone)
+                      : ''
+                    : entry.key === 'about'
+                      ? appVersion
+                        ? `HaoFang.World v${appVersion}`
                         : ''
-                      : entry.key === 'about'
-                        ? appVersion
-                          ? `HaoFang.World v${appVersion}`
-                          : ''
-                        : entry.value
-                  return renderSettingRow({ ...entry, value })
-                })}
-              </View>
-            </>
+                      : entry.value
+                return renderSettingRow({ ...entry, value })
+              })}
+            </View>
           )}
         </>
       )}
 
       {isAdmin && (
         <>
-          {/* 资料卡 */}
+          {/* 用户卡：与 C 端「我的」同一套样式（白卡 + 品牌色头像 + 角色胶囊 + 掩码手机号） */}
           <View className='profile-card'>
             <View className='avatar avatar--lg' onClick={pickAndUploadAvatar}>
               {user?.avatar_url ? (
@@ -819,11 +909,19 @@ export default function ProfilePage() {
               ) : (
                 <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
               )}
+              <View className='avatar__badge'>
+                <View className='icon-svg' style={iconStyle('edit', 20)} />
+              </View>
             </View>
             <View className='profile-card__body'>
               <Text className='profile-card__name'>{user?.name || '管理员'}</Text>
-              <View className='badge badge--primary'>
-                <Text>{ROLE_TEXT[role || ''] || '管理员'}</Text>
+              <View className='profile-card__meta-row'>
+                <View className='role-tag'>
+                  <Text>{ROLE_TEXT[role || ''] || '管理员'}</Text>
+                </View>
+                <Text className='profile-card__meta'>
+                  {user?.phone ? maskPhone(user.phone) : user?.email || '-'}
+                </Text>
               </View>
             </View>
             <View className='profile-card__edit' onClick={openEdit}>
@@ -834,10 +932,8 @@ export default function ProfilePage() {
 
           {renderAccountSections()}
 
-          <View className='section-title'>
-            <Text>常用入口</Text>
-          </View>
           <View className='panel panel--list'>
+            <Text className='panel__caption'>常用入口</Text>
             {renderRow({
               key: 'manageProperties',
               label: '房源管理',
@@ -854,17 +950,13 @@ export default function ProfilePage() {
             })}
           </View>
 
-          <View className='section-title'>
-            <Text>业务设置</Text>
-          </View>
           <View className='panel panel--list'>
+            <Text className='panel__caption'>业务设置</Text>
             {BUSINESS_ROWS.map((entry) => renderRow({ ...entry, value: businessValue(entry.key) }))}
           </View>
 
-          <View className='section-title'>
-            <Text>{t('acc.sectionSystem')}</Text>
-          </View>
           <View className='panel panel--list'>
+            <Text className='panel__caption'>{t('acc.sectionSystem')}</Text>
             {[
               {
                 key: 'accounts',
@@ -889,7 +981,7 @@ export default function ProfilePage() {
 
       {isStaff && (
         <>
-          {/* 员工 / 经纪端个人卡（对齐管理员端：编辑资料入口） */}
+          {/* 用户卡：与 C 端「我的」同一套样式（白卡 + 品牌色头像 + 角色胶囊 + 掩码手机号） */}
           <View className='profile-card'>
             <View className='avatar avatar--lg' onClick={pickAndUploadAvatar}>
               {user?.avatar_url ? (
@@ -897,11 +989,19 @@ export default function ProfilePage() {
               ) : (
                 <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
               )}
+              <View className='avatar__badge'>
+                <View className='icon-svg' style={iconStyle('edit', 20)} />
+              </View>
             </View>
             <View className='profile-card__body'>
               <Text className='profile-card__name'>{user?.name || '用户'}</Text>
-              <View className='badge badge--primary'>
-                <Text>{ROLE_TEXT[role || ''] || '员工'}</Text>
+              <View className='profile-card__meta-row'>
+                <View className='role-tag'>
+                  <Text>{ROLE_TEXT[role || ''] || '员工'}</Text>
+                </View>
+                <Text className='profile-card__meta'>
+                  {user?.phone ? maskPhone(user.phone) : user?.email || '-'}
+                </Text>
               </View>
             </View>
             <View className='profile-card__edit' onClick={openEdit}>
@@ -910,10 +1010,26 @@ export default function ProfilePage() {
             </View>
           </View>
 
+          {/* 常用功能：与 C 端统一宫格（区块标题外置 + 白卡 4 列，圆形浅品牌底图标） */}
           <View className='section-title'>
-            <Text>常用入口</Text>
+            <Text>常用功能</Text>
           </View>
-          <View className='panel panel--list'>{STAFF_ROWS.map(renderRow)}</View>
+          <View className='panel panel--grid'>
+            <View className='service-grid'>
+              {STAFF_ROWS.map((entry) => (
+                <View
+                  key={entry.key}
+                  className='service-grid__item'
+                  onClick={() => entry.url && handleNavigate(entry.url)}
+                >
+                  <View className='service-grid__icon'>
+                    <View className='icon-svg' style={iconStyle(entry.icon, 40)} />
+                  </View>
+                  <Text className='service-grid__label'>{entry.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
 
           {renderAccountSections()}
           {renderAboutSection()}

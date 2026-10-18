@@ -16,6 +16,8 @@ import {
   RefreshControl,
   Modal,
   Image,
+  Alert,
+  Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
@@ -25,7 +27,7 @@ import { filterStyles } from '@/theme/filterStyles';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import { leasesApi, propertiesApi } from '@/services/api';
+import { leasesApi, propertiesApi, listingApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import RegionPicker, { type RegionSelection } from '@/components/RegionPicker';
@@ -33,6 +35,35 @@ import { currencySymbol } from '@/lib/currency';
 import { propertyCoverUrl } from '@/lib/property';
 
 const PAGE_SIZE = 10;
+
+// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
+const buildListingPayload = (p: any) => ({
+  property_id: p.id,
+  room_number: p.room_number || p.address || '-',
+  address: p.address || p.room_number || '-',
+  property_type: p.property_type || 'apartment',
+  size_sqm: p.size_sqm ?? undefined,
+  bedrooms: p.bedrooms ?? undefined,
+  bathrooms: p.bathrooms ?? undefined,
+  description: p.description || undefined,
+  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
+  furnished: !!p.furnished,
+  video_url: p.video_url || undefined,
+  vr_url: p.vr_url || undefined,
+  ceiling_height_m: p.ceiling_height_m ?? undefined,
+  land_area_sqm: p.land_area_sqm ?? undefined,
+  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
+  column_spacing: p.column_spacing || undefined,
+  power_capacity_kva: p.power_capacity_kva ?? undefined,
+  environmental_permit: p.environmental_permit ?? undefined,
+  whole_floor_only: p.whole_floor_only ?? undefined,
+  whole_building_only: p.whole_building_only ?? undefined,
+  company_registrable: p.company_registrable ?? undefined,
+  listing_type: 'rent',
+  monthly_rent: Number(p.monthly_rent || 0),
+  currency: p.currency || 'THB',
+  owner_id: p.owner_id || undefined,
+});
 
 interface PropertyItem {
   id: string;
@@ -402,6 +433,17 @@ export default function PropertiesScreen() {
               <Text style={styles.priceUnit}>/月</Text>
             </Text>
             <View style={styles.badgeGroup}>
+              {/* 行内「上架」：房源管理页是全站唯一上架入口 */}
+              <TouchableOpacity
+                style={styles.publishChip}
+                activeOpacity={0.8}
+                onPress={() => confirmPublish(p)}
+                accessibilityRole="button"
+                accessibilityLabel="上架"
+              >
+                <Ionicons name="cloud-upload-outline" size={12} color={colors.primary} />
+                <Text style={styles.publishChipText}>上架</Text>
+              </TouchableOpacity>
               <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
                 <Text style={[styles.statusBadgeText, { color: meta.color }]}>{meta.label}</Text>
               </View>
@@ -410,6 +452,34 @@ export default function PropertiesScreen() {
         </View>
       </TouchableOpacity>
     );
+  };
+
+  // ===== 一键上架（唯一上架入口）=====
+  const confirmPublish = (item: PropertyItem) => {
+    if (Number(item.monthly_rent || 0) <= 0) {
+      if (Platform.OS === 'web') window.alert('请先在「编辑」中补充月租金后再上架');
+      else Alert.alert('提示', '请先在「编辑」中补充月租金后再上架');
+      return;
+    }
+    const doPublish = async () => {
+      try {
+        await listingApi.create(buildListingPayload(item));
+        if (Platform.OS === 'web') window.alert('已提交上架，等待平台审核');
+        else Alert.alert('已提交上架，等待平台审核');
+      } catch (err: any) {
+        const detail = err?.response?.data?.detail || '请稍后重试';
+        if (Platform.OS === 'web') window.alert(detail);
+        else Alert.alert('上架失败', detail);
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('确定将该房源发布上架吗？')) doPublish();
+      return;
+    }
+    Alert.alert('确认上架', '确定将该房源发布上架吗？', [
+      { text: '取消', style: 'cancel' },
+      { text: '上架', onPress: doPublish },
+    ]);
   };
 
   if (loading) {
@@ -925,6 +995,30 @@ const styles = StyleSheet.create({
   badgeGroup: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statusBadge: { borderRadius: colors.radius.full, paddingHorizontal: 10, paddingVertical: 3 },
   statusBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
+  // 行内「上架」小胶囊（房源管理页是唯一上架入口）
+  publishChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.alpha(colors.primaryRgb, 0.12),
+  },
+  publishChipText: { fontSize: colors.fontSize.xs, fontWeight: '700', color: colors.primary },
+  // 顶部「上架房源」入口
+  entryRow: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 12 },
+  entryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 42,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.primary,
+  },
+  entryBtnText: { fontSize: 14, fontWeight: '700', color: colors.primaryForeground },
 
   loadMore: {
     alignItems: 'center',

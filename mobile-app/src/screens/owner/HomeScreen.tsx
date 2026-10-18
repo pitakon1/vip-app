@@ -301,17 +301,9 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* ===== 3. 房源概览：前 3 套 + 发布房源 ===== */}
+        {/* ===== 3. 房源概览：前 3 套 ===== */}
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>房源概览</Text>
-          <TouchableOpacity
-            style={styles.publishBtn}
-            activeOpacity={0.8}
-            onPress={() => go('ListingPublish')}
-          >
-            <Ionicons name="add" size={15} color={colors.primaryForeground} />
-            <Text style={styles.publishBtnText}>发布房源</Text>
-          </TouchableOpacity>
         </View>
         {properties.length > 0 ? (
           <View style={styles.card}>
@@ -360,9 +352,9 @@ export default function HomeScreen() {
             <EmptyState
               icon="key-outline"
               title="暂无房源"
-              sub="点击上方「发布房源」建立你的第一套房档案"
-              actionLabel="去发布房源"
-              onAction={() => go('ListingPublish')}
+              sub="前往「房源管理」添加你的第一套房源"
+              actionLabel="去房源管理"
+              onAction={() => go('OwnerProperties')}
             />
           </View>
         )}
@@ -384,7 +376,7 @@ export default function HomeScreen() {
                   key={l.id}
                   style={[styles.propListItem, last && styles.propListLast]}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate('ListingPublish', { id: l.id })}
+                  onPress={() => go('MyListings')}
                 >
                   <View style={[styles.propListIcon, { backgroundColor: st.bg }]}>
                     <Ionicons
@@ -416,8 +408,8 @@ export default function HomeScreen() {
               icon="business-outline"
               title="暂无上架单"
               sub="把房源发布到平台，让更多租客或买家看到"
-              actionLabel="去发布"
-              onAction={() => go('ListingPublish')}
+              actionLabel="去房源管理"
+              onAction={() => go('OwnerProperties')}
             />
           </View>
         )}

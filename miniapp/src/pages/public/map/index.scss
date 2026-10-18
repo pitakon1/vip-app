@@ -1,0 +1,81 @@
+/* 地图找房页：复用 C 端公开站样式（pub-*），本文件只补地图专属布局。
+   所有色值走 app.scss 设计令牌，不硬编码、不使用渐变。 */
+@import '../public-site.scss';
+
+.map-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+}
+
+/* ===== 顶部筛选（方块样式：小圆角 + 浅灰底 + 选中描边）===== */
+.map-filters {
+  padding: 20rpx 24rpx 16rpx;
+  background: var(--card);
+}
+
+.map-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+}
+
+.map-chips + .map-chips {
+  margin-top: 12rpx;
+}
+
+.map-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 64rpx;
+  padding: 0 26rpx;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  font-size: 25rpx;
+  color: var(--ink-2);
+}
+
+.map-chip--on {
+  border-color: var(--primary);
+  background: var(--sidebar-active);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ===== 地图画布 ===== */
+.map-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 480rpx;
+}
+
+.map-canvas__inner {
+  width: 100%;
+  height: 100%;
+}
+
+.map-canvas__count {
+  position: absolute;
+  left: 24rpx;
+  bottom: 20rpx;
+  padding: 10rpx 22rpx;
+  border-radius: var(--radius-full);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  font-size: 24rpx;
+  color: var(--ink-2);
+}
+
+/* ===== 底部点位列表 ===== */
+.map-sheet {
+  flex: 0 0 auto;
+  height: 520rpx;
+}
+
+.map-sheet__scroll {
+  height: 100%;
+  padding: 20rpx 24rpx;
+  box-sizing: border-box;
+}

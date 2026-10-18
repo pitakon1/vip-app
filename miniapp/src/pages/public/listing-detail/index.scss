@@ -1,2 +1,28 @@
-/* C 端房源详情：全部样式取自共用样式表 */
+/* C 端房源详情：通用样式取自共用样式表，这里只补「预约看房」快捷时间的方块样式 */
 @import '../public-site.scss';
+
+/* 快捷看房时间：方块样式（小圆角 + 浅灰底 + 选中描边），不用胶囊 */
+.view-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+}
+
+.view-time {
+  display: inline-flex;
+  align-items: center;
+  height: 64rpx;
+  padding: 0 26rpx;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  font-size: 25rpx;
+  color: var(--ink-2);
+}
+
+.view-time--on {
+  border-color: var(--primary);
+  background: var(--sidebar-active);
+  color: var(--primary);
+  font-weight: 600;
+}

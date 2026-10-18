@@ -1,0 +1,92 @@
+/* 关于我们（750 设计宽：1px → 1rpx，作者值 ÷2 = 真机 pt） */
+.about-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 40px 24px 60px;
+  box-sizing: border-box;
+}
+
+.about-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 48px;
+}
+
+.about-logo {
+  width: 140px;
+  height: 140px;
+  border-radius: var(--radius-xl);
+  background: var(--primary-soft);
+}
+
+.about-logo--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.about-name {
+  margin-top: 24px;
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.about-slogan {
+  margin-top: 10px;
+  font-size: 26px;
+  color: var(--ink-3);
+}
+
+.about-card {
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.about-row {
+  display: flex;
+  align-items: center;
+  padding: 30px 28px;
+}
+
+.about-row + .about-row {
+  border-top: 1px solid var(--line);
+}
+
+.about-row__label {
+  font-size: 28px;
+  color: var(--ink);
+  flex-shrink: 0;
+  margin-right: 16px;
+}
+
+.about-row__value {
+  flex: 1;
+  text-align: right;
+  font-size: 28px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.about-row__value--static {
+  color: var(--ink-2);
+}
+
+.about-footer {
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.about-footer__text {
+  font-size: 22px;
+  line-height: 1.7;
+  color: var(--ink-3);
+  text-align: center;
+}

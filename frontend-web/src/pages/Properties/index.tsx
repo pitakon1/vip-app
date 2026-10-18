@@ -19,7 +19,7 @@ import {
   ExclamationCircleOutlined,
   PlusOutlined,
 } from '@ant-design/icons'
-import { propertiesApi, projectsApi, type QueryParams } from '@/services/api'
+import { propertiesApi, projectsApi, listingsApi, type QueryParams } from '@/services/api'
 import { downloadReport } from '@/lib/download'
 import { usePropertyStatusMap, usePropertyTypeMap } from '@/lib/enumLabels'
 import useAuthStore from '@/stores/auth'
@@ -48,6 +48,35 @@ const bannerColorFor = (seed: string) => {
 }
 
 const formatRent = (v: any) => Number(v || 0).toLocaleString()
+
+// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
+const buildListingPayload = (p: any) => ({
+  property_id: p.id,
+  room_number: p.room_number || p.address || '-',
+  address: p.address || p.room_number || '-',
+  property_type: p.property_type || 'apartment',
+  size_sqm: p.size_sqm ?? undefined,
+  bedrooms: p.bedrooms ?? undefined,
+  bathrooms: p.bathrooms ?? undefined,
+  description: p.description || undefined,
+  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
+  furnished: !!p.furnished,
+  video_url: p.video_url || undefined,
+  vr_url: p.vr_url || undefined,
+  ceiling_height_m: p.ceiling_height_m ?? undefined,
+  land_area_sqm: p.land_area_sqm ?? undefined,
+  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
+  column_spacing: p.column_spacing || undefined,
+  power_capacity_kva: p.power_capacity_kva ?? undefined,
+  environmental_permit: p.environmental_permit ?? undefined,
+  whole_floor_only: p.whole_floor_only ?? undefined,
+  whole_building_only: p.whole_building_only ?? undefined,
+  company_registrable: p.company_registrable ?? undefined,
+  listing_type: 'rent',
+  monthly_rent: Number(p.monthly_rent || 0),
+  currency: p.currency || 'THB',
+  owner_id: p.owner_id || undefined,
+})
 
 // ==================== C 端风格筛选 chip（对齐 PublicListings 单行筛选栏 + 顶部下拉面板） ====================
 
@@ -177,6 +206,8 @@ const Properties = () => {
   // 角色感知。兜底为空角色而不是 admin：user 缺失时不应解锁管理态视图
   const role = user?.role || ''
   const isManageMode = role === 'admin' || role === 'agent' || role === 'employee'
+  // 新增楼盘：POST /projects 仅 agent/admin 有权限，入口按角色收敛
+  const canCreateProject = role === 'admin' || role === 'agent'
 
   // 数据（服务端分页：items 为当前页数据，total 为后端返回的总数）
   const [items, setItems] = useState<Property[]>([])
@@ -278,12 +309,22 @@ const Properties = () => {
   // 照片 url 列表（仅编辑态可上传；随 handleSubmit 一并提交）
   const [photos, setPhotos] = useState<string[]>([])
 
+  // 表单内的房源类型：用于差异化渲染（住宅 / 商办 / 厂房）专项字段
+  const formPropertyType = Form.useWatch('property_type', form) as string | undefined
+  const isFormCommercial = ['shop', 'commercial', 'office'].includes(formPropertyType || '')
+  const isFormFactory = formPropertyType === 'factory'
+
   // 项目坐标弹窗：地图找房的点位取自项目经纬度，此处在 Web 端补齐录入入口
   type CoordRow = { id: string; name: string; address: string; lat: number | null; lng: number | null }
   const [coordOpen, setCoordOpen] = useState(false)
   const [coordLoading, setCoordLoading] = useState(false)
   const [coordRows, setCoordRows] = useState<CoordRow[]>([])
   const [coordBusyId, setCoordBusyId] = useState<string | null>(null)
+
+  // 新增楼盘（POST /projects，仅 agent/admin）
+  const [projectModalOpen, setProjectModalOpen] = useState(false)
+  const [projectSubmitting, setProjectSubmitting] = useState(false)
+  const [projectForm] = Form.useForm()
 
   // 选项（枚举 → 文案映射统一收敛到 lib/enumLabels）
   const statusLabelMap = usePropertyStatusMap()
@@ -471,6 +512,16 @@ const Properties = () => {
       description: record.description || undefined,
       photos: record.photos || [],
       video_url: record.video_url || undefined,
+      vr_url: record.vr_url || undefined,
+      ceiling_height_m: record.ceiling_height_m ?? undefined,
+      company_registrable: record.company_registrable ?? false,
+      land_area_sqm: record.land_area_sqm ?? undefined,
+      floor_loading_kg_sqm: record.floor_loading_kg_sqm ?? undefined,
+      column_spacing: record.column_spacing || undefined,
+      power_capacity_kva: record.power_capacity_kva ?? undefined,
+      environmental_permit: record.environmental_permit ?? false,
+      whole_floor_only: record.whole_floor_only ?? false,
+      whole_building_only: record.whole_building_only ?? false,
     })
     setModalOpen(true)
   }
@@ -497,6 +548,30 @@ const Properties = () => {
 
   // 上架/下架已废弃：删除即下架（前端不再调用 listing_status 更新）
 
+  // 一键上架（唯一上架入口）：直接按该房源档案生成上架单
+  const handlePublish = (item: Property) => {
+    if (Number(item.monthly_rent || 0) <= 0) {
+      message.warning(t('listing.listManualRent'))
+      return
+    }
+    Modal.confirm({
+      title: t('listing.confirmListTitle'),
+      icon: <ExclamationCircleOutlined />,
+      content: t('listing.confirmListBody'),
+      okText: t('listing.actionList'),
+      cancelText: t('common.cancel'),
+      onOk: async () => {
+        try {
+          await listingsApi.create(buildListingPayload(item))
+          message.success(t('listing.listedOk'))
+        } catch (err: any) {
+          const detail = err?.response?.data?.detail
+          message.error(typeof detail === 'string' && detail ? detail : err?.response?.data?.message || t('property.saveFailed'))
+        }
+      },
+    })
+  }
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields()
@@ -514,6 +589,39 @@ const Properties = () => {
       }
       message.error(err?.response?.data?.message || t('property.saveFailed'))
     } finally { setSubmitting(false) }
+  }
+
+  // 新增楼盘：提交 POST /projects 后刷新项目列表（供房源表单的项目下拉即时可用）
+  const handleCreateProject = async () => {
+    try {
+      const values = await projectForm.validateFields()
+      setProjectSubmitting(true)
+      await projectsApi.create({
+        name: values.name,
+        address: values.address,
+        city: values.city || undefined,
+        district: values.district || undefined,
+        developer: values.developer || undefined,
+        total_units: values.total_units ?? undefined,
+        completion_year: values.completion_year ?? undefined,
+        tenure: values.tenure || undefined,
+        avg_price: values.avg_price ?? undefined,
+        sale_status: values.sale_status || undefined,
+        open_date: values.open_date || undefined,
+      })
+      message.success(t('project.msgCreated'))
+      setProjectModalOpen(false)
+      projectForm.resetFields()
+      fetchProjects()
+    } catch (err: any) {
+      if (err?.errorFields) {
+        projectForm.scrollToField(err.errorFields[0].name)
+        return
+      }
+      message.error(err?.response?.data?.message || t('project.errCreateFailed'))
+    } finally {
+      setProjectSubmitting(false)
+    }
   }
 
   // ==================== 照片上传/删除 ====================
@@ -616,6 +724,13 @@ const Properties = () => {
           </a>
           {isManageMode && (
             <>
+              <button
+                className="rent-btn rent-btn--primary rent-btn--sm"
+                onClick={(e) => { e.stopPropagation(); handlePublish(item) }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
+                {t('listing.actionList')}
+              </button>
               <button
                 className="rent-btn rent-btn--secondary rent-btn--sm"
                 onClick={(e) => { e.stopPropagation(); openEdit(item) }}
@@ -816,6 +931,7 @@ const Properties = () => {
     { key: 'villa', label: propertyTypeMap.villa },
     { key: 'shop', label: propertyTypeMap.shop },
     { key: 'office', label: propertyTypeMap.office },
+    { key: 'factory', label: propertyTypeMap.factory },
   ]
   const BED_OPTS = [
     { key: '', label: t('propertiesPage.optAnyBedrooms') },
@@ -1029,6 +1145,12 @@ const Properties = () => {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             {t('propertiesPage.export')}
           </button>
+          {canCreateProject && (
+            <button className="rent-btn rent-btn--secondary" onClick={() => { projectForm.resetFields(); setProjectModalOpen(true) }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              {t('project.createEntry')}
+            </button>
+          )}
           {isManageMode && (
             <button className="rent-btn rent-btn--secondary" onClick={openCoordModal}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -1268,6 +1390,63 @@ const Properties = () => {
           <Form.Item label={t('property.videoUrl')} name="video_url">
             <Input placeholder={t('property.videoUrlPlaceholder')} allowClear />
           </Form.Item>
+          <Form.Item label={t('publishListing.lblVrUrl')} name="vr_url">
+            <Input placeholder="https://..." allowClear />
+          </Form.Item>
+
+          {/* 商办专项：层高 + 可注册公司 */}
+          {isFormCommercial && (
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label={t('publishListing.lblCeilingHeight')} name="ceiling_height_m">
+                  <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblCeilingHeight')} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label={t('publishListing.lblCompanyRegistrable')} name="company_registrable" valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
+
+          {/* 厂房专项 */}
+          {isFormFactory && (
+            <>
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item label={t('publishListing.lblLandArea')} name="land_area_sqm">
+                    <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblLandArea')} />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item label={t('publishListing.lblFloorLoading')} name="floor_loading_kg_sqm">
+                    <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblFloorLoading')} />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item label={t('publishListing.lblColumnSpacing')} name="column_spacing">
+                    <Input placeholder={t('publishListing.lblColumnSpacing')} allowClear />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item label={t('publishListing.lblPowerCapacity')} name="power_capacity_kva">
+                    <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblPowerCapacity')} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={8}><Form.Item label={t('publishListing.lblEnvironmentalPermit')} name="environmental_permit" valuePropName="checked"><Switch /></Form.Item></Col>
+                <Col span={8}><Form.Item label={t('publishListing.lblWholeFloorOnly')} name="whole_floor_only" valuePropName="checked"><Switch /></Form.Item></Col>
+                <Col span={8}><Form.Item label={t('publishListing.lblWholeBuildingOnly')} name="whole_building_only" valuePropName="checked"><Switch /></Form.Item></Col>
+              </Row>
+              <Form.Item label={t('publishListing.lblCompanyRegistrable')} name="company_registrable" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </>
+          )}
         </Form>
       </Modal>
 
@@ -1324,6 +1503,69 @@ const Properties = () => {
             </div>
           )}
         </Spin>
+      </Modal>
+
+      {/* 新增楼盘（POST /projects 需 agent/admin；入口按角色收敛） */}
+      <Modal
+        title={t('project.createTitle')}
+        open={projectModalOpen}
+        onCancel={() => setProjectModalOpen(false)}
+        onOk={handleCreateProject}
+        confirmLoading={projectSubmitting}
+        okText={t('common.save')}
+        cancelText={t('common.cancel')}
+        destroyOnClose
+        width={640}
+      >
+        <Form form={projectForm} layout="vertical" preserve={false}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label={t('project.lblName')} name="name" rules={[{ required: true, message: t('project.reqName') }]}>
+                <Input placeholder={t('project.lblName')} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label={t('project.lblDeveloper')} name="developer">
+                <Input placeholder={t('project.lblDeveloper')} allowClear />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label={t('project.lblAddress')} name="address" rules={[{ required: true, message: t('project.reqAddress') }]}>
+            <Input placeholder={t('project.lblAddress')} />
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}><Form.Item label={t('project.lblCity')} name="city"><Input placeholder={t('project.lblCity')} allowClear /></Form.Item></Col>
+            <Col span={12}><Form.Item label={t('project.lblDistrict')} name="district"><Input placeholder={t('project.lblDistrict')} allowClear /></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}><Form.Item label={t('project.lblTotalUnits')} name="total_units"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('project.lblTotalUnits')} /></Form.Item></Col>
+            <Col span={8}><Form.Item label={t('project.lblCompletionYear')} name="completion_year"><InputNumber style={{ width: '100%' }} min={1900} precision={0} placeholder={t('project.lblCompletionYear')} /></Form.Item></Col>
+            <Col span={8}><Form.Item label={t('project.lblAvgPrice')} name="avg_price"><InputNumber style={{ width: '100%' }} min={0} placeholder={t('project.lblAvgPrice')} /></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label={t('project.lblTenure')} name="tenure">
+                <Select allowClear options={[
+                  { value: 'freehold', label: t('project.tenureFreehold') },
+                  { value: 'leasehold', label: t('project.tenureLeasehold') },
+                  { value: 'mixed', label: t('project.tenureMixed') },
+                ]} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label={t('project.lblSaleStatus')} name="sale_status">
+                <Select allowClear options={[
+                  { value: 'pre_sale', label: t('project.saleStatusPreSale') },
+                  { value: 'on_sale', label: t('project.saleStatusOnSale') },
+                  { value: 'sold_out', label: t('project.saleStatusSoldOut') },
+                ]} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label={t('project.lblOpenDate')} name="open_date">
+            <Input placeholder="YYYY-MM-DD" allowClear />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   )

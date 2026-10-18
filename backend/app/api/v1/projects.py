@@ -1,5 +1,6 @@
 """项目/楼盘路由：项目 CRUD。"""
 import uuid
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,7 +10,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.auth import get_current_user, require_agent
 from app.core.pagination import Page, PaginationParams, paginate_query
-from app.models import Project, User
+from app.models import Project, Tenure, User
 from app.providers.geo import geo_provider
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -30,6 +31,12 @@ class ProjectCreate(BaseModel):
     total_units: Optional[int] = None
     completion_year: Optional[int] = None
     amenities: Optional[Dict[str, Any]] = None
+    # 新房页依赖字段：sale_status 作筛选口径，open_date 算「本月开盘」，
+    # tenure 为产权年限，avg_price 用于价格排序与行情对比（全部可选，不编造）
+    sale_status: Optional[str] = None
+    open_date: Optional[datetime] = None
+    tenure: Optional[Tenure] = None
+    avg_price: Optional[float] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -47,6 +54,10 @@ class ProjectUpdate(BaseModel):
     total_units: Optional[int] = None
     completion_year: Optional[int] = None
     amenities: Optional[Dict[str, Any]] = None
+    sale_status: Optional[str] = None
+    open_date: Optional[datetime] = None
+    tenure: Optional[Tenure] = None
+    avg_price: Optional[float] = None
 
 
 @router.get("", response_model=Page[Project])

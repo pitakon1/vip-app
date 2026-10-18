@@ -1,0 +1,228 @@
+/* =========================================================
+   分类页卡片样式（小程序）
+   房源横卡 / 楼盘大卡 / 楼盘小卡 —— 颜色一律取 app.scss 的 CSS 变量，
+   禁渐变、禁硬编码色值。
+   ========================================================= */
+
+/* ===== 封面 ===== */
+.ck-cover {
+  width: 240rpx;
+  height: 180rpx;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background-color: var(--surface-2);
+
+  &--wide {
+    width: 100%;
+    height: 300rpx;
+    border-radius: 0;
+  }
+
+  &--ph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* ===== 房源横卡（租房 / 二手房 / 商铺办公 / 厂房）===== */
+.ck-row {
+  display: flex;
+  gap: 20rpx;
+  margin: 0 24rpx 20rpx;
+  padding: 24rpx;
+  background-color: var(--card);
+  border: 2rpx solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.ck-row__cover-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ck-row__badge {
+  position: absolute;
+  left: 8rpx;
+  bottom: 8rpx;
+  padding: 2rpx 12rpx;
+  border-radius: var(--radius-sm);
+  background-color: rgba(var(--primary-rgb), 0.92);
+}
+
+.ck-row__badge-text {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: var(--primary-foreground);
+}
+
+.ck-row__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.ck-row__title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-row__sub {
+  font-size: 24rpx;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-row__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.ck-row__fact {
+  font-size: 24rpx;
+  color: var(--ink-2);
+}
+
+.ck-row__price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.ck-row__price-main {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.ck-row__price-unit {
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+.ck-row__price-sub {
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+/* ===== 标签（真实字段派生）===== */
+.ck-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.ck-tag {
+  padding: 4rpx 12rpx;
+  border-radius: var(--radius-sm);
+  background-color: rgba(var(--primary-rgb), 0.1);
+}
+
+.ck-tag__text {
+  font-size: 20rpx;
+  color: var(--primary);
+}
+
+/* ===== 楼盘大卡（新房）===== */
+.ck-project {
+  margin: 0 24rpx 20rpx;
+  background-color: var(--card);
+  border: 2rpx solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.ck-project__body {
+  padding: 20rpx 24rpx 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.ck-project__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.ck-project__badge {
+  flex-shrink: 0;
+  padding: 4rpx 14rpx;
+  border-radius: var(--radius-full);
+  background-color: rgba(var(--primary-rgb), 0.12);
+}
+
+.ck-project__badge-text {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* ===== 楼盘小卡（新房页「热销」横滑 rail）===== */
+.ck-railcard {
+  width: 440rpx;
+  margin-right: 20rpx;
+  background-color: var(--card);
+  border: 2rpx solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.ck-railcard__body {
+  padding: 16rpx 20rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.ck-railcard__name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-railcard__sub {
+  font-size: 22rpx;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-railcard__price {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* ===== rail 容器 / 分区标题（各分类页「新上房源 / 近30天热销」用）===== */
+.ck-section-title {
+  display: block;
+  margin: 24rpx 24rpx 12rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.ck-rail {
+  display: flex;
+  white-space: nowrap;
+  padding: 0 24rpx;
+}

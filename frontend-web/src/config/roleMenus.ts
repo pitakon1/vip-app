@@ -34,78 +34,8 @@ export interface RoleMenuSection {
 export const resolveLabelKey = (item: RoleMenuItem) => item.mobileLabelKey ?? item.labelKey
 
 export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
-  owner: [
-    {
-      labelKey: 'menu.section.overview',
-      items: [
-        {
-          key: '/owner/dashboard',
-          labelKey: 'menu.myHome',
-          mobileLabelKey: 'portal.home',
-          icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z',
-        },
-      ],
-    },
-    {
-      labelKey: 'menu.section.assetManagement',
-      items: [
-        {
-          key: '/owner/properties',
-          labelKey: 'menu.myProperties',
-          icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22',
-        },
-        {
-          key: '/publish-listing',
-          labelKey: 'menu.publishListing',
-          icon: 'M12 5v14M5 12h14',
-        },
-        {
-          key: '/my-listings',
-          labelKey: 'menu.myListings',
-          icon: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
-        },
-        {
-          key: '/owner/marketing',
-          labelKey: 'menu.marketing',
-          mobileLabelKey: 'portal.marketing',
-          icon: 'M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1z M14 8a4 4 0 0 1 0 8',
-        },
-        {
-          key: '/owner/income',
-          labelKey: 'menu.income',
-          mobileLabelKey: 'portal.income',
-          icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
-        },
-        {
-          key: '/owner/documents',
-          labelKey: 'menu.documents',
-          icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6',
-        },
-        {
-          key: '/owner/services',
-          labelKey: 'menu.services',
-          mobileLabelKey: 'portal.services',
-          icon: 'M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z',
-        },
-        {
-          key: '/company',
-          labelKey: 'menu.company',
-          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01',
-        },
-      ],
-    },
-    {
-      labelKey: 'menu.section.personal',
-      items: [
-        {
-          key: '/owner/my',
-          labelKey: 'menu.profile',
-          mobileLabelKey: 'portal.profile',
-          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01',
-        },
-      ],
-    },
-  ],
+  // C 端（业主 + 租客）共享菜单：业主与租客功能一致——同一份入口清单、同一命名空间 /tenant/*。
+  // 业主不再有独立侧边栏（ROLE_SECTIONS.owner 已删除），统一走顶栏门户 PortalLayout。
   tenant: [
     {
       labelKey: 'menu.section.overview',
@@ -120,6 +50,28 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           key: '/tenant/listings',
           labelKey: 'menu.browseProperties',
           icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22',
+        },
+        {
+          key: '/tenant/my-properties',
+          labelKey: 'menu.myProperties',
+          icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22',
+        },
+        {
+          key: '/tenant/my-listings',
+          labelKey: 'menu.myListings',
+          icon: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
+        },
+        {
+          key: '/tenant/marketing',
+          labelKey: 'menu.marketing',
+          mobileLabelKey: 'portal.marketing',
+          icon: 'M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1z M14 8a4 4 0 0 1 0 8',
+        },
+        {
+          key: '/tenant/income',
+          labelKey: 'menu.income',
+          mobileLabelKey: 'portal.income',
+          icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
         },
       ],
     },
@@ -151,8 +103,24 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           icon: 'M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z',
         },
         {
+          key: '/tenant/contracts',
+          labelKey: 'menu.contracts',
+          icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 13l2 2 4-4',
+        },
+        {
           key: '/company',
           labelKey: 'menu.company',
+          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01',
+        },
+      ],
+    },
+    {
+      labelKey: 'menu.section.personal',
+      items: [
+        {
+          key: '/tenant/my',
+          labelKey: 'menu.profile',
+          mobileLabelKey: 'portal.profile',
           icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01',
         },
       ],
@@ -380,10 +348,24 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
 
 /** 移动端底部 Tab 展示白名单（自上而下）。未列出的菜单项只在侧边栏展示。 */
 export const ROLE_MOBILE_KEYS: Record<string, string[]> = {
-  owner: ['/owner/dashboard', '/owner/income', '/owner/marketing', '/owner/services', '/owner/my'],
-  tenant: ['/tenant/dashboard', '/tenant/payments', '/tenant/documents', '/tenant/services', '/tenant/maintenance'],
+  // 业主与租客共用同一组 C 端底部 Tab（功能一致）
+  owner: ['/tenant/dashboard', '/tenant/listings', '/tenant/payments', '/tenant/documents', '/tenant/my'],
+  tenant: ['/tenant/dashboard', '/tenant/listings', '/tenant/payments', '/tenant/documents', '/tenant/my'],
   agent: ['/employee/dashboard', '/properties', '/employee/attendance', '/employee/performance', '/employee/contacts'],
   employee: ['/employee/dashboard', '/properties', '/employee/attendance', '/employee/performance', '/employee/contacts'],
   admin: ['/dashboard', '/properties', '/crm', '/payments', '/settings'],
   partner_admin: ['/partner/members'],
 }
+
+/**
+ * C 端门户顶栏（PortalLayout）展示的 6 项：首页 / 找房 / 我的房源 / 收益 / 文档 / 我的。
+ * 其余入口（缴费 / 报修 / 服务 / 合同 / 委托挂牌 / 我的上架单 / 公司）收进「我的」宫格。
+ */
+export const C_PORTAL_NAV_KEYS = [
+  '/tenant/dashboard',
+  '/tenant/listings',
+  '/tenant/my-properties',
+  '/tenant/income',
+  '/tenant/documents',
+  '/tenant/my',
+]

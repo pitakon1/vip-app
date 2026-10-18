@@ -61,6 +61,23 @@
         transform: scale(0.96);
         opacity: 0.92;
       }
+
+      /* 次级按钮：描边风格（沿用 header 上的前景色，非新增色值） */
+      &--ghost {
+        background: transparent;
+        border: 1px solid var(--primary-foreground);
+        box-shadow: none;
+        color: var(--primary-foreground);
+        font-weight: 600;
+      }
+    }
+
+    &__actions {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12rpx;
     }
   }
 
@@ -419,6 +436,23 @@
       color: var(--primary);
     }
 
+    /* 行内上架动作 */
+    &__list {
+      flex: 1;
+      height: 68rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary);
+      border-radius: var(--radius-md);
+    }
+
+    &__list-text {
+      font-size: 26rpx;
+      font-weight: 600;
+      color: var(--primary-foreground);
+    }
+
     &__manage {
       flex: 1;
       height: 68rpx;
@@ -525,6 +559,13 @@
   color: var(--ink-3);
   margin-bottom: 12rpx;
   margin-top: 8rpx;
+
+  /* 分组小标题：商办 / 厂房专项 */
+  &--section {
+    margin-top: 24rpx;
+    font-size: 26rpx;
+    color: var(--primary);
+  }
 }
 
 .field-row {

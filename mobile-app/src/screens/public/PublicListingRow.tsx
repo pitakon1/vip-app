@@ -80,6 +80,27 @@ export default function PublicListingRow({ item, t, onPress }: Props) {
           ) : null}
         </View>
 
+        {/* 房东直租 / 优选 / VR 标签（仅真实字段存在时渲染） */}
+        {item.owner_direct || item.is_featured || item.vr_url ? (
+          <View style={styles.tagRow}>
+            {item.owner_direct ? (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>{t('category.tagOwnerDirect')}</Text>
+              </View>
+            ) : null}
+            {item.is_featured ? (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>{t('category.tagFeatured')}</Text>
+              </View>
+            ) : null}
+            {item.vr_url ? (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>{t('category.tagVr')}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
         <View style={styles.priceRow}>
           <Text style={styles.price}>{fmtMoney(price, item.currency || 'THB')}</Text>
           {isSell ? null : <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>}
@@ -136,6 +157,14 @@ const styles = StyleSheet.create({
   addr: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 3 },
   factRow: { flexDirection: 'row', gap: colors.spacing.md, marginTop: 6 },
   fact: { fontSize: colors.fontSize.xs, color: colors.ink3 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  tag: {
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.sm,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  tagText: { fontSize: colors.fontSize.xs, color: colors.ink2 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 6 },
   price: { fontSize: colors.fontSize.xl, fontWeight: '800', color: colors.primary },
   priceUnit: { fontSize: colors.fontSize.sm, color: colors.ink3 },

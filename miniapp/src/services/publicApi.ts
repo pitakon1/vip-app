@@ -41,12 +41,39 @@ export interface PublicListing {
   furnished?: boolean
   cover?: string | null
   video_url?: string | null
+  /** VR 看房链接（有值即展示「VR 看房」标签，并可新增 has_vr 筛选） */
+  vr_url?: string | null
+  /** 优选房源（平台甄选标记） */
+  is_featured?: boolean | null
+  /** 房东直租（业主直租，无中介） */
+  owner_direct?: boolean | null
   listing_no?: string | null
   monthly_rent?: number | null
   asking_price?: number | null
   photos?: unknown[] | null
   nearest_school_name?: string | null
   nearest_school_km?: number | null
+  /** 房源类型（公寓/别墅/写字楼/商铺/厂房）：商业卡片角标与「更多」筛选用 */
+  property_type?: string | null
+  /** 购房业务口径：新房/二手房（仅 sell 有意义） */
+  is_new_development?: boolean | null
+  /** 竣工年份（来自所属楼盘）→ 二手房卡片据此算楼龄 */
+  completion_year?: number | null
+  /** 日租金/㎡（派生值，仅商业/工业类目返回） */
+  rent_per_sqm_day?: number | null
+  /* ===== 商业/工业专项字段（写字楼/商铺/厂房卡片与筛选消费） ===== */
+  ceiling_height_m?: number | null
+  land_area_sqm?: number | null
+  floor_loading_kg_sqm?: number | null
+  column_spacing?: string | null
+  power_capacity_kva?: number | null
+  environmental_permit?: boolean | null
+  whole_floor_only?: boolean | null
+  whole_building_only?: boolean | null
+  company_registrable?: boolean | null
+  /* ===== 真房源保鲜（C 端信任信号，免登录可见） ===== */
+  last_verified_at?: string | null
+  verified_days_ago?: number | null
 }
 
 export interface PublicListingDetail extends PublicListing {
@@ -137,6 +164,36 @@ export interface PublicProject {
   sale_price_max?: number | null
   rent_price_min?: number | null
   rent_price_max?: number | null
+  /** 销售状态：pre_sale / on_sale / sold_out */
+  sale_status?: string | null
+  /** 最近地铁站（新房卡片「近地铁」标签） */
+  nearest_subway?: string | null
+  /** 在售套数（由该项目下在售上架单实时聚合） */
+  listing_count?: number
+  /** 近 7 日成交套数 */
+  recent_deal_count?: number
+  /** 建面区间（㎡） */
+  size_min?: number | null
+  size_max?: number | null
+  /** 户型集合（如 [2,3]） */
+  bedroom_options?: number[] | null
+}
+
+/** 分类页聚合摘要（数据胶囊 + 行情对比 + 分类计数）。 */
+export interface PublicCategorySummary {
+  city?: string | null
+  on_sale_projects: number
+  opened_this_month: number
+  new_projects_7d: number
+  unsold_projects: number
+  rent_count: number
+  sell_count: number
+  new_count: number
+  resale_count: number
+  office_shop_count: number
+  factory_count: number
+  /** 区域均价两两对比（仅返回均价非空的区域，最多 2 条） */
+  district_price_pairs: { district?: string | null; avg_price?: number | null }[]
 }
 
 export interface PublicProjectDetail extends PublicProject {
@@ -158,17 +215,120 @@ export interface PublicPage<T> {
   pages?: number
 }
 
+/** 区域聚合（`GET /public/districts`）：按数据量降序，含套数/楼盘数/均价。 */
+export interface PublicDistrict {
+  district?: string | null
+  listing_count?: number
+  project_count?: number
+  avg_price?: number | null
+}
+
+/**
+ * 城市聚合（`GET /public/cities`）。
+ * 注意 `key` 是全小写无连字符形态（如 `chiangmai`），与定位 Store 的 `cityKey`
+ * （如 `chiangMai`）不等值，匹配时须先 slug 化（见 `slugCity`）。
+ */
+export interface PublicCity {
+  key: string
+  name?: string | null
+  listing_count?: number
+  project_count?: number
+}
+
+/** 地图点位（`GET /public/map-points`）：仅返回所属楼盘有经纬度的房源。 */
+export interface PublicMapPoint {
+  id: string
+  listing_type?: string | null
+  property_type?: string | null
+  is_new_development?: boolean | null
+  room_number?: string | null
+  address?: string | null
+  price?: number | null
+  monthly_rent?: number | null
+  currency?: string | null
+  size_sqm?: number | null
+  bedrooms?: number | null
+  cover?: string | null
+  video_url?: string | null
+  vr_url?: string | null
+  project_id?: string | null
+  project_name?: string | null
+  lat?: number | null
+  lng?: number | null
+}
+
+/** 地图点位查询参数。 */
+export interface PublicMapPointQuery {
+  limit?: number
+  listing_type?: 'rent' | 'sell'
+  property_type?: string
+  is_new_development?: boolean
+  district?: string
+  city?: string
+  min_lat?: number
+  max_lat?: number
+  min_lng?: number
+  max_lng?: number
+  q?: string
+  price_min?: number
+  price_max?: number
+  has_video?: boolean
+  has_vr?: boolean
+  is_featured?: boolean
+  owner_direct?: boolean
+}
+
+/** 匿名预约看房（`POST /public/viewings`）。 */
+export interface PublicViewingPayload {
+  listing_id?: string
+  property_id?: string
+  name: string
+  phone: string
+  email?: string
+  /** ISO 字符串，必填且须为未来时间（不含时区，如 `2026-10-18T10:00:00`） */
+  scheduled_at: string
+  notes?: string
+}
+
+/** 城市/业务 key slug 化：小写 + 去掉空格/连字符/点/撇号/下划线。 */
+export function slugCity(key?: string | null): string {
+  return String(key ?? '')
+    .toLowerCase()
+    .replace(/[\s\-._']/g, '')
+}
+
 export interface PublicListingQuery {
   page?: number
   page_size?: number
   listing_type?: 'rent' | 'sell'
   q?: string
+  /** 房源类型（多值，任一命中）：apartment/condo/villa/house/office/shop/factory */
+  property_type?: string[]
+  /** 新房/二手房（仅 sell 有意义） */
+  is_new_development?: boolean
+  district?: string
+  city?: string
   price_min?: number
   price_max?: number
   area_min?: number
   area_max?: number
   bedrooms_min?: number
   bedrooms_max?: number
+  decoration?: string
+  /** 配套设施（多选任一命中）：aircon/pool/gym/parking/elevator/balcony */
+  amenity?: string[]
+  has_video?: boolean
+  /** 有 VR 看房链接 */
+  has_vr?: boolean
+  /** 优选房源 */
+  is_featured?: boolean
+  /** 房东直租 */
+  owner_direct?: boolean
+  /* 商业/工业专项筛选（仅传 true 生效） */
+  whole_floor_only?: boolean
+  whole_building_only?: boolean
+  company_registrable?: boolean
+  environmental_permit?: boolean
   /** 房源状态（vacant/rented/reserved/maintenance） */
   status?: string
   /** 小区筛选：直接落 project_id */
@@ -179,6 +339,23 @@ export interface PublicListingQuery {
   school_id?: string
   school_radius_km?: number
   sort?: 'latest' | 'price_asc' | 'price_desc' | 'area_desc' | 'distance'
+}
+
+/** 楼盘（项目）列表筛选：新房分类页的数据面。 */
+export interface PublicProjectQuery {
+  page?: number
+  page_size?: number
+  q?: string
+  district?: string
+  city?: string
+  tenure?: string
+  /** pre_sale / on_sale / sold_out */
+  sale_status?: string
+  /** true=有在售上架单；false=无在售上架单 */
+  has_listings?: boolean
+  price_min?: number
+  price_max?: number
+  sort?: 'hot' | 'price_asc' | 'price_desc' | 'open_date_desc'
 }
 
 export interface PublicInquiryPayload {
@@ -225,15 +402,25 @@ export const publicApi = {
   /**
    * 公开房源列表（服务端分页 + 筛选；school_id 走空间筛选并按距离排序）。
    *
-   * `keywords` 单独拼到 URL 上：Taro 的 GET 序列化对数组用下标格式
-   * （`keywords[0]=a`），而 FastAPI 的 `List[str] = Query(...)` 只认重复键
-   * （`keywords=a&keywords=b`），混在一起传会被后端静默忽略。
+   * `keywords` / `property_type` / `amenity` 单独拼到 URL 上：Taro 的 GET 序列化对数组
+   * 用下标格式（`property_type[0]=office`），而 FastAPI 的 `List[str] = Query(...)` 只认重复键
+   * （`property_type=office&property_type=shop`），混在一起传会被后端**静默忽略**——
+   * 表现为「商铺办公/厂房入口勾选了类型、列表却完全没变」，且无任何报错。
    */
   listings: (params?: PublicListingQuery) => {
-    const { keywords, ...rest } = params ?? {}
-    const query = (keywords ?? [])
-      .filter(Boolean)
-      .map((k) => `keywords=${encodeURIComponent(k)}`)
+    const { keywords, property_type, amenity, ...rest } = params ?? {}
+    const query = (
+      [
+        ['keywords', keywords],
+        ['property_type', property_type],
+        ['amenity', amenity]
+      ] as const
+    )
+      .flatMap(([key, list]) =>
+        Array.isArray(list)
+          ? list.filter(Boolean).map((v) => `${key}=${encodeURIComponent(String(v))}`)
+          : []
+      )
       .join('&')
     return request<any>({
       url: `${PUBLIC}/listings${query ? `?${query}` : ''}`,
@@ -243,6 +430,27 @@ export const publicApi = {
   },
   /** 公开房源详情 */
   listing: (id: string) => request<any>({ url: `${PUBLIC}/listings/${id}` }),
+  /**
+   * 区域聚合（找房/分类页「区域」筛选的真实数据面）。
+   *
+   * `property_type` 与 listings 同理单独拼重复键：Taro 的 GET 序列化对数组用下标
+   * 格式，FastAPI 的 `List[str] = Query(...)` 只认重复键，混在 data 里传会被静默忽略。
+   */
+  districts: (params?: { city?: string; listing_type?: 'rent' | 'sell'; property_type?: string[] }) => {
+    const { property_type, ...rest } = params ?? {}
+    const query = Array.isArray(property_type)
+      ? property_type.filter(Boolean).map((v) => `property_type=${encodeURIComponent(String(v))}`).join('&')
+      : ''
+    return request<any>({ url: `${PUBLIC}/districts${query ? `?${query}` : ''}`, method: 'GET', data: rest })
+  },
+  /** 城市聚合（key 为 slug 化形态，匹配 cityKey 前须 slugCity） */
+  cities: () => request<any>({ url: `${PUBLIC}/cities`, method: 'GET' }),
+  /** 地图找房点位（默认只返回所属楼盘有经纬度的房源） */
+  mapPoints: (params?: PublicMapPointQuery) =>
+    request<any>({ url: `${PUBLIC}/map-points`, method: 'GET', data: params }),
+  /** 匿名预约看房（无需登录；scheduled_at 必填且须为未来时间） */
+  viewings: (data: PublicViewingPayload) =>
+    request<any>({ url: `${PUBLIC}/viewings`, method: 'POST', data }),
   /** 学校列表 */
   schools: (params?: {
     page?: number
@@ -254,12 +462,18 @@ export const publicApi = {
   /** 学校详情（含周边在租在售房源） */
   school: (id: string, params?: { radius_km?: number; limit?: number }) =>
     request<any>({ url: `${PUBLIC}/schools/${id}`, method: 'GET', data: params }),
-  /** 小区（楼盘）列表 */
-  projects: (params?: { page?: number; page_size?: number; q?: string }) =>
+  /** 小区（楼盘）列表（新房分类页数据面：含销售状态/在售筛选/均价区间/热度排序） */
+  projects: (params?: PublicProjectQuery) =>
     request<any>({ url: `${PUBLIC}/projects`, method: 'GET', data: params }),
   /** 小区详情（含该小区房源） */
   project: (id: string, params?: { listing_limit?: number }) =>
     request<any>({ url: `${PUBLIC}/projects/${id}`, method: 'GET', data: params }),
+  /**
+   * 分类页聚合摘要（数据胶囊 + 行情对比 + 分类计数）。
+   * `city` 不传=全国口径：定位城市名为中文，与库内英文 city 不匹配，故默认不限定城市。
+   */
+  listingCategorySummary: (params?: { city?: string }) =>
+    request<any>({ url: `${PUBLIC}/listing-categories/summary`, method: 'GET', data: params }),
   /** 匿名留资（后端限流；至少留一种联系方式） */
   inquiry: (data: PublicInquiryPayload) =>
     request<any>({ url: `${PUBLIC}/inquiries`, method: 'POST', data })

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { View, Text, Input, Textarea, ScrollView, Picker, Switch, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
-import { ownerApi } from '@/services/api'
+import { ownerApi, listingApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
@@ -45,6 +45,17 @@ interface OwnerProp {
   photos?: string[]
   layout?: string
   tenant_name?: string
+  // 新建档案字段（VR / 商办 / 工业）
+  vr_url?: string
+  ceiling_height_m?: number
+  land_area_sqm?: number
+  floor_loading_kg_sqm?: number
+  column_spacing?: number
+  power_capacity_kva?: number
+  environmental_permit?: boolean
+  whole_floor_only?: boolean
+  whole_building_only?: boolean
+  company_registrable?: boolean
 }
 
 // 从接口返回中提取列表，兼容多种结构
@@ -59,6 +70,35 @@ function pickList(res: any): any[] {
   return []
 }
 
+// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
+const buildListingPayload = (p: any) => ({
+  property_id: p.id,
+  room_number: p.room_number || p.address || '-',
+  address: p.address || p.room_number || '-',
+  property_type: p.property_type || 'apartment',
+  size_sqm: p.size_sqm ?? p.area ?? undefined,
+  bedrooms: p.bedrooms ?? undefined,
+  bathrooms: p.bathrooms ?? undefined,
+  description: p.description || undefined,
+  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
+  furnished: !!p.furnished,
+  video_url: p.video_url || undefined,
+  vr_url: p.vr_url || undefined,
+  ceiling_height_m: p.ceiling_height_m ?? undefined,
+  land_area_sqm: p.land_area_sqm ?? undefined,
+  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
+  column_spacing: p.column_spacing ?? undefined,
+  power_capacity_kva: p.power_capacity_kva ?? undefined,
+  environmental_permit: p.environmental_permit ?? undefined,
+  whole_floor_only: p.whole_floor_only ?? undefined,
+  whole_building_only: p.whole_building_only ?? undefined,
+  company_registrable: p.company_registrable ?? undefined,
+  listing_type: 'rent',
+  monthly_rent: Number(p.monthly_rent || p.rentPrice || 0),
+  currency: p.currency || 'THB',
+  owner_id: p.owner_id || undefined
+})
+
 // ============ 列表展示映射（对齐管理端） ============
 const buildTypeLabels = (
   t: (k: string, p?: Record<string, string | number>) => string
@@ -69,7 +109,8 @@ const buildTypeLabels = (
   villa: t('prop.typeVilla'),
   commercial: t('prop.typeCommercial'),
   shop: t('prop.typeCommercial'),
-  office: t('prop.typeOffice')
+  office: t('prop.typeOffice'),
+  factory: t('prop.typeFactory')
 })
 
 // 状态筛选 chips
@@ -139,8 +180,13 @@ const buildTypeGroups = (
   { label: t('prop.typeApartment'), keys: ['apartment', 'condo'] },
   { label: t('prop.typeVilla'), keys: ['house', 'villa'] },
   { label: t('prop.typeCommercial'), keys: ['commercial', 'shop'] },
-  { label: t('prop.typeOffice'), keys: ['office'] }
+  { label: t('prop.typeOffice'), keys: ['office'] },
+  { label: t('prop.typeFactory'), keys: ['factory'] }
 ]
+
+// 档案类型的差异化分组：住宅保留居室信息，商办/厂房走各自专项字段
+const RESIDENTIAL_TYPES = ['apartment', 'condo', 'villa', 'house']
+const COMMERCIAL_TYPES = ['shop', 'commercial', 'office']
 
 const buildEditStatusOptions = (
   t: (k: string, p?: Record<string, string | number>) => string
@@ -170,6 +216,16 @@ interface EditForm {
   description: string
   video_url: string
   photos: string[]
+  vr_url: string
+  ceiling_height_m: string
+  land_area_sqm: string
+  floor_loading_kg_sqm: string
+  column_spacing: string
+  power_capacity_kva: string
+  environmental_permit: boolean
+  whole_floor_only: boolean
+  whole_building_only: boolean
+  company_registrable: boolean
 }
 
 const emptyForm = (): EditForm => ({
@@ -190,7 +246,17 @@ const emptyForm = (): EditForm => ({
   furnished: false,
   description: '',
   video_url: '',
-  photos: []
+  photos: [],
+  vr_url: '',
+  ceiling_height_m: '',
+  land_area_sqm: '',
+  floor_loading_kg_sqm: '',
+  column_spacing: '',
+  power_capacity_kva: '',
+  environmental_permit: false,
+  whole_floor_only: false,
+  whole_building_only: false,
+  company_registrable: false
 })
 
 // 房源详情 → 表单回填（数字转字符串便于 Input 展示）
@@ -212,7 +278,17 @@ const toForm = (p: OwnerProp): EditForm => ({
   furnished: !!p.furnished,
   description: p.description || '',
   video_url: p.video_url || '',
-  photos: Array.isArray(p.photos) ? p.photos : []
+  photos: Array.isArray(p.photos) ? p.photos : [],
+  vr_url: p.vr_url || '',
+  ceiling_height_m: String(p.ceiling_height_m ?? ''),
+  land_area_sqm: String(p.land_area_sqm ?? ''),
+  floor_loading_kg_sqm: String(p.floor_loading_kg_sqm ?? ''),
+  column_spacing: String(p.column_spacing ?? ''),
+  power_capacity_kva: String(p.power_capacity_kva ?? ''),
+  environmental_permit: !!p.environmental_permit,
+  whole_floor_only: !!p.whole_floor_only,
+  whole_building_only: !!p.whole_building_only,
+  company_registrable: !!p.company_registrable
 })
 
 const num = (v: string) => {
@@ -382,6 +458,28 @@ export default function OwnerPropertiesPage() {
   }, [properties, query, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, regionKeywords])
 
   const goMarketing = () => Taro.navigateTo({ url: '/pages/owner/marketing/index' })
+  // 一键上架（唯一上架入口）：直接按该房源档案生成上架单
+  const publishProperty = (p: OwnerProp) => {
+    if (Number(p.monthly_rent || p.rentPrice || 0) <= 0) {
+      Taro.showToast({ title: t('listing.listManualRent'), icon: 'none' })
+      return
+    }
+    Taro.showModal({
+      title: t('listing.confirmListTitle'),
+      content: t('listing.confirmListBody'),
+      confirmText: t('listing.actionList'),
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await listingApi.create(buildListingPayload(p))
+          Taro.showToast({ title: t('listing.listedOk'), icon: 'success' })
+        } catch (err: any) {
+          const detail = err?.data?.detail || err?.message
+          Taro.showToast({ title: typeof detail === 'string' ? detail : t('common.saveFailed'), icon: 'none' })
+        }
+      }
+    })
+  }
 
   const confirmDelete = (p: OwnerProp) => {
     const title = propertyTitle(p, t)
@@ -466,7 +564,17 @@ export default function OwnerPropertiesPage() {
       available_from: form.available_from.trim() || undefined,
       furnished: !!form.furnished,
       description: form.description.trim() || undefined,
-      video_url: form.video_url.trim() || undefined
+      video_url: form.video_url.trim() || undefined,
+      vr_url: form.vr_url.trim() || undefined,
+      ceiling_height_m: num(form.ceiling_height_m),
+      land_area_sqm: num(form.land_area_sqm),
+      floor_loading_kg_sqm: num(form.floor_loading_kg_sqm),
+      column_spacing: num(form.column_spacing),
+      power_capacity_kva: num(form.power_capacity_kva),
+      environmental_permit: !!form.environmental_permit,
+      whole_floor_only: !!form.whole_floor_only,
+      whole_building_only: !!form.whole_building_only,
+      company_registrable: !!form.company_registrable
     }
     setSubmitting(true)
     Taro.showLoading({ title: t('common.saving'), mask: true })
@@ -546,6 +654,11 @@ export default function OwnerPropertiesPage() {
   )
   const curIdx = Math.max(0, CURRENCY_OPTIONS.indexOf(form.currency))
 
+  // 按所选 property_type 差异化：住宅保留居室，商办/厂房走各自专项字段
+  const isResidential = RESIDENTIAL_TYPES.includes(form.property_type)
+  const isCommercial = COMMERCIAL_TYPES.includes(form.property_type)
+  const isFactory = form.property_type === 'factory'
+
   return (
     <View className='op-page'>
       <ShellHeader title={t('nav.properties')} />
@@ -556,8 +669,14 @@ export default function OwnerPropertiesPage() {
             <Text className='page-header__title'>{t('op.manageTitle')}</Text>
             <Text className='page-header__sub'>{t('op.headerSub', { n: stats.total })}</Text>
           </View>
-          <View className='page-header__btn' hoverClass='page-header__btn--hover' onClick={goMarketing}>
-            <Text>{t('op.listForSale')}</Text>
+          <View className='page-header__actions'>
+            <View
+              className='page-header__btn page-header__btn--ghost'
+              hoverClass='page-header__btn--hover'
+              onClick={goMarketing}
+            >
+              <Text>{t('op.listForSale')}</Text>
+            </View>
           </View>
         </View>
 
@@ -754,8 +873,18 @@ export default function OwnerPropertiesPage() {
                 </View>
               </View>
 
-              {/* 操作：编辑 / 委托挂牌 / 删除 */}
+              {/* 操作：上架 / 编辑 / 委托挂牌 / 删除 */}
               <View className='op-card__footer'>
+                <View
+                  className='op-card__list'
+                  hoverClass='op-card__btn--hover'
+                  onClick={(e: any) => {
+                    e.stopPropagation()
+                    publishProperty(item)
+                  }}
+                >
+                  <Text className='op-card__list-text'>{t('listing.actionList')}</Text>
+                </View>
                 <View
                   className='op-card__edit'
                   hoverClass='op-card__btn--hover'
@@ -919,28 +1048,31 @@ export default function OwnerPropertiesPage() {
                 </View>
               </View>
 
-              <View className='field-row'>
-                <View className='field-col'>
-                  <Text className='field-label'>{t('prop.bedrooms')}</Text>
-                  <Input
-                    className='input'
-                    type='number'
-                    value={form.bedrooms}
-                    onInput={(e: any) => set('bedrooms', e.detail.value)}
-                    placeholder={t('op.countPlaceholder')}
-                  />
+              {/* 居室信息：仅住宅类型展示 */}
+              {isResidential && (
+                <View className='field-row'>
+                  <View className='field-col'>
+                    <Text className='field-label'>{t('prop.bedrooms')}</Text>
+                    <Input
+                      className='input'
+                      type='number'
+                      value={form.bedrooms}
+                      onInput={(e: any) => set('bedrooms', e.detail.value)}
+                      placeholder={t('op.countPlaceholder')}
+                    />
+                  </View>
+                  <View className='field-col'>
+                    <Text className='field-label'>{t('prop.bathrooms')}</Text>
+                    <Input
+                      className='input'
+                      type='number'
+                      value={form.bathrooms}
+                      onInput={(e: any) => set('bathrooms', e.detail.value)}
+                      placeholder={t('op.bathPlaceholder')}
+                    />
+                  </View>
                 </View>
-                <View className='field-col'>
-                  <Text className='field-label'>{t('prop.bathrooms')}</Text>
-                  <Input
-                    className='input'
-                    type='number'
-                    value={form.bathrooms}
-                    onInput={(e: any) => set('bathrooms', e.detail.value)}
-                    placeholder={t('op.bathPlaceholder')}
-                  />
-                </View>
-              </View>
+              )}
 
               <Text className='field-label'>{t('prop.statusLabel')}</Text>
               <View className='pick-wrap'>
@@ -988,6 +1120,129 @@ export default function OwnerPropertiesPage() {
                 placeholder={t('op.videoPlaceholder')}
                 maxlength={300}
               />
+
+              <Text className='field-label'>{t('prop.vrUrl')}</Text>
+              <Input
+                className='input'
+                value={form.vr_url}
+                onInput={(e: any) => set('vr_url', e.detail.value)}
+                placeholder={t('op.videoPlaceholder')}
+                maxlength={300}
+              />
+
+              {/* 商办专项：层高 + 可注册公司 */}
+              {isCommercial && (
+                <>
+                  <Text className='field-label field-label--section'>{t('prop.commercialSection')}</Text>
+                  <View className='field-row'>
+                    <View className='field-col'>
+                      <Text className='field-label'>{t('prop.ceilingHeight')}</Text>
+                      <Input
+                        className='input'
+                        type='digit'
+                        value={form.ceiling_height_m}
+                        onInput={(e: any) => set('ceiling_height_m', e.detail.value)}
+                        placeholder='如 3.2'
+                      />
+                    </View>
+                    <View className='field-col field-col--switch'>
+                      <Text className='field-label'>{t('prop.companyRegistrable')}</Text>
+                      <Switch
+                        checked={form.company_registrable}
+                        color='#14b8a6'
+                        onChange={(e: any) => set('company_registrable', e.detail.value)}
+                      />
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {/* 厂房专项：土地/荷载/柱距/电力/环评/整层整栋/可注册 */}
+              {isFactory && (
+                <>
+                  <Text className='field-label field-label--section'>{t('prop.factorySection')}</Text>
+                  <View className='field-row'>
+                    <View className='field-col'>
+                      <Text className='field-label'>{t('prop.landArea')}</Text>
+                      <Input
+                        className='input'
+                        type='digit'
+                        value={form.land_area_sqm}
+                        onInput={(e: any) => set('land_area_sqm', e.detail.value)}
+                        placeholder='0'
+                      />
+                    </View>
+                    <View className='field-col'>
+                      <Text className='field-label'>{t('prop.floorLoading')}</Text>
+                      <Input
+                        className='input'
+                        type='digit'
+                        value={form.floor_loading_kg_sqm}
+                        onInput={(e: any) => set('floor_loading_kg_sqm', e.detail.value)}
+                        placeholder='0'
+                      />
+                    </View>
+                  </View>
+                  <View className='field-row'>
+                    <View className='field-col'>
+                      <Text className='field-label'>{t('prop.columnSpacing')}</Text>
+                      <Input
+                        className='input'
+                        type='digit'
+                        value={form.column_spacing}
+                        onInput={(e: any) => set('column_spacing', e.detail.value)}
+                        placeholder='0'
+                      />
+                    </View>
+                    <View className='field-col'>
+                      <Text className='field-label'>{t('prop.powerCapacity')}</Text>
+                      <Input
+                        className='input'
+                        type='digit'
+                        value={form.power_capacity_kva}
+                        onInput={(e: any) => set('power_capacity_kva', e.detail.value)}
+                        placeholder='0'
+                      />
+                    </View>
+                  </View>
+                  <View className='field-row'>
+                    <View className='field-col field-col--switch'>
+                      <Text className='field-label'>{t('prop.envPermit')}</Text>
+                      <Switch
+                        checked={form.environmental_permit}
+                        color='#14b8a6'
+                        onChange={(e: any) => set('environmental_permit', e.detail.value)}
+                      />
+                    </View>
+                    <View className='field-col field-col--switch'>
+                      <Text className='field-label'>{t('prop.companyRegistrable')}</Text>
+                      <Switch
+                        checked={form.company_registrable}
+                        color='#14b8a6'
+                        onChange={(e: any) => set('company_registrable', e.detail.value)}
+                      />
+                    </View>
+                  </View>
+                  <View className='field-row'>
+                    <View className='field-col field-col--switch'>
+                      <Text className='field-label'>{t('prop.wholeFloorOnly')}</Text>
+                      <Switch
+                        checked={form.whole_floor_only}
+                        color='#14b8a6'
+                        onChange={(e: any) => set('whole_floor_only', e.detail.value)}
+                      />
+                    </View>
+                    <View className='field-col field-col--switch'>
+                      <Text className='field-label'>{t('prop.wholeBuildingOnly')}</Text>
+                      <Switch
+                        checked={form.whole_building_only}
+                        color='#14b8a6'
+                        onChange={(e: any) => set('whole_building_only', e.detail.value)}
+                      />
+                    </View>
+                  </View>
+                </>
+              )}
 
               <Text className='field-label'>{t('prop.descTitle')}</Text>
               <Textarea

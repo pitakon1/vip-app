@@ -302,6 +302,16 @@ def upload_document(
 
     target_owner_id = _owner_id_for_upload(session, user, owner_id)
 
+    # 与 create_document 同口径：房源若指定，必须属于该业主（防止给他人房源挂证件）
+    if property_id:
+        prop = session.get(Property, property_id)
+        if not prop or prop.deleted_at:
+            raise HTTPException(status_code=404, detail="Property not found")
+        if prop.owner_id != target_owner_id:
+            raise HTTPException(
+                status_code=403, detail="Property does not belong to owner"
+            )
+
     digest = hashlib.sha256()
     file_url = save_upload(
         file,

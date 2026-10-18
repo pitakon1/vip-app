@@ -703,6 +703,20 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/v1/performance/agents",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/performance/partners",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
     "path": "/api/v1/employees",
     "type": "APIRoute"
   },
@@ -890,9 +904,37 @@
   },
   {
     "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/attendance/appeals",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/attendance/appeals",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/attendance/appeals/{appeal_id}/approve",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
       "GET"
     ],
     "path": "/api/v1/attendance/admin/summary",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/attendance/admin/companies",
     "type": "APIRoute"
   },
   {
@@ -907,6 +949,13 @@
       "GET"
     ],
     "path": "/api/v1/commissions",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/commissions/settlements",
     "type": "APIRoute"
   },
   {
@@ -1086,6 +1135,13 @@
   },
   {
     "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/contracts/templates",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
       "POST"
     ],
     "path": "/api/v1/contracts/{contract_id}/parties",
@@ -1095,7 +1151,98 @@
     "methods": [
       "POST"
     ],
+    "path": "/api/v1/contracts/{contract_id}/sign-fields",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/sign-fields/{field_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/contracts/{contract_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/upload",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/share-link",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/send",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/void",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/sign-code",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/decline",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/keyword-search",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/keyword-fields",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
     "path": "/api/v1/contracts/{contract_id}/sign",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/sign-self",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/sign-batch",
     "type": "APIRoute"
   },
   {
@@ -1109,7 +1256,140 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/v1/contracts/preview/{preview_token}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/file-url",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/pdf",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/pdf-pages/{page}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
     "path": "/api/v1/contracts/{contract_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/contracts/{contract_id}/verify",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/public/contract-sign/{token}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/public/contract-sign/{token}/file",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/public/contract-sign/{token}/pdf-pages/{page}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/public/contract-sign/{token}/verify",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/public/contract-sign/{token}/send-code",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/public/contract-sign/{token}/verify-identity",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/public/contract-sign/{token}/send-sign-code",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/public/contract-sign/{token}/decline",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/public/contract-sign/{token}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/sign-assets",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/sign-assets",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/sign-assets/generate-seal",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/sign-assets/imprint",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/sign-assets/{asset_id}",
     "type": "APIRoute"
   },
   {
@@ -1219,6 +1499,41 @@
   },
   {
     "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/calendar-events",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/calendar-events",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/calendar-events/{event_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/calendar-events/{event_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/calendar-events/{event_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
       "GET"
     ],
     "path": "/api/v1/audit-logs",
@@ -1264,6 +1579,34 @@
       "DELETE"
     ],
     "path": "/api/v1/commission-rules/{rule_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/commission-split-rules",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/commission-split-rules",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/commission-split-rules/{rule_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/commission-split-rules/{rule_id}",
     "type": "APIRoute"
   },
   {
@@ -1676,6 +2019,13 @@
     "methods": [
       "POST"
     ],
+    "path": "/api/v1/admin/users/{user_id}/assign-partner",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
     "path": "/api/v1/admin/users/{user_id}/reset-password",
     "type": "APIRoute"
   },
@@ -1719,6 +2069,83 @@
       "DELETE"
     ],
     "path": "/api/v1/user-groups/{group_id}/members/{user_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/admin/partners",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/admin/partners",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/admin/partners/{partner_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/admin/partners/{partner_id}/deactivate",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/admin/partners/{partner_id}/activate",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/partner/members",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/partner/members",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/partner/members/{user_id}/pull-in",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/partner/members/{user_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/partner/performance",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/partner/properties",
     "type": "APIRoute"
   },
   {
@@ -1835,6 +2262,13 @@
   },
   {
     "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/listings/from-property/{property_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
       "GET"
     ],
     "path": "/api/v1/listings/{listing_id}",
@@ -1942,6 +2376,27 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/v1/public/districts",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/public/cities",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/public/listing-categories/summary",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
     "path": "/api/v1/public/developers",
     "type": "APIRoute"
   },
@@ -1957,6 +2412,13 @@
       "POST"
     ],
     "path": "/api/v1/public/inquiries",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/public/viewings",
     "type": "APIRoute"
   },
   {

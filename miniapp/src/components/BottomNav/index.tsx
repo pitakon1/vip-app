@@ -16,6 +16,17 @@ interface NavItem {
 }
 
 /**
+ * C 端（业主 + 租客）统一底部导航：业主与租客功能一致，共用同一组 4 项。
+ * 首页即统一 C 端首页（`/pages/tenant/home/index`，所有人一致）。
+ */
+const C_NAV: NavItem[] = [
+  { key: 'dashboard', label: 'tab.home', icon: 'home', path: '/pages/tenant/home/index' },
+  { key: 'browse', label: 'tab.listings', icon: 'search', path: '/pages/tenant/listings/index' },
+  { key: 'messages', label: 'tab.messages', icon: 'message', path: '/pages/chat/list/index' },
+  { key: 'profile', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
+]
+
+/**
  * 各角色底部导航项。
  * `label` 为 i18n key（guest 用 pub.*，其余角色用 tab.*，均为三语字典已收录）。
  */
@@ -34,17 +45,9 @@ const NAV_MAP: Record<NavRole, NavItem[]> = {
     { key: 'messages', label: 'tab.messages', icon: 'message', path: '/pages/chat/list/index' },
     { key: 'settings', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
   ],
-  owner: [
-    { key: 'dashboard', label: 'tab.home', icon: 'home', path: '/pages/owner/home/index' },
-    { key: 'income', label: 'tab.income', icon: 'money', path: '/pages/owner/income/index' },
-    { key: 'settings', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
-  ],
-  tenant: [
-    { key: 'dashboard', label: 'tab.home', icon: 'home', path: '/pages/tenant/home/index' },
-    { key: 'browse', label: 'tab.listings', icon: 'search', path: '/pages/tenant/listings/index' },
-    { key: 'messages', label: 'tab.messages', icon: 'message', path: '/pages/chat/list/index' },
-    { key: 'profile', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
-  ],
+  // 业主与租客共用同一组 C 端导航（功能一致）
+  owner: C_NAV,
+  tenant: C_NAV,
   // 未登录访客：内容全部来自匿名接口 `/public/*`，四个 Tab 都不需要 token。
   // 「我的」与站内 profile 统一为同一访客态（对齐 App ProfileScreen 访客分支）。
   guest: [

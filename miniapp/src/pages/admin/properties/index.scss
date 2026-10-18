@@ -8,6 +8,35 @@
   box-sizing: border-box;
 }
 
+/* ===== 顶部工具条（统一上架入口） ===== */
+.ap-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 20rpx 24rpx 0;
+}
+
+.ap-toolbar__btn {
+  height: 64rpx;
+  padding: 0 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-primary);
+
+  &--hover {
+    background: var(--primary-hover);
+    transform: scale(0.96);
+  }
+
+  &-text {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary-foreground);
+  }
+}
+
 /* ===== 统计四宫格 ===== */
 .ap-stats {
   display: flex;
@@ -216,6 +245,28 @@
     font-size: 26rpx;
     font-weight: 600;
     color: var(--primary);
+  }
+
+  /* 行内上架动作 */
+  &__list {
+    flex: 1;
+    height: 68rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary);
+    border-radius: var(--radius-md);
+  }
+
+  &__list-text {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary-foreground);
+  }
+
+  &__btn--hover {
+    opacity: 0.85;
+    transform: scale(0.97);
   }
 
   &__del {

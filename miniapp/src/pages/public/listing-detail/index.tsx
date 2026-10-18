@@ -11,7 +11,7 @@
  * 详见上一轮修掉的分佣泄露缺陷。
  */
 import { useEffect, useState } from 'react'
-import { View, Text, Image, ScrollView } from '@tarojs/components'
+import { View, Text, Image, Input, ScrollView } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { publicApi, type PublicListingDetail } from '@/services/publicApi'
 import {
@@ -42,6 +42,13 @@ export default function PublicListingDetailPage() {
   // 两次渲染的 Hook 数量不一致 → React 直接抛
   // "Rendered more hooks than during the previous render"，整页白屏。
   const isLoggedIn = !!useAuthStore((s) => s.token)
+
+  // 预约看房（匿名公开接口 `POST /public/viewings`，未登录也能提交，不再 401）
+  const [vName, setVName] = useState('')
+  const [vPhone, setVPhone] = useState('')
+  const [vTime, setVTime] = useState<'tomorrow' | 'dayAfter' | 'in3' | ''>('')
+  const [vSubmitting, setVSubmitting] = useState(false)
+  const [vFeedback, setVFeedback] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
 
   useEffect(() => {
     loadRates()
@@ -148,6 +155,55 @@ export default function PublicListingDetailPage() {
       ]
     : []
   const goLogin = () => Taro.navigateTo({ url: '/pages/login/index' })
+
+  // 预约看房快捷时间 → 不含时区的 ISO 字符串（如 2026-10-18T10:00:00），
+  // 后端要求 scheduled_at 必填且为未来时间，故最低从「明天」起选。
+  const isoAt = (daysAhead: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() + daysAhead)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T10:00:00`
+  }
+  const viewTimes: Array<['tomorrow' | 'dayAfter' | 'in3', string, number]> = [
+    ['tomorrow', t('pub.viewingTomorrow'), 1],
+    ['dayAfter', t('pub.viewingDayAfter'), 2],
+    ['in3', t('pub.viewingIn3Days'), 3]
+  ]
+  const submitViewing = async () => {
+    if (!vName.trim()) {
+      setVFeedback({ tone: 'err', text: t('pub.inquireNameRequired') })
+      return
+    }
+    if (!vPhone.trim()) {
+      setVFeedback({ tone: 'err', text: t('pub.inquirePhoneRequired') })
+      return
+    }
+    if (!vTime) {
+      setVFeedback({ tone: 'err', text: t('pub.viewingTimeRequired') })
+      return
+    }
+    const days = vTime === 'tomorrow' ? 1 : vTime === 'dayAfter' ? 2 : 3
+    setVSubmitting(true)
+    setVFeedback(null)
+    try {
+      await publicApi.viewings({
+        listing_id: data.id,
+        property_id: data.property_id ?? undefined,
+        name: vName.trim(),
+        phone: vPhone.trim(),
+        scheduled_at: isoAt(days)
+      })
+      setVFeedback({ tone: 'ok', text: t('pub.viewingOk') })
+      setVName('')
+      setVPhone('')
+      setVTime('')
+    } catch (err) {
+      console.error('[public viewing] 提交失败', err)
+      setVFeedback({ tone: 'err', text: t('pub.viewingError') })
+    } finally {
+      setVSubmitting(false)
+    }
+  }
 
   return (
     <View className='pub-page'>
@@ -318,6 +374,64 @@ export default function PublicListingDetailPage() {
           ) : (
             <Text className='pub-section__hint'>{t('pub.brokerEmpty')}</Text>
           )}
+        </View>
+
+        {/* 预约看房：走匿名公开接口，未登录也能提交（不再 401 跳登录） */}
+        <View className='pub-card'>
+          <Text className='pub-section__title'>{t('pub.viewingTitle')}</Text>
+          <Text className='pub-section__hint'>{t('pub.viewingNote')}</Text>
+
+          <Text className='pub-inquiry__label'>{t('pub.inquireName')}</Text>
+          <Input
+            className='pub-inquiry__input'
+            value={vName}
+            onInput={(e) => setVName(e.detail.value)}
+            placeholder={t('pub.inquireNamePlaceholder')}
+          />
+
+          <Text className='pub-inquiry__label'>{t('pub.inquirePhone')}</Text>
+          <Input
+            className='pub-inquiry__input'
+            type='number'
+            value={vPhone}
+            onInput={(e) => setVPhone(e.detail.value)}
+            placeholder={t('pub.inquirePhonePlaceholder')}
+          />
+
+          <Text className='pub-inquiry__label'>{t('pub.viewingTime')}</Text>
+          <View className='view-times'>
+            {viewTimes.map(([key, label]) => (
+              <View
+                key={key}
+                className={`view-time${vTime === key ? ' view-time--on' : ''}`}
+                onClick={() => setVTime(key)}
+              >
+                <Text>{label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {vFeedback ? (
+            <Text
+              className={`pub-inquiry__msg pub-inquiry__msg--${
+                vFeedback.tone === 'ok' ? 'ok' : 'err'
+              }`}
+            >
+              {vFeedback.text}
+            </Text>
+          ) : null}
+
+          <View
+            className={`btn btn--primary pub-inquiry__submit${
+              vSubmitting ? ' btn--disabled' : ''
+            }`}
+            onClick={() => {
+              if (vSubmitting) return
+              submitViewing()
+            }}
+          >
+            <Text>{vSubmitting ? t('pub.viewingSubmitting') : t('pub.viewingSubmit')}</Text>
+          </View>
         </View>
 
         {/* 留资 */}

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import MainLayout from '@/layouts/MainLayout'
 import PortalLayout from '@/layouts/PortalLayout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
@@ -22,6 +22,15 @@ const CommunityDetail = lazy(() => import('@/pages/CommunityDetail'))
 // 公共签署页（客户用 H5，匿名可访问）
 const Sign = lazy(() => import('@/pages/Sign'))
 
+// C 端贝壳式分类页（租房 / 新房 / 二手房 / 商铺办公 / 厂房）
+const RentCategory = lazy(() => import('@/pages/category/RentCategory'))
+const NewHouse = lazy(() => import('@/pages/category/NewHouse'))
+const Resale = lazy(() => import('@/pages/category/Resale'))
+const Commercial = lazy(() => import('@/pages/category/Commercial'))
+const Factory = lazy(() => import('@/pages/category/Factory'))
+// 地图找房（匿名公开，按视野拉取点位）
+const MapFind = lazy(() => import('@/pages/MapFind'))
+
 // 管理端页面
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const Properties = lazy(() => import('@/pages/Properties'))
@@ -40,26 +49,19 @@ const Distribution = lazy(() => import('@/pages/Distribution'))
 const Markets = lazy(() => import('@/pages/Markets'))
 const MarketIntelligence = lazy(() => import('@/pages/MarketIntelligence'))
 
-// 房源上架 / 我的上架单 / 经纪人在线签约
-const PublishListing = lazy(() => import('@/pages/PublishListing'))
+// 我的上架单 / 经纪人在线签约
 const MyListings = lazy(() => import('@/pages/MyListings'))
 const BrokerAgreements = lazy(() => import('@/pages/BrokerAgreements'))
 // 运营管理：平台上架审核 / 去重审核队列
 const ListingReview = lazy(() => import('@/pages/ListingReview'))
 const DedupeReview = lazy(() => import('@/pages/DedupeReview'))
 
-// 业主端页面
-const OwnerDashboard = lazy(() => import('@/pages/Owner/Dashboard'))
-const OwnerMy = lazy(() => import('@/pages/Owner/My'))
+// 业主端专属页面（无租客对应）：仅换注册路径，统一挂在 /tenant/* 门户下
 const OwnerProperties = lazy(() => import('@/pages/Owner/Properties'))
-const OwnerDocuments = lazy(() => import('@/pages/Owner/Documents'))
 const OwnerIncome = lazy(() => import('@/pages/Owner/Income'))
-const OwnerServices = lazy(() => import('@/pages/Owner/Services'))
-const OwnerPayments = lazy(() => import('@/pages/Owner/Payments'))
 const OwnerMarketing = lazy(() => import('@/pages/Owner/Marketing'))
-const OwnerContracts = lazy(() => import('@/pages/Owner/Contracts'))
 
-// 租客端页面
+// C 端页面（业主 + 租客共用同一实现，数据差异按角色自然呈现）
 const TenantDashboard = lazy(() => import('@/pages/Tenant/Dashboard'))
 const TenantMy = lazy(() => import('@/pages/Tenant/My'))
 const TenantPropertyDetail = lazy(() => import('@/pages/Tenant/PropertyDetail'))
@@ -102,11 +104,11 @@ const Contracts = lazy(() => import('@/pages/Contracts'))
 const Verify = lazy(() => import('@/pages/Verify'))
 
 // 根据角色重定向到对应首页
+// 业主与租客统一到同一个 C 端门户首页 /tenant/dashboard
 const RoleRedirect = () => {
   const user = useAuthStore((s) => s.user)
   switch (user?.role) {
     case 'owner':
-      return <Navigate to="/owner/dashboard" replace />
     case 'tenant':
       return <Navigate to="/tenant/dashboard" replace />
     case 'employee':
@@ -117,6 +119,26 @@ const RoleRedirect = () => {
     default:
       return <Navigate to="/dashboard" replace />
   }
+}
+
+// 业主端旧路径 → C 端门户路径（显式改写表 + 前缀兜底），保证老链/收藏不 404
+const OWNER_ALIAS: Record<string, string> = {
+  '/owner/dashboard': '/tenant/dashboard',
+  '/owner/properties': '/tenant/my-properties',
+  '/owner/income': '/tenant/income',
+  '/owner/documents': '/tenant/documents',
+  '/owner/services': '/tenant/services',
+  '/owner/payments': '/tenant/payments',
+  '/owner/marketing': '/tenant/marketing',
+  '/owner/my': '/tenant/my',
+  '/owner/contracts': '/tenant/contracts',
+}
+
+const OwnerAliasRedirect = () => {
+  const location = useLocation()
+  const target =
+    OWNER_ALIAS[location.pathname] ?? location.pathname.replace(/^\/owner\//, '/tenant/')
+  return <Navigate to={target + location.search} replace />
 }
 
 // 懒加载 chunk 下载期间的统一占位（品牌色转圈，避免白屏跳动）
@@ -151,10 +173,20 @@ const App = () => {
           <Route path="/school/:id" element={<SchoolDetail />} />
           <Route path="/communities" element={<Communities />} />
           <Route path="/community/:id" element={<CommunityDetail />} />
+          {/* C 端贝壳式分类页：首页黄金导航 5 入口各自落地页 */}
+          <Route path="/category/rent" element={<RentCategory />} />
+          <Route path="/category/new" element={<NewHouse />} />
+          <Route path="/category/resale" element={<Resale />} />
+          <Route path="/category/commercial" element={<Commercial />} />
+          <Route path="/category/factory" element={<Factory />} />
+          <Route path="/map" element={<MapFind />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           {/* 公共签署页：客户持链接即可匿名签署，无需登录 */}
           <Route path="/sign/:token" element={<Sign />} />
+
+          {/* 业主端旧路径别名：/owner/* → /tenant/*（统一 C 端门户后，老链接/收藏不 404） */}
+          <Route path="/owner/*" element={<OwnerAliasRedirect />} />
 
           {/* ===== 管理端 + 员工端（B端 · 侧边栏后台）===== */}
           <Route
@@ -189,17 +221,6 @@ const App = () => {
             <Route path="/market-intelligence" element={<ProtectedRoute denyRoles={['tenant']}><MarketIntelligence /></ProtectedRoute>} />
             <Route path="/company" element={<ProtectedRoute denyRoles={['tenant']}><Company /></ProtectedRoute>} />
 
-            {/* 业主端路由：仅业主/管理员 */}
-            <Route path="/owner/dashboard" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerDashboard /></ProtectedRoute>} />
-            <Route path="/owner/properties" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerProperties /></ProtectedRoute>} />
-            <Route path="/owner/income" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerIncome /></ProtectedRoute>} />
-            <Route path="/owner/documents" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerDocuments /></ProtectedRoute>} />
-            <Route path="/owner/services" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerServices /></ProtectedRoute>} />
-            <Route path="/owner/payments" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerPayments /></ProtectedRoute>} />
-            <Route path="/owner/marketing" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerMarketing /></ProtectedRoute>} />
-            <Route path="/owner/my" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerMy /></ProtectedRoute>} />
-            <Route path="/owner/contracts" element={<ProtectedRoute denyRoles={['tenant','employee','agent']}><OwnerContracts /></ProtectedRoute>} />
-
             {/* 员工端路由：仅员工/管理员 */}
             <Route path="/employee/dashboard" element={<ProtectedRoute denyRoles={['tenant','owner','agent']}><EmployeeDashboard /></ProtectedRoute>} />
             <Route path="/employee/attendance" element={<ProtectedRoute denyRoles={['tenant','owner','agent']}><EmployeeAttendance /></ProtectedRoute>} />
@@ -221,9 +242,8 @@ const App = () => {
             {/* 合作公司考勤：仅 partner_admin（本公司考勤汇总，复用考勤管理页的公司作用域模式） */}
             <Route path="/partner/attendance" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><AttendanceManage /></ProtectedRoute>} />
 
-            {/* 房源上架 / 我的上架单 / 经纪人在线签约（经纪人/业主/员工） */}
-            <Route path="/publish-listing" element={<ProtectedRoute denyRoles={['tenant']}><PublishListing /></ProtectedRoute>} />
-            <Route path="/my-listings" element={<ProtectedRoute denyRoles={['tenant']}><MyListings /></ProtectedRoute>} />
+            {/* 我的上架单 / 经纪人在线签约（staff/agent 作业流；C 端走 /tenant/*） */}
+            <Route path="/my-listings" element={<ProtectedRoute denyRoles={['tenant','owner']}><MyListings /></ProtectedRoute>} />
             <Route path="/broker-agreements" element={<ProtectedRoute denyRoles={['tenant','owner']}><BrokerAgreements /></ProtectedRoute>} />
 
             {/* 运营管理：平台上架审核 / 去重审核（仅 staff：admin/employee/agent） */}
@@ -231,7 +251,7 @@ const App = () => {
             <Route path="/operations/dedupe-review" element={<ProtectedRoute denyRoles={['tenant','owner']}><DedupeReview /></ProtectedRoute>} />
           </Route>
 
-          {/* ===== 租客端（C端 · 顶栏门户 PortalLayout，无侧边栏）===== */}
+          {/* ===== C 端（业主 + 租客）门户 PortalLayout，无侧边栏 ===== */}
           <Route
             element={
               <ProtectedRoute>
@@ -252,6 +272,11 @@ const App = () => {
             <Route path="/tenant/deals" element={<TenantDeals />} />
             <Route path="/tenant/deals/:id" element={<TenantDealDetail />} />
             <Route path="/tenant/contracts" element={<TenantContracts />} />
+            {/* 业主功能页（无租客对应）：仅换注册路径，仍走同一门户壳 */}
+            <Route path="/tenant/my-properties" element={<OwnerProperties />} />
+            <Route path="/tenant/income" element={<OwnerIncome />} />
+            <Route path="/tenant/marketing" element={<OwnerMarketing />} />
+            <Route path="/tenant/my-listings" element={<MyListings />} />
           </Route>
 
           {/* ===== 404 兜底（未匹配路径）===== */}

@@ -21,7 +21,8 @@ const phoneWithCode = (countryCode: string, phone: string): string =>
 
 const roleRedirectPath = (role: string): string => {
   switch (role) {
-    case 'owner': return '/owner/dashboard'
+    // 业主与租客统一到同一个 C 端门户首页
+    case 'owner': return '/tenant/dashboard'
     case 'tenant': return '/tenant/dashboard'
     case 'employee': return '/employee/dashboard'
     default: return '/dashboard'

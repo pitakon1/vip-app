@@ -567,3 +567,51 @@
   .bk-search-bar { padding: 4px 4px 4px 16px; }
   .bk-search-bar__btn { padding: 9px 18px; font-size: 14px; }
 }
+
+/* ===== 黄金导航（5 大业务入口：租房 / 新房 / 二手房 / 商铺办公 / 厂房） ===== */
+.rent-goldnav {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.rent-goldnav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 12px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  background: var(--rent-card);
+  box-shadow: var(--rent-shadow-1);
+  cursor: pointer;
+  font-family: var(--rent-font-sans);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.rent-goldnav__item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--rent-shadow-2);
+}
+.rent-goldnav__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-surface-2);
+  font-size: 32px;
+}
+.rent-goldnav__label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rent-ink);
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .rent-goldnav { gap: 8px; margin-bottom: 20px; }
+  .rent-goldnav__item { padding: 12px 4px; gap: 6px; }
+  .rent-goldnav__icon { width: 44px; height: 44px; font-size: 22px; }
+  .rent-goldnav__label { font-size: 12px; }
+}

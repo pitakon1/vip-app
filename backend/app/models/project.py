@@ -74,3 +74,8 @@ class Project(TimestampMixin, table=True):
         default=None,
         sa_column=Column(JSON, nullable=True, comment="配套设施 JSON"),
     )
+
+    # 销售状态（对标贝壳新房页的「在售/待售楼盘」口径）。
+    # 自由字符串不加 DB 枚举：pre_sale（待售/期房）/ on_sale（在售）/ sold_out（售罄）。
+    # 未录入时为 NULL；C 端聚合计数对 NULL 一律按「无在售上架单」处理，不猜状态。
+    sale_status: Optional[str] = Field(default=None, index=True)

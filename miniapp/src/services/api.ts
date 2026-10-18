@@ -61,17 +61,18 @@ export const propertiesApi = {
   /**
    * 房源列表。
    *
-   * 数组型筛选（keywords / amenity）单独拼到 URL 上：Taro 的 GET 序列化对数组用
-   * 下标格式（`keywords[0]=a`），而 FastAPI 的 `List[str] = Query(...)` 只认重复键
-   * （`keywords=a&keywords=b`），混在 data 里传会被后端静默忽略——表现为
+   * 数组型筛选（keywords / amenity / property_type）单独拼到 URL 上：Taro 的 GET
+   * 序列化对数组用下标格式（`keywords[0]=a`），而 FastAPI 的 `List[str] = Query(...)`
+   * 只认重复键（`keywords=a&keywords=b`），混在 data 里传会被后端静默忽略——表现为
    * 「区域/配套设施筛选勾选了、列表却完全没变」，且无任何报错。
    * （与 publicApi.listings 的处理方式一致。）
    */
   list: (params?: any) => {
-    const { keywords, amenity, ...rest } = params ?? {}
-    const query = (['keywords', 'amenity'] as const)
+    const { keywords, amenity, property_type, ...rest } = params ?? {}
+    const arrayParams: Record<string, unknown> = { keywords, amenity, property_type }
+    const query = (['keywords', 'amenity', 'property_type'] as const)
       .flatMap((key) => {
-        const list = key === 'keywords' ? keywords : amenity
+        const list = arrayParams[key]
         return Array.isArray(list)
           ? list.filter(Boolean).map((v) => `${key}=${encodeURIComponent(String(v))}`)
           : []
@@ -145,7 +146,18 @@ export const calendarEventsApi = {
 }
 
 export const documentsApi = {
-  list: (params?: any) => request({ url: '/documents', method: 'GET', data: params })
+  list: (params?: any) => request({ url: '/documents', method: 'GET', data: params }),
+  // 证件上传（multipart，字段名 file）：type 为 DocumentType（property_certificate / owner_id_card）
+  uploadDocument: (filePath: string, formData: { type: string; title: string; property_id: string }) => {
+    const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
+    return Taro.uploadFile({
+      url: `${baseURL}/documents/upload`,
+      filePath,
+      name: 'file',
+      formData,
+      header: { Authorization: `Bearer ${Taro.getStorageSync('token')}` }
+    })
+  }
 }
 
 export const serviceOrdersApi = {
@@ -512,6 +524,21 @@ export const listingApi = {
     request({ url: `/listings/${id}/close`, method: 'POST', data })
 }
 
+// 5 分类房源上架单（业务类型 rent/sell × 房源类型 住宅/商办/厂房）：对齐后端 /api/v1/listings
+export const listingsApi = {
+  create: (data: any) => request({ url: '/listings', method: 'POST', data }),
+  list: (params?: any) => request({ url: `/listings${qs(params)}`, method: 'GET' }),
+  get: (id: string) => request({ url: `/listings/${id}`, method: 'GET' }),
+  update: (id: string, data: any) => request({ url: `/listings/${id}`, method: 'PATCH', data })
+}
+
+// 楼盘主数据：对齐后端 /api/v1/projects（创建权限仅 agent/admin）
+export const projectsApi = {
+  create: (data: any) => request({ url: '/projects', method: 'POST', data }),
+  list: (params?: any) => request({ url: `/projects${qs(params)}`, method: 'GET' }),
+  get: (id: string) => request({ url: `/projects/${id}`, method: 'GET' })
+}
+
 export default {
   authApi,
   propertiesApi,
@@ -545,4 +572,6 @@ export default {
   propertyDealApi,
   brokerApi,
   listingApi,
+  listingsApi,
+  projectsApi,
 }

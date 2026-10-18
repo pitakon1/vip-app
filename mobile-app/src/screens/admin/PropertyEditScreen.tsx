@@ -58,6 +58,17 @@ interface PropertyForm {
   orientation: string;
   decoration: string;
   video_url: string;
+  // VR 看房链接 + 商办/工业专项字段（new：随 5 分类上传补齐）
+  vr_url: string;
+  ceiling_height_m: string;
+  land_area_sqm: string;
+  floor_loading_kg_sqm: string;
+  column_spacing: string;
+  power_capacity_kva: string;
+  environmental_permit: boolean;
+  whole_floor_only: boolean;
+  whole_building_only: boolean;
+  company_registrable: boolean;
 }
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
@@ -69,13 +80,21 @@ const statusOptions = (t: TFunc): { key: string; label: string }[] => [
   { key: 'maintenance', label: t('status.maintenance') },
 ];
 
+// 5 分类房源类型（与后端 property_type 合法值对齐）：住宅 / 商办 / 厂房
 const typeOptions = (t: TFunc): { key: string; label: string }[] => [
   { key: 'apartment', label: t('prop.type.apartment') },
   { key: 'condo', label: t('prop.type.condo') },
+  { key: 'villa', label: t('prop.type.villa') },
   { key: 'house', label: t('prop.type.house') },
+  { key: 'shop', label: t('prop.type.shop') },
   { key: 'commercial', label: t('prop.type.commercial') },
   { key: 'office', label: t('prop.type.office') },
+  { key: 'factory', label: t('prop.type.factory') },
 ];
+
+// 房源类型分组：住宅 vs 商办 vs 厂房，按所选类型条件渲染专属字段
+const isCommercialType = (tpe: string) => tpe === 'shop' || tpe === 'commercial' || tpe === 'office';
+const isFactoryType = (tpe: string) => tpe === 'factory';
 
 const CURRENCY_OPTIONS: { key: string; label: string }[] = [
   { key: 'THB', label: 'THB' },
@@ -189,6 +208,16 @@ export default function PropertyEditScreen() {
     orientation: '',
     decoration: '',
     video_url: '',
+    vr_url: '',
+    ceiling_height_m: '',
+    land_area_sqm: '',
+    floor_loading_kg_sqm: '',
+    column_spacing: '',
+    power_capacity_kva: '',
+    environmental_permit: false,
+    whole_floor_only: false,
+    whole_building_only: false,
+    company_registrable: false,
   }));
 
   const applyInitial = useCallback((data: any) => {
@@ -215,6 +244,16 @@ export default function PropertyEditScreen() {
       orientation: data.orientation || '',
       decoration: data.decoration || '',
       video_url: data.video_url || '',
+      vr_url: data.vr_url || '',
+      ceiling_height_m: data.ceiling_height_m != null ? String(data.ceiling_height_m) : '',
+      land_area_sqm: data.land_area_sqm != null ? String(data.land_area_sqm) : '',
+      floor_loading_kg_sqm: data.floor_loading_kg_sqm != null ? String(data.floor_loading_kg_sqm) : '',
+      column_spacing: data.column_spacing || '',
+      power_capacity_kva: data.power_capacity_kva != null ? String(data.power_capacity_kva) : '',
+      environmental_permit: Boolean(data.environmental_permit),
+      whole_floor_only: Boolean(data.whole_floor_only),
+      whole_building_only: Boolean(data.whole_building_only),
+      company_registrable: Boolean(data.company_registrable),
     });
     setAmenities(Array.isArray(data.amenities) ? (data.amenities as string[]) : []);
     setPhotos(normalizePhotos(data.photos));
@@ -308,6 +347,17 @@ export default function PropertyEditScreen() {
     decoration: form.decoration || undefined,
     amenities: amenities.length ? amenities : undefined,
     video_url: form.video_url.trim() || undefined,
+    // VR 与商办/工业专项字段：空值一律 undefined（不传空字符串）
+    vr_url: form.vr_url.trim() || undefined,
+    ceiling_height_m: form.ceiling_height_m ? Number(form.ceiling_height_m) : undefined,
+    land_area_sqm: form.land_area_sqm ? Number(form.land_area_sqm) : undefined,
+    floor_loading_kg_sqm: form.floor_loading_kg_sqm ? Number(form.floor_loading_kg_sqm) : undefined,
+    column_spacing: form.column_spacing.trim() || undefined,
+    power_capacity_kva: form.power_capacity_kva ? Number(form.power_capacity_kva) : undefined,
+    environmental_permit: form.environmental_permit || undefined,
+    whole_floor_only: form.whole_floor_only || undefined,
+    whole_building_only: form.whole_building_only || undefined,
+    company_registrable: form.company_registrable || undefined,
     project_id: form.project_id || undefined,
   });
 
@@ -435,6 +485,11 @@ export default function PropertyEditScreen() {
     );
   }
 
+  const isCommercial = isCommercialType(form.property_type);
+  const isFactory = isFactoryType(form.property_type);
+  // 住宅才显示卧室/卫生间与朝向/装修/配套；商办隐藏卧室/卫生间；厂房隐藏朝向/装修/配套
+  const showResidential = !isCommercial && !isFactory;
+
   const field = (label: string, value: string, key: keyof PropertyForm, opts?: {
     keyboard?: 'numeric' | 'default' | 'number-pad';
     placeholder?: string;
@@ -451,6 +506,21 @@ export default function PropertyEditScreen() {
         placeholderTextColor={colors.ink3}
         multiline={opts?.multiline}
         textAlignVertical={opts?.multiline ? 'top' : 'center'}
+      />
+    </View>
+  );
+
+  // 布尔型专项字段（可环评/仅整层/仅整栋/可注册公司）统一用 Switch
+  const boolRow = (label: string, value: boolean, onChange: (v: boolean) => void) => (
+    <View style={styles.switchRow}>
+      <View style={styles.switchInfo}>
+        <Text style={styles.switchTitle}>{label}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: colors.ink3, true: colors.primary }}
+        thumbColor={colors.surface}
       />
     </View>
   );
@@ -479,10 +549,12 @@ export default function PropertyEditScreen() {
           <View style={styles.rowItem}>{field(t('prop.fieldDepositMonths'), form.deposit_months, 'deposit_months', { keyboard: 'number-pad', placeholder: '1' })}</View>
           <View style={styles.rowItem}>{field(t('edit.labelArea'), form.size_sqm, 'size_sqm', { keyboard: 'numeric', placeholder: '0' })}</View>
         </View>
-        <View style={styles.row}>
-          <View style={styles.rowItem}>{field(t('prop.fieldBedrooms'), form.bedrooms, 'bedrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
-          <View style={styles.rowItem}>{field(t('prop.fieldBathrooms'), form.bathrooms, 'bathrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
-        </View>
+        {showResidential && (
+          <View style={styles.row}>
+            <View style={styles.rowItem}>{field(t('prop.fieldBedrooms'), form.bedrooms, 'bedrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
+            <View style={styles.rowItem}>{field(t('prop.fieldBathrooms'), form.bathrooms, 'bathrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
+          </View>
+        )}
         {field(t('pub.address'), form.address, 'address', { placeholder: t('prop.fieldAddressPlaceholder') })}
         <View style={styles.row}>
           <View style={styles.rowItem}>{field(t('prop.fieldBuilding'), form.building, 'building', { placeholder: t('prop.fieldBuildingPlaceholder') })}</View>
@@ -601,83 +673,124 @@ export default function PropertyEditScreen() {
         {field(t('prop.fieldDesc'), form.description, 'description', { multiline: true, placeholder: t('prop.fieldDescPlaceholder') })}
       </View>
 
-      {/* 朝向 / 装修 / 配套 / 视频：取值与 C 端筛选栏同口径，否则筛不出来 */}
-      <Text style={styles.sectionTitle}>{t('edit.sectionOrientation')}</Text>
+      {/* 看房与 VR：VR 外链 + 视频（全类型通用） */}
+      <Text style={styles.sectionTitle}>{t('ptype.mediaSection')}</Text>
       <View style={styles.card}>
-        <View style={styles.field}>
-          <Text style={styles.label}>{t('prop.orientation')}</Text>
-          <View style={styles.chipWrap}>
-            {ORIENTATION_OPTIONS.map((o) => (
-              <TouchableOpacity
-                key={o.key}
-                style={[styles.chip, form.orientation === o.key && styles.chipActive]}
-                activeOpacity={0.7}
-                // 再次点击已选项即取消，表单里不需要「不限」这个伪选项
-                onPress={() => setField('orientation', form.orientation === o.key ? '' : o.key)}
-              >
-                <Text style={[styles.chipText, form.orientation === o.key && styles.chipTextActive]}>
-                  {o.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>{t('prop.decoration')}</Text>
-          <View style={styles.chipWrap}>
-            {DECORATION_OPTIONS.map((d) => (
-              <TouchableOpacity
-                key={d.key}
-                style={[styles.chip, form.decoration === d.key && styles.chipActive]}
-                activeOpacity={0.7}
-                onPress={() => setField('decoration', form.decoration === d.key ? '' : d.key)}
-              >
-                <Text style={[styles.chipText, form.decoration === d.key && styles.chipTextActive]}>
-                  {d.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
+        {field(t('ptype.vr'), form.vr_url, 'vr_url', { placeholder: t('ptype.vrPh') })}
         {field(t('edit.labelVideo'), form.video_url, 'video_url', { placeholder: t('edit.videoPlaceholder') })}
       </View>
 
-      {/* 带家具 */}
-      <Text style={styles.sectionTitle}>{t('prop.sectionFacilities')}</Text>
-      <View style={styles.card}>
-        <View style={styles.switchRow}>
-          <View style={styles.switchInfo}>
-            <Text style={styles.switchTitle}>{t('prop.furnished')}</Text>
-            <Text style={styles.switchSub}>{t('prop.furnishedSub')}</Text>
+      {/* 商办专项：层高 + 可注册公司 */}
+      {isCommercial && (
+        <>
+          <Text style={styles.sectionTitle}>{t('ptype.commercial')}</Text>
+          <View style={styles.card}>
+            {field(t('ptype.ceiling'), form.ceiling_height_m, 'ceiling_height_m', { keyboard: 'numeric', placeholder: '0' })}
+            {boolRow(t('ptype.companyRegistrable'), form.company_registrable, (v) => setForm((prev) => ({ ...prev, company_registrable: v })))}
           </View>
-          <Switch
-            value={form.furnished}
-            onValueChange={(v) => setForm((prev) => ({ ...prev, furnished: v }))}
-            trackColor={{ false: colors.ink3, true: colors.primary }}
-            thumbColor={colors.surface}
-          />
-        </View>
+        </>
+      )}
 
-        <View style={styles.field}>
-          <Text style={styles.label}>{t('prop.amenities')}</Text>
-          <View style={styles.chipWrap}>
-            {AMENITY_OPTIONS.map((a) => (
-              <TouchableOpacity
-                key={a.key}
-                style={[styles.chip, amenities.includes(a.key) && styles.chipActive]}
-                activeOpacity={0.7}
-                onPress={() => toggleAmenity(a.key)}
-              >
-                <Text style={[styles.chipText, amenities.includes(a.key) && styles.chipTextActive]}>
-                  {a.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+      {/* 厂房专项：土地面积 / 楼面荷载 / 柱距 / 电力容量 / 可环评 / 仅整层 / 仅整栋 / 可注册公司 */}
+      {isFactory && (
+        <>
+          <Text style={styles.sectionTitle}>{t('ptype.factory')}</Text>
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <View style={styles.rowItem}>{field(t('ptype.landArea'), form.land_area_sqm, 'land_area_sqm', { keyboard: 'numeric', placeholder: '0' })}</View>
+              <View style={styles.rowItem}>{field(t('ptype.floorLoading'), form.floor_loading_kg_sqm, 'floor_loading_kg_sqm', { keyboard: 'numeric', placeholder: '0' })}</View>
+            </View>
+            <View style={styles.row}>
+              <View style={styles.rowItem}>{field(t('ptype.columnSpacing'), form.column_spacing, 'column_spacing')}</View>
+              <View style={styles.rowItem}>{field(t('ptype.powerCapacity'), form.power_capacity_kva, 'power_capacity_kva', { keyboard: 'numeric', placeholder: '0' })}</View>
+            </View>
+            {boolRow(t('ptype.envPermit'), form.environmental_permit, (v) => setForm((prev) => ({ ...prev, environmental_permit: v })))}
+            {boolRow(t('ptype.wholeFloor'), form.whole_floor_only, (v) => setForm((prev) => ({ ...prev, whole_floor_only: v })))}
+            {boolRow(t('ptype.wholeBuilding'), form.whole_building_only, (v) => setForm((prev) => ({ ...prev, whole_building_only: v })))}
+            {boolRow(t('ptype.companyRegistrable'), form.company_registrable, (v) => setForm((prev) => ({ ...prev, company_registrable: v })))}
           </View>
-        </View>
-      </View>
+        </>
+      )}
+
+      {/* 朝向 / 装修 / 带家具 / 配套：住宅与商办显示，厂房隐藏 */}
+      {!isFactory && (
+        <>
+          <Text style={styles.sectionTitle}>{t('edit.sectionOrientation')}</Text>
+          <View style={styles.card}>
+            <View style={styles.field}>
+              <Text style={styles.label}>{t('prop.orientation')}</Text>
+              <View style={styles.chipWrap}>
+                {ORIENTATION_OPTIONS.map((o) => (
+                  <TouchableOpacity
+                    key={o.key}
+                    style={[styles.chip, form.orientation === o.key && styles.chipActive]}
+                    activeOpacity={0.7}
+                    // 再次点击已选项即取消，表单里不需要「不限」这个伪选项
+                    onPress={() => setField('orientation', form.orientation === o.key ? '' : o.key)}
+                  >
+                    <Text style={[styles.chipText, form.orientation === o.key && styles.chipTextActive]}>
+                      {o.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>{t('prop.decoration')}</Text>
+              <View style={styles.chipWrap}>
+                {DECORATION_OPTIONS.map((d) => (
+                  <TouchableOpacity
+                    key={d.key}
+                    style={[styles.chip, form.decoration === d.key && styles.chipActive]}
+                    activeOpacity={0.7}
+                    onPress={() => setField('decoration', form.decoration === d.key ? '' : d.key)}
+                  >
+                    <Text style={[styles.chipText, form.decoration === d.key && styles.chipTextActive]}>
+                      {d.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* 带家具 */}
+          <Text style={styles.sectionTitle}>{t('prop.sectionFacilities')}</Text>
+          <View style={styles.card}>
+            <View style={styles.switchRow}>
+              <View style={styles.switchInfo}>
+                <Text style={styles.switchTitle}>{t('prop.furnished')}</Text>
+                <Text style={styles.switchSub}>{t('prop.furnishedSub')}</Text>
+              </View>
+              <Switch
+                value={form.furnished}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, furnished: v }))}
+                trackColor={{ false: colors.ink3, true: colors.primary }}
+                thumbColor={colors.surface}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>{t('prop.amenities')}</Text>
+              <View style={styles.chipWrap}>
+                {AMENITY_OPTIONS.map((a) => (
+                  <TouchableOpacity
+                    key={a.key}
+                    style={[styles.chip, amenities.includes(a.key) && styles.chipActive]}
+                    activeOpacity={0.7}
+                    onPress={() => toggleAmenity(a.key)}
+                  >
+                    <Text style={[styles.chipText, amenities.includes(a.key) && styles.chipTextActive]}>
+                      {a.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        </>
+      )}
 
       {/* 照片 */}
       <Text style={styles.sectionTitle}>{t('prop.sectionPhotos')}</Text>

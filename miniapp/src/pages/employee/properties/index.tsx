@@ -2,13 +2,42 @@ import { useMemo, useState } from 'react'
 import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
-import { propertiesApi } from '@/services/api'
+import { propertiesApi, listingApi } from '@/services/api'
 import { publicApi, type PublicSchool } from '@/services/publicApi'
 import { AREA_GROUPS } from '@/data/locationArea'
 import { useI18n } from '@/i18n'
 import '@/styles/filter-panel.scss'
 import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
+
+// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
+const buildListingPayload = (p: any) => ({
+  property_id: p.id,
+  room_number: p.room_number || p.address || '-',
+  address: p.address || p.room_number || '-',
+  property_type: p.property_type || 'apartment',
+  size_sqm: p.size_sqm ?? p.area ?? undefined,
+  bedrooms: p.bedrooms ?? undefined,
+  bathrooms: p.bathrooms ?? undefined,
+  description: p.description || undefined,
+  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
+  furnished: !!p.furnished,
+  video_url: p.video_url || undefined,
+  vr_url: p.vr_url || undefined,
+  ceiling_height_m: p.ceiling_height_m ?? undefined,
+  land_area_sqm: p.land_area_sqm ?? undefined,
+  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
+  column_spacing: p.column_spacing ?? undefined,
+  power_capacity_kva: p.power_capacity_kva ?? undefined,
+  environmental_permit: p.environmental_permit ?? undefined,
+  whole_floor_only: p.whole_floor_only ?? undefined,
+  whole_building_only: p.whole_building_only ?? undefined,
+  company_registrable: p.company_registrable ?? undefined,
+  listing_type: 'rent',
+  monthly_rent: Number(p.monthly_rent || p.rentPrice || 0),
+  currency: p.currency || 'THB',
+  owner_id: p.owner_id || undefined
+})
 
 interface Property {
   id: string
@@ -373,6 +402,29 @@ export default function EmployeePropertiesPage() {
     })
   }
 
+  // 一键上架（唯一上架入口）：直接按该房源档案生成上架单
+  const publishProperty = (p: any) => {
+    if (Number(p.monthly_rent || p.rentPrice || 0) <= 0) {
+      Taro.showToast({ title: t('listing.listManualRent'), icon: 'none' })
+      return
+    }
+    Taro.showModal({
+      title: t('listing.confirmListTitle'),
+      content: t('listing.confirmListBody'),
+      confirmText: t('listing.actionList'),
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await listingApi.create(buildListingPayload(p))
+          Taro.showToast({ title: t('listing.listedOk'), icon: 'success' })
+        } catch (err: any) {
+          const detail = err?.data?.detail || err?.message
+          Taro.showToast({ title: typeof detail === 'string' ? detail : t('common.saveFailed'), icon: 'none' })
+        }
+      }
+    })
+  }
+
   return (
     <View className='p-page'>
       <ShellHeader title={t('nav.properties')} />
@@ -714,6 +766,20 @@ export default function EmployeePropertiesPage() {
                       <View className={`p-badge ${st.cls}`}>
                         <Text>{t(st.label)}</Text>
                       </View>
+                    </View>
+                  </View>
+
+                  {/* 行内上架动作：带 propertyId 直达发布页并预填只读 */}
+                  <View className='p-card__actions'>
+                    <View
+                      className='p-card__act'
+                      hoverClass='p-card__act--hover'
+                      onClick={(e: any) => {
+                        e.stopPropagation()
+                        publishProperty(it)
+                      }}
+                    >
+                      <Text className='p-card__act-text'>{t('listing.actionList')}</Text>
                     </View>
                   </View>
                 </View>

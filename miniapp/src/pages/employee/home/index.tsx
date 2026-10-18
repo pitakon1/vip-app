@@ -242,20 +242,8 @@ export default function EmployeeHomePage() {
       </View>
 
       <View className='emp-content'>
-        {/* 房源上架入口（发布/委托已并入「房源管理」，直达可编辑管理列表） */}
+        {/* 日历/日程排期入口（上架入口已收敛到「房源管理」页，首页不再放快捷位） */}
         <View className='emp-section'>
-          <View className='emp-quick' onClick={() => Taro.navigateTo({ url: '/pages/employee/properties/index' })}>
-            <View className='emp-quick__icon'>
-              <Text className='emp-quick__icon-text'>{t('home.iconPublish')}</Text>
-            </View>
-            <View className='emp-quick__body'>
-              <Text className='emp-quick__title'>{t('home.publishListing')}</Text>
-              <Text className='emp-quick__desc'>{t('home.publishDesc')}</Text>
-            </View>
-            <Text className='emp-quick__arrow'>›</Text>
-          </View>
-
-          {/* 日历/日程排期入口 */}
           <View className='emp-quick' onClick={() => Taro.navigateTo({ url: '/pages/employee/calendar/index' })}>
             <View className='emp-quick__icon emp-quick__icon--calendar'>
               <Text className='emp-quick__icon-text'>{t('home.iconCalendar')}</Text>

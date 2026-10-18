@@ -18,6 +18,14 @@ export interface MapMarker {
   title?: string
 }
 
+/** 地图当前视野范围（经纬度包围盒），供调用方按视野拉取点位。 */
+export interface MapBounds {
+  minLat: number
+  maxLat: number
+  minLng: number
+  maxLng: number
+}
+
 interface Pos {
   lat: number
   lng: number
@@ -34,6 +42,8 @@ interface GoogleMapViewProps {
   onMarkerClick?: (marker: MapMarker) => void
   /** 地图容器样式（需含高度） */
   mapContainerStyle?: CSSProperties
+  /** 地图视野变化回调（拖拽/缩放后触发），供按视野拉取点位 */
+  onBoundsChanged?: (bounds: MapBounds) => void
 }
 
 const DEFAULT_ZOOM = 12
@@ -77,6 +87,7 @@ function GoogleMapView({
   markers = [],
   onMarkerClick,
   mapContainerStyle,
+  onBoundsChanged,
 }: GoogleMapViewProps) {
   const { t } = useTranslation()
   const [mapCenter, setMapCenter] = useState<Pos>(center)
@@ -106,6 +117,23 @@ function GoogleMapView({
 
   const onMapLoad = (map: google.maps.Map) => {
     mapRef.current = map
+    // 首次加载即上报一次视野，调用方无需等到用户拖拽就能拉当前视野点位。
+    // 用 idle 事件而非 onBoundsChanged 的连续触发，减少请求风暴。
+    google.maps.event.addListenerOnce(map, 'idle', reportBounds)
+  }
+
+  // 把地图可视范围（南北东）上报给调用方
+  const reportBounds = () => {
+    const b = mapRef.current?.getBounds()
+    if (!b) return
+    const ne = b.getNorthEast()
+    const sw = b.getSouthWest()
+    onBoundsChanged?.({
+      minLat: sw.lat(),
+      maxLat: ne.lat(),
+      minLng: sw.lng(),
+      maxLng: ne.lng(),
+    })
   }
 
   const onAutocompleteLoad = (autocomplete: google.maps.places.Autocomplete) => {
@@ -326,6 +354,7 @@ function GoogleMapView({
           center={mapCenter}
           zoom={zoom}
           onLoad={onMapLoad}
+          onBoundsChanged={reportBounds}
         >
           {/* 外部标注（房源等） */}
           {markers.map((m) => (

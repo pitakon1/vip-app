@@ -8,37 +8,227 @@
     padding: 24px 24px 40px;
   }
 
-  /* ===== 顶部搜索栏 ===== */
-  .list-search {
+  /* ===== 顶部头部区：浅 teal 实色块通栏铺满 + 大标题 + 城市定位胶囊 ===== */
+  .hero-band {
+    /* 抵消 page-container 内边距，让色块左右通栏（对齐参考图顶部色块） */
+    margin: -24px -24px 0;
+    padding: 24px 24px 60px;
+    background-color: var(--primary-soft);
+
+    .hero-band__row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .hero-band__title {
+      flex: 1;
+      font-size: 38px;
+      line-height: 52px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    /* 城市胶囊：白底浮在浅 teal 色块上，点击进全局定位选择页 */
+    .hero-band__city {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 20px;
+      background-color: var(--card);
+      border-radius: 999px;
+
+      .hero-band__city-text {
+        font-size: 26px;
+        font-weight: 600;
+        color: var(--primary);
+      }
+
+      .hero-band__city-arrow {
+        font-size: 22px;
+        color: var(--primary);
+      }
+    }
+  }
+
+  /* ===== 顶部找房卡：业务 Tab（嵌入卡顶）/ 搜索行 / 分隔线 / 居室快选 / 查看N套 + 去地图看 ===== */
+  /* margin-top 为负：卡片上压进色块，形成「卡片浮在头部色块上」的层次（对齐参考图） */
+  .hero-card {
+    background-color: var(--card);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 2px solid var(--line);
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+    margin-top: -30px;
+    margin-bottom: 18px;
+  }
+
+  /* 业务 Tab 条：灰底铺满卡顶，选中项为白色圆角块（对齐参考图） */
+  .hero-tabs {
     display: flex;
     align-items: center;
-    background-color: var(--card);
-    border-radius: 999px;
-    padding: 6px 6px 6px 26px;
-    margin-bottom: 18px;
-    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+    gap: 8px;
+    padding: 10px;
+    background-color: var(--surface-2);
+  }
 
-    .list-search__input {
+  .hero-tab {
+    flex: 1;
+    height: 68px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--on {
+      background-color: var(--card);
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+
+      .hero-tab__text {
+        color: var(--ink);
+        font-weight: 700;
+      }
+    }
+  }
+
+  .hero-tab__text {
+    font-size: 28px;
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+
+  .hero-body {
+    padding: 24px 26px 22px;
+  }
+
+  /* 搜索行：放大镜 + 占位符 + ｜ + 附近 */
+  .hero-search {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .hero-search__input {
       flex: 1;
       height: 60px;
       font-size: 28px;
       color: var(--ink);
     }
 
-    .list-search__btn {
+    .hero-search__split {
       flex-shrink: 0;
-      height: 60px;
-      padding: 0 32px;
-      border-radius: 999px;
+      width: 2px;
+      height: 32px;
+      background-color: var(--line);
+    }
+
+    .hero-nearby {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-left: 8px;
+
+      .hero-nearby__text {
+        font-size: 28px;
+        color: var(--ink-2);
+
+        &--on {
+          color: var(--primary);
+          font-weight: 600;
+        }
+      }
+    }
+  }
+
+  .hero-divider {
+    height: 2px;
+    background-color: var(--line);
+    margin: 20px 0;
+  }
+
+  /* 居室快选：不限 / 1居 / 2居 / 3居+（选中为实心主色圆 + 白勾） */
+  .hero-beds {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+  }
+
+  .hero-bed {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .hero-bed__dot {
+      box-sizing: border-box;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &--on {
+        background-color: var(--primary);
+        border-color: var(--primary);
+      }
+    }
+
+    .hero-bed__check {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--primary-foreground);
+    }
+
+    .hero-bed__text {
+      font-size: 28px;
+      color: var(--ink-2);
+
+      &--on {
+        color: var(--primary);
+        font-weight: 600;
+      }
+    }
+  }
+
+  /* 主按钮：查看 N 套房源 / 去地图看 */
+  .hero-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 24px;
+
+    .hero-primary {
+      flex: 1.6;
+      height: 88px;
+      border-radius: 12px;
       background-color: var(--primary);
       display: flex;
       align-items: center;
       justify-content: center;
 
-      .list-search__btn-text {
-        font-size: 26px;
-        font-weight: 600;
+      .hero-primary__text {
+        font-size: 30px;
+        font-weight: 700;
         color: var(--primary-foreground);
+      }
+    }
+
+    .hero-map {
+      flex: 1;
+      height: 88px;
+      border-radius: 12px;
+      background-color: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+
+      .hero-map__text {
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--primary);
       }
     }
   }
@@ -79,73 +269,6 @@
         color: var(--ink);
         font-size: 24px;
         max-width: 100%;
-      }
-    }
-  }
-
-  /* ===== 业务栏：整租 / 合租 / 买房 ===== */
-  .biz-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 18px;
-
-    .biz-bar__item {
-      flex: 1;
-      height: 68px;
-      border-radius: 999px;
-      background-color: var(--card);
-      border: 2px solid var(--line);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      &--active {
-        background-color: var(--sidebar-active);
-        border-color: var(--primary);
-
-        .biz-bar__text {
-          color: var(--primary);
-          font-weight: 600;
-        }
-      }
-    }
-
-    .biz-bar__text {
-      font-size: 28px;
-      color: var(--ink-2);
-      font-weight: 500;
-    }
-  }
-
-  /* ===== 结果计数 + 地图入口 ===== */
-  .result-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 18px;
-    padding: 0 4px;
-
-    .result-count {
-      font-size: 26px;
-      color: var(--ink-2);
-
-      .result-count__num {
-        font-size: 30px;
-        font-weight: 700;
-        color: var(--primary);
-      }
-    }
-
-    .map-entry {
-      padding: 8px 22px;
-      border-radius: 999px;
-      background-color: var(--surface-2);
-
-      .map-entry__text {
-        font-size: 24px;
-        font-weight: 500;
-        color: var(--primary);
       }
     }
   }
@@ -283,16 +406,21 @@
       gap: 12px;
 
       .filter-chip {
-        padding: 10px 22px;
-        border-radius: 999px;
+        min-width: 140px;
+        padding: 16px 22px;
+        border: 2px solid transparent;
+        border-radius: 10px;
         background-color: var(--surface-2);
         color: var(--ink);
         font-size: 24px;
+        text-align: center;
+        box-sizing: border-box;
         max-width: 100%;
 
         &--active {
-          background-color: var(--primary);
-          color: var(--primary-foreground);
+          background-color: var(--card);
+          border-color: var(--primary);
+          color: var(--primary);
           font-weight: 600;
         }
       }

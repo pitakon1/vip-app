@@ -82,6 +82,26 @@ class Listing(TimestampMixin, table=True):
     owner_id: uuid.UUID = Field(foreign_key="owners.id", index=True)
     status: ListingStatus = Field(default=ListingStatus.pending, index=True)
 
+    # 新房（一手房）标记：购房业务口径。True=新房（开发商在售/全新未交付），
+    # False=二手房。租金上架单该字段无业务含义，保持默认 False。
+    # 放在上架单而非房源档案上：同一套房的「新房/二手房」由发布时决定，
+    # 且 C 端找房列表查询的就是上架单。
+    is_new_development: bool = Field(
+        default=False, index=True,
+        description="是否新房（一手房）；False=二手房（或租金单）",
+    )
+
+    # ---- C 端运营标记（对标贝壳的「优选/严选」「房东直租」入口）----
+    # 放在上架单而非房源档案：同一套房在不同渠道/时点的运营标记可以不同。
+    is_featured: bool = Field(
+        default=False, index=True,
+        description="是否优选/严选（平台筛选过的重点推荐单）",
+    )
+    owner_direct: bool = Field(
+        default=False, index=True,
+        description="是否房东直租（发布侧为业主本人，无中间经纪人）",
+    )
+
     # 挂牌/租金
     asking_price: Optional[float] = Field(default=None, description="挂牌价(sell)")
     monthly_rent: Optional[float] = Field(default=None, description="租金(rent)")

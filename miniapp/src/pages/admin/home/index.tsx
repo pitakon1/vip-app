@@ -231,7 +231,7 @@ export default function AdminHomePage() {
     { key: 'crm', label: 'home.scCrm', icon: 'user', url: '/pages/admin/crm/index' },
     { key: 'leases', label: 'home.scLeases', icon: 'doc', url: '/pages/admin/leases/index' },
     { key: 'payments', label: 'home.scPayments', icon: 'money', url: '/pages/admin/payments/index' },
-    { key: 'listings', label: 'home.scListings', icon: 'clipboard', url: '/pages/staff/listing-edit/index' },
+    { key: 'projects', label: 'np.entry', icon: 'building', url: '/pages/admin/new-project/index' },
     { key: 'attendance', label: 'home.scAttendance', icon: 'calendar', url: '/pages/admin/attendance-manage/index' }
   ]
 

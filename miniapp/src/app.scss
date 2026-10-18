@@ -7,6 +7,8 @@ page {
   --primary-hover: #0d9488;
   --primary-foreground: #ffffff;
   --primary-foreground-rgb: 255, 255, 255;
+  /* 主色浅底：用于找房页「顶部头部区」这类大面积实色色块（禁止渐变，故用实色） */
+  --primary-soft: #e6f7f5;
   --sidebar-active: #d9f2ee;
   --sidebar-active-rgb: 217, 242, 238;
 

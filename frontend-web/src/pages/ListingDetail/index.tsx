@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Input, Modal, DatePicker, message as antdMessage } from 'antd'
+import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import api from '@/lib/api'
 import { convertCurrency, formatMoney, loadRates } from '@/lib/money'
@@ -110,6 +111,7 @@ const ListingDetailPage = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
+  const authUser = useAuthStore((s) => s.user)
   const isLoggedIn = !!token
 
   const [detail, setDetail] = useState<ListingDetail | null>(null)
@@ -132,13 +134,15 @@ const ListingDetailPage = () => {
   const [viewingOpen, setViewingOpen] = useState(false)
   const [viewingTime, setViewingTime] = useState<Dayjs | null>(null)
   const [viewingNote, setViewingNote] = useState('')
+  const [viewingName, setViewingName] = useState('')
+  const [viewingPhone, setViewingPhone] = useState('')
   const [viewingSubmitting, setViewingSubmitting] = useState(false)
 
+  // 未登录也可约看：走匿名 /public/viewings（需留姓名+手机），不再拦截跳登录
   const openBooking = () => {
-    if (!isLoggedIn) {
-      antdMessage.info(t('publicSite.bookViewingLogin'))
-      window.location.href = '/login'
-      return
+    if (isLoggedIn) {
+      if (!viewingName && authUser?.full_name) setViewingName(authUser.full_name)
+      if (!viewingPhone && authUser?.phone) setViewingPhone(String(authUser.phone))
     }
     setViewingOpen(true)
   }
@@ -220,20 +224,43 @@ const ListingDetailPage = () => {
   }
 
   const submitBooking = async () => {
-    if (!viewingTime) {
-      antdMessage.warning(t('publicSite.bookTime'))
+    if (!viewingTime || !viewingTime.isAfter(dayjs())) {
+      antdMessage.warning(t('publicSite.bookTimeRequired'))
       return
+    }
+    if (!isLoggedIn) {
+      if (!viewingName.trim()) {
+        antdMessage.warning(t('publicSite.bookNameRequired'))
+        return
+      }
+      if (!viewingPhone.trim()) {
+        antdMessage.warning(t('publicSite.bookPhoneRequired'))
+        return
+      }
     }
     setViewingSubmitting(true)
     try {
-      await viewingsApi.create({
-        property_id: detail?.property_id,
-        scheduled_at: viewingTime.toISOString(),
-        notes: viewingNote,
-      })
+      if (isLoggedIn) {
+        await viewingsApi.create({
+          property_id: detail?.property_id,
+          scheduled_at: viewingTime.toISOString(),
+          notes: viewingNote,
+        })
+      } else {
+        await api.post('/public/viewings', {
+          listing_id: detail?.id,
+          property_id: detail?.property_id,
+          name: viewingName.trim(),
+          phone: viewingPhone.trim(),
+          scheduled_at: viewingTime.toISOString(),
+          notes: viewingNote || undefined,
+        })
+      }
       setViewingOpen(false)
       setViewingTime(null)
       setViewingNote('')
+      setViewingName('')
+      setViewingPhone('')
       antdMessage.success(t('publicSite.bookOk'))
     } catch (err: any) {
       antdMessage.error(err?.response?.data?.detail || t('publicSite.bookError'))
@@ -624,7 +651,7 @@ const ListingDetailPage = () => {
               </div>
             ) : null}
 
-            {/* 预约看房：登录后可提交希望看房时间 */}
+            {/* 预约看房：未登录也可提交（走匿名 /public/viewings，需留姓名+手机） */}
             <div className="pub-card">
               <button
                 type="button"
@@ -733,6 +760,22 @@ const ListingDetailPage = () => {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
           <div className="pub-field" style={{ marginBottom: 0 }}>
+            <label className="pub-field__label">{t('publicSite.bookName')}</label>
+            <Input
+              value={viewingName}
+              onChange={(event) => setViewingName(event.target.value)}
+              placeholder={t('publicSite.bookNamePlaceholder')}
+            />
+          </div>
+          <div className="pub-field" style={{ marginBottom: 0 }}>
+            <label className="pub-field__label">{t('publicSite.bookPhone')}</label>
+            <Input
+              value={viewingPhone}
+              onChange={(event) => setViewingPhone(event.target.value)}
+              placeholder={t('publicSite.bookPhonePlaceholder')}
+            />
+          </div>
+          <div className="pub-field" style={{ marginBottom: 0 }}>
             <label className="pub-field__label">{t('publicSite.bookTime')}</label>
             <DatePicker
               showTime
@@ -741,6 +784,7 @@ const ListingDetailPage = () => {
               onChange={(value) => setViewingTime(value)}
               placeholder={t('publicSite.bookTimePlaceholder')}
               format="YYYY-MM-DD HH:mm"
+              disabledDate={(current) => !!current && current < dayjs().startOf('day')}
             />
           </div>
           <div className="pub-field" style={{ marginBottom: 0 }}>

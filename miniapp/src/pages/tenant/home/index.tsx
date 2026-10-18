@@ -209,6 +209,42 @@ export default function TenantHomePage() {
           </View>
         </View>
 
+        {/* 黄金导航栏：5 个「浅色淡底圆角磁贴 + 同色系彩色图标 + 深色标签」入口（无渐变）。
+            每项跳各自独立的「贝壳式分类页」（模块/卡片口径各自差异化），
+            不再共用找房列表页换参数。 */}
+        <View className='gold-nav'>
+          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-rent/index')}>
+            <View className='gold-nav__icon gold-nav__icon--rent'>
+              <View className='icon-svg' style={iconStyle('navRent', 72)} />
+            </View>
+            <Text className='gold-nav__label'>租房</Text>
+          </View>
+          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-new/index')}>
+            <View className='gold-nav__icon gold-nav__icon--new'>
+              <View className='icon-svg' style={iconStyle('navNew', 72)} />
+            </View>
+            <Text className='gold-nav__label'>新房</Text>
+          </View>
+          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-resale/index')}>
+            <View className='gold-nav__icon gold-nav__icon--resale'>
+              <View className='icon-svg' style={iconStyle('navResale', 72)} />
+            </View>
+            <Text className='gold-nav__label'>二手房</Text>
+          </View>
+          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-commercial/index')}>
+            <View className='gold-nav__icon gold-nav__icon--shop'>
+              <View className='icon-svg' style={iconStyle('navShop', 72)} />
+            </View>
+            <Text className='gold-nav__label'>商铺办公</Text>
+          </View>
+          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-factory/index')}>
+            <View className='gold-nav__icon gold-nav__icon--factory'>
+              <View className='icon-svg' style={iconStyle('navFactory', 72)} />
+            </View>
+            <Text className='gold-nav__label'>厂房</Text>
+          </View>
+        </View>
+
         <View className='rv-tabs'>
           <View
             className={`rv-tab ${biz === 'rent' ? 'rv-tab--active' : ''}`}

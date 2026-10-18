@@ -1,0 +1,100 @@
+/* 管理端 - 新增楼盘（agent/admin 能力） */
+.np-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+  padding-bottom: 40rpx;
+}
+
+.np-scroll {
+  height: calc(100vh - 96rpx);
+}
+
+.np-state {
+  padding: 160rpx 40rpx;
+  text-align: center;
+
+  &__text {
+    font-size: 28rpx;
+    color: var(--ink-3);
+  }
+}
+
+.np-card {
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  margin: 20rpx 24rpx;
+  padding: 28rpx;
+}
+
+.np-label {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--ink-3);
+  margin-top: 16rpx;
+  margin-bottom: 10rpx;
+}
+
+.np-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.np-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.np-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 80rpx;
+  padding: 0 24rpx;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 28rpx;
+  color: var(--ink);
+}
+
+.np-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  box-sizing: border-box;
+  height: 80rpx;
+  padding: 0 24rpx;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+
+  &__text {
+    font-size: 28rpx;
+    color: var(--ink);
+  }
+
+  &__arrow {
+    font-size: 20rpx;
+    color: var(--ink-3);
+  }
+}
+
+.np-footer {
+  padding: 24rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+}
+
+.np-save {
+  height: 92rpx;
+  border-radius: var(--radius-lg);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 32rpx;
+  font-weight: 600;
+
+  &::after {
+    border: none;
+  }
+}

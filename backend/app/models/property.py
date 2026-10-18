@@ -91,7 +91,10 @@ class Property(TimestampMixin, table=True):
     address_norm: Optional[str] = Field(
         default=None, max_length=300, index=True, description="规范化地址（供相似度比对）"
     )
-    property_type: str = Field(default="apartment")  # apartment/house/condo/commercial
+    # 规范取值（自由字符串列，无 DB 枚举）：
+    # apartment/condo（公寓）/ villa/house（别墅/独栋）/ office（写字楼）/ shop（商铺）
+    # / commercial（商用）/ factory（厂房）。C 端「商铺办公」= office+shop、「厂房」= factory。
+    property_type: str = Field(default="apartment")
     # 租金仅租售混合档案中的租侧有值；纯售房源允许为空（租侧展示与价格筛选按 NULL 处理）
     monthly_rent: Optional[float] = Field(default=None)
     currency: str = Field(default="THB", max_length=3)
@@ -121,6 +124,43 @@ class Property(TimestampMixin, table=True):
     available_from: Optional[datetime] = None
     video_url: Optional[str] = Field(
         default=None, max_length=500, description="视频看房地址（可为站内 /uploads 或外部链接）"
+    )
+    # VR 看房（对标贝壳「VR 看房」）：外链地址（VR 厂商托管页/全景图集）。
+    # 与 video_url 同性质——只是一个外链字段，平台上不自建三维引擎。
+    vr_url: Optional[str] = Field(
+        default=None, max_length=500, description="VR 看房地址（外链）"
+    )
+
+    # ---- 商业/工业专项字段（写字楼 / 商铺 / 厂房）----
+    # C 端「商铺办公」「厂房」分类页对标贝壳：卡片与详情需展示层高、土地面积、
+    # 楼面荷载、柱距、电力容量、环评、整层/整栋出租、可注册公司等工业口径字段。
+    # 全部 nullable：住宅类房源不受影响，历史数据无需回填（NULL = 未录入）。
+    ceiling_height_m: Optional[float] = Field(
+        default=None, description="层高（米），商铺/厂房/写字楼"
+    )
+    land_area_sqm: Optional[float] = Field(
+        default=None, description="土地面积（㎡），厂房/独栋"
+    )
+    floor_loading_kg_sqm: Optional[float] = Field(
+        default=None, description="楼面荷载（kg/㎡），厂房"
+    )
+    column_spacing: Optional[str] = Field(
+        default=None, max_length=50, description="柱距（如 8x8，米），厂房"
+    )
+    power_capacity_kva: Optional[float] = Field(
+        default=None, description="电力容量（kVA），厂房"
+    )
+    environmental_permit: Optional[bool] = Field(
+        default=None, description="是否可办理环评，厂房"
+    )
+    whole_floor_only: Optional[bool] = Field(
+        default=None, description="是否仅整层出租，写字楼"
+    )
+    whole_building_only: Optional[bool] = Field(
+        default=None, description="是否仅整栋出租，写字楼/厂房"
+    )
+    company_registrable: Optional[bool] = Field(
+        default=None, description="是否可注册公司，写字楼/商铺"
     )
 
     @property

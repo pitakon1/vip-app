@@ -43,9 +43,18 @@ import {
   type TFunction,
 } from '@/lib/publicSite';
 import { fmtMoney } from '@/utils/format';
+import { notify } from '@/utils/feedback';
 import { recordHistory } from '@/lib/browseHistory';
 import PublicInquiryForm from './PublicInquiryForm';
 import PublicListingRow from './PublicListingRow';
+
+/** 生成「N 天后 10:00」的本地 naive ISO 字符串（不含时区，后端按 naive 未来时间比较）。 */
+function quickIsoAt10(daysFromNow: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T10:00:00`;
+}
 
 export default function PublicListingDetailScreen() {
   const { t } = useI18n();
@@ -65,10 +74,13 @@ export default function PublicListingDetailScreen() {
   // 登录时后端返回完整号码、未登录返回打码版。这里只需知道「是否登录」。
   const isLoggedIn = !!useAuthStore((s) => s.token);
 
-  // 预约看房（贝壳口径：预约需要登录）
+  // 预约看房：未登录走匿名 /public/viewings，登录后走站内 viewingsApi（两种都能看完整联系方式）
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingTime, setBookingTime] = useState('');
   const [bookingNote, setBookingNote] = useState('');
+  const [bookingName, setBookingName] = useState('');
+  const [bookingPhone, setBookingPhone] = useState('');
+  const [bookingMsg, setBookingMsg] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [bookingBusy, setBookingBusy] = useState(false);
 
   // 降价提醒（贝壳口径：关注/降价通知需登录）
@@ -118,32 +130,65 @@ export default function PublicListingDetailScreen() {
     };
   }, [isLoggedIn, data?.property_id, priceAlertLoaded]);
 
+  // 快捷看房时间：明天/后天/三天后的 10:00（本地 naive ISO，不含时区），保证是未来时间
+  const bookingQuickOptions: { key: string; label: string; value: string }[] = [
+    { key: 'tomorrow', label: t('pub.bookTimeTomorrow'), value: quickIsoAt10(1) },
+    { key: 'dayAfter', label: t('pub.bookTimeDayAfter'), value: quickIsoAt10(2) },
+    { key: 'in3', label: t('pub.bookTimeIn3Days'), value: quickIsoAt10(3) },
+  ];
+
   const openBooking = useCallback(() => {
-    if (!isLoggedIn) {
-      navigation.navigate('Login');
-      return;
-    }
+    setBookingMsg(null);
+    // 未登录也能预约：不跳登录，弹层内补「称呼 + 手机号」即可
     setBookingOpen(true);
-  }, [isLoggedIn, navigation]);
+  }, []);
 
   const submitBooking = useCallback(async () => {
-    if (!data?.property_id || !bookingTime.trim()) return;
+    if (!bookingTime) {
+      setBookingMsg({ tone: 'error', text: t('pub.bookPickTime') });
+      return;
+    }
+    if (!isLoggedIn) {
+      if (!bookingName.trim()) {
+        setBookingMsg({ tone: 'error', text: t('pub.bookNameRequired') });
+        return;
+      }
+      if (!bookingPhone.trim()) {
+        setBookingMsg({ tone: 'error', text: t('pub.bookPhoneRequired') });
+        return;
+      }
+    }
+    if (!data?.id) return;
     setBookingBusy(true);
+    setBookingMsg(null);
     try {
-      await viewingsApi.create({
-        property_id: data.property_id,
-        scheduled_at: bookingTime.trim().replace(' ', 'T'),
-        notes: bookingNote.trim() || undefined,
-      });
+      if (isLoggedIn && data.property_id) {
+        await viewingsApi.create({
+          property_id: data.property_id,
+          scheduled_at: bookingTime,
+          notes: bookingNote.trim() || undefined,
+        });
+      } else {
+        await publicApi.createViewing({
+          listing_id: data.id,
+          name: bookingName.trim(),
+          phone: bookingPhone.trim(),
+          scheduled_at: bookingTime,
+          notes: bookingNote.trim() || undefined,
+        });
+      }
       setBookingOpen(false);
       setBookingTime('');
       setBookingNote('');
+      setBookingName('');
+      setBookingPhone('');
+      notify(t('pub.bookViewing'), t('pub.bookOk'));
     } catch (err: any) {
-      console.warn('submit booking failed', err);
+      setBookingMsg({ tone: 'error', text: t('pub.bookError') });
     } finally {
       setBookingBusy(false);
     }
-  }, [data?.property_id, bookingTime, bookingNote]);
+  }, [bookingTime, bookingNote, bookingName, bookingPhone, isLoggedIn, data?.id, data?.property_id, t]);
 
   useEffect(() => {
     void loadRates();
@@ -508,17 +553,15 @@ export default function PublicListingDetailScreen() {
           )}
         </View>
 
-        {/* ---- 预约看房 CTA（贝壳口径：预约需登录） ---- */}
+        {/* ---- 预约看房 CTA（未登录也可匿名预约，登录后走站内预约） ---- */}
         <View style={{ paddingHorizontal: 16 }}>
           <TouchableOpacity style={styles.bookBtn} onPress={openBooking}>
             <Ionicons name="calendar-outline" size={18} color={colors.primaryForeground} />
-            <Text style={styles.bookText}>
-              {isLoggedIn ? t('pub.bookViewing') : t('pub.bookViewingLogin')}
-            </Text>
+            <Text style={styles.bookText}>{t('pub.bookViewing')}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* 预约看房弹层（复用鉴权版房源详情的交互） */}
+        {/* 预约看房弹层 */}
         <Modal
           visible={bookingOpen}
           transparent
@@ -540,14 +583,49 @@ export default function PublicListingDetailScreen() {
               <Text style={styles.modalProp} numberOfLines={1}>
                 {data.project_name || data.room_number || ''}
               </Text>
-              <Text style={styles.label}>{t('pub.bookTime')}</Text>
-              <TextInput
-                style={styles.input}
-                placeholder={t('pub.bookTimePlaceholder')}
-                placeholderTextColor={colors.ink3}
-                value={bookingTime}
-                onChangeText={setBookingTime}
-              />
+
+              {/* 未登录：补称呼 + 手机号（后端匿名预约必填） */}
+              {!isLoggedIn ? (
+                <>
+                  <Text style={styles.label}>{t('pub.bookName')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('pub.bookName')}
+                    placeholderTextColor={colors.ink3}
+                    value={bookingName}
+                    onChangeText={setBookingName}
+                  />
+                  <Text style={styles.label}>{t('pub.bookPhone')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('pub.bookPhone')}
+                    placeholderTextColor={colors.ink3}
+                    keyboardType="phone-pad"
+                    value={bookingPhone}
+                    onChangeText={setBookingPhone}
+                  />
+                </>
+              ) : null}
+
+              <Text style={styles.label}>{t('pub.bookQuickTime')}</Text>
+              <View style={styles.quickRow}>
+                {bookingQuickOptions.map((opt) => {
+                  const on = bookingTime === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.key}
+                      style={[styles.quickChip, on && styles.quickChipOn]}
+                      onPress={() => setBookingTime(opt.value)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.quickChipText, on && styles.quickChipTextOn]} numberOfLines={1}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
               <Text style={styles.label}>{t('pub.bookNote')}</Text>
               <TextInput
                 style={[styles.input, styles.textarea]}
@@ -558,6 +636,13 @@ export default function PublicListingDetailScreen() {
                 multiline
                 numberOfLines={2}
               />
+
+              {bookingMsg ? (
+                <Text style={[styles.msg, bookingMsg.tone === 'ok' ? styles.msgOk : styles.msgError]}>
+                  {bookingMsg.text}
+                </Text>
+              ) : null}
+
               <TouchableOpacity
                 style={[styles.bookBtn, bookingBusy && styles.bookBtnDisabled]}
                 onPress={submitBooking}
@@ -750,6 +835,22 @@ const styles = StyleSheet.create({
     marginTop: colors.spacing.md,
     marginBottom: 6,
   },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  quickChip: {
+    height: 34,
+    borderRadius: colors.radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  quickChipText: { fontSize: colors.fontSize.sm, color: colors.ink2 },
+  quickChipTextOn: { color: colors.primaryForeground, fontWeight: '600' },
+  msg: { fontSize: colors.fontSize.sm, marginTop: colors.spacing.md },
+  msgOk: { color: colors.success },
+  msgError: { color: colors.error },
   input: {
     height: 44,
     borderWidth: StyleSheet.hairlineWidth,

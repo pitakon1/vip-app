@@ -9,6 +9,35 @@
   padding-bottom: 40rpx;
 }
 
+/* ===== 顶部工具条（统一上架入口） ===== */
+.p-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 20rpx 24rpx 0;
+}
+
+.p-toolbar__btn {
+  height: 64rpx;
+  padding: 0 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-primary);
+
+  &--hover {
+    background: var(--primary-hover);
+    transform: scale(0.96);
+  }
+
+  &-text {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary-foreground);
+  }
+}
+
 /* ===== 内容区 ===== */
 .p-body {
   padding: 20rpx 24rpx 0;
@@ -171,6 +200,36 @@
     font-weight: 500;
     color: var(--ink-3);
     margin-left: 4rpx;
+  }
+
+  /* 行内上架动作 */
+  &__actions {
+    display: flex;
+    gap: 16rpx;
+    margin-top: 20rpx;
+    padding-top: 20rpx;
+    border-top: 1px solid var(--line);
+  }
+
+  &__act {
+    flex: 1;
+    height: 68rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--primary-rgb), 0.1);
+    border-radius: var(--radius-md);
+
+    &--hover {
+      opacity: 0.85;
+      transform: scale(0.97);
+    }
+  }
+
+  &__act-text {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary);
   }
 }
 

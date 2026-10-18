@@ -42,13 +42,14 @@ export type RootStackParamList = {
   PropertyEdit:
     | { id?: string; initial?: any; mode?: 'create' }
     | undefined;
+  /** 新增楼盘（管理端/员工端；需 agent/admin 权限，业主端不开放） */
+  ProjectCreate: undefined;
   AdminLeases: undefined;
   EmployeePropertyBrowse: undefined;
   OwnerPropertyDetail: { id: string };
   OwnerProperties: undefined;
   OwnerDocuments: undefined;
   FeatureNotAvailable: { feature?: string; hint?: string } | undefined;
-  ListingPublish: { id?: string } | undefined;
   MyListings: undefined;
   PublicListings: undefined;
   /** 全局定位选择页（国家 → 城市，全屏页面，对齐贝壳移动端） */
@@ -79,6 +80,14 @@ export type RootStackParamList = {
   Contracts: undefined;
   /** 电子合同：租客/业主「我的合同」签署页 */
   MyContracts: undefined;
+  /** 「关于我们 / 版权信息」详情页（数据取自公开接口 /company/info） */
+  About: undefined;
+  /** ===== 贝壳式分类页（首页黄金导航 5 入口 → 各自独立页）===== */
+  RentCategory: undefined;
+  NewHouse: undefined;
+  Resale: undefined;
+  Commercial: undefined;
+  Factory: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -154,6 +163,7 @@ const AdminPermissionsScreen = lazyScreen(() => import('../screens/admin/Permiss
 const AdminPropertiesScreen = lazyScreen(() => import('../screens/admin/PropertiesScreen'));
 const AdminPropertyDetailScreen = lazyScreen(() => import('../screens/admin/PropertyDetailScreen'));
 const PropertyEditScreen = lazyScreen(() => import('../screens/admin/PropertyEditScreen'));
+const ProjectCreateScreen = lazyScreen(() => import('../screens/admin/ProjectCreateScreen'));
 const AdminLeasesScreen = lazyScreen(() => import('../screens/admin/LeasesScreen'));
 const EmployeePropertyBrowseScreen = lazyScreen(() => import('../screens/employee/PropertyBrowseScreen'));
 const OwnerPropertyDetailScreen = lazyScreen(() => import('../screens/owner/PropertyDetailScreen'));
@@ -162,7 +172,6 @@ const OwnerPropertiesScreen = lazyScreen(() => import('../screens/owner/Properti
 const OwnerIncomeScreen = lazyScreen(() => import('../screens/owner/IncomeScreen'));
 const ContactScreen = lazyScreen(() => import('../screens/employee/ContactScreen'));
 const OwnerMarketingScreen = lazyScreen(() => import('../screens/owner/MarketingScreen'));
-const ListingPublishScreen = lazyScreen(() => import('../screens/listing/ListingPublishScreen'));
 const MyListingsScreen = lazyScreen(() => import('../screens/listing/MyListingsScreen'));
 // ⚠️ C 端公开页从 `screens/public/` 加载。旧的 `screens/listing/PublicListingsScreen`
 // 调的是**需要鉴权**的 `/listings`，匿名必 401 —— 那正是「未登录看不到房源」的根因，
@@ -190,6 +199,13 @@ const HistoryScreen = lazyScreen(() => import('../screens/tenant/HistoryScreen')
 const PriceAlertsScreen = lazyScreen(() => import('../screens/tenant/PriceAlertsScreen'));
 const ContractsScreen = lazyScreen(() => import('../screens/contracts/ContractsScreen'));
 const MyContractsScreen = lazyScreen(() => import('../screens/contracts/MyContractsScreen'));
+const AboutScreen = lazyScreen(() => import('../screens/AboutScreen'));
+// 贝壳式分类页：4 个 C 端分类页 + 新房（楼盘视角），顶栏为自绘磨砂玻璃，故 headerShown:false
+const RentCategoryScreen = lazyScreen(() => import('../screens/category/RentCategoryScreen'));
+const NewHouseScreen = lazyScreen(() => import('../screens/category/NewHouseScreen'));
+const ResaleScreen = lazyScreen(() => import('../screens/category/ResaleScreen'));
+const CommercialScreen = lazyScreen(() => import('../screens/category/CommercialScreen'));
+const FactoryScreen = lazyScreen(() => import('../screens/category/FactoryScreen'));
 
 export function RootNavigator() {
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -240,7 +256,6 @@ export function RootNavigator() {
       <Stack.Screen name="OwnerProperties" component={OwnerPropertiesScreen} options={{ headerShown: true, title: '房源管理' }} />
       <Stack.Screen name="FeatureNotAvailable" component={FeatureNotAvailableScreen} options={{ headerShown: true, title: '' }} />
       <Stack.Screen name="OwnerPropertyDetail" component={OwnerPropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />
-      <Stack.Screen name="ListingPublish" component={ListingPublishScreen} options={{ headerShown: true, title: '发布房源' }} />
       <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ headerShown: true, title: '我的上架单' }} />
       <Stack.Screen name="PublicListings" component={PublicListingsScreen} options={{ headerShown: true, title: '上架房源' }} />
       <Stack.Screen name="LocationPicker" component={LocationPickerScreen} options={{ headerShown: true, title: '' }} />
@@ -262,6 +277,7 @@ export function RootNavigator() {
           title: route?.params?.mode === 'create' ? '新增房源' : '编辑房源',
         })}
       />
+      <Stack.Screen name="ProjectCreate" component={ProjectCreateScreen} options={{ headerShown: true, title: '新增楼盘' }} />
       <Stack.Screen name="AdminLeases" component={AdminLeasesScreen} options={{ headerShown: true, title: '合同管理' }} />
       <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} options={{ headerShown: true, title: '语言' }} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: true, title: '编辑资料' }} />
@@ -278,6 +294,13 @@ export function RootNavigator() {
       <Stack.Screen name="PriceAlerts" component={PriceAlertsScreen} options={{ headerShown: true, title: '降价提醒' }} />
       <Stack.Screen name="Contracts" component={ContractsScreen} options={{ headerShown: true, title: t('contract.manage') }} />
       <Stack.Screen name="MyContracts" component={MyContractsScreen} options={{ headerShown: true, title: t('contract.my') }} />
+      <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: true, title: t('profile.about') }} />
+      {/* 贝壳式分类页：页面自绘磨砂玻璃顶栏，故 headerShown:false */}
+      <Stack.Screen name="RentCategory" component={RentCategoryScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="NewHouse" component={NewHouseScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Resale" component={ResaleScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Commercial" component={CommercialScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Factory" component={FactoryScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

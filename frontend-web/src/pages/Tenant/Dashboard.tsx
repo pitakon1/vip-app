@@ -67,6 +67,167 @@ const gradientFor = (seed: string) => {
 const formatRent = (v: any, cur?: string) => formatMoney(Number(v || 0), cur)
 const formatPrice = (v: any, cur?: string) => formatMoney(Number(v || 0), cur)
 
+/* ===== 业主独有数据块：名下房源数 + 本月收益摘要 ===== */
+
+interface OwnerProperty {
+  id: string
+  room_number?: string
+  project_name?: string
+  status: string
+  monthly_rent?: number
+  sale_price?: number
+  [key: string]: any
+}
+
+interface OwnerIncomeSummary {
+  total_income: number
+  monthly_income: number
+  pending_amount: number
+}
+
+// 业主端金额一律泰铢（后端 base currency = THB）
+const fmtThb = (v: number) => `฿ ${Math.round(Number(v || 0)).toLocaleString()}`
+
+const OwnerAssetCard = () => {
+  const navigate = useNavigate()
+  const { t } = useTranslation()
+  const user = useAuthStore((s) => s.user)
+  const uid = user?.id ?? 'anon'
+  const isOwner = user?.role === 'owner'
+
+  // 仅业主拉取；租客无业主档案时该接口返回空态，也不必发起请求
+  const q = useCachedQuery<{ properties: OwnerProperty[]; income: OwnerIncomeSummary }>({
+    queryKey: ['owner-dashboard', 'me', uid],
+    cacheKey: `owner-dashboard:me:${uid}`,
+    enabled: isOwner,
+    queryFn: async () => {
+      const [propertiesRes, incomeRes] = await Promise.all([
+        api.get('/owners/me/properties').catch(() => ({ data: [] })),
+        api.get('/owners/me/income').catch(() => ({ data: {} })),
+      ])
+      const pPayload = propertiesRes.data?.data ?? propertiesRes.data
+      const iPayload = incomeRes.data?.data ?? incomeRes.data
+      // `/owners/me/properties` 返回裸数组（不是 {items}），两种形态都要兼容
+      const properties: OwnerProperty[] = Array.isArray(pPayload) ? pPayload : (pPayload?.items ?? [])
+      // `/owners/me/income` 的真实口径是 total_income / records。页面要展示
+      // 「本月应收 / 本月已收 / 本月待收」，按 records 的 month + status 就地归集。
+      const thisMonth = dayjs().format('YYYY-MM')
+      const records: any[] = Array.isArray(iPayload?.records) ? iPayload.records : []
+      const monthRecords = records.filter((r) => r?.month === thisMonth)
+      const received = monthRecords
+        .filter((r) => r?.status === 'received')
+        .reduce((s, r) => s + Number(r?.amount || 0), 0)
+      const pending = monthRecords
+        .filter((r) => r?.status !== 'received')
+        .reduce((s, r) => s + Number(r?.amount || 0), 0)
+      return {
+        properties,
+        income: {
+          total_income: Number(iPayload?.total_income ?? 0),
+          monthly_income: received + pending,
+          pending_amount: pending,
+        },
+      }
+    },
+  })
+
+  if (!isOwner) return null
+
+  const properties = q.data?.properties ?? []
+  const income = q.data?.income ?? { total_income: 0, monthly_income: 0, pending_amount: 0 }
+
+  const statusCount = { vacant: 0, rented: 0, for_sale: 0 }
+  properties.forEach((p) => {
+    const s = String(p.status || '').toLowerCase()
+    if (s === 'vacant' || s === 'available') statusCount.vacant += 1
+    else if (s === 'for_sale' || s === 'on_sale' || s === 'sale') statusCount.for_sale += 1
+    else if (s === 'rented' || s === 'active') statusCount.rented += 1
+  })
+  const totalProps = properties.length
+  const occupancyPct = totalProps > 0 ? Math.round((statusCount.rented / totalProps) * 100) : 0
+
+  const monthlyIncome = Number(income.monthly_income || 0)
+  const pendingAmount = Number(income.pending_amount || 0)
+  const collectedIncome = Math.max(monthlyIncome - pendingAmount, 0)
+  const collectedRate = monthlyIncome > 0 ? Math.round((collectedIncome / monthlyIncome) * 100) : 0
+
+  return (
+    <section className="rent-section">
+      <div className="rent-card">
+        <div className="rent-card__header">
+          <h3 className="rent-card__title">{t('ownerDashboard.assetOverview')}</h3>
+          <div className="rent-flex rent-gap-2">
+            <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => navigate('/tenant/income')}>
+              {t('ownerDashboard.viewDetail')}
+            </button>
+            <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => navigate('/tenant/my-properties')}>
+              {t('ownerDashboard.viewAll')}
+            </button>
+          </div>
+        </div>
+        <div className="rent-card__body">
+          {/* 房源数 */}
+          <div className="rent-grid rent-grid--3" style={{ gap: 12 }}>
+            <div className="rent-stat-card">
+              <div className="rent-stat-card__label">{t('ownerDashboard.myProperties')}</div>
+              <div className="rent-stat-card__value">
+                {totalProps} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerDashboard.unitSuffix')}</span>
+              </div>
+              <div className="rent-stat-card__delta">{t('ownerDashboard.forSaleCount', { n: statusCount.for_sale })}</div>
+            </div>
+            <div className="rent-stat-card">
+              <div className="rent-stat-card__label">{t('ownerDashboard.rentedProperties')}</div>
+              <div className="rent-stat-card__value">
+                {statusCount.rented} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerDashboard.unitSuffix')}</span>
+              </div>
+              <div className="rent-stat-card__delta rent-stat-card__delta--up">{t('ownerDashboard.occupancyPct', { pct: occupancyPct })}</div>
+            </div>
+            <div className="rent-stat-card">
+              <div className="rent-stat-card__label">{t('ownerDashboard.vacantProperties')}</div>
+              <div className="rent-stat-card__value">
+                {statusCount.vacant} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerDashboard.unitSuffix')}</span>
+              </div>
+              <div className="rent-stat-card__delta">{t('ownerDashboard.awaitingListing')}</div>
+            </div>
+          </div>
+
+          <hr className="rent-divider" />
+
+          {/* 本月收益摘要 */}
+          <div className="rent-text-sm rent-text-muted rent-mb-4">{t('ownerDashboard.monthlyTotal')}</div>
+          <div className="rent-grid rent-grid--3" style={{ gap: 12 }}>
+            <div>
+              <div className="rent-text-sm rent-text-muted">{t('ownerDashboard.monthlyReceivable')}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--rent-ink)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                {fmtThb(monthlyIncome)}
+              </div>
+            </div>
+            <div>
+              <div className="rent-text-sm rent-text-muted">{t('ownerDashboard.collected')}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--state-success)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                {fmtThb(collectedIncome)}
+              </div>
+            </div>
+            <div>
+              <div className="rent-text-sm rent-text-muted">{t('ownerDashboard.pending')}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--state-warning)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                {fmtThb(pendingAmount)}
+              </div>
+            </div>
+          </div>
+          <div className="rent-progress rent-mt-4">
+            <div className="rent-progress__bar" style={{ width: `${collectedRate}%` }} />
+          </div>
+          <div className="rent-flex rent-flex--between rent-mt-2">
+            <span className="rent-text-sm rent-text-muted">{t('ownerDashboard.collectionProgress')}</span>
+            <span className="rent-text-sm rent-text-bold" style={{ color: 'var(--rent-primary)' }}>{t('ownerDashboard.collectedPct', { pct: collectedRate })}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 const TenantDashboard = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
@@ -93,6 +254,7 @@ const TenantDashboard = () => {
   // ===== 数据（缓存优先 + 后台刷新） =====
   const user = useAuthStore((s) => s.user)
   const uid = user?.id ?? 'anon'
+  const isOwner = user?.role === 'owner'
 
   const homeQ = useCachedQuery<{ allItems: PropertyItem[]; notifications: Notification[] }>({
     queryKey: ['tenant-dashboard', 'home', uid],
@@ -284,6 +446,9 @@ const TenantDashboard = () => {
         <button className="rv17-tab" data-active={biz === 'rent'} onClick={() => setBiz('rent')}>{t('browse.rent')}</button>
         <button className="rv17-tab" data-active={biz === 'buy'} onClick={() => setBiz('buy')}>{t('browse.buy')}</button>
       </div>
+
+      {/* ===== 业主资产概览（业主独有数据块） ===== */}
+      {isOwner && <OwnerAssetCard />}
 
       {/* ===== 搜索结果显示 ===== */}
       {keyword.trim() && (

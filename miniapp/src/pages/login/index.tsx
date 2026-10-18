@@ -50,9 +50,10 @@ export default function LoginPage() {
   const goHome = (user: User) => {
     const role = user.role as string
     // 合作公司管理员没有平台管理端首页，落到本公司聚合页（成员/绩效/考勤/房源）
+    // 业主与租客统一到同一个 C 端首页
     const homePath =
       {
-        owner: '/pages/owner/home/index',
+        owner: '/pages/tenant/home/index',
         tenant: '/pages/tenant/home/index',
         admin: '/pages/admin/home/index',
         partner_admin: '/pages/admin/partner-members/index',

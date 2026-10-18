@@ -21,6 +21,9 @@ class DocumentType(str, Enum):
     inspection_photo = "inspection_photo"
     tax_invoice = "tax_invoice"
     wht_certificate = "wht_certificate"
+    # 业主上架房源所需的产权证明与业主身份证明（复用 property_id 关联到房源档案）
+    property_certificate = "property_certificate"
+    owner_id_card = "owner_id_card"
     other = "other"
 
 

@@ -78,10 +78,6 @@ export default function StaffListingsPage() {
     [listings, tab, meId]
   )
 
-  const onEdit = (l: any) => {
-    Taro.navigateTo({ url: `/pages/staff/listing-edit/index?id=${l.id}` })
-  }
-
   const onClose = (l: any) => {
     const isSell = l.listing_type === 'sell'
     const sold = isSell
@@ -101,14 +97,9 @@ export default function StaffListingsPage() {
     })
   }
 
+  // 点击卡片：直接进入下架确认（唯一可操作项）
   const onCardTap = (l: any) => {
-    Taro.showActionSheet({
-      itemList: [t('staff.editSheet'), t('staff.closeSheet')],
-      success: (r) => {
-        if (r.tapIndex === 0) onEdit(l)
-        else if (r.tapIndex === 1) onClose(l)
-      }
-    })
+    onClose(l)
   }
 
   return (
@@ -131,9 +122,6 @@ export default function StaffListingsPage() {
 
       <View className='st-head'>
         <Text className='st-head__title'>{t('staff.countItems', { n: visible.length })}</Text>
-        <View className='st-head__add' onClick={() => Taro.navigateTo({ url: '/pages/staff/listing-edit/index' })}>
-          <Text className='st-head__add-text'>{t('staff.publish')}</Text>
-        </View>
       </View>
 
       <ScrollView scrollY className='st-list'>

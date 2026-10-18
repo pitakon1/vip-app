@@ -94,6 +94,10 @@ const PUBLIC_PREFIX_ROUTES = [
   '/school/',
   '/communities',
   '/community/',
+  // C 端分类页（匿名可浏览，未登录不应被踢回登录页）
+  '/category',
+  // 地图找房（匿名可浏览，点位接口 /public/map-points 免登录）
+  '/map',
   '/properties/detail',
   // 公共签署页（客户 /sign/:token 匿名访问，token 即访客身份）
   '/sign/',

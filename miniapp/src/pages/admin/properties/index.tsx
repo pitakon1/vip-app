@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { propertiesApi, dashboardApi } from '@/services/api'
+import { propertiesApi, dashboardApi, listingApi } from '@/services/api'
 import { publicApi, type PublicSchool } from '@/services/publicApi'
 import { fmtMoney as fmtRent } from '@/utils/format'
 import { request } from '@/lib/api'
@@ -57,6 +57,35 @@ const FILTERS: { key: string; label: string }[] = [
 ]
 
 const PAGE_SIZE = 100
+
+// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
+const buildListingPayload = (p: any) => ({
+  property_id: p.id,
+  room_number: p.room_number || p.address || '-',
+  address: p.address || p.room_number || '-',
+  property_type: p.property_type || 'apartment',
+  size_sqm: p.size_sqm ?? p.area ?? undefined,
+  bedrooms: p.bedrooms ?? undefined,
+  bathrooms: p.bathrooms ?? undefined,
+  description: p.description || undefined,
+  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
+  furnished: !!p.furnished,
+  video_url: p.video_url || undefined,
+  vr_url: p.vr_url || undefined,
+  ceiling_height_m: p.ceiling_height_m ?? undefined,
+  land_area_sqm: p.land_area_sqm ?? undefined,
+  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
+  column_spacing: p.column_spacing ?? undefined,
+  power_capacity_kva: p.power_capacity_kva ?? undefined,
+  environmental_permit: p.environmental_permit ?? undefined,
+  whole_floor_only: p.whole_floor_only ?? undefined,
+  whole_building_only: p.whole_building_only ?? undefined,
+  company_registrable: p.company_registrable ?? undefined,
+  listing_type: 'rent',
+  monthly_rent: Number(p.monthly_rent || p.rentPrice || 0),
+  currency: p.currency || 'THB',
+  owner_id: p.owner_id || undefined
+})
 
 // 房型选项：''=不限, '0'=单间, '1'/'2'=精确居室, '3'=3室及以上, '4'=4室及以上（对齐租客端 4室+）
 const BEDROOM_OPTIONS = [
@@ -362,6 +391,27 @@ export default function AdminPropertiesPage() {
 
   const openDetail = (item: PropertyItem) => {
     Taro.navigateTo({ url: `/pages/admin/property-detail/index?id=${item.id}` })
+  }
+
+  // 一键上架：由房源档案直接派生上架单（不填表），提交后等待平台审核
+  const publishProperty = (item: PropertyItem) => {
+    if (Number(item.monthly_rent || 0) <= 0) {
+      Taro.showToast({ title: t('listing.listManualRent'), icon: 'none' })
+      return
+    }
+    Taro.showModal({
+      title: t('listing.confirmListTitle'),
+      content: t('listing.confirmListBody'),
+      success: async (r) => {
+        if (!r.confirm) return
+        try {
+          await listingApi.create(buildListingPayload(item))
+          Taro.showToast({ title: t('listing.listedOk'), icon: 'success' })
+        } catch (err: any) {
+          Taro.showToast({ title: err?.data?.detail || err?.message || t('common.saveFailed'), icon: 'none' })
+        }
+      }
+    })
   }
 
   // 软删除房源：后端 DELETE /properties/{id}（require_agent）。删除即下架，前台天然隐藏。
@@ -727,6 +777,16 @@ export default function AdminPropertiesPage() {
             </View>
 
             <View className='ap-card__footer'>
+              <View
+                className='ap-card__list'
+                hoverClass='ap-card__btn--hover'
+                onClick={(e) => {
+                  e.stopPropagation()
+                  publishProperty(item)
+                }}
+              >
+                <Text className='ap-card__list-text'>{t('listing.actionList')}</Text>
+              </View>
               <View
                 className='ap-card__manage'
                 onClick={(e) => {

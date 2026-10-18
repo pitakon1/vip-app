@@ -41,3 +41,15 @@ export function setCache(key: string, data: unknown): void {
     /* ignore */
   }
 }
+
+/** 清理全部页面数据缓存（只动 cache: 前缀，不触碰登录态与用户偏好） */
+export function clearCacheSync(): void {
+  try {
+    const info = Taro.getStorageInfoSync()
+    info.keys
+      .filter((k) => k.startsWith(PREFIX))
+      .forEach((k) => Taro.removeStorageSync(k))
+  } catch {
+    /* ignore */
+  }
+}

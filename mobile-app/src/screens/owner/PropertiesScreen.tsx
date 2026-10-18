@@ -30,7 +30,7 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
-import { ownerApi } from '@/services/api';
+import { ownerApi, listingApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { useAuthStore } from '@/stores/auth';
@@ -62,6 +62,16 @@ interface OwnerProperty {
   available_from?: string;
   description?: string;
   video_url?: string;
+  vr_url?: string;
+  ceiling_height_m?: number | null;
+  land_area_sqm?: number | null;
+  floor_loading_kg_sqm?: number | null;
+  column_spacing?: string | null;
+  power_capacity_kva?: number | null;
+  environmental_permit?: boolean | null;
+  whole_floor_only?: boolean | null;
+  whole_building_only?: boolean | null;
+  company_registrable?: boolean | null;
   photos?: unknown[] | null;
   project_name?: string;
   tenant_name?: string;
@@ -85,6 +95,17 @@ interface PropertyForm {
   furnished: boolean;
   description: string;
   video_url: string;
+  // VR 看房链接 + 商办/工业专项字段（对齐管理端，随 5 分类上传补齐）
+  vr_url: string;
+  ceiling_height_m: string;
+  land_area_sqm: string;
+  floor_loading_kg_sqm: string;
+  column_spacing: string;
+  power_capacity_kva: string;
+  environmental_permit: boolean;
+  whole_floor_only: boolean;
+  whole_building_only: boolean;
+  company_registrable: boolean;
 }
 
 const emptyForm = (): PropertyForm => ({
@@ -105,6 +126,16 @@ const emptyForm = (): PropertyForm => ({
   furnished: false,
   description: '',
   video_url: '',
+  vr_url: '',
+  ceiling_height_m: '',
+  land_area_sqm: '',
+  floor_loading_kg_sqm: '',
+  column_spacing: '',
+  power_capacity_kva: '',
+  environmental_permit: false,
+  whole_floor_only: false,
+  whole_building_only: false,
+  company_registrable: false,
 });
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
@@ -116,9 +147,12 @@ const propTitle = (p: OwnerProperty, t: TFunc) =>
 const typeMetaMap = (t: TFunc): Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> => ({
   apartment: { label: t('prop.type.apartment'), icon: 'business-outline', color: colors.primary },
   condo: { label: t('prop.type.apartment'), icon: 'business-outline', color: colors.primary },
+  villa: { label: t('prop.type.villa'), icon: 'home-outline', color: colors.success },
   house: { label: t('prop.type.house'), icon: 'home-outline', color: colors.success },
+  shop: { label: t('prop.type.shop'), icon: 'storefront-outline', color: colors.warning },
   commercial: { label: t('prop.type.commercial'), icon: 'storefront-outline', color: colors.warning },
   office: { label: t('prop.type.office'), icon: 'briefcase-outline', color: colors.info },
+  factory: { label: t('prop.type.factory'), icon: 'construct-outline', color: colors.ink2 },
 });
 
 const statusMetaMap = (t: TFunc): Record<string, { label: string; color: string; rgb: string }> => ({
@@ -207,14 +241,21 @@ const sortOptions = (t: TFunc) => [
 const optionLabel = (opts: { key: string; label: string }[], key: string, fallback: string) =>
   opts.find((o) => o.key === key)?.label ?? fallback;
 
-// 表单选项（对齐管理端 PropertyEditScreen，币种按任务限定 THB/USD/CNY）
+// 表单选项（对齐管理端 PropertyEditScreen）：5 分类 8 种房源类型
 const typeOptions = (t: TFunc) => [
   { key: 'apartment', label: t('prop.type.apartment') },
   { key: 'condo', label: t('prop.type.condo') },
+  { key: 'villa', label: t('prop.type.villa') },
   { key: 'house', label: t('prop.type.house') },
+  { key: 'shop', label: t('prop.type.shop') },
   { key: 'commercial', label: t('prop.type.commercial') },
   { key: 'office', label: t('prop.type.office') },
+  { key: 'factory', label: t('prop.type.factory') },
 ];
+
+// 房源类型分组：住宅 vs 商办 vs 厂房，按所选类型条件渲染专属字段
+const isCommercialType = (tpe: string) => tpe === 'shop' || tpe === 'commercial' || tpe === 'office';
+const isFactoryType = (tpe: string) => tpe === 'factory';
 
 const CURRENCY_OPTIONS: { key: string; label: string }[] = [
   { key: 'THB', label: 'THB' },
@@ -245,6 +286,35 @@ const normalizePhotos = (raw: unknown): string[] => {
     })
     .filter(Boolean) as string[];
 };
+
+// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
+const buildListingPayload = (p: any) => ({
+  property_id: p.id,
+  room_number: p.room_number || p.address || '-',
+  address: p.address || p.room_number || '-',
+  property_type: p.property_type || 'apartment',
+  size_sqm: p.size_sqm ?? undefined,
+  bedrooms: p.bedrooms ?? undefined,
+  bathrooms: p.bathrooms ?? undefined,
+  description: p.description || undefined,
+  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
+  furnished: !!p.furnished,
+  video_url: p.video_url || undefined,
+  vr_url: p.vr_url || undefined,
+  ceiling_height_m: p.ceiling_height_m ?? undefined,
+  land_area_sqm: p.land_area_sqm ?? undefined,
+  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
+  column_spacing: p.column_spacing || undefined,
+  power_capacity_kva: p.power_capacity_kva ?? undefined,
+  environmental_permit: p.environmental_permit ?? undefined,
+  whole_floor_only: p.whole_floor_only ?? undefined,
+  whole_building_only: p.whole_building_only ?? undefined,
+  company_registrable: p.company_registrable ?? undefined,
+  listing_type: 'rent',
+  monthly_rent: Number(p.monthly_rent || 0),
+  currency: p.currency || 'THB',
+  owner_id: p.owner_id || undefined,
+});
 
 // react-native-web 下 `Alert.alert` 是空实现（什么都不显示），会把新增/删除的结果与失败原因
 // 静默吞掉，导致用户点击后「没有任何反应」。这里在 web 上降级到浏览器原生 `window.alert`，
@@ -467,6 +537,16 @@ export default function PropertiesScreen() {
       furnished: Boolean(p.furnished),
       description: p.description || '',
       video_url: p.video_url || '',
+      vr_url: p.vr_url || '',
+      ceiling_height_m: p.ceiling_height_m != null ? String(p.ceiling_height_m) : '',
+      land_area_sqm: p.land_area_sqm != null ? String(p.land_area_sqm) : '',
+      floor_loading_kg_sqm: p.floor_loading_kg_sqm != null ? String(p.floor_loading_kg_sqm) : '',
+      column_spacing: p.column_spacing || '',
+      power_capacity_kva: p.power_capacity_kva != null ? String(p.power_capacity_kva) : '',
+      environmental_permit: Boolean(p.environmental_permit),
+      whole_floor_only: Boolean(p.whole_floor_only),
+      whole_building_only: Boolean(p.whole_building_only),
+      company_registrable: Boolean(p.company_registrable),
     });
     setPhotos(normalizePhotos(p.photos));
     setFormModal(true);
@@ -519,6 +599,17 @@ export default function PropertiesScreen() {
       furnished: form.furnished,
       description: form.description?.trim() || undefined,
       video_url: form.video_url?.trim() || undefined,
+      // VR 与商办/工业专项字段：空值一律 undefined（不传空字符串）
+      vr_url: form.vr_url.trim() || undefined,
+      ceiling_height_m: form.ceiling_height_m ? Number(form.ceiling_height_m) : undefined,
+      land_area_sqm: form.land_area_sqm ? Number(form.land_area_sqm) : undefined,
+      floor_loading_kg_sqm: form.floor_loading_kg_sqm ? Number(form.floor_loading_kg_sqm) : undefined,
+      column_spacing: form.column_spacing.trim() || undefined,
+      power_capacity_kva: form.power_capacity_kva ? Number(form.power_capacity_kva) : undefined,
+      environmental_permit: form.environmental_permit || undefined,
+      whole_floor_only: form.whole_floor_only || undefined,
+      whole_building_only: form.whole_building_only || undefined,
+      company_registrable: form.company_registrable || undefined,
     };
     setSubmitting(true);
     try {
@@ -623,6 +714,32 @@ export default function PropertiesScreen() {
     ]);
   };
 
+  // ===== 一键上架（唯一上架入口）=====
+  const confirmPublish = (item: OwnerProperty) => {
+    if (Number(item.monthly_rent || 0) <= 0) {
+      notify(t('common.hint'), t('listing.listManualRent'));
+      return;
+    }
+    const doPublish = async () => {
+      try {
+        await listingApi.create(buildListingPayload(item));
+        notify(t('listing.listedOk'));
+      } catch (err: any) {
+        notify(t('listing.confirmListTitle'), err?.response?.data?.detail || t('prop.retryLater'));
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(t('listing.confirmListBody'))) {
+        doPublish();
+      }
+      return;
+    }
+    Alert.alert(t('listing.confirmListTitle'), t('listing.confirmListBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('listing.actionList'), onPress: doPublish },
+    ]);
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -677,6 +794,26 @@ export default function PropertiesScreen() {
     </View>
   );
 
+  // 房源类型分组：住宅显示卧室/卫生间；商办/厂房隐藏；厂房/商办按类型展示专项字段
+  const isCommercial = isCommercialType(form.property_type);
+  const isFactory = isFactoryType(form.property_type);
+  const showResidential = !isCommercial && !isFactory;
+
+  // 布尔型专项字段统一用 Switch
+  const boolRow = (label: string, value: boolean, onChange: (v: boolean) => void) => (
+    <View style={styles.switchRow}>
+      <View style={styles.switchInfo}>
+        <Text style={styles.switchTitle}>{label}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: colors.ink3, true: colors.primary }}
+        thumbColor={colors.surface}
+      />
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -692,6 +829,18 @@ export default function PropertiesScreen() {
           />
         }
       >
+        {/* 新增房源：置于首屏顶部，保证入口一眼可见（房源管理唯一新增入口，列表区不再重复） */}
+        <TouchableOpacity
+          style={styles.topAddBtn}
+          activeOpacity={0.85}
+          onPress={openCreate}
+          accessibilityRole="button"
+          accessibilityLabel={t('prop.addNew')}
+        >
+          <Ionicons name="add-circle-outline" size={18} color={colors.primaryForeground} />
+          <Text style={styles.topAddBtnText}>{t('prop.addNew')}</Text>
+        </TouchableOpacity>
+
         {/* 搜索（按房号/地址/楼栋，客户端过滤） */}
         <View style={styles.searchBar}>
           <Ionicons name="search" size={16} color={colors.ink3} />
@@ -1002,10 +1151,6 @@ export default function PropertiesScreen() {
                 color={colors.ink2}
               />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.addBtn} activeOpacity={0.8} onPress={openCreate}>
-              <Ionicons name="add" size={16} color={colors.primaryForeground} />
-              <Text style={styles.addBtnText}>{t('prop.addNew')}</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -1109,6 +1254,18 @@ export default function PropertiesScreen() {
                   <TouchableOpacity
                     style={[styles.footBtn, styles.footGhost]}
                     activeOpacity={0.8}
+                    onPress={() => confirmPublish(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('listing.actionList')}
+                  >
+                    <Ionicons name="cloud-upload-outline" size={14} color={colors.primary} />
+                    <Text style={[styles.footText, { color: colors.primary }]}>
+                      {t('listing.actionList')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.footBtn, styles.footGhost]}
+                    activeOpacity={0.8}
                     onPress={() => openEdit(p)}
                   >
                     <Ionicons name="create-outline" size={14} color={colors.primary} />
@@ -1163,10 +1320,12 @@ export default function PropertiesScreen() {
                 <View style={styles.fieldRowItem}>{field(t('prop.fieldDepositMonths'), form.deposit_months, 'deposit_months', { keyboard: 'number-pad', placeholder: '1' })}</View>
                 <View style={styles.fieldRowItem}>{field(t('prop.fieldArea'), form.size_sqm, 'size_sqm', { keyboard: 'numeric', placeholder: '0' })}</View>
               </View>
-              <View style={styles.fieldRow}>
-                <View style={styles.fieldRowItem}>{field(t('prop.fieldBedrooms'), form.bedrooms, 'bedrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
-                <View style={styles.fieldRowItem}>{field(t('prop.fieldBathrooms'), form.bathrooms, 'bathrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
-              </View>
+              {showResidential && (
+                <View style={styles.fieldRow}>
+                  <View style={styles.fieldRowItem}>{field(t('prop.fieldBedrooms'), form.bedrooms, 'bedrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
+                  <View style={styles.fieldRowItem}>{field(t('prop.fieldBathrooms'), form.bathrooms, 'bathrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
+                </View>
+              )}
               {field(t('prop.fieldAddress'), form.address, 'address', { placeholder: t('prop.fieldAddressPlaceholder') })}
               <View style={styles.fieldRow}>
                 <View style={styles.fieldRowItem}>{field(t('prop.fieldBuilding'), form.building, 'building', { placeholder: t('prop.fieldBuildingPlaceholder') })}</View>
@@ -1183,19 +1342,56 @@ export default function PropertiesScreen() {
               {field(t('prop.fieldDesc'), form.description, 'description', { multiline: true, placeholder: t('prop.fieldDescPlaceholder') })}
               {field(t('prop.fieldVideo'), form.video_url, 'video_url', { placeholder: t('prop.fieldVideoPlaceholder') })}
 
-              <Text style={styles.sheetSection}>{t('prop.sectionFacilities')}</Text>
-              <View style={styles.switchRow}>
-                <View style={styles.switchInfo}>
-                  <Text style={styles.switchTitle}>{t('prop.furnished')}</Text>
-                  <Text style={styles.switchSub}>{t('prop.furnishedSub')}</Text>
-                </View>
-                <Switch
-                  value={form.furnished}
-                  onValueChange={(v) => setForm((prev) => ({ ...prev, furnished: v }))}
-                  trackColor={{ false: colors.ink3, true: colors.primary }}
-                  thumbColor={colors.surface}
-                />
-              </View>
+              {/* 看房与 VR：全类型通用 */}
+              <Text style={styles.sheetSection}>{t('ptype.mediaSection')}</Text>
+              {field(t('ptype.vr'), form.vr_url, 'vr_url', { placeholder: t('ptype.vrPh') })}
+
+              {/* 商办专项：层高 + 可注册公司 */}
+              {isCommercial && (
+                <>
+                  <Text style={styles.sheetSection}>{t('ptype.commercial')}</Text>
+                  {field(t('ptype.ceiling'), form.ceiling_height_m, 'ceiling_height_m', { keyboard: 'numeric', placeholder: '0' })}
+                  {boolRow(t('ptype.companyRegistrable'), form.company_registrable, (v) => setForm((prev) => ({ ...prev, company_registrable: v })))}
+                </>
+              )}
+
+              {/* 厂房专项 */}
+              {isFactory && (
+                <>
+                  <Text style={styles.sheetSection}>{t('ptype.factory')}</Text>
+                  <View style={styles.fieldRow}>
+                    <View style={styles.fieldRowItem}>{field(t('ptype.landArea'), form.land_area_sqm, 'land_area_sqm', { keyboard: 'numeric', placeholder: '0' })}</View>
+                    <View style={styles.fieldRowItem}>{field(t('ptype.floorLoading'), form.floor_loading_kg_sqm, 'floor_loading_kg_sqm', { keyboard: 'numeric', placeholder: '0' })}</View>
+                  </View>
+                  <View style={styles.fieldRow}>
+                    <View style={styles.fieldRowItem}>{field(t('ptype.columnSpacing'), form.column_spacing, 'column_spacing')}</View>
+                    <View style={styles.fieldRowItem}>{field(t('ptype.powerCapacity'), form.power_capacity_kva, 'power_capacity_kva', { keyboard: 'numeric', placeholder: '0' })}</View>
+                  </View>
+                  {boolRow(t('ptype.envPermit'), form.environmental_permit, (v) => setForm((prev) => ({ ...prev, environmental_permit: v })))}
+                  {boolRow(t('ptype.wholeFloor'), form.whole_floor_only, (v) => setForm((prev) => ({ ...prev, whole_floor_only: v })))}
+                  {boolRow(t('ptype.wholeBuilding'), form.whole_building_only, (v) => setForm((prev) => ({ ...prev, whole_building_only: v })))}
+                  {boolRow(t('ptype.companyRegistrable'), form.company_registrable, (v) => setForm((prev) => ({ ...prev, company_registrable: v })))}
+                </>
+              )}
+
+              {/* 带家具：厂房隐藏 */}
+              {!isFactory && (
+                <>
+                  <Text style={styles.sheetSection}>{t('prop.sectionFacilities')}</Text>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchInfo}>
+                      <Text style={styles.switchTitle}>{t('prop.furnished')}</Text>
+                      <Text style={styles.switchSub}>{t('prop.furnishedSub')}</Text>
+                    </View>
+                    <Switch
+                      value={form.furnished}
+                      onValueChange={(v) => setForm((prev) => ({ ...prev, furnished: v }))}
+                      trackColor={{ false: colors.ink3, true: colors.primary }}
+                      thumbColor={colors.surface}
+                    />
+                  </View>
+                </>
+              )}
 
               {/* 照片：仅编辑态 */}
               {editingId && (
@@ -1406,7 +1602,22 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 11, color: colors.ink3 },
   statValue: { fontSize: 20, fontWeight: '800', marginTop: 4, fontVariant: ['tabular-nums'] },
 
-  /* 列表标题 + 新增按钮 */
+  /* 首屏顶部「新增房源」主按钮（唯一新增入口） */
+  topAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 46,
+    marginHorizontal: 20,
+    marginTop: 14,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.primary,
+    ...colors.shadow.sm,
+  },
+  topAddBtnText: { fontSize: 15, fontWeight: '700', color: colors.primaryForeground },
+
+  /* 列表标题 + 视图切换 */
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1421,16 +1632,19 @@ const styles = StyleSheet.create({
     color: colors.ink,
     letterSpacing: -0.2,
   },
-  addBtn: {
+  // 发布上架单：业主自有房源上架的全宽主按钮
+  publishBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: colors.radius.full,
+    justifyContent: 'center',
+    gap: 6,
+    height: 42,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    borderRadius: colors.radius.md,
     backgroundColor: colors.primary,
   },
-  addBtnText: { fontSize: colors.fontSize.sm, fontWeight: '700', color: colors.primaryForeground },
+  publishBtnText: { fontSize: 14, fontWeight: '700', color: colors.primaryForeground },
 
   /* 列表/宫格 切换 + 计数 */
   sectionCount: { fontSize: 11, color: colors.ink3, marginTop: 2 },

@@ -144,6 +144,20 @@ export const calendarEventsApi = {
 
 export const documentsApi = {
   list: (params?: any) => api.get('/documents', { params }),
+  // 上传文档文件（multipart）：业主上架房源时必须上传「产权证 + 业主身份证明」
+  upload: (data: {
+    file: any;
+    type: string;
+    property_id?: string;
+    title?: string;
+  }) => {
+    const fd = new FormData();
+    fd.append('file', data.file);
+    fd.append('type', data.type);
+    if (data.property_id) fd.append('property_id', data.property_id);
+    if (data.title) fd.append('title', data.title);
+    return api.post('/documents/upload', fd);
+  },
 };
 
 // 服务订单 / 套餐购买请求体类型（对应后端 ServiceOrderCreate 的购买计费字段）
@@ -416,6 +430,13 @@ export const propertyDealApi = {
   escrows: (dealId: string) => api.get(`/property-deals/escrows/${dealId}`),
   releaseEscrow: (id: string) => api.post(`/property-deals/escrows/${id}/release`),
   refundEscrow: (id: string) => api.post(`/property-deals/escrows/${id}/refund`),
+};
+
+// —— 楼盘/项目（ProjectCreate 需 agent/admin 权限）——
+export const projectsApi = {
+  list: (params?: any) => api.get('/projects', { params }),
+  get: (id: string) => api.get(`/projects/${id}`),
+  create: (data: any) => api.post('/projects', data),
 };
 
 // —— 房源上架单（发布/我的上架）——

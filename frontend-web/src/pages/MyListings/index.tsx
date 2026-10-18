@@ -76,6 +76,7 @@ const MyListings = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const uid = useAuthStore((s) => s.user)?.id ?? 'anon'
+  const role = useAuthStore((s) => s.user)?.role
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const [region, setRegion] = useState<RegionSelection | null>(null)
@@ -186,7 +187,7 @@ const MyListings = () => {
           <p className="rent-page-header__subtitle">{t('myListings.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
-          <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => navigate('/publish-listing')}>
+          <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => navigate(role === 'owner' ? '/tenant/my-properties' : '/properties')}>
             + {t('myListings.publish')}
           </button>
         </div>

@@ -42,12 +42,17 @@ class ServicePackageUpdate(BaseModel):
 
 
 def _get_owner(session: Session, user: User) -> Owner:
-    owner = session.exec(
-        select(Owner).where(Owner.user_id == user.id, Owner.deleted_at.is_(None))
-    ).first()
+    owner = _get_owner_or_none(session, user)
     if not owner:
         raise HTTPException(status_code=404, detail="Owner profile not found")
     return owner
+
+
+def _get_owner_or_none(session: Session, user: User) -> Optional[Owner]:
+    """根据当前用户获取业主记录，未建档返回 None（不抛 404）。"""
+    return session.exec(
+        select(Owner).where(Owner.user_id == user.id, Owner.deleted_at.is_(None))
+    ).first()
 
 
 def _add_months(dt: datetime, months: int) -> datetime:
@@ -154,10 +159,12 @@ def create_service_package(
 @router.get("/me", response_model=list[ServicePackage])
 def get_my_packages(
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
 ):
-    """我的托管套餐列表。"""
-    owner = _get_owner(session, user)
+    """我的托管套餐列表（未建业主档案返回空列表，与 C 端「业主/租客功能一致」对齐）。"""
+    owner = _get_owner_or_none(session, user)
+    if not owner:
+        return []
     packages = session.exec(
         select(ServicePackage)
         .where(ServicePackage.owner_id == owner.id, ServicePackage.deleted_at.is_(None))

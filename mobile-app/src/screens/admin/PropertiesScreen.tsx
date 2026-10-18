@@ -28,7 +28,7 @@ import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { notify, notifyError } from '@/utils/feedback';
-import { propertiesApi, usersAdminApi } from '@/services/api';
+import { propertiesApi, usersAdminApi, listingApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { AREA_GROUPS } from '@/data/locationArea';
@@ -38,6 +38,35 @@ import { propertyCoverUrl } from '@/lib/property';
 import { useI18n } from '@/i18n';
 
 const PAGE_SIZE = 10;
+
+// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
+const buildListingPayload = (p: any) => ({
+  property_id: p.id,
+  room_number: p.room_number || p.address || '-',
+  address: p.address || p.room_number || '-',
+  property_type: p.property_type || 'apartment',
+  size_sqm: p.size_sqm ?? undefined,
+  bedrooms: p.bedrooms ?? undefined,
+  bathrooms: p.bathrooms ?? undefined,
+  description: p.description || undefined,
+  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
+  furnished: !!p.furnished,
+  video_url: p.video_url || undefined,
+  vr_url: p.vr_url || undefined,
+  ceiling_height_m: p.ceiling_height_m ?? undefined,
+  land_area_sqm: p.land_area_sqm ?? undefined,
+  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
+  column_spacing: p.column_spacing || undefined,
+  power_capacity_kva: p.power_capacity_kva ?? undefined,
+  environmental_permit: p.environmental_permit ?? undefined,
+  whole_floor_only: p.whole_floor_only ?? undefined,
+  whole_building_only: p.whole_building_only ?? undefined,
+  company_registrable: p.company_registrable ?? undefined,
+  listing_type: 'rent',
+  monthly_rent: Number(p.monthly_rent || 0),
+  currency: p.currency || 'THB',
+  owner_id: p.owner_id || undefined,
+});
 
 interface PropertyItem {
   id: string;
@@ -643,6 +672,15 @@ export default function AdminPropertiesScreen() {
             <Text style={styles.assignText}>{t('adm.psAssign')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            style={styles.listBtn}
+            activeOpacity={0.7}
+            onPress={() => confirmPublish(p)}
+            accessibilityRole="button"
+            accessibilityLabel={t('listing.actionList')}
+          >
+            <Ionicons name="cloud-upload-outline" size={18} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.deleteBtn}
             activeOpacity={0.7}
             onPress={() => doDelete(p)}
@@ -654,6 +692,28 @@ export default function AdminPropertiesScreen() {
         </View>
       </View>
     );
+  };
+
+  // ===== 一键上架（唯一上架入口）=====
+  const confirmPublish = (p: PropertyItem) => {
+    if (Number(p.monthly_rent || 0) <= 0) {
+      notify(t('listing.listManualRent'));
+      return;
+    }
+    Alert.alert(t('listing.confirmListTitle'), t('listing.confirmListBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('listing.actionList'),
+        onPress: async () => {
+          try {
+            await listingApi.create(buildListingPayload(p));
+            notify(t('listing.listedOk'));
+          } catch (e: any) {
+            notifyError(t('listing.confirmListTitle'), e);
+          }
+        },
+      },
+    ]);
   };
 
   if (loading) {
@@ -713,6 +773,20 @@ export default function AdminPropertiesScreen() {
         >
           <Ionicons name="add" size={16} color={colors.primaryForeground} />
           <Text style={styles.addBtnText}>{t('adm.psAdd')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 供给入口：新增楼盘（管理端 + 员工端共用，均为 agency/admin 权限） */}
+      <View style={styles.entryRow}>
+        <TouchableOpacity
+          style={styles.entryBtn}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('ProjectCreate')}
+          accessibilityRole="button"
+          accessibilityLabel={t('entry.newProject')}
+        >
+          <Ionicons name="business-outline" size={16} color={colors.primary} />
+          <Text style={styles.entryBtnText}>{t('entry.newProject')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1288,6 +1362,24 @@ const styles = StyleSheet.create({
   },
   addBtnText: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
 
+  // 供给入口（发布上架单 / 新增楼盘）：等宽双按钮，主次分明
+  entryRow: { flexDirection: 'row', gap: 8, marginHorizontal: 20, marginBottom: 12 },
+  entryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  entryBtnPrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
+  entryBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  entryBtnTextPrimary: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
+
   chipScroll: { flexGrow: 0, marginBottom: 12 },
   chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
   // 状态筛选 chip：尺寸/圆角/字号/选中态与 C 端浏览页筛选 chip 一致
@@ -1645,6 +1737,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: colors.radius.lg,
     backgroundColor: colors.alpha(colors.errorRgb, 0.1),
+  },
+  // 行内「上架」（房源管理是唯一上架入口）：与删除键同尺寸，主色淡底
+  listBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
   },
 
   moreWrap: { paddingVertical: 16, alignItems: 'center' },

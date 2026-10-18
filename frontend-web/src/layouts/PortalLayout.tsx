@@ -6,6 +6,7 @@ import type { MenuProps } from 'antd'
 import useAuthStore from '@/stores/auth'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import NotificationsBell from '@/components/NotificationsBell'
+import { ROLE_SECTIONS, C_PORTAL_NAV_KEYS, resolveLabelKey } from '@/config/roleMenus'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './PortalLayout.css'
 
@@ -23,48 +24,28 @@ const navIcon = (d: string, extra?: React.ReactNode) => (
   </svg>
 )
 
-const buildNav = (t: (k: string) => string): PortalNavItem[] => [
-  {
-    key: '/tenant/dashboard',
-    label: t('portal.home'),
-    icon: navIcon('M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', <polyline points="9 22 9 12 15 12 15 22" />),
-  },
-  {
-    key: '/tenant/listings',
-    label: t('browse.findTitle'),
-    icon: navIcon('M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', <><circle cx="11" cy="13" r="3" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></>),
-  },
-  {
-    key: '/tenant/payments',
-    label: t('portal.payments'),
-    icon: navIcon('M1 4h22v16H1z', <line x1="1" y1="10" x2="23" y2="10" />),
-  },
-  {
-    key: '/tenant/documents',
-    label: t('portal.documents'),
-    icon: navIcon('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', <polyline points="14 2 14 8 20 8" />),
-  },
-  {
-    key: '/tenant/services',
-    label: t('portal.services'),
-    icon: navIcon('M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z'),
-  },
-  {
-    key: '/tenant/maintenance',
-    label: t('portal.maintenance'),
-    icon: navIcon('M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'),
-  },
-  {
-    key: '/tenant/my',
-    label: t('portal.profile'),
-    icon: navIcon('M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2', <circle cx="12" cy="7" r="4" />),
-  },
-]
+/**
+ * 顶栏 6 项：首页 / 找房 / 我的房源 / 收益 / 文档 / 我的。
+ * 从共享 C 端菜单（ROLE_SECTIONS.tenant）按 C_PORTAL_NAV_KEYS 抽取——
+ * 业主与租客同一份菜单，功能一致；其余入口收进「我的」宫格。
+ */
+const buildNav = (t: (k: string) => string): PortalNavItem[] => {
+  const byKey = new Map(
+    (ROLE_SECTIONS.tenant ?? []).flatMap((s) => s.items).map((it) => [it.key, it]),
+  )
+  const items: PortalNavItem[] = []
+  for (const key of C_PORTAL_NAV_KEYS) {
+    const it = byKey.get(key)
+    if (!it) continue
+    items.push({ key: it.key, label: t(resolveLabelKey(it)), icon: navIcon(it.icon) })
+  }
+  return items
+}
 
 /**
- * PortalLayout — 租客端顶栏门户布局（对齐 rental-full-draft 原型 rent-portal）
- * 顶部导航：logo「租客中心」+ 首页/找房源/付款/文档/服务/报修；无侧边栏。
- * 服务 admin/owner/employee 的 MainLayout 保持不变。
+ * PortalLayout — C 端（业主 + 租客）顶栏门户布局（对齐 rental-full-draft 原型 rent-portal）
+ * 顶部导航：logo + 首页/找房/我的房源/收益/文档/我的；无侧边栏。
+ * 业主与租客共用同一份菜单（功能一致）。admin/employee 的 MainLayout 保持不变。
  */
 const PortalLayout = () => {
   const navigate = useNavigate()
@@ -102,7 +83,7 @@ const PortalLayout = () => {
   ]
 
   const displayName = user?.full_name || user?.name || t('welcome')
-  const avatarChar = (displayName || '租').charAt(0).toUpperCase()
+  const avatarChar = (displayName || '我').charAt(0).toUpperCase()
 
   return (
     <div className="rent-portal">
@@ -110,7 +91,7 @@ const PortalLayout = () => {
       <header className="rent-portal__header">
         <div className="rent-portal__brand" style={{ cursor: 'pointer' }} onClick={handleGoHome}>
           <img className="rent-portal__logo" src={brandLogo} alt="HaoFang.World" />
-          <span className="rent-portal__name">{t('role.tenant')}中心</span>
+          <span className="rent-portal__name">{t('portal.center')}</span>
         </div>
 
         <nav className="rent-portal__nav no-scrollbar">

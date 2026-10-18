@@ -10,6 +10,7 @@ import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import StateBlock from '@/components/StateBlock'
 import { usePaginatedList } from '@/hooks/usePaginatedList'
+import { useDistrictNodes } from '@/lib/categoryShared'
 import './index.scss'
 import { useI18n } from '@/i18n'
 
@@ -40,7 +41,8 @@ const typeLabelOf = (
     house: t('prop.typeVilla'),
     shop: t('prop.typeCommercial'),
     commercial: t('prop.typeCommercial'),
-    office: t('prop.typeOffice')
+    office: t('prop.typeOffice'),
+    factory: t('prop.typeFactory')
   }
   return map[type || ''] || t('prop.listing')
 }
@@ -58,16 +60,37 @@ const statusMetaOf = (
   return map[s || ''] || map.vacant
 }
 
-// ==================== 业务类型：整租 / 合租 / 买房（对齐原型业务栏） ====================
-type BizKey = 'rent' | 'share' | 'sale'
+// ==================== 业务类型：整租 / 买房（对齐原型业务栏） ====================
+type BizKey = 'rent' | 'sale'
 const BIZ_OPTIONS: { key: BizKey; label: string }[] = [
   { key: 'rent', label: 'tl.bizWhole' },
-  { key: 'share', label: 'tl.bizShare' },
   { key: 'sale', label: 'pub.typeSell' }
 ]
-// 合租无独立字段，以房号/标题/描述/类型中的关键词命中判断
-const SHARE_KEYWORDS = ['合租', '单间', 'share', 'shared']
 const PAGE_SIZE = 20
+
+// 顶部找房卡「居室」快选：不限 / 1居 / 2居 / 3居+（3居+ = 3 室及以上）
+const HERO_BED_OPTIONS: { key: string; label: string }[] = [
+  { key: '', label: 'pub.filterAny' },
+  { key: '1', label: 'pub.bed.1' },
+  { key: '2', label: 'pub.bed.2' },
+  { key: '3p', label: 'tl.bed3plus' }
+]
+
+// 「附近」排序：用户定位与楼盘坐标之间的球面距离（km）；坐标缺失的房源排到最后
+const haversineKm = (
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number => {
+  const R = 6371
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
 // 搜索历史：Taro storage，去重置顶、上限 10 条、越界丢最旧
 const RECENT_SEARCHES_KEY = 'recent_searches'
 const RECENT_SEARCHES_MAX = 10
@@ -76,15 +99,7 @@ const matchBiz = (item: Listing, biz: BizKey): boolean => {
   const isSale = Number(item.sale_price) > 0
   if (biz === 'sale') return isSale
   if (isSale) return false
-  if (!Number(item.monthly_rent)) return false
-  if (biz === 'share') {
-    const text = [item.title, item.room_number, item.address, item.description, item.property_type]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-    return SHARE_KEYWORDS.some((k) => text.includes(k))
-  }
-  return true
+  return Number(item.monthly_rent) > 0
 }
 
 // ==================== 排序（贝壳式下拉 Tab） ====================
@@ -212,6 +227,24 @@ export default function TenantListingsPage() {
   const { t } = useI18n()
   const router = useRouter()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
+  // 全局定位：城市作用域与「区域」筛选真实数据都以此为口径
+  const locSel = useLocationStore((s) => s.selection)
+
+  // 房源类型筛选（多值，逗号分隔）：商铺办公=office,shop、厂房=factory。
+  // 由首页黄金导航入口带入，交由服务端过滤（不再本地逐条比对）。
+  const filterTypes: string[] = String(router.params?.ptype ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  // 新房/二手房（仅买房业务有效）：'1'/'true'=新房，'0'/'false'=二手房，其余=不限
+  const newParam = router.params?.new
+  const isNew: boolean | undefined =
+    newParam === '1' || newParam === 'true'
+      ? true
+      : newParam === '0' || newParam === 'false'
+      ? false
+      : undefined
+
   const { list: listings, loading, loadingMore, hasMore, error: listError, fetch: fetchListings, fetchMore } =
     usePaginatedList<Listing>({
       pageSize: PAGE_SIZE,
@@ -220,7 +253,13 @@ export default function TenantListingsPage() {
         const res: any = await propertiesApi.list({
           page: p,
           page_size: ps,
-          ...((params as any)?.q ? { q: (params as any).q } : {})
+          // 城市统一传定位 cityKey（后端做 slug 归一化），不再传中文 cityLabel
+          city: locSel.cityKey,
+          ...((params as any)?.q ? { q: (params as any).q } : {}),
+          // 房源类型多值经 propertiesApi.list 拼成重复键，与 FastAPI 的
+          // List[str] Query 对齐；新房/二手房由上架单标记经 EXISTS 子查询过滤。
+          ...(filterTypes.length ? { property_type: filterTypes } : {}),
+          ...(isNew === undefined ? {} : { is_new_development: isNew })
         })
         return pickList(res)
       },
@@ -239,6 +278,9 @@ export default function TenantListingsPage() {
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [searchFocused, setSearchFocused] = useState(false)
   const [biz, setBiz] = useState<BizKey>(initialBiz)
+  // 「附近」：按离我最近排序（首次开启时才申请定位权限）
+  const [nearby, setNearby] = useState(false)
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
 
   // 进入页面时读取本地搜索历史
   useEffect(() => {
@@ -258,10 +300,13 @@ export default function TenantListingsPage() {
 
   // 按区域 / 按地铁（对齐贝壳「区域 | 地铁」下拉面板）
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area')
-  // 区域面板：定位城市见主页左上角「国家 → 城市」；找房页只列当前城市的 区/街道（链家样式），无国家/省市下钻
-  const locSel = useLocationStore((s) => s.selection)
+  // 区域面板：定位城市见主页左上角「国家 → 城市」；区域走真实数据
+  // （GET /public/districts，空则回退当前城市的静态区域清单）
   const locCity = useMemo(() => findCityByKey(locSel.cityKey), [locSel.cityKey])
-  const cityDistricts = locCity?.children ?? []
+  const cityDistricts = useDistrictNodes({
+    city: locSel.cityKey,
+    listingType: biz === 'sale' ? 'sell' : 'rent'
+  })
   const [districtSel, setDistrictSel] = useState<string | null>(null)
   const [metroSel, setMetroSel] = useState<string[]>([])
   const [metroDraft, setMetroDraft] = useState<string[]>([])
@@ -656,6 +701,8 @@ export default function TenantListingsPage() {
       (!bedroomSel ||
         (bedroomSel === '5'
           ? Number(it.bedrooms) >= 5
+          : bedroomSel === '3p'
+          ? Number(it.bedrooms) >= 3
           : Number(it.bedrooms) === Number(bedroomSel))) &&
       (!statusSel || it.status === statusSel) &&
       (!orientationSel || it.orientation === orientationSel) &&
@@ -669,6 +716,15 @@ export default function TenantListingsPage() {
       (!amenitySel.length ||
         amenitySel.some((a) => (Array.isArray(it.amenities) ? it.amenities : []).includes(a)))
     )
+    // 「附近」优先级最高：按离我最近排序（坐标缺失的排到最后）
+    if (nearby && userPos) {
+      const pos = userPos
+      return list.slice().sort((a, b) => {
+        const da = a.lat != null && a.lng != null ? haversineKm(pos, { lat: a.lat, lng: a.lng }) : Infinity
+        const db = b.lat != null && b.lng != null ? haversineKm(pos, { lat: b.lat, lng: b.lng }) : Infinity
+        return da - db
+      })
+    }
     switch (sortKey) {
       case 'latest': return list.slice().sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
       case 'price_asc': return list.slice().sort((a, b) => a.monthly_rent - b.monthly_rent)
@@ -676,7 +732,50 @@ export default function TenantListingsPage() {
       case 'area_desc': return list.slice().sort((a, b) => b.size_sqm - a.size_sqm)
       default: return list
     }
-  }, [listings, globalCityKw, biz, activeLocationKw, activePrice, activeArea, bedroomSel, statusSel, orientationSel, floorSel, decorSel, amenitySel, sortKey])
+  }, [listings, globalCityKw, biz, activeLocationKw, activePrice, activeArea, bedroomSel, statusSel, orientationSel, floorSel, decorSel, amenitySel, sortKey, nearby, userPos])
+
+  // 「附近」开关：开启时取一次定位并切到「离我最近」排序
+  const handleToggleNearby = async () => {
+    if (nearby) {
+      setNearby(false)
+      return
+    }
+    try {
+      const loc = await Taro.getLocation({ type: 'gcj02' })
+      if (!listings.some((it) => it.lat != null && it.lng != null)) {
+        Taro.showToast({ title: t('tl.nearbyNoData'), icon: 'none' })
+        return
+      }
+      setUserPos({ lat: loc.latitude, lng: loc.longitude })
+      setNearby(true)
+    } catch (e) {
+      console.error('[Listings] 定位失败', e)
+      Taro.showToast({ title: t('tl.nearbyDenied'), icon: 'none' })
+    }
+  }
+
+  // 主按钮：收起筛选面板（结果已实时过滤，无需二次提交）
+  const handleViewResults = () => {
+    setOpenTab(null)
+  }
+
+  // 地图找房：跳转到地图页，带上当前业务/类型/新房口径
+  const handleGoMap = () => {
+    const ptype = filterTypes.join(',')
+    const params = [
+      `listing_type=${biz === 'sale' ? 'sell' : 'rent'}`,
+      ptype ? `ptype=${encodeURIComponent(ptype)}` : '',
+      isNew === undefined ? '' : `new=${isNew ? 1 : 0}`
+    ]
+      .filter(Boolean)
+      .join('&')
+    Taro.navigateTo({ url: `/pages/public/map/index?${params}` })
+  }
+
+  // 顶部城市胶囊：跳全局定位选择页（与主页左上角城市入口同一目标）
+  const handlePickCity = () => {
+    Taro.navigateTo({ url: '/pages/location/index' })
+  }
 
   const sortLabel = t(SORT_OPTIONS.find((s) => s.key === sortKey)?.label || 'pub.sort')
   const moreBadge =
@@ -1004,54 +1103,115 @@ export default function TenantListingsPage() {
   return (
     <View className='tenant-listings-page'>
       <View className='page-container'>
-        {/* ===== 顶部搜索栏（对齐原型 Sticky Search）===== */}
-        <View className='list-search'>
-          <Input
-            className='list-search__input'
-            value={keyword}
-            placeholder={t('tl.searchPlaceholder')}
-            confirmType='search'
-            onInput={(e: any) => setKeyword(e.detail.value)}
-            onConfirm={handleSearch}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => {
-              // 延迟收起，避免点击历史词条时面板先行消失
-              setTimeout(() => setSearchFocused(false), 200)
-            }}
-          />
-          <View className='list-search__btn' onClick={handleSearch}>
-            <Text className='list-search__btn-text'>{t('common.search')}</Text>
+        {/* ===== 顶部头部区：浅 teal 实底 + 大标题 + 城市定位（对齐参考图顶部，给卡片留出呼吸间距） ===== */}
+        <View className='hero-band'>
+          <View className='hero-band__row'>
+            <Text className='hero-band__title'>{t('tl.heroTitle')}</Text>
+            <View className='hero-band__city' onClick={handlePickCity}>
+              <View className='icon-svg' style={iconStyle('location', 28)} />
+              <Text className='hero-band__city-text'>{locSel.cityLabel}</Text>
+              <Text className='hero-band__city-arrow'>▾</Text>
+            </View>
           </View>
         </View>
 
-        {/* ===== 最近搜索（输入框聚焦且有历史词时展示，普通 View 换行 chips）===== */}
-        {searchFocused && recentSearches.length > 0 && (
-          <View className='recent-searches'>
-            <View className='recent-searches__head'>
-              <Text className='recent-searches__title'>{t('search.recent')}</Text>
-              <Text className='recent-searches__clear' onClick={clearRecent}>{t('search.clearAll')}</Text>
+        {/* ===== 顶部找房卡：业务 Tab（嵌入卡顶）/ 搜索行 / 分隔线 / 居室快选 / 查看N套 + 去地图看 ===== */}
+        <View className='hero-card'>
+          {/* 业务 Tab 嵌入卡顶：选中项为白色圆角块（对齐参考图） */}
+          <View className='hero-tabs'>
+            {BIZ_OPTIONS.map((b) => (
+              <View
+                key={b.key}
+                className={`hero-tab ${biz === b.key ? 'hero-tab--on' : ''}`}
+                onClick={() => {
+                  setBiz(b.key)
+                  setOpenTab(null)
+                }}
+              >
+                <Text className='hero-tab__text'>{t(b.label)}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View className='hero-body'>
+            {/* 搜索行：放大镜 + 占位符 + ｜ + 附近（切「离我最近」排序） */}
+            <View className='hero-search'>
+              <View className='icon-svg' style={iconStyle('search', 36)} />
+              <Input
+                className='hero-search__input'
+                value={keyword}
+                placeholder={t('tl.searchPlaceholder')}
+                placeholderStyle='color:#9ca3af'
+                confirmType='search'
+                onInput={(e: any) => setKeyword(e.detail.value)}
+                onConfirm={handleSearch}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => {
+                  // 延迟收起，避免点击历史词条时面板先行消失
+                  setTimeout(() => setSearchFocused(false), 200)
+                }}
+              />
+              <View className='hero-search__split' />
+              <View className='hero-nearby' onClick={handleToggleNearby}>
+                <View className='icon-svg' style={iconStyle('crosshair', 32)} />
+                <Text className={`hero-nearby__text ${nearby ? 'hero-nearby__text--on' : ''}`}>
+                  {t('tl.nearby')}
+                </Text>
+              </View>
             </View>
-            <View className='recent-searches__chips'>
-              {recentSearches.map((w) => (
-                <View key={w} className='recent-searches__chip' onClick={() => applyRecent(w)}>
-                  <Text>{w}</Text>
+
+            {/* 最近搜索（输入框聚焦且有历史词时展示，普通 View 换行 chips） */}
+            {searchFocused && recentSearches.length > 0 && (
+              <View className='recent-searches'>
+                <View className='recent-searches__head'>
+                  <Text className='recent-searches__title'>{t('search.recent')}</Text>
+                  <Text className='recent-searches__clear' onClick={clearRecent}>{t('search.clearAll')}</Text>
+                </View>
+                <View className='recent-searches__chips'>
+                  {recentSearches.map((w) => (
+                    <View key={w} className='recent-searches__chip' onClick={() => applyRecent(w)}>
+                      <Text>{w}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            <View className='hero-divider' />
+
+            {/* 居室快选：不限 / 1居 / 2居 / 3居+（与「房型」面板共用同一个 bedroomSel） */}
+            <View className='hero-beds'>
+              {HERO_BED_OPTIONS.map((b) => (
+                <View
+                  key={b.key || 'any'}
+                  className='hero-bed'
+                  onClick={() => setBedroomSel(b.key)}
+                >
+                  {bedroomSel === b.key ? (
+                    <View className='hero-bed__dot hero-bed__dot--on'>
+                      <Text className='hero-bed__check'>✓</Text>
+                    </View>
+                  ) : (
+                    <View className='hero-bed__dot' />
+                  )}
+                  <Text className={`hero-bed__text ${bedroomSel === b.key ? 'hero-bed__text--on' : ''}`}>
+                    {t(b.label)}
+                  </Text>
                 </View>
               ))}
             </View>
-          </View>
-        )}
 
-        {/* ===== 业务栏：整租 / 合租 / 买房 ===== */}
-        <View className='biz-bar'>
-          {BIZ_OPTIONS.map((b) => (
-            <View
-              key={b.key}
-              className={`biz-bar__item ${biz === b.key ? 'biz-bar__item--active' : ''}`}
-              onClick={() => setBiz(b.key)}
-            >
-              <Text className='biz-bar__text'>{t(b.label)}</Text>
+            {/* 主按钮：查看 N 套房源 / 去地图看 */}
+            <View className='hero-actions'>
+              <View className='hero-primary' onClick={handleViewResults}>
+                <Text className='hero-primary__text'>{t('tl.viewCount', { n: visibleList.length })}</Text>
+              </View>
+              <View className='hero-map' onClick={handleGoMap}>
+                <View className='icon-svg' style={iconStyle('location', 32)} />
+                <Text className='hero-map__text'>{t('tl.goMap')}</Text>
+              </View>
             </View>
-          ))}
+          </View>
         </View>
 
         {/* ===== 贝壳式 Tab 筛选栏（点击从顶部下拉面板，非底部弹层）===== */}
@@ -1079,11 +1239,6 @@ export default function TenantListingsPage() {
               {openTab === 'sort' && renderSortPanel()}
             </View>
           )}
-        </View>
-
-        {/* ===== 结果计数 ===== */}
-        <View className='result-row'>
-          <Text className='result-count'>{t('pub.totalCount', { n: visibleList.length })}</Text>
         </View>
 
         <ScrollView scrollY className='list-scroll'>

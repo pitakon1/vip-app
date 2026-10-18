@@ -25,9 +25,8 @@ export default function IndexPage() {
     }
 
     // 根据角色重定向到对应首页
-    if (currentUser?.role === 'owner') {
-      Taro.redirectTo({ url: '/pages/owner/home/index' })
-    } else if (currentUser?.role === 'tenant') {
+    // 业主与租客统一到同一个 C 端首页
+    if (currentUser?.role === 'owner' || currentUser?.role === 'tenant') {
       Taro.redirectTo({ url: '/pages/tenant/home/index' })
     } else if (currentUser?.role === 'admin') {
       Taro.redirectTo({ url: '/pages/admin/home/index' })

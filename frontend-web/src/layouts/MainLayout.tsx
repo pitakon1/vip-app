@@ -29,8 +29,9 @@ const icon = (d: string) => (
 )
 
 // 消费端角色键 -> 菜单配置键（头像/代理与员工共用销售工作台菜单）
+// 业主与租客共用同一份 C 端菜单（ROLE_SECTIONS.owner 已删除，统一走共享 C 端菜单）。
 const SECTION_KEY: Record<string, string> = {
-  owner: 'owner',
+  owner: 'tenant',
   tenant: 'tenant',
   agent: 'employee',
   employee: 'employee',

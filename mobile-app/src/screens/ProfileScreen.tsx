@@ -8,17 +8,20 @@ import {
   Alert,
   ScrollView,
   Platform,
+  Linking,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
+import * as WebBrowser from 'expo-web-browser';
+import * as Application from 'expo-application';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '@/stores/auth';
 import Card from '@/components/Card';
 import colors from '@/theme/colors';
 import { useI18n, LANG_LABELS } from '@/i18n';
-import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 import { authApi, chatApi, companyApi } from '@/services/api';
+import { clearCache } from '@/lib/cache';
 import type { UserRole } from '@/types';
 
 // 从本地 uri 推断图片扩展名（expo image-picker 未必给 fileName）
@@ -32,8 +35,6 @@ interface FuncEntry {
   labelKey: string;
   icon: keyof typeof Ionicons.glyphMap;
   navigate: string;
-  /** 使用条件文案（无该能力时展示，告诉用户满足什么条件即可使用） */
-  needKey?: string;
 }
 
 // 各角色「我的」常用功能（路由必须已在 RootNavigator 注册；业主/租客走统一的 C_FUNC_GRID，不在此重复）
@@ -91,36 +92,48 @@ interface SettingItem {
 }
 
 const APP_COMPANY = 'HaoFang.World';
+// 应用商店上架信息：「去评分 / 立即更新」跳转用。
+// iOS 的数字 App ID 只有上架 App Store 后才有，届时在 app.json 记下后填到这里；
+// 留空时按钮降级为「去应用商店更新」的明确提示（不跳一个打不开的链接）。
+const APP_STORE_ID = '';
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.vip.rental';
+
+// 语义化版本比较：a > b 返回正数，相等返回 0（用于「检查更新」本地版本 vs 后端版本）
+const cmpVersion = (a: string, b: string) => {
+  const pa = a.split(/[.\-+]/).map((x) => parseInt(x, 10) || 0);
+  const pb = b.split(/[.\-+]/).map((x) => parseInt(x, 10) || 0);
+  const n = Math.max(pa.length, pb.length);
+  for (let i = 0; i < n; i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d > 0 ? 1 : -1;
+  }
+  return 0;
+};
 // 版本号只认公开接口 GET /company/info 的真实值（与小程序 profile 写法一致）：
 // 取不到就留空、由调用处不渲染，不再回落到写死的 'v2.4.1'——那个值与后端版本
 // 及 app.json 的 0.1.0 都不符，等于对外报一个不存在的版本号。
 
 // C 端（业主+租客）统一「常用功能」宫格：把业主与租客的全部入口放进同一个宫格。
-// 宫格对所有人完全一致，不按角色隐藏；点开无该能力的项时进入「功能暂未开放」空态页。
-const C_FUNC_GRID: Array<FuncEntry & { cap: 'owner' | 'tenant' | 'both' }> = [
+// 宫格对所有人完全一致，不按角色隐藏、不做能力门槛——登录即可进入任意入口。
+const C_FUNC_GRID: FuncEntry[] = [
   // 业主能力项（业主 = 在平台上添加了房源；委托挂牌并入房源管理内）
-  { key: 'manageProperties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'OwnerProperties', cap: 'owner', needKey: 'profile.needManageProperties' },
-  { key: 'incomeDetail', labelKey: 'profile.incomeDetail', icon: 'trending-up', navigate: 'OwnerIncome', cap: 'owner', needKey: 'profile.needIncomeDetail' },
+  { key: 'manageProperties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'OwnerProperties' },
+  { key: 'incomeDetail', labelKey: 'profile.incomeDetail', icon: 'trending-up', navigate: 'OwnerIncome' },
   // 租客能力项（租客 = 在平台上租了房子）
-  { key: 'myLeases', labelKey: 'home.myLease', icon: 'document-text', navigate: 'MyLease', cap: 'tenant', needKey: 'profile.needLeases' },
-  { key: 'myDeals', labelKey: 'profile.myDeals', icon: 'receipt', navigate: 'MyOrders', cap: 'tenant', needKey: 'profile.needDeals' },
-  { key: 'payments', labelKey: 'profile.payments', icon: 'card', navigate: 'Payments', cap: 'tenant', needKey: 'profile.needPayments' },
-  { key: 'maintenance', labelKey: 'profile.maintenance', icon: 'build', navigate: 'TenantMaintenance', cap: 'tenant', needKey: 'profile.needMaintenance' },
-  { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'TenantServices', cap: 'tenant', needKey: 'profile.needServices' },
+  { key: 'myLeases', labelKey: 'home.myLease', icon: 'document-text', navigate: 'MyLease' },
+  { key: 'myDeals', labelKey: 'profile.myDeals', icon: 'receipt', navigate: 'MyOrders' },
+  { key: 'payments', labelKey: 'profile.payments', icon: 'card', navigate: 'Payments' },
+  { key: 'maintenance', labelKey: 'profile.maintenance', icon: 'build', navigate: 'TenantMaintenance' },
+  { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'TenantServices' },
   // 通用能力项（电子合同签署：租客与业主共用「我的合同」）
-  { key: 'myContracts', labelKey: 'profile.contracts', icon: 'document-text', navigate: 'MyContracts', cap: 'both' },
+  { key: 'myContracts', labelKey: 'profile.contracts', icon: 'document-text', navigate: 'MyContracts' },
   // 通用能力项（文档中心：租客与业主的租房文档/我的文档合并）
-  { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'Documents', cap: 'both', needKey: 'profile.needDocuments' },
-  // C 端关注/浏览历史：登录即可用，不按业主/租客能力门槛（需登录 → 未登录先进 Login）
-  { key: 'favorites', labelKey: 'pub.myFollow', icon: 'heart', navigate: 'Favorites', cap: 'both' },
-  { key: 'history', labelKey: 'pub.myHistory', icon: 'time', navigate: 'History', cap: 'both' },
-  { key: 'priceAlerts', labelKey: 'pub.priceAlerts', icon: 'notifications', navigate: 'PriceAlerts', cap: 'both' },
+  { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'Documents' },
+  // C 端关注/浏览历史：登录即可用（未登录 → 先进 Login）
+  { key: 'favorites', labelKey: 'pub.myFollow', icon: 'heart', navigate: 'Favorites' },
+  { key: 'history', labelKey: 'pub.myHistory', icon: 'time', navigate: 'History' },
+  { key: 'priceAlerts', labelKey: 'pub.priceAlerts', icon: 'notifications', navigate: 'PriceAlerts' },
 ];
-// 统一：所有人显示全部入口（不按能力过滤）；能否进入由 useUserCapabilities 判断
-const C_FUNC_VISIBLE = () => C_FUNC_GRID;
-// 当前用户是否具备某项能力：true 进真页面，false 进「功能暂未开放」空态页
-const hasFuncCap = (isOwner: boolean, isTenant: boolean, cap: 'owner' | 'tenant' | 'both') =>
-  cap === 'owner' ? isOwner : cap === 'tenant' ? isTenant : isOwner || isTenant;
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -134,10 +147,7 @@ export default function ProfileScreen() {
   const isGuest = !user;
 
   // 身份按「能力」判断而非单一 role：用户可能「既是业主又是租客」，名下房产/生效租约决定区块是否展示，二者可并存。
-  const { canManageProperty, isActiveTenant } = useUserCapabilities();
-  const isTenant = isActiveTenant;
   const isAdmin = user?.role === 'admin';
-  const isOwner = canManageProperty;
   // 员工端：经纪人 / 员工 / 管理员均提供「我的」账户与设置自助区块
   const isStaff =
     isAdmin || user?.role === 'agent' || user?.role === 'employee' || user?.role === 'partner_admin';
@@ -153,8 +163,17 @@ export default function ProfileScreen() {
     lease_reminder_days: number;
     auto_dunning: boolean;
   } | null>(null);
-  // 公司名称/版本（公开接口）：此前页脚与「关于」写死 'HaoFang.World v2.4.1'
-  const [appInfo, setAppInfo] = React.useState<{ name?: string; version?: string }>({});
+  // 公司名称/版本/联系方式（公开接口）：此前页脚与「关于」写死 'HaoFang.World v2.4.1'
+  const [appInfo, setAppInfo] = React.useState<{
+    name?: string;
+    version?: string;
+    phone?: string;
+    website?: string;
+    email?: string;
+    logo_url?: string;
+    reg_no?: string;
+    address?: string;
+  }>({});
 
   // 回到「我的」时重新拉取（业务设置子页保存后返回能立即看到新值）
   useFocusEffect(
@@ -165,7 +184,16 @@ export default function ProfileScreen() {
         .then(({ data }) => {
           const info = data?.data ?? data;
           if (!alive || !info) return;
-          setAppInfo({ name: info.name, version: info.version });
+          setAppInfo({
+            name: info.name,
+            version: info.version,
+            phone: info.phone,
+            website: info.website,
+            email: info.email,
+            logo_url: info.logo_url,
+            reg_no: info.reg_no,
+            address: info.address,
+          });
         })
         .catch(() => {
           /* 读取失败则不显示版本号，不伪造版本 */
@@ -218,6 +246,90 @@ export default function ProfileScreen() {
     }
   };
 
+  // 仅提示类弹窗（Web 下 Alert 是空实现，改用浏览器原生提示）
+  const showInfo = (msg: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(msg);
+      return;
+    }
+    Alert.alert(t('common.hint'), msg);
+  };
+
+  // 跳应用商店（去评分 / 立即更新共用）：iOS 无 App ID 时降级为明确提示
+  const openStore = () => {
+    const url =
+      Platform.OS === 'ios'
+        ? APP_STORE_ID
+          ? `itms-apps://itunes.apple.com/app/id${APP_STORE_ID}`
+          : ''
+        : PLAY_STORE_URL;
+    if (!url) {
+      showInfo(t('profile.rateUnavailable'));
+      return;
+    }
+    Linking.openURL(url).catch(() => showInfo(t('profile.rateUnavailable')));
+  };
+
+  // 联系客服：先弹「营业时间 + 呼叫 / 取消」确认层，确认后真实拨号
+  const confirmCall = () => {
+    const raw = (appInfo.phone || '').trim();
+    const tel = raw.replace(/[^\d+]/g, '');
+    if (tel.replace(/\D/g, '').length === 0) {
+      showInfo(t('profile.phoneUnset'));
+      return;
+    }
+    const call = () =>
+      Linking.openURL(`tel:${tel}`).catch(() => showInfo(t('profile.callFail')));
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${t('profile.serviceHours')}\n${raw}`)) call();
+      return;
+    }
+    Alert.alert(t('profile.serviceHours'), raw, [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('profile.callNow'), onPress: call },
+    ]);
+  };
+
+  // 检查更新：本地安装版本 vs 后端公开接口版本，语义化比对
+  const handleCheckUpdate = () => {
+    const local = Application.nativeApplicationVersion || '';
+    const remote = appInfo.version || '';
+    if (!remote) {
+      showInfo(t('profile.updateUnavailable'));
+      return;
+    }
+    if (local && cmpVersion(remote, local) <= 0) {
+      showInfo(t('profile.upToDate', { v: `v${local}` }));
+      return;
+    }
+    if (!local) {
+      // 取不到本地版本（如 Web）：只如实回显后端版本，不假装检测结果
+      showInfo(t('profile.upToDate', { v: `v${remote}` }));
+      return;
+    }
+    if (Platform.OS === 'web') {
+      if (window.confirm(t('profile.newVersionBody', { v: remote }))) openStore();
+      return;
+    }
+    Alert.alert(t('profile.newVersionTitle'), t('profile.newVersionBody', { v: remote }), [
+      { text: t('profile.updateLater'), style: 'cancel' },
+      { text: t('profile.updateNow'), onPress: openStore },
+    ]);
+  };
+
+  // 用户隐私规则：打开后端配置的官网隐私外链（不伪造条款正文；未配置时明确提示）
+  const openPrivacy = () => {
+    const base = (appInfo.website || '').trim().replace(/\/+$/, '');
+    if (!base) {
+      showInfo(t('profile.privacyUnset'));
+      return;
+    }
+    const url = /^https?:\/\//i.test(base) ? `${base}/privacy` : `https://${base}/privacy`;
+    WebBrowser.openBrowserAsync(url).catch(() => {
+      Linking.openURL(url).catch(() => showInfo(t('profile.privacyUnset')));
+    });
+  };
+
   const handleSettingPress = (item: SettingItem) => {
     if (item.route) {
       navigation.navigate(item.route);
@@ -238,6 +350,48 @@ export default function ProfileScreen() {
     }
     if (item.key === 'timezone' || item.key === 'notification' || item.key === 'notify') {
       navigation.navigate('NotificationPrefs');
+      return;
+    }
+    // 对齐贝壳设置页的真实能力项
+    if (item.key === 'permissions') {
+      // 系统权限（定位 / 相机 / 通知）只能在系统设置里改；Web 无此能力，给明确提示
+      if (Platform.OS === 'web') {
+        Alert.alert(t('common.hint'), t('profile.permissionsHint'));
+        return;
+      }
+      Linking.openSettings().catch(() => {
+        Alert.alert(t('common.hint'), t('profile.permissionsHint'));
+      });
+      return;
+    }
+    if (item.key === 'clearCache') {
+      // 只清页面数据缓存（cache: 前缀），不触碰登录态与用户偏好
+      clearCache().then(() => Alert.alert(t('common.hint'), t('profile.cacheCleared')));
+      return;
+    }
+    if (item.key === 'checkUpdate') {
+      // 真实比对：本地安装版本 vs 后端公开接口版本（有新版给「立即更新」入口）
+      handleCheckUpdate();
+      return;
+    }
+    if (item.key === 'contactSupport') {
+      // 对齐贝壳：先弹「营业时间 + 呼叫/取消」确认层，再真实拨号
+      confirmCall();
+      return;
+    }
+    if (item.key === 'rate') {
+      // 去应用商店评分（iOS 未上架时明确提示，不跳无效链接）
+      openStore();
+      return;
+    }
+    if (item.key === 'privacyRules') {
+      // 用户隐私规则：打开后端配置的官网隐私外链（不伪造条款正文）
+      openPrivacy();
+      return;
+    }
+    if (item.key === 'report') {
+      // 复用在线客服会话：违规房源与不良信息在此提交
+      openSupport();
       return;
     }
     showNotAvailable(item.label);
@@ -352,6 +506,59 @@ export default function ProfileScreen() {
       color: colors.ink2,
       bg: colors.surface2,
     },
+    // 联系客服：拨号确认弹层 → 真实拨号（电话取自公开接口 /company/info）
+    {
+      key: 'contactSupport',
+      icon: 'headset-outline',
+      label: t('profile.contactSupport'),
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+    // 对齐贝壳设置页：权限设置 / 清理缓存 / 检查更新 / 举报与投诉（均真实可用，非占位）
+    {
+      key: 'permissions',
+      icon: 'shield-checkmark-outline',
+      label: t('profile.permissions'),
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+    {
+      key: 'clearCache',
+      icon: 'trash-outline',
+      label: t('profile.clearCache'),
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+    {
+      key: 'checkUpdate',
+      icon: 'cloud-download-outline',
+      label: t('profile.checkUpdate'),
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+    {
+      key: 'report',
+      icon: 'flag-outline',
+      label: t('profile.report'),
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+    // 去评分：跳应用商店（iOS 未上架时明确提示）
+    {
+      key: 'rate',
+      icon: 'star-outline',
+      label: t('profile.rate'),
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+    // 用户隐私规则：打开后端配置的官网隐私外链（不伪造条款正文）
+    {
+      key: 'privacyRules',
+      icon: 'document-text-outline',
+      label: t('profile.privacyRules'),
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
     {
       key: 'about',
       icon: 'information-circle',
@@ -359,6 +566,16 @@ export default function ProfileScreen() {
       value: versionLabel ? `${companyLabel} ${versionLabel}` : companyLabel,
       color: colors.ink2,
       bg: colors.surface2,
+      route: 'About',
+    },
+    // 版权信息：复用「关于我们」详情页（页脚即版权与注册号）
+    {
+      key: 'copyright',
+      icon: 'ribbon-outline',
+      label: t('profile.copyrightInfo'),
+      color: colors.ink2,
+      bg: colors.surface2,
+      route: 'About',
     },
   ];
 
@@ -367,8 +584,34 @@ export default function ProfileScreen() {
     user?.role === 'agent' || user?.role === 'employee' || user?.role === 'partner_admin'
       ? FUNC_BY_ROLE[user.role] ?? []
       : [];
-  // C 端统一宫格：所有人显示全部入口（不按角色隐藏）；点开无能力的项进「功能暂未开放」空态页
-  const cFuncs = C_FUNC_VISIBLE();
+  // C 端统一宫格：所有人显示全部入口（不按角色隐藏），登录即可进入任意入口
+  const cFuncs = C_FUNC_GRID;
+
+  // 统一设置行渲染（C 端「我的」为基准样式）：图标盒 + 文案 + 真实值 + 箭头。
+  // 业主/租客、员工、管理员三种变体共用同一套行结构，避免各角色样式分叉。
+  const renderSettingItem = (item: SettingItem, idx: number, total: number) => (
+    <TouchableOpacity
+      key={item.key}
+      style={[styles.settingRow, idx < total - 1 && styles.settingRowBorder]}
+      activeOpacity={0.8}
+      onPress={() => handleSettingPress(item)}
+    >
+      <View style={styles.settingLeft}>
+        <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
+          <Ionicons name={item.icon} size={16} color={item.color} />
+        </View>
+        <Text style={styles.settingLabel}>{item.label}</Text>
+      </View>
+      {item.value ? (
+        <Text
+          style={[styles.settingValue, item.valueTone === 'success' && styles.settingValueSuccess]}
+        >
+          {item.value}
+        </Text>
+      ) : null}
+      <Text style={styles.arrow}>›</Text>
+    </TouchableOpacity>
+  );
 
   // 右上角客服入口：未登录点击登录，已登录进入「与平台客服」的 IM 会话
   const openSupport = async () => {
@@ -528,18 +771,8 @@ export default function ProfileScreen() {
                     navigation.navigate('Login');
                     return;
                   }
-                  // 关注 / 浏览历史 / 降价提醒：登录即可用，不受业主/租客能力门槛限制
-                  if (entry.key === 'favorites' || entry.key === 'history' || entry.key === 'priceAlerts') {
-                    navigation.navigate(entry.navigate);
-                    return;
-                  }
-                  const ok = hasFuncCap(isOwner, isTenant, entry.cap);
-                  navigation.navigate(
-                    ok ? entry.navigate : 'FeatureNotAvailable',
-                    ok
-                      ? undefined
-                      : { feature: t(entry.labelKey), hint: entry.needKey ? t(entry.needKey) : undefined },
-                  );
+                  // 业主/租客功能一致：登录后无条件进入对应页面，不再做能力门槛
+                  navigation.navigate(entry.navigate);
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={t(entry.labelKey)}
@@ -556,300 +789,153 @@ export default function ProfileScreen() {
         </>
       )}
 
-      {/* 管理端「我的」设置区块（对齐 admin-mobile-settings.html） */}
+      {/* 管理端「我的」设置区块（样式与 C 端「我的」统一：卡片标题 + 标准设置行） */}
       {isAdmin ? (
         <>
           {/* 账户设置 */}
-          <Text style={styles.settingSectionTitle}>{t('profile.sectionAccount')}</Text>
-          <Card style={styles.settingListCard}>
-            {adminAccountItems.map((item, idx) => (
-              <TouchableOpacity
-                key={item.key}
-                style={[styles.settingRow, idx < adminAccountItems.length - 1 && styles.settingRowBorder]}
-                onPress={() => handleSettingPress(item)}
-              >
-                <View style={styles.settingLeft}>
-                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
-                    <Ionicons name={item.icon} size={16} color={item.color} />
-                  </View>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
-                </View>
-                {item.value ? (
-                  <Text style={styles.settingValue}>{item.value}</Text>
-                ) : null}
-                <Text style={styles.arrow}>›</Text>
-              </TouchableOpacity>
-            ))}
+          <Card title={t('profile.sectionAccount')}>
+            {adminAccountItems.map((item, idx) =>
+              renderSettingItem(item, idx, adminAccountItems.length),
+            )}
           </Card>
 
           {/* 系统设置 */}
-          <Text style={styles.settingSectionTitle}>{t('profile.sectionSystem')}</Text>
-          <Card style={styles.settingListCard}>
-            {adminSystemItems.map((item, idx) => (
-              <TouchableOpacity
-                key={item.key}
-                style={[styles.settingRow, idx < adminSystemItems.length - 1 && styles.settingRowBorder]}
-                onPress={() => handleSettingPress(item)}
-              >
-                <View style={styles.settingLeft}>
-                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
-                    <Ionicons name={item.icon} size={16} color={item.color} />
-                  </View>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
-                </View>
-                {item.value ? (
-                  <Text style={styles.settingValue}>{item.value}</Text>
-                ) : null}
-                <Text style={styles.arrow}>›</Text>
-              </TouchableOpacity>
-            ))}
+          <Card title={t('profile.sectionSystem')}>
+            {adminSystemItems.map((item, idx) =>
+              renderSettingItem(item, idx, adminSystemItems.length),
+            )}
           </Card>
 
           {/* 业务设置 */}
-          <Text style={styles.settingSectionTitle}>{t('profile.sectionBusiness')}</Text>
-          <Card style={styles.settingListCard}>
-            {adminBusinessItems.map((item, idx) => (
-              <TouchableOpacity
-                key={item.key}
-                style={[styles.settingRow, idx < adminBusinessItems.length - 1 && styles.settingRowBorder]}
-                onPress={() => handleSettingPress(item)}
-              >
-                <View style={styles.settingLeft}>
-                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
-                    <Ionicons name={item.icon} size={16} color={item.color} />
-                  </View>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
-                </View>
-                {item.value ? (
-                  <Text
-                    style={[
-                      styles.settingValue,
-                      item.valueTone === 'success' && styles.settingValueSuccess,
-                    ]}
-                  >
-                    {item.value}
-                  </Text>
-                ) : null}
-                <Text style={styles.arrow}>›</Text>
-              </TouchableOpacity>
-            ))}
+          <Card title={t('profile.sectionBusiness')}>
+            {adminBusinessItems.map((item, idx) =>
+              renderSettingItem(item, idx, adminBusinessItems.length),
+            )}
           </Card>
 
           {/* 系统管理：账号管理 + 角色权限（对齐 Web 侧边栏「系统」组） */}
-          <Text style={styles.settingSectionTitle}>{t('acc.sectionSystem')}</Text>
-          <Card style={styles.settingListCard}>
+          <Card title={t('acc.sectionSystem')}>
+            {renderSettingItem(
+              {
+                key: 'accounts',
+                icon: 'people',
+                label: t('acc.title'),
+                color: colors.primary,
+                bg: colors.sidebarActive,
+                route: 'AdminUsers',
+              },
+              0,
+              2,
+            )}
+            {renderSettingItem(
+              {
+                key: 'permissions',
+                icon: 'key',
+                label: t('perm.entry'),
+                color: colors.primary,
+                bg: colors.sidebarActive,
+                route: 'AdminPermissions',
+              },
+              1,
+              2,
+            )}
+          </Card>
+
+          {/* 合同管理（员工/管理端共用入口，行样式与 C 端一致） */}
+          <Card title={t('profile.contractsTitle')}>
             <TouchableOpacity
               style={[styles.settingRow, styles.settingRowBorder]}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate('AdminUsers')}
+              onPress={() => navigation.navigate('Contracts')}
             >
               <View style={styles.settingLeft}>
                 <View style={[styles.settingIconBox, { backgroundColor: colors.sidebarActive }]}>
-                  <Ionicons name="people" size={16} color={colors.primary} />
+                  <Ionicons name="document-text" size={16} color={colors.primary} />
                 </View>
-                <Text style={styles.settingLabel}>{t('acc.title')}</Text>
+                <View style={styles.settingTextCol}>
+                  <Text style={styles.settingLabelCol}>{t('profile.contracts')}</Text>
+                  <Text style={styles.settingDesc}>{t('contract.entryManageDesc')}</Text>
+                </View>
               </View>
               <Text style={styles.arrow}>›</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.settingRow}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate('AdminPermissions')}
+              onPress={() => navigation.navigate('AdminLeases')}
             >
               <View style={styles.settingLeft}>
                 <View style={[styles.settingIconBox, { backgroundColor: colors.sidebarActive }]}>
-                  <Ionicons name="key" size={16} color={colors.primary} />
+                  <Ionicons name="document-text" size={16} color={colors.primary} />
                 </View>
-                <Text style={styles.settingLabel}>{t('perm.entry')}</Text>
+                <View style={styles.settingTextCol}>
+                  <Text style={styles.settingLabelCol}>{t('profile.leasesManage')}</Text>
+                  <Text style={styles.settingDesc}>{t('profile.contractsDesc')}</Text>
+                </View>
               </View>
               <Text style={styles.arrow}>›</Text>
             </TouchableOpacity>
           </Card>
 
-          {/* 电子合同管理入口（员工/管理端共用） */}
-          <TouchableOpacity
-            style={styles.employeeEntry}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('Contracts')}
-          >
-            <View style={styles.employeeIcon}>
-              <Ionicons name="document-text" size={18} color={colors.primary} />
-            </View>
-            <View style={styles.employeeInfo}>
-              <Text style={styles.employeeTitle}>{t('profile.contracts')}</Text>
-              <Text style={styles.employeeDesc}>{t('contract.entryManageDesc')}</Text>
-            </View>
-            <Text style={styles.arrow}>›</Text>
-          </TouchableOpacity>
-
-          {/* 合同管理入口 */}
-          <TouchableOpacity
-            style={styles.employeeEntry}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('AdminLeases')}
-          >
-            <View style={styles.employeeIcon}>
-              <Ionicons name="document-text" size={18} color={colors.primary} />
-            </View>
-            <View style={styles.employeeInfo}>
-              <Text style={styles.employeeTitle}>{t('profile.contractsTitle')}</Text>
-              <Text style={styles.employeeDesc}>{t('profile.contractsDesc')}</Text>
-            </View>
-            <Text style={styles.arrow}>›</Text>
-          </TouchableOpacity>
-
           {/* 关于 */}
-          <Text style={styles.settingSectionTitle}>{t('profile.sectionAbout')}</Text>
-          <Card style={styles.settingListCard}>
-            {adminAboutItems.map((item, idx) => (
-              <TouchableOpacity
-                key={item.key}
-                style={[styles.settingRow, idx < adminAboutItems.length - 1 && styles.settingRowBorder]}
-                onPress={() => handleSettingPress(item)}
-              >
-                <View style={styles.settingLeft}>
-                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
-                    <Ionicons name={item.icon} size={16} color={item.color} />
-                  </View>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
-                </View>
-                {item.value ? (
-                  <Text style={styles.settingValue}>{item.value}</Text>
-                ) : null}
-                <Text style={styles.arrow}>›</Text>
-              </TouchableOpacity>
-            ))}
+          <Card title={t('profile.sectionAbout')}>
+            {adminAboutItems.map((item, idx) =>
+              renderSettingItem(item, idx, adminAboutItems.length),
+            )}
           </Card>
         </>
       ) : isStaff ? (
         <>
-          {/* 常用功能（按角色差异化） */}
-          <Card title={t('profile.commonFuncs')}>
-            {entries.map((entry, idx) => (
+          {/* 常用功能（与 C 端统一：区块标题 + 统一宫格） */}
+          <Text style={styles.sectionTitle}>{t('profile.commonFuncs')}</Text>
+          <View style={styles.serviceGrid}>
+            {entries.map((entry) => (
               <TouchableOpacity
                 key={entry.key}
-                style={[styles.settingRow, idx < entries.length - 1 && styles.settingRowBorder]}
+                style={styles.serviceCell}
+                activeOpacity={0.8}
                 onPress={() => navigation.navigate(entry.navigate)}
+                accessibilityRole="button"
+                accessibilityLabel={t(entry.labelKey)}
               >
-                <View style={styles.settingLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: colors.sidebarActive }]}>
-                    <Ionicons name={entry.icon} size={17} color={colors.primary} />
-                  </View>
-                  <Text style={styles.settingLabel}>{t(entry.labelKey)}</Text>
+                <View style={styles.serviceIcon}>
+                  <Ionicons name={entry.icon} size={20} color={colors.primary} />
                 </View>
-                <Text style={styles.arrow}>›</Text>
+                <Text style={styles.serviceLabel} numberOfLines={1}>
+                  {t(entry.labelKey)}
+                </Text>
               </TouchableOpacity>
             ))}
-          </Card>
+          </View>
 
-          {/* 账户设置（对齐管理员端「我的」：修改密码/绑定手机/绑定邮箱） */}
-          <Text style={styles.settingSectionTitle}>{t('profile.sectionAccount')}</Text>
-          <Card style={styles.settingListCard}>
-            {adminAccountItems.map((item, idx) => (
-              <TouchableOpacity
-                key={item.key}
-                style={[styles.settingRow, idx < adminAccountItems.length - 1 && styles.settingRowBorder]}
-                onPress={() => handleSettingPress(item)}
-              >
-                <View style={styles.settingLeft}>
-                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
-                    <Ionicons name={item.icon} size={16} color={item.color} />
-                  </View>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
-                </View>
-                {item.value ? (
-                  <Text style={styles.settingValue}>{item.value}</Text>
-                ) : null}
-                <Text style={styles.arrow}>›</Text>
-              </TouchableOpacity>
-            ))}
+          {/* 账户设置（修改密码/绑定手机/绑定邮箱） */}
+          <Card title={t('profile.sectionAccount')}>
+            {adminAccountItems.map((item, idx) =>
+              renderSettingItem(item, idx, adminAccountItems.length),
+            )}
           </Card>
 
           {/* 系统设置（语言/时区/通知设置） */}
-          <Text style={styles.settingSectionTitle}>{t('profile.sectionSystem')}</Text>
-          <Card style={styles.settingListCard}>
-            {adminSystemItems.map((item, idx) => (
-              <TouchableOpacity
-                key={item.key}
-                style={[styles.settingRow, idx < adminSystemItems.length - 1 && styles.settingRowBorder]}
-                onPress={() => handleSettingPress(item)}
-              >
-                <View style={styles.settingLeft}>
-                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
-                    <Ionicons name={item.icon} size={16} color={item.color} />
-                  </View>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
-                </View>
-                {item.value ? (
-                  <Text
-                    style={[
-                      styles.settingValue,
-                      item.valueTone === 'success' && styles.settingValueSuccess,
-                    ]}
-                  >
-                    {item.value}
-                  </Text>
-                ) : null}
-                <Text style={styles.arrow}>›</Text>
-              </TouchableOpacity>
-            ))}
+          <Card title={t('profile.sectionSystem')}>
+            {adminSystemItems.map((item, idx) =>
+              renderSettingItem(item, idx, adminSystemItems.length),
+            )}
           </Card>
 
           {/* 关于（版本/用户协议/隐私政策） */}
-          <Text style={styles.settingSectionTitle}>{t('profile.sectionAbout')}</Text>
-          <Card style={styles.settingListCard}>
-            {adminAboutItems.map((item, idx) => (
-              <TouchableOpacity
-                key={item.key}
-                style={[styles.settingRow, idx < adminAboutItems.length - 1 && styles.settingRowBorder]}
-                onPress={() => handleSettingPress(item)}
-              >
-                <View style={styles.settingLeft}>
-                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
-                    <Ionicons name={item.icon} size={16} color={item.color} />
-                  </View>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
-                </View>
-                {item.value ? (
-                  <Text style={styles.settingValue}>{item.value}</Text>
-                ) : null}
-                <Text style={styles.arrow}>›</Text>
-              </TouchableOpacity>
-            ))}
+          <Card title={t('profile.sectionAbout')}>
+            {adminAboutItems.map((item, idx) =>
+              renderSettingItem(item, idx, adminAboutItems.length),
+            )}
           </Card>
         </>
       ) : isGuest ? null : (
         <>
           {/* 设置（租客对齐业主端：账号与安全/语言/通知/帮助/关于；增值服务在「我的服务」宫格，消息在底部 Tab，均不重复） */}
           <Card title={t('profile.settings')}>
-            {ownerSettingItems.map((item, idx) => (
-              <TouchableOpacity
-                key={item.key}
-                style={[
-                  styles.settingRow,
-                  idx < ownerSettingItems.length - 1 && styles.settingRowBorder,
-                ]}
-                onPress={() => handleSettingPress(item)}
-              >
-                <View style={styles.settingLeft}>
-                  <View style={[styles.settingIconBox, { backgroundColor: item.bg }]}>
-                    <Ionicons name={item.icon} size={16} color={item.color} />
-                  </View>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
-                </View>
-                {item.value ? (
-                  <Text
-                    style={[
-                      styles.settingValue,
-                      item.valueTone === 'success' && styles.settingValueSuccess,
-                    ]}
-                  >
-                    {item.value}
-                  </Text>
-                ) : null}
-                <Text style={styles.arrow}>›</Text>
-              </TouchableOpacity>
-            ))}
+            {ownerSettingItems.map((item, idx) =>
+              renderSettingItem(item, idx, ownerSettingItems.length),
+            )}
           </Card>
         </>
       )}
@@ -875,19 +961,13 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
 
-  /* ===== 顶部浅色顶栏（标题 + 右上角客服，对齐贝壳导航栏右上角客服入口） ===== */
+  /* ===== 顶部浅色顶栏（仅右上角客服，对齐贝壳导航栏右上角客服入口） ===== */
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
-  },
-  topBarTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
-    letterSpacing: -0.02,
   },
 
   /* ===== 用户区（未登录：直接平铺在页面背景上，无胶囊外壳 —— 对齐贝壳） ===== */
@@ -1019,20 +1099,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 
-  /* ===== 管理端设置区块（对齐 admin-mobile-settings.html） ===== */
-  settingSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.ink,
-    letterSpacing: -0.2,
-    marginHorizontal: 12,
-    marginTop: 18,
-    marginBottom: 4,
-  },
-  settingListCard: {
-    paddingVertical: 4,
-    paddingHorizontal: 16,
-  },
+  /* ===== 设置区块（统一：卡片标题 + 设置行，C 端「我的」为基准样式） ===== */
   settingIconBox: {
     width: 30,
     height: 30,
@@ -1045,30 +1112,10 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontWeight: '600',
   },
-  employeeEntry: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginHorizontal: 12,
-    marginTop: 12,
-    padding: 14,
-    backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    ...colors.shadow.card,
-  },
-  employeeIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: colors.radius.md,
-    backgroundColor: colors.sidebarActive,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  employeeInfo: { flex: 1, minWidth: 0 },
-  employeeTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  employeeDesc: { fontSize: 13, color: colors.ink3, marginTop: 2 },
+  /* 两行设置项（文案 + 说明）：与单行设置项共用同一行结构与图标盒 */
+  settingTextCol: { flex: 1, minWidth: 0 },
+  settingLabelCol: { fontSize: 14, color: colors.text },
+  settingDesc: { fontSize: 12, color: colors.ink3, marginTop: 2 },
   footerText: {
     textAlign: 'center',
     fontSize: 13,
@@ -1130,14 +1177,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-  },
-  iconBox: {
-    width: 30,
-    height: 30,
-    borderRadius: colors.radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
   },
   settingLabel: {
     fontSize: 14,

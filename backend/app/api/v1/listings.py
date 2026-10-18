@@ -34,6 +34,8 @@ from app.models import (
     PropertyDedupeReview,
     DuplicateMatchType,
     ReviewStatus,
+    Document,
+    DocumentType,
 )
 from app.services import dedupe_service, commission_rates
 
@@ -69,6 +71,9 @@ _COMMISSION_FIELDS = (
 
 class ListingCreate(BaseModel):
     # 房源档案信息
+    # 指定已有档案上架（「房源管理 → 上架」入口）：传了就跳过去重模糊匹配，
+    # 直接定位该档案并按归属校验；不传则沿用原去重流程。
+    property_id: Optional[uuid.UUID] = None
     project_id: Optional[uuid.UUID] = None
     owner_id: Optional[uuid.UUID] = None
     room_number: str
@@ -84,9 +89,25 @@ class ListingCreate(BaseModel):
     furnished: bool = False
     available_from: Optional[datetime] = None
     video_url: Optional[str] = None
+    # VR 看房与商业/工业专项字段：命中已有档案时不覆盖，仅新建档案时落 Property
+    # （公开筛选 whole_floor_only / company_registrable 等与 C 端卡片均读 Property）
+    vr_url: Optional[str] = None
+    ceiling_height_m: Optional[float] = None
+    land_area_sqm: Optional[float] = None
+    floor_loading_kg_sqm: Optional[float] = None
+    column_spacing: Optional[str] = None
+    power_capacity_kva: Optional[float] = None
+    environmental_permit: Optional[bool] = None
+    whole_floor_only: Optional[bool] = None
+    whole_building_only: Optional[bool] = None
+    company_registrable: Optional[bool] = None
 
     # 上架类型与价格
     listing_type: ListingType = ListingType.rent
+    is_new_development: bool = False  # 新房/二手房（仅 sell 有意义，rent 恒 False）
+    # C 端卡片标签：优选（平台推荐位）与房东直租（无中介加价），发布/编辑表单开关
+    is_featured: bool = False
+    owner_direct: bool = False
     asking_price: Optional[float] = None  # sell 必填
     monthly_rent: Optional[float] = None  # rent 必填
     currency: str = "THB"
@@ -132,6 +153,9 @@ class ListingUpdate(BaseModel):
     broker_line: Optional[str] = None
     broker_whatsapp: Optional[str] = None
     status: Optional[ListingStatus] = None
+    is_new_development: Optional[bool] = None
+    is_featured: Optional[bool] = None
+    owner_direct: Optional[bool] = None
 
 
 def _apply_split_sides(
@@ -210,6 +234,9 @@ def _serialize(
         "publisher_broker_id": str(li.publisher_broker_id) if li.publisher_broker_id else None,
         "owner_id": str(li.owner_id),
         "status": li.status.value if li.status else None,
+        "is_new_development": bool(li.is_new_development),
+        "is_featured": bool(li.is_featured),
+        "owner_direct": bool(li.owner_direct),
         "asking_price": li.asking_price,
         "monthly_rent": li.monthly_rent,
         "currency": li.currency,
@@ -463,13 +490,32 @@ def create_listing(
     )
 
     # ---------- 去重定位档案 ----------
-    dedupe = dedupe_service.resolve(
-        session,
-        project_id=req.project_id,
-        building=req.building,
-        room_number=req.room_number,
-        address=req.address,
-    )
+    if req.property_id:
+        # 指定档案上架（「房源管理 → 上架」入口）：直接定位该档案，跳过 fuzzy
+        # 相似度匹配，去重只判「同档案 + 同类型是否已有有效上架单」。
+        prop = session.get(Property, req.property_id)
+        if not prop or prop.deleted_at:
+            raise HTTPException(status_code=404, detail="Property not found")
+        # 归属校验：只允许上架归属于该业主的档案
+        if prop.owner_id != owner_id:
+            raise HTTPException(
+                status_code=400, detail="该房源不属于当前用户，无法发布上架单"
+            )
+        dedupe = {
+            "existing": prop,
+            "fuzzy": [],
+            "dedupe_type": None,
+            "dedupe_key": None,
+            "address_norm": None,
+        }
+    else:
+        dedupe = dedupe_service.resolve(
+            session,
+            project_id=req.project_id,
+            building=req.building,
+            room_number=req.room_number,
+            address=req.address,
+        )
 
     if dedupe["existing"] is not None:
         prop = dedupe["existing"]
@@ -513,12 +559,44 @@ def create_listing(
             furnished=req.furnished,
             available_from=req.available_from,
             video_url=req.video_url,
+            vr_url=req.vr_url,
+            ceiling_height_m=req.ceiling_height_m,
+            land_area_sqm=req.land_area_sqm,
+            floor_loading_kg_sqm=req.floor_loading_kg_sqm,
+            column_spacing=req.column_spacing,
+            power_capacity_kva=req.power_capacity_kva,
+            environmental_permit=req.environmental_permit,
+            whole_floor_only=req.whole_floor_only,
+            whole_building_only=req.whole_building_only,
+            company_registrable=req.company_registrable,
             dedupe_type=dedupe["dedupe_type"],
             dedupe_key=dedupe["dedupe_key"],
             address_norm=dedupe["address_norm"],
         )
         session.add(prop)
         existing_dedupe_state = DedupeState.new
+
+    # ---------- 业主上架证件 ----------
+    # 业主只能上架自己名下房源，且必须已上传「产权证 + 业主身份证明」（复用
+    # Document 的 property_id 关联到该档案，不新增 Listing 列）。
+    # 经纪/销售代客上架（publisher=broker）不受此限制。
+    if publisher == PublisherType.owner:
+        required_proofs = {
+            DocumentType.property_certificate,
+            DocumentType.owner_id_card,
+        }
+        proof_docs = session.exec(
+            select(Document).where(
+                Document.owner_id == owner_id,
+                Document.property_id == prop.id,
+                Document.type.in_(list(required_proofs)),
+                Document.deleted_at.is_(None),
+            )
+        ).all()
+        if required_proofs - {doc.type for doc in proof_docs}:
+            raise HTTPException(
+                status_code=400, detail="请先上传产权证与业主身份证明"
+            )
 
     # ---------- 分佣默认值 ----------
     if publisher == PublisherType.owner:
@@ -538,6 +616,8 @@ def create_listing(
     # 已由发布方身份解析出的字段从 payload 剔除，避免覆盖显式传参
     payload.pop("owner_id", None)
     payload.pop("project_id", None)
+    # property_id 已由去重定位解析为 prop.id，此处剔除避免与显式传参重复
+    payload.pop("property_id", None)
     payload.pop("listing_type", None)  # 下方用 req.listing_type 显式传入，避免重复关键字
 
     listing = Listing(

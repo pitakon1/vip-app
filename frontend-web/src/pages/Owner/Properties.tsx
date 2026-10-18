@@ -67,6 +67,35 @@ const bannerColorFor = (seed: string) => {
 
 const formatRent = (v: any) => Number(v || 0).toLocaleString()
 
+// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
+const buildListingPayload = (p: any) => ({
+  property_id: p.id,
+  room_number: p.room_number || p.address || '-',
+  address: p.address || p.room_number || '-',
+  property_type: p.property_type || 'apartment',
+  size_sqm: p.size_sqm ?? undefined,
+  bedrooms: p.bedrooms ?? undefined,
+  bathrooms: p.bathrooms ?? undefined,
+  description: p.description || undefined,
+  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
+  furnished: !!p.furnished,
+  video_url: p.video_url || undefined,
+  vr_url: p.vr_url || undefined,
+  ceiling_height_m: p.ceiling_height_m ?? undefined,
+  land_area_sqm: p.land_area_sqm ?? undefined,
+  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
+  column_spacing: p.column_spacing || undefined,
+  power_capacity_kva: p.power_capacity_kva ?? undefined,
+  environmental_permit: p.environmental_permit ?? undefined,
+  whole_floor_only: p.whole_floor_only ?? undefined,
+  whole_building_only: p.whole_building_only ?? undefined,
+  company_registrable: p.company_registrable ?? undefined,
+  listing_type: 'rent',
+  monthly_rent: Number(p.monthly_rent || 0),
+  currency: p.currency || 'THB',
+  owner_id: p.owner_id || undefined,
+})
+
 const statusLabelMap: Record<string, string> = {
   vacant: 'ownerProperties.stVacant',
   rented: 'ownerProperties.stRented',
@@ -82,6 +111,7 @@ const propertyTypeMap: Record<string, string> = {
   shop: 'ownerProperties.typeShop',
   commercial: 'ownerProperties.typeCommercial',
   office: 'ownerProperties.typeOffice',
+  factory: 'ownerProperties.typeFactory',
 }
 
 const Properties = () => {
@@ -136,6 +166,10 @@ const Properties = () => {
   const [editingRecord, setEditingRecord] = useState<OwnerProperty | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm()
+  // 表单内的房源类型：用于差异化渲染（住宅 / 商办 / 厂房）专项字段
+  const formPropertyType = Form.useWatch('property_type', form) as string | undefined
+  const isFormCommercial = ['shop', 'commercial', 'office'].includes(formPropertyType || '')
+  const isFormFactory = formPropertyType === 'factory'
   // 照片 url 列表（仅编辑态可上传；随 handleSubmit 一并提交）
   const [photos, setPhotos] = useState<string[]>([])
   // 打开编辑时的基线照片（取消时回滚会话内新增的照片）
@@ -311,6 +345,16 @@ const Properties = () => {
       furnished: editingRecord.furnished ?? false,
       description: editingRecord.description || undefined,
       video_url: editingRecord.video_url || undefined,
+      vr_url: editingRecord.vr_url || undefined,
+      ceiling_height_m: editingRecord.ceiling_height_m ?? undefined,
+      company_registrable: editingRecord.company_registrable ?? false,
+      land_area_sqm: editingRecord.land_area_sqm ?? undefined,
+      floor_loading_kg_sqm: editingRecord.floor_loading_kg_sqm ?? undefined,
+      column_spacing: editingRecord.column_spacing || undefined,
+      power_capacity_kva: editingRecord.power_capacity_kva ?? undefined,
+      environmental_permit: editingRecord.environmental_permit ?? false,
+      whole_floor_only: editingRecord.whole_floor_only ?? false,
+      whole_building_only: editingRecord.whole_building_only ?? false,
     })
   }, [modalOpen, editingRecord, form])
 
@@ -331,6 +375,30 @@ const Properties = () => {
           )
         } catch (err: any) {
           message.error(err?.response?.data?.detail || t('ownerProperties.errDeleteFailed'))
+        }
+      },
+    })
+  }
+
+  // 一键上架（唯一上架入口）：直接按该房源档案生成上架单
+  const handlePublish = (item: OwnerProperty) => {
+    if (Number(item.monthly_rent || 0) <= 0) {
+      message.warning(t('listing.listManualRent'))
+      return
+    }
+    Modal.confirm({
+      title: t('listing.confirmListTitle'),
+      icon: <ExclamationCircleOutlined />,
+      content: t('listing.confirmListBody'),
+      okText: t('listing.actionList'),
+      cancelText: t('common.cancel'),
+      onOk: async () => {
+        try {
+          await api.post('/listings', buildListingPayload(item))
+          message.success(t('listing.listedOk'))
+        } catch (err: any) {
+          const detail = err?.response?.data?.detail
+          message.error(typeof detail === 'string' && detail ? detail : err?.response?.data?.message || t('ownerProperties.errSaveFailed'))
         }
       },
     })
@@ -465,8 +533,15 @@ const Properties = () => {
             {t('ownerProperties.viewDetail')}
           </a>
           <button
+            className="rent-btn rent-btn--primary rent-btn--sm"
+            onClick={(e) => { e.stopPropagation(); handlePublish(item) }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
+            {t('listing.actionList')}
+          </button>
+          <button
             className="rent-btn rent-btn--ghost rent-btn--sm"
-            onClick={(e) => { e.stopPropagation(); navigate('/owner/marketing') }}
+            onClick={(e) => { e.stopPropagation(); navigate('/tenant/marketing') }}
           >
             {t('ownerProperties.entrustListing')}
           </button>
@@ -501,7 +576,7 @@ const Properties = () => {
           <p className="rent-page-header__subtitle">{t('ownerProperties.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
-          <button type="button" className="rent-btn rent-btn--primary" onClick={() => navigate('/owner/marketing')}>
+          <button type="button" className="rent-btn rent-btn--primary" onClick={() => navigate('/tenant/marketing')}>
             {t('ownerProperties.entrustListing')}
           </button>
           <button type="button" className="rent-btn rent-btn--primary" onClick={openCreate}>
@@ -838,6 +913,63 @@ const Properties = () => {
           <Form.Item label={t('ownerProperties.labelVideoUrl')} name="video_url">
             <Input placeholder="https://..." allowClear />
           </Form.Item>
+          <Form.Item label={t('publishListing.lblVrUrl')} name="vr_url">
+            <Input placeholder="https://..." allowClear />
+          </Form.Item>
+
+          {/* 商办专项：层高 + 可注册公司 */}
+          {isFormCommercial && (
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label={t('publishListing.lblCeilingHeight')} name="ceiling_height_m">
+                  <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblCeilingHeight')} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label={t('publishListing.lblCompanyRegistrable')} name="company_registrable" valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
+
+          {/* 厂房专项 */}
+          {isFormFactory && (
+            <>
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item label={t('publishListing.lblLandArea')} name="land_area_sqm">
+                    <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblLandArea')} />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item label={t('publishListing.lblFloorLoading')} name="floor_loading_kg_sqm">
+                    <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblFloorLoading')} />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item label={t('publishListing.lblColumnSpacing')} name="column_spacing">
+                    <Input placeholder={t('publishListing.lblColumnSpacing')} allowClear />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item label={t('publishListing.lblPowerCapacity')} name="power_capacity_kva">
+                    <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblPowerCapacity')} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={8}><Form.Item label={t('publishListing.lblEnvironmentalPermit')} name="environmental_permit" valuePropName="checked"><Switch /></Form.Item></Col>
+                <Col span={8}><Form.Item label={t('publishListing.lblWholeFloorOnly')} name="whole_floor_only" valuePropName="checked"><Switch /></Form.Item></Col>
+                <Col span={8}><Form.Item label={t('publishListing.lblWholeBuildingOnly')} name="whole_building_only" valuePropName="checked"><Switch /></Form.Item></Col>
+              </Row>
+              <Form.Item label={t('publishListing.lblCompanyRegistrable')} name="company_registrable" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </>
+          )}
         </Form>
       </Modal>
     </div>

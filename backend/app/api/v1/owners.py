@@ -10,7 +10,7 @@ from sqlalchemy import false, func, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import require_employee, require_owner
+from app.core.auth import get_current_user, require_employee
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.payments import is_past_due
 from app.models import (
@@ -24,6 +24,7 @@ from app.models import (
     PaymentStatus,
     School,
     User,
+    UserRole,
 )
 from app.providers.geo import haversine_km, lat_lng_bounds
 from app.schemas.owners import AnnualFinancialSummaryOut, OwnerIncomeOut
@@ -104,23 +105,24 @@ class PricingSuggestionOut(BaseModel):
     market: Optional[PricingMarketOut] = None
 
 
-def _get_owner(session: Session, user: User) -> Owner:
-    """根据当前用户获取业主记录。"""
-    owner = session.exec(
+def _get_owner_or_none(session: Session, user: User) -> Optional[Owner]:
+    """根据当前用户获取业主记录，未建档返回 None（不抛 404）。
+
+    C 端「业主/租客功能一致」后，租客（或尚未建业主档案的账号）也会进入
+    业主功能页——这类页面必须给出空态，不能报 404。
+    """
+    return session.exec(
         select(Owner).where(
             Owner.user_id == user.id,
             Owner.deleted_at.is_(None),
         )
     ).first()
-    if not owner:
-        raise HTTPException(status_code=404, detail="Owner profile not found")
-    return owner
 
 
 @router.get("/me/properties", response_model=List[Property])
 def get_my_properties(
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
     school_id: Optional[uuid.UUID] = None,
     school_radius_km: float = 3.0,
 ):
@@ -138,6 +140,10 @@ def get_my_properties(
     conditions = [Property.deleted_at.is_(None)]
     if owner:
         conditions.append(Property.owner_id == owner.id)
+    elif user.role != UserRole.admin:
+        # 放宽 guard 后非 admin 也可能调用本接口：未建档时必须显式置空，
+        # 否则「没有 owner 条件」会退化成返回全平台房源（越权）。
+        conditions.append(false())
     # 按学校找房（复用 /properties 的空间筛选逻辑，与 C 端口径对齐）
     if school_id:
         school = session.get(School, school_id)
@@ -177,10 +183,12 @@ def get_my_properties(
 @router.get("/me/documents", response_model=List[Document])
 def get_my_documents(
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
 ):
-    """业主的文档列表（合同、收据、税务发票等）。"""
-    owner = _get_owner(session, user)
+    """业主的文档列表（合同、收据、税务发票等）；未建档返回空列表。"""
+    owner = _get_owner_or_none(session, user)
+    if not owner:
+        return []
     documents = session.exec(
         select(Document)
         .where(Document.owner_id == owner.id, Document.deleted_at.is_(None))
@@ -192,7 +200,7 @@ def get_my_documents(
 @router.get("/me/income", response_model=OwnerIncomeOut)
 def get_my_income(
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
 ):
     """租金收入汇总 + 待收/逾期闭环。
 
@@ -211,6 +219,9 @@ def get_my_income(
     conditions = [Property.deleted_at.is_(None)]
     if owner:
         conditions.append(Property.owner_id == owner.id)
+    elif user.role != UserRole.admin:
+        # 同 /me/properties：未建档的非 admin 必须置空，避免退化为全量聚合。
+        conditions.append(false())
     properties = session.exec(select(Property).where(*conditions)).all()
 
     property_ids = [p.id for p in properties]
@@ -320,10 +331,12 @@ def _my_properties(session: Session, owner: Owner) -> list:
 @router.get("/me/marketing", response_model=MarketingOut)
 def get_marketing(
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
 ):
     """房源营销推广：空置房源一览并生成分享链接（链接由前端拼装）。"""
-    owner = _get_owner(session, user)
+    owner = _get_owner_or_none(session, user)
+    if not owner:
+        return {"items": [], "total_vacant": 0, "total_properties": 0}
     properties = _my_properties(session, owner)
     vacant = [
         p for p in properties if p.status in (PropertyStatus.vacant, PropertyStatus.maintenance)
@@ -354,10 +367,12 @@ def get_marketing(
 @router.get("/me/pricing-suggestion", response_model=PricingSuggestionOut)
 def get_pricing_suggestion(
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
 ):
     """自动定价建议：取同项目/同户型的在租与在售房源月租中位数作为比对基准。"""
-    owner = _get_owner(session, user)
+    owner = _get_owner_or_none(session, user)
+    if not owner:
+        return {"items": [], "market": None}
     properties = _my_properties(session, owner)
     if not properties:
         return {"items": [], "market": None}
@@ -416,13 +431,19 @@ def get_pricing_suggestion(
 def get_annual_financial_summary(
     year: int | None = None,
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
 ):
     """年度财务汇总：按月份统计已收租金/其他收入/逾期，形成房东年度对账导出数据。"""
-    owner = _get_owner(session, user)
-    properties = _my_properties(session, owner)
     if not year:
         year = datetime.utcnow().year
+    owner = _get_owner_or_none(session, user)
+    if not owner:
+        return {
+            "year": year,
+            "by_month": [],
+            "totals": {"received": 0, "pending": 0, "overdue": 0, "count": 0},
+        }
+    properties = _my_properties(session, owner)
     if not properties:
         # 无房源时也要给出完整口径（此前缺 pending/count，前端会拿到 undefined）
         return {

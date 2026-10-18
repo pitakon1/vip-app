@@ -31,6 +31,7 @@ from app.models import (
     Property,
     PropertyStatus,
     Lease,
+    Listing,
     Owner,
     Project,
     School,
@@ -94,7 +95,8 @@ class PropertyCreate(BaseModel):
     building: Optional[str] = None
     address: str
     property_type: str = "apartment"
-    monthly_rent: float
+    # 租金仅租侧有值：纯售房源（如厂房出售）允许为空，与模型一致（NULL = 无租侧）
+    monthly_rent: Optional[float] = None
     currency: str = "THB"
     deposit_amount: float = 0
     deposit_months: int = 2
@@ -110,6 +112,18 @@ class PropertyCreate(BaseModel):
     amenities: Optional[List[str]] = None
     available_from: Optional[datetime] = None
     video_url: Optional[str] = None
+    # VR 看房（外链）与商业/工业专项字段：C 端「商铺办公 / 厂房」上传界面按类型录入，
+    # 与 models.Property 同名，全部可选（住宅类房源不填即为 NULL，不编造）
+    vr_url: Optional[str] = None
+    ceiling_height_m: Optional[float] = None
+    land_area_sqm: Optional[float] = None
+    floor_loading_kg_sqm: Optional[float] = None
+    column_spacing: Optional[str] = None
+    power_capacity_kva: Optional[float] = None
+    environmental_permit: Optional[bool] = None
+    whole_floor_only: Optional[bool] = None
+    whole_building_only: Optional[bool] = None
+    company_registrable: Optional[bool] = None
 
 
 class PropertyUpdate(BaseModel):
@@ -136,6 +150,16 @@ class PropertyUpdate(BaseModel):
     amenities: Optional[List[str]] = None
     available_from: Optional[datetime] = None
     video_url: Optional[str] = None
+    vr_url: Optional[str] = None
+    ceiling_height_m: Optional[float] = None
+    land_area_sqm: Optional[float] = None
+    floor_loading_kg_sqm: Optional[float] = None
+    column_spacing: Optional[str] = None
+    power_capacity_kva: Optional[float] = None
+    environmental_permit: Optional[bool] = None
+    whole_floor_only: Optional[bool] = None
+    whole_building_only: Optional[bool] = None
+    company_registrable: Optional[bool] = None
     # 可选乐观锁：客户端传回读到的 version，服务端不一致则 409 拒绝覆盖
     version: Optional[int] = None
 
@@ -284,8 +308,15 @@ def _keyword_conditions(terms: List[str]) -> list:
 def list_properties(
     pagination: PaginationParams = Depends(),
     status: Optional[PropertyStatus] = None,
-    property_type: Optional[str] = Query(
-        None, max_length=50, description="房源类型 apartment/house/condo/commercial"
+    property_type: Optional[List[str]] = Query(
+        None,
+        description=(
+            "房源类型（多值，任一命中）：apartment/condo/villa/house/office/shop/factory。"
+            "如「商铺办公」传 office+shop、「厂房」传 factory"
+        ),
+    ),
+    is_new_development: Optional[bool] = Query(
+        None, description="新房/二手房：true=新房（一手房），false=二手房，不传=全部"
     ),
     project_id: Optional[uuid.UUID] = None,
     school_id: Optional[uuid.UUID] = Query(
@@ -346,7 +377,8 @@ def list_properties(
     sort = resolve_sort(sort, terms, allowed=_PROPERTY_SORTS)
     cache_key = (
         f"cache:properties:list:{pagination.page}:{pagination.page_size}:"
-        f"{status.value if status else ''}:{property_type or ''}:{project_id or ''}:{owner_id or ''}:"
+        f"{status.value if status else ''}:{'|'.join(property_type or [])}:{is_new_development}:"
+        f"{project_id or ''}:{owner_id or ''}:"
         f"{school_id or ''}:{school_radius_km}:"
         f"{country or ''}:{province or ''}:{city or ''}:{district or ''}:{subway or ''}:"
         f"{'|'.join(terms)}:{price_min}:{price_max}:{area_min}:{area_max}:"
@@ -373,7 +405,21 @@ def list_properties(
     if status:
         conditions.append(Property.status == status)
     if property_type:
-        conditions.append(Property.property_type == property_type)
+        types = [t.strip() for t in property_type if t and t.strip()]
+        if types:
+            conditions.append(Property.property_type.in_(types))
+    # 新房/二手房标记在「上架单」上（见 models/listing.py）：用 EXISTS 子查询过滤，
+    # 避免 join 造成行膨胀（同一房源可有多份上架单）。
+    if is_new_development is not None:
+        conditions.append(
+            exists(
+                select(Listing.id).where(
+                    Listing.property_id == Property.id,
+                    Listing.deleted_at.is_(None),
+                    Listing.is_new_development == is_new_development,
+                )
+            )
+        )
     if project_id:
         conditions.append(Property.project_id == project_id)
     # 按学校找房：先用经纬度包围盒粗筛小区，再在应用层用 haversine 精算半径，

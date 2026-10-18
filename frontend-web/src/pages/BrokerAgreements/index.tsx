@@ -155,7 +155,7 @@ const BrokerAgreements = () => {
                   </div>
                   <div className="rent-card__body">
                     {signed ? (
-                      <div className="rent-text-sm rent-text-muted">{t('brokerAgreements.effectivePre')}<a onClick={() => window.location.href = '/publish-listing'}>{t('menu.publishListing')}</a>{t('brokerAgreements.effectivePost')}</div>
+                      <div className="rent-text-sm rent-text-muted">{t('brokerAgreements.effectivePre')}<a onClick={() => window.location.href = '/properties'}>{t('menu.publishListing')}</a>{t('brokerAgreements.effectivePost')}</div>
                     ) : (
                       <button className="rent-btn rent-btn--primary rent-btn--sm" disabled={signingKey === a.key || !brokerId} onClick={() => startSign(a.key, a.role)}>
                         {signingKey === a.key ? t('brokerAgreements.generating') : t('brokerAgreements.startSign')}

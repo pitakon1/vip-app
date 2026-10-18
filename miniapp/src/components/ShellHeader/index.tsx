@@ -29,7 +29,8 @@ interface Props {
 const ROLE_HOME: Record<string, string> = {
   admin: '/pages/admin/home/index',
   employee: '/pages/employee/home/index',
-  owner: '/pages/owner/home/index',
+  // 业主与租客统一到同一个 C 端首页
+  owner: '/pages/tenant/home/index',
   tenant: '/pages/tenant/home/index',
   guest: '/pages/index/index',
 }

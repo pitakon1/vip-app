@@ -13,6 +13,8 @@ export const colors = {
   primary: '#14b8a6',
   primaryRgb: '20, 184, 166',
   primaryForeground: '#ffffff',
+  /** 主色浅底：用于「顶部头部区」这类大面积实色色块（禁止渐变，故用实色） */
+  primarySoft: '#e6f7f5',
   sidebarActive: '#d9f2ee',
   accent: '#0d9488',
   // 中性墨色的 rgb 三元组，供 colors.alpha() 生成半透明浮层（贝壳风返回/首页按钮底）

@@ -16,46 +16,47 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 20rpx 24rpx 8rpx;
+  padding: 8rpx 32rpx 24rpx;
 
   &__support {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 12rpx;
+    padding: 16rpx;
   }
 }
 
-/* ===== 通用卡片容器 ===== */
+/* ===== 通用卡片容器（对齐 App Card：白卡 + 细边 + 柔和阴影，内边距 32rpx） ===== */
 .panel {
-  margin: 0 24rpx 8rpx;
-  padding: 16rpx 24rpx;
+  margin: 16rpx 24rpx;
+  padding: 32rpx;
   background-color: var(--card);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
 
-  /* 列表型卡片：行自带上下内边距 */
+  /* 列表型卡片：行自带上下内边距，左右内边距与 App Card 一致 */
   &--list {
-    padding: 0 24rpx;
+    padding: 32rpx;
   }
 
   /* 宫格型卡片 */
   &--grid {
-    padding: 12rpx 8rpx;
+    padding: 16rpx 0;
   }
 
   &__caption {
     display: block;
-    padding: 24rpx 0 8rpx;
-    font-size: 30rpx;
-    font-weight: 600;
+    padding: 0 0 24rpx;
+    font-size: 32rpx;
+    font-weight: 700;
     color: var(--ink);
   }
 }
 
-/* ===== 区块标题 ===== */
+/* ===== 区块标题（对齐 App sectionTitle：32rpx/700，左右 24rpx） ===== */
 .section-title {
-  margin: 32rpx 24rpx 16rpx;
+  margin: 36rpx 24rpx 16rpx;
 
   text {
     font-size: 32rpx;
@@ -64,20 +65,21 @@
   }
 }
 
-/* ===== 资料卡（管理端 / 业主端 / 员工端） ===== */
+/* ===== 资料卡（C 端 / 管理端 / 员工端统一，对齐 App 客户账号「我的」） ===== */
 .profile-card {
   display: flex;
   align-items: center;
-  margin: 24rpx 24rpx 0;
-  padding: 28rpx 24rpx;
+  margin: 0 24rpx;
+  padding: 32rpx;
   background-color: var(--card);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
 
   .avatar--lg {
     width: 112rpx;
     height: 112rpx;
-    margin-right: 24rpx;
+    margin-right: 28rpx;
   }
 
   &__body {
@@ -88,182 +90,111 @@
   &__name {
     display: block;
     font-size: 34rpx;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--ink);
-    margin-bottom: 10rpx;
   }
 
+  /* 角色胶囊 + 掩码手机号（与 App userMetaRow 一致：间距 12rpx，整体上移 8rpx） */
+  &__meta-row {
+    display: flex;
+    align-items: center;
+    margin-top: 8rpx;
+  }
+
+  &__meta {
+    flex-shrink: 1;
+    min-width: 0;
+    margin-left: 12rpx;
+    font-size: 26rpx;
+    color: var(--ink-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 编辑资料：胶囊按钮（无边框、浅灰底），对齐 App editButton */
   &__edit {
     display: flex;
     align-items: center;
     flex-shrink: 0;
     padding: 12rpx 20rpx;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-full);
     background-color: var(--surface-2);
 
     text {
       font-size: 24rpx;
+      font-weight: 600;
       color: var(--ink-2);
       margin-left: 8rpx;
     }
   }
 }
 
-/* ===== 业主端：品牌青绿实底用户卡（对齐 owner-mini-settings.html） ===== */
-.owner-hero {
-  margin: 24rpx 24rpx 0;
-  padding: 32rpx 28rpx 28rpx;
-  background-color: var(--primary);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-primary);
-  color: var(--primary-foreground);
+/* 角色胶囊（与 App roleTag 一致：浅品牌底 + 品牌色字） */
+.role-tag {
+  padding: 4rpx 16rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--sidebar-active);
+  color: var(--primary);
+  font-size: 22rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
 
-  &__top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
+/* ===== 未登录用户区（对齐 App guestArea：透明平铺，左「登录/注册」大字 + 右灰色头像） ===== */
+.guest-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 24rpx;
+  padding: 40rpx 32rpx;
 
-  /* 实底卡内头像用白色半透明底 + 白字 */
-  .avatar {
-    background-color: rgba(var(--primary-foreground-rgb), 0.3);
-    margin-right: 28rpx;
-
-    .avatar-text {
-      color: var(--primary-foreground);
-    }
-  }
-
-  /* 未登录态头像居右（贝壳式：文字左 + 头像右） */
-  &__top .avatar--guest {
-    margin-right: 0;
-    margin-left: 28rpx;
-  }
-
-  /* 右上角客服入口：实底卡上白描耳机，深色半透明底保证对比 */
-  &__support {
-    width: 64rpx;
-    height: 64rpx;
-    border-radius: 50%;
-    background-color: rgba(0, 0, 0, 0.18);
-    margin-left: 24rpx;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* 未登录平铺变体：去掉实底卡外壳，登录/注册直接平铺在页面背景上（对齐贝壳/App） */
-  &--flat {
-    background-color: transparent;
-    box-shadow: none;
-    padding: 32rpx 28rpx 8rpx;
-    color: var(--ink);
-
-    .owner-hero__name {
-      color: var(--ink);
-    }
-
-    .avatar--guest {
-      background-color: var(--avatar-bg);
-    }
-  }
-
-  &__info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__name-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: 8rpx;
-  }
-
-  &__name {
-    font-size: 36rpx;
+  &__title {
+    font-size: 40rpx;
     font-weight: 700;
-    color: var(--primary-foreground);
-    margin-right: 12rpx;
+    color: var(--ink);
   }
 
-  &__badge {
-    padding: 4rpx 16rpx;
-    border-radius: var(--radius-full);
-    background-color: rgba(var(--primary-foreground-rgb), 0.22);
-    color: var(--primary-foreground);
-    font-size: 22rpx;
-  }
-
-  &__email {
-    display: block;
-    font-size: 24rpx;
-    color: rgba(var(--primary-foreground-rgb), 0.82);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .avatar--guest {
+    background-color: var(--surface-2);
+    margin-left: 24rpx;
   }
 }
 
-/* ===== 业主端：账单缴费入口卡（对齐 owner-mini-settings.html） ===== */
-.bill-entry {
+/* ===== 当前租约条（租客能力项，单独卡片行，与 App 行样式一致） ===== */
+.lease-strip {
   display: flex;
   align-items: center;
-  margin: 20rpx 24rpx 0;
-  padding: 24rpx;
-  background-color: var(--card);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
 
-  &__icon {
-    width: 64rpx;
-    height: 64rpx;
+  &__label {
+    font-size: 26rpx;
+    color: var(--ink);
     flex-shrink: 0;
-    margin-right: 20rpx;
-    border-radius: var(--radius-md);
-    background-color: rgba(var(--warning-rgb), 0.12);
-    background-repeat: no-repeat;
-    background-position: center center;
-    background-size: 30rpx 30rpx;
   }
 
-  &__body {
+  &__name {
     flex: 1;
     min-width: 0;
-  }
-
-  &__title-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: 4rpx;
-  }
-
-  &__title {
-    font-size: 30rpx;
-    font-weight: 600;
-    color: var(--ink);
-    margin-right: 12rpx;
-  }
-
-  &__desc {
-    display: block;
-    font-size: 24rpx;
+    margin-left: 16rpx;
+    font-size: 26rpx;
     color: var(--ink-3);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+  .badge {
+    flex-shrink: 0;
+    margin-left: 16rpx;
+  }
 }
 
-/* 头像 */
+/* 头像（对齐 App：品牌色实底 + 白色首字母；未登录用浅灰底） */
 .avatar {
   width: 112rpx;
   height: 112rpx;
   border-radius: 50%;
-  background-color: rgba(var(--primary-rgb), 0.14);
+  background-color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -271,9 +202,9 @@
   position: relative;
 
   .avatar-text {
-    font-size: 44rpx;
-    font-weight: 600;
-    color: var(--primary);
+    font-size: 48rpx;
+    font-weight: 700;
+    color: var(--primary-foreground);
   }
 
   .avatar-img {
@@ -283,99 +214,19 @@
     background-color: var(--avatar-bg);
   }
 
-  /* 更换头像角标：登录后点击头像即可更换 */
+  /* 更换头像角标：登录后点击头像即可更换（与 App avatarBadge 一致） */
   .avatar__badge {
     position: absolute;
-    right: -4rpx;
-    bottom: -4rpx;
-    width: 40rpx;
-    height: 40rpx;
+    right: -6rpx;
+    bottom: -6rpx;
+    width: 36rpx;
+    height: 36rpx;
+    border: 4rpx solid var(--card);
     border-radius: 50%;
-    background-color: var(--ink3);
+    background-color: var(--ink-3);
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-}
-
-/* ===== 租客端：渐变用户卡 ===== */
-.role-card {
-  margin: 24rpx;
-  padding: 32rpx;
-  border-radius: var(--radius-xl);
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
-  box-shadow: var(--shadow-primary);
-  color: var(--primary-foreground);
-
-  &__top {
-    display: flex;
-    align-items: center;
-  }
-
-  /* 渐变卡内头像用白色半透明底 + 白字 */
-  .avatar {
-    background-color: rgba(var(--primary-foreground-rgb), 0.3);
-    margin-right: 28rpx;
-
-    .avatar-text {
-      color: var(--primary-foreground);
-    }
-  }
-
-  &__info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__name {
-    display: block;
-    font-size: 36rpx;
-    font-weight: 700;
-    color: var(--primary-foreground);
-    margin-bottom: 8rpx;
-  }
-
-  &__sub {
-    display: block;
-    font-size: 24rpx;
-    color: rgba(var(--primary-foreground-rgb), 0.82);
-  }
-
-  /* 底部当前租约条 */
-  &__strip {
-    display: flex;
-    align-items: center;
-    margin-top: 28rpx;
-    padding-top: 20rpx;
-    border-top: 1px solid rgba(var(--primary-foreground-rgb), 0.18);
-  }
-
-  &__strip-label {
-    font-size: 24rpx;
-    color: rgba(var(--primary-foreground-rgb), 0.85);
-    margin-right: 12rpx;
-  }
-
-  &__strip-name {
-    flex: 1;
-    min-width: 0;
-    font-size: 26rpx;
-    font-weight: 600;
-    color: var(--primary-foreground);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  &__badge {
-    flex-shrink: 0;
-    margin-left: 12rpx;
-    background-color: rgba(var(--primary-foreground-rgb), 0.22);
-    color: var(--primary-foreground);
-
-    .bg-dot {
-      background-color: var(--primary-foreground);
-    }
   }
 }
 
@@ -395,7 +246,7 @@
   }
 }
 
-/* ===== 列表行（设置项 / 菜单项 / 订单行通用） ===== */
+/* ===== 列表行（设置项 / 菜单项通用，对齐 App settingRow） ===== */
 .list-row {
   display: flex;
   align-items: center;
@@ -406,16 +257,17 @@
     border-bottom: none;
   }
 
+  /* 图标盒：60rpx 圆角方块 + 居中 32rpx 图标（对齐 App settingIconBox） */
   &__icon {
-    width: 64rpx;
-    height: 64rpx;
+    width: 60rpx;
+    height: 60rpx;
     flex-shrink: 0;
-    margin-right: 20rpx;
-    border-radius: var(--radius-md);
-    background-color: rgba(var(--primary-rgb), 0.1);
-    background-repeat: no-repeat;
-    background-position: center center;
-    background-size: 34rpx 34rpx;
+    margin-right: 24rpx;
+    border-radius: 12rpx;
+    background-color: var(--surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   &__body {
@@ -425,8 +277,7 @@
 
   &__label {
     display: block;
-    font-size: 30rpx;
-    font-weight: 600;
+    font-size: 28rpx;
     color: var(--ink);
   }
 
@@ -434,25 +285,25 @@
     display: block;
     font-size: 24rpx;
     color: var(--ink-3);
-    margin-top: 6rpx;
+    margin-top: 4rpx;
   }
 
   &__value {
     flex-shrink: 0;
-    font-size: 26rpx;
-    color: var(--ink-3);
-    margin-left: 12rpx;
+    font-size: 28rpx;
+    color: var(--ink-2);
+    margin-left: 16rpx;
   }
 }
 
-/* 右箭头（纯 CSS 绘制，避免 emoji 图标） */
+/* 右箭头（纯 CSS 绘制，避免 emoji 图标；对齐 App arrow） */
 .chevron {
-  width: 16rpx;
-  height: 16rpx;
+  width: 20rpx;
+  height: 20rpx;
   flex-shrink: 0;
   margin-left: 16rpx;
-  border-top: 3rpx solid var(--ink-3);
-  border-right: 3rpx solid var(--ink-3);
+  border-top: 4rpx solid var(--ink-3);
+  border-right: 4rpx solid var(--ink-3);
   transform: rotate(45deg);
 }
 
@@ -461,95 +312,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18rpx 0;
+  padding: 20rpx 0;
 
   &__label {
-    font-size: 26rpx;
-    color: var(--ink-2);
+    font-size: 28rpx;
+    color: var(--ink);
   }
 
   &__value {
-    font-size: 26rpx;
-    color: var(--ink-3);
-  }
-}
-
-/* ===== 租客端：租约卡 ===== */
-.lease-card {
-  padding: 16rpx 0;
-
-  &__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12rpx;
-  }
-
-  &__title {
-    flex: 1;
-    min-width: 0;
-    font-size: 32rpx;
-    font-weight: 600;
-    color: var(--ink);
-    margin-right: 12rpx;
-  }
-
-  &__meta {
-    display: block;
-    font-size: 26rpx;
+    font-size: 28rpx;
     color: var(--ink-2);
-    margin-bottom: 20rpx;
-  }
-
-  &__foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 16rpx;
-  }
-
-  &__range {
-    font-size: 24rpx;
-    color: var(--ink-3);
-  }
-
-  &__left {
-    font-size: 24rpx;
-    font-weight: 700;
-    color: var(--primary);
-  }
-
-  &__sub {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 12rpx;
-
-    text {
-      font-size: 22rpx;
-      color: var(--ink-3);
-    }
   }
 }
 
-.progress {
-  height: 12rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--surface-2);
-  overflow: hidden;
-
-  .progress__bar {
-    height: 100%;
-    border-radius: var(--radius-full);
-    background-color: var(--primary);
-  }
-}
-
-/* ===== 常用功能宫格（4 列，对齐 App 端统一宫格：业主/租客各 4 项，合并 8 项两排） ===== */
+/* ===== 常用功能宫格（4 列，对齐 App 端统一宫格：业主/租客入口合并展示） ===== */
 .service-grid {
   display: flex;
   flex-wrap: wrap;
-  padding: 16rpx 0;
 
   &__item {
     width: 25%;
@@ -559,15 +338,16 @@
     padding: 20rpx 0;
   }
 
+  /* 图标底：80rpx 圆形 + 居中 40rpx 图标（对齐 App serviceIcon） */
   &__icon {
-    width: 76rpx;
-    height: 76rpx;
+    width: 80rpx;
+    height: 80rpx;
     margin-bottom: 12rpx;
-    border-radius: var(--radius-md);
-    background-color: rgba(var(--primary-rgb), 0.1);
-    background-repeat: no-repeat;
-    background-position: center center;
-    background-size: 36rpx 36rpx;
+    border-radius: var(--radius-full);
+    background-color: var(--sidebar-active);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   &__label {
@@ -576,7 +356,7 @@
   }
 }
 
-/* ===== 退出登录 ===== */
+/* ===== 退出登录（对齐 App logoutButton：白卡、无边框、红字） ===== */
 .logout-wrapper {
   padding: 48rpx 24rpx 24rpx;
 
@@ -587,8 +367,9 @@
     background-color: var(--card);
     color: var(--error);
     font-size: 32rpx;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--line);
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    border: none;
   }
 }
 

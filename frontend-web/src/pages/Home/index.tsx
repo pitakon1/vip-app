@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { BankOutlined, ContainerOutlined, HomeOutlined, ShopOutlined, SwapOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
@@ -46,6 +47,19 @@ const bannerColorFor = (seed: string) => {
   for (let i = 0; i < (seed || 'x').length; i++) h = (h * 31 + (seed || 'x').charCodeAt(i)) >>> 0
   return BANNER_COLORS[h % BANNER_COLORS.length]
 }
+
+/**
+ * 黄金导航：5 大业务入口（租房 / 新房 / 二手房 / 商铺办公 / 厂房）。
+ * 每个入口跳各自的贝壳式分类页（/category/*），而非同一个公开列表页换参数。
+ * 图标沿用项目既有 antd 图标，颜色取设计令牌。
+ */
+const GOLD_NAV: { key: string; labelKey: string; to: string; color: string; icon: ReactNode }[] = [
+  { key: 'rent', labelKey: 'category.rentTitle', to: '/category/rent', color: 'var(--rent-primary)', icon: <HomeOutlined /> },
+  { key: 'new', labelKey: 'category.newTitle', to: '/category/new', color: 'var(--state-warning)', icon: <BankOutlined /> },
+  { key: 'resale', labelKey: 'category.resaleTitle', to: '/category/resale', color: 'var(--state-info)', icon: <SwapOutlined /> },
+  { key: 'commercial', labelKey: 'category.commTitle', to: '/category/commercial', color: 'var(--state-error)', icon: <ShopOutlined /> },
+  { key: 'factory', labelKey: 'category.factTitle', to: '/category/factory', color: 'var(--state-success)', icon: <ContainerOutlined /> },
+]
 
 // 状态标签样式类（对应 CSS 中的 modifier 类，使用设计令牌）
 const STATUS_CLASS: Record<string, string> = {
@@ -120,7 +134,8 @@ const Home = () => {
     }
     const role = user?.role
     switch (role) {
-      case 'owner': navigate('/owner/dashboard'); break
+      // 业主与租客统一到同一个 C 端门户首页
+      case 'owner': navigate('/tenant/dashboard'); break
       case 'tenant': navigate('/tenant/dashboard'); break
       case 'employee': navigate('/employee/dashboard'); break
       default: navigate('/dashboard')
@@ -156,7 +171,7 @@ const Home = () => {
         <nav className="rent-portal__nav">
           <button className="rent-portal__nav-item" data-active="true" onClick={handleSearch}>{t('browse.rent')}</button>
           <button className="rent-portal__nav-item" onClick={handleSearch}>{t('browse.buy')}</button>
-          <button className="rent-portal__nav-item" onClick={handleSearch}>{t('browse.mapFind')}</button>
+          <button className="rent-portal__nav-item" onClick={() => navigate('/map')}>{t('browse.mapFind')}</button>
           <button className="rent-portal__nav-item" onClick={goVideoTour}>{t('browse.video')}</button>
         </nav>
         <div className="rent-portal__actions">
@@ -214,6 +229,23 @@ const Home = () => {
               ))}
             </div>
           </div>
+        </section>
+
+        {/* ===== 黄金导航（5 大业务入口，各跳独立分类页） ===== */}
+        <section className="rent-goldnav">
+          {GOLD_NAV.map((it) => (
+            <button
+              key={it.key}
+              type="button"
+              className="rent-goldnav__item"
+              onClick={() => navigate(it.to)}
+            >
+              <span className="rent-goldnav__icon" style={{ color: it.color }}>
+                {it.icon}
+              </span>
+              <span className="rent-goldnav__label">{t(it.labelKey)}</span>
+            </button>
+          ))}
         </section>
 
         {/* ===== 精选房源（对齐原型 rent-prop-search-card 网格） ===== */}
@@ -368,7 +400,7 @@ const Home = () => {
             <div className="rent-footer__col-title">{t('home.footerProduct')}</div>
             <a onClick={handleSearch}>{t('browse.rent')}</a>
             <a onClick={handleSearch}>{t('browse.buy')}</a>
-            <a onClick={handleSearch}>{t('browse.mapFind')}</a>
+            <a onClick={() => navigate('/map')}>{t('browse.mapFind')}</a>
             <a onClick={goVideoTour}>{t('browse.video')}</a>
           </div>
           <div className="rent-footer__col">
