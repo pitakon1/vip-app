@@ -1,0 +1,224 @@
+/* 管理端 · 数据字典（对齐 Web 端 /system/options） */
+.op-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24rpx 24rpx 200rpx;
+  box-sizing: border-box;
+}
+
+.op-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20rpx;
+}
+
+.op-add {
+  height: 64rpx;
+  padding: 0 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-primary);
+
+  &__text {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary-foreground);
+  }
+}
+
+.op-card {
+  background: var(--card);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  overflow: hidden;
+
+  &__title {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 12rpx;
+  }
+}
+
+.op-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--line);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+  }
+
+  &__label {
+    font-size: 27rpx;
+    color: var(--ink);
+  }
+
+  &__meta {
+    display: block;
+    font-size: 22rpx;
+    color: var(--ink-3);
+    margin-top: 4rpx;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 20rpx;
+    flex-shrink: 0;
+  }
+
+  &__del {
+    font-size: 26rpx;
+    color: #dc2626;
+    font-weight: 600;
+  }
+}
+
+.op-tag {
+  font-size: 20rpx;
+  padding: 2rpx 12rpx;
+  border-radius: var(--radius-full);
+  color: var(--ink-3);
+  background: rgba(var(--primary-rgb), 0.06);
+}
+
+.op-form-static {
+  margin-top: 16rpx;
+  padding: 12rpx 20rpx;
+  background: var(--bg);
+  border-radius: var(--radius-md);
+
+  &__text {
+    font-size: 24rpx;
+    color: var(--ink-3);
+  }
+}
+
+.op-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24rpx;
+}
+
+.op-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+
+  &__text {
+    font-size: 28rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* ===== 弹窗表单 ===== */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-sheet {
+  width: 100%;
+  max-height: 84vh;
+  overflow-y: auto;
+  padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+  background-color: var(--card);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+
+  &__title {
+    display: block;
+    font-size: 34rpx;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 8rpx;
+  }
+}
+
+.form-field {
+  margin-top: 20rpx;
+
+  &__label {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-2);
+    margin-bottom: 8rpx;
+  }
+
+  &__input {
+    height: 80rpx;
+    line-height: 80rpx;
+    padding: 0 24rpx;
+    font-size: 28rpx;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1rpx solid var(--line);
+    border-radius: var(--radius-md);
+  }
+}
+
+.modal-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 40rpx;
+}
+
+.modal-btn {
+  flex: 1;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+
+  &--ghost {
+    background-color: var(--bg);
+  }
+
+  &--primary {
+    background-color: var(--primary);
+  }
+
+  &--disabled {
+    opacity: 0.6;
+  }
+
+  &__text {
+    font-size: 30rpx;
+    color: var(--ink-2);
+
+    &--primary {
+      color: var(--primary-foreground);
+      font-weight: 600;
+    }
+  }
+}

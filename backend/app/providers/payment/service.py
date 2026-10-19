@@ -28,6 +28,7 @@ from ...models.lease import Lease
 from ...models.employee import Employee
 from ...models.notification import Notification, NotificationChannel, NotificationStatus
 from ...core.events import publish_event
+from ...services.serial_number import next_no
 
 logger = structlog.get_logger()
 
@@ -443,6 +444,7 @@ class PaymentService:
         # 供 _refunded_total 累计校验与对账留痕。
         session.add(
             Payment(
+                receipt_no=next_no(session, "SK"),
                 lease_id=payment.lease_id,
                 property_id=payment.property_id,
                 payer_id=payment.payer_id,

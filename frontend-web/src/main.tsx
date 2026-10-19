@@ -11,6 +11,7 @@ import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import { rentTheme } from './theme'
 import { queryClient } from './lib/queryCache'
+import { prefetchOptionBundle } from './lib/enumLabels'
 import './index.css'
 
 const antdLocaleMap = { zh: zhCN, en: enUS, th: thTH } as const
@@ -26,6 +27,11 @@ const Root = () => {
   }, [i18nInstance])
 
   const currentLang = (['zh', 'en', 'th'].includes(lang) ? lang : 'zh') as 'zh' | 'en' | 'th'
+
+  // 预取数据字典（后台可维护的枚举文案）：命中即用，缺失回落硬编码 i18n
+  React.useEffect(() => {
+    prefetchOptionBundle(currentLang)
+  }, [currentLang])
 
   return (
     <QueryClientProvider client={queryClient}>

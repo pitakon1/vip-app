@@ -92,6 +92,56 @@ function goLoginOnce(): void {
 }
 
 /**
+ * 统一返回信封解包。
+ *
+ * 后端 EnvelopeMiddleware 把成功的 JSON 响应包裹成 `{code, msg, data}` 并写入
+ * `X-Api-Envelope: 1`。这里在**单一出口**拆掉它，下游页面仍按原来的响应体读取。
+ * 只认响应头标记（而不是「有没有 data 字段」）：靠字段猜会误判存量里本身带
+ * `data` 键的响应。错误响应（>=400）不带该头，原样透传。
+ *
+ * 注意：不能用 `body.data ?? body`——`data` 为 `null` 时 `??` 会把整个信封
+ * 回退给调用方，必须显式判 `'data' in body`。
+ */
+function unwrapEnvelope(body: any, headers: Record<string, string> | undefined): any {
+  const h = headers ?? {}
+  const marked = h['x-api-envelope'] === '1' || h['X-Api-Envelope'] === '1'
+  if (
+    marked &&
+    body !== null &&
+    typeof body === 'object' &&
+    !Array.isArray(body) &&
+    'data' in body
+  ) {
+    return body.data
+  }
+  return body
+}
+
+/**
+ * `Taro.uploadFile` 返回体的信封解包。
+ *
+ * 文件上传端点（头像 / 房源照片 / 证件 / 合同）返回 JSON 且带统一信封，但走的是
+ * `Taro.uploadFile`（不经中心 `request`），故调用方 await 出结果后需用本函数解包
+ * 再取字段。返回体的 `data` 可能是字符串（需先 parse）也可能是对象。
+ */
+export function unwrapUploadResult<T = any>(res: any): T {
+  const header = res?.header as Record<string, string> | undefined
+  const marked = header?.['x-api-envelope'] === '1' || header?.['X-Api-Envelope'] === '1'
+  let body = res?.data
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body)
+    } catch {
+      return body as T
+    }
+  }
+  if (marked && body && typeof body === 'object' && 'data' in body) {
+    body = body.data
+  }
+  return body as T
+}
+
+/**
  * 统一请求封装
  * - 请求拦截：从本地存储读取 token，注入 Authorization 头
  * - 响应拦截：401 先尝试静默续期并重放；续期也失败才清态跳登录
@@ -150,7 +200,7 @@ export async function request<T = unknown>(options: RequestOptions<T>): Promise<
     }
 
     if (res.statusCode >= 200 && res.statusCode < 300) {
-      return res.data as T
+      return unwrapEnvelope(res.data, res.header as Record<string, string> | undefined) as T
     }
 
     // 尽量透出后端 detail（FastAPI 错误体），便于 toast 展示真实原因

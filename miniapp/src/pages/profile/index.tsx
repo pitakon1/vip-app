@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import BottomNav from '@/components/BottomNav'
 import useAuthStore from '@/stores/auth'
 import { authApi, chatApi, companyApi, leasesApi } from '@/services/api'
+import { unwrapUploadResult } from '@/lib/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { clearCacheSync } from '@/utils/cache'
 import { iconStyle } from '@/utils/icons'
@@ -321,7 +322,7 @@ export default function ProfilePage() {
         if (!filePath) return
         try {
           const up: any = await authApi.uploadAvatar(filePath)
-          const latest = up?.data ?? up
+          const latest = unwrapUploadResult<any>(up) ?? up
           const token = useAuthStore.getState().token
           if (latest && token) useAuthStore.getState().login(token, latest)
           Taro.setStorageSync('user', latest)
@@ -971,6 +972,27 @@ export default function ProfilePage() {
                 desc: t('perm.entryDesc'),
                 url: '/pages/admin/permissions/index',
                 icon: 'gear' as IconKey
+              },
+              {
+                key: 'departments',
+                label: t('dept.title'),
+                desc: t('dept.subtitle'),
+                url: '/pages/admin/departments/index',
+                icon: 'briefcase' as IconKey
+              },
+              {
+                key: 'dataScopes',
+                label: t('scope.title'),
+                desc: t('scope.subtitle'),
+                url: '/pages/admin/data-scopes/index',
+                icon: 'grid' as IconKey
+              },
+              {
+                key: 'options',
+                label: t('dict.title'),
+                desc: t('dict.subtitle'),
+                url: '/pages/admin/options/index',
+                icon: 'cube' as IconKey
               }
             ].map(renderRow)}
           </View>

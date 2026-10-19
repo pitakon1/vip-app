@@ -113,6 +113,10 @@ class Contract(TimestampMixin, table=True):
 
     __tablename__ = "contracts"
 
+    # 对外合同编号（如 HT202610000001），由编号服务写入；历史行为 NULL（已回填）
+    contract_no: Optional[str] = Field(
+        default=None, max_length=32, index=True, description="对外合同编号"
+    )
     lease_id: Optional[uuid.UUID] = Field(default=None, foreign_key="leases.id")
     property_id: Optional[uuid.UUID] = Field(default=None, foreign_key="properties.id")
     title: str

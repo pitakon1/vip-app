@@ -15,6 +15,10 @@ from ..models.contract import Contract, ContractParty
 from ..models.property_deal import PropertyDeal
 from ..models.tenant import Tenant
 from ..models.user import User, UserRole
+from ..services.data_scope import (
+    staff_employee_ids_in_scope,
+    staff_user_ids_in_scope,
+)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -148,17 +152,23 @@ def tenant_id_of(session: Session, user: User) -> Optional[uuid.UUID]:
 def lease_visibility_conditions(session: Session, user: User) -> list:
     """租约可见性 → 查询条件（数据隔离必须由 token 决定，不能由调用方传参决定）。
 
-    - 员工（admin/agent/employee）：全量，内部作业需要跨业主查阅；
+    - 员工（admin/agent/employee）：按 data-scope 过滤成交归属员工
+      （`Lease.agent_id.in_(employee_ids)`）；scope=all 时不加条件（全部可见）；
     - 业主：仅本人名下房源的租约；
     - 租客：仅本人租约；
-    - 其余角色：不可见。
+    - 其余角色（含 partner_admin）：不可见。
 
     返回 `[false()]` 表示「一条都看不到」。这里**必须**显式置空而不是返回空列表
     （空列表 = 不加条件 = 全量泄露），这是租约接口此前最严重的一处越权：
     任何登录用户都能读到全部租约，租客端页面甚至一直依赖这个错误行为。
     """
     if user.role in STAFF_ROLES:
-        return []
+        emp_ids = staff_employee_ids_in_scope(session, user)
+        if emp_ids is None:
+            return []
+        if not emp_ids:
+            return [false()]
+        return [Lease.agent_id.in_(emp_ids)]
     if user.role == UserRole.owner:
         owner_id = owner_id_of(session, user)
         return [Lease.owner_id == owner_id] if owner_id else [false()]
@@ -171,7 +181,12 @@ def lease_visibility_conditions(session: Session, user: User) -> list:
 def can_view_lease(session: Session, user: User, lease: Lease) -> bool:
     """单条租约的可见性判定（与 `lease_visibility_conditions` 同一口径）。"""
     if user.role in STAFF_ROLES:
-        return True
+        emp_ids = staff_employee_ids_in_scope(session, user)
+        if emp_ids is None:
+            return True
+        return lease.agent_id is not None and str(lease.agent_id) in {
+            str(i) for i in emp_ids
+        }
     if user.role == UserRole.owner:
         return lease.owner_id is not None and lease.owner_id == owner_id_of(session, user)
     if user.role == UserRole.tenant:
@@ -203,8 +218,6 @@ def property_visibility_conditions(session: Session, user: User) -> list:
     返回 `[false()]` 表示「一条都看不到」。与 `lease_visibility_conditions` 同理，
     必须显式置空而不是返回空列表（空列表 = 不加条件 = 全量泄露）。
     """
-    if user.role == UserRole.admin:
-        return []
     if user.role == UserRole.partner_admin and user.partner_id:
         # 合作公司管理员仅可见本公司经纪人的房源（责任人保留为经纪人本人）
         return [
@@ -215,8 +228,13 @@ def property_visibility_conditions(session: Session, user: User) -> list:
                 )
             )
         ]
-    if user.role in (UserRole.agent, UserRole.employee):
-        return [Property.created_by == user.id]
+    if user.role in STAFF_ROLES:
+        # 员工（admin/agent/employee）：按 data-scope 过滤录入人
+        # （scope=all 时 `staff_user_ids_in_scope` 返回 None，不加条件）
+        user_ids = staff_user_ids_in_scope(session, user)
+        if user_ids is None:
+            return []
+        return [Property.created_by.in_(user_ids)]
     if user.role == UserRole.owner:
         owner_id = owner_id_of(session, user)
         return [Property.owner_id == owner_id] if owner_id else [false()]
@@ -236,8 +254,6 @@ def can_view_property(session: Session, user: User, prop) -> bool:
             return prop.get(name)
         return getattr(prop, name, None)
 
-    if user.role == UserRole.admin:
-        return True
     if user.role == UserRole.partner_admin and user.partner_id:
         member_ids = {
             u.id
@@ -251,8 +267,12 @@ def can_view_property(session: Session, user: User, prop) -> bool:
         return _same_id(_field("created_by"), user.id) or bool(
             _field("created_by") in member_ids
         )
-    if user.role in (UserRole.agent, UserRole.employee):
-        return _same_id(_field("created_by"), user.id)
+    if user.role in STAFF_ROLES:
+        user_ids = staff_user_ids_in_scope(session, user)
+        if user_ids is None:
+            return True
+        created_by = _field("created_by")
+        return created_by is not None and str(created_by) in {str(i) for i in user_ids}
     if user.role == UserRole.owner:
         return _same_id(_field("owner_id"), owner_id_of(session, user))
     if user.role == UserRole.tenant:

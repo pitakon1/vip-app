@@ -41,6 +41,10 @@ class Payment(TimestampMixin, table=True):
 
     __tablename__ = "payments"
 
+    # 对外收款单编号（如 SK202610000001），由编号服务写入；历史行为 NULL（已回填）
+    receipt_no: Optional[str] = Field(
+        default=None, max_length=32, index=True, description="对外收款单编号"
+    )
     lease_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="leases.id", index=True
     )

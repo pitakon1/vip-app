@@ -28,6 +28,10 @@ from .tenant import Tenant
 from .lease import Lease, LeaseStatus
 from .lead import Lead, LeadStage
 from .employee import Employee
+from .department import Department
+from .data_scope import DataScope, RoleDataScope, UserDataScope
+from .option import OptionItem
+from .serial_number import SerialNumber
 from .payment import Payment, PaymentType, PaymentStatus
 from .payment_webhook_event import (
     PaymentWebhookEvent,
@@ -182,6 +186,12 @@ __all__ = [
     "Lead",
     "LeadStage",
     "Employee",
+    "Department",
+    "DataScope",
+    "RoleDataScope",
+    "UserDataScope",
+    "OptionItem",
+    "SerialNumber",
     "Payment",
     "PaymentType",
     "PaymentStatus",

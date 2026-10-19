@@ -71,6 +71,14 @@ _ADDITIVE_COLUMNS: Dict[str, Dict[str, str]] = {
         "verification_status": "varchar(20)",
         "expired_at": "ts",
     },
+    # 部门树：员工归属部门的结构化外键
+    "employees": {
+        "department_id": "uuid",
+    },
+    # 单据编号：对外可引用的稳定编号（历史 NULL 行由 backfill_serial_numbers 回填）
+    "contracts": {"contract_no": "varchar(32)"},
+    "leases": {"lease_no": "varchar(32)"},
+    "payments": {"receipt_no": "varchar(32)"},
 }
 
 # 表 -> 需要建立索引的列（索引名按 SQLAlchemy 约定 ix_<table>_<column>）
@@ -78,6 +86,10 @@ _ADDITIVE_INDEXES: Dict[str, List[str]] = {
     "properties": ["orientation", "decoration", "listing_no"],
     "projects": ["developer_id", "tenure"],
     "listings": ["next_revalidate_at", "verification_status"],
+    "employees": ["department_id"],
+    "contracts": ["contract_no"],
+    "leases": ["lease_no"],
+    "payments": ["receipt_no"],
 }
 
 
@@ -134,3 +146,132 @@ def ensure_schema(engine: Engine) -> None:
         logger.info("db.schema.columns_added", columns=added)
     if indexed:
         logger.info("db.schema.indexes_ensured", indexes=indexed)
+
+
+# 内置数据字典种子：(value, zh, en, th)；label 取 zh，多语言写进 label_i18n。
+# 覆盖 C 端此前散落在 Python Enum / 前端 i18n 的四组枚举。
+_OPTION_SEEDS: Dict[str, List[tuple]] = {
+    "orientation": [
+        ("north", "朝北", "North", "ทิศเหนือ"),
+        ("south", "朝南", "South", "ทิศใต้"),
+        ("east", "朝东", "East", "ทิศตะวันออก"),
+        ("west", "朝西", "West", "ทิศตะวันตก"),
+        ("northeast", "朝东北", "Northeast", "ทิศตะวันออกเฉียงเหนือ"),
+        ("northwest", "朝西北", "Northwest", "ทิศตะวันตกเฉียงเหนือ"),
+        ("southeast", "朝东南", "Southeast", "ทิศตะวันออกเฉียงใต้"),
+        ("southwest", "朝西南", "Southwest", "ทิศตะวันตกเฉียงใต้"),
+    ],
+    "decoration": [
+        ("bare", "毛坯", "Bare shell", "ห้องเปล่า"),
+        ("simple", "简装", "Basic", "ตกแต่งพื้นฐาน"),
+        ("standard", "精装", "Fully fitted", "ตกแต่งครบ"),
+        ("luxury", "豪装", "Luxury", "ตกแต่งหรู"),
+        ("fully_furnished", "带家具家电", "Furnished", "พร้อมเฟอร์นิเจอร์"),
+    ],
+    "amenity": [
+        ("aircon", "空调", "Air conditioning", "เครื่องปรับอากาศ"),
+        ("pool", "泳池", "Pool", "สระว่ายน้ำ"),
+        ("gym", "健身房", "Gym", "ฟิตเนส"),
+        ("parking", "停车位", "Parking", "ที่จอดรถ"),
+        ("elevator", "电梯", "Elevator", "ลิฟต์"),
+        ("balcony", "阳台", "Balcony", "ระเบียง"),
+        ("garden", "花园/庭院", "Garden / yard", "สวน / ลาน"),
+    ],
+    "property_type": [
+        ("apartment", "公寓", "Apartment", "อพาร์ตเมนต์"),
+        ("condo", "公寓", "Condo", "คอนโด"),
+        ("villa", "别墅", "Villa", "วิลล่า"),
+        ("house", "别墅", "House", "บ้าน"),
+        ("shop", "商铺", "Shop", "ร้านค้า"),
+        ("commercial", "商铺", "Commercial", "พาณิชย์"),
+        ("office", "写字楼", "Office", "สำนักงาน"),
+        ("factory", "厂房", "Factory", "โรงงาน"),
+    ],
+}
+
+
+def seed_options(engine: Engine) -> None:
+    """幂等种子：把内置枚举灌入 `options`。
+
+    **只补不缺**：已存在的 (type,value) 跳过，不覆盖后台对文案/排序/启停的改动——
+    否则每次启动都会把管理员改过的文案冲回默认值。
+    """
+    from sqlmodel import Session, select
+
+    from app.models import OptionItem
+
+    created = 0
+    with Session(engine) as session:
+        for type_, entries in _OPTION_SEEDS.items():
+            for sort, (value, zh, en, th) in enumerate(entries):
+                existing = session.exec(
+                    select(OptionItem).where(
+                        OptionItem.type == type_, OptionItem.value == value
+                    )
+                ).first()
+                if existing is not None:
+                    continue
+                session.add(
+                    OptionItem(
+                        type=type_,
+                        value=value,
+                        label=zh,
+                        label_i18n={"zh": zh, "en": en, "th": th},
+                        sort=sort,
+                        is_active=True,
+                        is_system=True,
+                    )
+                )
+                created += 1
+        session.commit()
+    if created:
+        logger.info("db.options.seeded", count=created)
+
+
+def backfill_serial_numbers(engine: Engine) -> None:
+    """为历史 NULL 单据编号回填（幂等，只补 NULL，按 created_at 升序）。
+
+    四类单据：(properties.listing_no/FY、contracts.contract_no/HT、
+    leases.lease_no/ZL、payments.receipt_no/SK)。回填用行自身 created_at 推周期，
+    并推进同一 `serial_numbers` 游标，保证后续新单不会与历史号重号。
+
+    分批提交，避免大表长事务；仅处理 NULL 行，重复启动无副作用。
+    """
+    from sqlalchemy import inspect as _inspect
+    from sqlmodel import Session, select
+
+    from app.services.serial_number import next_no, period_of
+    from app.models import Contract, Lease, Payment, Property
+
+    specs = [
+        (Property, "listing_no", "FY"),
+        (Contract, "contract_no", "HT"),
+        (Lease, "lease_no", "ZL"),
+        (Payment, "receipt_no", "SK"),
+    ]
+
+    inspector = _inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    total = 0
+
+    for model, column, prefix in specs:
+        table = model.__tablename__
+        if table not in existing_tables:
+            continue
+        col = getattr(model, column)
+        try:
+            with Session(engine) as session:
+                rows = session.exec(
+                    select(model).where(col.is_(None)).order_by(model.created_at)
+                ).all()
+                for obj in rows:
+                    setattr(obj, column, next_no(session, prefix, period_of(obj.created_at)))
+                    session.add(obj)
+                    total += 1
+                session.commit()
+        except Exception:
+            logger.warning(
+                "db.serial.backfill_failed", table=table, exc_info=True
+            )
+    if total:
+        logger.info("db.serial.backfilled", count=total)

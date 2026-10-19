@@ -1,4 +1,4 @@
-import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { REFRESH_TOKEN_KEY, useAuthStore } from '@/stores/auth'
 
 /**
@@ -103,8 +103,40 @@ const PUBLIC_PREFIX_ROUTES = [
   '/sign/',
 ]
 
+/**
+ * 统一返回信封解包。
+ *
+ * 后端 EnvelopeMiddleware 把成功的 JSON 响应包裹成 `{code, msg, data}` 并写入
+ * `X-Api-Envelope: 1`。这里在**单一出口**把它拆掉，下游页面代码仍按原来的
+ * `response.data`（即原响应体）读取，全站无需逐页改动。
+ *
+ * 只认响应头标记（而不是「有没有 data 字段」）：存量响应体里存在结构本身带
+ * `data` 键的，靠字段猜会把它们误判。错误响应（>=400）不带该头，原样透传。
+ *
+ * 注意：不能用 `body.data ?? body`——`data` 为 `null`（如删除类接口）时
+ * `??` 会把整个信封回退给调用方，必须显式判 `'data' in body`。
+ */
+const ENVELOPE_HEADER = 'x-api-envelope'
+
+const unwrapEnvelope = (response: AxiosResponse) => {
+  const headers = response.headers as Record<string, unknown> | undefined
+  const marked =
+    headers?.[ENVELOPE_HEADER] === '1' || headers?.['X-Api-Envelope'] === '1'
+  const body = response.data as unknown
+  if (
+    marked &&
+    body !== null &&
+    typeof body === 'object' &&
+    !Array.isArray(body) &&
+    'data' in (body as Record<string, unknown>)
+  ) {
+    response.data = (body as Record<string, unknown>).data
+  }
+  return response
+}
+
 api.interceptors.response.use(
-  (response) => response,
+  unwrapEnvelope,
   async (error: AxiosError) => {
     const original = error.config as RetriableConfig | undefined
     // 访问令牌过期（默认 30 分钟）先尝试静默续期再重放原请求，

@@ -581,6 +581,43 @@ export const marketDataApi = {
     api.post(`/market-data/churn-signals/${id}/resolve`),
 }
 
+// ===== 组织架构 / 数据范围 / 数据字典（管理端 v2.1）=====
+
+// 部门（组织架构）树维护：权限点 department:manage
+export const departmentsApi = {
+  // 部门树（根节点数组，含 member_count）
+  tree: () => api.get('/admin/departments/tree'),
+  // 扁平部门列表（供下拉）
+  list: () => api.get('/admin/departments'),
+  create: (data: RequestBody) => api.post('/admin/departments', data),
+  update: (id: string, data: RequestBody) => api.patch(`/admin/departments/${id}`, data),
+  remove: (id: string) => api.delete(`/admin/departments/${id}`),
+  // 把用户归入部门（department_id 传 null 表示移出部门）
+  assign: (userId: string, departmentId: string | null) =>
+    api.put('/admin/departments/assign', { user_id: userId, department_id: departmentId }),
+}
+
+// 行级数据范围配置：权限点 data:scope:manage
+export const dataScopeApi = {
+  get: () => api.get('/admin/data-scopes'),
+  setRole: (role: string, scope: string) =>
+    api.put(`/admin/data-scopes/roles/${role}`, { scope }),
+  setUser: (userId: string, scope: string) =>
+    api.put(`/admin/data-scopes/users/${userId}`, { scope }),
+  clearUser: (userId: string) => api.delete(`/admin/data-scopes/users/${userId}`),
+}
+
+// 通用数据字典：读接口匿名可读，写接口权限点 option:manage
+export const optionsApi = {
+  // 字典项列表（active_only=false 可含停用项）
+  list: (params?: QueryParams) => api.get('/options', { params }),
+  // C 端打包字典：{type: {value: label}}
+  bundle: (lang?: string) => api.get('/options/bundle', { params: { lang } }),
+  create: (data: RequestBody) => api.post('/admin/options', data),
+  update: (id: string, data: RequestBody) => api.patch(`/admin/options/${id}`, data),
+  remove: (id: string) => api.delete(`/admin/options/${id}`),
+}
+
 /**
  * 拉取带鉴权的 PDF 页图（PNG），以 objectURL 返回。
  * 页图按百分比坐标叠加渲染，这里仅负责把二进制转成可直接给 <img> 用的 src。

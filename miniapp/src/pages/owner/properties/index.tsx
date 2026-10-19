@@ -3,6 +3,7 @@ import { View, Text, Input, Textarea, ScrollView, Picker, Switch, Image } from '
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi, listingApi } from '@/services/api'
+import { unwrapUploadResult } from '@/lib/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
@@ -610,7 +611,7 @@ export default function OwnerPropertiesPage() {
           let latest: string[] = [...form.photos]
           for (const p of localPaths) {
             const r: any = await ownerApi.uploadPhotos(editingId, [{ url: p }])
-            const body = typeof r?.data === 'string' ? JSON.parse(r.data) : r?.data
+            const body = unwrapUploadResult<any>(r)
             const arr = Array.isArray(body?.photos) ? body.photos : body
             if (Array.isArray(arr)) latest = arr
           }

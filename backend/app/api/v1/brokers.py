@@ -30,6 +30,7 @@ from app.models import (
     PropertyDeal,
 )
 from app.services import esign_service
+from app.services.serial_number import next_no
 
 router = APIRouter(prefix="/brokers", tags=["brokers"])
 
@@ -447,6 +448,7 @@ def create_broker_agreement(
     }
     meta = esign_service.generate_contract(counters, "zh", kind=kind.value)
     contract = Contract(
+        contract_no=next_no(session, "HT"),
         title=meta["title"],
         kind=kind,
         language="zh",

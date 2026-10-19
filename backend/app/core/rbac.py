@@ -41,6 +41,9 @@ PERMISSION_DEFS: dict[str, list[tuple[str, str, str]]] = {
     "group": [
         ("group:manage", "分组管理", "用户分组的增删改与成员维护"),
     ],
+    "department": [
+        ("department:manage", "部门管理", "维护组织架构部门树与员工归属"),
+    ],
     "role": [
         ("role:manage", "角色权限配置", "配置角色对应的权限点"),
     ],
@@ -53,6 +56,10 @@ PERMISSION_DEFS: dict[str, list[tuple[str, str, str]]] = {
     ],
     "data": [
         ("data:view", "经营数据查看", "查看经营概览与报表"),
+        ("data:scope:manage", "数据范围配置", "配置角色/用户的行级数据可见范围"),
+    ],
+    "option": [
+        ("option:manage", "数据字典管理", "维护通用数据字典"),
     ],
     "commission": [
         ("commission:manage", "佣金规则配置", "配置佣金比例规则"),

@@ -48,6 +48,9 @@ from .user_groups import router as user_groups_router
 from .partners_admin import router as partners_admin_router
 from .partner_members import router as partner_members_router
 from .permissions_admin import router as permissions_admin_router
+from .departments import router as departments_router
+from .data_scopes import router as data_scopes_router
+from .options import router as options_router
 from .review_center import router as review_center_router
 from .operations import router as operations_router
 from .exports import router as exports_router
@@ -103,6 +106,9 @@ api_router.include_router(user_groups_router)
 api_router.include_router(partners_admin_router)
 api_router.include_router(partner_members_router)
 api_router.include_router(permissions_admin_router)
+api_router.include_router(departments_router)
+api_router.include_router(data_scopes_router)
+api_router.include_router(options_router)
 api_router.include_router(review_center_router)
 api_router.include_router(operations_router)
 api_router.include_router(exports_router)

@@ -24,7 +24,11 @@ export const authApi = {
       throw err
     }
     if (res.statusCode >= 200 && res.statusCode < 300) {
-      return res.data as any
+      // 该端点走了裸 Taro.request（未经过 lib/api 的中心 request），需手动解统一信封
+      const body = res.data as any
+      const header = res.header as Record<string, string> | undefined
+      const marked = header?.['x-api-envelope'] === '1' || header?.['X-Api-Envelope'] === '1'
+      return marked && body && typeof body === 'object' && 'data' in body ? body.data : body
     }
     const body = res?.data as any
     const detail = body && typeof body === 'object' ? body.detail : undefined
@@ -280,6 +284,39 @@ export const adminPermissionsApi = {
   list: () => request({ url: '/admin/permissions', method: 'GET' }),
   setRole: (role: string, codes: string[]) =>
     request({ url: `/admin/permissions/roles/${role}`, method: 'PUT', data: { codes } })
+}
+
+// 管理端：部门树管理（对齐 Web 端 /system/departments）
+export const adminDepartmentsApi = {
+  // 树（含 member_count）与扁平列表
+  tree: () => request({ url: '/admin/departments/tree', method: 'GET' }),
+  list: () => request({ url: '/admin/departments', method: 'GET' }),
+  create: (data: any) => request({ url: '/admin/departments', method: 'POST', data }),
+  update: (id: string, data: any) =>
+    request({ url: `/admin/departments/${id}`, method: 'PATCH', data }),
+  remove: (id: string) => request({ url: `/admin/departments/${id}`, method: 'DELETE' }),
+  assign: (userId: string, departmentId: string | null) =>
+    request({ url: '/admin/departments/assign', method: 'PUT', data: { user_id: userId, department_id: departmentId } })
+}
+
+// 管理端：行级数据范围配置（角色默认 + 用户级覆盖）
+export const adminDataScopesApi = {
+  get: () => request({ url: '/admin/data-scopes', method: 'GET' }),
+  setRole: (role: string, scope: string) =>
+    request({ url: `/admin/data-scopes/roles/${role}`, method: 'PUT', data: { scope } }),
+  setUser: (userId: string, scope: string) =>
+    request({ url: `/admin/data-scopes/users/${userId}`, method: 'PUT', data: { scope } }),
+  clearUser: (userId: string) =>
+    request({ url: `/admin/data-scopes/users/${userId}`, method: 'DELETE' })
+}
+
+// 管理端：数据字典（公开读 / options；管理端增删改 / admin/options）
+export const adminOptionsApi = {
+  list: (params?: any) => request({ url: '/options', method: 'GET', data: params }),
+  create: (data: any) => request({ url: '/admin/options', method: 'POST', data }),
+  update: (id: string, data: any) =>
+    request({ url: `/admin/options/${id}`, method: 'PATCH', data }),
+  remove: (id: string) => request({ url: `/admin/options/${id}`, method: 'DELETE' })
 }
 
 // 管理端：佣金规则配置

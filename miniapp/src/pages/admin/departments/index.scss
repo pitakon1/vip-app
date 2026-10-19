@@ -1,0 +1,236 @@
+/* 管理端 · 部门管理（对齐 Web 端 /system/departments） */
+.dm-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24rpx 24rpx 200rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 工具条：说明 + 新增 ===== */
+.dm-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+
+  &__desc {
+    flex: 1;
+    font-size: 22rpx;
+    color: var(--ink-3);
+    line-height: 1.5;
+  }
+}
+
+.dm-add {
+  flex-shrink: 0;
+  height: 64rpx;
+  padding: 0 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-primary);
+
+  &__text {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--primary-foreground);
+  }
+}
+
+/* ===== 部门卡片（按层级缩进） ===== */
+.dm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.dm-card {
+  background: var(--card);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16rpx;
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  &__code {
+    font-size: 22rpx;
+    color: var(--ink-3);
+    flex-shrink: 0;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 24rpx;
+    margin-top: 8rpx;
+  }
+
+  &__meta-text {
+    font-size: 22rpx;
+    color: var(--ink-3);
+  }
+
+  &__actions {
+    display: flex;
+    gap: 28rpx;
+    margin-top: 20rpx;
+    padding-top: 20rpx;
+    border-top: 1rpx solid var(--line);
+  }
+}
+
+.dm-tag {
+  font-size: 20rpx;
+  padding: 2rpx 12rpx;
+  border-radius: var(--radius-full);
+
+  &--off {
+    color: var(--ink-3);
+    background: rgba(var(--primary-rgb), 0.06);
+  }
+}
+
+.dm-act {
+  font-size: 26rpx;
+  color: var(--primary);
+  font-weight: 600;
+
+  &--danger {
+    color: #dc2626;
+  }
+}
+
+/* ===== 空态 ===== */
+.dm-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+
+  &__text {
+    font-size: 28rpx;
+    color: var(--ink-3);
+  }
+}
+
+/* ===== 弹窗表单 ===== */
+.dm-form-hint {
+  display: block;
+  font-size: 24rpx;
+  color: var(--ink-3);
+  margin-top: 8rpx;
+}
+
+.dm-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24rpx;
+}
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-sheet {
+  width: 100%;
+  padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+  background-color: var(--card);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+
+  &__title {
+    display: block;
+    font-size: 34rpx;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 8rpx;
+  }
+}
+
+.form-field {
+  margin-top: 20rpx;
+
+  &__label {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-2);
+    margin-bottom: 8rpx;
+  }
+
+  &__input {
+    height: 80rpx;
+    line-height: 80rpx;
+    padding: 0 24rpx;
+    font-size: 28rpx;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1rpx solid var(--line);
+    border-radius: var(--radius-md);
+  }
+}
+
+.modal-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 40rpx;
+}
+
+.modal-btn {
+  flex: 1;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+
+  &--ghost {
+    background-color: var(--bg);
+  }
+
+  &--primary {
+    background-color: var(--primary);
+  }
+
+  &--disabled {
+    opacity: 0.6;
+  }
+
+  &__text {
+    font-size: 30rpx;
+    color: var(--ink-2);
+
+    &--primary {
+      color: var(--primary-foreground);
+      font-weight: 600;
+    }
+  }
+}

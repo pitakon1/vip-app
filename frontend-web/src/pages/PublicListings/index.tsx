@@ -10,7 +10,7 @@ import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
-import { usePropertyStatusMap, usePropertyTypeMap } from '@/lib/enumLabels'
+import { usePropertyStatusMap, usePropertyTypeMap, useOrientationMap, useDecorationMap, useAmenityMap } from '@/lib/enumLabels'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import GoogleMapView, { type MapMarker, type MapBounds } from '@/components/GoogleMap'
 import { METRO_LINES } from '@/data/locationMetro'
@@ -171,6 +171,11 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   const statusLabelMap = usePropertyStatusMap()
 
   const propertyTypeMap = usePropertyTypeMap()
+
+  // 「更多」面板的朝向/装修/配套文案：字典优先、硬编码回落（见 lib/enumLabels）
+  const orientationMap = useOrientationMap()
+  const decorationMap = useDecorationMap()
+  const amenityMap = useAmenityMap()
 
   // 已选区域/地铁的展示文案（chip 标题，对齐贝壳：未选=「区域」，已选=具体城区/站点）
   const distNode = (key: string) => cityDistricts.find((d) => d.key === key)
@@ -776,14 +781,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   const ANY = t('priceRange.all')
   const orientationOptions = [
     { value: '', label: ANY },
-    { value: 'north', label: t('publicSite.orientation.north') },
-    { value: 'south', label: t('publicSite.orientation.south') },
-    { value: 'east', label: t('publicSite.orientation.east') },
-    { value: 'west', label: t('publicSite.orientation.west') },
-    { value: 'northeast', label: t('publicSite.orientation.northeast') },
-    { value: 'northwest', label: t('publicSite.orientation.northwest') },
-    { value: 'southeast', label: t('publicSite.orientation.southeast') },
-    { value: 'southwest', label: t('publicSite.orientation.southwest') },
+    ...Object.entries(orientationMap).map(([value, label]) => ({ value, label })),
   ]
   const floorLevelOptions = [
     { value: '', label: ANY },
@@ -793,21 +791,9 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   ]
   const decorationOptions = [
     { value: '', label: ANY },
-    { value: 'bare', label: t('publicSite.decoration.bare') },
-    { value: 'simple', label: t('publicSite.decoration.simple') },
-    { value: 'standard', label: t('publicSite.decoration.standard') },
-    { value: 'luxury', label: t('publicSite.decoration.luxury') },
-    { value: 'fully_furnished', label: t('publicSite.decoration.fully_furnished') },
+    ...Object.entries(decorationMap).map(([value, label]) => ({ value, label })),
   ]
-  const amenityOptions = [
-    { value: 'aircon', label: t('publicSite.amenity.aircon') },
-    { value: 'pool', label: t('publicSite.amenity.pool') },
-    { value: 'gym', label: t('publicSite.amenity.gym') },
-    { value: 'parking', label: t('publicSite.amenity.parking') },
-    { value: 'elevator', label: t('publicSite.amenity.elevator') },
-    { value: 'balcony', label: t('publicSite.amenity.balcony') },
-    { value: 'garden', label: t('publicSite.amenity.garden') },
-  ]
+  const amenityOptions = Object.entries(amenityMap).map(([value, label]) => ({ value, label }))
   const applyAreaPreset = (key: string) => {
     if (key === 'all') { setAreaRange(''); setAreaCustomMin(''); setAreaCustomMax(''); return }
     setAreaRange(key)

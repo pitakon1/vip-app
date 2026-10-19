@@ -34,6 +34,9 @@ export type RootStackParamList = {
   OwnerMarketing: undefined;
   AdminUsers: undefined;
   AdminPermissions: undefined;
+  AdminDepartments: undefined;
+  AdminDataScopes: undefined;
+  AdminOptions: undefined;
   AdminProperties: undefined;
   AdminPropertyDetail: { id: string };
   /** 合作公司管理员聚合页（成员 / 绩效 / 本公司房源） */
@@ -160,6 +163,9 @@ const CalendarScreen = lazyScreen(() => import('../screens/employee/CalendarScre
 const AdminUsersScreen = lazyScreen(() => import('../screens/admin/AdminUsersScreen'));
 const PartnerHubScreen = lazyScreen(() => import('../screens/admin/PartnerHubScreen'));
 const AdminPermissionsScreen = lazyScreen(() => import('../screens/admin/PermissionsScreen'));
+const AdminDepartmentsScreen = lazyScreen(() => import('../screens/admin/DepartmentsScreen'));
+const AdminDataScopesScreen = lazyScreen(() => import('../screens/admin/DataScopesScreen'));
+const AdminOptionsScreen = lazyScreen(() => import('../screens/admin/OptionsScreen'));
 const AdminPropertiesScreen = lazyScreen(() => import('../screens/admin/PropertiesScreen'));
 const AdminPropertyDetailScreen = lazyScreen(() => import('../screens/admin/PropertyDetailScreen'));
 const PropertyEditScreen = lazyScreen(() => import('../screens/admin/PropertyEditScreen'));
@@ -247,6 +253,9 @@ export function RootNavigator() {
       <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ headerShown: true, title: t('acc.title') }} />
       <Stack.Screen name="PartnerHub" component={PartnerHubScreen} options={{ headerShown: true, title: t('partner.title') }} />
       <Stack.Screen name="AdminPermissions" component={AdminPermissionsScreen} options={{ headerShown: true, title: t('perm.entry') }} />
+      <Stack.Screen name="AdminDepartments" component={AdminDepartmentsScreen} options={{ headerShown: true, title: t('dept.title') }} />
+      <Stack.Screen name="AdminDataScopes" component={AdminDataScopesScreen} options={{ headerShown: true, title: t('scope.title') }} />
+      <Stack.Screen name="AdminOptions" component={AdminOptionsScreen} options={{ headerShown: true, title: t('dict.title') }} />
       <Stack.Screen name="Contacts" component={ContactScreen} options={{ headerShown: true, title: '同事通讯录' }} />
       <Stack.Screen name="OwnerHome" component={OwnerHomeScreen} options={{ headerShown: true, title: '资产管理' }} />
       <Stack.Screen name="OwnerIncome" component={OwnerIncomeScreen} options={{ headerShown: true, title: '收益明细' }} />

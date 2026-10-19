@@ -51,7 +51,7 @@ export default {
     // 管理端后台：全部低频，独立分包
     {
       root: 'pages/admin',
-      pages: ['home/index', 'properties/index', 'property-detail/index', 'new-project/index', 'crm/index', 'payments/index', 'leases/index', 'contracts/index', 'accounts/index', 'permissions/index', 'commission-rules/index', 'review-center/index', 'attendance-manage/index', 'partners/index', 'partner-members/index', 'partner-attendance/index']
+      pages: ['home/index', 'properties/index', 'property-detail/index', 'new-project/index', 'crm/index', 'payments/index', 'leases/index', 'contracts/index', 'accounts/index', 'permissions/index', 'departments/index', 'data-scopes/index', 'options/index', 'commission-rules/index', 'review-center/index', 'attendance-manage/index', 'partners/index', 'partner-members/index', 'partner-attendance/index']
     },
     // 内部/渠道上架作业（发布房源入口已收敛到各端「房源管理」）
     {

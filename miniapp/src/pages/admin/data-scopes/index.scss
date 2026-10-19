@@ -1,0 +1,140 @@
+/* 管理端 · 数据范围（对齐 Web 端 /system/data-scopes） */
+.ds-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24rpx 24rpx 200rpx;
+  box-sizing: border-box;
+}
+
+.ds-card {
+  background: var(--card);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+
+  &__title {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 16rpx;
+  }
+}
+
+/* ===== 角色默认范围 ===== */
+.ds-role {
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--line);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12rpx;
+  }
+
+  &__name {
+    font-size: 27rpx;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  &__flag {
+    font-size: 20rpx;
+    color: var(--ink-3);
+  }
+}
+
+.ds-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.ds-chip {
+  padding: 10rpx 24rpx;
+  border-radius: var(--radius-full);
+  background: var(--bg);
+  border: 1rpx solid var(--line);
+
+  &--on {
+    background: rgba(var(--primary-rgb), 0.1);
+    border-color: var(--primary);
+  }
+
+  &--on .ds-chip__text {
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  &__text {
+    font-size: 24rpx;
+    color: var(--ink-2);
+  }
+}
+
+/* ===== 用户级覆盖 ===== */
+.ds-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--line);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    display: block;
+    font-size: 27rpx;
+    color: var(--ink);
+  }
+
+  &__meta {
+    display: block;
+    font-size: 22rpx;
+    color: var(--ink-3);
+    margin-top: 4rpx;
+  }
+
+  &__clear {
+    flex-shrink: 0;
+    font-size: 26rpx;
+    color: #dc2626;
+    font-weight: 600;
+  }
+}
+
+.ds-empty {
+  display: block;
+  font-size: 26rpx;
+  color: var(--ink-3);
+  padding: 12rpx 0;
+}
+
+.ds-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+
+  &__text {
+    font-size: 28rpx;
+    color: var(--ink-3);
+  }
+}

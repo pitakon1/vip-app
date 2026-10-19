@@ -89,6 +89,9 @@ const SystemUsers = lazy(() => import('@/pages/System/Users'))
 const SystemPartners = lazy(() => import('@/pages/System/Partners'))
 const SystemGroups = lazy(() => import('@/pages/System/Groups'))
 const SystemPermissions = lazy(() => import('@/pages/System/Permissions'))
+const SystemDepartments = lazy(() => import('@/pages/System/Departments'))
+const SystemDataScopes = lazy(() => import('@/pages/System/DataScopes'))
+const SystemOptions = lazy(() => import('@/pages/System/Options'))
 const SystemReview = lazy(() => import('@/pages/System/ReviewCenter'))
 const Operations = lazy(() => import('@/pages/Operations'))
 
@@ -232,6 +235,10 @@ const App = () => {
             <Route path="/system/partners" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemPartners /></ProtectedRoute>} />
             <Route path="/system/groups" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemGroups /></ProtectedRoute>} />
             <Route path="/system/permissions" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemPermissions /></ProtectedRoute>} />
+            {/* 组织架构 / 数据范围 / 数据字典（权限点 department:manage、data:scope:manage、option:manage） */}
+            <Route path="/system/departments" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemDepartments /></ProtectedRoute>} />
+            <Route path="/system/data-scopes" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemDataScopes /></ProtectedRoute>} />
+            <Route path="/system/options" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemOptions /></ProtectedRoute>} />
             <Route path="/system/review-center" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemReview /></ProtectedRoute>} />
             <Route path="/operations" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><Operations /></ProtectedRoute>} />
             {/* 考勤管理：管理员看全量；合作公司管理员看本公司（后端按 partner 作用域强制收敛） */}

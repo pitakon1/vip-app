@@ -44,6 +44,7 @@ from app.providers.geo import haversine_km, lat_lng_bounds
 from app.services import dedupe_service
 from app.services.price_alert import notify_if_price_dropped
 from app.services.search import relevance_score, resolve_sort
+from app.services.serial_number import next_no
 
 router = APIRouter(prefix="/properties", tags=["properties"])
 
@@ -625,6 +626,8 @@ def create_property(
     payload["dedupe_type"] = dedupe["dedupe_type"]
     payload["dedupe_key"] = dedupe["dedupe_key"]
     payload["address_norm"] = dedupe["address_norm"]
+    # 对外房源编号（FY+YYYYMM+6 位序号）：先取号再构造实体，避免取号重试回滚冲掉写入
+    payload["listing_no"] = next_no(session, "FY")
     prop = Property(**payload)
     session.add(prop)
     session.commit()

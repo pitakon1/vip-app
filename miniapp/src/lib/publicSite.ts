@@ -65,8 +65,48 @@ export const LISTING_TYPE: Record<string, string> = {
 const pick = (map: Record<string, string>, value?: string | null): string =>
   value ? useI18n.getState().t(map[value] ?? value) : ''
 
-export const orientationLabel = (value?: string | null) => pick(ORIENTATION, value)
-export const decorationLabel = (value?: string | null) => pick(DECORATION, value)
+// ==================== 数据字典（非破坏式接入） ====================
+// 后端 `/options/bundle` 提供后台可维护的枚举文案；这里「字典命中优先、缺失回落硬编码
+// i18n」，保证字典未接入 / 缺项时 C 端照常渲染。与 Web / RN 端保持同一口径。
+const OPTION_BUNDLE_CACHE: Record<string, Record<string, Record<string, string>>> = {}
+const optionInflight: Record<string, Promise<void>> = {}
+
+const normLang = (lang?: string): string => {
+  const short = (lang || '').slice(0, 2)
+  return ['zh', 'en', 'th'].includes(short) ? short : 'zh'
+}
+
+/** 拉取某语言字典（缓存 + 请求去重；失败静默降级）。 */
+export async function loadOptions(lang?: string): Promise<void> {
+  const key = normLang(lang ?? useI18n.getState().lang)
+  if (OPTION_BUNDLE_CACHE[key]) return
+  if (!optionInflight[key]) {
+    optionInflight[key] = (async () => {
+      try {
+        OPTION_BUNDLE_CACHE[key] = await request<Record<string, Record<string, string>>>({
+          url: '/options/bundle',
+          data: { lang: key }
+        })
+      } catch {
+        /* 静默降级，回落硬编码 */
+      } finally {
+        delete optionInflight[key]
+      }
+    })()
+  }
+  await optionInflight[key]
+}
+
+/** 同步读取字典文案：未加载 / 缺项返回 undefined（调用方回落硬编码）。 */
+const dictLabel = (type: string, value?: string | null): string | undefined => {
+  if (!value) return undefined
+  return OPTION_BUNDLE_CACHE[normLang(useI18n.getState().lang)]?.[type]?.[value]
+}
+
+export const orientationLabel = (value?: string | null) =>
+  dictLabel('orientation', value) ?? pick(ORIENTATION, value)
+export const decorationLabel = (value?: string | null) =>
+  dictLabel('decoration', value) ?? pick(DECORATION, value)
 export const schoolStageLabel = (value?: string | null) => pick(STAGE, value)
 export const curriculumLabel = (value?: string | null) => pick(CURRICULUM, value)
 export const tenureLabel = (value?: string | null) => pick(TENURE, value)
@@ -131,6 +171,8 @@ let ratesLoaded = false
 
 /** 拉取服务端汇率覆盖兜底值；失败静默降级（汇率是展示增强，不该让页面挂掉）。 */
 export async function loadRates(): Promise<void> {
+  // 顺带预取数据字典：所有公开站页面都会调 loadRates()，借此让标签函数也命中字典
+  void loadOptions()
   if (ratesLoaded) return
   try {
     const res: any = await request<any>({ url: '/public/exchange-rates' })

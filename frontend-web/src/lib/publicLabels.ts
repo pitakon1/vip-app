@@ -5,6 +5,8 @@
  * 本地化文案，各页面都要用，集中在这里避免重复实现。
  */
 import type { TFunction } from 'i18next'
+import i18n from '@/i18n'
+import { getOptionLabel } from '@/lib/enumLabels'
 
 const translate = (
   group: string,
@@ -18,11 +20,22 @@ const translate = (
   return text === key ? value : text
 }
 
+/**
+ * 字典优先、i18n 回落：数据字典由后台维护，命中即用；未接入 / 缺项时回落
+ * 硬编码 i18n，保证 C 端不因字典缺失而空白。
+ */
+const fromDict = (
+  group: string,
+  value: string | null | undefined,
+  t: TFunction,
+): string =>
+  getOptionLabel(group, value, i18n.language) ?? translate(group, value, t)
+
 export const orientationLabel = (value: string | null | undefined, t: TFunction) =>
-  translate('orientation', value, t)
+  fromDict('orientation', value, t)
 
 export const decorationLabel = (value: string | null | undefined, t: TFunction) =>
-  translate('decoration', value, t)
+  fromDict('decoration', value, t)
 
 export const schoolStageLabel = (value: string | null | undefined, t: TFunction) =>
   translate('stage', value, t)

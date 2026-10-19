@@ -837,7 +837,43 @@ export default function ProfileScreen() {
                 route: 'AdminPermissions',
               },
               1,
+              5,
+            )}
+            {renderSettingItem(
+              {
+                key: 'departments',
+                icon: 'git-branch',
+                label: t('dept.title'),
+                color: colors.primary,
+                bg: colors.sidebarActive,
+                route: 'AdminDepartments',
+              },
               2,
+              5,
+            )}
+            {renderSettingItem(
+              {
+                key: 'dataScopes',
+                icon: 'globe',
+                label: t('scope.title'),
+                color: colors.primary,
+                bg: colors.sidebarActive,
+                route: 'AdminDataScopes',
+              },
+              3,
+              5,
+            )}
+            {renderSettingItem(
+              {
+                key: 'options',
+                icon: 'book',
+                label: t('dict.title'),
+                color: colors.primary,
+                bg: colors.sidebarActive,
+                route: 'AdminOptions',
+              },
+              4,
+              5,
             )}
           </Card>
 

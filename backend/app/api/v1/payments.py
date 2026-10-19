@@ -59,6 +59,7 @@ from app.models import (
 )
 from app.providers.payment.base import PaymentChannel
 from app.providers.payment.service import payment_service, UnmatchedWebhookError
+from app.services.serial_number import next_no
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -415,6 +416,8 @@ def create_payment(
     if existing:
         return existing
 
+    # 对外收款单编号（SK+YYYYMM+6 位序号）
+    data["receipt_no"] = next_no(session, "SK")
     payment = Payment(**data, status=PaymentStatus.pending)
     session.add(payment)
     try:
@@ -477,6 +480,7 @@ def upload_payment_proof(
     """
     receipt_url = _save_receipt(receipt) if receipt else None
     payment = Payment(
+        receipt_no=next_no(session, "SK"),
         payer_id=user.id,
         amount=amount,
         currency="THB",
@@ -679,7 +683,7 @@ def get_payment_receipt(
 
     return {
         "payment_id": str(payment.id),
-        "reference_no": payment.idempotency_key,
+        "reference_no": payment.receipt_no or payment.idempotency_key,
         "amount": payment.amount,
         "currency": payment.currency,
         "payment_type": payment.payment_type.value if payment.payment_type else None,
@@ -723,7 +727,7 @@ def get_payment_invoice(
         net = payment.amount
 
     return {
-        "invoice_no": payment.idempotency_key,
+        "invoice_no": payment.receipt_no or payment.idempotency_key,
         "invoice_type": "tax_invoice",
         "payment_id": str(payment.id),
         "issue_date": datetime.utcnow().isoformat(),

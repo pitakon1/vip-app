@@ -1,4 +1,4 @@
-import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../stores/auth';
 import { refreshTokenStorage, tokenStorage } from './storage';
 
@@ -98,9 +98,41 @@ let refreshing: Promise<string> | null = null;
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
 
-// 响应拦截器：401 先尝试静默续期并重放，续期无望才登出
+/**
+ * 统一返回信封解包。
+ *
+ * 后端 EnvelopeMiddleware 把成功的 JSON 响应包裹成 `{code, msg, data}` 并写入
+ * `X-Api-Envelope: 1`。这里在**单一出口**把它拆掉，下游页面仍按原来的
+ * `response.data`（即原响应体）读取，全端无需逐页改动。
+ *
+ * 只认响应头标记（而不是「有没有 data 字段」）：存量响应体里存在结构本身带
+ * `data` 键的，靠字段猜会误判。错误响应（>=400）不带该头，原样透传。
+ *
+ * 注意：不能用 `body.data ?? body`——`data` 为 `null`（如删除类接口）时
+ * `??` 会把整个信封回退给调用方，必须显式判 `'data' in body`。
+ */
+const ENVELOPE_HEADER = 'x-api-envelope';
+
+const unwrapEnvelope = (response: AxiosResponse) => {
+  const headers = response.headers as Record<string, unknown> | undefined;
+  const marked =
+    headers?.[ENVELOPE_HEADER] === '1' || headers?.['X-Api-Envelope'] === '1';
+  const body = response.data as unknown;
+  if (
+    marked &&
+    body !== null &&
+    typeof body === 'object' &&
+    !Array.isArray(body) &&
+    'data' in (body as Record<string, unknown>)
+  ) {
+    response.data = (body as Record<string, unknown>).data;
+  }
+  return response;
+};
+
+// 响应拦截器：先解包信封，401 再尝试静默续期并重放，续期无望才登出
 apiClient.interceptors.response.use(
-  (response) => response,
+  unwrapEnvelope,
   async (error: AxiosError) => {
     const original = error.config as RetriableConfig | undefined;
     // 凭据类接口（登录/注册/刷新）自身返回 401 表示「凭据错误」，

@@ -40,6 +40,7 @@ from app.models import (
 )
 from app.core.security import get_password_hash
 from app.services.pricing import compute_deposit_amount
+from app.services.serial_number import next_no
 
 router = APIRouter(prefix="/leases", tags=["leases"])
 
@@ -523,6 +524,8 @@ def create_lease(
     if data.get("deposit_amount") is None:
         data["deposit_amount"] = compute_deposit_amount(req.monthly_rent, owner_type)
     data["deposit_status"] = data.get("deposit_status") or "held"
+    # 对外租约编号（ZL+YYYYMM+6 位序号）
+    data["lease_no"] = next_no(session, "ZL")
 
     lease = Lease(**data)
     session.add(lease)
@@ -698,6 +701,7 @@ def renew_lease(
 
     can_override_rent = user.role in (UserRole.admin, UserRole.agent)
     new_lease = Lease(
+        lease_no=next_no(session, "ZL"),
         property_id=old_lease.property_id,
         tenant_id=old_lease.tenant_id,
         owner_id=old_lease.owner_id,
@@ -861,6 +865,7 @@ def deposit_settlement(
             )
         session.add(
             Payment(
+                receipt_no=next_no(session, "SK"),
                 lease_id=lease.id,
                 property_id=lease.property_id,
                 payer_id=owner.user_id,

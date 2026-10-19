@@ -74,6 +74,7 @@ from app.providers.notification.base import (
 )
 from app.providers.notification.router import notification_router
 from app.services import esign_service
+from app.services.serial_number import next_no
 from .documents import ALLOWED_DOCUMENT_TYPES
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
@@ -173,6 +174,7 @@ def generate_contract(
 
     meta = esign_service.generate_contract(counters, language, kind=contract_kind.value)
     contract = Contract(
+        contract_no=next_no(session, "HT"),
         lease_id=lease_id,
         property_id=property_id,
         title=meta["title"],

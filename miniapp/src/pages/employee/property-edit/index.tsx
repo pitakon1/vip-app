@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { View, Text, Input, Textarea, Picker, Switch, Button, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { propertiesApi } from '@/services/api'
+import { unwrapUploadResult } from '@/lib/api'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
@@ -161,7 +162,7 @@ export default function EmployeePropertyEditPage() {
         try {
           for (const p of localPaths) {
             const r: any = await propertiesApi.uploadPhotos(id, [{ url: p }])
-            const body = typeof r?.data === 'string' ? JSON.parse(r.data) : r?.data
+            const body = unwrapUploadResult<any>(r)
             const arr = Array.isArray(body?.photos) ? body.photos : body
             if (Array.isArray(arr)) set('photos', arr)
           }

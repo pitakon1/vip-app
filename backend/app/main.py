@@ -21,9 +21,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
 from app.core.auth import require_role
+from app.core.envelope import register_envelope_middleware
 from app.core.error_handlers import rate_limited_response, register_exception_handlers
 from app.core.logging import configure_logging, get_logger
-from app.core.migrations import ensure_schema
+from app.core.migrations import backfill_serial_numbers, ensure_schema, seed_options
 from app.core.metrics import observe
 from app.core.rate_limit import apply_default_limit, limiter
 from app.core.rbac import seed_permissions
@@ -180,6 +181,10 @@ async def lifespan(app: FastAPI):
     # 幂等迁移：建缺失的表 + 给已有表补缺失的列与索引
     # （create_all 只建表不补列，模型加字段后必须在这里补齐，否则查询 500）
     ensure_schema(engine)
+    # 幂等补种内置数据字典（只补不缺，不覆盖后台改动）
+    seed_options(engine)
+    # 幂等回填历史单据编号（只补 NULL 行）
+    backfill_serial_numbers(engine)
     # 幂等补种权限点与角色默认权限（不覆盖已有配置）
     with Session(engine) as session:
         seed_permissions(session)
@@ -207,8 +212,9 @@ register_exception_handlers(app)
 
 # ==================== 中间件 ====================
 # Starlette 中「后注册的更靠外层」，以下按 内 -> 外 顺序注册，
-# 最终执行顺序由外到内为：CORS -> request_id -> metrics -> rate_limit -> 路由。
-# 这样限流产生的 429 也会被计入指标并带上 CORS 头。
+# 最终执行顺序由外到内为：CORS -> envelope -> request_id -> metrics -> rate_limit -> 路由。
+# envelope 放在 CORS 之内、request_id 之外：CORS 预检在最外层短路（不经信封），
+# 业务响应则被信封统一包裹；限流产生的 429（>=400）不走信封，仍是既有错误体。
 
 
 async def rate_limit_middleware(request: Request, call_next):
@@ -261,7 +267,10 @@ app.add_middleware(BaseHTTPMiddleware, dispatch=metrics_middleware)
 # 3) 请求 ID 追踪
 app.add_middleware(BaseHTTPMiddleware, dispatch=request_id_middleware)
 
-# 4) CORS（最外层；源列表来自 CORS_ORIGINS 配置，默认仅本地开发端口）
+# 4) 统一返回信封 {code, msg, data}（成功 JSON 响应）
+register_envelope_middleware(app)
+
+# 5) CORS（最外层；源列表来自 CORS_ORIGINS 配置，默认仅本地开发端口）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

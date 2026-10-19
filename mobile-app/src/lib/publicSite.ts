@@ -5,6 +5,7 @@
  * 避免三个端各写一遍导致文案/汇率不一致。
  */
 import api from '@/lib/api';
+import { useI18n } from '@/i18n';
 
 /** i18n 的取词函数签名（`useI18n().t`）。标签函数接收它而不是自己去取，
  * 这样组件内只订阅一次语言变化，也不需要把标签函数写进 hooks 依赖。 */
@@ -22,10 +23,46 @@ const translate = (
   return text === key ? value : text;
 };
 
+// ==================== 数据字典（非破坏式接入） ====================
+// 后端 `/options/bundle` 提供后台可维护的枚举文案；这里「字典命中优先、缺失回落硬编码
+// i18n」，保证字典未接入 / 缺项时 C 端照常渲染。与 Web `lib/enumLabels.ts` 同一口径。
+const OPTION_BUNDLE_CACHE: Record<string, Record<string, Record<string, string>>> = {};
+const optionInflight: Record<string, Promise<void>> = {};
+
+const normLang = (lang?: string): string => {
+  const short = (lang || '').slice(0, 2);
+  return ['zh', 'en', 'th'].includes(short) ? short : 'zh';
+};
+
+/** 拉取某语言字典（缓存 + 请求去重；失败静默降级）。 */
+export async function loadOptions(lang?: string): Promise<void> {
+  const key = normLang(lang ?? useI18n.getState().lang);
+  if (OPTION_BUNDLE_CACHE[key]) return;
+  if (!optionInflight[key]) {
+    optionInflight[key] = (async () => {
+      try {
+        const res: any = await api.get('/options/bundle', { params: { lang: key } });
+        OPTION_BUNDLE_CACHE[key] = res?.data || {};
+      } catch {
+        /* 静默降级，回落硬编码 */
+      } finally {
+        delete optionInflight[key];
+      }
+    })();
+  }
+  await optionInflight[key];
+}
+
+/** 同步读取字典文案：未加载 / 缺项返回 undefined（调用方回落硬编码）。 */
+const dictLabel = (type: string, value: string | null | undefined): string | undefined => {
+  if (!value) return undefined;
+  return OPTION_BUNDLE_CACHE[normLang(useI18n.getState().lang)]?.[type]?.[value];
+};
+
 export const orientationLabel = (v: string | null | undefined, t: TFunction) =>
-  translate('orientation', v, t);
+  dictLabel('orientation', v) ?? translate('orientation', v, t);
 export const decorationLabel = (v: string | null | undefined, t: TFunction) =>
-  translate('decoration', v, t);
+  dictLabel('decoration', v) ?? translate('decoration', v, t);
 export const schoolStageLabel = (v: string | null | undefined, t: TFunction) =>
   translate('stage', v, t);
 export const curriculumLabel = (v: string | null | undefined, t: TFunction) =>
@@ -97,6 +134,8 @@ let ratesLoaded = false;
  * 失败时静默保持兜底值——汇率是展示增强，不该因它让页面挂掉。
  */
 export async function loadRates(): Promise<void> {
+  // 顺带预取数据字典：所有公开站屏幕都会调 loadRates()，借此让标签函数也命中字典
+  void loadOptions();
   if (ratesLoaded) return;
   try {
     const res: any = await api.get('/public/exchange-rates');

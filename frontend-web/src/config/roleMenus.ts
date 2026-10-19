@@ -288,6 +288,21 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           icon: 'M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M18 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M3 21v-1a5 5 0 0 1 5-5 5 5 0 0 1 5 5v1 M21 16.5V21 M19.5 18.75h3',
         },
         {
+          key: '/system/departments',
+          labelKey: 'menu.departments',
+          icon: 'M12 3l9 5-9 5-9-5 9-5z M3 12l9 5 9-5 M3 16l9 5 9-5',
+        },
+        {
+          key: '/system/data-scopes',
+          labelKey: 'menu.dataScopes',
+          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M2 12h20 M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z',
+        },
+        {
+          key: '/system/options',
+          labelKey: 'menu.dataDictionary',
+          icon: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+        },
+        {
           key: '/system/permissions',
           labelKey: 'menu.rolePermissions',
           icon: 'M21 2l-2 2 M3 22l2-2 M5 20l-2-2 M3 6h4 M7 6a4 4 0 1 0 8 0 4 4 0 0 0-8 0z M9.5 11.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8z',

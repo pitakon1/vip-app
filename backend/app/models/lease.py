@@ -26,6 +26,10 @@ class Lease(TimestampMixin, table=True):
 
     __tablename__ = "leases"
 
+    # 对外租约编号（如 ZL202610000001），由编号服务写入；历史行为 NULL（已回填）
+    lease_no: Optional[str] = Field(
+        default=None, max_length=32, index=True, description="对外租约编号"
+    )
     property_id: uuid.UUID = Field(foreign_key="properties.id", index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     owner_id: uuid.UUID = Field(foreign_key="owners.id")

@@ -519,6 +519,36 @@ export const permissionsAdminApi = {
     api.put(`/admin/permissions/roles/${role}`, { codes }),
 };
 
+// 管理端：组织架构部门树（权限点 department:manage）
+export const departmentsAdminApi = {
+  tree: () => api.get('/admin/departments/tree'),
+  list: () => api.get('/admin/departments'),
+  create: (data: any) => api.post('/admin/departments', data),
+  update: (id: string, data: any) => api.patch(`/admin/departments/${id}`, data),
+  remove: (id: string) => api.delete(`/admin/departments/${id}`),
+  assign: (userId: string, departmentId: string | null) =>
+    api.put('/admin/departments/assign', { user_id: userId, department_id: departmentId }),
+};
+
+// 管理端：行级数据范围配置（权限点 data:scope:manage）
+export const dataScopeAdminApi = {
+  get: () => api.get('/admin/data-scopes'),
+  setRole: (role: string, scope: string) =>
+    api.put(`/admin/data-scopes/roles/${role}`, { scope }),
+  setUser: (userId: string, scope: string) =>
+    api.put(`/admin/data-scopes/users/${userId}`, { scope }),
+  clearUser: (userId: string) => api.delete(`/admin/data-scopes/users/${userId}`),
+};
+
+// 通用数据字典：读接口匿名可读，写接口权限点 option:manage
+export const optionsApi = {
+  list: (params?: any) => api.get('/options', { params }),
+  bundle: (lang?: string) => api.get('/options/bundle', { params: { lang } }),
+  create: (data: any) => api.post('/admin/options', data),
+  update: (id: string, data: any) => api.patch(`/admin/options/${id}`, data),
+  remove: (id: string) => api.delete(`/admin/options/${id}`),
+};
+
 // 公司资料与系统配置（管理端「我的 - 业务设置」读写：租金/合同提醒天数、自动催缴）
 export const companyApi = {
   info: () => api.get('/company/info'),

@@ -18,7 +18,13 @@ class Employee(TimestampMixin, table=True):
 
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     employee_code: str = Field(unique=True, index=True)
+    # 存量自由文本部门名（保留不动，兼容既有前端与报表）
     department: Optional[str] = Field(default=None, index=True)
+    # 结构化部门外键（对标参考项目部门树；用于数据范围推导）
+    department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True,
+        description="所属部门（结构化，用于行级数据范围）",
+    )
     position: Optional[str] = None
     hire_date: Optional[date] = None
     phone: Optional[str] = None

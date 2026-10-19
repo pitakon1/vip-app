@@ -36,9 +36,14 @@ def _error_response(
     return JSONResponse(
         status_code=status_code,
         content={
+            # 既有字段：三端读 detail 直接展示，保留不动
             "detail": message,
             "code": code,
             "message": message,
+            # 统一信封呼应字段：成功侧由 EnvelopeMiddleware 产出 {code:0,msg,data}，
+            # 失败侧补齐 msg/data，使两端结构对齐（code 沿用字符串业务码，非 0 即失败）
+            "msg": message,
+            "data": None,
             "request_id": _request_id(request),
         },
     )
@@ -95,6 +100,8 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "detail": message,
                 "code": "VALIDATION_ERROR",
                 "message": message,
+                "msg": message,
+                "data": None,
                 "request_id": _request_id(request),
                 "errors": json.loads(json.dumps(errors, default=str)),
             },
