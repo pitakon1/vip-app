@@ -33,6 +33,7 @@ import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import RegionPicker, { type RegionSelection } from '@/components/RegionPicker';
 import { currencySymbol } from '@/lib/currency';
 import { propertyCoverUrl } from '@/lib/property';
+import { useI18n } from '@/i18n';
 
 const PAGE_SIZE = 10;
 
@@ -124,6 +125,7 @@ const SORTS: { key: string; label: string }[] = [
 ];
 
 export default function PropertiesScreen() {
+  const { t } = useI18n();
   const respContainer = useResponsiveContainerStyle();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -504,22 +506,46 @@ export default function PropertiesScreen() {
       }
       ListHeaderComponent={
         <>
-      {/* 搜索 */}
-      <View style={styles.searchWrap}>
-        <Ionicons name="search" size={16} color={colors.ink3} />
-        <TextInput
-          style={styles.searchInput}
-          value={keyword}
-          onChangeText={setKeyword}
-          placeholder="搜索房源名称、地址..."
-          placeholderTextColor={colors.ink3}
-          returnKeyType="search"
-        />
-        {keyword ? (
-          <TouchableOpacity onPress={() => setKeyword('')} activeOpacity={0.7}>
-            <Ionicons name="close-circle" size={16} color={colors.ink3} />
-          </TouchableOpacity>
-        ) : null}
+      {/* 搜索 + 新增房源：一切「添加房源」能力都收口在「房源管理」页 */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchWrap}>
+          <Ionicons name="search" size={16} color={colors.ink3} />
+          <TextInput
+            style={styles.searchInput}
+            value={keyword}
+            onChangeText={setKeyword}
+            placeholder="搜索房源名称、地址..."
+            placeholderTextColor={colors.ink3}
+            returnKeyType="search"
+          />
+          {keyword ? (
+            <TouchableOpacity onPress={() => setKeyword('')} activeOpacity={0.7}>
+              <Ionicons name="close-circle" size={16} color={colors.ink3} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => navigation.navigate('PropertyEdit', { mode: 'create' })}
+          accessibilityLabel={t('adm.psAddProperty')}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add" size={16} color={colors.primaryForeground} />
+          <Text style={styles.addBtnText}>{t('adm.psAdd')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 供给入口：新增楼盘 */}
+      <View style={styles.entryRow}>
+        <TouchableOpacity
+          style={styles.entryBtn}
+          onPress={() => navigation.navigate('ProjectCreate')}
+          accessibilityLabel={t('entry.newProject')}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="business-outline" size={16} color={colors.primary} />
+          <Text style={styles.entryBtnText}>{t('entry.newProject')}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* ---- 链家式单行筛选栏 + 顶部下拉面板（对齐租客端 ListingsScreen）---- */}
@@ -786,7 +812,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { paddingBottom: 32 },
 
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: colors.spacing.lg,
+    marginTop: colors.spacing.md,
+  },
   searchWrap: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: colors.spacing.sm,
@@ -796,10 +830,19 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
     paddingHorizontal: colors.spacing.lg,
     paddingVertical: 9,
-    marginHorizontal: colors.spacing.lg,
-    marginTop: colors.spacing.md,
   },
   searchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
+  // 「新增房源」按钮：与管理员房源管理页同一套排版
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.primary,
+  },
+  addBtnText: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
 
   chipScroll: { marginTop: colors.spacing.md },
   chipRow: { gap: colors.spacing.sm, paddingHorizontal: colors.spacing.lg },
@@ -1006,8 +1049,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.alpha(colors.primaryRgb, 0.12),
   },
   publishChipText: { fontSize: colors.fontSize.xs, fontWeight: '700', color: colors.primary },
-  // 顶部「上架房源」入口
-  entryRow: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 12 },
+  // 供给入口：「新增楼盘」
+  entryRow: { flexDirection: 'row', marginHorizontal: colors.spacing.lg, marginTop: 12 },
   entryBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -1015,10 +1058,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     height: 42,
-    borderRadius: colors.radius.md,
-    backgroundColor: colors.primary,
+    borderRadius: colors.radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  entryBtnText: { fontSize: 14, fontWeight: '700', color: colors.primaryForeground },
+  entryBtnText: { fontSize: 14, fontWeight: '700', color: colors.primary },
 
   loadMore: {
     alignItems: 'center',

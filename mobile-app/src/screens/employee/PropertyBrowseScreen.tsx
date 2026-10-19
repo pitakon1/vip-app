@@ -28,7 +28,7 @@ import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { useI18n } from '@/i18n';
-import { useAuthStore } from '@/stores/auth';
+
 
 const PAGE_SIZE = 10;
 
@@ -171,10 +171,6 @@ type OpenTab = null | 'region' | 'price' | 'more' | 'sort';
 export default function PropertyBrowseScreen() {
   const { t } = useI18n();
   const navigation = useNavigation<any>();
-  // 「新增楼盘」为 agent/admin 能力（后端 POST /projects 仅放行 admin|agent）；
-  // 「发布上架单」员工可用（后端 POST /listings 放行 employee），故仅对前者门禁。
-  const role = useAuthStore((s) => s.user?.role);
-  const canCreateProject = role === 'admin' || role === 'agent';
   const TYPE_META = useMemo(() => typeMetaMap(t), [t]);
   const PRICE_RANGES = useMemo(() => priceRanges(t), [t]);
   const BEDROOM_OPTIONS = useMemo(() => bedroomOptions(t), [t]);
@@ -616,21 +612,8 @@ export default function PropertyBrowseScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
       }
     >
-      {/* 供给入口：新增楼盘（仅 agent/admin）。上架房源已收敛到「房源管理」页，此处不再提供 */}
-      {canCreateProject ? (
-        <View style={styles.entryRow}>
-          <TouchableOpacity
-            style={styles.entryBtn}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('ProjectCreate')}
-            accessibilityRole="button"
-            accessibilityLabel={t('entry.newProject')}
-          >
-            <Ionicons name="business-outline" size={16} color={colors.primary} />
-            <Text style={styles.entryBtnText}>{t('entry.newProject')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
+      {/* 本页是 C 端找房口径的只读浏览页：只做搜索 / 筛选 / 浏览；
+          一切「添加房源」能力（新增房源、新增楼盘）都收口在「房源管理」页 */}
 
       {/* 搜索 */}
       <View style={styles.searchWrap}>
@@ -1165,29 +1148,6 @@ const styles = StyleSheet.create({
     marginTop: colors.spacing.md,
   },
   searchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
-
-  // 供给入口（发布上架单 / 新增楼盘）：等宽双按钮，首屏顶部
-  entryRow: {
-    flexDirection: 'row',
-    gap: colors.spacing.sm,
-    marginHorizontal: colors.spacing.lg,
-    marginTop: colors.spacing.md,
-  },
-  entryBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 40,
-    borderRadius: colors.radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  entryBtnPrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
-  entryBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
-  entryBtnTextPrimary: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
 
   chipRow: {
     flexDirection: 'row',

@@ -19,7 +19,8 @@ import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import RemoteImage from '@/components/RemoteImage';
 import { paymentsApi, maintenanceApi } from '@/services/api';
-import { publicApi, unwrapPage, type PublicSchool } from '@/services/publicApi';
+import { publicApi, unwrapPage, type PublicSchool, type PublicProject } from '@/services/publicApi';
+import { ProjectRailCard } from '@/screens/category/categoryCards';
 import { fmtMoney as formatMoney } from '@/utils/format';
 import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
@@ -80,10 +81,18 @@ interface Ticket {
   [key: string]: any;
 }
 
-/** 首页公开数据（全局一份） */
+/** 首页公开数据（全局一份）：每个业务分类各一份 rail 数据，口径与各自分类页一致 */
 interface HomePublic {
+  /** 租房 */
   listings: Listing[];
+  /** 二手房：listing_type=sell 且 is_new_development=false，与「二手房」分类页同口径 */
   saleItems: SaleListing[];
+  /** 商铺办公：rent × office/shop */
+  commercialItems: Listing[];
+  /** 厂房：rent × factory */
+  factoryItems: Listing[];
+  /** 新房：分类页走 /public/projects（楼盘），首页跟随同一接口，避免两处口径分叉 */
+  projects: PublicProject[];
   /** 国际学校：首页只做「按学校找房」的入口，卡片点击即带着学校去「找房」筛选 */
   schools: PublicSchool[];
 }
@@ -95,6 +104,78 @@ interface HomeUser {
 }
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
+
+/** 首页业务分类的唯一来源：上方黄金导航磁贴与下方业务 Tab 都渲染这份定义，
+    两处的分类、顺序、文案因此永远一致（改这里两处同时生效）。 */
+type BizKey = 'rent' | 'new' | 'resale' | 'commercial' | 'factory';
+
+interface BizItem {
+  key: BizKey;
+  /** 磁贴 / Tab 文案 */
+  labelKey: string;
+  /** 下方房源区标题：与 Tab 文案区分开，避免同一标签在页面里出现两次 */
+  titleKey: string;
+  icon: IoniconName;
+  /** 空态图标（磁贴用的是实心图标，空态用线性图标） */
+  emptyIcon: IoniconName;
+  color: string;
+  tint: string;
+  /** 磁贴与「更多」进入的分类页 */
+  target: string;
+}
+
+const BIZ_ITEMS: BizItem[] = [
+  {
+    key: 'rent',
+    labelKey: 'home.goldRent',
+    titleKey: 'home.featured',
+    icon: 'home',
+    emptyIcon: 'home-outline',
+    color: colors.primary,
+    tint: colors.alpha(colors.primaryRgb, 0.1),
+    target: 'RentCategory',
+  },
+  {
+    key: 'new',
+    labelKey: 'home.goldNew',
+    titleKey: 'category.newTitle',
+    icon: 'business',
+    emptyIcon: 'business-outline',
+    color: colors.warning,
+    tint: colors.alpha(colors.warningRgb, 0.1),
+    target: 'NewHouse',
+  },
+  {
+    key: 'resale',
+    labelKey: 'home.goldResale',
+    titleKey: 'home.hotSecondHand',
+    icon: 'swap-horizontal',
+    emptyIcon: 'pricetag-outline',
+    color: colors.info,
+    tint: colors.alpha(colors.infoRgb, 0.1),
+    target: 'Resale',
+  },
+  {
+    key: 'commercial',
+    labelKey: 'home.goldCommercial',
+    titleKey: 'category.commTitle',
+    icon: 'storefront',
+    emptyIcon: 'storefront-outline',
+    color: colors.error,
+    tint: colors.alpha(colors.errorRgb, 0.1),
+    target: 'Commercial',
+  },
+  {
+    key: 'factory',
+    labelKey: 'home.goldFactory',
+    titleKey: 'category.factTitle',
+    icon: 'cube',
+    emptyIcon: 'cube-outline',
+    color: colors.success,
+    tint: colors.alpha(colors.successRgb, 0.1),
+    target: 'Factory',
+  },
+];
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -443,7 +524,7 @@ export default function HomeScreen() {
   const respContainer = useResponsiveContainerStyle();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [bizTab, setBizTab] = useState<'rent' | 'buy'>('rent');
+  const [bizKey, setBizKey] = useState<BizKey>('rent');
   const { t } = useI18n();
   const PAYMENT_TYPE = useMemo(() => paymentTypeLabels(t), [t]);
   const PAYMENT_STATUS = useMemo(() => paymentStatusLabels(t), [t]);
@@ -456,33 +537,47 @@ export default function HomeScreen() {
   // ---------- TanStack Query：公开数据全局一份；私有数据（账单/工单）按用户隔离 ----------
   // 跨会话秒开由 MMKV 缓存（cache.ts）承担：mount 时读缓存 seed 进 Query Cache（updatedAt 取缓存
   // 时间戳，与 staleTime 对齐 → 3 分钟内不发请求，超时才后台刷新）；会话内由 staleTime 去重。
-  // 缓存键带版本：HomePublic 新增 schools 字段后，旧缓存不含该字段，
-  // 若继续复用会在 staleTime 内渲染出空的学校区块
-  const publicKey = 'home:public:v2';
+  // 缓存键带版本：HomePublic 新增 schools / 商铺办公 / 厂房 / 楼盘 rail 字段后，旧缓存不含这些字段，
+  // 若继续复用会在 staleTime 内渲染出空区块
+  const publicKey = 'home:public:v3';
   const userKey = token ? `home:user:${user?.id ?? 'anon'}` : null;
 
   const publicQ = useQuery<HomePublic>({
     queryKey: ['home', 'public'],
     queryFn: async () => {
-      const [pRes, sRes, scRes] = await Promise.allSettled([
+      // 5 个业务分类各取一份（口径与各自分类页完全一致），首页 rail 只做预览，分页在分类页
+      const [pRes, sRes, cRes, fRes, prRes, scRes] = await Promise.allSettled([
         // 登录/未登录统一走匿名公开层（对齐贝壳：浏览无需注册），保证内容对所有访客一致
         publicApi.listings({ page: 1, page_size: 20, listing_type: 'rent' }),
-        publicApi.listings({ page: 1, page_size: 10, listing_type: 'sell' }),
+        publicApi.listings({ page: 1, page_size: 10, listing_type: 'sell', is_new_development: false }),
+        publicApi.listings({
+          page: 1,
+          page_size: 10,
+          listing_type: 'rent',
+          property_type: ['office', 'shop'],
+        }),
+        publicApi.listings({ page: 1, page_size: 10, listing_type: 'rent', property_type: ['factory'] }),
+        // 新房在分类页走 /public/projects（楼盘），首页跟随同一接口，避免两处口径分叉
+        publicApi.projects({ page: 1, page_size: 10 }),
         // 首页学校区块只做入口，取前 8 条即可，列表页才需要全量
         publicApi.schools({ page_size: 8 }),
       ]);
-      const next: HomePublic = { listings: [], saleItems: [], schools: [] };
-      if (pRes.status === 'fulfilled') {
-        const data: any = pRes.value?.data;
-        next.listings = (Array.isArray(data) ? data : data?.items ?? data?.data ?? []) as Listing[];
-      }
-      if (sRes.status === 'fulfilled') {
-        const data: any = sRes.value?.data;
-        next.saleItems = (Array.isArray(data) ? data : data?.items ?? data?.data ?? []) as SaleListing[];
-      }
-      if (scRes.status === 'fulfilled') {
-        next.schools = unwrapPage<PublicSchool>(scRes.value?.data).items;
-      }
+      // 公开层列表接口有的返回裸数组、有的返回 {items}，统一在这里收口
+      const listFrom = <T,>(res: PromiseSettledResult<any>): T[] => {
+        if (res.status !== 'fulfilled') return [];
+        const data: any = res.value?.data;
+        return (Array.isArray(data) ? data : data?.items ?? data?.data ?? []) as T[];
+      };
+      const next: HomePublic = {
+        listings: listFrom<Listing>(pRes),
+        saleItems: listFrom<SaleListing>(sRes),
+        commercialItems: listFrom<Listing>(cRes),
+        factoryItems: listFrom<Listing>(fRes),
+        projects:
+          prRes.status === 'fulfilled' ? unwrapPage<PublicProject>(prRes.value?.data).items : [],
+        schools:
+          scRes.status === 'fulfilled' ? unwrapPage<PublicSchool>(scRes.value?.data).items : [],
+      };
       void setCached(publicKey, next);
       return next;
     },
@@ -514,6 +609,9 @@ export default function HomeScreen() {
 
   const listings = publicQ.data?.listings ?? [];
   const saleItems = publicQ.data?.saleItems ?? [];
+  const commercialItems = publicQ.data?.commercialItems ?? [];
+  const factoryItems = publicQ.data?.factoryItems ?? [];
+  const projects = publicQ.data?.projects ?? [];
   const schools = publicQ.data?.schools ?? [];
   const payments = userQ.data?.payments ?? [];
   const tickets = userQ.data?.tickets ?? [];
@@ -563,22 +661,7 @@ export default function HomeScreen() {
 
   const goListings = useCallback(() => navigation.navigate('Listings'), [navigation]);
 
-  // 黄金导航栏：5 个「浅色淡底磁贴 + 品牌色线条图标」入口，各跳各自独立分类页
-  // （贝壳式：租房 / 新房 / 二手房 / 商铺办公 / 厂房），文案与图标保持不变。
-  const goldNavItems: {
-    key: string;
-    labelKey: string;
-    icon: IoniconName;
-    color: string;
-    tint: string;
-    onPress: () => void;
-  }[] = [
-    { key: 'rent', labelKey: 'home.goldRent', icon: 'home', color: colors.primary, tint: colors.alpha(colors.primaryRgb, 0.1), onPress: () => navigation.navigate('RentCategory') },
-    { key: 'new', labelKey: 'home.goldNew', icon: 'business', color: colors.warning, tint: colors.alpha(colors.warningRgb, 0.1), onPress: () => navigation.navigate('NewHouse') },
-    { key: 'resale', labelKey: 'home.goldResale', icon: 'swap-horizontal', color: colors.info, tint: colors.alpha(colors.infoRgb, 0.1), onPress: () => navigation.navigate('Resale') },
-    { key: 'commercial', labelKey: 'home.goldCommercial', icon: 'storefront', color: colors.error, tint: colors.alpha(colors.errorRgb, 0.1), onPress: () => navigation.navigate('Commercial') },
-    { key: 'factory', labelKey: 'home.goldFactory', icon: 'cube', color: colors.success, tint: colors.alpha(colors.successRgb, 0.1), onPress: () => navigation.navigate('Factory') },
-  ];
+  // 黄金导航栏与下方业务 Tab 共用 BIZ_ITEMS 这一份定义，两处的分类/顺序/文案永远一致。
   const openProperty = useCallback(
     // 卡片 id 为公开层挂牌 id：进公开房源详情（匿名可看，含小区/周边学校/经纪人留资）
     (id: string) => navigation.navigate('PublicListingDetail', { id }),
@@ -647,8 +730,22 @@ export default function HomeScreen() {
     return rows.sort((a, b) => b.at - a.at).slice(0, 5);
   }, [payments, tickets, PAYMENT_TYPE, PAYMENT_STATUS, TICKET_STATUS, t]);
 
-  // 「买房」上下文：隐藏租房 rail，只展示购房 rail
-  const isRentTab = bizTab === 'rent';
+  // 当前业务分类：Tab 文案、房源区标题、磁贴跳转目标全部取自同一份 BIZ_ITEMS
+  const bizItem = BIZ_ITEMS.find((b) => b.key === bizKey) ?? BIZ_ITEMS[0];
+  // 切 Tab 只切下方这一个 rail 的数据：5 类数据在 publicQ 里一次性取好，切换即时、无加载态
+  const railItems: any[] = useMemo(
+    () =>
+      bizKey === 'new'
+        ? projects
+        : bizKey === 'resale'
+          ? saleItems
+          : bizKey === 'commercial'
+            ? commercialItems
+            : bizKey === 'factory'
+              ? factoryItems
+              : recommended,
+    [bizKey, projects, saleItems, commercialItems, factoryItems, recommended],
+  );
 
   // 外层 FlatList 的数据区块：房源 rail / 最近动态。
   // 房源卡统一在横向 rail（ScrollView horizontal）里，纵向只按「区块」懒加载，
@@ -670,7 +767,7 @@ export default function HomeScreen() {
       return (
         <View style={styles.skeletonBlock}>
           <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>{t('home.featured')}</Text>
+            <Text style={styles.sectionTitle}>{t(bizItem.titleKey)}</Text>
           </View>
           <ScrollView
             horizontal
@@ -693,21 +790,25 @@ export default function HomeScreen() {
     }
     switch (item.key) {
       case 'rail':
-        return isRentTab ? (
+        // 标题与「更多」都归当前分类；卡片形态按分类取（新房是楼盘卡，其余是房源卡）
+        return (
           <>
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>{t('home.featured')}</Text>
-              <TouchableOpacity onPress={goListings} activeOpacity={0.7}>
+              <Text style={styles.sectionTitle}>{t(bizItem.titleKey)}</Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate(bizItem.target)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.linkText}>{t('list.filterMore')}</Text>
               </TouchableOpacity>
             </View>
-            {recommended.length === 0 ? (
+            {railItems.length === 0 ? (
               <EmptyState
-                icon="home-outline"
+                icon={bizItem.emptyIcon}
                 title={t('home.noListings')}
                 sub={t('home.noListingsSub')}
                 actionLabel={t('home.goSearch')}
-                onAction={goListings}
+                onAction={() => navigation.navigate(bizItem.target)}
               />
             ) : (
               <ScrollView
@@ -715,32 +816,22 @@ export default function HomeScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.rail}
               >
-                {recommended.map((it) => (
-                  <PropertyCard key={it.id} item={it} onPress={openProperty} />
-                ))}
-              </ScrollView>
-            )}
-          </>
-        ) : (
-          <>
-            <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>{t('home.hotSecondHand')}</Text>
-            </View>
-            {saleItems.length === 0 ? (
-              <EmptyState
-                icon="pricetag-outline"
-                title={t('mkt.emptySaleTitle')}
-                sub={t('home.noSaleSub')}
-              />
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.rail}
-              >
-                {saleItems.map((it) => (
-                  <SaleCard key={it.id} item={it} onPress={openProperty} />
-                ))}
+                {bizKey === 'new'
+                  ? projects.map((it) => (
+                      <ProjectRailCard
+                        key={it.id}
+                        item={it}
+                        t={t}
+                        onPress={() => navigation.navigate('NewHouse')}
+                      />
+                    ))
+                  : railItems.map((it) =>
+                      bizKey === 'resale' ? (
+                        <SaleCard key={it.id} item={it} onPress={openProperty} />
+                      ) : (
+                        <PropertyCard key={it.id} item={it} onPress={openProperty} />
+                      ),
+                    )}
               </ScrollView>
             )}
           </>
@@ -861,16 +952,15 @@ export default function HomeScreen() {
         </View>
       </TouchableOpacity>
 
-      {/* 黄金导航栏：5 个浅色淡底图标入口
-          - 浅色淡底圆角磁贴 + 同色系线条图标 + 深色文字标签，无卡片外壳、无渐变
-          - 跳转复用找房页已有的 business / filter / is_new_development 参数 */}
+      {/* 黄金导航栏：5 个浅色淡底图标入口，各跳各自独立分类页
+          - 浅色淡底圆角磁贴 + 同色系线条图标 + 深色文字标签，无卡片外壳、无渐变 */}
       <View style={styles.goldNav}>
-        {goldNavItems.map((it) => (
+        {BIZ_ITEMS.map((it) => (
           <TouchableOpacity
             key={it.key}
             style={styles.goldNavItem}
             activeOpacity={0.7}
-            onPress={it.onPress}
+            onPress={() => navigation.navigate(it.target)}
             accessibilityRole="button"
             accessibilityLabel={t(it.labelKey)}
           >
@@ -884,17 +974,17 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* 3. 双业务 Tab：租房 / 买房 */}
+      {/* 3. 业务 Tab：与上方磁贴同源（同一份 BIZ_ITEMS），选中哪一类就切换下方房源区 */}
       <View style={styles.bizTabs}>
-        {(['rent', 'buy'] as const).map((b) => (
+        {BIZ_ITEMS.map((it) => (
           <TouchableOpacity
-            key={b}
+            key={it.key}
             style={styles.bizTab}
-            onPress={() => setBizTab(b)}
+            onPress={() => setBizKey(it.key)}
             activeOpacity={0.7}
           >
-            <Text style={[styles.bizTabText, bizTab === b && styles.bizTabTextActive]}>
-              {b === 'rent' ? t('pub.typeRent') : t('pub.typeSell')}
+            <Text style={[styles.bizTabText, bizKey === it.key && styles.bizTabTextActive]}>
+              {t(it.labelKey)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -962,12 +1052,12 @@ const styles = StyleSheet.create({
   skelLineWide: { height: 14, borderRadius: 7, backgroundColor: colors.muted },
   skelLine: { height: 14, borderRadius: 7, backgroundColor: colors.surface2 },
 
-  /* 业务 Tab（租房 / 买房）：对齐参考图的「纯文字 Tab」范式 —— 无胶囊底色、无描边，
-     选中为深墨色加粗、未选中为浅灰；靠间距分隔，间距 ≈ 1.4× 字号（20 ≈ 1.4×15） */
+  /* 业务 Tab（与黄金导航同源的 5 类）：对齐参考图的「纯文字 Tab」范式 —— 无胶囊底色、无描边，
+     选中为深墨色加粗、未选中为浅灰；5 个标签较宽，间距收到 16 以免窄屏挤爆换行 */
   bizTabs: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: colors.spacing.xl,
+    gap: colors.spacing.lg,
     marginBottom: colors.spacing.md,
   },
   bizTab: { paddingVertical: colors.spacing.xs },
