@@ -57,6 +57,12 @@ def engine():
         echo=False,
     )
     SQLModel.metadata.create_all(eng)
+    # 补种角色默认权限：测试直接构造 TestClient 不跑 lifespan，否则 admin 会被
+    # require_permission("attendance:partner:view") 误判 403
+    from app.core.rbac import seed_permissions
+
+    with Session(eng) as _seed_session:
+        seed_permissions(_seed_session)
     return eng
 
 

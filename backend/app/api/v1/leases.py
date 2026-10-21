@@ -536,7 +536,7 @@ def create_lease(
         session.add(prop)
 
     if agent_id:
-        _create_commission_settlement(session, lease, DealType.new_rental, agent_id)
+        _create_commission_settlements(session, lease, DealType.new_rental, agent_id)
 
     publish_event(
         session,
@@ -724,7 +724,7 @@ def renew_lease(
 
     # 系统自动核算：续约生成 renewal 佣金结算（归属沿用原租约员工）
     if new_lease.agent_id:
-        _create_commission_settlement(
+        _create_commission_settlements(
             session, new_lease, DealType.renewal, new_lease.agent_id
         )
 

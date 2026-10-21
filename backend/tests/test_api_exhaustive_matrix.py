@@ -65,6 +65,11 @@ PUBLIC_ROUTES = {
     ("GET", "/health/ready"),
     # 公司信息：设计上就是公开接口（公司名称/地址/电话/社媒），供落地页/对外展示
     ("GET", "/api/v1/company/info"),
+    # 通用选项字典：三端表单/筛选在登录前也要渲染（仅枚举元数据，不含业务数据）
+    ("GET", "/api/v1/options"),
+    ("GET", "/api/v1/options/bundle"),
+    # 合同预览：凭一次性 preview_token 免登录查看（token 即凭据，无效 token 返回 404）
+    ("GET", "/api/v1/contracts/preview/{preview_token}"),
 }
 
 # 依赖树反射无法看到"函数体内手动角色判断"的接口文件
@@ -85,6 +90,8 @@ MANUAL_GATE_FILES = {
     "app.api.v1.sale_listings",
     "app.api.v1.service_orders",
     "app.api.v1.commission_rules",
+    # 合作公司成员/业绩：角色门控在 _partner_guard() 辅助函数里，端点源码探测不到
+    "app.api.v1.partner_members",
 }
 # 已移出名单：`app.api.v1.property_deals` —— 其员工门控已改为声明式
 # `Depends(require_employee)`，依赖树反射能直接看到，不再需要文件级豁免。
@@ -295,6 +302,10 @@ def test_admin_can_access_every_route(api, engine):
     client = api.login(admin)
     fails = []
     for methods, path, route in _route_entries():
+        module = getattr(route.endpoint, "__module__", "")
+        # 手动角色门控的端点（如合作公司管理员专属）本就应对 admin 返回 403，不参与本断言
+        if module in MANUAL_GATE_FILES or _has_manual_role_gate(route):
+            continue
         url = _substitute(path)
         for method in methods:
             if method == "*":

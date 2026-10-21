@@ -15,7 +15,15 @@ export type RootStackParamList = {
   ChatList: undefined;
   Attendance: undefined;
   PropertyDetail: { id: string } | undefined;
-  PropertySearch: undefined;
+  PropertySearch:
+    | {
+        business?: 'rent' | 'sale';
+        schoolId?: string;
+        schoolName?: string;
+        schoolKm?: number;
+        schoolTs?: number;
+      }
+    | undefined;
   Documents: undefined;
   TenantMaintenance: undefined;
   TenantServices: undefined;

@@ -24,6 +24,29 @@ if str(BACKEND_DIR) not in sys.path:
 import pytest  # noqa: E402
 from sqlmodel import SQLModel, Session, create_engine  # noqa: E402
 
+# 测试客户端统一解包「统一返回信封」：
+# 后端 EnvelopeMiddleware 会把成功 JSON 包成 {code,msg,data} 并打 X-Api-Envelope，
+# 三端在 HTTP 中心层解包；测试里同样在客户端还原业务响应体，
+# 这样既有断言仍按原响应结构读取，无需逐个用例改写。
+import json as _json  # noqa: E402
+import fastapi.testclient as _ftc  # noqa: E402
+
+
+class _UnwrappedTestClient(_ftc.TestClient):
+    def request(self, *args, **kwargs):
+        response = super().request(*args, **kwargs)
+        if response.headers.get("x-api-envelope") == "1":
+            try:
+                body = response.json()
+            except ValueError:
+                return response
+            if isinstance(body, dict) and "data" in body:
+                response._content = _json.dumps(body["data"], ensure_ascii=False).encode("utf-8")
+        return response
+
+
+_ftc.TestClient = _UnwrappedTestClient
+
 # 导入全部模型，注册到 SQLModel.metadata（create_all 依赖）
 # noqa: E402,F401
 from app.models.employee import Employee
@@ -40,6 +63,12 @@ def engine():
         "sqlite://", connect_args={"check_same_thread": False}, echo=False
     )
     SQLModel.metadata.create_all(eng)
+    # 启动 lifespan 才会 seed 角色默认权限；直接构造函数式 TestClient 不跑 lifespan，
+    # 这里补种一次，避免 admin 因权限表为空被 require_permission 误判 403。
+    from app.core.rbac import seed_permissions
+
+    with Session(eng) as s:
+        seed_permissions(s)
     return eng
 
 

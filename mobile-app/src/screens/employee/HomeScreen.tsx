@@ -14,6 +14,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
@@ -25,6 +26,7 @@ import {
   performanceApi,
   leadsApi,
   authApi,
+  calendarEventsApi,
 } from '@/services/api';
 
 interface ViewingItem {
@@ -36,6 +38,72 @@ interface ViewingItem {
   visitor_name?: string | null;
   status?: string | null;
 }
+
+/* ===== 首页日历：按日汇总的行程（带看 / 租金 / 合同 / 自定义，不展示具体时间） ===== */
+interface ReceivableItem {
+  payment_id: string;
+  amount?: number;
+  currency?: string | null;
+  due_date?: string | null;
+  is_overdue?: boolean;
+}
+
+interface LeaseItem {
+  lease_id: string;
+  property_title?: string | null;
+  monthly_rent?: number;
+  currency?: string | null;
+  end_date?: string | null;
+}
+
+interface CalendarEventItem {
+  id: string;
+  title?: string | null;
+  note?: string | null;
+  start_at?: string | null;
+}
+
+type AgendaKind = 'viewing' | 'rent' | 'contract' | 'user';
+
+interface AgendaEvent {
+  id: string;
+  kind: AgendaKind;
+  title: string;
+  sub: string;
+  date: Date;
+}
+
+const AGENDA_META: Record<AgendaKind, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  viewing: { label: '带看', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.12), icon: 'eye-outline' },
+  rent: { label: '租金', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12), icon: 'wallet-outline' },
+  contract: { label: '合同', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12), icon: 'document-text-outline' },
+  user: { label: '日程', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12), icon: 'calendar-outline' },
+};
+
+const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
+
+const dateKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const buildMonthDays = (year: number, month: number) => {
+  const today = new Date();
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  const cells: { date: Date; isCurrentMonth: boolean; isToday: boolean }[] = [];
+  for (let i = firstWeekday - 1; i >= 0; i--) {
+    cells.push({ date: new Date(year, month - 1, prevMonthDays - i), isCurrentMonth: false, isToday: false });
+  }
+  for (let i = 1; i <= totalDays; i++) {
+    const d = new Date(year, month, i);
+    cells.push({ date: d, isCurrentMonth: true, isToday: isSameDay(d, today) });
+  }
+  let i = 1;
+  while (cells.length < 42) {
+    cells.push({ date: new Date(year, month + 1, i++), isCurrentMonth: false, isToday: false });
+  }
+  return cells;
+};
 
 const VIEWING_STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
   pending: { label: '待确认', bg: colors.alpha('148, 163, 184', 0.12), color: colors.ink2 },
@@ -126,12 +194,18 @@ export default function HomeScreen() {
     null,
   );
   const [currency, setCurrency] = useState('THB');
+  const [receivables, setReceivables] = useState<ReceivableItem[]>([]);
+  const [leases, setLeases] = useState<LeaseItem[]>([]);
+  const [customEvents, setCustomEvents] = useState<CalendarEventItem[]>([]);
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [calSelected, setCalSelected] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadAll = useCallback(async () => {
     try {
-      const [vwRes, pfRes, ldRes, lbRes, meRes, auRes, wbRes] = await Promise.allSettled([
+      const [vwRes, pfRes, ldRes, lbRes, meRes, auRes, wbRes, ceRes] = await Promise.allSettled([
         viewingsApi.list({ pageSize: 100 }),
         performanceApi.mine(),
         leadsApi.list({ page: 1, page_size: 5 }),
@@ -139,6 +213,7 @@ export default function HomeScreen() {
         employeesApi.mine(),
         authApi.me(),
         employeesApi.workbench(),
+        calendarEventsApi.list({ page: 1, page_size: 100 }),
       ]);
       if (vwRes.status === 'fulfilled') {
         const data = vwRes.value.data;
@@ -168,8 +243,18 @@ export default function HomeScreen() {
         setUserName(d?.full_name ?? '');
       }
       if (wbRes.status === 'fulfilled') {
-        const leaseCurrency = (wbRes.value as any)?.data?.follow_up_leases?.[0]?.currency;
+        const d = (wbRes.value as any)?.data;
+        const leaseCurrency = d?.follow_up_leases?.[0]?.currency;
         if (leaseCurrency) setCurrency(leaseCurrency);
+        const pending: ReceivableItem[] = d?.receivables?.pending ?? [];
+        const overdue: ReceivableItem[] = d?.receivables?.overdue ?? [];
+        setReceivables([...pending, ...overdue]);
+        setLeases(Array.isArray(d?.follow_up_leases) ? (d.follow_up_leases as LeaseItem[]) : []);
+      }
+      if (ceRes.status === 'fulfilled') {
+        const data = ceRes.value.data as any;
+        const items = Array.isArray(data) ? data : data?.items ?? [];
+        setCustomEvents(items as CalendarEventItem[]);
       }
     } catch (err: any) {
       Alert.alert(t('loadFailed'), err?.response?.data?.message || t('emp.workbenchFail'));
@@ -198,6 +283,92 @@ export default function HomeScreen() {
     () => todaySchedule.findIndex((v) => v.dt!.getTime() >= Date.now()),
     [todaySchedule],
   );
+
+  /* ---- 首页日历：把带看 / 租金 / 合同 / 自定义日程按日期汇总（不含具体时间） ---- */
+  const agendaEvents = useMemo<AgendaEvent[]>(() => {
+    const list: AgendaEvent[] = [];
+    viewings.forEach((v) => {
+      if (!v.scheduled_at) return;
+      const d = new Date(v.scheduled_at);
+      if (Number.isNaN(d.getTime())) return;
+      list.push({
+        id: `viewing-${v.id}`,
+        kind: 'viewing',
+        title: `${v.visitor_name || '待定客户'} 看房`,
+        sub: v.property_title || v.property_address || '房源',
+        date: d,
+      });
+    });
+    receivables.forEach((r) => {
+      if (!r.due_date) return;
+      const d = new Date(r.due_date);
+      if (Number.isNaN(d.getTime())) return;
+      list.push({
+        id: `rent-${r.payment_id}`,
+        kind: 'rent',
+        title: r.is_overdue ? '租金催收' : '租金到期',
+        sub: `${symOf(r.currency)}${Number(r.amount || 0).toLocaleString()}`,
+        date: d,
+      });
+    });
+    leases.forEach((l) => {
+      if (!l.end_date) return;
+      const d = new Date(l.end_date);
+      if (Number.isNaN(d.getTime())) return;
+      list.push({
+        id: `contract-${l.lease_id}`,
+        kind: 'contract',
+        title: '合同到期',
+        sub: l.property_title || `${symOf(l.currency)}${Number(l.monthly_rent || 0).toLocaleString()}/月`,
+        date: d,
+      });
+    });
+    customEvents.forEach((u) => {
+      if (!u.start_at) return;
+      const d = new Date(u.start_at);
+      if (Number.isNaN(d.getTime())) return;
+      list.push({
+        id: `user-${u.id}`,
+        kind: 'user',
+        title: u.title || '自定义日程',
+        sub: u.note || '',
+        date: d,
+      });
+    });
+    return list.sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [viewings, receivables, leases, customEvents]);
+
+  const agendaByDate = useMemo(() => {
+    const map: Record<string, AgendaEvent[]> = {};
+    agendaEvents.forEach((e) => {
+      const k = dateKey(e.date);
+      (map[k] ||= []).push(e);
+    });
+    return map;
+  }, [agendaEvents]);
+
+  const calDays = useMemo(() => buildMonthDays(calYear, calMonth), [calYear, calMonth]);
+  const calSelectedEvents = agendaByDate[dateKey(calSelected)] ?? [];
+  const calMonthCount = useMemo(
+    () =>
+      agendaEvents.filter(
+        (e) => e.date.getFullYear() === calYear && e.date.getMonth() === calMonth,
+      ).length,
+    [agendaEvents, calYear, calMonth],
+  );
+
+  const shiftCalendarMonth = (delta: number) => {
+    const d = new Date(calYear, calMonth + delta, 1);
+    setCalYear(d.getFullYear());
+    setCalMonth(d.getMonth());
+  };
+
+  const backToToday = () => {
+    const t = new Date();
+    setCalYear(t.getFullYear());
+    setCalMonth(t.getMonth());
+    setCalSelected(t);
+  };
 
   const money = (v?: number | null, c?: string | null) =>
     `${symOf(c ?? currency)}${Number(v || 0).toLocaleString()}`;
@@ -344,6 +515,143 @@ export default function HomeScreen() {
                 </View>
                 <View style={[styles.stageBadge, { backgroundColor: meta.bg }]}>
                   <Text style={[styles.stageBadgeText, { color: meta.color }]}>{meta.label}</Text>
+                </View>
+              </View>
+            );
+          })
+        )}
+      </View>
+
+      {/* 我的日历：紧接今日工作台，按日期直接看每天行程（不展示具体时间） */}
+      <View style={styles.sectionHead}>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>我的日历</Text>
+          <View style={styles.countBadge}>
+            <Text style={styles.countBadgeText}>{calMonthCount} 项安排</Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={() => navigation.navigate('Calendar')}
+        >
+          <Text style={styles.chartMore}>完整日历 ›</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.calendarCard}>
+        <View style={styles.calHead}>
+          <TouchableOpacity style={styles.calNav} onPress={() => shiftCalendarMonth(-1)} activeOpacity={0.7}>
+            <Ionicons name="chevron-back" size={18} color={colors.ink} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.calMonthBtn} onPress={backToToday} activeOpacity={0.7}>
+            <Text style={styles.calMonthText}>
+              {calYear} 年 {calMonth + 1} 月
+            </Text>
+            <Text style={styles.calTodayText}>回到今天</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.calNav} onPress={() => shiftCalendarMonth(1)} activeOpacity={0.7}>
+            <Ionicons name="chevron-forward" size={18} color={colors.ink} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.calWeekRow}>
+          {WEEKDAY_LABELS.map((w, i) => (
+            <Text key={i} style={[styles.calWeekDay, i === 0 || i === 6 ? styles.calWeekDayWeekend : null]}>
+              {w}
+            </Text>
+          ))}
+        </View>
+
+        <View style={styles.calGrid}>
+          {calDays.map((cell, idx) => {
+            const k = dateKey(cell.date);
+            const dayEvents = agendaByDate[k] ?? [];
+            const kinds = Array.from(new Set(dayEvents.map((e) => e.kind)));
+            const selected = isSameDay(cell.date, calSelected);
+            return (
+              <TouchableOpacity
+                key={idx}
+                style={[
+                  styles.calCell,
+                  selected && styles.calCellSelected,
+                  cell.isToday && !selected && styles.calCellToday,
+                ]}
+                activeOpacity={0.6}
+                onPress={() => {
+                  setCalSelected(cell.date);
+                  // 点相邻月的日期时顺带翻到该月，避免标题与选中日不一致
+                  if (!cell.isCurrentMonth) {
+                    setCalYear(cell.date.getFullYear());
+                    setCalMonth(cell.date.getMonth());
+                  }
+                }}
+              >
+                <Text
+                  style={[
+                    styles.calDayNum,
+                    !cell.isCurrentMonth && styles.calDayNumMuted,
+                    selected && styles.calDayNumSelected,
+                    cell.isToday && !selected && styles.calDayNumToday,
+                  ]}
+                >
+                  {cell.date.getDate()}
+                </Text>
+                {cell.isCurrentMonth && dayEvents.length > 0 ? (
+                  <>
+                    <View style={styles.calDots}>
+                      {kinds.slice(0, 3).map((kind) => (
+                        <View
+                          key={kind}
+                          style={[
+                            styles.calDot,
+                            {
+                              backgroundColor: selected
+                                ? colors.primaryForeground
+                                : AGENDA_META[kind].color,
+                            },
+                          ]}
+                        />
+                      ))}
+                    </View>
+                    <Text
+                      style={[styles.calCountText, selected && styles.calCountTextSelected]}
+                      numberOfLines={1}
+                    >
+                      {dayEvents.length}项
+                    </Text>
+                  </>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={styles.calAgendaHead}>
+          <Text style={styles.calAgendaTitle}>
+            {calSelected.getMonth() + 1}月{calSelected.getDate()}日 · 行程
+          </Text>
+          <Text style={styles.calAgendaCount}>{calSelectedEvents.length} 项</Text>
+        </View>
+
+        {calSelectedEvents.length === 0 ? (
+          <Text style={styles.calAgendaEmpty}>这一天暂无行程安排</Text>
+        ) : (
+          calSelectedEvents.map((e) => {
+            const meta = AGENDA_META[e.kind];
+            return (
+              <View key={e.id} style={styles.calAgendaRow}>
+                <View style={[styles.calAgendaIcon, { backgroundColor: meta.bg }]}>
+                  <Ionicons name={meta.icon} size={15} color={meta.color} />
+                </View>
+                <View style={styles.calAgendaBody}>
+                  <Text style={styles.calAgendaName} numberOfLines={1}>
+                    {e.title}
+                  </Text>
+                  <Text style={styles.calAgendaSub} numberOfLines={1}>
+                    {meta.label}
+                    {e.sub ? ` · ${e.sub}` : ''}
+                  </Text>
                 </View>
               </View>
             );
@@ -703,4 +1011,101 @@ const styles = StyleSheet.create({
   },
   chartDelta: { fontSize: 12, fontWeight: '600', color: colors.success },
   chartDeltaMuted: { fontSize: 12, color: colors.ink3 },
+
+  /* ===== 首页日历 ===== */
+  calendarCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    ...colors.shadow.sm,
+  },
+  calHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  calNav: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface2,
+  },
+  calMonthBtn: { alignItems: 'center' },
+  calMonthText: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  calTodayText: { fontSize: 10, color: colors.primary, marginTop: 1 },
+  calWeekRow: { flexDirection: 'row', paddingTop: 8, paddingHorizontal: 6 },
+  calWeekDay: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.ink3,
+    paddingVertical: 4,
+  },
+  calWeekDayWeekend: { color: colors.ink2 },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 6, paddingBottom: 4 },
+  calCell: {
+    width: `${100 / 7}%`,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: colors.radius.md,
+  },
+  calCellSelected: { backgroundColor: colors.primary },
+  calCellToday: { backgroundColor: colors.alpha(colors.primaryRgb, 0.08) },
+  calDayNum: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  calDayNumMuted: { color: colors.ink3, opacity: 0.45 },
+  calDayNumSelected: { color: colors.primaryForeground, fontWeight: '700' },
+  calDayNumToday: { color: colors.primary, fontWeight: '800' },
+  calDots: { flexDirection: 'row', gap: 2, marginTop: 3 },
+  calDot: { width: 4, height: 4, borderRadius: 2 },
+  calCountText: { fontSize: 9, color: colors.ink3, marginTop: 1 },
+  calCountTextSelected: { color: colors.primaryForeground, opacity: 0.9 },
+  calAgendaHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  calAgendaTitle: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  calAgendaCount: { fontSize: 11, color: colors.ink3 },
+  calAgendaEmpty: { fontSize: 12, color: colors.ink3, paddingHorizontal: 14, paddingVertical: 14 },
+  calAgendaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  calAgendaIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calAgendaBody: { flex: 1, minWidth: 0 },
+  calAgendaName: { fontSize: 13, fontWeight: '600', color: colors.ink },
+  calAgendaSub: { fontSize: 11, color: colors.ink3, marginTop: 2 },
 });

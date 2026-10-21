@@ -414,7 +414,7 @@ export default function PropertyDetailScreen() {
           title={t('prop.goneTitle')}
           sub={t('prop.goneSub')}
           actionLabel={t('prop.goFindListings')}
-          onAction={() => navigation.navigate('Listings')}
+          onAction={() => navigation.navigate('PropertySearch')}
         />
       </View>
     );

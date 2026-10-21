@@ -277,6 +277,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # 浏览器跨域默认读不到自定义响应头，不暴露 X-Api-Envelope 时
+    # 前端信封解包会失效（Web 端拿到的是 {code,msg,data} 原始包装）
+    expose_headers=["X-Api-Envelope"],
 )
 
 # 挂载 v1 API 路由

@@ -327,8 +327,8 @@ def test_serialize_user_hides_secret_and_keeps_extras(engine):
         s.add(UserGroupMember(user_id=u.id, group_id=group.id))
         s.commit()
 
-        emp_map, groups_map = _batch_extras(s, [u.id])
-        data = _serialize_user(u, emp_map, groups_map)
+        emp_map, groups_map, partners_map = _batch_extras(s, [u.id])
+        data = _serialize_user(u, emp_map, groups_map, partners_map)
 
     assert "hashed_password" not in data
     assert data["role"] == "employee"
@@ -372,11 +372,11 @@ def test_batch_extras_query_count_is_constant(engine):
 
         event.listen(engine, "before_cursor_execute", _count)
         try:
-            emp_map, groups_map = _batch_extras(s, user_ids)
+            emp_map, groups_map, _partners_map = _batch_extras(s, user_ids)
         finally:
             event.remove(engine, "before_cursor_execute", _count)
 
-    assert len(statements) == 2
+    assert len(statements) == 3
     assert len(emp_map) == 5
     assert all(groups_map[uid] == ["全体"] for uid in user_ids)
 

@@ -659,7 +659,7 @@ export default function HomeScreen() {
     ]).finally(() => setRefreshing(false));
   }, [publicQ, userQ, token]);
 
-  const goListings = useCallback(() => navigation.navigate('Listings'), [navigation]);
+  const goListings = useCallback(() => navigation.navigate('PropertySearch'), [navigation]);
 
   // 黄金导航栏与下方业务 Tab 共用 BIZ_ITEMS 这一份定义，两处的分类/顺序/文案永远一致。
   const openProperty = useCallback(
@@ -671,7 +671,7 @@ export default function HomeScreen() {
   // schoolTs 用时间戳而非学校 id：连续点同一所学校也要重新触发筛选重置。
   const openSchoolListings = useCallback(
     (s: PublicSchool) =>
-      navigation.navigate('Listings', {
+      navigation.navigate('PropertySearch', {
         schoolId: s.id,
         schoolName: s.name ?? '',
         schoolKm: 3,
