@@ -33,8 +33,9 @@ def send_pending_notifications(self):
                 result = notification_router.send(message)
                 
                 if result.success:
+                    # Notification 表没有 message_id 字段（渠道侧 id 只用于直接发送响应），
+                    # 这里只回写状态与时间，避免赋值抛异常导致重复发送
                     notif.status = NotificationStatus.sent
-                    notif.message_id = result.message_id
                     notif.sent_at = datetime.utcnow()
                     sent_count += 1
                 else:

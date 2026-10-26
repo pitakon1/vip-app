@@ -91,6 +91,10 @@ interface HomePublic {
   commercialItems: Listing[];
   /** 厂房：rent × factory */
   factoryItems: Listing[];
+  /** 酒店：rent × hotel */
+  hotelItems: Listing[];
+  /** 土地：rent × land */
+  landItems: Listing[];
   /** 新房：分类页走 /public/projects（楼盘），首页跟随同一接口，避免两处口径分叉 */
   projects: PublicProject[];
   /** 国际学校：首页只做「按学校找房」的入口，卡片点击即带着学校去「找房」筛选 */
@@ -107,7 +111,7 @@ type IoniconName = keyof typeof Ionicons.glyphMap;
 
 /** 首页业务分类的唯一来源：上方黄金导航磁贴与下方业务 Tab 都渲染这份定义，
     两处的分类、顺序、文案因此永远一致（改这里两处同时生效）。 */
-type BizKey = 'rent' | 'new' | 'resale' | 'commercial' | 'factory';
+type BizKey = 'rent' | 'new' | 'resale' | 'commercial' | 'factory' | 'hotel' | 'land';
 
 interface BizItem {
   key: BizKey;
@@ -175,6 +179,26 @@ const BIZ_ITEMS: BizItem[] = [
     tint: colors.alpha(colors.successRgb, 0.1),
     target: 'Factory',
   },
+  {
+    key: 'hotel',
+    labelKey: 'home.goldHotel',
+    titleKey: 'category.hotelTitle',
+    icon: 'bed',
+    emptyIcon: 'bed-outline',
+    color: colors.info,
+    tint: colors.alpha(colors.infoRgb, 0.1),
+    target: 'Hotel',
+  },
+  {
+    key: 'land',
+    labelKey: 'home.goldLand',
+    titleKey: 'category.landTitle',
+    icon: 'map',
+    emptyIcon: 'map-outline',
+    color: colors.warning,
+    tint: colors.alpha(colors.warningRgb, 0.1),
+    target: 'Land',
+  },
 ];
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
@@ -207,6 +231,15 @@ const typeText = (t: TFunc, type?: string) => {
       return t('prop.type.commercial');
     case 'office':
       return t('prop.type.office');
+    case 'factory':
+    case 'warehouse':
+      return t('prop.type.factory');
+    case 'hotel':
+      return t('prop.type.hotel');
+    case 'land':
+      return t('prop.type.land');
+    case 'townhouse':
+      return t('prop.type.townhouse');
     default:
       return '';
   }
@@ -539,14 +572,14 @@ export default function HomeScreen() {
   // 时间戳，与 staleTime 对齐 → 3 分钟内不发请求，超时才后台刷新）；会话内由 staleTime 去重。
   // 缓存键带版本：HomePublic 新增 schools / 商铺办公 / 厂房 / 楼盘 rail 字段后，旧缓存不含这些字段，
   // 若继续复用会在 staleTime 内渲染出空区块
-  const publicKey = 'home:public:v3';
+  const publicKey = 'home:public:v4';
   const userKey = token ? `home:user:${user?.id ?? 'anon'}` : null;
 
   const publicQ = useQuery<HomePublic>({
     queryKey: ['home', 'public'],
     queryFn: async () => {
-      // 5 个业务分类各取一份（口径与各自分类页完全一致），首页 rail 只做预览，分页在分类页
-      const [pRes, sRes, cRes, fRes, prRes, scRes] = await Promise.allSettled([
+      // 7 个业务分类各取一份（口径与各自分类页完全一致），首页 rail 只做预览，分页在分类页
+      const [pRes, sRes, cRes, fRes, hRes, lRes, prRes, scRes] = await Promise.allSettled([
         // 登录/未登录统一走匿名公开层（对齐贝壳：浏览无需注册），保证内容对所有访客一致
         publicApi.listings({ page: 1, page_size: 20, listing_type: 'rent' }),
         publicApi.listings({ page: 1, page_size: 10, listing_type: 'sell', is_new_development: false }),
@@ -557,6 +590,8 @@ export default function HomeScreen() {
           property_type: ['office', 'shop'],
         }),
         publicApi.listings({ page: 1, page_size: 10, listing_type: 'rent', property_type: ['factory'] }),
+        publicApi.listings({ page: 1, page_size: 10, listing_type: 'rent', property_type: ['hotel'] }),
+        publicApi.listings({ page: 1, page_size: 10, listing_type: 'rent', property_type: ['land'] }),
         // 新房在分类页走 /public/projects（楼盘），首页跟随同一接口，避免两处口径分叉
         publicApi.projects({ page: 1, page_size: 10 }),
         // 首页学校区块只做入口，取前 8 条即可，列表页才需要全量
@@ -573,6 +608,8 @@ export default function HomeScreen() {
         saleItems: listFrom<SaleListing>(sRes),
         commercialItems: listFrom<Listing>(cRes),
         factoryItems: listFrom<Listing>(fRes),
+        hotelItems: listFrom<Listing>(hRes),
+        landItems: listFrom<Listing>(lRes),
         projects:
           prRes.status === 'fulfilled' ? unwrapPage<PublicProject>(prRes.value?.data).items : [],
         schools:
@@ -611,6 +648,8 @@ export default function HomeScreen() {
   const saleItems = publicQ.data?.saleItems ?? [];
   const commercialItems = publicQ.data?.commercialItems ?? [];
   const factoryItems = publicQ.data?.factoryItems ?? [];
+  const hotelItems = publicQ.data?.hotelItems ?? [];
+  const landItems = publicQ.data?.landItems ?? [];
   const projects = publicQ.data?.projects ?? [];
   const schools = publicQ.data?.schools ?? [];
   const payments = userQ.data?.payments ?? [];
@@ -743,8 +782,12 @@ export default function HomeScreen() {
             ? commercialItems
             : bizKey === 'factory'
               ? factoryItems
-              : recommended,
-    [bizKey, projects, saleItems, commercialItems, factoryItems, recommended],
+              : bizKey === 'hotel'
+                ? hotelItems
+                : bizKey === 'land'
+                  ? landItems
+                  : recommended,
+    [bizKey, projects, saleItems, commercialItems, factoryItems, hotelItems, landItems, recommended],
   );
 
   // 外层 FlatList 的数据区块：房源 rail / 最近动态。
@@ -965,7 +1008,7 @@ export default function HomeScreen() {
             accessibilityLabel={t(it.labelKey)}
           >
             <View style={[styles.goldNavIcon, { backgroundColor: it.tint }]}>
-              <Ionicons name={it.icon} size={34} color={it.color} />
+              <Ionicons name={it.icon} size={22} color={it.color} />
             </View>
             <Text style={styles.goldNavLabel} numberOfLines={1}>
               {t(it.labelKey)}
@@ -975,7 +1018,12 @@ export default function HomeScreen() {
       </View>
 
       {/* 3. 业务 Tab：与上方磁贴同源（同一份 BIZ_ITEMS），选中哪一类就切换下方房源区 */}
-      <View style={styles.bizTabs}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.bizTabsScroll}
+        contentContainerStyle={styles.bizTabs}
+      >
         {BIZ_ITEMS.map((it) => (
           <TouchableOpacity
             key={it.key}
@@ -988,7 +1036,7 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {/* 4. 学校 / 房源 rail / 最近动态，已移入外层 FlatList 的 data（renderBodySection 按区块懒加载渲染）。
           学校不再是通栏按钮入口，而是与「推荐房源」同构的区块，收在下方。 */}
@@ -1054,6 +1102,7 @@ const styles = StyleSheet.create({
 
   /* 业务 Tab（与黄金导航同源的 5 类）：对齐参考图的「纯文字 Tab」范式 —— 无胶囊底色、无描边，
      选中为深墨色加粗、未选中为浅灰；5 个标签较宽，间距收到 16 以免窄屏挤爆换行 */
+  bizTabsScroll: { flexGrow: 0 },
   bizTabs: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1156,16 +1205,22 @@ const styles = StyleSheet.create({
   },
   actBadgeText: { fontSize: 12, fontWeight: '600' },
 
-  /* 黄金导航栏：5 列「浅色淡底圆角磁贴 + 同色系彩色图标 + 深色标签」入口
-     （无卡片外壳 / 无渐变）。磁贴尺寸按参考图占满各 1/5 列宽（留小间隙） */
+  /* 黄金导航栏：7 列「浅色淡底圆角磁贴 + 同色系彩色图标 + 深色标签」入口
+     （无卡片外壳 / 无渐变）。7 项等分整行宽度，图标与字号相应收窄以适配 */
   goldNav: { flexDirection: 'row', paddingVertical: 12 },
-  goldNavItem: { width: '20%', alignItems: 'center' },
+  goldNavItem: { flex: 1, alignItems: 'center' },
   goldNavIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: colors.radius.xl,
+    width: 40,
+    height: 40,
+    borderRadius: colors.radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  goldNavLabel: { fontSize: 13, color: colors.ink, marginTop: 8 },
+  goldNavLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.ink,
+    marginTop: 5,
+    textAlign: 'center',
+  },
 });

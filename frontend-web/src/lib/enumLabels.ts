@@ -112,6 +112,13 @@ export const usePropertyTypeMap = (): Record<string, string> => {
       commercial: t('propertyType.commercial'),
       office: t('propertyType.office'),
       factory: t('propertyType.factory'),
+      hotel: t('propertyType.hotel'),
+      land: t('propertyType.land'),
+      townhouse: t('propertyType.townhouse'),
+      warehouse: t('propertyType.warehouse'),
+      coworking: t('propertyType.coworking'),
+      homeoffice: t('propertyType.homeoffice'),
+      showroom: t('propertyType.showroom'),
     }),
     [t],
   )

@@ -153,6 +153,13 @@ const typeMetaMap = (t: TFunc): Record<string, { label: string; icon: keyof type
   commercial: { label: t('prop.type.commercial'), icon: 'storefront-outline', color: colors.warning },
   office: { label: t('prop.type.office'), icon: 'briefcase-outline', color: colors.info },
   factory: { label: t('prop.type.factory'), icon: 'construct-outline', color: colors.ink2 },
+  warehouse: { label: t('prop.type.warehouse'), icon: 'cube-outline', color: colors.ink2 },
+  townhouse: { label: t('prop.type.townhouse'), icon: 'home-outline', color: colors.success },
+  hotel: { label: t('prop.type.hotel'), icon: 'bed-outline', color: colors.info },
+  land: { label: t('prop.type.land'), icon: 'map-outline', color: colors.warning },
+  coworking: { label: t('prop.type.coworking'), icon: 'people-outline', color: colors.info },
+  homeoffice: { label: t('prop.type.homeoffice'), icon: 'home-outline', color: colors.info },
+  showroom: { label: t('prop.type.showroom'), icon: 'storefront-outline', color: colors.warning },
 });
 
 const statusMetaMap = (t: TFunc): Record<string, { label: string; color: string; rgb: string }> => ({
@@ -247,15 +254,29 @@ const typeOptions = (t: TFunc) => [
   { key: 'condo', label: t('prop.type.condo') },
   { key: 'villa', label: t('prop.type.villa') },
   { key: 'house', label: t('prop.type.house') },
+  { key: 'townhouse', label: t('prop.type.townhouse') },
   { key: 'shop', label: t('prop.type.shop') },
   { key: 'commercial', label: t('prop.type.commercial') },
   { key: 'office', label: t('prop.type.office') },
+  { key: 'coworking', label: t('prop.type.coworking') },
+  { key: 'homeoffice', label: t('prop.type.homeoffice') },
+  { key: 'showroom', label: t('prop.type.showroom') },
   { key: 'factory', label: t('prop.type.factory') },
+  { key: 'warehouse', label: t('prop.type.warehouse') },
+  { key: 'hotel', label: t('prop.type.hotel') },
+  { key: 'land', label: t('prop.type.land') },
 ];
 
-// 房源类型分组：住宅 vs 商办 vs 厂房，按所选类型条件渲染专属字段
-const isCommercialType = (tpe: string) => tpe === 'shop' || tpe === 'commercial' || tpe === 'office';
-const isFactoryType = (tpe: string) => tpe === 'factory';
+// 房源类型分组：住宅 vs 商办 vs 厂房 vs 土地，按所选类型条件渲染专属字段
+const isCommercialType = (tpe: string) =>
+  tpe === 'shop' ||
+  tpe === 'commercial' ||
+  tpe === 'office' ||
+  tpe === 'coworking' ||
+  tpe === 'homeoffice' ||
+  tpe === 'showroom';
+const isFactoryType = (tpe: string) => tpe === 'factory' || tpe === 'warehouse';
+const isLandType = (tpe: string) => tpe === 'land';
 
 const CURRENCY_OPTIONS: { key: string; label: string }[] = [
   { key: 'THB', label: 'THB' },
@@ -797,7 +818,7 @@ export default function PropertiesScreen() {
   // 房源类型分组：住宅显示卧室/卫生间；商办/厂房隐藏；厂房/商办按类型展示专项字段
   const isCommercial = isCommercialType(form.property_type);
   const isFactory = isFactoryType(form.property_type);
-  const showResidential = !isCommercial && !isFactory;
+  const showResidential = !isCommercial && !isFactory && !isLandType(form.property_type);
 
   // 布尔型专项字段统一用 Switch
   const boolRow = (label: string, value: boolean, onChange: (v: boolean) => void) => (

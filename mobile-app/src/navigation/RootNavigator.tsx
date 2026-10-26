@@ -99,6 +99,8 @@ export type RootStackParamList = {
   Resale: undefined;
   Commercial: undefined;
   Factory: undefined;
+  Hotel: undefined;
+  Land: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -220,6 +222,8 @@ const NewHouseScreen = lazyScreen(() => import('../screens/category/NewHouseScre
 const ResaleScreen = lazyScreen(() => import('../screens/category/ResaleScreen'));
 const CommercialScreen = lazyScreen(() => import('../screens/category/CommercialScreen'));
 const FactoryScreen = lazyScreen(() => import('../screens/category/FactoryScreen'));
+const HotelScreen = lazyScreen(() => import('../screens/category/HotelScreen'));
+const LandScreen = lazyScreen(() => import('../screens/category/LandScreen'));
 
 export function RootNavigator() {
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -318,6 +322,8 @@ export function RootNavigator() {
       <Stack.Screen name="Resale" component={ResaleScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Commercial" component={CommercialScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Factory" component={FactoryScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Hotel" component={HotelScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Land" component={LandScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

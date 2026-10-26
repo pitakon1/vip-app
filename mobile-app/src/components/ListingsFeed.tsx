@@ -224,8 +224,15 @@ const propertyTypeFilters = (t: TFunc) => [
   { key: 'villa', label: t('prop.type.house') },
   { key: 'house', label: t('prop.type.detached') },
   { key: 'office', label: t('prop.type.office') },
+  { key: 'townhouse', label: t('prop.type.townhouse') },
   { key: 'shop', label: t('prop.type.commercial') },
+  { key: 'coworking', label: t('prop.type.coworking') },
+  { key: 'homeoffice', label: t('prop.type.homeoffice') },
+  { key: 'showroom', label: t('prop.type.showroom') },
   { key: 'factory', label: t('prop.type.factory') },
+  { key: 'warehouse', label: t('prop.type.warehouse') },
+  { key: 'hotel', label: t('prop.type.hotel') },
+  { key: 'land', label: t('prop.type.land') },
 ];
 
 // 户型筛选（贝壳式：1-5 室+）
@@ -300,6 +307,14 @@ const typeLabels = (t: TFunc): Record<string, string> => ({
   shop: t('prop.type.commercial'),
   commercial: t('prop.type.commercial'),
   office: t('prop.type.office'),
+  townhouse: t('prop.type.townhouse'),
+  coworking: t('prop.type.coworking'),
+  homeoffice: t('prop.type.homeoffice'),
+  showroom: t('prop.type.showroom'),
+  factory: t('prop.type.factory'),
+  warehouse: t('prop.type.warehouse'),
+  hotel: t('prop.type.hotel'),
+  land: t('prop.type.land'),
 });
 
 const statusLabels = (t: TFunc): Record<string, string> => ({

@@ -171,7 +171,13 @@ export default function Factory() {
       quickTags={quickTags}
       buildQuery={buildQuery}
       fetchPage={fetchPage}
-      renderCard={(item) => <FactoryCard item={item} onPress={() => navigate(`/listing/${item.id}`)} />}
+      renderCard={(item) => (
+        <FactoryCard
+          item={item}
+          mode={tab.startsWith('rent') ? 'rent' : 'sell'}
+          onPress={() => navigate(`/listing/${item.id}`)}
+        />
+      )}
       keyOf={(item) => item.id}
       emptyTitle={t('category.emptyFactory')}
       emptySub={t('category.emptySub')}

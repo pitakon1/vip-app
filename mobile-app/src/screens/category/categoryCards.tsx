@@ -59,6 +59,20 @@ function propertyTypeLabel(v: string | null | undefined, t: TFunction): string {
       return t('prop.type.office');
     case 'factory':
       return t('category.typeFactory');
+    case 'warehouse':
+      return t('prop.type.warehouse');
+    case 'hotel':
+      return t('prop.type.hotel');
+    case 'land':
+      return t('prop.type.land');
+    case 'townhouse':
+      return t('prop.type.townhouse');
+    case 'coworking':
+      return t('prop.type.coworking');
+    case 'homeoffice':
+      return t('prop.type.homeoffice');
+    case 'showroom':
+      return t('prop.type.showroom');
     default:
       return '';
   }
@@ -240,6 +254,96 @@ export function FactoryRow({
         <View style={styles.priceRow}>
           <Text style={styles.price}>{fmtMoney(item.monthly_rent ?? item.price, item.currency || 'THB')}</Text>
           <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+/** 酒店卡（横向）：面积 / 商圈·楼盘 / 标签 / 租金或售价。 */
+export function HotelRow({
+  item,
+  t,
+  mode,
+  onPress,
+}: {
+  item: PublicListing;
+  t: TFunction;
+  mode: 'rent' | 'sell';
+  onPress: () => void;
+}) {
+  const cover = coverOf(item);
+  const title = item.project_name || item.building || item.address || t('category.unnamed');
+  const place = [item.district, item.building || item.project_name].filter(Boolean).join('·');
+  const price = item.price ?? (mode === 'rent' ? item.monthly_rent : item.asking_price);
+
+  return (
+    <TouchableOpacity style={styles.row} activeOpacity={0.85} onPress={onPress}>
+      <Cover uri={cover} size={{ w: 108, h: 96 }} />
+      <View style={styles.rowBody}>
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.sub} numberOfLines={1}>
+          {[item.size_sqm != null ? `${num(item.size_sqm, 1)}${t('pub.sqm')}` : null, place]
+            .filter(Boolean)
+            .join('/')}
+        </Text>
+        {commonTags(item, t).length > 0 ? (
+          <View style={styles.tagRow}>
+            {commonTags(item, t).slice(0, 4).map((tag) => (
+              <Tag key={tag}>{tag}</Tag>
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.priceRow}>
+          <Text style={styles.price}>{fmtMoney(price, item.currency || 'THB')}</Text>
+          {mode === 'rent' ? <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text> : null}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+/** 土地卡（横向）：土地面积 / 位置 / 标签 / 租金或售价。 */
+export function LandRow({
+  item,
+  t,
+  mode,
+  onPress,
+}: {
+  item: PublicListing;
+  t: TFunction;
+  mode: 'rent' | 'sell';
+  onPress: () => void;
+}) {
+  const cover = coverOf(item);
+  const title = item.project_name || item.building || item.address || t('category.unnamed');
+  const place = [item.district, item.city].filter(Boolean).join('·');
+  // 与后端面积筛选（Property.size_sqm）保持一致，避免卡片面积与筛选项对不上
+  const area = item.size_sqm ?? item.land_area_sqm;
+  const price = item.price ?? (mode === 'rent' ? item.monthly_rent : item.asking_price);
+
+  return (
+    <TouchableOpacity style={styles.row} activeOpacity={0.85} onPress={onPress}>
+      <Cover uri={cover} size={{ w: 108, h: 96 }} />
+      <View style={styles.rowBody}>
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.sub} numberOfLines={1}>
+          {[area != null ? `${num(area, 1)}${t('pub.sqm')}` : null, place].filter(Boolean).join('/')}
+        </Text>
+        {commonTags(item, t).length > 0 ? (
+          <View style={styles.tagRow}>
+            {commonTags(item, t).slice(0, 4).map((tag) => (
+              <Tag key={tag}>{tag}</Tag>
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.priceRow}>
+          <Text style={styles.price}>{fmtMoney(price, item.currency || 'THB')}</Text>
+          {mode === 'rent' ? <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text> : null}
         </View>
       </View>
     </TouchableOpacity>

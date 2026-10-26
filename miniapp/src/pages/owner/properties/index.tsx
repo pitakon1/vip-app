@@ -108,10 +108,17 @@ const buildTypeLabels = (
   condo: t('prop.typeApartment'),
   house: t('prop.typeVilla'),
   villa: t('prop.typeVilla'),
+  townhouse: t('prop.typeTownhouse'),
   commercial: t('prop.typeCommercial'),
   shop: t('prop.typeCommercial'),
   office: t('prop.typeOffice'),
-  factory: t('prop.typeFactory')
+  coworking: t('prop.typeCoworking'),
+  homeoffice: t('prop.typeHomeOffice'),
+  showroom: t('prop.typeShowroom'),
+  factory: t('prop.typeFactory'),
+  warehouse: t('prop.typeWarehouse'),
+  hotel: t('prop.typeHotel'),
+  land: t('prop.typeLand')
 })
 
 // 状态筛选 chips
@@ -180,9 +187,16 @@ const buildTypeGroups = (
 ): { label: string; keys: string[] }[] => [
   { label: t('prop.typeApartment'), keys: ['apartment', 'condo'] },
   { label: t('prop.typeVilla'), keys: ['house', 'villa'] },
+  { label: t('prop.typeTownhouse'), keys: ['townhouse'] },
   { label: t('prop.typeCommercial'), keys: ['commercial', 'shop'] },
   { label: t('prop.typeOffice'), keys: ['office'] },
-  { label: t('prop.typeFactory'), keys: ['factory'] }
+  { label: t('prop.typeCoworking'), keys: ['coworking'] },
+  { label: t('prop.typeHomeOffice'), keys: ['homeoffice'] },
+  { label: t('prop.typeShowroom'), keys: ['showroom'] },
+  { label: t('prop.typeFactory'), keys: ['factory'] },
+  { label: t('prop.typeWarehouse'), keys: ['warehouse'] },
+  { label: t('prop.typeHotel'), keys: ['hotel'] },
+  { label: t('prop.typeLand'), keys: ['land'] }
 ]
 
 // 档案类型的差异化分组：住宅保留居室信息，商办/厂房走各自专项字段

@@ -70,8 +70,16 @@ const TYPE_OPTIONS = [
   { key: '', label: 'pub.filterAny' },
   { key: 'apartment', label: 'prop.typeApartment' },
   { key: 'house', label: 'prop.typeVilla' },
+  { key: 'townhouse', label: 'prop.typeTownhouse' },
   { key: 'shop', label: 'prop.typeCommercial' },
-  { key: 'office', label: 'prop.typeOffice' }
+  { key: 'office', label: 'prop.typeOffice' },
+  { key: 'coworking', label: 'prop.typeCoworking' },
+  { key: 'homeoffice', label: 'prop.typeHomeOffice' },
+  { key: 'showroom', label: 'prop.typeShowroom' },
+  { key: 'factory', label: 'prop.typeFactory' },
+  { key: 'warehouse', label: 'prop.typeWarehouse' },
+  { key: 'hotel', label: 'prop.typeHotel' },
+  { key: 'land', label: 'prop.typeLand' }
 ]
 
 const STATUS_OPTIONS = [

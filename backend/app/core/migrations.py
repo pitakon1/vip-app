@@ -180,12 +180,19 @@ _OPTION_SEEDS: Dict[str, List[tuple]] = {
     "property_type": [
         ("apartment", "公寓", "Apartment", "อพาร์ตเมนต์"),
         ("condo", "公寓", "Condo", "คอนโด"),
-        ("villa", "别墅", "Villa", "วิลล่า"),
+        ("villa", "独栋别墅", "Villa", "วิลล่า"),
         ("house", "别墅", "House", "บ้าน"),
+        ("townhouse", "联排别墅", "Townhouse", "ทาวน์เฮาส์"),
         ("shop", "商铺", "Shop", "ร้านค้า"),
         ("commercial", "商铺", "Commercial", "พาณิชย์"),
         ("office", "写字楼", "Office", "สำนักงาน"),
+        ("coworking", "Co-Working", "Co-Working", "โคเวิร์กกิ้ง"),
+        ("homeoffice", "Home Office", "Home Office", "โฮมออฟฟิศ"),
+        ("showroom", "展厅", "Showroom", "โชว์รูม"),
         ("factory", "厂房", "Factory", "โรงงาน"),
+        ("warehouse", "仓库", "Warehouse", "คลังสินค้า"),
+        ("hotel", "酒店", "Hotel", "โรงแรม"),
+        ("land", "土地", "Land", "ที่ดิน"),
     ],
 }
 

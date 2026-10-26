@@ -19,12 +19,14 @@ export default {
     'pages/tenant/maintenance/index',
     'pages/tenant/payments/index',
     'pages/tenant/listings/index',
-    // 贝壳式分类页：首页黄金导航 5 入口的各自落点（租房/新房/二手房/商铺办公/厂房）
+    // 贝壳式分类页：首页黄金导航入口的各自落点（租房/二手房/新房/商铺办公/厂房/酒店/土地）
     'pages/tenant/category-rent/index',
     'pages/tenant/category-new/index',
     'pages/tenant/category-resale/index',
     'pages/tenant/category-commercial/index',
     'pages/tenant/category-factory/index',
+    'pages/tenant/category-hotel/index',
+    'pages/tenant/category-land/index',
     // C 端「我的 - 常用功能」里的关注 / 浏览历史 / 降价提醒（登录即可用，不按业主租客门槛）
     'pages/tenant/favorites/index',
     'pages/tenant/history/index',

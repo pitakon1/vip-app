@@ -22,12 +22,14 @@ const CommunityDetail = lazy(() => import('@/pages/CommunityDetail'))
 // 公共签署页（客户用 H5，匿名可访问）
 const Sign = lazy(() => import('@/pages/Sign'))
 
-// C 端贝壳式分类页（租房 / 新房 / 二手房 / 商铺办公 / 厂房）
+// C 端贝壳式分类页（租房 / 新房 / 二手房 / 商铺办公 / 厂房 / 酒店 / 土地）
 const RentCategory = lazy(() => import('@/pages/category/RentCategory'))
 const NewHouse = lazy(() => import('@/pages/category/NewHouse'))
 const Resale = lazy(() => import('@/pages/category/Resale'))
 const Commercial = lazy(() => import('@/pages/category/Commercial'))
 const Factory = lazy(() => import('@/pages/category/Factory'))
+const Hotel = lazy(() => import('@/pages/category/Hotel'))
+const Land = lazy(() => import('@/pages/category/Land'))
 // 地图找房（匿名公开，按视野拉取点位）
 const MapFind = lazy(() => import('@/pages/MapFind'))
 
@@ -176,12 +178,14 @@ const App = () => {
           <Route path="/school/:id" element={<SchoolDetail />} />
           <Route path="/communities" element={<Communities />} />
           <Route path="/community/:id" element={<CommunityDetail />} />
-          {/* C 端贝壳式分类页：首页黄金导航 5 入口各自落地页 */}
+          {/* C 端贝壳式分类页：首页黄金导航 7 入口各自落地页 */}
           <Route path="/category/rent" element={<RentCategory />} />
           <Route path="/category/new" element={<NewHouse />} />
           <Route path="/category/resale" element={<Resale />} />
           <Route path="/category/commercial" element={<Commercial />} />
           <Route path="/category/factory" element={<Factory />} />
+          <Route path="/category/hotel" element={<Hotel />} />
+          <Route path="/category/land" element={<Land />} />
           <Route path="/map" element={<MapFind />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

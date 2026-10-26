@@ -1,5 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, RefreshControl, ScrollView, FlatList, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  RefreshControl,
+  ScrollView,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+} from 'react-native';
 import dayjs from 'dayjs';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '../../theme/colors';
@@ -98,13 +108,22 @@ interface PropertyRow {
   address?: string | null;
 }
 
+/** 手工补录成交（非平台成交） */
+interface ManualDeal {
+  id: string;
+  source?: string | null;
+  deal_type?: string | null;
+  deal_date?: string | null;
+  deal_amount?: number;
+  commission_amount?: number;
+  currency?: string;
+  customer_name?: string | null;
+  note?: string | null;
+}
+
 type ViewKey = 'mine' | 'agents' | 'partners';
 
-const DEAL_LABELS: Record<string, string> = {
-  new_rental: '新租成交',
-  renewal: '续约成交',
-  management: '托管服务',
-};
+type DealSourceKey = 'platform_customer' | 'self_sourced';
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   pending: {
@@ -136,6 +155,39 @@ export default function PerformanceScreen() {
   // 合作公司分佣汇总（/performance/partners）仅管理员/合作公司管理员可见
   const canViewPartners = user?.role === 'admin' || user?.role === 'partner_admin';
 
+  // 成交类型 / 来源文案走 i18n，避免英文/泰文界面出现中文
+  const dealTypes = useMemo(
+    () => [
+      { key: 'new_rental', label: t('perf.dealNewRental') },
+      { key: 'renewal', label: t('perf.dealRenewal') },
+      { key: 'sale_transaction', label: t('perf.dealSale') },
+      { key: 'management', label: t('perf.dealManagement') },
+    ],
+    [t],
+  );
+  const dealLabel = useCallback(
+    (key?: string | null) => {
+      switch (key) {
+        case 'new_rental':
+          return t('perf.dealNewRental');
+        case 'renewal':
+          return t('perf.dealRenewal');
+        case 'sale_transaction':
+          return t('perf.dealSale');
+        case 'management':
+          return t('perf.dealManagement');
+        default:
+          return key ?? '';
+      }
+    },
+    [t],
+  );
+  const sourceLabel = useCallback(
+    (key?: string | null) =>
+      key === 'self_sourced' ? t('perf.manualSourceSelf') : t('perf.manualSourcePlatform'),
+    [t],
+  );
+
   const [view, setView] = useState<ViewKey>('mine');
   const [leaderboard, setLeaderboard] = useState<RankItem[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -147,6 +199,17 @@ export default function PerformanceScreen() {
   const [leaseMap, setLeaseMap] = useState<Record<string, LeaseRow>>({});
   const [propertyMap, setPropertyMap] = useState<Record<string, PropertyRow>>({});
   const [monthViewings, setMonthViewings] = useState(0);
+  const [manualDeals, setManualDeals] = useState<ManualDeal[]>([]);
+  // 手工补录表单（默认收起，避免业绩页首屏过长）
+  const [dealFormOpen, setDealFormOpen] = useState(false);
+  const [dealSource, setDealSource] = useState<DealSourceKey>('platform_customer');
+  const [dealType, setDealType] = useState('new_rental');
+  const [dealDate, setDealDate] = useState(dayjs().format('YYYY-MM-DD'));
+  const [dealAmount, setDealAmount] = useState('');
+  const [dealCommission, setDealCommission] = useState('');
+  const [dealCustomer, setDealCustomer] = useState('');
+  const [dealNote, setDealNote] = useState('');
+  const [dealSaving, setDealSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -216,6 +279,17 @@ export default function PerformanceScreen() {
     } else {
       setSettlements([]);
     }
+
+    // 本月手工补录成交（后端默认当前月；非 admin 只返回本人）
+    try {
+      const r = await performanceApi.deals({
+        year: dayjs().year(),
+        month: dayjs().month() + 1,
+      });
+      setManualDeals(Array.isArray(r.data) ? (r.data as ManualDeal[]) : []);
+    } catch {
+      setManualDeals([]);
+    }
   }, [canViewPartners]);
 
   useEffect(() => {
@@ -230,6 +304,82 @@ export default function PerformanceScreen() {
     await load();
     setRefreshing(false);
   }, [load]);
+
+  // 手工补录成交：来源（平台对接客户 / 自主拓客）+ 类型 + 日期 + 金额
+  const submitDeal = useCallback(async () => {
+    const amount = Number(dealAmount);
+    if (!dealDate) {
+      Alert.alert(t('perf.manualAdd'), t('perf.manualRequired'));
+      return;
+    }
+    const parsedDate = dayjs(dealDate);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dealDate) || !parsedDate.isValid()) {
+      Alert.alert(t('perf.manualAdd'), t('perf.manualDateInvalid'));
+      return;
+    }
+    if (parsedDate.isAfter(dayjs().endOf('day'))) {
+      Alert.alert(t('perf.manualAdd'), t('perf.manualDateFuture'));
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      Alert.alert(t('perf.manualAdd'), t('perf.manualAmountRequired'));
+      return;
+    }
+    setDealSaving(true);
+    try {
+      await performanceApi.createDeal({
+        source: dealSource,
+        deal_type: dealType,
+        deal_date: dealDate,
+        deal_amount: amount,
+        commission_amount: Number(dealCommission) || 0,
+        customer_name: dealCustomer.trim() || undefined,
+        note: dealNote.trim() || undefined,
+      });
+      setDealFormOpen(false);
+      setDealAmount('');
+      setDealCommission('');
+      setDealCustomer('');
+      setDealNote('');
+      await load();
+      Alert.alert(t('perf.manualSaved'));
+    } catch {
+      Alert.alert(t('perf.manualAdd'), t('perf.manualSaveFail'));
+    } finally {
+      setDealSaving(false);
+    }
+  }, [
+    dealAmount,
+    dealCommission,
+    dealCustomer,
+    dealDate,
+    dealNote,
+    dealSource,
+    dealType,
+    load,
+    t,
+  ]);
+
+  const removeDeal = useCallback(
+    (deal: ManualDeal) => {
+      Alert.alert(t('perf.manualDelete'), t('perf.manualDeleteConfirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('perf.manualDelete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await performanceApi.deleteDeal(deal.id);
+              await load();
+            } catch {
+              Alert.alert(t('perf.manualDelete'), t('perf.manualDeleteFail'));
+            }
+          },
+        },
+      ]);
+    },
+    [load, t],
+  );
 
   const myRankIndex = leaderboard.findIndex((r) => r.is_self);
   const myRank = myRankIndex >= 0 ? myRankIndex + 1 : 0;
@@ -271,7 +421,7 @@ export default function PerformanceScreen() {
     const meta = STATUS_META[s.status ?? 'pending'] ?? STATUS_META.pending;
     const lease = s.lease_id ? leaseMap[s.lease_id] : undefined;
     const sub = [
-      DEAL_LABELS[s.deal_type ?? ''] ?? s.deal_type ?? '成交',
+      dealLabel(s.deal_type),
       lease ? `月租 ${fmtMoney(lease.monthly_rent, lease.currency || s.currency || 'THB')}` : null,
     ]
       .filter(Boolean)
@@ -352,7 +502,7 @@ export default function PerformanceScreen() {
           {breakdown.map((b) => (
             <View key={b.key} style={styles.breakdownChip}>
               <Text style={styles.breakdownChipText}>
-                {DEAL_LABELS[b.key] ?? b.key} {b.count}
+                {dealLabel(b.key)} {b.count}
               </Text>
             </View>
           ))}
@@ -409,6 +559,175 @@ export default function PerformanceScreen() {
     );
   };
 
+  const renderManualDeals = () => (
+    <View style={styles.manualCard}>
+      <View style={styles.manualHead}>
+        <View style={styles.sectionHeadInline}>
+          <Ionicons name="create-outline" size={18} color={colors.primary} />
+          <Text style={styles.yearTitle}>{t('perf.manualTitle')}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.manualAddBtn}
+          activeOpacity={0.8}
+          onPress={() => setDealFormOpen((v) => !v)}
+        >
+          <Ionicons
+            name={dealFormOpen ? 'remove' : 'add'}
+            size={16}
+            color={colors.primaryForeground}
+          />
+          <Text style={styles.manualAddText}>{t('perf.manualAdd')}</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.manualSub}>{t('perf.manualSub')}</Text>
+
+      {dealFormOpen && (
+        <View style={styles.manualForm}>
+          <Text style={styles.manualLabel}>{t('perf.manualSource')}</Text>
+          <View style={styles.manualChips}>
+            {(['platform_customer', 'self_sourced'] as DealSourceKey[]).map((s) => (
+              <TouchableOpacity
+                key={s}
+                style={[styles.manualChip, dealSource === s && styles.manualChipActive]}
+                activeOpacity={0.8}
+                onPress={() => setDealSource(s)}
+              >
+                <Text
+                  style={[
+                    styles.manualChipText,
+                    dealSource === s && styles.manualChipTextActive,
+                  ]}
+                >
+                  {sourceLabel(s)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.manualLabel}>{t('perf.manualType')}</Text>
+          <View style={styles.manualChips}>
+            {dealTypes.map((d) => (
+              <TouchableOpacity
+                key={d.key}
+                style={[styles.manualChip, dealType === d.key && styles.manualChipActive]}
+                activeOpacity={0.8}
+                onPress={() => setDealType(d.key)}
+              >
+                <Text
+                  style={[
+                    styles.manualChipText,
+                    dealType === d.key && styles.manualChipTextActive,
+                  ]}
+                >
+                  {d.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.manualLabel}>{t('perf.manualDate')}</Text>
+          <TextInput
+            style={styles.manualInput}
+            value={dealDate}
+            onChangeText={setDealDate}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.ink3}
+            autoCapitalize="none"
+          />
+
+          <View style={styles.manualInputRow}>
+            <View style={styles.manualInputCol}>
+              <Text style={styles.manualLabel}>{t('perf.manualAmount')}</Text>
+              <TextInput
+                style={styles.manualInput}
+                value={dealAmount}
+                onChangeText={setDealAmount}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor={colors.ink3}
+              />
+            </View>
+            <View style={styles.manualInputCol}>
+              <Text style={styles.manualLabel}>{t('perf.manualCommission')}</Text>
+              <TextInput
+                style={styles.manualInput}
+                value={dealCommission}
+                onChangeText={setDealCommission}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor={colors.ink3}
+              />
+            </View>
+          </View>
+
+          <Text style={styles.manualLabel}>{t('perf.manualCustomer')}</Text>
+          <TextInput
+            style={styles.manualInput}
+            value={dealCustomer}
+            onChangeText={setDealCustomer}
+            placeholder={t('perf.manualCustomer')}
+            placeholderTextColor={colors.ink3}
+          />
+
+          <Text style={styles.manualLabel}>{t('perf.manualNote')}</Text>
+          <TextInput
+            style={[styles.manualInput, styles.manualInputMultiline]}
+            value={dealNote}
+            onChangeText={setDealNote}
+            placeholder={t('perf.manualNote')}
+            placeholderTextColor={colors.ink3}
+            multiline
+          />
+
+          <TouchableOpacity
+            style={[styles.manualSaveBtn, dealSaving && styles.manualSaveBtnDisabled]}
+            activeOpacity={0.85}
+            disabled={dealSaving}
+            onPress={submitDeal}
+          >
+            <Text style={styles.manualSaveText}>{t('perf.manualSave')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {manualDeals.length === 0 ? (
+        <Text style={styles.manualEmpty}>{t('perf.manualEmpty')}</Text>
+      ) : (
+        manualDeals.map((d) => (
+          <View key={d.id} style={styles.manualRow}>
+            <View style={styles.manualRowInfo}>
+              <Text style={styles.manualRowTitle} numberOfLines={1}>
+                {[dealLabel(d.deal_type), d.customer_name || '']
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+              <Text style={styles.manualRowSub} numberOfLines={1}>
+                {[
+                  sourceLabel(d.source),
+                  d.deal_date || '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+            </View>
+            <View style={styles.manualRowRight}>
+              <Text style={styles.manualRowAmount}>{fmtMoney(d.deal_amount, d.currency || 'THB')}</Text>
+              <Text style={styles.manualRowCommission}>
+                {fmtMoney(d.commission_amount, d.currency || 'THB')}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => removeDeal(d)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="trash-outline" size={18} color={colors.ink3} />
+            </TouchableOpacity>
+          </View>
+        ))
+      )}
+    </View>
+  );
+
   const renderMine = () => (
     <ScrollView
       style={styles.container}
@@ -456,6 +775,8 @@ export default function PerformanceScreen() {
       </View>
 
       {renderMonthTrend()}
+
+      {renderManualDeals()}
 
       {/* 佣金明细 */}
       <Text style={styles.sectionTitle}>{t('perf.commissionDetail')}</Text>
@@ -801,6 +1122,107 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
     marginTop: 3,
+    fontVariant: ['tabular-nums'],
+  },
+
+  /* 手工补录成交 */
+  manualCard: {
+    marginHorizontal: colors.spacing.md,
+    marginTop: colors.spacing.md,
+    padding: colors.spacing.lg,
+    borderRadius: colors.radius.xl,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.card,
+  },
+  manualHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  manualAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.primary,
+  },
+  manualAddText: { fontSize: colors.fontSize.xs, fontWeight: '700', color: colors.primaryForeground },
+  manualSub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 6, lineHeight: 18 },
+  manualForm: {
+    marginTop: colors.spacing.md,
+    paddingTop: colors.spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  manualLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: colors.spacing.sm, marginBottom: 5 },
+  manualChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  manualChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  manualChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  manualChipText: { fontSize: colors.fontSize.xs, color: colors.ink2, fontWeight: '600' },
+  manualChipTextActive: { color: colors.primaryForeground },
+  manualInput: {
+    height: 40,
+    paddingHorizontal: colors.spacing.md,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    fontSize: colors.fontSize.sm,
+    color: colors.ink,
+  },
+  manualInputMultiline: { height: 64, paddingTop: 10, textAlignVertical: 'top' },
+  manualInputRow: { flexDirection: 'row', gap: colors.spacing.sm },
+  manualInputCol: { flex: 1 },
+  manualSaveBtn: {
+    marginTop: colors.spacing.lg,
+    height: 42,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manualSaveBtnDisabled: { opacity: 0.5 },
+  manualSaveText: { fontSize: colors.fontSize.sm, fontWeight: '700', color: colors.primaryForeground },
+  manualEmpty: {
+    fontSize: colors.fontSize.xs,
+    color: colors.ink3,
+    marginTop: colors.spacing.md,
+    textAlign: 'center',
+  },
+  manualRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: colors.spacing.sm,
+    marginTop: colors.spacing.md,
+    paddingTop: colors.spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  manualRowInfo: { flex: 1 },
+  manualRowTitle: { fontSize: colors.fontSize.sm, fontWeight: '600', color: colors.ink },
+  manualRowSub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 3 },
+  manualRowRight: { alignItems: 'flex-end' },
+  manualRowAmount: {
+    fontSize: colors.fontSize.sm,
+    fontWeight: '700',
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  manualRowCommission: {
+    fontSize: colors.fontSize.xs,
+    color: colors.primary,
+    marginTop: 2,
     fontVariant: ['tabular-nums'],
   },
 });

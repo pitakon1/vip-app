@@ -568,10 +568,10 @@
   .bk-search-bar__btn { padding: 9px 18px; font-size: 14px; }
 }
 
-/* ===== 黄金导航（5 大业务入口：租房 / 新房 / 二手房 / 商铺办公 / 厂房） ===== */
+/* ===== 黄金导航（7 大业务入口：租房 / 二手房 / 新房 / 商铺办公 / 厂房 / 酒店 / 土地） ===== */
 .rent-goldnav {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 16px;
   margin-bottom: 28px;
 }
@@ -610,7 +610,7 @@
   white-space: nowrap;
 }
 @media (max-width: 720px) {
-  .rent-goldnav { gap: 8px; margin-bottom: 20px; }
+  .rent-goldnav { grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
   .rent-goldnav__item { padding: 12px 4px; gap: 6px; }
   .rent-goldnav__icon { width: 44px; height: 44px; font-size: 22px; }
   .rent-goldnav__label { font-size: 12px; }

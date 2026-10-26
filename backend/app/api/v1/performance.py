@@ -1,15 +1,16 @@
 """业绩路由：系统自动核算的业绩报表与排行榜。
 
-业绩不再由员工手动填报，而是由系统根据佣金结算（CommissionSettlement）自动聚合：
-签约/续约时自动生成结算记录，业绩口径以结算记录为准。
+平台租约成交由系统根据佣金结算（CommissionSettlement）自动聚合业绩；
+非平台成交（平台对接客户 / 销售自主拓客）通过 `manual_deals` 手工补录，
+补录后同样计入当月业绩。
 """
 import uuid
 from collections import defaultdict
-from datetime import datetime
-from typing import Dict, List, Optional
+from datetime import date as date_type, datetime, timedelta
+from typing import Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -17,10 +18,14 @@ from app.db import get_session
 from app.core.auth import require_employee
 from app.models import (
     CommissionSettlement,
+    DealSource,
     DealType,
     Employee,
+    ManualDeal,
     Partner,
+    Property,
     User,
+    UserRole,
 )
 
 router = APIRouter(prefix="/performance", tags=["performance"])
@@ -29,6 +34,14 @@ DEAL_TYPE_LABELS = {
     DealType.new_rental: "新租成交",
     DealType.renewal: "续约成交",
     DealType.management: "托管服务",
+}
+
+# 手工补录的成交类型展示名（deal_type 为字符串，不含 sale_transaction 的原枚举）
+MANUAL_DEAL_TYPE_LABELS = {
+    "new_rental": "租赁成交",
+    "renewal": "续约成交",
+    "sale_transaction": "买卖成交",
+    "management": "托管服务",
 }
 
 
@@ -85,6 +98,50 @@ class MyPerformanceOut(BaseModel):
     monthly: Optional[List[PerformanceMonthRow]] = None
 
 
+# ---------------- 手工补录业绩（非平台成交） ----------------
+class ManualDealCreate(BaseModel):
+    """手工补录业绩请求体。"""
+
+    source: Literal["platform_customer", "self_sourced"]
+    deal_type: Literal["new_rental", "renewal", "sale_transaction", "management"]
+    deal_date: date_type
+    deal_amount: float = Field(gt=0)
+    commission_amount: float = Field(default=0, ge=0)
+    currency: str = Field(default="THB", max_length=3)
+    customer_name: Optional[str] = None
+    property_id: Optional[uuid.UUID] = None
+    note: Optional[str] = None
+    employee_id: Optional[uuid.UUID] = None
+
+    @field_validator("deal_date")
+    @classmethod
+    def _reject_future_date(cls, value: date_type) -> date_type:
+        """成交日期必填，且不能晚于今天 +1 天（容忍时区差异）。"""
+        if value > datetime.utcnow().date() + timedelta(days=1):
+            raise ValueError("deal_date cannot be later than tomorrow")
+        return value
+
+
+class ManualDealOut(BaseModel):
+    """手工补录业绩响应。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    employee_id: Optional[str] = None
+    employee_name: Optional[str] = None
+    source: Optional[str] = None
+    deal_type: Optional[str] = None
+    deal_date: Optional[date_type] = None
+    deal_amount: Optional[float] = None
+    commission_amount: Optional[float] = None
+    currency: Optional[str] = None
+    customer_name: Optional[str] = None
+    property_id: Optional[str] = None
+    note: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
 class PerformanceLeaderboardRow(BaseModel):
     """业绩排行榜条目。"""
 
@@ -107,6 +164,188 @@ def _get_employee(session: Session, user: User) -> Employee:
     if not employee:
         raise HTTPException(status_code=404, detail="Employee profile not found")
     return employee
+
+
+def _get_employee_by_id(session: Session, employee_id: uuid.UUID) -> Employee:
+    employee = session.get(Employee, employee_id)
+    if not employee or employee.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
+    return employee
+
+
+def _employee_name_map(
+    session: Session, employee_ids
+) -> Dict[uuid.UUID, Optional[str]]:
+    """批量加载员工姓名（员工 -> 用户 full_name），避免逐条查询。"""
+    ids = {e for e in employee_ids if e}
+    if not ids:
+        return {}
+    employees = {
+        e.id: e
+        for e in session.exec(select(Employee).where(Employee.id.in_(ids))).all()
+    }
+    user_ids = {e.user_id for e in employees.values() if e.user_id}
+    users = (
+        {u.id: u for u in session.exec(select(User).where(User.id.in_(user_ids))).all()}
+        if user_ids
+        else {}
+    )
+    return {
+        emp_id: (users.get(emp.user_id).full_name if users.get(emp.user_id) else None)
+        for emp_id, emp in employees.items()
+    }
+
+
+def _serialize_manual_deal(
+    deal: ManualDeal, employee_name: Optional[str]
+) -> Dict:
+    return {
+        "id": str(deal.id),
+        "employee_id": str(deal.employee_id),
+        "employee_name": employee_name,
+        "source": deal.source.value
+        if isinstance(deal.source, DealSource)
+        else str(deal.source),
+        "deal_type": deal.deal_type,
+        "deal_date": deal.deal_date,
+        "deal_amount": deal.deal_amount,
+        "commission_amount": deal.commission_amount,
+        "currency": deal.currency,
+        "customer_name": deal.customer_name,
+        "property_id": str(deal.property_id) if deal.property_id else None,
+        "note": deal.note,
+        "created_at": deal.created_at,
+    }
+
+
+@router.post("/deals", response_model=ManualDealOut)
+def create_manual_deal(
+    payload: ManualDealCreate,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """手工补录非平台成交业绩（平台对接客户 / 销售自主拓客）。
+
+    仅 admin 可指定为他人补录；其他角色只能给自己补录。
+    """
+    if payload.employee_id is not None and user.role != UserRole.admin:
+        me = _get_employee(session, user)
+        if payload.employee_id != me.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot record deals for other employees",
+            )
+    if payload.employee_id is not None and user.role == UserRole.admin:
+        employee = _get_employee_by_id(session, payload.employee_id)
+    else:
+        employee = _get_employee(session, user)
+
+    if payload.property_id is not None:
+        prop = session.get(Property, payload.property_id)
+        if not prop or prop.deleted_at is not None:
+            raise HTTPException(status_code=404, detail="Property not found")
+
+    deal = ManualDeal(
+        employee_id=employee.id,
+        source=DealSource(payload.source),
+        deal_type=payload.deal_type,
+        deal_date=payload.deal_date,
+        deal_amount=payload.deal_amount,
+        commission_amount=payload.commission_amount,
+        currency=payload.currency,
+        customer_name=payload.customer_name,
+        property_id=payload.property_id,
+        note=payload.note,
+        created_by=user.id,
+    )
+    session.add(deal)
+    session.commit()
+    session.refresh(deal)
+    return _serialize_manual_deal(
+        deal, _employee_name_map(session, [employee.id]).get(employee.id)
+    )
+
+
+@router.get("/deals", response_model=List[ManualDealOut])
+def list_manual_deals(
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    employee_id: Optional[uuid.UUID] = None,
+    source: Optional[Literal["platform_customer", "self_sourced"]] = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """月度补录业绩列表（默认当前月）。
+
+    非 admin 只能查看自己的补录；admin 可查看全部或按 employee_id 过滤。
+    """
+    is_admin = user.role == UserRole.admin
+    conditions = [ManualDeal.deleted_at.is_(None)]
+
+    if employee_id is not None:
+        if not is_admin:
+            me = _get_employee(session, user)
+            if employee_id != me.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cannot view other employees' deals",
+                )
+        conditions.append(ManualDeal.employee_id == employee_id)
+    elif not is_admin:
+        conditions.append(ManualDeal.employee_id == _get_employee(session, user).id)
+
+    if source is not None:
+        conditions.append(ManualDeal.source == DealSource(source))
+
+    now = datetime.utcnow()
+    if year is None and month is None:
+        year, month = now.year, now.month
+    if year and month:
+        start = date_type(year, month, 1)
+        end = (
+            date_type(year + 1, 1, 1)
+            if month == 12
+            else date_type(year, month + 1, 1)
+        )
+        conditions.append(ManualDeal.deal_date >= start)
+        conditions.append(ManualDeal.deal_date < end)
+    elif year:
+        conditions.append(ManualDeal.deal_date >= date_type(year, 1, 1))
+        conditions.append(ManualDeal.deal_date < date_type(year + 1, 1, 1))
+    elif month:
+        # 仅传月：任意年份的该月（与排行榜口径一致，跨方言）
+        conditions.append(func.extract("month", ManualDeal.deal_date) == month)
+
+    deals = session.exec(
+        select(ManualDeal)
+        .where(*conditions)
+        .order_by(ManualDeal.deal_date.desc(), ManualDeal.created_at.desc())
+    ).all()
+    names = _employee_name_map(session, [d.employee_id for d in deals])
+    return [_serialize_manual_deal(d, names.get(d.employee_id)) for d in deals]
+
+
+@router.delete("/deals/{deal_id}")
+def delete_manual_deal(
+    deal_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """软删除补录记录：仅本人或 admin。"""
+    deal = session.get(ManualDeal, deal_id)
+    if not deal or deal.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    if user.role != UserRole.admin:
+        me = _get_employee(session, user)
+        if deal.employee_id != me.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot delete other employees' deals",
+            )
+    deal.deleted_at = datetime.utcnow()
+    session.add(deal)
+    session.commit()
+    return {"id": str(deal.id), "deleted": True}
 
 
 def _settlement_rows(
@@ -230,19 +469,111 @@ def _build_summary(
     }
 
 
+def _merge_manual_deals(
+    summary: Dict,
+    monthly: List[Dict],
+    deals: List[ManualDeal],
+    now: datetime,
+) -> None:
+    """把手工补录业绩合并进 `_build_summary` / `_month_series` 的结果。
+
+    无补录记录时不改变任何口径；有记录时：
+    - 当月：month_deals/month_total/month_commission 计入并按成交类型拆 breakdown；
+    - 本年：year_total 计入；
+    - 全部：commission_total 计入；
+    - monthly：按 deal_date 所属月份累加 revenue/commission/deals。
+    """
+    by_month = {(row["year"], row["month"]): row for row in monthly}
+    manual_breakdown: Dict[str, dict] = {}
+
+    for deal in deals:
+        deal_date = deal.deal_date
+        amount = deal.deal_amount or 0
+        commission = deal.commission_amount or 0
+
+        summary["commission_total"] += commission
+        # 与 _build_summary 同口径：deals_total 统计全部补录笔数，
+        # new_rentals/renewals/management 按成交类型累计（不限本月）
+        summary["deals_total"] += 1
+        if deal.deal_type == "new_rental":
+            summary["new_rentals"] += 1
+        elif deal.deal_type == "renewal":
+            summary["renewals"] += 1
+        elif deal.deal_type == "management":
+            summary["management"] += 1
+
+        if deal_date.year == now.year:
+            summary["year_total"] += amount
+        if deal_date.year == now.year and deal_date.month == now.month:
+            summary["month_deals"] += 1
+            summary["month_total"] += amount
+            summary["month_commission"] += commission
+            key = deal.deal_type
+            item = manual_breakdown.get(key)
+            if item is None:
+                item = manual_breakdown[key] = {
+                    "deal_type": key,
+                    "label": MANUAL_DEAL_TYPE_LABELS.get(key, key),
+                    "amount": 0.0,
+                    "count": 0,
+                }
+            item["amount"] += commission
+            item["count"] += 1
+
+        row = by_month.get((deal_date.year, deal_date.month))
+        if row is not None:
+            row["revenue"] += amount
+            row["commission"] += commission
+            row["deals"] += 1
+
+    breakdown = {b["deal_type"]: b for b in summary["breakdown"]}
+    for key, item in manual_breakdown.items():
+        existing = breakdown.get(key)
+        if existing is None:
+            existing = {
+                "deal_type": key,
+                "label": item["label"],
+                "amount": 0.0,
+                "count": 0,
+            }
+            summary["breakdown"].append(existing)
+        existing["amount"] += item["amount"]
+        existing["count"] += item["count"]
+
+    total_amt = sum(b["amount"] for b in summary["breakdown"]) or 1.0
+    for item in summary["breakdown"]:
+        item["percent"] = round(item["amount"] / total_amt * 100, 1)
+    summary["breakdown"].sort(key=lambda b: -b["amount"])
+
+    summary["year_total"] = round(summary["year_total"], 2)
+    summary["month_total"] = round(summary["month_total"], 2)
+    summary["commission_total"] = round(summary["commission_total"], 2)
+    summary["month_commission"] = round(summary["month_commission"], 2)
+    for row in monthly:
+        row["revenue"] = round(row["revenue"], 2)
+        row["commission"] = round(row["commission"], 2)
+
+
 @router.get("/me", response_model=MyPerformanceOut)
 def get_my_performance(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
-    """我的业绩报表（系统按佣金结算自动核算）。"""
+    """我的业绩报表（平台成交自动核算 + 非平台成交手工补录）。"""
     employee = _get_employee(session, user)
     settlements = _settlement_rows(session, employee.id)
+    manual_deals = session.exec(
+        select(ManualDeal).where(
+            ManualDeal.employee_id == employee.id,
+            ManualDeal.deleted_at.is_(None),
+        )
+    ).all()
     now = datetime.utcnow()
-    return {
-        "summary": _build_summary(settlements, now),
-        "monthly": _month_series(settlements, 12),
-    }
+    summary = _build_summary(settlements, now)
+    monthly = _month_series(settlements, 12)
+    if manual_deals:
+        _merge_manual_deals(summary, monthly, manual_deals, now)
+    return {"summary": summary, "monthly": monthly}
 
 
 @router.get("/leaderboard", response_model=List[PerformanceLeaderboardRow])

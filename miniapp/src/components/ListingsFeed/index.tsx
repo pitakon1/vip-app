@@ -335,10 +335,17 @@ const typeLabelOf = (
     condo: t('prop.typeApartment'),
     villa: t('prop.typeVilla'),
     house: t('prop.typeVilla'),
+    townhouse: t('prop.typeTownhouse'),
     shop: t('prop.typeCommercial'),
     commercial: t('prop.typeCommercial'),
     office: t('prop.typeOffice'),
-    factory: t('prop.typeFactory')
+    coworking: t('prop.typeCoworking'),
+    homeoffice: t('prop.typeHomeOffice'),
+    showroom: t('prop.typeShowroom'),
+    factory: t('prop.typeFactory'),
+    warehouse: t('prop.typeWarehouse'),
+    hotel: t('prop.typeHotel'),
+    land: t('prop.typeLand')
   }
   return map[type || ''] || t('prop.listing')
 }

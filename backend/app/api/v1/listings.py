@@ -525,7 +525,8 @@ def create_listing(
                 status_code=400, detail="该房源不属于当前用户，无法发布上架单"
             )
         existing_dedupe_state = DedupeState.new
-        # 同一档案上已存在「同类型」有效上架单 → 判定重复阻断（待人工）
+        # 同一档案上已存在「同类型」有效上架单 → 直接拒绝，避免同一房源重复多次上架。
+        # 这里不再落一条 blocked 记录：blocked 记录仍可被审核通过，反而制造重复在线房源。
         dup = session.exec(
             select(Listing).where(
                 Listing.property_id == prop.id,
@@ -538,7 +539,10 @@ def create_listing(
             )
         ).first()
         if dup:
-            existing_dedupe_state = DedupeState.blocked
+            raise HTTPException(
+                status_code=409,
+                detail="该房源已有同类型的有效上架单，请勿重复上架",
+            )
     else:
         prop = Property(
             project_id=req.project_id,

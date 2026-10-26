@@ -79,7 +79,9 @@ export function CategoryTopBar({
   onCityPress,
   searchPlaceholder,
   keyword,
-  onKeywordChange
+  onKeywordChange,
+  showHome = true,
+  homePath = '/pages/tenant/home/index'
 }: {
   title: string
   city?: string
@@ -87,6 +89,9 @@ export function CategoryTopBar({
   searchPlaceholder: string
   keyword: string
   onKeywordChange: (v: string) => void
+  /** 返回主页按钮（非 Tab 子页面默认显示） */
+  showHome?: boolean
+  homePath?: string
 }) {
   const { t } = useI18n()
   const statusBarH = useMemo(() => {
@@ -97,10 +102,14 @@ export function CategoryTopBar({
     }
   }, [])
 
+  const goHome = () => {
+    Taro.redirectTo({ url: homePath })
+  }
+
   const goBack = () => {
     const pages = Taro.getCurrentPages()
     if (pages.length > 1) Taro.navigateBack({ delta: 1 })
-    else Taro.redirectTo({ url: '/pages/tenant/home/index' })
+    else goHome()
   }
 
   return (
@@ -110,6 +119,16 @@ export function CategoryTopBar({
           <View className='icon-svg' style={iconStyle('back', 40)} />
         </View>
         <Text className='ck-top__title'>{title}</Text>
+        {showHome ? (
+          <View
+            className='ck-top__home'
+            hoverClass='ck-hover'
+            onClick={goHome}
+            aria-label={t('common.goHome')}
+          >
+            <View className='icon-svg' style={iconStyle('home', 40)} />
+          </View>
+        ) : null}
       </View>
       <View className='ck-top__row2'>
         <View className='ck-city' hoverClass='ck-hover' onClick={onCityPress}>

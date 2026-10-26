@@ -271,6 +271,10 @@ export const performanceApi = {
   partners: (params?: any) => api.get('/performance/partners', { params }),
   // 排行榜
   leaderboard: (params?: any) => api.get('/performance/leaderboard', { params }),
+  // 手工补录成交业绩（非平台成交）：来源 platform_customer / self_sourced
+  deals: (params?: any) => api.get('/performance/deals', { params }),
+  createDeal: (data: any) => api.post('/performance/deals', data),
+  deleteDeal: (id: string) => api.delete(`/performance/deals/${id}`),
 };
 
 // 佣金结算（我的结算明细 / 管理端分佣结算记录）

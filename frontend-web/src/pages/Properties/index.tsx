@@ -932,6 +932,13 @@ const Properties = () => {
     { key: 'shop', label: propertyTypeMap.shop },
     { key: 'office', label: propertyTypeMap.office },
     { key: 'factory', label: propertyTypeMap.factory },
+    { key: 'hotel', label: propertyTypeMap.hotel },
+    { key: 'land', label: propertyTypeMap.land },
+    { key: 'townhouse', label: propertyTypeMap.townhouse },
+    { key: 'warehouse', label: propertyTypeMap.warehouse },
+    { key: 'coworking', label: propertyTypeMap.coworking },
+    { key: 'homeoffice', label: propertyTypeMap.homeoffice },
+    { key: 'showroom', label: propertyTypeMap.showroom },
   ]
   const BED_OPTS = [
     { key: '', label: t('propertiesPage.optAnyBedrooms') },

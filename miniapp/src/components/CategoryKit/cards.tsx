@@ -46,13 +46,27 @@ function propertyTypeLabel(v: string | null | undefined, t: TFn): string {
     case 'villa':
     case 'house':
       return t('prop.typeVilla')
+    case 'townhouse':
+      return t('prop.typeTownhouse')
     case 'shop':
     case 'commercial':
       return t('prop.typeCommercial')
     case 'office':
       return t('prop.typeOffice')
+    case 'coworking':
+      return t('prop.typeCoworking')
+    case 'homeoffice':
+      return t('prop.typeHomeOffice')
+    case 'showroom':
+      return t('prop.typeShowroom')
     case 'factory':
       return t('prop.typeFactory')
+    case 'warehouse':
+      return t('prop.typeWarehouse')
+    case 'hotel':
+      return t('prop.typeHotel')
+    case 'land':
+      return t('prop.typeLand')
     default:
       return ''
   }
@@ -130,7 +144,16 @@ export function ResidentialRow({
 }
 
 /** 商铺办公卡（横向）：面积 / 商圈·楼盘 / 标签 / 月租 + 日租金/㎡。 */
-export function CommercialRow({ item, onPress }: { item: PublicListing; onPress: () => void }) {
+export function CommercialRow({
+  item,
+  onPress,
+  mode = 'rent',
+}: {
+  item: PublicListing
+  onPress: () => void
+  /** 租/售口径：售价卡片不显示「/月」单位 */
+  mode?: 'rent' | 'sell'
+}) {
   const { t } = useI18n()
   const cover = coverOf(item)
   const title = item.project_name || item.building || item.address || t('category.unnamed')
@@ -168,11 +191,14 @@ export function CommercialRow({ item, onPress }: { item: PublicListing; onPress:
         ) : null}
         <View className='ck-row__price'>
           <Text className='ck-row__price-main'>
-            {fmtMoney(item.monthly_rent ?? item.price, item.currency || 'THB')}
+            {fmtMoney(
+              mode === 'rent' ? item.monthly_rent ?? item.price : item.price ?? item.asking_price,
+              item.currency || 'THB',
+            )}
           </Text>
-          <Text className='ck-row__price-unit'>{t('pub.perMonth')}</Text>
+          {mode === 'rent' ? <Text className='ck-row__price-unit'>{t('pub.perMonth')}</Text> : null}
         </View>
-        {item.rent_per_sqm_day != null ? (
+        {mode === 'rent' && item.rent_per_sqm_day != null ? (
           <Text className='ck-row__price-sub'>
             {`${fmtMoney(item.rent_per_sqm_day, item.currency || 'THB')}/${t('pub.sqm')}/${t('category.perDay')}`}
           </Text>
@@ -183,7 +209,16 @@ export function CommercialRow({ item, onPress }: { item: PublicListing; onPress:
 }
 
 /** 厂房卡（横向）：土地面积 / 层高 / 荷载 / 柱距 / 电力 / 可环评 / 整栋。 */
-export function FactoryRow({ item, onPress }: { item: PublicListing; onPress: () => void }) {
+export function FactoryRow({
+  item,
+  onPress,
+  mode = 'rent',
+}: {
+  item: PublicListing
+  onPress: () => void
+  /** 租/售口径：售价卡片不显示「/月」单位 */
+  mode?: 'rent' | 'sell'
+}) {
   const { t } = useI18n()
   const cover = coverOf(item)
   const title = item.project_name || item.building || item.address || t('category.unnamed')
@@ -217,9 +252,12 @@ export function FactoryRow({ item, onPress }: { item: PublicListing; onPress: ()
         ) : null}
         <View className='ck-row__price'>
           <Text className='ck-row__price-main'>
-            {fmtMoney(item.monthly_rent ?? item.price, item.currency || 'THB')}
+            {fmtMoney(
+              mode === 'rent' ? item.monthly_rent ?? item.price : item.price ?? item.asking_price,
+              item.currency || 'THB',
+            )}
           </Text>
-          <Text className='ck-row__price-unit'>{t('pub.perMonth')}</Text>
+          {mode === 'rent' ? <Text className='ck-row__price-unit'>{t('pub.perMonth')}</Text> : null}
         </View>
       </View>
     </View>

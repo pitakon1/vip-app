@@ -86,15 +86,30 @@ const typeOptions = (t: TFunc): { key: string; label: string }[] => [
   { key: 'condo', label: t('prop.type.condo') },
   { key: 'villa', label: t('prop.type.villa') },
   { key: 'house', label: t('prop.type.house') },
+  { key: 'townhouse', label: t('prop.type.townhouse') },
   { key: 'shop', label: t('prop.type.shop') },
   { key: 'commercial', label: t('prop.type.commercial') },
   { key: 'office', label: t('prop.type.office') },
+  { key: 'coworking', label: t('prop.type.coworking') },
+  { key: 'homeoffice', label: t('prop.type.homeoffice') },
+  { key: 'showroom', label: t('prop.type.showroom') },
   { key: 'factory', label: t('prop.type.factory') },
+  { key: 'warehouse', label: t('prop.type.warehouse') },
+  { key: 'hotel', label: t('prop.type.hotel') },
+  { key: 'land', label: t('prop.type.land') },
 ];
 
-// 房源类型分组：住宅 vs 商办 vs 厂房，按所选类型条件渲染专属字段
-const isCommercialType = (tpe: string) => tpe === 'shop' || tpe === 'commercial' || tpe === 'office';
-const isFactoryType = (tpe: string) => tpe === 'factory';
+// 房源类型分组：住宅 vs 商办 vs 厂房 vs 土地，按所选类型条件渲染专属字段
+const isCommercialType = (tpe: string) =>
+  tpe === 'shop' ||
+  tpe === 'commercial' ||
+  tpe === 'office' ||
+  tpe === 'coworking' ||
+  tpe === 'homeoffice' ||
+  tpe === 'showroom';
+const isFactoryType = (tpe: string) => tpe === 'factory' || tpe === 'warehouse';
+// 土地没有卧室/卫生间，也没有朝向/装修/配套
+const isLandType = (tpe: string) => tpe === 'land';
 
 const CURRENCY_OPTIONS: { key: string; label: string }[] = [
   { key: 'THB', label: 'THB' },
@@ -487,8 +502,9 @@ export default function PropertyEditScreen() {
 
   const isCommercial = isCommercialType(form.property_type);
   const isFactory = isFactoryType(form.property_type);
-  // 住宅才显示卧室/卫生间与朝向/装修/配套；商办隐藏卧室/卫生间；厂房隐藏朝向/装修/配套
-  const showResidential = !isCommercial && !isFactory;
+  const isLand = isLandType(form.property_type);
+  // 住宅才显示卧室/卫生间与朝向/装修/配套；商办隐藏卧室/卫生间；厂房/土地隐藏朝向/装修/配套
+  const showResidential = !isCommercial && !isFactory && !isLand;
 
   const field = (label: string, value: string, key: keyof PropertyForm, opts?: {
     keyboard?: 'numeric' | 'default' | 'number-pad';

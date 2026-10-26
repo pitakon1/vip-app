@@ -181,7 +181,13 @@ export default function CategoryCommercialPage() {
       quickTags={quickTags}
       buildQuery={buildQuery}
       fetchPage={fetchPage}
-      renderCard={(item) => <CommercialRow item={item} onPress={() => goDetail(item.id)} />}
+      renderCard={(item) => (
+        <CommercialRow
+          item={item}
+          mode={tab.startsWith('rent') ? 'rent' : 'sell'}
+          onPress={() => goDetail(item.id)}
+        />
+      )}
       keyExtractor={(item) => item.id}
       emptyTitle={t('category.emptyCommerce')}
       emptySub={t('category.emptySub')}

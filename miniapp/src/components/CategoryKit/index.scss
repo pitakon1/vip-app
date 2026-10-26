@@ -31,7 +31,8 @@
     padding: 0 24rpx;
   }
 
-  &__back {
+  &__back,
+  &__home {
     width: 64rpx;
     height: 64rpx;
     flex-shrink: 0;

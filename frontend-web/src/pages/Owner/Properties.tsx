@@ -112,6 +112,13 @@ const propertyTypeMap: Record<string, string> = {
   commercial: 'ownerProperties.typeCommercial',
   office: 'ownerProperties.typeOffice',
   factory: 'ownerProperties.typeFactory',
+  hotel: 'ownerProperties.typeHotel',
+  land: 'ownerProperties.typeLand',
+  townhouse: 'ownerProperties.typeTownhouse',
+  warehouse: 'ownerProperties.typeWarehouse',
+  coworking: 'ownerProperties.typeCoworking',
+  homeoffice: 'ownerProperties.typeHomeOffice',
+  showroom: 'ownerProperties.typeShowroom',
 }
 
 const Properties = () => {

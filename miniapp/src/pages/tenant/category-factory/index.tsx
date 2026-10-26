@@ -164,7 +164,13 @@ export default function CategoryFactoryPage() {
       quickTags={quickTags}
       buildQuery={buildQuery}
       fetchPage={fetchPage}
-      renderCard={(item) => <FactoryRow item={item} onPress={() => goDetail(item.id)} />}
+      renderCard={(item) => (
+        <FactoryRow
+          item={item}
+          mode={tab.startsWith('rent') ? 'rent' : 'sell'}
+          onPress={() => goDetail(item.id)}
+        />
+      )}
       keyExtractor={(item) => item.id}
       emptyTitle={t('category.emptyFactory')}
       emptySub={t('category.emptySub')}

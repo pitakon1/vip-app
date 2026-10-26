@@ -1,7 +1,7 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { BankOutlined, ContainerOutlined, HomeOutlined, ShopOutlined, SwapOutlined } from '@ant-design/icons'
+import { BankOutlined, CoffeeOutlined, ContainerOutlined, EnvironmentOutlined, HomeOutlined, ShopOutlined, SwapOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
@@ -49,16 +49,18 @@ const bannerColorFor = (seed: string) => {
 }
 
 /**
- * 黄金导航：5 大业务入口（租房 / 新房 / 二手房 / 商铺办公 / 厂房）。
+ * 黄金导航：7 大业务入口（租房 / 二手房 / 新房 / 商铺办公 / 厂房 / 酒店 / 土地）。
  * 每个入口跳各自的贝壳式分类页（/category/*），而非同一个公开列表页换参数。
  * 图标沿用项目既有 antd 图标，颜色取设计令牌。
  */
 const GOLD_NAV: { key: string; labelKey: string; to: string; color: string; icon: ReactNode }[] = [
   { key: 'rent', labelKey: 'category.rentTitle', to: '/category/rent', color: 'var(--rent-primary)', icon: <HomeOutlined /> },
-  { key: 'new', labelKey: 'category.newTitle', to: '/category/new', color: 'var(--state-warning)', icon: <BankOutlined /> },
   { key: 'resale', labelKey: 'category.resaleTitle', to: '/category/resale', color: 'var(--state-info)', icon: <SwapOutlined /> },
+  { key: 'new', labelKey: 'category.newTitle', to: '/category/new', color: 'var(--state-warning)', icon: <BankOutlined /> },
   { key: 'commercial', labelKey: 'category.commTitle', to: '/category/commercial', color: 'var(--state-error)', icon: <ShopOutlined /> },
   { key: 'factory', labelKey: 'category.factTitle', to: '/category/factory', color: 'var(--state-success)', icon: <ContainerOutlined /> },
+  { key: 'hotel', labelKey: 'category.hotelTitle', to: '/category/hotel', color: 'var(--state-purple)', icon: <CoffeeOutlined /> },
+  { key: 'land', labelKey: 'category.landTitle', to: '/category/land', color: 'var(--state-info)', icon: <EnvironmentOutlined /> },
 ]
 
 // 状态标签样式类（对应 CSS 中的 modifier 类，使用设计令牌）
@@ -231,7 +233,7 @@ const Home = () => {
           </div>
         </section>
 
-        {/* ===== 黄金导航（5 大业务入口，各跳独立分类页） ===== */}
+        {/* ===== 黄金导航（7 大业务入口，各跳独立分类页） ===== */}
         <section className="rent-goldnav">
           {GOLD_NAV.map((it) => (
             <button

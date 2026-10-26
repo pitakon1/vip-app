@@ -216,6 +216,21 @@ def create_sale_listing(
         prop = session.get(Property, req.property_id)
         if not prop or prop.deleted_at:
             raise HTTPException(status_code=404, detail="Property not found")
+        # 去重：同一房源已有在售挂牌（pending/active）时直接拒绝，避免重复挂牌
+        dup = session.exec(
+            select(SaleListing).where(
+                SaleListing.property_id == prop.id,
+                SaleListing.sale_type == SaleType.sell,
+                SaleListing.status.in_(
+                    [SaleListingStatus.active, SaleListingStatus.pending]
+                ),
+                SaleListing.deleted_at.is_(None),
+            )
+        ).first()
+        if dup:
+            raise HTTPException(
+                status_code=409, detail="该房源已有在售挂牌，请勿重复挂牌"
+            )
         owner = session.get(Owner, prop.owner_id) if prop.owner_id else None
         if user.role in STAFF_ROLES:
             # 员工代挂卖：归属取房源业主账号，经手人记为当前员工
@@ -301,6 +316,23 @@ def update_sale_listing(
         prop = session.get(Property, updates["property_id"])
         if not prop or prop.deleted_at:
             raise HTTPException(status_code=404, detail="Property not found")
+        # 换绑后同样要走去重：目标房源已有在售挂牌时拒绝，避免绕过新建时的 409
+        if updates["property_id"] != listing.property_id:
+            dup = session.exec(
+                select(SaleListing).where(
+                    SaleListing.id != listing.id,
+                    SaleListing.property_id == prop.id,
+                    SaleListing.sale_type == SaleType.sell,
+                    SaleListing.status.in_(
+                        [SaleListingStatus.active, SaleListingStatus.pending]
+                    ),
+                    SaleListing.deleted_at.is_(None),
+                )
+            ).first()
+            if dup:
+                raise HTTPException(
+                    status_code=409, detail="该房源已有在售挂牌，请勿重复挂牌"
+                )
     for field, value in updates.items():
         if field == "sale_type":
             continue
@@ -334,6 +366,27 @@ def change_listing_status(
             status_code=409,
             detail=f"非法状态流转：{listing.status.value} → {status.value}",
         )
+    # 激活前再检一次去重：同一房源已有其他在售挂牌时禁止上线，避免双挂在售
+    if (
+        status == SaleListingStatus.active
+        and listing.sale_type == SaleType.sell
+        and listing.property_id
+    ):
+        dup = session.exec(
+            select(SaleListing).where(
+                SaleListing.id != listing.id,
+                SaleListing.property_id == listing.property_id,
+                SaleListing.sale_type == SaleType.sell,
+                SaleListing.status.in_(
+                    [SaleListingStatus.active, SaleListingStatus.pending]
+                ),
+                SaleListing.deleted_at.is_(None),
+            )
+        ).first()
+        if dup:
+            raise HTTPException(
+                status_code=409, detail="该房源已有在售挂牌，请勿重复挂牌"
+            )
     listing.status = status
     session.add(listing)
     session.commit()

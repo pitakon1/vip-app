@@ -94,6 +94,20 @@ function propertyTypeLabel(v: string | null | undefined, t: TFunction): string {
       return t('propertyType.office')
     case 'factory':
       return t('category.typeFactory')
+    case 'hotel':
+      return t('propertyType.hotel')
+    case 'land':
+      return t('propertyType.land')
+    case 'townhouse':
+      return t('propertyType.townhouse')
+    case 'warehouse':
+      return t('propertyType.warehouse')
+    case 'coworking':
+      return t('propertyType.coworking')
+    case 'homeoffice':
+      return t('propertyType.homeoffice')
+    case 'showroom':
+      return t('propertyType.showroom')
     default:
       return ''
   }
@@ -189,7 +203,16 @@ export function ResidentialCard({
 
 // ==================== 商铺办公卡 ====================
 
-export function CommercialCard({ item, onPress }: { item: PublicListing; onPress: () => void }) {
+export function CommercialCard({
+  item,
+  onPress,
+  mode = 'rent',
+}: {
+  item: PublicListing
+  onPress: () => void
+  /** 租/售口径：售价卡片不显示「/月」单位 */
+  mode?: 'rent' | 'sell'
+}) {
   const { t } = useTranslation()
   const cover = coverOf(item)
   const title = item.project_name || item.building || item.address || t('category.unnamed')
@@ -225,11 +248,16 @@ export function CommercialCard({ item, onPress }: { item: PublicListing; onPress
         ) : null}
         <div className="cat-card__price-row">
           <span className="cat-card__price">
-            {formatMoney(item.monthly_rent ?? item.price, item.currency || 'THB')}
+            {formatMoney(
+              mode === 'rent' ? item.monthly_rent ?? item.price : item.price ?? item.asking_price,
+              item.currency || 'THB',
+            )}
           </span>
-          <span className="cat-card__price-unit">{t('property.perMonth')}</span>
+          {mode === 'rent' ? (
+            <span className="cat-card__price-unit">{t('property.perMonth')}</span>
+          ) : null}
         </div>
-        {item.rent_per_sqm_day != null ? (
+        {mode === 'rent' && item.rent_per_sqm_day != null ? (
           <span className="cat-card__price-sub">
             {formatMoney(item.rent_per_sqm_day, item.currency || 'THB')}/{t('publicSite.sqm')}/{t('category.perDay')}
           </span>
@@ -241,7 +269,16 @@ export function CommercialCard({ item, onPress }: { item: PublicListing; onPress
 
 // ==================== 厂房卡 ====================
 
-export function FactoryCard({ item, onPress }: { item: PublicListing; onPress: () => void }) {
+export function FactoryCard({
+  item,
+  onPress,
+  mode = 'rent',
+}: {
+  item: PublicListing
+  onPress: () => void
+  /** 租/售口径：售价卡片不显示「/月」单位 */
+  mode?: 'rent' | 'sell'
+}) {
   const { t } = useTranslation()
   const cover = coverOf(item)
   const title = item.project_name || item.building || item.address || t('category.unnamed')
@@ -277,9 +314,14 @@ export function FactoryCard({ item, onPress }: { item: PublicListing; onPress: (
         ) : null}
         <div className="cat-card__price-row">
           <span className="cat-card__price">
-            {formatMoney(item.monthly_rent ?? item.price, item.currency || 'THB')}
+            {formatMoney(
+              mode === 'rent' ? item.monthly_rent ?? item.price : item.price ?? item.asking_price,
+              item.currency || 'THB',
+            )}
           </span>
-          <span className="cat-card__price-unit">{t('property.perMonth')}</span>
+          {mode === 'rent' ? (
+            <span className="cat-card__price-unit">{t('property.perMonth')}</span>
+          ) : null}
         </div>
       </div>
     </button>

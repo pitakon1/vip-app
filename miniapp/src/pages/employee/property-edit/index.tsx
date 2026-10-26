@@ -23,9 +23,17 @@ const PROPERTY_TYPES = [
   { key: 'condo', label: 'prop.typeApartment' },
   { key: 'house', label: 'prop.typeHouse' },
   { key: 'villa', label: 'prop.typeVilla' },
+  { key: 'townhouse', label: 'prop.typeTownhouse' },
   { key: 'commercial', label: 'prop.typeCommercial' },
   { key: 'shop', label: 'prop.typeCommercial' },
-  { key: 'office', label: 'prop.typeOffice' }
+  { key: 'office', label: 'prop.typeOffice' },
+  { key: 'coworking', label: 'prop.typeCoworking' },
+  { key: 'homeoffice', label: 'prop.typeHomeOffice' },
+  { key: 'showroom', label: 'prop.typeShowroom' },
+  { key: 'factory', label: 'prop.typeFactory' },
+  { key: 'warehouse', label: 'prop.typeWarehouse' },
+  { key: 'hotel', label: 'prop.typeHotel' },
+  { key: 'land', label: 'prop.typeLand' }
 ]
 
 const num = (v: unknown) => {

@@ -68,6 +68,7 @@ from .commission_settlement import (
     CommissionSplitRule,
     SplitRuleScope,
 )
+from .manual_deal import ManualDeal, DealSource
 from .event import Event, EventStatus
 from .pdpa import (
     Consent,
@@ -225,6 +226,8 @@ __all__ = [
     "CommissionRole",
     "CommissionSplitRule",
     "SplitRuleScope",
+    "ManualDeal",
+    "DealSource",
     "Event",
     "EventStatus",
     "Consent",

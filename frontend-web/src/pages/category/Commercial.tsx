@@ -186,7 +186,13 @@ export default function Commercial() {
       quickTags={quickTags}
       buildQuery={buildQuery}
       fetchPage={fetchPage}
-      renderCard={(item) => <CommercialCard item={item} onPress={() => navigate(`/listing/${item.id}`)} />}
+      renderCard={(item) => (
+        <CommercialCard
+          item={item}
+          mode={tab.startsWith('rent') ? 'rent' : 'sell'}
+          onPress={() => navigate(`/listing/${item.id}`)}
+        />
+      )}
       keyOf={(item) => item.id}
       emptyTitle={t('category.emptyCommerce')}
       emptySub={t('category.emptySub')}
