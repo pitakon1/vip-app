@@ -22,3 +22,5 @@ slowapi==0.1.9
 # 注意：PyMuPDF 以 AGPL-3.0 授权（OSI 认可的开源许可，但属强网络copyleft），
 # 对外提供 SaaS 时需评估合规；此处显式声明避免依赖隐式漏装。
 PyMuPDF==1.28.2
+# 电子签引擎生成签名/印章图（kaifang_sign_service.py 的 Image/ImageDraw/ImageFont）
+Pillow==13.0.0
