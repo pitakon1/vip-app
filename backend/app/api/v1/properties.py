@@ -110,6 +110,8 @@ class PropertyCreate(BaseModel):
     furnished: bool = False
     orientation: Optional[str] = None
     decoration: Optional[str] = None
+    # 租房专项：最短租期（月）
+    min_lease_months: Optional[int] = None
     amenities: Optional[List[str]] = None
     available_from: Optional[datetime] = None
     video_url: Optional[str] = None
@@ -148,6 +150,7 @@ class PropertyUpdate(BaseModel):
     furnished: Optional[bool] = None
     orientation: Optional[str] = None
     decoration: Optional[str] = None
+    min_lease_months: Optional[int] = None
     amenities: Optional[List[str]] = None
     available_from: Optional[datetime] = None
     video_url: Optional[str] = None

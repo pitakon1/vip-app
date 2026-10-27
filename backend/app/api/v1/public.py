@@ -14,13 +14,15 @@
 - 留资接口带限流，防批量灌水；
 - 除留资外**不做任何写操作**。
 """
+import time
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import func, or_
+from sqlalchemy import and_, case, func, literal, or_
 from sqlmodel import Session, select
 
 from app.core.auth import user_from_token
@@ -36,12 +38,14 @@ from app.models import (
     Listing,
     ListingStatus,
     ListingType,
+    Orientation,
     Project,
     Property,
     PropertyDeal,
     PropertyDealStatus,
     PropertyStatus,
     School,
+    Tenure,
     ViewingAppointment,
     ViewingStatus,
 )
@@ -65,6 +69,36 @@ _COMMERCIAL_TYPES = {"office", "shop", "commercial", "factory"}
 # 因此先按 bounding box 粗筛、再在 Python 里精算与排序。
 # 上限是防止无边界扫描把库拖死的第一道闸。
 _SCHOOL_CANDIDATE_LIMIT = 800
+
+# 详情页周边学校的粗筛半径（km）：先用 bbox 在 SQL 里缩小候选，
+# 再在 Python 里 haversine 精算排序，避免全表学校都参与距离计算。
+_NEARBY_SCHOOL_RADIUS_KM = 50.0
+
+# 公开列表总数（分页计数）的进程内 TTL 缓存。
+# 计数是列表页最贵的查询之一（join + 多层条件），而总数对翻页体验并不需要
+# 实时精确；30 秒内复用旧值是可接受的取舍（代价是 total 可能略旧）。
+_TOTAL_CACHE: Dict[str, Tuple[float, int]] = {}
+_TOTAL_CACHE_TTL = 30.0
+_TOTAL_CACHE_MAX_ENTRIES = 512
+
+
+def _cached_total(key: str, compute: Callable[[], int]) -> int:
+    """取（或计算并写入）某组筛选条件下的列表总数。"""
+    now = time.monotonic()
+    entry = _TOTAL_CACHE.get(key)
+    if entry is not None and now - entry[0] < _TOTAL_CACHE_TTL:
+        return entry[1]
+    total = int(compute())
+    if len(_TOTAL_CACHE) >= _TOTAL_CACHE_MAX_ENTRIES:
+        _TOTAL_CACHE.clear()
+    _TOTAL_CACHE[key] = (now, total)
+    return total
+
+
+# 注意：房源详情 `/public/listings/{id}` 不能加 Cache-Control。
+# 它的经纪人联系方式按 Authorization 头打码/明文，响应是**按人变化**的；
+# 缓存头一旦被 CDN/浏览器共享，登录用户与匿名访客会互相看到对方的版本。
+# 列表/筛选/聚合类接口不带身份差异，才是可公开缓存的。
 
 
 # ==================== 输出 Schema ====================
@@ -99,6 +133,10 @@ class PublicListingCard(BaseModel):
     building: Optional[str] = None
     orientation: Optional[str] = None
     decoration: Optional[str] = None
+    # 租房专项：最短租期（月）。平台只做整套出租，无「整租/合租」维度
+    min_lease_months: Optional[int] = None
+    # 产权类型（泰国合规口径，来自所属楼盘）：freehold/leasehold/mixed
+    tenure: Optional[str] = None
     amenities: Optional[List[Any]] = None
     furnished: bool = False
     cover: Optional[str] = None
@@ -131,7 +169,10 @@ class PublicListingCard(BaseModel):
     monthly_rent: Optional[float] = None
     asking_price: Optional[float] = None
     sale_price: Optional[float] = None
+    # 列表只给数量，相册仅在详情返回：卡片带完整相册会让列表响应成倍膨胀，
+    # 而列表页只渲染封面，不需要整本相册。
     photos: Optional[List[Any]] = None
+    photo_count: Optional[int] = None
     status: Optional[str] = None
     created_at: Optional[datetime] = None
     # 学区：带学校筛选时回填最近学校与距离
@@ -451,6 +492,8 @@ def _build_card(
         building=prop.building if prop else None,
         orientation=_enum_value(prop.orientation) if prop else None,
         decoration=_enum_value(prop.decoration) if prop else None,
+        min_lease_months=prop.min_lease_months if prop else None,
+        tenure=_enum_value(project.tenure) if project else None,
         amenities=prop.amenities if prop else None,
         furnished=bool(prop.furnished) if prop else False,
         cover=_cover(prop.photos) if prop else None,
@@ -474,7 +517,8 @@ def _build_card(
         monthly_rent=listing.monthly_rent,
         asking_price=listing.asking_price,
         sale_price=listing.asking_price,
-        photos=prop.photos if prop else None,
+        photos=None,
+        photo_count=len(prop.photos or []) if prop else 0,
         status=_enum_value(prop.status) if prop else None,
         created_at=listing.created_at,
         verification_status=freshness["verification_status"],
@@ -539,6 +583,9 @@ def slug_expr(column):
 
     只用 `lower` + `replace`，SQLite 与 PostgreSQL 行为一致；
     不用正则/`translate`，避免方言差异（项目里已经踩过 `func.date()` 的坑）。
+
+    配套迁移 0046 建了同名表达式索引（`ix_projects_city_slug`），
+    改这里的字符集/顺序时必须同步改索引，否则索引失效、城市筛选退化为全表扫描。
     """
     expr = func.lower(column)
     for ch in _SLUG_STRIP:
@@ -586,8 +633,18 @@ def _nearby_schools(
     """
     if lat is None or lng is None:
         return []
+    # 先框选后精算：SQL 里按 bbox 过滤，避免全表学校参与距离计算。
+    lat_min, lat_max, lng_min, lng_max = lat_lng_bounds(
+        lat, lng, _NEARBY_SCHOOL_RADIUS_KM
+    )
     schools = session.exec(
-        select(School).where(School.deleted_at.is_(None), School.lat.is_not(None), School.lng.is_not(None))
+        select(School).where(
+            School.deleted_at.is_(None),
+            School.lat.is_not(None),
+            School.lng.is_not(None),
+            School.lat.between(lat_min, lat_max),
+            School.lng.between(lng_min, lng_max),
+        )
     ).all()
     scored: List[Tuple[float, School]] = []
     for school in schools:
@@ -777,6 +834,8 @@ def list_public_map_points(
 
 @router.get("/listings", response_model=Page[PublicListingCard])
 def list_public_listings(
+    request: Request,
+    response: Response,
     pagination: PaginationParams = Depends(),
     listing_type: Optional[ListingType] = Query(None, description="rent / sell，不传=全部"),
     property_type: Optional[List[str]] = Query(
@@ -802,9 +861,24 @@ def list_public_listings(
     bedrooms_max: Optional[int] = Query(None, ge=0, le=20),
     orientation: Optional[str] = None,
     decoration: Optional[str] = None,
-    floor_level: Optional[str] = Query(
-        None, pattern="^(low|mid|high)$",
-        description="楼层段：low=1-5层 / mid=6-15层 / high=16层及以上",
+    # 租房专项：最短租期（月）
+    min_lease_months: Optional[int] = Query(
+        None, ge=0, le=120, description="最短租期（月）：3=三个月起租，12=年租"
+    ),
+    # 产权类型（泰国合规口径，来自所属楼盘）
+    tenure: Optional[str] = Query(
+        None, pattern="^(freehold|leasehold|mixed)$", description="产权类型"
+    ),
+    # 楼龄上限（年）：按所属楼盘竣工年份换算，仅对已录入竣工年份的房源生效
+    building_age_max: Optional[int] = Query(
+        None, ge=0, le=100, description="楼龄上限（年），如 5 = 五年以内"
+    ),
+    floor_level: Optional[List[str]] = Query(
+        None,
+        description=(
+            "楼层段（多选任一命中）：low / mid / high。"
+            "有总楼层时按三等分判定，无总楼层时退回固定分段（1-5 / 6-15 / 16+）"
+        ),
     ),
     amenity: Optional[List[str]] = Query(
         None, description="配套设施（多选任一命中，如 aircon/pool/gym/parking/elevator/balcony）"
@@ -845,6 +919,8 @@ def list_public_listings(
     权重更高，见 `services.search`），无关键词按最新。前端筛选栏默认会显式传
     `latest`，因此不会被这条默认口径意外改变行为。
     """
+    # 列表不含按身份变化的字段，可公开缓存；详情接口不可（见模块顶部说明）。
+    response.headers["Cache-Control"] = "public, max-age=60"
     base = _listings_base_stmt()
     conditions = []
 
@@ -871,12 +947,49 @@ def list_public_listings(
         conditions.append(Property.orientation == orientation)
     if decoration:
         conditions.append(Property.decoration == decoration)
-    if floor_level == "low":
-        conditions.append(Property.floor.between(1, 5))
-    elif floor_level == "mid":
-        conditions.append(Property.floor.between(6, 15))
-    elif floor_level == "high":
-        conditions.append(Property.floor >= 16)
+    if min_lease_months is not None:
+        # 语义：房源允许的最短租期不长于用户要租的期限（含「一个月起租」）
+        conditions.append(Property.min_lease_months.is_not(None))
+        conditions.append(Property.min_lease_months <= min_lease_months)
+    if tenure:
+        try:
+            conditions.append(Project.tenure == Tenure(tenure))
+        except ValueError:
+            raise HTTPException(status_code=422, detail="未知的产权类型")
+    if building_age_max is not None:
+        # 楼龄 = 当前年份 - 竣工年份；未录入竣工年份的房源不参与（不能当成「新房」）
+        conditions.append(Project.completion_year.is_not(None))
+        conditions.append(Project.completion_year >= datetime.utcnow().year - building_age_max)
+    if floor_level:
+        levels = [lv.strip() for lv in floor_level if lv and lv.strip()]
+        unknown = set(levels) - {"low", "mid", "high"}
+        if unknown:
+            raise HTTPException(status_code=422, detail="未知的楼层段")
+        if levels:
+            # 有总楼层时按三等分判定（8 层小楼的高层 ≠ 16 层），
+            # 无总楼层时退回固定分段，避免把「未录入」的楼盘全部筛掉。
+            has_total = Project.total_floors.is_not(None)
+            floor_conds = []
+            if "low" in levels:
+                floor_conds.append(or_(
+                    and_(has_total, Property.floor <= func.coalesce(Project.total_floors, 0) * 0.33),
+                    and_(Project.total_floors.is_(None), Property.floor.between(0, 5)),
+                ))
+            if "mid" in levels:
+                floor_conds.append(or_(
+                    and_(
+                        has_total,
+                        Property.floor > func.coalesce(Project.total_floors, 0) * 0.33,
+                        Property.floor <= func.coalesce(Project.total_floors, 0) * 0.66,
+                    ),
+                    and_(Project.total_floors.is_(None), Property.floor.between(6, 15)),
+                ))
+            if "high" in levels:
+                floor_conds.append(or_(
+                    and_(has_total, Property.floor > func.coalesce(Project.total_floors, 0) * 0.66),
+                    and_(Project.total_floors.is_(None), Property.floor >= 16),
+                ))
+            conditions.append(or_(*floor_conds))
     # 配套多选：任一命中即算（JSON 数组按文本模糊匹配，与「区域同义词」口径一致）
     if amenity:
         amenity_terms = [a.strip() for a in amenity if a and a.strip()]
@@ -1039,7 +1152,24 @@ def list_public_listings(
     count_stmt = select(func.count()).select_from(
         base.where(*conditions).order_by(None).subquery()
     )
-    total = session.exec(count_stmt).one()
+    # 总数与翻页无关：缓存 key 用「路径 + 排序后的筛选参数」，剔除 page/page_size。
+    # 取舍：翻第 2 页起 30 秒内可能拿到略旧的总数（新增/下架房源尚未反映），
+    # 换来翻页时不必每页都重复执行一次昂贵的 count 查询。
+    total_key = request.url.path + "?" + urlencode(
+        sorted(
+            (key, value)
+            for key, value in request.query_params.multi_items()
+            if key not in {"page", "page_size"}
+        )
+    )
+    if pagination.page == 1:
+        # 第 1 页是真算，并把结果留给后续翻页复用
+        total = int(session.exec(count_stmt).one())
+        if len(_TOTAL_CACHE) >= _TOTAL_CACHE_MAX_ENTRIES:
+            _TOTAL_CACHE.clear()
+        _TOTAL_CACHE[total_key] = (time.monotonic(), total)
+    else:
+        total = _cached_total(total_key, lambda: session.exec(count_stmt).one())
     rows = session.exec(stmt.offset(pagination.offset).limit(pagination.limit)).all()
     cards = [_build_card(listing, prop, project) for listing, prop, project in rows]
     return paginate(cards, total, pagination)
@@ -1133,43 +1263,57 @@ def get_public_listing(
 # ==================== 相似房源推荐 ====================
 
 
-def _similar_score(
-    base: Tuple[Listing, Property, Project],
-    cand: Tuple[Listing, Property, Project],
-) -> float:
-    """相似度打分（仅用于排序，无业务含义）。
+def _similarity_score_expr(
+    base_prop: Optional[Property], base_proj: Optional[Project]
+):
+    """把相似度打分写成 SQL 表达式（加分口径与旧版 Python 打分一致）。
 
-    权重取「同源不同量级」的加分：同楼盘最像，其次是同楼盘形态 / 同区 /
-    户型一致 / 面积与租金贴近。不加分项一律 0——不做惩罚，避免负分干扰排序。
+    同楼盘 +5；同户型 +4；卧室差 0 间 +2 / 差 1 间 +1；面积相对差 ≤20% +1.5、
+    ≤40% +0.75；同区 +1.5，否则同城 +0.5。基准字段为空时跳过对应加分项。
+    候选侧空值（outerjoin 的 Project / 空 bedrooms、size）一律落到 else_=0，
+    与旧逻辑「不参与该项加分」等价。
     """
-    _, base_prop, base_proj = base
-    _, cand_prop, cand_proj = cand
-
-    score = 0.0
+    score = literal(0.0)
     # 同楼盘：最优先（同一栋、同一个物业标准，租客常整栋对比）
-    if base_proj and cand_proj and base_proj.id == cand_proj.id:
-        score += 5
-    if base_prop and cand_prop:
+    if base_proj and base_proj.id:
+        score = score + case((Project.id == base_proj.id, 5.0), else_=0.0)
+    if base_prop:
         # 户型一致 +4
-        if base_prop.property_type == cand_prop.property_type:
-            score += 4
+        if base_prop.property_type:
+            score = score + case(
+                (Property.property_type == base_prop.property_type, 4.0), else_=0.0
+            )
         # 卧室数一致 +2，差 1 间 +1
-        if base_prop.bedrooms is not None and cand_prop.bedrooms is not None:
-            diff = abs(base_prop.bedrooms - cand_prop.bedrooms)
-            score += 2 if diff == 0 else (1 if diff == 1 else 0)
+        if base_prop.bedrooms is not None:
+            diff = func.abs(Property.bedrooms - base_prop.bedrooms)
+            score = score + case(
+                (diff == 0, 2.0), (diff == 1, 1.0), else_=0.0
+            )
         # 面积贴近：误差 ≤20% +1.5，≤40% +0.75
-        if base_prop.size_sqm and cand_prop.size_sqm:
-            ratio = abs(base_prop.size_sqm - cand_prop.size_sqm) / base_prop.size_sqm
-            if ratio <= 0.2:
-                score += 1.5
-            elif ratio <= 0.4:
-                score += 0.75
-    # 同区（楼盘层级不同：退到区 +1.5，再退到城市 +0.5）
-    if base_proj and cand_proj:
-        if base_proj.district and base_proj.district == cand_proj.district:
-            score += 1.5
-        elif base_proj.city and base_proj.city == cand_proj.city:
-            score += 0.5
+        if base_prop.size_sqm:
+            ratio = (
+                func.abs(Property.size_sqm - base_prop.size_sqm) / base_prop.size_sqm
+            )
+            score = score + case(
+                (ratio <= 0.2, 1.5), (ratio <= 0.4, 0.75), else_=0.0
+            )
+    # 同区（+1.5）；区不匹配时再退到同城（+0.5）
+    if base_proj:
+        if base_proj.district:
+            if base_proj.city:
+                score = score + case(
+                    (Project.district == base_proj.district, 1.5),
+                    (Project.city == base_proj.city, 0.5),
+                    else_=0.0,
+                )
+            else:
+                score = score + case(
+                    (Project.district == base_proj.district, 1.5), else_=0.0
+                )
+        elif base_proj.city:
+            score = score + case(
+                (Project.city == base_proj.city, 0.5), else_=0.0
+            )
     return score
 
 
@@ -1185,10 +1329,10 @@ def get_similar_listings(
     或同区里找「差不多」的替代（户型/面积/租金贴近）。跨城市、跨公寓 vs 别墅
     的推荐在找房场景没有体感，所以这里**不**做。
 
-    打分逻辑见 `_similar_score`：同楼盘 / 同户型 / 卧室数贴近 / 面积贴近 /
-    同区同城，几项累加后取前 N。为控制候选规模，先用 SQL 把候选收敛到
-    「同楼盘 或 同区 或 同户型」三选一，再在应用层打分——房子多起来后，
-    「全区全户型全楼盘」的无差别遍历每进一次详情页就来一次，扛不住。
+    打分逻辑见 `_similarity_score_expr`：同楼盘 / 同户型 / 卧室数贴近 / 面积贴近 /
+    同区同城，几项累加后按分数取前 N。候选先用 SQL 收敛到「同楼盘 或 同区 或
+    同户型」三选一，打分与排序也全部下推到 SQL——不再把 300 行候选拉回应用层
+    逐个算分，避免详情页每打开一次就做一轮 Python 排序。
     """
     row = session.exec(_listings_base_stmt().where(Listing.id == listing_id)).first()
     if not row:
@@ -1212,22 +1356,144 @@ def get_similar_listings(
         affinity.append(Project.city == base_proj.city)
 
     stmt = _listings_base_stmt().where(Listing.id != listing_id)
+    if base_prop:
+        # 排除同一房源档案的其他上架单（旧逻辑在应用层按 property_id 过滤）
+        stmt = stmt.where(Property.id != base_prop.id)
     if affinity:
         stmt = stmt.where(or_(*affinity))
+    score = _similarity_score_expr(base_prop, base_proj)
     rows = session.exec(
-        stmt.order_by(Listing.created_at.desc()).limit(300)
+        stmt.order_by(score.desc(), Listing.created_at.desc()).limit(limit)
+    ).all()
+    return [_build_card(listing, prop, project) for listing, prop, project in rows]
+
+
+# ==================== 首页聚合 ====================
+
+
+class PublicHomeOut(BaseModel):
+    """App 首页一次性拿齐全部 rail（避免首屏打 8 个列表请求）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    listings: List[PublicListingCard] = []
+    sale: List[PublicListingCard] = []
+    commercial: List[PublicListingCard] = []
+    factory: List[PublicListingCard] = []
+    hotel: List[PublicListingCard] = []
+    land: List[PublicListingCard] = []
+    projects: List[PublicProjectCard] = []
+    schools: List[PublicSchoolCard] = []
+
+
+def _home_listing_rail(
+    session: Session, conditions: List[Any], limit: int
+) -> List[PublicListingCard]:
+    """首页某条房源 rail：口径与分类页一致（同 `_listings_base_stmt` 的可见性）。"""
+    rows = session.exec(
+        _listings_base_stmt()
+        .where(*conditions)
+        .order_by(Listing.created_at.desc(), Listing.id)
+        .limit(limit)
+    ).all()
+    return [_build_card(listing, prop, project) for listing, prop, project in rows]
+
+
+@router.get("/home", response_model=PublicHomeOut)
+def get_public_home(
+    response: Response,
+    session: Session = Depends(get_session),
+):
+    """App 首页聚合：租房 / 新房 / 商铺办公 / 厂房 / 酒店 / 土地 / 楼盘 / 学校。
+
+    每个 rail 的筛选口径与对应分类页完全一致（都走 `_listings_base_stmt` 与
+    `_listing_visibility_conditions`），只是把条数收敛到首屏所需。任何一路无数据
+    都返回空数组，不返回 null，前端可直接遍历。
+    """
+    response.headers["Cache-Control"] = "public, max-age=60"
+
+    rent = ListingType.rent
+    listings = _home_listing_rail(session, [Listing.listing_type == rent], 20)
+    sale = _home_listing_rail(
+        session,
+        [
+            Listing.listing_type == ListingType.sell,
+            Listing.is_new_development.is_(False),
+        ],
+        10,
+    )
+    commercial = _home_listing_rail(
+        session,
+        [
+            Listing.listing_type == rent,
+            Property.property_type.in_(("office", "shop")),
+        ],
+        10,
+    )
+    factory = _home_listing_rail(
+        session,
+        [Listing.listing_type == rent, Property.property_type == "factory"],
+        10,
+    )
+    hotel = _home_listing_rail(
+        session,
+        [Listing.listing_type == rent, Property.property_type == "hotel"],
+        10,
+    )
+    land = _home_listing_rail(
+        session,
+        [Listing.listing_type == rent, Property.property_type == "land"],
+        10,
+    )
+
+    projects = session.exec(
+        select(Project)
+        .where(Project.deleted_at.is_(None))
+        .order_by(Project.name)
+        .limit(10)
+    ).all()
+    schools = session.exec(
+        select(School)
+        .where(School.deleted_at.is_(None))
+        .order_by(School.sort_weight.desc(), School.name)
+        .limit(8)
     ).all()
 
-    scored = [
-        (_similar_score(row, cand), cand)
-        for cand in rows
-        if cand[1].id != row[1].id
-    ]
-    scored.sort(key=lambda pair: pair[0], reverse=True)
-    return [_build_card(cand[0], cand[1], cand[2]) for score, cand in scored[:limit]]
+    return PublicHomeOut(
+        listings=listings,
+        sale=sale,
+        commercial=commercial,
+        factory=factory,
+        hotel=hotel,
+        land=land,
+        projects=_build_project_cards(session, projects),
+        schools=[_build_school_card(school) for school in schools],
+    )
 
 
 # ==================== 学校（学区找房）====================
+
+
+def _build_school_card(school: School) -> PublicSchoolCard:
+    """学校 → C 端学校卡片（列表 / 首页 rail 共用同一字段口径）。"""
+    return PublicSchoolCard(
+        id=school.id,
+        name=school.name,
+        name_en=school.name_en,
+        stage=_enum_value(school.stage),
+        curriculum=_enum_value(school.curriculum),
+        district=school.district,
+        city=school.city,
+        address=school.address,
+        lat=school.lat,
+        lng=school.lng,
+        student_count=school.student_count,
+        age_range=school.age_range,
+        tuition_range=school.tuition_range,
+        phone=school.phone,
+        website=school.website,
+        cover_url=school.cover_url,
+    )
 
 
 @router.get("/schools", response_model=Page[PublicSchoolCard])
@@ -1271,27 +1537,7 @@ def list_public_schools(
     schools = session.exec(
         stmt.offset(pagination.offset).limit(pagination.limit)
     ).all()
-    cards = [
-        PublicSchoolCard(
-            id=school.id,
-            name=school.name,
-            name_en=school.name_en,
-            stage=_enum_value(school.stage),
-            curriculum=_enum_value(school.curriculum),
-            district=school.district,
-            city=school.city,
-            address=school.address,
-            lat=school.lat,
-            lng=school.lng,
-            student_count=school.student_count,
-            age_range=school.age_range,
-            tuition_range=school.tuition_range,
-            phone=school.phone,
-            website=school.website,
-            cover_url=school.cover_url,
-        )
-        for school in schools
-    ]
+    cards = [_build_school_card(school) for school in schools]
     return paginate(cards, total, pagination)
 
 
@@ -1516,8 +1762,64 @@ def _project_recent_deals(
     return {project_id: count or 0 for project_id, count in rows}
 
 
+def _build_project_cards(
+    session: Session, projects: List[Project]
+) -> List[PublicProjectCard]:
+    """楼盘列表 → C 端楼盘卡片（列表 / 首页 rail 共用，聚合口径保持一致）。"""
+    project_ids = [project.id for project in projects]
+    aggregates = _project_aggregates(session, project_ids)
+    listing_stats = _project_listing_stats(session, project_ids)
+    recent_deals = _project_recent_deals(session, project_ids)
+    covers = _project_covers(session, project_ids)
+
+    developer_ids = [p.developer_id for p in projects if p.developer_id]
+    developers: Dict[uuid.UUID, Developer] = {}
+    if developer_ids:
+        for developer in session.exec(
+            select(Developer).where(Developer.id.in_(developer_ids))
+        ).all():
+            developers[developer.id] = developer
+
+    cards: List[PublicProjectCard] = []
+    for project in projects:
+        stats = aggregates.get(project.id, {})
+        lstats = listing_stats.get(project.id, {})
+        developer = developers.get(project.developer_id) if project.developer_id else None
+        cards.append(
+            PublicProjectCard(
+                id=project.id,
+                name=project.name,
+                address=project.address,
+                district=project.district,
+                city=project.city,
+                lat=project.lat,
+                lng=project.lng,
+                cover=covers.get(project.id),
+                total_units=project.total_units,
+                completion_year=project.completion_year,
+                tenure=_enum_value(project.tenure),
+                developer_name=(developer.name if developer else None) or project.developer,
+                sale_status=project.sale_status,
+                nearest_subway=project.nearest_subway,
+                sale_count=stats.get("sale_count", 0) or 0,
+                rent_count=stats.get("rent_count", 0) or 0,
+                sale_price_min=stats.get("sale_price_min"),
+                sale_price_max=stats.get("sale_price_max"),
+                rent_price_min=stats.get("rent_price_min"),
+                rent_price_max=stats.get("rent_price_max"),
+                listing_count=lstats.get("listing_count", 0) or 0,
+                recent_deal_count=recent_deals.get(project.id, 0),
+                size_min=lstats.get("size_min"),
+                size_max=lstats.get("size_max"),
+                bedroom_options=lstats.get("bedroom_options") or None,
+            )
+        )
+    return cards
+
+
 @router.get("/projects", response_model=Page[PublicProjectCard])
 def list_public_projects(
+    response: Response,
     pagination: PaginationParams = Depends(),
     q: Optional[str] = Query(None, max_length=100),
     district: Optional[str] = None,
@@ -1545,6 +1847,8 @@ def list_public_projects(
     热度与价格排序，以及卡片上的**实时聚合**（在售套数、建面区间、户型集合、
     近 7 日成交套数）。筛选与排序全部在服务端完成，前端不做二次过滤。
     """
+    # 楼盘卡片不随身份变化，可公开缓存；详情接口不可（见模块顶部说明）。
+    response.headers["Cache-Control"] = "public, max-age=60"
     conditions = [Project.deleted_at.is_(None)]
     if district:
         conditions.append(Project.district == district)
@@ -1634,54 +1938,7 @@ def list_public_projects(
         stmt.offset(pagination.offset).limit(pagination.limit)
     ).all()
 
-    project_ids = [project.id for project in projects]
-    aggregates = _project_aggregates(session, project_ids)
-    listing_stats = _project_listing_stats(session, project_ids)
-    recent_deals = _project_recent_deals(session, project_ids)
-    covers = _project_covers(session, project_ids)
-
-    developer_ids = [p.developer_id for p in projects if p.developer_id]
-    developers: Dict[uuid.UUID, Developer] = {}
-    if developer_ids:
-        for developer in session.exec(
-            select(Developer).where(Developer.id.in_(developer_ids))
-        ).all():
-            developers[developer.id] = developer
-
-    cards: List[PublicProjectCard] = []
-    for project in projects:
-        stats = aggregates.get(project.id, {})
-        lstats = listing_stats.get(project.id, {})
-        developer = developers.get(project.developer_id) if project.developer_id else None
-        cards.append(
-            PublicProjectCard(
-                id=project.id,
-                name=project.name,
-                address=project.address,
-                district=project.district,
-                city=project.city,
-                lat=project.lat,
-                lng=project.lng,
-                cover=covers.get(project.id),
-                total_units=project.total_units,
-                completion_year=project.completion_year,
-                tenure=_enum_value(project.tenure),
-                developer_name=(developer.name if developer else None) or project.developer,
-                sale_status=project.sale_status,
-                nearest_subway=project.nearest_subway,
-                sale_count=stats.get("sale_count", 0) or 0,
-                rent_count=stats.get("rent_count", 0) or 0,
-                sale_price_min=stats.get("sale_price_min"),
-                sale_price_max=stats.get("sale_price_max"),
-                rent_price_min=stats.get("rent_price_min"),
-                rent_price_max=stats.get("rent_price_max"),
-                listing_count=lstats.get("listing_count", 0) or 0,
-                recent_deal_count=recent_deals.get(project.id, 0),
-                size_min=lstats.get("size_min"),
-                size_max=lstats.get("size_max"),
-                bedroom_options=lstats.get("bedroom_options") or None,
-            )
-        )
+    cards = _build_project_cards(session, projects)
     return paginate(cards, total, pagination)
 
 
@@ -1783,6 +2040,7 @@ class PublicCityItem(BaseModel):
 
 @router.get("/districts", response_model=List[PublicDistrictItem])
 def list_public_districts(
+    response: Response,
     city: Optional[str] = Query(None, description="城市（slug 归一化比对，可传定位 cityKey）"),
     listing_type: Optional[ListingType] = Query(None, description="rent / sell，不传=全部"),
     property_type: Optional[List[str]] = Query(None, description="房源类型（多值，任一命中）"),
@@ -1793,6 +2051,8 @@ def list_public_districts(
     同时聚合「上架单」与「楼盘」两侧：新房页（楼盘视角）与二手房/租房页
     （上架单视角）都能用它填下拉；只有楼盘没有上架单的区域也会出现。
     """
+    # 区域聚合不随身份变化，可公开缓存；详情接口不可（见模块顶部说明）。
+    response.headers["Cache-Control"] = "public, max-age=60"
     # 上架单侧：region 只能取自楼盘（房源无区域字段），故这里 inner join Project
     listing_conditions = _listing_visibility_conditions()
     listing_conditions.append(Project.district.is_not(None))
@@ -1853,7 +2113,10 @@ def list_public_districts(
 
 
 @router.get("/cities", response_model=List[PublicCityItem])
-def list_public_cities(session: Session = Depends(get_session)):
+def list_public_cities(
+    response: Response,
+    session: Session = Depends(get_session),
+):
     """有数据的城市列表（当前库里真实出现的城市，非全量城市字典）。
 
     用途：客户端定位 Store 选中的城市若要落到筛选上，必须先把中文城市名
@@ -1861,6 +2124,8 @@ def list_public_cities(session: Session = Depends(get_session)):
     前端用 `cityKey.toLowerCase()` 即可命中；命中不了的说明该城市暂无房源，
     前端应如实提示「该城市暂无房源」，而不是发起一次注定为空的查询。
     """
+    # 城市聚合不随身份变化，可公开缓存；详情接口不可（见模块顶部说明）。
+    response.headers["Cache-Control"] = "public, max-age=60"
     listing_rows = session.exec(
         select(Project.city, func.count(Listing.id))
         .join(Property, Listing.property_id == Property.id)

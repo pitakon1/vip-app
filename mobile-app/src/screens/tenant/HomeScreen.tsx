@@ -19,7 +19,7 @@ import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import RemoteImage from '@/components/RemoteImage';
 import { paymentsApi, maintenanceApi } from '@/services/api';
-import { publicApi, unwrapPage, type PublicSchool, type PublicProject } from '@/services/publicApi';
+import { publicApi, type PublicSchool, type PublicProject } from '@/services/publicApi';
 import { ProjectRailCard } from '@/screens/category/categoryCards';
 import { fmtMoney as formatMoney } from '@/utils/format';
 import { useI18n } from '@/i18n';
@@ -572,48 +572,32 @@ export default function HomeScreen() {
   // 时间戳，与 staleTime 对齐 → 3 分钟内不发请求，超时才后台刷新）；会话内由 staleTime 去重。
   // 缓存键带版本：HomePublic 新增 schools / 商铺办公 / 厂房 / 楼盘 rail 字段后，旧缓存不含这些字段，
   // 若继续复用会在 staleTime 内渲染出空区块
-  const publicKey = 'home:public:v4';
+  const publicKey = 'home:public:v5';
   const userKey = token ? `home:user:${user?.id ?? 'anon'}` : null;
 
   const publicQ = useQuery<HomePublic>({
     queryKey: ['home', 'public'],
     queryFn: async () => {
-      // 7 个业务分类各取一份（口径与各自分类页完全一致），首页 rail 只做预览，分页在分类页
-      const [pRes, sRes, cRes, fRes, hRes, lRes, prRes, scRes] = await Promise.allSettled([
-        // 登录/未登录统一走匿名公开层（对齐贝壳：浏览无需注册），保证内容对所有访客一致
-        publicApi.listings({ page: 1, page_size: 20, listing_type: 'rent' }),
-        publicApi.listings({ page: 1, page_size: 10, listing_type: 'sell', is_new_development: false }),
-        publicApi.listings({
-          page: 1,
-          page_size: 10,
-          listing_type: 'rent',
-          property_type: ['office', 'shop'],
-        }),
-        publicApi.listings({ page: 1, page_size: 10, listing_type: 'rent', property_type: ['factory'] }),
-        publicApi.listings({ page: 1, page_size: 10, listing_type: 'rent', property_type: ['hotel'] }),
-        publicApi.listings({ page: 1, page_size: 10, listing_type: 'rent', property_type: ['land'] }),
-        // 新房在分类页走 /public/projects（楼盘），首页跟随同一接口，避免两处口径分叉
-        publicApi.projects({ page: 1, page_size: 10 }),
-        // 首页学校区块只做入口，取前 8 条即可，列表页才需要全量
-        publicApi.schools({ page_size: 8 }),
-      ]);
+      // 首页 8 个 rail 合并成一次请求（后端 /public/home 聚合，口径与各分类页一致），
+      // 避免冷启动并发 8 个接口拖慢首屏；分页与筛选仍在各自分类页。
+      // 登录/未登录统一走匿名公开层（对齐贝壳：浏览无需注册），保证内容对所有访客一致。
+      const res: any = await publicApi.home();
+      const data: any = res?.data ?? {};
       // 公开层列表接口有的返回裸数组、有的返回 {items}，统一在这里收口
-      const listFrom = <T,>(res: PromiseSettledResult<any>): T[] => {
-        if (res.status !== 'fulfilled') return [];
-        const data: any = res.value?.data;
-        return (Array.isArray(data) ? data : data?.items ?? data?.data ?? []) as T[];
+      const list = <T,>(value: unknown): T[] => {
+        const body: any = value;
+        const items = Array.isArray(body) ? body : body?.items ?? body?.data ?? [];
+        return (Array.isArray(items) ? items : []) as T[];
       };
       const next: HomePublic = {
-        listings: listFrom<Listing>(pRes),
-        saleItems: listFrom<SaleListing>(sRes),
-        commercialItems: listFrom<Listing>(cRes),
-        factoryItems: listFrom<Listing>(fRes),
-        hotelItems: listFrom<Listing>(hRes),
-        landItems: listFrom<Listing>(lRes),
-        projects:
-          prRes.status === 'fulfilled' ? unwrapPage<PublicProject>(prRes.value?.data).items : [],
-        schools:
-          scRes.status === 'fulfilled' ? unwrapPage<PublicSchool>(scRes.value?.data).items : [],
+        listings: list<Listing>(data.listings),
+        saleItems: list<SaleListing>(data.sale),
+        commercialItems: list<Listing>(data.commercial),
+        factoryItems: list<Listing>(data.factory),
+        hotelItems: list<Listing>(data.hotel),
+        landItems: list<Listing>(data.land),
+        projects: list<PublicProject>(data.projects),
+        schools: list<PublicSchool>(data.schools),
       };
       void setCached(publicKey, next);
       return next;

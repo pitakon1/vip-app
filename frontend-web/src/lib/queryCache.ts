@@ -6,10 +6,13 @@
  *   时间戳，让 staleTime 与 TTL 语义一致）；
  * - 查询成功后自动回写 localStorage。
  */
-import { useEffect } from 'react'
-import { QueryClient, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import { QueryClient, useQuery } from '@tanstack/react-query'
 
-const CACHE_PREFIX = 'vip-rental-cache:'
+// 缓存结构版本：接口字段增删导致旧缓存「缺字段」时递增，
+// 旧 key 自然失配，避免在 staleTime 内渲染出空区块。
+const CACHE_VERSION = 'v2'
+const CACHE_PREFIX = `vip-rental-cache:${CACHE_VERSION}:`
 
 interface CacheEnvelope<T> {
   t: number
@@ -81,25 +84,28 @@ export function useCachedQuery<T>({
   ttl = 3 * 60 * 1000,
   enabled = true,
 }: CachedQueryOptions<T>) {
-  const qc = useQueryClient()
+  // 同步读取磁盘缓存做 initialData：此前用 useEffect 异步 seed，
+  // 时序晚于 useQuery 的首发请求——表现为「先发出请求，回来后被旧缓存覆盖」，
+  // 也会白白多发一次网络请求。initialDataUpdatedAt 对齐缓存时间戳，
+  // 让 staleTime 语义与缓存 TTL 一致（缓存过期就重新拉）。
+  const seed = useMemo(
+    () => (enabled ? readCache<T>(cacheKey) : null),
+    [cacheKey, enabled],
+  )
 
   const query = useQuery({
     queryKey,
     queryFn: async () => {
       const data = await queryFn()
+      // 只有成功才落盘：失败/异常不写缓存，避免下次mount直接渲染错误态
       writeCache(cacheKey, data)
       return data
     },
     staleTime: ttl,
     enabled,
+    initialData: seed?.data,
+    initialDataUpdatedAt: seed?.t,
   })
-
-  useEffect(() => {
-    if (!enabled) return
-    const meta = readCache<T>(cacheKey)
-    if (!meta) return
-    qc.setQueryData(queryKey, meta.data, { updatedAt: meta.t })
-  }, [qc, cacheKey, enabled, JSON.stringify(queryKey)])
 
   return query
 }

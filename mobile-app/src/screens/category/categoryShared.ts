@@ -184,6 +184,51 @@ export function bedroomGroup(t: (k: string, p?: Record<string, string | number>)
   };
 }
 
+/** 最短租期组（月）。 */
+export function leaseTermGroup(t: (k: string) => string): FilterGroup {
+  return {
+    key: 'min_lease_months',
+    label: t('category.filterLeaseTerm'),
+    options: [
+      { value: '1', label: t('category.lease1') },
+      { value: '3', label: t('category.lease3') },
+      { value: '6', label: t('category.lease6') },
+      { value: '12', label: t('category.lease12') },
+    ],
+  };
+}
+
+/** 楼层段组（取值与后端 floor_level 一致）。 */
+export function floorLevelGroup(t: (k: string) => string): FilterGroup {
+  return {
+    key: 'floor_level',
+    label: t('category.filterFloor'),
+    options: [
+      { value: 'low', label: t('category.floorLow') },
+      { value: 'mid', label: t('category.floorMid') },
+      { value: 'high', label: t('category.floorHigh') },
+    ],
+  };
+}
+
+/** 朝向组（复用 `pub.orientation.*` 文案，取值与后端 Orientation 枚举一致）。 */
+export function orientationGroup(t: (k: string) => string): FilterGroup {
+  return {
+    key: 'orientation',
+    label: t('category.filterOrientation'),
+    options: [
+      { value: 'north', label: t('pub.orientation.north') },
+      { value: 'south', label: t('pub.orientation.south') },
+      { value: 'east', label: t('pub.orientation.east') },
+      { value: 'west', label: t('pub.orientation.west') },
+      { value: 'northeast', label: t('pub.orientation.northeast') },
+      { value: 'northwest', label: t('pub.orientation.northwest') },
+      { value: 'southeast', label: t('pub.orientation.southeast') },
+      { value: 'southwest', label: t('pub.orientation.southwest') },
+    ],
+  };
+}
+
 /** 装修组（取值与后端 Decoration 枚举一致）。 */
 export function decorationGroup(t: (k: string) => string): FilterGroup {
   return {

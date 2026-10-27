@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Optional
 import uuid
 
+from sqlalchemy import Index
 from sqlmodel import Field
 
 from .base import TimestampMixin
@@ -70,6 +71,10 @@ class Listing(TimestampMixin, table=True):
     """房源上架单表。"""
 
     __tablename__ = "listings"
+    # 公开列表的固定组合：状态 + 业务类型 + 最新排序（见迁移 0046）
+    __table_args__ = (
+        Index("ix_listings_status_type_created", "status", "listing_type", "created_at"),
+    )
 
     property_id: uuid.UUID = Field(foreign_key="properties.id", index=True)
     listing_type: ListingType = Field(default=ListingType.rent, index=True)
@@ -103,8 +108,12 @@ class Listing(TimestampMixin, table=True):
     )
 
     # 挂牌/租金
-    asking_price: Optional[float] = Field(default=None, description="挂牌价(sell)")
-    monthly_rent: Optional[float] = Field(default=None, description="租金(rent)")
+    asking_price: Optional[float] = Field(
+        default=None, index=True, description="挂牌价(sell)"
+    )
+    monthly_rent: Optional[float] = Field(
+        default=None, index=True, description="租金(rent)"
+    )
     currency: str = Field(default="THB", max_length=3)
 
     # 分佣配置

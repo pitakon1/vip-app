@@ -195,3 +195,41 @@ export function decorationGroup(t: TFunction): FilterGroup {
 export function boolGroup(key: string, label: string, t: TFunction): FilterGroup {
   return { key, label, options: [{ value: '1', label: t('category.onlyYes') }] }
 }
+
+/** 租期组（最短租期，单位月）。 */
+export function leaseTermGroup(t: TFunction): FilterGroup {
+  return {
+    key: 'min_lease_months',
+    label: t('category.filterLease'),
+    options: [
+      { value: '1', label: t('category.lease1') },
+      { value: '3', label: t('category.lease3') },
+      { value: '6', label: t('category.lease6') },
+      { value: '12', label: t('category.lease12') },
+    ],
+  }
+}
+
+/** 楼层高低组（取值与后端 floor_level 一致）。 */
+export function floorLevelGroup(t: TFunction): FilterGroup {
+  return {
+    key: 'floor_level',
+    label: t('category.filterFloor'),
+    options: [
+      { value: 'low', label: t('category.floorLow') },
+      { value: 'mid', label: t('category.floorMid') },
+      { value: 'high', label: t('category.floorHigh') },
+    ],
+  }
+}
+
+/** 朝向组（复用 publicSite.orientation 枚举文案）。 */
+export function orientationGroup(t: TFunction): FilterGroup {
+  return {
+    key: 'orientation',
+    label: t('category.filterOrientation'),
+    options: (['north', 'south', 'east', 'west', 'northeast', 'northwest', 'southeast', 'southwest'] as const).map(
+      (v) => ({ value: v, label: t(`publicSite.orientation.${v}`) }),
+    ),
+  }
+}

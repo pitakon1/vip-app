@@ -152,7 +152,6 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   )
   const [view, setView] = useState('grid')
   const [mapOn, setMapOn] = useState(false)
-  const [page, setPage] = useState(1)
 
   // 「按学校找房」筛选：选一所学校 + 半径，看它周边有哪些房源。
   // 这是空间筛选（后端算 haversine 距离），不是「学区房」布尔标签——
@@ -320,6 +319,29 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     )
   }, [schools, schoolKw])
 
+  // 分页状态与「筛选签名」成对存放：筛选一变，page 立刻按签名归 1。
+  // 之前是「page 单独存 + useEffect 归 1」，导致筛选变化那一帧先用旧 page
+  // 发一次请求、再由 effect 归 1 补第二次——同一筛选打两次接口。
+  const filterSig = useMemo(
+    () =>
+      JSON.stringify([
+        keyword, districtSel, backendDistrict, metroSel, activeLocationKw, globalCityKw,
+        roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax,
+        statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, debouncedKw,
+        schoolId, schoolKm,
+      ]),
+    [keyword, districtSel, backendDistrict, metroSel, activeLocationKw, globalCityKw,
+      roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax,
+      statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, debouncedKw,
+      schoolId, schoolKm],
+  )
+  const [pageState, setPageState] = useState<{ sig: string; page: number }>({ sig: filterSig, page: 1 })
+  const page = pageState.sig === filterSig ? pageState.page : 1
+  const setPage = useCallback(
+    (next: number) => setPageState({ sig: filterSig, page: next }),
+    [filterSig],
+  )
+
   // 服务端查询参数：关键词 / 区域同义词 / 价格 / 面积 / 户型 / 状态 / 学校 / 排序
   // 一律下推到后端，并且**分页也下推**。
   //
@@ -400,18 +422,16 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     queryKey: listQueryKey,
     cacheKey: `public-listings:${JSON.stringify(queryParams)}`,
     queryFn: async () => {
-      try {
-        // 走公开接口：原来打 /properties（强制鉴权），匿名访问必然 401，
-        // 于是列表页对未登录访客始终是空的——等于墙建在接口层。
-        const res = await api.get('/public/listings', { params: { ...queryParams } })
-        const payload = res.data?.data ?? res.data
-        const items = payload?.items ?? []
-        return {
-          items: Array.isArray(items) ? items : [],
-          total: Number(payload?.total ?? 0),
-        }
-      } catch {
-        return { items: [], total: 0 }
+      // 走公开接口：原来打 /properties（强制鉴权），匿名访问必然 401，
+      // 于是列表页对未登录访客始终是空的——等于墙建在接口层。
+      // 出错不再吞成空数组：吞掉会把「请求失败」写进磁盘缓存，
+      // 下次进页面先渲染一个假的「0 套房源」。
+      const res = await api.get('/public/listings', { params: { ...queryParams } })
+      const payload = res.data?.data ?? res.data
+      const items = payload?.items ?? []
+      return {
+        items: Array.isArray(items) ? items : [],
+        total: Number(payload?.total ?? 0),
       }
     },
   })
@@ -492,8 +512,8 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   // 这里不再做第二遍本地过滤——本地过滤只会作用于「当前这一页」，
   // 与分页叠加后结果必然错位（第 2 页筛出 3 条，总数却是全量）。
 
-  // 筛选变化 → 回到第 1 页（否则会停在一个不存在的页码上，白屏）
-  useEffect(() => { setPage(1) }, [keyword, districtSel, backendDistrict, metroSel, activeLocationKw, globalCityKw, roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, debouncedKw, schoolId, schoolKm])
+  // 筛选变化 → 回到第 1 页：已由上面的 filterSig/pageState 同步完成，
+  // 不再用 effect 二次归 1（那会多用旧页码发一次请求）。
 
   // 切换业务 / 城市时清空区域选择（区域候选集会变，旧选值可能已不在列表里）
   useEffect(() => { setBackendDistrict(null); setDistrictSel(null) }, [listingType, citySel.cityKey])

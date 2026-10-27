@@ -67,7 +67,7 @@ class Property(TimestampMixin, table=True):
     __tablename__ = "properties"
 
     project_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="projects.id"
+        default=None, foreign_key="projects.id", index=True
     )
     owner_id: uuid.UUID = Field(foreign_key="owners.id", index=True)
     # 创建人（房源归属人）：记录是哪位员工把房源录进来的，用于「管理员看全部、
@@ -94,13 +94,13 @@ class Property(TimestampMixin, table=True):
     # 规范取值（自由字符串列，无 DB 枚举）：
     # apartment/condo（公寓）/ villa/house（别墅/独栋）/ office（写字楼）/ shop（商铺）
     # / commercial（商用）/ factory（厂房）。C 端「商铺办公」= office+shop、「厂房」= factory。
-    property_type: str = Field(default="apartment")
+    property_type: str = Field(default="apartment", index=True)
     # 租金仅租售混合档案中的租侧有值；纯售房源允许为空（租侧展示与价格筛选按 NULL 处理）
     monthly_rent: Optional[float] = Field(default=None)
     currency: str = Field(default="THB", max_length=3)
     deposit_amount: float = Field(default=0)
     deposit_months: int = Field(default=2)
-    size_sqm: Optional[float] = None
+    size_sqm: Optional[float] = Field(default=None, index=True)
     bedrooms: Optional[int] = None
     bathrooms: Optional[int] = None
     status: PropertyStatus = Field(default=PropertyStatus.vacant, index=True)
@@ -112,6 +112,11 @@ class Property(TimestampMixin, table=True):
     # 以下三项为 C 端决策必需字段（对标贝壳 / 补齐老站口径）
     orientation: Optional[Orientation] = Field(default=None, index=True)
     decoration: Optional[Decoration] = Field(default=None, index=True)
+    # 租房专项：最短租期（月），支撑「1-3 个月 / 4-6 个月 / 年租」筛选。
+    # 平台只做整套出租，不设「整租/合租」维度。
+    min_lease_months: Optional[int] = Field(
+        default=None, description="最短租期（月）：3=三个月起租，12=年租契约"
+    )
     amenities: Optional[List[str]] = Field(
         default=None,
         sa_column=Column(JSON, nullable=True, comment="配套设施标签（东南亚口径，如空调/泳池/健身房/停车位/电梯/阳台）"),

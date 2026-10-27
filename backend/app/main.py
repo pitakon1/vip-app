@@ -11,6 +11,7 @@ from typing import Optional
 import structlog
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -281,6 +282,11 @@ app.add_middleware(
     # 前端信封解包会失效（Web 端拿到的是 {code,msg,data} 原始包装）
     expose_headers=["X-Api-Envelope"],
 )
+
+# 6) GZip 压缩：必须注册在**最后**（Starlette 后注册者最外层）。
+# 放在 CORS 之后，压缩发生在 CORS 内层响应上，CORS 头不会因压缩而丢失；
+# 若先于其它中间件注册，压缩会被包在内层，大 JSON（如首页/列表）压不到。
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # 挂载 v1 API 路由
 app.include_router(api_router)

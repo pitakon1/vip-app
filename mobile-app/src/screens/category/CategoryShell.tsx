@@ -24,7 +24,9 @@ import {
   RefreshControl,
   Modal,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -371,64 +373,198 @@ function BlockOption({
   );
 }
 
+/** 筛选面板（贝壳式）：从筛选条下沿整幅展开、铺到屏幕底部；
+ *  多组时左栏分组导航 + 右栏选项块，底部「重置 / 确定」常驻。
+ *  面板内只改本地 draft，点「确定」才把本组叶子一次性合并回已应用值。 */
 function FilterPanel({
-  groups,
+  group,
   values,
-  onSelect,
+  onApply,
   onClose,
   topOffset,
 }: {
-  groups: FilterGroup[];
+  group: FilterGroup;
   values: FilterValues;
-  onSelect: (key: string, value: string) => void;
+  onApply: (patch: FilterValues) => void;
   onClose: () => void;
   topOffset: number;
 }) {
   const { t } = useI18n();
+  const { height: winH } = useWindowDimensions();
   const leaves = useMemo(
-    () => groups.flatMap((g) => (g.children && g.children.length ? g.children : [g])),
-    [groups],
+    () => (group.children && group.children.length ? group.children : [group]),
+    [group],
   );
+  const keys = useMemo(() => leaves.map((g) => g.key), [leaves]);
+  const [draft, setDraft] = useState<FilterValues>(() => {
+    const init: FilterValues = {};
+    leaves.forEach((g) => {
+      init[g.key] = values[g.key] ?? '';
+    });
+    return init;
+  });
+  const [subKey, setSubKey] = useState(leaves[0]?.key ?? '');
+  const contentRef = useRef<ScrollView>(null);
+  /** 各组在右栏内容中的 y 偏移（onLayout 记录），供左栏点击跳转 / 滚动联动使用 */
+  const offsetsRef = useRef<Record<string, number>>({});
+
+  /** 左栏点击：先把目标组设为高亮，再滚动到该组（只在点击时 scrollTo，滚动回调里不调用）。 */
+  const jumpTo = (key: string) => {
+    setSubKey(key);
+    const y = offsetsRef.current[key];
+    if (y != null) contentRef.current?.scrollTo({ y, animated: true });
+  };
+
+  /** 右栏滚动：取「最接近视口顶部」的分组联动左栏高亮；滚到底时高亮最后一组。 */
+  const handleContentScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const maxY = Math.max(0, contentSize.height - layoutMeasurement.height);
+    let current = leaves[0]?.key ?? '';
+    if (maxY > 4 && contentOffset.y >= maxY - 2) {
+      current = leaves[leaves.length - 1]?.key ?? current;
+    } else {
+      let best = -Infinity;
+      for (const g of leaves) {
+        const oy = offsetsRef.current[g.key];
+        if (oy == null) continue;
+        if (oy <= contentOffset.y + 12 && oy > best) {
+          best = oy;
+          current = g.key;
+        }
+      }
+    }
+    setSubKey((prev) => (prev === current ? prev : current));
+  };
+
+  const setDraftValue = (key: string, value: string) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const resetDraft = () => {
+    const cleared: FilterValues = {};
+    keys.forEach((k) => {
+      cleared[k] = '';
+    });
+    setDraft(cleared);
+  };
+
+  const confirm = () => {
+    onApply(draft);
+    onClose();
+  };
+
+  // 贝壳式下拉：从筛选条下沿展开的有限高度面板（约屏幕 58%），
+  // 下面仍露出房源列表；点面板外任意处关闭并放弃草稿。
+  const panelTop = Math.max(0, topOffset);
+  const panelHeight = Math.min(
+    Math.round(winH * 0.58),
+    Math.max(260, winH - panelTop - 8),
+  );
+
   return (
-    <Modal transparent visible animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.panelMask} activeOpacity={1} onPress={onClose} />
-      <View style={[styles.panel, { marginTop: topOffset }]}>
-        <ScrollView style={{ maxHeight: 360 }} keyboardShouldPersistTaps="handled">
-          {leaves.map((g) => (
-            <View key={g.key} style={styles.panelGroup}>
-              <Text style={styles.panelGroupLabel}>{g.label}</Text>
-              <View style={styles.blockWrap}>
-                <BlockOption label={t('category.filterAny')} active={!values[g.key]} onPress={() => onSelect(g.key, '')} />
-                {(g.options ?? []).map((op) => (
-                  <BlockOption
-                    key={op.value}
-                    label={op.label}
-                    active={values[g.key] === op.value}
-                    onPress={() => onSelect(g.key, op.value)}
-                  />
-                ))}
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-        <TouchableOpacity style={styles.panelDone} activeOpacity={0.85} onPress={onClose}>
-          <Text style={styles.panelDoneText}>{t('category.apply')}</Text>
-        </TouchableOpacity>
+    <Modal transparent visible animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <View style={styles.panelLayer}>
+        <TouchableOpacity style={{ height: panelTop }} activeOpacity={1} onPress={onClose} />
+        <View style={[styles.panel, { height: panelHeight }]}>
+          <View style={styles.panelBody}>
+            {leaves.length > 1 ? (
+              <ScrollView
+                style={styles.panelNav}
+                contentContainerStyle={styles.panelNavInner}
+                showsVerticalScrollIndicator={false}
+              >
+                {leaves.map((g) => {
+                  const active = g.key === subKey;
+                  return (
+                    <TouchableOpacity
+                      key={g.key}
+                      style={[styles.panelNavItem, active && styles.panelNavItemActive]}
+                      activeOpacity={0.8}
+                      onPress={() => jumpTo(g.key)}
+                    >
+                      <Text
+                        style={[styles.panelNavText, active && styles.panelNavTextActive]}
+                        numberOfLines={1}
+                      >
+                        {g.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
+            <ScrollView
+              ref={contentRef}
+              style={styles.panelContent}
+              contentContainerStyle={styles.panelContentInner}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={handleContentScroll}
+            >
+              {leaves.map((leaf) => (
+                <View
+                  key={leaf.key}
+                  style={styles.panelSection}
+                  onLayout={(e) => {
+                    offsetsRef.current[leaf.key] = e.nativeEvent.layout.y;
+                  }}
+                >
+                  <Text style={styles.panelSectionTitle}>{leaf.label}</Text>
+                  <View style={styles.blockWrap}>
+                    <BlockOption
+                      label={t('category.filterAny')}
+                      active={!draft[leaf.key]}
+                      onPress={() => setDraftValue(leaf.key, '')}
+                    />
+                    {(leaf.options ?? []).map((op) => (
+                      <BlockOption
+                        key={op.value}
+                        label={op.label}
+                        active={draft[leaf.key] === op.value}
+                        onPress={() => setDraftValue(leaf.key, op.value)}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+          <View style={styles.panelFooter}>
+            <TouchableOpacity style={styles.panelReset} activeOpacity={0.8} onPress={resetDraft}>
+              <Text style={styles.panelResetText}>{t('category.reset')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.panelConfirm} activeOpacity={0.85} onPress={confirm}>
+              <Text style={styles.panelConfirmText}>{t('category.confirm')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.panelOutside} activeOpacity={1} onPress={onClose} />
       </View>
     </Modal>
   );
+}
+
+/** 组是否已有已应用筛选：有 children 的组看任一子项。 */
+function groupActive(g: FilterGroup, values: FilterValues): boolean {
+  if (g.children && g.children.length) return g.children.some((c) => !!values[c.key]);
+  return !!values[g.key];
 }
 
 export function FilterBar({
   groups,
   values,
   onChange,
+  onApply,
   quickTags,
   onReset,
 }: {
   groups: FilterGroup[];
   values: FilterValues;
+  /** 快捷标签：一点即生效 */
   onChange: (key: string, value: string) => void;
+  /** 面板「确定」：本组叶子一次性合并 */
+  onApply?: (patch: FilterValues) => void;
   quickTags?: QuickTag[];
   onReset?: () => void;
 }) {
@@ -452,19 +588,14 @@ export function FilterBar({
 
   return (
     <>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterRow}
-        ref={rowRef}
-      >
+      <View style={styles.filterRow} ref={rowRef}>
         {groups.map((g) => {
-          const active = !!values[g.key];
-          const label = active ? optionLabel(g, values[g.key]) : g.label;
+          const active = groupActive(g, values);
+          const label = groupTriggerLabel(g, values);
           return (
             <TouchableOpacity
               key={g.key}
-              style={[styles.filterTrigger, active && styles.filterTriggerActive]}
+              style={styles.filterTrigger}
               activeOpacity={0.8}
               onPress={() => open(g.key)}
             >
@@ -479,7 +610,7 @@ export function FilterBar({
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
 
       {quickTags && quickTags.length > 0 ? (
         <ScrollView
@@ -488,7 +619,7 @@ export function FilterBar({
           contentContainerStyle={styles.quickRow}
         >
           {quickTags.map((tag) => {
-            const anyFilter = groups.some((g) => g.key !== 'sort' && !!values[g.key]);
+            const anyFilter = groups.some((g) => g.key !== 'sort' && groupActive(g, values));
             const active = tag.reset
               ? !anyFilter
               : !!tag.group && !!tag.value && values[tag.group] === tag.value;
@@ -517,9 +648,10 @@ export function FilterBar({
 
       {openGroup ? (
         <FilterPanel
-          groups={[openGroup]}
+          key={openGroup.key}
+          group={openGroup}
           values={values}
-          onSelect={(k, v) => onChange(k, v)}
+          onApply={(patch) => onApply?.(patch)}
           onClose={() => setOpenKey(null)}
           topOffset={topOffset}
         />
@@ -537,6 +669,17 @@ function optionLabel(g: FilterGroup, value: string): string {
     return g.label;
   }
   return g.options?.find((o) => o.value === value)?.label ?? g.label;
+}
+
+/** 触发块文案：已选则显示所选值文案；「更多」中含已选子项时显示该子项文案。 */
+function groupTriggerLabel(g: FilterGroup, values: FilterValues): string {
+  if (g.children && g.children.length) {
+    for (const child of g.children) {
+      if (values[child.key]) return optionLabel(child, values[child.key] ?? '');
+    }
+    return g.label;
+  }
+  return values[g.key] ? optionLabel(g, values[g.key] ?? '') : g.label;
 }
 
 // ==================== 列表页外壳 ====================
@@ -691,6 +834,7 @@ export function CategoryListScreen<T>({
                 groups={filterGroups}
                 values={values}
                 onChange={(k, v) => setValues((prev) => ({ ...prev, [k]: v }))}
+                onApply={(patch) => setValues((prev) => ({ ...prev, ...patch }))}
                 quickTags={quickTags}
                 onReset={() => setValues((prev) => ({ sort: prev.sort ?? 'latest' }))}
               />
@@ -872,20 +1016,25 @@ const styles = StyleSheet.create({
   },
   bannerBtnText: { fontSize: colors.fontSize.sm, color: colors.accent, fontWeight: '700' },
 
-  // 筛选行
-  filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 4 },
-  filterTrigger: {
+  // 筛选行：贝壳式纯文字 + 小三角，各项均分，底部 hairline 分隔
+  filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    height: 32,
-    borderRadius: colors.radius.sm,
-    backgroundColor: colors.fieldFill,
-    paddingHorizontal: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
-  filterTriggerActive: { backgroundColor: colors.sidebarActive },
-  filterTriggerText: { fontSize: colors.fontSize.sm, color: colors.ink2, maxWidth: 120 },
-  filterTriggerTextActive: { color: colors.accent, fontWeight: '600' },
+  filterTrigger: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingVertical: 10,
+  },
+  filterTriggerText: { flexShrink: 1, fontSize: colors.fontSize.base, color: colors.ink2, maxWidth: 120 },
+  filterTriggerTextActive: { color: colors.primary, fontWeight: '600' },
 
   // 快捷标签（方块样式，与筛选选项一致，不用胶囊）
   quickRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
@@ -903,22 +1052,44 @@ const styles = StyleSheet.create({
 
   count: { fontSize: colors.fontSize.sm, color: colors.ink3, paddingHorizontal: 16, marginTop: 4, marginBottom: 8 },
 
-  // 下拉面板（顶部）
-  panelMask: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.alpha(colors.inkRgb, 0.28) },
+  // 筛选面板（贝壳式下拉：筛选条下沿展开的有限高度面板，下方露出列表，点外部关闭）
+  panelLayer: { flex: 1 },
   panel: {
-    marginHorizontal: 12,
     backgroundColor: colors.surface,
-    borderRadius: colors.radius.lg,
-    padding: colors.spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    overflow: 'hidden',
     ...colors.shadow.lg,
   },
-  panelGroup: { marginBottom: colors.spacing.md },
-  panelGroupLabel: { fontSize: colors.fontSize.sm, color: colors.ink2, marginBottom: 8 },
-  blockWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  panelOutside: { flex: 1 },
+  panelBody: { flex: 1, flexDirection: 'row' },
+  // 左栏分组导航：底色略深于右栏，选中项白底 + 主色文字 + 左侧主色竖条
+  panelNav: { width: 90, backgroundColor: colors.fieldFill },
+  panelNavInner: { paddingVertical: colors.spacing.sm },
+  panelNavItem: {
+    height: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 9,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
+  },
+  panelNavItemActive: {
+    backgroundColor: colors.surface,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  panelNavText: { fontSize: colors.fontSize.sm, color: colors.ink2 },
+  panelNavTextActive: { color: colors.primary, fontWeight: '700' },
+  // 右栏选项区：所有分组连续排列，各自带分组标题
+  panelContent: { flex: 1 },
+  panelContentInner: { padding: colors.spacing.lg },
+  panelSection: { marginBottom: colors.spacing.lg },
+  panelSectionTitle: { fontSize: colors.fontSize.sm, color: colors.ink3, marginBottom: 10 },
+  blockWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: colors.spacing.md },
   block: {
-    minWidth: 72,
-    height: 34,
-    borderRadius: colors.radius.sm,
+    minWidth: 80,
+    height: 40,
+    borderRadius: 4,
     backgroundColor: colors.fieldFill,
     paddingHorizontal: 12,
     alignItems: 'center',
@@ -931,15 +1102,37 @@ const styles = StyleSheet.create({
   },
   blockText: { fontSize: colors.fontSize.sm, color: colors.ink2 },
   blockTextActive: { color: colors.accent, fontWeight: '700' },
-  panelDone: {
+  // 底部固定「重置 / 确定」
+  panelFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: colors.spacing.md,
+    paddingHorizontal: colors.spacing.lg,
+    paddingVertical: colors.spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  panelReset: {
+    flex: 1,
     height: 44,
-    borderRadius: colors.radius.md,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  panelResetText: { fontSize: colors.fontSize.base, fontWeight: '600', color: colors.ink2 },
+  panelConfirm: {
+    flex: 1,
+    height: 44,
+    borderRadius: 4,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
   },
-  panelDoneText: { fontSize: colors.fontSize.base, fontWeight: '700', color: colors.primaryForeground },
+  panelConfirmText: { fontSize: colors.fontSize.base, fontWeight: '700', color: colors.primaryForeground },
 });
 
 export default CategoryListScreen;

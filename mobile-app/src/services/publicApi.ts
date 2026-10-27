@@ -372,6 +372,8 @@ export function unwrapPage<T>(payload: unknown): PublicPage<T> {
 }
 
 export const publicApi = {
+  /** App 首页聚合：8 个 rail 一次取回（后端口径与各分类页一致，只取第 1 页） */
+  home: () => api.get('/public/home'),
   /** 公开房源列表（服务端分页 + 筛选；school_id 走空间筛选并按距离排序） */
   listings: (params?: PublicListingQuery) => api.get('/public/listings', { params }),
   /** 公开房源详情 */

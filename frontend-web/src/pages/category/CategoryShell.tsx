@@ -16,7 +16,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { CustomerServiceOutlined } from '@ant-design/icons'
-import { Dropdown, Pagination, Popover, Spin } from 'antd'
+import { Dropdown, Pagination, Spin } from 'antd'
 import LocationPicker from '@/components/LocationPicker'
 import { useLocationStore } from '@/stores/location'
 import type { FilterGroup, FilterValues, QuickTag } from './categoryShared'
@@ -235,7 +235,7 @@ export function BannerCard({
   )
 }
 
-// ==================== 筛选：顶部下拉面板（Popover + bottomLeft）====================
+// ==================== 筛选：筛选条下沿整宽下拉面板 ====================
 
 function optionLabel(g: FilterGroup, value: string): string {
   if (g.children && g.children.length) {
@@ -268,7 +268,12 @@ const isGroupActive = (g: FilterGroup, values: FilterValues): boolean => {
   return !!values[g.key]
 }
 
-function PanelContent({
+/** 叶子组：有 children 的「更多」面板展开为多个子组，否则自身即叶子。 */
+function groupLeaves(g: FilterGroup): FilterGroup[] {
+  return g.children && g.children.length ? g.children : [g]
+}
+
+function GroupBlocks({
   group,
   values,
   onSelect,
@@ -278,35 +283,122 @@ function PanelContent({
   onSelect: (key: string, value: string) => void
 }) {
   const { t } = useTranslation()
-  const leaves = group.children && group.children.length ? group.children : [group]
+  return (
+    <div className="cat-panel__group">
+      <div className="cat-panel__label">{group.label}</div>
+      <div className="cat-blocks">
+        <button
+          type="button"
+          className="cat-block"
+          data-active={!values[group.key]}
+          onClick={() => onSelect(group.key, '')}
+        >
+          {t('category.filterAny')}
+        </button>
+        {(group.options ?? []).map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            className="cat-block"
+            data-active={values[group.key] === o.value}
+            onClick={() => onSelect(group.key, o.value)}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 贝壳式筛选面板：改动只落到 draft，点「确定」才批量提交。
+ * 右栏连续纵向排列所有分组（可滚动）；左栏分组导航点击跳转，右栏滚动回写选中态。
+ */
+function PanelContent({
+  group,
+  draft,
+  navKey,
+  onNavChange,
+  onSelect,
+  onResetDraft,
+  onApplyDraft,
+}: {
+  group: FilterGroup
+  draft: FilterValues
+  navKey: string
+  onNavChange: (key: string) => void
+  onSelect: (key: string, value: string) => void
+  onResetDraft: () => void
+  onApplyDraft: () => void
+}) {
+  const { t } = useTranslation()
+  const leaves = groupLeaves(group)
+  const hasNav = !!group.children && group.children.length > 0
+  const contentRef = useRef<HTMLDivElement>(null)
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
+
+  // 左栏点击：右栏滚到对应分组顶部。
+  const scrollToSection = (key: string) => {
+    const box = contentRef.current
+    const el = sectionRefs.current[key]
+    if (!box || !el) return
+    box.scrollTo({ top: box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top })
+    onNavChange(key)
+  }
+
+  // 右栏滚动：取最接近顶部的分组作为左栏选中项。
+  const handleScroll = () => {
+    const box = contentRef.current
+    if (!box) return
+    const boxTop = box.getBoundingClientRect().top
+    let current = leaves[0]?.key ?? ''
+    leaves.forEach((leaf) => {
+      const el = sectionRefs.current[leaf.key]
+      if (el && el.getBoundingClientRect().top - boxTop <= 12) current = leaf.key
+    })
+    if (current && current !== navKey) onNavChange(current)
+  }
+
   return (
     <div className="cat-panel">
-      {leaves.map((g) => (
-        <div className="cat-panel__group" key={g.key}>
-          <div className="cat-panel__label">{g.label}</div>
-          <div className="cat-blocks">
-            <button
-              type="button"
-              className="cat-block"
-              data-active={!values[g.key]}
-              onClick={() => onSelect(g.key, '')}
-            >
-              {t('category.filterAny')}
-            </button>
-            {(g.options ?? []).map((o) => (
+      <div className="cat-panel__body">
+        {hasNav ? (
+          <div className="cat-panel__nav">
+            {leaves.map((leaf) => (
               <button
-                key={o.value}
+                key={leaf.key}
                 type="button"
-                className="cat-block"
-                data-active={values[g.key] === o.value}
-                onClick={() => onSelect(g.key, o.value)}
+                className={`cat-panel__nav-item${leaf.key === navKey ? ' cat-panel__nav-item--active' : ''}`}
+                onClick={() => scrollToSection(leaf.key)}
               >
-                {o.label}
+                {leaf.label}
               </button>
             ))}
           </div>
+        ) : null}
+        <div className="cat-panel__content" ref={contentRef} onScroll={handleScroll}>
+          {leaves.map((leaf) => (
+            <section
+              key={leaf.key}
+              className="cat-panel__section"
+              ref={(el) => {
+                sectionRefs.current[leaf.key] = el
+              }}
+            >
+              <GroupBlocks group={leaf} values={draft} onSelect={onSelect} />
+            </section>
+          ))}
         </div>
-      ))}
+      </div>
+      <div className="cat-panel__footer">
+        <button type="button" className="cat-panel__btn cat-panel__btn--ghost" onClick={onResetDraft}>
+          {t('category.reset')}
+        </button>
+        <button type="button" className="cat-panel__btn cat-panel__btn--primary" onClick={onApplyDraft}>
+          {t('category.confirm')}
+        </button>
+      </div>
     </div>
   )
 }
@@ -315,15 +407,67 @@ export function FilterBar({
   groups,
   values,
   onChange,
+  onApply,
   quickTags,
   onReset,
 }: {
   groups: FilterGroup[]
   values: FilterValues
   onChange: (key: string, value: string) => void
+  /** 批量提交：一次「确定」只合并成一个 patch，只触发一次列表请求。 */
+  onApply?: (patch: FilterValues) => void
   quickTags?: QuickTag[]
   onReset?: () => void
 }) {
+  const [openKey, setOpenKey] = useState<string | null>(null)
+  const [draft, setDraft] = useState<FilterValues>({})
+  const [navKey, setNavKey] = useState('')
+
+  // 打开面板：把当前已应用值快照成 draft（只含本面板叶子 key），不触发任何请求。
+  const openPanel = (g: FilterGroup) => {
+    const next: FilterValues = {}
+    groupLeaves(g).forEach((leaf) => {
+      next[leaf.key] = values[leaf.key] ?? ''
+    })
+    setDraft(next)
+    setNavKey(groupLeaves(g)[0]?.key ?? '')
+    setOpenKey(g.key)
+  }
+
+  const selectDraft = (key: string, value: string) => {
+    setDraft((prev) => ({ ...prev, [key]: value }))
+  }
+
+  // 「重置」只清当前面板的 draft，不提交、不关闭面板。
+  const resetDraft = (g: FilterGroup) => {
+    setDraft((prev) => {
+      const next = { ...prev }
+      groupLeaves(g).forEach((leaf) => {
+        next[leaf.key] = ''
+      })
+      return next
+    })
+  }
+
+  // 「确定」把本面板叶子 key 合并成 patch 一次提交，然后关闭面板。
+  const applyDraft = (g: FilterGroup) => {
+    const leaves = groupLeaves(g)
+    const patch: FilterValues = {}
+    leaves.forEach((leaf) => {
+      patch[leaf.key] = draft[leaf.key] ?? ''
+    })
+    if (onApply) {
+      onApply(patch)
+    } else {
+      leaves.forEach((leaf) => {
+        if ((values[leaf.key] ?? '') !== (patch[leaf.key] ?? '')) onChange(leaf.key, patch[leaf.key] ?? '')
+      })
+    }
+    setOpenKey(null)
+  }
+
+  const activeGroup = openKey ? groups.find((g) => g.key === openKey) : undefined
+
   return (
     <div className="cat-filterbar">
       <div className="cat-filterbar__row">
@@ -349,7 +493,12 @@ export function FilterBar({
                   onClick: ({ key }) => onChange('sort', key),
                 }}
               >
-                <button type="button" className="rent-filter-chip" data-active={active}>
+                <button
+                  type="button"
+                  className="cat-filterbar__trigger"
+                  data-active={active}
+                  onClick={() => setOpenKey(null)}
+                >
                   {triggerLabel(g, values)}
                   {chevron}
                 </button>
@@ -357,20 +506,35 @@ export function FilterBar({
             )
           }
           return (
-            <Popover
+            <button
               key={g.key}
-              trigger="click"
-              placement="bottomLeft"
-              overlayClassName="cat-popover"
-              content={<PanelContent group={g} values={values} onSelect={onChange} />}
+              type="button"
+              className="cat-filterbar__trigger"
+              data-active={active}
+              onClick={() => (openKey === g.key ? setOpenKey(null) : openPanel(g))}
             >
-              <button type="button" className="rent-filter-chip" data-active={active}>
-                {triggerLabel(g, values)}
-                {chevron}
-              </button>
-            </Popover>
+              {triggerLabel(g, values)}
+              {chevron}
+            </button>
           )
         })}
+        {activeGroup ? (
+          <>
+            {/* 只捕获点击关闭，不做遮罩变暗 */}
+            <div className="cat-filterbar__mask" onClick={() => setOpenKey(null)} />
+            <div className="cat-filterbar__dropdown">
+              <PanelContent
+                group={activeGroup}
+                draft={draft}
+                navKey={navKey}
+                onNavChange={setNavKey}
+                onSelect={selectDraft}
+                onResetDraft={() => resetDraft(activeGroup)}
+                onApplyDraft={() => applyDraft(activeGroup)}
+              />
+            </div>
+          </>
+        ) : null}
       </div>
       {quickTags && quickTags.length > 0 ? (
         <div className="cat-quick">
@@ -506,6 +670,11 @@ export function CategoryPage<T>({
     setValues((prev) => ({ ...prev, [key]: value }))
     setPage(1)
   }
+  // 面板「确定」：一次合并成一个 patch → 一次 values 变化 → 一次列表请求。
+  const applyValues = (patch: FilterValues) => {
+    setValues((prev) => ({ ...prev, ...patch }))
+    setPage(1)
+  }
   const resetValues = () => {
     setValues((prev) => ({ sort: prev.sort ?? 'latest' }))
     setPage(1)
@@ -540,6 +709,7 @@ export function CategoryPage<T>({
           groups={filterGroups}
           values={values}
           onChange={updateValue}
+          onApply={applyValues}
           quickTags={quickTags}
           onReset={resetValues}
         />
