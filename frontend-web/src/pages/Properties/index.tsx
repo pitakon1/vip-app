@@ -19,8 +19,10 @@ import {
   ExclamationCircleOutlined,
   PlusOutlined,
 } from '@ant-design/icons'
+import DataState from '@/components/DataState'
 import { propertiesApi, projectsApi, listingsApi, type QueryParams } from '@/services/api'
 import { downloadReport } from '@/lib/download'
+import { buildListingPayload } from '@/lib/listingPayload'
 import { usePropertyStatusMap, usePropertyTypeMap } from '@/lib/enumLabels'
 import useAuthStore from '@/stores/auth'
 import type { Project, Property } from '@/types'
@@ -48,35 +50,6 @@ const bannerColorFor = (seed: string) => {
 }
 
 const formatRent = (v: any) => Number(v || 0).toLocaleString()
-
-// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
-const buildListingPayload = (p: any) => ({
-  property_id: p.id,
-  room_number: p.room_number || p.address || '-',
-  address: p.address || p.room_number || '-',
-  property_type: p.property_type || 'apartment',
-  size_sqm: p.size_sqm ?? undefined,
-  bedrooms: p.bedrooms ?? undefined,
-  bathrooms: p.bathrooms ?? undefined,
-  description: p.description || undefined,
-  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
-  furnished: !!p.furnished,
-  video_url: p.video_url || undefined,
-  vr_url: p.vr_url || undefined,
-  ceiling_height_m: p.ceiling_height_m ?? undefined,
-  land_area_sqm: p.land_area_sqm ?? undefined,
-  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
-  column_spacing: p.column_spacing || undefined,
-  power_capacity_kva: p.power_capacity_kva ?? undefined,
-  environmental_permit: p.environmental_permit ?? undefined,
-  whole_floor_only: p.whole_floor_only ?? undefined,
-  whole_building_only: p.whole_building_only ?? undefined,
-  company_registrable: p.company_registrable ?? undefined,
-  listing_type: 'rent',
-  monthly_rent: Number(p.monthly_rent || 0),
-  currency: p.currency || 'THB',
-  owner_id: p.owner_id || undefined,
-})
 
 // ==================== C 端风格筛选 chip（对齐 PublicListings 单行筛选栏 + 顶部下拉面板） ====================
 
@@ -213,6 +186,8 @@ const Properties = () => {
   const [items, setItems] = useState<Property[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  // 列表加载失败单独记录：失败时保留上一次的数据并提示重试，不能静默清空成「暂无数据」
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
 
   // 筛选参数
@@ -388,20 +363,21 @@ const Properties = () => {
   const fetchData = useCallback(async () => {
     const reqId = ++reqIdRef.current
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await propertiesApi.list(buildParams())
       if (reqId !== reqIdRef.current) return
       const payload = res.data?.data ?? res.data
       setItems(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
-    } catch {
+    } catch (err: any) {
       if (reqId !== reqIdRef.current) return
-      setItems([])
-      setTotal(0)
+      // 保留上一次成功的数据，避免筛选切换失败时整块变空
+      setLoadError(err?.response?.data?.detail || err?.response?.data?.message || t('common.loadFailed'))
     } finally {
       if (reqId === reqIdRef.current) setLoading(false)
     }
-  }, [buildParams])
+  }, [buildParams, t])
 
   useEffect(() => { fetchProjects() }, [fetchProjects])
   useEffect(() => { fetchData() }, [fetchData])
@@ -1249,7 +1225,9 @@ const Properties = () => {
 
       {/* Property Card Grid（对齐原型 rent-grid--auto） */}
       <Spin spinning={loading} tip={t('common.loading')}>
-        {items.length === 0 && !loading ? (
+        {loadError ? (
+          <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+        ) : items.length === 0 && !loading ? (
           <div className="rent-empty">
             <div className="rent-empty__icon">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>

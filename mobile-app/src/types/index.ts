@@ -2,78 +2,139 @@ export type UserRole = 'agent' | 'owner' | 'tenant' | 'employee' | 'admin' | 'pa
 
 export type PropertyStatus = 'vacant' | 'rented' | 'renewing' | 'maintenance';
 
+/**
+ * 用户摘要。
+ * 与后端（`core/auth.py::serialize_user`）字段完全一致：
+ * id / email / full_name / role / phone / avatar_url / preferred_language。
+ * 此前这里还有 username / name / avatar 三个本地别名（由 `toUser()` 造出来的），
+ * 会让「后端到底给什么」变得含糊；展示统一读 `full_name`、头像读 `avatar_url`。
+ */
 export interface User {
   id: string;
-  username: string;
-  name: string;
   full_name?: string;
   phone?: string;
   email?: string;
-  avatar?: string;
   avatar_url?: string;
   role: UserRole;
-  createdAt?: string;
+  preferred_language?: string;
 }
 
+/**
+ * 房源。
+ * 字段口径与后端 JSON 逐字一致（snake_case + UUID 字符串 id）。
+ * 旧版本这里混用了 camelCase（ownerId/rent/area）并同时混入 snake_case，
+ * 导致同一份数据两种写法都要兜底。
+ */
 export interface Property {
   id: string;
-  title?: string;
+  project_id?: string;
+  owner_id: string;
+  room_number: string;
+  building?: string;
   address: string;
-  city?: string;
-  rent?: number;
-  status: PropertyStatus;
-  ownerId?: string;
-  tenantId?: string;
-  images?: string[];
+  floor?: number;
+  property_type: string;
+  monthly_rent?: number;
+  currency: string;
+  deposit_amount?: number;
+  size_sqm?: number;
   bedrooms?: number;
   bathrooms?: number;
-  area?: number;
+  status: PropertyStatus;
   description?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  // 后端返回的房源字段（与 API 对齐）
-  room_number?: string;
-  monthly_rent?: number;
-  size_sqm?: number;
-  currency?: string;
-  project_id?: string;
+  photos?: string[];
+  furnished?: boolean;
+  orientation?: string;
+  decoration?: string;
+  amenities?: string[];
+  available_from?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
+export type LeaseStatus = 'active' | 'expired' | 'terminated' | 'pending';
+
+/** 租约。字段口径与后端一致（snake_case + UUID 字符串 id）。 */
 export interface Lease {
   id: string;
-  propertyId: string;
-  tenantId: string;
-  ownerId: string;
-  startDate: string;
-  endDate: string;
-  monthlyRent: number;
-  deposit: number;
-  status: 'active' | 'expired' | 'terminated' | 'pending';
-  documentUrl?: string;
-  createdAt?: string;
+  lease_no?: string;
+  property_id: string;
+  tenant_id: string;
+  owner_id: string;
+  agent_id?: string;
+  start_date: string;
+  end_date: string;
+  monthly_rent: number;
+  currency: string;
+  deposit_amount: number;
+  deposit_status?: string;
+  status: LeaseStatus;
+  contract_url?: string;
+  special_terms?: string;
+  renewed_from_lease_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
+export type PaymentType =
+  | 'rent'
+  | 'deposit'
+  | 'commission'
+  | 'service_fee'
+  | 'utility'
+  | 'tax'
+  | 'refund';
+
+export type PaymentStatus =
+  | 'pending'
+  | 'processing'
+  | 'succeeded'
+  | 'failed'
+  | 'refunded'
+  | 'disputed'
+  | 'expired'
+  // 列表聚合展示态
+  | 'paid'
+  | 'overdue';
+
+/**
+ * 账单/收款。
+ * 字段口径与后端一致（snake_case）。旧版 camelCase（leaseId/dueDate/paidDate/
+ * receiptUrl/method/note）与后端完全对不上，页面实际读到的都是 undefined。
+ */
 export interface Payment {
   id: string;
-  leaseId: string;
+  receipt_no?: string;
+  lease_id: string;
+  property_id: string;
+  payer_id?: string;
+  payee_id?: string;
   amount: number;
-  type: 'rent' | 'deposit' | 'service' | 'other';
-  status: 'pending' | 'paid' | 'overdue' | 'failed';
-  dueDate: string;
-  paidDate?: string;
-  method?: 'cash' | 'transfer' | 'online' | 'card';
-  receiptUrl?: string;
-  note?: string;
+  currency: string;
+  payment_type: PaymentType;
+  status: PaymentStatus;
+  channel?: string;
+  due_date: string;
+  paid_at?: string;
+  receipt_url?: string;
+  description?: string;
+  failure_reason?: string;
+  late_fee_accrued?: number;
+  late_fee_waived?: number;
+  late_fee_updated_at?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
+/** 站内通知。字段口径按后端 snake_case；后端无对象时按本地展示兜底。 */
 export interface Notification {
   id: string;
-  userId: string;
+  user_id?: string;
   title: string;
   body: string;
   type: 'rent_reminder' | 'lease_expiry' | 'service_update' | 'system' | 'payment';
   read: boolean;
-  createdAt: string;
+  created_at?: string;
   data?: Record<string, unknown>;
 }
 
@@ -110,15 +171,31 @@ export interface MaintenanceTicket {
   updated_at?: string;
 }
 
+export type DocumentType =
+  | 'contract'
+  | 'receipt'
+  | 'inspection_photo'
+  | 'tax_invoice'
+  | 'wht_certificate'
+  | 'property_certificate'
+  | 'owner_id_card'
+  | 'other';
+
+/** 文档。字段口径与后端 `list_documents` 返回一致（title / file_url / created_at）。 */
 export interface Document {
   id: string;
-  userId: string;
+  owner_id: string;
+  property_id?: string;
+  lease_id?: string;
+  type: DocumentType;
   title: string;
-  type: 'contract' | 'receipt' | 'inspection' | 'identity' | 'other';
-  fileUrl: string;
-  fileType?: 'pdf' | 'image' | 'doc';
-  uploadedAt?: string;
-  size?: number;
+  file_url: string;
+  file_size?: number;
+  mime_type?: string;
+  uploaded_by: string;
+  tags?: string[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 // —— 房源上架单（发物件/房源上架）——

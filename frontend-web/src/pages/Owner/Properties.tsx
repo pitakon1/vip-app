@@ -18,6 +18,7 @@ import {
 import { ExclamationCircleOutlined, PlusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
+import { buildListingPayload } from '@/lib/listingPayload'
 import { propertiesApi } from '@/services/api'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
@@ -66,35 +67,6 @@ const bannerColorFor = (seed: string) => {
 }
 
 const formatRent = (v: any) => Number(v || 0).toLocaleString()
-
-// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
-const buildListingPayload = (p: any) => ({
-  property_id: p.id,
-  room_number: p.room_number || p.address || '-',
-  address: p.address || p.room_number || '-',
-  property_type: p.property_type || 'apartment',
-  size_sqm: p.size_sqm ?? undefined,
-  bedrooms: p.bedrooms ?? undefined,
-  bathrooms: p.bathrooms ?? undefined,
-  description: p.description || undefined,
-  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
-  furnished: !!p.furnished,
-  video_url: p.video_url || undefined,
-  vr_url: p.vr_url || undefined,
-  ceiling_height_m: p.ceiling_height_m ?? undefined,
-  land_area_sqm: p.land_area_sqm ?? undefined,
-  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
-  column_spacing: p.column_spacing || undefined,
-  power_capacity_kva: p.power_capacity_kva ?? undefined,
-  environmental_permit: p.environmental_permit ?? undefined,
-  whole_floor_only: p.whole_floor_only ?? undefined,
-  whole_building_only: p.whole_building_only ?? undefined,
-  company_registrable: p.company_registrable ?? undefined,
-  listing_type: 'rent',
-  monthly_rent: Number(p.monthly_rent || 0),
-  currency: p.currency || 'THB',
-  owner_id: p.owner_id || undefined,
-})
 
 const statusLabelMap: Record<string, string> = {
   vacant: 'ownerProperties.stVacant',

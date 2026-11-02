@@ -109,6 +109,9 @@ def ensure_schema(engine: Engine) -> None:
     type_map = _dialect_types(engine)
     added: List[str] = []
     indexed: List[str] = []
+    # 记录本轮已确认存在的列：SQLite 下 DDL 的可见性随驱动而异，
+    # 再次 inspect 可能看不到刚 ADD 的列，导致重复补列报错。
+    present_by_table: Dict[str, set] = {}
 
     with engine.begin() as conn:
         # 2) 补列：create_all 不会碰已存在的表
@@ -117,6 +120,7 @@ def ensure_schema(engine: Engine) -> None:
                 # 表不存在时 create_all 已按模型全量建出，无需补
                 continue
             present = {col["name"] for col in inspector.get_columns(table)}
+            present_by_table[table] = present
             for column, type_key in columns.items():
                 if column in present:
                     continue
@@ -127,6 +131,49 @@ def ensure_schema(engine: Engine) -> None:
                 # 同一轮内后续判断依据同步更新，避免重复 ADD COLUMN
                 present.add(column)
                 added.append(f"{table}.{column}")
+
+        # 2b) 兜底：以模型为事实来源，自动补齐 `_ADDITIVE_COLUMNS` 漏登记的列。
+        # 清单是手工维护的，模型新增字段时极易漏写，运行期就会 `no such column`
+        # 直接 500（本轮 `properties.min_lease_months` 就是这种漂移）。这里按
+        # SQLModel.metadata 遍历一遍，缺少就补，保证清单与模型不会再长期不同步。
+        # 用 tables.values() 而不是 sorted_tables：后者为做拓扑排序会解析外键，
+        # 本项目存在互相引用的表（users/employees/contracts...），每次启动都会
+        # 打出 SAWarning「unresolvable cycles」。补列不依赖建表顺序，无需排序。
+        for table in SQLModel.metadata.tables.values():
+            if table.name not in existing_tables:
+                continue
+            present = present_by_table.get(table.name)
+            if present is None:
+                present = {col["name"] for col in inspector.get_columns(table.name)}
+                present_by_table[table.name] = present
+            for column in table.columns:
+                if column.name in present:
+                    continue
+                ddl_type = column.type.compile(dialect=engine.dialect)
+                # 已有行无法满足新加的 NOT NULL（除非给默认值），先以可空列补上，
+                # 否则 ALTER 会直接失败、连启动都过不去。
+                if not column.nullable:
+                    logger.warning(
+                        "db.schema.not_null_without_default",
+                        table=table.name,
+                        column=column.name,
+                    )
+                conn.execute(
+                    text(
+                        f"ALTER TABLE {table.name} "
+                        f"ADD COLUMN {column.name} {ddl_type}"
+                    )
+                )
+                added.append(f"{table.name}.{column.name}")
+                if column.index:
+                    index_name = f"ix_{table.name}_{column.name}"
+                    conn.execute(
+                        text(
+                            f"CREATE INDEX IF NOT EXISTS {index_name} "
+                            f"ON {table.name} ({column.name})"
+                        )
+                    )
+                    indexed.append(index_name)
 
         # 3) 补索引：新增的可筛选列没有索引会退化成全表扫描
         for table, columns in _ADDITIVE_INDEXES.items():

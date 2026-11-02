@@ -22,16 +22,12 @@ interface LoginResponse {
   user: AuthUserPayload;
 }
 
-/** 把后端用户摘要补全为前端 User：后端没有独立用户名，用邮箱/姓名兜底。 */
+/** 后端用户摘要 → 前端 User（字段一一对应，不再造 username/name 别名）。 */
 function toUser(payload: AuthUserPayload): User {
-  const email = payload.email ?? undefined;
-  const fullName = payload.full_name ?? undefined;
   return {
     id: payload.id,
-    username: email ?? '',
-    name: fullName ?? email ?? '',
-    full_name: fullName,
-    email,
+    full_name: payload.full_name ?? undefined,
+    email: payload.email ?? undefined,
     role: (payload.role ?? 'tenant') as UserRole,
   };
 }

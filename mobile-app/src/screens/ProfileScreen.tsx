@@ -719,7 +719,7 @@ export default function ProfileScreen() {
                 />
               ) : (
                 <Text style={styles.avatarText}>
-                  {(user?.name ?? user?.full_name ?? '?').slice(0, 1).toUpperCase()}
+                  {(user?.full_name ?? '?').slice(0, 1).toUpperCase()}
                 </Text>
               )}
               {/* 更换头像角标：拍照/更换入口提示（登录后点击头像即可更换） */}
@@ -729,7 +729,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             <View style={styles.userInfo}>
               <Text style={styles.userName}>
-                {user?.name ?? user?.full_name ?? t('profile.unknownUser')}
+                {user?.full_name ?? t('profile.unknownUser')}
               </Text>
               <View style={styles.userMetaRow}>
                 <View style={styles.roleTag}>

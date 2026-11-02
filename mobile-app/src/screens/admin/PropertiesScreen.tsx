@@ -35,38 +35,10 @@ import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
 import { currencySymbol } from '@/lib/currency';
 import { propertyCoverUrl } from '@/lib/property';
+import { buildListingPayload } from '@/lib/listingPayload';
 import { useI18n } from '@/i18n';
 
 const PAGE_SIZE = 10;
-
-// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
-const buildListingPayload = (p: any) => ({
-  property_id: p.id,
-  room_number: p.room_number || p.address || '-',
-  address: p.address || p.room_number || '-',
-  property_type: p.property_type || 'apartment',
-  size_sqm: p.size_sqm ?? undefined,
-  bedrooms: p.bedrooms ?? undefined,
-  bathrooms: p.bathrooms ?? undefined,
-  description: p.description || undefined,
-  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
-  furnished: !!p.furnished,
-  video_url: p.video_url || undefined,
-  vr_url: p.vr_url || undefined,
-  ceiling_height_m: p.ceiling_height_m ?? undefined,
-  land_area_sqm: p.land_area_sqm ?? undefined,
-  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
-  column_spacing: p.column_spacing || undefined,
-  power_capacity_kva: p.power_capacity_kva ?? undefined,
-  environmental_permit: p.environmental_permit ?? undefined,
-  whole_floor_only: p.whole_floor_only ?? undefined,
-  whole_building_only: p.whole_building_only ?? undefined,
-  company_registrable: p.company_registrable ?? undefined,
-  listing_type: 'rent',
-  monthly_rent: Number(p.monthly_rent || 0),
-  currency: p.currency || 'THB',
-  owner_id: p.owner_id || undefined,
-});
 
 interface PropertyItem {
   id: string;
@@ -157,15 +129,6 @@ const adminTitle = (p: PropertyItem, t: TFunc) =>
     ? `${p.project_name} · ${p.room_number ?? ''}`.trim()
     : [p.room_number, p.building].filter(Boolean).join(' · ') || p.address || t('list.unnamed');
 
-// 命中区域/地铁关键词：房源地址/标题/房号/城市/区域任一包含即匹配（对齐租客端 matchLocation）
-const matchLocation = (item: any, kws: string[]): boolean =>
-  kws.some((k) =>
-    [item.address, item.title, item.room_number, item.city, item.district, item.area]
-      .filter(Boolean)
-      .map((v) => String(v).toLowerCase())
-      .some((v) => v.includes(k))
-  );
-
 const allDistricts = AREA_GROUPS.flatMap((g) => g.children);
 
 export default function AdminPropertiesScreen() {
@@ -225,6 +188,20 @@ export default function AdminPropertiesScreen() {
   const [staffLoading, setStaffLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
 
+  // 位置筛选（区域 / 地铁）：转成关键词下发服务端，避免只过滤「当前页」导致
+  // 翻页后其他页的命中房源漏掉、总数也对不上
+  const activeLocationKw = useMemo(() => {
+    if (districtSel) {
+      const node = allDistricts.find((d) => d.key === districtSel);
+      return node ? node.kws : [];
+    }
+    if (metroSel.length) {
+      const stations = METRO_LINES.flatMap((l) => l.stations);
+      return stations.filter((s) => metroSel.includes(s.name)).flatMap((s) => s.kws);
+    }
+    return [];
+  }, [districtSel, metroSel]);
+
   // 状态计数与列表共用同一批查询（统计行数字与列表口径一致）
   const fetchCounts = useCallback(async () => {
     const res = await Promise.allSettled(
@@ -257,6 +234,7 @@ export default function AdminPropertiesScreen() {
         if (sort === 'latest') params.sort = 'latest';
         if (kw.trim()) params.q = kw.trim();
         if (status) params.status = status;
+        if (activeLocationKw.length) params.keywords = activeLocationKw;
 
         // C 端维度：学校 + 半径（空间筛选，与 C 端找房口径一致）
         if (schoolId) {
@@ -332,7 +310,7 @@ export default function AdminPropertiesScreen() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm, PRICE_OPTIONS, AREA_OPTIONS],
+    [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm, activeLocationKw, PRICE_OPTIONS, AREA_OPTIONS],
   );
 
   useEffect(() => {
@@ -348,7 +326,7 @@ export default function AdminPropertiesScreen() {
     }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm]);
+  }, [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm, activeLocationKw]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -490,24 +468,6 @@ export default function AdminPropertiesScreen() {
       setAreaDrill(g.cityKey);
     }
   };
-
-  // 位置筛选（客户端关键词过滤，对齐租客端：只作用于已加载 items）
-  const activeLocationKw = useMemo(() => {
-    if (districtSel) {
-      const node = allDistricts.find((d) => d.key === districtSel);
-      return node ? node.kws : [];
-    }
-    if (metroSel.length) {
-      const stations = METRO_LINES.flatMap((l) => l.stations);
-      return stations.filter((s) => metroSel.includes(s.name)).flatMap((s) => s.kws);
-    }
-    return [];
-  }, [districtSel, metroSel]);
-
-  const displayItems = useMemo(() => {
-    if (!activeLocationKw.length) return items;
-    return items.filter((it) => matchLocation(it, activeLocationKw));
-  }, [items, activeLocationKw]);
 
   // 学校清单只为筛选器备选（公开接口，匿名可读）
   useEffect(() => {
@@ -730,7 +690,7 @@ export default function AdminPropertiesScreen() {
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingTop: insets.top }, respContainer]}
       showsVerticalScrollIndicator={false}
-      data={displayItems}
+      data={items}
       keyExtractor={(p) => p.id}
       renderItem={({ item }) => renderPropertyCard(item)}
       onEndReached={onLoadMore}

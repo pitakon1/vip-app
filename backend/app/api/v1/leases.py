@@ -1,7 +1,7 @@
 """租约路由：签约、续约、退房及租约管理。"""
 
 import uuid
-from datetime import date as date_type, datetime
+from datetime import date as date_type, datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -321,6 +321,7 @@ def lease_filter_conditions(
     keyword: Optional[str] = None,
     date_from: Optional[date_type] = None,
     date_to: Optional[date_type] = None,
+    ending_within_days: Optional[int] = None,
     property_ids: Optional[List[uuid.UUID]] = None,
 ) -> list:
     """租约筛选条件（列表与导出共用，两处口径必须完全一致）。
@@ -378,6 +379,15 @@ def lease_filter_conditions(
         conditions.append(
             Lease.start_date <= datetime.combine(date_to, datetime.max.time())
         )
+    if ending_within_days:
+        # 「即将到期」= 在租 + 合同结束日在 [now, now+N] 内。此前前端是在
+        # 「当前页」上本地过滤，翻页后既筛不到其他页的租约、总数也对不上。
+        now = datetime.utcnow()
+        conditions.append(Lease.status == LeaseStatus.active)
+        conditions.append(Lease.end_date >= now)
+        conditions.append(
+            Lease.end_date <= now + timedelta(days=ending_within_days)
+        )
     return conditions
 
 
@@ -395,6 +405,9 @@ def list_leases(
     ),
     date_from: Optional[date_type] = Query(None, description="合同起始日 ≥ date_from"),
     date_to: Optional[date_type] = Query(None, description="合同起始日 ≤ date_to"),
+    ending_within_days: Optional[int] = Query(
+        None, ge=1, le=365, description="即将到期：在租且合同结束日距今 ≤ N 天"
+    ),
     property_ids: Optional[str] = Query(
         None,
         description="批量房源筛选：逗号分隔的房源 UUID，最多 50 个（列表页一次取回整页租约）",
@@ -419,6 +432,7 @@ def list_leases(
         keyword=keyword,
         date_from=date_from,
         date_to=date_to,
+        ending_within_days=ending_within_days,
         property_ids=_parse_property_ids(property_ids),
     )
     stmt = (

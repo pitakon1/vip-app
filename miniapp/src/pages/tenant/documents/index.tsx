@@ -19,6 +19,8 @@ const buildTypeMap = (
   inspection_photo: t('doc.type.inspectionPhoto'),
   tax_invoice: t('doc.type.taxInvoice'),
   wht_certificate: t('doc.type.whtCertificate'),
+  property_certificate: t('doc.type.propertyCertificate'),
+  owner_id_card: t('doc.type.ownerIdCard'),
   other: t('common.other')
 })
 
@@ -39,6 +41,10 @@ const typeBadge = (type: string) => {
       return 'badge--warning'
     case 'wht_certificate':
       return 'badge--error'
+    case 'property_certificate':
+      return 'badge--primary'
+    case 'owner_id_card':
+      return 'badge--info'
     default:
       return 'badge--neutral'
   }
@@ -127,27 +133,27 @@ export default function TenantDocumentsPage() {
   }
 
   const handlePreview = (doc: Document) => {
-    if (isImageName(doc.name) && doc.url) {
-      Taro.previewImage({ urls: [doc.url], current: doc.url })
+    if (isImageName(doc.file_url) && doc.file_url) {
+      Taro.previewImage({ urls: [doc.file_url], current: doc.file_url })
       return
     }
-    Taro.showToast({ title: `${t('tenantDocs.preview')}${doc.name}`, icon: 'none' })
+    Taro.showToast({ title: `${t('tenantDocs.preview')}${doc.title}`, icon: 'none' })
   }
 
   const handleDownload = async (doc: Document) => {
-    if (!doc.url) {
+    if (!doc.file_url) {
       Taro.showToast({ title: t('tenantDocs.urlUnavailable'), icon: 'none' })
       return
     }
     Taro.showLoading({ title: t('tenantDocs.downloading'), mask: true })
     try {
-      const res = await Taro.downloadFile({ url: doc.url })
+      const res = await Taro.downloadFile({ url: doc.file_url })
       Taro.hideLoading()
       if (res.statusCode !== 200) {
         Taro.showToast({ title: t('common.downloadFailed'), icon: 'none' })
         return
       }
-      if (isImageName(doc.name)) {
+      if (isImageName(doc.file_url)) {
         await Taro.saveImageToPhotosAlbum({ filePath: res.tempFilePath })
         Taro.showToast({ title: t('tenantDocs.savedToAlbum'), icon: 'success' })
       } else {
@@ -207,19 +213,21 @@ export default function TenantDocumentsPage() {
             <View key={doc.id} className='document-card'>
               <View className='doc-head' onClick={() => handlePreview(doc)}>
                 <View className={`doc-icon ${typeIcon(doc.type)}`}>
-                  {isImageName(doc.name) && doc.url ? (
-                    <Image className='doc-image' src={doc.url} mode='aspectFill' />
+                  {isImageName(doc.file_url) && doc.file_url ? (
+                    <Image className='doc-image' src={doc.file_url} mode='aspectFill' />
                   ) : (
                     <View className='icon-svg' style={iconStyle('doc', 36)} />
                   )}
                 </View>
                 <View className='doc-info'>
-                  <Text className='doc-name'>{doc.name}</Text>
+                  <Text className='doc-name'>{doc.title}</Text>
                   <View className='doc-meta'>
                     <Text className={`badge doc-type ${typeBadge(doc.type)}`}>
                       {TYPE_MAP[doc.type] || doc.type}
                     </Text>
-                    {!!doc.uploadDate && <Text className='doc-date'>{doc.uploadDate}</Text>}
+                    {!!doc.created_at && (
+                      <Text className='doc-date'>{doc.created_at.slice(0, 10)}</Text>
+                    )}
                   </View>
                 </View>
               </View>

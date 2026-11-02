@@ -1,85 +1,181 @@
-// ============ 用户相关 ============
-export type UserRole = 'owner' | 'tenant' | 'admin' | 'agent' | 'employee'
+/**
+ * 小程序核心模型定义。
+ *
+ * 口径：与后端 JSON 逐字一致（snake_case、UUID 字符串 id）。
+ * 此前这里混用了 camelCase + number id（如 `Property.projectId`、`Lease.monthlyRent`、
+ * `MaintenanceTicket.createdAt`），和后端返回的 `project_id` / `monthly_rent` /
+ * `created_at` 完全对不上，页面读到的值恒为 undefined。
+ */
 
+// ============ 用户相关 ============
+export type UserRole = 'owner' | 'tenant' | 'admin' | 'agent' | 'employee' | 'partner_admin'
+
+/** 用户摘要，与后端 `core/auth.py::serialize_user` 的字段完全一致。 */
 export interface User {
-  id: number
-  username: string
-  name: string
+  id: string
+  email?: string
+  full_name?: string
   role: UserRole
   phone?: string
-  email?: string
-  avatar?: string
   avatar_url?: string
+  preferred_language?: string
 }
 
-// ============ 房产相关 ============
+// ============ 楼盘/房产相关 ============
 export interface Project {
-  id: number
+  id: string
   name: string
   address: string
   city?: string
   district?: string
+  province?: string
+  country?: string
+  nearest_subway?: string
+  developer?: string
+  created_at?: string
+  updated_at?: string
 }
 
-export type PropertyStatus = 'vacant' | 'rented' | 'reserved'
+// 与后端 PropertyStatus 对齐（含 renewing / maintenance）；reserved 为前端历史展示态
+export type PropertyStatus = 'vacant' | 'rented' | 'reserved' | 'renewing' | 'maintenance'
 
 export interface Property {
-  id: number
-  code: string
-  projectId: number
-  projectName?: string
-  layout: string
-  area: number
-  floor?: string
-  orientation?: string
+  id: string
+  project_id?: string
+  owner_id: string
+  room_number: string
+  building?: string
+  address: string
+  floor?: number
+  property_type: string
+  monthly_rent?: number
+  currency: string
+  deposit_amount?: number
+  size_sqm?: number
+  bedrooms?: number
+  bathrooms?: number
   status: PropertyStatus
-  rentPrice?: number
+  description?: string
+  photos?: string[]
+  furnished?: boolean
+  orientation?: string
+  decoration?: string
+  amenities?: string[]
+  available_from?: string
+  created_at?: string
+  updated_at?: string
 }
 
 // ============ 租客相关 ============
 export interface Tenant {
-  id: number
-  name: string
-  phone: string
-  idCard?: string
-  email?: string
+  id: string
+  user_id: string
+  // 关联用户档案的展示字段（后端 Tenant 本身只存证件/收入等，姓名来自 User）
+  full_name?: string
+  phone?: string
+  nationality?: string
+  monthly_income?: number
+  tenant_credit_score?: number
+  created_at?: string
+  updated_at?: string
 }
 
 // ============ 合同相关 ============
-export type LeaseStatus = 'active' | 'expired' | 'terminated'
+// 与后端 LeaseStatus 对齐（含 pending）
+export type LeaseStatus = 'active' | 'expired' | 'terminated' | 'pending'
 
 export interface Lease {
-  id: number
-  propertyId: number
-  tenantId: number
-  startDate: string
-  endDate: string
-  monthlyRent: number
-  deposit: number
+  id: string
+  lease_no?: string
+  property_id: string
+  tenant_id: string
+  owner_id: string
+  agent_id?: string
+  start_date: string
+  end_date: string
+  monthly_rent: number
+  currency: string
+  deposit_amount: number
+  deposit_status: string
   status: LeaseStatus
+  contract_url?: string
+  special_terms?: string
+  renewed_from_lease_id?: string
+  created_at?: string
+  updated_at?: string
 }
 
 // ============ 支付相关 ============
-export type PaymentType = 'rent' | 'deposit' | 'refund'
-export type PaymentStatus = 'pending' | 'paid' | 'overdue'
+// 与后端 PaymentType / PaymentStatus 对齐；paid / overdue 为列表展示的聚合态
+export type PaymentType =
+  | 'rent'
+  | 'deposit'
+  | 'commission'
+  | 'service_fee'
+  | 'utility'
+  | 'tax'
+  | 'refund'
+
+export type PaymentStatus =
+  | 'pending'
+  | 'processing'
+  | 'succeeded'
+  | 'failed'
+  | 'refunded'
+  | 'disputed'
+  | 'expired'
+  | 'paid'
+  | 'overdue'
 
 export interface Payment {
-  id: number
-  leaseId: number
+  id: string
+  receipt_no?: string
+  lease_id?: string
+  property_id?: string
+  payer_id: string
+  payee_id?: string
   amount: number
-  type: PaymentType
+  currency: string
+  payment_type: PaymentType
   status: PaymentStatus
-  dueDate: string
-  paidDate?: string
+  channel?: string
+  due_date?: string
+  paid_at?: string
+  receipt_url?: string
+  description?: string
+  failure_reason?: string
+  late_fee_accrued?: number
+  late_fee_waived?: number
+  created_at?: string
+  updated_at?: string
 }
 
 // ============ 文档相关 ============
+// 与后端 `models/document.py::DocumentType` 一致
+export type DocumentType =
+  | 'contract'
+  | 'receipt'
+  | 'inspection_photo'
+  | 'tax_invoice'
+  | 'wht_certificate'
+  | 'property_certificate'
+  | 'owner_id_card'
+  | 'other'
+
 export interface Document {
-  id: number
-  name: string
-  type: string
-  url: string
-  uploadDate: string
+  id: string
+  owner_id: string
+  property_id?: string
+  lease_id?: string
+  type: DocumentType
+  title: string
+  file_url: string
+  file_size?: number
+  mime_type?: string
+  uploaded_by: string
+  tags?: string[]
+  created_at?: string
+  updated_at?: string
 }
 
 // ============ 维修工单相关 ============
@@ -91,31 +187,47 @@ export type MaintenanceStatus = 'open' | 'assigned' | 'in_progress' | 'resolved'
 export type MaintenancePriority = 'low' | 'medium' | 'high' | 'urgent'
 
 export interface MaintenanceTicket {
-  id: number
-  propertyId: number
-  tenantId: number
+  id: string
+  property_id: string
+  tenant_id?: string
+  owner_id?: string
+  lease_id?: string
   title: string
   description: string
-  status: MaintenanceStatus
+  photos?: string[]
   priority: MaintenancePriority
-  createdAt: string
-  updatedAt?: string
+  status: MaintenanceStatus
+  assigned_to?: string
+  resolved_at?: string
+  resolution_notes?: string
+  cost?: number
+  rating?: number
+  feedback?: string
+  created_at?: string
+  updated_at?: string
 }
 
 // ============ 通知相关 ============
 export type NotificationType = 'payment' | 'lease' | 'maintenance' | 'system'
 
 export interface Notification {
-  id: number
-  userId: number
-  type: NotificationType
-  title: string
+  id: string
+  user_id: string
+  channel: string
+  template_key?: string
+  recipient: string
+  subject?: string
   content: string
-  read: boolean
-  createdAt: string
+  status: string
+  sent_at?: string
+  read_at?: string
+  related_entity_type?: string
+  related_entity_id?: string
+  created_at?: string
 }
 
 // ============ 服务相关 ============
+// 本地服务目录视图模型（非后端模型，服务项由前端配置）
 export interface ServiceItem {
   id: number
   name: string
@@ -125,6 +237,7 @@ export interface ServiceItem {
 }
 
 // ============ 收入汇总 ============
+// 本地聚合视图模型（由多个接口汇总而来，非后端单表模型）
 export interface IncomeSummary {
   totalIncome: number
   monthlyIncome: number

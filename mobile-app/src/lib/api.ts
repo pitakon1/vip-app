@@ -130,6 +130,35 @@ const unwrapEnvelope = (response: AxiosResponse) => {
   return response;
 };
 
+/**
+ * 把后端错误体压成一句可展示的文案。
+ *
+ * FastAPI 业务错误是 `{"detail": "..."}`，422 参数校验是
+ * `{"detail": [{loc,msg,type}, ...]}`。页面普遍用 `err.message` 走弹窗/toast，
+ * 不归一化的话用户只会看到 axios 的 "Request failed with status code 422"
+ * 或 "[object Object]"，既不知道原因也不知道改哪一项。
+ */
+const flattenDetail = (detail: unknown): string => {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => (typeof d === 'string' ? d : (d as { msg?: string })?.msg))
+      .filter((m): m is string => typeof m === 'string' && m.trim().length > 0)
+      .join('；');
+  }
+  return '';
+};
+
+const normalizeErrorBody = (error: AxiosError) => {
+  const body = error.response?.data as Record<string, unknown> | undefined;
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return;
+  const raw = body.detail ?? body.msg ?? body.message;
+  const text = flattenDetail(raw);
+  if (!text) return;
+  body.detail = text;
+  error.message = text;
+};
+
 // 响应拦截器：先解包信封，401 再尝试静默续期并重放，续期无望才登出
 apiClient.interceptors.response.use(
   unwrapEnvelope,
@@ -158,6 +187,7 @@ apiClient.interceptors.response.use(
       // 登出内部会一并清掉 token 与用户态缓存，这里不必再单独 remove。
       useAuthStore.getState().logout();
     }
+    normalizeErrorBody(error);
     return Promise.reject(error);
   },
 );

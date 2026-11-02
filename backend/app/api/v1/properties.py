@@ -1,4 +1,5 @@
 """房源路由：房源 CRUD、照片上传及关联租约查询。"""
+import math
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,8 @@ from app.models import (
     PropertyStatus,
     Lease,
     Listing,
+    ListingStatus,
+    ListingType,
     Owner,
     Project,
     School,
@@ -52,7 +55,7 @@ logger = get_logger(__name__)
 
 # 支持的排序取值。relevance 仅在后端生效（关键词搜索时的默认口径），
 # 前端筛选栏不展示它，但仍允许显式传入。
-_PROPERTY_SORTS = ["latest", "price_asc", "price_desc", "area_desc", "relevance"]
+_PROPERTY_SORTS = ["latest", "price_asc", "price_desc", "area_desc", "relevance", "distance"]
 
 # 照片上传目录（backend/uploads/properties），由 /uploads 静态服务暴露
 UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "properties"
@@ -187,6 +190,13 @@ class PropertyDetail(BaseModel):
     address: Optional[str] = None
     property_type: Optional[str] = None
     monthly_rent: Optional[float] = None
+    # 售价来自在售上架单（Listing.asking_price），纯租档案为 None
+    sale_price: Optional[float] = None
+    # 业务类型：sell=存在在售上架单，rent=有租金，None=都无
+    listing_type: Optional[str] = None
+    # 所属项目坐标（房源表本身无坐标），供「附近」排序与距离展示
+    lat: Optional[float] = None
+    lng: Optional[float] = None
     currency: Optional[str] = None
     deposit_amount: Optional[float] = None
     deposit_months: Optional[int] = None
@@ -323,6 +333,15 @@ def list_properties(
         None, description="新房/二手房：true=新房（一手房），false=二手房，不传=全部"
     ),
     project_id: Optional[uuid.UUID] = None,
+    listing_type: Optional[ListingType] = Query(
+        None, description="业务类型：rent=出租（按租金判断）/ sell=买房（存在在售上架单），不传=全部"
+    ),
+    lat: Optional[float] = Query(
+        None, ge=-90, le=90, description="附近排序：用户纬度（与 lng、sort=distance 一起使用）"
+    ),
+    lng: Optional[float] = Query(
+        None, ge=-180, le=180, description="附近排序：用户经度（与 lat、sort=distance 一起使用）"
+    ),
     school_id: Optional[uuid.UUID] = Query(
         None, description="按学校找房：学校 ID（按半径反查其覆盖的小区）"
     ),
@@ -364,8 +383,8 @@ def list_properties(
     has_video: Optional[bool] = Query(None, description="只看有视频看房的房源"),
     sort: Optional[str] = Query(
         None,
-        pattern="^(latest|price_asc|price_desc|area_desc|relevance)$",
-        description="排序。不传时：有关键词按相关性，否则按最新",
+        pattern="^(latest|price_asc|price_desc|area_desc|relevance|distance)$",
+        description="排序。distance 需要同时传 lat/lng；不传时：有关键词按相关性，否则按最新",
     ),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
@@ -382,7 +401,7 @@ def list_properties(
     cache_key = (
         f"cache:properties:list:{pagination.page}:{pagination.page_size}:"
         f"{status.value if status else ''}:{'|'.join(property_type or [])}:{is_new_development}:"
-        f"{project_id or ''}:{owner_id or ''}:"
+        f"{project_id or ''}:{listing_type.value if listing_type else ''}:{lat}:{lng}:{owner_id or ''}:"
         f"{school_id or ''}:{school_radius_km}:"
         f"{country or ''}:{province or ''}:{city or ''}:{district or ''}:{subway or ''}:"
         f"{'|'.join(terms)}:{price_min}:{price_max}:{area_min}:{area_max}:"
@@ -421,6 +440,22 @@ def list_properties(
                     Listing.property_id == Property.id,
                     Listing.deleted_at.is_(None),
                     Listing.is_new_development == is_new_development,
+                )
+            )
+        )
+    if listing_type == ListingType.rent:
+        # 租侧直接看房源租金（与旧版客户端 `monthly_rent > 0` 的口径一致，
+        # 不强制要求存在上架单，避免历史档案从 C 端消失）
+        conditions.append(Property.monthly_rent > 0)
+    elif listing_type == ListingType.sell:
+        # 售侧价格只存在于上架单（Listing.asking_price），用 EXISTS 判断「是否在售」
+        conditions.append(
+            exists(
+                select(Listing.id).where(
+                    Listing.property_id == Property.id,
+                    Listing.deleted_at.is_(None),
+                    Listing.listing_type == ListingType.sell,
+                    Listing.status == ListingStatus.active,
                 )
             )
         )
@@ -515,7 +550,20 @@ def list_properties(
 
     # 排序：默认最新；价格/面积排序时把空值排到最后，避免 NULL 干扰浏览
     score = relevance_score(terms) if sort == "relevance" else None
-    if sort == "price_asc":
+    if sort == "distance":
+        if lat is not None and lng is not None:
+            # 房源本身没有坐标，一律取所属项目（projects.lat/lng）。经度差按 cos(lat)
+            # 压缩成等效纬度差后再平方，排序结果与真实球面距离单调一致；只用四则运算，
+            # 不依赖各数据库是否支持三角函数。无坐标的房源显式排到末尾。
+            lng_scale = math.cos(math.radians(lat))
+            d_lat = Project.lat - lat
+            d_lng = (Project.lng - lng) * lng_scale
+            order_by = [Project.lat.is_(None), (d_lat * d_lat + d_lng * d_lng).asc()]
+            geo_join = Property.project_id == Project.id
+        else:
+            # 没有坐标就算不出距离，退回最新排序（不把一次浏览变成 400）
+            order_by = [Property.created_at.desc()]
+    elif sort == "price_asc":
         order_by = [Property.monthly_rent.asc()]
     elif sort == "price_desc":
         order_by = [Property.monthly_rent.desc()]
@@ -540,12 +588,19 @@ def list_properties(
     # 只是把 items 从 SQLModel 换成带 project_name 的 dict。
     items = result.items
     project_ids = list({p.project_id for p in items if p.project_id})
-    project_names = (
-        {pr.id: pr.name for pr in session.exec(select(Project).where(Project.id.in_(project_ids))).all()}
+    project_meta = (
+        {
+            pid: {"name": name, "lat": plat, "lng": plng}
+            for pid, name, plat, plng in session.exec(
+                select(Project.id, Project.name, Project.lat, Project.lng).where(
+                    Project.id.in_(project_ids)
+                )
+            ).all()
+        }
         if project_ids
         else {}
     )
-    # 归属人姓名同样批量取（管理端列表要展示「归属人」），照 project_names 的
+    # 归属人姓名同样批量取（管理端列表要展示「归属人」），照 project_meta 的
     # `in_` 做法，避免逐条 session.get 造成 N+1。
     creator_ids = list({p.created_by for p in items if p.created_by})
     creator_names = (
@@ -556,11 +611,38 @@ def list_properties(
         if creator_ids
         else {}
     )
+    # 在售价格存在上架单上（Property 只有租金），本页一次性批量取，避免 N+1。
+    page_ids = [p.id for p in items]
+    sale_prices = (
+        {
+            pid: price
+            for pid, price in session.exec(
+                select(Listing.property_id, Listing.asking_price).where(
+                    Listing.property_id.in_(page_ids),
+                    Listing.deleted_at.is_(None),
+                    Listing.listing_type == ListingType.sell,
+                    Listing.status == ListingStatus.active,
+                    Listing.asking_price.is_not(None),
+                )
+            ).all()
+        }
+        if page_ids
+        else {}
+    )
     result.items = [
         {
             **p.model_dump(),
-            "project_name": project_names.get(p.project_id),
+            "project_name": project_meta.get(p.project_id, {}).get("name"),
+            # 房源本身无坐标，C 端「附近」排序与距离展示都取所属项目坐标
+            "lat": project_meta.get(p.project_id, {}).get("lat"),
+            "lng": project_meta.get(p.project_id, {}).get("lng"),
             "creator_name": creator_names.get(p.created_by),
+            "sale_price": sale_prices.get(p.id),
+            "listing_type": (
+                "sell" if p.id in sale_prices
+                else "rent" if (p.monthly_rent or 0) > 0
+                else None
+            ),
         }
         for p in result.items
     ]

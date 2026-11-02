@@ -23,6 +23,7 @@ const zh = {
     welcome: '欢迎',
     close: '关闭',
     noData: '暂无数据',
+    loadFailed: '加载失败，请稍后重试',
     total: '共',
     items: '条',
     '404': {

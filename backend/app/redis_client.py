@@ -19,7 +19,10 @@ def get_redis_sync() -> SyncRedis:
         _sync_redis = SyncRedis.from_url(
             settings.REDIS_URL,
             decode_responses=True,
-            socket_connect_timeout=1,
+            # 连接超时收紧到 0.5s：Redis 是软依赖，不可用时应快速降级。
+            # 原先 1s 在 localhost 双栈（IPv6+IPv4）下会累计约 2s，
+            # 而权限校验每个请求读写各一次，会把接口拖慢约 4s。
+            socket_connect_timeout=0.5,
             socket_timeout=1,
         )
     return _sync_redis

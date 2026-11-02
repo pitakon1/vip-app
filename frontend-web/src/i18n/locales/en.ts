@@ -23,6 +23,7 @@ const en: import('./zh').Translation = {
     welcome: 'Welcome',
     close: 'Close',
     noData: 'No data',
+    loadFailed: 'Failed to load, please try again',
     total: 'Total',
     items: 'items',
     '404': {

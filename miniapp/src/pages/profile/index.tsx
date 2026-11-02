@@ -351,7 +351,7 @@ export default function ProfilePage() {
   const [editErr, setEditErr] = useState('')
 
   const openEdit = () => {
-    setEditName((user as any)?.full_name || (user as any)?.name || '')
+    setEditName(user?.full_name || '')
     setEditPhone(user?.phone || '')
     setEditEmail(user?.email || '')
     setEditCode('')
@@ -807,14 +807,14 @@ export default function ProfilePage() {
                 {user?.avatar_url ? (
                   <Image className='avatar-img' src={user.avatar_url} mode='aspectFill' />
                 ) : (
-                  <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
+                  <Text className='avatar-text'>{user?.full_name?.charAt(0) || 'U'}</Text>
                 )}
                 <View className='avatar__badge'>
                   <View className='icon-svg' style={iconStyle('edit', 20)} />
                 </View>
               </View>
               <View className='profile-card__body'>
-                <Text className='profile-card__name'>{user?.name || '用户'}</Text>
+                <Text className='profile-card__name'>{user?.full_name || '用户'}</Text>
                 <View className='profile-card__meta-row'>
                   <View className='role-tag'>
                     <Text>{ROLE_TEXT[role || ''] || '用户'}</Text>
@@ -908,14 +908,14 @@ export default function ProfilePage() {
               {user?.avatar_url ? (
                 <Image className='avatar-img' src={user.avatar_url} mode='aspectFill' />
               ) : (
-                <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
+                <Text className='avatar-text'>{user?.full_name?.charAt(0) || 'U'}</Text>
               )}
               <View className='avatar__badge'>
                 <View className='icon-svg' style={iconStyle('edit', 20)} />
               </View>
             </View>
             <View className='profile-card__body'>
-              <Text className='profile-card__name'>{user?.name || '管理员'}</Text>
+              <Text className='profile-card__name'>{user?.full_name || '管理员'}</Text>
               <View className='profile-card__meta-row'>
                 <View className='role-tag'>
                   <Text>{ROLE_TEXT[role || ''] || '管理员'}</Text>
@@ -1009,14 +1009,14 @@ export default function ProfilePage() {
               {user?.avatar_url ? (
                 <Image className='avatar-img' src={user.avatar_url} mode='aspectFill' />
               ) : (
-                <Text className='avatar-text'>{user?.name?.charAt(0) || 'U'}</Text>
+                <Text className='avatar-text'>{user?.full_name?.charAt(0) || 'U'}</Text>
               )}
               <View className='avatar__badge'>
                 <View className='icon-svg' style={iconStyle('edit', 20)} />
               </View>
             </View>
             <View className='profile-card__body'>
-              <Text className='profile-card__name'>{user?.name || '用户'}</Text>
+              <Text className='profile-card__name'>{user?.full_name || '用户'}</Text>
               <View className='profile-card__meta-row'>
                 <View className='role-tag'>
                   <Text>{ROLE_TEXT[role || ''] || '员工'}</Text>

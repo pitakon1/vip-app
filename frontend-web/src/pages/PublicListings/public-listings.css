@@ -703,6 +703,7 @@
 /* ---- 价格面板：快捷区间 + 自定义最低/最高 ---- */
 .rent-price-panel {
   width: 440px;
+  max-width: calc(100vw - 32px);
 }
 .rent-price-custom {
   display: flex;
@@ -738,11 +739,13 @@
 /* ---- 户型/状态单选面板 ---- */
 .rent-quick-panel {
   width: 380px;
+  max-width: calc(100vw - 32px);
 }
 
 /* ---- 学校筛选面板（按学校找房的一级入口）---- */
 .rent-school-panel {
   width: 460px;
+  max-width: calc(100vw - 32px);
 }
 .rent-loc-panel__schools {
   display: flex;

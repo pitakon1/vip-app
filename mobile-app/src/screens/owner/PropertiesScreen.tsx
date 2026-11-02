@@ -37,6 +37,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
+import { buildListingPayload } from '@/lib/listingPayload';
 import { useI18n } from '@/i18n';
 
 const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
@@ -307,35 +308,6 @@ const normalizePhotos = (raw: unknown): string[] => {
     })
     .filter(Boolean) as string[];
 };
-
-// 「上架」一键提交载荷：完全由该房源档案派生（后端按 property_id 定位档案，仅校验归属）
-const buildListingPayload = (p: any) => ({
-  property_id: p.id,
-  room_number: p.room_number || p.address || '-',
-  address: p.address || p.room_number || '-',
-  property_type: p.property_type || 'apartment',
-  size_sqm: p.size_sqm ?? undefined,
-  bedrooms: p.bedrooms ?? undefined,
-  bathrooms: p.bathrooms ?? undefined,
-  description: p.description || undefined,
-  photos: Array.isArray(p.photos) && p.photos.length ? p.photos : undefined,
-  furnished: !!p.furnished,
-  video_url: p.video_url || undefined,
-  vr_url: p.vr_url || undefined,
-  ceiling_height_m: p.ceiling_height_m ?? undefined,
-  land_area_sqm: p.land_area_sqm ?? undefined,
-  floor_loading_kg_sqm: p.floor_loading_kg_sqm ?? undefined,
-  column_spacing: p.column_spacing || undefined,
-  power_capacity_kva: p.power_capacity_kva ?? undefined,
-  environmental_permit: p.environmental_permit ?? undefined,
-  whole_floor_only: p.whole_floor_only ?? undefined,
-  whole_building_only: p.whole_building_only ?? undefined,
-  company_registrable: p.company_registrable ?? undefined,
-  listing_type: 'rent',
-  monthly_rent: Number(p.monthly_rent || 0),
-  currency: p.currency || 'THB',
-  owner_id: p.owner_id || undefined,
-});
 
 // react-native-web 下 `Alert.alert` 是空实现（什么都不显示），会把新增/删除的结果与失败原因
 // 静默吞掉，导致用户点击后「没有任何反应」。这里在 web 上降级到浏览器原生 `window.alert`，

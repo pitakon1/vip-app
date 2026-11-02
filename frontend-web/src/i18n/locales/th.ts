@@ -23,6 +23,7 @@ const th: import('./zh').Translation = {
     welcome: 'ยินดีต้อนรับ',
     close: 'ปิด',
     noData: 'ไม่มีข้อมูล',
+    loadFailed: 'โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
     total: 'รวม',
     items: 'รายการ',
     '404': {

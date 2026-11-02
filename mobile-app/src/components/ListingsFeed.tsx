@@ -249,7 +249,7 @@ const statusFilters = (t: TFunc) => [
   { key: '', label: t('common.any') },
   { key: 'vacant', label: t('status.vacant') },
   { key: 'rented', label: t('status.rented') },
-  { key: 'reserved', label: t('status.reserved') },
+  { key: 'renewing', label: t('status.renewing') },
   { key: 'maintenance', label: t('status.maintenance') },
 ];
 
@@ -862,9 +862,10 @@ export default function ListingsFeed({
   const visibleCount = items.length;
 
   // 加载态（统一 LoadingState，含文案说明）
+  // 与正常态一样要避开顶部安全区：否则首屏 loading 会贴在刘海/状态栏下面
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: topInset }]}>
         <LoadingState label={t('list.loadingListings')} />
       </View>
     );
@@ -1635,7 +1636,8 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
     backgroundColor: colors.surface,
   },
-  heroCityText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  // 城市文案最长可能是泰语，限宽 + 单行省略，避免把左侧标题挤到换行
+  heroCityText: { fontSize: 13, fontWeight: '600', color: colors.primary, maxWidth: 120 },
   heroCard: {
     marginHorizontal: 12,
     marginTop: -15,

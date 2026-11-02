@@ -14,6 +14,7 @@
 - 留资接口带限流，防批量灌水；
 - 除留资外**不做任何写操作**。
 """
+import math
 import time
 import uuid
 from datetime import datetime, timedelta
@@ -900,6 +901,12 @@ def list_public_listings(
         None, description="按学校找房：该校半径内房源（空间筛选，非标签筛选）"
     ),
     school_radius_km: float = Query(3.0, gt=0, le=20, description="学校半径，默认 3km"),
+    lat: Optional[float] = Query(
+        None, ge=-90, le=90, description="附近排序：用户纬度（与 lng、sort=distance 一起使用）"
+    ),
+    lng: Optional[float] = Query(
+        None, ge=-180, le=180, description="附近排序：用户经度（与 lat、sort=distance 一起使用）"
+    ),
     sort: Optional[str] = Query(
         None,
         pattern="^(latest|price_asc|price_desc|area_desc|distance|relevance)$",
@@ -917,7 +924,8 @@ def list_public_listings(
 
     排序：显式传 `sort` 时按传入值；不传时，有关键词按**相关性**（命中房号/楼盘名
     权重更高，见 `services.search`），无关键词按最新。前端筛选栏默认会显式传
-    `latest`，因此不会被这条默认口径意外改变行为。
+    `latest`，因此不会被这条默认口径意外改变行为。`sort=distance` 传用户
+    `lat`/`lng` 时按距离升序；按学校找房时以学校坐标为原点；两者都没有则退回最新。
     """
     # 列表不含按身份变化的字段，可公开缓存；详情接口不可（见模块顶部说明）。
     response.headers["Cache-Control"] = "public, max-age=60"
@@ -1082,6 +1090,19 @@ def list_public_listings(
         order_by = [price_column.desc()]
     elif sort == "area_desc":
         order_by = [Property.size_sqm.desc()]
+    elif sort == "distance":
+        # 按学校找房时距离以学校为原点，在该路径内应用层精算，这里不参与排序；
+        # 常规路径才用用户坐标。未带坐标（如清掉学校后 sort 仍为 distance 的历史
+        # 状态）没有距离可算，退回最新排序，避免把一次浏览变成 400。
+        if lat is not None and lng is not None:
+            # 与 /properties 口径一致：经度差按 cos(lat) 压缩后再平方，只用四则运算，
+            # 排序结果与真实球面距离单调一致；无坐标的上架单显式排到末尾。
+            lng_scale = math.cos(math.radians(lat))
+            d_lat = Project.lat - lat
+            d_lng = (Project.lng - lng) * lng_scale
+            order_by = [Project.lat.is_(None), (d_lat * d_lat + d_lng * d_lng).asc()]
+        else:
+            order_by = [Listing.created_at.desc()]
     elif sort == "relevance":
         # 相关性只在「有关键词」时才有意义；terms 为空时退化为最新
         score = relevance_score(terms)

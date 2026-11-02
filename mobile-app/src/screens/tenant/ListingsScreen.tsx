@@ -52,26 +52,16 @@ interface SaleListing {
   [key: string]: any;
 }
 
-// 「附近」排序：用户定位与楼盘坐标间的球面距离（km）；坐标缺失的房源排到最后
-const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }): number => {
-  const R = 6371;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
+// 户型筛选：5 = 5 室及以上，3p = 3 室及以上，其余为精确居室
+const bedParams = (bed: string): Record<string, number> => {
+  if (bed === '5') return { bedrooms_min: 5 };
+  if (bed === '3p') return { bedrooms_min: 3 };
+  if (bed) {
+    const n = Number(bed);
+    return { bedrooms_min: n, bedrooms_max: n };
+  }
+  return {};
 };
-
-// 命中关键词：房源地址/标题任一包含即可
-const matchLocation = (item: any, kws: string[]): boolean =>
-  kws.some((k) =>
-    [item.address, item.title, item.room_number, item.city, item.district, item.area]
-      .filter(Boolean)
-      .map((v) => String(v).toLowerCase())
-      .some((v) => v.includes(k)),
-  );
 
 export default function ListingsScreen() {
   const { t } = useI18n();
@@ -81,7 +71,13 @@ export default function ListingsScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // 关键词：输入即时回显，请求参数按 400ms 防抖下发（服务端 q），避免逐字发请求
+  const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setKeyword(keywordInput.trim()), 400);
+    return () => clearTimeout(timer);
+  }, [keywordInput]);
   // 「附近」：按离我最近排序（首次开启时才申请定位权限）
   const [nearby, setNearby] = useState(false);
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -138,18 +134,134 @@ export default function ListingsScreen() {
   const [favSet, setFavSet] = useState<Record<string, boolean>>({});
   const [favLoading, setFavLoading] = useState<Record<string, boolean>>({});
 
+  // ---------- 按区域 / 按地铁（对齐贝壳「区域 | 地铁」） ----------
+  // 当前定位城市的城区（区/街道）平铺列表：找房页不出现国家/省市，只留 区/街道 颗粒度
+  const cityDistricts = locCity?.children ?? [];
+  // 区域下拉数据源：优先后端真实区域（当前城市 + 当前业务/房型，可显示套数），
+  // 为空回退定位城市静态城区 —— 避免 dev 库稀疏时筛选器变成死界面。
+  const [apiDistricts, setApiDistricts] = useState<PublicDistrict[] | null>(null);
+  const filterTypesKey = filterTypes.join(',');
+  useEffect(() => {
+    let cancelled = false;
+    const types = filterTypesKey ? filterTypesKey.split(',') : [];
+    publicApi
+      .districts({
+        city: locSel.cityKey || undefined,
+        listing_type: biz === 'sale' ? 'sell' : 'rent',
+        ...(types.length ? { property_type: types } : {}),
+      })
+      .then((res: any) => {
+        if (cancelled) return;
+        const body = res?.data?.data ?? res?.data ?? [];
+        setApiDistricts(Array.isArray(body) ? body : []);
+      })
+      .catch(() => {
+        if (!cancelled) setApiDistricts(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [locSel.cityKey, biz, filterTypesKey]);
+
+  const districtList: RegionDistrict[] = useMemo(() => {
+    if (apiDistricts && apiDistricts.length) {
+      return apiDistricts.map((d) => ({
+        key: String(d.district),
+        label: d.listing_count > 0 ? `${d.district} (${d.listing_count})` : String(d.district),
+        kws: [String(d.district).toLowerCase()],
+      }));
+    }
+    return cityDistricts.map((c) => ({ key: c.key, label: c.label, kws: c.kws }));
+  }, [apiDistricts, cityDistricts]);
+
+  // 已选区域/地铁的关键词：下发后端 keywords（同义词组 OR 命中），不再本地匹配
+  const activeLocationKw = useMemo(() => {
+    if (districtSel) {
+      const node = districtList.find((d) => d.key === districtSel);
+      return node ? node.kws : [];
+    }
+    if (metroSel.length) {
+      const stations = METRO_LINES.flatMap((l) => l.stations);
+      return stations.filter((s) => metroSel.includes(s.name)).flatMap((s) => s.kws);
+    }
+    return [];
+  }, [districtSel, metroSel, districtList]);
+
   // 学校筛选参数：未选学校时恒为 null（引用不变），避免只调半径也触发重新拉取
   const schoolFilter = useMemo(
     () => (schoolId ? { id: schoolId, km: schoolKm } : null),
     [schoolId, schoolKm],
   );
 
+  // 筛选条 → /public/listings 服务端参数：价格/面积/户型/状态/朝向/楼层/装修/配套/
+  // 区域地铁关键词全部下发后端，不再只过滤「已加载的当前页」（否则翻页后命中项会漏掉）。
+  const serverFilters = useMemo(() => {
+    const p: Record<string, any> = {};
+    // 价格：预设区间优先；自定义输入按「万」换算（与筛选面板输入口径一致）
+    const pricePreset = PRICE_RANGES.find((x) => x.key === priceRange);
+    if (pricePreset && pricePreset.key) {
+      if (pricePreset.min > 0) p.price_min = pricePreset.min;
+      if (Number.isFinite(pricePreset.max)) p.price_max = pricePreset.max;
+    } else if (customMin || customMax) {
+      if (customMin) p.price_min = Number(customMin) * 10000;
+      if (customMax) p.price_max = Number(customMax) * 10000;
+    }
+    // 面积
+    const areaPreset = AREA_PRESETS.find((x) => x.key === areaRange);
+    if (areaPreset && areaPreset.key) {
+      if (areaPreset.min > 0) p.area_min = areaPreset.min;
+      if (Number.isFinite(areaPreset.max)) p.area_max = areaPreset.max;
+    } else if (areaCustomMin || areaCustomMax) {
+      if (areaCustomMin) p.area_min = Number(areaCustomMin) || 0;
+      if (areaCustomMax) p.area_max = Number(areaCustomMax) || 0;
+    }
+    Object.assign(p, bedParams(bedFilter));
+    if (statusFilter) p.status = statusFilter;
+    if (orientationSel) p.orientation = orientationSel;
+    if (floorSel) p.floor_level = floorSel;
+    if (decorSel) p.decoration = decorSel;
+    if (amenitySel.length) p.amenity = amenitySel;
+    if (activeLocationKw.length) p.keywords = activeLocationKw;
+    if (keyword) p.q = keyword;
+    // default 交给后端默认口径（最新）；「附近」的距离排序覆盖其他排序
+    if (sortKey !== 'default') p.sort = sortKey;
+    if (nearby && userPos) {
+      p.lat = userPos.lat;
+      p.lng = userPos.lng;
+      p.sort = 'distance';
+    }
+    return p;
+  }, [
+    PRICE_RANGES, AREA_PRESETS, priceRange, customMin, customMax, areaRange,
+    areaCustomMin, areaCustomMax, bedFilter, statusFilter, orientationSel, floorSel,
+    decorSel, amenitySel, activeLocationKw, keyword, sortKey, nearby, userPos,
+  ]);
+  // 有成员筛选（非排序）时不能读「城市默认列表」缓存，否则会先闪一帧未筛选结果
+  const hasServerFilters = useMemo(
+    () => Object.keys(serverFilters).some((k) => k !== 'sort'),
+    [serverFilters],
+  );
+
+  // 买房 Tab：只沿用原本生效的户型/关键词（价格预设是月租口径，不适用于售价）
+  const saleFilters = useMemo(() => {
+    const p: Record<string, any> = { ...bedParams(bedFilter) };
+    if (keyword) p.q = keyword;
+    if (sortKey !== 'default') p.sort = sortKey;
+    if (nearby && userPos) {
+      p.lat = userPos.lat;
+      p.lng = userPos.lng;
+      p.sort = 'distance';
+    }
+    return p;
+  }, [bedFilter, keyword, sortKey, nearby, userPos]);
+
   const loadListings = useCallback(
     async (opts?: { force?: boolean }) => {
       // SWR：先渲染磁盘缓存（秒开），再后台请求刷新并回写缓存；公开数据全局一份。
-      // 学校筛选下结果集不同，不进这份全局缓存，避免把筛选结果当首屏数据回灌。
-      const cacheKey = 'tenant-listings';
-      const scoped = !!schoolFilter;
+      // 缓存按城市分桶，避免切城市时先闪出上一座城市的房源。
+      // 学校筛选/附近排序/成员筛选结果集不同，不进这份全局缓存。
+      const cacheKey = `tenant-listings:${locSel.cityKey || 'all'}`;
+      const scoped = !!schoolFilter || nearby || hasServerFilters;
       const seq = ++listReqSeq.current;
       try {
         if (!scoped) {
@@ -174,6 +286,7 @@ export default function ListingsScreen() {
           // （indexes:null）序列化为重复键，与 FastAPI 的 List[str] Query 对齐。
           ...(filterTypes.length ? { property_type: filterTypes } : {}),
           ...(isNew === undefined ? {} : { is_new_development: isNew }),
+          ...serverFilters,
         };
         if (schoolFilter) {
           params.school_id = schoolFilter.id;
@@ -205,7 +318,7 @@ export default function ListingsScreen() {
         }
       }
     },
-    [schoolFilter, t, filterTypes, isNew, locSel.cityKey],
+    [schoolFilter, t, filterTypes, isNew, locSel.cityKey, serverFilters, hasServerFilters],
   );
 
   useEffect(() => {
@@ -234,6 +347,7 @@ export default function ListingsScreen() {
         ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
         ...(filterTypes.length ? { property_type: filterTypes } : {}),
         ...(isNew === undefined ? {} : { is_new_development: isNew }),
+        ...saleFilters,
       });
       const data = res.data;
       const items = Array.isArray(data)
@@ -247,7 +361,7 @@ export default function ListingsScreen() {
     } finally {
       setSaleLoading(false);
     }
-  }, [filterTypes, isNew, locSel.cityKey]);
+  }, [filterTypes, isNew, locSel.cityKey, saleFilters]);
 
   useEffect(() => {
     // 筛选条件变化时 loadSaleListings 引用会变，此处随之重新拉取（不再只认首次加载）
@@ -331,46 +445,6 @@ export default function ListingsScreen() {
     setSchoolKm(route.params.schoolKm ?? 3);
   }, [route.params?.schoolTs]);
 
-  // ---------- 按区域 / 按地铁（对齐贝壳「区域 | 地铁」） ----------
-  // 当前定位城市的城区（区/街道）平铺列表：找房页不出现国家/省市，只留 区/街道 颗粒度
-  const cityDistricts = locCity?.children ?? [];
-  // 区域下拉数据源：优先后端真实区域（当前城市 + 当前业务/房型，可显示套数），
-  // 为空回退定位城市静态城区 —— 避免 dev 库稀疏时筛选器变成死界面。
-  const [apiDistricts, setApiDistricts] = useState<PublicDistrict[] | null>(null);
-  const filterTypesKey = filterTypes.join(',');
-  useEffect(() => {
-    let cancelled = false;
-    const types = filterTypesKey ? filterTypesKey.split(',') : [];
-    publicApi
-      .districts({
-        city: locSel.cityKey || undefined,
-        listing_type: biz === 'sale' ? 'sell' : 'rent',
-        ...(types.length ? { property_type: types } : {}),
-      })
-      .then((res: any) => {
-        if (cancelled) return;
-        const body = res?.data?.data ?? res?.data ?? [];
-        setApiDistricts(Array.isArray(body) ? body : []);
-      })
-      .catch(() => {
-        if (!cancelled) setApiDistricts(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [locSel.cityKey, biz, filterTypesKey]);
-
-  const districtList: RegionDistrict[] = useMemo(() => {
-    if (apiDistricts && apiDistricts.length) {
-      return apiDistricts.map((d) => ({
-        key: String(d.district),
-        label: d.listing_count > 0 ? `${d.district} (${d.listing_count})` : String(d.district),
-        kws: [String(d.district).toLowerCase()],
-      }));
-    }
-    return cityDistricts.map((c) => ({ key: c.key, label: c.label, kws: c.kws }));
-  }, [apiDistricts, cityDistricts]);
-
   // 地图找房弹层：App 无原生地图库（Expo Go 不能加载原生地图模块），
   // 以「视野内房源列表」消费 /public/map-points。
   const [mapOpen, setMapOpen] = useState(false);
@@ -381,24 +455,6 @@ export default function ListingsScreen() {
   const cityMetroLines: RegionMetroLine[] = useMemo(
     () => METRO_LINES.filter((l) => l.cityKey === locSel.cityKey),
     [locSel.cityKey],
-  );
-  // 已选区域/地铁的关键词，用于匹配房源地址/标题
-  const activeLocationKw = useMemo(() => {
-    if (districtSel) {
-      const node = districtList.find((d) => d.key === districtSel);
-      return node ? node.kws : [];
-    }
-    if (metroSel.length) {
-      const stations = METRO_LINES.flatMap((l) => l.stations);
-      return stations.filter((s) => metroSel.includes(s.name)).flatMap((s) => s.kws);
-    }
-    return [];
-  }, [districtSel, metroSel, districtList]);
-
-  // 全局城市作用域：当前定位城市下，房源必须命中该城任一城区关键词（整体过滤，链家式「定位城市看房」）
-  const globalCityKw = useMemo(
-    () => (locCity ? locCity.children.flatMap((d) => d.kws) : []),
-    [locCity],
   );
 
   const onRefresh = useCallback(() => {
@@ -436,132 +492,7 @@ export default function ListingsScreen() {
     [navigation],
   );
 
-  const filtered = useMemo(
-    () =>
-      listings.filter((it) => {
-    if (statusFilter && it.status !== statusFilter) return false;
-    // 朝向
-    if (orientationSel && it.orientation !== orientationSel) return false;
-    // 楼层段（低层 1-5 / 中层 6-15 / 高层 16+）
-    if (floorSel) {
-      const fl = Number(it.floor ?? 0);
-      if (floorSel === 'low' && (fl < 1 || fl > 5)) return false;
-      if (floorSel === 'mid' && (fl < 6 || fl > 15)) return false;
-      if (floorSel === 'high' && fl < 16) return false;
-    }
-    // 装修
-    if (decorSel && it.decoration !== decorSel) return false;
-    // 配套设施（多选任一命中）
-    if (amenitySel.length) {
-      const tags = Array.isArray(it.amenities)
-        ? it.amenities.map((a: any) => String(a))
-        : [];
-      if (!amenitySel.some((a) => tags.includes(a))) return false;
-    }
-    // 户型（1-4 室精确匹配；5室+ 覆盖 >=5；3居+ 覆盖 >=3）
-    if (bedFilter) {
-      const beds = Number(it.bedrooms ?? 0);
-      if (bedFilter === '5') {
-        if (beds < 5) return false;
-      } else if (bedFilter === '3p') {
-        if (beds < 3) return false;
-      } else if (beds !== Number(bedFilter)) {
-        return false;
-      }
-    }
-    // 价格筛选（贝壳式：预设快捷区间 或 自定义最低/最高，万元 → THB）
-    const rent = Number(it.monthly_rent ?? 0);
-    let pMin = 0, pMax = Infinity;
-    const preset = PRICE_RANGES.find((x) => x.key === priceRange);
-    if (preset && preset.key) {
-      pMin = preset.min;
-      pMax = preset.max;
-    } else if (customMin || customMax) {
-      pMin = (Number(customMin) || 0) * 10000;
-      pMax = (Number(customMax) || 0) * 10000;
-    }
-    if (rent < pMin || rent > pMax) return false;
-    // 面积筛选（贝壳式：预设快捷区间 或 自定义最低/最高 ㎡）
-    const sqm = Number(it.size_sqm ?? 0);
-    let aMin = 0, aMax = Infinity;
-    const areaPreset = AREA_PRESETS.find((x) => x.key === areaRange);
-    if (areaPreset && areaPreset.key) {
-      aMin = areaPreset.min;
-      aMax = areaPreset.max;
-    } else if (areaCustomMin || areaCustomMax) {
-      aMin = Number(areaCustomMin) || 0;
-      aMax = Number(areaCustomMax) || 0;
-    }
-    if ((aMin > 0 && sqm < aMin) || (isFinite(aMax) && aMax > 0 && sqm > aMax)) return false;
-    if (keyword) {
-      const kw = keyword.toLowerCase();
-      const hay = `${it.title ?? ''} ${it.address ?? ''} ${it.room_number ?? ''}`.toLowerCase();
-      if (!hay.includes(kw)) return false;
-    }
-    // 按区域/按地铁：命中已选城区/站点关键词
-    if (activeLocationKw.length && !matchLocation(it, activeLocationKw)) {
-      return false;
-    }
-    // 全局城市作用域（链家式：定位城市后只看该市房源）
-    if (globalCityKw.length && !matchLocation(it, globalCityKw)) {
-      return false;
-    }
-    return true;
-      }),
-    [listings, statusFilter, bedFilter, orientationSel, floorSel, decorSel, amenitySel, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, keyword, activeLocationKw, globalCityKw, PRICE_RANGES, AREA_PRESETS],
-  );
-
-  // 排序（贝壳式 Tab）；「附近」开启时按离我最近优先，无坐标的房源排到最后
-  const sortedData = useMemo(() => {
-    const arr = [...filtered];
-    if (nearby && userPos) {
-      const pos = userPos;
-      arr.sort((a, b) => {
-        const da =
-          a.lat != null && a.lng != null
-            ? haversineKm(pos, { lat: a.lat, lng: a.lng })
-            : Infinity;
-        const db =
-          b.lat != null && b.lng != null
-            ? haversineKm(pos, { lat: b.lat, lng: b.lng })
-            : Infinity;
-        return da - db;
-      });
-      return arr;
-    }
-    switch (sortKey) {
-      case 'price_asc':
-        arr.sort((a, b) => (a.monthly_rent ?? 0) - (b.monthly_rent ?? 0));
-        break;
-      case 'price_desc':
-        arr.sort((a, b) => (b.monthly_rent ?? 0) - (a.monthly_rent ?? 0));
-        break;
-      case 'area_desc':
-        arr.sort((a, b) => (b.size_sqm ?? 0) - (a.size_sqm ?? 0));
-        break;
-      default:
-        break;
-    }
-    return arr;
-  }, [filtered, sortKey, nearby, userPos]);
-
-  // 买房 Tab 数据（真实挂牌，按关键字 + 居室快选过滤）
-  const saleFiltered = useMemo(() => {
-    let arr = saleListings;
-    if (bedFilter) {
-      arr = arr.filter((s) => {
-        const n = Number(s.bedrooms ?? 0);
-        return bedFilter === '3p' ? n >= 3 : n === Number(bedFilter);
-      });
-    }
-    if (keyword) {
-      const kw = keyword.toLowerCase();
-      arr = arr.filter((s) =>
-        `${s.title ?? ''} ${s.address ?? ''}`.toLowerCase().includes(kw),
-      );
-    }
-    return arr;
-  }, [saleListings, keyword, bedFilter]);
+  // 筛选与排序全部由服务端完成（serverFilters / saleFilters），列表直接渲染接口结果
 
   // 「附近」：切换离我最近排序。首次开启才申请定位权限（避免一进页面就弹权限框）
   const handleToggleNearby = useCallback(async () => {
@@ -586,13 +517,13 @@ export default function ListingsScreen() {
       }
     }
     // 当前数据集里一个坐标都没有时排序无从谈起，如实提示而不是假装排好了
-    const src = biz === 'sale' ? saleFiltered : filtered;
+    const src = biz === 'sale' ? saleListings : listings;
     if (!src.some((it: any) => it.lat != null && it.lng != null)) {
       notify(t('common.hint'), t('list.nearbyNoData'));
       return;
     }
     setNearby(true);
-  }, [nearby, userPos, biz, saleFiltered, filtered, t]);
+  }, [nearby, userPos, biz, saleListings, listings, t]);
 
   // 地图点位拉取：覆盖全业务（租/售/新房/二手房/商办/厂房），按当前筛选收敛
   const loadMapPoints = useCallback(async () => {
@@ -642,7 +573,7 @@ export default function ListingsScreen() {
   // ---------- 受控筛选：聚合为 filters 下发给展示组件，回写时按字段分发 ----------
   const filters: ListingsFilters = useMemo(
     () => ({
-      keyword,
+      keyword: keywordInput,
       districtSel,
       metroSel,
       priceRange,
@@ -665,14 +596,14 @@ export default function ListingsScreen() {
       isNew,
     }),
     [
-      keyword, districtSel, metroSel, priceRange, customMin, customMax, bedFilter,
+      keywordInput, districtSel, metroSel, priceRange, customMin, customMax, bedFilter,
       statusFilter, orientationSel, floorSel, decorSel, amenitySel, areaRange,
       areaCustomMin, areaCustomMax, sortKey, schoolId, schoolKm, schoolKw, filterTypes, isNew,
     ],
   );
 
   const handleFiltersChange = useCallback((patch: Partial<ListingsFilters>) => {
-    if (patch.keyword !== undefined) setKeyword(patch.keyword);
+    if (patch.keyword !== undefined) setKeywordInput(patch.keyword);
     if (patch.districtSel !== undefined) setDistrictSel(patch.districtSel);
     if (patch.metroSel !== undefined) setMetroSel(patch.metroSel);
     if (patch.priceRange !== undefined) setPriceRange(patch.priceRange);
@@ -715,7 +646,7 @@ export default function ListingsScreen() {
   return (
     <View style={styles.container}>
       <ListingsFeed
-        items={biz === 'sale' ? saleFiltered : sortedData}
+        items={biz === 'sale' ? saleListings : listings}
         loading={loading}
         error={biz === 'sale' ? saleError : loadError}
         emptyLoading={biz === 'sale' && saleLoading}

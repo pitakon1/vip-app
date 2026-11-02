@@ -142,6 +142,25 @@ export function unwrapUploadResult<T = any>(res: any): T {
 }
 
 /**
+ * 把后端错误体压成一句可直接 toast 的文案。
+ *
+ * FastAPI 的业务错误是 `{"detail": "..."}`（字符串），而 422 参数校验是
+ * `{"detail": [{loc,msg,type}, ...]}`（数组）。此前直接 `String(detail)`，
+ * 数组会渲染成 "[object Object]"——用户看到一堆无意义字符，也不知道哪一项填错。
+ */
+export function extractErrorMessage(body: any, fallback: string): string {
+  const detail = body?.detail ?? body?.msg ?? body?.message
+  if (typeof detail === 'string' && detail.trim()) return detail
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((d: any) => (typeof d === 'string' ? d : d?.msg))
+      .filter((m: any): m is string => typeof m === 'string' && m.trim().length > 0)
+    if (msgs.length) return msgs.join('；')
+  }
+  return fallback
+}
+
+/**
  * 统一请求封装
  * - 请求拦截：从本地存储读取 token，注入 Authorization 头
  * - 响应拦截：401 先尝试静默续期并重放；续期也失败才清态跳登录
@@ -203,13 +222,12 @@ export async function request<T = unknown>(options: RequestOptions<T>): Promise<
       return unwrapEnvelope(res.data, res.header as Record<string, string> | undefined) as T
     }
 
-    // 尽量透出后端 detail（FastAPI 错误体），便于 toast 展示真实原因
+    // 尽量透出后端 detail（FastAPI 错误体），便于 toast 展示真实原因；
+    // 422 的 detail 是数组，统一交给 extractErrorMessage 压成一句话
     const body = (res?.data as any)
-    const detail = body && typeof body === 'object' ? body.detail : undefined
-    console.error('[API] 请求失败', { url: fullUrl, statusCode: res.statusCode, detail })
-    return Promise.reject(
-      new Error(detail ? String(detail) : `请求失败，状态码：${res.statusCode}`)
-    )
+    const message = extractErrorMessage(body, `请求失败，状态码：${res.statusCode}`)
+    console.error('[API] 请求失败', { url: fullUrl, statusCode: res.statusCode, detail: body?.detail })
+    return Promise.reject(new Error(message))
   } catch (error) {
     console.error('[API] 网络异常', { url: fullUrl, error })
     return Promise.reject(error)

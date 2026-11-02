@@ -201,14 +201,8 @@ export const STATUS_OPTIONS = [
   { key: 'maintenance', label: 'pub.statusMaintenance' }
 ]
 
-// ==================== 匹配 / 排序（客户端筛选，C 端与员工端共用） ====================
-const matchBiz = (item: Listing, biz: BizKey): boolean => {
-  const isSale = Number(item.sale_price) > 0
-  if (biz === 'sale') return isSale
-  if (isSale) return false
-  return Number(item.monthly_rent) > 0
-}
-
+// ==================== 匹配 / 排序（客户端兜底，C 端与员工端共用） ====================
+// 业务类型（出租/买房）已由后端 `listing_type` 过滤，这里不再重复判断。
 const matchPrice = (rent: number, min: number, max: number): boolean => {
   if (min != null && !Number.isNaN(min) && min > 0 && rent < min) return false
   if (max != null && !Number.isNaN(max) && max > 0 && rent > max) return false
@@ -246,7 +240,6 @@ const haversineKm = (
 }
 
 export interface ListingsMatchContext {
-  biz: BizKey
   /** 全局定位城市作用域关键词 */
   cityKw: string[]
   /** 当前「区域/地铁」筛选命中的关键词 */
@@ -284,7 +277,6 @@ export function selectVisibleListings(
 
   const list = listings.filter(
     (it) =>
-      matchBiz(it, ctx.biz) &&
       matchLocation(it, ctx.cityKw) &&
       matchLocation(it, ctx.locationKw) &&
       matchPrice(Number(it.monthly_rent || 0), activePrice.min, activePrice.max) &&
@@ -1100,7 +1092,8 @@ export default function ListingsFeed(props: ListingsFeedProps) {
         {items.map((item) => {
           const photo = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : ''
           const statusMeta = statusMetaOf(t, item.status)
-          const isSaleItem = Number(item.sale_price) > 0
+          // 租售混合档案在出租 Tab 下按租金展示，只有买房 Tab 才用售价
+          const isSaleItem = biz === 'sale' && Number(item.sale_price) > 0
           const isFaved = favSet.has(String(item.id))
           // 卡片标签：房型 / 面积 / 装修，最多 3 个（对齐原型标签行）
           const cardTags = [

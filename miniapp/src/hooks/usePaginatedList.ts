@@ -42,6 +42,9 @@ export function usePaginatedList<T>({
   // 用 ref 兜住可能每次渲染重建的回调，避免 useCallback 依赖抖动
   const fetcherRef = useRef(fetcher)
   fetcherRef.current = fetcher
+  // 记住首页请求参数：触底加载更多时必须复用同一套筛选条件，
+  // 否则第 2 页会退回「无筛选」的全量结果，和已加载的第 1 页口径不一致。
+  const lastParamsRef = useRef<FetchParams>(undefined)
   const hasMoreRef = useRef(hasMore)
   hasMoreRef.current = hasMore
   const onErrorRef = useRef(onError)
@@ -65,6 +68,8 @@ export function usePaginatedList<T>({
 
   const fetch = useCallback(
     async (nextPage = 1, params?: FetchParams) => {
+      if (nextPage <= 1) lastParamsRef.current = params
+      const effectiveParams = nextPage <= 1 ? params : lastParamsRef.current
       const cacheKeyFull = nextPage <= 1 ? fullCacheKey(params) : null
       if (nextPage <= 1) {
         // SWR：同步读缓存先渲染，避免白屏/转圈
@@ -87,7 +92,7 @@ export function usePaginatedList<T>({
       }
       setError(false)
       try {
-        const items = await fetcherRef.current(nextPage, pageSize, params)
+        const items = await fetcherRef.current(nextPage, pageSize, effectiveParams)
         setList((prev) => (nextPage <= 1 ? items : [...prev, ...items]))
         setPage(nextPage)
         setHasMoreState(isLastPage(items))

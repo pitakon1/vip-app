@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect, startTransition } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Dropdown } from 'antd'
@@ -7,6 +7,7 @@ import useAuthStore from '@/stores/auth'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import NotificationsBell from '@/components/NotificationsBell'
 import { ROLE_SECTIONS, C_PORTAL_NAV_KEYS, resolveLabelKey } from '@/config/roleMenus'
+import { prefetchRoute, prefetchRoutes } from '@/lib/routePrefetch'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './PortalLayout.css'
 
@@ -63,7 +64,21 @@ const PortalLayout = () => {
     return prefix?.key || null
   }, [location.pathname, nav])
 
-  const handleNav = (key: string) => navigate(key)
+  const go = (key: string) => {
+    prefetchRoute(key)
+    // transition 导航：目标页 chunk 就绪前保留当前页面，不闪白
+    startTransition(() => {
+      navigate(key)
+    })
+  }
+
+  // 空闲预热顶栏 6 个入口，首次切换基本即时
+  useEffect(() => {
+    const timer = window.setTimeout(() => prefetchRoutes(nav.map((n) => n.key)), 800)
+    return () => window.clearTimeout(timer)
+  }, [nav])
+
+  const handleNav = (key: string) => go(key)
 
   const handleLogout = () => {
     logout()
@@ -71,7 +86,10 @@ const PortalLayout = () => {
   }
 
   const handleGoHome = () => {
-    navigate('/tenant/dashboard')
+    prefetchRoute('/tenant/dashboard')
+    startTransition(() => {
+      navigate('/tenant/dashboard')
+    })
   }
 
   const userMenu: MenuProps['items'] = [
@@ -100,6 +118,9 @@ const PortalLayout = () => {
               key={item.key}
               className="rent-portal__nav-item"
               data-active={selectedKey === item.key}
+              onMouseEnter={() => prefetchRoute(item.key)}
+              onFocus={() => prefetchRoute(item.key)}
+              onTouchStart={() => prefetchRoute(item.key)}
               onClick={(e) => {
                 e.preventDefault()
                 handleNav(item.key)

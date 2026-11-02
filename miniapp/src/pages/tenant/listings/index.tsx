@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
@@ -8,6 +8,7 @@ import { useLocationStore, findCityByKey } from '@/stores/location'
 import BottomNav from '@/components/BottomNav'
 import { usePaginatedList } from '@/hooks/usePaginatedList'
 import { useDistrictNodes } from '@/lib/categoryShared'
+import { buildListingsParams } from '@/lib/listingsQuery'
 import ListingsFeed, {
   selectVisibleListings,
   type BizKey,
@@ -78,12 +79,17 @@ export default function TenantListingsPage() {
       pageSize: PAGE_SIZE,
       cacheKey: 'tenant-listings',
       fetcher: async (p, ps, params) => {
+        const extra = { ...((params as any) || {}) }
+        delete extra.q
         const res: any = await propertiesApi.list({
           page: p,
           page_size: ps,
           // 城市统一传定位 cityKey（后端做 slug 归一化），不再传中文 cityLabel
           city: locSel.cityKey,
           ...((params as any)?.q ? { q: (params as any).q } : {}),
+          // 价格 / 面积 / 户型 / 状态 / 朝向 / 装修 / 楼层 / 配套 / 区域地铁关键词 /
+          // 排序均下发服务端，避免筛选只作用于「当前页」而导致翻页漏项
+          ...extra,
           // 房源类型多值经 propertiesApi.list 拼成重复键，与 FastAPI 的
           // List[str] Query 对齐；新房/二手房由上架单标记经 EXISTS 子查询过滤。
           ...(filterTypes.length ? { property_type: filterTypes } : {}),
@@ -161,16 +167,64 @@ export default function TenantListingsPage() {
     [locCity]
   )
 
-  const visibleList = useMemo(
-    () =>
-      selectVisibleListings(listings, filters, {
-        biz,
-        cityKw: globalCityKw,
+  // 服务端查询参数（筛选变化时重拉第 1 页，触底加载沿用同一套参数）
+  const serverParams = useMemo(
+    () => ({
+      ...(query ? { q: query } : {}),
+      ...buildListingsParams(filters, {
         locationKw: activeLocationKw,
+        cityKw: globalCityKw,
+        biz,
         nearbyPos: nearby ? userPos : null
-      }),
-    [listings, filters, biz, globalCityKw, activeLocationKw, nearby, userPos]
+      })
+    }),
+    [query, filters, activeLocationKw, globalCityKw, biz, nearby, userPos]
   )
+  const serverParamsRef = useRef(serverParams)
+  serverParamsRef.current = serverParams
+  const serverParamsKey = JSON.stringify(serverParams)
+  const appliedParamsKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    // 首次进入由 useDidShow 拉取；之后筛选/搜索条件变化才重新拉第 1 页。
+    // 面板里连续点选会连续变更筛选，这里做 250ms 防抖，只发最后一次。
+    if (appliedParamsKeyRef.current === null) {
+      appliedParamsKeyRef.current = serverParamsKey
+      return
+    }
+    if (appliedParamsKeyRef.current === serverParamsKey) return
+    const timer = setTimeout(() => {
+      appliedParamsKeyRef.current = serverParamsKey
+      fetchListings(1, serverParams)
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [serverParamsKey])
+
+  const visibleList = useMemo(() => {
+    // 服务端已按业务类型/价格/面积/户型/状态/朝向/装修/楼层/配套/区域关键词筛选，
+    // 并已按距离排序；这里只做本页内的顺序微调（翻页顺序由服务端保证）
+    const serverHandledFilters: ListingsFilters = {
+      ...filters,
+      districtSel: null,
+      metroSel: [],
+      pricePreset: '',
+      customMin: '',
+      customMax: '',
+      bedroomSel: '',
+      areaPreset: '',
+      areaCustomMin: '',
+      areaCustomMax: '',
+      statusSel: '',
+      orientationSel: '',
+      floorSel: '',
+      decorSel: '',
+      amenitySel: []
+    }
+    return selectVisibleListings(listings, serverHandledFilters, {
+      cityKw: [],
+      locationKw: [],
+      nearbyPos: nearby ? userPos : null
+    })
+  }, [listings, filters, nearby, userPos])
 
   const fetchFavorites = async () => {
     try {
@@ -198,7 +252,7 @@ export default function TenantListingsPage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchListings(1)
+    fetchListings(1, serverParamsRef.current)
     fetchFavorites()
   })
 
@@ -217,13 +271,11 @@ export default function TenantListingsPage() {
       })
     }
     setQuery(q)
-    fetchListings(1, { q })
   }
 
   const applyRecent = (word: string) => {
     setKeyword(word)
     setQuery(word)
-    fetchListings(1, { q: word })
   }
 
   const clearRecent = () => {
@@ -320,7 +372,7 @@ export default function TenantListingsPage() {
         hasMore={hasMore}
         error={listError}
         onLoadMore={fetchMore}
-        onRetry={() => fetchListings(1, { q: query })}
+        onRetry={() => fetchListings(1, serverParams)}
         filters={filters}
         onFiltersChange={patchFilters}
         cityDistricts={cityDistricts}

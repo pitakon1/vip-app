@@ -227,6 +227,9 @@ def export_leases(
     ),
     date_from: Optional[date_type] = Query(None, description="合同起始日 ≥ date_from"),
     date_to: Optional[date_type] = Query(None, description="合同起始日 ≤ date_to"),
+    ending_within_days: Optional[int] = Query(
+        None, ge=1, le=365, description="即将到期：在租且合同结束日距今 ≤ N 天"
+    ),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -244,6 +247,7 @@ def export_leases(
         keyword=keyword,
         date_from=date_from,
         date_to=date_to,
+        ending_within_days=ending_within_days,
     )
 
     leases = session.exec(

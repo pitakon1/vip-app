@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, startTransition } from 'react'
 import { Dropdown, Input } from 'antd'
 import type { MenuProps } from 'antd'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
@@ -9,6 +9,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import NotificationsBell from '@/components/NotificationsBell'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import { ROLE_SECTIONS, ROLE_MOBILE_KEYS, resolveLabelKey } from '@/config/roleMenus'
+import { prefetchRoute, prefetchRoutes } from '@/lib/routePrefetch'
 import './MainLayout.css'
 
 interface NavItem {
@@ -112,9 +113,25 @@ const MainLayout = () => {
     return 'HaoFang.World'
   }, [sections, selectedKey])
 
-  const handleNav = (key: string) => {
-    navigate(key)
+  // 切换页面：先预取目标 chunk，再以 transition 导航——
+  // React 会把这次路由更新视为「非紧急」，在目标页 chunk 就绪前保留当前页面内容，
+  // 避免整页闪白/整页 loading。chunk 已预取时切换基本无感。
+  const go = (key: string) => {
+    prefetchRoute(key)
+    startTransition(() => {
+      navigate(key)
+    })
     setMobileOpen(false)
+  }
+
+  // 挂载后空闲预热底部 Tab，移动端首次点击 Tab 不再等 chunk
+  useEffect(() => {
+    const timer = window.setTimeout(() => prefetchRoutes(mobileTabs.map((i) => i.key)), 800)
+    return () => window.clearTimeout(timer)
+  }, [mobileTabs])
+
+  const handleNav = (key: string) => {
+    go(key)
   }
 
   const handleLogout = () => {
@@ -123,7 +140,10 @@ const MainLayout = () => {
   }
 
   const handleGoHome = () => {
-    navigate('/')
+    prefetchRoute('/')
+    startTransition(() => {
+      navigate('/')
+    })
   }
 
   const userMenu: MenuProps['items'] = [
@@ -170,6 +190,9 @@ const MainLayout = () => {
                     key={item.key}
                     className="rent-nav-item"
                     data-active={selectedKey === item.key}
+                    onMouseEnter={() => prefetchRoute(item.key)}
+                    onFocus={() => prefetchRoute(item.key)}
+                    onTouchStart={() => prefetchRoute(item.key)}
                     onClick={(e) => {
                       e.preventDefault()
                       handleNav(item.key)
@@ -262,10 +285,11 @@ const MainLayout = () => {
               key={item.key}
               className="rent-mobile-nav__item"
               data-active={active}
+              onMouseEnter={() => prefetchRoute(item.key)}
+              onTouchStart={() => prefetchRoute(item.key)}
               onClick={(e) => {
                 e.preventDefault()
-                navigate(item.key)
-                setMobileOpen(false)
+                go(item.key)
               }}
             >
               <span className="rent-mobile-nav__icon">{item.icon}</span>

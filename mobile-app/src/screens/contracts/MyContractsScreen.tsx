@@ -200,7 +200,7 @@ export default function MyContractsScreen() {
     const ps: any[] = Array.isArray(detail?.parties) ? detail.parties : [];
     const uid = String(user?.id ?? '');
     const mail = String(user?.email ?? '').trim().toLowerCase();
-    const uname = String(user?.name ?? '').trim().toLowerCase();
+    const uname = String(user?.full_name ?? '').trim().toLowerCase();
     const direct = ps.find(
       (p: any) =>
         (!!p?.user_id && String(p.user_id) === uid) ||
@@ -214,7 +214,7 @@ export default function MyContractsScreen() {
       if (byName) return byName;
     }
     return ps.length === 1 ? ps[0] : null;
-  }, [detail, user?.id, user?.email, user?.name]);
+  }, [detail, user?.id, user?.email, user?.full_name]);
 
   const signFields: any[] = Array.isArray(detail?.sign_fields) ? detail.sign_fields : [];
   const myFields = signFields.filter(

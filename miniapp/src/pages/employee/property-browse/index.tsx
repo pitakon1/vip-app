@@ -2,10 +2,11 @@
  * 员工端 - 房源浏览（纯浏览）。
  *
  * UI 1:1 复用 C 端「找房」信息流组件 `<ListingsFeed/>`：同一套 hero / 筛选 Tab / 房源卡片。
- * 本页只负责数据：`propertiesApi.list`（buildParams 组装查询）+ 收藏 + 定位 + 客户端筛选排序。
+ * 本页只负责数据：`propertiesApi.list`（buildParams 组装查询）+ 收藏 + 定位；
+ * 价格/面积/户型等筛选下发服务端，仅业务类型与「附近」排序保留客户端。
  * 已移除分享 / 预约带看 / 上架等员工侧操作，卡片点击进入房源详情。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
@@ -15,6 +16,7 @@ import { useLocationStore, findCityByKey } from '@/stores/location'
 import BottomNav from '@/components/BottomNav'
 import { usePaginatedList } from '@/hooks/usePaginatedList'
 import { useDistrictNodes } from '@/lib/categoryShared'
+import { buildListingsParams } from '@/lib/listingsQuery'
 import ListingsFeed, {
   selectVisibleListings,
   type BizKey,
@@ -76,7 +78,7 @@ export default function EmployeePropertyBrowsePage() {
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
   const [favPending, setFavPending] = useState<Set<string>>(new Set())
 
-  // 后端查询参数（服务端只按关键词 + 定位城市收敛，其余维度客户端筛选，与 C 端口径一致）
+  // 后端查询参数（关键词 + 定位城市；筛选维度见 buildListingsParams）
   const buildParams = (over: { q?: string } = {}): Record<string, any> => {
     const q = over.q ?? query
     const p: Record<string, any> = { page: 1, page_size: PAGE_SIZE }
@@ -90,8 +92,11 @@ export default function EmployeePropertyBrowsePage() {
       pageSize: PAGE_SIZE,
       cacheKey: 'employee-property-browse',
       fetcher: async (p, ps, params) => {
+        const extra = { ...((params as any) || {}) }
+        delete extra.q
         const res: any = await propertiesApi.list({
-          ...buildParams(params as { q?: string }),
+          ...buildParams({ q: (params as any)?.q }),
+          ...extra,
           page: p,
           page_size: ps
         })
@@ -129,16 +134,64 @@ export default function EmployeePropertyBrowsePage() {
     [locCity]
   )
 
-  const visibleList = useMemo(
-    () =>
-      selectVisibleListings(listings, filters, {
-        biz,
-        cityKw: globalCityKw,
+  // 服务端查询参数（筛选变化时重拉第 1 页，触底加载沿用同一套参数）
+  const serverParams = useMemo(
+    () => ({
+      ...(query ? { q: query } : {}),
+      ...buildListingsParams(filters, {
         locationKw: activeLocationKw,
+        cityKw: globalCityKw,
+        biz,
         nearbyPos: nearby ? userPos : null
-      }),
-    [listings, filters, biz, globalCityKw, activeLocationKw, nearby, userPos]
+      })
+    }),
+    [query, filters, activeLocationKw, globalCityKw, biz, nearby, userPos]
   )
+  const serverParamsRef = useRef(serverParams)
+  serverParamsRef.current = serverParams
+  const serverParamsKey = JSON.stringify(serverParams)
+  const appliedParamsKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    // 首次进入由 useDidShow 拉取；之后筛选/搜索条件变化才重新拉第 1 页。
+    // 面板里连续点选会连续变更筛选，这里做 250ms 防抖，只发最后一次。
+    if (appliedParamsKeyRef.current === null) {
+      appliedParamsKeyRef.current = serverParamsKey
+      return
+    }
+    if (appliedParamsKeyRef.current === serverParamsKey) return
+    const timer = setTimeout(() => {
+      appliedParamsKeyRef.current = serverParamsKey
+      fetchList(1, serverParams)
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [serverParamsKey])
+
+  const visibleList = useMemo(() => {
+    // 服务端已按业务类型/价格/面积/户型/状态/朝向/装修/楼层/配套/区域关键词筛选，
+    // 并已按距离排序；这里只做本页内的顺序微调（翻页顺序由服务端保证）
+    const serverHandledFilters: ListingsFilters = {
+      ...filters,
+      districtSel: null,
+      metroSel: [],
+      pricePreset: '',
+      customMin: '',
+      customMax: '',
+      bedroomSel: '',
+      areaPreset: '',
+      areaCustomMin: '',
+      areaCustomMax: '',
+      statusSel: '',
+      orientationSel: '',
+      floorSel: '',
+      decorSel: '',
+      amenitySel: []
+    }
+    return selectVisibleListings(listings, serverHandledFilters, {
+      cityKw: [],
+      locationKw: [],
+      nearbyPos: nearby ? userPos : null
+    })
+  }, [listings, filters, nearby, userPos])
 
   // 进入页面时读取本地搜索历史
   useEffect(() => {
@@ -172,7 +225,7 @@ export default function EmployeePropertyBrowsePage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
-    fetchList(1)
+    fetchList(1, serverParamsRef.current)
     fetchFavorites()
   })
 
@@ -191,13 +244,11 @@ export default function EmployeePropertyBrowsePage() {
       })
     }
     setQuery(q)
-    fetchList(1, { q })
   }
 
   const applyRecent = (word: string) => {
     setKeyword(word)
     setQuery(word)
-    fetchList(1, { q: word })
   }
 
   const clearRecent = () => {
@@ -286,7 +337,7 @@ export default function EmployeePropertyBrowsePage() {
         hasMore={hasMore}
         error={error}
         onLoadMore={fetchMore}
-        onRetry={() => fetchList(1, { q: query })}
+        onRetry={() => fetchList(1, serverParams)}
         filters={filters}
         onFiltersChange={patchFilters}
         cityDistricts={cityDistricts}

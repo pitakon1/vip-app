@@ -18,7 +18,8 @@ export interface Project {
   [key: string]: any
 }
 
-export type PropertyStatus = 'vacant' | 'rented' | 'reserved' | 'maintenance'
+// 与后端 PropertyStatus 对齐（含 renewing）；reserved 为前端历史展示态
+export type PropertyStatus = 'vacant' | 'rented' | 'reserved' | 'renewing' | 'maintenance'
 
 export interface Property {
   id: string
@@ -37,6 +38,15 @@ export interface Property {
   address: string
   property_type: string
   furnished: boolean
+  listing_no?: string
+  orientation?: string
+  decoration?: string
+  description?: string
+  photos?: string[]
+  amenities?: string[]
+  available_from?: string
+  created_at?: string
+  updated_at?: string
   [key: string]: any
 }
 
@@ -49,7 +59,8 @@ export interface Tenant {
   [key: string]: any
 }
 
-export type LeaseStatus = 'active' | 'expired' | 'terminated'
+// 与后端 LeaseStatus 对齐（含 pending）
+export type LeaseStatus = 'active' | 'expired' | 'terminated' | 'pending'
 
 export interface Lease {
   id: string
@@ -63,16 +74,35 @@ export interface Lease {
   deposit_amount: number
   currency: string
   deposit_status: string
+  lease_no?: string
+  agent_id?: string
+  contract_url?: string
+  special_terms?: string
+  renewed_from_lease_id?: string
+  created_at?: string
+  updated_at?: string
   [key: string]: any
 }
 
-export type PaymentType = 'rent' | 'deposit' | 'refund'
+// 与后端 PaymentType / PaymentStatus 对齐；paid / overdue 为列表展示的聚合态
+export type PaymentType =
+  | 'rent'
+  | 'deposit'
+  | 'commission'
+  | 'service_fee'
+  | 'utility'
+  | 'tax'
+  | 'refund'
 export type PaymentStatus =
   | 'pending'
-  | 'paid'
-  | 'overdue'
+  | 'processing'
   | 'succeeded'
   | 'failed'
+  | 'refunded'
+  | 'disputed'
+  | 'expired'
+  | 'paid'
+  | 'overdue'
 
 export interface Payment {
   id: string
@@ -85,10 +115,18 @@ export interface Payment {
   payment_type: string
   due_date: string
   paid_at: string
+  receipt_no?: string
+  payer_id?: string
+  payee_id?: string
+  receipt_url?: string
+  description?: string
+  failure_reason?: string
   // 逾期滞纳金：应缴 = amount + (late_fee_accrued - late_fee_waived)
   late_fee_accrued?: number
   late_fee_waived?: number
   late_fee_updated_at?: string
+  created_at?: string
+  updated_at?: string
   [key: string]: any
 }
 

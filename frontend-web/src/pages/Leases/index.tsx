@@ -39,6 +39,7 @@ interface QueryParams {
   propertyType?: string
   dateFrom?: string
   dateTo?: string
+  endingWithinDays?: number
 }
 
 // 房源类型取值与后端 Property.property_type 对齐（apartment/house/condo/commercial）
@@ -130,6 +131,7 @@ const Leases = () => {
         property_type: queryParams.propertyType,
         date_from: queryParams.dateFrom,
         date_to: queryParams.dateTo,
+        ending_within_days: queryParams.endingWithinDays,
       })
       const payload = res.data?.data ?? res.data
       setData(payload?.items ?? [])
@@ -149,11 +151,8 @@ const Leases = () => {
     fetchData()
   }, [fetchData])
 
-  // 显示数据：即将到期为客户端派生状态，其余走服务端筛选
-  const displayData = useMemo(() => {
-    if (filterStatus !== 'expiring') return data
-    return data.filter((l) => getDisplayStatus(l) === 'expiring')
-  }, [data, filterStatus])
+  // 「即将到期」已改为服务端筛选（ending_within_days），页面直接渲染接口结果
+  const displayData = data
 
   // 计算状态计数（用于顶部统计卡片）
   const statusCounts = useMemo(() => {
@@ -199,11 +198,21 @@ const Leases = () => {
 
   const handleStatusChange = (value: string | undefined) => {
     if (value === 'expiring') {
-      // 即将到期是客户端派生状态，不传给服务端
-      setQueryParams((p) => ({ ...p, status: undefined, page: 1 }))
+      // 即将到期 = 服务端按合同结束日筛选，不再只过滤当前页
+      setQueryParams((p) => ({
+        ...p,
+        status: undefined,
+        endingWithinDays: 60,
+        page: 1,
+      }))
       return
     }
-    setQueryParams((p) => ({ ...p, status: (value || undefined) as LeaseStatus | undefined, page: 1 }))
+    setQueryParams((p) => ({
+      ...p,
+      status: (value || undefined) as LeaseStatus | undefined,
+      endingWithinDays: undefined,
+      page: 1,
+    }))
   }
 
   // 房源 / 租客显示名：列表接口已返回 property_name / tenant_name，缺失时用已加载房源兜底
@@ -246,6 +255,7 @@ const Leases = () => {
           keyword: queryParams.keyword,
           date_from: queryParams.dateFrom,
           date_to: queryParams.dateTo,
+          ending_within_days: queryParams.endingWithinDays,
         },
         `leases_${dayjs().format('YYYYMMDD')}.csv`,
       )

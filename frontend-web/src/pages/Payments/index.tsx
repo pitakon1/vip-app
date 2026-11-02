@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Empty } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { leasesApi, paymentsApi } from '@/services/api'
+import DataState from '@/components/DataState'
 import { downloadReport } from '@/lib/download'
 import type { Payment, PaymentStatus } from '@/types'
 import './payments.css'
@@ -937,9 +938,13 @@ const Payments = () => {
                   <div className="rent-form-group" style={{ marginBottom: 0 }}><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.labelRemark')}</span><span>{detail.description || '-'}</span></div></div>
                 </>
               ) : docData === null ? (
-                <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
+                <DataState loading loadingText={t('common.loading')} />
               ) : (docData as any)?.error ? (
-                <div className="rent-empty rent-text-muted">{t('payments.errDocFetch')}</div>
+                <DataState
+                  error={t('payments.errDocFetch')}
+                  retryText={t('common.retry')}
+                  onRetry={() => detail && openDetail(detail, detailType)}
+                />
               ) : (
                 <div className="rent-empty">
                   {(docData as any)?.url ? (

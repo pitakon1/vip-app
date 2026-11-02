@@ -108,6 +108,10 @@ const makeTabOptions = (icon: IoniconName, title: string) => ({
 
 const screenOptions = {
   headerShown: false, // 底部 Tab 页面不套同名标题栏，顶部由各页面自绘（对齐贝壳：首页是搜索/定位，我的是头像卡片）
+  // 预挂载全部 Tab：首次点进任一 Tab 时页面已就绪，不再「白屏 + 等待数据」。
+  // 各 Tab 首屏请求本身是并发的，后端已优化到 ~10ms 级，启动时的一小波预取
+  // 换来切换无感；若未来某端启动压力大，可改回 lazy 并单独做按需预热。
+  lazy: false,
   tabBarActiveTintColor: colors.primary,
   tabBarInactiveTintColor: colors.ink3,
   tabBarStyle: {

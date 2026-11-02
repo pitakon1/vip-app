@@ -191,17 +191,17 @@ export default function TenantMaintenancePage() {
       // 乐观更新：把新工单插到列表头部
       const created = (res as any)?.data || res
       const newTicket: MaintenanceTicket = {
-        id: created?.id ?? Date.now(),
-        propertyId: created?.propertyId ?? 0,
-        tenantId: created?.tenantId ?? 0,
+        // 后端 id 是 UUID 字符串；接口未返回时用本地前缀占位，避免与真实 id 混淆
+        id: created?.id ?? `local-${Date.now()}`,
+        property_id: created?.property_id ?? activeLease.property_id,
+        tenant_id: created?.tenant_id,
         title,
         description,
         // 回落值必须是后端建单的真实默认态 `open`（旧代码写 'submitted'，
         // 一旦接口没回 status，就会往本地塞一个后端永远不会返回的值）。
         status: created?.status ?? 'open',
         priority,
-        createdAt:
-          created?.createdAt ?? new Date().toISOString().split('T')[0]
+        created_at: created?.created_at ?? new Date().toISOString()
       }
       setTickets([newTicket, ...tickets])
       resetForm()
@@ -293,7 +293,7 @@ export default function TenantMaintenancePage() {
                       {statusInfo.text}
                     </Text>
                   </View>
-                  <Text className='ticket-date'>{ticket.createdAt}</Text>
+                  <Text className='ticket-date'>{ticket.created_at?.slice(0, 10)}</Text>
                 </View>
               </View>
             )
@@ -372,7 +372,7 @@ export default function TenantMaintenancePage() {
               <Text className='rate-panel-meta'>
                 {t('maint.priorityPrefix')}
                 {PRIORITY_LABELS[PRIORITY_OPTIONS.indexOf(activeTicket.priority)] ?? t('maint.priorityMedium')} · {t('maint.submittedAt')}{' '}
-                {activeTicket.createdAt}
+                {activeTicket.created_at?.slice(0, 10)}
               </Text>
 
               {activeTicket.status === 'resolved' || activeTicket.status === 'closed' ? (

@@ -1,5 +1,6 @@
 import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { REFRESH_TOKEN_KEY, useAuthStore } from '@/stores/auth'
+import { cachedGetAdapter } from '@/lib/httpCache'
 
 /**
  * 单次请求能取回的最大条数，与后端 `app/core/pagination.py` 的 `MAX_PAGE_SIZE` 保持一致。
@@ -17,6 +18,8 @@ export const MAX_PAGE_SIZE = 100
 const api = axios.create({
   baseURL: '/api/v1',
   timeout: 10000,
+  // GET 走请求级 SWR 缓存：切回已访问页面先出旧数据再后台刷新，并合并并发重复请求
+  adapter: cachedGetAdapter,
   // axios 默认把数组序列化成 `keywords[]=a&keywords[]=b`，FastAPI 的 `List[str]` 只认
   // 重复键 `keywords=a&keywords=b`，不改的话区域/地铁的关键词筛选会被后端静默忽略。
   paramsSerializer: { indexes: null },
@@ -135,13 +138,50 @@ const unwrapEnvelope = (response: AxiosResponse) => {
   return response
 }
 
+/**
+ * 把后端错误体压成一句可直接展示的文案。
+ *
+ * FastAPI 业务错误是 `{"detail": "..."}`，422 参数校验是
+ * `{"detail": [{loc,msg,type}, ...]}`。页面里普遍写 `err.response.data.detail`
+ * 直接丢给 antd message，数组会被渲染成 "[object Object]"。
+ * 这里在中心层把 detail 归一化成字符串，页面既有的取值方式一并受益。
+ */
+const flattenDetail = (detail: unknown): string => {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => (typeof d === 'string' ? d : (d as { msg?: string })?.msg))
+      .filter((m): m is string => typeof m === 'string' && m.trim().length > 0)
+      .join('；')
+  }
+  return ''
+}
+
+const normalizeErrorBody = (error: AxiosError) => {
+  const body = error.response?.data as Record<string, unknown> | undefined
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return
+  const raw = body.detail ?? body.msg ?? body.message
+  const text = flattenDetail(raw)
+  if (!text) return
+  body.detail = text
+  error.message = text
+}
+
 api.interceptors.response.use(
   unwrapEnvelope,
   async (error: AxiosError) => {
     const original = error.config as RetriableConfig | undefined
+    // 凭据类接口（登录/注册/刷新）自身 401 表示「凭据错误」：既不该静默续期，
+    // 也不该触发全局登出——否则用户输错一次密码，已登录会话会被一并清掉。
+    const isCredentialCall = /\/auth\/(login|register|refresh)/.test(original?.url ?? '')
     // 访问令牌过期（默认 30 分钟）先尝试静默续期再重放原请求，
     // 否则用户每次 token 过期都会被弹回登录页丢掉当前操作。
-    if (error.response?.status === 401 && original && !original._retried) {
+    if (
+      error.response?.status === 401 &&
+      original &&
+      !original._retried &&
+      !isCredentialCall
+    ) {
       original._retried = true
       try {
         refreshing = refreshing ?? refreshAccessToken().finally(() => { refreshing = null })
@@ -153,7 +193,7 @@ api.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isCredentialCall) {
       const pathname = window.location.pathname
       const isPublicRoute =
         PUBLIC_EXACT_ROUTES.includes(pathname) ||
@@ -166,6 +206,8 @@ api.interceptors.response.use(
         }
       }
     }
+    // 中心层统一把错误体归一化成可读文案，页面无需各自处理 detail 数组
+    normalizeErrorBody(error)
     return Promise.reject(error)
   },
 )

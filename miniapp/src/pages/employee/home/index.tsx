@@ -236,7 +236,7 @@ export default function EmployeeHomePage() {
         </View>
         <View className='emp-hero__avatar'>
           <Text className='emp-hero__avatar-text'>
-            {(user?.name || t('home.avatarFallback')).charAt(0).toUpperCase()}
+            {(user?.full_name || t('home.avatarFallback')).charAt(0).toUpperCase()}
           </Text>
         </View>
       </View>

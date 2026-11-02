@@ -12,6 +12,7 @@ import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import { usePropertyStatusMap, usePropertyTypeMap, useOrientationMap, useDecorationMap, useAmenityMap } from '@/lib/enumLabels'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import DataState from '@/components/DataState'
 import GoogleMapView, { type MapMarker, type MapBounds } from '@/components/GoogleMap'
 import { METRO_LINES } from '@/data/locationMetro'
 import { useLocationStore, findCityByKey } from '@/stores/location'
@@ -1482,7 +1483,13 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
         {/* ===== 房源卡片网格（对齐原型 rent-prop-grid） ===== */}
         <section className="rent-section">
           <Spin spinning={loading} tip={t('common.loading')}>
-            {total === 0 && !loading ? (
+            {listQ.isError && !listQ.data ? (
+              <DataState
+                error={t('common.loadFailed')}
+                retryText={t('common.retry')}
+                onRetry={() => listQ.refetch()}
+              />
+            ) : total === 0 && !loading ? (
               <div className="rent-empty">
                 {t('common.noData')}
               </div>

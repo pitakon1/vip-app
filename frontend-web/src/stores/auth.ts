@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { User } from '@/types'
 import { clearCache, queryClient } from '@/lib/queryCache'
+import { clearHttpCache } from '@/lib/httpCache'
 
 interface AuthState {
   token: string | null
@@ -44,6 +45,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     // 此前 `clearCache()` 只定义、从未被调用过。
     clearCache()
     queryClient.clear()
+    // 请求级 GET 缓存同样含账号数据，登出必须一并清空
+    clearHttpCache()
     set({ token: null, user: null })
   },
 }))

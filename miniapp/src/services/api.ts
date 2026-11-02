@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { chatWsUrl, currentToken, request } from '@/lib/api'
+import { chatWsUrl, currentToken, extractErrorMessage, request } from '@/lib/api'
 
 // 全局注入的 API 地址（构建期由 Taro 注入，同 lib/api.ts 的 use）
 declare const API_BASE: string
@@ -31,8 +31,7 @@ export const authApi = {
       return marked && body && typeof body === 'object' && 'data' in body ? body.data : body
     }
     const body = res?.data as any
-    const detail = body && typeof body === 'object' ? body.detail : undefined
-    throw new Error(detail ? String(detail) : `微信登录失败，状态码：${res.statusCode}`)
+    throw new Error(extractErrorMessage(body, `微信登录失败，状态码：${res.statusCode}`))
   },
   // 微信手机号快捷绑定（需登录态）：code 来自 getPhoneNumber 按钮回调 e.detail.code
   wxBindPhone: (data: { code: string }) =>
@@ -88,13 +87,17 @@ export const propertiesApi = {
   update: (id: string, data: any) =>
     request({ url: `/properties/${id}`, method: 'PATCH', data }),
   // 照片上传（multipart，后端先传后保存 url 列表到 photos）
-  uploadPhotos: (id: string, files: any[]) =>
-    Taro.uploadFile({
-      url: `/properties/${id}/photos`,
+  // 注意：Taro.uploadFile 不走中心 request，url 必须是**绝对地址**——
+  // 相对路径不会被补 baseURL，微信端会直接报「url 不合法 / 不在域名白名单」。
+  uploadPhotos: (id: string, files: any[]) => {
+    const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
+    return Taro.uploadFile({
+      url: `${baseURL}/properties/${id}/photos`,
       filePath: files[0].url,
       name: 'files',
       header: { Authorization: `Bearer ${Taro.getStorageSync('token')}` }
-    }),
+    })
+  },
   deletePhoto: (id: string, url: string) =>
     request({ url: `/properties/${id}/photos?url=${encodeURIComponent(url)}`, method: 'DELETE' })
 }

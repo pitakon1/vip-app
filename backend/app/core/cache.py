@@ -10,6 +10,7 @@
 导致「数据不对」类问题完全无法排查。
 """
 import json
+import time
 from datetime import date, datetime
 from enum import Enum
 from typing import Any, Iterable, Optional
@@ -19,6 +20,28 @@ from app.core.logging import get_logger
 from app.redis_client import get_redis_sync
 
 logger = get_logger(__name__)
+
+# Redis 不可用时的熔断窗口（秒）。
+# 缓存是软依赖：连接失败时同步客户端每次尝试都要等连接超时（本机 IPv6+IPv4
+# 双栈各一次，约 2s）。权限校验（require_permission）每个请求都会「读缓存 +
+# 写缓存」，Redis 掉线时单个接口就会被拖慢约 4s，表现为「切页一直转圈」。
+# 这里在首次失败后直接熔断一段时间，期间所有缓存读写立即降级回源，
+# 避免每个请求都重复支付连接超时；窗口结束再放一次探测，自动恢复缓存。
+_CIRCUIT_COOLDOWN = 60.0
+_circuit_open_until = 0.0
+
+
+def _circuit_open() -> bool:
+    """当前是否处于 Redis 熔断窗口。"""
+    return time.monotonic() < _circuit_open_until
+
+
+def _trip_circuit() -> None:
+    """标记 Redis 不可用并开启熔断窗口（只记录一次，避免刷日志）。"""
+    global _circuit_open_until
+    if not _circuit_open():
+        logger.warning("cache.redis_unavailable", cooldown_s=_CIRCUIT_COOLDOWN)
+    _circuit_open_until = time.monotonic() + _CIRCUIT_COOLDOWN
 
 
 def _default_serializer(obj: Any) -> Any:
@@ -36,6 +59,8 @@ def _default_serializer(obj: Any) -> Any:
 
 def get_cache(key: str) -> Optional[Any]:
     """读取缓存，未命中或异常返回 None。"""
+    if _circuit_open():
+        return None
     try:
         raw = get_redis_sync().get(key)
         if raw is None:
@@ -43,18 +68,21 @@ def get_cache(key: str) -> Optional[Any]:
         return json.loads(raw)
     except Exception:
         # 读失败降级为回源查库，业务无感，无需告警
+        _trip_circuit()
         return None
 
 
 def set_cache(key: str, value: Any, ttl: int) -> None:
     """写入缓存（TTL 秒）。Redis 异常时静默降级。"""
+    if _circuit_open():
+        return
     try:
         get_redis_sync().set(
             key, json.dumps(value, default=_default_serializer), ex=ttl
         )
     except Exception:
         # 写失败只是没有缓存，不影响正确性
-        pass
+        _trip_circuit()
 
 
 def delete_cache_pattern(pattern: str) -> None:
@@ -66,11 +94,15 @@ def delete_cache_pattern(pattern: str) -> None:
     用 `scan_iter` 而非 `KEYS`：`KEYS` 会阻塞 Redis 单线程，key 一多就是线上事故。
     """
     try:
+        if _circuit_open():
+            # 熔断期间 Redis 不可用，缓存本就不存在，无需失效；跳过避免写接口被拖慢
+            return
         redis = get_redis_sync()
         keys: Iterable[bytes] = redis.scan_iter(match=pattern, count=500)
         for key in keys:
             redis.delete(key)
     except Exception:
+        _trip_circuit()
         logger.warning("cache.invalidate_failed", pattern=pattern, exc_info=True)
 
 
