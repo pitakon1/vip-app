@@ -359,13 +359,19 @@ function BlockOption({
   label,
   active,
   onPress,
+  width,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
+  width?: number;
 }) {
   return (
-    <TouchableOpacity style={[styles.block, active && styles.blockActive]} activeOpacity={0.8} onPress={onPress}>
+    <TouchableOpacity
+      style={[styles.block, width ? { width } : null, active && styles.blockActive]}
+      activeOpacity={0.8}
+      onPress={onPress}
+    >
       <Text style={[styles.blockText, active && styles.blockTextActive]} numberOfLines={1}>
         {label}
       </Text>
@@ -373,9 +379,11 @@ function BlockOption({
   );
 }
 
-/** 筛选面板（贝壳式）：从筛选条下沿整幅展开、铺到屏幕底部；
- *  多组时左栏分组导航 + 右栏选项块，底部「重置 / 确定」常驻。
- *  面板内只改本地 draft，点「确定」才把本组叶子一次性合并回已应用值。 */
+/**
+ * 筛选面板（对齐贝壳 App 实测）：下拉挂在筛选条下沿、整幅铺满宽度，
+ * 无遮罩、无圆角，高度随内容自适应（超过上限时右栏滚动），
+ * 多组时左栏分组导航（约 23% 宽）+ 右栏所有分组连续排列，底部「重置 / 确定」固定在面板底部。
+ * 面板内只改本地 draft，点「确定」才把本组叶子一次性合并回已应用值。 */
 function FilterPanel({
   group,
   values,
@@ -407,6 +415,16 @@ function FilterPanel({
   const contentRef = useRef<ScrollView>(null);
   /** 各组在右栏内容中的 y 偏移（onLayout 记录），供左栏点击跳转 / 滚动联动使用 */
   const offsetsRef = useRef<Record<string, number>>({});
+  /** 左栏宽度随最长分组名自适应（按字号估宽 + 左右各 12 内边距），88~132 */
+  const navWidth = useMemo(() => {
+    const longest = leaves.reduce((n, leaf) => Math.max(n, leaf.label.length), 0);
+    return Math.min(132, Math.max(88, longest * colors.fontSize.sm + 24));
+  }, [leaves]);
+  /** 右栏可视宽度（onLayout 实测），用于把选项块精确排成每行 3 个 */
+  const [contentWidth, setContentWidth] = useState(0);
+  const chipWidth = contentWidth > 0
+    ? Math.floor((contentWidth - colors.spacing.lg * 2 - colors.spacing.sm * 2) / 3)
+    : undefined;
 
   /** 左栏点击：先把目标组设为高亮，再滚动到该组（只在点击时 scrollTo，滚动回调里不调用）。 */
   const jumpTo = (key: string) => {
@@ -453,23 +471,25 @@ function FilterPanel({
     onClose();
   };
 
-  // 贝壳式下拉：从筛选条下沿展开的有限高度面板（约屏幕 58%），
-  // 下面仍露出房源列表；点面板外任意处关闭并放弃草稿。
+  // 贝壳 App 实测：面板紧贴筛选条下沿整幅下拉，高度随内容、超过上限时内部滚动
   const panelTop = Math.max(0, topOffset);
-  const panelHeight = Math.min(
-    Math.round(winH * 0.58),
-    Math.max(260, winH - panelTop - 8),
+  const panelMaxHeight = Math.min(
+    Math.round(winH * 0.68),
+    Math.max(280, winH - panelTop - 8),
   );
 
   return (
-    <Modal transparent visible animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.panelLayer}>
-        <TouchableOpacity style={{ height: panelTop }} activeOpacity={1} onPress={onClose} />
-        <View style={[styles.panel, { height: panelHeight }]}>
+    <View style={[styles.panelOverlay, { top: panelTop }]}>
+      <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
+        <View style={[styles.panel, { maxHeight: panelMaxHeight }]}>
           <View style={styles.panelBody}>
             {leaves.length > 1 ? (
               <ScrollView
-                style={styles.panelNav}
+                style={[
+                  styles.panelNav,
+                  // ScrollView 默认带 flexBasis:0，会覆盖宽度；这里显式固定基准宽度
+                  { width: navWidth, flexBasis: navWidth, flexGrow: 0, flexShrink: 0 },
+                ]}
                 contentContainerStyle={styles.panelNavInner}
                 showsVerticalScrollIndicator={false}
               >
@@ -497,6 +517,7 @@ function FilterPanel({
               ref={contentRef}
               style={styles.panelContent}
               contentContainerStyle={styles.panelContentInner}
+              onLayout={(e) => setContentWidth(e.nativeEvent.layout.width)}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               scrollEventThrottle={16}
@@ -516,6 +537,7 @@ function FilterPanel({
                       label={t('category.filterAny')}
                       active={!draft[leaf.key]}
                       onPress={() => setDraftValue(leaf.key, '')}
+                      width={chipWidth}
                     />
                     {(leaf.options ?? []).map((op) => (
                       <BlockOption
@@ -523,6 +545,7 @@ function FilterPanel({
                         label={op.label}
                         active={draft[leaf.key] === op.value}
                         onPress={() => setDraftValue(leaf.key, op.value)}
+                        width={chipWidth}
                       />
                     ))}
                   </View>
@@ -539,9 +562,7 @@ function FilterPanel({
             </TouchableOpacity>
           </View>
         </View>
-        <TouchableOpacity style={styles.panelOutside} activeOpacity={1} onPress={onClose} />
-      </View>
-    </Modal>
+    </View>
   );
 }
 
@@ -558,6 +579,8 @@ export function FilterBar({
   onApply,
   quickTags,
   onReset,
+  openKey,
+  onOpenGroup,
 }: {
   groups: FilterGroup[];
   values: FilterValues;
@@ -567,24 +590,22 @@ export function FilterBar({
   onApply?: (patch: FilterValues) => void;
   quickTags?: QuickTag[];
   onReset?: () => void;
+  /** 当前展开的分组；面板由页面根容器渲染，以便与内容区同宽 */
+  openKey?: string | null;
+  onOpenGroup?: (group: FilterGroup, top: number) => void;
 }) {
   const { t } = useI18n();
   const rowRef = useRef<any>(null);
-  const [openKey, setOpenKey] = useState<string | null>(null);
-  const [topOffset, setTopOffset] = useState(120);
   const insets = useSafeAreaInsets();
 
   const open = useCallback(
-    (key: string) => {
+    (group: FilterGroup) => {
       rowRef.current?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
-        setTopOffset(Math.max(insets.top + 48, y + h));
+        onOpenGroup?.(group, Math.max(insets.top + 48, y + h));
       });
-      setOpenKey(key);
     },
-    [insets.top],
+    [insets.top, onOpenGroup],
   );
-
-  const openGroup = groups.find((g) => g.key === openKey);
 
   return (
     <>
@@ -597,7 +618,7 @@ export function FilterBar({
               key={g.key}
               style={styles.filterTrigger}
               activeOpacity={0.8}
-              onPress={() => open(g.key)}
+              onPress={() => open(g)}
             >
               <Text style={[styles.filterTriggerText, active && styles.filterTriggerTextActive]} numberOfLines={1}>
                 {label}
@@ -606,6 +627,7 @@ export function FilterBar({
                 name="chevron-down"
                 size={12}
                 color={active ? colors.primary : colors.ink3}
+                style={openKey === g.key ? styles.filterCaretOpen : undefined}
               />
             </TouchableOpacity>
           );
@@ -644,17 +666,6 @@ export function FilterBar({
             );
           })}
         </ScrollView>
-      ) : null}
-
-      {openGroup ? (
-        <FilterPanel
-          key={openGroup.key}
-          group={openGroup}
-          values={values}
-          onApply={(patch) => onApply?.(patch)}
-          onClose={() => setOpenKey(null)}
-          topOffset={topOffset}
-        />
       ) : null}
     </>
   );
@@ -748,6 +759,7 @@ export function CategoryListScreen<T>({
   const insets = useSafeAreaInsets();
 
   const [values, setValues] = useState<FilterValues>({ ...DEFAULT_VALUES, ...defaultFilterValues });
+  const [openGroup, setOpenGroup] = useState<{ group: FilterGroup; top: number } | null>(null);
   const [keyword, setKeyword] = useState('');
   const [debounced, setDebounced] = useState('');
   const [items, setItems] = useState<T[]>([]);
@@ -837,6 +849,8 @@ export function CategoryListScreen<T>({
                 onApply={(patch) => setValues((prev) => ({ ...prev, ...patch }))}
                 quickTags={quickTags}
                 onReset={() => setValues((prev) => ({ sort: prev.sort ?? 'latest' }))}
+                openKey={openGroup?.group.key ?? null}
+                onOpenGroup={(g, top) => setOpenGroup({ group: g, top })}
               />
               <Text style={styles.count}>{t('category.resultCount', { n: total })}</Text>
               {items.length === 0 ? (
@@ -868,6 +882,16 @@ export function CategoryListScreen<T>({
           }
         />
       )}
+      {openGroup ? (
+        <FilterPanel
+          key={openGroup.group.key}
+          group={openGroup.group}
+          values={values}
+          topOffset={openGroup.top}
+          onApply={(patch) => setValues((prev) => ({ ...prev, ...patch }))}
+          onClose={() => setOpenGroup(null)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -1052,46 +1076,51 @@ const styles = StyleSheet.create({
 
   count: { fontSize: colors.fontSize.sm, color: colors.ink3, paddingHorizontal: 16, marginTop: 4, marginBottom: 8 },
 
-  // 筛选面板（贝壳式下拉：筛选条下沿展开的有限高度面板，下方露出列表，点外部关闭）
-  panelLayer: { flex: 1 },
+  // 筛选面板（贝壳 App 实测：紧贴筛选条下沿的整幅下拉，下方露出列表，点外部关闭）
+  panelOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20, elevation: 20 },
   panel: {
     backgroundColor: colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
     overflow: 'hidden',
     ...colors.shadow.lg,
   },
   panelOutside: { flex: 1 },
-  panelBody: { flex: 1, flexDirection: 'row' },
-  // 左栏分组导航：底色略深于右栏，选中项白底 + 主色文字 + 左侧主色竖条
-  panelNav: { width: 90, backgroundColor: colors.fieldFill },
-  panelNavInner: { paddingVertical: colors.spacing.sm },
+  panelBody: { flexDirection: 'row', flexShrink: 1 },
+  // 左栏分组导航：宽度按最长分组名自适应（见 FilterPanel navWidth），浅灰底 + 右侧细分隔线
+  panelNav: {
+    flexShrink: 0,
+    backgroundColor: colors.fieldFill,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: colors.border,
+  },
+  panelNavInner: { paddingVertical: colors.spacing.xs },
   panelNavItem: {
-    height: 44,
+    height: 48,
     justifyContent: 'center',
-    paddingHorizontal: 9,
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
+    paddingHorizontal: 12,
   },
   panelNavItemActive: {
     backgroundColor: colors.surface,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
   },
   panelNavText: { fontSize: colors.fontSize.sm, color: colors.ink2 },
   panelNavTextActive: { color: colors.primary, fontWeight: '700' },
   // 右栏选项区：所有分组连续排列，各自带分组标题
-  panelContent: { flex: 1 },
+  panelContent: { flex: 1, flexShrink: 1 },
   panelContentInner: { padding: colors.spacing.lg },
   panelSection: { marginBottom: colors.spacing.lg },
-  panelSectionTitle: { fontSize: colors.fontSize.sm, color: colors.ink3, marginBottom: 10 },
-  blockWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: colors.spacing.md },
+  panelSectionTitle: {
+    fontSize: colors.fontSize.base,
+    fontWeight: '700',
+    color: colors.ink,
+    marginBottom: 12,
+  },
+  blockWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: colors.spacing.sm },
   block: {
-    minWidth: 80,
-    height: 40,
+    // 兜底按 3 列估算，实际宽度由 FilterPanel 量出右栏宽度后按行内 width 覆盖
+    width: '30%',
+    height: 44,
     borderRadius: 4,
     backgroundColor: colors.fieldFill,
-    paddingHorizontal: 12,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1101,16 +1130,14 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   blockText: { fontSize: colors.fontSize.sm, color: colors.ink2 },
-  blockTextActive: { color: colors.accent, fontWeight: '700' },
+  blockTextActive: { color: colors.primary, fontWeight: '700' },
   // 底部固定「重置 / 确定」
   panelFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: colors.spacing.md,
-    paddingHorizontal: colors.spacing.lg,
-    paddingVertical: colors.spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    paddingHorizontal: colors.spacing.md,
+    paddingVertical: colors.spacing.md,
     backgroundColor: colors.surface,
   },
   panelReset: {
@@ -1133,6 +1160,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   panelConfirmText: { fontSize: colors.fontSize.base, fontWeight: '700', color: colors.primaryForeground },
+  filterCaretOpen: { transform: [{ rotate: '180deg' }] },
 });
 
 export default CategoryListScreen;
